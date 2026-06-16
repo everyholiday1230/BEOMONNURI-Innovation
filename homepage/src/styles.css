@@ -408,7 +408,7 @@ table.compare td { color: var(--muted); }
 .detail-card li { position: relative; padding-left: 1.3rem; color: var(--muted); }
 .detail-card li::before { content: ''; position: absolute; top: .68em; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
 .hero-image-card { position: relative; overflow: hidden; margin: 0; border-radius: var(--radius-xl); background: var(--paper); box-shadow: var(--shadow-md); border: var(--border); }
-.product-hero .hero-image-card { max-height: clamp(240px, 48vh, 380px); }
+.product-hero .hero-image-card { max-height: clamp(220px, 44vh, 340px); }
 .hero-image-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 42%, rgba(18,12,15,.55)); }
 .hero-image-card img { width: 100%; aspect-ratio: 16 / 9; height: 100%; object-fit: cover; }
 .hero-image-card figcaption { position: absolute; left: 1rem; bottom: 1rem; z-index: 1; padding: .5rem .8rem; border-radius: var(--radius-pill); color: #fff; background: rgba(146,18,48,.88); font-weight: 800; }
@@ -507,6 +507,10 @@ table.compare td { color: var(--muted); }
 .partner-card img.logo-tall { height: 58px; }
 .partner-card img.logo-wide { height: 36px; }
 .partner-card img.logo-mark { height: 52px; }
+/* 특정 로고 광학 보정 (가로형 로고의 시각적 무게 정렬) */
+.partner-card img[src$='modoo-startup.png'] { max-width: min(100%, 148px); }
+.partner-card img[src$='posco-technology-investment.png'] { max-width: min(100%, 150px); }
+.partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 146px); }
 
 /* ── Reveal motion ─────────────────────────────────────── */
 .reveal-item { opacity: 0; transform: translateY(12px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
@@ -578,6 +582,9 @@ table.compare td { color: var(--muted); }
   .partner-card img.logo-tall { height: 52px; }
   .partner-card img.logo-wide { height: 34px; }
   .partner-card img.logo-mark { height: 48px; }
+  .partner-card img[src$='modoo-startup.png'] { max-width: min(100%, 140px); }
+  .partner-card img[src$='posco-technology-investment.png'] { max-width: min(100%, 142px); }
+  .partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 138px); }
   /* 모바일 드롭다운: 절대위치 대신 인라인으로 펼침 */
   .has-dropdown { width: 100%; }
   .dropdown { position: static; transform: none; min-width: 0; width: 100%; box-shadow: none; border: 0; padding: .2rem 0 .4rem;
