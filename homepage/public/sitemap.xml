@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 도메인 변경 시: site.config.js의 SITE_URL과 이 파일의 https://www.beomonnuri.com 을 함께 교체하세요. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://www.beomonnuri.com/</loc><lastmod>2026-06-16</lastmod><priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.beomonnuri.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.beomonnuri.com/en/"/></url>
+  <url><loc>https://www.beomonnuri.com/products/</loc><lastmod>2026-06-16</lastmod><priority>0.9</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/private-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/superchart-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/agent-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/farm-shipping-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/commodity-procurement-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/products/apartment-management-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/company/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/contact/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/privacy/</loc><lastmod>2026-06-16</lastmod><priority>0.3</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/</loc><lastmod>2026-06-16</lastmod><priority>0.9</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/</loc><lastmod>2026-06-16</lastmod><priority>0.8</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/private-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/superchart-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/agent-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/farm-shipping-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/commodity-procurement-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/products/apartment-management-ai/</loc><lastmod>2026-06-16</lastmod><priority>0.7</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/company/</loc><lastmod>2026-06-16</lastmod><priority>0.6</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/contact/</loc><lastmod>2026-06-16</lastmod><priority>0.6</priority></url>
+  <url><loc>https://www.beomonnuri.com/en/privacy/</loc><lastmod>2026-06-16</lastmod><priority>0.3</priority></url>
+</urlset>

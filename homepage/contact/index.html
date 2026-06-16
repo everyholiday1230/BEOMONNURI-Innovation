@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>문의 | (주)범온누리 이노베이션</title>
+  <meta name="description" content="AI 제품 도입, PoC, 기술 협력 상담을 위한 문의 페이지입니다. 회사·담당자 정보와 관심 제품을 남겨 주세요." />
+  <meta name="theme-color" content="#921230" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="{{SITE_URL}}/contact/" />
+  <link rel="alternate" hreflang="ko" href="{{SITE_URL}}/contact/" />
+  <link rel="alternate" hreflang="en" href="{{SITE_URL}}/en/contact/" />
+  <link rel="alternate" hreflang="x-default" href="{{SITE_URL}}/contact/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="문의 | (주)범온누리 이노베이션" />
+  <meta property="og:description" content="AI 제품 도입·기술 협력 상담 문의." />
+  <meta property="og:url" content="{{SITE_URL}}/contact/" />
+  <meta property="og:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="(주)범온누리 이노베이션 | AI Product Company" />
+  <meta name="twitter:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body data-page="contact" data-lang="ko">
+<div data-layout="header"></div>
+<main id="main-content">
+  <section class="page-hero contact-hero">
+    <p class="eyebrow">Contact</p>
+    <h1>도입 범위를 함께 검토합니다</h1>
+    <p class="lead">필요한 제품, 보유 데이터, 적용 업무를 알려주시면 적합한 검증 범위와 구축 방향을 정리해 드립니다.</p>
+  </section>
+
+  <section class="section">
+    <div class="contact-layout">
+      <aside class="contact-aside">
+        <article class="contact-card reveal-item">
+          <h2>이메일</h2>
+          <a href="mailto:{{EMAIL}}">{{EMAIL}}</a>
+          <p>도입 검토 · 파트너십 · 기술 협력 문의를 보내주세요.</p>
+        </article>
+        <article class="contact-card reveal-item">
+          <h2>검토 가능한 제품</h2>
+          <p class="contact-highlight">프라이빗 AI · 슈퍼차트 AI · 에이전트 AI · 농산물 출하 AI · 원자재 조달 AI · 공동주택 관리 AI</p>
+        </article>
+        <article class="contact-card reveal-item">
+          <h2>진행 방식</h2>
+          <p class="contact-highlight">검토 · 적용 범위 정의 · 현장 검증 · 제품화</p>
+          <p>초기 정보가 구체적일수록 더 빠르고 정확한 검토가 가능합니다.</p>
+        </article>
+      </aside>
+
+      <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
+        <h2 id="form-title" class="sr-only">문의 양식</h2>
+        <div class="form-status" role="status" aria-live="polite"></div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="company">회사명<span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="company" name="company" required autocomplete="organization" />
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="name">담당자명<span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="name" name="name" required autocomplete="name" />
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="email">이메일<span class="req" aria-hidden="true">*</span></label>
+            <input type="email" id="email" name="email" required autocomplete="email" />
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="phone">연락처</label>
+            <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" />
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="product">관심 제품<span class="req" aria-hidden="true">*</span></label>
+            <select id="product" name="product" required>
+              <option value="">선택해 주세요</option>
+              <option>범온 프라이빗 AI</option>
+              <option>범온 슈퍼차트 AI</option>
+              <option>범온 에이전트 AI</option>
+              <option>범온 농산물 출하 AI</option>
+              <option>범온 원자재 조달 AI</option>
+              <option>범온 공동주택 관리 AI</option>
+              <option>기타 / 잘 모르겠음</option>
+            </select>
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="dataType">보유 데이터 유형</label>
+            <input type="text" id="dataType" name="dataType" placeholder="예: 사내 문서, 시세 데이터, 민원 기록" />
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="message">도입 목적 / 문의 내용<span class="req" aria-hidden="true">*</span></label>
+          <textarea id="message" name="message" required placeholder="해결하려는 과제와 기대 효과를 적어 주세요."></textarea>
+          <span class="error-text" aria-live="polite"></span>
+        </div>
+
+        <div class="field">
+          <label class="consent">
+            <input type="checkbox" name="consent" value="agree" />
+            <span>개인정보 수집·이용에 동의합니다. 수집 항목과 목적은 <a href="/privacy/">개인정보처리방침</a>에서 확인할 수 있습니다.<span class="req" aria-hidden="true">*</span></span>
+          </label>
+          <span class="error-text" data-consent-error aria-live="polite"></span>
+        </div>
+
+        <button type="submit" class="button primary">문의 보내기</button>
+      </form>
+    </div>
+  </section>
+</main>
+<div data-layout="footer"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

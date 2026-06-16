@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact | Beomon Nuri Innovation</title>
+  <meta name="description" content="Contact us about AI product adoption, PoCs and technical collaboration. Share your company details and the product you're interested in." />
+  <meta name="theme-color" content="#921230" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="{{SITE_URL}}/en/contact/" />
+  <link rel="alternate" hreflang="ko" href="{{SITE_URL}}/contact/" />
+  <link rel="alternate" hreflang="en" href="{{SITE_URL}}/en/contact/" />
+  <link rel="alternate" hreflang="x-default" href="{{SITE_URL}}/contact/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Contact | Beomon Nuri Innovation" />
+  <meta property="og:url" content="{{SITE_URL}}/en/contact/" />
+  <meta property="og:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Beomon Nuri Innovation | AI Product Company" />
+  <meta name="twitter:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body data-page="contact" data-lang="en">
+<div data-layout="header"></div>
+<main id="main-content">
+  <section class="page-hero contact-hero">
+    <p class="eyebrow">Contact</p>
+    <h1>Let's scope your rollout</h1>
+    <p class="lead">Tell us the product you need, the data you hold, and the workflow you want to apply it to, and we'll outline a fitting scope and direction.</p>
+  </section>
+
+  <section class="section">
+    <div class="contact-layout">
+      <aside class="contact-aside">
+        <article class="contact-card reveal-item"><h2>Email</h2><a href="mailto:{{EMAIL}}">{{EMAIL}}</a><p>Reach us about adoption, partnerships and technical collaboration.</p></article>
+        <article class="contact-card reveal-item"><h2>Products we advise on</h2><p class="contact-highlight">Private AI · SuperChart AI · Agent AI · Farm Shipping AI · Commodity Procurement AI · Apartment Management AI</p></article>
+        <article class="contact-card reveal-item"><h2>How it works</h2><p class="contact-highlight">Review · Define scope · Field validation · Productize</p><p>The more specific your initial details, the faster and more accurate our review.</p></article>
+      </aside>
+
+      <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
+        <h2 id="form-title" class="sr-only">Inquiry form</h2>
+        <div class="form-status" role="status" aria-live="polite"></div>
+
+        <div class="form-row">
+          <div class="field"><label for="company">Company<span class="req" aria-hidden="true">*</span></label><input type="text" id="company" name="company" required autocomplete="organization" /><span class="error-text" aria-live="polite"></span></div>
+          <div class="field"><label for="name">Contact name<span class="req" aria-hidden="true">*</span></label><input type="text" id="name" name="name" required autocomplete="name" /><span class="error-text" aria-live="polite"></span></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="email">Email<span class="req" aria-hidden="true">*</span></label><input type="email" id="email" name="email" required autocomplete="email" /><span class="error-text" aria-live="polite"></span></div>
+          <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" /><span class="error-text" aria-live="polite"></span></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="product">Product of interest<span class="req" aria-hidden="true">*</span></label>
+            <select id="product" name="product" required>
+              <option value="">Please select</option>
+              <option>Beomon Private AI</option>
+              <option>Beomon SuperChart AI</option>
+              <option>Beomon Agent AI</option>
+              <option>Beomon Farm Shipping AI</option>
+              <option>Beomon Commodity Procurement AI</option>
+              <option>Beomon Apartment Management AI</option>
+              <option>Other / Not sure</option>
+            </select>
+            <span class="error-text" aria-live="polite"></span>
+          </div>
+          <div class="field"><label for="dataType">Data you hold</label><input type="text" id="dataType" name="dataType" placeholder="e.g. internal docs, market data, request records" /><span class="error-text" aria-live="polite"></span></div>
+        </div>
+        <div class="field"><label for="message">Goal / message<span class="req" aria-hidden="true">*</span></label><textarea id="message" name="message" required placeholder="Describe the problem you want to solve and the outcome you expect."></textarea><span class="error-text" aria-live="polite"></span></div>
+        <div class="field">
+          <label class="consent"><input type="checkbox" name="consent" value="agree" /><span>I agree to the collection and use of my personal information. See the <a href="/en/privacy/">Privacy Policy</a> for items and purpose.<span class="req" aria-hidden="true">*</span></span></label>
+          <span class="error-text" data-consent-error aria-live="polite"></span>
+        </div>
+        <button type="submit" class="button primary">Send inquiry</button>
+      </form>
+    </div>
+  </section>
+</main>
+<div data-layout="footer"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

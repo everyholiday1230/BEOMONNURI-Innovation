@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# 도메인 변경 시 site.config.js SITE_URL 과 함께 교체하세요.
+Sitemap: https://www.beomonnuri.com/sitemap.xml
