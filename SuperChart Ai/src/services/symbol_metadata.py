@@ -34,6 +34,7 @@ KO_DICT: dict[str, str] = {
 
     # Meme
     "SHIB": "시바이누", "PEPE": "페페", "WIF": "도그위프햇", "BONK": "봉크",
+    "TRUMP": "오피셜트럼프", "BANK": "로렌조프로토콜",
     "FLOKI": "플로키", "MEME": "미밈", "BOME": "북오브미밈",
     "MEW": "캣인어독스월드",
 

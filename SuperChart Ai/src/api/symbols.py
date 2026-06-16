@@ -12,25 +12,68 @@ from src.models.schemas import ApiResponse, SymbolOut, PagedData
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
-def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20):
+def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asset_class: str | None = None, exchange: str | None = None):
     """DB 장애 시에도 UI가 의미 있는 종목 목록을 보여주도록 중앙 fallback 사용."""
-    from src.services.symbol_resolver import DEFAULT_SYMBOLS, load_fallback
+    from src.services.symbol_resolver import DEFAULT_SYMBOLS, DELISTED_SYMBOLS, get_curated_catalog, load_fallback
 
     load_fallback("symbols-api-fallback")
-    needle = (q or "").lower()
-    rows = list(DEFAULT_SYMBOLS)
+    needle = (q or "").lower().strip()
+
+    rows: list[dict] = []
+    for code, base, ko, en, _exchange_id in DEFAULT_SYMBOLS:
+        if code in DELISTED_SYMBOLS:
+            continue
+        rows.append({
+            "symbol_code": code,
+            "base_asset": base,
+            "display_name_ko": ko,
+            "display_name_en": en,
+            "exchange_code": "BINANCE",
+            "asset_class": "crypto",
+            "quote_asset": "USDT",
+            "api_code": code,
+        })
+
+    rows.extend(get_curated_catalog())
+
+    if asset_class:
+        rows = [r for r in rows if (r.get("asset_class") or "").lower() == asset_class.lower()]
+    if exchange:
+        rows = [r for r in rows if (r.get("exchange_code") or "").upper() == exchange.upper()]
     if needle:
-        rows = [r for r in rows if needle in r[0].lower() or needle in r[1].lower() or needle in r[2].lower() or needle in r[3].lower()]
-    total = len(rows)
+        rows = [
+            r for r in rows
+            if needle in str(r.get("symbol_code", "")).lower()
+            or needle in str(r.get("base_asset", "")).lower()
+            or needle in str(r.get("display_name_ko", "")).lower()
+            or needle in str(r.get("display_name_en", "")).lower()
+        ]
+
+    unique_rows: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        code = str(row.get("symbol_code", ""))
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        unique_rows.append(row)
+
+    total = len(unique_rows)
     start = max(page - 1, 0) * page_size
-    rows = rows[start:start + page_size]
+    rows = unique_rows[start:start + page_size]
     items = []
-    for offset, (code, base, ko, en, _exchange_id) in enumerate(rows, start=start + 1):
+    for offset, row in enumerate(rows, start=start + 1):
         uid = f"00000000-0000-0000-0000-{offset:012d}"
         items.append(SymbolOut(
-            id=_uuid.UUID(uid), symbol_code=code, display_name_ko=ko, display_name_en=en,
-            exchange_code="BINANCE", asset_class="crypto", base_asset=base, quote_asset="USDT",
-            api_code=code,
+            id=_uuid.UUID(uid),
+            symbol_code=str(row.get("symbol_code", "")),
+            display_name_ko=row.get("display_name_ko"),
+            display_name_en=row.get("display_name_en"),
+            exchange_code=row.get("exchange_code") or "BINANCE",
+            asset_class=str(row.get("asset_class") or "crypto"),
+            base_asset=str(row.get("base_asset") or row.get("symbol_code") or ""),
+            quote_asset=str(row.get("quote_asset") or "USDT"),
+            api_code=row.get("api_code") or row.get("symbol_code"),
         ))
     return PagedData(items=items, page=page, page_size=page_size, total=total, has_next=(page * page_size < total))
 
@@ -57,11 +100,13 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
     if exchange:
         base = base.where(Exchange.exchange_code == exchange)
     try:
+        from src.services.symbol_resolver import DELISTED_SYMBOLS, get_curated_catalog
+
         # total count
         count_q = select(func.count()).select_from(base.subquery())
         total = (await db.execute(count_q)).scalar() or 0
+
         # 정렬: sort_order 가 NULL 이면 맨 뒤로, 같은 값이면 symbol_code 알파벳 순
-        # (도메인 DB 에 sort_order 가 안 채워진 상황 대비)
         query = (
             base.order_by(
                 Symbol.sort_order.asc().nullslast(),
@@ -71,19 +116,84 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
             .limit(page_size)
         )
         result = await db.execute(query)
-        items = [SymbolOut(id=s.id, symbol_code=s.symbol_code, display_name_ko=s.display_name_ko,
-                           display_name_en=s.display_name_en, exchange_code=ec, asset_class=s.asset_class,
-                           base_asset=s.base_asset, quote_asset=s.quote_asset,
-                           img_url=(s.metadata_ or {}).get("img_url"),
-                           api_code=(s.metadata_ or {}).get("api_code"))
-                 for s, ec in result.all()]
-        data = PagedData(items=items, page=page, page_size=page_size, total=total, has_next=(page * page_size < total))
-        # 캐시 저장 (60초) — 종목 목록은 자주 안 변함
+
+        items: list[SymbolOut] = []
+        seen_codes: set[str] = set()
+        for s, ec in result.all():
+            if s.symbol_code in DELISTED_SYMBOLS:
+                continue
+            seen_codes.add(s.symbol_code)
+            items.append(SymbolOut(
+                id=s.id,
+                symbol_code=s.symbol_code,
+                display_name_ko=s.display_name_ko,
+                display_name_en=s.display_name_en,
+                exchange_code=ec,
+                asset_class=s.asset_class,
+                base_asset=s.base_asset,
+                quote_asset=s.quote_asset,
+                img_url=(s.metadata_ or {}).get("img_url"),
+                api_code=(s.metadata_ or {}).get("api_code"),
+            ))
+
+        # DB에 아직 반영되지 않은 필수/신규 카탈로그를 API 응답에 보강
+        curated = get_curated_catalog()
+        if asset_class:
+            curated = [r for r in curated if (r.get("asset_class") or "").lower() == asset_class.lower()]
+        if exchange:
+            curated = [r for r in curated if (r.get("exchange_code") or "").upper() == exchange.upper()]
+        if q:
+            needle = q.lower()
+            curated = [
+                r for r in curated
+                if needle in str(r.get("symbol_code", "")).lower()
+                or needle in str(r.get("base_asset", "")).lower()
+                or needle in str(r.get("display_name_ko", "")).lower()
+                or needle in str(r.get("display_name_en", "")).lower()
+            ]
+
+        extra_items: list[SymbolOut] = []
+        for idx, row in enumerate(curated, start=1):
+            code = str(row.get("symbol_code", ""))
+            if not code or code in DELISTED_SYMBOLS or code in seen_codes:
+                continue
+            seen_codes.add(code)
+            extra_items.append(SymbolOut(
+                id=_uuid.uuid5(_uuid.NAMESPACE_DNS, f"curated:{code}"),
+                symbol_code=code,
+                display_name_ko=row.get("display_name_ko"),
+                display_name_en=row.get("display_name_en"),
+                exchange_code=row.get("exchange_code") or "TWELVE_DATA",
+                asset_class=str(row.get("asset_class") or "crypto"),
+                base_asset=str(row.get("base_asset") or code),
+                quote_asset=str(row.get("quote_asset") or "USD"),
+                api_code=row.get("api_code") or code,
+            ))
+
+        if page == 1 and len(items) < page_size and extra_items:
+            items.extend(extra_items[: max(0, page_size - len(items))])
+
+        # q 조회가 비어있고 page_size가 큰 초기 로딩일 때는 보강분을 추가로 더 제공
+        if page == 1 and not q and page_size >= 500 and extra_items:
+            existing = {x.symbol_code for x in items}
+            for e in extra_items:
+                if e.symbol_code in existing:
+                    continue
+                items.append(e)
+
+        effective_total = total + len(extra_items)
+        data = PagedData(
+            items=items[:page_size],
+            page=page,
+            page_size=page_size,
+            total=max(effective_total, len(items)),
+            has_next=(page * page_size < max(effective_total, len(items))),
+        )
         await cache_set("symbols_search", cache_key, data.model_dump(), ttl=60)
         return ApiResponse(data=data)
     except Exception as e:
         logger.warning("symbols.fallback", error=str(e)[:200])
-        return ApiResponse(data=_fallback_symbol_items(q=q, page=page, page_size=page_size))
+        return ApiResponse(data=_fallback_symbol_items(q=q, page=page, page_size=page_size, asset_class=asset_class, exchange=exchange))
 
 @router.post("/symbols/refresh-metadata")
 async def refresh_symbol_metadata(request: Request, only_missing: bool = True):

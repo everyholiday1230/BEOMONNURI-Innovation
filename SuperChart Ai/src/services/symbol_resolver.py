@@ -12,10 +12,18 @@ _last_load_time: float = 0
 _TTL_SECONDS: int = 300  # 5분
 _lock = asyncio.Lock() if hasattr(asyncio, 'Lock') else None
 
+# 운영 중 거래정지/상폐로 간주해 숨길 심볼(과거 데이터 호환용으로 DB에는 남아있을 수 있음)
+DELISTED_SYMBOLS: frozenset[str] = frozenset({
+    "BTSUSDT", "BTCSTUSDT", "DREPUSDT", "COCOSUSDT", "SRMUSDT", "HNTUSDT",
+    "CTKUSDT", "BZRXUSDT", "LITUSDT", "AKROUSDT", "BONDUSDT", "YFIIUSDT",
+})
+
 # DB가 일시 장애이거나 로컬 실행에서 미기동인 경우에도 차트 핵심 기능이
 # 500으로 죽지 않도록 하는 안전 심볼셋. 운영에서는 DB 로드가 성공하면
 # 즉시 실제 DB 심볼로 덮어쓴다.
 DEFAULT_SYMBOLS: tuple[tuple[str, str, str, str, int], ...] = (
+    ("TRUMPUSDT", "TRUMP", "오피셜트럼프", "Official Trump", 2),
+    ("BANKUSDT", "BANK", "로렌조프로토콜", "Lorenzo Protocol", 2),
     ("BTCUSDT", "BTC", "비트코인", "Bitcoin", 2),
     ("ETHUSDT", "ETH", "이더리움", "Ethereum", 2),
     ("BNBUSDT", "BNB", "바이낸스코인", "BNB", 2),
@@ -49,15 +57,60 @@ DEFAULT_SYMBOLS: tuple[tuple[str, str, str, str, int], ...] = (
     ("WIFUSDT", "WIF", "도그위프햇", "dogwifhat", 2),
 )
 
+# 코어 심볼 유니버스(crypto + stock + commodity + etf)
+# - symbol_code 는 UI/검색용 안전 코드(영문대문자/숫자)
+# - api_code 는 외부 데이터 공급자 코드(예: Yahoo Finance GC=F)
+CURATED_SYMBOLS: tuple[dict[str, str | int], ...] = (
+    {"symbol_code": "AAPL", "base_asset": "AAPL", "display_name_ko": "애플", "display_name_en": "Apple", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "AAPL"},
+    {"symbol_code": "MSFT", "base_asset": "MSFT", "display_name_ko": "마이크로소프트", "display_name_en": "Microsoft", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "MSFT"},
+    {"symbol_code": "NVDA", "base_asset": "NVDA", "display_name_ko": "엔비디아", "display_name_en": "NVIDIA", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "NVDA"},
+    {"symbol_code": "TSLA", "base_asset": "TSLA", "display_name_ko": "테슬라", "display_name_en": "Tesla", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "TSLA"},
+    {"symbol_code": "AMZN", "base_asset": "AMZN", "display_name_ko": "아마존", "display_name_en": "Amazon", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "AMZN"},
+    {"symbol_code": "GOOGL", "base_asset": "GOOGL", "display_name_ko": "알파벳", "display_name_en": "Alphabet", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "GOOGL"},
+    {"symbol_code": "META", "base_asset": "META", "display_name_ko": "메타", "display_name_en": "Meta", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "stock", "quote_asset": "USD", "api_code": "META"},
+    {"symbol_code": "SPY", "base_asset": "SPY", "display_name_ko": "SPY ETF", "display_name_en": "SPDR S&P 500 ETF", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "SPY"},
+    {"symbol_code": "QQQ", "base_asset": "QQQ", "display_name_ko": "QQQ ETF", "display_name_en": "Invesco QQQ", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "QQQ"},
+    {"symbol_code": "IWM", "base_asset": "IWM", "display_name_ko": "IWM ETF", "display_name_en": "iShares Russell 2000 ETF", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "IWM"},
+    {"symbol_code": "VTI", "base_asset": "VTI", "display_name_ko": "VTI ETF", "display_name_en": "Vanguard Total Stock Market ETF", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "VTI"},
+    {"symbol_code": "GLD", "base_asset": "GLD", "display_name_ko": "GLD ETF", "display_name_en": "SPDR Gold Shares", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "GLD"},
+    {"symbol_code": "SLV", "base_asset": "SLV", "display_name_ko": "SLV ETF", "display_name_en": "iShares Silver Trust", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "SLV"},
+    {"symbol_code": "USO", "base_asset": "USO", "display_name_ko": "USO ETF", "display_name_en": "United States Oil Fund", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "USO"},
+    {"symbol_code": "TLT", "base_asset": "TLT", "display_name_ko": "TLT ETF", "display_name_en": "iShares 20+ Year Treasury Bond ETF", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "etf", "quote_asset": "USD", "api_code": "TLT"},
+    {"symbol_code": "XAUUSD", "base_asset": "XAU", "display_name_ko": "국제 금", "display_name_en": "Gold Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "GC=F"},
+    {"symbol_code": "XAGUSD", "base_asset": "XAG", "display_name_ko": "국제 은", "display_name_en": "Silver Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "SI=F"},
+    {"symbol_code": "WTI", "base_asset": "WTI", "display_name_ko": "WTI 원유", "display_name_en": "Crude Oil WTI Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "CL=F"},
+    {"symbol_code": "BRENT", "base_asset": "BRENT", "display_name_ko": "브렌트유", "display_name_en": "Brent Crude Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "BZ=F"},
+    {"symbol_code": "NATGAS", "base_asset": "NATGAS", "display_name_ko": "천연가스", "display_name_en": "Natural Gas Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "NG=F"},
+    {"symbol_code": "COPPER", "base_asset": "COPPER", "display_name_ko": "구리", "display_name_en": "Copper Futures", "exchange_id": 4, "exchange_code": "TWELVE_DATA", "asset_class": "commodity", "quote_asset": "USD", "api_code": "HG=F"},
+)
+
+
+def get_curated_catalog() -> list[dict[str, str | int]]:
+    return [row for row in CURATED_SYMBOLS if str(row.get("symbol_code", "")) not in DELISTED_SYMBOLS]
+
+
+def _iter_seed_symbols() -> list[tuple[str, int, str]]:
+    rows: list[tuple[str, int, str]] = []
+    for code, _base, _ko, _en, exchange_id in DEFAULT_SYMBOLS:
+        if code in DELISTED_SYMBOLS:
+            continue
+        rows.append((code, exchange_id, code))
+    for item in CURATED_SYMBOLS:
+        code = str(item.get("symbol_code", ""))
+        if not code or code in DELISTED_SYMBOLS:
+            continue
+        rows.append((code, int(item.get("exchange_id", 2)), str(item.get("api_code") or code)))
+    return rows
+
 
 def load_fallback(reason: str = ""):
     """DB 불가 상황의 안전 심볼 캐시를 주입한다."""
     global _last_load_time
     SYMBOL_EXCHANGE.clear()
     SYMBOL_API_MAP.clear()
-    for code, _base, _ko, _en, exchange_id in DEFAULT_SYMBOLS:
+    for code, exchange_id, api_code in _iter_seed_symbols():
         SYMBOL_EXCHANGE[code] = exchange_id
-        SYMBOL_API_MAP[code] = code
+        SYMBOL_API_MAP[code] = api_code
     _last_load_time = time.time()
     logger.warning("symbol_resolver.fallback_loaded", symbols=len(SYMBOL_EXCHANGE), reason=reason[:160])
 
@@ -84,9 +137,16 @@ async def load():
     SYMBOL_EXCHANGE.clear()
     SYMBOL_API_MAP.clear()
     for s in rows:
+        if s.symbol_code in DELISTED_SYMBOLS or s.status != "active":
+            continue
         SYMBOL_EXCHANGE[s.symbol_code] = s.exchange_id
         api_code = (s.metadata_ or {}).get("api_code")
         SYMBOL_API_MAP[s.symbol_code] = api_code or s.symbol_code
+
+    # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
+    for code, exchange_id, api_code in _iter_seed_symbols():
+        SYMBOL_EXCHANGE.setdefault(code, exchange_id)
+        SYMBOL_API_MAP.setdefault(code, api_code)
     if not SYMBOL_EXCHANGE:
         load_fallback("empty-db-symbols")
         return

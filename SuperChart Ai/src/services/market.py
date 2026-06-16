@@ -5,6 +5,7 @@ from src.services.redis_cache import cache_get, cache_set
 
 BINANCE_BASE = "https://fapi.binance.com"
 BITGET_BASE = "https://api.bitget.com"
+YAHOO_BASE = "https://query1.finance.yahoo.com"
 log = structlog.get_logger(__name__)
 
 _http: httpx.AsyncClient | None = None
@@ -16,6 +17,7 @@ def _client() -> httpx.AsyncClient:
     return _http
 TF_MAP = {"1m":"1m","3m":"3m","5m":"5m","15m":"15m","30m":"30m","1h":"1h","2h":"2h","4h":"4h","1d":"1d"}
 BITGET_TF_MAP = {"1m":"1m","3m":"3m","5m":"5m","15m":"15m","30m":"30m","1h":"1H","2h":"2H","4h":"4H","1d":"1D"}
+YAHOO_INTERVAL_MAP = {"1m": "1m", "3m": "5m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "60m", "2h": "60m", "4h": "60m", "1d": "1d"}
 TF_MS = {"1m":60_000,"3m":180_000,"5m":300_000,"15m":900_000,"30m":1_800_000,"1h":3_600_000,"2h":7_200_000,"4h":14_400_000,"1d":86_400_000}
 MAX_LIMIT = 10000
 
@@ -23,13 +25,17 @@ _CACHE_TTL = {"1m": 120, "5m": 300, "15m": 600, "1h": 1800, "4h": 3600, "1d": 72
 
 
 async def fetch_candles(symbol_code: str, exchange_id: int, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
-    """Binance Futures에서 캔들 가져오기. Redis 캐시 + 페이지네이션."""
-    # 잘못된/빈 심볼 빠른 단락 (외부 API 호출 회피)
-    if not symbol_code or len(symbol_code) < 2:
+    """시장 캔들 조회. crypto는 Binance/Bitget, 기타 자산은 Yahoo Finance를 사용."""
+    if not symbol_code or len(symbol_code) < 1:
         return []
+
     limit = min(max(limit, 1), 3000)
+
+    if exchange_id == 4:
+        return await _fetch_yahoo_raw(symbol_code, timeframe, limit, end_time)
+
     if not end_time:
-        key = f"{symbol_code}:{timeframe}:{limit}"
+        key = f"{symbol_code}:{exchange_id}:{timeframe}:{limit}"
         ttl = _CACHE_TTL.get(timeframe, 60)
         cached = await cache_get("candle", key)
         if cached is not None:
@@ -208,3 +214,74 @@ async def _fetch_bitget_raw(symbol_code: str, timeframe: str, limit: int, end_ti
         except Exception:
             continue
     return candles
+
+
+async def _fetch_yahoo_raw(symbol_code: str, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
+    """Yahoo Finance chart API 기반 캔들 조회 (주식/원자재/ETF)."""
+    import time
+
+    interval = YAHOO_INTERVAL_MAP.get(timeframe, "1d")
+    step_ms = TF_MS.get(timeframe, 86_400_000)
+
+    now_ms = int(time.time() * 1000)
+    period2_ms = int(end_time) if end_time else now_ms
+    lookback_ms = max(step_ms * (limit + 20), 3_600_000)
+    period1_ms = max(period2_ms - lookback_ms, 0)
+
+    params = {
+        "interval": interval,
+        "period1": str(period1_ms // 1000),
+        "period2": str(period2_ms // 1000),
+        "includePrePost": "false",
+        "events": "div,splits",
+    }
+
+    try:
+        r = await _client().get(f"{YAHOO_BASE}/v8/finance/chart/{symbol_code}", params=params, timeout=15)
+        raw = r.json()
+    except Exception as e:
+        log.warning("market.yahoo_candles_fail", symbol=symbol_code, timeframe=timeframe, err=str(e)[:160])
+        return []
+
+    try:
+        result = ((raw or {}).get("chart") or {}).get("result") or []
+        if r.status_code != 200 or not result:
+            return []
+
+        row = result[0]
+        ts = row.get("timestamp") or []
+        quote = ((row.get("indicators") or {}).get("quote") or [{}])[0]
+        opens = quote.get("open") or []
+        highs = quote.get("high") or []
+        lows = quote.get("low") or []
+        closes = quote.get("close") or []
+        vols = quote.get("volume") or []
+
+        candles: list[dict] = []
+        for i, t in enumerate(ts):
+            if i >= len(opens) or i >= len(highs) or i >= len(lows) or i >= len(closes):
+                continue
+            o = opens[i]
+            h = highs[i]
+            l = lows[i]
+            c = closes[i]
+            v = vols[i] if i < len(vols) else 0
+            if o is None or h is None or l is None or c is None:
+                continue
+            open_ts = int(t) * 1000
+            close_ts = open_ts + step_ms - 1
+            candles.append({
+                "openTime": str(open_ts),
+                "closeTime": str(close_ts),
+                "open": str(o),
+                "high": str(h),
+                "low": str(l),
+                "close": str(c),
+                "volume": str(v or 0),
+                "isFinal": True,
+            })
+
+        return candles[-limit:]
+    except Exception as e:
+        log.warning("market.yahoo_parse_fail", symbol=symbol_code, err=str(e)[:160])
+        return []

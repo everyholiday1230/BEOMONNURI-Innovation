@@ -15,7 +15,7 @@ window.loadHeatmap = async function() {
   try {
     const symbols = window.symbols || [];
     const coinImgUrl = window.coinImgUrl || {};
-    const filteredSyms = symbols.filter(s => window._hmAsset === 'crypto' ? s.asset === 'crypto' : (s.asset === 'stock' || s.asset === 'commodity'));
+    const filteredSyms = symbols.filter(s => window._hmAsset === 'crypto' ? s.asset === 'crypto' : (s.asset === 'stock' || s.asset === 'commodity' || s.asset === 'etf'));
     const syms = filteredSyms.map(s => s.apiCode || s.code);
     // 전체 ticker 1번 호출 (개별 요청 X → rate limit 방지)
     const allTickers = await fetch('/v1/charts/ticker-24hr').then(r => r.json()).catch(() => []);
