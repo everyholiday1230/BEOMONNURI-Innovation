@@ -9,7 +9,7 @@ import re
 
 class _Settings:
     database_url: str = os.environ.get("DATABASE_URL", "postgresql+asyncpg://chart:chart@localhost:5432/chart_os")
-    redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    redis_url: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     secret_key: str = os.environ.get("SECRET_KEY", "beomon-secret-2026")
     jwt_secret: str = os.environ.get("JWT_SECRET", os.environ.get("SECRET_KEY", "beomon-secret-2026"))
     jwt_expire_minutes: int = int(os.environ.get("JWT_EXPIRE_MINUTES", "1440"))
