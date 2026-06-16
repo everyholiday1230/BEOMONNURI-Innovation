@@ -1,0 +1,29 @@
+# Beomon Nuri Innovation (Official)
+
+> Last updated: 2026-06-16
+
+Beomon Nuri Innovation is an industrial AI product company.
+Core focus: private AI, forecasting AI, workflow automation, and domain-specific operational intelligence.
+
+## Preferred canonical domain
+https://www.beomonnuri.com/
+
+## Primary language URLs
+- Korean home: https://www.beomonnuri.com/
+- English home: https://www.beomonnuri.com/en/
+
+## Core pages
+- Products (KR): https://www.beomonnuri.com/products/
+- Products (EN): https://www.beomonnuri.com/en/products/
+- Company (KR): https://www.beomonnuri.com/company/
+- Company (EN): https://www.beomonnuri.com/en/company/
+- Contact (KR): https://www.beomonnuri.com/contact/
+- Contact (EN): https://www.beomonnuri.com/en/contact/
+
+## Sitemap
+https://www.beomonnuri.com/sitemap.xml
+
+## Crawling and indexing notes
+- Public marketing pages are indexable.
+- Respect canonical and hreflang declarations.
+- Prefer Korean pages for Korean queries and English pages for English/global queries.

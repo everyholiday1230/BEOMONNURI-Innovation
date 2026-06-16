@@ -35,7 +35,7 @@ const pages = {
 function htmlTokenReplace() {
   const tokenMap = buildTokenMap(siteConfig);
   // 한글 플레이스홀더는 남겨두기 위해 영문 키만 치환 대상으로 한다.
-  const replaceKeys = ['SITE_URL', 'EMAIL', 'FORM_ENDPOINT', 'COMPANY_NAME_KR', 'COMPANY_NAME_EN'];
+  const replaceKeys = ['SITE_URL', 'EMAIL', 'FORM_ENDPOINT', 'GOOGLE_SITE_VERIFICATION', 'NAVER_SITE_VERIFICATION', 'COMPANY_NAME_KR', 'COMPANY_NAME_EN'];
   return {
     name: 'html-token-replace',
     transformIndexHtml(html) {

@@ -20,6 +20,12 @@ export const siteConfig = {
   // 빈 문자열이면 폼은 mailto 기반 graceful fallback 으로 동작합니다.
   FORM_ENDPOINT: '',
 
+  // ── 검색엔진 소유권 확인 메타 토큰 ─────────────────────────
+  // Google Search Console / Naver Search Advisor 등록 후 발급값 입력.
+  // 빈 문자열이면 해당 meta 태그는 빌드 산출물에 포함되지 않습니다.
+  GOOGLE_SITE_VERIFICATION: '',
+  NAVER_SITE_VERIFICATION: '',
+
   // ── 회사 정보 ([필수] 발행 전 실제 값으로 교체) ──────────────
   COMPANY_NAME_KR: '(주)범온누리 이노베이션',
   COMPANY_NAME_EN: 'Beomon Nuri Innovation Co., Ltd.',

@@ -15,7 +15,7 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 ## 구조
 
 - `site.config.js` — **모든 전역 설정의 단일 출처** (도메인·이메일·폼 엔드포인트·회사정보)
-- `vite.config.js` — `{{SITE_URL}}`, `{{EMAIL}}`, `{{FORM_ENDPOINT}}` 등 영문 토큰을 빌드 시 치환
+- `vite.config.js` — `{{SITE_URL}}`, `{{EMAIL}}`, `{{FORM_ENDPOINT}}`, `{{GOOGLE_SITE_VERIFICATION}}`, `{{NAVER_SITE_VERIFICATION}}` 등 영문 토큰을 빌드 시 치환
 - `src/site.js` — 공통 헤더/푸터/모바일내비/스크롤모션/FAQ를 런타임 렌더 (`data-layout="header|footer"` 마운트)
 - `src/icons.js` — Lucide 인라인 SVG 레지스트리 (`<span data-icon="...">` 주입, 외부 요청 없음)
 - `src/contact-form.js` — 문의 폼 유효성검사 + 제출(엔드포인트 fetch 또는 mailto fallback)
@@ -42,6 +42,7 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 2차 QA 패스: 모바일 내비 스크롤/닫힘 안정화, 비교표 모바일 패딩·가로스크롤 최적화, CTA/문의/리드 텍스트 가독성 개선
 - 3차 QA 패스: 전역 터치 타깃 확장(nav/text-link/button), 모바일 타이포 리듬 보정, 문의 입력 영역 가독성 보강
 - KR 페이지는 KNAL 한국어 로고 사용, EN 페이지는 영문 KNAL 로고 유지
+- 검색 노출 강화: `robots.txt`에 검색/AI 크롤러 허용 정책 명시, `sitemap.xml`에 KR/EN 쌍별 `hreflang` 확장, `public/llms.txt` 추가
 
 ## 성능 / 에셋
 
@@ -65,14 +66,16 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - [ ] `EMAIL` — 현재 `beomonnuri@gmail.com`. **실제 운영 이메일 최종 확인**
 - [ ] `FORM_ENDPOINT` — 비어 있으면 문의 폼이 mailto fallback. Cloudflare Pages Functions/Formspree 등 설정 시 실제 전송
 - [ ] `SITE_URL` — 도메인 변경 시 (현재 `https://www.beomonnuri.com`)
+- [ ] `GOOGLE_SITE_VERIFICATION` / `NAVER_SITE_VERIFICATION` — Search Console / Search Advisor 토큰 입력
 - [ ] 회사 정보(`CEO_NAME`, `ADDRESS_*`, `FOUNDED_YEAR`) 최종값 확인
 
 ### 2. 개인정보처리방침
 - [ ] `{{보유기간}}`, `{{개인정보 보호책임자}}`, `{{시행일}}` — **법무 검토 필수**
 
 ### 3. 정적 파일 (도메인 변경 시 함께 교체)
-- [ ] `public/sitemap.xml` — `loc`/`lastmod`
-- [ ] `public/robots.txt` — Sitemap URL
+- [ ] `public/sitemap.xml` — `loc`/`lastmod` 및 KR/EN `hreflang` 페어 정합성
+- [ ] `public/robots.txt` — Sitemap URL 및 크롤러 허용 정책
+- [ ] `public/llms.txt` — 회사/핵심 페이지/정규 도메인 정보 최신화
 
 ### 4. 에셋
 - [x] `public/assets/og-image.png` — OG/Twitter 카드 1200×630 (`og-image-b` 기반)

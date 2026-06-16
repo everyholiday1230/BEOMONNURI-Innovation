@@ -1,5 +1,31 @@
+# Global crawl policy
 User-agent: *
 Allow: /
 
-# 도메인 변경 시 site.config.js SITE_URL 과 함께 교체하세요.
+# AI/LLM crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Search bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Yeti
+Allow: /
+
+# Structured discovery endpoints
 Sitemap: https://www.beomonnuri.com/sitemap.xml
+# Human/LLM reading guide
+# https://www.beomonnuri.com/llms.txt
