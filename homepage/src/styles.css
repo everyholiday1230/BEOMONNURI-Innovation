@@ -485,6 +485,17 @@ table.compare td { color: var(--muted); }
 .form { padding: clamp(1.5rem, 3.5vw, 2.4rem); border: var(--border); border-radius: var(--radius-xl); background: var(--paper); box-shadow: var(--shadow-md); display: grid; gap: 1.15rem; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .field { display: grid; gap: .4rem; }
+.form-microcopy { margin: -.2rem 0 .25rem; color: var(--muted); font-size: .88rem; line-height: 1.6; }
+.form-optional { border: var(--border); border-radius: var(--radius-md); background: var(--paper-soft); padding: .2rem .9rem .9rem; }
+.form-optional summary { cursor: pointer; min-height: 42px; display: inline-flex; align-items: center; font-weight: 800; color: var(--brand); padding: .35rem 0; }
+.form-optional[open] summary { margin-bottom: .55rem; }
+.form-optional .optional-grid { margin-top: .25rem; }
+.form-success-panel { border: var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--success) 10%, var(--paper)); padding: 1rem 1.05rem; display: grid; gap: .55rem; }
+.form-success-panel[hidden] { display: none; }
+.form-success-panel h3 { margin: 0; color: var(--success); font-size: 1rem; }
+.form-success-panel p { margin: 0; color: var(--muted); line-height: 1.6; font-size: .92rem; }
+.form-success-panel ul { margin: 0; padding-left: 1rem; display: grid; gap: .3rem; }
+.form-success-panel li { list-style: disc; color: var(--muted); font-size: .89rem; }
 .field label { font-weight: 800; font-size: .92rem; }
 .field .req { color: var(--brand); margin-left: .15rem; }
 .field input, .field select, .field textarea {
@@ -623,6 +634,7 @@ table.compare td { color: var(--muted); }
   table.compare th, table.compare td { padding: .92rem .96rem; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }
   .form-row { grid-template-columns: 1fr; }
+  .form-optional { padding: .2rem .75rem .75rem; }
   .proof-strip { grid-template-columns: 1fr; }
   .proof-strip strong + strong { border-left: 0; border-top: var(--border); }
   .info-table th { width: 40%; }

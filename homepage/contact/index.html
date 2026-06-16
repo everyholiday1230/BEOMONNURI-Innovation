@@ -55,6 +55,8 @@
       <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
         <h2 id="form-title" class="sr-only">문의 양식</h2>
         <div class="form-status" role="status" aria-live="polite"></div>
+        <p class="form-microcopy">핵심 정보만 먼저 남겨주세요. 추가 정보는 선택 입력입니다.</p>
+        <section class="form-success-panel" hidden aria-live="polite"></section>
 
         <div class="form-row">
           <div class="field">
@@ -76,14 +78,6 @@
             <span class="error-text" aria-live="polite"></span>
           </div>
           <div class="field">
-            <label for="phone">연락처</label>
-            <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" />
-            <span class="error-text" aria-live="polite"></span>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="field">
             <label for="product">관심 제품<span class="req" aria-hidden="true">*</span></label>
             <select id="product" name="product" required>
               <option value="">선택해 주세요</option>
@@ -97,12 +91,23 @@
             </select>
             <span class="error-text" aria-live="polite"></span>
           </div>
-          <div class="field">
-            <label for="dataType">보유 데이터 유형</label>
-            <input type="text" id="dataType" name="dataType" placeholder="예: 사내 문서, 시세 데이터, 민원 기록" />
-            <span class="error-text" aria-live="polite"></span>
-          </div>
         </div>
+
+        <details class="form-optional">
+          <summary>추가 정보(선택) 입력</summary>
+          <div class="form-row optional-grid">
+            <div class="field">
+              <label for="phone">연락처</label>
+              <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" />
+              <span class="error-text" aria-live="polite"></span>
+            </div>
+            <div class="field">
+              <label for="dataType">보유 데이터 유형</label>
+              <input type="text" id="dataType" name="dataType" placeholder="예: 사내 문서, 시세 데이터, 민원 기록" />
+              <span class="error-text" aria-live="polite"></span>
+            </div>
+          </div>
+        </details>
 
         <div class="field">
           <label for="message">도입 목적 / 문의 내용<span class="req" aria-hidden="true">*</span></label>

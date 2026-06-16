@@ -43,6 +43,8 @@
       <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
         <h2 id="form-title" class="sr-only">Inquiry form</h2>
         <div class="form-status" role="status" aria-live="polite"></div>
+        <p class="form-microcopy">Share only essential details first. Additional context is optional.</p>
+        <section class="form-success-panel" hidden aria-live="polite"></section>
 
         <div class="form-row">
           <div class="field"><label for="company">Company<span class="req" aria-hidden="true">*</span></label><input type="text" id="company" name="company" required autocomplete="organization" /><span class="error-text" aria-live="polite"></span></div>
@@ -50,9 +52,6 @@
         </div>
         <div class="form-row">
           <div class="field"><label for="email">Email<span class="req" aria-hidden="true">*</span></label><input type="email" id="email" name="email" required autocomplete="email" /><span class="error-text" aria-live="polite"></span></div>
-          <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" /><span class="error-text" aria-live="polite"></span></div>
-        </div>
-        <div class="form-row">
           <div class="field"><label for="product">Product of interest<span class="req" aria-hidden="true">*</span></label>
             <select id="product" name="product" required>
               <option value="">Please select</option>
@@ -66,8 +65,14 @@
             </select>
             <span class="error-text" aria-live="polite"></span>
           </div>
-          <div class="field"><label for="dataType">Data you hold</label><input type="text" id="dataType" name="dataType" placeholder="e.g. internal docs, market data, request records" /><span class="error-text" aria-live="polite"></span></div>
         </div>
+        <details class="form-optional">
+          <summary>Add optional context</summary>
+          <div class="form-row optional-grid">
+            <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" /><span class="error-text" aria-live="polite"></span></div>
+            <div class="field"><label for="dataType">Data you hold</label><input type="text" id="dataType" name="dataType" placeholder="e.g. internal docs, market data, request records" /><span class="error-text" aria-live="polite"></span></div>
+          </div>
+        </details>
         <div class="field"><label for="message">Goal / message<span class="req" aria-hidden="true">*</span></label><textarea id="message" name="message" required placeholder="Describe the problem you want to solve and the outcome you expect."></textarea><span class="error-text" aria-live="polite"></span></div>
         <div class="field">
           <label class="consent"><input type="checkbox" name="consent" value="agree" /><span>I agree to the collection and use of my personal information. See the <a href="/en/privacy/">Privacy Policy</a> for items and purpose.<span class="req" aria-hidden="true">*</span></span></label>

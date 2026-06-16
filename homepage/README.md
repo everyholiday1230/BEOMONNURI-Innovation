@@ -46,6 +46,8 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 전환율 우선 1차 고도화: 제품 상세 페이지 공통 전환 블록(도입 적합성 진단 + 신뢰 기준 + CTA) 및 FAQ 아코디언 자동 주입
 - 구조화 데이터 강화: 전 페이지 `WebSite`, 제품 상세 `BreadcrumbList`/`FAQPage` JSON-LD 런타임 생성
 - 성능 미세 튜닝: 비핵심 이미지 `loading=lazy`, `decoding=async`, `fetchpriority=low` 자동 최적화
+- 문의 전환율 2차 고도화: Contact 페이지 헤드라인/버튼 A/B 카피 테스트, 선택 입력(연락처·보유데이터) 접기/열기 도입
+- 문의 완료 UX 개선: 제출 후 다음 단계 안내 패널(접수 후 프로세스) 추가
 
 ## 성능 / 에셋
 
