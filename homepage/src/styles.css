@@ -220,7 +220,7 @@ p, li, dd, span { text-wrap: pretty; }
 .nav-toggle[aria-expanded='true'] span:nth-of-type(4) { transform: translateY(-6px) rotate(-45deg); }
 
 /* ── Buttons ────────────────────────────────────────────── */
-.button { display: inline-flex; min-height: 52px; align-items: center; justify-content: center; gap: .5rem; border-radius: var(--radius-pill); padding: 0 1.6rem; font-weight: 700; letter-spacing: -.01em; transition: background .2s var(--ease), box-shadow .2s var(--ease), border-color .2s var(--ease), transform .08s var(--ease); }
+.button { display: inline-flex; min-height: 54px; align-items: center; justify-content: center; gap: .5rem; border-radius: var(--radius-pill); padding: 0 1.7rem; font-weight: 700; letter-spacing: -.01em; transition: background .2s var(--ease), box-shadow .2s var(--ease), border-color .2s var(--ease), transform .08s var(--ease); }
 .button.primary { color: #fff; background: var(--brand); }
 .button.primary:hover, .button.primary:focus-visible { background: var(--brand-dark); }
 .button.secondary { color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); }
@@ -390,10 +390,10 @@ table.compare td { color: var(--muted); }
 .product-card picture { position: relative; display: block; overflow: hidden; }
 .product-card picture::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 60%, rgba(20,12,15,.18)); pointer-events: none; }
 .product-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--brand-soft); transition: transform .4s var(--ease); }
-.product-card-body { display: grid; gap: .55rem; padding: clamp(1.3rem, 2vw, 1.65rem); }
+.product-card-body { display: grid; gap: .62rem; padding: clamp(1.34rem, 2vw, 1.72rem); }
 .product-card-body .label { font-size: .72rem; }
 .product-card-body h3 { margin-top: .1rem; }
-.product-card-body p:not(.label) { color: var(--muted); font-size: .96rem; line-height: 1.55; }
+.product-card-body p:not(.label) { color: var(--muted); font-size: .96rem; line-height: 1.6; }
 .product-card-body .text-link { margin-top: .35rem; }
 .product-card .label { display: inline-flex; align-items: center; gap: .4rem; }
 .product-card .label::before { content: ''; width: 14px; height: 2px; background: currentColor; opacity: .55; }
@@ -510,9 +510,10 @@ table.compare td { color: var(--muted); }
 /* 특정 로고 광학 보정 (가로형 로고의 시각적 무게 정렬) */
 .partner-card img[src$='modoo-startup.png'] { max-width: min(100%, 164px); }
 .partner-card img[src$='posco-technology-investment.png'] { max-width: min(100%, 166px); }
-.partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 162px); }
+.partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 170px); }
+.partner-card img[src$='dankook-university.png'] { height: 70px; }
 .partner-card img[src$='knal-kor.png'],
-.partner-card img[src$='knal.png'] { max-width: min(100%, 170px); }
+.partner-card img[src$='knal.png'] { max-width: min(100%, 178px); }
 
 /* ── Reveal motion ─────────────────────────────────────── */
 .reveal-item { opacity: 0; transform: translateY(12px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
@@ -586,9 +587,10 @@ table.compare td { color: var(--muted); }
   .partner-card img.logo-mark { height: 52px; }
   .partner-card img[src$='modoo-startup.png'] { max-width: min(100%, 152px); }
   .partner-card img[src$='posco-technology-investment.png'] { max-width: min(100%, 154px); }
-  .partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 150px); }
+  .partner-card img[src$='gangdong-kiss.png'] { max-width: min(100%, 158px); }
+  .partner-card img[src$='dankook-university.png'] { height: 62px; }
   .partner-card img[src$='knal-kor.png'],
-  .partner-card img[src$='knal.png'] { max-width: min(100%, 156px); }
+  .partner-card img[src$='knal.png'] { max-width: min(100%, 162px); }
   /* 모바일 드롭다운: 절대위치 대신 인라인으로 펼침 */
   .has-dropdown { width: 100%; }
   .dropdown { position: static; transform: none; min-width: 0; width: 100%; box-shadow: none; border: 0; padding: .2rem 0 .4rem;
