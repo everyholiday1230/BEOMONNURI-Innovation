@@ -136,7 +136,7 @@ p, li, dd, span { text-wrap: pretty; }
   color: var(--brand); font-size: var(--fs-small); font-weight: 800;
   letter-spacing: .14em; text-transform: uppercase;
 }
-.lead { color: var(--muted); font-size: clamp(1.04rem, 1.6vw, 1.18rem); line-height: 1.6; max-width: var(--measure-lead); }
+.lead { color: var(--muted); font-size: clamp(1.04rem, 1.6vw, 1.18rem); line-height: 1.66; max-width: var(--measure-lead); }
 .muted { color: var(--muted); }
 
 /* ── A11y helpers ───────────────────────────────────────── */
@@ -358,7 +358,7 @@ p, li, dd, span { text-wrap: pretty; }
 .process-step:not(:last-child)::after { content: ''; position: absolute; right: -.62rem; top: 50%; width: .55rem; height: 2px; background: color-mix(in srgb, var(--brand) 45%, transparent); }
 
 /* ── Comparison matrix ─────────────────────────────────── */
-.compare-wrap { overflow-x: auto; border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.compare-wrap { overflow-x: auto; border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); -webkit-overflow-scrolling: touch; }
 table.compare { width: 100%; border-collapse: collapse; min-width: 720px; background: var(--paper); }
 table.compare th, table.compare td { padding: 1.04rem 1.14rem; text-align: left; border-bottom: var(--border); vertical-align: top; line-height: 1.58; }
 table.compare thead th { background: var(--brand-soft); color: var(--brand); font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; }
@@ -456,7 +456,7 @@ table.compare td { color: var(--muted); }
 .info-table td { color: var(--muted); }
 .info-table tr:last-child th, .info-table tr:last-child td { border-bottom: 0; }
 .map-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
-.map-links a { display: inline-flex; align-items: center; padding: .35rem .8rem; border: var(--border); border-radius: var(--radius-pill); font-size: .82rem; font-weight: 700; color: var(--brand); background: var(--paper); transition: background .2s var(--ease), border-color .2s var(--ease); }
+.map-links a { display: inline-flex; align-items: center; min-height: 40px; padding: .4rem .85rem; border: var(--border); border-radius: var(--radius-pill); font-size: .82rem; font-weight: 700; color: var(--brand); background: var(--paper); transition: background .2s var(--ease), border-color .2s var(--ease); }
 .map-links a:hover, .map-links a:focus-visible { background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
 
 /* ── Contact form ──────────────────────────────────────── */
@@ -464,7 +464,7 @@ table.compare td { color: var(--muted); }
 .contact-aside { display: grid; gap: 1rem; align-content: start; }
 .contact-card { padding: clamp(1.3rem, 3vw, 1.9rem); border: var(--border); border-radius: var(--radius-lg); background: var(--paper); display: grid; gap: .6rem; }
 .contact-card h2 { font-size: 1.1rem; }
-.contact-card p { color: var(--muted); }
+.contact-card p { color: var(--muted); line-height: 1.62; }
 .contact-card a { color: var(--brand); font-weight: 800; word-break: break-all; }
 .contact-highlight { color: var(--ink) !important; font-weight: 800; }
 
@@ -491,7 +491,7 @@ table.compare td { color: var(--muted); }
 /* ── CTA band ──────────────────────────────────────────── */
 .cta-band { text-align: center; display: grid; gap: 1rem; justify-items: center; padding: clamp(2.4rem, 5vw, 4rem); border-radius: var(--radius-xl); background: linear-gradient(150deg, var(--brand-700) 0%, var(--brand-900) 100%); color: #fff; }
 .cta-band .eyebrow, .cta-band h2 { color: #fff; }
-.cta-band p { max-width: 60ch; color: rgba(255,255,255,.85); }
+.cta-band p { max-width: 60ch; color: rgba(255,255,255,.85); line-height: 1.64; }
 .cta-band .button.primary { background: #fff; color: var(--brand); }
 .cta-band .button.primary:hover { background: var(--brand-50); }
 
@@ -577,7 +577,7 @@ table.compare td { color: var(--muted); }
 @media (max-width: 760px) {
   .nav-toggle { display: block; }
   .brand small { display: none; }
-  .nav-links { position: absolute; top: calc(100% + 1px); left: 1rem; right: 1rem; display: none; flex-direction: column; align-items: stretch; padding: .8rem; border: var(--border); border-radius: var(--radius-md); background: var(--paper); box-shadow: var(--shadow-md); }
+  .nav-links { position: absolute; top: calc(100% + 1px); left: 1rem; right: 1rem; display: none; flex-direction: column; align-items: stretch; padding: .8rem; border: var(--border); border-radius: var(--radius-md); background: var(--paper); box-shadow: var(--shadow-md); max-height: calc(100vh - 110px); overflow: auto; }
   .nav-links.is-open { display: flex; }
   .nav-links a { justify-content: center; }
   .language-switch { width: 100%; justify-content: center; margin-left: 0; }
@@ -601,6 +601,8 @@ table.compare td { color: var(--muted); }
   .has-dropdown:hover .dropdown:not(.open) { max-height: 0; }
   .dropdown a { text-align: center; }
   .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid { grid-template-columns: 1fr; }
+  table.compare { min-width: 640px; }
+  table.compare th, table.compare td { padding: .92rem .96rem; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }
   .form-row { grid-template-columns: 1fr; }
   .proof-strip { grid-template-columns: 1fr; }
@@ -611,6 +613,10 @@ table.compare td { color: var(--muted); }
   .button { width: 100%; }
   .hero-actions { width: 100%; }
   .partner-card { flex-basis: 50%; min-width: 0; }
+  .section { padding-top: clamp(3.4rem, 8vw, 4.8rem); }
+  .section-heading { margin-bottom: 1.9rem; }
+  table.compare { min-width: 580px; }
+  .info-table th, .info-table td { padding: .86rem .9rem; }
   /* 모바일에선 의도적 줄바꿈 해제해 자연 흐름에 맡김 */
   .desktop-break { display: none; }
 }
