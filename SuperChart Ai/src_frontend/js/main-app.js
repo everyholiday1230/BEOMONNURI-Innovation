@@ -242,6 +242,13 @@ function Mt(e) {
 }
 function Ft(e, n) {
   if (e && ((A = e), (window.curTf = e), Mt(e), !n?.skipLoad)) {
+    const _manualBeforeTf =
+      o && o.overlay && Array.isArray(o.overlay.drawings)
+        ? o.overlay.drawings.filter((d) =>
+            ["hline", "vline", "trendline", "fib", "text"].includes(d?.type),
+          )
+        : [];
+
     if (o) {
       o._uc = null;
       o._bc = null;
@@ -285,6 +292,25 @@ function Ft(e, n) {
               );
             }
             window._loadDrawings && window._loadDrawings();
+
+            // 복원 실패/누락 시 기존 수동 드로잉 안전 복원
+            if (
+              o &&
+              o.overlay &&
+              Array.isArray(o.overlay.drawings) &&
+              _manualBeforeTf.length
+            ) {
+              const restored = o.overlay.drawings.filter((d) =>
+                ["hline", "vline", "trendline", "fib", "text"].includes(d?.type),
+              );
+              if (!restored.length && typeof o.addDrawing === "function") {
+                _manualBeforeTf.forEach((d) => {
+                  try {
+                    o.addDrawing(d);
+                  } catch {}
+                });
+              }
+            }
             o && (o._dirty = !0);
           } catch {}
         }),
@@ -2402,11 +2428,10 @@ function Y() {
     (o._dirty = !0),
     Te(),
     (function () {
-      if (!window._subRatiosApplied && window._restoreSubRatios) {
+      if (window._restoreSubRatios) {
         try {
           window.applyRestoredSubRatios && window.applyRestoredSubRatios();
         } catch (_) {}
-        window._subRatiosApplied = true;
       }
     })());
 }
@@ -4361,10 +4386,11 @@ function ko() {
   document
     .querySelectorAll("[data-strategy].on")
     .forEach((r) => _st.push(r.dataset.strategy));
+  const _uniq = (arr) => [...new Set((arr || []).filter((v) => !!v))];
   const a = {
-    activeInds: e,
-    activeSubs: n,
-    activeStrategies: _st,
+    activeInds: _uniq(e),
+    activeSubs: _uniq(n),
+    activeStrategies: _uniq(_st),
     customMA: window._customMA || [],
     customSUB: window._customSUB || [],
     obStyle: window._obStyle || "default",
@@ -4414,9 +4440,12 @@ async function to() {
       }
       const r = a.symbol && a.symbol !== B,
         i = a.timeframe && a.timeframe !== A;
-      (i && ((A = a.timeframe), (window.curTf = A)),
+      (i && ((A = a.timeframe), (window.curTf = A), Mt(A)),
         Zt(a),
         r ? await window._selectSym(a.symbol) : i && (await De()));
+      try {
+        window._saveUserSettings && window._saveUserSettings();
+      } catch {}
     } catch {}
 }
 window._indSettings = JSON.parse(

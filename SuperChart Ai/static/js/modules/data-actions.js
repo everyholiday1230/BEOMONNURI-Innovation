@@ -45,7 +45,24 @@ document.addEventListener('click', function(e) {
     toggleLang: ()=>{const lp=document.getElementById('langPanel');if(lp)lp.style.display=lp.style.display==='block'?'none':'block'},
     closeProTip: ()=>{el.parentElement.style.display='none';localStorage.setItem('chartOS_proTipHide',Date.now()+86400000)},
     closePublicTip: ()=>{el.parentElement.style.display='none';localStorage.setItem('chartOS_publicTipHide',Date.now()+604800000)},
-    goLatest: ()=>{if(chart){chart.timeScale.fitContent(chart.buffer.length);chart._priceScaleLocked=false;chart._dirty=true;el.style.display='none'}},
+    goLatest: ()=>{
+      if(chart){
+        const ts=chart.timeScale;
+        const len=chart.buffer?.length||0;
+        if(ts&&len>0){
+          const range=Math.max(40, Math.round((ts.visibleTo-ts.visibleFrom)||120));
+          const rightPad=2;
+          ts.visibleTo=len+rightPad;
+          ts.visibleFrom=ts.visibleTo-range;
+        }else{
+          chart.timeScale.fitContent(chart.buffer.length);
+        }
+        chart._priceScaleLocked=false;
+        chart._updatePriceRange?.();
+        chart._dirty=true;
+        el.style.display='none';
+      }
+    },
     userBadgeClick: ()=>{if(typeof isLoggedIn==='function'&&isLoggedIn())window._showSettings?.();else window.showAuth?.()},
     saveSettings: ()=>{if(typeof isLoggedIn==='function'&&isLoggedIn()){window._saveChartSettingsToServer?.();window.showToast?.('차트 설정 저장됨','#C4384B')}else window.showToast?.('로그인 필요','#D8B66A')},
     exchangeVerify: ()=>{if(typeof isLoggedIn==='function'&&isLoggedIn())window.showExchangeVerify?.();else window.showAuth?.()},

@@ -558,7 +558,10 @@ async function refreshVerificationStatusUI() {
               );
             }
           ((t.style.display = "none"),
-            setTimeout(() => location.reload(), 1500));
+            window.showToast(
+              window.t(e ? "가입이 완료되었습니다." : "로그인되었습니다."),
+              "#C4384B",
+            ));
         } else {
           const c = m.detail,
             w = {

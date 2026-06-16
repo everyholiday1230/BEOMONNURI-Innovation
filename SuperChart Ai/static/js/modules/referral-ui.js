@@ -168,20 +168,107 @@ async function _injectReferralDashboard() {
   } finally { _injectReferralDashboard._busy = false; }
 }
 
-// ═══ 가입 성공 후 추천 코드 자동 적용 ═══
+// ═══ 가입 성공 후 추천 코드 자동 적용 (중복 방지/멱등 처리) ═══
 const _origRefreshAuth = window.refreshAuthState;
+let _refApplyInFlight = null;
+
+function _refApplyDoneKey(user, code) {
+  return `chartOS_refApplied_${(user || 'guest').toLowerCase()}_${(code || '').toUpperCase()}`;
+}
+
 window.refreshAuthState = async function(silent) {
   const result = await (_origRefreshAuth ? _origRefreshAuth(silent) : undefined);
   const refInput = document.getElementById('authRefCode');
-  const code = refInput?.value?.trim() || _urlRef;
-  if (code && window.isLoggedIn && window.isLoggedIn()) {
+  const code = (refInput?.value?.trim() || _urlRef || '').toUpperCase();
+
+  if (!code || !(window.isLoggedIn && window.isLoggedIn())) {
+    return result;
+  }
+
+  const user = (window.userName || localStorage.getItem('userName') || 'guest').trim();
+  const doneKey = _refApplyDoneKey(user, code);
+  if (sessionStorage.getItem(doneKey) === '1') {
+    return result;
+  }
+
+  if (_refApplyInFlight) {
+    return result;
+  }
+
+  _refApplyInFlight = (async () => {
     try {
-      await fetch(`${API}/v1/referral/apply`, {
+      const resp = await fetch(`${API}/v1/referral/apply`, {
         method: 'POST', credentials: 'include',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({code})
+        body: JSON.stringify({ code })
       });
-    } catch(e) {}
-  }
+      const json = await resp.json().catch(() => ({}));
+
+      // 성공 또는 이미 적용 상태는 모두 완료 상태로 기록해 중복 요청 차단
+      if (resp.ok || /이미 추천 코드를 사용/.test(json?.detail || '') || /이미 적용된 추천 코드/.test(json?.data?.message || '')) {
+        sessionStorage.setItem(doneKey, '1');
+      }
+
+      if (resp.ok && window.showToast) {
+        window.showToast(json?.data?.message || '추천 코드가 적용되었습니다.', '#C4384B');
+      }
+    } catch (e) {
+      // 네트워크 오류는 무시(다음 refreshAuth에서 재시도 가능)
+    } finally {
+      _refApplyInFlight = null;
+    }
+  })();
+
   return result;
 };
+
+// ═══ 차트 상태 안정화 핫픽스 (타임프레임/지표 저장-복원) ═══
+(function attachChartStabilityHotfix() {
+  let _saveTimer = null;
+  let _tfRestoreTimer = null;
+
+  function _manualDrawings(chart) {
+    const arr = chart?.overlay?.drawings || [];
+    return arr.filter((d) => ['hline', 'vline', 'trendline', 'fib', 'text'].includes(d?.type));
+  }
+
+  function _scheduleSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      try { window._saveUserSettings && window._saveUserSettings(); } catch (_) {}
+      try { window._saveDrawings && window._saveDrawings(); } catch (_) {}
+      try { window._saveChartSettingsToServer && window._saveChartSettingsToServer(); } catch (_) {}
+    }, 350);
+  }
+
+  // 지표 on/off, 전략 on/off, 타임프레임 변경 후 자동 저장
+  document.addEventListener('click', (ev) => {
+    const el = ev.target?.closest?.('[data-ind], [data-sub], [data-strategy], [data-tf]');
+    if (!el) return;
+    _scheduleSave();
+  }, true);
+
+  // 타임프레임 전환 직전 수동 드로잉 백업 → 전환 후 소실 시 복원
+  document.addEventListener('click', (ev) => {
+    const tfBtn = ev.target?.closest?.('[data-tf]');
+    if (!tfBtn || !window.chart) return;
+
+    const backup = _manualDrawings(window.chart);
+    clearTimeout(_tfRestoreTimer);
+    _tfRestoreTimer = setTimeout(() => {
+      try {
+        const chart = window.chart;
+        if (!chart || typeof chart.addDrawing !== 'function') return;
+
+        const now = _manualDrawings(chart);
+        if (!now.length && backup.length) {
+          backup.forEach((d) => {
+            try { chart.addDrawing(d); } catch (_) {}
+          });
+          chart._dirty = true;
+          _scheduleSave();
+        }
+      } catch (_) {}
+    }, 1200);
+  }, true);
+})();

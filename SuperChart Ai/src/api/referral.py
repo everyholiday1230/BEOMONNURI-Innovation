@@ -47,9 +47,12 @@ async def apply_code(req: dict, user_id: str = Depends(get_current_user_id), db:
     code = (req.get("code") or "").strip().upper()
     if not code or len(code) < 4:
         raise HTTPException(400, "유효하지 않은 코드")
-    # 이미 추천받은 적 있는지
-    existing = (await db.execute(text("SELECT 1 FROM referral_links WHERE referred_id = :uid"), {"uid": user_id})).fetchone()
+    # 이미 추천받은 적 있는지 (동일 코드 재요청은 멱등 처리)
+    existing = (await db.execute(text("SELECT referral_code FROM referral_links WHERE referred_id = :uid"), {"uid": user_id})).fetchone()
     if existing:
+        existing_code = (existing[0] or "").upper()
+        if existing_code == code:
+            return ApiResponse(data={"message": "이미 적용된 추천 코드입니다"})
         raise HTTPException(400, "이미 추천 코드를 사용했습니다")
     # 코드 소유자 찾기
     referrer = (await db.execute(text("SELECT user_id FROM referral_codes WHERE code = :c"), {"c": code})).fetchone()

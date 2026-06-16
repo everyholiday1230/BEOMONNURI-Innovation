@@ -285,14 +285,23 @@ async def save_chart_settings(req: dict, request: Request, user_id: str = Depend
 
     sanitized = {}
     if "activeInds" in req:
-        sanitized["activeInds"] = [i for i in req["activeInds"] if isinstance(i, str) and i in allowed_inds and i not in _REMOVED][:30]
+        sanitized["activeInds"] = list(dict.fromkeys([
+            i for i in req["activeInds"]
+            if isinstance(i, str) and i in allowed_inds and i not in _REMOVED
+        ]))[:30]
     if "activeSubs" in req:
-        sanitized["activeSubs"] = [s for s in req["activeSubs"] if isinstance(s, str) and s in allowed_subs and s not in _REMOVED][:10]
+        sanitized["activeSubs"] = list(dict.fromkeys([
+            s for s in req["activeSubs"]
+            if isinstance(s, str) and s in allowed_subs and s not in _REMOVED
+        ]))[:10]
     _ALLOWED_STRATEGIES = {"golden","dead","ma_support","ma_resist","macd_cross","macd_dead",
         "bb_upper","bb_lower","bb_squeeze","rsi_ob","rsi_os","stoch_cross","stoch_cross_sell",
         "supertrend_buy","supertrend_sell","vol_break","obv_div_buy","obv_div_sell"}
     if "activeStrategies" in req:
-        sanitized["activeStrategies"] = [st for st in req["activeStrategies"] if isinstance(st, str) and st in _ALLOWED_STRATEGIES][:20]
+        sanitized["activeStrategies"] = list(dict.fromkeys([
+            st for st in req["activeStrategies"]
+            if isinstance(st, str) and st in _ALLOWED_STRATEGIES
+        ]))[:20]
 
     # customMA: [{type, period, color, width}] — 최대 10개
     _MA_TYPES = {"EMA","SMA","WMA","TEMA","HMA","DEMA","VWMA"}
@@ -336,9 +345,23 @@ async def save_chart_settings(req: dict, request: Request, user_id: str = Depend
 
     # 즐겨찾기
     if "favSymbols" in req and isinstance(req["favSymbols"], list):
-        sanitized["favSymbols"] = [s for s in req["favSymbols"] if isinstance(s, str) and len(s) <= 20][:50]
+        sanitized["favSymbols"] = list(dict.fromkeys([
+            s for s in req["favSymbols"] if isinstance(s, str) and len(s) <= 20
+        ]))[:50]
     if "favInds" in req and isinstance(req["favInds"], list):
-        sanitized["favInds"] = [s for s in req["favInds"] if isinstance(s, str) and len(s) <= 30][:30]
+        sanitized["favInds"] = list(dict.fromkeys([
+            s for s in req["favInds"] if isinstance(s, str) and len(s) <= 30
+        ]))[:30]
+
+    # 워크스페이스/모의매매 상태 저장 (클라이언트 복원 누락 방지)
+    if "workspaces" in req and isinstance(req["workspaces"], list):
+        sanitized["workspaces"] = req["workspaces"][:10]
+    if "mockPos" in req and isinstance(req["mockPos"], list):
+        sanitized["mockPos"] = req["mockPos"][:200]
+    if "mockHistory" in req and isinstance(req["mockHistory"], list):
+        sanitized["mockHistory"] = req["mockHistory"][:500]
+    if "mockTotalPnl" in req and isinstance(req["mockTotalPnl"], (int, float)):
+        sanitized["mockTotalPnl"] = float(req["mockTotalPnl"])
 
     result = await db.execute(select(UserChartSettings).where(UserChartSettings.user_id == user_id))
     s = result.scalar()
