@@ -495,7 +495,7 @@ table.compare td { color: var(--muted); }
 /* ── Partner grid (로고 only · 무게 균형 보정) ──────────── */
 /* 7개 로고를 균형있게: 데스크톱은 중앙 정렬된 한 줄 흐름(라인 분리) */
 .partner-grid { display: flex; flex-wrap: wrap; justify-content: center; border: var(--border); border-radius: var(--radius-md); background: var(--paper); overflow: hidden; }
-.partner-card { flex: 1 1 14.28%; min-width: 150px; min-height: 116px; padding: clamp(1.2rem, 2vw, 1.7rem); display: grid; place-items: center; border-right: var(--border); border-bottom: var(--border); transition: background .2s var(--ease); }
+.partner-card { flex: 1 1 25%; min-width: 210px; min-height: 116px; padding: clamp(1.2rem, 2vw, 1.7rem); display: grid; place-items: center; border-right: var(--border); border-bottom: var(--border); transition: background .2s var(--ease); }
 .partner-card:hover { background: var(--paper-soft); }
 .partner-card img {
   width: auto; max-width: min(100%, 156px); height: 48px; object-fit: contain;
