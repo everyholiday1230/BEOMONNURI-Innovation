@@ -1,5 +1,6 @@
 """심볼 검색 + 시세 API."""
 import os
+import time
 import uuid as _uuid
 import structlog
 import httpx
@@ -14,6 +15,9 @@ from src.models.schemas import ApiResponse, SymbolOut, PagedData
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 BINANCE_FAPI = "https://fapi.binance.com"
+LIVE_SYMBOLS_CACHE_TTL = 60
+_live_symbols_cache_rows: list[dict] = []
+_live_symbols_cache_ts: float = 0.0
 
 def _matches_symbol_filters(row: dict, q: str = "", asset_class: str | None = None, exchange: str | None = None) -> bool:
     if asset_class and str(row.get("asset_class") or "").lower() != asset_class.lower():
@@ -33,6 +37,12 @@ def _matches_symbol_filters(row: dict, q: str = "", asset_class: str | None = No
 
 async def _fetch_live_crypto_rows() -> list[dict]:
     """Binance USDT 무기한 선물 전체 종목을 동적으로 수집."""
+    global _live_symbols_cache_rows, _live_symbols_cache_ts
+
+    now = time.time()
+    if _live_symbols_cache_rows and (now - _live_symbols_cache_ts) < LIVE_SYMBOLS_CACHE_TTL:
+        return _live_symbols_cache_rows
+
     try:
         async with httpx.AsyncClient(timeout=12) as client:
             resp = await client.get(f"{BINANCE_FAPI}/fapi/v1/exchangeInfo")
@@ -64,10 +74,12 @@ async def _fetch_live_crypto_rows() -> list[dict]:
                 "quote_asset": "USDT",
                 "api_code": code,
             })
+        _live_symbols_cache_rows = rows
+        _live_symbols_cache_ts = now
         return rows
     except Exception as e:
         logger.warning("symbols.live_crypto_fetch_fail", error=str(e)[:160])
-        return []
+        return _live_symbols_cache_rows
 
 
 def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asset_class: str | None = None, exchange: str | None = None):
