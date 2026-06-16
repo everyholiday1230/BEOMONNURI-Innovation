@@ -33,24 +33,43 @@ export { symbols, coinImgUrl, _apiMap, _apiToFront };
 
 export async function loadSymbolsFromDB() {
   try {
-    const r = await fetch('/v1/symbols?page_size=1000');
-    const j = await r.json();
-    if (j.success && j.data && j.data.items) {
-      symbols.length = 0;
-      j.data.items.forEach(s => {
+    symbols.length = 0;
+
+    let page = 1;
+    const pageSize = 5000;
+    const seen = new Set();
+
+    while (true) {
+      const r = await fetch(`/v1/symbols?page=${page}&page_size=${pageSize}`);
+      const j = await r.json();
+      const items = (j && j.success && j.data && Array.isArray(j.data.items)) ? j.data.items : [];
+
+      if (!items.length) break;
+
+      items.forEach(s => {
+        const code = s.symbol_code;
+        if (!code || seen.has(code)) return;
+        seen.add(code);
+
         symbols.push({
-          code: s.symbol_code,
-          name: s.display_name_en || s.symbol_code,
+          code,
+          name: s.display_name_en || code,
           kr: s.display_name_ko || '',
           apiCode: s.api_code || null,
           exchangeCode: s.exchange_code || null,
           asset: s.asset_class || 'crypto'
         });
-        if (s.img_url) coinImgUrl[s.symbol_code] = s.img_url;
-        if (s.api_code) { _apiMap[s.symbol_code] = s.api_code; _apiToFront[s.api_code] = s.symbol_code; }
+
+        if (s.img_url) coinImgUrl[code] = s.img_url;
+        if (s.api_code) { _apiMap[code] = s.api_code; _apiToFront[s.api_code] = code; }
       });
-      window.symbols = symbols;
+
+      if (!(j?.data?.has_next)) break;
+      page += 1;
+      if (page > 50) break; // 안전장치
     }
+
+    window.symbols = symbols;
   } catch (e) { }
 }
 

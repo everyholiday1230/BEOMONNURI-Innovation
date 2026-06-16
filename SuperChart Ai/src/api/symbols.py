@@ -1,6 +1,8 @@
 """심볼 검색 + 시세 API."""
+import os
 import uuid as _uuid
 import structlog
+import httpx
 from fastapi import APIRouter, Request
 from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,62 @@ from src.models.schemas import ApiResponse, SymbolOut, PagedData
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
+BINANCE_FAPI = "https://fapi.binance.com"
+
+def _matches_symbol_filters(row: dict, q: str = "", asset_class: str | None = None, exchange: str | None = None) -> bool:
+    if asset_class and str(row.get("asset_class") or "").lower() != asset_class.lower():
+        return False
+    if exchange and str(row.get("exchange_code") or "").upper() != exchange.upper():
+        return False
+    needle = (q or "").lower().strip()
+    if not needle:
+        return True
+    return (
+        needle in str(row.get("symbol_code", "")).lower()
+        or needle in str(row.get("base_asset", "")).lower()
+        or needle in str(row.get("display_name_ko", "")).lower()
+        or needle in str(row.get("display_name_en", "")).lower()
+    )
+
+
+async def _fetch_live_crypto_rows() -> list[dict]:
+    """Binance USDT 무기한 선물 전체 종목을 동적으로 수집."""
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            resp = await client.get(f"{BINANCE_FAPI}/fapi/v1/exchangeInfo")
+        if resp.status_code != 200:
+            return []
+        payload = resp.json() or {}
+        symbols = payload.get("symbols") or []
+        rows: list[dict] = []
+        for s in symbols:
+            if not isinstance(s, dict):
+                continue
+            if s.get("quoteAsset") != "USDT":
+                continue
+            if s.get("contractType") != "PERPETUAL":
+                continue
+            if s.get("status") != "TRADING":
+                continue
+            code = str(s.get("symbol") or "").upper()
+            base = str(s.get("baseAsset") or "").upper()
+            if not code or not base:
+                continue
+            rows.append({
+                "symbol_code": code,
+                "base_asset": base,
+                "display_name_ko": base,
+                "display_name_en": base,
+                "exchange_code": "BINANCE",
+                "asset_class": "crypto",
+                "quote_asset": "USDT",
+                "api_code": code,
+            })
+        return rows
+    except Exception as e:
+        logger.warning("symbols.live_crypto_fetch_fail", error=str(e)[:160])
+        return []
+
 
 def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asset_class: str | None = None, exchange: str | None = None):
     """DB 장애 시에도 UI가 의미 있는 종목 목록을 보여주도록 중앙 fallback 사용."""
@@ -36,18 +94,7 @@ def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asse
 
     rows.extend(get_curated_catalog())
 
-    if asset_class:
-        rows = [r for r in rows if (r.get("asset_class") or "").lower() == asset_class.lower()]
-    if exchange:
-        rows = [r for r in rows if (r.get("exchange_code") or "").upper() == exchange.upper()]
-    if needle:
-        rows = [
-            r for r in rows
-            if needle in str(r.get("symbol_code", "")).lower()
-            or needle in str(r.get("base_asset", "")).lower()
-            or needle in str(r.get("display_name_ko", "")).lower()
-            or needle in str(r.get("display_name_en", "")).lower()
-        ]
+    rows = [r for r in rows if _matches_symbol_filters(r, q=needle, asset_class=asset_class, exchange=exchange)]
 
     unique_rows: list[dict] = []
     seen: set[str] = set()
@@ -81,7 +128,7 @@ def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asse
 async def search_symbols(q: str = "", asset_class: str | None = None, exchange: str | None = None,
                          page: int = 1, page_size: int = 20, db: AsyncSession = Depends(get_db)):
     # page_size/page 안전 범위로 클램프 (과대/음수 요청에 의한 부하 방지)
-    page_size = min(max(page_size, 1), 500)
+    page_size = min(max(page_size, 1), 5000)
     page = max(page, 1)
     # ── Redis 캐시 (60초) — 페이지 첫 로드 시 동일 쿼리가 다수 발생 ──
     from src.services.redis_cache import cache_get, cache_set
@@ -91,104 +138,99 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
         return ApiResponse(data=cached)
 
     base = select(Symbol, Exchange.exchange_code).join(Exchange).where(Symbol.status == "active")
-    if q:
-        q_safe = q.replace("%", "\\%").replace("_", "\\_")
-        base = base.where(or_(Symbol.symbol_code.ilike(f"%{q_safe}%"), Symbol.base_asset.ilike(f"%{q_safe}%"),
-                                Symbol.display_name_ko.ilike(f"%{q_safe}%"), Symbol.display_name_en.ilike(f"%{q_safe}%")))
-    if asset_class:
-        base = base.where(Symbol.asset_class == asset_class)
-    if exchange:
-        base = base.where(Exchange.exchange_code == exchange)
+
     try:
         from src.services.symbol_resolver import DELISTED_SYMBOLS, get_curated_catalog
 
-        # total count
-        count_q = select(func.count()).select_from(base.subquery())
-        total = (await db.execute(count_q)).scalar() or 0
-
-        # 정렬: sort_order 가 NULL 이면 맨 뒤로, 같은 값이면 symbol_code 알파벳 순
-        query = (
-            base.order_by(
-                Symbol.sort_order.asc().nullslast(),
-                Symbol.symbol_code.asc(),
-            )
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        # 1) DB 활성 심볼(전체)
+        query = base.order_by(Symbol.sort_order.asc().nullslast(), Symbol.symbol_code.asc())
         result = await db.execute(query)
 
-        items: list[SymbolOut] = []
-        seen_codes: set[str] = set()
+        merged_rows: list[dict] = []
         for s, ec in result.all():
             if s.symbol_code in DELISTED_SYMBOLS:
                 continue
-            seen_codes.add(s.symbol_code)
-            items.append(SymbolOut(
-                id=s.id,
-                symbol_code=s.symbol_code,
-                display_name_ko=s.display_name_ko,
-                display_name_en=s.display_name_en,
-                exchange_code=ec,
-                asset_class=s.asset_class,
-                base_asset=s.base_asset,
-                quote_asset=s.quote_asset,
-                img_url=(s.metadata_ or {}).get("img_url"),
-                api_code=(s.metadata_ or {}).get("api_code"),
-            ))
+            row = {
+                "id": s.id,
+                "symbol_code": s.symbol_code,
+                "display_name_ko": s.display_name_ko,
+                "display_name_en": s.display_name_en,
+                "exchange_code": ec,
+                "asset_class": s.asset_class,
+                "base_asset": s.base_asset,
+                "quote_asset": s.quote_asset,
+                "img_url": (s.metadata_ or {}).get("img_url"),
+                "api_code": (s.metadata_ or {}).get("api_code") or s.symbol_code,
+                "source": "db",
+            }
+            if _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
+                merged_rows.append(row)
 
-        # DB에 아직 반영되지 않은 필수/신규 카탈로그를 API 응답에 보강
-        curated = get_curated_catalog()
-        if asset_class:
-            curated = [r for r in curated if (r.get("asset_class") or "").lower() == asset_class.lower()]
-        if exchange:
-            curated = [r for r in curated if (r.get("exchange_code") or "").upper() == exchange.upper()]
-        if q:
-            needle = q.lower()
-            curated = [
-                r for r in curated
-                if needle in str(r.get("symbol_code", "")).lower()
-                or needle in str(r.get("base_asset", "")).lower()
-                or needle in str(r.get("display_name_ko", "")).lower()
-                or needle in str(r.get("display_name_en", "")).lower()
-            ]
-
-        extra_items: list[SymbolOut] = []
-        for idx, row in enumerate(curated, start=1):
-            code = str(row.get("symbol_code", ""))
-            if not code or code in DELISTED_SYMBOLS or code in seen_codes:
+        # 2) 고정 카탈로그 보강
+        for row in get_curated_catalog():
+            if not _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
                 continue
-            seen_codes.add(code)
-            extra_items.append(SymbolOut(
-                id=_uuid.uuid5(_uuid.NAMESPACE_DNS, f"curated:{code}"),
-                symbol_code=code,
+            merged_rows.append({
+                "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"curated:{row.get('symbol_code')}") ,
+                "symbol_code": str(row.get("symbol_code", "")),
+                "display_name_ko": row.get("display_name_ko"),
+                "display_name_en": row.get("display_name_en"),
+                "exchange_code": row.get("exchange_code") or "TWELVE_DATA",
+                "asset_class": str(row.get("asset_class") or "crypto"),
+                "base_asset": str(row.get("base_asset") or row.get("symbol_code") or ""),
+                "quote_asset": str(row.get("quote_asset") or "USD"),
+                "img_url": row.get("img_url"),
+                "api_code": row.get("api_code") or row.get("symbol_code"),
+                "source": "curated",
+            })
+
+        # 3) Binance 전체 USDT 선물(동적 확장)
+        live_rows = await _fetch_live_crypto_rows()
+        for row in live_rows:
+            if str(row.get("symbol_code", "")) in DELISTED_SYMBOLS:
+                continue
+            if not _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
+                continue
+            merged_rows.append({
+                "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"live:{row.get('symbol_code')}") ,
+                **row,
+                "source": "live",
+            })
+
+        # 4) 중복 제거 + 정렬 + 페이징
+        dedup: dict[str, dict] = {}
+        # 우선순위: db > curated > live
+        priority = {"db": 3, "curated": 2, "live": 1}
+        for row in merged_rows:
+            code = str(row.get("symbol_code", ""))
+            if not code:
+                continue
+            prev = dedup.get(code)
+            if not prev or priority.get(str(row.get("source")), 0) > priority.get(str(prev.get("source")), 0):
+                dedup[code] = row
+
+        all_rows = sorted(dedup.values(), key=lambda r: (str(r.get("asset_class") or ""), str(r.get("symbol_code") or "")))
+        total = len(all_rows)
+        start = (page - 1) * page_size
+        chunk = all_rows[start:start + page_size]
+
+        items: list[SymbolOut] = [
+            SymbolOut(
+                id=row.get("id") if isinstance(row.get("id"), _uuid.UUID) else _uuid.uuid5(_uuid.NAMESPACE_DNS, f"sym:{row.get('symbol_code')}") ,
+                symbol_code=str(row.get("symbol_code", "")),
                 display_name_ko=row.get("display_name_ko"),
                 display_name_en=row.get("display_name_en"),
-                exchange_code=row.get("exchange_code") or "TWELVE_DATA",
+                exchange_code=row.get("exchange_code"),
                 asset_class=str(row.get("asset_class") or "crypto"),
-                base_asset=str(row.get("base_asset") or code),
-                quote_asset=str(row.get("quote_asset") or "USD"),
-                api_code=row.get("api_code") or code,
-            ))
+                base_asset=str(row.get("base_asset") or row.get("symbol_code") or ""),
+                quote_asset=str(row.get("quote_asset") or "USDT"),
+                img_url=row.get("img_url"),
+                api_code=row.get("api_code") or row.get("symbol_code"),
+            )
+            for row in chunk
+        ]
 
-        if page == 1 and len(items) < page_size and extra_items:
-            items.extend(extra_items[: max(0, page_size - len(items))])
-
-        # q 조회가 비어있고 page_size가 큰 초기 로딩일 때는 보강분을 추가로 더 제공
-        if page == 1 and not q and page_size >= 500 and extra_items:
-            existing = {x.symbol_code for x in items}
-            for e in extra_items:
-                if e.symbol_code in existing:
-                    continue
-                items.append(e)
-
-        effective_total = total + len(extra_items)
-        data = PagedData(
-            items=items[:page_size],
-            page=page,
-            page_size=page_size,
-            total=max(effective_total, len(items)),
-            has_next=(page * page_size < max(effective_total, len(items))),
-        )
+        data = PagedData(items=items, page=page, page_size=page_size, total=total, has_next=(page * page_size < total))
         await cache_set("symbols_search", cache_key, data.model_dump(), ttl=60)
         return ApiResponse(data=data)
     except Exception as e:
