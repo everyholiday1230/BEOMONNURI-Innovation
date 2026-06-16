@@ -185,6 +185,7 @@ function initNav() {
   const setOpen = (open) => {
     navToggle.setAttribute('aria-expanded', String(open));
     navLinks.classList.toggle('is-open', open);
+    document.body.classList.toggle('nav-open', open);
   };
   navToggle.addEventListener('click', () => {
     setOpen(navToggle.getAttribute('aria-expanded') !== 'true');
@@ -197,6 +198,15 @@ function initNav() {
     if (e.key === 'Escape' && navLinks.classList.contains('is-open')) {
       setOpen(false);
       navToggle.focus();
+    }
+  });
+
+  // 모바일 메뉴 외부 클릭 시 닫기
+  document.addEventListener('click', (e) => {
+    const shell = document.querySelector('.nav-shell');
+    if (!shell) return;
+    if (navLinks.classList.contains('is-open') && !shell.contains(e.target)) {
+      setOpen(false);
     }
   });
 
@@ -221,6 +231,15 @@ function initNav() {
     // 외부 클릭 시 닫기
     document.addEventListener('click', (e) => {
       if (!dd.contains(e.target)) { dd.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); }
+    });
+
+    // 뷰포트 변경 시 메뉴 상태 정리
+    window.addEventListener('resize', () => {
+      if (!window.matchMedia('(max-width: 760px)').matches) {
+        setOpen(false);
+        dd.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
     });
   }
 }
