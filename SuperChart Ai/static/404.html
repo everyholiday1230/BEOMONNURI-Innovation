@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>페이지를 찾을 수 없음 — 범온 AI 슈퍼차트</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#921230;
+  --primary-hover:#A31540;
+  --gold:#D8B66A;
+  --bg:#FAFAFA;
+  --surface:#FFFFFF;
+  --text:#0F172A;
+  --muted:#64748B;
+  --border:#E2E8F0;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#032129;
+    --surface:#0a2e3a;
+    --text:#E6EDF3;
+    --muted:#8B949E;
+    --border:rgba(255,255,255,0.1);
+  }
+}
+body{
+  font-family:"Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+.error-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:48px 36px;
+  max-width:480px;
+  width:100%;
+  text-align:center;
+  box-shadow:0 12px 32px rgba(0,0,0,0.08);
+}
+.error-code{
+  font-size:96px;
+  font-weight:800;
+  color:var(--primary);
+  line-height:1;
+  letter-spacing:-3px;
+  margin-bottom:8px;
+}
+.error-title{
+  font-size:24px;
+  font-weight:700;
+  color:var(--text);
+  margin-bottom:12px;
+  letter-spacing:-0.5px;
+}
+.error-desc{
+  font-size:15px;
+  color:var(--muted);
+  line-height:1.6;
+  margin-bottom:32px;
+}
+.error-actions{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:44px;
+  padding:0 20px;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+  transition:all 0.15s;
+  border:1px solid transparent;
+}
+.btn-primary{
+  background:var(--primary);
+  color:#fff;
+}
+.btn-primary:hover{
+  background:var(--primary-hover);
+  transform:translateY(-1px);
+}
+.btn-secondary{
+  background:transparent;
+  color:var(--primary);
+  border-color:var(--primary);
+}
+.btn-secondary:hover{
+  background:rgba(146,18,48,0.08);
+}
+.error-logo{
+  width:64px;
+  height:64px;
+  margin:0 auto 24px;
+  border-radius:50%;
+  display:block;
+}
+@media (max-width:480px){
+  .error-card{ padding:32px 24px; }
+  .error-code{ font-size:72px; }
+  .error-title{ font-size:20px; }
+  .error-desc{ font-size:14px; }
+}
+</style>
+</head>
+<body>
+<div class="error-card">
+  <img class="error-logo" src="/static/logo.png" alt="범온 AI 슈퍼차트">
+  <div class="error-code">404</div>
+  <h1 class="error-title">페이지를 찾을 수 없습니다</h1>
+  <p class="error-desc">
+    요청하신 페이지가 삭제되었거나<br>
+    잘못된 주소일 수 있습니다.
+  </p>
+  <div class="error-actions">
+    <a href="/" class="btn btn-primary">차트로 이동</a>
+    <a href="/landing" class="btn btn-secondary">홈으로</a>
+  </div>
+</div>
+</body>
+</html>

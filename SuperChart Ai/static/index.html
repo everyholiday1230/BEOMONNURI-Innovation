@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>범온 AI 슈퍼차트 — 160+ 종목 실시간 AI 차트 분석 · 독자 지표 · 자동 시그널</title>
+<meta name="description" content="실시간 암호화폐·주식 차트 + AI 분석. 50+ 보조지표, 거래밀집구간, 범온 캔들, 자동 추세선을 한눈에.">
+<meta name="keywords" content="암호화폐,주식,차트,AI분석,비트코인,이더리움,테슬라,엔비디아,트레이딩,기술적분석,보조지표">
+<meta name="author" content="범온 AI 슈퍼차트">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석">
+<meta property="og:description" content="실시간 암호화폐·주식 차트 + AI 분석. 50+ 보조지표와 올인원 트레이딩 플랫폼.">
+<meta property="og:image" content="https://www.beomonnuri.com/static/og-image.png">
+<meta property="og:url" content="https://www.beomonnuri.com/">
+<meta property="og:site_name" content="범온 AI 슈퍼차트">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="범온 AI 슈퍼차트">
+<meta name="twitter:description" content="실시간 암호화폐 AI 차트 분석 플랫폼">
+<meta name="twitter:image" content="https://www.beomonnuri.com/static/og-image.png">
+<link rel="canonical" href="https://www.beomonnuri.com/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#921230">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="범온 AI 슈퍼차트">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+
+<!-- Pretendard Variable 자체 호스팅 (디자인 토큰 시스템) -->
+<link rel="preconnect" href="https://api.binance.com" crossorigin>
+<link rel="dns-prefetch" href="https://api.binance.com">
+<link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
+
+<script defer src="/static/i18n.js?v=20260608_i18n6"></script>
+<script defer src="/static/js/init.js"></script>
+<script defer src="/static/js/api.js"></script>
+<script defer src="/static/js/namespace.js"></script>
+<link rel="stylesheet" href="/static/css/main.css?v=20260616_zfix">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://www.beomonnuri.com/#webapp",
+      "name": "범온 AI 슈퍼차트",
+      "alternateName": "BEOMON AI SuperChart",
+      "url": "https://www.beomonnuri.com",
+      "description": "실시간 암호화폐·주식·원자재 차트 + AI 분석. RSI, MACD, 거래밀집구간, 자동 시그널, 청산 히트맵을 한눈에.",
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "TradingPlatform",
+      "operatingSystem": "Any (Web Browser)",
+      "browserRequirements": "JavaScript, WebSocket",
+      "inLanguage": ["ko", "en", "ja", "zh"],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "KRW"
+      },
+      "featureList": [
+        "실시간 차트 분석",
+        "AI 매매 시그널",
+        "범온 독자 지표 (Bimaco, Darak MA, OB)",
+        "다중 타임프레임 비교",
+        "청산 히트맵",
+        "정밀 롱숏 비율",
+        "트렌드 인사이트",
+        "모의 매매"
+      ],
+      "publisher": {
+        "@id": "https://www.beomonnuri.com/#organization"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.beomonnuri.com/#organization",
+      "name": "범온 AI 슈퍼차트",
+      "url": "https://www.beomonnuri.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.beomonnuri.com/static/logo.png",
+        "width": 256,
+        "height": 256
+      },
+      "sameAs": [
+        "https://www.youtube.com/@BEOMONAISuperChart"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.beomonnuri.com/#website",
+      "url": "https://www.beomonnuri.com",
+      "name": "범온 AI 슈퍼차트",
+      "publisher": {
+        "@id": "https://www.beomonnuri.com/#organization"
+      },
+      "inLanguage": "ko",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.beomonnuri.com/chart/{symbol}",
+        "query-input": "required name=symbol"
+      }
+    }
+  ]
+}
+</script>
+<script>
+// 시스템 다크모드 자동 감지 (FOUC 방지를 위해 head에서 즉시 실행)
+(function(){
+  try {
+    var saved = localStorage.getItem('chartOS_theme');
+    var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // 사용자가 명시적으로 선택한 적 없으면 시스템 따라감
+    var useDark = saved === 'dark' || (!saved && sysDark);
+    if (useDark) document.documentElement.classList.add('dark-pre');
+    document.addEventListener('DOMContentLoaded', function(){
+      if (useDark) document.body.classList.add('dark');
+      document.documentElement.classList.remove('dark-pre');
+    });
+    // 시스템 테마 변경 시 자동 따라감 (사용자가 수동 설정 안한 경우만)
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
+        if (!localStorage.getItem('chartOS_theme')) {
+          document.body.classList.toggle('dark', e.matches);
+          if (window.chart) window.chart._dirty = true;
+        }
+      });
+    }
+  } catch(e) {}
+})();
+</script>
+</head>
+<body>
+<a href="#mainContent" class="sr-only" style="position:absolute;top:0;left:0;z-index:9999;padding:8px;background:#921230;color:#fff" onfocus="this.style.clip='auto';this.style.width='auto';this.style.height='auto'" onblur="this.style.clip='rect(0,0,0,0)';this.style.width='1px';this.style.height='1px'">본문으로 건너뛰기</a>
+<h1 class="sr-only">범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석 플랫폼</h1>
+
+<div id="splashScreen">
+  <div class="splash-logo">범온 AI 슈퍼차트</div>
+  <div class="splash-sub">Loading trading platform...</div>
+  <div class="splash-bar"><span></span></div>
+</div>
+
+<!-- Hero 오버레이 — 첫 방문자 전용 (localStorage: chartOS_heroSeen) -->
+<div id="heroOverlay" class="hero-overlay" role="dialog" aria-modal="true" aria-labelledby="heroTitle">
+  <div class="hero-card">
+    <button id="heroClose" class="hero-close" aria-label="닫기">✕</button>
+
+    <h1 id="heroTitle" class="hero-title">복잡한 차트는<br>AI가 대신 분석합니다</h1>
+    <p class="hero-desc" data-dynamic-text="{지표수}+ 전용 지표와 실시간 시그널로|추세·진입·목표까지 한눈에 확인하세요">40+ 전용 지표와 실시간 시그널로<br>추세·진입·목표까지 한눈에 확인하세요</p>
+
+    <div class="hero-features">
+      <div class="hero-feature">
+        <div class="hero-feature-label">자동 차트 분석</div>
+      </div>
+      <div class="hero-feature">
+        <div class="hero-feature-label" data-dynamic-text="{지표수}+ 지표 자동분석">40+ 지표 자동분석</div>
+      </div>
+      <div class="hero-feature">
+        <div class="hero-feature-label">실시간 시그널</div>
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <button aria-label="버튼" id="heroStart" class="btn btn-primary btn-lg btn-block">회원가입</button>
+      <button aria-label="버튼" id="heroDemo" class="btn btn-secondary btn-block">데모 차트 먼저 보기</button>
+    </div>
+
+    <div class="hero-note">✓ 가입 무료</div>
+  </div>
+</div>
+
+<div id="noticeBanner" style="display:none;position:fixed;top:0;left:0;width:100%;z-index:9998;background:linear-gradient(90deg,#921230,#A31540);color:#fff;font-size:14px;padding:10px 44px 10px 16px;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(106,30,51,0.3)"><span id="noticeBannerText"></span></div>
+<div id="leftPanel" tabindex="-1" class="left" role="complementary" aria-label="종목 목록">
+  <div id="mobileOverlay" class="mobile-overlay" style="display:none" data-action="closeOverlay"></div>
+  <div class="left-brand-header">
+    <img loading="eager" id="companyLogo" class="left-brand-logo" src="/static/logo.png" alt="범온 AI 슈퍼차트" width="24" height="24">
+    <div class="left-brand-text">
+      <div class="left-brand-name">범온 AI 슈퍼차트</div>
+      <div class="left-brand-sub">BEOMON AI SuperChart</div>
+    </div>
+  </div>
+  <!-- 왼쪽 패널 탭 -->
+  <!-- 종목 리스트 -->
+  <div id="leftPane_market" class="left-pane-content" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+  <!-- 레퍼럴 링크 (비활성화)
+  <a href="https://www.bitmart.com/invite/ctCAsR" target="_blank" rel="noopener" data-track="bitmart_referral" class="partner-link">
+    <img loading="lazy" src="/static/bitmart-icon.png" alt="BitMart" class="partner-link-icon" width="18" height="18">
+    <span class="partner-link-name">BitMart</span>
+    <span class="partner-link-cta">가입하기 →</span>
+  </a>
+  <a href="https://partner.bitget.com/bg/LBS8TR" target="_blank" rel="noopener" data-track="bitget_referral" class="partner-link">
+    <img loading="lazy" src="/static/bitget-icon.png" alt="Bitget" class="partner-link-icon partner-link-icon-rounded" width="18" height="18">
+    <span class="partner-link-name">Bitget</span>
+    <span class="partner-link-cta">가입하기 →</span>
+  </a>
+  -->
+  <a href="https://www.youtube.com/@BitMartT-Korea" target="_blank" rel="noopener" data-track="youtube" class="partner-link">
+    <svg width="20" height="14" viewBox="0 0 24 17"><path d="M23.5 2.5A3 3 0 0021.4.4C19.5 0 12 0 12 0S4.5 0 2.6.4A3 3 0 00.5 2.5 31.5 31.5 0 000 8.5a31.5 31.5 0 00.5 6A3 3 0 002.6 16.6C4.5 17 12 17 12 17s7.5 0 9.4-.4a3 3 0 002.1-2.1 31.5 31.5 0 00.5-6 31.5 31.5 0 00-.5-6z" fill="#FF0000"/><path d="M9.5 12.2l6.3-3.7-6.3-3.7z" fill="#fff"/></svg>
+    <span class="partner-link-name">YouTube</span>
+    <span class="partner-link-cta">구독하기 →</span>
+  </a>
+  <div class="search-box"><label for="searchInput" class="sr-only">종목 검색</label><input id="searchInput" placeholder="심볼 검색..." autocomplete="off"></div>
+  <!-- 암호화폐/주식 탭 -->
+  <div id="assetTabs" style="display:flex;border-bottom:1px solid rgba(216,182,106,0.2);background:var(--color-surface);font-size:14px">
+    <div class="asset-tab active" data-asset="crypto" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;font-weight:600;border-bottom:2px solid #921230">암호화폐</div>
+    <div class="asset-tab" data-asset="stock" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">주식</div>
+  </div>
+
+  <!-- 관심종목 정렬 옵션 -->
+  <div style="padding:4px 12px;display:flex;align-items:center;gap:4px;font-size:14px;background:var(--color-surface);border-bottom:1px solid rgba(216,182,106,0.15)">
+    <span class="text-muted">정렬</span>
+    <select id="wlSort" class="toolbar-select" style="flex:1;cursor:pointer">
+      <option value="default">시총순</option>
+      <option value="gain">등락률 높은순</option>
+      <option value="loss">등락률 낮은순</option>
+      <option value="price_desc" selected>가격 높은순</option>
+      <option value="price_asc">가격 낮은순</option>
+      <option value="name_asc">이름 A→Z</option>
+      <option value="name_desc">이름 Z→A</option>
+    </select>
+  </div>
+
+  <div class="watchlist" id="watchlist"></div>
+  <div style="padding:6px 10px;border-top:1px solid rgba(216,182,106,0.2);font-size:10px;color:var(--color-text-muted);text-align:center;flex-shrink:0;line-height:1.5">
+    <div>범온누리 이노베이션 · support@beomonnuri.com</div>
+    <div><a href="/terms" style="color:inherit">이용약관</a> · <a href="/privacy" style="color:inherit">개인정보</a> · <a href="/faq" style="color:inherit">FAQ</a> · <a href="/notice" style="color:inherit">공지</a></div>
+    <div style="color:#bbb">© 2026 BEOMON AI SuperChart</div>
+  </div>
+  </div><!-- /leftPane_market -->
+
+  <!-- 탭 콘텐츠: 서비스 소개 -->
+</div>
+
+<div class="resizer-h" id="resizerLeft" title="드래그: 패널 크기 조절"></div>
+<div id="mainContent" tabindex="-1" class="center" role="main" aria-label="차트 메인 영역">
+  <div class="toolbar">
+    <!-- ══════ 1행: 종목 정보 + 파트너 + 사용자 메뉴 ══════ -->
+    <div class="toolbar-row toolbar-row-primary">
+      <button class="hamburger" aria-label="종목 목록 열기" data-action="toggleLeft">☰</button>
+      <!-- 심볼 + 가격 + 변동률 -->
+      <div class="toolbar-symbol-group" style="gap:8px;align-items:center">
+        <img loading="lazy" id="symIcon" alt="" class="sym-icon-top" width="20" height="20" onerror="this.style.display='none'">
+        <span class="sym-name" id="symName">BTC<span class="quote">/USDT</span></span>
+        <span class="price-big flat" id="curPrice">-</span>
+        <span id="changeBadge" class="change-badge flat" style="font-size:14px">24h 변동 0.00%</span>
+        <div id="ohlcInfo" style="font-size:13px;color:var(--color-text-muted);margin-left:12px;display:flex;gap:12px;align-items:center">
+          <span id="ohlcOpen" title="시가">시 -</span>
+          <span id="ohlcHigh" title="고가" style="color:#C4384B">고 -</span>
+          <span id="ohlcLow" title="저가" style="color:#3B82F6">저 -</span>
+          <span id="ohlcVol" title="거래량">거래량 -</span>
+          <span id="ohlcAmount" title="거래대금">대금 -</span>
+        </div>
+      </div>
+      <!-- 실시간 WS 점 -->
+      <span id="portfolioWidget" class="portfolio-widget"></span>
+      <!-- 파트너 링크 -->
+<!--       <a href="https://www.bitmart.com/invite/ctCAsR" target="_blank" rel="noopener" class="partner-pill partner-pill-bitmart"><img loading="lazy" src="/static/bitmart-icon.png" alt="BitMart">BitMart</a> -->
+<!--       <a href="https://partner.bitget.com/bg/LBS8TR" target="_blank" rel="noopener" class="partner-pill partner-pill-bitget"><img loading="lazy" src="/static/bitget-icon.png" alt="Bitget">Bitget</a> -->
+      <!-- 우측 여백 -->
+      <div class="toolbar-spacer"></div>
+      <!-- 우측: 회사/사용자 관련 메뉴 -->
+      <div class="toolbar-user-group">
+        <span id="userBadge" class="user-badge" data-action="userBadgeClick" title="내 계정">···</span>
+        <button id="loginCta" aria-label="로그인 또는 회원가입" data-action="showAuth" class="btn btn-primary btn-sm d-none">회원가입</button>
+        <button id="logoutBtn" aria-label="로그아웃" data-action="_logout" class="btn btn-danger btn-xs d-none">로그아웃</button>
+        <button id="settingsBtn" aria-label="설정" data-action="_showSettings" class="btn btn-secondary btn-xs d-none">설정</button>
+        <button class="tb" aria-label="언어 변경" data-action="toggleLang" title="언어" id="langBtn">Language</button>
+        <button class="tb" aria-label="테마 변경" title="다크/라이트 테마 전환" onclick="document.body.classList.toggle('dark');localStorage.setItem('chartOS_theme',document.body.classList.contains('dark')?'dark':'light');if(window.chart){window.chart._dirty=true}if(window.chart2){window.chart2._dirty=true}if(window._updateActiveIndList){window._updateActiveIndList()}">테마</button>
+        <!-- 거래소 인증 버튼 비활성화 -->
+        <button class="tb" aria-label="피드백 보내기" data-action="_showFeedback" title="피드백" data-i18n="피드백">피드백</button>
+        <button class="tb" aria-label="도움말 열기" data-action="openHelp" title="도움말" data-i18n="도움말">도움말</button>
+      </div>
+    </div>
+
+    <!-- ══════ 2행: 차트 컨트롤 (TF + 도구 + 데모매매) ══════ -->
+    <div class="toolbar-row toolbar-row-secondary">
+      <!-- 타임프레임 -->
+      <div class="tb" data-tf="1m" title="1분봉 차트">1분</div>
+      <div class="tb active" data-tf="5m" title="5분봉 차트">5분</div>
+      <div class="tb" data-tf="15m" title="15분봉 차트">15분</div>
+      <div class="tb" data-tf="1h" title="1시간봉 차트">1시간</div>
+      <div class="tb" data-tf="4h" title="4시간봉 차트">4시간</div>
+      <div class="tb" data-tf="1d" title="일봉 차트">일봉</div>
+      <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
+      <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
+      <div class="sep"></div>
+      <button aria-label="공개 지표 패널" class="tb" id="indDrawerToggle" data-drawer="public" class="fw-600" title="공개 지표 패널">지표</button>
+      <button aria-label="범온 지표 패널" class="tb" id="beomDrawerToggle" data-drawer="beom" class="fw-600" title="범온 지표 패널">범온지표</button>
+      <button aria-label="매매전략 패널" class="tb" id="strategyDrawerToggle" class="fw-600" title="매매전략 패널">매매전략</button>
+      <button aria-label="드로잉 도구" class="tb" id="drawingDrawerToggle" class="fw-600" title="드로잉 도구">드로잉</button>
+      <button aria-label="프리셋" class="tb" id="presetDrawerToggle" class="fw-600" title="프리셋">프리셋</button>
+      <div class="sep"></div>
+      <button aria-label="차트설정 저장" class="tb" data-action="saveSettings" title="차트설정 저장">설정저장</button>
+      <button aria-label="전체화면" class="tb" data-action="toggleFullscreen" title="전체화면" id="fsBtn">전체화면</button>
+      <select id="chartTypeSelect" onchange="setChartType(this.value)" aria-label="차트 유형" class="toolbar-select">
+        <option value="candle">캔들</option><option value="line">라인</option><option value="area">영역</option>
+      </select>
+      <button class="tb" id="logScaleBtn" data-action="toggleLogScale" title="가격축 로그/선형 전환" aria-label="로그 스케일 전환">선형</button>
+      <button class="tb" id="magnetBtn" data-action="toggleMagnet" title="크로스헤어 자석(캔들 OHLC에 스냅)" aria-label="자석 모드">자석</button>
+      <div class="sep"></div>
+      <!-- 다중 차트 레이아웃 -->
+      <div style="display:inline-flex;gap:2px;background:rgba(216,182,106,0.08);border-radius:6px;padding:2px" title="차트 분할 레이아웃">
+        <button class="tb-layout active" data-layout="1" onclick="window._setChartLayout?.(1)" title="단일 차트" aria-label="1분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:#921230;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">1</button>
+        <button class="tb-layout" data-layout="2" onclick="window._setChartLayout?.(2)" title="2개 분할 (좌우)" aria-label="2분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊟</button>
+        <button class="tb-layout" data-layout="4" onclick="window._setChartLayout?.(4)" title="4개 분할 (2x2)" aria-label="4분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊞</button>
+      </div>
+      <button class="tb" id="compareBtn" onclick="window._toggleCompareMode?.()" title="여러 종목을 한 차트에 비교 (정규화 라인)" aria-label="종목 비교">비교</button>
+      <!-- 자주 안 쓰는 도구 (더보기 영역) -->
+      <details class="tb-more" style="position:relative;display:inline-block">
+        <summary class="tb" title="더보기" style="list-style:none;cursor:pointer;padding:5px 12px;font-weight:600;height:32px;display:inline-flex;align-items:center">더보기</summary>
+        <div style="position:absolute;top:100%;right:0;background:var(--color-surface-raised);border:1px solid rgba(216,182,106,0.25);border-radius:8px;padding:6px;z-index:300;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+          <button class="tb" data-draw="clear" title="그려진 드로잉 모두 삭제" aria-label="드로잉삭제" style="color:var(--red);width:100%;text-align:left;padding:6px 8px">드로잉 삭제</button>
+          <button class="tb" data-action="applyPreset" data-param="clean" title="모든 지표 끄기" aria-label="차트초기화" style="width:100%;text-align:left;padding:6px 8px">차트 초기화</button>
+          <button class="tb" data-action="captureChart" title="차트 스크린샷" aria-label="스크린샷" style="width:100%;text-align:left;padding:6px 8px">스크린샷</button>
+        </div>
+      </details>
+      <button id="replayBtn" class="tb" style="display:none" onclick="window._replayToggle&&_replayToggle()" title="리플레이 (유튜브 촬영용)">리플레이</button>
+      <div class="toolbar-spacer"></div>
+      <span id="mdInfo" class="md-info"></span>
+      <span id="autobotInfo" class="md-info d-none"></span>
+    </div>
+
+    <!-- ══════ 3행: 종목 즐겨찾기 ══════ -->
+    <div class="toolbar-row toolbar-row-fav">
+      <div class="fav-group fav-group-wide">
+        <span class="fav-group-icon">관심 종목</span>
+        <div id="favSymbols" class="fav-group-syms"></div>
+      </div>
+    </div>
+    <!-- ══════ 4행: 지표 즐겨찾기 ══════ -->
+    <div class="toolbar-row toolbar-row-fav">
+      <div class="fav-group fav-group-wide">
+        <span class="fav-group-icon">관심 지표</span>
+        <div id="favInds" class="fav-group-inds"></div>
+      </div>
+    </div>
+  </div>
+  <!-- 데모매매 플로팅 패널 제거됨 — 모의주문 탭(#order)으로 통합 -->
+  <!-- 자동매매(AI매매) 패널 — Paper Trading -->
+  <div id="autobotPanel" class="md-panel autobot-panel" style="display:none;right:220px;width:290px" data-draggable="true">
+    <div class="md-panel-title md-panel-header" data-drag-handle>
+      <span>AI 자동매매</span>
+      <button class="md-panel-close" data-action="_closePanel" data-target="autobotPanel" aria-label="닫기">✕</button>
+    </div>
+    <div class="md-panel-meta" style="color:var(--color-warning);font-size:14px;margin-bottom:8px">
+      실제 주문 없음 (차트 신호만)
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:8px">
+      <button aria-label=" autobotSetMode" id="autobotMode_conservative" class="flex-1" data-action="_autobotSetMode" data-param="conservative">보수적</button>
+      <button aria-label=" autobotSetMode" id="autobotMode_balanced" class="flex-1" data-action="_autobotSetMode" data-param="balanced">절충</button>
+      <button aria-label=" autobotSetMode" id="autobotMode_custom" class="flex-1" data-action="_autobotSetMode" data-param="custom">커스텀</button>
+    </div>
+
+    <!-- 커스텀 모드 — 지표 선택 + 가중치 -->
+    <div id="autobotCustomBox" style="display:none;background:rgba(216,182,106,0.05);border:1px solid var(--color-border);border-radius:6px;padding:8px;margin-bottom:8px;font-size:14px">
+      <div style="color:var(--color-primary);font-weight:700;margin-bottom:6px">지표 선택 + 가중치</div>
+      <div id="autobotIndList" style="display:flex;flex-direction:column;gap:4px"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--color-border)">
+        <span class="text-muted">진입 임계값:</span>
+        <input type="number" id="autobotThreshold" value="4" step="0.5" min="1" max="20" style="width:50px;padding:2px 4px;border:1px solid var(--color-border);border-radius:6px;font-size:14px">
+        <span style="color:var(--color-text-muted);font-size:14px">(합계 이상)</span>
+      </div>
+      <div style="font-size:14px;color:var(--color-text-muted);margin-top:4px">0으로 하면 비활성화</div>
+    </div>
+
+    <button aria-label=" autobotRun" data-action="_autobotRun" class="btn btn-primary btn-sm btn-block" style="margin-bottom:8px">분석 실행</button>
+    <div id="autobotSummary" style="font-size:14px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:8px;padding:8px;background:var(--color-primary-soft);border-radius:6px;display:none"></div>
+    <div id="autobotLog" style="font-size:14px;max-height:120px;overflow-y:auto;color:var(--color-text-muted)"></div>
+    <button aria-label=" autobotClear" data-action="_autobotClear" class="mt-xs">신호 지우기</button>
+  </div>
+  <div class="ohlc-bar" id="ohlcBar" class="d-none"></div>
+  <div id="chartsArea" class="flex-col-full">
+    <div id="chart1Panel" class="flex-col-full">
+      <div class="chart-wrap" id="chartWrap" style="flex:1;min-height:0;min-width:0">
+        <div class="loading" id="chartLoading" style="display:flex;align-items:center;gap:8px"><span class="skeleton-pulse"></span>차트 로딩 중...</div>
+        <div id="activeIndList" style="position:absolute;top:22px;left:6px;z-index:3;display:flex;flex-wrap:wrap;gap:3px;pointer-events:none;max-width:50%;font-size:14px"></div>
+        <div id="signalBadge" style="position:absolute;top:6px;right:96px;z-index:3;pointer-events:none;font-size:14px;font-weight:700;padding:4px 12px;border-radius:8px;display:none"></div>
+        <div id="ladderBadge" style="position:absolute;top:32px;right:96px;z-index:3;pointer-events:none;font-size:14px;font-weight:600;padding:3px 10px;border-radius:6px;display:none;backdrop-filter:blur(8px)"></div>
+        <div id="qsignalBadge" style="position:absolute;top:32px;right:280px;z-index:3;pointer-events:none;font-size:14px;font-weight:600;padding:3px 10px;border-radius:6px;display:none;backdrop-filter:blur(8px)"></div>
+        <div id="bimacoDelayBadge" style="position:absolute;top:48px;right:96px;z-index:3;font-size:14px;font-weight:600;padding:3px 10px;border-radius:6px;display:none;backdrop-filter:blur(8px)"></div>
+        <div id="drawingList" style="display:none"></div>
+        <div id="goLatestBtn" data-action="goLatest" class="btn-pill" title="최신 봉으로 이동" style="display:none;position:absolute;bottom:28px;right:100px;z-index:5">▶ 최신</div>
+      </div>
+    </div>
+    
+  </div>
+  <div id="adminTools" style="display:none;background:rgba(255,253,249,0.95);border-top:1px solid rgba(216,182,106,0.3);padding:4px 8px;font-size:14px;color:var(--text)">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="color:#A31540;font-weight:700;font-size:14px">ADMIN</span>
+      <button data-action="startReplayMode" id="replayStartBtn" class="btn-mini is-primary" aria-label="리플레이 시작">▶ Replay</button>
+      <div id="replayControls" style="display:none;align-items:center;gap:4px">
+        <button aria-label="10봉 뒤로 이동" data-action="replayBack10" class="btn-mini">⏪10</button>
+        <button aria-label="1봉 뒤로 이동" data-action="replayBack1" class="btn-mini">◀1</button>
+        <button aria-label="1봉 앞으로 이동" data-action="replayFwd1" class="btn-mini">1▶</button>
+        <button aria-label="10봉 앞으로 이동" data-action="replayFwd10" class="btn-mini">10⏩</button>
+        <select id="replaySpeed" aria-label="재생 속도 선택" onchange="const v=parseInt(this.value,10);if(v>0)chart.replayAutoPlay(v);else chart.replayAutoStop()" style="padding:1px 4px;background:var(--color-surface-raised);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">
+          <option value="0">⏸ 정지</option><option value="2000">2초</option><option value="1000">1초</option><option value="500">0.5초</option><option value="200">0.2초</option><option value="100">0.1초</option><option value="50">0.05초</option><option value="20">0.02초</option><option value="5">MAX</option>
+        </select>
+        <button aria-label="재생 속도 증가" data-action="replaySpeedUp" class="btn-mini" style="color:#C4384B;border-color:rgba(74,158,107,0.4)" title="빠르게">+</button>
+        <button aria-label="재생 속도 감소" data-action="replaySpeedDown" class="btn-mini" style="color:var(--color-error);border-color:rgba(196,56,75,0.4)" title="느리게">-</button>
+        <span id="replayInfo" style="color:var(--muted);font-size:14px">0/0</span>
+        <button aria-label="Replay 모드 종료" data-action="stopReplayMode" style="padding:1px 8px;background:rgba(196,56,75,0.2);border:1px solid rgba(196,56,75,0.4);border-radius:6px;color:var(--color-error);cursor:pointer;font-size:14px">✕ 종료</button>
+      </div>
+      <span style="color:var(--border)">|</span>
+      <button aria-label="시나리오 예측 시작" data-action="startForecast" style="padding:2px 8px;background:rgba(74,158,107,0.15);border:1px solid rgba(74,158,107,0.3);border-radius:6px;color:#C4384B;cursor:pointer;font-size:14px">시나리오</button>
+      <button aria-label="경로 투영 시작" data-action="startProjection" style="padding:2px 8px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);border-radius:6px;color:#A31540;cursor:pointer;font-size:14px">경로투영</button>
+      <button aria-label="예측 지우기" data-action="clearForecast" style="padding:2px 6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px">지우기</button>
+    </div>
+  </div>
+  <div id="resizerChart" class="d-none"></div>
+  <div class="ind-bar" id="indDrawerPublic">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(216,182,106,0.15);width:100%;flex-shrink:0">
+      <span id="indDrawerTitle" style="font-size:14px;font-weight:700;color:var(--color-text-primary)">지표</span>
+      <button aria-label="닫기" id="indDrawerClose" style="background:none;border:none;font-size:18px;color:var(--color-text-muted);cursor:pointer;padding:2px 6px" title="닫기">✕</button>
+    </div>
+    <!-- ═════ 회원 등급별 안내 배너 (지표 위 전체 폭) ═════ -->
+    <div class="ind-row premium-row" data-drawer-group="beom">
+      <div class="ind-group">
+        <span class="ind-group-label">AI 캔들·이평선</span>
+        <div class="ind-tag pro-ind" data-ind="ultra" title="추세 방향과 강도를 색상으로 표시하는 AI 캔들 | 추천: 5분~1시간">범온 캔들</div>
+        <div class="ind-tag pro-ind" data-ind="bimaco2" title="정밀한 추세 분석과 시그널 감지 AI 캔들 | 추천: 5분~15분">범온 캔들 PRO</div>
+        <div class="ind-tag member-ind" data-ind="darak" title="시장에 적응하는 지능형 이동평균선 | 추천: 5분~4시간">범온 이동평균선</div>
+        <div class="ind-tag member-ind" data-ind="autotrend" title="주요 고점·저점 추세선 자동 생성 | 추천: 15분~4시간">자동추세선</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">진입·청산 시그널</span>
+        <div class="ind-tag pro-ind" data-ind="ob" title="매수·매도 집중 구간을 자동 감지하여 표시 | 추천: 15분~4시간">거래밀집구간</div>
+        <div class="ind-tag pro-ind" data-ind="obsig" title="추세 시작 구간 감지 시그널 | 추천: 5분~1시간">범온 추세시작</div>
+        <div class="ind-tag pro-ind" data-ind="bimaco_tp" title="AI가 예측한 진입·손절·익절 목표가 표시 | 추천: 5분~1시간">AI목표</div>
+        <div class="ind-tag pro-ind" data-ind="ttr" title="단타 익절 타이밍 감지 | 추천: 1분~5분">단타 익절</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">모멘텀·강도</span>
+        <div class="ind-tag pro-ind" data-ind="_u" title="추세 강도를 수치로 측정">강도측정</div>
+        <div class="ind-tag pro-ind" data-ind="udstoch" title="시장 과열/침체 구간 감지">과열분석</div>
+        <div class="ind-tag member-ind" data-ind="stc" title="추세 전환 시점 조기 감지">추세전환</div>
+        <div class="ind-tag sub-ind" data-sub="rsim" title="RSI 모멘텀 다이버전스 존 · 가격 반전 구간 자동 감지">다이버전스</div>
+        <div class="ind-tag sub-ind member-ind" data-sub="imacd" title="추세 방향에 따라 색상이 변하는 MACD">범온 MACD</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">거래량·자금흐름</span>
+        <div class="ind-tag member-ind" data-ind="rsimfi" title="매수·매도 세력 간 힘의 균형 분석">매매압력</div>
+        <div class="ind-tag member-ind" data-ind="pasrpvi" title="기관·대형 자금 유입/유출 추적">자금흐름</div>
+        <div class="ind-tag sub-ind pro-ind" data-sub="kvo" title="거래량 흐름 기반 추세 판단">거래량분석</div>
+        <div class="ind-tag sub-ind pro-ind" data-sub="master" title="복합 지표 종합 매매 시그널">종합매매</div>
+        <div class="ind-tag pro-ind" data-ind="ladder" style="display:none">Ladder</div>
+      </div>
+    </div>
+    <div class="ind-row basic-row" data-drawer-group="public">
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#921230">추세</span>
+        <div class="ind-tag" data-ma-type="EMA" title="최근 가격에 가중치를 둔 이동평균선">EMA</div>
+        <div class="ind-tag" data-ma-type="SMA" title="일정 기간 종가의 단순 평균선">SMA</div>
+        <div class="ind-tag" data-ma-type="WMA" title="최근 가격에 선형 가중치를 둔 평균선">WMA</div>
+        <div class="ind-tag" data-ma-type="HMA" title="지연을 최소화한 빠른 이동평균선">HMA</div>
+        <div class="ind-tag" data-ma-type="DEMA" title="이중 평활화로 지연을 줄인 이동평균선">DEMA</div>
+        <div class="ind-tag" data-ma-type="TEMA" title="삼중 평활화로 노이즈를 제거한 이동평균선">TEMA</div>
+        <div class="ind-tag" data-ind="ichimoku" data-sub="ichimoku" title="일목균형표 · 구름대로 지지/저항 시각화">일목균형표</div>
+        <div class="ind-tag" data-ind="psar" data-sub="psar" title="추세 반전 감지 · 점으로 방향 전환 표시">추세반전</div>
+        <div class="ind-tag" data-ind="supertrend" data-sub="supertrend" title="추세 방향 자동 판단선">슈퍼트렌드</div>
+        <div class="ind-tag" data-ind="emaribbon" title="다중 이동평균 리본 (EMA/SMA/WMA 선택)">MA리본</div>
+        <div id="customMAList"></div>
+        <!-- +추세 버튼 제거 (이평선 개별 추가로 대체) -->
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#921230">모멘텀</span>
+        <div class="ind-tag sub-ind" data-sub="rsi" title="과매수/과매도 판단 (기준: 70/30)">RSI</div>
+        <div class="ind-tag sub-ind" data-sub="macd" title="이동평균 수렴·확산으로 추세 전환 감지">MACD</div>
+        <div class="ind-tag sub-ind" data-sub="stoch" title="과매수/과매도 교차 시그널">스토캐스틱</div>
+        <div class="ind-tag sub-ind" data-sub="cci" title="평균 대비 가격 이탈 정도 측정">CCI</div>
+        <div class="ind-tag sub-ind" data-sub="roc" title="일정 기간 전 대비 가격 변화율">변화율</div>
+        <div class="ind-tag sub-ind" data-sub="willr" title="최근 고점 대비 현재 가격 위치">윌리엄스</div>
+        <div class="ind-tag sub-ind" data-sub="stochrsi" title="RSI의 과열/침체를 정밀하게 감지">스토캐스틱RSI</div>
+        <div class="ind-tag sub-ind" data-sub="mom" title="가격 변화 속도 측정">모멘텀</div>
+        <div class="ind-tag sub-ind" data-sub="tsi" title="이중평활모멘텀 · 노이즈 제거된 추세 방향">TSI</div>
+        <div class="ind-tag sub-ind" data-sub="trix" title="장기 추세 변화율 감지">TRIX</div>
+        <div class="ind-tag sub-ind" data-sub="ao" title="오썸오실레이터 · 시장 모멘텀 방향 감지">AO</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#921230">변동성</span>
+        <div class="ind-tag" data-ind="dayband" title="당일 고가/저가/중심/25%/75% 밴드">고가저가</div>
+        <div class="ind-tag" data-ind="bb" data-sub="bb" title="가격 변동 범위를 밴드로 표시">볼린저</div>
+        <div class="ind-tag" data-ind="keltner" data-sub="keltner" title="켈트너채널 · 변동성 기반 상하 밴드">켈트너</div>
+        <div class="ind-tag" data-ind="envelope" data-sub="envelope" title="엔벨로프 · 이동평균 위아래 % 밴드">엔벨로프</div>
+        <div class="ind-tag sub-ind" data-sub="atr" title="평균변동폭 · 손절/목표가 설정 기준">ATR</div>
+        <div class="ind-tag sub-ind" data-sub="rs" title="시장(BTC) 대비 상대 강도 · 1 이상이면 시장보다 강함">RS</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#921230">거래량</span>
+        <div class="ind-tag" data-ind="vol" data-sub="vol" title="차트 하단 거래량 바 표시/숨기기">거래량</div>
+        <div class="ind-tag sub-ind" data-sub="obv" title="매수/매도 거래량 누적 비교">OBV</div>
+        <div class="ind-tag" data-ind="volprofile" data-sub="volprofile" title="가격대별 거래량 분포 표시">거래량분포</div>
+        <div class="ind-tag sub-ind" data-sub="mfi" title="자금흐름지수 · 거래량 포함 과매수/과매도">MFI</div>
+        <div class="ind-tag sub-ind" data-sub="cmf" title="차이킨자금흐름 · 매집/분산 구간 감지">CMF</div>
+        <div class="ind-tag sub-ind" data-sub="volosc" title="거래량 증감 추세 측정">거래량추세</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#921230">가격구조</span>
+        <div class="ind-tag" data-ind="vwap" data-sub="vwap" title="거래량 가중 평균가 (기관 기준선)">VWAP</div>
+        <div class="ind-tag" data-ind="pivot" data-sub="pivot" title="피봇 포인트 · 당일 지지/저항 자동 계산">피봇</div>
+        
+      </div>
+    </div>
+    <div class="ind-row" data-drawer-group="drawing" class="d-none">
+      <div class="ind-group">
+        <span class="ind-group-label">드로잉 도구</span>
+        <div class="ind-tag" data-draw="fib" title="피보나치 되돌림 그리기">피보나치</div>
+        <div class="ind-tag" data-draw="hline-mode" title="수평선 그리기">수평선</div>
+        <div class="ind-tag" data-draw="trendline" title="추세선 그리기">추세선</div>
+        <div class="ind-tag" data-draw="text" title="텍스트 메모 추가">텍스트</div>
+        <div class="ind-tag" data-draw="vline" title="수직선 그리기 (특정 시점 표시)">수직선</div>
+        <div class="ind-tag" data-draw="clear" title="모든 드로잉 삭제">전체 삭제</div>
+      </div>
+    </div>
+    <div class="ind-row" data-drawer-group="preset" class="d-none">
+      <div class="ind-group">
+        <span class="ind-group-label" style="color:#8B6914">프리셋</span>
+        <div class="ind-tag" data-action="applyPreset" data-param="scalp" title="1분봉 | EMA9·20 + BB + RSI·Stoch">스캘핑</div>
+        <div class="ind-tag" data-action="applyPreset" data-param="swing" title="1시간봉 | EMA50·200 + 슈퍼트렌드 + RSI·ADX·MACD + 범온캔들·OB·추세선">스윙</div>
+        <div class="ind-tag" data-action="applyPreset" data-param="pro" title="5분봉 | RSI·MACD·Stoch + 범온캔들·PRO·MA·OB·추세시작·단타익절·정역배열">프로</div>
+        <div class="ind-tag" data-action="applyPreset" data-param="clean" title="모든 지표 끄기 + 차트 리셋">클린</div>
+        <div class="ind-tag" data-action="applyPreset" data-param="beom" title="5분봉 | 거래량 + 범온무료 + RSI + 범온캔들·MA·OB·추세시작">범온 기본</div>
+        <div class="panel-section" style="margin-top:12px">
+          <div class="panel-section-title" style="color:#8B6914">내 프리셋</div>
+          <div class="workspace-btn-row">
+            <button aria-label="현재 지표 구성을 내 프리셋으로 저장" onclick="window._saveUserPreset()" title="현재 켜진 지표 구성을 내 프리셋으로 저장" class="btn-uniform btn-uniform-primary">현재 구성 저장</button>
+          </div>
+          <div id="userPresetList" style="font-size:12px;margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ind-row" data-drawer-group="strategy" class="d-none">
+      <div class="ind-group">
+        <span class="ind-group-label">이평선 전략</span>
+        <div class="ind-tag" data-strategy="golden" title="EMA 20 ↗ EMA 60 — 단기선이 장기선을 상향 돌파">골든크로스 (매수)</div>
+        <div class="ind-tag" data-strategy="dead" title="EMA 20 ↘ EMA 60 — 단기선이 장기선을 하향 돌파">데드크로스 (매도)</div>
+        <div class="ind-tag" data-strategy="ma_support" title="EMA 60 — 이평선 지지 반등">이평선 지지 (매수)</div>
+        <div class="ind-tag" data-strategy="ma_resist" title="EMA 60 — 이평선 저항 하락">이평선 저항 (매도)</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">모멘텀 전략</span>
+        <div class="ind-tag" data-strategy="rsi_ob" title="RSI 14 — 30 이하 과매도 진입">RSI 과매도 (매수)</div>
+        <div class="ind-tag" data-strategy="rsi_os" title="RSI 14 — 70 이상 과매수 진입">RSI 과매수 (매도)</div>
+        <div class="ind-tag" data-strategy="macd_cross" title="MACD(12,26,9) — 시그널선 상향 돌파">MACD 골든크로스 (매수)</div>
+        <div class="ind-tag" data-strategy="macd_dead" title="MACD(12,26,9) — 시그널선 하향 돌파">MACD 데드크로스 (매도)</div>
+        <div class="ind-tag" data-strategy="stoch_cross" title="스토캐스틱(14,3) — %K가 %D 상향 돌파 (20 이하)">스토캐스틱 (매수)</div>
+        <div class="ind-tag" data-strategy="stoch_cross_sell" title="스토캐스틱(14,3) — %K가 %D 하향 돌파 (80 이상)">스토캐스틱 (매도)</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">변동성 전략</span>
+        <div class="ind-tag" data-strategy="bb_lower" title="볼린저밴드(20,2) — 하단 터치 후 반등">볼린저 하단 (매수)</div>
+        <div class="ind-tag" data-strategy="bb_upper" title="볼린저밴드(20,2) — 상단 터치 후 반락">볼린저 상단 (매도)</div>
+        <div class="ind-tag" data-strategy="bb_squeeze" title="볼린저밴드(20,2) — 수축 후 확장 진입">볼린저 스퀴즈 (양방향)</div>
+        <div class="ind-tag" data-strategy="supertrend_buy" title="Supertrend(10,3) — 상승 전환">슈퍼트렌드 (매수)</div>
+        <div class="ind-tag" data-strategy="supertrend_sell" title="Supertrend(10,3) — 하락 전환">슈퍼트렌드 (매도)</div>
+      </div>
+      <div class="ind-group">
+        <span class="ind-group-label">거래량 전략</span>
+        <div class="ind-tag" data-strategy="vol_break" title="Volume — 평균 대비 2배 이상 돌파">거래량 돌파 (매수)</div>
+        <div class="ind-tag" data-strategy="obv_div_buy" title="OBV — 가격 하락 + OBV 상승 (강세 다이버전스)">OBV 다이버전스 (매수)</div>
+        <div class="ind-tag" data-strategy="obv_div_sell" title="OBV — 가격 상승 + OBV 하락 (약세 다이버전스)">OBV 다이버전스 (매도)</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="ind-settings-panel" id="indSettingsPanel"></div>
+
+<div class="resizer-h" id="resizerRight" title="드래그: 패널 크기 조절 · 더블클릭: 접기/펼치기" style="display:flex;align-items:center;justify-content:center"><div style="width:3px;height:30px;background:rgba(216,182,106,0.4);border-radius:2px"></div></div>
+<div id="rightPanel" tabindex="-1" class="right" role="complementary" aria-label="분석 패널">
+
+<!-- 도움말 패널 -->
+<div id="langPanel" style="display:none;position:fixed;top:44px;right:10px;background:rgba(255,253,249,0.97);border:1px solid var(--border);border-radius:8px;padding:12px;z-index:201;min-width:200px;box-shadow:0 4px 16px rgba(106,30,51,0.1)">
+<div class="flex-between" style="margin-bottom:8px">
+  <div style="font-weight:600;color:var(--text);font-size:14px">언어 설정</div>
+  <button class="md-panel-close" data-action="_closePanel" data-target="langPanel" aria-label="닫기">✕</button>
+</div>
+<div id="langList"></div>
+</div>
+<!-- 설정 모달 -->
+<div id="settingsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
+<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;margin-bottom:16px"><b>설정</b><span style="cursor:pointer;color:var(--muted)" onclick="document.getElementById('settingsModal').style.display='none'">✕</span></div>
+<div id="settingsContent"></div>
+</div>
+</div>
+<div id="helpPanel" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
+<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;margin-bottom:16px"><b class="text-sm">범온 AI 슈퍼차트 도움말</b><span style="cursor:pointer;color:var(--muted)" data-action="closeHelp">✕</span></div>
+<div style="font-size:14px;line-height:1.8">
+<b class="text-accent">단축키</b>
+<table style="width:100%;font-size:14px;line-height:2;margin:6px 0 12px">
+<tr><td style="color:var(--muted);width:40%">Shift + 클릭</td><td>수평선 그리기</td></tr>
+<tr><td class="text-muted">Shift + 드래그</td><td>추세선 그리기</td></tr>
+<tr><td class="text-muted">추세선 버튼 → 드래그 / 두 점 클릭</td><td>추세선 그리기</td></tr>
+<tr><td class="text-muted">수직선 버튼 → 클릭</td><td>세로선(특정 시점) 그리기</td></tr>
+<tr><td class="text-muted">피보나치 버튼 → 드래그</td><td>피보나치 되돌림 그리기</td></tr>
+<tr><td class="text-muted">ESC / Delete</td><td>선택된 드로잉 삭제</td></tr>
+<tr><td class="text-muted">우클릭</td><td>지표/오버레이 메뉴</td></tr>
+<tr><td class="text-muted">마우스 휠</td><td>줌 인/아웃</td></tr>
+<tr><td class="text-muted">더블클릭</td><td>차트 범위 초기화</td></tr>
+<tr><td class="text-muted">드래그</td><td>차트 좌우 이동 (과거 자동 로딩)</td></tr>
+<tr><td class="text-muted">1~6</td><td>타임프레임 전환 (1m/5m/15m/1H/4H/1D)</td></tr>
+<tr><td class="text-muted">Alt+F</td><td>풀스크린 토글</td></tr>
+<tr><td class="text-muted">Ctrl+S</td><td>스크린샷 저장</td></tr>
+<tr><td class="text-muted">/</td><td>심볼 검색 포커스</td></tr>
+<tr><td class="text-muted">?</td><td>이 도움말 열기</td></tr>
+<tr><td class="text-muted">지표 클릭</td><td>지표 적용 + 설정 팝업 자동 열림</td></tr>
+<tr><td class="text-muted">차트 위 지표 이름 클릭</td><td>해당 지표 설정 열기</td></tr>
+<tr><td class="text-muted">◀ 버튼</td><td>오른쪽 패널 접기/펼치기</td></tr>
+</table>
+<b class="text-accent">VIP 전용 기능</b>
+<p class="muted-note">거래밀집구간 · 자동 추세선 · 범온 캔들 · 목표도달 · 강도측정 · 매매압력 · Q-Signal · Ladder</p>
+<b class="text-accent">서브차트</b>
+<p class="muted-note">RSI · MACD · 스토캐스틱 · OBV · ATR · CCI · ADX · W%R · MFI · CMF · ROC · IMACD (최대 3개)</p>
+<b class="text-accent">AI 기능</b>
+<p class="muted-note">AI 분석 (추세강도 게이지) · MTF 다중 타임프레임 비교</p>
+<b class="text-accent">차트</b>
+<p class="muted-note">캔들/라인/영역 전환 · 스크린샷(Ctrl+S) · 피보나치/추세선/수평선/수직선 드로잉</p>
+<b class="text-accent">지표 설정 · 프리셋</b>
+<p class="muted-note">지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 <b>기본값</b> 버튼으로 초기값 복원. 자주 쓰는 지표 구성은 프리셋 메뉴의 <b>내 프리셋</b>으로 저장/불러오기 할 수 있습니다.</p>
+<b class="text-accent">지표 저장</b>
+<p class="muted-note">하단 <b>지표설정 저장</b> 버튼으로 현재 지표 선택을 서버에 저장합니다 (로그인 필요). 드로잉(추세선/수평선)은 브라우저에 자동 저장됩니다.</p>
+<b class="text-accent">추천 지표 조합</b>
+<table style="width:100%;font-size:14px;line-height:1.8;margin:4px 0 12px">
+<tr><td style="color:#C4384B;width:30%">초보자</td><td>BEOM + EMA20/50 + RSI</td></tr>
+<tr><td style="color:#921230">중급자</td><td>BEOM + 목표도달 + 거래밀집구간 + MACD</td></tr>
+<tr><td style="color:var(--gold-text)">고급자</td><td>BEOM + 진입시그널 + 강도측정 + 추세전환 + 거래밀집구간</td></tr>
+<tr><td style="color:var(--color-error)">자동매매</td><td>AI 자동 추천 (VIP 전용)</td></tr>
+</table>
+<b class="text-accent">면책 조항</b>
+<p style="margin:4px 0 8px;color:var(--muted);font-size:14px;line-height:1.6">
+본 서비스는 투자 조언이 아닙니다. 모든 투자 판단과 그에 따른 손익은 전적으로 이용자 본인의 책임입니다. 
+과거 수익률이 미래 수익을 보장하지 않습니다. 암호화폐 선물 거래는 높은 위험을 수반하며 원금 손실이 발생할 수 있습니다.
+</p>
+<div style="margin-top:12px;display:flex;gap:8px">
+<button aria-label="openFaqFromHelp" data-action="openFaqFromHelp" style="flex:1;padding:8px;background:#921230;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">FAQ 센터</button>
+<button aria-label="startTourFromHelp" data-action="startTourFromHelp" style="flex:1;padding:8px;background:var(--color-surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;color:var(--color-text-primary)">퀵 투어</button>
+</div>
+</div></div></div>
+  <div class="right-tabs">
+    <div class="right-tab active" data-p="ai" data-t="AI" title="AI 종합 분석 · 범온 지표 요약 (무료 체험)">AI<span class="tab-badge">무료</span></div>
+    <div class="right-tab" data-p="mtf" data-t="추세강도" title="멀티 타임프레임 범온강도 비교">추세강도</div>
+    <div class="right-tab" data-p="hot" title="거래량·변동성 상위 10종목 (실시간)">인기 TOP<span class="tab-dot"></span></div>
+    <div class="right-tab" data-p="heatmap" title="전 종목 실시간 등락률 한눈에">히트맵<span class="tab-dot"></span></div>
+    <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
+    <div class="right-tab" data-p="order" title="가상 매수·매도 연습 (실제 거래 아님)">모의주문</div>
+    <div class="right-tab" data-p="position" title="롱숏 비율 + 청산 히트맵 — 기관 자금 흐름">포지션</div>
+  </div>
+  <div class="right-pane active" id="ai">
+    <div class="p-12">
+      <div class="ai-hook">
+        <span class="ai-hook-ico">AI</span>
+        <span class="ai-hook-txt"><b>차트를 AI가 대신 읽어드립니다.</b><br>추세·매매 시점·강도를 한눈에 — 지금 무료로 확인하세요.</span>
+      </div>
+      <div class="flex-between" style="margin-bottom:8px">
+        <div style="font-weight:700;font-size:14px">AI 분석</div>
+        <div id="aiUsageInfo" class="text-muted" style="font-size:12px"></div>
+      </div>
+
+      <!-- AI 분석 결과 (로그인 시 — 위에 표시) -->
+      <div id="aiResult" style="max-width:100%;overflow-x:hidden"></div>
+
+      <!-- 범온 지표 실시간 요약 (비로그인도 표시) -->
+      <div id="beomSummary" style="margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div class="ai-stat-card-lg">
+            <div class="fz-xs-muted">범온캔들</div>
+            <div id="aiBeomV" class="value-lg c-primary">-</div>
+            <div id="aiBeomLabel" class="fz-xs-muted">독자 종합 신호</div>
+          </div>
+          <div class="ai-stat-card-lg">
+            <div class="fz-xs-muted">범온 이동평균선</div>
+            <div id="aiTrendDir" class="value-lg">-</div>
+            <div id="aiTrendLabel" class="fz-xs-muted">적응형 추세 방향</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px">
+          <div class="ai-stat-card">
+            <div class="fz-xs-muted">과열분석</div>
+            <div id="aiRsi" class="fz-base-bold">-</div>
+          </div>
+          <div class="ai-stat-card">
+            <div class="fz-xs-muted">범온 MACD</div>
+            <div id="aiImacd" class="fz-base-bold">-</div>
+          </div>
+          <div class="ai-stat-card">
+            <div class="fz-xs-muted">매매압력</div>
+            <div id="aiKvo" class="fz-base-bold">-</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">
+          <div class="ai-stat-card">
+            <div class="fz-xs-muted">강도측정</div>
+            <div id="aiBuyRatio" class="fz-base-bold">-</div>
+          </div>
+          <div class="ai-stat-card">
+            <div class="fz-xs-muted">자금흐름</div>
+            <div id="aiFunding" class="fz-base-bold">-</div>
+          </div>
+        </div>
+        <div style="background:rgba(0,0,0,0.03);border-radius:6px;padding:8px">
+          <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px">AI 진입 시그널</div>
+          <div id="aiObSignal" style="font-size:13px;font-weight:600">-</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.03);border-radius:6px;padding:8px;margin-top:8px">
+          <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:6px">지표 선택 분석</div>
+          <div id="aiIndPicker" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
+            <label class="ai-ind-chip"><input type="checkbox" value="rsi" checked> RSI</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="macd" checked> MACD</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="stoch"> 스토캐스틱</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="ma" checked> 이동평균</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="bb"> 볼린저</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="adx"> ADX</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="cci"> CCI</label>
+            <label class="ai-ind-chip"><input type="checkbox" value="volume" checked> 거래량</label>
+          </div>
+          <button onclick="window._runIndAnalysis?.()" class="btn-uniform btn-uniform-primary btn-block" style="height:28px;font-size:12px">선택 지표 분석</button>
+          <div id="aiIndResult" style="font-size:12px;margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- AI 분석 결과 (로그인 시) -->
+    </div>
+    <div style="margin-top:12px;padding:8px;background:rgba(0,0,0,0.03);border-radius:6px;font-size:11px;color:var(--color-text-muted);line-height:1.5">⚠️ 투자 유의사항: 본 서비스의 AI 분석과 시그널은 투자 참고용이며, 투자 손실에 대한 책임은 투자자 본인에게 있습니다.</div>
+  </div>
+  <div class="right-pane" id="mtf">
+    <div style="padding:12px 8px 4px">
+      <div class="pane-title">멀티 타임프레임 신호</div>
+      <div id="mtfHeader" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <img loading="lazy" id="mtfSymbolImg" src="" style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:none" alt="">
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:600;font-size:14px;color:var(--gold-text);white-space:nowrap">
+            <span id="mtfSymbol">BTC</span><span style="color:var(--color-text-muted);font-weight:400;font-size:14px;margin-left:2px">/USDT</span>
+          </div>
+          <div id="mtfSymbolKr" style="color:var(--color-text-muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">비트코인</div>
+        </div>
+      </div>
+      <div class="text-muted" style="font-size:12px;margin-top:6px" data-t="모든 타임프레임의 추세 방향을 한눈에">모든 타임프레임의 추세 방향을 한눈에</div>
+    </div>
+    <div id="mtfGrid" style="padding:0 8px;max-width:100%;overflow-x:hidden"></div>
+  </div>
+  <div class="right-pane" id="similar">
+    <div class="p-12">
+      <div class="pane-title">유사패턴 분석</div>
+      <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:12px">현재 차트 패턴과 비슷했던 과거 구간을 찾아 향후 방향을 예측합니다</div>
+      <div id="similarEmpty" class="state-empty" style="font-size:13px;line-height:1.7">
+        아래 <b>분석 실행</b> 버튼을 누르면<br>과거 유사 패턴을 검색합니다
+      </div>
+      <div class="flex-between" style="margin-bottom:8px">
+        <span style="font-size:14px;color:var(--color-text-muted)">분석 봉수</span>
+        <select id="similarPeriod" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--bg);color:var(--text)">
+          <option value="20">20봉</option>
+          <option value="30">30봉</option>
+          <option value="50">50봉</option>
+          <option value="100" selected>100봉</option>
+          <option value="200">200봉</option>
+          <option value="300">300봉</option>
+          <option value="500">500봉</option>
+        </select>
+      </div>
+      <div class="flex-between" style="margin-bottom:8px">
+        <span style="font-size:14px;color:var(--color-text-muted)">예측 봉수</span>
+        <select id="similarFuture" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--bg);color:var(--text)">
+          <option value="5">5봉</option>
+          <option value="10">10봉</option>
+          <option value="15">15봉</option>
+          <option value="20" selected>20봉</option>
+          <option value="30">30봉</option>
+          <option value="50">50봉</option>
+        </select>
+      </div>
+      <button aria-label="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" id="similarRunBtn" title="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" style="width:100%;padding:8px;background:#921230;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">분석 실행</button>
+      <div id="similarResult" style="margin-top:16px">
+        <div style="color:var(--color-text-muted);font-size:14px;text-align:center;padding:20px 0">
+          현재 차트와 유사한 과거 패턴을 찾아<br>이후 가격 변화를 분석합니다.<br><br>
+          <span style="font-size:12px">분석 봉수와 예측 봉수를 선택하고<br>분석 실행을 눌러주세요.</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button aria-label="분석 결과를 저장합니다" onclick="window._saveSimilarResult()" title="분석 결과를 저장합니다" style="flex:1;padding:6px;background:rgba(196,56,75,0.15);color:#C4384B;border:1px solid rgba(196,56,75,0.4);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">결과 저장</button>
+        <button aria-label="분석 결과를 클립보드에 복사합니다" onclick="window._shareSimilarResult()" title="분석 결과를 클립보드에 복사합니다" style="flex:1;padding:6px;background:rgba(216,182,106,0.15);color:var(--gold-text);border:1px solid rgba(216,182,106,0.4);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">공유 복사</button>
+      </div>
+    </div>
+  </div>
+  <div class="right-pane" id="heatmap">
+    <div style="padding:4px;font-size:14px;color:var(--color-text-muted)">전 종목 실시간 등락률</div>
+    <div style="display:flex;gap:4px;margin-bottom:6px;padding:0 4px">
+      <button id="hmTabCrypto" aria-label="히트맵 암호화폐" onclick="window._hmAsset='crypto';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
+      <button id="hmTabStock" aria-label="히트맵 주식" onclick="window._hmAsset='stock';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
+    </div>
+    <div id="heatmapGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:3px;padding:4px;max-width:100%;overflow-x:hidden"></div>
+    <button aria-label="loadHeatmap" class="ai-btn" data-action="loadHeatmap" style="margin:6px">새로고침</button>
+  </div>
+
+  <div class="right-pane" id="hot">
+    <div class="p-12">
+      <!-- 시장 분위기 + 트렌드 인사이트 -->
+      <div class="panel-section" id="trendInsightsBox">
+        <div class="flex-between" style="margin-bottom:6px">
+          <div class="panel-section-title" style="margin-bottom:0">시장 분위기</div>
+          <div id="marketMoodBadge" class="tag-pill tag-pill-neutral"></div>
+        </div>
+        <div id="marketSummaryStats" class="panel-section-desc"></div>
+        <div id="trendInsightTabs" class="trend-tab-row">
+          <button class="ti-tab active" data-cat="top_gainers" onclick="window._switchTrendCat?.('top_gainers')">상승</button>
+          <button class="ti-tab" data-cat="top_losers" onclick="window._switchTrendCat?.('top_losers')">하락</button>
+          <button class="ti-tab" data-cat="top_volume" onclick="window._switchTrendCat?.('top_volume')">거래량</button>
+          <button class="ti-tab" data-cat="top_volatility" onclick="window._switchTrendCat?.('top_volatility')">변동성</button>
+        </div>
+        <div id="trendInsightList"></div>
+      </div>
+
+      <div class="pane-title">인기 종목 TOP 10</div>
+      <div class="pane-desc">거래량과 변동성이 높은 종목 (24시간 기준)</div>
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        <button id="hotSortTurnover" aria-label="거래대금순 정렬" onclick="window._hotSort='turnover';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px">거래대금순</button>
+        <button id="hotSortMomentum" aria-label="모멘텀순 정렬" onclick="window._hotSort='momentum';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px">모멘텀순</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button id="hotTabCrypto" aria-label="인기종목 암호화폐" onclick="window._hotAsset='crypto';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
+        <button id="hotTabStock" aria-label="인기종목 주식" onclick="window._hotAsset='stock';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
+      </div>
+      <div id="hotList" style="font-size:13px"></div>
+      <button aria-label="refreshHot" onclick="window._loadHotCoins()" style="margin-top:8px;padding:6px 12px;background:rgba(146,18,48,0.1);color:#921230;border:none;border-radius:6px;cursor:pointer;font-size:13px">새로고침</button>
+    </div>
+  </div>
+
+  <div class="right-pane" id="order">
+    <div class="p-12">
+      <div class="pane-title">모의주문 (Paper Trading)</div>
+
+      <!-- 잔고 카드 -->
+      <div id="paperBalanceCard" style="margin-bottom:10px"></div>
+
+      <!-- 주문 폼 -->
+      <div id="paperOrderForm" style="margin-bottom:10px"></div>
+
+      <!-- 미체결 주문 -->
+      <div id="paperPendingOrders"></div>
+
+      <!-- 활성 포지션 -->
+      <div id="paperPositions" style="margin-top:10px"></div>
+
+      <!-- 거래 히스토리 -->
+      <div id="paperHistory" style="margin-top:10px;max-height:300px;overflow-y:auto;border-top:1px solid rgba(0,0,0,0.05);padding-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="right-pane" id="position">
+    <div class="p-12">
+      <div class="pane-title">포지션 분석</div>
+      <div class="pane-desc">기관·대형 자금 롱숏 비율 + 청산 가격대</div>
+
+      <!-- 1) 정밀 롱숏 비율 -->
+      <div class="panel-section">
+        <div class="flex-between" style="margin-bottom:6px">
+          <div class="panel-section-title" style="margin-bottom:0">롱/숏 비율</div>
+          <div id="lsConsensus" class="tag-pill tag-pill-neutral"></div>
+        </div>
+        <div id="lsDetailedTable"></div>
+      </div>
+
+      <!-- 2) 펀딩비 -->
+      <div class="panel-section">
+        <div class="flex-between">
+          <div class="text-muted-color" style="font-size:12px">다음 펀딩</div>
+          <div id="fundingRateVal" class="num-tabular text-bold" style="font-size:14px">--</div>
+        </div>
+        <div id="fundingHint" class="text-muted-sm" style="margin-top:2px"></div>
+      </div>
+
+      <!-- 3) 청산 히트맵 -->
+      <div class="panel-section">
+        <div class="flex-between" style="margin-bottom:6px">
+          <div class="panel-section-title" style="margin-bottom:0">청산 히트맵 (24h)</div>
+          <button onclick="window._toggleLiqOverlay?.()" id="liqOverlayBtn" class="btn-uniform btn-uniform-secondary" style="height:24px;padding:0 8px;font-size:11px">차트 표시</button>
+        </div>
+        <div id="liqSummary" class="num-tabular" style="font-size:12px;margin-bottom:8px"></div>
+        <canvas id="liqHeatmapCanvas" width="280" height="200" style="width:100%;background:var(--color-surface-sunken);border-radius:var(--radius-md)"></canvas>
+        <div id="liqClusters" class="num-tabular" style="font-size:11px;margin-top:8px"></div>
+      </div>
+
+      <button onclick="window._loadPositionData?.()" class="btn-uniform btn-uniform-primary btn-block">새로고침</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="/static/js/main-app.js?v=20260616_savefix"></script>
+<script defer src="/static/js/modules/hotmap.js"></script>
+<script defer src="/static/js/modules/ai-panel.js"></script>
+<script defer src="/static/js/modules/position-panel.js"></script>
+<script defer src="/static/js/modules/multi-chart.js"></script>
+<script defer src="/static/js/modules/trend-insights.js"></script>
+<script defer src="/static/js/modules/guest-mode.js"></script>
+<script defer src="/static/js/modules/shortcuts.js?v=20260526_i18n"></script>
+<script defer src="/static/js/modules/data-actions.js"></script>
+<script defer src="/static/js/modules/chart-extras.js"></script>
+<script defer src="/static/js/modules/paper-trading.js"></script>
+<script defer src="/static/js/modules/referral-ui.js"></script>
+<script defer src="/static/js/page-events.js"></script>
+<script defer src="/static/js/autobot.js"></script>
+<script defer src="/static/js/draggable-panels.js"></script>
+
+
+<nav class="mobile-nav" aria-label="모바일 네비게이션">
+  <button id="mnLeft" aria-label="종목 목록" data-action="toggleMobilePanel" data-param="left"><span style='font-size:14px'>≡</span><span>종목</span></button>
+  <button id="mnChart" class="active" aria-label="차트" data-action="toggleMobilePanel" data-param="chart"><span style='font-size:14px'>◉</span><span>차트</span></button>
+  <button aria-label="도구" data-action="toggleMobilePanel" data-param="tools"><span>도구</span></button>
+  <button id="mnRight" aria-label="분석" data-action="toggleMobilePanel" data-param="right"><span style='font-size:14px'>◈</span><span>분석</span></button>
+  <button aria-label="설정" data-action="toggleMobilePanel" data-param="settings"><span style='font-size:14px'>☰</span><span>설정</span></button>
+</nav>
+<div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;width:100%;background:#DC2626;color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;z-index:9999">네트워크 연결이 끊겼습니다. 재연결 시도 중...</div>
+<script>window.addEventListener("offline",()=>document.getElementById("offlineBanner").style.display="block");window.addEventListener("online",()=>{document.getElementById("offlineBanner").style.display="none";location.reload()});</script>
+</body>
+</html>

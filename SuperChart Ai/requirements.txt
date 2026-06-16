@@ -1,0 +1,30 @@
+# Runtime (FastAPI + DB + auth + WebSocket + LLM HTTP client)
+fastapi==0.136.1
+uvicorn[standard]>=0.27,<1.0
+sqlalchemy[asyncio]>=2.0,<3.0
+asyncpg==0.31.0
+alembic==1.18.4
+redis==7.4.0
+httpx==0.28.1
+websockets==16.0
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-jose[cryptography]>=3.3,<4.0
+passlib[bcrypt]>=1.7,<2.0
+bcrypt==3.2.2
+orjson==3.11.8
+structlog==25.5.0
+email-validator==2.3.0
+slowapi==0.1.9
+
+# Data / ML (PyTorch는 Dockerfile에서 CPU 휠로 별도 설치)
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+
+# 선택 (백테스트/튜닝에만 사용 — 서비스 구동에는 불필요)
+deap==1.4.3
+optuna==4.8.0
+brotli==1.2.0
+sentry-sdk[fastapi]>=2.0

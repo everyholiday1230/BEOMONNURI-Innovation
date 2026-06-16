@@ -1,0 +1,67 @@
+# ── 시크릿 / 환경 변수 ──
+# 모든 .env* 파일은 제외, *.example 만 추적
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# ── 운영 중 배포 시크릿 메모(개발자 로컬 전용) ──
+DEPLOYMENT_SECRETS.md
+
+# ── Python / venv ──
+__pycache__/
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv/
+
+# ── 런타임 상태 / 데이터 ──
+data/
+# 예외: 전략 파라미터 JSON 은 런타임 필수라 추적 유지
+!data/v12_params.json
+!data/v13_params.json
+visit_stats.json
+multi_demo_state.json
+demo_*.json
+strategy_result_*.json
+strategy_backtest.json
+optimization_results*.json
+# 루트 백테스트 산출물 (scripts/*.py 가 생성, 런타임 서비스 미사용)
+top5_v2.json
+top5_strict.json
+top5_strategies.json
+bidirectional_results.json
+alpha_analysis.json
+final_top5.json
+backups/
+logs/
+*.log
+
+# ── ML 모델 / 가중치 ──
+*.pt
+*.pth
+*.zip
+models/ai_model/checkpoints/
+
+# ── Node / 기타 ──
+node_modules/
+.DS_Store
+*.swp
+.idea/
+.vscode/
+data/live_state.json
+multi_demo_state.json
+# packaging generated artifacts
+*.egg-info/
+src/*.egg-info/
+.env.trading
+src_backup/
+
+# 디자인 원본 파일 (대용량, 운영 미사용)
+범온누리_로고.ai
+범온누리_로고.jpg
+로고*.png
+*.psd
+*.fig
+static/logo.png.bak

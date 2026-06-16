@@ -1,0 +1,104 @@
+# Chart-OS Render 배포 — 모든 리소스 singapore 리전
+databases:
+  - name: chart-os-db
+    # 2024-10 이후 Render가 Legacy Postgres 플랜(starter/standard 등)을 더 이상
+    # 신규 생성에 허용하지 않음 → Flexible Plans의 basic-256mb 사용.
+    # 가격 동일(~$6/월), 사양: 0.1 CPU / 256MB RAM / 100 conn.
+    # 확장 시 basic-1gb / basic-4gb / pro-4gb 등으로 재배정 가능.
+    plan: basic-256mb
+    region: singapore
+    databaseName: chart_os
+    user: chart
+
+services:
+  # Redis
+  - type: redis
+    name: chart-os-redis
+    plan: starter
+    region: singapore
+    maxmemoryPolicy: allkeys-lru
+    # Render 내부 private network만 접근 — 같은 region의 Web Service가 fromService로 연결
+    # 외부 공개하려면 [{source: 0.0.0.0/0, description: public}]로 변경 (비권장)
+    ipAllowList: []
+
+  # Web
+  - type: web
+    name: chart-os
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore  # DB/Redis와 동일 리전
+    plan: starter
+    numInstances: 1
+    # 배포 정책 — 저장소가 소유 (Dashboard 기본값 의존 제거)
+    # main 브랜치 push 시에만 auto-deploy (다른 브랜치/PR 은 무시)
+    branch: main
+    autoDeploy: false   # 2026-05 pipeline minutes 한도 사고 후 수동 배포로 전환
+    healthCheckPath: /health
+    envVars:
+      # 필수 — Render 리소스 연결
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chart-os-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: chart-os-redis
+          type: redis
+          property: connectionString
+      # 필수 — 보안
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_KEY
+        generateValue: true
+      - key: ENV
+        value: production
+      # 필수 — 도메인 (배포 담당자가 설정)
+      - key: BASE_URL
+        sync: false  # https://yourdomain.com
+      - key: CORS_ORIGINS
+        sync: false  # https://yourdomain.com
+      # 선택 — Google OAuth
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      # 선택 — SMTP
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # 거래소 API — BitMart 어필리에이트 검증 (src/api/auth.py:38-40)
+      - key: BITMART_API_KEY
+        sync: false
+      - key: BITMART_API_SECRET
+        sync: false
+      - key: BITMART_API_MEMO
+        sync: false
+      # 거래소 API — Bitget 실전매매/referral (src/services/bitget_client.py, src/api/auth.py:63)
+      - key: BITGET_API_KEY
+        sync: false
+      - key: BITGET_API_SECRET
+        sync: false
+      - key: BITGET_API_PASSPHRASE  # 이전 BITGET_PASSPHRASE에서 정정 (실 사용 이름)
+        sync: false
+      - key: BITGET_REFERRAL_UIDS   # 쉼표 구분 UID 리스트 (비밀키 아님, 운영 설정값)
+        sync: false
+      # 관리자 인증 — bcrypt hash (src/api/auth.py:315/888)
+      # 생성: python3 -c "import bcrypt; print(bcrypt.hashpw(b'PLAIN_PW', bcrypt.gensalt()).decode())"
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      # 선택 — 기타
+      - key: SENTRY_DSN
+        sync: false
+      - key: OLLAMA_URL           # Ollama 호스팅 경로 (Grace_Period 종료 전 C5 확정 필요)
+        sync: false
+      - key: OLLAMA_MODEL
+        sync: false

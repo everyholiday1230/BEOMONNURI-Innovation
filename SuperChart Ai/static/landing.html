@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>범온 AI 슈퍼차트 — 실시간 AI 차트 분석 플랫폼</title>
+<meta name="description" content="170+ 종목 실시간 차트, 18개 독자 지표, AI Transformer 예측, 자체 Canvas 엔진. 암호화폐·주식을 한 플랫폼에서.">
+<meta name="keywords" content="암호화폐,주식,차트,AI분석,비트코인,트레이딩,기술적분석,실시간,자동매매">
+<meta property="og:type" content="website">
+<meta property="og:title" content="범온 AI 슈퍼차트 — 실시간 AI 차트 분석 플랫폼">
+<meta property="og:description" content="170+ 종목 실시간 차트, 18개 독자 지표, AI Transformer 예측. 가입 무료.">
+<meta property="og:image" content="https://www.beomonnuri.com/static/og-image.png">
+<meta property="og:url" content="https://www.beomonnuri.com/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://www.beomonnuri.com/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#921230">
+<link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
+<link rel="stylesheet" href="/static/css/landing.css">
+</head>
+<body>
+<!-- Navigation -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">
+      <img src="/static/logo.png" alt="범온 AI 슈퍼차트" width="32" height="32" class="nav-logo">
+      <span class="nav-name">범온 AI 슈퍼차트</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#features" class="nav-link">기능</a>
+      <a href="#indicators" class="nav-link">지표</a>
+      <a href="#technology" class="nav-link">기술</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+    </div>
+    <div class="nav-actions">
+      <a href="/chart" class="btn-nav-secondary">로그인</a>
+      <a href="/chart" class="btn-nav-primary">무료로 시작</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-grid"></div>
+    <div class="hero-glow hero-glow-1"></div>
+    <div class="hero-glow hero-glow-2"></div>
+  </div>
+  <div class="container hero-content">
+    <div class="hero-badge" data-animate="fade-up">
+      <span class="badge-dot"></span>
+      실시간 서비스 운영 중
+    </div>
+    <h1 class="hero-title" data-animate="fade-up" data-delay="100">
+      복잡한 차트 분석,<br>
+      <span class="text-gradient">AI가 대신합니다</span>
+    </h1>
+    <p class="hero-desc" data-animate="fade-up" data-delay="200">
+      Binance · Upbit 실시간 연동. 170+ 종목, 18개 독자 지표,<br>
+      AI Transformer 예측까지 — 하나의 플랫폼에서.
+    </p>
+    <div class="hero-cta" data-animate="fade-up" data-delay="300">
+      <a href="/chart" class="btn-primary btn-lg">
+        <span>차트 시작하기</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="#features" class="btn-secondary btn-lg">기능 살펴보기</a>
+    </div>
+    <div class="hero-stats" data-animate="fade-up" data-delay="400">
+      <div class="stat">
+        <span class="stat-number" data-count="170">0</span><span class="stat-plus">+</span>
+        <span class="stat-label">지원 종목</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-number" data-count="18">0</span>
+        <span class="stat-label">독자 지표</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-number" data-count="7">0</span>
+        <span class="stat-label">분석 카테고리</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-number">24/7</span>
+        <span class="stat-label">실시간 분석</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-visual" data-animate="fade-up" data-delay="500">
+    <div class="browser-frame">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">beomonnuri.com/chart</div>
+      <div class="browser-content">
+        <div class="mock-chart">
+          <canvas id="heroChart" width="800" height="400"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-header" data-animate="fade-up">
+      <span class="section-tag">핵심 기능</span>
+      <h2 class="section-title">트레이딩에 필요한 모든 것</h2>
+      <p class="section-desc">차트 분석부터 자동매매까지, 하나의 플랫폼에서 완결됩니다.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card feature-card-lg" data-animate="fade-up">
+        <div class="feature-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3 class="feature-title">자체 Canvas 차트 엔진</h3>
+        <p class="feature-desc">외부 라이브러리 없이 자체 개발한 고성능 렌더링 엔진. 수천 개 캔들을 60fps로 부드럽게 표시합니다.</p>
+        <ul class="feature-list">
+          <li>캔들, 라인, 영역 차트</li>
+          <li>무제한 줌/스크롤</li>
+          <li>드로잉 도구 (추세선, 피보나치, 수평선)</li>
+          <li>리플레이 모드</li>
+        </ul>
+      </div>
+      <div class="feature-card" data-animate="fade-up" data-delay="100">
+        <div class="feature-icon feature-icon-gold">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h3 class="feature-title">실시간 데이터</h3>
+        <p class="feature-desc">Binance, Upbit WebSocket 직접 연결. 지연 없는 실시간 가격과 거래량을 제공합니다.</p>
+      </div>
+      <div class="feature-card" data-animate="fade-up" data-delay="200">
+        <div class="feature-icon feature-icon-blue">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>
+        <h3 class="feature-title">AI 분석 엔진</h3>
+        <p class="feature-desc">Transformer 기반 가격 예측 모델과 LLM 자연어 해설로 차트를 자동 분석합니다.</p>
+      </div>
+      <div class="feature-card" data-animate="fade-up" data-delay="100">
+        <div class="feature-icon feature-icon-green">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 class="feature-title">자동매매 (Paper)</h3>
+        <p class="feature-desc">실제 자금 위험 없이 AI 시그널 기반 자동매매를 시뮬레이션합니다. 전략 검증에 최적.</p>
+      </div>
+      <div class="feature-card" data-animate="fade-up" data-delay="200">
+        <div class="feature-icon feature-icon-purple">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>
+        <h3 class="feature-title">스마트 알림</h3>
+        <p class="feature-desc">가격 도달, 지표 시그널, 패턴 감지 시 즉시 알림. 시장을 놓치지 않습니다.</p>
+      </div>
+      <div class="feature-card" data-animate="fade-up" data-delay="300">
+        <div class="feature-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h7"/><circle cx="17" cy="18" r="3"/><path d="M17 15v3l2 1"/></svg>
+        </div>
+        <h3 class="feature-title">포트폴리오 관리</h3>
+        <p class="feature-desc">보유 종목 현황, 손익 추적, 비중 분석을 한눈에 확인합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Indicators Section -->
+<section class="section section-dark" id="indicators">
+  <div class="container">
+    <div class="section-header" data-animate="fade-up">
+      <span class="section-tag">독자 지표 시스템</span>
+      <h2 class="section-title">7개 카테고리, 18개 전문 지표</h2>
+      <p class="section-desc">범온 AI만의 독자 개발 지표로 시장을 다각도로 분석합니다.</p>
+    </div>
+    <div class="indicators-grid" data-animate="fade-up" data-delay="100">
+      <div class="ind-category">
+        <div class="ind-cat-icon"></div>
+        <h4 class="ind-cat-title">추세 확인</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item ind-pro">범온 캔들</span>
+          <span class="ind-item ind-pro">범온 캔들 PRO</span>
+          <span class="ind-item">범온MA</span>
+          <span class="ind-item">슈퍼트렌드</span>
+          <span class="ind-item">일목균형표</span>
+          <span class="ind-item ind-pro">정/역배열</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon"></div>
+        <h4 class="ind-cat-title">진입 신호</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item ind-pro">범온 추세시작</span>
+          <span class="ind-item">추세반전</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon">🏁</div>
+        <h4 class="ind-cat-title">청산/손절</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item ind-pro">단타 익절</span>
+          <span class="ind-item ind-pro">AI목표</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon"></div>
+        <h4 class="ind-cat-title">과열/강도</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item">RSI</span>
+          <span class="ind-item">MACD</span>
+          <span class="ind-item">스토캐스틱</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon">🧱</div>
+        <h4 class="ind-cat-title">구조/매물대</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item">거래밀집구간</span>
+          <span class="ind-item">자동추세선</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon">🌊</div>
+        <h4 class="ind-cat-title">변동성</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item">볼린저밴드</span>
+        </div>
+      </div>
+      <div class="ind-category">
+        <div class="ind-cat-icon">📊</div>
+        <h4 class="ind-cat-title">거래량</h4>
+        <div class="ind-cat-items">
+          <span class="ind-item">VWAP</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Technology Section -->
+<section class="section" id="technology">
+  <div class="container">
+    <div class="section-header" data-animate="fade-up">
+      <span class="section-tag">기술 스택</span>
+      <h2 class="section-title">신뢰할 수 있는 기술 기반</h2>
+      <p class="section-desc">안정성과 성능을 최우선으로 설계된 아키텍처.</p>
+    </div>
+    <div class="tech-grid" data-animate="fade-up" data-delay="100">
+      <div class="tech-card">
+        <div class="tech-card-inner">
+          <div class="tech-front">
+            <div class="tech-icon">️</div>
+            <h4>백엔드</h4>
+            <p>FastAPI + PostgreSQL</p>
+          </div>
+          <div class="tech-back">
+            <p>비동기 처리, 초당 수천 요청 처리. SQLAlchemy ORM + Redis 캐싱으로 밀리초 단위 응답.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-inner">
+          <div class="tech-front">
+            <div class="tech-icon">🧠</div>
+            <h4>AI 엔진</h4>
+            <p>Transformer + LLM</p>
+          </div>
+          <div class="tech-back">
+            <p>자체 학습 Transformer 모델로 가격 예측. Ollama LLM이 차트 상황을 자연어로 해설합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-inner">
+          <div class="tech-front">
+            <div class="tech-icon">📡</div>
+            <h4>실시간</h4>
+            <p>WebSocket 직결</p>
+          </div>
+          <div class="tech-back">
+            <p>Binance/Upbit 거래소 WebSocket에 직접 연결. 중간 서버 없이 최소 지연으로 데이터를 수신합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-inner">
+          <div class="tech-front">
+            <div class="tech-icon">🎨</div>
+            <h4>차트 엔진</h4>
+            <p>자체 Canvas 렌더러</p>
+          </div>
+          <div class="tech-back">
+            <p>HTML5 Canvas 기반 자체 개발. 외부 의존성 제로. TypedArray 버퍼로 메모리 효율 극대화.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="section section-dark" id="faq">
+  <div class="container">
+    <div class="section-header" data-animate="fade-up">
+      <span class="section-tag">자주 묻는 질문</span>
+      <h2 class="section-title">궁금한 점이 있으신가요?</h2>
+    </div>
+    <div class="faq-list" data-animate="fade-up" data-delay="100">
+      <details class="faq-item">
+        <summary class="faq-question">
+          <span>무료로 사용할 수 있나요?</span>
+          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-answer">네, 기본 차트와 무료 지표(RSI, MACD, 볼린저밴드, 슈퍼트렌드 등)는 가입만으로 무제한 사용 가능합니다. 독자 개발 Pro 지표는 멤버십 가입 시 이용할 수 있습니다.</div>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">
+          <span>어떤 종목을 지원하나요?</span>
+          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-answer">Binance 상장 암호화폐 약 145종과 미국 주요 주식(AAPL, TSLA, NVDA 등) 약 28종을 지원합니다. 종목은 지속적으로 추가됩니다.</div>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">
+          <span>AI 예측의 정확도는 어떤가요?</span>
+          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-answer">AI 예측은 참고 정보로 제공되며, 투자 결정의 유일한 근거로 사용해서는 안 됩니다. Transformer 모델은 과거 패턴 학습 기반이며, 시장 상황에 따라 정확도가 달라질 수 있습니다.</div>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">
+          <span>자동매매로 실제 거래가 되나요?</span>
+          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-answer">현재 자동매매는 Paper Trading(모의 거래) 모드로만 운영됩니다. 실제 자금이 투입되지 않으며, 전략 검증 목적으로 사용됩니다.</div>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">
+          <span>모바일에서도 사용할 수 있나요?</span>
+          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="faq-answer">네, 반응형 웹으로 설계되어 모바일 브라우저에서 바로 사용 가능합니다. 별도 앱 설치가 필요 없습니다.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content" data-animate="fade-up">
+      <h2 class="cta-title">지금 바로 시작하세요</h2>
+      <p class="cta-desc">가입 무료. 신용카드 불필요. 30초면 차트를 볼 수 있습니다.</p>
+      <a href="/chart" class="btn-primary btn-xl">
+        <span>무료로 차트 시작하기</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <img src="/static/logo.png" alt="범온 AI 슈퍼차트" width="28" height="28">
+        <span>범온 AI 슈퍼차트</span>
+      </div>
+      <div class="footer-links">
+        <a href="/terms">이용약관</a>
+        <a href="/privacy">개인정보처리방침</a>
+        <a href="/faq">FAQ</a>
+        <a href="/notice">공지사항</a>
+      </div>
+      <div class="footer-info">
+        <p>범온누리 이노베이션 · support@beomonnuri.com</p>
+        <p class="footer-disclaimer">본 서비스는 투자 조언을 제공하지 않습니다. 모든 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다.</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 BEOMON AI SuperChart. All rights reserved.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/js/landing.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=AI Chart OS
+After=network.target postgresql.service ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=test1
+WorkingDirectory=/home/test1/chart-os
+ExecStart=/usr/bin/python3 -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

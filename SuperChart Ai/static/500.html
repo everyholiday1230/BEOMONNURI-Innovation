@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일시적 오류 — 범온 AI 슈퍼차트</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#921230;
+  --primary-hover:#A31540;
+  --bg:#FAFAFA;
+  --surface:#FFFFFF;
+  --text:#0F172A;
+  --muted:#64748B;
+  --border:#E2E8F0;
+  --warn:#EA580C;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#032129;
+    --surface:#0a2e3a;
+    --text:#E6EDF3;
+    --muted:#8B949E;
+    --border:rgba(255,255,255,0.1);
+  }
+}
+body{
+  font-family:"Pretendard Variable","Pretendard",-apple-system,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+.error-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:48px 36px;
+  max-width:480px;
+  width:100%;
+  text-align:center;
+  box-shadow:0 12px 32px rgba(0,0,0,0.08);
+}
+.error-code{
+  font-size:96px;
+  font-weight:800;
+  color:var(--warn);
+  line-height:1;
+  letter-spacing:-3px;
+  margin-bottom:8px;
+}
+.error-title{
+  font-size:24px;
+  font-weight:700;
+  margin-bottom:12px;
+  letter-spacing:-0.5px;
+}
+.error-desc{
+  font-size:15px;
+  color:var(--muted);
+  line-height:1.6;
+  margin-bottom:32px;
+}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:44px;
+  padding:0 20px;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+  transition:all 0.15s;
+  border:1px solid transparent;
+  background:var(--primary);
+  color:#fff;
+  margin:0 6px;
+}
+.btn:hover{
+  background:var(--primary-hover);
+  transform:translateY(-1px);
+}
+.btn-secondary{
+  background:transparent;
+  color:var(--primary);
+  border-color:var(--primary);
+}
+.btn-secondary:hover{
+  background:rgba(146,18,48,0.08);
+}
+.error-logo{
+  width:64px; height:64px;
+  margin:0 auto 24px;
+  border-radius:50%;
+  display:block;
+}
+</style>
+</head>
+<body>
+<div class="error-card">
+  <img class="error-logo" src="/static/logo.png" alt="범온 AI 슈퍼차트">
+  <div class="error-code">500</div>
+  <h1 class="error-title">일시적 오류가 발생했습니다</h1>
+  <p class="error-desc">
+    잠시 후 다시 시도해주세요.<br>
+    문제가 계속되면 새로고침을 눌러주세요.
+  </p>
+  <a href="javascript:location.reload()" class="btn">다시 시도</a>
+  <a href="/" class="btn btn-secondary">차트로 이동</a>
+</div>
+</body>
+</html>

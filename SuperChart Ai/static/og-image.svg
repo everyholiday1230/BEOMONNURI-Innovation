@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F7F1EA"/>
+      <stop offset="100%" stop-color="#F3ECE4"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#921230"/>
+      <stop offset="100%" stop-color="#A31540"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1200" height="8" fill="url(#accent)"/>
+  <text x="600" y="230" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="80" font-weight="900" fill="#921230" letter-spacing="-2">범온 AI 슈퍼차트</text>
+  <text x="600" y="290" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="28" fill="#7A6A5F">실시간 암호화폐 AI 차트 분석 플랫폼</text>
+  <rect x="420" y="340" width="360" height="60" rx="30" fill="url(#accent)"/>
+  <text x="600" y="380" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="24" font-weight="700" fill="#fff">차트 · AI 분석 · 알림</text>
+  <text x="600" y="460" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="20" fill="#8B6914">BEOM AI 캔들 · 범온MA · 추세선 · 거래밀집구간</text>
+  <text x="600" y="560" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="18" fill="#8E7D72">www.beomonnuri.com</text>
+</svg>

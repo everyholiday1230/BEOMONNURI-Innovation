@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공지사항 — 범온 AI 슈퍼차트</title>
+<link rel="stylesheet" href="/static/css/main.css">
+<style>
+body{max-width:800px;margin:0 auto;padding:40px 20px;background:#F7F1EA;color:#3D2B1F;font-family:'Pretendard Variable',sans-serif;line-height:1.8;height:auto;overflow:auto;display:block}
+h1{font-size:24px;color:#921230;margin-bottom:8px}
+.notice{border:1px solid rgba(216,182,106,0.3);border-radius:8px;padding:16px;margin-bottom:16px}
+.notice-date{font-size:12px;color:#8E7D72}
+.notice-title{font-size:16px;font-weight:600;color:#3D2B1F;margin:4px 0 8px}
+.notice-body{font-size:14px;color:#475569;line-height:1.7}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-right:6px}
+.badge-new{background:rgba(146,18,48,0.1);color:#921230}
+.badge-update{background:rgba(216,182,106,0.15);color:#8B6914}
+.badge-event{background:rgba(59,130,246,0.1);color:#2563EB}
+a{color:#921230}
+</style>
+</head>
+<body>
+<h1>공지사항</h1>
+<p style="font-size:13px;color:#8E7D72;margin-bottom:32px">범온 AI 슈퍼차트 서비스의 주요 업데이트 및 안내사항입니다.</p>
+
+<div id="noticeList"><div style="color:#8E7D72;text-align:center;padding:24px">불러오는 중...</div></div>
+
+<div style="margin-top:40px;text-align:center">
+<a href="/" style="display:inline-block;padding:10px 24px;background:#921230;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">차트로 돌아가기</a>
+</div>
+<script>
+const _NBADGE={notice:['badge-new','공지'],update:['badge-update','업데이트'],event:['badge-event','이벤트']};
+const _NFALLBACK=`
+<div class="notice"><div class="notice-date">2026.05.20</div><div class="notice-title"><span class="badge badge-new">NEW</span>서비스 정식 오픈</div><div class="notice-body">범온 AI 슈퍼차트 서비스가 정식 오픈되었습니다.<br>• 암호화폐·해외주식·원자재 지원<br>• 범온 독자 지표<br>• AI 분석 및 다중 타임프레임 비교</div></div>`;
+function _esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+(async function(){
+  const el=document.getElementById('noticeList');
+  try{
+    const r=await fetch('/v1/site/notices');
+    const d=(await r.json()).data||[];
+    if(!d.length){el.innerHTML=_NFALLBACK;return;}
+    el.innerHTML=d.map(n=>{
+      const b=_NBADGE[n.content_type]||_NBADGE.notice;
+      const date=(n.created_at||'').slice(0,10).replace(/-/g,'.');
+      const pin=n.is_pinned?'<span class="badge" style="background:#92123022;color:#921230">📌 고정</span>':'';
+      return `<div class="notice"><div class="notice-date">${_esc(date)}</div>
+        <div class="notice-title">${pin}<span class="badge ${b[0]}">${b[1]}</span>${_esc(n.title)}</div>
+        <div class="notice-body">${(n.content||'').replace(/\n/g,'<br>')}</div></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML=_NFALLBACK; }
+})();
+</script>
+</body>
+</html>

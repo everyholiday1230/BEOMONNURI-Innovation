@@ -1,0 +1,904 @@
+const t = window.t || ((s) => s);
+((window._showSupport = function () {
+  let t = document.getElementById("supportModal");
+  if (t) {
+    t.style.display = "flex";
+    return;
+  }
+  ((t = document.createElement("div")),
+    (t.id = "supportModal"),
+    (t.style.cssText =
+      "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;display:flex;align-items:center;justify-content:center"),
+    (t.innerHTML = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;width:380px;max-width:90vw">
+    <h3 style="color:#032129;margin-bottom:12px">\uBB38\uC758\uD558\uAE30</h3>
+    <input id="supEmail" placeholder="\uC774\uBA54\uC77C" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
+    <input id="supSubject" placeholder="\uC81C\uBAA9" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
+    <textarea id="supMessage" placeholder="\uB0B4\uC6A9" rows="4" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px;resize:vertical"></textarea>
+    <div style="display:flex;gap:8px">
+      <button onclick="window._submitSupport()" style="flex:1;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">\uC804\uC1A1</button>
+      <button onclick="document.getElementById('supportModal').style.display='none'" style="padding:8px 16px;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;cursor:pointer;font-size:14px">\uB2EB\uAE30</button>
+    </div>
+    <div id="supResult" style="margin-top:8px;font-size:14px"></div>
+  </div>`),
+    document.body.appendChild(t));
+}),
+  (window._submitSupport = async function () {
+    const t = document.getElementById("supEmail").value.trim(),
+      e = document.getElementById("supSubject").value.trim(),
+      o = document.getElementById("supMessage").value.trim(),
+      r = document.getElementById("supResult");
+    if (!e || !o) {
+      r.innerHTML =
+        '<span style="color:#3B82F6">\uC81C\uBAA9\uACFC \uB0B4\uC6A9\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694</span>';
+      return;
+    }
+    try {
+      (
+        await window.dedupFetch(`${window.API}/v1/site/support`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: t, subject: e, message: o }),
+        })
+      ).ok
+        ? ((r.innerHTML =
+            '<span style="color:#C4384B">\uBB38\uC758\uAC00 \uC811\uC218\uB418\uC5C8\uC2B5\uB2C8\uB2E4</span>'),
+          (document.getElementById("supSubject").value = ""),
+          (document.getElementById("supMessage").value = ""))
+        : (r.innerHTML =
+            '<span style="color:#3B82F6">\uC804\uC1A1 \uC2E4\uD328</span>');
+    } catch {
+      r.innerHTML =
+        '<span style="color:#3B82F6">\uC624\uB958 \uBC1C\uC0DD</span>';
+    }
+  }),
+  (window._showSettings = function () {
+    let t = document.getElementById("settingsModal");
+    if (t) {
+      t.style.display = "flex";
+      return;
+    }
+    ((t = document.createElement("div")),
+      (t.id = "settingsModal"),
+      (t.style.cssText =
+        "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;display:flex;align-items:center;justify-content:center"),
+      (t.innerHTML = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;width:400px;max-width:90vw;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="color:#032129">\uC124\uC815</h3><span style="cursor:pointer;color:var(--muted)" onclick="document.getElementById('settingsModal').style.display='none'">\u2715</span></div>
+    <div style="font-size:14px">
+      <div style="margin-bottom:12px"><b style="color:var(--accent)">\uD504\uB85C\uD544</b>
+        <div style="margin-top:6px">
+          <div style="margin-bottom:4px">\uB2C9\uB124\uC784: <input id="myNick" value="${_escHtml(window.userName || "")}" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+          <div style="margin-bottom:4px"><input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+          <div style="margin-bottom:4px"><input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+          <div>\uB4F1\uAE09: <b style="color:${window.isPremium() ? "#C4384B" : "var(--muted)"}">${window.userPlan === "premium" ? "VVIP" : window.userPlan === "pro" ? "VIP" : "\uC77C\uBC18"}</b></div>
+        </div>
+        <button onclick="window._saveProfile()" style="margin-top:6px;padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">\uC800\uC7A5</button>
+      </div>
+      <div style="margin-bottom:12px"><b style="color:var(--accent)">\uAC70\uB798\uC18C \uC778\uC99D</b>
+        <div style="margin-top:6px" id="verStatusBadge">${window.isPremium() ? "PRO \uC778\uC99D \uC644\uB8CC" : "\uD655\uC778 \uC911..."}</div>
+        ${window.isPremium() ? "" : '<button onclick="window.showExchangeVerify()" style="margin-top:6px;padding:4px 12px;background:#C4384B;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px" id="verRequestBtn">\uAC70\uB798\uC18C \uC778\uC99D \uC694\uCCAD</button>'}
+      </div>
+      <div style="margin-bottom:12px"><b style="color:var(--accent)">\uC5B8\uC5B4</b>
+        <div style="margin-top:6px"><select onchange="localStorage.setItem('chartOS_lang',this.value);location.reload()" style="padding:4px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px">
+          <option value="ko" ${(localStorage.getItem("chartOS_lang") || "ko") === "ko" ? "selected" : ""}>\uD55C\uAD6D\uC5B4</option>
+          <option value="en" ${localStorage.getItem("chartOS_lang") === "en" ? "selected" : ""}>English</option>
+          <option value="ja" ${localStorage.getItem("chartOS_lang") === "ja" ? "selected" : ""}>\u65E5\u672C\u8A9E</option>
+        </select></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+        <button onclick="window._deleteAccount()" style="padding:4px 12px;background:#3B82F6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">\uD68C\uC6D0 \uD0C8\uD1F4</button>
+      </div>
+    </div>
+  </div>`),
+      document.body.appendChild(t),
+      window.isPremium() || setTimeout(refreshVerificationStatusUI, 0));
+  }),
+  (window._logout = function () {
+    (fetch("/v1/auth/logout", { method: "POST", credentials: "include" }).catch(
+      () => {},
+    ),
+      window.clearAuthState({ resetChart: !0, reload: !0 }));
+  }),
+  (window.requireLogin = requireLogin));
+function requireLogin(t) {
+  return window.isLoggedIn()
+    ? !0
+    : (window.showToast(
+        "\uD68C\uC6D0 \uC804\uC6A9 \uAE30\uB2A5\uC785\uB2C8\uB2E4. \uB85C\uADF8\uC778 \uD6C4 \uC774\uC6A9 \uAC00\uB2A5\uD569\uB2C8\uB2E4.",
+        "#D8B66A",
+      ),
+      window.showAuth(),
+      !1);
+}
+window.requirePremium = requirePremium;
+function requirePremium(t) {
+  if (window.isPremium()) return !0;
+  const e = { "AI \uBD84\uC11D": "aiResult" },
+    o = document.getElementById(e[t]);
+  if (o)
+    o.innerHTML = `<div class="ai-section" style="text-align:center;padding:20px">
+    <p style="font-size:14px;font-weight:600">${t}</p>
+    <p style="color:var(--muted);font-size:14px;margin:8px 0;line-height:1.6">\uD504\uB9AC\uBBF8\uC5C4 \uAD6C\uB3C5 \uAE30\uB2A5\uC785\uB2C8\uB2E4.<br>${window.isLoggedIn() ? "\uD574\uB2F9 \uC9C0\uD45C\uB97C \uAD6C\uB3C5\uD558\uBA74 \uC774\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "\uC774 \uC9C0\uD45C\uB97C \uC0AC\uC6A9\uD558\uB824\uBA74 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD574\uC694"}</p>
+    <button onclick="${window.isLoggedIn() ? "window._showSubscribePlans()" : "window.showAuth()"}" style="padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">
+      ${window.isLoggedIn() ? "\uAD6C\uB3C5 \uD50C\uB79C \uBCF4\uAE30" : "\uD68C\uC6D0\uAC00\uC785 / \uB85C\uADF8\uC778"}
+    </button></div>`;
+  else {
+    const r = window.isLoggedIn()
+      ? "\uC774 \uAE30\uB2A5\uC744 \uC0AC\uC6A9\uD558\uB824\uBA74 \uD504\uB9AC\uBBF8\uC5C4\uC774 \uD544\uC694\uD574\uC694"
+      : "\uC774 \uAE30\uB2A5\uC744 \uC0AC\uC6A9\uD558\uB824\uBA74 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD574\uC694";
+    (window.showToast(r, "#D8B66A"),
+      window.isLoggedIn() ? window._showSubscribePlans() : window.showAuth());
+  }
+  return !1;
+}
+((window.showExchangeVerify = function () {
+  const t = document.getElementById("exchangeVerifyModal");
+  if (t) {
+    t.style.display = "flex";
+    return;
+  }
+  const e = document.createElement("div");
+  ((e.id = "exchangeVerifyModal"),
+    (e.style.cssText =
+      "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;display:flex;align-items:center;justify-content:center"),
+    (e.innerHTML = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;width:360px;max-width:90vw">
+    <h3 style="color:#032129;font-size:14px;margin-bottom:16px">\uAC70\uB798\uC18C \uC778\uC99D \uC694\uCCAD</h3>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px;line-height:1.6">\uC81C\uD734 \uAC70\uB798\uC18C \uAC00\uC785 \uC815\uBCF4\uB97C \uC785\uB825\uD558\uBA74 \uAD00\uB9AC\uC790 \uD655\uC778 \uD6C4 \uC21C\uCC28 \uC2B9\uC778\uB429\uB2C8\uB2E4.</p>
+    <select id="refExchange" onchange="document.getElementById('refCode').placeholder=this.value==='bitmart'?'BitMart CID \uC785\uB825':'Bitget UID \uC785\uB825'" style="width:100%;padding:8px;background:#FFFDF9;border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:8px;font-size:14px">
+      <option value="bitmart">BitMart</option>
+      <option value="bitget">Bitget</option>
+    </select>
+    <input id="refCode" placeholder="BitMart CID \uC785\uB825" style="width:100%;padding:8px;background:#FFFDF9;border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px;font-size:14px">
+    <div style="display:flex;gap:8px">
+      <button onclick="submitExchangeVerify()" style="flex:1;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">\uC778\uC99D \uC694\uCCAD\uD558\uAE30</button>
+      <button onclick="document.getElementById('exchangeVerifyModal').style.display='none'" style="padding:8px 16px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px">\uB2EB\uAE30</button>
+    </div>
+    <p style="font-size:14px;color:var(--muted);margin-top:8px;line-height:1.4">\uC811\uC218 \uD6C4 \uAD00\uB9AC\uC790 \uD655\uC778\uC744 \uAC70\uCCD0 \uC21C\uCC28 \uC2B9\uC778\uB429\uB2C8\uB2E4. \uAC80\uD1A0\uC5D0\uB294 \uC2DC\uAC04\uC774 \uC18C\uC694\uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</p>
+    <div id="refResult" style="margin-top:8px;font-size:14px"></div>
+  </div>`),
+    document.body.appendChild(e));
+}),
+  (window.submitExchangeVerify = async function () {
+    const t = document.getElementById("refExchange").value,
+      e = document.getElementById("refCode").value.trim(),
+      o = document.getElementById("refResult");
+    if (!e) {
+      o.innerHTML =
+        '<span style="color:#3B82F6">\uCF54\uB4DC\uB97C \uC785\uB825\uD574\uC8FC\uC138\uC694</span>';
+      return;
+    }
+    o.innerHTML =
+      '<span style="color:var(--muted)">\uC694\uCCAD \uC811\uC218 \uC911...</span>';
+    try {
+      const d = await (
+        await fetch("/v1/auth/request-verification", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exchange: t, value: e }),
+        })
+      ).json();
+      d.success
+        ? (o.innerHTML =
+            '<span style="color:#C4384B">' +
+            _escHtml(
+              d.data.message ||
+                "\uC778\uC99D \uC694\uCCAD\uC774 \uC811\uC218\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
+            ) +
+            "</span>")
+        : (o.innerHTML =
+            '<span style="color:#3B82F6">' +
+            _escHtml(
+              d.detail || d.error?.message || "\uC694\uCCAD \uC2E4\uD328",
+            ) +
+            "</span>");
+    } catch {
+      o.innerHTML =
+        '<span style="color:#3B82F6">\uC778\uC99D \uC624\uB958. \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.</span>';
+    }
+  }),
+  (window._showTerms = function (t) {
+    const e = document.getElementById("authModal");
+    if (!e) return;
+    const o = {
+        tos: "\uC774\uC6A9\uC57D\uAD00",
+        privacy: "\uAC1C\uC778\uC815\uBCF4\uCC98\uB9AC\uBC29\uCE68",
+      },
+      r = {
+        tos: `<div style="font-size:14px;line-height:1.8;color:var(--text)">
+<b>\uC81C1\uC870 (\uBAA9\uC801)</b><br>\uBCF8 \uC57D\uAD00\uC740 \uBE44\uD2B8\uB9C8\uD2B8 \uCF54\uB9AC\uC544 AI \uCC28\uD2B8(\uC774\uD558 "\uC11C\uBE44\uC2A4")\uC758 \uC774\uC6A9 \uC870\uAC74\uC744 \uADDC\uC815\uD569\uB2C8\uB2E4.<br><br>
+<b>\uC81C2\uC870 (\uC11C\uBE44\uC2A4 \uB0B4\uC6A9)</b><br>\uC11C\uBE44\uC2A4\uB294 \uC554\uD638\uD654\uD3D0 \uCC28\uD2B8 \uBD84\uC11D \uB3C4\uAD6C\uB97C \uC81C\uACF5\uD558\uBA70, \uD22C\uC790 \uC870\uC5B8\uC774 \uC544\uB2D9\uB2C8\uB2E4. \uBAA8\uB4E0 \uD22C\uC790 \uD310\uB2E8\uACFC \uC190\uC775\uC740 \uC774\uC6A9\uC790 \uBCF8\uC778\uC758 \uCC45\uC784\uC785\uB2C8\uB2E4.<br><br>
+<b>\uC81C3\uC870 (\uD68C\uC6D0\uAC00\uC785)</b><br>\uC774\uC6A9\uC790\uB294 \uC815\uD655\uD55C \uC815\uBCF4\uB97C \uC81C\uACF5\uD574\uC57C \uD558\uBA70, \uD0C0\uC778\uC758 \uC815\uBCF4\uB97C \uB3C4\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.<br><br>
+<b>\uC81C4\uC870 (\uD68C\uC6D0\uB4F1\uAE09)</b><br>FREE: \uAE30\uBCF8 \uCC28\uD2B8 \uBC0F \uC77C\uBC18 \uC9C0\uD45C \uC774\uC6A9 \uAC00\uB2A5<br>PRO: BitMart \uB610\uB294 Bitget \uAC70\uB798\uC18C \uC778\uC99D \uC2DC \uACE0\uAE09 \uC9C0\uD45C \uC774\uC6A9 \uAC00\uB2A5<br><br>
+<b>\uC81C5\uC870 (\uAE08\uC9C0\uD589\uC704)</b><br>\uC11C\uBE44\uC2A4\uC758 \uBB34\uB2E8 \uBCF5\uC81C, \uC5ED\uACF5\uD559, \uC790\uB3D9\uD654 \uC218\uC9D1\uC744 \uAE08\uC9C0\uD569\uB2C8\uB2E4.<br><br>
+<b>\uC81C6\uC870 (\uBA74\uCC45)</b><br>\uC11C\uBE44\uC2A4 \uC81C\uACF5\uC790\uB294 \uCC28\uD2B8 \uB370\uC774\uD130\uC758 \uC815\uD655\uC131, AI \uBD84\uC11D \uACB0\uACFC\uC5D0 \uB300\uD574 \uBCF4\uC99D\uD558\uC9C0 \uC54A\uC73C\uBA70, \uC774\uB97C \uADFC\uAC70\uB85C \uD55C \uD22C\uC790 \uC190\uC2E4\uC5D0 \uB300\uD574 \uCC45\uC784\uC9C0\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.<br><br>
+<b>\uC81C7\uC870 (\uC11C\uBE44\uC2A4 \uBCC0\uACBD/\uC911\uB2E8)</b><br>\uC11C\uBE44\uC2A4\uB294 \uC0AC\uC804 \uACE0\uC9C0 \uD6C4 \uBCC0\uACBD \uB610\uB294 \uC911\uB2E8\uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</div>`,
+        privacy: `<div style="font-size:14px;line-height:1.8;color:var(--text)">
+<b>1. \uC218\uC9D1\uD558\uB294 \uAC1C\uC778\uC815\uBCF4</b><br>\uC774\uBA54\uC77C, \uB2C9\uB124\uC784, \uC804\uD654\uBC88\uD638(\uC120\uD0DD), \uAC70\uB798\uC18C \uC778\uC99D \uC815\uBCF4(\uC120\uD0DD)<br><br>
+<b>2. \uC218\uC9D1 \uBAA9\uC801</b><br>\uD68C\uC6D0 \uAD00\uB9AC, \uC11C\uBE44\uC2A4 \uC81C\uACF5, \uD68C\uC6D0\uB4F1\uAE09 \uC778\uC99D<br><br>
+<b>3. \uBCF4\uC720 \uAE30\uAC04</b><br>\uD68C\uC6D0 \uD0C8\uD1F4 \uC2DC\uAE4C\uC9C0. \uD0C8\uD1F4 \uD6C4 \uC989\uC2DC \uD30C\uAE30\uD569\uB2C8\uB2E4.<br><br>
+<b>4. \uC81C3\uC790 \uC81C\uACF5</b><br>\uAC70\uB798\uC18C \uC778\uC99D \uC2DC \uD574\uB2F9 \uAC70\uB798\uC18C API\uB97C \uD1B5\uD574 \uAC00\uC785 \uC5EC\uBD80\uB9CC \uD655\uC778\uD558\uBA70, \uAC1C\uC778\uC815\uBCF4\uB97C \uC81C3\uC790\uC5D0\uAC8C \uC81C\uACF5\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.<br><br>
+<b>5. \uBCF4\uC548</b><br>\uBE44\uBC00\uBC88\uD638\uB294 bcrypt\uB85C \uC554\uD638\uD654 \uC800\uC7A5\uB418\uBA70, \uC6D0\uBB38\uC744 \uBCF5\uC6D0\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.<br><br>
+<b>6. \uC774\uC6A9\uC790 \uAD8C\uB9AC</b><br>\uAC1C\uC778\uC815\uBCF4 \uC5F4\uB78C, \uC218\uC815, \uC0AD\uC81C\uB97C \uC694\uCCAD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uB9C8\uC774\uD398\uC774\uC9C0\uC5D0\uC11C \uC9C1\uC811 \uC218\uC815 \uAC00\uB2A5\uD569\uB2C8\uB2E4.<br><br>
+<b>7. \uBB38\uC758</b><br>\uAC1C\uC778\uC815\uBCF4 \uAD00\uB828 \uBB38\uC758\uB294 \uAD00\uB9AC\uC790\uC5D0\uAC8C \uC5F0\uB77D\uD574\uC8FC\uC138\uC694.</div>`,
+      };
+    e.querySelector(".auth-inner").innerHTML = `
+    <div style="padding:4px 0">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">${o[t]}</div>
+      <div style="max-height:350px;overflow-y:auto;padding-right:4px">${r[t]}</div>
+      <button onclick="window.showAuth()" style="width:100%;margin-top:10px;padding:8px;background:none;border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;cursor:pointer">\u2190 \uB3CC\uC544\uAC00\uAE30</button>
+    </div>`;
+  }),
+  (window._pwStrength = function (t) {
+    const e = document.getElementById("pwStrength"),
+      lb = document.getElementById("pwStrengthLabel");
+    if (!e) return;
+    if (!t) {
+      e.style.width = "0%";
+      lb && (lb.textContent = "");
+      return;
+    }
+    let o = 0;
+    (t.length >= 8 && o++,
+      t.length >= 12 && o++,
+      /[A-Z]/.test(t) && o++,
+      /[0-9]/.test(t) && o++,
+      /[^A-Za-z0-9]/.test(t) && o++);
+    const col = o <= 1 ? "#C4384B" : o <= 3 ? "#D8B66A" : "#16A34A",
+      txt =
+        o <= 1
+          ? window.t
+            ? window.t("약함")
+            : "약함"
+          : o <= 3
+            ? window.t
+              ? window.t("보통")
+              : "보통"
+            : window.t
+              ? window.t("강함")
+              : "강함";
+    ((e.style.width = Math.max((o / 5) * 100, 10) + "%"),
+      (e.style.background = col));
+    lb && ((lb.textContent = txt), (lb.style.color = col));
+  }),
+  (window._googleLogin = async function () {
+    window.location.href = API + "/v1/auth/google/login";
+  }),
+  (window._forgotPassword = async function () {
+    const t = document.getElementById("authEmail")?.value?.trim();
+    if (!t) {
+      window.showToast(
+        "\uC774\uBA54\uC77C\uC744 \uBA3C\uC800 \uC785\uB825\uD574\uC8FC\uC138\uC694",
+        "#3B82F6",
+      );
+      return;
+    }
+    try {
+      const o = await (
+        await window.dedupFetch(`${window.API}/v1/auth/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: t }),
+        })
+      ).json();
+      window.showToast(
+        o.data?.message ||
+          "\uC774\uBA54\uC77C\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694",
+        "#C4384B",
+      );
+    } catch {
+      window.showToast("\uC694\uCCAD \uC2E4\uD328", "#3B82F6");
+    }
+  }));
+async function refreshVerificationStatusUI() {
+  const t = document.getElementById("verStatusBadge"),
+    e = document.getElementById("verRequestBtn");
+  if (t)
+    try {
+      const o = await fetch("/v1/auth/verification-status", {
+        credentials: "include",
+      });
+      if (!o.ok) {
+        t.textContent = "\uBBF8\uC778\uC99D";
+        return;
+      }
+      const r = await o.json(),
+        d = r.data?.status || "none";
+      d === "none"
+        ? (t.textContent = "\uBBF8\uC778\uC99D")
+        : d === "pending"
+          ? ((t.textContent =
+              "\uC778\uC99D \uC694\uCCAD \uC811\uC218\uB428 \xB7 \uAD00\uB9AC\uC790 \uAC80\uD1A0 \uC911"),
+            e && (e.style.display = "none"))
+          : d === "approved"
+            ? ((t.textContent = "PRO \uC778\uC99D \uC644\uB8CC"),
+              e && (e.style.display = "none"))
+            : d === "rejected" &&
+              ((t.textContent =
+                "\uC778\uC99D \uBC18\uB824" +
+                (r.data.reject_reason
+                  ? " \xB7 " + _escHtml(r.data.reject_reason)
+                  : "")),
+              e &&
+                ((e.style.display = ""),
+                (e.textContent = "\uC7AC\uC694\uCCAD")));
+    } catch {
+      t.textContent = "\uBBF8\uC778\uC99D";
+    }
+}
+((window.showAuth = async function () {
+  window.getAuthToken() || (await window.refreshAuthState());
+  let t = document.getElementById("authModal");
+  if (t) {
+    if (window.isLoggedIn()) {
+      t.style.display = "flex";
+      const n =
+        window.userPlan === "premium"
+          ? '<span style="color:var(--gold-text)">VVIP</span>'
+          : window.isPremium()
+            ? '<span style="color:var(--gold-text)">VIP</span>'
+            : '<span style="color:#8E7D72">\uC77C\uBC18 \uD68C\uC6D0</span>';
+      ((t.querySelector(".auth-inner").innerHTML = `
+        <div style="text-align:center;padding:16px 0">
+          <div style="width:50px;height:50px;border-radius:50%;background:${window.isPremium() ? "linear-gradient(135deg,#D8B66A,#d97706)" : "var(--accent)"};margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff">${(window.userName || "U")[0].toUpperCase()}</div>
+          <p style="font-size:14px;font-weight:700">${window.userName || "\uC0AC\uC6A9\uC790"}</p>
+          <p style="font-size:14px;margin:4px 0">${n}</p>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text)">\uD504\uB85C\uD544 \uC218\uC815</div>
+          <input id="myNick" placeholder="\uB2C9\uB124\uC784" value="${_escHtml(window.userName || "")}" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
+          <input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
+          <input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
+          <button onclick="window._saveProfile()" style="width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">\uC800\uC7A5</button>
+        </div>
+        ${
+          window.isPremium()
+            ? ""
+            : `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--gold-text)">PRO \uC778\uC99D</div>
+          <div style="font-size:14px;color:var(--muted);margin-bottom:6px">\uAC70\uB798\uC18C \uC778\uC99D \uC694\uCCAD \uD6C4 \uAD00\uB9AC\uC790 \uD655\uC778\uC744 \uAC70\uCCD0 VIP \uB4F1\uAE09\uC774 \uBD80\uC5EC\uB429\uB2C8\uB2E4.</div>
+          <div style="display:flex;gap:4px">
+            
+            <button onclick="window.showExchangeVerify()" style="padding:7px 12px;background:#D8B66A;color:#000;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">\uAC70\uB798\uC18C \uC778\uC99D \uC694\uCCAD</button>
+          </div>
+        </div>`
+        }
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button onclick="window._showTierInfo()" style="flex:1;padding:7px;background:none;border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;cursor:pointer">\uB4F1\uAE09 \uC548\uB0B4</button>
+          <button onclick="window._logout()" style="flex:1;padding:7px;background:#3B82F6;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">\uB85C\uADF8\uC544\uC6C3</button>
+        </div>
+        <div onclick="window._deleteAccount()" style="text-align:center;margin-top:10px;cursor:pointer;color:#8E7D72;font-size:14px;text-decoration:underline">\uD68C\uC6D0 \uD0C8\uD1F4</div>
+        <div style="text-align:center;margin-top:6px;cursor:pointer;color:var(--muted);font-size:14px" onclick="document.getElementById('authModal').style.display='none'">\uB2EB\uAE30</div>`),
+        window.isPremium() || refreshVerificationStatusUI());
+      return;
+    }
+    (t.remove(), (t = null));
+  }
+  ((t = document.createElement("div")),
+    (t.id = "authModal"),
+    (t.style.cssText =
+      "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.55);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px"),
+    (t.innerHTML = `
+    <div class="auth-inner" style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:16px;padding:28px;width:340px;max-width:100%;box-shadow:0 24px 60px rgba(15,23,42,0.3),0 6px 16px rgba(15,23,42,0.16);animation:authPop .3s cubic-bezier(.2,.8,.2,1)">
+      <div style="display:flex;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <div id="authTabLogin" class="auth-tab" style="flex:1;text-align:center;padding:8px;cursor:pointer;font-weight:600;border-bottom:2px solid var(--accent)">\uB85C\uADF8\uC778</div>
+        <div id="authTabSignup" class="auth-tab" style="flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--muted)">\uD68C\uC6D0\uAC00\uC785</div>
+      </div>
+      <div id="authNickRow" style="display:none;margin-bottom:10px">
+        <input id="authNick" placeholder="\uB2C9\uB124\uC784" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">
+      </div>
+      <div id="authPhoneRow" style="display:none;margin-bottom:10px">
+        <input id="authPhone" placeholder="\uC804\uD654\uBC88\uD638 (010-0000-0000)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">
+      </div>
+      <input id="authEmail" placeholder="\uC774\uBA54\uC77C" type="email" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:10px">
+      <input id="authPw" placeholder="\uBE44\uBC00\uBC88\uD638" type="password" oninput="window._pwStrength(this.value)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:2px">
+      <div id="pwStrength" style="height:4px;border-radius:3px;margin-bottom:2px;width:0;transition:all 0.3s"></div>
+      <div id="pwStrengthLabel" style="font-size:11px;height:13px;margin-bottom:2px;text-align:right;transition:color .3s"></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <label style="font-size:14px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" onchange="document.getElementById('authPw').type=this.checked?'text':'password'" style="width:12px;height:12px">\uBE44\uBC00\uBC88\uD638 \uD45C\uC2DC</label>
+        <span style="font-size:14px;color:var(--accent);cursor:pointer" onclick="window._forgotPassword()">\uBE44\uBC00\uBC88\uD638\uB97C \uC78A\uC73C\uC168\uB098\uC694?</span>
+      </div>
+      <div id="authTermsRow" style="display:none;margin-bottom:10px">
+        <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;margin-bottom:6px">
+          <input type="checkbox" id="authTerms" style="margin-top:2px">
+          <span><a href="#" onclick="event.preventDefault();window._showTerms('tos')" style="color:var(--accent);text-decoration:underline">\uC774\uC6A9\uC57D\uAD00</a> \uBC0F <a href="#" onclick="event.preventDefault();window._showTerms('privacy')" style="color:var(--accent);text-decoration:underline">\uAC1C\uC778\uC815\uBCF4\uCC98\uB9AC\uBC29\uCE68</a>\uC5D0 \uB3D9\uC758\uD569\uB2C8\uB2E4.</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="authRisk" style="margin-top:2px">
+          <span>\uC554\uD638\uD654\uD3D0 \uD22C\uC790\uB294 \uC6D0\uAE08 \uC190\uC2E4 \uC704\uD5D8\uC774 \uC788\uC73C\uBA70, AI \uBD84\uC11D\uC740 \uD22C\uC790 \uAD8C\uC720\uAC00 \uC544\uB2D8\uC744 \uC774\uD574\uD569\uB2C8\uB2E4.</span>
+        </label>
+      </div>
+      <button id="authSubmit" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">\uB85C\uADF8\uC778</button>
+      <div style="text-align:center;margin:10px 0;color:var(--muted);font-size:14px">\uB610\uB294</div>
+      <button onclick="window._googleLogin()" style="width:100%;padding:10px;background:#fff;color:#333;border:1px solid #ddd;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px">Google\uB85C \uACC4\uC18D\uD558\uAE30</button>
+      <div id="authError" style="color:var(--red);font-size:14px;margin-top:8px;text-align:center"></div>
+      <div id="resetPwLink" style="text-align:center;margin-top:6px;font-size:14px;color:var(--muted);cursor:pointer;text-decoration:underline" onclick="window._showResetPw()">\uBE44\uBC00\uBC88\uD638\uB97C \uC78A\uC73C\uC168\uB098\uC694?</div>
+      <div style="text-align:center;margin-top:12px;cursor:pointer;color:var(--muted);font-size:14px" onclick="document.getElementById('authModal').style.display='none'">\uB2EB\uAE30</div>
+    </div>`),
+    document.body.appendChild(t));
+  let e = !1;
+  const o = document.getElementById("authTabLogin"),
+    r = document.getElementById("authTabSignup"),
+    d = document.getElementById("authNickRow"),
+    i = document.getElementById("authSubmit"),
+    p = document.getElementById("authPhoneRow"),
+    s = document.getElementById("authTermsRow");
+  ((o.onclick = () => {
+    ((e = !1),
+      (o.style.borderBottom = "2px solid var(--accent)"),
+      (o.style.color = ""),
+      (r.style.borderBottom = "none"),
+      (r.style.color = "var(--muted)"),
+      (d.style.display = "none"),
+      p && (p.style.display = "none"),
+      s && (s.style.display = "none"),
+      (i.textContent = window.t("\uB85C\uADF8\uC778")));
+  }),
+    (r.onclick = () => {
+      ((e = !0),
+        (r.style.borderBottom = "2px solid var(--accent)"),
+        (r.style.color = ""),
+        (o.style.borderBottom = "none"),
+        (o.style.color = "var(--muted)"),
+        (d.style.display = ""),
+        p && (p.style.display = ""),
+        s && (s.style.display = ""),
+        (i.textContent = window.t("\uD68C\uC6D0\uAC00\uC785")));
+    }),
+    (i.onclick = async () => {
+      const n = document.getElementById("authEmail").value.trim(),
+        l = document.getElementById("authPw").value,
+        u = document.getElementById("authNick").value.trim() || n.split("@")[0],
+        x = document.getElementById("authPhone")?.value.trim() || "",
+        a = document.getElementById("authError");
+      if (!n || !l) {
+        a.textContent = window.t(
+          "\uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(n)) {
+        a.textContent = window.t(
+          "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC744 \uC785\uB825\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (e && l.length < 8) {
+        a.textContent = window.t(
+          "\uBE44\uBC00\uBC88\uD638 8\uC790 \uC774\uC0C1 \uC785\uB825\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (e && !/[a-zA-Z]/.test(l)) {
+        a.textContent = window.t(
+          "\uBE44\uBC00\uBC88\uD638\uC5D0 \uC601\uBB38\uC744 \uD3EC\uD568\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (e && !/[0-9]/.test(l)) {
+        a.textContent = window.t(
+          "\uBE44\uBC00\uBC88\uD638\uC5D0 \uC22B\uC790\uB97C \uD3EC\uD568\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (e && !u) {
+        a.textContent = window.t(
+          "\uB2C9\uB124\uC784\uC744 \uC785\uB825\uD558\uC138\uC694",
+        );
+        return;
+      }
+      if (e && !document.getElementById("authTerms")?.checked) {
+        a.textContent = window.t(
+          "\uC774\uC6A9\uC57D\uAD00\uC5D0 \uB3D9\uC758\uD574\uC8FC\uC138\uC694",
+        );
+        return;
+      }
+      if (e && !document.getElementById("authRisk")?.checked) {
+        a.textContent = window.t(
+          "\uD22C\uC790 \uC704\uD5D8 \uACE0\uC9C0\uC5D0 \uB3D9\uC758\uD574\uC8FC\uC138\uC694",
+        );
+        return;
+      }
+      ((a.textContent = ""),
+        (i.textContent = window.t("\uCC98\uB9AC \uC911...")),
+        (i.disabled = !0));
+      try {
+        const g = e
+            ? { email: n, password: l, nickname: u, phone: x }
+            : { email: n, password: l },
+          m = await (
+            await fetch(API + (e ? "/v1/auth/signup" : "/v1/auth/login"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify(g),
+            })
+          ).json();
+        if (m.success) {
+          ((window.authToken = m.data.tokens.access_token),
+            (window.userName = m.data.user.nickname),
+            (window.userPlan = m.data.user.tier || "free"));
+          try {
+            const c = m.data.tokens.access_token;
+            if (
+              (c &&
+                (document.cookie = `auth_token=${c}; path=/; max-age=86400; SameSite=Lax`),
+              !/csrf_token=/.test(document.cookie))
+            ) {
+              const w =
+                Math.random().toString(36).slice(2) + Date.now().toString(36);
+              document.cookie = `csrf_token=${w}; path=/; max-age=86400; SameSite=Lax`;
+            }
+          } catch {}
+          if ((await window.refreshAuthState(!1), e))
+            try {
+              (
+                await (
+                  await fetch(API + "/v1/auth/send-verification", {
+                    method: "POST",
+                    credentials: "include",
+                  })
+                ).json()
+              ).data?.sent
+                ? window.showToast(
+                    window.t(
+                      "\uAC00\uC785 \uC644\uB8CC! \uC774\uBA54\uC77C \uC778\uC99D \uBA54\uC77C\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694.",
+                    ),
+                    "#C4384B",
+                  )
+                : window.showToast(
+                    window.t(
+                      "\uAC00\uC785 \uC644\uB8CC! \uC774\uBA54\uC77C \uBC1C\uC1A1\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC124\uC815\uC5D0\uC11C \uC7AC\uBC1C\uC1A1\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+                    ),
+                    "#D8B66A",
+                  );
+            } catch {
+              window.showToast(
+                window.t("\uAC00\uC785 \uC644\uB8CC!"),
+                "#C4384B",
+              );
+            }
+          ((t.style.display = "none"),
+            setTimeout(() => location.reload(), 1500));
+        } else {
+          const c = m.detail,
+            w = {
+              "Invalid credentials":
+                "\uC774\uBA54\uC77C \uB610\uB294 \uBE44\uBC00\uBC88\uD638\uAC00 \uD2C0\uB838\uC2B5\uB2C8\uB2E4",
+              "Email already exists":
+                "\uC774\uBBF8 \uAC00\uC785\uB41C \uC774\uBA54\uC77C\uC785\uB2C8\uB2E4",
+            };
+          typeof c == "string"
+            ? (a.textContent = w[c] || c)
+            : Array.isArray(c)
+              ? (a.textContent = c
+                  .map((f) => {
+                    const b = f.msg || f.message || "";
+                    return b.includes("email")
+                      ? "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC744 \uC785\uB825\uD558\uC138\uC694"
+                      : b.includes("short")
+                        ? "\uBE44\uBC00\uBC88\uD638\uAC00 \uB108\uBB34 \uC9E7\uC2B5\uB2C8\uB2E4"
+                        : b;
+                  })
+                  .join(", "))
+              : (a.textContent = m.message || "\uC2E4\uD328");
+        }
+      } catch {
+        a.textContent = window.t("\uC11C\uBC84 \uC5F0\uACB0 \uC2E4\uD328");
+      }
+      ((i.textContent = e ? "\uD68C\uC6D0\uAC00\uC785" : "\uB85C\uADF8\uC778"),
+        (i.disabled = !1));
+    }),
+    t.addEventListener("keydown", (n) => {
+      n.key === "Enter" && i.click();
+    }));
+}),
+  (window._showResetPw = function () {
+    const t = document.getElementById("authModal");
+    t &&
+      (t.querySelector(".auth-inner").innerHTML = `
+    <div style="padding:8px 0">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px">\uBE44\uBC00\uBC88\uD638 \uCC3E\uAE30</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:10px">\uAC00\uC785\uD55C \uC774\uBA54\uC77C\uC744 \uC785\uB825\uD558\uBA74 \uC7AC\uC124\uC815 \uB9C1\uD06C\uAC00 \uBC1C\uC1A1\uB429\uB2C8\uB2E4.</div>
+      <input id="resetEmail" placeholder="\uC774\uBA54\uC77C" type="email" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
+      <button id="resetBtn" onclick="window._doResetPw()" style="width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">\uC7AC\uC124\uC815 \uB9C1\uD06C \uBC1C\uC1A1</button>
+      <div id="resetResult" style="margin-top:8px;font-size:14px"></div>
+      <div style="text-align:center;margin-top:10px;cursor:pointer;color:var(--muted);font-size:14px" onclick="window.showAuth()">\u2190 \uB85C\uADF8\uC778\uC73C\uB85C</div>
+    </div>`);
+  }),
+  (window._doResetPw = async function () {
+    const t = document.getElementById("resetEmail")?.value?.trim(),
+      e = document.getElementById("resetResult"),
+      o = document.getElementById("resetBtn");
+    if (!t) {
+      e &&
+        (e.innerHTML =
+          '<span style="color:#3B82F6">\uC774\uBA54\uC77C\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694</span>');
+      return;
+    }
+    o && ((o.textContent = "\uBC1C\uC1A1 \uC911..."), (o.disabled = !0));
+    try {
+      (
+        await (
+          await fetch(API + "/v1/auth/forgot-password", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: t }),
+          })
+        ).json()
+      ).data?.sent
+        ? e &&
+          (e.innerHTML =
+            '<span style="color:#C4384B">\uC774\uBA54\uC77C\uC774 \uB4F1\uB85D\uB418\uC5B4 \uC788\uB2E4\uBA74 \uC7AC\uC124\uC815 \uB9C1\uD06C\uAC00 \uBC1C\uC1A1\uB429\uB2C8\uB2E4. \uBA54\uC77C\uD568\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694.</span>')
+        : e &&
+          (e.innerHTML =
+            '<span style="color:var(--gold-text)">\uBA54\uC77C \uBC1C\uC1A1\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uAC70\uB098 \uAD00\uB9AC\uC790\uC5D0\uAC8C \uBB38\uC758\uD574\uC8FC\uC138\uC694.</span>');
+    } catch {
+      e &&
+        (e.innerHTML =
+          '<span style="color:#3B82F6">\uB124\uD2B8\uC6CC\uD06C \uC624\uB958</span>');
+    }
+    o &&
+      ((o.textContent = "\uC7AC\uC124\uC815 \uB9C1\uD06C \uBC1C\uC1A1"),
+      (o.disabled = !1));
+  }),
+  (window._saveProfile = async function () {
+    const t = document.getElementById("myNick")?.value.trim(),
+      e = document.getElementById("myPwOld")?.value,
+      o = document.getElementById("myPwNew")?.value;
+    if (!t) {
+      window.showToast(
+        window.t("\uB2C9\uB124\uC784\uC744 \uC785\uB825\uD558\uC138\uC694"),
+      );
+      return;
+    }
+    if (e && !o) {
+      window.showToast(
+        window.t(
+          "\uC0C8 \uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694",
+        ),
+      );
+      return;
+    }
+    if (o && !e) {
+      window.showToast(
+        window.t(
+          "\uD604\uC7AC \uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD558\uC138\uC694",
+        ),
+      );
+      return;
+    }
+    if (o && o.length < 8) {
+      window.showToast(
+        window.t(
+          "\uBE44\uBC00\uBC88\uD638\uB294 8\uC790 \uC774\uC0C1\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4",
+        ),
+      );
+      return;
+    }
+    try {
+      const r = { nickname: t };
+      e && o && ((r.old_password = e), (r.new_password = o));
+      const i = await (
+        await fetch(API + "/v1/auth/update-profile", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(r),
+        })
+      ).json();
+      if (i.success) {
+        window.userName = t;
+        const p = document.getElementById("userBadge");
+        if ((p && (p.textContent = t), o)) {
+          const s = document.getElementById("myPwOld"),
+            n = document.getElementById("myPwNew");
+          (s && (s.value = ""),
+            n && (n.value = ""),
+            window.showToast(
+              window.t(
+                "\uBE44\uBC00\uBC88\uD638\uAC00 \uBCC0\uACBD\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+              ),
+              "#C4384B",
+            ));
+        } else
+          window.showToast(window.t("\uC800\uC7A5 \uC644\uB8CC"), "#C4384B");
+      } else
+        window.showToast(
+          i.detail || i.error?.message || window.t("\uC800\uC7A5 \uC2E4\uD328"),
+          "#3B82F6",
+        );
+    } catch {
+      window.showToast(
+        window.t("\uC11C\uBC84 \uC5F0\uACB0 \uC2E4\uD328"),
+        "#3B82F6",
+      );
+    }
+  }),
+  (window._deleteAccount = async function () {
+    const t = await _modal({
+      title: "\uD68C\uC6D0 \uD0C8\uD1F4",
+      desc: "\uC815\uB9D0 \uD0C8\uD1F4\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uBAA8\uB4E0 \uB370\uC774\uD130\uAC00 \uC0AD\uC81C\uB429\uB2C8\uB2E4.",
+      input: "",
+      placeholder: "\uBE44\uBC00\uBC88\uD638 \uC785\uB825",
+      inputType: "password",
+      ok: "\uD0C8\uD1F4",
+      danger: !0,
+    });
+    if (t)
+      try {
+        const o = await (
+          await fetch(API + "/v1/auth/delete-account", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...buildAuthHeaders(),
+            },
+            body: JSON.stringify({ password: t }),
+          })
+        ).json();
+        o.success
+          ? (window.showToast(
+              window.t(
+                "\uD0C8\uD1F4\uAC00 \uC644\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+              ),
+              "#C4384B",
+            ),
+            window._logout())
+          : window.showToast(
+              o.detail || "\uD0C8\uD1F4 \uC2E4\uD328",
+              "#3B82F6",
+            );
+      } catch {
+        window.showToast(
+          window.t("\uC11C\uBC84 \uC5F0\uACB0 \uC2E4\uD328"),
+          "#3B82F6",
+        );
+      }
+  }),
+  (window._showTierInfo = function () {
+    const t = document.getElementById("authModal");
+    t &&
+      (t.querySelector(".auth-inner").innerHTML = `
+    <div style="padding:4px 0">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px;text-align:center">\uD68C\uC6D0 \uB4F1\uAE09 \uC548\uB0B4</div>
+      <table style="width:100%;font-size:14px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid var(--border)"><th style="padding:6px 4px;text-align:left"></th><th style="color:#8E7D72;padding:6px">FREE</th><th style="color:var(--gold-text);padding:6px">PRO</th></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px">\uAE30\uBCF8 \uCC28\uD2B8</td><td style="text-align:center">\uAC00\uB2A5</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px">\uC77C\uBC18 \uC9C0\uD45C (RSI, MACD \uB4F1)</td><td style="text-align:center">\uAC00\uB2A5</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px">\uC774\uB3D9\uD3C9\uADE0\uC120 / \uCC44\uB110 / \uCD94\uC138</td><td style="text-align:center">\uAC00\uB2A5</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px;color:var(--gold-text)">PRO \uB3C4\uAD6C (BEOM, \uAC70\uB798\uBC00\uC9D1\uAD6C\uAC04 \uB4F1)</td><td style="text-align:center">\uC81C\uD55C</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px;color:#8E7D72">\uBD84\uC11D \uC9C0\uD45C (\uCD94\uC138\uC804\uD658, \uAC15\uB3C4\uCE21\uC815 \uB4F1)</td><td style="text-align:center">\uC81C\uD55C</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+        <tr style="border-bottom:1px solid rgba(216,182,106,0.15)"><td style="padding:5px 4px">AI \uBD84\uC11D / \uC608\uCE21</td><td style="text-align:center">\uC81C\uD55C</td><td style="text-align:center">\uAC00\uB2A5</td></tr>
+      </table>
+      <div style="margin-top:12px;padding:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:6px;font-size:14px;color:var(--text)">
+        <div style="font-weight:600;color:var(--gold-text);margin-bottom:4px">VIP \uB4F1\uAE09 \uBC1B\uB294 \uBC29\uBC95</div>
+        <div>\uAC70\uB798\uC18C \uAC00\uC785 \uC815\uBCF4\uB97C \uC81C\uCD9C\uD558\uBA74 \uAD00\uB9AC\uC790 \uD655\uC778 \uD6C4 \uC21C\uCC28 \uC2B9\uC778\uB429\uB2C8\uB2E4.</div>
+        <a href="https://www.bitmart.com/invite/ctCAsR" target="_blank" style="display:inline-block;margin-top:6px;color:var(--gold-text);text-decoration:underline;font-size:14px">BitMart \uAC00\uC785\uD558\uAE30 \u2192</a>
+      </div>
+      <button onclick="window.showAuth()" style="width:100%;margin-top:10px;padding:8px;background:none;border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:14px;cursor:pointer">\u2190 \uB3CC\uC544\uAC00\uAE30</button>
+    </div>`);
+  }),
+  (window.loadMTF = async function () {
+    const grid = document.getElementById("mtfGrid");
+    if (!grid) return;
+    try {
+      const d = window.curSymbol || "BTCUSDT",
+        i = d.replace("USDT", "").replace("KRW-", ""),
+        p = document.getElementById("mtfSymbol"),
+        s = document.getElementById("mtfSymbolKr"),
+        n = document.getElementById("mtfSymbolImg");
+      if ((p && (p.textContent = i), s)) {
+        let l = "";
+        if (window.symbols && Array.isArray(window.symbols)) {
+          const u = window.symbols.find((x) => x.code === d);
+          u && (l = u.kr || "");
+        }
+        s.textContent = l || i;
+      }
+      if (n) {
+        const l = (window.coinImgUrl && window.coinImgUrl[d]) || "";
+        l ? ((n.src = l), (n.style.display = "")) : (n.style.display = "none");
+      }
+    } catch {}
+    grid.innerHTML =
+      '<div style="color:var(--muted);padding:8px">\uB85C\uB529 \uC911...</div>';
+    const e = ["1m", "5m", "15m", "1h", "4h", "1d"];
+    function o(d) {
+      if (!d || !d.length) return { score: 0, rawSum: 0 };
+      const i = d.slice(-20),
+        s =
+          i.reduce(
+            (u, x) => u + parseFloat(x.v ?? x.ss ?? x.signal_sum ?? x.sum ?? 0),
+            0,
+          ) / i.length;
+      return {
+        score: Math.round(Math.max(-100, Math.min(100, (s / 12) * 100))),
+        rawSum: parseFloat(s.toFixed(2)),
+      };
+    }
+    function r(d) {
+      const i = d
+        .map((a) => parseFloat(a.close || a.c || 0))
+        .filter((a) => a > 0);
+      if (i.length < 14) return 0;
+      const p = i[i.length - 1],
+        s = i.slice(-20).reduce((a, g) => a + g, 0) / Math.min(20, i.length),
+        n = ((p - s) / s) * 100;
+      let l = 0,
+        u = 0;
+      for (let a = Math.max(1, i.length - 14); a < i.length; a++) {
+        const g = i[a] - i[a - 1];
+        g > 0 ? (l += g) : (u -= g);
+      }
+      const x = u === 0 ? 100 : 100 - 100 / (1 + l / u);
+      return Math.round(Math.max(-100, Math.min(100, n * 5 + (x - 50) * 0.3)));
+    }
+    try {
+      const d = await Promise.all(
+        e.map((p) =>
+          window
+            .dedupFetch(
+              `${window.API}/v1/charts/ind-mtf?symbolId=${window.curSymbol}&timeframe=${p}`,
+            )
+            .then((s) => s.json())
+            .catch(() => null),
+        ),
+      );
+      let i = "";
+      for (let p = 0; p < e.length; p++) {
+        const s = d[p];
+        let n = 0,
+          l = 0,
+          u = t("범온강도");
+        if (s?.success && s.data && typeof s.data.v == "number") {
+          const m = s.data.v,
+            c = s.data.max_signals || 12;
+          ((n = Math.round((m / c) * 100)), (l = parseFloat(m.toFixed(2))));
+        }
+        const x =
+            n >= 70
+              ? t("강한매수")
+              : n >= 35
+                ? t("보통매수")
+                : n > 8
+                  ? t("약한매수")
+                  : n <= -70
+                    ? t("강한매도")
+                    : n <= -35
+                      ? t("보통매도")
+                      : n < -8
+                        ? t("약한매도")
+                        : t("중립"),
+          a = n > 8 ? "\u25B2" : n < -8 ? "\u25BC" : "\u2014",
+          g =
+            n > 25
+              ? "#C4384B"
+              : n < -25
+                ? "#3B82F6"
+                : n > 8
+                  ? "rgba(196,56,75,0.7)"
+                  : n < -8
+                    ? "rgba(59,130,246,0.7)"
+                    : "var(--muted)",
+          y = Math.min(Math.abs(n), 100);
+        i += `<div style="padding:6px 4px;border-bottom:1px solid var(--border);box-sizing:border-box;width:100%">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-weight:600;font-size:14px;min-width:28px;flex-shrink:0">${e[p]}</span>
+          <span style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;min-width:0">
+            <span style="display:block;width:${y}%;height:100%;background:${g};border-radius:3px;transition:width .3s"></span>
+          </span>
+          <span style="font-weight:700;color:${g};font-size:14px;min-width:44px;text-align:right;flex-shrink:0;white-space:nowrap">${a} ${Math.abs(n)}</span>
+        </div>
+        <div style="display:flex;justify-content:flex-end;font-size:14px;margin-top:2px">
+          <span style="color:${g};font-weight:600">${x}</span>
+        </div>
+      </div>`;
+      }
+      grid.innerHTML = i;
+    } catch {
+      grid.innerHTML =
+        '<div style="color:var(--red);padding:8px">\uB85C\uB4DC \uC2E4\uD328</div>';
+    }
+  }));

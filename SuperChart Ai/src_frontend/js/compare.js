@@ -1,0 +1,2552 @@
+var _compVars = {};
+((window._compVars = _compVars),
+  (_compVars.show_rsimfi_1y = !1),
+  (_compVars.show_pasr_orig = !1),
+  (_compVars.show_pasr_1m = !1),
+  (_compVars.show_pasr_1y = !1),
+  (_compVars.show_bs_orig = !1),
+  (_compVars.show_bs_1m = !1),
+  (_compVars.show_bs_1y = !1),
+  (_compVars.show_al_orig = !1),
+  (_compVars.show_al_1m = !1),
+  (_compVars.show_al_1y = !1),
+  (window._toggle_rsimfi_1y = function () {
+    ((_compVars.show_rsimfi_1y = !_compVars.show_rsimfi_1y),
+      document
+        .querySelector('[data-ind="rsimfi_1y"]')
+        ?.classList.toggle("on", _compVars.show_rsimfi_1y),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_pasr_orig = function () {
+    ((_compVars.show_pasr_orig = !_compVars.show_pasr_orig),
+      document
+        .querySelector('[data-ind="pasr_orig"]')
+        ?.classList.toggle("on", _compVars.show_pasr_orig),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_pasr_1m = function () {
+    ((_compVars.show_pasr_1m = !_compVars.show_pasr_1m),
+      document
+        .querySelector('[data-ind="pasr_1m"]')
+        ?.classList.toggle("on", _compVars.show_pasr_1m),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_pasr_1y = function () {
+    ((_compVars.show_pasr_1y = !_compVars.show_pasr_1y),
+      document
+        .querySelector('[data-ind="pasr_1y"]')
+        ?.classList.toggle("on", _compVars.show_pasr_1y),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_bs_orig = function () {
+    ((_compVars.show_bs_orig = !_compVars.show_bs_orig),
+      document
+        .querySelector('[data-ind="bs_orig"]')
+        ?.classList.toggle("on", _compVars.show_bs_orig),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_bs_1m = function () {
+    ((_compVars.show_bs_1m = !_compVars.show_bs_1m),
+      document
+        .querySelector('[data-ind="bs_1m"]')
+        ?.classList.toggle("on", _compVars.show_bs_1m),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_bs_1y = function () {
+    ((_compVars.show_bs_1y = !_compVars.show_bs_1y),
+      document
+        .querySelector('[data-ind="bs_1y"]')
+        ?.classList.toggle("on", _compVars.show_bs_1y),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_al_orig = function () {
+    ((_compVars.show_al_orig = !_compVars.show_al_orig),
+      document
+        .querySelector('[data-ind="al_orig"]')
+        ?.classList.toggle("on", _compVars.show_al_orig),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_al_1m = function () {
+    ((_compVars.show_al_1m = !_compVars.show_al_1m),
+      document
+        .querySelector('[data-ind="al_1m"]')
+        ?.classList.toggle("on", _compVars.show_al_1m),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggle_al_1y = function () {
+    ((_compVars.show_al_1y = !_compVars.show_al_1y),
+      document
+        .querySelector('[data-ind="al_1y"]')
+        ?.classList.toggle("on", _compVars.show_al_1y),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }));
+async function _loadCompUprsiStc(e, o) {
+  var n = _compVars["show_uprsi_" + o],
+    s = _compVars["show_udstoch_" + o],
+    r = _compVars["show_rsimfi_" + o],
+    a = _compVars["show_stc_" + o];
+  if (!(!n && !s && !r && !a))
+    try {
+      const c = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/ind-a?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}&ver=${e}`,
+        )
+      ).json();
+      if (!c.success || !c.data) return;
+      const d = c.data,
+        p = {
+          orig: ["#6b7280", "#9ca3af"],
+          "1m": ["#D8B66A", "#d97706"],
+          "1y": ["#A31540", "#7c3aed"],
+          "1yo": ["#C4384B", "#3B82F6"],
+        }[o] || ["#fff", "#ccc"],
+        l = o === "orig" ? 1 : o === "1m" ? 2 : 3;
+      (n &&
+        d.a &&
+        d.b &&
+        window.chart.setSubChart("udrsi_" + o, {
+          label: o + " \uAC15\uB3C4\uCE21\uC815",
+          lines: [
+            { data: d.a, color: p[0], lineWidth: l },
+            { data: d.b, color: p[1], lineWidth: l },
+          ],
+          hlines: [
+            { value: 0, color: "rgba(255,255,255,0.6)" },
+            { value: 0.25, color: "rgba(255,255,255,0.35)" },
+            { value: -0.25, color: "rgba(255,255,255,0.35)" },
+          ],
+          range: { min: -0.55, max: 0.55 },
+        }),
+        s &&
+          d.c &&
+          d.d &&
+          window.chart.setSubChart("udstoch_" + o, {
+            label: o + " \uACFC\uC5F4\uBD84\uC11D",
+            lines: [
+              { data: d.c, color: p[0], lineWidth: l },
+              { data: d.d, color: p[1], lineWidth: l },
+            ],
+            hlines: [
+              { value: 0, color: "rgba(255,255,255,0.6)" },
+              { value: 0.25, color: "rgba(255,255,255,0.35)" },
+              { value: -0.25, color: "rgba(255,255,255,0.35)" },
+            ],
+            range: { min: -0.55, max: 0.55 },
+          }),
+        r &&
+          d.e &&
+          d.f &&
+          window.chart.setSubChart("rsimfi_" + o, {
+            label: o + " \uB9E4\uB9E4\uC555\uB825",
+            lines: [
+              { data: d.e, color: p[0], lineWidth: l },
+              { data: d.f, color: p[1], lineWidth: Math.max(0.5, l * 0.5) },
+            ],
+            hlines: [
+              { value: 0, color: "rgba(255,255,255,0.4)" },
+              { value: 0.4, color: "rgba(255,255,255,0.35)" },
+              { value: -0.4, color: "rgba(255,255,255,0.35)" },
+            ],
+          }),
+        a &&
+          d.g &&
+          d.h &&
+          window.chart.setSubChart("stc_" + o, {
+            label: o + " \uCD94\uC138\uC804\uD658",
+            lines: [
+              { data: d.g, color: p[0], lineWidth: Math.max(0.5, l * 0.5) },
+              { data: d.h, color: p[1], lineWidth: l },
+            ],
+            hlines: [
+              { value: 0, color: "rgba(255,255,255,0.6)" },
+              { value: 0.25, color: "rgba(255,255,255,0.35)" },
+              { value: -0.25, color: "rgba(255,255,255,0.35)" },
+            ],
+            range: { min: -0.55, max: 0.55 },
+          }));
+    } catch {}
+}
+async function _loadCompPasr(e, o) {
+  if (_compVars["show_pasr_" + o])
+    try {
+      const r = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/ind-c?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}&ver=${e}`,
+        )
+      ).json();
+      if (!r.success || !r.data) return;
+      const a = r.data,
+        i =
+          o === "orig"
+            ? ["#6b7280", "#9ca3af"]
+            : o === "1m"
+              ? ["#D8B66A", "#d97706"]
+              : ["#A31540", "#7c3aed"];
+      if (a.pn && a.pna) {
+        const c = {};
+        if (a.bg) for (const w of a.bg) c[w.index] = w.color;
+        const d = a.pn.map((w, p) => ({ ...w, bg: c[p] || "sideways" }));
+        var n = o === "orig" ? 1 : o === "1m" ? 2 : 3;
+        window.chart.setSubChart("pasr_" + o, {
+          label: o + " \uC790\uAE08\uD750\uB984",
+          lines: [
+            { data: a.pn, color: i[0], lineWidth: n },
+            { data: a.pna, color: i[1], lineWidth: n },
+          ],
+          hlines: [],
+          bg: d,
+        });
+      }
+    } catch {}
+}
+async function _loadCompBuyScan(e, o) {
+  if (_compVars["show_bs_" + o])
+    try {
+      const r = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/signals/buy-scanner?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}&ver=${e}`,
+        )
+      ).json();
+      if (!r.success) return;
+      const a = o === "orig" ? "#6b7280" : o === "1m" ? "#D8B66A" : "#A31540";
+      var n = o === "orig" ? 5 : o === "1m" ? 7 : 9;
+      for (const i of r.data || [])
+        window.chart.addDrawing({
+          type: "buy_scan",
+          index: i.index,
+          price: i.price,
+          cross: i.cross,
+          scanType: i.type,
+          color: a,
+          size: n,
+          ver: o,
+        });
+    } catch {}
+}
+async function _loadCompAlign(e, o) {
+  if (_compVars["show_al_" + o])
+    try {
+      const r = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/signals/alignment?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}&ver=${e}`,
+        )
+      ).json();
+      if (!r.success) return;
+      const a = o === "orig" ? "#6b7280" : o === "1m" ? "#D8B66A" : "#A31540";
+      var n = o === "orig" ? 6 : o === "1m" ? 8 : 10;
+      for (const i of r.data || [])
+        window.chart.addDrawing({
+          type: "alignment",
+          index: i.index,
+          price: i.price,
+          alignType: i.type,
+          color: a,
+          size: n,
+          ver: o,
+        });
+    } catch {}
+}
+async function loadAllComparisons() {
+  const e = window._compVars || {};
+  Object.values(e).some((n) => n === !0) &&
+    (await Promise.all([
+      _loadCompUprsiStc("orig", "orig"),
+      _loadCompUprsiStc("1m", "1m"),
+      _loadCompUprsiStc("1y", "1y"),
+      _loadCompUprsiStc("1y_old", "1yo"),
+      _loadCompPasr("orig", "orig"),
+      _loadCompPasr("1m", "1m"),
+      _loadCompPasr("1y", "1y"),
+      _loadCompPasr("1y_old", "1yo"),
+      _loadCompBuyScan("orig", "orig"),
+      _loadCompBuyScan("1m", "1m"),
+      _loadCompBuyScan("1y", "1y"),
+      _loadCompBuyScan("1y_old", "1yo"),
+      _loadCompAlign("orig", "orig"),
+      _loadCompAlign("1m", "1m"),
+      _loadCompAlign("1y", "1y"),
+      _loadCompAlign("1y_old", "1yo"),
+    ]));
+}
+((_compVars.show_pasr_1yo = !1),
+  (window._toggle_pasr_1yo = function () {
+    ((_compVars.show_pasr_1yo = !_compVars.show_pasr_1yo),
+      document
+        .querySelector('[data-ind="pasr_1yo"]')
+        ?.classList.toggle("on", _compVars.show_pasr_1yo),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (_compVars.show_bs_1yo = !1),
+  (window._toggle_bs_1yo = function () {
+    ((_compVars.show_bs_1yo = !_compVars.show_bs_1yo),
+      document
+        .querySelector('[data-ind="bs_1yo"]')
+        ?.classList.toggle("on", _compVars.show_bs_1yo),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (_compVars.show_al_1yo = !1),
+  (window._toggle_al_1yo = function () {
+    ((_compVars.show_al_1yo = !_compVars.show_al_1yo),
+      document
+        .querySelector('[data-ind="al_1yo"]')
+        ?.classList.toggle("on", _compVars.show_al_1yo),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window.loadAllComparisons = loadAllComparisons),
+  (window.showBimacoTP = window.showBimacoTP || !1),
+  Object.defineProperty(window, "_getShowBimacoTP", {
+    value: () => window.showBimacoTP,
+    configurable: !0,
+  }));
+let _btpCache = null;
+window._btpCache = null;
+let _btpCacheKey = null,
+  _btpLastIdx = -1;
+window._toggleBimacoTP = function () {
+  requirePremium("AI\uBAA9\uD45C") &&
+    ((window.showBimacoTP = !window.showBimacoTP),
+    (_btpCache = null),
+    (window._btpCache = null),
+    (_btpLastIdx = -1),
+    (window._btpLastIdx = -1),
+    (_btpCacheKey = null),
+    document
+      .querySelector('[data-ind="bimaco_tp"]')
+      ?.classList.toggle("on", window.showBimacoTP),
+    !window.showBimacoTP && window.chart && window.chart.overlay
+      ? ((window.chart.overlay.drawings = window.chart.overlay.drawings.filter(
+          (e) => e._calcOwner !== "btp",
+        )),
+        (window.chart._dirty = !0))
+      : window.showBimacoTP && loadBimacoTP(),
+    window._refreshOverlays(),
+    window._debounceSaveChartSettings());
+};
+async function loadBimacoTP() {
+  if (window.showBimacoTP)
+    try {
+      if (
+        !window.chart ||
+        !window.chart.buffer ||
+        window.chart.buffer.length < 50
+      ) {
+        setTimeout(() => {
+          window.showBimacoTP && loadBimacoTP();
+        }, 500);
+        return;
+      }
+      const e = `${window.curSymbol}:${window.curTf}`;
+      if (
+        (_btpCacheKey !== e &&
+          ((_btpCache = null), (window._btpCache = null), (_btpCacheKey = e)),
+        !_btpCache)
+      ) {
+        const n = await (
+          await window.dedupFetch(
+            `${window.API}/v1/charts/ind-e?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}`,
+          )
+        ).json();
+        if (!n.success || !n.data) return;
+        if (!Array.isArray(n.data)) return (n.data._access, void 0);
+        if (!n.data.length) return;
+        ((_btpCache = n.data),
+          (window._btpCache = _btpCache),
+          (_btpLastIdx = -1),
+          (window._btpLastIdx = -1));
+      }
+      _drawBimacoTP();
+      if (window.chart) window.chart._dirty = true;
+    } catch {}
+}
+function _drawBimacoTP() {
+  if (!_btpCache || !window.chart || !window.showBimacoTP) return;
+  const e = window.chart._replayVisibleLength || window.chart.buffer.length,
+    o = _btpCache.filter((l) => l.index < e);
+  if (o.length === 0) return;
+  const n = o[o.length - 1],
+    s = window.chart.overlay.drawings.some((l) => l._calcOwner === "btp");
+  if (!window.chart._replayVisibleLength && n.index === _btpLastIdx && s)
+    return;
+  ((_btpLastIdx = n.index),
+    (window.chart.overlay.drawings = window.chart.overlay.drawings.filter(
+      (l) => l._calcOwner !== "btp",
+    )));
+  const r = n,
+    a = r.dir === "long",
+    i = Math.min(r.index + 60, window.chart.buffer.length - 1),
+    c = [
+      {
+        price: r.entry,
+        color: "#D8B66A",
+        w: 2,
+        label:
+          "\u25C9 \uC9C4\uC785 " +
+          (window.fmtPrice ? window.fmtPrice(r.entry) : r.entry.toFixed(4)),
+      },
+      {
+        price: r.stop,
+        color: "#3B82F6",
+        w: 2,
+        label:
+          "\u2716 \uC190\uC808 " +
+          (window.fmtPrice ? window.fmtPrice(r.stop) : r.stop.toFixed(4)),
+      },
+      {
+        price: r.tp1,
+        color: "#C4384B",
+        w: 1,
+        label:
+          "\u2460 \uC775\uC808 " +
+          (window.fmtPrice ? window.fmtPrice(r.tp1) : r.tp1.toFixed(4)),
+      },
+      {
+        price: r.tp2,
+        color: "#E11D48",
+        w: 1,
+        label:
+          "\u2461 \uC775\uC808 " +
+          (window.fmtPrice ? window.fmtPrice(r.tp2) : r.tp2.toFixed(4)),
+      },
+      {
+        price: r.tp3,
+        color: "#9F1239",
+        w: 1,
+        label:
+          "\u2462 \uC775\uC808 " +
+          (window.fmtPrice ? window.fmtPrice(r.tp3) : r.tp3.toFixed(4)),
+      },
+    ],
+    d = Math.max(1, Math.min(i - r.index + 1, e - r.index));
+  let w = null,
+    p = -1;
+  for (let l = 1; l < d; l++) {
+    const _h = window.chart.buffer.high[r.index + l],
+      _lo = window.chart.buffer.low[r.index + l];
+    if (!Number.isFinite(_h) || !Number.isFinite(_lo) || _h <= 0 || _lo <= 0)
+      continue;
+    const m = _h,
+      g = _lo;
+    if (a && g <= r.stop && !w) {
+      ((w = "sl"), (p = r.index + l));
+      break;
+    }
+    if (!a && m >= r.stop && !w) {
+      ((w = "sl"), (p = r.index + l));
+      break;
+    }
+    if (!w && ((a && m >= r.tp1) || (!a && g <= r.tp1))) {
+      ((w = "tp1"), (p = r.index + l));
+    }
+    if (w === "tp1" && ((a && m >= r.tp2) || (!a && g <= r.tp2))) {
+      ((w = "tp2"), (p = r.index + l));
+    }
+    if (w === "tp2" && ((a && m >= r.tp3) || (!a && g <= r.tp3))) {
+      ((w = "tp3"), (p = r.index + l));
+    }
+  }
+  for (const l of c) {
+    let m = !1;
+    (w === "sl" && l.label.includes("\uC190\uC808") && (m = !0),
+      w &&
+        w.startsWith("tp") &&
+        l.label.includes("\uC775\uC808") &&
+        (l.label.includes("\u2460") &&
+          (w === "tp1" || w === "tp2" || w === "tp3") &&
+          (m = !0),
+        l.label.includes("\u2461") && (w === "tp2" || w === "tp3") && (m = !0),
+        l.label.includes("\u2462") && w === "tp3" && (m = !0)));
+    const g = m ? "\u2714 " + l.label : l.label,
+      y = m
+        ? l.label.includes("\uC190\uC808")
+          ? "#3B82F6"
+          : "#C4384B"
+        : l.color;
+    (window.chart.addDrawing({
+      type: "trendline",
+      points: [
+        { index: r.index, price: l.price },
+        { index: p > 0 ? p : i, price: l.price },
+      ],
+      color: y,
+      lineWidth: m ? 2 : l.w,
+      _calcOwner: "btp",
+    }),
+      window.chart.addDrawing({
+        type: "text",
+        index: r.index - 1,
+        price: l.price,
+        text: g,
+        color: y,
+        _calcOwner: "btp",
+      }));
+  }
+  window.chart._dirty = !0;
+}
+window.loadBimacoTP = loadBimacoTP;
+var _trainMode = !1,
+  _trainType = "entry",
+  _trainPoints = [];
+((window._trainMode = _trainMode),
+  (window._toggleTrainMode = function () {
+    if (
+      ((_trainMode = !_trainMode),
+      (window._trainMode = _trainMode),
+      document
+        .querySelector('[data-ind="trainmode"]')
+        ?.classList.toggle("on", _trainMode),
+      _trainMode)
+    )
+      ((_trainPoints = []),
+        (_trainType = "entry"),
+        window.showToast(
+          "\uD559\uC2B5\uBAA8\uB4DC ON \u2014 \uC9C4\uC785 \uC9C0\uC810 \uD074\uB9AD (E:\uC9C4\uC785/X:\uCCAD\uC0B0 \uC804\uD658, S:\uC800\uC7A5)",
+          "#D8B66A",
+        ));
+    else if (indType && _subDefaults[indType]) {
+      const e = _subDefaults[indType];
+      let o = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:700;font-size:14px">${name}</span><button class="_close" style="background:none;border:none;font-size:14px;color:#8E7D72;cursor:pointer">\u2715</button></div>`;
+      for (const [n, s] of Object.entries(e)) {
+        const r = window.getIndSetting
+            ? window.getIndSetting(indType, n, s)
+            : s,
+          a =
+            n === "period"
+              ? "\uAE30\uAC04"
+              : n === "mult"
+                ? "\uBC30\uC218"
+                : n === "fast"
+                  ? "\uBE60\uB978\uC120"
+                  : n === "slow"
+                    ? "\uB290\uB9B0\uC120"
+                    : n === "tenkan"
+                      ? "\uC804\uD658\uC120"
+                      : n === "kijun"
+                        ? "\uAE30\uC900\uC120"
+                        : n === "senkou"
+                          ? "\uC120\uD589\uC2A4\uD32C"
+                          : n === "step"
+                            ? "\uC2A4\uD15D"
+                            : n === "max"
+                              ? "\uCD5C\uB300"
+                              : n === "rows"
+                                ? "\uD589\uC218"
+                                : n === "type"
+                                  ? "\uC720\uD615"
+                                  : n === "signal"
+                                    ? "\uC2DC\uADF8\uB110"
+                                    : n === "smooth"
+                                      ? "\uC2A4\uBB34\uB529"
+                                      : n === "w_basic"
+                                        ? "\uAE30\uBCF8MA \uAC00\uC911\uCE58"
+                                        : n === "w_lowlag"
+                                          ? "\uC800\uC9C0\uC5F0MA \uAC00\uC911\uCE58"
+                                          : n === "w_adaptive"
+                                            ? "\uC801\uC751\uD615MA \uAC00\uC911\uCE58"
+                                            : n === "w_vol"
+                                              ? "\uAC70\uB798\uB7C9MA \uAC00\uC911\uCE58"
+                                              : n === "color"
+                                                ? "\uC120 \uC0C9\uC0C1"
+                                                : n === "width"
+                                                  ? "\uC120 \uAD75\uAE30"
+                                                  : n === "mode"
+                                                    ? "\uBAA8\uB4DC"
+                                                    : n;
+        n === "color"
+          ? (o += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(216,182,106,0.1)"><span style="font-size:14px">${a}</span><input type="color" value="${r || "#D8B66A"}" data-key="${n}" class="_sp" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px"></div>`)
+          : n === "mode"
+            ? (o += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(216,182,106,0.1)"><span style="font-size:14px">${a}</span><select data-key="${n}" class="_sp" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:14px"><option value="balanced" ${r === "balanced" ? "selected" : ""}>\uBC38\uB7F0\uC2A4</option><option value="fast" ${r === "fast" ? "selected" : ""}>\uD328\uC2A4\uD2B8</option><option value="smooth" ${r === "smooth" ? "selected" : ""}>\uC2A4\uBB34\uC2A4</option><option value="custom" ${r === "custom" ? "selected" : ""}>\uCEE4\uC2A4\uD140</option></select></div>`)
+            : (o += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(216,182,106,0.1)"><span style="font-size:14px">${a}</span><input type="number" value="${r}" min="0" max="500" step="${n === "mult" || n === "width" ? "0.5" : "1"}" data-key="${n}" class="_sp" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:14px;text-align:center"></div>`);
+      }
+      ((o +=
+        '<button class="_apply" style="width:100%;padding:8px;margin-top:10px;background:#921230;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">\uC801\uC6A9</button><button class="_reset" style="width:100%;padding:8px;margin-top:6px;background:none;border:1px solid #8E7D72;border-radius:6px;color:#8E7D72;cursor:pointer;font-size:14px">\uAE30\uBCF8\uAC12</button>'),
+        (_settingsPanel.innerHTML = o),
+        (_settingsPanel.querySelector("._close").onclick = () =>
+          _settingsPanel.classList.remove("open")),
+        (_settingsPanel.querySelector("._apply").onclick = function () {
+          (window._indSettings || (window._indSettings = {}),
+            window._indSettings[indType] || (window._indSettings[indType] = {}),
+            _settingsPanel.querySelectorAll("._sp").forEach((n) => {
+              const s = n.value;
+              window._indSettings[indType][n.dataset.key] =
+                n.type === "number" ? parseFloat(s) : s;
+            }),
+            window.saveIndSettings && saveIndSettings(),
+            window.calcIndicators && calcIndicators(),
+            window.calcStrategySignals && window.calcStrategySignals(),
+            _settingsPanel.classList.remove("open"));
+        }),
+        _settingsPanel.querySelector("._reset") &&
+          (_settingsPanel.querySelector("._reset").onclick = function () {
+            delete window._indSettings[indType];
+            window.saveIndSettings && saveIndSettings();
+            (window.calcIndicators && calcIndicators(),
+              window.calcStrategySignals && window.calcStrategySignals());
+            _settingsPanel.classList.remove("open");
+          }));
+    } else window.showToast(t("\uD559\uC2B5\uBAA8\uB4DC OFF"));
+  }),
+  document.addEventListener("keydown", (e) => {
+    if (
+      _trainMode &&
+      ((e.key === "e" || e.key === "E") &&
+        ((_trainType = "entry"),
+        window.showToast(t("\uBAA8\uB4DC: \uC9C4\uC785"), "#C4384B")),
+      (e.key === "x" || e.key === "X") &&
+        ((_trainType = "exit"),
+        window.showToast(t("\uBAA8\uB4DC: \uCCAD\uC0B0"), "#3B82F6")),
+      e.key === "s" || e.key === "S")
+    ) {
+      if (!_trainPoints.length) {
+        window.showToast(t("\uCCB4\uD06C\uB41C \uC9C0\uC810 \uC5C6\uC74C"));
+        return;
+      }
+      window.api
+        .raw(API + "/v1/charts/save-train", {
+          method: "POST",
+          body: {
+            points: _trainPoints,
+            symbol: window.curSymbol,
+            tf: window.curTf,
+          },
+        })
+        .then((o) => o.json())
+        .then((o) => {
+          o.success &&
+            window.showToast(
+              t("\uC800\uC7A5 \uC644\uB8CC: ") +
+                _trainPoints.length +
+                "\uAC1C \uC9C0\uC810",
+              "#C4384B",
+            );
+        });
+    }
+  }));
+var showSigRsi = !1,
+  showSigStoch = !1,
+  showSigStc = !1,
+  showSigRm = !1;
+((window._toggleSigRsi = function () {
+  ((showSigRsi = !showSigRsi),
+    document
+      .querySelector('[data-ind="sig_rsi"]')
+      ?.classList.toggle("on", showSigRsi),
+    window._refreshOverlays(),
+    window._debounceSaveChartSettings());
+}),
+  (window._toggleSigStoch = function () {
+    ((showSigStoch = !showSigStoch),
+      document
+        .querySelector('[data-ind="sig_stoch"]')
+        ?.classList.toggle("on", showSigStoch),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggleSigStc = function () {
+    ((showSigStc = !showSigStc),
+      document
+        .querySelector('[data-ind="sig_stc"]')
+        ?.classList.toggle("on", showSigStc),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._toggleSigRm = function () {
+    ((showSigRm = !showSigRm),
+      document
+        .querySelector('[data-ind="sig_rm"]')
+        ?.classList.toggle("on", showSigRm),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }));
+async function loadIndSignals() {
+  const e = { rsi: "#3B82F6", stoch: "#921230", stc: "#C4384B", rm: "#D8B66A" },
+    o = {
+      rsi: showSigRsi,
+      stoch: showSigStoch,
+      stc: showSigStc,
+      rm: showSigRm,
+    };
+  for (const [n, s] of Object.entries(o))
+    if (s)
+      try {
+        const a = await (
+          await window.dedupFetch(
+            `${window.API}/v1/charts/ind-i?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}&ind=${n}`,
+          )
+        ).json();
+        if (!a.success) continue;
+        const i = e[n];
+        for (const c of a.data || [])
+          window.chart.addDrawing({
+            type: "ind_signal",
+            index: c.index,
+            price: c.price,
+            sigType: c.type,
+            color: i,
+            ind: n,
+          });
+      } catch {}
+}
+window.loadIndSignals = loadIndSignals;
+var showRsiMfiOpt = !1,
+  showStcOpt = !1,
+  showPasrOpt = !1;
+((window._toggleRsiMfiOpt = function () {
+  ((showRsiMfiOpt = !showRsiMfiOpt),
+    document
+      .querySelector('[data-ind="rsimfiopt"]')
+      .classList.toggle("on", showRsiMfiOpt),
+    window._refreshOverlays(),
+    window._debounceSaveChartSettings());
+}),
+  (window._toggleStcOpt = function () {
+    ((showStcOpt = !showStcOpt),
+      document
+        .querySelector('[data-ind="stcopt"]')
+        .classList.toggle("on", showStcOpt),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }),
+  (window._togglePasrOpt = function () {
+    ((showPasrOpt = !showPasrOpt),
+      document
+        .querySelector('[data-ind="pasropt"]')
+        .classList.toggle("on", showPasrOpt),
+      window._refreshOverlays(),
+      window._debounceSaveChartSettings());
+  }));
+async function loadRsiMfiOpt() {
+  if (showRsiMfiOpt)
+    try {
+      const o = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/ind-j?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}`,
+        )
+      ).json();
+      if (!o.success || !o.data) return;
+      const n = o.data;
+      n.e &&
+        window.chart.setSubChart("rsimfi_opt", {
+          label: "RSI(30)/MFI(7)",
+          lines: [
+            { data: n.e, color: "#C4384B", lineWidth: 1 },
+            { data: n.f, color: "#3B82F6", lineWidth: 1 },
+          ],
+          hlines: [
+            { value: 0, color: "rgba(255,255,255,0.6)" },
+            { value: 0.2, color: "rgba(234,179,8,0.5)" },
+            { value: -0.2, color: "rgba(234,179,8,0.5)" },
+          ],
+          range: { min: -0.55, max: 0.55 },
+        });
+    } catch {}
+}
+async function loadStcOpt() {
+  if (showStcOpt)
+    try {
+      const o = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/ind-k?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}`,
+        )
+      ).json();
+      if (!o.success || !o.data) return;
+      const n = o.data;
+      n.g &&
+        window.chart.setSubChart("stc_opt", {
+          label: "\uCD94\uC138\uC804\uD658(\uCD5C\uC801\uD654)",
+          lines: [
+            { data: n.g, color: "#C4384B", lineWidth: 1 },
+            { data: n.h, color: "#3B82F6", lineWidth: 1 },
+          ],
+          hlines: [
+            { value: 0, color: "rgba(255,255,255,0.6)" },
+            { value: 0.25, color: "rgba(234,179,8,0.5)" },
+            { value: -0.25, color: "rgba(234,179,8,0.5)" },
+          ],
+          range: { min: -0.55, max: 0.55 },
+        });
+    } catch {}
+}
+async function loadPasrOpt() {
+  if (showPasrOpt)
+    try {
+      const o = await (
+        await window.dedupFetch(
+          `${window.API}/v1/charts/ind-c2?symbolId=${window.curSymbol}&timeframe=${window.curTf}&limit=${window.chart.buffer.length || 2e3}`,
+        )
+      ).json();
+      if (!o.success || !o.data) return;
+      const n = o.data;
+      if (n.pn && n.pna) {
+        const s = {};
+        if (n.bg) for (const a of n.bg) s[a.index] = a.color;
+        const r = n.pn.map((a, i) => ({ ...a, bg: s[i] || "sideways" }));
+        window.chart.setSubChart("pasr_opt", {
+          label: "\uC790\uAE08\uD750\uB984(\uCD5C\uC801\uD654)",
+          lines: [
+            { data: n.pn, color: "#C4384B", lineWidth: 2.5 },
+            { data: n.pna, color: "#3B82F6", lineWidth: 2.5 },
+          ],
+          hlines: [],
+          bg: r,
+        });
+      }
+      if (n.signals)
+        for (const s of n.signals)
+          window.chart.addDrawing({
+            type: "signal",
+            index: s.index,
+            price: s.price,
+            signalType: s.type === "buy" ? "ku" : "kd",
+          });
+    } catch {}
+}
+if (
+  ((window.loadRsiMfiOpt = loadRsiMfiOpt),
+  (window.loadStcOpt = loadStcOpt),
+  (window.loadPasrOpt = loadPasrOpt),
+  document
+    .getElementById("addMABtn")
+    ?.addEventListener("click", () => window.addCustomMA()),
+  document
+    .getElementById("addSUBBtn")
+    ?.addEventListener("click", () => window.addCustomSUB()),
+  document.querySelectorAll("[data-ma-type]").forEach((e) => {
+    e.addEventListener("click", function () {
+      const o = e.dataset.maType;
+      if ((window._customMA || []).filter((s) => s.type === o).length > 0)
+        ((window._customMA = window._customMA.filter((s) => s.type !== o)),
+          e.classList.remove("on"),
+          document
+            .getElementById("indSettingsPanel")
+            ?.classList.remove("open"));
+      else {
+        const s = ["#E53935", "#FF6D00", "#43A047", "#1E88E5"];
+        ([20, 60, 120, 240].forEach((r, a) => {
+          window._customMA.push({
+            id: "ma_" + o + "_" + r,
+            type: o,
+            period: r,
+            color: s[a],
+            width: 1,
+          });
+        }),
+          e.classList.add("on"),
+          document
+            .getElementById("indSettingsPanel")
+            ?.classList.contains("open") &&
+            openSettings(o + " \uC774\uB3D9\uD3C9\uADE0\uC120", o, null, null));
+      }
+      (saveCustomInds(),
+        renderCustomMA(),
+        calcIndicators(),
+        _updateActiveIndList());
+    });
+  }),
+  window._syncIndicatorVars && _syncIndicatorVars(),
+  setTimeout(() => {
+    window.chart && window.loadMTF && window.loadMTF();
+  }, 100),
+  setTimeout(() => {
+    const e = document.getElementById("splashScreen");
+    e && (e.classList.add("hide"), setTimeout(() => e.remove(), 600));
+  }, 3e3),
+  setTimeout(() => {
+    window._loadDrawings && window._loadDrawings();
+  }, 1e3),
+  typeof createLangSelector == "function")
+) {
+  createLangSelector(document.getElementById("langList"));
+  const e = localStorage.getItem("chartOS_lang") || "ko";
+  e !== "ko" && setTimeout(() => window.setLanguage(e), 2e3);
+}
+((function () {
+  const e = document.getElementById("resizerRight"),
+    o = document.getElementById("rightPanel");
+  if (!e || !o) return;
+  (localStorage.getItem("chartOS_rightCollapsed") === "1" &&
+    o.classList.add("collapsed"),
+    e.addEventListener("dblclick", () => {
+      (o.classList.toggle("collapsed"),
+        localStorage.setItem(
+          "chartOS_rightCollapsed",
+          o.classList.contains("collapsed") ? "1" : "0",
+        ),
+        setTimeout(() => {
+          window.chart && window.chart.resize && window.chart.resize();
+        }, 300));
+    }));
+  let s = !1,
+    r = 0,
+    a = 0;
+  (e.addEventListener("mousedown", (i) => {
+    ((s = !0),
+      (r = i.clientX),
+      (a = o.offsetWidth),
+      e.classList.add("active"),
+      (document.body.style.cursor = "col-resize"),
+      i.preventDefault());
+  }),
+    document.addEventListener("mousemove", (i) => {
+      if (!s) return;
+      const c = r - i.clientX;
+      o.style.width = Math.max(200, Math.min(600, a + c)) + "px";
+    }),
+    document.addEventListener("mouseup", () => {
+      s &&
+        ((s = !1),
+        e.classList.remove("active"),
+        (document.body.style.cursor = ""),
+        setTimeout(() => {
+          window.chart && window.chart.resize && window.chart.resize();
+        }, 100));
+    }));
+})(),
+  (function () {
+    const e = document.getElementById("resizerLeft"),
+      o = document.querySelector(".left");
+    if (!e || !o) return;
+    let n = !1,
+      s = 0,
+      r = 0;
+    (e.addEventListener("mousedown", (a) => {
+      ((n = !0),
+        (s = a.clientX),
+        (r = o.offsetWidth),
+        e.classList.add("active"),
+        (document.body.style.cursor = "col-resize"),
+        a.preventDefault());
+    }),
+      document.addEventListener("mousemove", (a) => {
+        if (!n) return;
+        const i = a.clientX - s;
+        o.style.width = Math.max(160, Math.min(400, r + i)) + "px";
+      }),
+      document.addEventListener("mouseup", () => {
+        n &&
+          ((n = !1),
+          e.classList.remove("active"),
+          (document.body.style.cursor = ""),
+          setTimeout(() => {
+            window.chart && window.chart.resize && window.chart.resize();
+          }, 100));
+      }));
+  })(),
+  document.querySelectorAll("#assetTabs .asset-tab").forEach((e) => {
+    e.onclick = function () {
+      (document.querySelectorAll("#assetTabs .asset-tab").forEach((o) => {
+        (o.classList.remove("active"),
+          (o.style.borderBottom = "2px solid transparent"),
+          (o.style.color = "#8E7D72"),
+          (o.style.fontWeight = "400"));
+      }),
+        this.classList.add("active"),
+        (this.style.borderBottom = "2px solid #921230"),
+        (this.style.color = ""),
+        (this.style.fontWeight = "600"),
+        (window._wlAssetFilter = this.dataset.asset),
+        window.renderWL(document.getElementById("searchInput")?.value || ""));
+    };
+  }),
+  (function () {
+    const e = document.getElementById("resizerChart");
+    if (!e) return;
+    const o = e.nextElementSibling;
+    let n, s;
+    e.addEventListener("mousedown", (i) => {
+      (i.preventDefault(),
+        (n = i.clientY),
+        (s = o.offsetHeight),
+        document.addEventListener("mousemove", r),
+        document.addEventListener("mouseup", a),
+        (document.body.style.cursor = "row-resize"),
+        (document.body.style.userSelect = "none"));
+    });
+    function r(i) {
+      const c = n - i.clientY,
+        d = Math.max(36, Math.min(window.innerHeight * 0.6, s + c));
+      ((o.style.maxHeight = d + "px"),
+        (o.style.height = d + "px"),
+        window.chart && window.chart.resize && window.chart.resize());
+    }
+    function a() {
+      (document.removeEventListener("mousemove", r),
+        document.removeEventListener("mouseup", a),
+        (document.body.style.cursor = ""),
+        (document.body.style.userSelect = ""),
+        window.chart && window.chart.resize && window.chart.resize());
+    }
+  })(),
+  (function () {
+    const e = document.getElementById("indBarToggle"),
+      o = document.getElementById("resizerChart");
+    if (!e || !o) return;
+    const n = o.nextElementSibling;
+    let s = "";
+    e.onclick = (r) => {
+      (r.stopPropagation(),
+        n.style.display === "none"
+          ? ((n.style.display = ""),
+            (e.textContent = "\u25BC \uC9C0\uD45C"),
+            s && (n.style.height = s))
+          : ((s = n.style.height || ""),
+            (n.style.display = "none"),
+            (e.textContent = "\u25B2 \uC9C0\uD45C")),
+        window.chart &&
+          window.chart.resize &&
+          setTimeout(() => window.chart.resize(), 50));
+    };
+  })());
+function openDrawer(e) {
+  const o = document.querySelector(".ind-bar");
+  if (!o) return;
+  (o
+    .querySelectorAll("[data-drawer-group]")
+    .forEach(
+      (a) => (a.style.display = a.dataset.drawerGroup === e ? "" : "none"),
+    ),
+    o.classList.add("open"));
+  const s = {
+      public: "\uC9C0\uD45C",
+      beom: "\uBC94\uC628\uC9C0\uD45C",
+      strategy: "\uB9E4\uB9E4\uC804\uB7B5",
+      drawing: "\uB4DC\uB85C\uC789",
+      preset: "\uD504\uB9AC\uC14B",
+    },
+    r = document.getElementById("indDrawerTitle");
+  r && (r.textContent = s[e] || "\uC9C0\uD45C");
+}
+function closeDrawer() {
+  const e = document.querySelector(".ind-bar");
+  (e && e.classList.remove("open"),
+    document.getElementById("indSettingsPanel")?.classList.remove("open"),
+    document.getElementById("indDrawerToggle")?.classList.remove("active"),
+    document.getElementById("beomDrawerToggle")?.classList.remove("active"),
+    document.getElementById("strategyDrawerToggle")?.classList.remove("active"),
+    document.getElementById("drawingDrawerToggle")?.classList.remove("active"),
+    document.getElementById("presetDrawerToggle")?.classList.remove("active"),
+    document.getElementById("presetDrawerToggle")?.classList.remove("active"));
+}
+(document
+  .getElementById("indDrawerClose")
+  ?.addEventListener("click", closeDrawer),
+  document
+    .getElementById("indDrawerToggle")
+    ?.addEventListener("click", function () {
+      if (
+        document.querySelector(".ind-bar")?.classList.contains("open") &&
+        !document.querySelector('[data-drawer-group="public"][style*="none"]')
+      ) {
+        closeDrawer();
+        return;
+      }
+      (openDrawer("public"),
+        this.classList.add("active"),
+        document.getElementById("beomDrawerToggle")?.classList.remove("active"),
+        document
+          .getElementById("strategyDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("drawingDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("presetDrawerToggle")
+          ?.classList.remove("active"));
+    }),
+  document
+    .getElementById("beomDrawerToggle")
+    ?.addEventListener("click", function () {
+      if (
+        document.querySelector(".ind-bar")?.classList.contains("open") &&
+        !document.querySelector('[data-drawer-group="beom"][style*="none"]')
+      ) {
+        closeDrawer();
+        return;
+      }
+      (openDrawer("beom"),
+        this.classList.add("active"),
+        document.getElementById("indDrawerToggle")?.classList.remove("active"),
+        document
+          .getElementById("strategyDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("drawingDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("presetDrawerToggle")
+          ?.classList.remove("active"));
+    }),
+  document
+    .getElementById("strategyDrawerToggle")
+    ?.addEventListener("click", function () {
+      if (
+        document.querySelector(".ind-bar")?.classList.contains("open") &&
+        !document.querySelector('[data-drawer-group="strategy"][style*="none"]')
+      ) {
+        closeDrawer();
+        return;
+      }
+      (openDrawer("strategy"),
+        this.classList.add("active"),
+        document.getElementById("indDrawerToggle")?.classList.remove("active"),
+        document.getElementById("beomDrawerToggle")?.classList.remove("active"),
+        document
+          .getElementById("drawingDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("presetDrawerToggle")
+          ?.classList.remove("active"));
+    }),
+  document
+    .getElementById("drawingDrawerToggle")
+    ?.addEventListener("click", function () {
+      if (
+        document.querySelector(".ind-bar")?.classList.contains("open") &&
+        !document.querySelector('[data-drawer-group="drawing"][style*="none"]')
+      ) {
+        closeDrawer();
+        return;
+      }
+      (openDrawer("drawing"),
+        this.classList.add("active"),
+        document.getElementById("indDrawerToggle")?.classList.remove("active"),
+        document.getElementById("beomDrawerToggle")?.classList.remove("active"),
+        document
+          .getElementById("strategyDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("presetDrawerToggle")
+          ?.classList.remove("active"));
+    }),
+  document
+    .getElementById("presetDrawerToggle")
+    ?.addEventListener("click", function () {
+      if (
+        document.querySelector(".ind-bar")?.classList.contains("open") &&
+        !document.querySelector('[data-drawer-group="preset"][style*="none"]')
+      ) {
+        closeDrawer();
+        return;
+      }
+      (openDrawer("preset"),
+        this.classList.add("active"),
+        document.getElementById("indDrawerToggle")?.classList.remove("active"),
+        document.getElementById("beomDrawerToggle")?.classList.remove("active"),
+        document
+          .getElementById("strategyDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("drawingDrawerToggle")
+          ?.classList.remove("active"),
+        document
+          .getElementById("presetDrawerToggle")
+          ?.classList.remove("active"));
+    }));
+let _drawerBusy = !1;
+document.addEventListener("mousedown", function (e) {
+  if (_drawerBusy) return;
+  const o = document.querySelector(".ind-bar");
+  !o ||
+    !o.classList.contains("open") ||
+    (!o.contains(e.target) &&
+      !e.target.closest("#indDrawerToggle") &&
+      !e.target.closest("#beomDrawerToggle") &&
+      !e.target.closest("#strategyDrawerToggle") &&
+      !e.target.closest("#drawingDrawerToggle") &&
+      !e.target.closest("#presetDrawerToggle") &&
+      !e.target.closest("#indSettingsPanel") &&
+      !e.target.closest("#indPopup") &&
+      !e.target.closest("#maPopup") &&
+      closeDrawer());
+});
+const _settingsPanel = document.getElementById("indSettingsPanel"),
+  _subDefaults = {
+    rsi: { period: 14, color: "#3B82F6", width: 1.5 },
+    macd: {
+      fast: 12,
+      slow: 26,
+      signal: 9,
+      color1: "#921230",
+      color2: "#D8B66A",
+      width: 1.5,
+    },
+    stoch: {
+      period: 14,
+      smooth: 3,
+      color1: "#921230",
+      color2: "#D8B66A",
+      width: 1.5,
+    },
+    cci: { period: 20, color: "#0EA5E9", width: 1.5 },
+    adx: {
+      period: 14,
+      color: "#F59E0B",
+      color_plus: "#16A34A",
+      color_minus: "#C4384B",
+      width: 1.5,
+    },
+    atr: { period: 14, color: "#10B981", width: 1.5 },
+    roc: { period: 12, color: "#8B5CF6", width: 1.5 },
+    willr: { period: 14, color: "#EC4899", width: 1.5 },
+    mfi: { period: 14, color: "#14B8A6", width: 1.5 },
+    bb: { period: 20, mult: 2, color: "#2563EB", width: 1.5 },
+    supertrend: { period: 10, mult: 3, color: "#FF6B6B", width: 2 },
+    stochrsi: { period: 14, smooth: 3, color: "#A855F7", width: 1.5 },
+    mom: { period: 10, color: "#F97316", width: 1.5 },
+    volosc: { fast: 5, slow: 10, color: "#06B6D4", width: 1.5 },
+    obv: {
+      period: 20,
+      smooth: 1,
+      color: "#7C3AED",
+      color2: "#D8B66A",
+      width: 1.5,
+    },
+    cmf: { period: 20, color: "#0891B2", width: 1.5 },
+    trix: { period: 15, color: "#DB2777", width: 1.5 },
+    tsi: { long: 25, short: 13, color: "#2563EB", width: 1.5 },
+    ao: { fast: 5, slow: 34, color: "#16A34A", width: 1.5 },
+    ichimoku: {
+      tenkan: 9,
+      kijun: 26,
+      senkou: 52,
+      show_tenkan: "on",
+      show_kijun: "on",
+      show_spanA: "on",
+      show_spanB: "on",
+      show_chikou: "on",
+      cloud: "on",
+      color_tenkan: "#C4384B",
+      color_kijun: "#3B82F6",
+      color_spanA: "#16A34A",
+      color_spanB: "#9333EA",
+      color_chikou: "#D8B66A",
+    },
+    psar: {
+      step: 0.02,
+      max: 0.2,
+      color_buy: "#16A34A",
+      color_sell: "#C4384B",
+      width: 1.5,
+    },
+    envelope: { period: 20, pct: 2.5, color: "#8B5CF6", width: 1.5 },
+    keltner: { period: 20, mult: 1.5, color: "#06B6D4", width: 1.5 },
+    pivot: { type: 1 },
+    vol: { period: 20, color: "#D8B66A", width: 1.5 },
+    vwap: { color: "#F59E0B", width: 2 },
+    volprofile: { rows: 24, lookback: 300 },
+    imacd: { length: 12, signal: 9 },
+    kvo: { fast: 34, slow: 55, color: "#0EA5E9", width: 1.5 },
+    master: { period: 14, color: "#D8B66A", width: 2 },
+    ultra: { period: 14, color: "#D8B66A", width: 2 },
+    bimaco2: { period: 14, color: "#D8B66A", width: 2 },
+    ob: { period: 14, color: "#C4384B", width: 1.5 },
+    autotrend: { color: "#D8B66A", width: 1.5 },
+    stc: { color: "#C4384B", width: 2 },
+    rsimfi: { color1: "#921230", color2: "#3B82F6", width: 2 },
+    pasrpvi: { color1: "#2563EB", color2: "#C4384B", width: 2 },
+    emaribbon: { ma_type: "EMA", length: 8, width: 1 },
+    ttr: { period: 14, color: "#D8B66A", width: 1.5 },
+    align: { period: 20, color: "#D8B66A", width: 1.5 },
+    obsig: { period: 14, color: "#C4384B", width: 1.5 },
+    udstoch: { color: "#D8B66A", width: 2 },
+    uprsi: { color: "#D8B66A", width: 2 },
+    bimaco_tp: { period: 14, color: "#D8B66A", width: 1.5 },
+    darak: {
+      mode: "balanced",
+      period: 20,
+      w_basic: 25,
+      w_lowlag: 30,
+      w_adaptive: 30,
+      w_vol: 15,
+      color: "#D8B66A",
+      width: 2.5,
+    },
+    dayband: {
+      color_high: "#C4384B",
+      color_low: "#3B82F6",
+      color_mid: "#D8B66A",
+      color_25: "#16A34A",
+      color_75: "#9333EA",
+    },
+    rsim: { period: 14, color: "#3B82F6", width: 1.5 },
+    rs: { period: 14, color: "#10B981", width: 1.5 },
+    beom_free: { period: 14, color: "#D8B66A", width: 1.5 },
+    ema9: { period: 9, color: "#FF6B6B", width: 1.5 },
+    ema20: { period: 20, color: "#F59E0B", width: 1.5 },
+    ema50: { period: 50, color: "#10B981", width: 1.5 },
+    ema200: { period: 200, color: "#2563EB", width: 2 },
+    sma50: { period: 50, color: "#8B5CF6", width: 1.5 },
+    sma200: { period: 200, color: "#EC4899", width: 2 },
+    tema60: { period: 60, color: "#06B6D4", width: 1.5 },
+    wma20: { period: 20, color: "#D97706", width: 1.5 },
+    hma20: { period: 20, color: "#059669", width: 1.5 },
+    dema21: { period: 21, color: "#7C3AED", width: 1.5 },
+  };
+window.openSettings = openSettings;
+function _indLabel(i) {
+  return i === "period"
+    ? "기간"
+    : i === "fast"
+      ? "빠른선"
+      : i === "slow"
+        ? "느린선"
+        : i === "signal"
+          ? "시그널"
+          : i === "smooth"
+            ? "스무딩"
+            : i === "mult"
+              ? "배수"
+              : i === "pct"
+                ? "퍼센트"
+                : i === "length"
+                  ? "기간"
+                  : i === "long"
+                    ? "긴기간"
+                    : i === "short"
+                      ? "짧은기간"
+                      : i === "tenkan"
+                        ? "전환선"
+                        : i === "kijun"
+                          ? "기준선"
+                          : i === "senkou"
+                            ? "선행스팬"
+                            : i === "step"
+                              ? "스텝"
+                              : i === "max"
+                                ? "최대"
+                                : i === "rows"
+                                  ? "행수"
+                                  : i === "lookback"
+                                    ? "조회봉수"
+                                    : i === "type"
+                                      ? "유형"
+                                      : i === "mode"
+                                        ? "모드"
+                                        : i === "ma_type"
+                                          ? "MA종류"
+                                          : i === "color"
+                                            ? "선 색상"
+                                            : i === "color1"
+                                              ? "선1 색상"
+                                              : i === "color2"
+                                                ? "선2 색상"
+                                                : i === "color_plus"
+                                                  ? "+DI 색상"
+                                                  : i === "color_minus"
+                                                    ? "-DI 색상"
+                                                    : i === "color_buy"
+                                                      ? "매수 색상"
+                                                      : i === "color_sell"
+                                                        ? "매도 색상"
+                                                        : i === "color_high"
+                                                          ? "고가색"
+                                                          : i === "color_low"
+                                                            ? "저가색"
+                                                            : i === "color_mid"
+                                                              ? "중심색"
+                                                              : i === "color_25"
+                                                                ? "25%색"
+                                                                : i ===
+                                                                    "color_75"
+                                                                  ? "75%색"
+                                                                  : i ===
+                                                                      "color_tenkan"
+                                                                    ? "전환선색"
+                                                                    : i ===
+                                                                        "color_kijun"
+                                                                      ? "기준선색"
+                                                                      : i ===
+                                                                          "color_spanA"
+                                                                        ? "선행A색"
+                                                                        : i ===
+                                                                            "color_spanB"
+                                                                          ? "선행B색"
+                                                                          : i ===
+                                                                              "color_chikou"
+                                                                            ? "후행선색"
+                                                                            : i ===
+                                                                                "show_tenkan"
+                                                                              ? "전환선 표시"
+                                                                              : i ===
+                                                                                  "show_kijun"
+                                                                                ? "기준선 표시"
+                                                                                : i ===
+                                                                                    "show_spanA"
+                                                                                  ? "선행A 표시"
+                                                                                  : i ===
+                                                                                      "show_spanB"
+                                                                                    ? "선행B 표시"
+                                                                                    : i ===
+                                                                                        "show_chikou"
+                                                                                      ? "후행선 표시"
+                                                                                      : i ===
+                                                                                          "cloud"
+                                                                                        ? "구름 표시"
+                                                                                        : i ===
+                                                                                            "width"
+                                                                                          ? "선 굵기"
+                                                                                          : i ===
+                                                                                              "w_basic"
+                                                                                            ? "기본MA 가중치"
+                                                                                            : i ===
+                                                                                                "w_lowlag"
+                                                                                              ? "저지연MA 가중치"
+                                                                                              : i ===
+                                                                                                  "w_adaptive"
+                                                                                                ? "적응형MA 가중치"
+                                                                                                : i ===
+                                                                                                    "w_vol"
+                                                                                                  ? "거래량MA 가중치"
+                                                                                                  : i;
+}
+// 다중선 지표: [색상키, 표시키(없으면 null), 선이름]. 한 줄에 [색] 이름 [체크박스] 렌더.
+const _indLineGroups = {
+  ichimoku: [
+    ["color_tenkan", "show_tenkan", "전환선"],
+    ["color_kijun", "show_kijun", "기준선"],
+    ["color_spanA", "show_spanA", "선행A"],
+    ["color_spanB", "show_spanB", "선행B"],
+    ["color_chikou", "show_chikou", "후행선"],
+    [null, "cloud", "구름"],
+  ],
+  macd: [
+    ["color1", null, "MACD선"],
+    ["color2", null, "시그널선"],
+  ],
+  stoch: [
+    ["color1", null, "%K"],
+    ["color2", null, "%D"],
+  ],
+  adx: [
+    ["color", null, "ADX"],
+    ["color_plus", null, "+DI"],
+    ["color_minus", null, "-DI"],
+  ],
+  obv: [
+    ["color", null, "OBV"],
+    ["color2", null, "시그널"],
+  ],
+  psar: [
+    ["color_buy", null, "매수점"],
+    ["color_sell", null, "매도점"],
+  ],
+  rsimfi: [
+    ["color1", null, "RSI"],
+    ["color2", null, "MFI"],
+  ],
+  pasrpvi: [
+    ["color1", null, "PN"],
+    ["color2", null, "PNA"],
+  ],
+  dayband: [
+    ["color_high", null, "고가"],
+    ["color_low", null, "저가"],
+    ["color_mid", null, "중심"],
+    ["color_25", null, "25%"],
+    ["color_75", null, "75%"],
+  ],
+};
+// 한 줄: [색상선택] 선이름 ──── [on/off 체크박스]
+function _lineRow(id, colorKey, showKey, label) {
+  const R =
+    "display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(216,182,106,0.1)";
+  let html = `<div style="${R}">`;
+  if (colorKey) {
+    const cv = window.getIndSetting
+      ? window.getIndSetting(id, colorKey, _subDefaults[id][colorKey])
+      : _subDefaults[id][colorKey];
+    html += `<input type="color" value="${cv}" data-key="${colorKey}" class="_sp" style="width:30px;height:26px;border:none;cursor:pointer;border-radius:4px;flex-shrink:0">`;
+  } else html += `<span style="width:30px;flex-shrink:0"></span>`;
+  html += `<span style="font-size:14px;flex:1">${label}</span>`;
+  if (showKey) {
+    const sv = window.getIndSetting
+      ? window.getIndSetting(id, showKey, _subDefaults[id][showKey])
+      : _subDefaults[id][showKey];
+    html += `<input type="checkbox" data-key="${showKey}" data-bool="1" class="_sp" ${sv === "on" || sv === true ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;accent-color:#921230">`;
+  }
+  return html + `</div>`;
+}
+function _indField(key, val, ctx) {
+  const w = _indLabel(key),
+    R =
+      "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(216,182,106,0.1)",
+    SEL =
+      "padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:14px";
+  if (key.indexOf("color") === 0)
+    return `<div style="${R}"><span style="font-size:14px">${w}</span><input type="color" value="${val}" data-key="${key}" class="_sp" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px"></div>`;
+  if (key.indexOf("show_") === 0 || key === "cloud")
+    return `<div style="${R}"><span style="font-size:14px">${w}</span><input type="checkbox" data-key="${key}" data-bool="1" class="_sp" ${val === "on" || val === true ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;accent-color:#921230"></div>`;
+  if (key === "ma_type")
+    return `<div style="${R}"><span style="font-size:14px">${w}</span><select data-key="${key}" class="_sp" style="${SEL}">${["EMA", "SMA", "WMA", "HMA", "TEMA", "DEMA"].map((o) => `<option value="${o}" ${val === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>`;
+  if (key === "mode")
+    return `<div style="${R}"><span style="font-size:14px">${w}</span><select data-key="${key}" class="_sp" style="${SEL}"><option value="balanced" ${val === "balanced" ? "selected" : ""}>밸런스</option><option value="fast" ${val === "fast" ? "selected" : ""}>패스트</option><option value="smooth" ${val === "smooth" ? "selected" : ""}>스무스</option></select></div>`;
+  if (key === "type")
+    return `<div style="${R}"><span style="font-size:14px">${w}</span><select data-key="${key}" class="_sp" style="${SEL}">${(ctx ===
+    "pivot"
+      ? [
+          ["1", "클래식"],
+          ["2", "피보나치"],
+          ["3", "우디"],
+          ["4", "카마릴라"],
+        ]
+      : [
+          ["1", "유형1"],
+          ["2", "유형2"],
+          ["3", "유형3"],
+        ]
+    )
+      .map(
+        ([l, m]) =>
+          `<option value="${l}" ${String(val) === l ? "selected" : ""}>${m}</option>`,
+      )
+      .join("")}</select></div>`;
+  return `<div style="${R}"><span style="font-size:14px">${w}</span><input type="number" value="${val}" min="${key === "width" ? "0.5" : "0"}" max="500" step="${key === "mult" || key === "width" || key === "step" ? "0.5" : "1"}" data-key="${key}" class="_sp" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:14px;text-align:center"></div>`;
+}
+const _beomLockSet = new Set([
+  "ultra",
+  "bimaco2",
+  "darak",
+  "autotrend",
+  "ob",
+  "obsig",
+  "bimaco_tp",
+  "ladder",
+  "master",
+  "kvo",
+  "beom_free",
+  "ttr",
+  "align",
+  "udstoch",
+  "uprsi",
+  "rsimfi",
+  "stc",
+  "pasrpvi",
+]);
+window._indProducts = window._indProducts || {};
+(async function _loadIndProducts() {
+  try {
+    const r = await fetch((window.API || "") + "/v1/purchases/products");
+    const d = (await r.json()).data || [];
+    const m = {};
+    for (const p of d) m[p.indicator_code] = p;
+    window._indProducts = m;
+  } catch (e) {}
+})();
+function _hasPurchase(id) {
+  return (
+    (window._purchased || []).includes(id) ||
+    (window.isAdmin && window.isAdmin()) ||
+    window._beomAllowed
+  );
+}
+window._buyIndicator = async function (id) {
+  const _T = window.t || ((s) => s);
+  try {
+    const r = await fetch((window.API || "") + "/v1/purchases/buy", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ indicator_code: id }),
+    });
+    const d = await r.json();
+    if (d.data && d.data.status === "paid") {
+      window.showToast &&
+        window.showToast(_T("이미 보유한 지표입니다"), "#16A34A");
+    } else if (d.data) {
+      window.showToast &&
+        window.showToast(
+          _T("결제 준비됨 — 결제 연동 후 자동 활성화됩니다"),
+          "#D8B66A",
+        );
+    } else
+      window.showToast && window.showToast(_T("구매 요청 실패"), "#3B82F6");
+  } catch (e) {
+    window.showToast && window.showToast(_T("네트워크 오류"), "#3B82F6");
+  }
+};
+function _renderIndSettings(name, id) {
+  const r = _subDefaults[id];
+  const prod = window._indProducts && window._indProducts[id];
+  if (prod && !_hasPurchase(id)) {
+    const _T = window.t || ((s) => s);
+    const price =
+      (prod.price || 0).toLocaleString() +
+      (prod.currency === "USD" ? " USD" : _T("원"));
+    _settingsPanel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:700;font-size:14px">${name}</span><button class="_close" style="background:none;border:none;font-size:14px;color:var(--color-text-muted);cursor:pointer">\u2715</button></div>
+      <p style="color:var(--color-text-muted);font-size:13px;line-height:1.6;margin-bottom:10px">${prod.description || _T("프리미엄 지표입니다.")}</p>
+      <div class="_buyprice" style="font-size:18px;font-weight:700;margin-bottom:10px">${price}</div>
+      <button onclick="window._buyIndicator('${id}')" style="width:100%;padding:10px;background:var(--color-primary);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px;font-weight:600">${_T("구매하기")}</button>`;
+    _settingsPanel.querySelector("._close").onclick = () =>
+      _settingsPanel.classList.remove("open");
+    _settingsPanel.classList.add("open");
+    _settingsPanel.dataset.currentInd = id;
+    return;
+  }
+  if (
+    _beomLockSet.has(id) &&
+    !((window.isAdmin && window.isAdmin()) || window._beomAllowed)
+  ) {
+    _settingsPanel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:700;font-size:14px">${name}</span><button class="_close" style="background:none;border:none;font-size:14px;color:#8E7D72;cursor:pointer">\u2715</button></div><p style="color:#8E7D72;font-size:13px;line-height:1.6">\uBC94\uC628\uC9C0\uD45C \uC124\uC815\uC740 \uC6B4\uC601\uC790 \uB610\uB294 \uD5C8\uB77D\uBC1B\uC740 \uD68C\uC6D0\uB9CC \uBCC0\uACBD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</p>`;
+    _settingsPanel.querySelector("._close").onclick = () =>
+      _settingsPanel.classList.remove("open");
+    _settingsPanel.classList.add("open");
+    _settingsPanel.dataset.currentInd = id;
+    return;
+  }
+  const grp = _indLineGroups[id];
+  let a = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:700;font-size:14px">${name}</span><button class="_close" style="background:none;border:none;font-size:14px;color:#8E7D72;cursor:pointer">\u2715</button></div>`;
+  const handled = new Set();
+  if (grp) {
+    for (const [ck, sk, lbl] of grp) {
+      a += _lineRow(id, ck, sk, lbl);
+      if (ck) handled.add(ck);
+      if (sk) handled.add(sk);
+    }
+  }
+  for (const [i, c] of Object.entries(r)) {
+    if (handled.has(i)) continue;
+    const d = window.getIndSetting ? window.getIndSetting(id, i, c) : c;
+    a += _indField(i, d, id);
+  }
+  a +=
+    '<button class="_apply" style="width:100%;padding:8px;margin-top:10px;background:#921230;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">\uC801\uC6A9</button><button class="_reset" style="width:100%;padding:8px;margin-top:6px;background:none;border:1px solid #8E7D72;border-radius:6px;color:#8E7D72;cursor:pointer;font-size:14px">\uAE30\uBCF8\uAC12</button>';
+  _settingsPanel.innerHTML = a;
+  _settingsPanel.dataset.currentInd = id;
+  _settingsPanel.querySelector("._close").onclick = () =>
+    _settingsPanel.classList.remove("open");
+  _settingsPanel.querySelector("._apply").onclick = function () {
+    window._indSettings || (window._indSettings = {});
+    window._indSettings[id] || (window._indSettings[id] = {});
+    _settingsPanel.querySelectorAll("._sp").forEach((x) => {
+      window._indSettings[id][x.dataset.key] = x.dataset.bool
+        ? x.checked
+          ? "on"
+          : "off"
+        : x.type === "number"
+          ? parseFloat(x.value)
+          : x.value;
+    });
+    window.saveIndSettings && saveIndSettings();
+    window.calcIndicators && calcIndicators();
+    window.calcStrategySignals && window.calcStrategySignals();
+    _settingsPanel.classList.remove("open");
+  };
+  _settingsPanel.querySelector("._reset").onclick = function () {
+    delete window._indSettings[id];
+    window.saveIndSettings && saveIndSettings();
+    window.calcIndicators && calcIndicators();
+    window.calcStrategySignals && window.calcStrategySignals();
+    _settingsPanel.classList.remove("open");
+  };
+}
+function openSettings(e, o, n, s) {
+  if (_settingsPanel) {
+    if (o) renderMASettings(e, o);
+    else if (n && _subDefaults[n]) _renderIndSettings(e, n);
+    else if (s && _subDefaults[s]) _renderIndSettings(e, s);
+    else
+      _settingsPanel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-weight:700;font-size:14px">${e}</span>
+      <button onclick="document.getElementById('indSettingsPanel').classList.remove('open')" style="background:none;border:none;font-size:14px;color:#8E7D72;cursor:pointer">\u2715</button>
+    </div>
+    <p style="color:#8E7D72;font-size:14px">\uD074\uB9AD\uD558\uC5EC \uCF1C\uAE30/\uB044\uAE30</p>`;
+    _settingsPanel.classList.add("open");
+  }
+}
+function renderMASettings(e, o) {
+  function n() {
+    const s = (window._customMA || []).filter((a) => a.type === o);
+    let r = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-weight:700;font-size:14px">${e}</span>
+      <button class="_close" style="background:none;border:none;font-size:14px;color:#8E7D72;cursor:pointer">\u2715</button>
+    </div>`;
+    (s.forEach((a, i) => {
+      r += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(216,182,106,0.1)">
+        <input type="color" value="${a.color}" style="width:26px;height:26px;border:none;cursor:pointer;border-radius:4px" data-idx="${i}" class="_mc">
+        <input type="number" value="${a.period}" min="1" max="500" style="width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:14px" data-idx="${i}" class="_mp">
+        <span style="font-size:14px;color:#8E7D72">\uC77C</span>
+        <button data-idx="${i}" class="_md" style="margin-left:auto;background:none;border:none;color:#3B82F6;cursor:pointer;font-size:14px">\u2715</button>
+      </div>`;
+    }),
+      s.length ||
+        (r +=
+          '<p style="color:#8E7D72;font-size:14px;margin:8px 0">\uCD94\uAC00\uB41C \uC120\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'),
+      (r += `<button class="_add" style="width:100%;padding:8px;margin-top:10px;background:rgba(196,56,75,0.08);border:1px solid rgba(196,56,75,0.25);border-radius:6px;color:#C4384B;cursor:pointer;font-size:14px">+ \uAE30\uAC04 \uCD94\uAC00</button>
+    <button class="_apply" style="width:100%;padding:8px;margin-top:6px;background:#921230;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:14px">\uC801\uC6A9</button><button class="_reset" style="width:100%;padding:8px;margin-top:6px;background:none;border:1px solid #8E7D72;border-radius:6px;color:#8E7D72;cursor:pointer;font-size:14px">\uAE30\uBCF8\uAC12</button>`),
+      (_settingsPanel.innerHTML = r),
+      (_settingsPanel.querySelector("._close").onclick = () =>
+        _settingsPanel.classList.remove("open")),
+      _settingsPanel.querySelectorAll("._md").forEach(
+        (a) =>
+          (a.onclick = function () {
+            _drawerBusy = !0;
+            const c = (window._customMA || []).filter((d) => d.type === o)[
+              parseInt(this.dataset.idx)
+            ];
+            (c && (window._customMA = window._customMA.filter((d) => d !== c)),
+              saveCustomInds(),
+              renderCustomMA(),
+              calcIndicators(),
+              n(),
+              document.querySelector(".ind-bar")?.classList.add("open"),
+              _settingsPanel.classList.add("open"),
+              setTimeout(() => {
+                _drawerBusy = !1;
+              }, 200));
+          }),
+      ),
+      (_settingsPanel.querySelector("._add").onclick = function () {
+        _drawerBusy = !0;
+        const a = [
+          "#E53935",
+          "#FF6D00",
+          "#FFD600",
+          "#43A047",
+          "#1E88E5",
+          "#3949AB",
+          "#8E24AA",
+          "#F06292",
+          "#26A69A",
+          "#FF8A65",
+        ];
+        (window._customMA.push({
+          id: "custom_ma_" + Date.now(),
+          type: o,
+          period: 20,
+          color: a[window._customMA.length % a.length],
+          width: 1,
+        }),
+          saveCustomInds(),
+          renderCustomMA(),
+          calcIndicators(),
+          n(),
+          document.querySelector(".ind-bar")?.classList.add("open"),
+          _settingsPanel.classList.add("open"),
+          setTimeout(() => {
+            _drawerBusy = !1;
+          }, 200));
+      }),
+      (_settingsPanel.querySelector("._apply").onclick = function () {
+        const a = (window._customMA || []).filter((i) => i.type === o);
+        (_settingsPanel.querySelectorAll("._mp").forEach((i) => {
+          const c = parseInt(i.dataset.idx);
+          a[c] && (a[c].period = parseInt(i.value) || 20);
+        }),
+          _settingsPanel.querySelectorAll("._mc").forEach((i) => {
+            const c = parseInt(i.dataset.idx);
+            a[c] && (a[c].color = i.value);
+          }),
+          saveCustomInds(),
+          calcIndicators(),
+          renderCustomMA(),
+          _settingsPanel.classList.remove("open"));
+      }),
+      _settingsPanel.querySelector("._reset") &&
+        (_settingsPanel.querySelector("._reset").onclick = function () {
+          window._customMA = (window._customMA || []).filter(
+            (i) => i.type !== o,
+          );
+          saveCustomInds();
+          renderCustomMA();
+          calcIndicators();
+          _settingsPanel.classList.remove("open");
+        }));
+  }
+  n();
+}
+(document
+  .getElementById("similarRunBtn")
+  ?.addEventListener("click", async function () {
+    if (!window.isLoggedIn || !window.isLoggedIn()) {
+      (window.showToast(
+        "\uC720\uC0AC\uD328\uD134 \uBD84\uC11D\uC744 \uC0AC\uC6A9\uD558\uB824\uBA74 \uB85C\uADF8\uC778\uC774 \uD544\uC694\uD574\uC694",
+        "#921230",
+      ),
+        window.showAuth && window.showAuth());
+      return;
+    }
+    const e = parseInt(document.getElementById("similarPeriod")?.value || 100),
+      o = parseInt(document.getElementById("similarFuture")?.value || 20),
+      n = window.curSymbol,
+      s = window.curTf,
+      r = document.getElementById("similarResult");
+    if (r) {
+      r.innerHTML =
+        '<div style="text-align:center;padding:20px;color:#8E7D72">\uBD84\uC11D \uC911...</div>';
+      try {
+        const i = await (
+          await window.dedupFetch(
+            `${window.API}/v1/charts/similar-pattern?symbolId=${window.curSymbol}&timeframe=${window.curTf}&period=${e}&future=${o}`,
+          )
+        ).json();
+        if (n !== window.curSymbol || s !== window.curTf) return;
+        if (!i.data?.patterns?.length) {
+          r.innerHTML =
+            '<div style="text-align:center;padding:20px;color:#8E7D72;font-size:13px;line-height:1.8">\uC720\uC0AC\uD55C \uD328\uD134\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.<br><br>\u2022 \uBD84\uC11D \uBD09\uC218\uB97C \uC904\uC5EC\uBCF4\uC138\uC694<br>\u2022 \uB2E4\uB978 \uD0C0\uC784\uD504\uB808\uC784\uC744 \uC2DC\uB3C4\uD574\uBCF4\uC138\uC694<br>\u2022 \uB2E4\uB978 \uC885\uBAA9\uACFC \uBE44\uAD50\uD574\uBCF4\uC138\uC694</div>';
+          return;
+        }
+        if (!i.success || !i.data) {
+          r.innerHTML =
+            '<div style="color:#3B82F6;padding:12px">\uBD84\uC11D \uC2E4\uD328</div>';
+          return;
+        }
+        const { patterns: c, stats: d } = i.data;
+        if (!c.length) {
+          r.innerHTML =
+            '<div style="color:#8E7D72;padding:12px;text-align:center">\uC720\uC0AC\uD55C \uD328\uD134\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.<br>\uBD84\uC11D \uBD09\uC218\uB97C \uC904\uC5EC\uBCF4\uC138\uC694.</div>';
+          return;
+        }
+        let w = `<div style="background:rgba(146,18,48,0.05);border-radius:6px;padding:10px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px">\uD1B5\uACC4 (${d.count}\uAC1C \uD328\uD134)</div>${d.confidence != null ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:13px;padding:2px 8px;border-radius:10px;font-weight:700;background:${d.direction === "up" ? "rgba(196,56,75,0.12)" : d.direction === "down" ? "rgba(59,130,246,0.12)" : "rgba(142,125,114,0.12)"};color:${d.direction === "up" ? "#C4384B" : d.direction === "down" ? "#3B82F6" : "#8E7D72"}">${d.direction === "up" ? "\uC0C1\uC2B9 \uC6B0\uC138" : d.direction === "down" ? "\uD558\uB77D \uC6B0\uC138" : "\uC911\uB9BD"}</span><span style="font-size:12px;color:#8E7D72">\uC2E0\uB8B0\uB3C4 ${d.confidence}%</span><div style="flex:1;height:6px;background:rgba(142,125,114,0.15);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(100, d.confidence)}%;background:${d.direction === "up" ? "#C4384B" : d.direction === "down" ? "#3B82F6" : "#8E7D72"}"></div></div></div>` : ""}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:14px">
+        <span>${d.up_ratio >= 50 ? "\uC0C1\uC2B9 \uD655\uB960" : "\uD558\uB77D \uD655\uB960"}</span><span style="font-weight:600;color:${d.up_ratio >= 50 ? "#C4384B" : "#3B82F6"}">${d.up_ratio >= 50 ? d.up_ratio : (100 - d.up_ratio).toFixed(1)}%</span>
+        <span>\uD3C9\uADE0 \uC218\uC775\uB960</span><span style="font-weight:600;color:${d.avg_return > 0 ? "#C4384B" : "#3B82F6"}">${d.avg_return > 0 ? "+" : ""}${d.avg_return}%</span>
+        <span>\uCD5C\uB300 \uC0C1\uC2B9</span><span style="color:#C4384B">+${d.max_up}%</span>
+        <span>\uCD5C\uB300 \uD558\uB77D</span><span style="color:#3B82F6">${d.max_down}%</span>
+      </div>
+    </div>`;
+        ((w +=
+          d.projected_path && d.projected_path.length
+            ? `<button onclick='window._showProjectedPath(${JSON.stringify(d.projected_path)},${JSON.stringify(d.band_low || [])},${JSON.stringify(d.band_high || [])})' style="width:100%;padding:7px;margin-bottom:10px;background:rgba(216,182,106,0.12);border:1px solid rgba(216,182,106,0.4);border-radius:6px;color:#8B6914;cursor:pointer;font-size:13px;font-weight:600">\uC608\uC0C1 \uACBD\uB85C \uCC28\uD2B8 \uD45C\uC2DC</button>`
+            : ""),
+          (w +=
+            '<div style="font-weight:600;font-size:14px;margin-bottom:8px">\uC720\uC0AC \uD328\uD134 \uBAA9\uB85D</div>'));
+        for (const p of c.slice(0, 5)) {
+          const l = p.future_return > 0 ? "#C4384B" : "#3B82F6";
+          w += `<div style="padding:8px;border-bottom:1px solid rgba(216,182,106,0.1);cursor:pointer" onclick="window._showSimilarOverlay(${JSON.stringify(p.future_path)}, ${p.start_idx})">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;font-weight:600">\uC720\uC0AC\uB3C4 ${p.similarity}%</span>
+          <span style="font-size:14px;color:${l};font-weight:600">${p.future_return > 0 ? "+" : ""}${p.future_return}%</span>
+        </div>
+        <div style="font-size:12px;color:#8E7D72;margin-top:2px">\uBD09 ${p.start_idx}~${p.start_idx + e} \u2192 \uC774\uD6C4 ${o}\uBD09</div>
+        <svg viewBox="0 0 100 30" width="100%" height="30" style="margin-top:4px" preserveAspectRatio="none"><polyline points="${p.future_path.map((m, g) => `${(g / (p.future_path.length - 1)) * 100} ${Math.max(2, Math.min(28, 15 - m * 2))}`).join(" ")}" fill="none" stroke="${l}" stroke-width="1.5"/></svg>
+      </div>`;
+        }
+        r.innerHTML = w;
+      } catch (a) {
+        r.innerHTML =
+          '<div style="color:#3B82F6;padding:12px">\uC5D0\uB7EC: ' +
+          a.message +
+          "</div>";
+      }
+    }
+  }),
+  (window._showSimilarOverlay = function (e, o) {
+    if (
+      !window.chart ||
+      ((window.chart.overlay.drawings = window.chart.overlay.drawings.filter(
+        (i) => i._calcOwner !== "similar",
+      )),
+      !e || !e.length)
+    )
+      return;
+    const n = window.chart.buffer,
+      s = n.length - 1,
+      r = n.close[s],
+      a = e.map((i, c) => ({ index: s + c + 1, price: r * (1 + i / 100) }));
+    for (let i = 0; i < a.length - 1; i++)
+      window.chart.addDrawing({
+        type: "trendline",
+        points: [a[i], a[i + 1]],
+        color: "rgba(37,99,235,0.6)",
+        lineWidth: 2,
+        _calcOwner: "similar",
+      });
+    window.chart._dirty = !0;
+  }),
+  (window._showProjectedPath = function (mean, lo, hi) {
+    if (!window.chart || !mean || !mean.length) return;
+    window.chart.overlay.drawings = window.chart.overlay.drawings.filter(
+      (i) => i._calcOwner !== "similar" && i._calcOwner !== "proj",
+    );
+    const n = window.chart.buffer,
+      s = n.length - 1,
+      r = n.close[s],
+      pt = (arr) =>
+        arr.map((v, c) => ({ index: s + c + 1, price: r * (1 + v / 100) }));
+    const mp = pt(mean);
+    if (lo && lo.length) {
+      const lp = pt(lo);
+      for (let i = 0; i < lp.length - 1; i++)
+        window.chart.addDrawing({
+          type: "trendline",
+          points: [lp[i], lp[i + 1]],
+          color: "rgba(216,182,106,0.45)",
+          lineWidth: 1,
+          dashed: true,
+          _calcOwner: "proj",
+        });
+    }
+    if (hi && hi.length) {
+      const hp = pt(hi);
+      for (let i = 0; i < hp.length - 1; i++)
+        window.chart.addDrawing({
+          type: "trendline",
+          points: [hp[i], hp[i + 1]],
+          color: "rgba(216,182,106,0.45)",
+          lineWidth: 1,
+          dashed: true,
+          _calcOwner: "proj",
+        });
+    }
+    for (let i = 0; i < mp.length - 1; i++)
+      window.chart.addDrawing({
+        type: "trendline",
+        points: [mp[i], mp[i + 1]],
+        color: "#D8B66A",
+        lineWidth: 2.5,
+        _calcOwner: "proj",
+      });
+    ((window.chart._dirty = !0),
+      window.showToast &&
+        window.showToast("\uC608\uC0C1 \uACBD\uB85C \uD45C\uC2DC", "#D8B66A"));
+  }),
+  (window._hotAsset = "crypto"),
+  (window._loadHotCoins = async function () {
+    const e = document.getElementById("hotList");
+    if (!e) return;
+    const o = document.getElementById("hotTabCrypto"),
+      n = document.getElementById("hotTabStock");
+    (o &&
+      ((o.style.background =
+        window._hotAsset === "crypto" ? "var(--accent)" : "transparent"),
+      (o.style.color = window._hotAsset === "crypto" ? "#fff" : "var(--text)"),
+      (o.style.borderColor =
+        window._hotAsset === "crypto" ? "var(--accent)" : "var(--border)")),
+      n &&
+        ((n.style.background =
+          window._hotAsset === "stock" ? "var(--accent)" : "transparent"),
+        (n.style.color = window._hotAsset === "stock" ? "#fff" : "var(--text)"),
+        (n.style.borderColor =
+          window._hotAsset === "stock" ? "var(--accent)" : "var(--border)")),
+      (e.innerHTML =
+        '<div style="color:#8E7D72">\uB85C\uB529 \uC911...</div>'));
+    try {
+      let s;
+      try {
+        const i =
+            window._hotAsset === "stock"
+              ? "stock&page_size=50"
+              : "crypto&page_size=50",
+          d = await (await fetch(`/v1/symbols?asset_class=${i}`)).json();
+        let w = (d.data?.items || d.data || [])
+          .map((p) => p.symbol_code)
+          .filter(Boolean);
+        if (window._hotAsset === "stock")
+          try {
+            const l = await (
+              await fetch("/v1/symbols?asset_class=commodity&page_size=20")
+            ).json();
+            w = w.concat(
+              (l.data?.items || []).map((m) => m.symbol_code).filter(Boolean),
+            );
+          } catch {}
+        s = w;
+      } catch {
+        s = [];
+      }
+      s.length ||
+        (s = [
+          "BTCUSDT",
+          "ETHUSDT",
+          "SOLUSDT",
+          "BNBUSDT",
+          "XRPUSDT",
+          "DOGEUSDT",
+          "ADAUSDT",
+          "AVAXUSDT",
+          "DOTUSDT",
+          "LINKUSDT",
+          "SUIUSDT",
+          "PEPEUSDT",
+          "WIFUSDT",
+          "ARBUSDT",
+          "OPUSDT",
+          "APTUSDT",
+          "NEARUSDT",
+          "AAVEUSDT",
+          "ENAUSDT",
+          "JUPUSDT",
+        ]);
+      let r = [];
+      if (
+        ((r = (
+          await Promise.allSettled(
+            s.map(async (i) => {
+              try {
+                const c = await fetch(
+                  `/v1/charts/candles?symbolId=${i}&timeframe=1h&limit=24`,
+                );
+                if (!c.ok) return null;
+                const w = (await c.json()).data?.candles;
+                if (!w || w.length < 2) return null;
+                const p = w.map((u) => ({
+                    open: parseFloat(u.open),
+                    high: parseFloat(u.high),
+                    low: parseFloat(u.low),
+                    close: parseFloat(u.close),
+                    volume: parseFloat(u.volume) || 0,
+                  })),
+                  l = p[p.length - 1],
+                  m = p[0];
+                if (!isFinite(l.close) || !isFinite(m.open) || m.open <= 0)
+                  return null;
+                const g = ((l.close - m.open) / m.open) * 100,
+                  y = p.reduce((u, v) => u + (v.volume || 0), 0),
+                  h = Math.max(...p.map((u) => u.high)),
+                  f = Math.min(...p.map((u) => u.low));
+                if (!isFinite(h) || !isFinite(f) || f <= 0) return null;
+                const b = ((h - f) / f) * 100,
+                  turnover = l.close * y,
+                  _ = window._hotSort === "momentum" ? y * b : turnover;
+                return isFinite(_)
+                  ? {
+                      sym: i,
+                      pct: g,
+                      price: l.close,
+                      vol24: y,
+                      range: b,
+                      turnover: turnover,
+                      score: _,
+                    }
+                  : null;
+              } catch {
+                return null;
+              }
+            }),
+          )
+        )
+          .filter((i) => i.status === "fulfilled" && i.value)
+          .map((i) => i.value)),
+        !r.length)
+      ) {
+        e.innerHTML =
+          '<div style="color:#3B82F6">\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.</div>';
+        return;
+      }
+      (r.sort((i, c) => c.score - i.score),
+        (e.innerHTML = r
+          .slice(0, 10)
+          .map((i, c) => {
+            const d =
+                i.vol24 > 1e9
+                  ? (i.vol24 / 1e9).toFixed(1) + "B"
+                  : i.vol24 > 1e6
+                    ? (i.vol24 / 1e6).toFixed(1) + "M"
+                    : (i.vol24 / 1e3).toFixed(0) + "K",
+              w =
+                i.price > 100
+                  ? i.price.toFixed(2)
+                  : i.price > 1
+                    ? i.price.toFixed(3)
+                    : i.price.toFixed(5),
+              p = i.sym.replace("USDT", ""),
+              l = window.coinImgUrl?.[i.sym] || "",
+              m = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>${p.slice(0, 4)}</text></svg>`;
+            return `<div style="display:flex;align-items:center;padding:8px 6px;border-bottom:1px solid rgba(216,182,106,0.15);cursor:pointer;gap:8px;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='rgba(216,182,106,0.04)'" onmouseout="this.style.background=''" onclick="window._selectSym&&window._selectSym('${i.sym}')">
+        <span style="width:16px;color:#8E7D72;font-size:12px;font-weight:600">${c + 1}</span>
+        <img src="${l || m}" onerror="this.src='${m}'" style="width:20px;height:20px;border-radius:50%;flex-shrink:0" loading="lazy">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px;color:var(--gold-text);white-space:nowrap">${p}<span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:2px">/USDT</span></div>
+          <div style="color:#8E7D72;font-size:12px">\uAC70\uB798\uB7C9 ${d} \xB7 \uBCC0\uB3D9 ${i.range.toFixed(1)}%</div>
+        </div>
+        <div style="text-align:right;min-width:60px;flex-shrink:0">
+          <div style="font-weight:600;font-size:14px;color:var(--gold-text)">$${w}</div>
+          <div style="color:${i.pct > 0 ? "#C4384B" : "#3B82F6"};font-size:14px;font-weight:600">${i.pct > 0 ? "+" : ""}${i.pct.toFixed(2)}%</div>
+        </div>
+      </div>`;
+          })
+          .join("")));
+    } catch (s) {
+      e.innerHTML = `<div style="color:#3B82F6">\uB85C\uB4DC \uC2E4\uD328: ${s.message || s}</div>`;
+    }
+  }));
+let _orderSide = "buy";
+((window._setOrderSide = function (e) {
+  _orderSide = e;
+  var _ob = document.getElementById("orderBuy");
+  if (!_ob) return;
+  ((_ob.style.opacity = e === "buy" ? "1" : "0.5"),
+    (document.getElementById("orderSell").style.opacity =
+      e === "sell" ? "1" : "0.5"),
+    (document.getElementById("orderSubmit").textContent =
+      `\uBAA8\uC758 ${e === "buy" ? "\uB9E4\uC218" : "\uB9E4\uB3C4"} \uC8FC\uBB38`),
+    _updateOrderSummary());
+}),
+  document.getElementById("orderType")?.addEventListener("change", function () {
+    document.getElementById("orderLimitRow").style.display =
+      this.value === "limit" ? "block" : "none";
+  }),
+  ["orderQty", "orderSL", "orderTP"].forEach((e) => {
+    document.getElementById(e)?.addEventListener("input", _updateOrderSummary);
+  }));
+function _updateOrderSummary() {
+  const e = +(document.getElementById("orderQty")?.value || 100),
+    o = +(document.getElementById("orderSL")?.value || 1),
+    n = +(document.getElementById("orderTP")?.value || 2),
+    s = ((e * o) / 100).toFixed(2),
+    r = ((e * n) / 100).toFixed(2),
+    a = o > 0 ? (n / o).toFixed(1) : "\u221E",
+    i = document.getElementById("orderSummary");
+  i &&
+    (i.textContent = `\uC608\uC0C1 \uC190\uC2E4: -$${s} | \uC608\uC0C1 \uC218\uC775: +$${r} | \uC190\uC775\uBE44 1:${a}`);
+}
+let _mockPositions = JSON.parse(localStorage.getItem("mockPos") || "[]"),
+  _mockHistory = JSON.parse(localStorage.getItem("mockHistory") || "[]"),
+  _mockTotalPnl = parseFloat(localStorage.getItem("mockTotalPnl") || "0");
+((function () {
+  if (!localStorage.getItem("mockMigrated_v1"))
+    try {
+      const o = JSON.parse(localStorage.getItem("chartOS_demoMarkers") || "[]"),
+        n = JSON.parse(localStorage.getItem("chartOS_demoPos") || "null");
+      let s = 0;
+      (o
+        .filter((r) => r.action === "close")
+        .forEach((r) => {
+          (_mockHistory.push({
+            sym: r.symbol,
+            side: r.pnl >= 0 ? "buy" : "sell",
+            entry: 0,
+            exit: r.price,
+            qty: 100,
+            pnl: r.pnl,
+            pct: r.pnl,
+            reason: "\uB370\uBAA8\uCCAD\uC0B0",
+            time: Date.now(),
+            time_str: r.time_str || "",
+          }),
+            (_mockTotalPnl += r.pnl || 0),
+            s++);
+        }),
+        n &&
+          _mockPositions.push({
+            sym: n.symbol,
+            side: n.side === "long" ? "buy" : "sell",
+            price: n.price,
+            qty: 100,
+            sl: 1,
+            tp: 2,
+            time: n.time || Date.now(),
+            from_demo: !0,
+          }),
+        (s > 0 || n) &&
+          (localStorage.setItem("mockPos", JSON.stringify(_mockPositions)),
+          localStorage.setItem("mockHistory", JSON.stringify(_mockHistory)),
+          localStorage.setItem("mockTotalPnl", String(_mockTotalPnl))),
+        localStorage.setItem("mockMigrated_v1", "1"),
+        s > 0);
+    } catch {}
+})(),
+  (window._mockBalance = parseFloat(
+    localStorage.getItem("mockBalance") || "1000",
+  )),
+  (window._updateMockBalance = function () {
+    const e = document.getElementById("mockBalance");
+    (e && (e.textContent = "$" + window._mockBalance.toFixed(2)),
+      localStorage.setItem("mockBalance", String(window._mockBalance)));
+  }),
+  window._updateMockBalance(),
+  (window._submitOrder = function () {
+    const e =
+        document.getElementById("symName")?.textContent?.replace("/", "") ||
+        "BTCUSDT",
+      o = document.getElementById("orderType")?.value || "market",
+      n =
+        +document
+          .getElementById("curPrice")
+          ?.textContent?.replace(/[^0-9.]/g, "") || 0,
+      s =
+        (o === "limit" &&
+          +(document.getElementById("orderLimitPrice")?.value || 0)) ||
+        n,
+      r = +(document.getElementById("orderQty")?.value || 100),
+      a = +(document.getElementById("orderSL")?.value || 1),
+      i = +(document.getElementById("orderTP")?.value || 2);
+    if (!s) {
+      window.showToast?.(
+        "\uAC00\uACA9 \uC815\uBCF4\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC774\uC5D0\uC694",
+        "#D8B66A",
+      );
+      return;
+    }
+    if (r > window._mockBalance) {
+      window.showToast?.("\uC608\uC218\uAE08 \uBD80\uC871", "#3B82F6");
+      return;
+    }
+    const c = _mockPositions.find((d) => d.sym === e && d.side === _orderSide);
+    if (c) {
+      const d = c.qty + r;
+      ((c.price = (c.price * c.qty + s * r) / d),
+        (c.qty = d),
+        (c.sl = a),
+        (c.tp = i));
+    } else
+      _mockPositions.push({
+        sym: e,
+        side: _orderSide,
+        price: s,
+        qty: r,
+        sl: a,
+        tp: i,
+        time: Date.now(),
+      });
+    ((window._mockBalance -= r),
+      window._updateMockBalance(),
+      localStorage.setItem("mockPos", JSON.stringify(_mockPositions)),
+      window.showToast?.(
+        `${e} ${_orderSide === "buy" ? "\uB871" : "\uC20F"} $${r} \uC9C4\uC785 (\uD3C9\uB2E8 ${s.toFixed(2)})`,
+        "#C4384B",
+      ));
+    try {
+      const d = window.chart?.buffer?.length
+        ? window.chart.buffer.length - 1
+        : 0;
+      window.chart?.addDrawing?.({
+        type: "demo_action",
+        price: s,
+        index: d,
+        label: _orderSide === "buy" ? "\uB871" : "\uC20F",
+        action: _orderSide === "buy" ? "long_entry" : "short_entry",
+      });
+    } catch {}
+    (_renderPositions(), _renderHistory(), _renderTotalPnl());
+  }),
+  (window._closeMockPosition = function (e) {
+    if (e == null || !_mockPositions[e]) return;
+    const o = _mockPositions[e],
+      n =
+        +document
+          .getElementById("curPrice")
+          ?.textContent?.replace(/[^0-9.]/g, "") || 0;
+    if (!n) {
+      window.showToast?.(
+        "\uAC00\uACA9 \uC815\uBCF4\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC774\uC5D0\uC694",
+        "#D8B66A",
+      );
+      return;
+    }
+    const s =
+        o.side === "buy"
+          ? ((n - o.price) / o.price) * 100
+          : ((o.price - n) / o.price) * 100,
+      r = (s / 100) * o.qty;
+    (_mockHistory.push({
+      sym: o.sym,
+      side: o.side,
+      entry: o.price,
+      exit: n,
+      qty: o.qty,
+      pnl: r,
+      pct: s,
+      reason: "\uC218\uB3D9\uCCAD\uC0B0",
+      time: Date.now(),
+      time_str: new Date().toLocaleTimeString("ko-KR"),
+    }),
+      (_mockTotalPnl += r),
+      _mockPositions.splice(e, 1),
+      localStorage.setItem("mockPos", JSON.stringify(_mockPositions)),
+      localStorage.setItem("mockHistory", JSON.stringify(_mockHistory)),
+      localStorage.setItem("mockTotalPnl", String(_mockTotalPnl)));
+    try {
+      const i = window.chart?.buffer?.length
+        ? window.chart.buffer.length - 1
+        : 0;
+      window.chart?.addDrawing?.({
+        type: "demo_action",
+        price: n,
+        index: i,
+        label: `\uCCAD\uC0B0 ${r >= 0 ? "+" : ""}$${r.toFixed(2)}`,
+        action: "close",
+      });
+    } catch {}
+    const a = r >= 0 ? "#C4384B" : "#3B82F6";
+    (window.showToast?.(
+      `\uCCAD\uC0B0 ${o.sym.replace("USDT", "")} ${r >= 0 ? "+" : ""}$${r.toFixed(2)} (${s >= 0 ? "+" : ""}${s.toFixed(2)}%)`,
+      a,
+    ),
+      _renderPositions(),
+      _renderHistory(),
+      _renderTotalPnl());
+  }));
+function _autoCheckSLTP() {
+  if (!_mockPositions.length) return;
+  const e = document.getElementById("symName")?.textContent?.replace("/", ""),
+    o =
+      +document
+        .getElementById("curPrice")
+        ?.textContent?.replace(/[^0-9.]/g, "") || 0;
+  if (!(!o || !e)) {
+    for (let n = _mockPositions.length - 1; n >= 0; n--) {
+      const s = _mockPositions[n];
+      if (s.sym !== e) continue;
+      const r =
+        s.side === "buy"
+          ? ((o - s.price) / s.price) * 100
+          : ((s.price - o) / s.price) * 100;
+      if (r <= -s.sl) {
+        const a = -s.qty * (s.sl / 100);
+        (_mockHistory.push({
+          sym: s.sym,
+          side: s.side,
+          entry: s.price,
+          exit: o,
+          qty: s.qty,
+          pnl: a,
+          pct: -s.sl,
+          reason: "SL\uC790\uB3D9",
+          time: Date.now(),
+          time_str: new Date().toLocaleTimeString("ko-KR"),
+        }),
+          (_mockTotalPnl += a),
+          _mockPositions.splice(n, 1),
+          window.showToast?.(
+            `${s.sym.replace("USDT", "")} SL \uC790\uB3D9\uCCAD\uC0B0 -$${((s.qty * s.sl) / 100).toFixed(2)}`,
+            "#3B82F6",
+          ));
+      } else if (r >= s.tp) {
+        const a = s.qty * (s.tp / 100);
+        (_mockHistory.push({
+          sym: s.sym,
+          side: s.side,
+          entry: s.price,
+          exit: o,
+          qty: s.qty,
+          pnl: a,
+          pct: s.tp,
+          reason: "TP\uC790\uB3D9",
+          time: Date.now(),
+          time_str: new Date().toLocaleTimeString("ko-KR"),
+        }),
+          (_mockTotalPnl += a),
+          _mockPositions.splice(n, 1),
+          window.showToast?.(
+            `${s.sym.replace("USDT", "")} TP \uC790\uB3D9\uCCAD\uC0B0 +$${((s.qty * s.tp) / 100).toFixed(2)}`,
+            "#C4384B",
+          ));
+      }
+    }
+    (localStorage.setItem("mockPos", JSON.stringify(_mockPositions)),
+      localStorage.setItem("mockHistory", JSON.stringify(_mockHistory)),
+      localStorage.setItem("mockTotalPnl", String(_mockTotalPnl)));
+  }
+}
+window._clearMockOrders = function () {
+  confirm(
+    "\uBAA8\uB4E0 \uD3EC\uC9C0\uC158\uACFC \uAC70\uB798 \uD788\uC2A4\uD1A0\uB9AC\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
+  ) &&
+    ((_mockPositions = []),
+    (_mockHistory = []),
+    (_mockTotalPnl = 0),
+    localStorage.removeItem("mockPos"),
+    localStorage.removeItem("mockHistory"),
+    localStorage.removeItem("mockTotalPnl"),
+    _renderPositions(),
+    _renderHistory(),
+    _renderTotalPnl(),
+    window.chart &&
+      window.chart.overlay &&
+      ((window.chart.overlay.drawings = window.chart.overlay.drawings.filter(
+        (d) => d.type !== "demo_action",
+      )),
+      (window.chart._dirty = !0)),
+    window.showToast?.(
+      "\uBAA8\uC758\uC8FC\uBB38 \uC804\uCCB4 \uCD08\uAE30\uD654",
+      "#8E7D72",
+    ));
+};
+function _renderTotalPnl() {
+  const e = document.getElementById("orderTotalPnlVal"),
+    o = document.getElementById("orderTradeCount");
+  if (!e || !o) return;
+  const n = _mockTotalPnl >= 0 ? "#C4384B" : "#3B82F6";
+  ((e.textContent = `${_mockTotalPnl >= 0 ? "+" : ""}$${_mockTotalPnl.toFixed(2)}`),
+    (e.style.color = n),
+    (o.textContent = `(\uAC70\uB798 ${_mockHistory.length}\uAC74)`));
+}
+function _renderPositions() {
+  const e = document.getElementById("orderPositions");
+  if (!e) return;
+  if (!_mockPositions.length) {
+    e.innerHTML =
+      '<div style="color:#8E7D72;padding:4px 0">\u{1F4A1} \uC704\uC5D0\uC11C \uB9E4\uC218 \uB610\uB294 \uB9E4\uB3C4\uB97C \uB20C\uB7EC \uCCAB \uBAA8\uC758\uC8FC\uBB38\uC744 \uD574\uBCF4\uC138\uC694</div>';
+    return;
+  }
+  const o = document.getElementById("symName")?.textContent?.replace("/", ""),
+    n =
+      +document
+        .getElementById("curPrice")
+        ?.textContent?.replace(/[^0-9.]/g, "") || 0;
+  e.innerHTML =
+    '<div style="font-weight:600;margin-bottom:4px">\uBCF4\uC720 \uD3EC\uC9C0\uC158 (' +
+    _mockPositions.length +
+    ")</div>" +
+    _mockPositions
+      .map((s, r) => {
+        const a = s.sym === o;
+        let i = "";
+        if (a && n) {
+          const c =
+              s.side === "buy"
+                ? ((n - s.price) / s.price) * 100
+                : ((s.price - n) / s.price) * 100,
+            d = (c / 100) * s.qty;
+          i = `<span style="color:${d >= 0 ? "#C4384B" : "#3B82F6"}">${d >= 0 ? "+" : ""}$${d.toFixed(2)} (${c >= 0 ? "+" : ""}${c.toFixed(2)}%)</span>`;
+        } else
+          i = `<span style="color:#8E7D72">\uC9C4\uC785 $${s.price.toFixed(s.price > 1 ? 3 : 6)}</span>`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(0,0,0,0.05);gap:6px">
+      <span style="color:${s.side === "buy" ? "#C4384B" : "#3B82F6"};font-weight:600;font-size:12px">${s.sym.replace("USDT", "")} ${s.side === "buy" ? "\uB871" : "\uC20F"}</span>
+      ${i}
+      <button onclick="window._closeMockPosition(${r})" style="padding:2px 6px;background:rgba(59,130,246,0.15);color:#3B82F6;border:none;border-radius:6px;cursor:pointer;font-size:12px">\uCCAD\uC0B0</button>
+    </div>`;
+      })
+      .join("");
+}
+function _renderHistory() {
+  const e = document.getElementById("orderHistory");
+  if (e) {
+    if (!_mockHistory.length) {
+      e.innerHTML =
+        '<div style="color:#8E7D72;padding:4px 0">\uC544\uC9C1 \uAC70\uB798 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uC8FC\uBB38 \uD6C4 \uC790\uB3D9\uC73C\uB85C \uAE30\uB85D\uB429\uB2C8\uB2E4.</div>';
+      return;
+    }
+    e.innerHTML =
+      '<div style="font-weight:600;margin-bottom:4px">\uCD5C\uADFC \uAC70\uB798 (' +
+      _mockHistory.length +
+      ")</div>" +
+      _mockHistory
+        .slice(-15)
+        .reverse()
+        .map((o) => {
+          const n = (o.pnl || 0) >= 0 ? "#C4384B" : "#3B82F6",
+            s = o.sym.replace("USDT", ""),
+            r = o.side === "buy" ? "\uB871" : "\uC20F";
+          return `<div style="display:flex;justify-content:space-between;padding:3px 4px;border-bottom:1px solid rgba(0,0,0,0.03);font-size:12px;gap:4px">
+      <span style="color:#8E7D72;width:54px">${o.time_str || ""}</span>
+      <span style="color:${n};flex:1">${s} ${r} ${o.reason}</span>
+      <span style="color:${n};font-weight:600">${o.pnl >= 0 ? "+" : ""}$${(o.pnl || 0).toFixed(2)}</span>
+    </div>`;
+        })
+        .join("");
+  }
+}
+(_renderPositions(),
+  _renderHistory(),
+  _renderTotalPnl(),
+  document
+    .querySelector('[data-p="hot"]')
+    ?.addEventListener("click", () => window._loadHotCoins()),
+  (window._saveSimilarResult = function () {
+    const e = JSON.parse(localStorage.getItem("similarHistory") || "[]"),
+      o = {
+        sym: window.curSymbol,
+        tf: window.curTf,
+        time: Date.now(),
+        stats: window._lastSimilarStats || {},
+      };
+    (e.unshift(o),
+      e.length > 20 && (e.length = 20),
+      localStorage.setItem("similarHistory", JSON.stringify(e)),
+      window.showToast?.(
+        "\uBD84\uC11D \uACB0\uACFC\uAC00 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
+        "#C4384B",
+      ));
+  }),
+  (window._shareSimilarResult = function () {
+    const e = window._lastSimilarStats || {},
+      o = `[${window.curSymbol} ${window.curTf}] \uC720\uC0AC\uD328\uD134 \uBD84\uC11D
+\uC0C1\uC2B9\uD655\uB960: ${e.up_ratio || 0}% | \uD3C9\uADE0\uC218\uC775: ${e.avg_return || 0}% | MFE: ${e.avg_mfe || 0}% | MAE: ${e.avg_mae || 0}%
+- \uBC94\uC628 AI \uC288\uD37C\uCC28\uD2B8`;
+    navigator.clipboard
+      ?.writeText(o)
+      .then(() =>
+        window.showToast?.(
+          "\uD074\uB9BD\uBCF4\uB4DC\uC5D0 \uBCF5\uC0AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
+          "#C4384B",
+        ),
+      );
+  }),
+  setInterval(() => {
+    document.getElementById("orderPositions") &&
+      (_autoCheckSLTP(), _renderPositions(), _renderTotalPnl());
+  }, 1e3),
+  (window._saveWorkspace = function (e) {
+    if (window.requireLogin && !window.requireLogin("워크스페이스")) return;
+    if (
+      (e || (e = prompt("\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4 \uC774\uB984:")),
+      !e)
+    )
+      return;
+    const o = {
+      name: e,
+      symbol: window.curSymbol,
+      timeframe: window.curTf,
+      indicators: {},
+      rightTab: document.querySelector(".right-tab.active")?.dataset?.p || "ai",
+      time: Date.now(),
+    };
+    document.querySelectorAll(".ind-tag.on").forEach((s) => {
+      const r = s.dataset.ind || s.dataset.sub || s.dataset.maType;
+      r && (o.indicators[r] = !0);
+    });
+    const n = JSON.parse(localStorage.getItem("chartOS_workspaces") || "[]");
+    (n.unshift(o),
+      n.length > 10 && (n.length = 10),
+      localStorage.setItem("chartOS_workspaces", JSON.stringify(n)),
+      window.showToast?.(
+        `\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4 "${e}" \uC800\uC7A5\uB428`,
+        "#C4384B",
+      ));
+  }),
+  (window._loadWorkspace = function (e) {
+    const n = JSON.parse(localStorage.getItem("chartOS_workspaces") || "[]")[e];
+    if (n) {
+      (n.symbol &&
+        n.symbol !== window.curSymbol &&
+        window._selectSym?.(n.symbol),
+        n.timeframe &&
+          document.querySelector(`[data-tf="${n.timeframe}"]`)?.click(),
+        document.querySelectorAll(".ind-tag.on").forEach((s) => s.click()));
+      for (const [s] of Object.entries(n.indicators || {})) {
+        const r =
+          document.querySelector(`[data-ind="${s}"]`) ||
+          document.querySelector(`[data-sub="${s}"]`);
+        r && !r.classList.contains("on") && r.click();
+      }
+      window.showToast?.(`"${n.name}" \uBCF5\uC6D0\uB428`, "#921230");
+    }
+  }),
+  (window._showWorkspaceList = function () {
+    const e = JSON.parse(localStorage.getItem("chartOS_workspaces") || "[]");
+    if (!e.length) {
+      window.showToast?.(
+        "\uC800\uC7A5\uB41C \uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4",
+        "#8E7D72",
+      );
+      return;
+    }
+    const o = e
+        .map(
+          (
+            s,
+            r,
+          ) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer" onclick="window._loadWorkspace(${r})">
+    <div><div style="font-weight:600;font-size:13px">${s.name}</div><div style="font-size:12px;color:#8E7D72">${s.symbol} ${s.timeframe} \xB7 ${Object.keys(s.indicators || {}).length}\uAC1C \uC9C0\uD45C</div></div>
+    <span style="font-size:12px;color:#8E7D72">${new Date(s.time).toLocaleDateString()}</span>
+  </div>`,
+        )
+        .join(""),
+      n = document.getElementById("workspaceList");
+    n && (n.innerHTML = o);
+  }));

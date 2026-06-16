@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자주 묻는 질문 (FAQ) — 범온 AI 슈퍼차트</title>
+<link rel="stylesheet" href="/static/css/main.css">
+<style>
+body{max-width:800px;margin:0 auto;padding:40px 20px;background:#F7F1EA;color:#3D2B1F;font-family:'Pretendard Variable',sans-serif;line-height:1.8;height:auto;overflow:auto;display:block}
+h1{font-size:24px;color:#921230;margin-bottom:8px}
+.meta{font-size:13px;color:#8E7D72;margin-bottom:32px}
+a{color:#921230}
+.faq-section{margin-top:32px}
+.faq-section h2{font-size:16px;color:#6A1E33;margin-bottom:16px;border-bottom:1px solid rgba(216,182,106,0.3);padding-bottom:8px}
+.faq-item{margin-bottom:16px;border:1px solid rgba(216,182,106,0.2);border-radius:8px;overflow:hidden}
+.faq-q{padding:14px 16px;font-weight:600;font-size:14px;cursor:pointer;background:rgba(146,18,48,0.03);display:flex;justify-content:space-between;align-items:center}
+.faq-q:hover{background:rgba(146,18,48,0.06)}
+.faq-a{padding:0 16px;max-height:0;overflow:hidden;transition:max-height 0.3s,padding 0.3s;font-size:14px;color:#6B5B50}
+.faq-item.open .faq-a{max-height:500px;padding:12px 16px}
+.faq-item.open .faq-q .arrow{transform:rotate(180deg)}
+.arrow{transition:transform 0.2s;color:#8E7D72}
+</style>
+</head>
+<body>
+<h1>자주 묻는 질문 (FAQ)</h1>
+<p class="meta">범온 AI 슈퍼차트 서비스에 대해 궁금한 점을 모았습니다.</p>
+
+<div style="margin-bottom:24px;position:relative">
+  <input id="faqSearch" type="text" placeholder="🔍 궁금한 내용을 검색하세요 (예: 모의주문, 알림, 무료)" style="width:100%;padding:12px 16px;border:1px solid rgba(216,182,106,0.4);border-radius:8px;font-size:14px;background:#fff;color:#3D2B1F;box-sizing:border-box" oninput="faqFilter(this.value)">
+  <div id="faqNoResult" style="display:none;text-align:center;color:#8E7D72;padding:24px;font-size:14px">검색 결과가 없습니다. 다른 키워드로 검색하거나 <a href="mailto:support@beomonnuri.com">support@beomonnuri.com</a>으로 문의해주세요.</div>
+</div>
+<script>
+function faqFilter(q){
+  q=(q||'').trim().toLowerCase();
+  let any=false;
+  document.querySelectorAll('.faq-section').forEach(sec=>{
+    let secHit=false;
+    sec.querySelectorAll('.faq-item').forEach(it=>{
+      const txt=it.textContent.toLowerCase();
+      const hit=!q||txt.includes(q);
+      it.style.display=hit?'':'none';
+      if(hit){secHit=true;any=true;}
+      it.classList.toggle('open', !!q && hit);
+    });
+    sec.style.display=secHit?'':'none';
+  });
+  document.getElementById('faqNoResult').style.display=any?'none':'block';
+}
+</script>
+
+<div class="faq-section">
+<h2>📊 서비스 소개</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">범온 AI 슈퍼차트은 어떤 서비스인가요?<span class="arrow">▼</span></div><div class="faq-a">실시간 암호화폐·주식 차트에 40개 이상의 독자 개발 지표(범온캔들, 범온MA, 과열분석, 강도측정, 매매압력, 자금흐름, IMACD, 거래밀집구간 등)를 제공하는 AI 차트 분석 플랫폼입니다. 추세·진입·목표까지 한눈에 확인할 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">무료로 이용할 수 있나요?<span class="arrow">▼</span></div><div class="faq-a">네! 차트 조회, 일반 보조지표(RSI, MACD, 볼린저밴드 등), AI 탭 기본 요약, 인기 종목 TOP10, 히트맵은 무료로 이용 가능합니다. 회원가입(무료) 시 범온 지표, 유사패턴 분석, 모의주문, 알림 등 모든 기능을 사용할 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">지원하는 종목은 무엇인가요?<span class="arrow">▼</span></div><div class="faq-a">비트코인(BTC), 이더리움(ETH), 리플(XRP), 솔라나(SOL) 등 90개 이상의 암호화폐와 일부 주식 종목을 지원합니다. Binance Futures 기준 실시간 데이터를 제공합니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">모바일에서도 사용할 수 있나요?<span class="arrow">▼</span></div><div class="faq-a">네, 모바일 브라우저에서 완전히 작동합니다. 하단 네비게이션으로 종목·차트·분석 패널을 전환할 수 있습니다. 별도 앱 설치 없이 웹에서 바로 이용하세요.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>🔍 범온 지표</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">범온캔들이란 무엇인가요?<span class="arrow">▼</span></div><div class="faq-a">독자 개발한 다중 기술적 분석 알고리즘을 종합하여 매수·매도 강도를 표현한 독자 지표입니다. 세부 알고리즘과 산출 방식은 영업비밀로 비공개입니다. 신호가 강할수록 상승, 약할수록 하락 신호를 의미합니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">AI 분석은 정확한가요?<span class="arrow">▼</span></div><div class="faq-a">AI 분석은 과거 데이터 기반 통계적 판단이며, 미래 수익을 보장하지 않습니다. 투자 참고 자료로만 활용하시고, 최종 투자 결정은 본인의 판단으로 하시기 바랍니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">추세강도 탭은 무엇인가요?<span class="arrow">▼</span></div><div class="faq-a">1분·5분·15분·1시간·4시간·일봉 등 여러 타임프레임의 범온강도를 한눈에 비교하는 기능입니다. 모든 타임프레임이 같은 방향이면 추세 신뢰도가 높습니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>👤 계정 및 인증</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">회원가입은 어떻게 하나요?<span class="arrow">▼</span></div><div class="faq-a">우측 상단 로그인 버튼 → 회원가입 탭에서 이메일과 닉네임을 입력하면 됩니다. Google 계정으로 간편 가입도 가능합니다. 가입은 완전 무료입니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">유료 지표는 어떻게 구매하나요?<span class="arrow">▼</span></div><div class="faq-a">원하는 지표를 선택해 <b>개별 구매</b>하실 수 있습니다. 결제가 완료되면 해당 지표가 계정에 즉시 활성화됩니다. 구매한 지표는 어느 기기에서 로그인해도 그대로 이용 가능합니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">비밀번호를 잊어버렸어요.<span class="arrow">▼</span></div><div class="faq-a">로그인 화면에서 "비밀번호 찾기"를 클릭하면 가입 이메일로 재설정 링크가 발송됩니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2> 모의주문</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">모의주문이란 무엇인가요?<span class="arrow">▼</span></div><div class="faq-a">실제 돈 없이 가상으로 매수·매도를 연습하는 기능입니다. $1,000 기본 잔고로 시작하며, 레버리지(격리/교차)·손절(SL)·목표(TP)·부분청산을 지원합니다. 실제 거래와 동일한 가격으로 체결되고 거래 수수료(0.04%)도 반영되지만, 슬리피지는 미반영됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">모의주문 기록은 저장되나요?<span class="arrow">▼</span></div><div class="faq-a">네, 로그인 상태에서 "차트설정 저장" 시 모의주문 포지션과 거래 히스토리가 서버에 저장됩니다. 다른 기기에서 로그인해도 복원됩니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>🔔 알림</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">관심 가격대는 어떻게 표시하나요?<span class="arrow">▼</span></div><div class="faq-a">차트에서 원하는 가격에 수평선을 그어 관심 가격대를 표시할 수 있습니다. 또한 범온 AI 시그널이 매수·매도 시점을 차트에 자동으로 표시해, 주요 전환 구간을 한눈에 확인할 수 있습니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>🆚 비교 & 추천</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">트레이딩뷰와 뭐가 다른가요?<span class="arrow">▼</span></div><div class="faq-a">트레이딩뷰는 범용 차트 도구이고, 범온 AI 슈퍼차트은 독자 개발 AI 지표(범온캔들, 거래밀집구간, 매매압력 등)에 특화된 서비스입니다. 일반 지표로는 볼 수 없는 추세 강도와 진입 타이밍을 제공합니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">회원가입 없이 뭘 할 수 있나요?<span class="arrow">▼</span></div><div class="faq-a">차트 조회, 타임프레임 변경, 일반 보조지표(RSI·MACD·볼린저밴드 등), AI 탭 기본 요약, 인기 종목 TOP10, 히트맵을 자유롭게 이용할 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">초보자는 어떤 지표를 켜야 하나요?<span class="arrow">▼</span></div><div class="faq-a">처음이라면 범온캔들(추세 방향 색상) + 거래밀집구간(지지/저항)만 켜보세요. 익숙해지면 과열분석, 매매압력을 추가하는 것을 추천합니다. 상단 프리셋 메뉴에서 "스캘핑/스윙/추세" 프리셋을 선택하면 자동 설정됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">추천 타임프레임이 뭔가요?<span class="arrow">▼</span></div><div class="faq-a">단타(스캘핑): 1분~5분 | 스윙: 15분~1시간 | 중장기: 4시간~일봉. 추세강도 탭에서 여러 타임프레임을 동시에 비교하면 더 정확한 판단이 가능합니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>💳 요금 및 혜택</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">요금제가 어떻게 되나요?<span class="arrow">▼</span></div><div class="faq-a">기본 기능(차트 조회, 일반 보조지표, AI 기본 요약, 인기 종목, 히트맵)은 <b>완전 무료</b>입니다. 범온 독자 지표 등 프리미엄 지표는 <b>지표별 개별 구매</b>로 이용하실 수 있습니다. 필요한 지표만 골라 결제하면 됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">유료 지표는 결제 후 바로 쓸 수 있나요?<span class="arrow">▼</span></div><div class="faq-a">네. 지표 구매 결제가 완료되면 해당 지표가 계정에 즉시 활성화되어 바로 사용할 수 있습니다. 구매 내역은 계정에 귀속되어 다른 기기에서도 그대로 적용됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">결제 수단은 무엇인가요?<span class="arrow">▼</span></div><div class="faq-a">지표 구매는 안내된 결제 수단으로 진행됩니다. 결제는 지표 단위의 1회성 구매이며, 별도로 동의하지 않는 한 자동 정기결제는 발생하지 않습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">환불 정책은 어떻게 되나요?<span class="arrow">▼</span></div><div class="faq-a">디지털 콘텐츠(지표) 특성상, <b>구매 후 지표를 사용(활성화)하기 전</b>에는 관련 법령(전자상거래법)에 따라 청약철회·환불이 가능합니다. 다만 이미 사용을 시작한 지표는 콘텐츠가 제공된 것으로 보아 환불이 제한될 수 있습니다. 결제 오류 등은 support@beomonnuri.com으로 문의해주세요.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">포인트는 어디에 쓰나요?<span class="arrow">▼</span></div><div class="faq-a">추천(레퍼럴)로 적립되는 포인트는 서비스 내 혜택 제공에 활용됩니다. 포인트 정책은 운영 상황에 따라 변경될 수 있으며, 변경 시 공지사항으로 안내합니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>🔒 보안 및 개인정보</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">거래소 API 키나 출금 권한을 요구하나요?<span class="arrow">▼</span></div><div class="faq-a"><b>절대 요구하지 않습니다.</b> 본 서비스는 거래 체결·출금 기능이 없으며, 거래소 API 키·비밀번호·OTP를 일절 받지 않습니다. API 키나 출금 권한을 요구하는 곳은 사칭이니 주의하세요.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">개인정보는 안전하게 보관되나요?<span class="arrow">▼</span></div><div class="faq-a">비밀번호는 단방향 암호화(bcrypt)로 저장되어 운영자도 원문을 알 수 없습니다. 통신은 HTTPS로 암호화되며, 수집 항목과 보유 기간은 <a href="/privacy">개인정보처리방침</a>에서 확인하실 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">비밀번호를 안전하게 관리하려면?<span class="arrow">▼</span></div><div class="faq-a">다른 사이트와 다른 고유한 비밀번호를 사용하시고, 공용 PC에서는 로그아웃을 권장합니다. 비밀번호 분실 시 로그인 화면의 "비밀번호 찾기"로 재설정할 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">계정 탈퇴 시 데이터는 어떻게 되나요?<span class="arrow">▼</span></div><div class="faq-a">탈퇴 시 개인정보처리방침에 따라 개인정보가 파기됩니다. 일부 정보는 관련 법령에 의해 일정 기간 보관될 수 있습니다. 탈퇴 요청은 support@beomonnuri.com으로 문의해주세요.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>⚖️ 면책 및 법적 고지</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">이 서비스는 투자 조언인가요?<span class="arrow">▼</span></div><div class="faq-a"><b>아닙니다.</b> 본 서비스가 제공하는 모든 지표·AI 분석·시그널은 투자 <b>참고 정보</b>이며, 투자 권유나 매매 조언이 아닙니다. 모든 투자 판단과 그 결과(손익)에 대한 책임은 전적으로 이용자 본인에게 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">분석이나 시그널대로 했는데 손해를 봤어요.<span class="arrow">▼</span></div><div class="faq-a">과거 데이터 기반 통계·신호는 미래 수익을 보장하지 않습니다. 암호화폐·선물 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 당사는 서비스 정보를 이용한 투자 결과에 대해 법적 책임을 지지 않습니다(이용약관 제6조 참조).</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">데이터가 항상 정확한가요?<span class="arrow">▼</span></div><div class="faq-a">실시간 데이터는 거래소(Binance 등) API를 통해 제공되며, 거래소 장애·네트워크 지연·점검 시 일시적으로 부정확하거나 지연될 수 있습니다. 중요한 판단은 반드시 거래소 원본 데이터로 교차 확인하시기 바랍니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">미성년자도 이용할 수 있나요?<span class="arrow">▼</span></div><div class="faq-a">본 서비스는 투자 관련 정보를 다루므로 만 19세 이상 이용을 권장합니다. 만 14세 미만 아동의 회원가입은 제한됩니다(이용약관 제4-2조).</div></div>
+</div>
+
+<div class="faq-section">
+<h2>🛠️ 문제 해결</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">차트 설정이 저장 안 돼요<span class="arrow">▼</span></div><div class="faq-a">로그인 상태에서만 서버에 저장됩니다. 로그인 후 상단 "설정저장" 버튼을 눌러주세요. 비로그인 시에는 브라우저에만 임시 저장됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">특정 종목이 안 보여요<span class="arrow">▼</span></div><div class="faq-a">왼쪽 검색창에서 종목명을 검색해보세요. Binance Futures에 상장된 종목만 지원됩니다. 최근 상장폐지된 종목은 목록에서 제외될 수 있습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">알림이 안 와요<span class="arrow">▼</span></div><div class="faq-a">브라우저 알림 권한을 허용해야 합니다. 주소창 왼쪽 자물쇠 아이콘 → 알림 → 허용으로 설정해주세요. 브라우저를 닫으면 알림을 받을 수 없습니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">모의주문을 초기화하고 싶어요<span class="arrow">▼</span></div><div class="faq-a">모의주문 탭 하단의 "모의 포지션 + 히스토리 전체 삭제" 버튼을 누르면 모든 기록이 초기화됩니다.</div></div>
+</div>
+
+<div class="faq-section">
+<h2>❓ 기타</h2>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">데이터는 실시간인가요?<span class="arrow">▼</span></div><div class="faq-a">네, Binance Futures API를 통해 실시간 가격 데이터를 제공합니다. WebSocket 연결로 1초 미만 지연으로 업데이트됩니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">문의는 어떻게 하나요?<span class="arrow">▼</span></div><div class="faq-a">상단 메뉴의 "피드백" 버튼 또는 support@beomonnuri.com으로 문의해주세요. 영업일 기준 24시간 내 답변드립니다.</div></div>
+
+<div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">서비스 장애 시 어떻게 하나요?<span class="arrow">▼</span></div><div class="faq-a">거래소 API 장애나 서버 점검 시 일시적으로 데이터가 지연될 수 있습니다. 대부분 수 분 내 자동 복구되며, 장시간 장애 시 공지사항으로 안내합니다.</div></div>
+</div>
+
+<p style="margin-top:40px;text-align:center"><a href="/">← 홈으로 돌아가기</a></p>
+</body>
+</html>

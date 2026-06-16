@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>범온 AI 슈퍼차트 — Admin</title>
+
+<!-- Pretendard Variable 자체 호스팅 (디자인 토큰 시스템) -->
+<link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css?v=20260508">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  /* ══════════════════════════════════════════════
+     BEOMON AI SuperChart 디자인 토큰 — Admin 페이지 (2026-05-08)
+     사용자 페이지와 동일한 토큰 + admin 전용 오버라이드는
+     [data-theme="admin"] 로 활성화 가능 (다음 단계)
+     ══════════════════════════════════════════════ */
+
+  /* Brand */
+  --color-primary: #6A1E33;
+  --color-primary-hover: #7A243E;
+  --color-primary-pressed: #4F1524;
+  --color-secondary: #B8942E;
+  --color-secondary-light: #D8B66A;
+
+  /* Background */
+  --color-bg: #F7F1EA;
+  --color-surface: #F3ECE4;
+  --color-surface-raised: #FFFDF9;
+  --color-surface-sunken: #EDE4D7;
+
+  /* Text */
+  --color-text-primary: #3D2B1F;
+  --color-text-secondary: #6B5B50;
+  --color-text-muted: #8E7D72;
+  --color-text-inverse: #FFFDF9;
+
+  /* Border */
+  --color-border: rgba(216,182,106,0.25);
+  --color-border-strong: rgba(216,182,106,0.5);
+  --color-divider: rgba(61,43,31,0.08);
+
+  /* Semantic */
+  --color-success: #4A9E6B;
+  --color-warning: #D97706;
+  --color-error: #A8334B;
+  --color-info: #3B5BA0;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 3px rgba(106,30,51,0.06);
+  --shadow-md: 0 4px 12px rgba(106,30,51,0.10);
+  --shadow-lg: 0 12px 32px rgba(106,30,51,0.14);
+
+  /* Font */
+  --font-sans: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', Roboto, sans-serif;
+
+  /* Spacing */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-5: 24px; --space-6: 32px;
+
+  /* Radius */
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px; --radius-full: 9999px;
+
+  /* 버튼/입력 높이 */
+  --height-xs: 22px; --height-sm: 26px; --height-md: 32px; --height-lg: 40px;
+
+  /* 텍스트 크기 */
+  --text-xs: 11px; --text-sm: 12px; --text-base: 14px; --text-lg: 16px;
+
+  /* 폰트 굵기 */
+  --font-normal: 400; --font-medium: 500; --font-semibold: 600; --font-bold: 700;
+
+  /* z-index 계층 */
+  --z-base: 0; --z-sticky: 10; --z-drawer: 50; --z-modal: 1000; --z-toast: 1100; --z-splash: 9000;
+
+  /* primary-soft (공통 추가) */
+  --color-primary-soft: rgba(106,30,51,0.08);
+
+  /* 하위 호환 */
+  --bg: var(--color-bg);
+  --panel: rgba(243,236,228,0.95);
+  --border: var(--color-border);
+  --text: var(--color-text-primary);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-primary);
+}
+
+/* [data-theme="admin"] — admin 차가운 스킴 (다음 단계에서 활성화 대기) */
+/* admin 페이지는 메인 페이지와 동일 디자인 시스템 사용
+   (차가운 톤 스킴은 롤백 — 일관성 우선)
+   향후 필요 시 [data-theme="admin"] 블록 재활용 가능 */
+
+
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:14px;padding:20px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+:lang(ko) { letter-spacing: -0.01em; }
+.num, [data-num] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss03" 1;
+}
+h1{font-size:20px;margin-bottom:20px;color:var(--color-primary)}
+
+/* ══════════════════════════════════════════════
+   공통 컴포넌트 클래스 (Phase 2.4)
+   ══════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--space-2); height: var(--height-md);
+  padding-inline: var(--space-4);
+  font-family: inherit; font-size: var(--text-base);
+  font-weight: var(--font-medium); line-height: 1;
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent; color: var(--color-text-primary);
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+  background: var(--color-primary); color: var(--color-text-inverse);
+  border-color: var(--color-primary);
+}
+.btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+.btn-secondary {
+  background: var(--color-surface-raised); color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--color-surface-sunken); }
+.btn-danger {
+  background: var(--color-error); color: var(--color-text-inverse);
+  border-color: var(--color-error);
+}
+.btn-danger:hover:not(:disabled) { filter: brightness(0.95); }
+.btn-success {
+  background: var(--color-success); color: var(--color-text-inverse);
+  border-color: var(--color-success);
+}
+.btn-success:hover:not(:disabled) { filter: brightness(1.05); }
+.btn-xs { height: var(--height-xs); padding-inline: var(--space-2); font-size: var(--text-xs); }
+.btn-sm { height: var(--height-sm); padding-inline: var(--space-3); font-size: var(--text-sm); }
+.btn-lg { height: var(--height-lg); padding-inline: var(--space-5); font-weight: var(--font-semibold); }
+
+.input {
+  display: block; width: 100%; height: var(--height-md);
+  padding: 0 var(--space-3); font-family: inherit;
+  font-size: var(--text-base); color: var(--color-text-primary);
+  background: var(--color-surface-raised); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+.input-sm { height: var(--height-sm); font-size: var(--text-sm); padding-inline: var(--space-2); }
+
+.badge-v2 {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  height: 22px; padding-inline: var(--space-2);
+  font-size: var(--text-xs); font-weight: var(--font-semibold);
+  line-height: 1; border-radius: var(--radius-full);
+  border: 1px solid transparent;
+}
+.badge-success { background: rgba(74,158,107,0.1); color: var(--color-success); border-color: var(--color-success); }
+.badge-warning { background: rgba(217,119,6,0.1); color: var(--color-warning); border-color: var(--color-warning); }
+.badge-error   { background: rgba(220,38,38,0.1); color: var(--color-error); border-color: var(--color-error); }
+.badge-info    { background: rgba(37,99,235,0.1); color: var(--color-info); border-color: var(--color-info); }
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:24px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.card .val{font-size:28px;font-weight:700;color:var(--color-primary)}
+.card .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.chart-bar{display:flex;align-items:flex-end;gap:4px;height:100px;margin-top:12px}
+.chart-bar .bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.chart-bar .bar:hover{opacity:0.8}
+.chart-bar .bar span{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--muted);white-space:nowrap}
+.chart-bar .bar .count{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text)}
+/* 테이블 기본 (Phase 3B — 가독성 강화) */
+table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+th{
+  text-align:left;
+  color:var(--color-text-muted);
+  padding:var(--space-2) var(--space-3);
+  border-bottom:1px solid var(--color-border-strong);
+  font-size:var(--text-xs);
+  font-weight:var(--font-semibold);
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  position:sticky;
+  top:0;
+  background:var(--color-surface);
+  z-index:var(--z-sticky);
+}
+td{
+  padding:var(--space-2) var(--space-3);
+  border-bottom:1px solid var(--color-divider);
+  color:var(--color-text-primary);
+}
+/* Zebra-stripe */
+tbody tr:nth-child(even){background:var(--color-surface-sunken)}
+tbody tr:hover{background:var(--color-primary-soft);cursor:default}
+/* 숫자 셀 자동 정렬 */
+td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+/* 카운트/카테고리 소형 배지 (legacy .badge — admin 전용) */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:3px 10px;border-radius:9999px;
+  font-size:10px;font-weight:600;line-height:1.4;
+  white-space:nowrap;
+}
+.badge.ref{background:rgba(74,158,107,0.15);color:var(--color-success)}
+.badge.yt{background:rgba(168,51,75,0.15);color:var(--color-error)}
+.badge.bm{background:rgba(184,148,46,0.15);color:var(--color-secondary)}
+.badge.err{background:rgba(217,119,6,0.15);color:var(--color-warning)}
+#dashboard{display:none}
+/* 관리자 탭 버튼 (공통 .btn 체계와 통일) */
+.admin-tab{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  height:32px;padding:0 14px;
+  background:var(--color-surface-raised);
+  color:var(--color-text-secondary);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
+  font-family:inherit;font-size:12px;font-weight:600;line-height:1;
+  cursor:pointer;user-select:none;white-space:nowrap;
+  transition:all 0.15s;
+}
+.admin-tab:hover{
+  border-color:var(--color-border-strong);
+  background:var(--color-primary-soft);
+  color:var(--color-text-primary);
+}
+.admin-tab.active{
+  background:var(--color-primary);
+  color:var(--color-text-inverse);
+  border-color:var(--color-primary);
+}
+.admin-tab:focus-visible{
+  outline:2px solid var(--color-primary);
+  outline-offset:2px;
+}
+.admin-section{display:none}.admin-section.active{display:block}
+
+/* 로그아웃 버튼 (상단 topbar) */
+.admin-logout-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:32px;padding:0 16px;
+  background:var(--color-error);color:#fff;
+  border:1px solid var(--color-error);border-radius:6px;
+  font-size:12px;font-weight:600;
+  font-family:inherit;line-height:1;
+  cursor:pointer;flex-shrink:0;
+  transition:filter 0.15s;
+}
+.admin-logout-btn:hover{filter:brightness(0.92)}
+
+/* ══════════════════════════════════════════════
+   🎨 admin 공통 유틸 클래스 (inline style 축소)
+   ══════════════════════════════════════════════ */
+/* 입력창 공통 */
+.admin-input,
+.admin-input-narrow,
+.admin-input-wide{
+  width:100%;
+  padding:6px;
+  background:var(--color-surface-raised);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-sm);
+  color:var(--color-text-primary);
+  font-size:var(--text-sm);
+  font-family:inherit;
+  outline:none;
+  transition:border-color 0.15s;
+}
+.admin-input:focus,
+.admin-input-narrow:focus,
+.admin-input-wide:focus{border-color:var(--color-primary)}
+.admin-input-narrow{font-size:var(--text-xs)}
+.admin-input textarea,
+textarea.admin-input{resize:vertical;min-height:60px}
+/* filter select */
+.admin-filter{
+  padding:6px;
+  background:var(--color-surface-raised);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-sm);
+  color:var(--color-text-primary);
+  font-size:var(--text-xs);
+  font-family:inherit;
+  cursor:pointer;
+}
+.admin-search{flex:1;min-width:150px}
+/* 공통 여백 유틸 */
+.admin-row{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-2) 0}
+.admin-row-end{justify-content:flex-end}
+.admin-section-gap{margin-top:var(--space-5)}
+.admin-section-gap-sm{margin-top:var(--space-3)}
+.admin-ml-xs{margin-left:var(--space-1)}
+.admin-ml-sm{margin-left:var(--space-2)}
+.admin-muted-note{font-size:var(--text-xs);color:var(--color-text-muted)}
+.admin-center{text-align:center}
+.admin-center-block{text-align:center;margin-top:var(--space-5)}
+/* detail box (접힘/펼침) */
+.admin-detail-box{
+  display:none;
+  margin:var(--space-3) 0;
+  padding:var(--space-3);
+  background:var(--color-surface-raised);
+  border-radius:var(--radius-md);
+}
+.admin-detail-box.open{display:block}
+/* 표 내부 select */
+.admin-inline-select{
+  background:var(--color-surface-raised);
+  border:1px solid var(--color-border);
+  color:var(--color-text-primary);
+  border-radius:var(--radius-sm);
+  padding:2px 6px;
+  font-size:var(--text-xs);
+  margin-left:var(--space-2);
+  cursor:pointer;
+}
+
+/* ══════════════════════════════════════════════
+   반응형 — 태블릿 + 모바일 (2026-05-08 S6)
+   ══════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  body{padding:16px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .card{padding:16px}
+  .card .val{font-size:24px}
+}
+
+@media (max-width: 768px) {
+  body{padding:12px;font-size:13px}
+  h1{font-size:16px;margin-bottom:16px;line-height:1.4}
+  /* 탭 바 가로 스크롤 */
+  .admin-tab{font-size:10px;padding:5px 10px;flex-shrink:0}
+  /* 그리드 1열로 */
+  .grid{grid-template-columns:1fr;gap:10px;margin-bottom:16px}
+  .card{padding:14px}
+  .card h3{font-size:10px}
+  .card .val{font-size:20px}
+  .card .sub{font-size:11px}
+  /* 테이블: 가로 스크롤 래퍼 필요 */
+  table{font-size:11px}
+  th,td{padding:6px 8px}
+  /* Input 모바일 사이즈 */
+  input,select,textarea{font-size:14px !important}
+  /* Dialog 모바일 */
+  .ad-dialog{min-width:0;width:calc(100vw - 24px);max-width:calc(100vw - 24px);padding:16px}
+  .ad-dialog h3{font-size:13px}
+  .ad-dialog p{font-size:12px}
+  /* 로그아웃 버튼 */
+  .admin-logout-btn{height:28px;padding:0 12px;font-size:11px}
+  .admin-topbar h1{font-size:14px !important}
+}
+
+@media (max-width: 480px) {
+  body{padding:8px}
+  h1{font-size:14px}
+  .card{padding:12px}
+  .card .val{font-size:18px}
+  .admin-tab{font-size:10px;padding:5px 8px}
+  /* 테이블 스크롤 강제 */
+  table{min-width:100%}
+}
+
+/* 테이블을 감싸는 공통 래퍼 (가로 스크롤 허용) */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px;border-radius:8px}
+.table-wrap table{min-width:480px}
+
+/* focus-visible 일괄 */
+button:focus-visible,
+.admin-tab:focus-visible,
+.ad-dialog-btns button:focus-visible{
+  outline:2px solid var(--color-primary);
+  outline-offset:2px;
+}
+</style>
+
+
+<style>
+.ad-dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center}
+.ad-dialog-overlay.open{display:flex}
+.ad-dialog{background:var(--color-surface-raised);border-radius:12px;padding:20px;min-width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.2)}
+.ad-dialog h3{margin:0 0 12px;color:var(--color-text-primary);font-size:14px}
+.ad-dialog p{margin:0 0 16px;font-size:12px;color:var(--color-text-primary);white-space:pre-line}
+.ad-dialog input{width:100%;padding:8px;border:1px solid rgba(216,182,106,0.4);border-radius:6px;font-size:12px;margin-bottom:12px;box-sizing:border-box}
+.ad-dialog-btns{display:flex;gap:8px;justify-content:flex-end}
+.ad-dialog-btns button{padding:6px 16px;border:none;border-radius:6px;cursor:pointer;font-size:12px}
+.ad-btn-cancel{background:var(--border);color:var(--text)}
+.ad-btn-ok{background:#6A1E33;color:#fff}
+.ad-btn-danger{background:var(--color-error);color:#fff}
+</style>
+
+<div id="adDialogOverlay" class="ad-dialog-overlay" role="presentation" aria-hidden="true">
+  <div class="ad-dialog" role="dialog" aria-modal="true" aria-labelledby="adDialogTitle" aria-describedby="adDialogMsg">
+    <h3 id="adDialogTitle"></h3>
+    <p id="adDialogMsg"></p>
+    <input id="adDialogInput" type="text" style="display:none" aria-label="입력">
+    <div class="ad-dialog-btns">
+      <button type="button" class="ad-btn-cancel" id="adDialogCancel">취소</button>
+      <button type="button" class="ad-btn-ok" id="adDialogOk">확인</button>
+    </div>
+  </div>
+</div>
+</head>
+<body>
+<div id="dashboard">
+  <div class="admin-topbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+    <h1 style="margin:0;flex:1;min-width:200px">범온 AI 슈퍼차트 — 관리자 대시보드</h1>
+    <button type="button" class="admin-logout-btn" aria-label="관리자 로그아웃" data-action="adminLogout">로그아웃</button>
+  </div>
+  <div role="tablist" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    <button role="tab" aria-selected="true" class="admin-tab active" data-action="adminTab" data-param="overview">개요</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="users">회원</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="logs">로그</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="content">공지/FAQ</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="settings">설정</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="metrics">메트릭</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="tickets">문의</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="verifications">인증요청
+      <button data-action="adminTab" data-param="symbols" class="admin-tab">종목</button>
+      <button data-action="adminTab" data-param="subscriptions" class="admin-tab">구독</button>
+      <button data-action="adminTab" data-param="system" class="admin-tab">시스템</button></button>
+  </div>
+  <div id="tab-overview">
+  <div class="grid">
+    <div class="card"><h3>총 방문</h3><div class="val" id="totalVisits">-</div><div class="sub" id="uniqueVisits">유니크: -</div></div>
+    <div class="card"><h3>오늘 방문</h3><div class="val" id="todayVisits">-</div></div>
+    <div class="card"><h3>총 클릭</h3><div class="val" id="totalClicks">-</div></div>
+    <div class="card"><h3>현재 WS 연결</h3><div class="val" id="wsConns">-</div></div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <h3>일별 방문 (최근 7일)</h3>
+      <div class="chart-bar" id="dailyChart"></div>
+    </div>
+    <div class="card">
+      <h3>클릭 유형별</h3>
+      <table id="clickTable"><thead><tr><th>유형</th><th>횟수</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="admin-center-block">
+    <button data-action="loadStats" class="btn btn-primary">새로고침</button>
+    <span style="color:var(--muted);font-size:11px;margin-left:10px" id="lastUpdate"></span>
+  </div>
+  <div class="admin-section-gap" data-section="users">
+    <div class="card">
+      
+    <div class="card" style="margin-top:12px">
+      <h3>➕ 회원 생성</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+        <input id="newUserEmail" class="admin-input" placeholder="이메일">
+        <input id="newUserNick" class="admin-input" placeholder="닉네임">
+        <input id="newUserPw" class="admin-input" type="password" placeholder="비밀번호">
+        <select id="newUserTier" class="admin-input"><option value="free">Free</option><option value="vip">VIP</option><option value="pro">PRO</option><option value="vvip">VVIP</option></select>
+      </div>
+      <button onclick="createUser()" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">회원 생성</button>
+      <div id="createUserResult" style="margin-top:6px;font-size:12px"></div>
+    </div>
+
+    <h3>회원 관리 <span id="userCount" style="color:var(--color-primary);font-size:14px;margin-left:8px">-</span></h3>
+      <div class="admin-row">
+        <span class="badge ref" id="tierFree">FREE: -</span>
+        <span class="badge bm" id="tierPro">VIP: -</span><span class="badge bm" id="tierPremium" class="admin-ml-xs">VVIP: -</span>
+      </div>
+      <div class="admin-row">
+        <input id="userSearch" aria-label="회원 검색 (이메일 / 닉네임 / UID)" placeholder="이메일/닉네임/UID 검색" class="admin-filter admin-search">
+        <select id="tierFilter" aria-label="등급 필터" data-change="searchUsers" class="admin-filter">
+          <option value="">전체 등급</option><option value="free">일반</option><option value="pro">VIP</option><option value="premium">VVIP</option>
+        </select>
+        <select id="statusFilter" aria-label="상태 필터" data-change="searchUsers" class="admin-filter">
+          <option value="">전체 상태</option><option value="active">활성</option><option value="blocked">차단</option><option value="verified">인증완료</option><option value="unverified">미인증</option>
+        </select>
+        <button data-action="searchUsers" class="btn btn-primary btn-sm">검색</button>
+        <input id="bulkUids" aria-label="일괄 승급 대상 이메일 (쉼표 구분)" placeholder="일괄 승급: 이메일 쉼표 구분" class="admin-filter admin-search">
+        <button data-action="bulkUpgrade" class="btn btn-success btn-sm">일괄 VIP</button>
+      </div>
+      <table id="userTable"><thead style="position:sticky;top:0;background:var(--color-surface)"><tr><th>닉네임</th><th>이메일</th><th>등급</th><th>상태</th><th>인증</th><th>최근 로그인</th><th>가입일</th><th>관리</th></tr></thead><tbody></tbody></table>
+      <div id="userPagination" style="display:flex;justify-content:center;gap:8px;margin-top:8px"></div>
+    </div>
+  </div>
+  <div class="admin-section-gap" data-section="logs">
+    <div class="card">
+      <h3>접속 로그 <select id="logFilter" aria-label="접속 로그 필터" data-change="loadLogs" class="admin-inline-select"><option value="">전체</option><option value="login_ok">로그인 성공</option><option value="login_fail">로그인 실패</option><option value="locked">잠금</option><option value="signup">회원가입</option></select></h3>
+      <table id="logTable"><thead><tr><th>시간</th><th>IP</th><th>유형</th><th>UA</th><th>유저</th></tr></thead><tbody></tbody></table>
+      <div class="admin-center" style="margin-top:8px"><button data-action="logsPrev" class="btn btn-primary btn-xs">◀</button><span id="logPageInfo" style="margin:0 10px;font-size:10px;color:var(--muted)">1</span><button data-action="logsNext" class="btn btn-primary btn-xs">▶</button></div>
+    </div>
+  </div>
+  <!-- 공지사항 관리 -->
+  <div class="admin-section-gap" data-section="content">
+    <div class="card">
+      <h3>공지사항 관리 <button data-action="showNoticeForm" class="btn btn-primary btn-xs" class="admin-ml-sm">+ 새 공지</button></h3>
+      <div id="noticeForm" class="admin-detail-box">
+        <input id="nTitle" aria-label="공지 제목" placeholder="제목" class="admin-input" style="margin-bottom:6px">
+        <textarea id="nContent" aria-label="공지 내용" placeholder="내용" rows="3" class="admin-input" style="margin-bottom:6px;resize:vertical"></textarea>
+        <label style="font-size:10px;color:var(--muted)"><input type="checkbox" id="nPinned"> 상단 고정</label>
+        <button data-action="saveNotice" class="btn btn-primary btn-xs" style="margin-left:10px">저장</button>
+        <button data-action="hideNoticeForm" class="btn btn-secondary btn-xs" class="admin-ml-xs">취소</button>
+      </div>
+      <table id="noticeTable"><thead><tr><th>제목</th><th>고정</th><th>작성일</th><th>관리</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <!-- FAQ 관리 -->
+  <div class="admin-section-gap" data-section="content">
+    <div class="card">
+      <h3>FAQ 관리 <button data-action="showFaqForm" class="btn btn-primary btn-xs" class="admin-ml-sm">+ 새 FAQ</button></h3>
+      <div id="faqForm" class="admin-detail-box">
+        <input id="fQuestion" aria-label="FAQ 질문" placeholder="질문" class="admin-input" style="margin-bottom:6px">
+        <textarea id="fAnswer" aria-label="FAQ 답변" placeholder="답변" rows="3" class="admin-input" style="margin-bottom:6px;resize:vertical"></textarea>
+        <button data-action="saveFaq" class="btn btn-primary btn-xs">저장</button>
+        <button data-action="hideFaqForm" class="btn btn-secondary btn-xs" class="admin-ml-xs">취소</button>
+      </div>
+      <table id="faqTable"><thead><tr><th>질문</th><th>답변(요약)</th><th>관리</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <!-- 사이트 설정 -->
+  <div class="admin-section-gap" data-section="settings">
+    <div class="card">
+      <h3>사이트 설정</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+        <div><label for="setSiteName" style="font-size:10px;color:var(--muted)">사이트명</label><input id="setSiteName" class="admin-input"></div>
+        <div><label for="setMaintenance" style="font-size:10px;color:var(--muted)">점검모드</label><select id="setMaintenance" class="admin-input"><option value="false">OFF</option><option value="true">ON</option></select></div>
+        <div><label for="setNotice" style="font-size:10px;color:var(--muted)">공지 배너</label><select id="setNotice" class="admin-input"><option value="true">ON</option><option value="false">OFF</option></select></div>
+      </div>
+      <button data-action="saveSettings" class="btn btn-primary btn-sm" style="margin-top:10px">설정 저장</button>
+    </div>
+  </div>
+
+  
+  
+  
+  <!-- 실시간 대시보드 -->
+  <div class="admin-section-gap" data-section="overview">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3>🔴 실시간</h3>
+        <button onclick="loadRealtime()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="realtimeGrid">
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:24px;font-weight:700;color:var(--color-primary)" id="rtWs">-</div>
+          <div style="font-size:10px;color:var(--muted)">접속 중</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:24px;font-weight:700;color:var(--color-primary)" id="rtActive">-</div>
+          <div style="font-size:10px;color:var(--muted)">오늘 활성</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:24px;font-weight:700" id="rtCpu">-</div>
+          <div style="font-size:10px;color:var(--muted)">CPU</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:24px;font-weight:700" id="rtMem">-</div>
+          <div style="font-size:10px;color:var(--muted)">메모리</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="padding:8px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px">디스크</div>
+          <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden"><div id="rtDiskBar" style="height:100%;background:var(--color-primary);width:0%;transition:width 0.3s"></div></div>
+          <div style="font-size:11px;margin-top:2px" id="rtDisk">-</div>
+        </div>
+        <div style="padding:8px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px">최근 가입</div>
+          <div id="rtRecentUsers" style="font-size:11px;line-height:1.6">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 사용자 분석 -->
+  <div class="admin-section-gap" data-section="overview">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3> 사용자 분석</h3>
+        <button onclick="loadAnalytics()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div id="analyticsPanel" style="font-size:12px;color:var(--muted)">로딩 중...</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>📢 실시간 공지 푸시</h3>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input id="pushNoticeMsg" class="admin-input" placeholder="접속 중인 사용자에게 보낼 메시지" style="flex:1">
+        <button onclick="pushNotice()" class="btn btn-primary btn-sm">발송</button>
+      </div>
+      <p style="font-size:10px;color:var(--muted);margin-top:4px">WebSocket으로 현재 접속 중인 모든 사용자에게 즉시 표시됩니다</p>
+    </div>
+  </div>
+
+  <!-- 빠른 액션 + 오늘 통계 -->
+  <div class="admin-section-gap" data-section="quick">
+    <div class="card">
+      <h3> 빠른 액션</h3>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button onclick="quickAction('/v1/ops/clear-cache','POST')" class="btn btn-primary btn-sm">🗑️ 캐시 초기화</button>
+        <button onclick="quickAction('/v1/ops/restart-bots','POST')" class="btn btn-primary btn-sm">🤖 봇 재시작</button>
+        <button onclick="loadTodayStats()" class="btn btn-primary btn-sm">📊 오늘 통계</button>
+        <button onclick="loadBotStatus()" class="btn btn-primary btn-sm"> 봇 현황</button>
+      </div>
+      <div id="quickResult" style="margin-top:12px;font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>📊 오늘 통계</h3>
+      <div id="todayStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px">
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:700;color:var(--color-primary)" id="statNewUsers">-</div>
+          <div style="font-size:10px;color:var(--muted)">오늘 가입</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:700;color:var(--color-primary)" id="statTotalUsers">-</div>
+          <div style="font-size:10px;color:var(--muted)">전체 회원</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:700;color:var(--color-primary)" id="statVisits">-</div>
+          <div style="font-size:10px;color:var(--muted)">오늘 방문</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:700;color:var(--color-primary)" id="statBots">-</div>
+          <div style="font-size:10px;color:var(--muted)">봇 실행</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:var(--color-surface);border-radius:8px">
+          <div style="font-size:20px;font-weight:700" id="statPnl">-</div>
+          <div style="font-size:10px;color:var(--muted)">봇 PnL</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- 운영 메트릭 -->
+  <div class="admin-section-gap" data-section="metrics">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>운영 메트릭</h3>
+        <button data-action="loadMetrics" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div id="metricsPanel"><p style="color:var(--muted);font-size:11px">로그인 후 새로고침을 눌러주세요</p></div>
+    </div>
+  </div>
+
+  <!-- CS/문의 관리 -->
+  <div class="admin-section-gap" data-section="tickets">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>CS/문의 관리</h3>
+        <button data-action="loadTickets" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <table id="ticketTable"><thead><tr><th>이메일</th><th>제목</th><th>상태</th><th>날짜</th><th>관리</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="admin-section-gap" data-section="referral">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>레퍼럴 / 포인트 관리</h3>
+        <button onclick="window.loadAdminReferral&&window.loadAdminReferral()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div style="color:var(--muted);font-size:13px">불러오는 중...</div>
+    </div>
+  </div>
+
+  <div class="admin-section-gap" data-section="products">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>지표 판매 관리</h3>
+        <button onclick="window.loadAdminProducts&&window.loadAdminProducts()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <input id="prodCode" class="admin-input" placeholder="지표코드 (예: ultra)" style="width:140px">
+        <input id="prodName" class="admin-input" placeholder="표시이름" style="width:140px">
+        <input id="prodPrice" class="admin-input" type="number" placeholder="가격(원)" style="width:100px">
+        <button onclick="setProduct()" class="btn btn-primary btn-sm">상품 등록/수정</button>
+      </div>
+      <div id="productList"></div>
+    </div>
+  </div>
+
+  <div class="admin-section-gap" data-section="verifications">
+    <div class="card">
+      <h3>거래소 인증 요청 <button data-action="loadVerifications" class="btn btn-primary btn-xs" class="admin-ml-sm">새로고침</button></h3>
+      <table id="verificationTable"><thead><tr><th>이메일</th><th>닉네임</th><th>거래소</th><th>제출값</th><th>요청일</th><th>처리</th></tr></thead><tbody id="verificationList"></tbody></table>
+    </div>
+  </div>
+
+
+  <!-- 종목 관리 -->
+  <div class="admin-section-gap" data-section="symbols">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>종목 관리</h3>
+        <button onclick="loadSymbolStats()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div id="symbolStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700" id="symCrypto">-</div>
+          <div style="font-size:10px;color:var(--muted)">암호화폐</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700" id="symStock">-</div>
+          <div style="font-size:10px;color:var(--muted)">주식</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700" id="symCommodity">-</div>
+          <div style="font-size:10px;color:var(--muted)">원자재</div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <h4 style="font-size:12px;margin-bottom:6px">종목 추가</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px">
+          <input id="addSymCode" class="admin-input" placeholder="코드 (BTCUSDT)">
+          <input id="addSymName" class="admin-input" placeholder="한글명 (비트코인)">
+          <select id="addSymClass" class="admin-input"><option value="crypto">암호화폐</option><option value="stock">주식</option><option value="commodity">원자재</option></select>
+          <button onclick="addSymbol()" class="btn btn-primary btn-sm">추가</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 구독 관리 -->
+  <div class="admin-section-gap" data-section="subscriptions">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>구독/결제 관리</h3>
+        <button onclick="loadSubStats()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div id="subStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700" id="subFree">-</div>
+          <div style="font-size:10px;color:var(--muted)">무료</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700;color:#D8B66A" id="subVip">-</div>
+          <div style="font-size:10px;color:var(--muted)">VIP</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700;color:#921230" id="subPro">-</div>
+          <div style="font-size:10px;color:var(--muted)">PRO</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:var(--color-surface);border-radius:6px">
+          <div style="font-size:18px;font-weight:700;color:#22A16B" id="subRevenue">-</div>
+          <div style="font-size:10px;color:var(--muted)">이번달 매출</div>
+        </div>
+      </div>
+      <div id="subList" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+
+  <!-- 시스템 -->
+  <div class="admin-section-gap" data-section="system">
+    <div class="card">
+      <h3>시스템 상태</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px">
+        <button onclick="sysAction('restart-server')" class="btn btn-primary btn-sm">🔄 서버 재시작</button>
+        <button onclick="sysAction('clear-all-cache')" class="btn btn-primary btn-sm">🗑️ 전체 캐시 삭제</button>
+        <button onclick="sysAction('run-cleanup')" class="btn btn-primary btn-sm">🧹 로그 정리</button>
+        <button onclick="sysAction('db-vacuum')" class="btn btn-primary btn-sm">🗄️ DB Vacuum</button>
+      </div>
+      <div style="margin-top:12px">
+        <h4 style="font-size:12px;margin-bottom:6px">최근 에러 로그</h4>
+        <pre id="errorLog" style="background:var(--color-surface);padding:10px;border-radius:6px;font-size:11px;max-height:200px;overflow-y:auto;white-space:pre-wrap;color:var(--color-text-secondary)">로딩 중...</pre>
+      </div>
+      <div style="margin-top:12px">
+        <h4 style="font-size:12px;margin-bottom:6px">디스크 사용량</h4>
+        <div id="diskInfo" style="font-size:12px;color:var(--muted)">로딩 중...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+<script>/**
+ * 공용 API 호출 헬퍼 (CSRF 자동 첨부, 에러 처리 일관화)
+ *
+ * 역할:
+ * - CSRF 토큰 쿠키(csrf_token)를 자동으로 X-CSRF-Token 헤더에 첨부 (상태 변경 메서드만)
+ * - Content-Type 자동 설정 (JSON body 있으면)
+ * - 401 감지 시 세션 만료 처리 (기존 _401handled 로직 통합)
+ * - 인증 쿠키는 브라우저가 자동 전송 (credentials: 'same-origin')
+ *
+ * 사용:
+ *   const data = await api.get('/v1/symbols');
+ *   const result = await api.post('/v1/alerts', { symbol: 'BTCUSDT', ... });
+ *   const r = await api.del('/v1/alerts/xxx');
+ *
+ * 하위 호환:
+ *   window.api 로 전역 노출 — ES Module 아닌 스크립트에서도 사용 가능
+ *
+ * 주의:
+ * - 이 헬퍼를 사용하지 않는 기존 fetch() 호출은 CSRF 수동 첨부 필요
+ * - 응답 자동 JSON 파싱 — raw Response 필요하면 api.raw() 사용
+ */
+(function () {
+  'use strict';
+
+  // CSRF 토큰을 쿠키에서 읽기 (httponly=false 이므로 JS 접근 가능)
+  function _readCsrfToken() {
+    const m = /(?:^|;\s*)csrf_token=([^;]+)/.exec(document.cookie || '');
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  // 상태 변경 메서드 (CSRF 필수)
+  const _MUTATING = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+
+  /**
+   * 공용 fetch 래퍼 (raw Response 반환).
+   *
+   * @param {string} url - 요청 URL
+   * @param {Object} [opts] - fetch 옵션
+   * @param {string} [opts.method='GET']
+   * @param {Object} [opts.body] - 객체면 JSON.stringify
+   * @param {Object} [opts.headers]
+   * @param {boolean} [opts.skipCsrf=false] - CSRF 자동 첨부 건너뛰기
+   * @returns {Promise<Response>}
+   */
+  async function raw(url, opts = {}) {
+    const method = (opts.method || 'GET').toUpperCase();
+    const headers = Object.assign({}, opts.headers || {});
+
+    // body가 객체면 자동으로 JSON 직렬화 + Content-Type 설정
+    let body = opts.body;
+    if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams) && !(body instanceof Blob)) {
+      if (!headers['Content-Type'] && !headers['content-type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      body = JSON.stringify(body);
+    }
+
+    // CSRF 자동 첨부 (상태 변경 메서드 + 쿠키 있을 때)
+    if (!opts.skipCsrf && _MUTATING.has(method)) {
+      const token = _readCsrfToken();
+      if (token && !headers['X-CSRF-Token'] && !headers['x-csrf-token']) {
+        headers['X-CSRF-Token'] = token;
+      }
+    }
+
+    const fetchOpts = {
+      method,
+      headers,
+      credentials: 'include', // 쿠키 자동 전송 (same-origin 환경이라도 로컬 HTTP에서 안정적)
+    };
+    if (body !== undefined && method !== 'GET' && method !== 'HEAD') {
+      fetchOpts.body = body;
+    }
+
+    const r = await fetch(url, fetchOpts);
+
+    // 401 감지 → 세션 만료 처리 (기존 _401handled 로직과 호환)
+    if (r.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/signup')) {
+      if (!window._401handled) {
+        window._401handled = true;
+        if (typeof window.clearAuthState === 'function') {
+          window.clearAuthState();
+        }
+        if (typeof window.showToast === 'function' && typeof window.t === 'function') {
+          window.showToast(window.t('세션이 만료되었습니다. 다시 로그인해주세요.'), '#D8B66A');
+        }
+        setTimeout(() => {
+          window._401handled = false;
+        }, 5000);
+      }
+    }
+
+    return r;
+  }
+
+  /**
+   * JSON 응답을 자동 파싱.
+   * 4xx/5xx 도 정상 반환 (호출 측에서 success 필드 확인).
+   */
+  async function json(url, opts = {}) {
+    const r = await raw(url, opts);
+    try {
+      return await r.json();
+    } catch (e) {
+      // JSON 파싱 실패 (HTML 응답 등)
+      return { success: false, error: { code: 'INVALID_JSON', message: `HTTP ${r.status}`, status: r.status } };
+    }
+  }
+
+  // 단축 메서드
+  function get(url, opts) {
+    return json(url, Object.assign({}, opts, { method: 'GET' }));
+  }
+  function post(url, body, opts) {
+    return json(url, Object.assign({}, opts, { method: 'POST', body }));
+  }
+  function put(url, body, opts) {
+    return json(url, Object.assign({}, opts, { method: 'PUT', body }));
+  }
+  function del(url, opts) {
+    return json(url, Object.assign({}, opts, { method: 'DELETE' }));
+  }
+  function patch(url, body, opts) {
+    return json(url, Object.assign({}, opts, { method: 'PATCH', body }));
+  }
+
+  // 전역 노출
+  window.api = {
+    raw,
+    json,
+    get,
+    post,
+    put,
+    del,
+    patch,
+    // 유틸 (디버그/테스트용)
+    _readCsrfToken,
+  };
+})();
+</script>
+<script>/**
+ * BEOMON AI SuperChart 네임스페이스 (window.BeomApp)
+ *
+ * 목적:
+ * - 기존 window.* 전역 182개를 카테고리로 그룹화
+ * - 코드 탐색/디버깅 편의성 (window.BeomApp.state.curSymbol)
+ * - 향후 ES module 전환 시 경로 매핑 기준
+ *
+ * 정책:
+ * - 기존 window.* 는 유지 (하위 호환) — namespace 는 alias 레이어
+ * - 신규 전역 추가 시 namespace 에만 등록 권장
+ * - module 화 전까지는 중복 노출 허용
+ *
+ * 사용 예:
+ *   console.log(BeomApp.state.curSymbol);         // === window.curSymbol
+ *   BeomApp.util.showToast('hi');                 // === window.showToast('hi')
+ *   BeomApp.action.favorite.add('BTCUSDT');       // === window._addFav('BTCUSDT')
+ *
+ * 카테고리:
+ * - state     : 현재 UI/세션 상태 (curSymbol, isLoggedIn 등)
+ * - core      : 핵심 객체 (chart, API, ChartCore)
+ * - util      : 유틸 함수 (api, showToast, sanitize 등)
+ * - render    : 렌더링 함수 (_refreshOverlays 등)
+ * - action    : 사용자 액션 (_googleLogin, _addFav, _deleteAccount 등)
+ * - data      : 캐시/컬렉션 (_favSymbols, _indHistory 등)
+ * - demo      : 데모 모드
+ */
+(function () {
+  'use strict';
+
+  // getter/setter 로 기존 window.* 와 항상 동기화
+  function _bind(target, key, winKey) {
+    if (Object.prototype.hasOwnProperty.call(target, key)) return;
+    Object.defineProperty(target, key, {
+      enumerable: true,
+      configurable: true,
+      get() { return window[winKey]; },
+      set(v) { window[winKey] = v; },
+    });
+  }
+
+  const NS = {
+    version: '1.0',
+    state: {},
+    core: {},
+    util: {},
+    render: {},
+    action: {},
+    data: {},
+    demo: {},
+  };
+
+  // state
+  ['curSymbol', 'curTf', 'isLoggedIn', 'isPremium', 'isAdmin'].forEach(k => _bind(NS.state, k, k));
+
+  // core
+  ['chart', 'ChartCore', 'API', 'COS'].forEach(k => _bind(NS.core, k, k));
+
+  // util (가장 자주 쓰임)
+  ['api', 'showToast', 't', 'dedupFetch', 'sanitize', 'esc', 'setText', '_escHtml', '_safeUrl'].forEach(k => _bind(NS.util, k, k));
+
+  // render
+  ['_refreshOverlays', '_renderFavInds', '_renderFavSymbols'].forEach(k => _bind(NS.render, k, k));
+
+  // data
+  ['_favSymbols', '_favInds', '_customMA', '_customSUB', '_indSettings', '_indHistory', '_checkedBars', '_compareSymbols'].forEach(k => _bind(NS.data, k, k));
+
+  // demo
+  ['_demoLong', '_demoShort', '_demoClose', '_demoClear', '_demoPos', '_demoMarkers'].forEach(k => _bind(NS.demo, k, k));
+
+  // action (다수 — auth/favorite/chart 등 하위 그룹)
+  const actionAuth = ['_googleLogin', '_forgotPassword', '_doResetPw', '_deleteAccount', '_logout'];
+  const actionFav = ['_addFav', '_addFavSym', '_removeFav', '_removeFavSym'];
+  const actionChart = ['_selectSym', '_refreshOverlays', '_debounceSaveChartSettings'];
+  const actionAlert = ['_alertTypeChanged', '_initBeomAlertPanel', '_loadBeomAlerts'];
+
+  NS.action.auth = {};
+  NS.action.favorite = {};
+  NS.action.chart = {};
+  NS.action.alert = {};
+
+  actionAuth.forEach(k => _bind(NS.action.auth, k.replace(/^_/, ''), k));
+  actionFav.forEach(k => _bind(NS.action.favorite, k.replace(/^_(add|remove)Fav(Sym)?$/, (m, a, s) => a + (s ? 'Sym' : '')), k));
+  actionChart.forEach(k => _bind(NS.action.chart, k.replace(/^_/, ''), k));
+  actionAlert.forEach(k => _bind(NS.action.alert, k.replace(/^_/, ''), k));
+
+  // 진단 유틸
+  NS.dump = function () {
+    const out = {};
+    for (const cat of Object.keys(NS)) {
+      if (typeof NS[cat] !== 'object' || NS[cat] === null) continue;
+      out[cat] = Object.keys(NS[cat]);
+    }
+    return out;
+  };
+
+  // ── 통계 (하드코딩된 숫자 대체용) ─────────────────────
+  // UI 문구에 박힌 "45개 코인" 같은 값을 실제 DB/DOM 기반으로 계산.
+  // 값이 바뀌면 자동 반영 — 드리프트 방지.
+  NS.stats = {
+    /** 현재 활성화된 심볼(코인) 총 개수. window.symbols 가 로드되어야 정확. */
+    get symbolCount() {
+      try { return (window.symbols || []).length || 0; } catch(e) { return 0; }
+    },
+    /** 지원 타임프레임 개수 (고정: 1m/5m/15m/1h/4h/1d). */
+    get timeframeCount() { return 6; },
+    /** 메인 지표 수 (DOM 의 data-ind 개수, 숨김 제외). */
+    get mainIndicatorCount() {
+      try { return document.querySelectorAll('[data-ind]:not([style*="display:none"])').length; } catch(e) { return 0; }
+    },
+    /** 서브 지표 수 (DOM 의 data-sub 개수). */
+    get subIndicatorCount() {
+      try { return document.querySelectorAll('[data-sub]').length; } catch(e) { return 0; }
+    },
+    /** 전체 지표 수 (메인 + 서브). */
+    get totalIndicatorCount() {
+      return NS.stats.mainIndicatorCount + NS.stats.subIndicatorCount;
+    },
+    /** 플레이스홀더 치환 도우미. {코인수} {타임프레임수} {지표수} 등 지원. */
+    fill(template) {
+      if (!template) return '';
+      return String(template)
+        .replace(/\{코인수\}/g, NS.stats.symbolCount || '50+')
+        .replace(/\{symbolCount\}/g, NS.stats.symbolCount || '50+')
+        .replace(/\{타임프레임수\}/g, NS.stats.timeframeCount)
+        .replace(/\{timeframeCount\}/g, NS.stats.timeframeCount)
+        .replace(/\{지표수\}/g, NS.stats.totalIndicatorCount || '40+')
+        .replace(/\{indicatorCount\}/g, NS.stats.totalIndicatorCount || '40+')
+        .replace(/\{메인지표수\}/g, NS.stats.mainIndicatorCount || '30+')
+        .replace(/\{서브지표수\}/g, NS.stats.subIndicatorCount || '10+');
+    },
+  };
+
+  window.BeomApp = NS;
+
+  // ── data-dynamic-text 자동 치환 ────────────────────────
+  // HTML 에 data-dynamic-text="{지표수}+ 지표..." 로 적으면
+  // symbols 로드 이후 자동으로 실제 숫자로 교체. 여러 줄은 | 로 구분.
+  function _applyDynamicText() {
+    try {
+      document.querySelectorAll('[data-dynamic-text]').forEach(el => {
+        const tpl = el.getAttribute('data-dynamic-text');
+        if (!tpl) return;
+        // | → <br> 로 변환
+        const filled = NS.stats.fill(tpl).replace(/\|/g, '<br>');
+        // span 안의 html(b 태그 등)까지 허용
+        el.innerHTML = filled;
+      });
+    } catch (e) {
+      console.warn('dynamic-text fill failed:', e);
+    }
+  }
+
+  // 초기 시도 + symbols 로드 이벤트 후 재시도
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applyDynamicText);
+  } else {
+    _applyDynamicText();
+  }
+  // symbols 가 늦게 로드되는 경우 대비
+  setTimeout(_applyDynamicText, 1000);
+  setTimeout(_applyDynamicText, 3000);
+  // 다른 코드에서 수동 트리거 가능
+  NS.refreshDynamicText = _applyDynamicText;
+})();
+</script>
+<script>/**
+ * 관리자 페이지 JavaScript.
+ *
+ * templates/admin.html의 inline <script>를 분리한 파일.
+ * 구조:
+ *   1. 다이얼로그 유틸 (adConfirm, adPrompt) — prompt/confirm 대체
+ *   2. 메인 로직 — 사용자 관리/로그/통계/인증/문의/차트설정 탭
+ *
+ * 의존:
+ *   - window.api (static/js/api.js) — CSRF 자동 첨부 fetch 래퍼
+ *
+ * 전역 노출:
+ *   - window.adConfirm, window.adPrompt (다이얼로그)
+ *   - window.loadXxx, showTab 등 (HTML onclick에서 호출)
+ */
+
+function adConfirm(msg, title){
+  return new Promise(resolve=>{
+    document.getElementById('adDialogTitle').textContent = title || '확인';
+    document.getElementById('adDialogMsg').textContent = msg;
+    document.getElementById('adDialogInput').style.display = 'none';
+    const ov = document.getElementById('adDialogOverlay');
+    const ok = document.getElementById('adDialogOk');
+    const cancel = document.getElementById('adDialogCancel');
+    const prevFocus = document.activeElement;
+    const onKey = (e)=>{
+      if(e.key==='Escape'){e.preventDefault();close(false)}
+      if(e.key==='Enter' && document.activeElement!==cancel){e.preventDefault();close(true)}
+    };
+    const close = (r)=>{
+      ov.classList.remove('open');
+      ov.setAttribute('aria-hidden','true');
+      ok.onclick=null;cancel.onclick=null;
+      document.removeEventListener('keydown', onKey);
+      if(prevFocus && prevFocus.focus) prevFocus.focus();
+      resolve(r);
+    };
+    ok.onclick = ()=>close(true);
+    cancel.onclick = ()=>close(false);
+    document.addEventListener('keydown', onKey);
+    ov.classList.add('open');
+    ov.setAttribute('aria-hidden','false');
+    setTimeout(()=>ok.focus(), 50);
+  });
+}
+function adPrompt(msg, defaultVal, title){
+  return new Promise(resolve=>{
+    document.getElementById('adDialogTitle').textContent = title || '입력';
+    document.getElementById('adDialogMsg').textContent = msg;
+    const inp = document.getElementById('adDialogInput');
+    inp.style.display = 'block';
+    inp.value = defaultVal || '';
+    const ov = document.getElementById('adDialogOverlay');
+    const ok = document.getElementById('adDialogOk');
+    const cancel = document.getElementById('adDialogCancel');
+    const prevFocus = document.activeElement;
+    const onKey = (e)=>{
+      if(e.key==='Escape'){e.preventDefault();close(null)}
+    };
+    const close = (r)=>{
+      ov.classList.remove('open');
+      ov.setAttribute('aria-hidden','true');
+      ok.onclick=null;cancel.onclick=null;
+      inp.onkeydown=null;
+      document.removeEventListener('keydown', onKey);
+      if(prevFocus && prevFocus.focus) prevFocus.focus();
+      resolve(r);
+    };
+    ok.onclick = ()=>close(inp.value);
+    cancel.onclick = ()=>close(null);
+    inp.onkeydown = (e)=>{if(e.key==='Enter'){e.preventDefault();close(inp.value)}};
+    document.addEventListener('keydown', onKey);
+    ov.classList.add('open');
+    ov.setAttribute('aria-hidden','false');
+    setTimeout(()=>inp.focus(), 50);
+  });
+}
+
+// ═══════════════════════════════════════
+// 메인 로직 (탭/사용자/로그/통계/인증/문의)
+// ═══════════════════════════════════════
+
+function E(s){if(s===null||s===undefined)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
+let logPage=1;
+let userPage=1;
+// CSRF 토큰은 window.api._readCsrfToken 에서 제공 (static/js/api.js)
+// 하위 호환을 위해 _csrfToken 이름 유지 (H() 함수가 사용)
+function _csrfToken(){return window.api?._readCsrfToken?.() || (function(){const m=document.cookie.match(/csrf_token=([^;]+)/);return m?decodeURIComponent(m[1]):'';})();}
+const H=()=>{const h={'Content-Type':'application/json'};const t=_csrfToken();if(t)h['X-CSRF-Token']=t;return h;};
+// 대시보드는 이미 인증된 상태 (admin session cookie) — 바로 로드
+_showDashboard();
+function _showDashboard(){
+  document.getElementById('dashboard').style.display='block';
+  loadStats();loadLogs();loadNotices();loadFaqs();loadSettings();loadMetrics();loadTickets();loadVerifications();loadAdminReferral();loadAdminProducts();
+  // 초기 탭 (overview) — showAdminTab은 아래에서 정의되므로 지연 호출
+  setTimeout(()=>{ if(typeof showAdminTab==='function') showAdminTab('overview'); }, 0);
+}
+// 새로고침 시 쿠키가 없으면 서버가 403 → /admin으로 리다이렉트됨
+async function loadLogs(page){
+  if(page&&page<1)return;
+  logPage=page||1;
+  const filter=document.getElementById('logFilter').value;
+  try{
+    const r=await window.api.raw(`/v1/auth/admin/access-logs?page=${logPage}&event_type=${filter}`);
+    const d=await r.json();
+    if(!d.success)return;
+    const logs=d.data.logs||[];
+    const tc={login_ok:'#C4384B',login_fail:'#3B82F6',locked:'#D8B66A',signup:'#921230',page_view:'#8E7D72'};
+    document.querySelector('#logTable tbody').innerHTML=logs.map(l=>{
+      const ua=l.user_agent?l.user_agent.replace(/.*?(Chrome|Firefox|Safari|Edge|Mobile|Bot|curl)[\/\s]?([^\s;)]*).*/i,'$1 $2').slice(0,20):'';
+      return `<tr><td style="font-size:14px">${E(l.created_at?.slice(5,19))}</td><td style="font-size:14px">${E(l.ip)}</td><td><span style="color:${tc[l.event_type]||'#fff'};font-weight:600;font-size:14px">${E(l.event_type)}</span></td><td style="font-size:14px;max-width:100px;overflow:hidden;text-overflow:ellipsis" title="${E(l.user_agent)}">${E(ua)||'-'}</td><td style="font-size:14px">${E(l.user_id?.slice(0,8))||'-'}</td></tr>`}
+    ).join('')||'<tr><td colspan="5" style="color:var(--muted)">로그 없음</td></tr>';
+    document.getElementById('logPageInfo').textContent=`${logPage} / ${Math.ceil(d.data.total/d.data.per_page)||1}`;
+  }catch(e){}
+}
+// 탭 전환 — data-section 속성 기반 (admin.html의 각 섹션이 data-section="xxx"로 표시됨)
+// overview: 맨 앞 2개 grid + 새로고침 버튼 (data-section 없는 요소)
+function showAdminTab(tab){
+  // 1. 탭 버튼 active 표시 전환 + aria-selected 동기화
+  const labelMap = {overview:'개요', users:'회원', logs:'로그', content:'공지', settings:'설정', metrics:'메트릭', tickets:'문의', verifications:'인증요청'};
+  document.querySelectorAll('.admin-tab').forEach(b=>{
+    const isActive = b.textContent.includes(labelMap[tab] || '');
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  // 2. 섹션 표시/숨김
+  // overview는 data-section 없는 요소 (맨 앞 2개 grid + 새로고침 button)
+  // 나머지는 data-section="<tab>"
+  const container = document.getElementById('tab-overview') || document.getElementById('dashboard');
+  if (!container) return;
+
+  // 직계 자식 순회 (div + 최상위 .grid)
+  const children = Array.from(container.children);
+  children.forEach(el => {
+    const section = el.dataset.section;
+    if (tab === 'overview') {
+      // overview: data-section 없는 것만 표시
+      el.style.display = section ? 'none' : '';
+    } else {
+      // 나머지: 해당 data-section만 표시
+      el.style.display = (section === tab) ? '' : 'none';
+    }
+  });
+
+  // 3. 탭별 데이터 자동 로드
+  if (tab === 'metrics') loadMetrics();
+  else if (tab === 'tickets') loadTickets();
+  else if (tab === 'verifications') loadVerifications();
+  else if (tab === 'content') { loadNotices(); loadFaqs(); }
+  else if (tab === 'settings') loadSettings();
+  else if (tab === 'logs') loadLogs();
+}
+window.showAdminTab = showAdminTab;
+
+// ═══════════════════════════════════════════════
+// 이벤트 위임 (inline onclick/onchange 대체)
+// data-action, data-change, data-param 속성 기반
+// ═══════════════════════════════════════════════
+function _adminLogout(){
+  fetch('/v1/auth/admin/logout', {method: 'POST', credentials: 'include'})
+    .then(() => { window.location.href = '/admin'; })
+    .catch(() => { window.location.href = '/admin'; });
+}
+function _hidePanel(id){
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+document.addEventListener('click', function(e){
+  const t = e.target.closest('[data-action]');
+  if (!t) return;
+  const action = t.dataset.action;
+  const param = t.dataset.param || '';
+  try {
+    switch(action) {
+      case 'adminLogout': _adminLogout(); break;
+      case 'adminTab': if (typeof showAdminTab==='function') showAdminTab(param); break;
+      case 'loadStats': if (typeof loadStats==='function') loadStats(); break;
+      case 'searchUsers':
+        if (typeof userPage !== 'undefined') userPage = 1;
+        if (typeof loadStats==='function') loadStats();
+        break;
+      case 'logsPrev':
+        if (typeof logPage !== 'undefined' && typeof loadLogs==='function') loadLogs(logPage - 1);
+        break;
+      case 'logsNext':
+        if (typeof logPage !== 'undefined' && typeof loadLogs==='function') loadLogs(logPage + 1);
+        break;
+      case 'bulkUpgrade': if (typeof bulkUpgrade==='function') bulkUpgrade(); break;
+      case 'showNoticeForm': if (typeof showNoticeForm==='function') showNoticeForm(); break;
+      case 'saveNotice': if (typeof saveNotice==='function') saveNotice(); break;
+      case 'hideNoticeForm': _hidePanel('noticeForm'); break;
+      case 'showFaqForm': if (typeof showFaqForm==='function') showFaqForm(); break;
+      case 'saveFaq': if (typeof saveFaq==='function') saveFaq(); break;
+      case 'hideFaqForm': _hidePanel('faqForm'); break;
+      case 'saveSettings': if (typeof saveSettings==='function') saveSettings(); break;
+      case 'loadMetrics': if (typeof loadMetrics==='function') loadMetrics(); break;
+      case 'loadTickets': if (typeof loadTickets==='function') loadTickets(); break;
+      case 'loadVerifications': if (typeof loadVerifications==='function') loadVerifications(); break;
+      case 'closeTicketModal': _hidePanel('ticketDetailModal'); {const m=document.getElementById('ticketDetailModal'); if(m) m.remove();} break;
+    }
+  } catch(err) {
+    console.error('admin action handler:', action, err);
+  }
+});
+
+// select onchange 위임 (data-change)
+document.addEventListener('change', function(e){
+  const t = e.target.closest('[data-change]');
+  if (!t) return;
+  const action = t.dataset.change;
+  try {
+    if (action === 'searchUsers') {
+      if (typeof userPage !== 'undefined') userPage = 1;
+      if (typeof loadStats === 'function') loadStats();
+    } else if (action === 'loadLogs') {
+      if (typeof loadLogs === 'function') loadLogs();
+    }
+  } catch(err) {
+    console.error('admin change handler:', action, err);
+  }
+});
+
+async function setTier(uid,tier){
+  try{
+    const r=await window.api.raw('/v1/auth/admin/set-tier', {method:'POST',body:{user_id:uid,tier}});
+    const d=await r.json();
+    if(d.success){_toast('등급 변경 완료',true);loadStats()}
+    else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+
+async function setBeomAllowed(uid,allowed){
+  try{
+    const r=await window.api.raw('/v1/auth/admin/set-beom-allowed', {method:'POST',body:{user_id:uid,allowed}});
+    const d=await r.json();
+    if(d.success){_toast(allowed?'범온지표 권한 부여':'범온지표 권한 회수',true);loadStats()}
+    else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+
+// ─── ops 연결: 시스템/구독/종목/통계/봇/실시간 ───
+const _SYS_MAP={'restart-server':'/v1/ops/restart-server','clear-all-cache':'/v1/ops/clear-cache','run-cleanup':'/v1/ops/backup-db','db-vacuum':'/v1/ops/backup-db'};
+async function sysAction(action){
+  const url=_SYS_MAP[action]||('/v1/ops/'+action);
+  if(!confirm(action+' 실행할까요?'))return;
+  try{const r=await window.api.raw(url,{method:'POST'});const d=await r.json();
+    _toast(d.success?(d.data?.message||action+' 완료'):_errMsg(d),!!d.success);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function quickAction(url,method){
+  try{const r=await window.api.raw(url,{method:method||'POST'});const d=await r.json();
+    const el=document.getElementById('quickResult');
+    if(el)el.innerHTML='<pre style="font-size:11px;white-space:pre-wrap">'+E(JSON.stringify(d.data||d,null,2))+'</pre>';
+    _toast(d.success?'완료':_errMsg(d),!!d.success);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function _opsGet(path){const r=await window.api.raw(path);return (await r.json()).data||{}}
+async function loadTodayStats(){try{const d=await _opsGet('/v1/ops/today-stats');const el=document.getElementById('quickResult');
+  if(el)el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px">
+    <div>오늘 가입 <b>${d.new_users_today||0}</b></div><div>총 회원 <b>${d.total_users||0}</b></div><div>오늘 방문 <b>${d.visits_today||0}</b></div>
+    <div>활성 알림 <b>${d.active_alerts||0}</b></div><div>봇 거래 <b>${d.bot_trades_today||0}</b></div></div>`;
+}catch(e){_toast('통계 로드 실패',false)}}
+async function loadBotStatus(){try{const d=await _opsGet('/v1/ops/bot-status');const el=document.getElementById('quickResult');
+  if(el)el.innerHTML=`<div style="font-size:13px">실행 봇 <b>${d.running||0}</b> · 합산 PnL <b>${d.total_pnl||0}</b><br>`+
+    (d.strategies||[]).map(t=>`${E(t.file)}: ${t.count}건 / ${t.pnl}`).join('<br>')+'</div>';
+}catch(e){_toast('봇 상태 로드 실패',false)}}
+async function loadRealtime(){try{const d=await _opsGet('/v1/ops/realtime');const el=document.getElementById('realtimeGrid');
+  if(el)el.innerHTML='<pre style="font-size:11px;white-space:pre-wrap">'+E(JSON.stringify(d,null,2))+'</pre>';
+}catch(e){}}
+async function loadAnalytics(){try{const d=await _opsGet('/v1/ops/user-analytics');const el=document.getElementById('quickResult');
+  if(el)el.innerHTML='<pre style="font-size:11px;white-space:pre-wrap">'+E(JSON.stringify(d,null,2))+'</pre>';
+}catch(e){}}
+async function loadSubStats(){try{const d=await _opsGet('/v1/ops/revenue');const el=document.getElementById('subStats');
+  if(el)el.innerHTML='<pre style="font-size:12px;white-space:pre-wrap">'+E(JSON.stringify(d,null,2))+'</pre>';
+}catch(e){_toast('구독 통계 로드 실패',false)}}
+async function loadSymbolStats(){try{const d=await _opsGet('/v1/ops/dashboard');const el=document.getElementById('symbolStats');
+  if(el)el.innerHTML='<div style="font-size:13px">심볼/시스템 현황 로드됨</div><pre style="font-size:11px;white-space:pre-wrap">'+E(JSON.stringify(d.symbols||d,null,2)).slice(0,800)+'</pre>';
+}catch(e){_toast('종목 통계 로드 실패',false)}}
+async function addSymbol(){const code=prompt('추가/토글할 심볼 코드 (예: BTCUSDT)');if(!code)return;
+  try{const r=await window.api.raw('/v1/ops/toggle-symbol',{method:'POST',body:{symbol_code:code.trim().toUpperCase()}});const d=await r.json();
+    _toast(d.success?(d.data?.message||'완료'):_errMsg(d),!!d.success);loadSymbolStats();
+  }catch(e){_toast('네트워크 오류',false)}}
+async function pushNotice(){const title=prompt('푸시 제목');if(!title)return;const body=prompt('푸시 내용')||'';
+  try{const r=await window.api.raw('/v1/ops/push-notice',{method:'POST',body:{title,body}});const d=await r.json();
+    _toast(d.success?'푸시 발송 완료':_errMsg(d),!!d.success);
+  }catch(e){_toast('네트워크 오류',false)}}
+async function createUser(){
+  const email=document.getElementById('newUserEmail')?.value?.trim();
+  const nickname=document.getElementById('newUserNick')?.value?.trim();
+  const password=document.getElementById('newUserPw')?.value;
+  const tier=document.getElementById('newUserTier')?.value||'free';
+  const el=document.getElementById('createUserResult');
+  if(!email||!password){if(el)el.textContent='이메일과 비밀번호를 입력하세요';return}
+  try{const r=await window.api.raw('/v1/auth/admin/create-user',{method:'POST',body:{email,nickname,password,tier}});const d=await r.json();
+    if(d.success){if(el)el.textContent='생성 완료';_toast('회원 생성 완료',true);loadStats();}
+    else if(el)el.textContent=_errMsg(d);
+  }catch(e){if(el)el.textContent='네트워크 오류'}}
+
+async function setProduct(){
+  const code=document.getElementById('prodCode')?.value?.trim();
+  const name=document.getElementById('prodName')?.value?.trim()||code;
+  const price=parseInt(document.getElementById('prodPrice')?.value||'0');
+  if(!code){_toast('지표코드를 입력하세요',false);return}
+  try{const r=await window.api.raw('/v1/purchases/admin/set-product',{method:'POST',body:{indicator_code:code,name,price,is_active:true}});const d=await r.json();
+    if(d.success){_toast('상품 저장 완료',true);loadAdminProducts();}else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}}
+async function setProductActive(code,active){
+  try{const r=await window.api.raw('/v1/purchases/admin/set-product',{method:'POST',body:{indicator_code:code,is_active:active}});const d=await r.json();
+    if(d.success){loadAdminProducts();}else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}}
+async function grantIndicator(){
+  const email=prompt('구매 부여할 회원 이메일');if(!email)return;
+  const code=prompt('지표코드');if(!code)return;
+  try{const r=await window.api.raw('/v1/purchases/admin/grant',{method:'POST',body:{email:email.trim(),indicator_code:code.trim(),grant:true}});const d=await r.json();
+    _toast(d.success?'부여 완료':_errMsg(d),!!d.success);
+  }catch(e){_toast('네트워크 오류',false)}}
+async function loadAdminProducts(){
+  const el=document.getElementById('productList');if(!el)return;
+  try{const r=await window.api.raw('/v1/purchases/admin/list');const d=(await r.json()).data;
+    const items=d?.products||[];
+    el.innerHTML=`<button onclick="grantIndicator()" class="btn btn-secondary btn-xs" style="margin-bottom:8px">+ 회원에게 수동 부여</button>
+      <table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="background:var(--bg)"><th style="padding:6px;text-align:left">지표코드</th><th>이름</th><th>가격</th><th>판매수</th><th>상태</th></tr></thead><tbody>`+
+      (items.length?items.map(p=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px;font-weight:600">${E(p.indicator_code)}</td><td>${E(p.name)}</td>
+        <td>${(p.price||0).toLocaleString()}원</td><td>${p.sold||0}</td>
+        <td><button onclick="setProductActive('${E(p.indicator_code)}',${!p.is_active})" style="padding:2px 8px;background:${p.is_active?'#16A34A':'transparent'};color:${p.is_active?'#fff':'#8E7D72'};border:1px solid ${p.is_active?'#16A34A':'var(--border)'};border-radius:4px;cursor:pointer;font-size:11px">${p.is_active?'판매중':'중지'}</button></td>
+      </tr>`).join(''):'<tr><td colspan=5 style="color:var(--muted);padding:8px">등록된 상품 없음</td></tr>')+`</tbody></table>`;
+  }catch(e){el.innerHTML='<p style="color:#3B82F6">로드 실패</p>'}}
+
+async function showUserDetail(uid,email){
+  try{
+    const r=await window.api.raw('/v1/auth/admin/user-detail/'+uid,{method:'GET'});
+    const d=(await r.json()).data;
+    if(!d){_toast('상세 조회 실패',false);return}
+    const logs=(d.recent_logs||[]).map(l=>`<tr><td style="padding:3px 6px">${E(l.at||'').slice(0,19)}</td><td>${E(l.event||'')}</td><td style="color:var(--muted)">${E(l.path||'')}</td><td>${E(l.ip||'')}</td></tr>`).join('')||'<tr><td colspan=4 style="color:var(--muted);padding:6px">접속 기록 없음</td></tr>';
+    const usage=d.usage?Object.entries(d.usage).map(([k,v])=>`${k}: ${typeof v==='object'?JSON.stringify(v):v}`).join(', '):'-';
+    const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--color-surface-raised);border-radius:10px;padding:20px;max-width:560px;width:92%;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">${E(email)} 상세</h3><button onclick="this.closest('div[style*=fixed]').remove()" class="btn btn-xs">닫기</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:12px">
+          <div>닉네임: <b>${E(d.nickname||'-')}</b></div><div>등급: <b>${E(d.tier)}</b></div>
+          <div>역할: <b>${E(d.role)}</b></div><div>활성: <b>${d.is_active?'활성':'차단'}</b></div>
+          <div>포인트: <b style="color:#D8B66A">${(d.points||0).toLocaleString()}P</b></div><div>범온권한: <b style="color:${d.beom_allowed?'#16A34A':'var(--muted)'}">${d.beom_allowed?'허용':'잠금'}</b></div>
+          <div>거래소인증: <b>${E(d.referral_exchange||'미인증')}</b></div><div>가입: ${E((d.created_at||'').slice(0,10))}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">AI 사용량: ${E(usage)}</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">구매 지표</div>
+        <div style="font-size:12px;margin-bottom:10px">${(d.purchases&&d.purchases.length)?d.purchases.map(pp=>`<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:10px;background:${pp.status==='paid'?'rgba(22,163,74,0.12)':'rgba(142,125,114,0.12)'};color:${pp.status==='paid'?'#16A34A':'#8E7D72'}">${E(pp.code)} ${pp.status==='paid'?'보유':pp.status} ${pp.price?'· '+pp.price.toLocaleString()+'원':''}</span>`).join(''):'<span style="color:var(--muted)">구매 없음</span>'}</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">최근 접속 로그</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--bg)"><th style="padding:3px 6px;text-align:left">시각</th><th>이벤트</th><th>경로</th><th>IP</th></tr></thead><tbody>${logs}</tbody></table>
+      </div></div>`;
+    const wrap=document.createElement('div'); wrap.innerHTML=html; document.body.appendChild(wrap.firstElementChild);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function setNickname(uid,cur){
+  const nick=prompt('새 닉네임 (2~20자)',cur||'');
+  if(nick===null)return;
+  const v=nick.trim();
+  if(v.length<2||v.length>20){_toast('닉네임은 2~20자',false);return}
+  try{
+    const r=await window.api.raw('/v1/auth/admin/set-nickname', {method:'POST',body:{user_id:uid,nickname:v}});
+    const d=await r.json();
+    if(d.success){_toast('닉네임 변경 완료',true);loadStats()}
+    else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function revokeReferral(uid){
+  if(!confirm('이 회원의 거래소 인증을 취소하시겠습니까?'))return;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/revoke-referral', {method:'POST',body:{user_id:uid}});
+    const d=await r.json();
+    if(d.success){_toast('인증 취소 완료',true);loadStats()}
+    else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function grantReferral(uid){
+  const exchange=await adPrompt('거래소를 입력하세요 (bitmart / bitget / admin)','admin');
+  if(!exchange)return;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/set-tier', {method:'POST',body:{user_id:uid,tier:'pro'}});
+    const d=await r.json();
+    if(d.success){_toast('VIP 등급 부여 완료',true);loadStats()}
+    else _toast(_errMsg(d),false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+// Enter 키로 서버 검색
+document.getElementById('userSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){userPage=1;loadStats()}});
+async function blockUser(uid,block){
+  if(!await adConfirm(block?'이 사용자를 차단하시겠습니까?':'이 사용자의 차단을 해제하시겠습니까?'))return;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/block-user', {method:'POST',body:{user_id:uid,block}});
+    if(r.ok){_toast(block?'차단 완료':'차단 해제 완료',true);loadStats()}else{const d=await r.json();_toast(_errMsg(d),false)}
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function forceLogout(uid){
+  if(!await adConfirm('이 사용자를 강제 로그아웃하시겠습니까?'))return;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/force-logout', {method:'POST',body:{user_id:uid}});
+    if(r.ok){_toast('강제 로그아웃 완료',true);loadStats()}else{const d=await r.json();_toast(_errMsg(d),false)}
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function bulkUpgrade(){
+  const input=document.getElementById('bulkUids').value.trim();
+  if(!input){_toast('이메일을 쉼표로 구분하여 입력하세요',false);return;}
+  const emails=input.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!await adConfirm(`${emails.length}명을 VIP로 승급하시겠습니까?\n${emails.join(', ')}`))return;
+  let ok=0,fail=0;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/users');
+    const d=await r.json();
+    const users=d.data?.users||[];
+    for(const email of emails){
+      const u=users.find(u=>u.email===email);
+      if(u){
+        const r2=await window.api.raw('/v1/auth/admin/set-tier', {method:'POST',body:{user_id:u.id,tier:'pro'}});
+        if(r2.ok) ok++; else fail++;
+      }else{fail++;}
+    }
+    _toast(`완료: ${ok}명 승급, ${fail}명 실패`,fail===0);
+    document.getElementById('bulkUids').value='';
+    loadStats();
+  }catch(e){_toast('에러: '+e.message,false)}
+}
+async function loadStats(){
+  try{
+    const [visits,health,clicks,users]=await Promise.all([
+      window.api.get('/v1/stats/visits'),
+      window.api.get('/health'),
+      window.api.get('/v1/analysis/stats/clicks'),
+      fetch(`/v1/auth/admin/users?page=${userPage}&q=${encodeURIComponent(document.getElementById('userSearch')?.value||'')}&tier_filter=${document.getElementById('tierFilter')?.value||''}&status_filter=${document.getElementById('statusFilter')?.value||''}`,{headers:H()}).then(r=>r.json())
+    ]);
+    document.getElementById('totalVisits').textContent=visits.total?.toLocaleString()||'0';
+    document.getElementById('uniqueVisits').textContent=`유니크: ${visits.unique?.toLocaleString()||'0'}`;
+    const daily=visits.daily||{};
+    const today=new Date().toISOString().slice(0,10);
+    document.getElementById('todayVisits').textContent=(daily[today]||0).toLocaleString();
+    const days=Object.entries(daily).sort((a,b)=>a[0].localeCompare(b[0]));
+    const maxV=Math.max(...days.map(d=>d[1]),1);
+    document.getElementById('dailyChart').innerHTML=days.map(([d,v])=>{
+      const h=Math.max(2,v/maxV*100);
+      return `<div class="bar" style="height:${h}px"><span>${d.slice(5)}</span><div class="count">${v}</div></div>`;
+    }).join('');
+    document.getElementById('wsConns').textContent=health.ws_connections||0;
+    const cd=clicks.data||{};
+    document.getElementById('totalClicks').textContent=(cd.total||0).toLocaleString();
+    const types=cd.by_type||{};
+    const labels={bitmart_referral:'BitMart 가입',youtube:'YouTube',js_error:'JS 에러'};
+    const badges={bitmart_referral:'bm',youtube:'yt',js_error:'err'};
+    document.querySelector('#clickTable tbody').innerHTML=Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,c])=>
+      `<tr><td><span class="badge ${badges[t]||'ref'}">${E(labels[t]||t)}</span></td><td>${c}</td></tr>`
+    ).join('')||'<tr><td colspan="2" style="color:var(--muted)">데이터 없음</td></tr>';
+    document.getElementById('lastUpdate').textContent='마지막 갱신: '+new Date().toLocaleTimeString('ko-KR');
+    if(users.success&&users.data){
+      const ud=users.data;
+      document.getElementById('userCount').textContent=ud.total+'명';
+      document.getElementById('tierFree').textContent='일반: '+(ud.tiers.free||0);
+      document.getElementById('tierPro').textContent='VIP: '+(ud.tiers.pro||0);
+      document.getElementById('tierPremium').textContent='VVIP: '+(ud.tiers.premium||0);
+      const tc={free:'#8E7D72',pro:'#D8B66A'};
+      document.querySelector('#userTable tbody').innerHTML=(ud.users||[]).map(u=>{
+        const refBadge=u.referral_exchange?`<span style="color:#C4384B;font-size:14px">${E(u.referral_exchange)}</span>`:'<span style="color:var(--muted);font-size:14px">미인증</span>';
+        const uidInfo=u.referral_code?`<div style="font-size:14px;color:var(--muted)">UID: ${E(u.referral_code)}</div>`:(u.bitmart_cid?`<div style="font-size:14px;color:var(--muted)">CID: ${E(u.bitmart_cid)}</div>`:'');
+        const statusBadge=u.is_active===false?'<span style="color:#3B82F6;font-size:14px">차단</span>':'<span style="color:#C4384B;font-size:14px">활성</span>';
+        const revokeBtn=u.referral_exchange?`<button onclick="revokeReferral('${u.id}')" class="btn btn-danger btn-xs">인증취소</button>`:`<button onclick="grantReferral('${u.id}')" class="btn btn-success btn-xs">인증부여</button>`;
+        const blockBtn=`<button onclick="blockUser('${u.id}',${u.is_active!==false})" class="btn btn-xs ${u.is_active!==false?'btn-secondary':'btn-primary'}">${u.is_active!==false?'차단':'해제'}</button>`;
+        const resetPwBtn=`<button onclick="resetUserPw('${u.id}','${E(u.email)}')" class="btn btn-secondary btn-xs">비번초기화</button>`;
+        return `<tr>
+        <td>${E(u.nickname)} <span onclick="setNickname('${u.id}','${E(u.nickname)}')" title="닉네임 변경" style="cursor:pointer;opacity:.55;font-size:12px">✏️</span></td><td style="font-size:14px">${E(u.email)}</td>
+        <td><select onchange="setTier('${u.id}',this.value)" style="background:#FFFDF9;border:1px solid var(--border);color:${tc[u.tier]||'var(--text)'};border-radius:4px;padding:2px;font-size:14px;font-weight:600">
+          <option value="free"${u.tier==='free'?' selected':''}>일반</option>
+          <option value="pro"${u.tier==='pro'?' selected':''}>VIP</option>
+          <option value="premium"${u.tier==='premium'?' selected':''}>VVIP</option>
+          </select></td>
+        <td><button onclick="setBeomAllowed('${u.id}', ${u.beom_allowed?'false':'true'})" style="background:${u.beom_allowed?'#16A34A':'transparent'};color:${u.beom_allowed?'#fff':'#8E7D72'};border:1px solid ${u.beom_allowed?'#16A34A':'var(--border)'};border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer">범온 ${u.beom_allowed?'허용':'잠금'}</button></td>
+        <td>${statusBadge}</td>
+        <td>${refBadge}${uidInfo}</td>
+        <td style="font-size:14px">${u.last_login?.slice(0,16)||'-'}</td>
+        <td style="font-size:14px">${u.created_at?.slice(0,10)||''}</td>
+        <td style="white-space:nowrap">${revokeBtn} ${blockBtn} ${resetPwBtn} <button onclick="forceLogout('${u.id}')" class="btn btn-xs btn-secondary">로그아웃</button> <button onclick="showUserDetail('${u.id}','${E(u.email)}')" class="btn btn-xs btn-primary">상세</button></td></tr>`}).join('')||'<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">회원 없음</td></tr>';
+      // 페이지네이션
+      const totalPages=Math.ceil(ud.filtered/ud.per_page)||1;
+      let pgHtml='';
+      if(userPage>1) pgHtml+=`<button onclick="userPage--;loadStats()" class="btn btn-secondary btn-xs">이전</button>`;
+      pgHtml+=`<span style="font-size:14px;color:var(--muted);padding:4px 8px">${userPage} / ${totalPages} (${ud.filtered}명)</span>`;
+      if(userPage<totalPages) pgHtml+=`<button onclick="userPage++;loadStats()" class="btn btn-secondary btn-xs">다음</button>`;
+      document.getElementById('userPagination').innerHTML=pgHtml;
+    }
+  }catch(e){
+    if(e.message?.includes('403')||e.status===403) _toast('관리자 키가 올바르지 않습니다',false);
+  }
+}
+let _noticeCache={},_faqCache={};
+function showNoticeForm(editId){
+  const n=_noticeCache[editId]||{};
+  document.getElementById('noticeForm').style.display='block';
+  document.getElementById('nTitle').value=n.title||'';
+  document.getElementById('nContent').value=n.content||'';
+  document.getElementById('nPinned').checked=n.is_pinned||false;
+  document.getElementById('noticeForm').dataset.editId=editId||'';
+}
+async function saveNotice(){
+  const t=document.getElementById('nTitle').value,c=document.getElementById('nContent').value,p=document.getElementById('nPinned').checked;
+  const editId=document.getElementById('noticeForm').dataset.editId;
+  if(!t){_toast('제목을 입력하세요',false);return}
+  if(editId){
+    await window.api.raw(`/v1/site/notices/${editId}`, {method:'PUT',body:{title:t,content:c,is_pinned:p}});
+  } else {
+    await window.api.raw('/v1/site/notices', {method:'POST',body:{title:t,content:c,is_pinned:p}});
+  }
+  document.getElementById('noticeForm').style.display='none';loadNotices();
+}
+async function deleteNotice(id){if(!await adConfirm('정말 삭제하시겠습니까?'))return;const r=await window.api.raw(`/v1/site/notices/${id}`, {method:'DELETE'});if(r.ok){_toast('삭제 완료',true);loadNotices()}else _toast('삭제 실패',false)}
+async function togglePin(id,pin){await window.api.raw(`/v1/site/notices/${id}`, {method:'PUT',body:{is_pinned:!pin}});loadNotices()}
+async function loadNotices(){
+  try{const r=await window.api.raw('/v1/site/notices');const d=await r.json();
+    _noticeCache={};(d.data||[]).forEach(n=>_noticeCache[n.id]=n);
+  document.querySelector('#noticeTable tbody').innerHTML=(d.data||[]).map(n=>
+    `<tr><td style="font-size:14px">${E(n.title)}</td><td>${n.is_pinned?'':'-'}</td><td style="font-size:14px">${n.created_at?.slice(0,10)||''}</td><td><button onclick="showNoticeForm('${E(n.id)}')" class="btn btn-secondary btn-xs">수정</button> <button onclick="togglePin('${E(n.id)}',${n.is_pinned})" class="btn btn-secondary btn-xs">${n.is_pinned?'해제':'고정'}</button> <button onclick="deleteNotice('${E(n.id)}')" class="btn btn-danger btn-xs">삭제</button></td></tr>`
+  ).join('')||'<tr><td colspan="4" style="color:var(--muted)">공지 없음</td></tr>'}catch(e){document.querySelector('#noticeTable tbody').innerHTML='<tr><td colspan="4" style="color:#3B82F6">조회 실패</td></tr>'}
+}
+function showFaqForm(){document.getElementById('faqForm').style.display='block';document.getElementById('fQuestion').value='';document.getElementById('fAnswer').value=''}
+async function saveFaq(){
+  const q=document.getElementById('fQuestion').value,a=document.getElementById('fAnswer').value;
+  if(!q||!a){_toast('질문과 답변을 모두 입력하세요',false);return}
+  const editId=document.getElementById('faqForm').dataset.editId||'';
+  if(editId){
+    await window.api.raw(`/v1/site/faqs/${editId}`, {method:'PUT',body:{question:q,answer:a}});
+  } else {
+    await window.api.raw('/v1/site/faqs', {method:'POST',body:{question:q,answer:a}});
+  }
+  document.getElementById('faqForm').style.display='none';document.getElementById('faqForm').dataset.editId='';loadFaqs();
+}
+function editFaq(id){
+  const f=_faqCache[id]||{};
+  document.getElementById('faqForm').style.display='block';
+  document.getElementById('fQuestion').value=f.question||'';
+  document.getElementById('fAnswer').value=f.answer||'';
+  document.getElementById('faqForm').dataset.editId=id;
+}
+async function deleteFaq(id){if(!await adConfirm('정말 삭제하시겠습니까?'))return;const r=await window.api.raw(`/v1/site/faqs/${id}`, {method:'DELETE'});if(r.ok){_toast('삭제 완료',true);loadFaqs()}else _toast('삭제 실패',false)}
+async function loadFaqs(){
+  try{const r=await window.api.raw('/v1/site/faqs');const d=await r.json();
+  _faqCache={};(d.data||[]).forEach(f=>_faqCache[f.id]=f);
+  document.querySelector('#faqTable tbody').innerHTML=(d.data||[]).map(f=>
+    `<tr><td style="font-size:14px">${E(f.question)}</td><td style="font-size:14px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(f.answer.slice(0,50))}</td><td><button onclick="editFaq('${E(f.id)}')" class="btn btn-secondary btn-xs">수정</button> <button onclick="deleteFaq('${E(f.id)}')" class="btn btn-danger btn-xs">삭제</button></td></tr>`
+  ).join('')||'<tr><td colspan="3" style="color:var(--muted)">FAQ 없음</td></tr>'}catch(e){document.querySelector('#faqTable tbody').innerHTML='<tr><td colspan="3" style="color:#3B82F6">조회 실패</td></tr>'}
+}
+async function loadSettings(){
+  try{const r=await window.api.raw('/v1/site/settings');const d=await r.json();if(!d.data)return;
+  document.getElementById('setSiteName').value=d.data.site_name||'범온 AI 슈퍼차트';
+  document.getElementById('setMaintenance').value=d.data.maintenance_mode||'false';
+  document.getElementById('setNotice').value=d.data.notice_enabled||'true'}catch(e){}
+}
+async function saveSettings(){
+  try{const r=await window.api.raw('/v1/site/settings',{method:'POST',body:{site_name:document.getElementById('setSiteName').value,maintenance_mode:document.getElementById('setMaintenance').value,notice_enabled:document.getElementById('setNotice').value}});
+  if(r.ok) _toast('설정 저장 완료',true); else _toast('저장 실패',false)}catch(e){_toast('네트워크 오류',false)}
+}
+async function loadMetrics(){
+  try{
+    const r=await window.api.raw('/v1/ops/metrics');
+    const d=await r.json();
+    const el=document.getElementById('metricsPanel');
+    if(!el)return;
+    const a=d.ai||{};
+    const alerts=d.alerts||[];
+
+    // 시스템 대시보드 (추가 API 호출)
+    let dashHtml = '<p style="font-size:14px;color:var(--muted)">시스템 현황 로딩...</p>';
+    try {
+      const rd = await window.api.raw('/v1/ops/dashboard');
+      if (rd.ok) {
+        const dd = await rd.json();
+        const sys = dd.system || {};
+        const redis = dd.redis || {};
+        const db = dd.db || {};
+        const ingest = dd.ingest || {};
+        const ws = dd.websocket || {};
+        const visits = dd.visits || {};
+        const dbAlerts = dd.alerts || [];
+        const uptime = sys.uptime_sec || 0;
+        const uptimeStr = `${Math.floor(uptime/3600)}h ${Math.floor(uptime%3600/60)}m`;
+        dashHtml = `
+          <h3 style="font-size:14px;color:var(--muted);margin:16px 0 8px"> 시스템 현황</h3>
+          <div class="grid">
+            <div class="card"><h3>시스템</h3><div class="val" style="font-size:14px">${sys.mem_mb||0}MB</div><div class="sub">CPU ${sys.cpu_pct||0}% · ${sys.threads||0}개 스레드</div></div>
+            <div class="card"><h3>Redis</h3><div class="val" style="font-size:14px">${redis.status==='ok' ? (redis.used_mb||0)+'MB' : ''}</div><div class="sub">${redis.keys||0} keys · ${redis.cache_keys||0} cache</div></div>
+            <div class="card"><h3>DB</h3><div class="val" style="font-size:14px">${db.status==='ok' ? (db.latency_ms||0)+'ms' : ''}</div><div class="sub">${db.users||0}명 · 파티션 ${db.partitions||0}개</div></div>
+            <div class="card"><h3>Ingest</h3><div class="val" style="font-size:14px">${ingest.last_candle_age_sec !== null ? ingest.last_candle_age_sec+'s' : '?'}</div><div class="sub">캔들 ${(ingest.total_candles||0).toLocaleString()} · 활성 ${ingest.active_symbols||0}종목</div></div>
+            <div class="card"><h3>방문</h3><div class="val" style="font-size:14px">${visits.today||0}</div><div class="sub">총 ${(visits.total||0).toLocaleString()} · 유니크 ${visits.unique||0}</div></div>
+            <div class="card"><h3>WS</h3><div class="val" style="font-size:14px">${ws.connections||0}</div><div class="sub">구독 ${ws.subscriptions||0} · IP ${ws.ip_count||0}</div></div>
+            <div class="card"><h3>업타임</h3><div class="val" style="font-size:14px">${uptimeStr}</div><div class="sub">PID ${sys.pid||'?'}</div></div>
+            <div class="card"><h3>미처리 문의</h3><div class="val" style="font-size:14px">${db.tickets_open||0}</div><div class="sub">alembic ${db.alembic||'?'}</div></div>
+          </div>
+          ${dbAlerts.length ? `
+            <div style="background:rgba(216,182,106,0.1);border:1px solid rgba(216,182,106,0.3);border-radius:8px;padding:12px;margin:8px 0 16px">
+              <h3 style="font-size:14px;color:#D8B66A;margin-bottom:6px">시스템 알림</h3>
+              ${dbAlerts.map(al => `<div style="font-size:14px;color:${al.level==='critical'?'#3B82F6':al.level==='warning'?'#D8B66A':'var(--muted)'};margin:2px 0">• [${al.level}] ${al.msg}</div>`).join('')}
+            </div>
+          ` : ''}
+        `;
+      }
+    } catch(e) { /* dashboard 로드 실패 — 메트릭만 표시 */ }
+
+    el.innerHTML = dashHtml + `
+      <h3 style="font-size:14px;color:var(--muted);margin:16px 0 8px">메트릭</h3>
+      <div class="grid">
+        <div class="card"><h3>업타임</h3><div class="val">${Math.floor(d.uptime_sec/3600)}h ${Math.floor(d.uptime_sec%3600/60)}m</div></div>
+        <div class="card"><h3>총 요청</h3><div class="val">${(d.total_requests||0).toLocaleString()}</div><div class="sub">에러 ${d.total_errors||0}건 (${d.error_rate||'0%'})</div></div>
+        <div class="card"><h3>AI 호출</h3><div class="val">${a.calls||0}</div><div class="sub">실패 ${a.failures||0} (${a.failure_rate||'0%'}) · 평균 ${a.avg_ms||0}ms</div></div>
+        <div class="card"><h3>WS 연결</h3><div class="val">${d.ws_connections||0}</div></div>
+        <div class="card"><h3>DB 에러</h3><div class="val">${d.db_errors||0}</div></div>
+      </div>
+      ${alerts.length?`<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:12px;margin-bottom:16px"><h3 style="color:#3B82F6;font-size:14px;margin-bottom:8px">⚠ 알림</h3>${alerts.map(a=>`<div style="font-size:14px;color:#3B82F6;margin:4px 0">• ${a}</div>`).join('')}</div>`:''}
+      <h3 style="font-size:14px;color:var(--muted);margin-bottom:8px">최근 에러</h3>
+      <table style="width:100%;font-size:14px;border-collapse:collapse">
+        <tr style="color:var(--muted)"><th style="text-align:left;padding:4px">시간</th><th style="text-align:left">경로</th><th style="text-align:left">에러</th><th>ID</th></tr>
+        ${(d.recent_errors||[]).map(e=>`<tr style="border-top:1px solid var(--border)"><td style="padding:4px">${e.time||''}</td><td>${e.path||''}</td><td>${e.error||''}</td><td style="color:var(--muted)">${e.request_id||''}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted);padding:8px">에러 없음</td></tr>'}
+      </table>
+    `;
+  }catch(e){
+    const el=document.getElementById('metricsPanel');
+    if(el)el.innerHTML='<p style="color:var(--muted)">메트릭 로드 실패 (관리자 키 확인)</p>';
+  }
+}
+
+async function loadTickets(){
+  try{
+    const r=await window.api.raw('/v1/site/support/tickets');
+    const d=await r.json();
+    const statuses={open:'대기',in_progress:'처리중',waiting_user:'사용자 대기',resolved:'해결',closed:'종료',spam:'스팸'};
+    const colors={open:'#D8B66A',in_progress:'#921230',waiting_user:'#8E7D72',resolved:'#C4384B',closed:'#8E7D72',spam:'#3B82F6'};
+    document.querySelector('#ticketTable tbody').innerHTML=(d.data?.tickets||[]).map(t=>
+      `<tr><td style="font-size:14px">${E(t.email||'-')}</td><td style="font-size:14px">${E(t.subject)}</td>
+      <td><select onchange="updateTicket('${t.id}',this.value)" style="background:#FFFDF9;border:1px solid var(--border);color:${colors[t.status]||'var(--text)'};border-radius:4px;padding:2px;font-size:14px">
+        ${Object.entries(statuses).map(([k,v])=>`<option value="${k}"${t.status===k?' selected':''}>${v}</option>`).join('')}
+      </select></td>
+      <td style="font-size:14px;color:var(--muted)">${t.created_at?.slice(0,10)||''}</td>
+      <td><button onclick="viewTicket('${t.id}')" class="btn btn-primary btn-xs">상세</button></td></tr>`
+    ).join('')||'<tr><td colspan="5" style="color:var(--muted)">문의 없음</td></tr>';
+  }catch(e){document.querySelector('#ticketTable tbody').innerHTML='<tr><td colspan="5" style="color:#3B82F6">조회 실패</td></tr>'}
+}
+async function updateTicket(id,status){
+  const row=event?.target?.closest('tr');
+  let memo='';
+  if(row){
+    let inp=row.querySelector('.ticket-memo');
+    if(!inp){inp=document.createElement('input');inp.className='ticket-memo';inp.placeholder='메모 (선택)';inp.style.cssText='width:80px;padding:2px 4px;font-size:14px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text)';row.cells[4].prepend(inp)}
+    memo=inp.value||'';
+  }
+  try{
+    const r=await window.api.raw('/v1/site/support/tickets/'+id,{method:'PUT',body:{status,admin_memo:memo,log_memo:memo}});
+    if(r.ok){_toast('상태 변경 완료',true);loadTickets()}else _toast('변경 실패',false);
+  }catch(e){_toast('네트워크 오류',false)}
+}
+async function viewTicket(id){
+  try{
+    const r=await window.api.raw('/v1/site/support/tickets/'+id);
+    const d=await r.json();const t=d.data;
+    const logs=(t.logs||[]).map(l=>`<div style="font-size:14px;padding:4px 0;border-bottom:1px solid var(--border)">${l.created_at?.slice(0,16)||''} | ${l.old_status}→${l.new_status} | ${E(l.memo||'')}</div>`).join('')||'<div style="color:var(--muted);font-size:14px">이력 없음</div>';
+    const user=t.user?`<div style="font-size:14px;margin-bottom:8px;padding:8px;background:#FFFDF9;border-radius:6px;border:1px solid var(--border)">회원: ${E(t.user.nickname)} (${E(t.user.email)}) | ${t.user.tier} | ${E(t.user.referral_exchange||'미인증')}</div>`:'';
+    let m=document.getElementById('ticketDetailModal');
+    if(!m){m=document.createElement('div');m.id='ticketDetailModal';m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:999;display:flex;align-items:center;justify-content:center';m.onclick=e=>{if(e.target===m)m.remove()};document.body.appendChild(m)}
+    m.innerHTML=`<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:420px;width:90%;max-height:80vh;overflow-y:auto">
+      <h3 style="margin:0 0 12px;font-size:14px">${E(t.subject)}</h3>
+      ${user}
+      <div style="font-size:14px;margin-bottom:8px"><b>이메일:</b> ${E(t.email||'-')} | <b>상태:</b> ${t.status}</div>
+      <div style="font-size:14px;padding:10px;background:var(--bg);border-radius:6px;margin-bottom:8px;white-space:pre-wrap">${E(t.message)}</div>
+      <div style="font-size:14px;margin-bottom:8px"><b>메모:</b> ${E(t.admin_memo||'-')}</div>
+      <div style="font-size:14px;margin-bottom:8px"><b>처리 이력</b></div>${logs}
+      <div class="admin-row admin-row-end" style="margin-top:12px"><button type="button" class="btn btn-primary btn-sm" data-action="closeTicketModal">닫기</button></div>
+    </div>`;
+  }catch(e){_toast('조회 실패',false)}
+}
+function _toast(msg,ok){const d=document.createElement('div');d.textContent=msg;d.style.cssText='position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:6px;color:#fff;font-size:14px;z-index:9999;transition:opacity .3s;background:'+(ok?'#C4384B':'#3B82F6');document.body.appendChild(d);setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300)},2500)}
+function _errMsg(d){return d?.detail||d?.error?.message||d?.error?.code||'알 수 없는 오류'}
+async function loadVerifications(){
+  const el=document.getElementById('verificationList');if(!el)return;
+  el.innerHTML='<tr><td colspan="6" style="color:var(--muted)">불러오는 중...</td></tr>';
+  try{
+    const r=await window.api.raw('/v1/auth/admin/pending-verifications');
+    if(!r.ok){el.innerHTML='<tr><td colspan="6" style="color:#3B82F6">목록 조회 실패 ('+r.status+')</td></tr>';return}
+    const d=await r.json();
+    el.innerHTML=(d.data||[]).map(v=>
+      `<tr><td style="font-size:14px">${E(v.email)}</td><td>${E(v.nickname)}</td><td>${E(v.exchange)}</td><td>${E(v.submitted_value)}</td><td style="font-size:14px">${v.created_at?.slice(0,16)||''}</td>
+      <td><button onclick="approveVR('${E(v.id)}')" class="btn btn-success btn-xs">승인</button>
+      <button onclick="rejectVR('${E(v.id)}')" class="btn btn-danger btn-xs" style="margin-left:4px">반려</button></td></tr>`
+    ).join('')||'<tr><td colspan="6" style="color:var(--muted)">대기 중인 요청 없음</td></tr>';
+  }catch(e){el.innerHTML='<tr><td colspan="6" style="color:#3B82F6">네트워크 오류</td></tr>'}
+}
+async function approveVR(id){
+  if(!await adConfirm('이 인증 요청을 승인하시겠습니까?'))return;
+  try{const r=await window.api.raw('/v1/auth/admin/approve-verification', {method:'POST',body:{id}});
+  const d=await r.json();
+  if(r.ok&&d.data?.approved){_toast('승인 완료',true);loadVerifications()}
+  else{_toast('승인 실패: '+(d.detail||d.error?.message||'알 수 없는 오류'),false)}}catch(e){_toast('네트워크 오류',false)}
+}
+async function rejectVR(id){
+  const reason=await adPrompt('반려 사유를 입력하세요 (필수)');
+  if(!reason||!reason.trim()){_toast('반려 사유를 입력해주세요',false);return}
+  try{const r=await window.api.raw('/v1/auth/admin/reject-verification', {method:'POST',body:{id,reason:reason.trim()}});
+  const d=await r.json();
+  if(r.ok&&d.data?.rejected){_toast('반려 완료',true);loadVerifications()}
+  else{_toast('반려 실패: '+(d.detail||d.error?.message||'알 수 없는 오류'),false)}}catch(e){_toast('네트워크 오류',false)}
+}
+// 세션 만료 체크 — 5분마다
+setInterval(async()=>{try{const r=await window.api.raw('/v1/ops/metrics');if(r.status===403)window.location.href='/admin'}catch(e){}},300000);
+
+async function resetUserPw(uid, email){
+  const pw=await adPrompt(`${email} 새 비밀번호 입력 (6자 이상)`);
+  if(!pw||pw.length<6){_toast('6자 이상 입력하세요',false);return}
+  try{
+    const r=await window.api.raw('/v1/auth/admin/reset-user-password', {method:'POST',body:{user_id:uid,new_password:pw}});
+    const d=await r.json();
+    if(d.success){_toast('비밀번호 초기화 완료',true)}
+    else{_toast('실패: '+(d.detail||''),false)}
+  }catch(e){_toast('네트워크 오류',false)}
+}
+
+
+// ═══ 레퍼럴 관리 ═══
+window.loadAdminReferral = async function() {
+  const container = document.querySelector('[data-section="referral"]');
+  if (!container) return;
+  try {
+    const [statsR, listR] = await Promise.all([
+      fetch('/v1/referral/admin/stats', {credentials:'include'}).then(r=>r.json()),
+      fetch('/v1/referral/admin/list?page=1', {credentials:'include'}).then(r=>r.json()),
+    ]);
+    const s = statsR.data || {};
+    const items = listR.data?.items || [];
+    container.innerHTML = `
+      <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3>레퍼럴 / 포인트 관리</h3>
+        <button onclick="window.loadAdminReferral&&window.loadAdminReferral()" class="btn btn-primary btn-xs">새로고침</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+        <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:20px;font-weight:700">${s.total_codes||0}</div>
+          <div style="font-size:12px;color:var(--muted)">발급 코드</div>
+        </div>
+        <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:20px;font-weight:700">${s.total_links||0}</div>
+          <div style="font-size:12px;color:var(--muted)">추천 연결</div>
+        </div>
+        <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:20px;font-weight:700">${s.total_paid||0}</div>
+          <div style="font-size:12px;color:var(--muted)">결제 전환</div>
+        </div>
+        <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:#D8B66A">${(s.total_points_issued||0).toLocaleString()}P</div>
+          <div style="font-size:12px;color:var(--muted)">총 발행 포인트</div>
+        </div>
+      </div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <tr style="background:var(--bg)"><th style="padding:6px;text-align:left">코드</th><th>이메일</th><th>닉네임</th><th>포인트</th><th>추천수</th><th>조정</th></tr>
+        ${items.map(i=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px;font-weight:600">${i.code}</td>
+          <td>${i.email||'-'}</td>
+          <td>${i.nickname||'-'}</td>
+          <td style="color:#D8B66A;font-weight:600">${i.points||0}P</td>
+          <td>${i.referrals||0}명</td>
+          <td><button onclick="window._adminAdjustPoints('${i.email}')" style="padding:2px 8px;background:#D8B66A;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px">조정</button></td>
+        </tr>`).join('')}
+      </table>
+      </div>
+    `;
+  } catch(e) { container.innerHTML = '<p style="color:#3B82F6">로드 실패</p>'; }
+};
+
+window._adminAdjustPoints = async function(email) {
+  const amount = prompt(`${email} 포인트 조정 (양수=적립, 음수=차감):`);
+  if (!amount) return;
+  const note = prompt('사유:') || '관리자 수동 조정';
+  // user_id 필요 — email로 조회
+  try {
+    const r = await fetch(`/v1/referral/admin/adjust`, {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, amount: parseInt(amount), note})
+    });
+    const d = await r.json();
+    alert(d.data?.message || d.error?.message || '완료');
+    window.loadAdminReferral();
+  } catch(e) { alert('실패'); }
+};
+
+async function deleteUser(uid) {
+  if (!confirm('정말 삭제하시겠습니까? (복구 불가)')) return;
+  const r = await fetch('/v1/ops/delete-user', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-Admin-Key':localStorage.getItem('adminToken')||''}, body:JSON.stringify({user_id:uid})});
+  const d = await r.json();
+  alert(d.success ? ' 삭제 완료' : ' ' + (d.error?.message||'실패'));
+}
+async function toggleSymbol(code) {
+  const r = await fetch('/v1/ops/toggle-symbol', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-Admin-Key':localStorage.getItem('adminToken')||''}, body:JSON.stringify({symbol_code:code})});
+  const d = await r.json();
+  alert(d.success ? ' ' + d.data.symbol + ' → ' + d.data.status : ' 실패');
+}
+async function backupDB() {
+  const r = await fetch('/v1/ops/backup-db', {method:'POST', credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const d = await r.json();
+  alert(d.success ? ' 백업 시작됨' : ' 실패');
+}
+async function viewServerLog() {
+  const r = await fetch('/v1/ops/server-log', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const d = await r.json();
+  document.getElementById('errorLog').textContent = d.success ? d.data.log : '로드 실패';
+}
+async function viewSignupStats() {
+  const r = await fetch('/v1/ops/signup-stats', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const d = await r.json();
+  if (!d.success) return;
+  const el = document.getElementById('quickResult');
+  el.innerHTML = d.data.daily.map(x => x.date.slice(5) + ': ' + x.count + '명').join('<br>');
+  el.style.color = 'var(--color-text-primary)';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+# Secrets
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Git / VCS
+.git
+.gitignore
+
+# Python cache / packaging
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+*.egg-info
+src/*.egg-info
+
+# Logs / generated data
+logs
+*.log
+
+# OS / IDE
+.DS_Store
+.vscode
+.idea
+
+# Tests / docs (image 에 불필요)
+tests
+docs/_build
+archive
+
+# CI
+.github
+
+# Cache
+.pytest_cache
+.ruff_cache
+.mypy_cache
+node_modules
+
+# Local databases / backups
+*.db
+*.sqlite
+*.backup
+backups/
