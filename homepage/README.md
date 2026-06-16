@@ -48,6 +48,7 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 성능 미세 튜닝: 비핵심 이미지 `loading=lazy`, `decoding=async`, `fetchpriority=low` 자동 최적화
 - 문의 전환율 2차 고도화: Contact 페이지 헤드라인/버튼 A/B 카피 테스트, 선택 입력(연락처·보유데이터) 접기/열기 도입
 - 문의 완료 UX 개선: 제출 후 다음 단계 안내 패널(접수 후 프로세스) 추가
+- 전환 측정 이벤트 추가(GA4/gtag 및 dataLayer 병행): `contact_cta_click`, `contact_form_start`, `contact_form_submit_attempt`, `contact_form_submit_success`, `contact_form_submit_failure`, `contact_form_mailto_fallback`, `contact_form_validation_error`
 
 ## 성능 / 에셋
 

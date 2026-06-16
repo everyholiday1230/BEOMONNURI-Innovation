@@ -5,6 +5,7 @@
  * - 전환율 개선: A/B 카피, 옵션 입력 접기/열기, 제출 후 안내 패널
  */
 import { siteConfig } from '../site.config.js';
+import { trackEvent } from './site.js';
 
 const AB_VARIANTS = {
   ko: [
@@ -124,7 +125,8 @@ function pickVariant(lang) {
 
 function applyAbCopy(form, lang) {
   const variants = AB_VARIANTS[lang] || AB_VARIANTS.ko;
-  const chosen = variants[pickVariant(lang)] || variants[0];
+  const variantIndex = pickVariant(lang);
+  const chosen = variants[variantIndex] || variants[0];
   const hero = document.querySelector('.contact-hero');
   const heroTitle = hero?.querySelector('h1');
   const heroLead = hero?.querySelector('.lead');
@@ -133,6 +135,12 @@ function applyAbCopy(form, lang) {
   if (heroTitle) heroTitle.textContent = chosen.heroTitle;
   if (heroLead) heroLead.textContent = chosen.heroLead;
   if (submitBtn) submitBtn.textContent = chosen.submitLabel;
+
+  form.dataset.abVariant = String(variantIndex);
+  trackEvent('contact_ab_variant_assigned', {
+    lang,
+    ab_variant: String(variantIndex)
+  });
 }
 
 function showSuccessPanel(form, lang, endpointEnabled) {
@@ -173,7 +181,18 @@ function initContactForm() {
     status.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  let formStarted = false;
+  const markFormStarted = () => {
+    if (formStarted) return;
+    formStarted = true;
+    trackEvent('contact_form_start', {
+      lang,
+      ab_variant: form.dataset.abVariant || '0'
+    });
+  };
+
   form.querySelectorAll('input, select, textarea').forEach((control) => {
+    control.addEventListener('focus', markFormStarted, { once: true });
     control.addEventListener('input', () => {
       const field = control.closest('.field');
       if (field && field.dataset.invalid === 'true') setError(field, '');
@@ -182,17 +201,34 @@ function initContactForm() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!validate(form, lang)) return;
+    if (!validate(form, lang)) {
+      trackEvent('contact_form_validation_error', {
+        lang,
+        ab_variant: form.dataset.abVariant || '0'
+      });
+      return;
+    }
 
     const fd = new FormData(form);
     const data = Object.fromEntries(fd.entries());
     const endpoint = siteConfig.FORM_ENDPOINT;
+
+    trackEvent('contact_form_submit_attempt', {
+      lang,
+      ab_variant: form.dataset.abVariant || '0',
+      product: String(data.product || '').slice(0, 60)
+    });
 
     if (!endpoint) {
       showSuccessPanel(form, lang, false);
       showStatus('success', lang === 'en'
         ? 'Opening your email client. If it does not open, please email us directly.'
         : '메일 작성 화면을 엽니다. 열리지 않으면 이메일로 직접 보내주세요.');
+      trackEvent('contact_form_mailto_fallback', {
+        lang,
+        ab_variant: form.dataset.abVariant || '0',
+        product: String(data.product || '').slice(0, 60)
+      });
       window.location.href = buildMailto(data, lang);
       return;
     }
@@ -212,10 +248,20 @@ function initContactForm() {
       showStatus('success', lang === 'en'
         ? 'Thank you. Your inquiry has been received and we will get back to you shortly.'
         : '문의가 정상적으로 접수되었습니다. 빠른 시일 내에 회신드리겠습니다.');
+      trackEvent('contact_form_submit_success', {
+        lang,
+        ab_variant: form.dataset.abVariant || '0',
+        product: String(data.product || '').slice(0, 60)
+      });
     } catch (err) {
       showStatus('error', lang === 'en'
         ? 'Submission failed. Please email us directly.'
         : '전송에 실패했습니다. 이메일로 직접 보내주세요.');
+      trackEvent('contact_form_submit_failure', {
+        lang,
+        ab_variant: form.dataset.abVariant || '0',
+        error: 'request_failed'
+      });
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }

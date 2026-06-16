@@ -45,6 +45,27 @@ const T = {
 /* 경로 prefix (en 이면 /en) */
 function base(lang) { return lang === 'en' ? '/en' : ''; }
 
+/* ───────────────────────── 이벤트 트래킹 (GA4 안전 호출) ───────────────────────── */
+export function trackEvent(name, params = {}) {
+  try {
+    const payload = {
+      page_path: window.location.pathname,
+      page_lang: document.body?.dataset?.lang || 'ko',
+      ...params
+    };
+
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', name, payload);
+    }
+
+    if (Array.isArray(window.dataLayer)) {
+      window.dataLayer.push({ event: name, ...payload });
+    }
+  } catch (_) {
+    // 트래킹 실패가 UX를 막지 않도록 무시
+  }
+}
+
 /* 네비게이션 정의 */
 function navItems(lang) {
   const b = base(lang);
@@ -469,6 +490,32 @@ function initFaq() {
   });
 }
 
+function initCtaTracking(lang) {
+  const isContactPath = (href) => {
+    try {
+      const url = new URL(href, window.location.origin);
+      return url.pathname === '/contact/' || url.pathname === '/en/contact/';
+    } catch {
+      return false;
+    }
+  };
+
+  document.addEventListener('click', (e) => {
+    const anchor = e.target instanceof Element ? e.target.closest('a[href]') : null;
+    if (!anchor) return;
+    if (!isContactPath(anchor.getAttribute('href') || '')) return;
+
+    const label = (anchor.textContent || '').trim().slice(0, 80);
+    const section = anchor.closest('section')?.className || 'unknown';
+    trackEvent('contact_cta_click', {
+      lang,
+      cta_label: label,
+      cta_href: anchor.getAttribute('href') || '',
+      cta_section: section
+    });
+  });
+}
+
 /* ───────────────────────── 부트스트랩 ───────────────────────── */
 export function mountLayout() {
   const body = document.body;
@@ -485,6 +532,7 @@ export function mountLayout() {
   initNav();
   initReveal();
   initFaq();
+  initCtaTracking(lang);
   mountStructuredData(lang);
   mountIcons();
 }
