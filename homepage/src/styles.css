@@ -367,6 +367,19 @@ table.compare tbody tr:last-child td, table.compare tbody tr:last-child th { bor
 table.compare td { color: var(--muted); }
 .tag { display: inline-block; padding: .2rem .6rem; border-radius: var(--radius-pill); background: var(--brand-soft); color: var(--brand); font-size: .74rem; font-weight: 800; }
 
+/* ── Conversion panel (product detail) ─────────────────── */
+.conversion-grid { display: grid; grid-template-columns: repeat(3, 1fr) minmax(260px, 1.1fr); gap: 1rem; align-items: stretch; }
+.signal-card { padding: 1.3rem 1.2rem; border: var(--border); border-radius: var(--radius-lg); background: var(--paper); display: grid; gap: .55rem; }
+.signal-card h3 { font-size: 1.05rem; }
+.signal-card p { font-size: .93rem; line-height: 1.62; }
+.trust-card { padding: 1.3rem 1.2rem; border: var(--border); border-radius: var(--radius-lg); background: var(--paper-soft); display: grid; gap: .8rem; }
+.trust-card h3 { font-size: 1.08rem; }
+.trust-card ul { display: grid; gap: .55rem; }
+.trust-card li { position: relative; padding-left: 1.15rem; color: var(--muted); font-weight: 600; }
+.trust-card li::before { content: ''; position: absolute; left: 0; top: .66em; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+.trust-actions { display: grid; gap: .55rem; margin-top: .2rem; }
+.faq-heading { margin-top: clamp(2rem, 3vw, 2.6rem); margin-bottom: 1.2rem; }
+
 /* ── FAQ accordion ─────────────────────────────────────── */
 .faq { display: grid; gap: .7rem; max-width: 860px; margin-inline: auto; }
 .faq-item { border: var(--border); border-radius: var(--radius-md); background: var(--paper); overflow: hidden; }
@@ -374,6 +387,7 @@ table.compare td { color: var(--muted); }
 .faq-q .chev { width: 18px; height: 18px; color: var(--brand); transition: transform .2s var(--ease); flex: 0 0 auto; }
 .faq-q[aria-expanded='true'] .chev { transform: rotate(180deg); }
 .faq-a { padding: 0 1.3rem 1.25rem; color: var(--muted); }
+.faq-a p { margin: 0; line-height: 1.66; }
 
 /* ── Product cards ─────────────────────────────────────── */
 .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.15rem; }
@@ -568,6 +582,8 @@ table.compare td { color: var(--muted); }
   .hero-home { padding: clamp(2rem, 6vw, 3.6rem); min-height: clamp(380px, 46vh, 460px); }
   .hero-home h1, .hero-copy h1 { max-width: 18ch; }
   .product-grid, .value-grid, .metric-strip, .process { grid-template-columns: repeat(2, 1fr); }
+  .conversion-grid { grid-template-columns: 1fr 1fr; }
+  .conversion-grid .trust-card { grid-column: 1 / -1; }
   .partner-card { flex-basis: 25%; }
   .gateway-grid { grid-template-columns: repeat(2, 1fr); }
   .gateway-primary { grid-row: auto; grid-column: 1 / -1; }
@@ -602,7 +618,7 @@ table.compare td { color: var(--muted); }
   .dropdown a { text-align: center; }
   .lead { font-size: 1rem; line-height: 1.62; }
   .section-heading { gap: .85rem; }
-  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid { grid-template-columns: 1fr; }
+  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid, .conversion-grid { grid-template-columns: 1fr; }
   table.compare { min-width: 640px; }
   table.compare th, table.compare td { padding: .92rem .96rem; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }

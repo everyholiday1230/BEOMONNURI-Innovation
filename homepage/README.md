@@ -43,6 +43,9 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 3차 QA 패스: 전역 터치 타깃 확장(nav/text-link/button), 모바일 타이포 리듬 보정, 문의 입력 영역 가독성 보강
 - KR 페이지는 KNAL 한국어 로고 사용, EN 페이지는 영문 KNAL 로고 유지
 - 검색 노출 강화: `robots.txt`에 검색/AI 크롤러 허용 정책 명시, `sitemap.xml`에 KR/EN 쌍별 `hreflang` 확장, `public/llms.txt` 추가
+- 전환율 우선 1차 고도화: 제품 상세 페이지 공통 전환 블록(도입 적합성 진단 + 신뢰 기준 + CTA) 및 FAQ 아코디언 자동 주입
+- 구조화 데이터 강화: 전 페이지 `WebSite`, 제품 상세 `BreadcrumbList`/`FAQPage` JSON-LD 런타임 생성
+- 성능 미세 튜닝: 비핵심 이미지 `loading=lazy`, `decoding=async`, `fetchpriority=low` 자동 최적화
 
 ## 성능 / 에셋
 

@@ -78,6 +78,191 @@ function productItems(lang) {
   return (lang === 'en' ? en : ko).map(([label, slug]) => ({ label, href: `${b}/products/${slug}/` }));
 }
 
+const PRODUCT_ENHANCEMENT = {
+  ko: {
+    signalTitle: '도입 적합성 빠른 진단',
+    signalLead: '아래 3가지가 맞으면 2~4주 내 PoC 시작이 가능합니다.',
+    signalCards: [
+      { title: '데이터 접근 가능', body: '핵심 문서/지표에 최소 읽기 권한이 확보되어 있습니다.' },
+      { title: '현장 담당자 지정', body: '업무 맥락을 설명할 실무 책임자 1명이 배정되어 있습니다.' },
+      { title: '검증 지표 합의', body: '속도·정확도·절감시간 등 판단 기준을 사전에 정의합니다.' }
+    ],
+    trustTitle: '실행 전 신뢰 기준',
+    trustItems: ['보안 경계·권한 정책 우선 정의', '운영 이력/로그 기반 검증', '파일럿 후 단계적 확장 전략'],
+    primaryCta: '우리 조직 적용안 받기',
+    secondaryCta: '문의 페이지로 이동',
+    faqTitle: '자주 묻는 질문',
+    faqs: [
+      { q: '도입 검토는 얼마나 걸리나요?', a: '초기 요구사항 정리 후 보통 3~5영업일 내에 적용 범위와 검증 지표를 제안합니다.' },
+      { q: 'PoC 이후 운영 전환은 어떻게 진행되나요?', a: '파일럿 검증 결과를 기준으로 권한·로그·운영 프로세스를 확장해 단계적으로 운영 전환합니다.' },
+      { q: '기존 시스템과 연동이 가능한가요?', a: '네. 데이터 구조와 보안 요건을 확인한 뒤 API·문서 저장소·업무 시스템과의 연동 범위를 설계합니다.' }
+    ]
+  },
+  en: {
+    signalTitle: 'Quick rollout fit-check',
+    signalLead: 'If these 3 conditions are met, PoC can usually start in 2–4 weeks.',
+    signalCards: [
+      { title: 'Data access ready', body: 'Read access to core documents or indicators is available.' },
+      { title: 'Owner assigned', body: 'A field owner is assigned to define context and constraints.' },
+      { title: 'Success metrics aligned', body: 'Speed, accuracy, and time-saving KPIs are agreed up front.' }
+    ],
+    trustTitle: 'Execution trust baseline',
+    trustItems: ['Security boundary and access policy first', 'Validation with operation logs and traceability', 'Pilot first, phased rollout after proof'],
+    primaryCta: 'Scope your rollout',
+    secondaryCta: 'Go to contact',
+    faqTitle: 'Frequently asked questions',
+    faqs: [
+      { q: 'How long does initial assessment take?', a: 'After requirement intake, we usually propose scope and validation metrics within 3–5 business days.' },
+      { q: 'How do you move from PoC to operations?', a: 'We scale from pilot findings into production with access control, logs, and operational workflows.' },
+      { q: 'Can it integrate with existing systems?', a: 'Yes. We define integration scope after reviewing your data model, APIs, and security constraints.' }
+    ]
+  }
+};
+
+function normalizePath(pathname = window.location.pathname) {
+  return pathname.endsWith('/') ? pathname : `${pathname}/`;
+}
+
+function isProductDetailPage() {
+  const path = normalizePath();
+  const isProductPath = path.includes('/products/') && !path.endsWith('/products/');
+  return isProductPath && !!document.querySelector('.product-hero');
+}
+
+function productSlug() {
+  const path = normalizePath();
+  const seg = path.split('/').filter(Boolean);
+  return seg[seg.length - 1] || '';
+}
+
+function upsertJsonLd(schemaId, data) {
+  const id = `schema-${schemaId}`;
+  let script = document.getElementById(id);
+  if (!script) {
+    script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = id;
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify(data);
+}
+
+function injectProductEnhancement(lang) {
+  if (!isProductDetailPage()) return;
+  if (document.querySelector('[data-enhancement="product-conversion"]')) return;
+
+  const t = PRODUCT_ENHANCEMENT[lang];
+  const contactHref = lang === 'en' ? '/en/contact/' : '/contact/';
+
+  const cards = t.signalCards
+    .map((card) => `<article class="signal-card reveal-item"><h3>${card.title}</h3><p class="muted">${card.body}</p></article>`)
+    .join('');
+  const trustItems = t.trustItems.map((item) => `<li>${item}</li>`).join('');
+
+  const faqItems = t.faqs
+    .map((item, idx) => {
+      const id = `faq-${productSlug()}-${idx + 1}`;
+      return `<article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="${id}">${item.q}<span class="chev" aria-hidden="true">${iconSvg('chevronDown')}</span></button><div class="faq-a" id="${id}" hidden><p>${item.a}</p></div></article>`;
+    })
+    .join('');
+
+  const section = document.createElement('section');
+  section.className = 'section';
+  section.setAttribute('data-enhancement', 'product-conversion');
+  section.innerHTML = `
+    <div class="section-heading">
+      <p class="eyebrow">Conversion</p>
+      <h2>${t.signalTitle}</h2>
+      <p>${t.signalLead}</p>
+    </div>
+    <div class="conversion-grid">
+      ${cards}
+      <aside class="trust-card reveal-item" aria-label="${t.trustTitle}">
+        <h3>${t.trustTitle}</h3>
+        <ul>${trustItems}</ul>
+        <div class="trust-actions">
+          <a class="button primary" href="${contactHref}">${t.primaryCta}</a>
+          <a class="button secondary" href="${contactHref}">${t.secondaryCta}</a>
+        </div>
+      </aside>
+    </div>
+    <div class="section-heading faq-heading">
+      <p class="eyebrow">FAQ</p>
+      <h2>${t.faqTitle}</h2>
+    </div>
+    <div class="faq">${faqItems}</div>
+  `;
+
+  const target = document.querySelector('.cta-band')?.closest('.section') || document.querySelector('main#main-content');
+  if (target?.parentElement && target !== document.querySelector('main#main-content')) {
+    target.parentElement.insertBefore(section, target);
+  } else {
+    target?.appendChild(section);
+  }
+}
+
+function optimizeImages() {
+  const images = document.querySelectorAll('img');
+  images.forEach((img) => {
+    const critical = !!img.closest('.hero-home, .product-hero, .page-hero, .brand');
+    if (critical) {
+      if (!img.getAttribute('loading')) img.setAttribute('loading', 'eager');
+      if (!img.getAttribute('fetchpriority')) img.setAttribute('fetchpriority', 'high');
+      return;
+    }
+    if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
+    if (!img.getAttribute('decoding')) img.setAttribute('decoding', 'async');
+    if (!img.getAttribute('fetchpriority')) img.setAttribute('fetchpriority', 'low');
+  });
+}
+
+function mountStructuredData(lang) {
+  const canonical = document.querySelector('link[rel="canonical"]')?.href || `${siteConfig.SITE_URL}/`;
+  const websiteUrl = lang === 'en' ? `${siteConfig.SITE_URL}/en/` : `${siteConfig.SITE_URL}/`;
+
+  upsertJsonLd(`website-${lang}`, {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: lang === 'en' ? siteConfig.COMPANY_NAME_EN : siteConfig.COMPANY_NAME_KR,
+    url: websiteUrl,
+    inLanguage: lang === 'en' ? 'en' : 'ko'
+  });
+
+  const crumbs = Array.from(document.querySelectorAll('.breadcrumb li'));
+  if (crumbs.length > 0) {
+    const itemListElement = crumbs.map((li, idx) => {
+      const link = li.querySelector('a');
+      const name = (link?.textContent || li.textContent || '').trim();
+      const item = link?.href || canonical;
+      return { '@type': 'ListItem', position: idx + 1, name, item };
+    });
+    upsertJsonLd(`breadcrumb-${lang}-${productSlug() || 'page'}`, {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement
+    });
+  }
+
+  const faqNodes = Array.from(document.querySelectorAll('.faq-item')).map((item) => {
+    const q = item.querySelector('.faq-q')?.childNodes?.[0]?.textContent?.trim() || item.querySelector('.faq-q')?.textContent?.trim();
+    const a = item.querySelector('.faq-a')?.textContent?.trim();
+    if (!q || !a) return null;
+    return {
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a }
+    };
+  }).filter(Boolean);
+
+  if (faqNodes.length > 0) {
+    upsertJsonLd(`faq-${lang}-${productSlug() || 'page'}`, {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqNodes
+    });
+  }
+}
+
 /* ───────────────────────── 헤더 ───────────────────────── */
 function renderHeader(lang, page) {
   const t = T[lang];
@@ -295,9 +480,12 @@ export function mountLayout() {
   if (headerMount) headerMount.outerHTML = renderHeader(lang, page);
   if (footerMount) footerMount.outerHTML = renderFooter(lang);
 
+  injectProductEnhancement(lang);
+  optimizeImages();
   initNav();
   initReveal();
   initFaq();
+  mountStructuredData(lang);
   mountIcons();
 }
 
