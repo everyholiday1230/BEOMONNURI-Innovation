@@ -8,6 +8,31 @@ const coinImgUrl = {};
 const _apiMap = {};
 const _apiToFront = {};
 
+const _ASSET_QUOTE_BY_CLASS = {
+  crypto: '/USDT',
+  stock: '/USD',
+  commodity: '/USD',
+  etf: '/USD'
+};
+
+function _formatSymbolDisplay(s) {
+  const code = s?.code || '';
+  if (code.includes('KRW-')) return { base: code.replace('KRW-', ''), quote: '/KRW' };
+  if (code.endsWith('USDT')) return { base: code.replace('USDT', ''), quote: '/USDT' };
+  return { base: code, quote: _ASSET_QUOTE_BY_CLASS[s?.asset] || '' };
+}
+
+function _setAssetTabActive(asset) {
+  const tabs = document.querySelectorAll('#assetTabs .asset-tab');
+  tabs.forEach(tab => {
+    const active = tab.dataset.asset === asset;
+    tab.classList.toggle('active', active);
+    tab.style.fontWeight = active ? '600' : '500';
+    tab.style.borderBottomColor = active ? '#921230' : 'transparent';
+    tab.style.color = active ? 'var(--color-primary)' : 'var(--color-text-muted)';
+  });
+}
+
 // window에 노출 (다른 모듈 호환)
 window.symbols = symbols;
 window.coinImgUrl = coinImgUrl;
@@ -89,12 +114,12 @@ export function renderWL(f = '') {
   const curSymbol = window.curSymbol || '';
   el.innerHTML = list.map(s => {
     const imgUrl = coinImgUrl[s.code] || '';
-    const sym = s.code.replace('USDT', '');
+    const { base, quote } = _formatSymbolDisplay(s);
     return `<div class="wl-item ${s.code === curSymbol ? 'active' : ''}" data-symbol="${s.code}" onclick="window._selectSym('${s.code}')">
     <div style="display:flex;align-items:center;gap:8px">
-      <img src="${imgUrl || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>' + sym.slice(0,4) + '</text></svg>'}" loading="lazy" decoding="async" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>${sym.slice(0,4)}</text></svg>'" style="width:20px;height:20px;border-radius:50%;flex-shrink:0">
-      <div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:14px;color:var(--wl-gold);white-space:nowrap">${sym}<span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:2px">/USDT</span></div>
-      <div style="color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(localStorage.getItem('chartOS_lang')||'ko')==='ko'?(s.kr||s.name||sym):(s.name||s.kr||sym)}</div></div>
+      <img src="${imgUrl || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>' + base.slice(0,4) + '</text></svg>'}" loading="lazy" decoding="async" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>${base.slice(0,4)}</text></svg>'" style="width:20px;height:20px;border-radius:50%;flex-shrink:0">
+      <div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:14px;color:var(--wl-gold);white-space:nowrap">${base}${quote ? `<span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:2px">${quote}</span>` : ''}</div>
+      <div style="color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(localStorage.getItem('chartOS_lang')||'ko')==='ko'?(s.kr||s.name||base):(s.name||s.kr||base)}</div></div>
     </div>
     <div style="text-align:right;min-width:60px;flex-shrink:0" id="wp_${s.code}"><span style="color:var(--muted);font-size:14px">···</span></div></div>`;
   }).join('');
@@ -170,4 +195,19 @@ if (_sortEl) {
     const curSearch = document.getElementById('searchInput')?.value || '';
     renderWL(curSearch);
   };
+}
+
+const _assetTabs = document.querySelectorAll('#assetTabs .asset-tab');
+if (_assetTabs.length) {
+  window._wlAssetFilter = window._wlAssetFilter || 'crypto';
+  _setAssetTabActive(window._wlAssetFilter);
+  _assetTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const nextAsset = tab.dataset.asset || 'crypto';
+      window._wlAssetFilter = nextAsset;
+      _setAssetTabActive(nextAsset);
+      const curSearch = document.getElementById('searchInput')?.value || '';
+      renderWL(curSearch);
+    });
+  });
 }

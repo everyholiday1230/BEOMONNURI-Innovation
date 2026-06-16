@@ -206,10 +206,12 @@
     <span class="partner-link-cta">구독하기 →</span>
   </a>
   <div class="search-box"><label for="searchInput" class="sr-only">종목 검색</label><input id="searchInput" placeholder="심볼 검색..." autocomplete="off"></div>
-  <!-- 암호화폐/주식 탭 -->
+  <!-- 자산 탭 -->
   <div id="assetTabs" style="display:flex;border-bottom:1px solid rgba(216,182,106,0.2);background:var(--color-surface);font-size:14px">
     <div class="asset-tab active" data-asset="crypto" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;font-weight:600;border-bottom:2px solid #921230">암호화폐</div>
     <div class="asset-tab" data-asset="stock" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">주식</div>
+    <div class="asset-tab" data-asset="commodity" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">원자재</div>
+    <div class="asset-tab" data-asset="etf" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">ETF</div>
   </div>
 
   <!-- 관심종목 정렬 옵션 -->
@@ -790,9 +792,11 @@
   </div>
   <div class="right-pane" id="heatmap">
     <div style="padding:4px;font-size:14px;color:var(--color-text-muted)">전 종목 실시간 등락률</div>
-    <div style="display:flex;gap:4px;margin-bottom:6px;padding:0 4px">
+    <div style="display:flex;gap:4px;margin-bottom:6px;padding:0 4px;flex-wrap:wrap">
       <button id="hmTabCrypto" aria-label="히트맵 암호화폐" onclick="window._hmAsset='crypto';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
       <button id="hmTabStock" aria-label="히트맵 주식" onclick="window._hmAsset='stock';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
+      <button id="hmTabCommodity" aria-label="히트맵 원자재" onclick="window._hmAsset='commodity';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">원자재</button>
+      <button id="hmTabEtf" aria-label="히트맵 ETF" onclick="window._hmAsset='etf';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">ETF</button>
     </div>
     <div id="heatmapGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:3px;padding:4px;max-width:100%;overflow-x:hidden"></div>
     <button aria-label="loadHeatmap" class="ai-btn" data-action="loadHeatmap" style="margin:6px">새로고침</button>
@@ -822,9 +826,11 @@
         <button id="hotSortTurnover" aria-label="거래대금순 정렬" onclick="window._hotSort='turnover';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px">거래대금순</button>
         <button id="hotSortMomentum" aria-label="모멘텀순 정렬" onclick="window._hotSort='momentum';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px">모멘텀순</button>
       </div>
-      <div style="display:flex;gap:4px;margin-bottom:8px">
+      <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
         <button id="hotTabCrypto" aria-label="인기종목 암호화폐" onclick="window._hotAsset='crypto';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
         <button id="hotTabStock" aria-label="인기종목 주식" onclick="window._hotAsset='stock';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
+        <button id="hotTabCommodity" aria-label="인기종목 원자재" onclick="window._hotAsset='commodity';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">원자재</button>
+        <button id="hotTabEtf" aria-label="인기종목 ETF" onclick="window._hotAsset='etf';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">ETF</button>
       </div>
       <div id="hotList" style="font-size:13px"></div>
       <button aria-label="refreshHot" onclick="window._loadHotCoins()" style="margin-top:8px;padding:6px 12px;background:rgba(146,18,48,0.1);color:#921230;border:none;border-radius:6px;cursor:pointer;font-size:13px">새로고침</button>
