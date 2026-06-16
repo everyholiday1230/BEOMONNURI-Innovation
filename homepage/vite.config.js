@@ -50,6 +50,11 @@ function htmlTokenReplace() {
 
 export default defineConfig({
   plugins: [htmlTokenReplace()],
+  server: {
+    // Sandbox public URL 접속 차단 방지
+    // (동적으로 바뀌는 *.sandbox.novita.ai 호스트 허용)
+    allowedHosts: true
+  },
   build: {
     rollupOptions: {
       input: pages
