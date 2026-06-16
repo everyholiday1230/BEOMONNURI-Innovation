@@ -408,8 +408,9 @@ table.compare td { color: var(--muted); }
 .detail-card li { position: relative; padding-left: 1.3rem; color: var(--muted); }
 .detail-card li::before { content: ''; position: absolute; top: .68em; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
 .hero-image-card { position: relative; overflow: hidden; margin: 0; border-radius: var(--radius-xl); background: var(--paper); box-shadow: var(--shadow-md); border: var(--border); }
+.product-hero .hero-image-card { max-height: clamp(240px, 48vh, 380px); }
 .hero-image-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 42%, rgba(18,12,15,.55)); }
-.hero-image-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.hero-image-card img { width: 100%; aspect-ratio: 16 / 9; height: 100%; object-fit: cover; }
 .hero-image-card figcaption { position: absolute; left: 1rem; bottom: 1rem; z-index: 1; padding: .5rem .8rem; border-radius: var(--radius-pill); color: #fff; background: rgba(146,18,48,.88); font-weight: 800; }
 
 /* ── Portfolio panel ───────────────────────────────────── */
@@ -498,14 +499,14 @@ table.compare td { color: var(--muted); }
 .partner-card { flex: 1 1 25%; min-width: 210px; min-height: 116px; padding: clamp(1.2rem, 2vw, 1.7rem); display: grid; place-items: center; border-right: var(--border); border-bottom: var(--border); transition: background .2s var(--ease); }
 .partner-card:hover { background: var(--paper-soft); }
 .partner-card img {
-  width: auto; max-width: min(100%, 156px); height: 48px; object-fit: contain;
+  width: auto; max-width: min(100%, 156px); height: 46px; object-fit: contain;
   filter: grayscale(1) opacity(.5); transition: filter .25s var(--ease), opacity .25s var(--ease);
 }
 .partner-card:hover img, .partner-card:focus-within img { filter: grayscale(0) opacity(1); }
 /* 로고별 시각적 무게 보정 (종횡비·여백 편차 흡수) */
-.partner-card img.logo-tall { height: 60px; }
-.partner-card img.logo-wide { height: 38px; }
-.partner-card img.logo-mark { height: 54px; }
+.partner-card img.logo-tall { height: 58px; }
+.partner-card img.logo-wide { height: 36px; }
+.partner-card img.logo-mark { height: 52px; }
 
 /* ── Reveal motion ─────────────────────────────────────── */
 .reveal-item { opacity: 0; transform: translateY(12px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
@@ -572,6 +573,11 @@ table.compare td { color: var(--muted); }
   .nav-links a { justify-content: center; }
   .language-switch { width: 100%; justify-content: center; margin-left: 0; }
   .nav-links .language-switch a { flex: 1; }
+  .partner-card { flex: 1 1 50%; min-width: 0; min-height: 104px; }
+  .partner-card img { height: 42px; }
+  .partner-card img.logo-tall { height: 52px; }
+  .partner-card img.logo-wide { height: 34px; }
+  .partner-card img.logo-mark { height: 48px; }
   /* 모바일 드롭다운: 절대위치 대신 인라인으로 펼침 */
   .has-dropdown { width: 100%; }
   .dropdown { position: static; transform: none; min-width: 0; width: 100%; box-shadow: none; border: 0; padding: .2rem 0 .4rem;
@@ -580,7 +586,6 @@ table.compare td { color: var(--muted); }
   .has-dropdown:hover .dropdown:not(.open) { max-height: 0; }
   .dropdown a { text-align: center; }
   .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid { grid-template-columns: 1fr; }
-  .partner-card { flex-basis: 33.33%; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }
   .form-row { grid-template-columns: 1fr; }
   .proof-strip { grid-template-columns: 1fr; }
