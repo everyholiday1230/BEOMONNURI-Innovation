@@ -108,9 +108,9 @@ body {
   background: var(--bg);
   line-height: 1.68;
   font-size: var(--fs-body);
-  /* 한국어는 어절 단위로만 줄바꿈(단어 중간 끊김 방지). 긴 영문·URL은 안전하게 줄바꿈 */
+  /* 한국어는 어절 단위로만 줄바꿈(단어 중간 끊김 방지). 긴 영문·URL은 필요한 경우만 줄바꿈 */
   word-break: keep-all;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -125,9 +125,10 @@ button { font: inherit; cursor: pointer; }
 .hero-home a:focus-visible, .cta-band a:focus-visible, .gateway-primary:focus-visible { outline-color: #fff; }
 
 h1, h2, h3, h4 { line-height: 1.18; font-weight: 800; }
-h1 { font-size: var(--fs-h1); letter-spacing: -.03em; line-height: 1.12; }
-h2 { font-size: var(--fs-h2); letter-spacing: -.025em; line-height: 1.18; }
-h3 { font-size: var(--fs-h3); letter-spacing: -.012em; line-height: 1.32; }
+h1 { font-size: var(--fs-h1); letter-spacing: -.03em; line-height: 1.12; text-wrap: balance; }
+h2 { font-size: var(--fs-h2); letter-spacing: -.025em; line-height: 1.18; text-wrap: balance; }
+h3 { font-size: var(--fs-h3); letter-spacing: -.012em; line-height: 1.32; text-wrap: pretty; }
+p, li, dd, span { text-wrap: pretty; }
 
 .eyebrow, .label {
   color: var(--brand); font-size: var(--fs-small); font-weight: 800;
@@ -326,15 +327,15 @@ h3 { font-size: var(--fs-h3); letter-spacing: -.012em; line-height: 1.32; }
 
 /* ── Gateway grid ──────────────────────────────────────── */
 .gateway-grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; grid-auto-rows: minmax(200px, auto); gap: .9rem; }
-.gateway-card { position: relative; overflow: hidden; min-height: 210px; padding: clamp(1.4rem, 3vw, 2.1rem); border: var(--border); border-radius: var(--radius-lg); background: var(--paper); display: flex; flex-direction: column; gap: .55rem; transition: box-shadow .25s var(--ease), border-color .25s var(--ease), transform .1s var(--ease); }
+.gateway-card { position: relative; overflow: hidden; min-height: 210px; padding: clamp(1.4rem, 3vw, 2.1rem); border: var(--border); border-radius: var(--radius-lg); background: var(--paper); display: grid; align-content: start; gap: .7rem; transition: box-shadow .25s var(--ease), border-color .25s var(--ease), transform .1s var(--ease); }
 .gateway-card::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--brand); opacity: .85; }
 .gateway-card:hover { box-shadow: var(--shadow-md); border-color: var(--line-strong); }
 .gateway-card:active { transform: translateY(1px); }
 .gateway-card .ico { width: 34px; height: 34px; color: var(--brand); }
 /* eyebrow(라벨)는 상단, 제목+설명은 하단으로 분산해 빈 공간 제거 */
 .gateway-card p { color: var(--brand); font-size: .74rem; font-weight: 800; letter-spacing: .14em; }
-.gateway-card h3 { font-size: clamp(1.3rem, 1.8vw, 1.7rem); max-width: 16ch; margin-top: auto; }
-.gateway-card span { color: var(--muted); font-weight: 600; max-width: 34ch; line-height: 1.5; }
+.gateway-card h3 { font-size: clamp(1.22rem, 1.7vw, 1.5rem); max-width: 22ch; margin-top: .1rem; line-height: 1.34; text-wrap: balance; }
+.gateway-card span { color: var(--muted); font-weight: 600; max-width: 34ch; line-height: 1.58; }
 .gateway-primary { grid-row: span 2; color: #fff; background: linear-gradient(150deg, var(--brand-700) 0%, var(--brand-900) 100%); border-color: transparent; }
 .gateway-primary::after { background: rgba(255,255,255,.4); }
 .gateway-primary .ico, .gateway-primary p, .gateway-primary span { color: rgba(255,255,255,.82); }
