@@ -49,6 +49,7 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 문의 전환율 2차 고도화: Contact 페이지 헤드라인/버튼 A/B 카피 테스트, 선택 입력(연락처·보유데이터) 접기/열기 도입
 - 문의 완료 UX 개선: 제출 후 다음 단계 안내 패널(접수 후 프로세스) 추가
 - 전환 측정 이벤트 추가(GA4/gtag 및 dataLayer 병행): `contact_cta_click`, `contact_form_start`, `contact_form_submit_attempt`, `contact_form_submit_success`, `contact_form_submit_failure`, `contact_form_mailto_fallback`, `contact_form_validation_error`
+- 홈 레이아웃 고도화: KR/EN 홈에 `Rollout Roadmap`(4단계) 및 `Use Case Preview`(3개 시나리오) 섹션 추가
 
 ## 성능 / 에셋
 

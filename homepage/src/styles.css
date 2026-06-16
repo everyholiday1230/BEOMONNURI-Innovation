@@ -357,6 +357,19 @@ p, li, dd, span { text-wrap: pretty; }
 .process-step p { color: var(--muted); font-size: .94rem; }
 .process-step:not(:last-child)::after { content: ''; position: absolute; right: -.62rem; top: 50%; width: .55rem; height: 2px; background: color-mix(in srgb, var(--brand) 45%, transparent); }
 
+/* ── Home roadmap / use cases ──────────────────────────── */
+.roadmap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.roadmap-step { padding: 1.45rem 1.2rem; border: var(--border); border-radius: var(--radius-lg); background: var(--paper); display: grid; gap: .6rem; align-content: start; }
+.roadmap-step .step-index { color: var(--brand); font-size: .85rem; font-weight: 900; letter-spacing: .08em; }
+.roadmap-step h3 { font-size: 1.08rem; }
+.roadmap-step p { color: var(--muted); font-size: .94rem; line-height: 1.62; }
+
+.usecase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.usecase-card { border: var(--border); border-radius: var(--radius-lg); background: var(--paper); padding: clamp(1.2rem, 2.5vw, 1.8rem); display: grid; gap: .75rem; align-content: start; }
+.usecase-card h3 { font-size: 1.14rem; }
+.usecase-card p { line-height: 1.62; }
+.usecase-card .text-link { margin-top: .2rem; }
+
 /* ── Comparison matrix ─────────────────────────────────── */
 .compare-wrap { overflow-x: auto; border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); -webkit-overflow-scrolling: touch; }
 table.compare { width: 100%; border-collapse: collapse; min-width: 720px; background: var(--paper); }
@@ -593,6 +606,8 @@ table.compare td { color: var(--muted); }
   .hero-home { padding: clamp(2rem, 6vw, 3.6rem); min-height: clamp(380px, 46vh, 460px); }
   .hero-home h1, .hero-copy h1 { max-width: 18ch; }
   .product-grid, .value-grid, .metric-strip, .process { grid-template-columns: repeat(2, 1fr); }
+  .roadmap-grid { grid-template-columns: repeat(2, 1fr); }
+  .usecase-grid { grid-template-columns: 1fr 1fr; }
   .conversion-grid { grid-template-columns: 1fr 1fr; }
   .conversion-grid .trust-card { grid-column: 1 / -1; }
   .partner-card { flex-basis: 25%; }
@@ -629,7 +644,7 @@ table.compare td { color: var(--muted); }
   .dropdown a { text-align: center; }
   .lead { font-size: 1rem; line-height: 1.62; }
   .section-heading { gap: .85rem; }
-  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid, .conversion-grid { grid-template-columns: 1fr; }
+  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid, .conversion-grid, .roadmap-grid, .usecase-grid { grid-template-columns: 1fr; }
   table.compare { min-width: 640px; }
   table.compare th, table.compare td { padding: .92rem .96rem; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }
