@@ -178,7 +178,7 @@ p, li, dd, span { text-wrap: pretty; }
 .brand small { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; }
 .nav-links { display: flex; align-items: center; gap: .2rem; font-weight: 700; color: var(--gray-700); }
 :root[data-theme='dark'] .nav-links { color: var(--ink); }
-.nav-links a { display: inline-flex; min-height: 44px; align-items: center; border-radius: var(--radius-pill); padding: 0 1rem; transition: color .2s var(--ease), background .2s var(--ease); }
+.nav-links a { display: inline-flex; min-height: 46px; align-items: center; border-radius: var(--radius-pill); padding: 0 1rem; transition: color .2s var(--ease), background .2s var(--ease); }
 .nav-links a:hover, .nav-links a:focus-visible, .nav-links a.active { color: var(--brand); background: var(--brand-soft); }
 .nav-links .nav-cta { color: #fff; background: var(--brand); }
 .nav-links .nav-cta:hover, .nav-links .nav-cta:focus-visible { color: #fff; background: var(--brand-dark); }
@@ -399,7 +399,7 @@ table.compare td { color: var(--muted); }
 .product-card-body .text-link { margin-top: .35rem; }
 .product-card .label { display: inline-flex; align-items: center; gap: .4rem; }
 .product-card .label::before { content: ''; width: 14px; height: 2px; background: currentColor; opacity: .55; }
-.text-link { color: var(--brand); font-weight: 800; display: inline-flex; align-items: center; gap: .3rem; padding: .35rem 0; min-height: 24px; }
+.text-link { color: var(--brand); font-weight: 800; display: inline-flex; align-items: center; gap: .3rem; padding: .35rem 0; min-height: 32px; }
 .text-link::after { content: '→'; transition: transform .2s var(--ease); }
 .product-card:hover .text-link::after, .text-link:hover::after { transform: translateX(3px); }
 
@@ -478,7 +478,7 @@ table.compare td { color: var(--muted); }
   background: var(--paper-soft); color: var(--ink); font: inherit; transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
 }
 .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-.field textarea { resize: vertical; min-height: 130px; }
+.field textarea { resize: vertical; min-height: 140px; }
 .field .error-text { color: var(--danger); font-size: .82rem; min-height: 1em; }
 .field[data-invalid='true'] input, .field[data-invalid='true'] select, .field[data-invalid='true'] textarea { border-color: var(--danger); }
 .consent { display: flex; align-items: flex-start; gap: .6rem; color: var(--muted); font-size: .92rem; }
@@ -600,6 +600,8 @@ table.compare td { color: var(--muted); }
   .has-dropdown.open .dropdown { transform: none; max-height: 480px; }
   .has-dropdown:hover .dropdown:not(.open) { max-height: 0; }
   .dropdown a { text-align: center; }
+  .lead { font-size: 1rem; line-height: 1.62; }
+  .section-heading { gap: .85rem; }
   .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid { grid-template-columns: 1fr; }
   table.compare { min-width: 640px; }
   table.compare th, table.compare td { padding: .92rem .96rem; }
@@ -610,7 +612,7 @@ table.compare td { color: var(--muted); }
   .info-table th { width: 40%; }
 }
 @media (max-width: 480px) {
-  .button { width: 100%; }
+  .button { width: 100%; min-height: 50px; }
   .hero-actions { width: 100%; }
   .partner-card { flex-basis: 50%; min-width: 0; }
   .section { padding-top: clamp(3.4rem, 8vw, 4.8rem); }
