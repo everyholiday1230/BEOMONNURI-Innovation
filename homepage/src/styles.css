@@ -75,8 +75,8 @@
   --shadow-lg: 0 8px 28px rgba(24, 14, 18, .10), 0 2px 8px rgba(24, 14, 18, .05);
   --border: 1px solid var(--line);
 
-  --max: 1200px;
-  --max-wide: 1200px;
+  --max: 1560px;
+  --max-wide: 1680px;
   --ease: cubic-bezier(.22, .61, .36, 1);
 
   color-scheme: light;
@@ -153,7 +153,7 @@ p, li, dd, span { text-wrap: pretty; }
 /* ── Container ──────────────────────────────────────────── */
 .container,
 .hero, .product-hero, .page-hero, .section, .proof-strip, .footer-inner {
-  width: min(100% - 2rem, var(--max));
+  width: min(100% - 1rem, var(--max));
   margin-inline: auto;
 }
 
@@ -165,7 +165,7 @@ p, li, dd, span { text-wrap: pretty; }
   backdrop-filter: blur(18px);
 }
 .nav-shell {
-  width: min(100% - 2rem, var(--max));
+  width: min(100% - 1rem, var(--max));
   min-height: 80px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between; gap: 1.4rem;
 }
@@ -230,9 +230,9 @@ p, li, dd, span { text-wrap: pretty; }
 
 /* ── Section rhythm ─────────────────────────────────────── */
 .section { padding: clamp(4.5rem, 8vw, 7.5rem) 0 0; }
-.section-heading { max-width: 46ch; margin: 0 auto clamp(2.4rem, 4vw, 3.4rem); display: grid; gap: 1rem; text-align: center; }
+.section-heading { max-width: 52ch; margin: 0 auto clamp(2.4rem, 4vw, 3.4rem); display: grid; gap: 1rem; text-align: center; }
 .section-heading .eyebrow { margin-bottom: .1rem; }
-.section-heading h2 { margin-inline: auto; max-width: 18ch; }
+.section-heading h2 { margin-inline: auto; max-width: 20ch; }
 .section-heading p:not(.eyebrow) { color: var(--muted); max-width: 52ch; margin-inline: auto; }
 /* 섹션 배경 밴드 */
 .band { background: var(--paper-soft); border-block: var(--border); }
@@ -248,7 +248,7 @@ p, li, dd, span { text-wrap: pretty; }
   gap: clamp(2rem, 5vw, 4rem); align-items: start;
 }
 .hero-home {
-  width: min(100% - 2rem, var(--max-wide));
+  width: min(100% - 1rem, var(--max-wide));
   margin-top: 1.25rem;
   min-height: clamp(440px, 60vh, 580px);
   padding: clamp(2.4rem, 5vw, 5rem);
@@ -333,9 +333,9 @@ p, li, dd, span { text-wrap: pretty; }
 .gateway-card:active { transform: translateY(1px); }
 .gateway-card .ico { width: 34px; height: 34px; color: var(--brand); }
 /* eyebrow(라벨)는 상단, 제목+설명은 하단으로 분산해 빈 공간 제거 */
-.gateway-card p { color: var(--brand); font-size: .74rem; font-weight: 800; letter-spacing: .14em; }
-.gateway-card h3 { font-size: clamp(1.22rem, 1.7vw, 1.5rem); max-width: 22ch; margin-top: .1rem; line-height: 1.34; text-wrap: balance; }
-.gateway-card span { color: var(--muted); font-weight: 600; max-width: 34ch; line-height: 1.58; }
+.gateway-card p { color: var(--brand); font-size: .78rem; font-weight: 800; letter-spacing: .11em; line-height: 1.4; }
+.gateway-card h3 { font-size: clamp(1.2rem, 1.55vw, 1.46rem); max-width: 23ch; margin-top: .1rem; line-height: 1.36; text-wrap: balance; }
+.gateway-card span { color: var(--muted); font-weight: 600; max-width: 36ch; line-height: 1.6; }
 .gateway-primary { grid-row: span 2; color: #fff; background: linear-gradient(150deg, var(--brand-700) 0%, var(--brand-900) 100%); border-color: transparent; }
 .gateway-primary::after { background: rgba(255,255,255,.4); }
 .gateway-primary .ico, .gateway-primary p, .gateway-primary span { color: rgba(255,255,255,.82); }
@@ -430,7 +430,7 @@ table.compare td { color: var(--muted); }
 .product-hero h1 { max-width: 14ch; }
 
 /* ── Breadcrumb ────────────────────────────────────────── */
-.breadcrumb { width: min(100% - 2rem, var(--max)); margin: 0 auto; padding-top: 1.4rem; }
+.breadcrumb { width: min(100% - 1rem, var(--max)); margin: 0 auto; padding-top: 1.4rem; }
 .breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .82rem; color: var(--muted); }
 .breadcrumb li { display: inline-flex; align-items: center; gap: .4rem; }
 .breadcrumb li:not(:last-child)::after { content: '/'; color: var(--gray-400); }
@@ -533,7 +533,7 @@ table.compare td { color: var(--muted); }
 .footer-meta dt { color: var(--ink); font-weight: 700; white-space: nowrap; }
 .footer-meta dd { margin: 0; color: var(--muted); line-height: 1.5; }
 .footer-email { display: inline-block; color: var(--brand) !important; font-weight: 700; word-break: break-all; }
-.footer-legal { width: min(100% - 2rem, var(--max)); margin: 0 auto; padding: 1.3rem 0 1.8rem; border-top: var(--border); }
+.footer-legal { width: min(100% - 1rem, var(--max)); margin: 0 auto; padding: 1.3rem 0 1.8rem; border-top: var(--border); }
 .footer-legal > p { font-size: .84rem; color: var(--muted); margin: 0; }
 .footer-legal .copyright { width: auto; margin: 0; padding: 0; border-top: 0; font-size: .84rem; letter-spacing: .01em; }
 
