@@ -1076,7 +1076,70 @@ body.beginner-focus #quickStartBeginner {
   <button id="mnRight" aria-label="분석" data-action="toggleMobilePanel" data-param="right"><span style='font-size:14px'>◈</span><span>분석</span></button>
   <button aria-label="설정" data-action="toggleMobilePanel" data-param="settings"><span style='font-size:14px'>☰</span><span>설정</span></button>
 </nav>
-<div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;width:100%;background:#DC2626;color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;z-index:9999">네트워크 연결이 끊겼습니다. 재연결 시도 중...</div>
-<script>window.addEventListener("offline",()=>document.getElementById("offlineBanner").style.display="block");window.addEventListener("online",()=>{document.getElementById("offlineBanner").style.display="none";location.reload()});</script>
+<div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;width:100%;z-index:9999;background:linear-gradient(90deg,#7f1d1d,#b91c1c);color:#fff;padding:8px 12px;box-shadow:0 2px 10px rgba(0,0,0,0.2)">
+  <div style="max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap">
+    <div id="offlineBannerText" style="font-size:13px;font-weight:700">네트워크 연결이 불안정합니다. 자동 복구를 시도 중입니다.</div>
+    <button id="offlineRetryBtn" type="button" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.16);color:#fff;font-size:12px;font-weight:700;cursor:pointer">지금 재시도</button>
+  </div>
+</div>
+<script>
+(function(){
+  const banner = document.getElementById('offlineBanner');
+  const textEl = document.getElementById('offlineBannerText');
+  const retryBtn = document.getElementById('offlineRetryBtn');
+  if (!banner || !textEl || !retryBtn) return;
+
+  let hideTimer = null;
+
+  function showBanner(msg, mode){
+    textEl.textContent = msg;
+    banner.style.display = 'block';
+    if (mode === 'ok') {
+      banner.style.background = 'linear-gradient(90deg,#166534,#15803d)';
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        banner.style.display = 'none';
+      }, 2200);
+    } else {
+      banner.style.background = 'linear-gradient(90deg,#7f1d1d,#b91c1c)';
+    }
+  }
+
+  window.addEventListener('offline', function(){
+    showBanner('인터넷 연결이 끊겼습니다. 네트워크를 확인해주세요.', 'offline');
+  });
+
+  window.addEventListener('online', function(){
+    showBanner('연결이 복구되었습니다. 데이터 동기화를 진행합니다.', 'ok');
+  });
+
+  window.addEventListener('chartos:network-state', function(ev){
+    const detail = ev && ev.detail ? ev.detail : {};
+    if (detail.status === 'ok') {
+      showBanner(detail.message || '서버 연결이 정상화되었습니다.', 'ok');
+    } else if (detail.status === 'degraded') {
+      showBanner(detail.message || '서버 응답이 지연되고 있습니다.', 'degraded');
+    }
+  });
+
+  retryBtn.addEventListener('click', async function(){
+    retryBtn.disabled = true;
+    retryBtn.textContent = '재시도 중...';
+    try {
+      const r = await fetch('/health', { method: 'GET', credentials: 'include' });
+      if (r && r.ok) {
+        showBanner('서버 연결이 정상화되었습니다.', 'ok');
+      } else {
+        showBanner('아직 서버 응답이 불안정합니다. 잠시 후 다시 시도해주세요.', 'degraded');
+      }
+    } catch (_) {
+      showBanner('재시도에 실패했습니다. 네트워크 상태를 확인해주세요.', 'degraded');
+    } finally {
+      retryBtn.disabled = false;
+      retryBtn.textContent = '지금 재시도';
+    }
+  });
+})();
+</script>
 </body>
 </html>

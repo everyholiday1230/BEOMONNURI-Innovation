@@ -129,7 +129,16 @@ export function dedupFetch(url, opts) {
     _inflight.delete(key);
     if (!window._netErrShown && window.showToast) {
       window._netErrShown = true;
-      window.showToast(t('네트워크 연결을 확인해주세요'), '#3B82F6');
+      window.showToast(
+        t('서버 연결이 불안정합니다'),
+        t('자동 재시도 후에도 응답이 없어 요청을 완료하지 못했습니다. 네트워크 상태를 확인해주세요.'),
+        'entry'
+      );
+      try {
+        window.dispatchEvent(new CustomEvent('chartos:network-state', {
+          detail: { status: 'degraded', message: t('서버 응답 지연') }
+        }));
+      } catch (_) {}
       setTimeout(() => { window._netErrShown = false }, 10000);
     }
     throw lastErr || new Error('fetch failed');

@@ -105,6 +105,20 @@
     - `scripts/release_check.sh` PASS (10/10)
     - `pytest -q` PASS (6 passed)
 
+- **UI/UX·운영 안정화 고도화 (2026-06-17 7차)**
+  - `static/js/modules/fetch.js`
+    - 반복 재시도 실패 시 단순 문구 대신 원인/행동 가이드가 포함된 Rich Toast로 개선
+    - 네트워크 지연 상태를 `chartos:network-state` 커스텀 이벤트로 브로드캐스트
+  - `static/js/modules/fetch-csrf.js`
+    - fetch 실패 시 `서버 연결 실패` 단문 토스트를 사용자 친화형 안내 토스트로 개선
+    - 연결 복구 시 자동으로 `ok` 상태 이벤트 전파해 UI 배너와 동기화
+  - `static/index.html`
+    - 상단 오프라인 배너를 개선: 상태 문구 + `지금 재시도` 버튼 + 복구 시 자동 숨김
+    - 기존 online 즉시 `location.reload()` 제거로 UX 끊김 감소
+  - 회귀 결과
+    - `scripts/release_check.sh` PASS (10/10)
+    - `pytest -q` PASS (6 passed)
+
 ## ✅ 현재 운영 유사 점검 상태 (2026-06-17)
 
 - **현재 헬스 상태**: `status=ok`, `redis=ok`, `db=not_configured`
