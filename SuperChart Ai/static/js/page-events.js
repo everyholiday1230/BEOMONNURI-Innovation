@@ -147,10 +147,19 @@ document.addEventListener('click', function (e) {
     markFunnelStep('signup_click');
   }
 
+  function _syncBeginnerButtonState() {
+    const beginnerBtn = document.getElementById('quickStartBeginner');
+    if (!beginnerBtn) return;
+    const on = document.body.classList.contains('beginner-focus');
+    beginnerBtn.classList.toggle('is-active', on);
+    beginnerBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
   function toggleBeginner() {
     const on = !document.body.classList.contains('beginner-focus');
     document.body.classList.toggle('beginner-focus', on);
     localStorage.setItem('chartOS_beginnerFocus', on ? '1' : '0');
+    _syncBeginnerButtonState();
     setTip(
       on
         ? '초보 집중 모드가 활성화되었습니다. 핵심 조작(종목/타임프레임/AI 분석) 중심으로 화면을 단순화합니다.'
@@ -159,31 +168,157 @@ document.addEventListener('click', function (e) {
     trackUx('superchart_beginner_focus_toggled', { enabled: on ? 1 : 0 });
   }
 
+  function _isNativeInteractive(el) {
+    if (!el || !el.tagName) return false;
+    const tag = el.tagName.toLowerCase();
+    return tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'textarea' || tag === 'summary';
+  }
+
+  function _enhanceKeyboardA11y() {
+    const selectors = [
+      '.tb[data-tf]',
+      '.asset-tab',
+      '.right-tab',
+      '.ind-tag',
+      '.tb-layout',
+      '[data-quick-action]',
+      '[data-mobile-action]'
+    ];
+    const nodes = document.querySelectorAll(selectors.join(','));
+    nodes.forEach(function (node) {
+      if (_isNativeInteractive(node)) return;
+      if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '0');
+      if (!node.hasAttribute('role')) node.setAttribute('role', 'button');
+      node.dataset.keyboardClick = '1';
+    });
+  }
+
+  function _isTypingContext(el) {
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (el.isContentEditable) return true;
+    return tag === 'input' || tag === 'textarea' || tag === 'select';
+  }
+
+  function _isElementVisible(el) {
+    if (!el) return false;
+    if (el.hidden) return false;
+    const st = window.getComputedStyle(el);
+    return st.display !== 'none' && st.visibility !== 'hidden';
+  }
+
+  function _syncQuickStartVisibility(dock, mobileQuick, isMobileView, dismissed) {
+    if (dock) {
+      dock.hidden = isMobileView ? true : dismissed;
+      dock.setAttribute('aria-hidden', dock.hidden ? 'true' : 'false');
+    }
+    if (mobileQuick) {
+      mobileQuick.hidden = !isMobileView || dismissed;
+      mobileQuick.setAttribute('aria-hidden', mobileQuick.hidden ? 'true' : 'false');
+    }
+  }
+
+  function _setupHeroDialogA11y() {
+    const overlay = document.getElementById('heroOverlay');
+    const closeBtn = document.getElementById('heroClose');
+    if (!_isElementVisible(overlay)) return;
+
+    const focusables = overlay.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusables[0] || closeBtn;
+    first && first.focus && first.focus();
+  }
+
+  document.addEventListener('keydown', function (e) {
+    const target = e.target;
+
+    if ((e.key === 'Enter' || e.key === ' ') && target && target.dataset && target.dataset.keyboardClick === '1') {
+      e.preventDefault();
+      target.click && target.click();
+      return;
+    }
+
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !_isTypingContext(target)) {
+      e.preventDefault();
+      focusSearch();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('heroOverlay');
+      const heroClose = document.getElementById('heroClose');
+      if (_isElementVisible(overlay) && heroClose) {
+        heroClose.click();
+        return;
+      }
+
+      const dock = document.getElementById('quickStartDock');
+      if (dock && !dock.hidden) {
+        dock.hidden = true;
+        dock.setAttribute('aria-hidden', 'true');
+        localStorage.setItem('chartOS_quickStartDismissed', '1');
+      }
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      const overlay = document.getElementById('heroOverlay');
+      if (!_isElementVisible(overlay)) return;
+
+      const focusables = Array.from(
+        overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      ).filter(function (el) {
+        return _isElementVisible(el) && !el.disabled;
+      });
+      if (!focusables.length) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', function () {
+    _enhanceKeyboardA11y();
     const dock = document.getElementById('quickStartDock');
     const mobileQuick = document.getElementById('mobileQuickActions');
     if (!dock && !mobileQuick) return;
-    const isMobileView = window.innerWidth <= 980;
+    _setupHeroDialogA11y();
 
-    // 모바일 레이아웃 안정성 우선: 실험 UI 비활성화
-    if (isMobileView) {
-      if (dock) dock.hidden = true;
-      if (mobileQuick) mobileQuick.hidden = true;
-    }
+    let isMobileView = window.innerWidth <= 980;
 
     markFunnelStep('visit');
 
     const dismissed = localStorage.getItem('chartOS_quickStartDismissed') === '1';
-    if (dock) dock.hidden = isMobileView ? true : dismissed;
+    _syncQuickStartVisibility(dock, mobileQuick, isMobileView, dismissed);
 
     const beginnerOn = localStorage.getItem('chartOS_beginnerFocus') === '1';
     if (beginnerOn) document.body.classList.add('beginner-focus');
+    _syncBeginnerButtonState();
 
     const seenCount = Number(localStorage.getItem('chartOS_quickStartSeen') || '0') + 1;
     localStorage.setItem('chartOS_quickStartSeen', String(seenCount));
 
     if (!dismissed && !isMobileView) {
       trackUx('superchart_quick_start_shown', { visit_count: seenCount });
+      if (seenCount === 1 && dock) {
+        const firstActionBtn = dock.querySelector('[data-quick-action="search"]');
+        if (firstActionBtn) {
+          firstActionBtn.classList.add('is-active');
+          window.setTimeout(function () {
+            firstActionBtn.classList.remove('is-active');
+          }, 4200);
+        }
+        setTip('처음 방문이라면 1) 종목 찾기 → 2) 5분봉 → 3) AI 분석 순서로 시작해보세요.');
+        trackUx('superchart_quick_start_nudge', { variant: 'first_visit_search' });
+      }
     }
 
     const searchInput = document.getElementById('searchInput');
@@ -245,11 +380,24 @@ document.addEventListener('click', function (e) {
           trackUx('superchart_quick_start_click', { action: 'signup' });
           break;
         case 'dismiss':
-          dock.hidden = true;
+          _syncQuickStartVisibility(dock, mobileQuick, isMobileView, true);
           localStorage.setItem('chartOS_quickStartDismissed', '1');
           trackUx('superchart_quick_start_dismissed', {});
           break;
       }
+    });
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () {
+        const nextMobile = window.innerWidth <= 980;
+        if (nextMobile === isMobileView) return;
+        isMobileView = nextMobile;
+        const dismissedNow = localStorage.getItem('chartOS_quickStartDismissed') === '1';
+        _syncQuickStartVisibility(dock, mobileQuick, isMobileView, dismissedNow);
+        trackUx('superchart_viewport_mode_changed', { mobile: isMobileView ? 1 : 0 });
+      }, 120);
     });
 
     if (mobileQuick) {
@@ -265,8 +413,12 @@ document.addEventListener('click', function (e) {
           openRightPaneAI();
           setTip('모바일 AI 분석 탭을 열었습니다.');
         } else if (action === 'guide') {
-          if (dock) dock.hidden = false;
           localStorage.removeItem('chartOS_quickStartDismissed');
+          isMobileView = window.innerWidth <= 980;
+          _syncQuickStartVisibility(dock, mobileQuick, isMobileView, false);
+          if (isMobileView && typeof window.openHelp === 'function') {
+            window.openHelp();
+          }
           setTip('빠른 시작 가이드를 다시 열었습니다.');
         } else if (action === 'signup') {
           clickSignupEntry();

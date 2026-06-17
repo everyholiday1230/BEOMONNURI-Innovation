@@ -64,6 +64,63 @@
     - `pytest -q` PASS (6 passed)
     - `/?qa=indicator` residue self-test OK
 
+- **UI/UX·접근성 고도화 (2026-06-17 4차)**
+  - `static/index.html`
+    - 스킵 링크를 인라인 스크립트 방식에서 `.skip-link` 클래스로 정리(키보드 접근성 개선)
+    - `:focus-visible` 포커스 링 추가로 키보드 탐색 가시성 향상
+    - `prefers-reduced-motion` 대응으로 모션 민감 사용자 배려
+    - Hero CTA/Quick Start 버튼에 `type="button"` 및 구체적 `aria-label` 반영
+    - Quick Start 안내문(`quickStartTip`)에 `aria-live="polite"` 적용
+    - 중복 `class` 속성 정리(`지표/범온지표/매매전략/드로잉/프리셋`, `ohlcBar`)로 스타일 안정성 개선
+  - `static/js/page-events.js`
+    - 비네이티브 클릭 요소(`.tb[data-tf]`, `.asset-tab`, `.right-tab`, `.ind-tag`, `.tb-layout` 등)에 키보드 접근성 보강(`tabindex`, `role=button`, Enter/Space 동작)
+    - `/` 단축키로 검색창 포커스 이동(입력 중 컨텍스트 제외)
+    - `Esc` 키로 빠른 시작 도크 닫기 지원
+  - 회귀 결과
+    - `scripts/release_check.sh` PASS (10/10)
+    - `pytest -q` PASS (6 passed)
+
+- **UI/UX·모바일 사용성 고도화 (2026-06-17 5차)**
+  - `static/index.html`
+    - 모바일에서 `quick-start-dock`는 숨기고 `mobile-quick-actions`는 유지하도록 정책 조정
+    - `mobile-quick-actions`에 `role="navigation"` 및 버튼 `type="button"` 명시
+    - 모바일 하단 안전영역(`env(safe-area-inset-bottom)`) 반영으로 네비 충돌 완화
+  - `static/js/page-events.js`
+    - Quick Start/모바일 퀵액션 표시 상태를 `_syncQuickStartVisibility()`로 일원화(`aria-hidden` 동기화 포함)
+    - Hero 오버레이 접근성 개선: 초기 포커스 이동 + `Esc` 닫기 + `Tab` 포커스 트랩
+    - 모바일 `가이드` 액션에서 dismiss 해제 후 가이드 재노출 및 Help 패널 연동
+  - 회귀 결과
+    - `scripts/release_check.sh` PASS (10/10)
+    - `pytest -q` PASS (6 passed)
+
+- **UI/UX·온보딩 전환 고도화 (2026-06-17 6차)**
+  - `static/js/page-events.js`
+    - 초보 집중 모드 버튼 상태 동기화 함수 추가(`_syncBeginnerButtonState`) 및 `aria-pressed` 동기화
+    - 첫 방문(`quickStartSeen===1`) 사용자를 위한 시작 액션 하이라이트 + 안내 카피 노출
+    - 뷰포트 전환 시(모바일↔데스크톱) Quick Start/모바일 퀵액션 상태 자동 재동기화(`resize` + debounce)
+    - 전환 이벤트 계측(`superchart_viewport_mode_changed`) 추가
+  - `static/index.html`
+    - `quickStartBeginner` 버튼에 `aria-pressed="false"` 기본값 명시
+  - 회귀 결과
+    - `scripts/release_check.sh` PASS (10/10)
+    - `pytest -q` PASS (6 passed)
+
+## ✅ 현재 운영 유사 점검 상태 (2026-06-17)
+
+- **현재 헬스 상태**: `status=ok`, `redis=ok`, `db=not_configured`
+- **의미**:
+  - Redis는 실제 연결 검증 완료(OK)
+  - DB는 미연결 실패가 아니라, `DATABASE_URL` 미주입 정책에 따른 `not_configured`
+- **즉시 운영 기준으로 100% green 하려면**:
+  1. 실제 Postgres `DATABASE_URL` 주입
+  2. 서버 재기동
+  3. `/health`에서 `db=ok` 확인
+
+### 현재 결론
+- 프론트 핵심 기능 QA, 회귀 테스트, Redis, 헬스 정책 기준 점검까지는 **정상**입니다.
+- 단, **실DB 연동까지 완료된 상태는 아님**(현재 `db=not_configured`).
+- 따라서 "모든 것이 완전 정상(운영 DB 포함)"을 확정하려면 `DATABASE_URL` 반영이 마지막 필수 단계입니다.
+
 ---
 
 ## 📁 프로젝트 구조 (새 개발자용 길잡이)

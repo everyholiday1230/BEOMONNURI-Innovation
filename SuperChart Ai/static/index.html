@@ -99,6 +99,33 @@
   font-size: 14px;
   padding: 2px 4px;
 }
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #921230;
+  color: #fff;
+  text-decoration: none;
+  transition: top .15s ease;
+}
+.skip-link:focus {
+  top: 8px;
+}
+:focus-visible {
+  outline: 2px solid #921230;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 .mobile-quick-actions {
   position: fixed;
   left: 8px;
@@ -141,9 +168,12 @@ body.beginner-focus #quickStartBeginner {
   border-color: #921230;
 }
 @media (max-width: 980px) {
-  /* 모바일은 실차트 작업 영역 최우선: 실험 UI 일시 비활성화 */
+  /* 모바일은 도크는 숨기고, 하단 퀵액션만 유지 */
   .quick-start-dock { display: none !important; }
-  .mobile-quick-actions { display: none !important; }
+  .mobile-quick-actions {
+    display: flex !important;
+    bottom: calc(58px + env(safe-area-inset-bottom));
+  }
 }
 </style>
 <script type="application/ld+json">
@@ -241,7 +271,7 @@ body.beginner-focus #quickStartBeginner {
 </script>
 </head>
 <body>
-<a href="#mainContent" class="sr-only" style="position:absolute;top:0;left:0;z-index:9999;padding:8px;background:#921230;color:#fff" onfocus="this.style.clip='auto';this.style.width='auto';this.style.height='auto'" onblur="this.style.clip='rect(0,0,0,0)';this.style.width='1px';this.style.height='1px'">본문으로 건너뛰기</a>
+<a href="#mainContent" class="skip-link">본문으로 건너뛰기</a>
 <h1 class="sr-only">범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석 플랫폼</h1>
 
 <div id="splashScreen">
@@ -271,8 +301,8 @@ body.beginner-focus #quickStartBeginner {
     </div>
 
     <div class="hero-actions">
-      <button aria-label="버튼" id="heroStart" class="btn btn-primary btn-lg btn-block">회원가입</button>
-      <button aria-label="버튼" id="heroDemo" class="btn btn-secondary btn-block">데모 차트 먼저 보기</button>
+      <button type="button" aria-label="회원가입 시작" id="heroStart" class="btn btn-primary btn-lg btn-block">회원가입</button>
+      <button type="button" aria-label="데모 차트 보기" id="heroDemo" class="btn btn-secondary btn-block">데모 차트 먼저 보기</button>
     </div>
 
     <div class="hero-note">✓ 가입 무료</div>
@@ -396,11 +426,11 @@ body.beginner-focus #quickStartBeginner {
       <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
       <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
       <div class="sep"></div>
-      <button aria-label="공개 지표 패널" class="tb" id="indDrawerToggle" data-drawer="public" class="fw-600" title="공개 지표 패널">지표</button>
-      <button aria-label="범온 지표 패널" class="tb" id="beomDrawerToggle" data-drawer="beom" class="fw-600" title="범온 지표 패널">범온지표</button>
-      <button aria-label="매매전략 패널" class="tb" id="strategyDrawerToggle" class="fw-600" title="매매전략 패널">매매전략</button>
-      <button aria-label="드로잉 도구" class="tb" id="drawingDrawerToggle" class="fw-600" title="드로잉 도구">드로잉</button>
-      <button aria-label="프리셋" class="tb" id="presetDrawerToggle" class="fw-600" title="프리셋">프리셋</button>
+      <button aria-label="공개 지표 패널" class="tb fw-600" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
+      <button aria-label="범온 지표 패널" class="tb fw-600" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온지표</button>
+      <button aria-label="매매전략 패널" class="tb fw-600" id="strategyDrawerToggle" title="매매전략 패널">매매전략</button>
+      <button aria-label="드로잉 도구" class="tb fw-600" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
+      <button aria-label="프리셋" class="tb fw-600" id="presetDrawerToggle" title="프리셋">프리셋</button>
       <div class="sep"></div>
       <button aria-label="차트설정 저장" class="tb" data-action="saveSettings" title="차트설정 저장">설정저장</button>
       <button aria-label="전체화면" class="tb" data-action="toggleFullscreen" title="전체화면" id="fsBtn">전체화면</button>
@@ -451,14 +481,14 @@ body.beginner-focus #quickStartBeginner {
   <section id="quickStartDock" class="quick-start-dock" aria-label="빠른 시작 가이드" hidden data-desktop-only="true">
     <div class="quick-start-title">빠른 시작</div>
     <div class="quick-start-actions">
-      <button class="quick-start-btn" data-quick-action="search" title="심볼 검색창으로 이동">1) 종목 찾기</button>
-      <button class="quick-start-btn" data-quick-action="tf-5m" title="5분봉으로 바로 전환">2) 5분봉</button>
-      <button class="quick-start-btn" data-quick-action="open-ai" title="AI 분석 탭으로 이동">3) AI 분석</button>
-      <button class="quick-start-btn" id="quickStartBeginner" data-quick-action="beginner" title="초보 집중 모드 토글">초보 집중 모드</button>
-      <button class="quick-start-btn is-primary" data-quick-action="signup" title="회원가입/로그인">회원가입</button>
+      <button type="button" class="quick-start-btn" data-quick-action="search" title="심볼 검색창으로 이동">1) 종목 찾기</button>
+      <button type="button" class="quick-start-btn" data-quick-action="tf-5m" title="5분봉으로 바로 전환">2) 5분봉</button>
+      <button type="button" class="quick-start-btn" data-quick-action="open-ai" title="AI 분석 탭으로 이동">3) AI 분석</button>
+      <button type="button" class="quick-start-btn" id="quickStartBeginner" data-quick-action="beginner" aria-pressed="false" title="초보 집중 모드 토글">초보 집중 모드</button>
+      <button type="button" class="quick-start-btn is-primary" data-quick-action="signup" title="회원가입/로그인">회원가입</button>
     </div>
-    <button class="quick-start-dismiss" data-quick-action="dismiss" aria-label="빠른 시작 닫기">✕</button>
-    <p id="quickStartTip" class="quick-start-tip">처음이라면 ①종목 선택 → ②5분봉 → ③AI 분석 순서로 확인해보세요. 단축키 <b>/</b>를 누르면 검색창으로 바로 이동합니다.</p>
+    <button type="button" class="quick-start-dismiss" data-quick-action="dismiss" aria-label="빠른 시작 닫기">✕</button>
+    <p id="quickStartTip" class="quick-start-tip" aria-live="polite">처음이라면 ①종목 선택 → ②5분봉 → ③AI 분석 순서로 확인해보세요. 단축키 <b>/</b>를 누르면 검색창으로 바로 이동합니다.</p>
   </section>
   <!-- 데모매매 플로팅 패널 제거됨 — 모의주문 탭(#order)으로 통합 -->
   <!-- 자동매매(AI매매) 패널 — Paper Trading -->
@@ -493,7 +523,7 @@ body.beginner-focus #quickStartBeginner {
     <div id="autobotLog" style="font-size:14px;max-height:120px;overflow-y:auto;color:var(--color-text-muted)"></div>
     <button aria-label=" autobotClear" data-action="_autobotClear" class="mt-xs">신호 지우기</button>
   </div>
-  <div class="ohlc-bar" id="ohlcBar" class="d-none"></div>
+  <div id="ohlcBar" class="ohlc-bar d-none"></div>
   <div id="chartsArea" class="flex-col-full">
     <div id="chart1Panel" class="flex-col-full">
       <div class="chart-wrap" id="chartWrap" style="flex:1;min-height:0;min-width:0">
@@ -1032,11 +1062,11 @@ body.beginner-focus #quickStartBeginner {
 <script defer src="/static/js/draggable-panels.js"></script>
 
 
-<div id="mobileQuickActions" class="mobile-quick-actions" aria-label="모바일 빠른 액션" hidden>
-  <button data-mobile-action="search">종목검색</button>
-  <button data-mobile-action="ai">AI분석</button>
-  <button data-mobile-action="guide">가이드</button>
-  <button data-mobile-action="signup" class="is-primary">회원가입</button>
+<div id="mobileQuickActions" class="mobile-quick-actions" role="navigation" aria-label="모바일 빠른 액션" hidden>
+  <button type="button" data-mobile-action="search">종목검색</button>
+  <button type="button" data-mobile-action="ai">AI분석</button>
+  <button type="button" data-mobile-action="guide">가이드</button>
+  <button type="button" data-mobile-action="signup" class="is-primary">회원가입</button>
 </div>
 
 <nav class="mobile-nav" aria-label="모바일 네비게이션">
