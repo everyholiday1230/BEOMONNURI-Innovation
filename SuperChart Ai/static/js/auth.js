@@ -14,12 +14,13 @@ window._showSupport=function(){let t=document.getElementById("supportModal");if(
     <div style="font-size:14px">
       <div style="margin-bottom:12px"><b style="color:var(--accent)">\uD504\uB85C\uD544</b>
         <div style="margin-top:6px">
-          <div style="margin-bottom:4px">\uB2C9\uB124\uC784: <input id="myNick" value="${_escHtml(window.userName||"")}" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
-          <div style="margin-bottom:4px"><input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
-          <div style="margin-bottom:4px"><input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
-          <div>\uB4F1\uAE09: <b style="color:${window.isPremium()?"#C4384B":"var(--muted)"}">${window.userPlan==="premium"?"VVIP":window.userPlan==="pro"?"VIP":"\uC77C\uBC18"}</b></div>
-        </div>
-        <button onclick="window._saveProfile()" style="margin-top:6px;padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">\uC800\uC7A5</button>
+          <form id="settingsProfileForm" onsubmit="event.preventDefault();window._saveProfile()">
+            <div style="margin-bottom:4px">\uB2C9\uB124\uC784: <input id="myNick" value="${_escHtml(window.userName||"")}" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+            <div style="margin-bottom:4px"><input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" autocomplete="current-password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+            <div style="margin-bottom:4px"><input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" autocomplete="new-password" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;width:120px"></div>
+            <div>\uB4F1\uAE09: <b style="color:${window.isPremium()?"#C4384B":"var(--muted)"}">${window.userPlan==="premium"?"VVIP":window.userPlan==="pro"?"VIP":"\uC77C\uBC18"}</b></div>
+            <button type="submit" style="margin-top:6px;padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">\uC800\uC7A5</button>
+          </form>
       </div>
       <div style="margin-bottom:12px"><b style="color:var(--accent)">\uAC70\uB798\uC18C \uC778\uC99D</b>
         <div style="margin-top:6px" id="verStatusBadge">${window.isPremium()?"PRO \uC778\uC99D \uC644\uB8CC":"\uD655\uC778 \uC911..."}</div>
@@ -82,10 +83,12 @@ window._showSupport=function(){let t=document.getElementById("supportModal");if(
         </div>
         <div style="border-top:1px solid var(--border);padding-top:12px">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text)">\uD504\uB85C\uD544 \uC218\uC815</div>
-          <input id="myNick" placeholder="\uB2C9\uB124\uC784" value="${_escHtml(window.userName||"")}" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
-          <input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
-          <input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
-          <button onclick="window._saveProfile()" style="width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">\uC800\uC7A5</button>
+          <form id="authProfileForm" onsubmit="event.preventDefault();window._saveProfile()">
+            <input id="myNick" placeholder="\uB2C9\uB124\uC784" value="${_escHtml(window.userName||"")}" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
+            <input id="myPwOld" placeholder="\uD604\uC7AC \uBE44\uBC00\uBC88\uD638" type="password" autocomplete="current-password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:6px">
+            <input id="myPwNew" placeholder="\uC0C8 \uBE44\uBC00\uBC88\uD638 (\uBCC0\uACBD \uC2DC)" type="password" autocomplete="new-password" style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:8px">
+            <button type="submit" style="width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">\uC800\uC7A5</button>
+          </form>
         </div>
         ${window.isPremium()?"":`<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
           <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--gold-text)">PRO \uC778\uC99D</div>
@@ -112,25 +115,27 @@ window._showSupport=function(){let t=document.getElementById("supportModal");if(
       <div id="authPhoneRow" style="display:none;margin-bottom:10px">
         <input id="authPhone" placeholder="\uC804\uD654\uBC88\uD638 (010-0000-0000)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">
       </div>
-      <input id="authEmail" placeholder="\uC774\uBA54\uC77C" type="email" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:10px">
-      <input id="authPw" placeholder="\uBE44\uBC00\uBC88\uD638" type="password" oninput="window._pwStrength(this.value)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:2px">
-      <div id="pwStrength" style="height:4px;border-radius:3px;margin-bottom:2px;width:0;transition:all 0.3s"></div>
-      <div id="pwStrengthLabel" style="font-size:11px;height:13px;margin-bottom:2px;text-align:right;transition:color .3s"></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-        <label style="font-size:14px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" onchange="document.getElementById('authPw').type=this.checked?'text':'password'" style="width:12px;height:12px">\uBE44\uBC00\uBC88\uD638 \uD45C\uC2DC</label>
-        <span style="font-size:14px;color:var(--accent);cursor:pointer" onclick="window._forgotPassword()">\uBE44\uBC00\uBC88\uD638\uB97C \uC78A\uC73C\uC168\uB098\uC694?</span>
-      </div>
-      <div id="authTermsRow" style="display:none;margin-bottom:10px">
-        <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;margin-bottom:6px">
-          <input type="checkbox" id="authTerms" style="margin-top:2px">
-          <span><a href="#" onclick="event.preventDefault();window._showTerms('tos')" style="color:var(--accent);text-decoration:underline">\uC774\uC6A9\uC57D\uAD00</a> \uBC0F <a href="#" onclick="event.preventDefault();window._showTerms('privacy')" style="color:var(--accent);text-decoration:underline">\uAC1C\uC778\uC815\uBCF4\uCC98\uB9AC\uBC29\uCE68</a>\uC5D0 \uB3D9\uC758\uD569\uB2C8\uB2E4.</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="authRisk" style="margin-top:2px">
-          <span>\uC554\uD638\uD654\uD3D0 \uD22C\uC790\uB294 \uC6D0\uAE08 \uC190\uC2E4 \uC704\uD5D8\uC774 \uC788\uC73C\uBA70, AI \uBD84\uC11D\uC740 \uD22C\uC790 \uAD8C\uC720\uAC00 \uC544\uB2D8\uC744 \uC774\uD574\uD569\uB2C8\uB2E4.</span>
-        </label>
-      </div>
-      <button id="authSubmit" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">\uB85C\uADF8\uC778</button>
+      <form id="authCredentialForm" onsubmit="event.preventDefault();document.getElementById('authSubmit').click();">
+        <input id="authEmail" placeholder="\uC774\uBA54\uC77C" type="email" autocomplete="email" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:10px">
+        <input id="authPw" placeholder="\uBE44\uBC00\uBC88\uD638" type="password" autocomplete="current-password" oninput="window._pwStrength(this.value)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;margin-bottom:2px">
+        <div id="pwStrength" style="height:4px;border-radius:3px;margin-bottom:2px;width:0;transition:all 0.3s"></div>
+        <div id="pwStrengthLabel" style="font-size:11px;height:13px;margin-bottom:2px;text-align:right;transition:color .3s"></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <label style="font-size:14px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" onchange="document.getElementById('authPw').type=this.checked?'text':'password'" style="width:12px;height:12px">\uBE44\uBC00\uBC88\uD638 \uD45C\uC2DC</label>
+          <span style="font-size:14px;color:var(--accent);cursor:pointer" onclick="window._forgotPassword()">\uBE44\uBC00\uBC88\uD638\uB97C \uC78A\uC73C\uC168\uB098\uC694?</span>
+        </div>
+        <div id="authTermsRow" style="display:none;margin-bottom:10px">
+          <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;margin-bottom:6px">
+            <input type="checkbox" id="authTerms" style="margin-top:2px">
+            <span><a href="#" onclick="event.preventDefault();window._showTerms('tos')" style="color:var(--accent);text-decoration:underline">\uC774\uC6A9\uC57D\uAD00</a> \uBC0F <a href="#" onclick="event.preventDefault();window._showTerms('privacy')" style="color:var(--accent);text-decoration:underline">\uAC1C\uC778\uC815\uBCF4\uCC98\uB9AC\uBC29\uCE68</a>\uC5D0 \uB3D9\uC758\uD569\uB2C8\uB2E4.</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="authRisk" style="margin-top:2px">
+            <span>\uC554\uD638\uD654\uD3D0 \uD22C\uC790\uB294 \uC6D0\uAE08 \uC190\uC2E4 \uC704\uD5D8\uC774 \uC788\uC73C\uBA70, AI \uBD84\uC11D\uC740 \uD22C\uC790 \uAD8C\uC720\uAC00 \uC544\uB2D8\uC744 \uC774\uD574\uD569\uB2C8\uB2E4.</span>
+          </label>
+        </div>
+        <button id="authSubmit" type="submit" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">\uB85C\uADF8\uC778</button>
+      </form>
       <div style="text-align:center;margin:10px 0;color:var(--muted);font-size:14px">\uB610\uB294</div>
       <button onclick="window._googleLogin()" style="width:100%;padding:10px;background:#fff;color:#333;border:1px solid #ddd;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px">Google\uB85C \uACC4\uC18D\uD558\uAE30</button>
       <div id="authError" style="color:var(--red);font-size:14px;margin-top:8px;text-align:center"></div>

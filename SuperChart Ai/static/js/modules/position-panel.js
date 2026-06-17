@@ -89,25 +89,74 @@
   // ─────────── 청산 히트맵 로드 ───────────
   let lastHeatmapData = null;
 
+  function clearHeatmapCanvas() {
+    const cv = document.getElementById('liqHeatmapCanvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+
+  function setLiqOverlayButtonEnabled(enabled) {
+    const btn = document.getElementById('liqOverlayBtn');
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.style.opacity = enabled ? '1' : '0.55';
+    btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    if (!enabled) {
+      btn.classList.remove('btn-uniform-primary');
+      btn.classList.add('btn-uniform-secondary');
+      btn.textContent = '차트 표시';
+    }
+  }
+
+  function renderLiqFallbackMessage(message, withRetry = false) {
+    const sumEl = document.getElementById('liqSummary');
+    if (!sumEl) return;
+    const retryHtml = withRetry
+      ? '<button id="liqRetryBtn" class="btn-uniform-secondary" style="margin-top:8px;padding:5px 10px;font-size:12px">재시도</button>'
+      : '';
+    sumEl.innerHTML = `<div class="text-muted">${message}</div>${retryHtml}`;
+    if (withRetry) {
+      const retryBtn = document.getElementById('liqRetryBtn');
+      if (retryBtn) retryBtn.onclick = () => loadLiquidationHeatmap();
+    }
+  }
+
   async function loadLiquidationHeatmap() {
     const sym = getApiSymbol();
     try {
       const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
       const r = await requester(`/v1/charts/liquidation-heatmap?symbol=${sym}`, { credentials: 'include' });
       if (!r || !r.ok) {
-        const sumEl = document.getElementById('liqSummary');
-        if (sumEl) sumEl.innerHTML = '<span class="text-muted">청산 데이터를 불러오지 못했습니다.</span>';
+        lastHeatmapData = null;
+        clearHeatmapCanvas();
+        removeLiqOverlay();
+        window._liqOverlayActive = false;
+        setLiqOverlayButtonEnabled(false);
+        renderLiqFallbackMessage('청산 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.', true);
         return;
       }
       const d = await r.json().catch(() => null);
       if (!d || !d.success || !d.data) {
-        const sumEl = document.getElementById('liqSummary');
-        if (sumEl) sumEl.innerHTML = '<span class="text-muted">이 종목은 청산 데이터를 제공하지 않습니다. (선물 미상장 종목)</span>';
+        lastHeatmapData = null;
+        clearHeatmapCanvas();
+        removeLiqOverlay();
+        window._liqOverlayActive = false;
+        setLiqOverlayButtonEnabled(false);
+
+        const reason = (d && d.error) ? String(d.error) : '';
+        if (reason.toLowerCase().includes('insufficient data')) {
+          renderLiqFallbackMessage('청산 데이터가 충분하지 않습니다. 거래량이 더 쌓이면 자동 반영됩니다.', true);
+        } else {
+          renderLiqFallbackMessage('이 종목은 청산 데이터를 제공하지 않습니다. (선물 미상장 또는 데이터 미지원)', false);
+        }
         return;
       }
 
       lastHeatmapData = d.data;
       const data = d.data;
+      setLiqOverlayButtonEnabled(true);
 
       const fr = document.getElementById('fundingRateVal');
       if (fr) {
@@ -156,6 +205,12 @@
         applyLiqOverlay(data);
       }
     } catch (e) {
+      lastHeatmapData = null;
+      clearHeatmapCanvas();
+      removeLiqOverlay();
+      window._liqOverlayActive = false;
+      setLiqOverlayButtonEnabled(false);
+      renderLiqFallbackMessage('네트워크 오류로 청산 데이터를 가져오지 못했습니다.', true);
       console.warn('liquidation-heatmap fail', e);
     }
   }
@@ -275,6 +330,8 @@
     window.chart.overlay.drawings = window.chart.overlay.drawings.filter(d => d._calcOwner !== 'liq_heatmap');
     window.chart._dirty = true;
   }
+
+  window._retryLiquidationHeatmap = loadLiquidationHeatmap;
 
   window._loadPositionData = async function() {
     await Promise.all([loadLongShortDetailed(), loadLiquidationHeatmap()]);
