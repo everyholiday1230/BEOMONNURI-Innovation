@@ -2,10 +2,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 from src.db.session import get_db
 from src.models.schemas import ApiResponse
 from src.services.auth import get_current_user_id
 from src.services.admin_helpers import auth_admin_check
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
@@ -22,14 +25,22 @@ async def get_purchased_codes(db: AsyncSession, user_id: str) -> list[str]:
 
 @router.get("/products", response_model=ApiResponse)
 async def list_products(db: AsyncSession = Depends(get_db)):
-    """판매 중인 지표 상품 목록 (공개)."""
-    rows = (await db.execute(text(
-        "SELECT indicator_code, name, price, currency, description FROM indicator_products "
-        "WHERE is_active=true ORDER BY sort_order, name"
-    ))).fetchall()
-    return ApiResponse(data=[{
-        "indicator_code": r[0], "name": r[1], "price": r[2], "currency": r[3], "description": r[4]
-    } for r in rows])
+    """판매 중인 지표 상품 목록 (공개).
+
+    DB가 일시적으로 불능이어도 프런트가 503 콘솔 에러로 흔들리지 않도록
+    빈 목록(success=true)으로 안전 폴백한다.
+    """
+    try:
+        rows = (await db.execute(text(
+            "SELECT indicator_code, name, price, currency, description FROM indicator_products "
+            "WHERE is_active=true ORDER BY sort_order, name"
+        ))).fetchall()
+        return ApiResponse(data=[{
+            "indicator_code": r[0], "name": r[1], "price": r[2], "currency": r[3], "description": r[4]
+        } for r in rows])
+    except Exception as e:
+        logger.warning("purchases.products.fallback", error=str(e)[:200])
+        return ApiResponse(data=[])
 
 
 @router.get("/mine", response_model=ApiResponse)
