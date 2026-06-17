@@ -3,12 +3,24 @@
  * 의존: window.API, window.curSymbol, window.chart, window.t
  */
 
+async function _safeJsonFetch(url, opts) {
+  try {
+    const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+    const r = await requester(url, opts || {});
+    if (!r || !r.ok) return null;
+    const ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+    if (ct && !/application\/json/i.test(ct)) return null;
+    return await r.json().catch(() => null);
+  } catch (_) {
+    return null;
+  }
+}
+
 window._updateBeomSummary = async function(){
   if(!window.curSymbol) return;
   try{
-    const r = await fetch(`${window.API}/v1/charts/candles?symbolId=${encodeURIComponent(window.curSymbol)}&timeframe=1m&limit=200`);
-    const d = await r.json();
-    if(!d.success || !d.data?.candles?.length) return;
+    const d = await _safeJsonFetch(`${window.API}/v1/charts/candles?symbolId=${encodeURIComponent(window.curSymbol)}&timeframe=1m&limit=200`);
+    if(!d?.success || !d.data?.candles?.length) return;
     const candles = d.data.candles.map(c=>({o:parseFloat(c.open),h:parseFloat(c.high),l:parseFloat(c.low),c:parseFloat(c.close),v:parseFloat(c.volume||0)}));
     const n = candles.length;
     if(n < 30) return;
@@ -145,11 +157,16 @@ window._runIndAnalysis = async function(){
   if(!inds.length){ res.innerHTML='<span style="color:#8E7D72">지표를 1개 이상 선택하세요</span>'; return; }
   res.innerHTML='<span style="color:#8E7D72">분석 중...</span>';
   try{
-    const r = await (await window.dedupFetch(`${window.API}/v1/analysis/indicators`,{
+    const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+    const resp = await requester(`${window.API}/v1/analysis/indicators`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({symbol_id: window.curSymbol, timeframe: window.curTf, include_indicators: inds})
-    })).json();
-    const d = r.data;
+    });
+    if (!resp || !resp.ok) throw new Error('analysis request failed');
+    const ct = (resp.headers && resp.headers.get && resp.headers.get('content-type')) || '';
+    if (ct && !/application\/json/i.test(ct)) throw new Error('invalid content-type');
+    const payload = await resp.json().catch(() => null);
+    const d = payload?.data;
     if(!d || !d.items || !d.items.length){ res.innerHTML='<span style="color:var(--color-text-muted)">'+(d?.summary||'데이터 없음')+'</span>'; return; }
     const _T = window.t || (s=>s);
     const col = s => s==='buy'?'#C4384B':s==='sell'?'#3B82F6':'#8E7D72';

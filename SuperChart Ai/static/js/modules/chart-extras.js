@@ -12,9 +12,13 @@ window.addCompareSymbol = async function() {
   const t = window.t || (s => s);
   try {
     const chart = window.chart;
-    const r = await window.dedupFetch(`${window.API}/v1/charts/candles?symbolId=${code}&timeframe=${window.curTf}&limit=${chart?.buffer?.length || 2000}`);
-    const d = await r.json();
-    if (!d.success || !d.data?.candles?.length) { window.showToast?.(t('심볼을 찾을 수 없습니다')); return; }
+    const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+    const r = await requester(`${window.API}/v1/charts/candles?symbolId=${code}&timeframe=${window.curTf}&limit=${chart?.buffer?.length || 2000}`);
+    if (!r || !r.ok) { window.showToast?.(t('심볼을 찾을 수 없습니다')); return; }
+    const ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+    if (ct && !/application\/json/i.test(ct)) { window.showToast?.(t('심볼 데이터 형식 오류')); return; }
+    const d = await r.json().catch(() => null);
+    if (!d?.success || !d.data?.candles?.length) { window.showToast?.(t('심볼을 찾을 수 없습니다')); return; }
     const bars = d.data.candles;
     const base = parseFloat(bars[0].close);
     const normalized = bars.map((c, i) => ({ index: i, value: (parseFloat(c.close) / base - 1) * 100 }));

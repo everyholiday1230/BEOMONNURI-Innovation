@@ -5,6 +5,19 @@
 const API = window.API || '';
 const _urlRef = new URLSearchParams(window.location.search).get('ref') || '';
 
+async function _safeFetchJson(url, opts) {
+  try {
+    const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+    const r = await requester(url, Object.assign({ credentials: 'include' }, opts || {}));
+    if (!r || !r.ok) return null;
+    const ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+    if (!/application\/json/i.test(ct)) return null;
+    return await r.json().catch(() => null);
+  } catch (_) {
+    return null;
+  }
+}
+
 // ═══ 회원가입 폼에 추천 코드 입력란 ═══
 const _authObs = new MutationObserver(() => {
   const modal = document.getElementById('authModal');
@@ -58,16 +71,14 @@ async function _injectReferralDashboard() {
 
   let code = '', points = 0, referrals = 0, tier = 'bronze', totalEarned = 0;
   try {
-    const r1 = await fetch(`${API}/v1/referral/my-code`, {credentials:'include'});
-    const d1 = await r1.json();
-    if (d1.success) {
+    const d1 = await _safeFetchJson(`${API}/v1/referral/my-code`);
+    if (d1?.success && d1?.data) {
       code = d1.data.code;
       tier = d1.data.tier || 'bronze';
       totalEarned = d1.data.total_earned || 0;
     }
-    const r2 = await fetch(`${API}/v1/referral/points`, {credentials:'include'});
-    const d2 = await r2.json();
-    if (d2.success) { points = d2.data.points; referrals = d2.data.referrals; window._refPaidCount = d2.data.paid_referrals || 0; }
+    const d2 = await _safeFetchJson(`${API}/v1/referral/points`);
+    if (d2?.success && d2?.data) { points = d2.data.points; referrals = d2.data.referrals; window._refPaidCount = d2.data.paid_referrals || 0; }
   } catch(e) {}
 
   const inviteLink = `${window.location.origin}?ref=${code}`;
@@ -142,8 +153,8 @@ async function _injectReferralDashboard() {
 
   // ── 프리미엄 지표 스토어 ──
   try {
-    const pr = await fetch(`${API}/v1/purchases/products`).then(r=>r.json());
-    const products = pr.data || [];
+    const pr = await _safeFetchJson(`${API}/v1/purchases/products`);
+    const products = (pr && Array.isArray(pr.data)) ? pr.data : [];
     if (products.length) {
       const owned = (window._purchased || []);
       const store = document.createElement('div');
@@ -197,7 +208,8 @@ window.refreshAuthState = async function(silent) {
 
   _refApplyInFlight = (async () => {
     try {
-      const resp = await fetch(`${API}/v1/referral/apply`, {
+      const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+      const resp = await requester(`${API}/v1/referral/apply`, {
         method: 'POST', credentials: 'include',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ code })

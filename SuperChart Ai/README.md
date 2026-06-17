@@ -43,6 +43,12 @@
   - `static/js/modules/fetch.js`: 응답 캐시 상한(`CACHE_MAX`) 추가로 메모리 사용량 급증 방지
   - `static/js/modules/watchlist.js`: 핵심 API 호출을 `dedupFetch`로 통일하고 비정상 응답(JSON 파싱 실패/비OK) 안전 처리
   - `static/js/modules/trend-insights.js`: 중복 로딩 방지(`loading` guard), 비JSON 응답 무시, 비정상 응답 안전 처리
+  - `static/js/modules/position-panel.js`: long-short/청산 데이터 호출과 heatmap 계산 시 비정상 수치(NaN/0분모) 방어
+  - `static/js/modules/referral-ui.js`: `_safeFetchJson()` 기반으로 레퍼럴/스토어 API 호출 안전화(비JSON/비OK 응답 무시)
+  - `static/js/modules/hotmap.js`: ticker 맵 TTL 캐시(8초) + 빈 데이터/실패 UI 처리로 반복호출 부하와 실패 전파 완화
+  - `static/js/modules/ai-panel.js`: AI 요약/지표 분석 API를 안전 파서로 감싸 비정상 응답 시 UI 깨짐 방지
+  - `static/js/modules/multi-chart.js`: 서브차트/비교차트 데이터 로드 전 구간을 안전 JSON 요청으로 통일해 레이스/파싱 오류 내성 강화
+  - `static/js/modules/chart-extras.js`: 비교 심볼 추가 시 응답 상태/콘텐츠타입 검증으로 런타임 예외 방지
   - `static/js/page-events.js`: 모바일에서 quick-start 도크가 다시 노출되는 재오픈 버그 방지(`isMobileView` 고정 제어)
 
 ---

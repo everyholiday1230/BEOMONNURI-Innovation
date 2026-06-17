@@ -10,6 +10,9 @@ const _ASSET_TAB_CONFIG = [
   { key: 'etf', heatmapBtnId: 'hmTabEtf', hotBtnId: 'hotTabEtf' }
 ];
 
+let _tickerCache = { ts: 0, map: null };
+const _TICKER_CACHE_TTL = 8000;
+
 function _formatCodeParts(symbol) {
   const code = symbol?.code || '';
   if (code.includes('KRW-')) return { base: code.replace('KRW-', ''), quote: '/KRW' };
@@ -36,13 +39,21 @@ function _collectTickerRows(asset) {
 }
 
 async function _getTickerMap() {
-  const allTickers = await fetch('/v1/charts/ticker-24hr').then(r => r.json()).catch(() => []);
+  if (_tickerCache.map && Date.now() - _tickerCache.ts < _TICKER_CACHE_TTL) {
+    return _tickerCache.map;
+  }
+
+  const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+  const r = await requester('/v1/charts/ticker-24hr', { credentials: 'include' }).catch(() => null);
+  if (!r || !r.ok) return _tickerCache.map || {};
+  const allTickers = await r.json().catch(() => []);
   const tickerMap = {};
   if (Array.isArray(allTickers)) {
     allTickers.forEach(t => {
       if (t?.symbol) tickerMap[t.symbol] = t;
     });
   }
+  _tickerCache = { ts: Date.now(), map: tickerMap };
   return tickerMap;
 }
 
@@ -75,6 +86,10 @@ window.loadHeatmap = async function() {
     }
 
     data.sort((a, b) => b.pct - a.pct);
+    if (!data.length) {
+      grid.innerHTML = '<div class="state-empty" style="grid-column:1/-1">시세 데이터가 없습니다</div>';
+      return;
+    }
     const isKo = (localStorage.getItem('chartOS_lang') || 'ko') === 'ko';
 
     let html = '';
@@ -158,7 +173,7 @@ window._loadHotCoins = async function() {
         </div>
         <div style="text-align:right;min-width:110px">
           <div style="font-size:13px;font-weight:600;color:var(--wl-gold)">${fmtPrice(row.price)}</div>
-          <div style="font-size:12px;font-weight:700;color:${changeColor}">${row.pct >= 0 ? '+' : ''}${row.pct.toFixed(2)}%</div>
+          <div style="font-size:12px;font-weight:700;color:${changeColor}">${row.pct >= 0 ? '+' : ''}${Number.isFinite(row.pct) ? row.pct.toFixed(2) : '0.00'}%</div>
           <div style="font-size:11px;color:var(--muted)">거래대금 ${turnoverText}</div>
         </div>
       </div>`;

@@ -12,6 +12,19 @@
 
   const COMPARE_COLORS = ['#921230', '#3B82F6', '#D8B66A', '#10B981'];
 
+  async function _safeJsonRequest(url, opts) {
+    try {
+      const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+      const r = await requester(url, opts || {});
+      if (!r || !r.ok) return null;
+      const ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+      if (ct && !/application\/json/i.test(ct)) return null;
+      return await r.json().catch(() => null);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ─────────── 레이아웃 변경 ───────────
   window._setChartLayout = function(n) {
     if (window.requireLogin && !window.requireLogin('다중 차트')) return;
@@ -179,8 +192,8 @@
           if (!chart.buffer.length) return;
           const t0 = chart.buffer.time[0], end = Math.floor(t0 * 1000) - 1;
           try {
-            const w = await (await fetch(`/v1/charts/candles?symbolId=${chart._subSymbol}&timeframe=${chart._subTf}&limit=500&endTime=${end}`)).json();
-            if (w.success && w.data?.candles?.length) { const h = _mapCandles(w.data.candles); h.length && chart.prependBars(h); }
+            const w = await _safeJsonRequest(`/v1/charts/candles?symbolId=${chart._subSymbol}&timeframe=${chart._subTf}&limit=500&endTime=${end}`);
+            if (w?.success && w.data?.candles?.length) { const h = _mapCandles(w.data.candles); h.length && chart.prependBars(h); }
           } catch {}
         });
         window._subCharts[panelId] = chart;
@@ -464,9 +477,8 @@
     // 모든 비교 종목 데이터 가져오기
     const promises = window._compareSymbols.map(async (s) => {
       try {
-        const r = await fetch(`/v1/charts/candles?symbolId=${s.symbol}&timeframe=${tf}&limit=${limit}`);
-        const d = await r.json();
-        if (!d.success || !d.data?.candles?.length) return null;
+        const d = await _safeJsonRequest(`/v1/charts/candles?symbolId=${s.symbol}&timeframe=${tf}&limit=${limit}`);
+        if (!d?.success || !d.data?.candles?.length) return null;
         return {
           symbol: s.symbol,
           color: s.color,
@@ -531,9 +543,8 @@
         const chart = window._subCharts && window._subCharts[id];
         if (!chart || chart._destroyed || !chart.buffer.length) return;
         try {
-          const r = await fetch(`/v1/charts/candles?symbolId=${chart._subSymbol}&timeframe=${chart._subTf}&limit=2`);
-          const d = await r.json();
-          if (!d.success || !d.data?.candles?.length) return;
+          const d = await _safeJsonRequest(`/v1/charts/candles?symbolId=${chart._subSymbol}&timeframe=${chart._subTf}&limit=2`);
+          if (!d?.success || !d.data?.candles?.length) return;
           const c = d.data.candles[d.data.candles.length - 1];
           const t = parseInt(c.openTime) > 1e12 ? Math.floor(parseInt(c.openTime) / 1000) : Math.floor(new Date(c.openTime).getTime() / 1000);
           chart.updateOrAppend(t, parseFloat(c.open), parseFloat(c.high), parseFloat(c.low), parseFloat(c.close), parseFloat(c.volume || 0));
