@@ -6,15 +6,112 @@
 <title>개인정보처리방침 — 범온 AI 슈퍼차트</title>
 <link rel="stylesheet" href="/static/css/main.css">
 <style>
-body{max-width:800px;margin:0 auto;padding:40px 20px;background:#F7F1EA;color:#3D2B1F;font-family:'Pretendard Variable',sans-serif;line-height:1.8;height:auto;overflow:auto;display:block}
-h1{font-size:24px;color:#921230;margin-bottom:8px}
-h2{font-size:18px;color:#6A1E33;margin-top:32px;margin-bottom:12px;border-bottom:1px solid rgba(216,182,106,0.3);padding-bottom:8px}
-p,li{font-size:14px;color:#3D2B1F}
-.meta{font-size:13px;color:#8E7D72;margin-bottom:32px}
-a{color:#921230}
-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
-th,td{border:1px solid rgba(216,182,106,0.3);padding:8px;text-align:left}
-th{background:rgba(146,18,48,0.05);font-weight:600}
+:root{
+  --wine:#921230;
+  --wine-2:#6A1E33;
+  --gold:#D8B66A;
+  --ink:#1f2937;
+  --muted:#6b7280;
+  --line:rgba(216,182,106,0.32);
+  --surface:rgba(255,255,255,0.84);
+}
+*{box-sizing:border-box}
+body{
+  max-width:1040px;
+  margin:0 auto;
+  padding:36px 18px 72px;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(146,18,48,0.08), transparent 32%),
+    radial-gradient(circle at 94% 92%, rgba(216,182,106,0.16), transparent 36%),
+    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
+  color:var(--ink);
+  font-family:'Pretendard Variable',sans-serif;
+  line-height:1.82;
+}
+h1{
+  font-size:30px;
+  color:var(--wine);
+  margin-bottom:8px;
+  letter-spacing:-0.02em;
+}
+h2{
+  font-size:19px;
+  color:var(--wine-2);
+  margin-top:34px;
+  margin-bottom:14px;
+  border-bottom:1px solid var(--line);
+  padding-bottom:10px;
+  letter-spacing:-0.01em;
+}
+p,li{font-size:14px;color:#334155}
+.meta{font-size:13px;color:#8E7D72;margin-bottom:30px}
+a{color:var(--wine);font-weight:600}
+a:hover{color:#a31540}
+a:focus-visible{
+  outline:3px solid rgba(146,18,48,0.26);
+  outline-offset:2px;
+  border-radius:8px;
+}
+
+body > *{
+  background:transparent;
+}
+
+table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  margin:14px 0;
+  font-size:13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--surface);
+  box-shadow:0 10px 22px rgba(15,23,42,0.06);
+}
+th,td{
+  border-bottom:1px solid rgba(216,182,106,0.24);
+  border-right:1px solid rgba(216,182,106,0.18);
+  padding:10px;
+  text-align:left;
+}
+tr:last-child td{border-bottom:none}
+th:last-child, td:last-child{border-right:none}
+th{
+  background:linear-gradient(180deg, rgba(146,18,48,0.08), rgba(146,18,48,0.03));
+  font-weight:700;
+  color:#4a2330;
+}
+ol,ul{
+  padding-left:18px;
+}
+li{margin-bottom:6px}
+
+p,table,ol,ul{
+  background:var(--surface);
+  border:1px solid rgba(216,182,106,0.18);
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:12px;
+  box-shadow:0 6px 16px rgba(15,23,42,0.04);
+}
+
+@media (prefers-contrast: more){
+  p,table,ol,ul{border-color:#7a1a30}
+  p,li{color:#1f2937}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
+
+@media (max-width:720px){
+  body{padding:24px 12px 56px}
+  h1{font-size:24px}
+  h2{font-size:17px}
+  p,li{font-size:13px}
+  table{font-size:12px;display:block;overflow:auto}
+}
 </style>
 </head>
 <body>

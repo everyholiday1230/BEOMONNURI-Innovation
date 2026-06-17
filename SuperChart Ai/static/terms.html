@@ -6,13 +6,94 @@
 <title>이용약관 — 범온 AI 슈퍼차트</title>
 <link rel="stylesheet" href="/static/css/main.css">
 <style>
-body{max-width:800px;margin:0 auto;padding:40px 20px;background:#F7F1EA;color:#3D2B1F;font-family:'Pretendard Variable',sans-serif;line-height:1.8;height:auto;overflow:auto;display:block}
-h1{font-size:24px;color:#921230;margin-bottom:8px}
-h2{font-size:18px;color:#6A1E33;margin-top:32px;margin-bottom:12px;border-bottom:1px solid rgba(216,182,106,0.3);padding-bottom:8px}
-h3{font-size:15px;margin-top:20px}
-p,li{font-size:14px;color:#3D2B1F}
-.meta{font-size:13px;color:#8E7D72;margin-bottom:32px}
-a{color:#921230}
+:root{
+  --wine:#921230;
+  --wine-2:#6A1E33;
+  --gold:#D8B66A;
+  --ink:#1f2937;
+  --muted:#6b7280;
+  --line:rgba(216,182,106,0.32);
+  --surface:rgba(255,255,255,0.84);
+}
+*{box-sizing:border-box}
+body{
+  max-width:1040px;
+  margin:0 auto;
+  padding:36px 18px 72px;
+  background:
+    radial-gradient(circle at 10% 8%, rgba(146,18,48,0.08), transparent 32%),
+    radial-gradient(circle at 90% 90%, rgba(216,182,106,0.16), transparent 34%),
+    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
+  color:var(--ink);
+  font-family:'Pretendard Variable',sans-serif;
+  line-height:1.82;
+}
+h1{font-size:30px;color:var(--wine);margin-bottom:8px;letter-spacing:-0.02em}
+h2{
+  font-size:19px;
+  color:var(--wine-2);
+  margin-top:34px;
+  margin-bottom:14px;
+  border-bottom:1px solid var(--line);
+  padding-bottom:10px;
+  letter-spacing:-0.01em;
+}
+h3{font-size:15px;margin-top:20px;color:#4b5563}
+p,li{font-size:14px;color:#334155}
+.meta{font-size:13px;color:#8E7D72;margin-bottom:30px}
+a{color:var(--wine);font-weight:600}
+a:hover{color:#a31540}
+a:focus-visible{
+  outline:3px solid rgba(146,18,48,0.26);
+  outline-offset:2px;
+  border-radius:8px;
+}
+
+p,ol,ul,table{
+  background:var(--surface);
+  border:1px solid rgba(216,182,106,0.18);
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:12px;
+  box-shadow:0 6px 16px rgba(15,23,42,0.04);
+}
+
+ol,ul{padding-left:32px}
+li{margin-bottom:6px}
+
+table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  font-size:13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+}
+table td,table th{
+  border-bottom:1px solid rgba(216,182,106,0.24) !important;
+  border-right:1px solid rgba(216,182,106,0.18) !important;
+  padding:9px !important;
+}
+table tr:last-child td{border-bottom:none !important}
+table td:last-child, table th:last-child{border-right:none !important}
+
+@media (prefers-contrast: more){
+  p,ol,ul,table{border-color:#7a1a30}
+  p,li{color:#1f2937}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
+
+@media (max-width:720px){
+  body{padding:24px 12px 56px}
+  h1{font-size:24px}
+  h2{font-size:17px}
+  p,li{font-size:13px}
+  table{font-size:12px;display:block;overflow:auto}
+}
 </style>
 </head>
 <body>

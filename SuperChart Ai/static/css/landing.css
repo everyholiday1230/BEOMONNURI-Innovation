@@ -7,10 +7,12 @@
   --wine: #921230;
   --wine-hover: #A31540;
   --wine-dark: #6A1E33;
+  --wine-deep: #4D1022;
   --gold: #D8B66A;
   --gold-light: #E8D4A0;
   --gold-dark: #B8942E;
   --bg: #FAFAFA;
+  --bg-soft: #F8F2EB;
   --bg-dark: #0F0F12;
   --surface: #FFFFFF;
   --surface-dark: #1A1A22;
@@ -20,14 +22,14 @@
   --border: #E2E8F0;
   --border-dark: rgba(255,255,255,0.08);
   --font: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
   --radius-xl: 24px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
-  --shadow-xl: 0 24px 60px rgba(0,0,0,0.16);
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
+  --shadow-md: 0 8px 18px rgba(15,23,42,0.08);
+  --shadow-lg: 0 18px 40px rgba(15,23,42,0.12);
+  --shadow-xl: 0 28px 64px rgba(15,23,42,0.18);
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -39,13 +41,22 @@ body {
   font-size: 16px;
   line-height: 1.6;
   color: var(--text);
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 8% 4%, rgba(146,18,48,0.1), transparent 32%),
+    radial-gradient(circle at 92% 86%, rgba(216,182,106,0.15), transparent 34%),
+    linear-gradient(180deg, #fdfaf7 0%, var(--bg-soft) 42%, #f7f1ea 100%);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 a { text-decoration: none; color: inherit; }
 img { max-width: 100%; height: auto; display: block; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+:focus-visible {
+  outline: 3px solid rgba(146,18,48,0.38);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
 
 /* === Container === */
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
@@ -54,10 +65,20 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   padding: 16px 0;
-  background: rgba(250,250,250,0.8);
+  background: rgba(255,251,247,0.82);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid transparent;
   transition: var(--transition);
+}
+.nav::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(216,182,106,0.55), transparent);
+  opacity: 0.7;
 }
 .nav.scrolled {
   padding: 10px 0;
@@ -105,6 +126,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   position: relative; min-height: 100vh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 120px 0 60px;
   overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 80px 10% auto;
+  height: 360px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(255,246,237,0.42));
+  border: 1px solid rgba(216,182,106,0.22);
+  box-shadow: 0 24px 60px rgba(15,23,42,0.1);
+  z-index: 0;
 }
 .hero-bg { position: absolute; inset: 0; pointer-events: none; }
 .hero-grid {
@@ -233,8 +265,19 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .feature-card {
   padding: 32px; border-radius: var(--radius-lg);
-  background: var(--surface); border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,250,244,0.82));
+  border: 1px solid rgba(216,182,106,0.28);
   transition: var(--transition); position: relative; overflow: hidden;
+}
+.feature-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -22% -46% auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(216,182,106,0.16), transparent 68%);
+  pointer-events: none;
 }
 .feature-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -337,8 +380,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* === CTA === */
 .section-cta {
-  background: linear-gradient(135deg, var(--wine) 0%, var(--wine-dark) 100%);
-  text-align: center; padding: 80px 0;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(216,182,106,0.26), transparent 36%),
+    linear-gradient(135deg, var(--wine) 0%, var(--wine-dark) 62%, var(--wine-deep) 100%);
+  text-align: center; padding: 84px 0;
+}
+.cta-content {
+  padding: 14px 18px;
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  box-shadow: 0 20px 44px rgba(0,0,0,0.2);
 }
 .cta-title { font-size: clamp(28px, 4vw, 38px); font-weight: 800; color: #fff; margin-bottom: 14px; }
 .cta-desc { font-size: 17px; color: rgba(255,255,255,0.75); margin-bottom: 32px; }
@@ -348,7 +400,18 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .section-cta .btn-primary:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
 
 /* === Footer === */
-.footer { padding: 48px 0 24px; border-top: 1px solid var(--border); }
+.footer {
+  padding: 52px 0 24px;
+  border-top: 1px solid rgba(216,182,106,0.34);
+  background: linear-gradient(180deg, rgba(255,255,255,0.68), rgba(250,245,238,0.86));
+}
+.footer-links a {
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+.footer-links a:hover {
+  background: rgba(146,18,48,0.08);
+}
 .footer-grid { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 24px; margin-bottom: 24px; }
 .footer-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--wine); }
 .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -416,6 +479,22 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .tech-grid { grid-template-columns: 1fr; }
   .indicators-grid { grid-template-columns: 1fr; }
   .section-title { font-size: 24px; }
+}
+
+@media (prefers-contrast: more) {
+  .feature-card,
+  .tech-front,
+  .faq-item,
+  .btn-secondary {
+    border-color: #7a1a30;
+  }
+
+  .section-desc,
+  .feature-desc,
+  .faq-answer,
+  .footer-links a {
+    color: #1f2937;
+  }
 }
 
 /* === Reduced Motion === */

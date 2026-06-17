@@ -6,17 +6,73 @@
 <title>공지사항 — 범온 AI 슈퍼차트</title>
 <link rel="stylesheet" href="/static/css/main.css">
 <style>
-body{max-width:800px;margin:0 auto;padding:40px 20px;background:#F7F1EA;color:#3D2B1F;font-family:'Pretendard Variable',sans-serif;line-height:1.8;height:auto;overflow:auto;display:block}
-h1{font-size:24px;color:#921230;margin-bottom:8px}
-.notice{border:1px solid rgba(216,182,106,0.3);border-radius:8px;padding:16px;margin-bottom:16px}
-.notice-date{font-size:12px;color:#8E7D72}
-.notice-title{font-size:16px;font-weight:600;color:#3D2B1F;margin:4px 0 8px}
-.notice-body{font-size:14px;color:#475569;line-height:1.7}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-right:6px}
-.badge-new{background:rgba(146,18,48,0.1);color:#921230}
-.badge-update{background:rgba(216,182,106,0.15);color:#8B6914}
-.badge-event{background:rgba(59,130,246,0.1);color:#2563EB}
-a{color:#921230}
+:root{
+  --wine:#921230;
+  --wine-2:#6A1E33;
+  --gold:#D8B66A;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --line:rgba(216,182,106,0.32);
+}
+*{box-sizing:border-box}
+body{
+  max-width:960px;
+  margin:0 auto;
+  padding:36px 18px 64px;
+  background:
+    radial-gradient(circle at 10% 5%, rgba(146,18,48,0.07), transparent 30%),
+    radial-gradient(circle at 90% 86%, rgba(216,182,106,0.14), transparent 34%),
+    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
+  color:var(--text);
+  font-family:'Pretendard Variable',sans-serif;
+  line-height:1.8;
+}
+h1{font-size:30px;font-weight:800;color:var(--wine);margin-bottom:8px;letter-spacing:-0.02em}
+.notice{
+  border:1px solid rgba(216,182,106,0.28);
+  border-radius:14px;
+  padding:16px 16px 14px;
+  margin-bottom:12px;
+  background:rgba(255,255,255,0.86);
+  box-shadow:0 10px 24px rgba(15,23,42,0.08);
+  transition:all .2s ease;
+}
+.notice:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 30px rgba(15,23,42,0.12);
+  border-color:rgba(146,18,48,0.34);
+}
+.notice-date{font-size:12px;color:#8E7D72;font-weight:600}
+.notice-title{font-size:17px;font-weight:700;color:#2f1d1f;margin:6px 0 10px;letter-spacing:-0.01em}
+.notice-body{font-size:14px;color:#475569;line-height:1.78}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px;vertical-align:middle}
+.badge-new{background:rgba(146,18,48,0.12);color:#921230}
+.badge-update{background:rgba(216,182,106,0.2);color:#8B6914}
+.badge-event{background:rgba(59,130,246,0.14);color:#1d4ed8}
+a{color:#921230;font-weight:600}
+a:hover{color:#a31540}
+a:focus-visible{
+  outline:3px solid rgba(146,18,48,0.26);
+  outline-offset:2px;
+  border-radius:8px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .notice:hover{transform:none}
+}
+
+@media (prefers-contrast: more){
+  .notice{border-color:#7a1a30}
+  .notice-body{color:#1f2937}
+}
+
+@media (max-width:640px){
+  body{padding:24px 12px 54px}
+  h1{font-size:24px}
+  .notice{border-radius:12px;padding:13px 12px}
+  .notice-title{font-size:15px}
+}
 </style>
 </head>
 <body>
