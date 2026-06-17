@@ -50,6 +50,19 @@
   - `static/js/modules/multi-chart.js`: 서브차트/비교차트 데이터 로드 전 구간을 안전 JSON 요청으로 통일해 레이스/파싱 오류 내성 강화
   - `static/js/modules/chart-extras.js`: 비교 심볼 추가 시 응답 상태/콘텐츠타입 검증으로 런타임 예외 방지
   - `static/js/page-events.js`: 모바일에서 quick-start 도크가 다시 노출되는 재오픈 버그 방지(`isMobileView` 고정 제어)
+- **릴리즈 직전 핫픽스 (2026-06-17 3차)**
+  - `src/main.py`: `/v1/charts/qsignal` 라우터 누락(include) 수정으로 404 제거
+  - `src/api/ops/health.py`: 로컬 기본값(DB/Redis 미설정) 환경에서 `db/redis=not_configured` 처리로 헬스 false-degraded 방지
+    - 운영 강제 점검 필요 시 `HEALTH_REQUIRE_DB=1`, `HEALTH_REQUIRE_REDIS=1` 사용
+  - `static/js/modules/position-panel.js`: `liquidation-heatmap`가 `insufficient data`일 때
+    - 사용자 안내 문구 + 재시도 버튼 노출
+    - 캔버스/오버레이 정리, 오버레이 버튼 비활성화로 오작동 방지
+  - `static/js/auth.js`: 비밀번호 입력 필드를 `<form>` 컨텍스트로 정리하고 `autocomplete` 지정
+    - 브라우저 password-field 경고 감소, 엔터 제출 UX 개선
+  - QA 결과
+    - `scripts/release_check.sh` PASS (10/10)
+    - `pytest -q` PASS (6 passed)
+    - `/?qa=indicator` residue self-test OK
 
 ---
 
