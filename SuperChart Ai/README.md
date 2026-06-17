@@ -73,16 +73,11 @@ chart-os/
 │   ├── coin-logos/       #   코인 로고 · stock-logos/ · brand/(서비스 로고)
 │   └── *.html            #   faq · notice · terms · privacy
 ├── templates/admin.html  # 어드민 대시보드
-├── scripts/
-│   ├── bots/             #   자동매매 봇 (운영 중)
-│   ├── backtest/         #   백테스트 스크립트 (실험용)
-│   ├── analysis/         #   데이터 분석 스크립트
-│   ├── db/               #   DB 시드/스키마 (ensure_schema, reseed_symbols, seed_faqs)
-│   └── manage_bots.sh    #   봇 관리 (start/stop/check) — cron 연동
 ├── alembic/              # DB 마이그레이션
-├── tests/                # 테스트
 ├── docs/                 # 문서 (배포·QA·리팩토링 기록)
-├── archive/              # 보관 (옛 모듈, 백테스트 결과 등 — 운영 미사용)
+├── src/db/ddl.sql        # 기준 DDL 스키마
+├── scripts/release_check.sh  # 출시 전 자동 스모크 점검
+├── tests/                # 기본 회귀 테스트
 ├── render.yaml           # 실서버 배포 설정 (Render)
 └── Dockerfile            # 컨테이너 빌드
 ```
@@ -143,6 +138,16 @@ source .venv/bin/activate
 uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
+## 출시 전 점검 (권장)
+
+```bash
+# 서버 실행 후 자동 스모크 점검
+bash scripts/release_check.sh
+
+# 기본 유닛 테스트
+python3 -m pytest -q
+```
+
 ---
 
 ## API 엔드포인트
@@ -158,6 +163,8 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000
 | WS | `/v1/ws` | 실시간 WebSocket |
 | POST | `/v1/auth/signup` | 회원가입 |
 | POST | `/v1/auth/login` | 로그인 |
+
+> 보안 정책: 프로덕션에서는 OpenAPI 문서(`/docs`, `/openapi.json`)가 기본 비활성화(`docs_url=None`)입니다.
 
 ---
 

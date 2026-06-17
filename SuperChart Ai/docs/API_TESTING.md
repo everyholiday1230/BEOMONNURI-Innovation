@@ -4,7 +4,7 @@
 ```bash
 bash scripts/release_check.sh
 ```
-18개 항목 자동 검증 (헬스/입력검증/CSRF/Rate limit/보안헤더/WS/응답형식/실시간/백업/환경변수)
+기본 스모크/보안 항목 자동 검증 (헬스/입력검증/CSRF/보안헤더/WS/인증 필수 엔드포인트).
 
 ## 수동 API 테스트 시나리오
 
@@ -40,16 +40,18 @@ curl "http://localhost:8000/v1/charts/candles?symbolId=BTCUSDT&timeframe=1m&limi
 
 ### 3. CSRF 보호
 ```bash
-# CSRF 쿠키만 있고 헤더 없음 (403 기대)
-curl -X POST "http://localhost:8000/v1/auth/me" \
+# CSRF 쿠키만 있고 헤더 없음 (설정/미들웨어 순서에 따라 401 또는 403)
+curl -X POST "http://localhost:8000/v1/auth/update-profile" \
   -H "Cookie: csrf_token=test" \
-  -d '{}'
+  -H "Content-Type: application/json" \
+  -d '{"nickname":"qa"}'
 
-# 일치하면 통과 (다른 인증 에러)
-curl -X POST "http://localhost:8000/v1/auth/me" \
+# CSRF 쿠키/헤더 일치 시 CSRF 단계 통과 (인증 없음이면 401 기대)
+curl -X POST "http://localhost:8000/v1/auth/update-profile" \
   -H "Cookie: csrf_token=test" \
   -H "X-CSRF-Token: test" \
-  -d '{}'
+  -H "Content-Type: application/json" \
+  -d '{"nickname":"qa"}'
 ```
 
 ### 4. Rate Limiting

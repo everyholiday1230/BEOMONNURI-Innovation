@@ -461,10 +461,12 @@ _register_track_visits(app)
 from src.api import auth, symbols, charts, watchlists, layouts, alerts, analysis, trading, site
 from src.api import portfolio
 from src.api import paper_trading
+from src.api import qsignal
 app.include_router(auth.router, prefix="/v1/auth", tags=["Auth"])
 app.include_router(site.router, prefix="/v1/site", tags=["Site"])
 app.include_router(symbols.router, prefix="/v1", tags=["Symbols"])
 app.include_router(charts.router, prefix="/v1/charts", tags=["Charts"])
+app.include_router(qsignal.router, prefix="/v1/charts", tags=["QSignal"])
 app.include_router(watchlists.router, prefix="/v1/watchlists", tags=["Watchlists"])
 app.include_router(layouts.router, prefix="/v1/layouts", tags=["Layouts"])
 app.include_router(alerts.router, prefix="/v1/alerts", tags=["Alerts"])
