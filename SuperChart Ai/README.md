@@ -12,6 +12,39 @@
 - 알림 시스템
 - 사용자 인증 + 워치리스트
 
+## 🆕 2026-06 실서비스 UX 개선 (실제 차트 페이지)
+
+`static/index.html`, `static/js/page-events.js` 기준으로 실제 서비스 화면 UX를 보강했습니다.
+
+- **빠른 시작 도크 추가**: 첫 진입 사용자가 바로 실행할 수 있는 5단계 액션 제공
+  - 종목 찾기 → 5분봉 전환 → AI 분석 탭 이동 → 초보 집중 모드 → 회원가입
+- **초보 집중 모드 추가**: 과밀한 화면에서 핵심 조작만 남기도록 토글 제공
+  - 관심종목/관심지표 행, 더보기 도구, 일부 보조 정보 숨김
+  - `localStorage(chartOS_beginnerFocus)`로 사용자 선택 유지
+- **행동 이벤트 계측 추가**
+  - `superchart_quick_start_shown`
+  - `superchart_quick_start_click`
+  - `superchart_quick_start_dismissed`
+  - `superchart_beginner_focus_toggled`
+- **2차 모바일 UX 강화**
+  - 하단 네비 위 `mobileQuickActions`(종목검색/AI분석/가이드/회원가입) 추가
+  - `aiIndRunBtn` 식별자 추가로 AI 분석 실행 퍼널 정확도 개선
+- **온보딩 퍼널 스텝 추적(세션 기준 1회)**
+  - `superchart_onboarding_step` (visit, search_focus, timeframe_select, ai_tab_open, signup_click, ai_analysis_run)
+  - `superchart_mobile_quick_action`
+- **보조지표 잔상(ghost) 정리 강화 (2026-06-17)**
+  - `static/js/main-app.js`에 `__guardSubChartWrites`, `__pruneInactiveSubCharts` 루틴 적용
+  - 비활성 토글 상태에서 늦게 도착한 비동기 응답이 `setSubChart()`를 다시 쓰는 문제를 차단
+  - `pvi-nvi / patterns / ttr` 드로잉에 `_calcOwner`를 부여하고, 응답 적용 직전 토글 상태 재검증(`!it`, `!Ue`, `!le`) 추가
+  - 런타임 진단용 `window.__indicatorResidueProbe()` 노출 (서브차트/지표/드로잉 잔존 탐지)
+  - 결과적으로 ON→OFF 반복 시 `subCharts`/`drawings` 내부 잔존 가능성을 낮추는 안전장치 반영
+- **오류 복원력/성능 최적화 (2026-06-17 2차)**
+  - `static/js/modules/fetch.js`: inflight dedup key를 `method+url+body(+auth)` 기반으로 개선해 잘못된 응답 공유 방지
+  - `static/js/modules/fetch.js`: 응답 캐시 상한(`CACHE_MAX`) 추가로 메모리 사용량 급증 방지
+  - `static/js/modules/watchlist.js`: 핵심 API 호출을 `dedupFetch`로 통일하고 비정상 응답(JSON 파싱 실패/비OK) 안전 처리
+  - `static/js/modules/trend-insights.js`: 중복 로딩 방지(`loading` guard), 비JSON 응답 무시, 비정상 응답 안전 처리
+  - `static/js/page-events.js`: 모바일에서 quick-start 도크가 다시 노출되는 재오픈 버그 방지(`isMobileView` 고정 제어)
+
 ---
 
 ## 📁 프로젝트 구조 (새 개발자용 길잡이)

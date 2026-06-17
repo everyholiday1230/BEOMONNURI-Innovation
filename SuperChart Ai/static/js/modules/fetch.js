@@ -8,6 +8,7 @@ const _inflight = new Map();
 // 차트 GET 요청만 캐시. 짧은 TTL로 신선도 유지. POST/auth/실시간성 높은 건 제외.
 const _respCache = new Map();   // key(url) -> {ts, body, status, ct}
 const CACHE_TTL = 8000;         // 8초
+const CACHE_MAX = 120;
 const _CACHEABLE = /\/v1\/charts\/(candles|ind-|orderblocks|trendlines|ticker-24hr|long-short|ind-mtf)/;
 function _cacheable(url, opts) {
   const method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
@@ -21,6 +22,22 @@ function _cacheGet(url) {
 }
 function _makeResp(e) {
   return new Response(e.body, { status: e.status, headers: { 'Content-Type': e.ct || 'application/json' } });
+}
+function _cacheSet(url, payload) {
+  _respCache.set(url, payload);
+  if (_respCache.size <= CACHE_MAX) return;
+  const oldestKey = _respCache.keys().next().value;
+  if (oldestKey) _respCache.delete(oldestKey);
+}
+function _buildKey(url, opts) {
+  const method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
+  let bodyKey = '';
+  try {
+    if (opts && typeof opts.body === 'string') bodyKey = opts.body;
+    else if (opts && opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) bodyKey = JSON.stringify(opts.body);
+  } catch (_) { bodyKey = ''; }
+  const auth = (opts && opts.headers && (opts.headers.Authorization || opts.headers.authorization)) || '';
+  return `${method}::${url}::${bodyKey}::${auth ? 'auth' : 'anon'}`;
 }
 
 const RETRY_MAX = 2;
@@ -47,7 +64,7 @@ export function dedupFetch(url, opts) {
   if (!opts.headers) opts.headers = {};
   if (!opts.credentials) opts.credentials = 'include';
   if (window.authToken && window.authToken !== 'cookie' && !opts.headers['Authorization']) opts.headers['Authorization'] = 'Bearer ' + window.authToken;
-  const key = url;
+  const key = _buildKey(url, opts);
   if (_inflight.has(key)) return _inflight.get(key).then(r => r.clone());
 
   // 캐시 적중 → 즉시 반환 (요청 0)
@@ -95,7 +112,7 @@ export function dedupFetch(url, opts) {
         if (r.ok && _cacheable(url, opts)) {
           try {
             const body = await r.clone().text();
-            _respCache.set(url, { ts: Date.now(), body, status: r.status, ct: r.headers.get('Content-Type') || 'application/json' });
+            _cacheSet(url, { ts: Date.now(), body, status: r.status, ct: r.headers.get('Content-Type') || 'application/json' });
           } catch (e) { /* 캐시 실패 무시 */ }
         }
 

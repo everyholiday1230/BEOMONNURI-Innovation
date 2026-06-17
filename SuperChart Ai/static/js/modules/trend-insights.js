@@ -4,6 +4,7 @@
 
   let currentCat = 'top_gainers';
   let cachedData = null;
+  let loading = false;
 
   const MOOD_CLASS = {
     bullish: 'tag-pill-up',
@@ -14,14 +15,22 @@
   };
 
   async function loadTrendInsights() {
+    if (loading) return;
+    loading = true;
     try {
-      const r = await fetch('/v1/charts/trend-insights');
-      const d = await r.json();
-      if (!d.success) return;
+      const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+      const r = await requester('/v1/charts/trend-insights', { credentials: 'include' });
+      if (!r || !r.ok) return;
+      const ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+      if (!/application\/json/i.test(ct)) return;
+      const d = await r.json().catch(() => null);
+      if (!d || !d.success || !d.data) return;
       cachedData = d.data;
       render();
     } catch (e) {
       console.warn('trend-insights load fail', e);
+    } finally {
+      loading = false;
     }
   }
 

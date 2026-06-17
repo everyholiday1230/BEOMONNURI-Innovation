@@ -3,6 +3,8 @@
  * 종목 로드, 렌더링, 가격 업데이트, 정렬
  */
 
+import { dedupFetch as _df } from './fetch.js';
+
 let symbols = [];
 const coinImgUrl = {};
 const _apiMap = {};
@@ -65,8 +67,9 @@ export async function loadSymbolsFromDB() {
     const seen = new Set();
 
     while (true) {
-      const r = await fetch(`/v1/symbols?page=${page}&page_size=${pageSize}`);
-      const j = await r.json();
+      const r = await _df(`/v1/symbols?page=${page}&page_size=${pageSize}`);
+      if (!r || !r.ok) break;
+      const j = await r.json().catch(() => null);
       const items = (j && j.success && j.data && Array.isArray(j.data.items)) ? j.data.items : [];
 
       if (!items.length) break;
@@ -142,8 +145,9 @@ function _sortSymbols(list) {
 
 export async function loadWLPrices() {
   try {
-    const r = await fetch('/v1/charts/ticker-24hr');
-    const data = await r.json();
+    const r = await _df('/v1/charts/ticker-24hr');
+    if (!r || !r.ok) return;
+    const data = await r.json().catch(() => null);
     if (!Array.isArray(data)) return;
     const map = {};
     for (const t of data) map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
@@ -152,9 +156,11 @@ export async function loadWLPrices() {
     const missing = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]);
     if (missing.length) {
       const fills = await Promise.allSettled(missing.map(s =>
-        fetch(`/v1/charts/ticker-24hr?symbol=${s.apiCode || s.code}`).then(r2 => r2.json()).then(d2 => {
-          if (d2 && d2.lastPrice) map[d2.symbol || s.code] = { price: parseFloat(d2.lastPrice), pct: parseFloat(d2.priceChangePercent || 0) };
-        }).catch(() => {})
+        _df(`/v1/charts/ticker-24hr?symbol=${s.apiCode || s.code}`)
+          .then(r2 => (r2 && r2.ok) ? r2.json() : null)
+          .then(d2 => {
+            if (d2 && d2.lastPrice) map[d2.symbol || s.code] = { price: parseFloat(d2.lastPrice), pct: parseFloat(d2.priceChangePercent || 0) };
+          }).catch(() => {})
       ));
     }
     for (const s of symbols) {

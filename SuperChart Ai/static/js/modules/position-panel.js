@@ -17,9 +17,11 @@
   async function loadLongShortDetailed() {
     const sym = getApiSymbol();
     try {
-      const r = await fetch(`/v1/charts/long-short-detailed?symbol=${sym}`);
-      const d = await r.json();
-      if (!d.success) return;
+      const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+      const r = await requester(`/v1/charts/long-short-detailed?symbol=${sym}`, { credentials: 'include' });
+      if (!r || !r.ok) return;
+      const d = await r.json().catch(() => null);
+      if (!d || !d.success || !d.data) return;
 
       const data = d.data;
       const tbl = document.getElementById('lsDetailedTable');
@@ -90,9 +92,15 @@
   async function loadLiquidationHeatmap() {
     const sym = getApiSymbol();
     try {
-      const r = await fetch(`/v1/charts/liquidation-heatmap?symbol=${sym}`);
-      const d = await r.json();
-      if (!d.success) {
+      const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+      const r = await requester(`/v1/charts/liquidation-heatmap?symbol=${sym}`, { credentials: 'include' });
+      if (!r || !r.ok) {
+        const sumEl = document.getElementById('liqSummary');
+        if (sumEl) sumEl.innerHTML = '<span class="text-muted">청산 데이터를 불러오지 못했습니다.</span>';
+        return;
+      }
+      const d = await r.json().catch(() => null);
+      if (!d || !d.success || !d.data) {
         const sumEl = document.getElementById('liqSummary');
         if (sumEl) sumEl.innerHTML = '<span class="text-muted">이 종목은 청산 데이터를 제공하지 않습니다. (선물 미상장 종목)</span>';
         return;
@@ -160,8 +168,9 @@
     ctx.clearRect(0, 0, W, H);
 
     const buckets = data.buckets;
+    if (!Array.isArray(buckets) || !buckets.length) return;
     const maxAmt = Math.max(...buckets.map(b => Math.max(b.long_liq, b.short_liq)));
-    if (maxAmt <= 0) return;
+    if (!Number.isFinite(maxAmt) || maxAmt <= 0) return;
 
     const sortedByPrice = [...buckets].sort((a, b) => b.price - a.price);
     const rowH = H / sortedByPrice.length;
@@ -169,7 +178,9 @@
 
     const priceMin = Math.min(...buckets.map(b => b.price));
     const priceMax = Math.max(...buckets.map(b => b.price));
-    const curPriceY = H - ((data.current_price - priceMin) / (priceMax - priceMin)) * H;
+    const priceRange = priceMax - priceMin;
+    if (!Number.isFinite(priceRange) || priceRange <= 0) return;
+    const curPriceY = H - ((data.current_price - priceMin) / priceRange) * H;
 
     sortedByPrice.forEach((b, i) => {
       const y = i * rowH;
