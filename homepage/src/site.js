@@ -444,11 +444,8 @@ function renderFooter(lang) {
 
   return `
 <footer class="site-footer">
+  <a class="footer-banner" href="${b}/" aria-label="${company}"><img src="/assets/logo.png" alt="${company} 로고" width="56" height="78" /><span>${company}</span></a>
   <div class="footer-inner">
-    <section class="footer-col footer-about">
-      <a class="footer-brand" href="${b}/"><img src="/assets/logo.png" alt="" width="34" height="48" />${company}</a>
-      <p>${t.footerTagline}</p>
-    </section>
     <nav class="footer-col" aria-label="${t.footerNavTitle}">
       <h2>${t.footerNavTitle}</h2>
       <a href="${b}/products/">${t.nav.products}</a>

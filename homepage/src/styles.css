@@ -790,18 +790,20 @@ table.product-compare td { color: var(--muted); font-size: .94rem; }
 
 /* ── Footer ────────────────────────────────────────────── */
 .site-footer { margin-top: clamp(4.5rem, 8vw, 7rem); border-top: var(--border); background: var(--paper-soft); }
-.footer-inner { padding: clamp(2.6rem, 5vw, 3.6rem) 0 1.8rem; display: grid; grid-template-columns: 1.7fr 1fr 1.5fr 1.1fr; gap: 2rem; align-items: start; }
+.footer-banner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .55rem; padding: clamp(2.4rem, 5vw, 3.4rem) 1rem 1.4rem; text-align: center; color: var(--ink) !important; font-weight: 800; font-size: clamp(1.25rem, 2.4vw, 1.7rem); letter-spacing: -.01em; }
+.footer-banner img { width: clamp(48px, 7vw, 64px); height: auto; object-fit: contain; }
+.footer-inner { padding: clamp(1.6rem, 3vw, 2.4rem) 0 1.8rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; align-items: start; }
 .footer-col h2 { font-size: .82rem; color: var(--ink); margin-bottom: .9rem; letter-spacing: .04em; text-transform: uppercase; font-weight: 800; }
 .footer-col a { display: block; color: var(--muted); font-weight: 600; margin: .35rem 0; transition: color .2s var(--ease); }
 .footer-col a:hover { color: var(--brand); }
-.footer-about p { color: var(--muted); max-width: 36ch; font-size: .92rem; line-height: 1.6; }
 .footer-brand { display: inline-flex !important; align-items: center; gap: .65rem; color: var(--ink) !important; font-weight: 800; margin-bottom: .9rem !important; }
 .footer-brand img { width: 28px; height: 40px; object-fit: contain; }
 .footer-meta { display: grid; gap: .6rem; margin: 0; }
 .footer-meta div { display: grid; grid-template-columns: 4.5em 1fr; gap: .6rem; font-size: .86rem; }
 .footer-meta dt { color: var(--ink); font-weight: 700; white-space: nowrap; }
 .footer-meta dd { margin: 0; color: var(--muted); line-height: 1.5; }
-.footer-email { display: inline-block; color: var(--brand) !important; font-weight: 700; word-break: break-all; }
+.footer-email { display: inline-block; color: var(--brand) !important; font-weight: 700; word-break: break-all; transition: color .2s var(--ease); }
+.footer-email:hover, .footer-email:focus-visible { color: var(--brand-dark) !important; text-decoration: underline; }
 .footer-legal { width: min(100% - 1rem, var(--max)); margin: 0 auto; padding: 1.3rem 0 1.8rem; border-top: var(--border); }
 .footer-legal > p { font-size: .84rem; color: var(--muted); margin: 0; }
 .footer-legal .copyright { width: auto; margin: 0; padding: 0; border-top: 0; font-size: .84rem; letter-spacing: .01em; }
