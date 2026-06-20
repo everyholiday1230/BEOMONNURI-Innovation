@@ -13,7 +13,12 @@ BINANCE_REST = "https://fapi.binance.com"
 
 class BinanceIngestV2:
     def __init__(self, symbols: list[str]):
-        self._symbols = [s.upper() for s in symbols]
+        # 방어 필터: Binance Futures USDT 무기한만 허용.
+        # 비-USDT(주식/ETF/원자재)는 /fapi/v1/klines 에서 Invalid symbol(code -2) 유발하므로 차단.
+        self._symbols = [s.upper() for s in symbols if str(s).upper().endswith("USDT")]
+        _dropped = [s for s in symbols if not str(s).upper().endswith("USDT")]
+        if _dropped:
+            logger.warning("binance.rest.dropped_non_usdt", count=len(_dropped), sample=_dropped[:5])
         self._tfs = ["1m", "5m", "15m", "1h", "4h", "1d"]
         self._running = False
         self._callbacks: list = []

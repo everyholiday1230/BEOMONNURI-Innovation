@@ -9,7 +9,12 @@ logger = structlog.get_logger(__name__)
 
 class BinanceIngest:
     def __init__(self, symbols: list[str], timeframe: str = "5m"):
-        self._symbols = [s.lower() for s in symbols]
+        # 방어 필터: Binance Futures USDT 무기한만 허용.
+        # 주식/ETF/원자재(CL=F, AAPL 등)가 섞여 들어오면 WS HTTP 400 을 유발하므로 차단.
+        self._symbols = [s.lower() for s in symbols if str(s).upper().endswith("USDT")]
+        _dropped = [s for s in symbols if not str(s).upper().endswith("USDT")]
+        if _dropped:
+            logger.warning("binance.ws.dropped_non_usdt", count=len(_dropped), sample=_dropped[:5])
         self._tfs = ["1m", "5m", "15m", "1h", "4h", "1d"]
         self._running = False
         self._callbacks: list = []

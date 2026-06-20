@@ -287,6 +287,29 @@ def get_all_symbols() -> list[str]:
     return list(SYMBOL_EXCHANGE.keys())
 
 
+# Binance(crypto) 거래소 식별자. DEFAULT_SYMBOLS / CURATED_SYMBOLS 의 exchange_id 와 일치.
+BINANCE_EXCHANGE_ID = 2
+
+
+def get_binance_symbols() -> list[str]:
+    """Binance Futures 수집 대상(crypto) API 심볼만 반환.
+
+    주식/ETF/원자재(TWELVE_DATA, exchange_id=4)는 Binance 에 존재하지 않아
+    REST `Invalid symbol`(code -2) / WS `HTTP 400` 을 유발하므로 제외한다.
+    중복 제거 + 등록 순서 유지.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for code, exchange_id, api_code in _iter_seed_symbols():
+        if int(exchange_id) != BINANCE_EXCHANGE_ID:
+            continue
+        api = SYMBOL_API_MAP.get(code, api_code or code)
+        if api and api not in seen:
+            seen.add(api)
+            out.append(api)
+    return out
+
+
 def get_api_symbol(sym: str) -> str:
     """프론트 심볼 → 거래소 API 심볼."""
     return SYMBOL_API_MAP.get(sym, sym)

@@ -3,22 +3,28 @@ import asyncio
 import structlog
 from src.ingest.binance_rest import BinanceIngestV2
 from src.ingest.binance_ws import BinanceIngest
-from src.services.symbol_resolver import get_all_symbols, get_api_symbol
+from src.services.symbol_resolver import get_binance_symbols
 
 logger = structlog.get_logger(__name__)
 
 
 def _build_ingest_symbols() -> list[str]:
-    """DB 심볼 목록에서 거래소 API 심볼(1000xxx 변환 포함) 생성. 중복 제거.
-    Futures 미상장 종목은 제외 (error=-2 방지)."""
+    """Binance Futures 수집 대상(crypto) API 심볼 목록 생성. 중복 제거.
+
+    - crypto(exchange_id=2)만 포함. 주식/ETF/원자재(TWELVE_DATA)는 Binance 미상장 →
+      REST `Invalid symbol`(code -2) / WS `HTTP 400` 유발하므로 제외.
+    - Futures 미상장 Spot 전용 밈코인 등도 추가 제외 (error=-2 방지).
+    """
     # Futures에 없는 종목 (Spot 전용 밈코인 등)
-    _FUTURES_EXCLUDED = {'BONKUSDT','FLOKIUSDT','LUNCUSDT','PEPEUSDT','RADUSDT','SHIBUSDT'}
+    _FUTURES_EXCLUDED = {'BONKUSDT', 'FLOKIUSDT', 'LUNCUSDT', 'PEPEUSDT', 'RADUSDT', 'SHIBUSDT'}
     seen = set()
     out = []
-    for sym in get_all_symbols():
-        if sym in _FUTURES_EXCLUDED:
+    for api in get_binance_symbols():
+        if api in _FUTURES_EXCLUDED:
             continue
-        api = get_api_symbol(sym)
+        # 안전장치: Binance Futures USDT 무기한만 허용 (오염 심볼 차단)
+        if not api.endswith('USDT'):
+            continue
         if api not in seen:
             seen.add(api)
             out.append(api)
