@@ -43,7 +43,7 @@
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260620_posv2">
+<link rel="stylesheet" href="/static/css/main.css?v=20260620_mockv2">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1442,7 +1442,7 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="right-tab" data-p="hot" title="거래량·변동성 상위 10종목 (실시간)">인기 TOP<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="heatmap" title="전 종목 실시간 등락률 한눈에">히트맵<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
-    <div class="right-tab" data-p="order" title="가상 매수·매도 연습 (실제 거래 아님)">모의주문</div>
+    <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
     <div class="right-tab" data-p="position" title="롱숏 비율 + 청산 히트맵 — 기관 자금 흐름">포지션</div>
   </div>
   <div class="right-pane active" id="ai">
@@ -1630,24 +1630,63 @@ body.dark #_toastContainer .pro-toast-chip {
 
   <div class="right-pane" id="order">
     <div class="p-12">
-      <div class="pane-title">모의주문 (Paper Trading)</div>
+      <!-- 1) 헤더 -->
+      <div class="mt-header">
+        <div class="pane-title">모의주문</div>
+        <div class="pane-desc">가상 자금으로 진입가, 목표가, 손절가, 손익비를 연습합니다.</div>
+        <div class="mt-badges">
+          <span class="mt-badge">가상 거래</span>
+          <span class="mt-badge">실제 주문 아님</span>
+          <span class="mt-badge">연습 모드</span>
+        </div>
+      </div>
 
-      <!-- 잔고 카드 -->
-      <div id="paperBalanceCard" style="margin-bottom:10px"></div>
+      <!-- 2) 모의 계좌 요약 -->
+      <div id="mtAccount"></div>
 
-      <!-- 주문 폼 -->
-      <div id="paperOrderForm" style="margin-bottom:10px"></div>
+      <!-- 비로그인 안내 (조건부) -->
+      <div id="mtLoginHint"></div>
 
-      <!-- 미체결 주문 -->
-      <div id="paperPendingOrders"></div>
+      <!-- 모바일 단계 표시 -->
+      <div id="mtStepper" class="mt-stepper" hidden></div>
 
-      <!-- 활성 포지션 -->
-      <div id="paperPositions" style="margin-top:10px"></div>
+      <!-- 3~7) 모의 주문 빌더 -->
+      <div id="mtBuilder"></div>
 
-      <!-- 거래 히스토리 -->
-      <div id="paperHistory" style="margin-top:10px;max-height:300px;overflow-y:auto;border-top:1px solid rgba(0,0,0,0.05);padding-top:8px"></div>
+      <!-- 9) 예상 손익 카드 -->
+      <div id="mtPnlCard"></div>
+
+      <!-- 10) 청산 위험 참고 -->
+      <div id="mtLiqCard"></div>
+
+      <!-- 11) 리스크 체크 -->
+      <div id="mtRiskCard"></div>
+
+      <!-- 8) 유효성/상태 메시지 -->
+      <div id="mtValidation" class="mt-validation" role="status" aria-live="polite"></div>
+
+      <!-- 13) 모의 주문 생성 -->
+      <button id="mtCreateBtn" class="mt-btn mt-btn-primary mt-btn-block" type="button" onclick="window.PaperTrading.create()">모의 주문 생성</button>
+
+      <!-- 12) 차트 연동 토글 -->
+      <label class="mt-overlay-toggle"><input type="checkbox" id="mtOverlayToggle" onchange="window.PaperTrading.toggleOverlay(this.checked)"> 차트에 가상 진입가·목표가·손절 기준가 표시</label>
+
+      <!-- 14) 진행 중인 모의 포지션 -->
+      <div id="mtPositions" class="mt-section-block"></div>
+
+      <!-- 15) 모의 주문 기록 -->
+      <div id="mtRecords" class="mt-section-block"></div>
+
+      <!-- 17) AI 복기 요약 -->
+      <div id="mtAiReview" class="mt-section-block"></div>
+
+      <!-- 고지 -->
+      <p class="mt-disclaimer">모의주문은 실제 거래가 아닌 가상 시뮬레이션입니다. 표시되는 손익, 청산가, 수수료, 슬리피지는 입력값과 가정값을 기반으로 한 참고 정보이며 실제 거래 결과와 다를 수 있습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
     </div>
   </div>
+
+  <!-- 복기 작성 / 초기화 확인 모달 마운트 -->
+  <div id="mtModalRoot"></div>
 
   <div class="right-pane" id="position">
     <div class="p-12">
@@ -1762,7 +1801,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <script defer src="/static/js/modules/shortcuts.js?v=20260526_i18n"></script>
 <script defer src="/static/js/modules/data-actions.js"></script>
 <script defer src="/static/js/modules/chart-extras.js"></script>
-<script defer src="/static/js/modules/paper-trading.js"></script>
+<script defer src="/static/js/modules/paper-trading.js?v=20260620_mockv2"></script>
 <script defer src="/static/js/modules/referral-ui.js"></script>
 <script defer src="/static/js/page-events.js"></script>
 <script defer src="/static/js/autobot.js"></script>

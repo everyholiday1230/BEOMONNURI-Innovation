@@ -1,994 +1,824 @@
 // ═══════════════════════════════════════════════════════════════
-// paper-trading.js — 거래소 수준 모의주문 시스템 v2
+// paper-trading.js — 모의주문 연습 도구 (리스크 관리형 시뮬레이션)
 //
-// 기능:
-// - 잔고/마진/사용가능/미실현PnL 추적
-// - 레버리지 (1x~100x) + 격리/교차 마진
-// - 시장가/지정가 주문, SL/TP, 부분청산
-// - 차트 마커 자동 복원 (종목/TF 변경 시에도)
-// - 거래 히스토리 + DB 동기화 (로그인 시)
+// 실제 주문 기능이 아니라 가상 자금으로 진입가/목표가/손절가/수량/레버리지/
+// 수수료/예상 손익/손익비를 "연습"하는 도구. 매수/매도/주문하기 등 실제 거래
+// 지시 표현을 쓰지 않는다. 브랜드 컬러만 사용, 파란색/네온/이모지 금지.
+// 백엔드 /v1/paper sync 재사용 (history 항목에 복기 필드 확장 저장).
 // ═══════════════════════════════════════════════════════════════
 
 (function(){
   'use strict';
 
-  // ───────── 상수 ─────────
-  const INITIAL_BALANCE = 1000;  // $1,000 시작
-  const FEE_RATE = 0.0004;        // 0.04% 수수료 (Binance Futures Taker)
-  const MAINTENANCE_MARGIN_RATE = 0.005;  // 청산 유지마진율 0.5%
+  const INITIAL_BALANCE = 1000;        // 가상 잔고 시작
+  const DEFAULT_FEE_RATE = 0.04;       // % (왕복 계산 시 ×2)
+  const MAINT_MARGIN_RATE = 0.005;     // 유지 증거금율(참고용)
+  const GUEST_MAX_POSITIONS = 3;       // 비로그인 임시 모의 포지션 허용 수
 
   // ───────── 상태 ─────────
   const State = {
     balance: parseFloat(localStorage.getItem('paperBalance') || INITIAL_BALANCE),
-    positions: JSON.parse(localStorage.getItem('paperPositions') || '[]'),
-    history: JSON.parse(localStorage.getItem('paperHistory') || '[]'),
-    pendingOrders: JSON.parse(localStorage.getItem('paperPendingOrders') || '[]'),
+    positions: safeJSON('paperPositions', []),
+    history: safeJSON('paperHistory', []),
     settings: {
-      leverage: parseInt(localStorage.getItem('paperLeverage') || '5'),
-      marginMode: localStorage.getItem('paperMarginMode') || 'isolated',  // isolated|cross
-    }
+      leverage: parseInt(localStorage.getItem('paperLeverage') || '3'),
+      feeRate: parseFloat(localStorage.getItem('paperFeeRate') || DEFAULT_FEE_RATE),
+    },
+  };
+  function safeJSON(key, def) { try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(def)); } catch { return def; } }
+
+  // 빌더(폼) 상태
+  const Form = {
+    direction: 'long',     // long | short (방향 연습)
+    priceMode: 'current',  // current | limit
+    leverage: State.settings.leverage,
+    feeRate: State.settings.feeRate,
+    slippage: 0.05,        // % 가정
   };
 
-  // 구버전 mockPos/mockHistory 마이그레이션
-  (function migrate(){
-    if (localStorage.getItem('paperMigrated_v2')) return;
-    try {
-      const oldPos = JSON.parse(localStorage.getItem('mockPos') || '[]');
-      const oldHist = JSON.parse(localStorage.getItem('mockHistory') || '[]');
-      const oldBal = parseFloat(localStorage.getItem('mockBalance') || '0');
-      
-      if (oldPos.length || oldHist.length) {
-        // 포지션 변환 (구버전: side='buy'/'sell', sl/tp는 %)
-        for (const p of oldPos) {
-          State.positions.push({
-            id: 'pos_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-            sym: p.sym,
-            side: p.side === 'buy' ? 'long' : 'short',
-            entry: p.price,
-            qty: p.qty / p.price,  // USDT → 코인 수량
-            margin: p.qty / (State.settings.leverage || 5),
-            leverage: State.settings.leverage || 5,
-            marginMode: 'isolated',
-            sl: p.sl ? p.price * (p.side==='buy' ? (1-p.sl/100) : (1+p.sl/100)) : null,
-            tp: p.tp ? p.price * (p.side==='buy' ? (1+p.tp/100) : (1-p.tp/100)) : null,
-            time: p.time || Date.now(),
-            timeframe: p.timeframe || null,
-            barIndex: p.barIndex !== undefined ? p.barIndex : null,
-          });
-        }
-        State.history = oldHist.map(h => ({
-          ...h,
-          side: h.side === 'buy' ? 'long' : (h.side === 'sell' ? 'short' : h.side),
-        }));
-        if (oldBal > 0) State.balance = oldBal;
-        save();
-      }
-      localStorage.setItem('paperMigrated_v2', '1');
-    } catch(e) { /* silent */ }
-  })();
+  // 기록 필터/정렬
+  let recordFilter = 'all';
+  let recordSort = 'recent';
 
-  // ───────── 저장 ─────────
+  const isLoggedIn = () => !!(window.isLoggedIn && window.isLoggedIn());
+
+  // ───────── 저장/동기화 ─────────
   function save() {
-    localStorage.setItem('paperBalance', String(State.balance));
-    localStorage.setItem('paperPositions', JSON.stringify(State.positions));
-    localStorage.setItem('paperHistory', JSON.stringify(State.history.slice(-200)));
-    localStorage.setItem('paperPendingOrders', JSON.stringify(State.pendingOrders));
-    localStorage.setItem('paperLeverage', String(State.settings.leverage));
-    localStorage.setItem('paperMarginMode', State.settings.marginMode);
-    
-    // 백엔드 동기화 (로그인 시)
+    try {
+      localStorage.setItem('paperBalance', String(State.balance));
+      localStorage.setItem('paperPositions', JSON.stringify(State.positions));
+      localStorage.setItem('paperHistory', JSON.stringify(State.history.slice(-200)));
+      localStorage.setItem('paperLeverage', String(State.settings.leverage));
+      localStorage.setItem('paperFeeRate', String(State.settings.feeRate));
+    } catch {}
     syncToServer();
   }
-
   let _syncTimer = null;
   function syncToServer() {
-    if (!window.isLoggedIn?.()) return;
+    if (!isLoggedIn()) return;
     if (_syncTimer) clearTimeout(_syncTimer);
     _syncTimer = setTimeout(async () => {
       try {
         await fetch('/v1/paper/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            balance: State.balance,
-            positions: State.positions,
-            history: State.history.slice(-100),
-            settings: State.settings,
-          })
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ balance: State.balance, positions: State.positions, history: State.history.slice(-100), settings: State.settings }),
         });
-      } catch(e) { /* silent */ }
-    }, 3000);  // 3초 디바운스
+      } catch {}
+    }, 3000);
   }
-
-  // 페이지 로드 시 서버에서 가져오기
   async function loadFromServer() {
-    if (!window.isLoggedIn?.()) return;
+    if (!isLoggedIn()) { renderAll(); return; }
     try {
       const r = await fetch('/v1/paper/state', { credentials: 'include' });
       if (!r.ok) return;
       const d = await r.json();
-      if (d.success && d.data) {
+      if (d && d.success && d.data) {
         if (typeof d.data.balance === 'number') State.balance = d.data.balance;
         if (Array.isArray(d.data.positions)) State.positions = d.data.positions;
         if (Array.isArray(d.data.history)) State.history = d.data.history;
         if (d.data.settings) Object.assign(State.settings, d.data.settings);
+        Form.leverage = State.settings.leverage;
         renderAll();
       }
-    } catch(e) { /* silent */ }
+    } catch {}
   }
 
-  // ───────── 가격 조회 ─────────
+  // ───────── 가격 ─────────
   function getCurrentPrice(sym) {
-    if (sym === window.curSymbol && window._rt?.lastPrice) return window._rt.lastPrice;
-    if (window._wlPriceCache?.[sym]?.price) return window._wlPriceCache[sym].price;
-    // 차트 buffer
-    if (sym === window.curSymbol && window.chart?.buffer?.length) {
+    sym = sym || window.curSymbol;
+    if (sym === window.curSymbol && window._rt && window._rt.lastPrice) return window._rt.lastPrice;
+    if (window._wlPriceCache && window._wlPriceCache[sym] && window._wlPriceCache[sym].price) return window._wlPriceCache[sym].price;
+    if (sym === window.curSymbol && window.chart && window.chart.buffer && window.chart.buffer.length) {
       return window.chart.buffer.close[window.chart.buffer.length - 1];
     }
     return null;
   }
 
-  // 보유 포지션 종목 중 가격 캐시에 없는 것을 ticker-24hr로 보충 (다른 종목 포지션 손익 정확도)
-  let _posPriceTimer = null;
-  async function pollPositionPrices() {
-    if (!State.positions.length) return;
-    window._wlPriceCache = window._wlPriceCache || {};
-    const need = [...new Set(State.positions.map(p => p.sym))]
-      .filter(sym => sym !== window.curSymbol && !window._wlPriceCache[sym]?.price);
-    if (!need.length) return;
-    const apiOf = sym => {
-      if (Array.isArray(window.symbols)) {
-        const s = window.symbols.find(x => x.code === sym);
-        if (s && (s.apiCode || s.code)) return s.apiCode || s.code;
-      }
-      return sym;
-    };
-    await Promise.all(need.map(async sym => {
-      try {
-        const r = await fetch(`/v1/charts/ticker-24hr?symbol=${encodeURIComponent(apiOf(sym))}`);
-        const d = await r.json();
-        const px = parseFloat(d?.lastPrice ?? 0);
-        if (px > 0) window._wlPriceCache[sym] = { price: px, pct: parseFloat(d?.priceChangePercent ?? 0) };
-      } catch (e) { /* silent */ }
-    }));
-  }
+  // ───────── 포맷 ─────────
+  const fmtP = p => { p = Number(p) || 0; return p >= 1000 ? p.toLocaleString('en-US', { maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 6 : 2); };
+  const fmtUSD = v => { v = Number(v) || 0; return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(2); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  function symShort(sym) { return (sym || '').replace('USDT', '').replace('KRW-', ''); }
 
-  // ───────── 계산 ─────────
-  function calcPnl(pos, currentPrice) {
-    if (!currentPrice) return { pnl: 0, pnlPct: 0, roe: 0 };
-    const diff = pos.side === 'long' ? (currentPrice - pos.entry) : (pos.entry - currentPrice);
+  // ───────── 계좌 계산 ─────────
+  function usedMargin() { return State.positions.reduce((s, p) => s + (p.margin || 0), 0); }
+  function unrealizedPnl() {
+    let t = 0;
+    for (const p of State.positions) { const c = getCurrentPrice(p.sym); if (c) t += pnlOf(p, c).pnl; }
+    return t;
+  }
+  function availableBalance() { return State.balance - usedMargin(); }
+  function totalEquity() { return State.balance + unrealizedPnl(); }
+  function pnlOf(pos, cur) {
+    const diff = pos.direction === 'long' ? (cur - pos.entry) : (pos.entry - cur);
     const pnl = diff * pos.qty;
-    const pnlPct = (diff / pos.entry) * 100;
-    const roe = (pnl / pos.margin) * 100;  // ROE = PnL / 마진
-    return { pnl, pnlPct, roe };
+    const pct = (diff / pos.entry) * 100;
+    const roe = pos.margin > 0 ? (pnl / pos.margin) * 100 : 0;
+    return { pnl, pct, roe };
   }
-
-  function calcLiquidation(pos) {
-    // 격리: 포지션 마진만 버퍼. 교차: 마진 + 가용잔고가 버퍼라 청산가가 더 멀어짐.
-    let buffer = (1 / pos.leverage) * (1 - MAINTENANCE_MARGIN_RATE);
-    if (pos.marginMode === 'cross') {
-      const notional = pos.qty * pos.entry;
-      if (notional > 0) {
-        // 다른 격리 포지션 마진을 제외한 가용 잔고를 이 포지션의 추가 버퍼로 사용
-        const otherMargin = State.positions.reduce((s, p) => s + (p.id !== pos.id ? p.margin : 0), 0);
-        const extra = Math.max(0, (State.balance - otherMargin - pos.margin));
-        buffer += (extra / notional);
-      }
-    }
-    return pos.side === 'long'
-      ? pos.entry * (1 - buffer)
-      : pos.entry * (1 + buffer);
-  }
-
-  function calcUnrealizedPnl() {
-    let total = 0;
-    for (const p of State.positions) {
-      const cur = getCurrentPrice(p.sym);
-      if (cur) {
-        const { pnl } = calcPnl(p, cur);
-        total += pnl;
-      }
-    }
-    return total;
-  }
-
-  function calcUsedMargin() {
-    return State.positions.reduce((s, p) => s + p.margin, 0);
-  }
-
-  function calcAvailableBalance() {
-    return State.balance - calcUsedMargin();
-  }
-
-  function calcTotalEquity() {
-    return State.balance + calcUnrealizedPnl();
-  }
-
-  // ───────── 주문 ─────────
-  function placeOrder(opts) {
-    const { sym, side, type, price, qtyUsdt, sl, tp, leverage, marginMode } = opts;
-    const lev = leverage || State.settings.leverage;
-    const mode = marginMode || State.settings.marginMode;
-    
-    const curPrice = type === 'limit' ? price : getCurrentPrice(sym);
-    if (!curPrice) {
-      window.showToast?.('가격 정보 없음', '#3B82F6');
-      return false;
-    }
-    
-    const margin = qtyUsdt / lev;
-    if (margin > calcAvailableBalance()) {
-      window.showToast?.(`사용가능 잔고 부족 ($${calcAvailableBalance().toFixed(2)})`, '#3B82F6');
-      return false;
-    }
-    
-    const qty = qtyUsdt / curPrice;  // 코인 수량
-    const fee = qtyUsdt * FEE_RATE;
-    
-    if (type === 'limit' && price !== getCurrentPrice(sym)) {
-      // 미체결 주문
-      State.pendingOrders.push({
-        id: 'ord_' + Date.now(),
-        sym, side, type, price, qtyUsdt, sl, tp, leverage: lev, marginMode: mode,
-        time: Date.now(),
-      });
-      save();
-      renderAll();
-      window.showToast?.(`지정가 주문 등록 ${sym} ${side === 'long' ? '롱' : '숏'} @ $${price}`, '#D8B66A');
-      return true;
-    }
-    
-    // 시장가 즉시 체결
-    const slPrice = sl ? curPrice * (side === 'long' ? (1 - sl/100) : (1 + sl/100)) : null;
-    const tpPrice = tp ? curPrice * (side === 'long' ? (1 + tp/100) : (1 - tp/100)) : null;
-    
-    const pos = {
-      id: 'pos_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-      sym, side,
-      entry: curPrice,
-      qty,
-      margin,
-      leverage: lev,
-      marginMode: mode,
-      sl: slPrice,
-      tp: tpPrice,
-      slPct: sl,
-      tpPct: tp,
-      time: Date.now(),
-      timeframe: window.curTf || null,
-      barIndex: window.chart?.buffer?.length ? window.chart.buffer.length - 1 : null,
-      fee,
+  function stats() {
+    const h = State.history.filter(x => typeof x.pnl === 'number');
+    const n = h.length;
+    if (!n) return { n: 0, winRate: 0, realized: 0, avgRR: 0 };
+    const wins = h.filter(x => x.pnl > 0).length;
+    const rrs = h.filter(x => typeof x.rr === 'number' && x.rr > 0).map(x => x.rr);
+    return {
+      n, winRate: Math.round(wins / n * 100),
+      realized: h.reduce((a, x) => a + x.pnl, 0),
+      avgRR: rrs.length ? (rrs.reduce((a, b) => a + b, 0) / rrs.length) : 0,
     };
-    
-    State.balance -= fee;  // 진입 수수료
+  }
+
+  // ───────── 레버리지 위험 등급 ─────────
+  function levTier(lev) {
+    if (lev >= 20) return { label: '매우 높은 위험', cls: 'mt-tier-extreme' };
+    if (lev >= 10) return { label: '높은 위험', cls: 'mt-tier-high' };
+    if (lev >= 5) return { label: '보통', cls: 'mt-tier-mid' };
+    return { label: '낮음', cls: 'mt-tier-low' };
+  }
+
+  // ───────── 빌더 입력값 수집 ─────────
+  function readForm() {
+    const sym = window.curSymbol || 'BTCUSDT';
+    const cur = getCurrentPrice(sym);
+    const num = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : NaN; };
+    const refPrice = Form.priceMode === 'current' ? cur : num('mtRefPrice');
+    let entry = num('mtEntry');
+    if (!Number.isFinite(entry)) entry = refPrice; // 기본: 기준가
+    const amount = num('mtAmount');
+    const target = num('mtTarget');
+    const stop = num('mtStop');
+    return {
+      sym, cur, refPrice, entry, amount,
+      target: Number.isFinite(target) ? target : null,
+      stop: Number.isFinite(stop) ? stop : null,
+      leverage: Form.leverage, feeRate: Form.feeRate, slippage: Form.slippage,
+      direction: Form.direction,
+    };
+  }
+
+  // ───────── 계산(예상 손익/손익비/필요승률/청산) ─────────
+  function compute(f) {
+    const out = { valid: false, errors: [] };
+    if (!Number.isFinite(f.entry) || f.entry <= 0) out.errors.push('진입가를 확인해 주세요. 기준 가격을 불러오지 못했을 수 있습니다.');
+    if (!Number.isFinite(f.amount) || f.amount <= 0) out.errors.push('투입 금액을 입력해 주세요.');
+    if (f.amount > availableBalance() + 1e-9) out.errors.push(`가상 잔고가 부족합니다. 사용 가능: ${fmtUSD(availableBalance())}`);
+
+    // 방향별 목표/손절 유효성
+    if (f.target != null) {
+      if (f.direction === 'long' && f.target <= f.entry) out.errors.push('롱 방향 연습에서는 목표가가 진입가보다 높아야 합니다.');
+      if (f.direction === 'short' && f.target >= f.entry) out.errors.push('숏 방향 연습에서는 목표가가 진입가보다 낮아야 합니다.');
+    }
+    if (f.stop != null) {
+      if (f.direction === 'long' && f.stop >= f.entry) out.errors.push('롱 방향 연습에서는 손절 기준가가 진입가보다 낮아야 합니다.');
+      if (f.direction === 'short' && f.stop <= f.entry) out.errors.push('숏 방향 연습에서는 손절 기준가가 진입가보다 높아야 합니다.');
+    }
+
+    if (Number.isFinite(f.entry) && f.entry > 0 && Number.isFinite(f.amount) && f.amount > 0) {
+      const notional = f.amount * f.leverage;     // 포지션 명목 규모
+      const qty = notional / f.entry;             // 수량
+      const margin = f.amount;                    // 투입 금액 = 증거금
+      const feeRoundTrip = notional * (f.feeRate / 100) * 2;
+      const slipCost = notional * (f.slippage / 100);
+
+      let expGain = null, expLoss = null, rr = null, reqWin = null;
+      if (f.target != null) {
+        const d = f.direction === 'long' ? (f.target - f.entry) : (f.entry - f.target);
+        expGain = d * qty - feeRoundTrip - slipCost;
+      }
+      if (f.stop != null) {
+        const d = f.direction === 'long' ? (f.entry - f.stop) : (f.stop - f.entry);
+        expLoss = -(d * qty) - feeRoundTrip - slipCost; // 음수
+      }
+      if (expGain != null && expLoss != null && expLoss !== 0) {
+        rr = Math.abs(expGain / expLoss);
+        reqWin = rr > 0 ? (1 / (1 + rr)) * 100 : null; // 손익분기 필요 승률
+      }
+      const targetDist = f.target != null ? ((f.target - f.entry) / f.entry) * 100 : null;
+      const stopDist = f.stop != null ? ((f.stop - f.entry) / f.entry) * 100 : null;
+      // 청산가(참고): 유지증거금 반영
+      const liq = f.direction === 'long'
+        ? f.entry * (1 - (1 / f.leverage) * (1 - MAINT_MARGIN_RATE))
+        : f.entry * (1 + (1 / f.leverage) * (1 - MAINT_MARGIN_RATE));
+      const liqDist = ((liq - f.entry) / f.entry) * 100;
+      const levMove = f.leverage * 1; // 1% 가격변동당 ROE ≈ leverage%
+
+      Object.assign(out, {
+        notional, qty, margin, feeRoundTrip, slipCost,
+        expGain, expLoss, rr, reqWin, targetDist, stopDist, liq, liqDist, levMove,
+      });
+    }
+    out.valid = out.errors.length === 0 && Number.isFinite(f.entry) && Number.isFinite(f.amount) && f.amount > 0;
+    return out;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // 렌더링
+  // ═══════════════════════════════════════════════════
+  function renderAll() {
+    renderAccount();
+    renderLoginHint();
+    renderBuilder();
+    recompute();           // P&L/Liq/Risk/Validation + overlay
+    renderPositions();
+    renderRecords();
+    renderAiReview();
+  }
+
+  // 2) 계좌 요약
+  function renderAccount() {
+    const el = document.getElementById('mtAccount');
+    if (!el) return;
+    const eq = totalEquity();
+    const avail = availableBalance();
+    const used = usedMargin();
+    const unreal = unrealizedPnl();
+    const cum = State.balance - INITIAL_BALANCE + unreal;
+    const st = stats();
+    const pc = v => v >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
+    el.innerHTML = `
+      <div class="mt-acct">
+        <div class="mt-acct-top"><span class="k">가상 잔고(평가)</span><span class="v">${fmtUSD(eq)}</span></div>
+        <div class="mt-acct-grid">
+          <div class="row"><span class="k">사용 가능 잔고</span><span class="v">${fmtUSD(avail)}</span></div>
+          <div class="row"><span class="k">사용 중 증거금</span><span class="v">${fmtUSD(used)}</span></div>
+          <div class="row"><span class="k">평가 손익</span><span class="v ${pc(unreal)}">${unreal>=0?'+':''}${fmtUSD(unreal)}</span></div>
+          <div class="row"><span class="k">누적 손익</span><span class="v ${pc(cum)}">${cum>=0?'+':''}${fmtUSD(cum)}</span></div>
+          <div class="row"><span class="k">모의 거래 횟수</span><span class="v">${st.n}회</span></div>
+          <div class="row"><span class="k">승률</span><span class="v">${st.winRate}%</span></div>
+          <div class="row"><span class="k">평균 손익비</span><span class="v">${st.avgRR ? st.avgRR.toFixed(2) : '-'}</span></div>
+        </div>
+        <div class="mt-acct-foot"><button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.confirmReset()">계좌 초기화</button></div>
+      </div>`;
+  }
+
+  // 18) 로그인 안내
+  function renderLoginHint() {
+    const el = document.getElementById('mtLoginHint');
+    if (!el) return;
+    if (isLoggedIn()) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="mt-login-hint">비로그인 상태에서는 임시 모의 포지션을 최대 ${GUEST_MAX_POSITIONS}개까지 연습할 수 있으며 저장은 제한됩니다. <button type="button" onclick="window.showAuthModal&&window.showAuthModal()">로그인</button>하면 모의 주문 기록과 복기 메모를 저장할 수 있습니다.</div>`;
+  }
+
+  // 3~7) 빌더
+  function renderBuilder() {
+    const el = document.getElementById('mtBuilder');
+    if (!el) return;
+    const sym = window.curSymbol || 'BTCUSDT';
+    const cur = getCurrentPrice(sym);
+    const lev = Form.leverage;
+    const tier = levTier(lev);
+    const levChips = [1, 2, 3, 5, 10].map(L =>
+      `<button class="mt-lev-chip ${L === lev ? 'active' : ''}" type="button" onclick="window.PaperTrading.setLeverage(${L})">${L}x</button>`
+    ).join('') + `<button class="mt-lev-chip ${![1,2,3,5,10].includes(lev) ? 'active' : ''}" type="button" onclick="window.PaperTrading.customLeverage()">직접입력</button>`;
+
+    let levWarn = '';
+    if (lev >= 20) levWarn = '<div class="mt-lev-warn extreme">매우 높은 위험: 작은 가격 변동에도 청산 위험이 큽니다. 연습 시 손실 가정을 반드시 함께 확인하세요.</div>';
+    else if (lev >= 10) levWarn = '<div class="mt-lev-warn high">높은 위험: 레버리지가 높을수록 손실과 청산 위험이 커집니다.</div>';
+
+    el.innerHTML = `
+      <!-- 방향 연습 -->
+      <div class="mt-card">
+        <div class="mt-card-title">방향 선택</div>
+        <div class="mt-dir">
+          <button class="mt-dir-btn ${Form.direction==='long'?'active':''}" type="button" onclick="window.PaperTrading.setDirection('long')">롱 방향 연습</button>
+          <button class="mt-dir-btn ${Form.direction==='short'?'active short':''}" type="button" onclick="window.PaperTrading.setDirection('short')">숏 방향 연습</button>
+        </div>
+      </div>
+
+      <!-- 가격 방식 + 진입 조건 -->
+      <div class="mt-card">
+        <div class="mt-card-title">진입 조건</div>
+        <div class="mt-seg" style="margin-bottom:10px">
+          <button class="mt-seg-btn ${Form.priceMode==='current'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('current')">현재가 기준</button>
+          <button class="mt-seg-btn ${Form.priceMode==='limit'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('limit')">지정가 기준</button>
+        </div>
+        <div class="mt-field"><label>심볼</label><input class="mt-input" id="mtSym" value="${esc(symShort(sym))}/USDT" disabled></div>
+        <div class="mt-grid-2">
+          <div class="mt-field"><label>기준 가격</label><input class="mt-input" id="mtRefPrice" type="number" inputmode="decimal" step="any" value="${cur ? fmtP(cur) : ''}" ${Form.priceMode==='current'?'disabled':''} oninput="window.PaperTrading.recompute()"></div>
+          <div class="mt-field"><label>진입가</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? fmtP(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
+        </div>
+        <div class="mt-field">
+          <label>투입 금액 (USDT, 증거금)</label>
+          <input class="mt-input" id="mtAmount" type="number" inputmode="decimal" step="any" value="50" oninput="window.PaperTrading.recompute()">
+          <div class="mt-quick">
+            ${[10,25,50,75,100].map(p => `<button class="mt-quick-btn" type="button" onclick="window.PaperTrading.setAmountPercent(${p})">${p}%</button>`).join('')}
+          </div>
+        </div>
+        <div class="mt-grid-2">
+          <div class="mt-field"><label>수량 (자동 계산)</label><input class="mt-input" id="mtQty" disabled></div>
+          <div class="mt-field"><label>수수료율 (%)</label><input class="mt-input" id="mtFee" type="number" inputmode="decimal" step="0.001" value="${Form.feeRate}" oninput="window.PaperTrading.setFee(this.value)"></div>
+        </div>
+        <div class="mt-field"><label>슬리피지 가정 (%)</label><input class="mt-input" id="mtSlip" type="number" inputmode="decimal" step="0.01" value="${Form.slippage}" oninput="window.PaperTrading.setSlippage(this.value)"></div>
+      </div>
+
+      <!-- 레버리지 -->
+      <div class="mt-card">
+        <div class="mt-card-title">레버리지 설정</div>
+        <div class="mt-lev-chips">${levChips}</div>
+        <div class="mt-lev-tier">현재 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
+        ${levWarn}
+      </div>
+
+      <!-- 목표/손절 -->
+      <div class="mt-card">
+        <div class="mt-card-title">목표가 · 손절 기준가</div>
+        <div class="mt-grid-2">
+          <div class="mt-field"><label>목표가</label><input class="mt-input" id="mtTarget" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
+          <div class="mt-field"><label>손절 기준가</label><input class="mt-input" id="mtStop" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
+        </div>
+        <div class="mt-stat-grid" id="mtTargetStats"></div>
+      </div>`;
+  }
+
+  // 9/10/11/8 재계산 + 차트 오버레이
+  function recompute() {
+    const f = readForm();
+    const c = compute(f);
+
+    // 수량 표시
+    const qEl = document.getElementById('mtQty');
+    if (qEl) qEl.value = c.qty ? (c.qty >= 1 ? c.qty.toFixed(4) : c.qty.toFixed(8)) : '';
+
+    // 목표/손절 거리·RR 통계
+    const ts = document.getElementById('mtTargetStats');
+    if (ts) {
+      ts.innerHTML = `
+        <div class="mt-stat"><span class="k">목표가까지 거리</span><span class="v">${c.targetDist!=null?(c.targetDist>=0?'+':'')+c.targetDist.toFixed(2)+'%':'-'}</span></div>
+        <div class="mt-stat"><span class="k">손절가까지 거리</span><span class="v">${c.stopDist!=null?(c.stopDist>=0?'+':'')+c.stopDist.toFixed(2)+'%':'-'}</span></div>
+        <div class="mt-stat"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
+        <div class="mt-stat"><span class="k">필요 승률</span><span class="v">${c.reqWin!=null?c.reqWin.toFixed(1)+'%':'-'}</span></div>`;
+    }
+
+    renderPnlCard(f, c);
+    renderLiqCard(f, c);
+    renderRiskCard(f, c);
+    renderValidation(c);
+
+    const btn = document.getElementById('mtCreateBtn');
+    if (btn) btn.disabled = !c.valid;
+
+    if (document.getElementById('mtOverlayToggle')?.checked) drawBuilderOverlay(f, c);
+    return { f, c };
+  }
+
+  // 9) 예상 손익 카드
+  function renderPnlCard(f, c) {
+    const el = document.getElementById('mtPnlCard');
+    if (!el) return;
+    if (!c.qty) { el.innerHTML = ''; return; }
+    const pc = v => v >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
+    el.innerHTML = `
+      <div class="mt-pnl-card">
+        <div class="mt-card-title">예상 손익 (참고용)</div>
+        <div class="mt-pnl-row"><span class="k">목표 도달 시 예상 수익</span><span class="v ${c.expGain!=null?pc(c.expGain):''}">${c.expGain!=null?(c.expGain>=0?'+':'')+fmtUSD(c.expGain):'-'}</span></div>
+        <div class="mt-pnl-row"><span class="k">손절 도달 시 예상 손실</span><span class="v ${c.expLoss!=null?pc(c.expLoss):''}">${c.expLoss!=null?fmtUSD(c.expLoss):'-'}</span></div>
+        <div class="mt-pnl-row"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
+        <div class="mt-pnl-row"><span class="k">필요 승률</span><span class="v">${c.reqWin!=null?c.reqWin.toFixed(1)+'%':'-'}</span></div>
+        <div class="mt-pnl-row"><span class="k">수수료(왕복) 반영</span><span class="v">-${fmtUSD(c.feeRoundTrip)}</span></div>
+        <div class="mt-pnl-row"><span class="k">슬리피지 가정 반영</span><span class="v">-${fmtUSD(c.slipCost)}</span></div>
+        <div class="mt-pnl-row"><span class="k">레버리지 반영 변동률</span><span class="v">가격 1% 당 ROE 약 ${c.levMove.toFixed(0)}%</span></div>
+        <p class="mt-note">위 수치는 입력값과 가정값을 기반으로 한 참고 계산입니다. 실제 거래 결과와 다를 수 있습니다.</p>
+      </div>`;
+  }
+
+  // 10) 청산 위험 참고
+  function renderLiqCard(f, c) {
+    const el = document.getElementById('mtLiqCard');
+    if (!el) return;
+    if (!c.liq) { el.innerHTML = ''; return; }
+    let tier;
+    const ad = Math.abs(c.liqDist);
+    if (ad <= 3) tier = { label: '매우 높음', cls: 'mt-tier-extreme' };
+    else if (ad <= 7) tier = { label: '높음', cls: 'mt-tier-high' };
+    else if (ad <= 15) tier = { label: '보통', cls: 'mt-tier-mid' };
+    else tier = { label: '낮음', cls: 'mt-tier-low' };
+    el.innerHTML = `
+      <div class="mt-card">
+        <div class="mt-card-title">청산 위험 참고</div>
+        <div class="mt-liq-row"><span class="k">예상 청산가</span><span class="v">$${fmtP(c.liq)}</span></div>
+        <div class="mt-liq-row"><span class="k">진입가와의 거리</span><span class="v">${c.liqDist.toFixed(2)}%</span></div>
+        <div class="mt-liq-row"><span class="k">청산 위험 등급</span><span class="mt-tier ${tier.cls}">${tier.label}</span></div>
+        <p class="mt-note">예상 청산가는 유지 증거금 가정에 따른 참고 값이며, 거래소별 기준·펀딩·수수료에 따라 실제와 다를 수 있습니다.</p>
+      </div>`;
+  }
+
+  // 11) 리스크 체크
+  function renderRiskCard(f, c) {
+    const el = document.getElementById('mtRiskCard');
+    if (!el) return;
+    if (!c.qty) { el.innerHTML = ''; return; }
+    const eq = totalEquity() || 1;
+    const items = [];
+    const tierBadge = (label, cls) => `<span class="mt-tier ${cls}">${label}</span>`;
+    // 계좌 대비 투입 비중
+    const amtPct = (f.amount / eq) * 100;
+    items.push(['계좌 대비 투입 비중', `${amtPct.toFixed(1)}%`, amtPct > 50 ? ['매우 높음','mt-tier-extreme'] : amtPct > 25 ? ['높음','mt-tier-high'] : amtPct > 10 ? ['보통','mt-tier-mid'] : ['낮음','mt-tier-low']]);
+    // 손절 시 손실 비중
+    if (c.expLoss != null) {
+      const lossPct = (Math.abs(c.expLoss) / eq) * 100;
+      items.push(['손절 시 손실 비중', `${lossPct.toFixed(1)}%`, lossPct > 10 ? ['매우 높음','mt-tier-extreme'] : lossPct > 5 ? ['높음','mt-tier-high'] : lossPct > 2 ? ['보통','mt-tier-mid'] : ['낮음','mt-tier-low']]);
+    } else items.push(['손절 시 손실 비중', '손절 미설정', ['매우 높음','mt-tier-extreme']]);
+    // 레버리지 위험
+    const lt = levTier(f.leverage);
+    items.push(['레버리지 위험', `${f.leverage}x`, [lt.label, lt.cls]]);
+    // 손익비
+    if (c.rr != null) items.push(['손익비', c.rr.toFixed(2), c.rr >= 2 ? ['낮음','mt-tier-low'] : c.rr >= 1 ? ['보통','mt-tier-mid'] : ['높음','mt-tier-high']]);
+    else items.push(['손익비', '목표·손절 필요', ['보통','mt-tier-mid']]);
+    // 목표/손절 설정 여부
+    const setBoth = f.target != null && f.stop != null;
+    items.push(['목표·손절 설정', setBoth ? '설정됨' : '미설정', setBoth ? ['낮음','mt-tier-low'] : ['높음','mt-tier-high']]);
+    // 청산가와의 거리
+    if (c.liqDist != null) { const ad = Math.abs(c.liqDist); items.push(['청산가와의 거리', `${ad.toFixed(1)}%`, ad <= 3 ? ['매우 높음','mt-tier-extreme'] : ad <= 7 ? ['높음','mt-tier-high'] : ad <= 15 ? ['보통','mt-tier-mid'] : ['낮음','mt-tier-low']]); }
+    el.innerHTML = `
+      <div class="mt-card">
+        <div class="mt-card-title">리스크 체크</div>
+        <div class="mt-risk-grid">
+          ${items.map(([k, v, t]) => `<div class="mt-risk-item"><span>${k} <b style="color:var(--color-text-primary)">${v}</b></span>${tierBadge(t[0], t[1])}</div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // 8) 유효성/상태
+  function renderValidation(c) {
+    const el = document.getElementById('mtValidation');
+    if (!el) return;
+    if (c.errors && c.errors.length) {
+      el.innerHTML = c.errors.map(e => `<span class="err">${esc(e)}</span>`).join('');
+    } else if (c.valid) {
+      el.innerHTML = '<span class="ok">입력값이 유효합니다. 모의 주문을 생성할 수 있습니다.</span>';
+    } else {
+      el.innerHTML = '<span class="ok">진입가와 투입 금액을 입력하면 예상 손익이 계산됩니다.</span>';
+    }
+  }
+
+  // ───────── 폼 이벤트 ─────────
+  function setDirection(d) { Form.direction = d; renderBuilder(); recompute(); }
+  function setPriceMode(m) { Form.priceMode = m; renderBuilder(); recompute(); }
+  function setLeverage(L) { Form.leverage = L; State.settings.leverage = L; save(); renderBuilder(); recompute(); }
+  function customLeverage() {
+    const v = prompt('직접 입력할 레버리지 (1~125x)', String(Form.leverage));
+    if (v == null) return;
+    let L = parseInt(v); if (!Number.isFinite(L)) return;
+    L = Math.max(1, Math.min(125, L));
+    setLeverage(L);
+  }
+  function setFee(v) { Form.feeRate = Math.max(0, parseFloat(v) || 0); State.settings.feeRate = Form.feeRate; recompute(); }
+  function setSlippage(v) { Form.slippage = Math.max(0, parseFloat(v) || 0); recompute(); }
+  function setAmountPercent(pct) {
+    const avail = availableBalance();
+    const amt = Math.max(0, Math.floor(avail * pct / 100 * 100) / 100);
+    const el = document.getElementById('mtAmount'); if (el) el.value = amt;
+    recompute();
+  }
+
+  // ───────── 13) 모의 주문 생성 ─────────
+  function create() {
+    const { f, c } = recompute();
+    if (!c.valid) { window.showToast?.('입력값을 확인해 주세요', '#921230'); return; }
+    if (!isLoggedIn() && State.positions.length >= GUEST_MAX_POSITIONS) {
+      window.showToast?.(`비로그인은 임시 모의 포지션 ${GUEST_MAX_POSITIONS}개까지 연습할 수 있습니다`, '#921230');
+      window.showAuthModal?.();
+      return;
+    }
+    const pos = {
+      id: 'mp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      sym: f.sym, direction: f.direction,
+      entry: f.entry, qty: c.qty, margin: c.margin, notional: c.notional,
+      leverage: f.leverage, feeRate: f.feeRate, slippage: f.slippage,
+      target: f.target, stop: f.stop, liq: c.liq,
+      rrPlanned: c.rr, status: 'open',
+      createdAt: Date.now(),
+      review: null,
+    };
     State.positions.push(pos);
     save();
     renderAll();
-    
-    // 차트 마커 추가
-    if (sym === window.curSymbol) {
-      window.chart?.addDrawing?.({
-        type: 'demo_action',
-        price: curPrice,
-        index: pos.barIndex,
-        label: side === 'long' ? '롱' : '숏',
-        action: side === 'long' ? 'long_entry' : 'short_entry',
-        _posId: pos.id,
-      });
-    }
-    
-    const sideLabel = side === 'long' ? '롱' : '숏';
-    window.showToast?.(`${sym.replace('USDT','')} ${sideLabel} ${lev}x ${qtyUsdt}USDT 진입 @ $${curPrice.toFixed(curPrice>1?2:6)}`, side === 'long' ? '#C4384B' : '#3B82F6');
-    return true;
+    window.showToast?.(`${symShort(f.sym)} ${f.direction==='long'?'롱':'숏'} 방향 모의 주문을 생성했습니다`, '#921230');
   }
 
-  function closePosition(posId, ratio) {
-    ratio = Math.min(1, Math.max(0.01, ratio || 1));
-    const idx = State.positions.findIndex(p => p.id === posId);
-    if (idx < 0) return;
-    
-    const pos = State.positions[idx];
-    const cur = getCurrentPrice(pos.sym);
-    if (!cur) {
-      window.showToast?.('가격 정보 없음', '#3B82F6');
-      return;
-    }
-    
-    const closeQty = pos.qty * ratio;
-    const closeMargin = pos.margin * ratio;
-    const diff = pos.side === 'long' ? (cur - pos.entry) : (pos.entry - cur);
-    const pnl = diff * closeQty;
-    const pnlPct = (diff / pos.entry) * 100;
-    const exitFee = (closeQty * cur) * FEE_RATE;
-    const netPnl = pnl - exitFee;
-    
-    // 잔고에 마진 + 손익 반영
-    State.balance += closeMargin + netPnl;
-    
-    // 히스토리
-    State.history.push({
-      sym: pos.sym,
-      side: pos.side,
-      entry: pos.entry,
-      exit: cur,
-      qty: closeQty,
-      qtyUsdt: closeQty * pos.entry,
-      pnl: netPnl,
-      pct: pnlPct,
-      leverage: pos.leverage,
-      reason: ratio >= 1 ? '수동청산' : `${Math.round(ratio*100)}% 부분청산`,
-      time: Date.now(),
-      time_str: new Date().toLocaleTimeString('ko-KR'),
-    });
+  // ───────── 14) 진행 중인 모의 포지션 ─────────
+  const STATUS_LABEL = { open: ['진행 중','mt-status-open'], target: ['목표 도달','mt-status-target'], stop: ['손절 도달','mt-status-stop'], manual: ['수동 종료','mt-status-manual'], expired: ['만료됨','mt-status-expired'] };
 
-    // 차트에 청산 마커 (현재 종목일 때) — 롱청산=매도, 숏청산=매수 표시
-    if (pos.sym === window.curSymbol && window.chart?.addDrawing) {
-      window.chart.addDrawing({
-        type: 'demo_action',
-        price: cur,
-        index: (window.chart.buffer ? window.chart.buffer.length - 1 : 0),
-        label: `청산 ${netPnl >= 0 ? '+' : ''}${netPnl.toFixed(1)}`,
-        action: 'close',
-        _posId: pos.id,
-      });
-      window.chart._dirty = true;
-    }
-
-    // 부분청산이면 포지션 축소, 아니면 제거
-    if (ratio >= 1) {
-      State.positions.splice(idx, 1);
-    } else {
-      pos.qty -= closeQty;
-      pos.margin -= closeMargin;
-    }
-    
-    save();
-    renderAll();
-    
-    // 차트 마커
-    if (pos.sym === window.curSymbol) {
-      const barIdx = window.chart?.buffer?.length ? window.chart.buffer.length - 1 : 0;
-      window.chart?.addDrawing?.({
-        type: 'demo_action',
-        price: cur,
-        index: barIdx,
-        label: `청산 ${netPnl >= 0 ? '+' : ''}$${netPnl.toFixed(2)}`,
-        action: 'close',
-        _posId: pos.id,
-      });
-    }
-    
-    const color = netPnl >= 0 ? '#C4384B' : '#3B82F6';
-    window.showToast?.(`${pos.sym.replace('USDT','')} 청산 ${netPnl >= 0 ? '+' : ''}$${netPnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`, color);
+  function renderPositions() {
+    const el = document.getElementById('mtPositions');
+    if (!el) return;
+    const open = State.positions;
+    if (!open.length) { el.innerHTML = '<div class="mt-card-title">진행 중인 모의 포지션</div><div class="mt-state-msg">진행 중인 모의 포지션이 없습니다. 위에서 조건을 입력하고 모의 주문을 생성해 보세요.</div>'; return; }
+    el.innerHTML = '<div class="mt-card-title">진행 중인 모의 포지션 (' + open.length + ')</div>' + open.map(p => {
+      const cur = getCurrentPrice(p.sym) || p.entry;
+      const { pnl, pct, roe } = pnlOf(p, cur);
+      const pc = pnl >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
+      const stt = STATUS_LABEL[p.status] || STATUS_LABEL.open;
+      return `
+        <div class="mt-pos ${p.direction==='short'?'short':''}">
+          <div class="mt-pos-top">
+            <div><span class="mt-pos-sym" onclick="window._selectSym&&window._selectSym('${p.sym}')">${symShort(p.sym)}/USDT</span><span class="mt-dir-tag ${p.direction==='short'?'short':''}">${p.direction==='long'?'롱':'숏'} ${p.leverage}x</span></div>
+            <span class="mt-status ${stt[1]}">${stt[0]}</span>
+          </div>
+          <div class="mt-pos-grid">
+            <div>진입가 <b>$${fmtP(p.entry)}</b></div><div>현재가 <b>$${fmtP(cur)}</b></div>
+            <div>목표가 <b>${p.target!=null?'$'+fmtP(p.target):'-'}</b></div><div>손절가 <b>${p.stop!=null?'$'+fmtP(p.stop):'-'}</b></div>
+            <div>수량 <b>${(p.qty*p.entry).toFixed(2)} USDT</b></div><div>손익비 <b>${p.rrPlanned!=null?p.rrPlanned.toFixed(2):'-'}</b></div>
+            <div>평가 손익 <b class="${pc}">${pnl>=0?'+':''}${fmtUSD(pnl)}</b></div><div>수익률 <b class="${pc}">${pct>=0?'+':''}${pct.toFixed(2)}% (ROE ${roe>=0?'+':''}${roe.toFixed(1)}%)</b></div>
+          </div>
+          <div class="mt-pos-actions">
+            <button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window._selectSym&&window._selectSym('${p.sym}')">차트에서 보기</button>
+            <button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.editPosition('${p.id}')">수정</button>
+            <button class="mt-btn mt-btn-secondary mt-btn-xs" type="button" onclick="window.PaperTrading.closePosition('${p.id}')">종료 처리</button>
+            <button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.openReview('${p.id}','pos')">복기 작성</button>
+            <button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.deletePosition('${p.id}')">삭제</button>
+          </div>
+        </div>`;
+    }).join('');
   }
 
-  function modifyTPSL(posId, slPct, tpPct) {
-    const pos = State.positions.find(p => p.id === posId);
-    if (!pos) return;
-    pos.slPct = slPct;
-    pos.tpPct = tpPct;
-    pos.sl = slPct ? pos.entry * (pos.side === 'long' ? (1 - slPct/100) : (1 + slPct/100)) : null;
-    pos.tp = tpPct ? pos.entry * (pos.side === 'long' ? (1 + tpPct/100) : (1 - tpPct/100)) : null;
-    save();
-    renderAll();
-    window.showToast?.(`${pos.sym.replace('USDT','')} TP/SL 변경 SL ${slPct||0}% / TP ${tpPct||0}%`, '#D8B66A');
+  function editPosition(id) {
+    const p = State.positions.find(x => x.id === id); if (!p) return;
+    const t = prompt('목표가 (비우면 제거)', p.target != null ? p.target : '');
+    if (t === null) return;
+    const s = prompt('손절 기준가 (비우면 제거)', p.stop != null ? p.stop : '');
+    if (s === null) return;
+    p.target = t === '' ? null : parseFloat(t);
+    p.stop = s === '' ? null : parseFloat(s);
+    if (!Number.isFinite(p.target)) p.target = null;
+    if (!Number.isFinite(p.stop)) p.stop = null;
+    save(); renderPositions();
+    window.showToast?.('모의 포지션을 수정했습니다', '#921230');
   }
 
-  // ───────── 자동 청산 (SL/TP/청산가) ─────────
-  function checkAutoClose() {
-    for (let i = State.positions.length - 1; i >= 0; i--) {
-      const pos = State.positions[i];
-      const cur = getCurrentPrice(pos.sym);
-      if (!cur) continue;
-      
-      const liqPrice = calcLiquidation(pos);
-      const isLiquidated = pos.side === 'long' ? cur <= liqPrice : cur >= liqPrice;
-      
-      if (isLiquidated) {
-        // 청산 (마진 손실)
-        State.history.push({
-          sym: pos.sym, side: pos.side,
-          entry: pos.entry, exit: cur, qty: pos.qty,
-          qtyUsdt: pos.qty * pos.entry,
-          pnl: -pos.margin,
-          pct: pos.side === 'long' ? -100 : -100,
-          leverage: pos.leverage,
-          reason: '강제청산',
-          time: Date.now(),
-          time_str: new Date().toLocaleTimeString('ko-KR'),
-        });
-        State.positions.splice(i, 1);
-        window.showToast?.(`⚠ ${pos.sym.replace('USDT','')} 강제청산 -$${pos.margin.toFixed(2)}`, '#3B82F6');
-        save();
-        continue;
-      }
-      
-      // SL/TP 체크
-      if (pos.sl && (pos.side === 'long' ? cur <= pos.sl : cur >= pos.sl)) {
-        closePosition(pos.id, 1);
-        continue;
-      }
-      if (pos.tp && (pos.side === 'long' ? cur >= pos.tp : cur <= pos.tp)) {
-        closePosition(pos.id, 1);
-      }
-    }
-    
-    // 미체결 지정가 체크
-    for (let i = State.pendingOrders.length - 1; i >= 0; i--) {
-      const ord = State.pendingOrders[i];
-      const cur = getCurrentPrice(ord.sym);
-      if (!cur) continue;
-      
-      // 지정가 도달 체크
-      const triggered = ord.side === 'long' ? cur <= ord.price : cur >= ord.price;
-      if (triggered) {
-        State.pendingOrders.splice(i, 1);
-        save();
-        placeOrder({
-          sym: ord.sym, side: ord.side, type: 'market',
-          qtyUsdt: ord.qtyUsdt, sl: ord.sl, tp: ord.tp,
-          leverage: ord.leverage, marginMode: ord.marginMode,
-        });
-      }
-    }
+  function closePosition(id, autoStatus) {
+    const idx = State.positions.findIndex(x => x.id === id); if (idx < 0) return;
+    const p = State.positions[idx];
+    const cur = getCurrentPrice(p.sym) || p.entry;
+    const { pnl, pct } = pnlOf(p, cur);
+    const status = autoStatus || 'manual';
+    const rec = {
+      id: p.id, sym: p.sym, direction: p.direction,
+      entry: p.entry, exit: cur, qty: p.qty, qtyUsdt: p.qty * p.entry,
+      leverage: p.leverage, margin: p.margin,
+      target: p.target, stop: p.stop, rr: p.rrPlanned,
+      pnl, pct, status,
+      createdAt: p.createdAt, closedAt: Date.now(),
+      holdMs: Date.now() - (p.createdAt || Date.now()),
+      review: p.review || null,
+    };
+    State.balance += pnl; // 가상 잔고에 손익 반영 (증거금은 평가에 이미 포함)
+    State.history.push(rec);
+    State.positions.splice(idx, 1);
+    save(); renderAll();
+    window.showToast?.(`${symShort(p.sym)} 모의 포지션을 종료 처리했습니다 (${pnl>=0?'+':''}${fmtUSD(pnl)})`, '#921230');
   }
 
-  // ───────── 차트 마커 복원 ─────────
-  function restoreChartMarkers() {
-    if (!window.chart || !window.chart.buffer || !window.chart.buffer.length) return;
-    if (!window.curSymbol) return;
-    
-    // 기존 demo_action 제거 (이 종목/TF 마커만)
-    if (window.chart.overlay) {
-      window.chart.overlay.drawings = window.chart.overlay.drawings.filter(d => d.type !== 'demo_action');
+  function deletePosition(id) {
+    if (!confirm('이 모의 포지션을 삭제할까요? (기록에 남기지 않습니다)')) return;
+    State.positions = State.positions.filter(x => x.id !== id);
+    save(); renderPositions(); renderAccount();
+  }
+
+  // 자동 상태 전이 (목표/손절 도달)
+  function checkAutoStatus() {
+    let changed = false;
+    for (const p of State.positions) {
+      if (p.status !== 'open') continue;
+      const cur = getCurrentPrice(p.sym); if (!cur) continue;
+      if (p.target != null && (p.direction === 'long' ? cur >= p.target : cur <= p.target)) { closePosition(p.id, 'target'); changed = true; break; }
+      if (p.stop != null && (p.direction === 'long' ? cur <= p.stop : cur >= p.stop)) { closePosition(p.id, 'stop'); changed = true; break; }
     }
-    
-    // 현재 종목의 활성 포지션 + 최근 히스토리를 마커로
-    const curSym = window.curSymbol;
-    const buf = window.chart.buffer;
-    const bufLen = buf.length;
-    
-    function timeToBarIndex(time_ms) {
-      // 차트 buffer의 time 배열에서 해당 timestamp의 인덱스 찾기
-      const time_sec = Math.floor(time_ms / 1000);
-      // 가장 가까운 시간 찾기 (이진검색은 오버킬, 선형 OK)
-      for (let i = bufLen - 1; i >= 0; i--) {
-        if (buf.time[i] <= time_sec) return i;
-      }
-      return 0;
-    }
-    
-    // 활성 포지션 마커
-    for (const pos of State.positions) {
-      if (pos.sym !== curSym) continue;
-      const idx = pos.time ? timeToBarIndex(pos.time) : (pos.barIndex || 0);
-      if (idx < 0 || idx >= bufLen) continue;
-      window.chart.addDrawing({
-        type: 'demo_action',
-        price: pos.entry,
-        index: idx,
-        label: (pos.side === 'long' ? '롱 ' : '숏 ') + pos.leverage + 'x',
-        action: pos.side === 'long' ? 'long_entry' : 'short_entry',
-        _posId: pos.id,
-      });
-    }
-    
-    // 최근 30개 히스토리 마커
-    const recent = State.history.filter(h => h.sym === curSym).slice(-30);
-    for (const h of recent) {
-      const idx = timeToBarIndex(h.time);
-      if (idx < 0 || idx >= bufLen) continue;
-      window.chart.addDrawing({
-        type: 'demo_action',
-        price: h.exit,
-        index: idx,
-        label: `청산 ${h.pnl >= 0 ? '+' : ''}$${h.pnl.toFixed(2)}`,
-        action: 'close',
-        _color: h.pnl >= 0 ? '#C4384B' : '#3B82F6',
-      });
-    }
-    
+    if (!changed) { renderAccount(); renderPositions(); }
+  }
+
+  // ───────── 15) 모의 주문 기록 ─────────
+  function filteredRecords() {
+    let list = State.history.slice();
+    const now = Date.now();
+    const weekAgo = now - 7 * 864e5, monthAgo = now - 30 * 864e5;
+    if (recordFilter === 'long') list = list.filter(h => h.direction === 'long');
+    else if (recordFilter === 'short') list = list.filter(h => h.direction === 'short');
+    else if (recordFilter === 'win') list = list.filter(h => h.pnl > 0);
+    else if (recordFilter === 'loss') list = list.filter(h => h.pnl < 0);
+    else if (recordFilter === 'week') list = list.filter(h => (h.closedAt || h.time || 0) >= weekAgo);
+    else if (recordFilter === 'month') list = list.filter(h => (h.closedAt || h.time || 0) >= monthAgo);
+    if (recordSort === 'recent') list.sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
+    else if (recordSort === 'pnl_high') list.sort((a, b) => (b.pnl || 0) - (a.pnl || 0));
+    else if (recordSort === 'loss_big') list.sort((a, b) => (a.pnl || 0) - (b.pnl || 0));
+    else if (recordSort === 'hold_long') list.sort((a, b) => (b.holdMs || 0) - (a.holdMs || 0));
+    else if (recordSort === 'rr_high') list.sort((a, b) => (b.rr || 0) - (a.rr || 0));
+    return list;
+  }
+  function renderRecords() {
+    const el = document.getElementById('mtRecords');
+    if (!el) return;
+    const filters = [['all','전체'],['long','롱'],['short','숏'],['win','수익'],['loss','손실'],['week','이번 주'],['month','이번 달']];
+    const sorts = [['recent','최신순'],['pnl_high','손익 높은 순'],['loss_big','손실 큰 순'],['hold_long','보유 시간 긴 순'],['rr_high','손익비 높은 순']];
+    const list = filteredRecords();
+    let body;
+    if (!State.history.length) body = '<div class="mt-state-msg">완료된 모의 주문 기록이 아직 없습니다. 모의 포지션을 종료하면 연습용 기록으로 저장됩니다.</div>';
+    else if (!list.length) body = '<div class="mt-state-msg">선택한 필터에 해당하는 기록이 없습니다.</div>';
+    else body = list.slice(0, 50).map(h => {
+      const pc = h.pnl >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
+      const d = new Date(h.closedAt || h.time || Date.now());
+      const stt = STATUS_LABEL[h.status] || STATUS_LABEL.manual;
+      return `<div class="mt-record">
+        <div class="left">
+          <div><span class="rsym" onclick="window._selectSym&&window._selectSym('${h.sym}')">${symShort(h.sym)}</span> · ${h.direction==='long'?'롱':'숏'} ${h.leverage||1}x · <span class="mt-status ${stt[1]}" style="height:16px;font-size:9px">${stt[0]}</span></div>
+          <div class="rmeta">${d.toLocaleDateString('ko-KR')} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} · R:R ${h.rr!=null?h.rr.toFixed(2):'-'}${h.review?' · 복기 있음':''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="rpnl ${pc}">${h.pnl>=0?'+':''}${fmtUSD(h.pnl)}<div style="font-size:9px">${h.pct>=0?'+':''}${(h.pct||0).toFixed(2)}%</div></div>
+          <button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.openReview('${h.id}','hist')">복기</button>
+        </div>
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="mt-card-title">모의 주문 기록</div>
+      <div class="mt-filters">${filters.map(([k,l]) => `<button class="mt-filter-chip ${recordFilter===k?'active':''}" type="button" onclick="window.PaperTrading.setFilter('${k}')">${l}</button>`).join('')}</div>
+      <select class="mt-sort" onchange="window.PaperTrading.setSort(this.value)">${sorts.map(([k,l]) => `<option value="${k}" ${recordSort===k?'selected':''}>${l}</option>`).join('')}</select>
+      ${body}`;
+  }
+  function setFilter(k) { recordFilter = k; renderRecords(); }
+  function setSort(k) { recordSort = k; renderRecords(); }
+
+  // ───────── 16) 복기 메모 모달 ─────────
+  const REVIEW_TAGS = ['추세추종','역추세','돌파','눌림','과매수','과매도','변동성','계획 준수','계획 이탈'];
+  let _reviewTarget = null; // {id, kind}
+  function openReview(id, kind) {
+    if (!isLoggedIn()) { window.showToast?.('복기 메모 저장은 로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal?.(); return; }
+    const obj = kind === 'pos' ? State.positions.find(x => x.id === id) : State.history.find(x => x.id === id);
+    if (!obj) return;
+    _reviewTarget = { id, kind };
+    const r = obj.review || {};
+    const tags = Array.isArray(r.tags) ? r.tags : [];
+    const root = document.getElementById('mtModalRoot');
+    if (!root) return;
+    const f = (label, key, ph) => `<div class="mt-field"><label>${label}</label><textarea id="mtrev_${key}" rows="2" placeholder="${ph}">${esc(r[key]||'')}</textarea></div>`;
+    root.innerHTML = `
+      <div class="mt-modal-overlay" onclick="if(event.target===this)window.PaperTrading.closeReview()">
+        <div class="mt-modal" role="dialog" aria-label="복기 작성">
+          <h3>복기 작성 — ${symShort(obj.sym)} ${obj.direction==='long'?'롱':'숏'}</h3>
+          ${f('진입 이유','entryReason','어떤 근거로 진입을 연습했나요')}
+          ${f('종료 이유','exitReason','왜 종료했나요')}
+          ${f('잘한 점','good','계획대로 지킨 점')}
+          ${f('아쉬운 점','bad','개선할 점')}
+          ${f('다음에 확인할 점','next','다음 연습에서 점검할 항목')}
+          <div class="mt-field"><label>사용한 지표</label><input id="mtrev_indicators" value="${esc(r.indicators||'')}" placeholder="예: 이동평균, RSI"></div>
+          <div class="mt-field"><label>시장 상태</label><input id="mtrev_market" value="${esc(r.market||'')}" placeholder="예: 추세장 / 횡보장 / 변동성 확대"></div>
+          <div class="mt-field"><label>감정 상태</label><input id="mtrev_emotion" value="${esc(r.emotion||'')}" placeholder="예: 차분 / 조급 / 확신"></div>
+          <div class="mt-field"><label>태그</label><div class="mt-tags" id="mtrevTags">${REVIEW_TAGS.map(t => `<button type="button" class="mt-tag ${tags.includes(t)?'active':''}" data-tag="${t}" onclick="this.classList.toggle('active')">${t}</button>`).join('')}</div></div>
+          <div class="mt-modal-actions">
+            <button class="mt-btn mt-btn-ghost" type="button" onclick="window.PaperTrading.closeReview()">취소</button>
+            <button class="mt-btn mt-btn-primary" type="button" onclick="window.PaperTrading.saveReview()">저장</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  function closeReview() { const root = document.getElementById('mtModalRoot'); if (root) root.innerHTML = ''; _reviewTarget = null; }
+  function saveReview() {
+    if (!_reviewTarget) return;
+    const get = k => (document.getElementById('mtrev_' + k)?.value || '').trim();
+    const tags = Array.from(document.querySelectorAll('#mtrevTags .mt-tag.active')).map(b => b.dataset.tag);
+    const review = { entryReason: get('entryReason'), exitReason: get('exitReason'), good: get('good'), bad: get('bad'), next: get('next'), indicators: get('indicators'), market: get('market'), emotion: get('emotion'), tags, savedAt: Date.now() };
+    const { id, kind } = _reviewTarget;
+    const obj = kind === 'pos' ? State.positions.find(x => x.id === id) : State.history.find(x => x.id === id);
+    if (obj) obj.review = review;
+    save(); closeReview(); renderAll();
+    window.showToast?.('복기 메모를 저장했습니다', '#921230');
+  }
+
+  // ───────── 17) AI 복기 요약 ─────────
+  function renderAiReview() {
+    const el = document.getElementById('mtAiReview');
+    if (!el) return;
+    const h = State.history.filter(x => typeof x.pnl === 'number');
+    if (h.length < 3) { el.innerHTML = `<div class="mt-card-title">AI 복기 요약</div><div class="mt-ai"><p class="mt-ai-text">모의 주문 기록이 3건 이상 쌓이면, 반복 패턴을 바탕으로 다음 연습에서 확인할 항목을 정리해 드립니다.</p></div>`; return; }
+    const recent = h.slice(-20);
+    const noStop = recent.filter(x => x.stop == null).length;
+    const lowRR = recent.filter(x => typeof x.rr === 'number' && x.rr < 1).length;
+    const highLev = recent.filter(x => (x.leverage || 1) >= 10).length;
+    const losses = recent.filter(x => x.pnl < 0).length;
+    const planExit = recent.filter(x => x.status === 'stop').length;
+    const points = [];
+    if (noStop > 0) points.push(`최근 ${recent.length}건 중 ${noStop}건은 손절 기준가 없이 연습했습니다. 다음 연습에서는 손절 기준을 먼저 정해 보세요.`);
+    if (lowRR > 0) points.push(`손익비가 1 미만인 연습이 ${lowRR}건 있었습니다. 목표가·손절가 거리를 다시 점검해 보세요.`);
+    if (highLev > 0) points.push(`10x 이상 레버리지 연습이 ${highLev}건 있었습니다. 청산가와의 거리를 함께 확인하는 습관을 들여 보세요.`);
+    if (planExit > 0) points.push(`손절 기준 도달로 종료된 연습이 ${planExit}건 있었습니다. 진입 근거와 손절 위치가 적절했는지 복기해 보세요.`);
+    if (!points.length) points.push('최근 연습에서 손절 설정과 손익비 관리가 비교적 잘 지켜졌습니다. 같은 기준을 꾸준히 유지해 보세요.');
+    el.innerHTML = `
+      <div class="mt-card-title">AI 복기 요약</div>
+      <div class="mt-ai">
+        <p class="mt-ai-text">최근 ${recent.length}건 기준 · 손실 ${losses}건 · 손절 미설정 ${noStop}건 · 낮은 손익비 ${lowRR}건 · 높은 레버리지 ${highLev}건</p>
+        <ul class="mt-ai-list">${points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+        <p class="mt-ai-text" style="margin-top:6px">위 내용은 연습 기록 기반 참고 요약이며, 투자 추천이 아닙니다.</p>
+      </div>`;
+  }
+
+  // ───────── 12) 차트 오버레이 (가상 진입가/목표가/손절 기준가) + 드래그 동기화 ─────────
+  function clearBuilderOverlay() {
+    if (!window.chart || !window.chart.overlay) return;
+    window.chart.overlay.drawings = window.chart.overlay.drawings.filter(d => d._calcOwner !== 'mock_builder');
     window.chart._dirty = true;
   }
-
-  // ───────── UI 렌더링 ─────────
-  function renderAll() {
-    renderBalanceCard();
-    renderOrderForm();
-    renderPositionCards();
-    renderHistory();
-    renderPendingOrders();
-    if (window.chart) window.chart._dirty = true;  // 차트 갱신 트리거
-  }
-
-  function renderBalanceCard() {
-    const el = document.getElementById('paperBalanceCard');
-    if (!el) return;
-    
-    const total = calcTotalEquity();
-    const used = calcUsedMargin();
-    const available = calcAvailableBalance();
-    const unrealized = calcUnrealizedPnl();
-    const unrealizedPct = State.balance > 0 ? (unrealized / State.balance * 100) : 0;
-    const totalPct = ((total - INITIAL_BALANCE) / INITIAL_BALANCE * 100);
-    
-    const upColor = '#C4384B', dnColor = '#3B82F6';
-    const uColor = unrealized >= 0 ? upColor : dnColor;
-    const tColor = totalPct >= 0 ? upColor : dnColor;
-    
-    el.innerHTML = `
-      <div style="background:linear-gradient(135deg,rgba(146,18,48,0.08),rgba(216,182,106,0.05));padding:14px;border-radius:10px;border:1px solid rgba(146,18,48,0.15);box-shadow:var(--shadow-sm)">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-          <span style="font-size:11px;color:var(--color-text-muted)">총 자산</span>
-          <span style="font-size:24px;font-weight:800;color:#921230;font-variant-numeric:tabular-nums;letter-spacing:-.5px">$${total.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--color-text-muted)">미실현 PnL</span>
-          <span style="color:${uColor};font-weight:600">${unrealized >= 0 ? '+' : ''}$${unrealized.toFixed(2)} (${unrealizedPct >= 0 ? '+' : ''}${unrealizedPct.toFixed(2)}%)</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--color-text-muted)">사용 가능</span>
-          <span style="font-weight:600">$${available.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span style="color:var(--color-text-muted)">포지션 마진</span>
-          <span>$${used.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:6px;border-top:1px solid rgba(0,0,0,0.06);margin-top:6px">
-          <span style="color:var(--color-text-muted)">전체 수익률</span>
-          <span style="color:${tColor};font-weight:600">${totalPct >= 0 ? '+' : ''}${totalPct.toFixed(2)}%</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-top:4px">
-          <span>거래 ${State.history.length}건</span>
-          <span>승률 ${calcWinRate()}%</span>
-          <button onclick="window.PaperTrading.resetAll()" style="background:none;border:none;color:#3B82F6;cursor:pointer;font-size:10px">초기화</button>
-        </div>
-        ${(() => { const st = calcStats(); return st.n ? `
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-top:2px">
-          <span>실현손익 <b style="color:${st.realized >= 0 ? upColor : dnColor}">${st.realized >= 0 ? '+' : ''}$${st.realized.toFixed(2)}</b></span>
-          <span>손익비 <b style="color:var(--color-text)">${st.pf === null ? '-' : (st.pf === Infinity ? '∞' : st.pf.toFixed(2))}</b></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-top:2px">
-          <span>평균이익 <b style="color:${upColor}">+$${st.avgWin.toFixed(2)}</b></span>
-          <span>평균손실 <b style="color:${dnColor}">-$${st.avgLoss.toFixed(2)}</b></span>
-        </div>` : ''; })()}
-      </div>
-    `;
-  }
-
-  function calcWinRate() {
-    if (!State.history.length) return 0;
-    const wins = State.history.filter(h => h.pnl > 0).length;
-    return Math.round(wins / State.history.length * 100);
-  }
-
-  function calcStats() {
-    const h = State.history.filter(x => typeof x.pnl === 'number');
-    const n = h.length;
-    if (!n) return { n: 0, winRate: 0, realized: 0, pf: null, avgWin: 0, avgLoss: 0 };
-    const winsArr = h.filter(x => x.pnl > 0).map(x => x.pnl);
-    const lossArr = h.filter(x => x.pnl < 0).map(x => x.pnl);
-    const grossWin = winsArr.reduce((a, b) => a + b, 0);
-    const grossLoss = Math.abs(lossArr.reduce((a, b) => a + b, 0));
-    return {
-      n,
-      winRate: Math.round(winsArr.length / n * 100),
-      realized: h.reduce((a, x) => a + x.pnl, 0),
-      pf: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : null),
-      avgWin: winsArr.length ? grossWin / winsArr.length : 0,
-      avgLoss: lossArr.length ? grossLoss / lossArr.length : 0,
+  function drawBuilderOverlay(f, c) {
+    if (!window.chart || !window.chart.overlay || !window.chart.addDrawing) return;
+    if (f.sym !== window.curSymbol) return; // 다른 종목이면 표시 안 함
+    clearBuilderOverlay();
+    const add = (price, label, color, key) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      window.chart.addDrawing({ type: 'hline', price, color, lineWidth: 1, dashed: true, label, _calcOwner: 'mock_builder', _mockKey: key, _draggable: true });
     };
+    if (Number.isFinite(f.entry)) add(f.entry, '가상 진입가 $' + fmtP(f.entry), '#921230', 'entry');
+    if (f.target != null) add(f.target, '목표가 $' + fmtP(f.target), '#4A0817', 'target');
+    if (f.stop != null) add(f.stop, '손절 기준가 $' + fmtP(f.stop), '#6F0E24', 'stop');
+    window.chart._dirty = true;
   }
-
-  function renderOrderForm() {
-    const el = document.getElementById('paperOrderForm');
-    if (!el) return;
-    
-    const sym = window.curSymbol || 'BTCUSDT';
-    const symShort = sym.replace('USDT', '');
-    const cur = getCurrentPrice(sym) || 0;
-    const lev = State.settings.leverage;
-    const available = calcAvailableBalance();
-    
-    el.innerHTML = `
-      <div style="background:rgba(0,0,0,0.02);padding:10px;border-radius:8px">
-        <!-- 종목 + 현재가 -->
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-          <span style="font-weight:700">${symShort}/USDT</span>
-          <span style="font-size:14px;color:var(--color-secondary-light);font-weight:600">$${cur ? cur.toFixed(cur>1?2:6) : '-'}</span>
-        </div>
-        
-        <!-- 레버리지 + 마진 모드 -->
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <div style="flex:1;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.04);padding:6px 8px;border-radius:6px">
-            <span style="font-size:10px;color:var(--color-text-muted)">레버리지</span>
-            <input id="paperLevSlider" type="range" min="1" max="100" step="1" value="${lev}" class="lev-slider" style="flex:1" oninput="window.PaperTrading.setLeverage(parseInt(this.value))">
-            <span style="font-weight:700;color:#921230;min-width:32px;text-align:right">${lev}x</span>
-          </div>
-          <div style="display:flex;background:rgba(0,0,0,0.04);border-radius:6px;overflow:hidden">
-            <button onclick="window.PaperTrading.setMarginMode('isolated')" style="padding:4px 8px;border:none;background:${State.settings.marginMode==='isolated'?'#921230':'transparent'};color:${State.settings.marginMode==='isolated'?'#fff':'var(--color-text)'};cursor:pointer;font-size:10px;font-weight:600">격리</button>
-            <button onclick="window.PaperTrading.setMarginMode('cross')" style="padding:4px 8px;border:none;background:${State.settings.marginMode==='cross'?'#921230':'transparent'};color:${State.settings.marginMode==='cross'?'#fff':'var(--color-text)'};cursor:pointer;font-size:10px;font-weight:600">교차</button>
-          </div>
-        </div>
-        
-        <!-- 매수/매도 토글 -->
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button id="paperBuyBtn" onclick="window.PaperTrading.setSide('long')" style="flex:1;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;background:#C4384B;color:#fff;font-size:13px;transition:opacity .15s,box-shadow .15s,transform .1s;box-shadow:0 2px 8px rgba(196,56,75,.3)">매수 / 롱</button>
-          <button id="paperSellBtn" onclick="window.PaperTrading.setSide('short')" style="flex:1;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;background:#3B82F6;color:#fff;opacity:0.5;font-size:13px;transition:opacity .15s,box-shadow .15s,transform .1s">매도 / 숏</button>
-        </div>
-        
-        <!-- 주문 유형 -->
-        <div style="display:flex;gap:4px;margin-bottom:8px">
-          <button onclick="window.PaperTrading.setOrderType('market')" id="paperTypeMarket" style="flex:1;padding:5px;border:1px solid var(--border);border-radius:5px;background:#921230;color:#fff;cursor:pointer;font-size:11px;font-weight:600">시장가</button>
-          <button onclick="window.PaperTrading.setOrderType('limit')" id="paperTypeLimit" style="flex:1;padding:5px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--color-text);cursor:pointer;font-size:11px">지정가</button>
-        </div>
-        
-        <!-- 지정가 입력 (limit일 때만) -->
-        <div id="paperLimitRow" style="display:none;margin-bottom:8px">
-          <label style="font-size:10px;color:var(--color-text-muted);display:block;margin-bottom:2px">지정가</label>
-          <input id="paperLimitPrice" type="number" step="any" placeholder="${cur ? cur.toFixed(2) : '가격'}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;font-weight:600">
-        </div>
-        
-        <!-- 수량 -->
-        <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-bottom:2px">
-            <span>주문 금액 (USDT)</span>
-            <span>사용가능 $${available.toFixed(2)}</span>
-          </div>
-          <input id="paperQty" type="number" value="50" min="1" step="10" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;font-weight:600" oninput="window.PaperTrading.updateOrderSummary()">
-          <div style="display:flex;gap:3px;margin-top:4px">
-            ${[25,50,75,100].map(p => `<button onclick="window.PaperTrading.setQtyPercent(${p})" style="flex:1;padding:6px 0;border:1px solid var(--border);background:transparent;color:var(--color-text);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all .12s" onmouseover="this.style.borderColor='#921230';this.style.background='rgba(146,18,48,0.06)'" onmouseout="this.style.borderColor='';this.style.background='transparent'">${p}%</button>`).join('')}
-          </div>
-        </div>
-        
-        <!-- SL/TP -->
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <div style="flex:1">
-            <label style="font-size:10px;color:#3B82F6;display:block;margin-bottom:2px">손절 % (SL)</label>
-            <input id="paperSL" type="number" value="2" step="0.1" min="0" style="width:100%;padding:5px 6px;border:1px solid rgba(59,130,246,0.3);border-radius:5px;font-size:12px" oninput="window.PaperTrading.updateOrderSummary()">
-          </div>
-          <div style="flex:1">
-            <label style="font-size:10px;color:#C4384B;display:block;margin-bottom:2px">익절 % (TP)</label>
-            <input id="paperTP" type="number" value="4" step="0.1" min="0" style="width:100%;padding:5px 6px;border:1px solid rgba(196,56,75,0.3);border-radius:5px;font-size:12px" oninput="window.PaperTrading.updateOrderSummary()">
-          </div>
-        </div>
-        
-        <!-- 주문 요약 -->
-        <div id="paperOrderSummary" style="background:rgba(0,0,0,0.04);padding:6px 8px;border-radius:5px;font-size:10px;line-height:1.6;margin-bottom:8px"></div>
-        
-        <!-- 주문 버튼 -->
-        <button onclick="window.PaperTrading.submit()" id="paperSubmitBtn" style="width:100%;padding:10px;background:#C4384B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px">매수 주문 (롱)</button>
-      </div>
-    `;
-    
-    // 초기 요약 갱신
-    updateOrderSummary();
+  function toggleOverlay(on) {
+    if (on) { const { f, c } = recompute(); drawBuilderOverlay(f, c); }
+    else clearBuilderOverlay();
   }
-
-  // 주문 폼 상태
-  let _formSide = 'long';
-  let _formType = 'market';
-
-  function setSide(side) {
-    _formSide = side;
-    const buyBtn = document.getElementById('paperBuyBtn');
-    const sellBtn = document.getElementById('paperSellBtn');
-    const submit = document.getElementById('paperSubmitBtn');
-    if (buyBtn) { buyBtn.style.opacity = side === 'long' ? '1' : '0.5'; buyBtn.style.boxShadow = side === 'long' ? '0 2px 10px rgba(196,56,75,.4)' : 'none'; }
-    if (sellBtn) { sellBtn.style.opacity = side === 'short' ? '1' : '0.5'; sellBtn.style.boxShadow = side === 'short' ? '0 2px 10px rgba(59,130,246,.4)' : 'none'; }
-    if (submit) {
-      submit.textContent = side === 'long' ? '매수 주문 (롱)' : '매도 주문 (숏)';
-      submit.style.background = side === 'long' ? '#C4384B' : '#3B82F6';
-    }
-    updateOrderSummary();
-  }
-
-  function setOrderType(type) {
-    _formType = type;
-    document.getElementById('paperTypeMarket').style.background = type === 'market' ? '#921230' : 'transparent';
-    document.getElementById('paperTypeMarket').style.color = type === 'market' ? '#fff' : 'var(--color-text)';
-    document.getElementById('paperTypeLimit').style.background = type === 'limit' ? '#921230' : 'transparent';
-    document.getElementById('paperTypeLimit').style.color = type === 'limit' ? '#fff' : 'var(--color-text)';
-    document.getElementById('paperLimitRow').style.display = type === 'limit' ? 'block' : 'none';
-  }
-
-  function setLeverage(lev) {
-    State.settings.leverage = lev;
-    save();
-    renderOrderForm();  // 레버리지 변경 시 폼 재렌더 (현재 표시 갱신)
-    setSide(_formSide);  // 사이드 복원
-    setOrderType(_formType);
-  }
-
-  function setMarginMode(mode) {
-    State.settings.marginMode = mode;
-    save();
-    renderOrderForm();
-    setSide(_formSide);
-    setOrderType(_formType);
-  }
-
-  function setQtyPercent(pct) {
-    const available = calcAvailableBalance();
-    const qty = Math.floor(available * pct / 100 * State.settings.leverage);
-    document.getElementById('paperQty').value = qty;
-    updateOrderSummary();
-  }
-
-  function updateOrderSummary() {
-    const el = document.getElementById('paperOrderSummary');
-    if (!el) return;
-    
-    const qty = +(document.getElementById('paperQty')?.value || 0);
-    const sl = +(document.getElementById('paperSL')?.value || 0);
-    const tp = +(document.getElementById('paperTP')?.value || 0);
-    const cur = getCurrentPrice(window.curSymbol) || 0;
-    const lev = State.settings.leverage;
-    const margin = qty / lev;
-    
-    if (!cur || !qty) {
-      el.innerHTML = '<span style="color:var(--color-text-muted)">금액과 가격을 입력하세요</span>';
-      return;
-    }
-    
-    const liqPrice = cur * (_formSide === 'long' 
-      ? (1 - (1/lev) * (1 - MAINTENANCE_MARGIN_RATE))
-      : (1 + (1/lev) * (1 - MAINTENANCE_MARGIN_RATE)));
-    
-    const slLoss = qty * sl / 100;
-    const tpGain = qty * tp / 100;
-    const fee = qty * FEE_RATE * 2;  // 진입 + 청산
-    
-    el.innerHTML = `
-      <div style="display:flex;justify-content:space-between"><span>마진:</span><span style="font-weight:600">$${margin.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>예상 청산가:</span><span style="color:#3B82F6;font-weight:600">$${liqPrice.toFixed(liqPrice>1?2:6)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>예상 손절:</span><span style="color:#3B82F6">-$${slLoss.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>예상 익절:</span><span style="color:#C4384B">+$${tpGain.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--color-text-muted);padding-top:2px;border-top:1px solid rgba(0,0,0,0.05);margin-top:2px"><span>수수료(왕복):</span><span>-$${fee.toFixed(3)}</span></div>
-    `;
-  }
-
-  function submit() {
-    const sym = window.curSymbol || 'BTCUSDT';
-    const qtyUsdt = +(document.getElementById('paperQty')?.value || 0);
-    const sl = +(document.getElementById('paperSL')?.value || 0);
-    const tp = +(document.getElementById('paperTP')?.value || 0);
-    const limitPrice = _formType === 'limit' ? +(document.getElementById('paperLimitPrice')?.value || 0) : null;
-    
-    if (qtyUsdt <= 0) {
-      window.showToast?.('주문 금액을 입력하세요', '#3B82F6');
-      return;
-    }
-    if (_formType === 'limit' && (!limitPrice || limitPrice <= 0)) {
-      window.showToast?.('지정가를 입력하세요', '#3B82F6');
-      return;
-    }
-    
-    placeOrder({
-      sym,
-      side: _formSide,
-      type: _formType,
-      price: limitPrice,
-      qtyUsdt,
-      sl: sl > 0 ? sl : null,
-      tp: tp > 0 ? tp : null,
+  // 차트에서 라인을 드래그하면 입력값 갱신 (차트 엔진이 'drawingMoved' 이벤트를 쏜다는 가정, 없으면 무시)
+  function hookDrawingDrag() {
+    document.addEventListener('drawingMoved', (e) => {
+      const d = e.detail && e.detail.drawing;
+      if (!d || d._calcOwner !== 'mock_builder') return;
+      const price = e.detail.price != null ? e.detail.price : d.price;
+      if (!Number.isFinite(price)) return;
+      const map = { entry: 'mtEntry', target: 'mtTarget', stop: 'mtStop' };
+      const id = map[d._mockKey];
+      if (id) { const el = document.getElementById(id); if (el) { el.value = fmtP(price); recompute(); } }
     });
   }
 
-  function renderPositionCards() {
-    const el = document.getElementById('paperPositions');
-    if (!el) return;
-    
-    if (!State.positions.length) {
-      el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-muted);font-size:11px">활성 포지션 없음</div>';
-      return;
-    }
-    
-    el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--color-text-muted)">활성 포지션 (' + State.positions.length + ')</span>' + (State.positions.length >= 2 ? '<button onclick="window.PaperTrading.closeAll()" style="background:rgba(196,56,75,0.12);border:1px solid rgba(196,56,75,0.3);color:#921230;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;padding:2px 8px">전체 청산</button>' : '') + '</div>' + State.positions.map(pos => {
-      const cur = getCurrentPrice(pos.sym) || pos.entry;
-      const { pnl, pnlPct, roe } = calcPnl(pos, cur);
-      const liqPrice = calcLiquidation(pos);
-      const sideColor = pos.side === 'long' ? '#C4384B' : '#3B82F6';
-      const pnlColor = pnl >= 0 ? '#C4384B' : '#3B82F6';
-      const isCurSym = pos.sym === window.curSymbol;
-      
-      return `
-        <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-left:3px solid ${sideColor};padding:9px;border-radius:8px;margin-bottom:7px;font-size:11px;box-shadow:0 1px 4px rgba(15,23,42,0.06)${isCurSym?';box-shadow:0 0 0 2px '+sideColor+'33':''}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <div>
-              <span style="font-weight:700;font-size:12px;cursor:pointer;color:var(--color-primary)" onclick="window._selectSym?.('${pos.sym}')">${pos.sym.replace('USDT','')}</span>
-              <span style="background:${sideColor};color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;font-weight:700">${pos.side === 'long' ? '롱' : '숏'} ${pos.leverage}x</span>
-              <span style="background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;font-size:9px;margin-left:2px">${pos.marginMode === 'isolated' ? '격리' : '교차'}</span>
-            </div>
-            <div style="text-align:right">
-              <div style="color:${pnlColor};font-weight:700;font-size:12px">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</div>
-              <div style="color:${pnlColor};font-size:10px">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}% (ROE ${roe >= 0 ? '+' : ''}${roe.toFixed(1)}%)</div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;font-size:10px;color:var(--color-text-muted);margin-bottom:4px">
-            <div>진입가 <span style="color:var(--color-text);font-weight:600">$${pos.entry.toFixed(pos.entry>1?2:6)}</span></div>
-            <div>현재가 <span style="color:var(--color-text);font-weight:600">$${cur.toFixed(cur>1?2:6)}</span></div>
-            <div>수량 <span style="color:var(--color-text)">${(pos.qty * pos.entry).toFixed(2)} USDT</span></div>
-            <div>마진 <span style="color:var(--color-text)">$${pos.margin.toFixed(2)}</span></div>
-            <div>청산가 <span style="color:#3B82F6;font-weight:600">${liqPrice > 0 ? '$' + liqPrice.toFixed(liqPrice>1?2:6) : '—'}</span></div>
-            <div>TP/SL <span style="color:var(--color-text)">${pos.tpPct||0}% / ${pos.slPct||0}%</span></div>
-          </div>
-          <div style="display:flex;gap:3px">
-            <button onclick="window.PaperTrading.close('${pos.id}', 0.5)" style="flex:1;padding:4px;background:rgba(216,182,106,0.2);border:1px solid rgba(216,182,106,0.4);color:#B8942E;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">50% 청산</button>
-            <button onclick="window.PaperTrading.close('${pos.id}', 1)" style="flex:1;padding:4px;background:rgba(196,56,75,0.15);border:1px solid rgba(196,56,75,0.3);color:#921230;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">전체 청산</button>
-            <button onclick="window.PaperTrading.editTPSL('${pos.id}')" style="padding:4px 6px;background:transparent;border:1px solid var(--border);color:var(--color-text);border-radius:4px;cursor:pointer;font-size:10px">TP/SL</button>
+  // ───────── 초기화/리셋 모달 ─────────
+  function confirmReset() {
+    const root = document.getElementById('mtModalRoot');
+    if (!root) { if (confirm('모의 계좌를 초기화할까요? (가상 잔고 $1,000으로 리셋, 진행 중 포지션 삭제)')) doReset(); return; }
+    root.innerHTML = `
+      <div class="mt-modal-overlay" onclick="if(event.target===this)window.PaperTrading.closeReview()">
+        <div class="mt-modal" role="dialog" aria-label="계좌 초기화 확인">
+          <h3>모의 계좌 초기화</h3>
+          <p style="font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.6">가상 잔고를 $1,000으로 되돌리고 진행 중인 모의 포지션을 모두 삭제합니다. 저장된 기록과 복기 메모도 함께 삭제됩니다. 계속할까요?</p>
+          <div class="mt-modal-actions">
+            <button class="mt-btn mt-btn-ghost" type="button" onclick="window.PaperTrading.closeReview()">취소</button>
+            <button class="mt-btn mt-btn-primary" type="button" onclick="window.PaperTrading.doReset()">초기화</button>
           </div>
         </div>
-      `;
-    }).join('');
+      </div>`;
   }
-
-  function editTPSL(posId) {
-    const pos = State.positions.find(p => p.id === posId);
-    if (!pos) return;
-    const newSL = prompt(`손절 % (현재: ${pos.slPct || '없음'})`, pos.slPct || '');
-    if (newSL === null) return;
-    const newTP = prompt(`익절 % (현재: ${pos.tpPct || '없음'})`, pos.tpPct || '');
-    if (newTP === null) return;
-    modifyTPSL(posId, parseFloat(newSL) || null, parseFloat(newTP) || null);
-  }
-
-  function renderHistory() {
-    const el = document.getElementById('paperHistory');
-    if (!el) return;
-    
-    const recent = State.history.slice(-15).reverse();
-    if (!recent.length) {
-      el.innerHTML = '<div class="state-empty" style="font-size:12px;min-height:60px">아직 거래 내역이 없습니다<br>첫 모의주문을 체결해보세요</div>';
-      return;
-    }
-    
-    el.innerHTML = '<div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--color-text-muted)">최근 거래 (' + State.history.length + '건)</div>' + recent.map(h => {
-      const color = h.pnl >= 0 ? '#C4384B' : '#3B82F6';
-      const sideLabel = h.side === 'long' ? '롱' : '숏';
-      return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid var(--color-divider);font-size:10px;border-radius:4px;transition:background .12s" onmouseover="this.style.background='var(--color-primary-soft)'" onmouseout="this.style.background='transparent'">
-          <div>
-            <div style="font-weight:600;cursor:pointer" onclick="window._selectSym?.('${h.sym}')" title="차트로 이동"><span style="color:var(--color-primary)">${h.sym.replace('USDT','')}</span> <span style="color:${color}">${sideLabel}</span> ${h.leverage||1}x</div>
-            <div style="color:var(--color-text-muted);font-size:9px">${h.time_str || new Date(h.time).toLocaleTimeString('ko-KR')} · ${h.reason || ''}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="color:${color};font-weight:700">${h.pnl >= 0 ? '+' : ''}$${h.pnl.toFixed(2)}</div>
-            <div style="color:${color};font-size:9px">${h.pct >= 0 ? '+' : ''}${(h.pct||0).toFixed(2)}%</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function renderPendingOrders() {
-    const el = document.getElementById('paperPendingOrders');
-    if (!el) return;
-    
-    if (!State.pendingOrders.length) {
-      el.innerHTML = '';
-      return;
-    }
-    
-    el.innerHTML = '<div style="font-size:11px;font-weight:700;margin:8px 0 4px;color:var(--color-text-muted)">미체결 주문 (' + State.pendingOrders.length + ')</div>' + State.pendingOrders.map(o => {
-      const sideColor = o.side === 'long' ? '#C4384B' : '#3B82F6';
-      return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:rgba(216,182,106,0.08);border:1px solid rgba(216,182,106,0.2);border-radius:5px;margin-bottom:3px;font-size:10px">
-          <div>
-            <span style="font-weight:600">${o.sym.replace('USDT','')}</span>
-            <span style="color:${sideColor};font-weight:600">${o.side === 'long' ? '롱' : '숏'}</span>
-            <span> @ $${o.price}</span>
-            <span style="color:var(--color-text-muted)">·${o.qtyUsdt}USDT·${o.leverage}x</span>
-          </div>
-          <button onclick="window.PaperTrading.cancelPending('${o.id}')" style="background:none;border:none;color:#3B82F6;cursor:pointer;font-size:14px;padding:0 4px">×</button>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function cancelPending(orderId) {
-    State.pendingOrders = State.pendingOrders.filter(o => o.id !== orderId);
+  function doReset() {
+    State.balance = INITIAL_BALANCE; State.positions = []; State.history = [];
     save();
-    renderAll();
+    if (isLoggedIn()) { fetch('/v1/paper/reset', { method: 'POST', credentials: 'include' }).catch(() => {}); }
+    closeReview(); clearBuilderOverlay(); renderAll();
+    window.showToast?.('모의 계좌를 초기화했습니다', '#921230');
   }
 
-  function resetAll() {
-    if (!confirm('모의주문 전체 초기화 (예수금 $1,000으로 리셋)?')) return;
-    State.balance = INITIAL_BALANCE;
-    State.positions = [];
-    State.history = [];
-    State.pendingOrders = [];
-    save();
-    // 구버전 localStorage 키도 정리
-    localStorage.removeItem('mockPos');
-    localStorage.removeItem('mockHistory');
-    renderAll();
-    if (window.chart?.overlay) {
-      window.chart.overlay.drawings = window.chart.overlay.drawings.filter(d =>
-        d.type !== 'demo_action'
-      );
-      window.chart._dirty = true;
+  // ───────── 차트 마커 복원 (다른 모듈 호환용 유지) ─────────
+  function restoreChartMarkers() {
+    if (document.getElementById('mtOverlayToggle')?.checked) {
+      const { f, c } = recompute();
+      drawBuilderOverlay(f, c);
     }
-    window.showToast?.('모의주문 초기화 완료', '#8E7D72');
   }
 
   // ───────── 외부 노출 ─────────
-  function closeAll() {
-    const ids = State.positions.map(p => p.id);
-    if (!ids.length) return;
-    ids.forEach(id => closePosition(id, 1));
-    window.showToast?.(`전체 포지션 ${ids.length}건 청산`, '#921230');
-  }
-
   window.PaperTrading = {
-    submit, close: closePosition, closeAll, modifyTPSL, editTPSL,
-    setSide, setOrderType, setLeverage, setMarginMode, setQtyPercent,
-    updateOrderSummary, cancelPending, resetAll,
+    create, recompute,
+    setDirection, setPriceMode, setLeverage, customLeverage, setFee, setSlippage, setAmountPercent,
+    editPosition, closePosition, deletePosition,
+    setFilter, setSort,
+    openReview, closeReview, saveReview,
+    toggleOverlay, confirmReset, doReset,
     restoreChartMarkers, renderAll,
-    getState: () => State,
-    getCurrentPrice,
+    getState: () => State, getCurrentPrice,
   };
 
-  // ───────── 초기화 ─────────
+  // ───────── 부트스트랩 ─────────
   function init() {
     renderAll();
-    
-    // 1초마다 가격 업데이트 → 포지션/잔고 카드 + 자동청산 체크
+    hookDrawingDrag();
+    // 1초 주기: 평가 손익/상태 갱신 + 자동 상태 전이
+    setInterval(() => { if (document.hidden) return; checkAutoStatus(); }, 1000);
+    // 현재가 변동 반영 위해 빌더 기준가 갱신(현재가 모드)
     setInterval(() => {
-      checkAutoClose();
-      renderBalanceCard();
-      renderPositionCards();
-    }, 1000);
-
-    // 보유 포지션 종목 가격 보충 (다른 종목 포지션 손익 정확도) — 즉시 + 5초 주기
-    pollPositionPrices();
-    _posPriceTimer = setInterval(() => { if (!document.hidden) pollPositionPrices(); }, 5000);
-    
-    // 차트 종목/TF 변경 시 마커 복원 후크
-    if (window.chart) {
-      const _origLoadBars = window.chart.loadBars?.bind(window.chart);
-      if (_origLoadBars) {
-        window.chart.loadBars = function(bars) {
-          _origLoadBars(bars);
-          setTimeout(restoreChartMarkers, 100);
-        };
+      if (document.hidden) return;
+      if (Form.priceMode === 'current') {
+        const cur = getCurrentPrice(window.curSymbol);
+        const refEl = document.getElementById('mtRefPrice');
+        if (cur && refEl && document.activeElement !== refEl) { refEl.value = fmtP(cur); }
       }
+    }, 2000);
+    // 종목 변경 시 빌더 갱신 + 오버레이 재적용
+    document.addEventListener('symbolChanged', () => { renderBuilder(); recompute(); });
+    const _origSel = window._selectSym;
+    if (typeof _origSel === 'function' && !_origSel._mtHooked) {
+      const wrapped = async function(sym) { const r = await _origSel.apply(this, arguments); setTimeout(() => { renderBuilder(); recompute(); }, 400); return r; };
+      wrapped._mtHooked = true; window._selectSym = wrapped;
     }
-    
-    // 종목 변경 이벤트 후크
-    const _origSelectSym = window._selectSym;
-    if (_origSelectSym) {
-      window._selectSym = async function(sym) {
-        await _origSelectSym(sym);
-        setTimeout(restoreChartMarkers, 500);
-      };
-    }
-    
-    // 차트 TF 변경 후
-    document.querySelectorAll('[data-tf]').forEach(btn => {
-      const oldClick = btn.onclick;
-      btn.onclick = function(e) {
-        if (oldClick) oldClick.call(this, e);
-        setTimeout(restoreChartMarkers, 800);
-      };
-    });
-    
-    // 서버 상태 로드
     setTimeout(loadFromServer, 1500);
   }
-
-  // 차트 준비 완료 후 init
-  if (window.chart) {
-    init();
-  } else {
-    const checkInterval = setInterval(() => {
-      if (window.chart) {
-        clearInterval(checkInterval);
-        init();
-      }
-    }, 200);
-    setTimeout(() => clearInterval(checkInterval), 30000);  // 30초 안전망
+  if (window.chart) init();
+  else {
+    const iv = setInterval(() => { if (window.chart) { clearInterval(iv); init(); } }, 200);
+    setTimeout(() => clearInterval(iv), 30000);
   }
-
 })();
