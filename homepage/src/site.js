@@ -462,7 +462,7 @@ function renderFooter(lang) {
     </section>
     <section class="footer-col footer-contact">
       <h2>${t.footerContactTitle}</h2>
-      <a class="footer-email" href="mailto:${siteConfig.EMAIL}">${siteConfig.EMAIL}</a>
+      <a class="footer-email" href="${b}/contact/">${siteConfig.EMAIL}</a>
     </section>
   </div>
   <div class="footer-legal">
