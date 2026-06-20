@@ -23,7 +23,7 @@
       "purpose": "any"
     },
     {
-      "src": "/static/logo.png",
+      "src": "/static/company-logo-256.png",
       "sizes": "256x256",
       "type": "image/png",
       "purpose": "any maskable"

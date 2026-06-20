@@ -23,13 +23,15 @@
 <meta name="twitter:description" content="실시간 암호화폐 AI 차트 분석 플랫폼">
 <meta name="twitter:image" content="https://www.beomonnuri.com/static/og-image.png">
 <link rel="canonical" href="https://www.beomonnuri.com/">
-<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="64x64" href="/static/favicon.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png?v=2">
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#921230">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="범온 AI 슈퍼차트">
-<link rel="apple-touch-icon" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
 
 <!-- Pretendard Variable 자체 호스팅 (디자인 토큰 시스템) -->
 <link rel="preconnect" href="https://api.binance.com" crossorigin>
@@ -94,6 +96,14 @@ body {
 .left-brand-header {
   border-bottom: 1px solid rgba(216,182,106,0.22);
   background: linear-gradient(90deg, rgba(146,18,48,0.05), rgba(216,182,106,0.08));
+}
+
+/* 회사 로고: 세로가 긴 로고이므로 높이 기준으로 비율 유지(찌그러짐 방지) */
+.left-brand-logo {
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .left-brand-name {
@@ -474,7 +484,8 @@ body:not(.dark) .left-brand-header {
   box-shadow: inset 0 -1px 0 rgba(255,255,255,0.7);
 }
 body:not(.dark) .left-brand-logo {
-  box-shadow: 0 2px 8px rgba(106,30,51,0.15);
+  /* 투명 배경 로고에는 사각 그림자가 어색하므로 제거 */
+  box-shadow: none;
 }
 body:not(.dark) .left-brand-name {
   color: #6a1e33;
@@ -863,7 +874,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <div id="leftPanel" tabindex="-1" class="left" role="complementary" aria-label="종목 목록">
   <div id="mobileOverlay" class="mobile-overlay" style="display:none" data-action="closeOverlay"></div>
   <div class="left-brand-header">
-    <img loading="eager" id="companyLogo" class="left-brand-logo" src="/static/logo.png" alt="범온 AI 슈퍼차트" width="24" height="24">
+    <img loading="eager" id="companyLogo" class="left-brand-logo" src="/static/company-logo.png?v=2" alt="범온 AI 슈퍼차트" width="19" height="26">
     <div class="left-brand-text">
       <div class="left-brand-name">범온 AI 슈퍼차트</div>
       <div class="left-brand-sub">BEOMON AI SuperChart</div>
