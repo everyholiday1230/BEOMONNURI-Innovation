@@ -69,9 +69,14 @@ window._renderFavSymbols=function(){
     const base=sym.replace('USDT','').replace('KRW-','');
     const quote=sym.includes('KRW-') ? '/KRW' : '/USDT';
     const imgUrl=imgMap[sym]||'';
-    // 이미지가 있으면 img, 없으면 아무것도 안 보여줌 (fallback 첫 글자 배지 제거 — 사용자 요청)
-    const imgHtml = imgUrl
-      ? `<img src="${imgUrl}" alt="" onerror="this.style.display='none'">`
+    const _token=base.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const _coin=_token?`/static/coin-logos/${_token}.png`:'';
+    const _stock=_token?`/static/stock-logos/${_token}.png`:'';
+    // db → coin-logos → stock-logos 순으로 시도, 모두 없으면 숨김(첫 글자 배지 미사용 — 기존 정책 유지)
+    const _start=imgUrl||_coin||'';
+    const _onerr=`var s=this.getAttribute('data-step')||'0';if(s==='0'){this.setAttribute('data-step','1');this.src='${_coin}';}else if(s==='1'){this.setAttribute('data-step','2');this.src='${_stock}';}else{this.onerror=null;this.style.display='none';}`;
+    const imgHtml = _start
+      ? `<img src="${_start}" data-step="${imgUrl?'0':'1'}" alt="" loading="lazy" onerror="${_onerr}">`
       : '';
     return `<div class="sym-chip ${isActive?'active':''}" data-favsym="${sym}" onclick="window._selectSym(this.dataset.favsym)" oncontextmenu="event.preventDefault();window._removeFavSym(this.dataset.favsym)" title="${base}${quote} — 우클릭으로 제거">
       ${imgHtml}

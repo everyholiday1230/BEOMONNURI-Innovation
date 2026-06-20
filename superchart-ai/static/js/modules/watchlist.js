@@ -59,12 +59,69 @@ function _setAssetTabActive(asset) {
 window.symbols = symbols;
 window.coinImgUrl = coinImgUrl;
 
+/**
+ * 심볼 로고 다단계 fallback 헬퍼.
+ * 우선순위: DB img_url → 로컬 coin-logos → 로컬 stock-logos → SVG 첫글자 배지.
+ * 어떤 단계가 404/누락이어도 항상 무언가는 표시되도록 보장한다.
+ * 새 종목이 로고 없이 추가돼도 자동으로 배지가 떠 "마크 누락" 재발을 예방한다.
+ */
+function _symbolBadgeSvg(base, px) {
+  const label = String(base || '?').slice(0, 4);
+  const half = Math.round(px / 2);
+  const fs = px <= 18 ? 7 : 8;
+  const ty = Math.round(px * 0.66);
+  return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22${px}%22 height=%22${px}%22><rect width=%22${px}%22 height=%22${px}%22 rx=%22${half}%22 fill=%22%236A1E33%22/><text x=%22${half}%22 y=%22${ty}%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%22${fs}%22>${label}</text></svg>`;
+}
+
+/** base 자산명을 안전한 로고 파일명 토큰으로 (영숫자만). */
+function _logoToken(base) {
+  return String(base || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * <img> 마크업을 반환한다. onerror 체인으로 단계적 fallback.
+ * @param {string} code  심볼 코드 (BTCUSDT 등)
+ * @param {string} base  표시용 base (BTC 등)
+ * @param {number} px    크기(px)
+ * @param {string} extraStyle  추가 인라인 스타일
+ */
+window._symbolLogoImg = function(code, base, px, extraStyle) {
+  px = px || 20;
+  const token = _logoToken(base);
+  const dbUrl = (window.coinImgUrl || {})[code] || '';
+  const coinPath = token ? `/static/coin-logos/${token}.png` : '';
+  const stockPath = token ? `/static/stock-logos/${token}.png` : '';
+  const badge = _symbolBadgeSvg(base, px);
+  // onerror 체인: db → coin → stock → badge. data-step 으로 진행 단계 추적(무한루프 방지).
+  const onerr = `var s=this.getAttribute('data-step')||'0';`
+    + `if(s==='0'){this.setAttribute('data-step','1');this.src='${coinPath}';}`
+    + `else if(s==='1'){this.setAttribute('data-step','2');this.src='${stockPath}';}`
+    + `else if(s==='2'){this.setAttribute('data-step','3');this.src='${badge}';}`
+    + `else{this.onerror=null;}`;
+  // 시작 src: db값 있으면 db, 없으면 로컬 coin 경로부터(없으면 onerror가 단계 진행)
+  const startSrc = dbUrl || coinPath || badge;
+  const startStep = dbUrl ? '0' : '1';
+  const style = `width:${px}px;height:${px}px;border-radius:50%;flex-shrink:0;${extraStyle || ''}`;
+  return `<img src="${startSrc}" data-step="${startStep}" loading="lazy" decoding="async" alt="" onerror="${onerr}" style="${style}">`;
+};
+
 window._updateSymIcon = function(code) {
   const el = document.getElementById('symIcon');
   if (!el || !code) return;
-  const url = coinImgUrl[code] || '';
-  if (url) { el.src = url; el.style.display = ''; el.alt = code.replace('USDT', '').replace('KRW-', ''); }
-  else { el.style.display = 'none'; }
+  const base = code.replace('USDT', '').replace('KRW-', '');
+  const token = _logoToken(base);
+  const url = coinImgUrl[code] || (token ? `/static/coin-logos/${token}.png` : '') || _symbolBadgeSvg(base, 24);
+  el.src = url;
+  el.style.display = '';
+  el.alt = base;
+  el.setAttribute('data-step', coinImgUrl[code] ? '0' : '1');
+  el.onerror = function() {
+    const s = this.getAttribute('data-step') || '0';
+    if (s === '0') { this.setAttribute('data-step', '1'); this.src = token ? `/static/coin-logos/${token}.png` : _symbolBadgeSvg(base, 24); }
+    else if (s === '1') { this.setAttribute('data-step', '2'); this.src = token ? `/static/stock-logos/${token}.png` : _symbolBadgeSvg(base, 24); }
+    else if (s === '2') { this.setAttribute('data-step', '3'); this.src = _symbolBadgeSvg(base, 24); }
+    else { this.onerror = null; }
+  };
 };
 
 window._updateSymName = function(code) {
@@ -156,11 +213,11 @@ export function renderWL(f = '') {
   }
   const curSymbol = window.curSymbol || '';
   el.innerHTML = list.map(s => {
-    const imgUrl = coinImgUrl[s.code] || '';
     const { base, quote } = _formatSymbolDisplay(s);
+    const logoImg = window._symbolLogoImg(s.code, base, 20);
     return `<div class="wl-item ${s.code === curSymbol ? 'active' : ''}" data-symbol="${s.code}" onclick="window._selectSym('${s.code}')">
     <div style="display:flex;align-items:center;gap:8px">
-      <img src="${imgUrl || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>' + base.slice(0,4) + '</text></svg>'}" loading="lazy" decoding="async" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect width=%2224%22 height=%2224%22 rx=%2212%22 fill=%22%236A1E33%22/><text x=%2212%22 y=%2216%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%228%22>${base.slice(0,4)}</text></svg>'" style="width:20px;height:20px;border-radius:50%;flex-shrink:0">
+      ${logoImg}
       <div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:14px;color:var(--wl-gold);white-space:nowrap">${base}${quote ? `<span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:2px">${quote}</span>` : ''}</div>
       <div style="color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(localStorage.getItem('chartOS_lang')||'ko')==='ko'?(s.kr||s.name||base):(s.name||s.kr||base)}</div></div>
     </div>
