@@ -464,6 +464,149 @@ body.dark .search-box input {
   color: #f4f7ff;
 }
 
+/* ===== 팝업/토스트/툴바 고도화 ===== */
+body:not(.dark) .left-brand-header {
+  background: linear-gradient(135deg, #fff8f1 0%, #f8ebdf 55%, #f2dfcf 100%);
+  border-bottom: 1px solid rgba(146,18,48,0.18);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.7);
+}
+body:not(.dark) .left-brand-logo {
+  box-shadow: 0 2px 8px rgba(106,30,51,0.15);
+}
+body:not(.dark) .left-brand-name {
+  color: #6a1e33;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.9);
+}
+body:not(.dark) .left-brand-sub {
+  color: #7d5a2d;
+  opacity: 1;
+  font-weight: 700;
+}
+
+.toolbar-row-controls {
+  justify-content: space-between;
+  gap: 8px;
+}
+.toolbar-control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.toolbar-control-group-tf {
+  flex: 1 1 320px;
+}
+.toolbar-control-group-tools,
+.toolbar-control-group-options {
+  flex: 2 1 560px;
+}
+.toolbar-row-tertiary {
+  border-top: 1px dashed rgba(216,182,106,0.35);
+  padding-top: 6px;
+}
+
+#helpPanel,
+#settingsModal,
+#langPanel {
+  backdrop-filter: blur(6px);
+}
+#helpPanel > div,
+#settingsModal > div,
+#langPanel {
+  border: 1px solid rgba(216,182,106,0.3) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 40px rgba(15,23,42,0.2), 0 6px 14px rgba(106,30,51,0.12) !important;
+}
+#helpPanel .text-accent {
+  display: inline-block;
+  margin-top: 8px;
+  color: #921230;
+}
+
+#_toastContainer .pro-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 260px;
+  max-width: min(92vw, 430px);
+  padding: 12px 14px 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(216,182,106,0.28);
+  border-left-width: 5px;
+  background: rgba(255,253,249,0.95);
+  color: #032129;
+  box-shadow: 0 12px 34px rgba(15,23,42,0.2), 0 3px 10px rgba(15,23,42,0.12);
+  animation: toastSlide 0.25s ease;
+}
+#_toastContainer .pro-toast-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(146,18,48,0.1);
+  color: #921230;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+#_toastContainer .pro-toast-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 3px;
+}
+#_toastContainer .pro-toast-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: normal;
+}
+#_toastContainer .pro-toast-guide {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#_toastContainer .pro-toast-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(146,18,48,0.08);
+  border: 1px solid rgba(146,18,48,0.2);
+  color: #7a1230;
+}
+#_toastContainer .pro-toast-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+#_toastContainer .pro-toast-close:hover {
+  background: rgba(0,0,0,0.06);
+}
+body.dark #_toastContainer .pro-toast {
+  background: rgba(16,19,28,0.95);
+  color: #e7edf7;
+  border-color: rgba(216,182,106,0.3);
+}
+body.dark #_toastContainer .pro-toast-body {
+  color: #c7d2e3;
+}
+body.dark #_toastContainer .pro-toast-chip {
+  background: rgba(216,182,106,0.12);
+  border-color: rgba(216,182,106,0.28);
+  color: #e8c97d;
+}
+
 /* ===== 반응형 ===== */
 @media (max-width: 980px) {
   .quick-start-dock { display: none !important; }
@@ -485,6 +628,20 @@ body.dark .search-box input {
   }
 
   .toolbar-row { gap: 4px; }
+  .toolbar-row-controls {
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .toolbar-control-group {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .toolbar-control-group::-webkit-scrollbar {
+    height: 3px;
+  }
   .tb,
   .toolbar-select {
     min-height: 30px;
@@ -501,6 +658,56 @@ body.dark .search-box input {
   .right-tab,
   .mobile-nav button {
     border: 1px solid currentColor !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .left {
+    position: fixed !important;
+    left: -260px !important;
+    top: 0;
+    width: min(82vw, 320px) !important;
+    height: 100dvh;
+    z-index: 60;
+    transition: left 0.25s ease;
+  }
+  .left.open { left: 0 !important; }
+
+  .right {
+    position: fixed !important;
+    right: -92vw !important;
+    top: 0;
+    width: min(92vw, 360px) !important;
+    height: 100dvh;
+    z-index: 60;
+    transition: right 0.25s ease;
+  }
+  .right.open { right: 0 !important; }
+
+  .center {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mobile-nav {
+    display: flex !important;
+    z-index: 120 !important;
+  }
+
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    background: rgba(61, 43, 31, 0.45);
+  }
+  .mobile-overlay.open {
+    display: block !important;
+  }
+
+  #chartWrap,
+  #chartWrap canvas {
+    touch-action: pan-x pan-y pinch-zoom;
   }
 }
 
@@ -751,49 +958,53 @@ body.dark .search-box input {
       </div>
     </div>
 
-    <!-- ══════ 2행: 차트 컨트롤 (TF + 도구 + 데모매매) ══════ -->
-    <div class="toolbar-row toolbar-row-secondary">
-      <!-- 타임프레임 -->
-      <div class="tb" data-tf="1m" title="1분봉 차트">1분</div>
-      <div class="tb active" data-tf="5m" title="5분봉 차트">5분</div>
-      <div class="tb" data-tf="15m" title="15분봉 차트">15분</div>
-      <div class="tb" data-tf="1h" title="1시간봉 차트">1시간</div>
-      <div class="tb" data-tf="4h" title="4시간봉 차트">4시간</div>
-      <div class="tb" data-tf="1d" title="일봉 차트">일봉</div>
-      <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
-      <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
-      <div class="sep"></div>
-      <button aria-label="공개 지표 패널" class="tb fw-600" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
-      <button aria-label="범온 지표 패널" class="tb fw-600" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온지표</button>
-      <button aria-label="매매전략 패널" class="tb fw-600" id="strategyDrawerToggle" title="매매전략 패널">매매전략</button>
-      <button aria-label="드로잉 도구" class="tb fw-600" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
-      <button aria-label="프리셋" class="tb fw-600" id="presetDrawerToggle" title="프리셋">프리셋</button>
-      <div class="sep"></div>
-      <button aria-label="차트설정 저장" class="tb" data-action="saveSettings" title="차트설정 저장">설정저장</button>
-      <button aria-label="전체화면" class="tb" data-action="toggleFullscreen" title="전체화면" id="fsBtn">전체화면</button>
-      <select id="chartTypeSelect" onchange="setChartType(this.value)" aria-label="차트 유형" class="toolbar-select">
-        <option value="candle">캔들</option><option value="line">라인</option><option value="area">영역</option>
-      </select>
-      <button class="tb" id="logScaleBtn" data-action="toggleLogScale" title="가격축 로그/선형 전환" aria-label="로그 스케일 전환">선형</button>
-      <button class="tb" id="magnetBtn" data-action="toggleMagnet" title="크로스헤어 자석(캔들 OHLC에 스냅)" aria-label="자석 모드">자석</button>
-      <div class="sep"></div>
-      <!-- 다중 차트 레이아웃 -->
-      <div style="display:inline-flex;gap:2px;background:rgba(216,182,106,0.08);border-radius:6px;padding:2px" title="차트 분할 레이아웃">
-        <button class="tb-layout active" data-layout="1" onclick="window._setChartLayout?.(1)" title="단일 차트" aria-label="1분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:#921230;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">1</button>
-        <button class="tb-layout" data-layout="2" onclick="window._setChartLayout?.(2)" title="2개 분할 (좌우)" aria-label="2분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊟</button>
-        <button class="tb-layout" data-layout="4" onclick="window._setChartLayout?.(4)" title="4개 분할 (2x2)" aria-label="4분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊞</button>
+    <!-- ══════ 2행: 타임프레임 + 지표/도구 ══════ -->
+    <div class="toolbar-row toolbar-row-secondary toolbar-row-controls">
+      <div class="toolbar-control-group toolbar-control-group-tf" aria-label="타임프레임 그룹">
+        <div class="tb" data-tf="1m" title="1분봉 차트">1분</div>
+        <div class="tb active" data-tf="5m" title="5분봉 차트">5분</div>
+        <div class="tb" data-tf="15m" title="15분봉 차트">15분</div>
+        <div class="tb" data-tf="1h" title="1시간봉 차트">1시간</div>
+        <div class="tb" data-tf="4h" title="4시간봉 차트">4시간</div>
+        <div class="tb" data-tf="1d" title="일봉 차트">일봉</div>
+        <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
+        <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
       </div>
-      <button class="tb" id="compareBtn" onclick="window._toggleCompareMode?.()" title="여러 종목을 한 차트에 비교 (정규화 라인)" aria-label="종목 비교">비교</button>
-      <!-- 자주 안 쓰는 도구 (더보기 영역) -->
-      <details class="tb-more" style="position:relative;display:inline-block">
-        <summary class="tb" title="더보기" style="list-style:none;cursor:pointer;padding:5px 12px;font-weight:600;height:32px;display:inline-flex;align-items:center">더보기</summary>
-        <div style="position:absolute;top:100%;right:0;background:var(--color-surface-raised);border:1px solid rgba(216,182,106,0.25);border-radius:8px;padding:6px;z-index:300;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
-          <button class="tb" data-draw="clear" title="그려진 드로잉 모두 삭제" aria-label="드로잉삭제" style="color:var(--red);width:100%;text-align:left;padding:6px 8px">드로잉 삭제</button>
-          <button class="tb" data-action="applyPreset" data-param="clean" title="모든 지표 끄기" aria-label="차트초기화" style="width:100%;text-align:left;padding:6px 8px">차트 초기화</button>
-          <button class="tb" data-action="captureChart" title="차트 스크린샷" aria-label="스크린샷" style="width:100%;text-align:left;padding:6px 8px">스크린샷</button>
+      <div class="toolbar-control-group toolbar-control-group-tools" aria-label="지표 도구 그룹">
+        <button aria-label="공개 지표 패널" class="tb fw-600" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
+        <button aria-label="범온 지표 패널" class="tb fw-600" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온지표</button>
+        <button aria-label="매매전략 패널" class="tb fw-600" id="strategyDrawerToggle" title="매매전략 패널">매매전략</button>
+        <button aria-label="드로잉 도구" class="tb fw-600" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
+        <button aria-label="프리셋" class="tb fw-600" id="presetDrawerToggle" title="프리셋">프리셋</button>
+      </div>
+    </div>
+
+    <!-- ══════ 3행: 차트 옵션/레이아웃 ══════ -->
+    <div class="toolbar-row toolbar-row-tertiary toolbar-row-controls">
+      <div class="toolbar-control-group toolbar-control-group-options" aria-label="차트 옵션 그룹">
+        <button aria-label="차트설정 저장" class="tb" data-action="saveSettings" title="차트설정 저장">설정저장</button>
+        <button aria-label="전체화면" class="tb" data-action="toggleFullscreen" title="전체화면" id="fsBtn">전체화면</button>
+        <select id="chartTypeSelect" onchange="setChartType(this.value)" aria-label="차트 유형" class="toolbar-select">
+          <option value="candle">캔들</option><option value="line">라인</option><option value="area">영역</option>
+        </select>
+        <button class="tb" id="logScaleBtn" data-action="toggleLogScale" title="가격축 로그/선형 전환" aria-label="로그 스케일 전환">선형</button>
+        <button class="tb" id="magnetBtn" data-action="toggleMagnet" title="크로스헤어 자석(캔들 OHLC에 스냅)" aria-label="자석 모드">자석</button>
+        <div style="display:inline-flex;gap:2px;background:rgba(216,182,106,0.08);border-radius:6px;padding:2px" title="차트 분할 레이아웃">
+          <button class="tb-layout active" data-layout="1" onclick="window._setChartLayout?.(1)" title="단일 차트" aria-label="1분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:#921230;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">1</button>
+          <button class="tb-layout" data-layout="2" onclick="window._setChartLayout?.(2)" title="2개 분할 (좌우)" aria-label="2분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊟</button>
+          <button class="tb-layout" data-layout="4" onclick="window._setChartLayout?.(4)" title="4개 분할 (2x2)" aria-label="4분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊞</button>
         </div>
-      </details>
-      <button id="replayBtn" class="tb" style="display:none" onclick="window._replayToggle&&_replayToggle()" title="리플레이 (유튜브 촬영용)">리플레이</button>
+        <button class="tb" id="compareBtn" onclick="window._toggleCompareMode?.()" title="여러 종목을 한 차트에 비교 (정규화 라인)" aria-label="종목 비교">비교</button>
+        <details class="tb-more" style="position:relative;display:inline-block">
+          <summary class="tb" title="더보기" style="list-style:none;cursor:pointer;padding:5px 12px;font-weight:600;height:32px;display:inline-flex;align-items:center">더보기</summary>
+          <div style="position:absolute;top:100%;right:0;background:var(--color-surface-raised);border:1px solid rgba(216,182,106,0.25);border-radius:8px;padding:6px;z-index:300;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+            <button class="tb" data-draw="clear" title="그려진 드로잉 모두 삭제" aria-label="드로잉삭제" style="color:var(--red);width:100%;text-align:left;padding:6px 8px">드로잉 삭제</button>
+            <button class="tb" data-action="applyPreset" data-param="clean" title="모든 지표 끄기" aria-label="차트초기화" style="width:100%;text-align:left;padding:6px 8px">차트 초기화</button>
+            <button class="tb" data-action="captureChart" title="차트 스크린샷" aria-label="스크린샷" style="width:100%;text-align:left;padding:6px 8px">스크린샷</button>
+          </div>
+        </details>
+        <button id="replayBtn" class="tb" style="display:none" onclick="window._replayToggle&&_replayToggle()" title="리플레이 (유튜브 촬영용)">리플레이</button>
+      </div>
       <div class="toolbar-spacer"></div>
       <span id="mdInfo" class="md-info"></span>
       <span id="autobotInfo" class="md-info d-none"></span>
@@ -1070,13 +1281,13 @@ body.dark .search-box input {
 </div>
 <!-- 설정 모달 -->
 <div id="settingsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
-<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
+<div class="pro-modal-card" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
 <div style="display:flex;justify-content:space-between;margin-bottom:16px"><b>설정</b><span style="cursor:pointer;color:var(--muted)" onclick="document.getElementById('settingsModal').style.display='none'">✕</span></div>
 <div id="settingsContent"></div>
 </div>
 </div>
-<div id="helpPanel" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
-<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
+<div id="helpPanel" class="pro-modal-shell" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
+<div class="pro-modal-card" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
 <div style="display:flex;justify-content:space-between;margin-bottom:16px"><b class="text-sm">범온 AI 슈퍼차트 도움말</b><span style="cursor:pointer;color:var(--muted)" data-action="closeHelp">✕</span></div>
 <div style="font-size:14px;line-height:1.8">
 <b class="text-accent">단축키</b>
@@ -1398,6 +1609,86 @@ body.dark .search-box input {
 <script defer src="/static/js/autobot.js"></script>
 <script defer src="/static/js/draggable-panels.js"></script>
 
+<script>
+(function () {
+  const isMobileLike = () => window.matchMedia('(max-width: 980px)').matches;
+
+  function closeMobilePanels() {
+    document.querySelector('.left')?.classList.remove('open');
+    document.querySelector('.right')?.classList.remove('open');
+    document.querySelector('.ind-bar')?.classList.remove('open');
+    document.getElementById('indSettingsPanel')?.classList.remove('open');
+    document.getElementById('mobileOverlay')?.classList.remove('open');
+    document.querySelectorAll('.mobile-nav button').forEach((btn) => btn.classList.remove('active'));
+    document.getElementById('mnChart')?.classList.add('active');
+    requestAnimationFrame(() => {
+      try {
+        window.chart?.resize?.();
+        window.chart2?.resize?.();
+      } catch (_) {}
+    });
+  }
+
+  window.toggleMobilePanel = function (mode) {
+    const left = document.querySelector('.left');
+    const right = document.querySelector('.right');
+    const overlay = document.getElementById('mobileOverlay');
+    const drawer = document.querySelector('.ind-bar');
+    if (!left || !right || !overlay) return;
+
+    if (!isMobileLike()) {
+      if (mode === 'tools' && drawer) {
+        drawer.classList.toggle('open');
+      }
+      return;
+    }
+
+    closeMobilePanels();
+
+    if (mode === 'left') {
+      left.classList.add('open');
+      overlay.classList.add('open');
+      document.getElementById('mnLeft')?.classList.add('active');
+      return;
+    }
+
+    if (mode === 'right') {
+      right.classList.add('open');
+      overlay.classList.add('open');
+      document.getElementById('mnRight')?.classList.add('active');
+      return;
+    }
+
+    if (mode === 'tools') {
+      drawer?.classList.add('open');
+      overlay.classList.add('open');
+      document.querySelector('[data-param="tools"]')?.classList.add('active');
+      return;
+    }
+
+    if (mode === 'settings') {
+      (window._showFeedback?.() || window.showAuth?.());
+      document.querySelector('[data-param="settings"]')?.classList.add('active');
+      return;
+    }
+
+    document.getElementById('mnChart')?.classList.add('active');
+  };
+
+  document.getElementById('mobileOverlay')?.addEventListener('click', function (e) {
+    if (!isMobileLike()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeMobilePanels();
+  });
+
+  window.addEventListener('resize', function () {
+    if (!isMobileLike()) {
+      closeMobilePanels();
+    }
+  });
+})();
+</script>
 
 <div id="mobileQuickActions" class="mobile-quick-actions" role="navigation" aria-label="모바일 빠른 액션" hidden>
   <button type="button" data-mobile-action="search">종목검색</button>

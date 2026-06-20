@@ -67,8 +67,40 @@ document.addEventListener('click', function(e) {
     saveSettings: ()=>{if(typeof isLoggedIn==='function'&&isLoggedIn()){window._saveChartSettingsToServer?.();window.showToast?.('차트 설정 저장됨','#C4384B')}else window.showToast?.('로그인 필요','#D8B66A')},
     exchangeVerify: ()=>{if(typeof isLoggedIn==='function'&&isLoggedIn())window.showExchangeVerify?.();else window.showAuth?.()},
     closeOverlay: ()=>{document.querySelector('.left')?.classList.remove('open');document.querySelector('.right')?.classList.remove('open');el.classList.remove('open');document.querySelectorAll('.mobile-nav button').forEach(b=>b.classList.remove('active'));document.getElementById('mnChart')?.classList.add('active')},
-    toggleLeft: ()=>{document.querySelector('.left')?.classList.toggle('open');document.getElementById('mobileOverlay')?.classList.toggle('open')},
-    toggleRight: ()=>{document.querySelector('.right')?.classList.toggle('open');document.getElementById('mobileOverlay')?.classList.toggle('open')},
+    toggleLeft: ()=>{
+      const isMobileLike = window.matchMedia('(max-width: 980px)').matches;
+      const left = document.querySelector('.left');
+      const right = document.querySelector('.right');
+      const overlay = document.getElementById('mobileOverlay');
+      if (!left || !right || !overlay) return;
+      if (!isMobileLike) {
+        left.classList.toggle('open');
+        return;
+      }
+      const willOpen = !left.classList.contains('open');
+      right.classList.remove('open');
+      left.classList.toggle('open', willOpen);
+      overlay.classList.toggle('open', willOpen);
+      document.querySelectorAll('.mobile-nav button').forEach((b)=>b.classList.remove('active'));
+      document.getElementById(willOpen ? 'mnLeft' : 'mnChart')?.classList.add('active');
+    },
+    toggleRight: ()=>{
+      const isMobileLike = window.matchMedia('(max-width: 980px)').matches;
+      const left = document.querySelector('.left');
+      const right = document.querySelector('.right');
+      const overlay = document.getElementById('mobileOverlay');
+      if (!left || !right || !overlay) return;
+      if (!isMobileLike) {
+        right.classList.toggle('open');
+        return;
+      }
+      const willOpen = !right.classList.contains('open');
+      left.classList.remove('open');
+      right.classList.toggle('open', willOpen);
+      overlay.classList.toggle('open', willOpen);
+      document.querySelectorAll('.mobile-nav button').forEach((b)=>b.classList.remove('active'));
+      document.getElementById(willOpen ? 'mnRight' : 'mnChart')?.classList.add('active');
+    },
     replaySpeedUp: ()=>{const s=document.getElementById('replaySpeed');if(s&&s.selectedIndex<s.options.length-1){s.selectedIndex++;s.onchange?.()}},
     replaySpeedDown: ()=>{const s=document.getElementById('replaySpeed');if(s&&s.selectedIndex>0){s.selectedIndex--;s.onchange?.()}},
     openFaqFromHelp: ()=>{window.showFaqCenter?.();el.closest('#helpPanel').style.display='none'},

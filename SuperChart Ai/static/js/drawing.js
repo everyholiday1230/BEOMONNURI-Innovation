@@ -242,35 +242,35 @@ function _setupDrawToolbar(){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode='fib';
-        showToast('차트에서 드래그하여 피보나치를 그리세요','#f59e0b');
+        showToast('드래그: 피보나치 범위 지정 | ESC: 취소', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       if(m==='hline'){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode=null; // hline은 Shift+클릭으로 그림 (모드 필요 없음)
-        showToast('Shift+클릭으로 수평선을 그리세요','#3b82f6');
+        showToast('Shift+클릭: 수평선 | 마우스 휠: 줌 | 더블클릭: 초기화', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       if(m==='trendline'){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode='trendline';
-        showToast('드래그하거나 두 점을 차례로 클릭하세요','#C4384B');
+        showToast('드래그: 추세선 | 두 번 클릭: 두 점 추세선 | ESC: 취소', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       if(m==='text'){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode='text';
-        showToast('차트에서 클릭하여 텍스트를 배치하세요','#D8B66A');
+        showToast('클릭: 텍스트 배치 | Enter: 저장 | ESC: 취소', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       if(m==='vline'){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode='vline';
-        showToast('차트에서 클릭하여 수직선을 그으세요','#8E7D72');
+        showToast('클릭: 수직선 추가 | ESC: 취소', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       if(m==='hline-mode'){
@@ -278,7 +278,7 @@ function _setupDrawToolbar(){
         _exitDrawMode();
         this.classList.add('active');
         window._drawMode='hline';
-        showToast('차트에서 클릭하여 수평선을 그으세요','#921230');
+        showToast('클릭: 수평선 추가 | 마우스 휠: 줌 | 더블클릭: 초기화', '드로잉 모드가 활성화되었습니다.', 'guide');
         return;
       }
       _exitDrawMode();

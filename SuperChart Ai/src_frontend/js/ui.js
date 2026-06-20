@@ -268,7 +268,8 @@ function showNoticeToast(e, o, i) {
 function toggleMobilePanel(e) {
   const o = document.querySelector(".left"),
     i = document.querySelector(".right"),
-    n = document.getElementById("mobileOverlay");
+    n = document.getElementById("mobileOverlay"),
+    s = window.matchMedia("(max-width: 980px)").matches;
   !o ||
     !i ||
     !n ||
@@ -277,18 +278,18 @@ function toggleMobilePanel(e) {
     n.classList.remove("open"),
     document
       .querySelectorAll(".mobile-nav button")
-      .forEach((s) => s.classList.remove("active")),
+      .forEach((r) => r.classList.remove("active")),
     e === "left"
       ? (o.classList.add("open"),
-        n.classList.add("open"),
+        s && n.classList.add("open"),
         document.getElementById("mnLeft")?.classList.add("active"))
       : e === "right"
         ? (i.classList.add("open"),
-          n.classList.add("open"),
+          s && n.classList.add("open"),
           document.getElementById("mnRight")?.classList.add("active"))
         : e === "tools"
           ? (document.getElementById("indDrawer")?.classList.add("open"),
-            n.classList.add("open"),
+            s && n.classList.add("open"),
             document
               .querySelector('[aria-label="\uB3C4\uAD6C"]')
               ?.classList.add("active"))

@@ -18,33 +18,69 @@ export function safeUrl(u) {
 }
 
 export function showToast(msg, colorOrBody = '#3B82F6', type = '') {
-  const isRich = type && !colorOrBody.startsWith('#');
-  const colors = { ai: '#A31540', entry: '#C4384B', tp: '#D8B66A' };
-  const bg = isRich ? (colors[type] || '#921230') : colorOrBody;
+  const toneColor = {
+    ai: '#A31540',
+    entry: '#C4384B',
+    tp: '#D8B66A',
+    guide: '#921230',
+    info: '#3B82F6'
+  };
+  const isColor = typeof colorOrBody === 'string' && colorOrBody.trim().startsWith('#');
+  const color = isColor ? colorOrBody : (toneColor[type] || '#921230');
+  const detail = isColor ? '' : String(colorOrBody || '').trim();
+  const rawMsg = String(msg || '').trim();
+  const guideParts = rawMsg.includes('|')
+    ? rawMsg.split('|').map(x => x.trim()).filter(Boolean)
+    : [];
+  const isGuide = type === 'guide' || guideParts.length > 1;
+
   let tc = document.getElementById('_toastContainer');
   if (!tc) {
     tc = document.createElement('div');
     tc.id = '_toastContainer';
-    // 접근성: aria-live="polite" — 스크린리더가 토스트 자동 읽음
     tc.setAttribute('aria-live', 'polite');
     tc.setAttribute('aria-atomic', 'true');
     tc.setAttribute('role', 'status');
-    tc.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none';
+    tc.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none';
     document.body.appendChild(tc);
   }
+
   const t = document.createElement('div');
+  t.className = 'pro-toast';
   t.style.pointerEvents = 'auto';
-  const _surface = (document.body.classList.contains('dark')) ? '#0f2e38' : '#ffffff';
-  const _txt = (document.body.classList.contains('dark')) ? '#E6EDF3' : '#0F172A';
-  if (isRich) {
-    t.style.cssText = `display:flex;align-items:flex-start;gap:10px;background:${_surface};color:${_txt};padding:11px 16px 11px 13px;border-radius:10px;border-left:4px solid ${bg};font-size:14px;box-shadow:0 8px 28px rgba(15,23,42,0.18),0 2px 6px rgba(15,23,42,0.1);animation:toastSlide 0.28s cubic-bezier(.2,.8,.2,1);min-width:220px;max-width:340px;pointer-events:auto`;
-    t.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${bg};margin-top:5px;flex-shrink:0"></span><div><div style="font-weight:700;margin-bottom:2px">${escHtml(msg)}</div><div style="font-size:13px;opacity:0.75">${escHtml(colorOrBody)}</div></div>`;
-  } else {
-    t.style.cssText = `display:flex;align-items:center;gap:9px;background:${_surface};color:${_txt};padding:11px 16px 11px 13px;border-radius:10px;border-left:4px solid ${bg};font-size:14px;font-weight:600;box-shadow:0 8px 28px rgba(15,23,42,0.18),0 2px 6px rgba(15,23,42,0.1);animation:toastSlide 0.28s cubic-bezier(.2,.8,.2,1);white-space:pre-line;max-width:340px;pointer-events:auto`;
-    t.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${bg};flex-shrink:0"></span><span>${escHtml(msg)}</span>`;
-  }
+  t.style.borderLeftColor = color;
+
+  const iconMap = { ai: 'AI', entry: '⦿', tp: '◎', guide: '💡', info: 'i' };
+  const titleMap = { ai: 'AI 알림', entry: '진입 알림', tp: '목표 알림', guide: '드로잉 가이드', info: '알림' };
+  const icon = iconMap[type] || (isGuide ? '💡' : 'i');
+  const title = titleMap[type] || (isGuide ? '드로잉 가이드' : '알림');
+  const bodyText = guideParts.length ? '' : rawMsg;
+  const chips = guideParts.map(part => `<span class="pro-toast-chip">${escHtml(part)}</span>`).join('');
+
+  t.innerHTML = `
+    <span class="pro-toast-icon" style="color:${escHtml(color)}">${icon}</span>
+    <div style="min-width:0;flex:1">
+      <div class="pro-toast-title">${escHtml(title)}</div>
+      ${bodyText ? `<div class="pro-toast-body">${escHtml(bodyText)}</div>` : ''}
+      ${detail ? `<div class="pro-toast-body">${escHtml(detail)}</div>` : ''}
+      ${chips ? `<div class="pro-toast-guide">${chips}</div>` : ''}
+    </div>
+    <button type="button" class="pro-toast-close" aria-label="닫기">✕</button>
+  `;
+
+  const closeBtn = t.querySelector('.pro-toast-close');
+  closeBtn?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    t.remove();
+  });
+
   tc.appendChild(t);
-  setTimeout(() => { t.style.animation = 'toastSlideOut 0.25s ease forwards'; setTimeout(() => t.remove(), 250); }, 3500);
+  const ttl = chips ? 5200 : 3600;
+  setTimeout(() => {
+    if (!t.parentElement) return;
+    t.style.animation = 'toastSlideOut 0.25s ease forwards';
+    setTimeout(() => t.remove(), 250);
+  }, ttl);
 }
 
 export function fmtPrice(p, sym, raw) {
