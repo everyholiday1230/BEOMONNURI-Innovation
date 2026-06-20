@@ -46,9 +46,41 @@ export class TimeScale {
   zoom(factor, centerX) {
     const centerBar = this.xToBar(centerX);
     const range = this.visibleTo - this.visibleFrom;
-    const newRange = range * factor;
-    this.visibleFrom = centerBar - (centerBar - this.visibleFrom) * factor;
-    this.visibleTo = this.visibleFrom + newRange;
+
+    // 줌 한계 정의
+    // - 최소 표시 봉수(최대 확대): 너무 들어가서 1~2봉만 보이지 않도록
+    // - 최대 표시 봉수(최대 축소): 로드된 데이터 범위를 넘어가지 않도록
+    //   (좌측 -50, 우측 +20 여백은 scroll() 경계와 동일)
+    const MIN_RANGE = 5;
+    const LEFT_MARGIN = 50;
+    const RIGHT_MARGIN = 20;
+    const dataLen = this._dataLength > 0 ? this._dataLength : null;
+    const MAX_RANGE = dataLen ? (dataLen + LEFT_MARGIN + RIGHT_MARGIN) : 5000;
+
+    let newRange = range * factor;
+
+    // 한계 도달 시: 휠로 더 확대/축소해도 좌우 이동(과거 로딩)으로 빠지지 않게
+    // 그냥 아무 동작도 하지 않는다(no-op).
+    if (factor > 1 && range >= MAX_RANGE) return;   // 이미 최대 축소 → 무동작
+    if (factor < 1 && range <= MIN_RANGE) return;   // 이미 최대 확대 → 무동작
+
+    // 범위를 한계 안으로 클램프
+    newRange = Math.max(MIN_RANGE, Math.min(MAX_RANGE, newRange));
+
+    // 커서 위치 기준으로 확대/축소
+    let from = centerBar - (centerBar - this.visibleFrom) * (newRange / range);
+    let to = from + newRange;
+
+    // 경계 클램프: 데이터 밖으로 패닝되지 않도록(축소가 패닝으로 변질되는 것 방지)
+    if (from < -LEFT_MARGIN) { from = -LEFT_MARGIN; to = from + newRange; }
+    if (dataLen && to > dataLen + RIGHT_MARGIN) {
+      to = dataLen + RIGHT_MARGIN;
+      from = to - newRange;
+      if (from < -LEFT_MARGIN) from = -LEFT_MARGIN;
+    }
+
+    this.visibleFrom = from;
+    this.visibleTo = to;
     this.barWidth = Math.max(1, Math.min(30, (this.width / newRange) * 0.7));
     this.barSpacing = this.barWidth * 0.3;
   }
