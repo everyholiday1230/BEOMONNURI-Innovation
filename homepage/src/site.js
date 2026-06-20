@@ -260,6 +260,7 @@ function upsertJsonLd(schemaId, data) {
 
 function injectProductEnhancement(lang) {
   if (!isProductDetailPage()) return;
+  if (document.body.dataset.productEnhanced === 'custom') return; // 페이지가 자체 FAQ/전환 섹션 보유
   if (document.querySelector('[data-enhancement="product-conversion"]')) return;
 
   const t = PRODUCT_ENHANCEMENT[lang];

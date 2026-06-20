@@ -26,46 +26,194 @@
   {"@context":"https://schema.org","@type":"Product","name":"Beomon Private AI","brand":{"@type":"Brand","name":"Beomon Nuri Innovation"},"description":"A secure, in-house generative AI that uses internal documents and data without sending them outside.","category":"Private generative AI","url":"{{SITE_URL}}/en/products/private-ai/"}
   </script>
 </head>
-<body data-page="products" data-lang="en">
+<body data-page="products" data-lang="en" data-product-enhanced="custom">
 <div data-layout="header"></div>
 <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/en/">Home</a></li><li><a href="/en/products/">Products</a></li><li aria-current="page">Beomon Private AI</li></ol></nav>
 <main id="main-content">
+  <!-- 1. HERO -->
   <section class="product-hero">
-    <div class="hero-copy"><p class="eyebrow">Beomon Private AI</p><h1>An in-house AI that keeps sensitive data from leaving</h1><p class="lead">Beomon Private AI is an in-house AI solution that lets you search and use enterprise knowledge assets — internal documents, policies, manuals, and reports — within a secure environment. By designing permissions, logs, and the data boundary together, it reduces security burden and improves practical usability.</p><div class="hero-actions"><a class="button primary" href="/en/contact/">Review secure adoption</a><a class="button secondary" href="/en/products/">All products</a></div></div>
-    <figure class="hero-image-card"><picture><source srcset="/assets/private-ai.webp" type="image/webp" /><img src="/assets/private-ai.jpg" alt="Team using Beomon Private AI" width="1600" height="900"></picture><figcaption>Beomon Private AI</figcaption></figure>
+    <div class="hero-copy">
+      <p class="eyebrow">Beomon Private AI</p>
+      <h1>A private AI that uses internal documents and knowledge within a secure environment</h1>
+      <p class="lead">Beomon Private AI is an in-house AI solution that lets you search, ask, and verify sources for enterprise knowledge assets — internal documents, policies, manuals, and reports — within a controlled environment, rather than sending them out indiscriminately.</p>
+      <ul class="hero-badges" aria-label="Core areas">
+        <li>Internal Knowledge Search</li>
+        <li>Role-based Access</li>
+        <li>Audit Log</li>
+        <li>On-premise / Private Cloud</li>
+      </ul>
+      <div class="hero-actions"><a class="button primary" href="/en/contact/">Review secure adoption</a><a class="button secondary" href="#implementation">See how we build</a></div>
+    </div>
+    <div class="hero-mock" role="img" aria-label="Beomon Private AI internal document search dashboard example">
+      <div class="mock-bar"><span class="ico" data-icon="database" aria-hidden="true"></span>Internal document search</div>
+      <div class="mock-answer">
+        <span class="mock-label">Answer</span>
+        <p>Travel expense settlement follows Article 8 of the Domestic Travel Policy and requires attached receipts as evidence.</p>
+        <p class="mock-source">Source: Domestic Travel Policy v3.2 · Article 8</p>
+      </div>
+      <div class="mock-meta">
+        <span data-icon="lock">Access check</span>
+        <span data-icon="shield-check">Audit log</span>
+        <span data-icon="layout-dashboard">Operations</span>
+      </div>
+    </div>
   </section>
 
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Problem</p><h2>The problem</h2><p class="muted">The need to use generative AI is growing, but entering internal documents and customer data into external services carries heavy security and compliance burden. As a result, official adoption is delayed and uncontrolled, unofficial use can occur.</p></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Solution</p><h2>How we solve it</h2><p class="muted">Beomon Private AI first designs a structure where data stays within your control. It combines document search, answer generation, access control, and usage-history management to provide an in-house AI environment staff can use with confidence.</p></article>
-  </section>
-
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Features</p><h2>Key features</h2><ul><li>Search-based answers over internal documents, policies, and manuals</li><li>Answers grounded in source documents</li><li>Role-based access control</li><li>Usage history and audit log management</li><li>On-premise and private cloud deployment review</li><li>Integration with existing document stores and business systems</li></ul></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Data &amp; Industry</p><h2>Data and industries</h2><ul><li>Internal policies and operational manuals</li><li>Technical documents and research materials</li><li>Contracts, reports, and meeting notes</li><li>Customer support records and internal wikis</li><li>Finance, manufacturing, public sector, research institutions, and high-security enterprises</li></ul></article>
-  </section>
-
-  <section class="band"><div class="section" aria-labelledby="outcome-title">
-    <div class="section-heading"><p class="eyebrow">Outcome</p><h2 id="outcome-title">What you gain</h2></div>
+  <!-- 2. PROBLEM -->
+  <section class="band"><div class="section" aria-labelledby="problem-title">
+    <div class="section-heading"><p class="eyebrow">Problem</p><h2 id="problem-title">You need generative AI, but sending internal data outside is hard</h2><p>Many companies want to use generative AI, but entering internal documents, customer information, contracts, technical materials, and operational manuals into external services carries heavy security and compliance burden. As a result, official adoption is delayed and teams may use AI in uncontrolled ways.</p></div>
     <div class="value-grid">
-      <article class="value-card reveal-item"><h3>Less document search time</h3><p class="muted">Quickly find scattered documents and knowledge, cutting staff's repetitive search time.</p></article>
-      <article class="value-card reveal-item"><h3>Permission-based knowledge use</h3><p class="muted">Control which documents and answers are accessible based on user roles.</p></article>
-      <article class="value-card reveal-item"><h3>Reduced security burden</h3><p class="muted">Minimize external transfer of sensitive data and build an AI usage structure suited to your environment.</p></article>
-      <article class="value-card reveal-item"><h3>Operational manageability</h3><p class="muted">Usage history and logs let security officers and managers monitor how it's used.</p></article>
+      <article class="value-card reveal-item"><h3>Burden of external data input</h3><p class="muted">Entering internal documents and customer data into external AI services can conflict with security policy.</p></article>
+      <article class="value-card reveal-item"><h3>Scattered internal knowledge</h3><p class="muted">Policies, manuals, reports, and technical documents are spread across stores, so staff spend time finding what they need.</p></article>
+      <article class="value-card reveal-item"><h3>Difficult access control</h3><p class="muted">Not everyone can see the same documents, so access scope must be designed by user role.</p></article>
+      <article class="value-card reveal-item"><h3>Unofficial AI usage risk</h3><p class="muted">Without an official adoption framework, teams may use external AI individually, creating management blind spots.</p></article>
     </div>
   </div></section>
 
-  <section class="section" aria-labelledby="process-title">
-    <div class="section-heading"><p class="eyebrow">How we work</p><h2 id="process-title">We confirm security requirements first</h2><p>We lock down the data boundary and access model early, then expand scope gradually.</p></div>
-    <ol class="process">
-      <li class="process-step reveal-item"><h3>Security requirement review</h3><p>We confirm data tiers, network isolation, access rules, and audit log needs.</p></li>
-      <li class="process-step reveal-item"><h3>Define knowledge scope</h3><p>We organize which documents, policies, and stores to connect first, and per-user exposure.</p></li>
-      <li class="process-step reveal-item"><h3>Closed-environment validation</h3><p>We validate search accuracy, answer quality, and access policy on real documents.</p></li>
-      <li class="process-step reveal-item"><h3>Build &amp; operate</h3><p>We deploy an operable system with user interfaces, admin features, permissions, and logs.</p></li>
-    </ol>
+  <!-- 3. SOLUTION -->
+  <section class="section" aria-labelledby="solution-title">
+    <div class="section-heading"><p class="eyebrow">Solution</p><h2 id="solution-title">We design the data boundary, permissions, sources, and logs together</h2><p>Beomon Private AI is not a simple chatbot but aims to be an operable AI environment for using enterprise knowledge securely. We compose document search, answer generation, source verification, access control, usage-history management, and the operating environment so both staff and administrators can use it.</p></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Connect</h3><p>We connect knowledge assets such as internal documents, policies, manuals, and reports.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Control</h3><p>We control the accessible document scope by user role and data tier.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Answer</h3><p>We answer questions grounded in relevant documents and provide the sources.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Monitor</h3><p>We manage usage history, query logs, and access records to monitor operations.</p></article>
+    </div>
   </section>
 
-  <section class="section"><div class="cta-band"><p class="eyebrow">Contact</p><h2>Start adopting AI that uses internal data securely</h2><p>Tell us your documents, security requirements, and user scope, and we'll outline Private AI feasibility and pilot scope.</p><a class="button primary" href="/en/contact/">Review secure adoption</a></div></section>
+  <!-- 4. FEATURES -->
+  <section class="band"><div class="section" aria-labelledby="features-title">
+    <div class="section-heading"><p class="eyebrow">Features</p><h2 id="features-title">We compose the features needed to operate an in-house AI</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>Document-grounded search answers</h3><p class="muted">Finds relevant content in internal documents, policies, manuals, and reports to answer questions.</p></article>
+      <article class="value-card reveal-item"><h3>Source verification</h3><p class="muted">Shows the documents and locations behind an answer to improve answer reliability.</p></article>
+      <article class="value-card reveal-item"><h3>Role-based access control</h3><p class="muted">Restricts the documents and answer scope viewable by department, role, and user.</p></article>
+      <article class="value-card reveal-item"><h3>Usage history and audit logs</h3><p class="muted">Records and manages who asked what and when, according to your operating policy.</p></article>
+      <article class="value-card reveal-item"><h3>On-premise / private cloud review</h3><p class="muted">Reviews on-premise or private cloud configurations based on your security policy and infrastructure.</p></article>
+      <article class="value-card reveal-item"><h3>Existing system integration review</h3><p class="muted">Reviews integration with document stores, internal portals, business systems, and databases.</p></article>
+    </div>
+  </div></section>
+
+  <!-- 5. SECURITY & GOVERNANCE -->
+  <section class="section" aria-labelledby="security-title">
+    <div class="section-heading"><p class="eyebrow">Security &amp; Governance</p><h2 id="security-title">Before adopting AI, we first define how far data may move</h2><p>In private AI adoption, the data boundary and operating policy matter more than the model itself. Early on, Beomon Nuri confirms data tiers, access permissions, logging criteria, user scope, and operating environment, then designs a build scope to match.</p></div>
+    <div class="sec-flow" role="img" aria-label="Processing flow from user to access check, document search, AI answer, and log recording">
+      <div class="sec-node"><span class="sec-step">01</span><strong>User</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">02</span><strong>Access check</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">03</span><strong>Document search</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">04</span><strong>AI answer</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">05</span><strong>Log record</strong></div>
+    </div>
+    <ul class="check-list" style="margin-top:1.6rem">
+      <li>Data boundary definition</li>
+      <li>Permission design by user and department</li>
+      <li>Document tier and exposure scope setup</li>
+      <li>Query and answer history management</li>
+      <li>Admin interface and operating policy review</li>
+      <li>On-premise or private cloud configuration review</li>
+      <li>Handling criteria for documents with sensitive data</li>
+      <li>Alignment with internal security policy</li>
+    </ul>
+    <p class="note-box">The specific security configuration can vary by your infrastructure, data policy, network setup, and regulatory requirements, and requires separate review before adoption.</p>
+  </section>
+
+  <!-- 6. USE CASES -->
+  <section class="band"><div class="section" aria-labelledby="usecase-title">
+    <div class="section-heading"><p class="eyebrow">Use Cases</p><h2 id="usecase-title">Make scattered internal knowledge immediately usable by staff</h2></div>
+    <ul class="data-tags">
+      <li>Internal policies</li><li>Operational manuals</li><li>Technical documents</li><li>Research materials</li><li>Contracts</li><li>Reports</li><li>Meeting notes</li><li>Support records</li><li>Internal wiki</li><li>FAQ documents</li><li>Project documents</li>
+    </ul>
+    <div class="scenario-grid">
+      <article class="scenario-card reveal-item"><h3>Internal policy Q&amp;A</h3><p class="scenario-q">"What are the travel expense settlement rules?"</p><p>Answers based on internal policies and provides the related document sources.</p></article>
+      <article class="scenario-card reveal-item"><h3>Operational manual search</h3><p class="scenario-q">"Tell me the new customer registration procedure."</p><p>Finds the needed procedure in operational manuals and organizes it step by step.</p></article>
+      <article class="scenario-card reveal-item"><h3>Technical document lookup</h3><p class="scenario-q">"Where is the inspection standard for this equipment?"</p><p>Searches technical documents and inspection materials for relevant content.</p></article>
+      <article class="scenario-card reveal-item"><h3>Contract & report search</h3><p class="scenario-q">"What were the key risks of Project A last quarter?"</p><p>Finds relevant content in reports and meeting notes to reduce review time.</p></article>
+      <article class="scenario-card reveal-item"><h3>Support knowledge use</h3><p class="scenario-q">"How should I respond to this type of inquiry?"</p><p>Provides a response draft based on existing support records and FAQ documents.</p></article>
+    </div>
+    <p class="note-box">The example questions above illustrate usage; actual answer quality can vary by document quality, data structure, permission policy, and build scope.</p>
+  </div></section>
+
+  <!-- 7. FOR TEAMS -->
+  <section class="section" aria-labelledby="teams-title">
+    <div class="section-heading"><p class="eyebrow">For Teams</p><h2 id="teams-title">Different value for different teams</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><p class="eyebrow">Executives</p><h3>Review AI adoption risk in a controllable structure</h3><p class="muted">Reduce security burden while confirming the potential to improve internal knowledge use and productivity.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Security & IT</p><h3>Design the data boundary and access first</h3><p class="muted">Review user permissions, logs, and operating environment together to build a controllable AI usage structure.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Practitioners</p><h3>Find and use needed documents faster</h3><p class="muted">Spend less time digging through policies, manuals, and reports, and verify source-grounded answers.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Administrators</p><h3>Check usage status and operating history</h3><p class="muted">Review operational improvements and scaling based on query history, usage patterns, and access records.</p></article>
+    </div>
+  </section>
+
+  <!-- 8. EXPECTED OUTCOMES -->
+  <section class="band"><div class="section" aria-labelledby="outcome-title">
+    <div class="section-heading"><p class="eyebrow">Expected Outcomes</p><h2 id="outcome-title">Reduce search time, security burden, and operational management issues together</h2></div>
+    <div class="value-grid">
+      <article class="value-card outcome-card reveal-item"><h3>Less document search time</h3><p class="muted">Quickly search scattered internal documents to reduce repetitive information lookup time.</p><p class="metric-hint">Sample metrics: average document search time, query response time</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Improved answer reliability</h3><p class="muted">Provide answers with source documents so staff can verify the origin.</p><p class="metric-hint">Sample metrics: share of answers with sources, user review satisfaction</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Reduced security burden</h3><p class="muted">Minimize external transfer of sensitive data and review a usage structure that fits your security policy.</p><p class="metric-hint">Sample metrics: reduction in external AI use, permission policy coverage</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Operational manageability</h3><p class="muted">Use usage history and logs to understand usage status and organize improvements.</p><p class="metric-hint">Sample metrics: number of users, query volume, usage rate by department</p></article>
+    </div>
+    <p class="note-box">Outcome metrics can vary by your data quality, user scope, integration scope, and operating model.</p>
+  </div></section>
+
+  <!-- 9. IMPLEMENTATION -->
+  <section class="section" id="implementation" aria-labelledby="impl-title">
+    <div class="section-heading"><p class="eyebrow">Implementation</p><h2 id="impl-title">We confirm security requirements first and validate in a limited scope</h2></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Security requirement review</h3><p>We confirm data tiers, network setup, access permissions, sensitive-data handling, and audit log needs.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Define knowledge scope</h3><p>We organize the documents, policies, stores, user groups, and exposure scope to connect first.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Closed-environment validation</h3><p>We validate search accuracy, answer quality, access policy, and operational fit on real documents.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Build & operate</h3><p>We transition to an operable system with user interfaces, admin features, permissions, logs, and procedures.</p></article>
+    </div>
+    <p class="note-box">A typical pilot is best started with a limited document and user scope. The specific timeline and scope can vary by data scale, security requirements, and integration difficulty.</p>
+  </section>
+
+  <!-- 10. READINESS CHECK -->
+  <section class="band"><div class="section" aria-labelledby="ready-title">
+    <div class="section-heading"><p class="eyebrow">Readiness Check</p><h2 id="ready-title">Checking these items before adoption speeds up the review</h2></div>
+    <ul class="check-list">
+      <li>Are the document types you want to use first organized?</li>
+      <li>Are document storage locations and the access permission system identified?</li>
+      <li>Is there a handling standard for documents containing sensitive data?</li>
+      <li>Can you distinguish user groups and permission scopes?</li>
+      <li>Is integration with existing document stores or business systems needed?</li>
+      <li>Are there review criteria from the security team or IT?</li>
+      <li>Are success criteria defined for the pilot?</li>
+      <li>Is there an owner to take the administrator role at operation transition?</li>
+    </ul>
+    <div class="compare-foot">
+      <p class="compare-note">It's fine if not everything is ready. Based on your current documents and security requirements, we can organize a feasible first review scope together.</p>
+      <div class="hero-actions"><a class="button primary" href="/en/contact/">Check adoption fit</a></div>
+    </div>
+  </div></section>
+
+  <!-- 11. FAQ -->
+  <section class="section" aria-labelledby="faq-title">
+    <div class="section-heading faq-heading"><p class="eyebrow">FAQ</p><h2 id="faq-title">Questions before adopting Private AI</h2></div>
+    <div class="faq">
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-1">How is Beomon Private AI different from a general chatbot?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-1" hidden><p>While a general chatbot focuses on open-ended conversation, Beomon Private AI aims to be an in-house AI environment that considers search, answers, source verification, access control, and log management based on internal documents and policies.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-2">Can we use it without sending internal documents outside?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-2" hidden><p>Depending on your security policy and infrastructure, we can review on-premise or private cloud configurations. The specific data-handling method is decided after confirming security requirements before adoption.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-3">Can document visibility differ by user?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-3" hidden><p>Through role-based access control, we can design the accessible document and answer scope by department, role, and user group. The actual scope is set after reviewing your existing permission system and document structure.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-4">Can we verify the source documents behind an answer?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-4" hidden><p>With a document-grounded search-answer structure, it can be designed to provide source documents related to the answer. How sources are shown can vary by document structure and build scope.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-5">Which documents are best to connect first?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-5" hidden><p>Start with frequently used documents such as policies, operational manuals, FAQs, reports, and technical documents. In the pilot, we recommend narrowing the scope to validate accuracy and usability.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-6">Can it integrate with our existing document repository?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-6" hidden><p>We can review integration with internal document stores, business systems, databases, and portals. The actual method varies by system architecture, access permissions, and security policy.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-7">How is adoption impact measured?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-7" hidden><p>It can be validated by average document search time, answer accuracy, share of answers with sources, user satisfaction, reduction in repeat inquiries, and usage rate by department.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-8">How does a pilot start?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-8" hidden><p>After setting the document scope and user group to apply first, we confirm search accuracy, answer quality, access policy, and log management in a limited environment. We then review operation transition and scaling based on the results.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-9">Can high-security finance, public, or research organizations review it?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-9" hidden><p>High-security organizations can also review adoption. However, the build method can vary by network setup, regulatory requirements, data tiers, and internal security policy, so prior review is needed.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-10">How is the adoption cost calculated?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-10" hidden><p>Cost varies by document scale, number of users, permission structure, integration scope, security requirements, and operating environment. It's best to estimate after first organizing the scope and pilot criteria through consultation.</p></div></article>
+    </div>
+  </section>
+
+  <!-- 12. FINAL CTA -->
+  <section class="section"><div class="cta-band">
+    <p class="eyebrow">Contact</p><h2>Start adopting AI that uses internal data securely</h2>
+    <p>Tell us your documents, security requirements, and user scope, and we'll organize Beomon Private AI feasibility and pilot scope together.</p>
+    <div class="hero-actions cta-actions"><a class="button primary" href="/en/contact/">Review secure adoption</a><a class="button secondary" href="/en/products/">View all products</a></div>
+  </div></section>
 </main>
 <div data-layout="footer"></div>
 <script type="module" src="/src/main.js"></script>

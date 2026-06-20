@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>범온 프라이빗 AI | 보안형 사내 문서 검색·기업용 AI 구축</title>
-  <meta name="description" content="범온 프라이빗 AI는 내부 문서, 규정, 매뉴얼을 기업 보안 환경 안에서 검색하고 활용할 수 있도록 구축하는 사내 AI 솔루션입니다. 권한 제어, 로그, 온프레미스·프라이빗 클라우드 환경을 검토합니다." />
+  <title>범온 프라이빗 AI | 보안형 사내 문서 검색 AI</title>
+  <meta name="description" content="범온 프라이빗 AI는 내부 문서, 규정, 매뉴얼, 보고서를 보안 환경 안에서 검색하고 활용할 수 있도록 구축하는 사내 AI 솔루션입니다. 권한 제어, 근거 문서, 사용 로그, 온프레미스 및 프라이빗 클라우드 구성을 검토할 수 있습니다." />
   <meta name="theme-color" content="#921230" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="{{SITE_URL}}/products/private-ai/" />
@@ -27,62 +27,193 @@
   {"@context":"https://schema.org","@type":"Product","name":"범온 프라이빗 AI","brand":{"@type":"Brand","name":"범온누리 이노베이션"},"description":"사내 문서·지식·데이터를 외부로 내보내지 않고 활용하는 보안형 기업 전용 생성 AI.","category":"프라이빗 생성 AI","url":"{{SITE_URL}}/products/private-ai/"}
   </script>
 </head>
-<body data-page="products" data-lang="ko">
+<body data-page="products" data-lang="ko" data-product-enhanced="custom">
 <div data-layout="header"></div>
 <nav class="breadcrumb" aria-label="현재 위치"><ol><li><a href="/">홈</a></li><li><a href="/products/">제품</a></li><li aria-current="page">범온 프라이빗 AI</li></ol></nav>
 <main id="main-content">
+  <!-- 1. HERO -->
   <section class="product-hero">
     <div class="hero-copy">
       <p class="eyebrow">Beomon Private AI</p>
-      <h1>민감 데이터를 밖으로 내보내지 않는 사내 AI</h1>
-      <p class="lead">범온 프라이빗 AI는 내부 문서, 규정, 매뉴얼, 보고서 같은 기업 지식 자산을 보안 환경 안에서 검색하고 활용할 수 있도록 구축하는 사내 AI 솔루션입니다. 권한, 로그, 데이터 경계를 함께 설계해 보안 부담을 줄이고 실무 활용성을 높입니다.</p>
-      <div class="hero-actions"><a class="button primary" href="/contact/">보안형 도입 검토하기</a><a class="button secondary" href="/products/">전체 제품 보기</a></div>
+      <h1>사내 문서와 지식을 보안 환경 안에서 활용하는 프라이빗 AI</h1>
+      <p class="lead">범온 프라이빗 AI는 내부 문서, 규정, 매뉴얼, 보고서 등 기업 지식 자산을 외부로 무분별하게 내보내지 않고, 통제된 환경에서 검색·질의응답·근거 확인이 가능하도록 구축하는 사내 AI 솔루션입니다.</p>
+      <ul class="hero-badges" aria-label="핵심 영역">
+        <li>Internal Knowledge Search</li>
+        <li>Role-based Access</li>
+        <li>Audit Log</li>
+        <li>On-premise / Private Cloud</li>
+      </ul>
+      <div class="hero-actions"><a class="button primary" href="/contact/">보안형 도입 검토하기</a><a class="button secondary" href="#implementation">구축 방식 보기</a></div>
     </div>
-    <figure class="hero-image-card"><picture><source srcset="/assets/private-ai.webp" type="image/webp" /><img src="/assets/private-ai.jpg" alt="범온 프라이빗 AI를 활용하는 팀" width="2400" height="1599"></picture><figcaption>범온 프라이빗 AI</figcaption></figure>
+    <div class="hero-mock" role="img" aria-label="범온 프라이빗 AI 사내 문서 검색 대시보드 예시">
+      <div class="mock-bar"><span class="ico" data-icon="database" aria-hidden="true"></span>사내 문서 검색</div>
+      <div class="mock-answer">
+        <span class="mock-label">답변</span>
+        <p>출장비 정산은 「국내출장 규정」 제8조에 따라 처리되며, 증빙은 영수증 첨부가 필요합니다.</p>
+        <p class="mock-source">근거 문서: 국내출장 규정 v3.2 · 제8조</p>
+      </div>
+      <div class="mock-meta">
+        <span data-icon="lock">권한 확인</span>
+        <span data-icon="shield-check">감사 로그</span>
+        <span data-icon="layout-dashboard">운영 관리</span>
+      </div>
+    </div>
   </section>
 
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Problem</p><h2>풀어야 할 문제</h2>
-      <p class="muted">생성 AI 활용 필요성은 커지고 있지만, 사내 문서와 고객 데이터를 외부 서비스에 입력하는 것은 보안과 규제 측면에서 부담이 큽니다. 이로 인해 공식 도입은 지연되고, 통제되지 않은 비공식 사용이 발생할 수 있습니다.</p></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Solution</p><h2>해결 방식</h2>
-      <p class="muted">범온 프라이빗 AI는 데이터가 기업의 통제 범위 안에 머무는 구조를 우선 설계합니다.</p><p class="muted">문서 검색, 답변 생성, 권한 제어, 사용 이력 관리를 함께 구성해 실무자가 안심하고 사용할 수 있는 사내 AI 환경을 제공합니다.</p></article>
-  </section>
-
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Features</p><h2>주요 기능</h2>
-      <ul><li>사내 문서·규정·매뉴얼 기반 검색형 답변</li><li>근거 문서 기반 답변 제공</li><li>역할 기반 접근 제어</li><li>사용 이력 및 감사 로그 관리</li><li>온프레미스·프라이빗 클라우드 구축 검토</li><li>기존 문서 저장소 및 업무 시스템 연동</li></ul></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Data &amp; Industry</p><h2>적용 데이터와 산업</h2>
-      <ul><li>내부 규정과 업무 매뉴얼</li><li>기술 문서와 연구 자료</li><li>계약서, 보고서, 회의록</li><li>고객 응대 기록과 사내 위키</li><li>금융, 제조, 공공, 연구기관, 보안 요건이 높은 기업</li></ul></article>
-  </section>
-
-  <section class="band"><div class="section" aria-labelledby="outcome-title">
-    <div class="section-heading"><p class="eyebrow">Outcome</p><h2 id="outcome-title">도입 효과</h2></div>
+  <!-- 2. PROBLEM -->
+  <section class="band"><div class="section" aria-labelledby="problem-title">
+    <div class="section-heading"><p class="eyebrow">Problem</p><h2 id="problem-title">생성 AI는 필요하지만, 사내 데이터를 외부로 내보내기는 어렵습니다</h2><p>많은 기업이 생성 AI를 활용하고 싶어 하지만 내부 문서, 고객 정보, 계약서, 기술 자료, 업무 매뉴얼을 외부 서비스에 입력하는 것은 보안과 규제 측면에서 부담이 큽니다. 그 결과 공식 도입은 지연되고, 현업에서는 통제되지 않은 방식으로 AI를 사용하는 문제가 발생할 수 있습니다.</p></div>
     <div class="value-grid">
-      <article class="value-card reveal-item"><h3>문서 탐색 시간 단축</h3><p class="muted">흩어진 문서와 지식을 빠르게 찾아 실무자의 반복 검색 시간을 줄입니다.</p></article>
-      <article class="value-card reveal-item"><h3>권한 기반 지식 활용</h3><p class="muted">사용자 역할에 따라 접근 가능한 문서와 답변 범위를 통제합니다.</p></article>
-      <article class="value-card reveal-item"><h3>보안 부담 완화</h3><p class="muted">민감 데이터의 외부 반출을 최소화하고 기업 환경에 맞는 AI 활용 구조를 마련합니다.</p></article>
-      <article class="value-card reveal-item"><h3>운영 관리 가능성 확보</h3><p class="muted">사용 이력과 로그를 남겨 보안 담당자와 관리자가 활용 현황을 확인할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>민감 데이터 외부 입력 부담</h3><p class="muted">내부 문서와 고객 데이터가 외부 AI 서비스에 입력될 경우 보안 정책과 충돌할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>흩어진 사내 지식</h3><p class="muted">규정, 매뉴얼, 보고서, 기술 문서가 여러 저장소에 분산되어 실무자가 필요한 정보를 찾는 데 시간이 걸립니다.</p></article>
+      <article class="value-card reveal-item"><h3>권한 통제의 어려움</h3><p class="muted">모든 사용자가 같은 문서를 볼 수 없기 때문에 사용자 역할에 따른 접근 범위 설계가 필요합니다.</p></article>
+      <article class="value-card reveal-item"><h3>비공식 AI 사용 리스크</h3><p class="muted">공식 도입 체계가 없으면 현업이 개별적으로 외부 AI를 사용하면서 관리 사각지대가 생길 수 있습니다.</p></article>
     </div>
   </div></section>
 
-  <section class="section" aria-labelledby="process-title">
-    <div class="section-heading">
-      <p class="eyebrow">How we work</p>
-      <h2 id="process-title">보안 요건부터 먼저 확정합니다</h2>
-      <p>데이터 경계와 권한 구조를 초기 단계에서 확정하고, 적용 범위를 점진적으로 확대합니다.</p>
+  <!-- 3. SOLUTION -->
+  <section class="section" aria-labelledby="solution-title">
+    <div class="section-heading"><p class="eyebrow">Solution</p><h2 id="solution-title">데이터 경계, 권한, 근거, 로그를 함께 설계합니다</h2><p>범온 프라이빗 AI는 단순 챗봇이 아니라 기업 내부 지식을 안전하게 활용하기 위한 운영형 AI 환경을 목표로 합니다. 문서 검색, 답변 생성, 근거 문서 확인, 권한 제어, 사용 이력 관리, 운영 환경을 함께 구성해 실무자와 관리자 모두가 사용할 수 있는 구조를 설계합니다.</p></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Connect</h3><p>내부 문서, 규정, 매뉴얼, 보고서 등 지식 자산을 연동합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Control</h3><p>사용자 역할과 데이터 등급에 따라 접근 가능한 문서 범위를 통제합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Answer</h3><p>질문에 대해 관련 문서를 기반으로 답변하고 근거를 함께 제공합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Monitor</h3><p>사용 이력, 질의 로그, 접근 기록을 관리해 운영 현황을 확인합니다.</p></article>
     </div>
-    <ol class="process">
-      <li class="process-step reveal-item"><h3>보안 요건 진단</h3><p>데이터 등급, 망 분리 여부, 접근 권한 기준, 감사 로그 필요 범위를 확인합니다.</p></li>
-      <li class="process-step reveal-item"><h3>지식 범위 정의</h3><p>우선 연동할 문서, 규정, 저장소와 사용자별 노출 범위를 정리합니다.</p></li>
-      <li class="process-step reveal-item"><h3>폐쇄 환경 검증</h3><p>실제 문서 기준으로 검색 정확도, 답변 품질, 권한 정책을 검증합니다.</p></li>
-      <li class="process-step reveal-item"><h3>구축 및 운영 전환</h3><p>사용자 화면, 관리자 기능, 권한, 로그를 포함한 운영형 시스템으로 배치합니다.</p></li>
-    </ol>
   </section>
 
+  <!-- 4. FEATURES -->
+  <section class="band"><div class="section" aria-labelledby="features-title">
+    <div class="section-heading"><p class="eyebrow">Features</p><h2 id="features-title">사내 AI 운영에 필요한 기능을 함께 구성합니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>문서 기반 검색형 답변</h3><p class="muted">내부 문서, 규정, 매뉴얼, 보고서에서 관련 내용을 찾아 질문에 대한 답변을 제공합니다.</p></article>
+      <article class="value-card reveal-item"><h3>근거 문서 확인</h3><p class="muted">AI 답변의 기반이 되는 문서와 위치를 함께 확인해 답변 신뢰도를 높입니다.</p></article>
+      <article class="value-card reveal-item"><h3>역할 기반 접근 제어</h3><p class="muted">부서, 직무, 사용자 역할에 따라 조회 가능한 문서와 답변 범위를 제한할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>사용 이력 및 감사 로그</h3><p class="muted">누가, 언제, 어떤 질문을 했는지 운영 정책에 따라 기록하고 관리할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>온프레미스·프라이빗 클라우드 검토</h3><p class="muted">조직의 보안 정책과 인프라 환경에 따라 온프레미스 또는 프라이빗 클라우드 구성을 검토할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>기존 시스템 연동 검토</h3><p class="muted">문서 저장소, 내부 포털, 업무 시스템, 데이터베이스 등 기존 환경과의 연동 가능성을 검토합니다.</p></article>
+    </div>
+  </div></section>
+
+  <!-- 5. SECURITY & GOVERNANCE -->
+  <section class="section" aria-labelledby="security-title">
+    <div class="section-heading"><p class="eyebrow">Security &amp; Governance</p><h2 id="security-title">AI 도입 전, 데이터가 어디까지 이동해도 되는지 먼저 정합니다</h2><p>프라이빗 AI 도입에서 가장 중요한 것은 모델 자체보다 데이터 경계와 운영 정책입니다. 범온누리는 초기 단계에서 데이터 등급, 접근 권한, 로그 기준, 사용자 범위, 운영 환경을 먼저 확인하고 이에 맞는 구축 범위를 설계합니다.</p></div>
+    <div class="sec-flow" role="img" aria-label="사용자에서 권한 확인, 문서 검색, AI 답변, 로그 기록으로 이어지는 처리 흐름">
+      <div class="sec-node"><span class="sec-step">01</span><strong>사용자</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">02</span><strong>권한 확인</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">03</span><strong>문서 검색</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">04</span><strong>AI 답변</strong></div>
+      <span class="sec-arrow" aria-hidden="true">&rarr;</span>
+      <div class="sec-node"><span class="sec-step">05</span><strong>로그 기록</strong></div>
+    </div>
+    <ul class="check-list" style="margin-top:1.6rem">
+      <li>데이터 경계 정의</li>
+      <li>사용자·부서별 권한 설계</li>
+      <li>문서 등급 및 노출 범위 설정</li>
+      <li>질의·응답 이력 관리</li>
+      <li>관리자 화면 및 운영 정책 검토</li>
+      <li>온프레미스 또는 프라이빗 클라우드 구성 검토</li>
+      <li>민감정보 포함 문서의 처리 기준 검토</li>
+      <li>내부 보안 정책과의 정합성 검토</li>
+    </ul>
+    <p class="note-box">구체적인 보안 구성은 조직의 인프라, 데이터 정책, 망 구성, 규제 요건에 따라 달라질 수 있으며, 도입 전 별도 검토가 필요합니다.</p>
+  </section>
+
+  <!-- 6. USE CASES -->
+  <section class="band"><div class="section" aria-labelledby="usecase-title">
+    <div class="section-heading"><p class="eyebrow">Use Cases</p><h2 id="usecase-title">흩어진 내부 지식을 실무자가 바로 활용할 수 있게 만듭니다</h2></div>
+    <ul class="data-tags">
+      <li>내부 규정</li><li>업무 매뉴얼</li><li>기술 문서</li><li>연구 자료</li><li>계약서</li><li>보고서</li><li>회의록</li><li>고객 응대 기록</li><li>사내 위키</li><li>FAQ 문서</li><li>프로젝트 문서</li>
+    </ul>
+    <div class="scenario-grid">
+      <article class="scenario-card reveal-item"><h3>사내 규정 질의응답</h3><p class="scenario-q">"출장비 정산 기준은 어떻게 되나요?"</p><p>내부 규정을 기반으로 답변하고 관련 문서 근거를 함께 제공합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>업무 매뉴얼 검색</h3><p class="scenario-q">"신규 고객 등록 절차를 알려주세요."</p><p>업무 매뉴얼에서 필요한 절차를 찾아 단계별로 정리합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>기술 문서 탐색</h3><p class="scenario-q">"이 장비의 점검 기준은 어디에 있나요?"</p><p>기술 문서와 점검 자료에서 관련 내용을 검색합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>계약·보고서 검색</h3><p class="scenario-q">"지난 분기 A 프로젝트 주요 리스크는 무엇이었나요?"</p><p>보고서와 회의록에서 관련 내용을 찾아 검토 시간을 줄입니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>고객 응대 지식 활용</h3><p class="scenario-q">"이 문의 유형은 어떻게 답변해야 하나요?"</p><p>기존 응대 기록과 FAQ 문서를 기반으로 답변 초안을 제공합니다.</p></article>
+    </div>
+    <p class="note-box">위 질문 예시는 활용 방식을 설명하기 위한 예시이며, 실제 답변 품질은 문서 품질, 데이터 구조, 권한 정책, 구축 범위에 따라 달라질 수 있습니다.</p>
+  </div></section>
+
+  <!-- 7. FOR TEAMS -->
+  <section class="section" aria-labelledby="teams-title">
+    <div class="section-heading"><p class="eyebrow">For Teams</p><h2 id="teams-title">부서별로 필요한 가치를 다르게 제공합니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><p class="eyebrow">경영진</p><h3>AI 도입 리스크를 통제 가능한 구조로 검토</h3><p class="muted">보안 부담을 줄이면서 내부 지식 활용성과 업무 생산성 개선 가능성을 확인할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">보안·IT 담당자</p><h3>데이터 경계와 접근 권한을 먼저 설계</h3><p class="muted">사용자 권한, 로그, 운영 환경을 함께 검토해 통제 가능한 AI 활용 구조를 마련합니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">현업 실무자</p><h3>필요한 문서를 더 빠르게 찾고 활용</h3><p class="muted">규정, 매뉴얼, 보고서를 직접 뒤지는 시간을 줄이고 근거 기반 답변을 확인할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">관리자</p><h3>사용 현황과 운영 이력을 확인</h3><p class="muted">질의 이력, 사용 패턴, 접근 기록을 바탕으로 운영 개선과 확장 여부를 검토할 수 있습니다.</p></article>
+    </div>
+  </section>
+
+  <!-- 8. EXPECTED OUTCOMES -->
+  <section class="band"><div class="section" aria-labelledby="outcome-title">
+    <div class="section-heading"><p class="eyebrow">Expected Outcomes</p><h2 id="outcome-title">검색 시간, 보안 부담, 운영 관리 문제를 함께 줄입니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card outcome-card reveal-item"><h3>문서 탐색 시간 단축</h3><p class="muted">흩어진 사내 문서를 빠르게 검색해 반복적인 정보 탐색 시간을 줄입니다.</p><p class="metric-hint">측정 지표 예시: 평균 문서 검색 시간, 질의 응답 시간</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>답변 신뢰도 개선</h3><p class="muted">근거 문서와 함께 답변을 제공해 실무자가 답변의 출처를 확인할 수 있습니다.</p><p class="metric-hint">측정 지표 예시: 근거 포함 답변 비율, 사용자 검토 만족도</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>보안 부담 완화</h3><p class="muted">민감 데이터의 외부 반출을 최소화하고 조직의 보안 정책에 맞는 활용 구조를 검토합니다.</p><p class="metric-hint">측정 지표 예시: 외부 AI 사용 감소, 권한 정책 적용 범위</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>운영 관리 가능성 확보</h3><p class="muted">사용 이력과 로그를 바탕으로 활용 현황을 파악하고 개선 방향을 정리할 수 있습니다.</p><p class="metric-hint">측정 지표 예시: 사용자 수, 질의 수, 부서별 활용률</p></article>
+    </div>
+    <p class="note-box">성과 지표는 조직의 데이터 품질, 사용자 범위, 연동 범위, 운영 방식에 따라 달라질 수 있습니다.</p>
+  </div></section>
+
+  <!-- 9. IMPLEMENTATION -->
+  <section class="section" id="implementation" aria-labelledby="impl-title">
+    <div class="section-heading"><p class="eyebrow">Implementation</p><h2 id="impl-title">보안 요건부터 확인하고, 제한된 범위에서 검증합니다</h2></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>보안 요건 진단</h3><p>데이터 등급, 망 구성, 접근 권한, 민감정보 처리 기준, 감사 로그 필요 범위를 확인합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>지식 범위 정의</h3><p>우선 연동할 문서, 규정, 저장소, 사용자 그룹, 노출 범위를 정리합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>폐쇄 환경 검증</h3><p>실제 문서 기준으로 검색 정확도, 답변 품질, 권한 정책, 운영 적합성을 검증합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>구축 및 운영 전환</h3><p>사용자 화면, 관리자 기능, 권한, 로그, 운영 절차를 포함한 운영형 시스템으로 전환합니다.</p></article>
+    </div>
+    <p class="note-box">일반적인 파일럿은 제한된 문서와 사용자 범위에서 시작하는 것이 적합합니다. 구체적인 기간과 범위는 데이터 규모, 보안 요건, 연동 난이도에 따라 달라질 수 있습니다.</p>
+  </section>
+
+  <!-- 10. READINESS CHECK -->
+  <section class="band"><div class="section" aria-labelledby="ready-title">
+    <div class="section-heading"><p class="eyebrow">Readiness Check</p><h2 id="ready-title">도입 전 아래 항목을 확인하면 검토가 빨라집니다</h2></div>
+    <ul class="check-list">
+      <li>우선 활용하고 싶은 문서 유형이 정리되어 있는가?</li>
+      <li>문서 저장 위치와 접근 권한 체계가 파악되어 있는가?</li>
+      <li>민감정보가 포함된 문서의 처리 기준이 있는가?</li>
+      <li>사용자 그룹과 권한 범위를 구분할 수 있는가?</li>
+      <li>기존 문서 저장소 또는 업무 시스템 연동이 필요한가?</li>
+      <li>보안팀 또는 IT 담당자의 검토 기준이 있는가?</li>
+      <li>파일럿에서 측정할 성공 기준이 정해져 있는가?</li>
+      <li>운영 전환 시 관리자 역할을 맡을 담당자가 있는가?</li>
+    </ul>
+    <div class="compare-foot">
+      <p class="compare-note">아직 모든 항목이 준비되지 않아도 괜찮습니다. 현재 보유한 문서와 보안 요건을 기준으로 우선 검토 가능한 범위를 함께 정리할 수 있습니다.</p>
+      <div class="hero-actions"><a class="button primary" href="/contact/">도입 가능성 진단하기</a></div>
+    </div>
+  </div></section>
+
+  <!-- 11. FAQ -->
+  <section class="section" aria-labelledby="faq-title">
+    <div class="section-heading faq-heading"><p class="eyebrow">FAQ</p><h2 id="faq-title">프라이빗 AI 도입 전 자주 묻는 질문</h2></div>
+    <div class="faq">
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-1">범온 프라이빗 AI는 일반 챗봇과 무엇이 다른가요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-1" hidden><p>일반 챗봇이 범용 대화에 초점을 둔다면, 범온 프라이빗 AI는 기업 내부 문서와 규정을 기반으로 검색·답변·근거 확인·권한 제어·로그 관리를 함께 고려하는 사내 AI 환경을 목표로 합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-2">사내 문서를 외부로 보내지 않고 사용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-2" hidden><p>조직의 보안 정책과 인프라 환경에 따라 온프레미스 또는 프라이빗 클라우드 구성을 검토할 수 있습니다. 구체적인 데이터 처리 방식은 도입 전 보안 요건을 확인한 뒤 결정합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-3">사용자별로 볼 수 있는 문서를 다르게 설정할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-3" hidden><p>역할 기반 접근 제어를 통해 부서, 직무, 사용자 그룹에 따라 접근 가능한 문서 범위와 답변 범위를 설계할 수 있습니다. 실제 적용 범위는 기존 권한 체계와 문서 구조를 확인한 뒤 정합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-4">AI 답변의 근거 문서를 확인할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-4" hidden><p>문서 기반 검색형 답변 구조를 통해 답변과 관련된 근거 문서를 함께 제공하는 방향으로 설계할 수 있습니다. 다만 근거 표시 방식은 문서 구조와 구축 범위에 따라 달라질 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-5">어떤 문서를 먼저 연동하는 것이 좋나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-5" hidden><p>자주 조회되는 규정, 업무 매뉴얼, FAQ, 보고서, 기술 문서처럼 반복적으로 활용되는 문서부터 시작하는 것이 좋습니다. 파일럿 단계에서는 범위를 좁혀 정확도와 활용성을 검증하는 방식을 권장합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-6">기존 문서 저장소와 연동할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-6" hidden><p>내부 문서 저장소, 업무 시스템, 데이터베이스, 포털 등과의 연동 가능성을 검토할 수 있습니다. 실제 연동 방식은 시스템 구조, 접근 권한, 보안 정책에 따라 달라집니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-7">도입 효과는 어떻게 측정하나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-7" hidden><p>평균 문서 검색 시간, 답변 정확도, 근거 포함 답변 비율, 사용자 만족도, 반복 문의 감소, 부서별 활용률 등을 기준으로 검증할 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-8">파일럿은 어떻게 시작하나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-8" hidden><p>우선 적용할 문서 범위와 사용자 그룹을 정한 뒤, 제한된 환경에서 검색 정확도, 답변 품질, 권한 정책, 로그 관리 가능성을 확인합니다. 이후 결과에 따라 운영 전환과 확장 범위를 검토합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-9">보안 요건이 높은 금융·공공·연구기관도 검토할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-9" hidden><p>보안 요건이 높은 조직도 도입 가능성을 검토할 수 있습니다. 다만 망 구성, 규제 요건, 데이터 등급, 내부 보안 정책에 따라 구축 방식이 달라질 수 있으므로 사전 검토가 필요합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="pafaq-10">도입 비용은 어떻게 산정되나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="pafaq-10" hidden><p>비용은 문서 규모, 사용자 수, 권한 구조, 연동 범위, 보안 요구사항, 운영 환경에 따라 달라집니다. 상담을 통해 적용 범위와 파일럿 기준을 먼저 정리한 뒤 산정하는 방식이 적합합니다.</p></div></article>
+    </div>
+  </section>
+
+  <!-- 12. FINAL CTA -->
   <section class="section"><div class="cta-band">
     <p class="eyebrow">Contact</p><h2>사내 데이터를 안전하게 활용하는 AI 도입을 시작해 보세요</h2>
-    <p>보유 문서, 보안 요건, 사용자 범위를 알려주시면 프라이빗 AI 구축 가능성과 파일럿 범위를 정리해 드립니다.</p>
-    <a class="button primary" href="/contact/">보안형 도입 검토하기</a>
+    <p>보유 문서, 보안 요건, 사용자 범위를 알려주시면 범온 프라이빗 AI의 적용 가능성과 파일럿 범위를 함께 정리해 드립니다.</p>
+    <div class="hero-actions cta-actions"><a class="button primary" href="/contact/">보안형 도입 검토하기</a><a class="button secondary" href="/products/">전체 제품 보기</a></div>
   </div></section>
 </main>
 <div data-layout="footer"></div>

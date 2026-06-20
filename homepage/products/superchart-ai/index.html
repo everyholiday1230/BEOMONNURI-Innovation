@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>범온 슈퍼차트 AI | 금융 리서치·차트 분석·시장 신호 AI</title>
-  <meta name="description" content="범온 슈퍼차트 AI는 차트, 기술 지표, 변동성, 리스크 신호를 통합 분석해 금융·투자 리서치 업무의 판단 속도와 팀 기준 일관성을 높이는 AI 솔루션입니다." />
+  <title>범온 슈퍼차트 AI | AI 차트 분석·기술 지표·시장 리서치 플랫폼</title>
+  <meta name="description" content="범온 슈퍼차트 AI는 시세, 차트, 기술 지표, 변동성, 거래량, 자금흐름, AI 관찰 신호를 한 화면에서 정리하는 금융·투자 리서치용 차트 분석 플랫폼입니다. 스캘핑, 스윙, 프리셋 전략과 리스크 신호 검토를 지원합니다." />
   <meta name="theme-color" content="#921230" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="{{SITE_URL}}/products/superchart-ai/" />
@@ -27,62 +27,218 @@
   {"@context":"https://schema.org","@type":"Product","name":"범온 슈퍼차트 AI","brand":{"@type":"Brand","name":"범온누리 이노베이션"},"description":"시세·지표·차트를 함께 해석해 투자 리서치와 의사결정을 돕는 금융 시장 분석 AI.","category":"금융 데이터 분석 AI","url":"{{SITE_URL}}/products/superchart-ai/"}
   </script>
 </head>
-<body data-page="products" data-lang="ko">
+<body data-page="products" data-lang="ko" data-product-enhanced="custom">
 <div data-layout="header"></div>
 <nav class="breadcrumb" aria-label="현재 위치"><ol><li><a href="/">홈</a></li><li><a href="/products/">제품</a></li><li aria-current="page">범온 슈퍼차트 AI</li></ol></nav>
 <main id="main-content">
+  <!-- 1. HERO -->
   <section class="product-hero">
     <div class="hero-copy">
       <p class="eyebrow">Beomon SuperChart AI</p>
-      <h1>시장 신호를 빠르게 정리하는 리서치 AI</h1>
-      <p class="lead">범온 슈퍼차트 AI는 차트, 기술 지표, 변동성, 리스크 신호를 한 화면에서 분석해 금융·투자 리서치의 판단 속도를 높입니다. 흩어진 시장 정보를 구조화해 팀 단위의 일관된 분석 기준을 만들 수 있습니다.</p>
-      <div class="hero-actions"><a class="button primary" href="https://3000-imdhl2i2r1s0blzsmkvzk-de59bda9.sandbox.novita.ai/chart/btcusdt" target="_blank" rel="noopener">슈퍼차트 AI 바로가기</a><a class="button secondary" href="/contact/">리서치 적용 검토하기</a><a class="button secondary" href="/products/">전체 제품 보기</a></div>
+      <h1>AI 신호와 기술 지표를 한 화면에서 정리하는 슈퍼차트</h1>
+      <p class="lead">범온 슈퍼차트 AI는 시세, 차트, 기술 지표, 변동성, 거래량, 자금흐름, AI 기반 관찰 신호를 통합해 금융·투자 리서치의 분석 시간을 줄이고 팀 단위의 일관된 판단 기준을 만드는 차트 분석 플랫폼입니다.</p>
+      <ul class="hero-badges" aria-label="핵심 영역">
+        <li>Multi-indicator Chart</li>
+        <li>AI Signal Review</li>
+        <li>Strategy Preset</li>
+        <li>Risk Monitoring</li>
+      </ul>
+      <div class="hero-actions"><a class="button primary" href="/contact/">리서치 적용 검토하기</a><a class="button secondary" href="https://3000-imdhl2i2r1s0blzsmkvzk-de59bda9.sandbox.novita.ai/chart/btcusdt" target="_blank" rel="noopener">실제 차트 보기</a></div>
+      <p class="note-box">본 서비스의 분석 정보와 신호는 투자 판단을 보조하기 위한 참고 자료이며, 특정 금융상품 또는 가상자산의 매수·매도 추천이나 수익 보장을 의미하지 않습니다.</p>
     </div>
-    <figure class="hero-image-card"><img src="/assets/superchart-ai.jpg" alt="범온 슈퍼차트 AI 분석 화면" width="2400" height="1601"><figcaption>범온 슈퍼차트 AI</figcaption></figure>
+    <div class="chart-mock" role="img" aria-label="범온 슈퍼차트 AI 차트 대시보드 예시">
+      <div class="cm-top"><span class="cm-tf">1m</span><span class="cm-tf">15m</span><span class="cm-tf active">1H</span><span class="cm-tf">4H</span><span class="cm-tf">1D</span></div>
+      <div class="cm-canvas"><div class="cm-line"></div></div>
+      <div class="cm-row"><span class="cm-tag">추세</span><span class="cm-tag">모멘텀</span><span class="cm-tag">거래량</span><span class="cm-tag">변동성</span></div>
+      <div class="cm-signal"><span>AI 관찰 신호</span>관찰 가격대와 거래밀집구간을 함께 검토하세요.</div>
+    </div>
   </section>
 
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Problem</p><h2>풀어야 할 문제</h2>
-      <p class="muted">시장은 여러 종목, 지표, 뉴스, 변동성 신호가 동시에 움직입니다. 분석가가 모든 정보를 수동으로 확인하면 판단이 늦어지고, 담당자별 해석 기준이 달라질 수 있습니다.</p></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Solution</p><h2>해결 방식</h2>
-      <p class="muted">범온 슈퍼차트 AI는 시세, 차트, 기술 지표, 리스크 신호를 한 화면에서 정리합니다. 분석가는 반복 확인보다 해석과 결론 도출에 집중하고, 팀은 공통 기준으로 시장 신호를 검토할 수 있습니다.</p></article>
-  </section>
-
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Features</p><h2>주요 기능</h2>
-      <ul><li>실시간 차트 및 다중 지표 분석</li><li>종목·기간별 신호 요약</li><li>변동성 및 리스크 지표 모니터링</li><li>관심 종목 워치리스트</li><li>비교 분석 화면</li><li>리서치 요약 및 공유용 리포트 정리</li><li>알림 기준 설정</li></ul></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Data &amp; Industry</p><h2>적용 데이터·산업</h2>
-      <ul><li>시세·거래량·호가 등 시장 데이터</li><li>이동평균·모멘텀 등 기술 지표</li><li>변동성·리스크 지표</li><li>금융, 투자 리서치, 자산운용, 시장 분석 조직</li></ul></article>
-  </section>
-
-  <section class="band"><div class="section" aria-labelledby="outcome-title">
-    <div class="section-heading"><p class="eyebrow">Outcome</p><h2 id="outcome-title">도입 효과</h2></div>
+  <!-- 2. PRODUCT PREVIEW -->
+  <section class="band"><div class="section" aria-labelledby="preview-title">
+    <div class="section-heading"><p class="eyebrow">Product Preview</p><h2 id="preview-title">실제 차트 화면에서 시장 흐름과 지표를 함께 확인합니다</h2><p>범온 슈퍼차트 AI는 차트 화면 안에서 시간봉, 관심 종목, 관심 지표, 기술 지표, AI 기반 관찰 신호, 프리셋 전략을 함께 확인할 수 있도록 구성되어 있습니다. 분석가는 여러 화면을 오가며 지표를 비교하는 대신, 하나의 화면에서 시장 흐름과 주요 신호를 정리할 수 있습니다.</p></div>
     <div class="value-grid">
-      <article class="value-card reveal-item"><h3>리서치 속도 향상</h3><p class="muted">분산된 시장 데이터를 한 흐름으로 정리해 분석 시간을 줄입니다.</p></article>
-      <article class="value-card reveal-item"><h3>신호 포착 강화</h3><p class="muted">주요 변동 구간과 리스크 신호를 빠르게 확인할 수 있습니다.</p></article>
-      <article class="value-card reveal-item"><h3>팀 해석 기준 표준화</h3><p class="muted">공통 지표와 알림 기준을 통해 분석 담당자별 편차를 줄입니다.</p></article>
-      <article class="value-card reveal-item"><h3>리포트 정리 효율화</h3><p class="muted">반복적인 정리 작업을 줄이고 핵심 판단 근거에 집중할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>차트 영역</h3><p class="muted">종목별 가격 흐름과 캔들 구조를 확인합니다.</p></article>
+      <article class="value-card reveal-item"><h3>시간봉 선택</h3><p class="muted">1분, 5분, 15분, 1시간, 4시간, 일봉, 주봉, 월봉 등 다양한 분석 주기를 선택합니다.</p></article>
+      <article class="value-card reveal-item"><h3>지표 패널</h3><p class="muted">이동평균, 모멘텀, 변동성, 거래량, 가격 구조 지표를 카테고리별로 선택합니다.</p></article>
+      <article class="value-card reveal-item"><h3>AI 관찰 신호</h3><p class="muted">범온 캔들, 자동추세선, 거래밀집구간, 추세시작, 관찰 가격대 등 AI 기반 신호를 검토합니다.</p></article>
+      <article class="value-card reveal-item"><h3>프리셋 전략</h3><p class="muted">스캘핑, 스윙, 프로, 클린, 범온 기본, 사용자 프리셋 등 분석 목적에 맞는 구성을 빠르게 불러옵니다.</p></article>
+      <article class="value-card reveal-item"><h3>관심 종목·관심 지표</h3><p class="muted">자주 보는 종목과 지표를 저장해 반복 분석 시간을 줄입니다.</p></article>
+    </div>
+    <div class="compare-foot"><div class="hero-actions"><a class="button secondary" href="https://3000-imdhl2i2r1s0blzsmkvzk-de59bda9.sandbox.novita.ai/chart/btcusdt" target="_blank" rel="noopener">실제 차트 보기</a></div></div>
+  </div></section>
+
+  <!-- 3. PROBLEM -->
+  <section class="section" aria-labelledby="problem-title">
+    <div class="section-heading"><p class="eyebrow">Problem</p><h2 id="problem-title">시장 데이터는 많지만, 분석 기준은 쉽게 흩어집니다</h2><p>금융·투자 리서치에서는 가격, 거래량, 변동성, 추세, 자금흐름, 기술 지표가 동시에 움직입니다. 하지만 여러 지표를 수동으로 켜고 끄며 비교하면 시간이 오래 걸리고, 분석가마다 해석 기준이 달라질 수 있습니다. 특히 빠르게 변하는 시장에서는 신호를 놓치거나 과도한 주관적 판단에 의존하는 문제가 발생할 수 있습니다.</p></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>지표 확인에 걸리는 시간</h3><p class="muted">여러 지표와 시간봉을 반복적으로 확인해야 해 분석 준비 시간이 길어집니다.</p></article>
+      <article class="value-card reveal-item"><h3>담당자별 해석 편차</h3><p class="muted">같은 차트를 보더라도 분석가마다 사용하는 지표와 판단 기준이 달라질 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><h3>신호 과다와 노이즈</h3><p class="muted">많은 지표가 동시에 나타나면 어떤 신호를 우선 검토해야 할지 판단하기 어렵습니다.</p></article>
+      <article class="value-card reveal-item"><h3>리포트 정리 부담</h3><p class="muted">차트 캡처, 지표 정리, 시장 메모 작성 등 반복적인 리서치 정리 업무가 발생합니다.</p></article>
+    </div>
+  </section>
+
+  <!-- 4. SOLUTION -->
+  <section class="band"><div class="section" aria-labelledby="solution-title">
+    <div class="section-heading"><p class="eyebrow">Solution</p><h2 id="solution-title">차트, 지표, AI 관찰 신호를 하나의 리서치 흐름으로 연결합니다</h2><p>범온 슈퍼차트 AI는 단순 차트 도구가 아니라 시장 분석에 필요한 지표와 AI 관찰 신호를 구조화하는 리서치 플랫폼입니다. 시간봉, 추세, 모멘텀, 변동성, 거래량, 가격 구조, 프리셋 전략을 한 화면에서 조합해 시장 상황을 빠르게 검토할 수 있습니다.</p></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Select</h3><p>분석할 종목과 시간봉을 선택합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Apply</h3><p>AI 지표, 기술 지표, 프리셋 전략을 적용합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Review</h3><p>추세, 모멘텀, 거래량, 변동성, 리스크 구간을 함께 검토합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Document</h3><p>관찰 결과를 정리하고 팀 내 분석 기준으로 활용합니다.</p></article>
     </div>
   </div></section>
 
-  <section class="section" aria-labelledby="process-title">
-    <div class="section-heading">
-      <p class="eyebrow">How we work</p>
-      <h2 id="process-title">리서치 흐름에 맞춰 적용합니다</h2>
-      <p>기존 분석 업무를 바꾸지 않고, 필요한 지점에 자연스럽게 연결합니다.</p>
+  <!-- 5. FEATURES -->
+  <section class="section" aria-labelledby="features-title">
+    <div class="section-heading"><p class="eyebrow">Features</p><h2 id="features-title">금융 리서치에 필요한 차트 분석 기능을 한 화면에 모았습니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>다중 시간봉 차트</h3><p class="muted">1분, 5분, 15분, 1시간, 4시간, 일봉, 주봉, 월봉 등 분석 목적에 맞는 시간 단위를 선택합니다.</p></article>
+      <article class="value-card reveal-item"><h3>AI 캔들·이평선 분석</h3><p class="muted">범온 캔들, 범온 캔들 PRO, 범온 이동평균선 등 AI 기반 차트 해석 지표를 활용합니다.</p></article>
+      <article class="value-card reveal-item"><h3>자동추세선</h3><p class="muted">주요 추세 흐름과 가격 구조를 자동으로 표시해 추세 검토 시간을 줄입니다.</p></article>
+      <article class="value-card reveal-item"><h3>거래밀집구간</h3><p class="muted">가격이 집중적으로 거래된 구간을 확인해 지지·저항 가능 구간을 검토합니다.</p></article>
+      <article class="value-card reveal-item"><h3>모멘텀·강도 분석</h3><p class="muted">강도측정, 과열분석, 추세전환, 다이버전스 등 시장 에너지 변화를 확인합니다.</p></article>
+      <article class="value-card reveal-item"><h3>거래량·자금흐름 분석</h3><p class="muted">매매압력, 자금흐름, 거래량분석, OBV, MFI, CMF 등 수급 관련 지표를 검토합니다.</p></article>
+      <article class="value-card reveal-item"><h3>프리셋 전략</h3><p class="muted">스캘핑, 스윙, 프로, 클린, 범온 기본, 내 프리셋 등 목적에 맞는 지표 구성을 빠르게 적용합니다.</p></article>
+      <article class="value-card reveal-item"><h3>관심 종목·관심 지표 관리</h3><p class="muted">자주 확인하는 종목과 지표를 저장해 반복적인 세팅 시간을 줄입니다.</p></article>
     </div>
-    <ol class="process">
-      <li class="process-step reveal-item"><h3>리서치 방식 진단</h3><p>현재 분석 대상, 주요 지표, 리포트 작성 방식을 파악합니다.</p></li>
-      <li class="process-step reveal-item"><h3>지표와 신호 기준 정의</h3><p>관찰할 기술 지표, 리스크 구간, 알림 기준을 함께 설정합니다.</p></li>
-      <li class="process-step reveal-item"><h3>과거 구간 검증</h3><p>과거 시장 구간에 적용해 신호 해석의 유효성을 확인합니다.</p></li>
-      <li class="process-step reveal-item"><h3>운영 화면 구성</h3><p>워치리스트, 알림, 리포트 화면을 팀 업무 흐름에 연결합니다.</p></li>
-    </ol>
   </section>
 
+  <!-- 6. INDICATORS & PRESETS -->
+  <section class="band"><div class="section" aria-labelledby="indicator-title">
+    <div class="section-heading"><p class="eyebrow">Indicators &amp; Presets</p><h2 id="indicator-title">분석 목적에 따라 지표와 프리셋을 선택할 수 있습니다</h2><p>범온 슈퍼차트 AI는 기초 기술 지표부터 AI 기반 관찰 신호, 전략 프리셋까지 다양한 분석 도구를 카테고리별로 제공합니다. 사용자는 자신의 리서치 방식에 맞게 지표를 조합하거나 프리셋을 활용할 수 있습니다.</p></div>
+    <div class="indicator-grid">
+      <article class="indicator-cat reveal-item"><h3>AI 캔들·이평선</h3><ul class="tag-list"><li>범온 캔들</li><li>범온 캔들 PRO</li><li>범온 이동평균선</li><li>자동추세선</li><li>리서치 참고 신호</li><li>거래밀집구간</li><li>범온 추세시작</li><li>관찰 가격대</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>모멘텀·강도</h3><ul class="tag-list"><li>강도측정</li><li>과열분석</li><li>추세전환</li><li>다이버전스</li><li>범온 MACD</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>거래량·자금흐름</h3><ul class="tag-list"><li>매매압력</li><li>자금흐름</li><li>거래량분석</li><li>종합 신호 검토</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>추세 지표</h3><ul class="tag-list"><li>EMA</li><li>SMA</li><li>WMA</li><li>HMA</li><li>DEMA</li><li>TEMA</li><li>일목균형표</li><li>추세반전</li><li>슈퍼트렌드</li><li>MA리본</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>모멘텀 지표</h3><ul class="tag-list"><li>RSI</li><li>MACD</li><li>스토캐스틱</li><li>CCI</li><li>변화율</li><li>윌리엄스</li><li>스토캐스틱 RSI</li><li>TSI</li><li>TRIX</li><li>AO</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>변동성·가격 구조</h3><ul class="tag-list"><li>볼린저밴드</li><li>켈트너</li><li>엔벨로프</li><li>ATR</li><li>VWAP</li><li>피봇</li></ul></article>
+      <article class="indicator-cat reveal-item"><h3>드로잉 도구·프리셋</h3><ul class="tag-list"><li>피보나치</li><li>수평선</li><li>추세선</li><li>텍스트</li><li>수직선</li><li>스캘핑</li><li>스윙</li><li>프로</li><li>클린</li><li>범온 기본</li><li>내 프리셋</li></ul></article>
+    </div>
+    <p class="note-box">실제 앱 내부 명칭에 "매수/매도", "진입/청산", "AI목표"가 있더라도 제품 소개 페이지에서는 법적 안정성을 위해 "리서치 참고 신호", "관찰 신호", "관찰 가격대" 등으로 표현합니다.</p>
+  </div></section>
+
+  <!-- 7. AI SIGNAL REVIEW -->
+  <section class="section" aria-labelledby="signal-title">
+    <div class="section-heading"><p class="eyebrow">AI Signal Review</p><h2 id="signal-title">AI 신호는 결론이 아니라, 검토해야 할 관찰 포인트입니다</h2><p>범온 슈퍼차트 AI의 신호는 투자 결정을 대신하는 것이 아니라, 사용자가 시장 상황을 더 빠르게 검토할 수 있도록 돕는 참고 정보입니다. 추세, 변동성, 거래량, 자금흐름, 가격 밀집 구간을 함께 확인해 분석 근거를 정리할 수 있습니다.</p></div>
+    <div class="term-wrap">
+      <table class="term-table">
+        <thead><tr><th scope="col">표시 명칭</th><th scope="col">페이지 표현</th></tr></thead>
+        <tbody>
+          <tr><td class="term-from">진입·청산 시그널</td><td class="term-to">리서치 참고 신호</td></tr>
+          <tr><td class="term-from">매수·매도</td><td class="term-to">상승/하락 관찰 신호 또는 조건 충족 신호</td></tr>
+          <tr><td class="term-from">AI목표</td><td class="term-to">AI 관찰 가격대</td></tr>
+          <tr><td class="term-from">단타 익절</td><td class="term-to">단기 관찰 구간</td></tr>
+          <tr><td class="term-from">종합매매</td><td class="term-to">종합 신호 검토</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="check-list" style="margin-top:1.6rem">
+      <li>"추천"보다 "검토"</li>
+      <li>"예측"보다 "관찰"</li>
+      <li>"정답"보다 "참고 신호"</li>
+      <li>"수익"보다 "리스크와 판단 근거"</li>
+      <li>"자동매매"보다 "분석 보조"</li>
+    </ul>
+  </section>
+
+  <!-- 8. WORKFLOW -->
+  <section class="band"><div class="section" aria-labelledby="workflow-title">
+    <div class="section-heading"><p class="eyebrow">Workflow</p><h2 id="workflow-title">종목 선택부터 신호 검토까지 한 화면에서 진행합니다</h2></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>종목 선택</h3><p>BTC/USDT와 같은 분석 대상 종목을 선택합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>시간봉 설정</h3><p>1분, 5분, 15분, 1시간, 4시간, 일봉, 주봉, 월봉 등 분석 주기를 선택합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>지표 적용</h3><p>추세, 모멘텀, 변동성, 거래량, AI 관찰 신호를 목적에 맞게 적용합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>프리셋 활용</h3><p>스캘핑, 스윙, 프로, 클린, 범온 기본 등 분석 목적에 맞는 프리셋을 불러옵니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">05</span><h3>리서치 정리</h3><p>주요 관찰 신호와 리스크 구간을 정리해 팀 내 분석 기준으로 활용합니다.</p></article>
+    </div>
+  </div></section>
+
+  <!-- 9. USE CASES -->
+  <section class="section" aria-labelledby="usecase-title">
+    <div class="section-heading"><p class="eyebrow">Use Cases</p><h2 id="usecase-title">시장 분석 업무의 반복 확인 시간을 줄입니다</h2></div>
+    <div class="scenario-grid">
+      <article class="scenario-card reveal-item"><h3>단기 시장 흐름 점검</h3><p>1분, 5분, 15분 차트와 스캘핑 프리셋을 활용해 단기 변동 구간을 빠르게 확인합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>스윙 관점 추세 확인</h3><p>4시간, 일봉, 주봉 차트와 추세·모멘텀 지표를 함께 확인해 중기 흐름을 검토합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>변동성 확대 구간 관찰</h3><p>볼린저밴드, ATR, 거래량 지표를 통해 변동성 확대 가능 구간을 점검합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>자금흐름·거래량 분석</h3><p>OBV, MFI, CMF, 매매압력, 거래량분석을 통해 수급 흐름을 함께 검토합니다.</p></article>
+      <article class="scenario-card reveal-item"><h3>팀 단위 리서치 기준 정리</h3><p>공통 프리셋과 관심 지표를 기준으로 팀 내 분석 기준을 표준화합니다.</p></article>
+    </div>
+  </section>
+
+  <!-- 10. FOR TEAMS -->
+  <section class="band"><div class="section" aria-labelledby="teams-title">
+    <div class="section-heading"><p class="eyebrow">For Teams</p><h2 id="teams-title">개인 분석부터 팀 리서치까지 활용할 수 있습니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><p class="eyebrow">금융·투자 리서치팀</p><h3>시장 신호 검토 시간을 줄입니다</h3><p class="muted">여러 지표를 한 화면에서 확인해 반복적인 차트 확인 시간을 줄이고 핵심 신호 검토에 집중할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">트레이딩팀</p><h3>공통 관찰 기준을 만듭니다</h3><p class="muted">팀이 함께 사용하는 지표와 프리셋을 기준으로 시장 상황을 검토할 수 있습니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">자산운용·시장분석 조직</p><h3>변동성과 리스크 구간을 빠르게 확인합니다</h3><p class="muted">변동성, 거래량, 추세, 자금흐름을 함께 확인해 리서치 품질을 높입니다.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">전문 개인 사용자</p><h3>복잡한 지표 구성을 빠르게 불러옵니다</h3><p class="muted">스캘핑, 스윙, 프로, 클린 등 목적별 프리셋으로 분석 환경을 빠르게 구성할 수 있습니다.</p></article>
+    </div>
+  </div></section>
+
+  <!-- 11. RISK NOTICE -->
+  <section class="section" aria-labelledby="risk-title">
+    <div class="section-heading"><p class="eyebrow">Risk Notice</p><h2 id="risk-title">슈퍼차트 AI는 투자 판단을 보조하는 분석 도구입니다</h2></div>
+    <div class="risk-notice">
+      <p class="risk-lead">범온 슈퍼차트 AI에서 제공되는 차트, 지표, AI 신호, 관찰 가격대, 프리셋 전략은 시장 분석을 돕기 위한 참고 정보입니다. 이는 특정 금융상품 또는 가상자산의 매수·매도 추천, 투자 자문, 투자 일임, 수익 보장을 의미하지 않습니다.</p>
+      <ul>
+        <li>모든 투자 판단과 그 결과에 대한 책임은 이용자 본인에게 있습니다.</li>
+        <li>금융상품 및 가상자산 거래에는 원금 손실 위험이 있습니다.</li>
+        <li>과거 데이터와 기술 지표가 미래의 수익이나 가격 흐름을 보장하지 않습니다.</li>
+        <li>AI 신호는 시장 상황을 검토하기 위한 보조 정보이며 단독 판단 기준으로 사용해서는 안 됩니다.</li>
+        <li>서비스 제공 범위와 표현 방식은 관련 법령 및 운영 정책에 따라 조정될 수 있습니다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12. EXPECTED OUTCOMES -->
+  <section class="band"><div class="section" aria-labelledby="outcome-title">
+    <div class="section-heading"><p class="eyebrow">Expected Outcomes</p><h2 id="outcome-title">분석 속도와 신호 검토의 일관성을 높입니다</h2></div>
+    <div class="value-grid">
+      <article class="value-card outcome-card reveal-item"><h3>리서치 준비 시간 단축</h3><p class="muted">여러 지표와 시간봉을 반복 설정하는 시간을 줄이고 분석 화면을 빠르게 구성합니다.</p><p class="metric-hint">측정 지표 예시: 차트 세팅 시간, 지표 확인 시간, 반복 분석 시간</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>신호 검토 체계화</h3><p class="muted">추세, 모멘텀, 변동성, 거래량, 자금흐름을 카테고리별로 정리해 검토 기준을 명확히 합니다.</p><p class="metric-hint">측정 지표 예시: 사용 지표 수, 공통 프리셋 활용률, 신호 검토 빈도</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>팀 기준 표준화</h3><p class="muted">팀이 동일한 프리셋과 관심 지표를 기준으로 시장을 분석할 수 있습니다.</p><p class="metric-hint">측정 지표 예시: 팀 공통 프리셋 수, 리포트 작성 시간, 내부 공유 빈도</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>리스크 구간 확인 강화</h3><p class="muted">변동성, 거래량, 가격 밀집 구간을 함께 확인해 위험 구간을 빠르게 점검합니다.</p><p class="metric-hint">측정 지표 예시: 변동성 신호 확인 횟수, 리스크 메모 작성 시간</p></article>
+    </div>
+    <p class="note-box">위 성과는 사용자의 분석 방식, 데이터 품질, 시장 상황, 설정 지표, 운영 방식에 따라 달라질 수 있습니다.</p>
+  </div></section>
+
+  <!-- 13. IMPLEMENTATION -->
+  <section class="section" aria-labelledby="impl-title">
+    <div class="section-heading"><p class="eyebrow">Implementation</p><h2 id="impl-title">리서치 방식에 맞춰 지표와 화면을 구성합니다</h2></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>분석 대상 정의</h3><p>주요 종목, 시장, 시간봉, 리서치 목적을 확인합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>지표·프리셋 구성</h3><p>추세, 모멘텀, 변동성, 거래량, AI 관찰 신호 중 필요한 지표를 정리합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>과거 구간 검토</h3><p>과거 시장 구간에서 지표와 신호가 어떤 방식으로 나타났는지 확인합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>운영 화면 적용</h3><p>관심 종목, 관심 지표, 프리셋, 리포트 흐름을 실제 업무 방식에 맞춰 구성합니다.</p></article>
+    </div>
+  </section>
+
+  <!-- 14. FAQ -->
+  <section class="band"><div class="section" aria-labelledby="faq-title">
+    <div class="section-heading faq-heading"><p class="eyebrow">FAQ</p><h2 id="faq-title">슈퍼차트 AI 도입 전 자주 묻는 질문</h2></div>
+    <div class="faq">
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-1">범온 슈퍼차트 AI는 투자 추천 서비스인가요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-1" hidden><p>아닙니다. 범온 슈퍼차트 AI는 차트, 지표, AI 관찰 신호를 제공하는 시장 분석 보조 도구입니다. 특정 금융상품 또는 가상자산의 매수·매도 추천, 투자 자문, 투자 일임, 수익 보장을 제공하지 않습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-2">AI 신호는 어떻게 활용해야 하나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-2" hidden><p>AI 신호는 시장 상황을 검토하기 위한 참고 정보로 활용해야 합니다. 추세, 거래량, 변동성, 자금흐름 등 다른 지표와 함께 확인하고 최종 판단은 이용자가 직접 해야 합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-3">어떤 지표를 사용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-3" hidden><p>이동평균, MACD, RSI, 스토캐스틱, 볼린저밴드, ATR, OBV, MFI, CMF, VWAP, 피봇, 자동추세선, 거래밀집구간, 범온 캔들 등 다양한 지표와 AI 기반 관찰 신호를 사용할 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-4">스캘핑이나 스윙 분석에도 사용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-4" hidden><p>분석 목적에 따라 스캘핑, 스윙, 프로, 클린, 범온 기본 등 프리셋을 활용할 수 있습니다. 다만 프리셋은 분석 환경을 빠르게 구성하기 위한 도구이며 수익을 보장하지 않습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-5">여러 시간봉을 볼 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-5" hidden><p>1분, 5분, 15분, 1시간, 4시간, 일봉, 주봉, 월봉 등 다양한 시간 단위를 선택해 분석할 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-6">팀 단위로 공통 분석 기준을 만들 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-6" hidden><p>관심 지표와 프리셋을 기준으로 팀 단위의 공통 분석 환경을 구성할 수 있습니다. 구체적인 공유 및 관리 기능은 운영 범위에 따라 검토할 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-7">가상자산 외에 다른 자산에도 적용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-7" hidden><p>적용 가능 자산은 제공 데이터와 연동 범위에 따라 달라질 수 있습니다. 주식, 선물, 가상자산 등 확장 가능성은 데이터 제공 환경을 확인한 뒤 검토합니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-8">알림 기능을 사용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-8" hidden><p>특정 지표 조건이나 관찰 신호에 대한 알림 기준을 설정하는 방향으로 검토할 수 있습니다. 실제 알림 범위는 구축 또는 운영 환경에 따라 달라질 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-9">리포트 작성에도 활용할 수 있나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-9" hidden><p>주요 지표와 관찰 신호를 정리해 리서치 메모나 내부 공유 자료 작성에 활용할 수 있습니다. 리포트 자동화 범위는 운영 방식에 따라 달라질 수 있습니다.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="scfaq-10">도입 비용은 어떻게 산정되나요?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="scfaq-10" hidden><p>비용은 사용자 수, 데이터 연동 범위, 제공 지표, 커스터마이징 수준, 알림·리포트 기능, 운영 환경에 따라 달라집니다. 상담을 통해 적용 범위를 먼저 정리한 뒤 산정하는 방식이 적합합니다.</p></div></article>
+    </div>
+  </div></section>
+
+  <!-- 15. FINAL CTA -->
   <section class="section"><div class="cta-band">
-    <p class="eyebrow">Contact</p><h2>리서치 업무에 맞는 적용 범위를 확인해 보세요</h2>
-    <p>분석 대상, 주요 지표, 리포트 방식, 알림 기준을 알려주시면 슈퍼차트 AI 적용 방향을 함께 정리해 드립니다.</p>
-    <a class="button primary" href="/contact/">리서치 적용 검토하기</a>
+    <p class="eyebrow">Contact</p><h2>시장 분석 흐름에 맞는 슈퍼차트 AI 적용 범위를 확인해 보세요</h2>
+    <p>분석 대상, 주요 지표, 프리셋 방식, 알림 기준, 리포트 흐름을 알려주시면 범온 슈퍼차트 AI의 적용 가능성과 운영 방향을 함께 정리해 드립니다.</p>
+    <div class="hero-actions cta-actions"><a class="button primary" href="/contact/">리서치 적용 검토하기</a><a class="button secondary" href="https://3000-imdhl2i2r1s0blzsmkvzk-de59bda9.sandbox.novita.ai/chart/btcusdt" target="_blank" rel="noopener">실제 차트 보기</a></div>
   </div></section>
 </main>
 <div data-layout="footer"></div>
