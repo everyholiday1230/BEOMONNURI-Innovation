@@ -709,3 +709,108 @@
   #mtf .ts-toggle { min-height: 44px; }
   #mtf .ts-tf-desc { display: none; }
 }
+
+/* ============================================================
+   AI 무료 분석 대시보드 (#ai) — 브랜드 컬러 한정
+   파란색/네온/이모지/로봇/과도한 글로우 미사용.
+   ============================================================ */
+#ai .ai2-header { margin-bottom: var(--space-3); }
+#ai .ai2-header .pane-desc { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; line-height: 1.5; }
+.ai2-header-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ai2-symbol { font-weight: var(--font-bold); font-size: var(--text-sm); color: var(--color-primary); }
+.ai2-basis { font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--color-primary); }
+.ai2-updated { font-size: var(--text-xs); color: var(--color-text-muted); margin-left: auto; }
+.ai2-status-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--font-semibold); line-height: 1; border: 1px solid var(--color-border); }
+.ai2-status-badge[data-state="loading"] { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.ai2-status-badge[data-state="ok"] { background: var(--color-primary-soft); color: var(--color-primary); border-color: transparent; }
+.ai2-status-badge[data-state="partial"], .ai2-status-badge[data-state="delayed"] { background: rgba(217,119,6,.1); color: var(--color-warning); border-color: transparent; }
+.ai2-status-badge[data-state="empty"], .ai2-status-badge[data-state="error"] { background: var(--color-surface-sunken); color: var(--color-text-secondary); }
+.ai2-usage { margin-top: 8px; font-size: var(--text-xs); color: var(--color-text-secondary); }
+.ai2-usage b { color: var(--color-primary); }
+
+#ai .ai2-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); box-shadow: var(--shadow-xs); }
+.ai2-card-title { font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--color-text-primary); margin-bottom: var(--space-2); }
+.ai2-section-block { margin-top: var(--space-3); }
+.ai2-mini-note { font-size: 11px; color: var(--color-text-muted); margin-top: 6px; line-height: 1.5; }
+
+/* 무료 범위 카드 */
+.ai2-scope-card { background: var(--color-primary-soft); border: 1px solid transparent; border-left: 3px solid var(--color-primary); }
+.ai2-scope-list { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
+.ai2-scope-list li { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.5; }
+.ai2-scope-paid li { color: var(--color-text-muted); }
+.ai2-scope-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ai2-scope-head { font-size: var(--text-xs); font-weight: var(--font-bold); color: var(--color-primary); margin-bottom: 6px; }
+
+/* AI 요약 카드 */
+.ai2-summary { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); }
+.ai2-summary-text { font-size: var(--text-sm); color: var(--color-text-primary); line-height: 1.65; margin: 0; }
+
+/* 시장 상태 카드 (5항목) */
+.ai2-state-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ai2-state-cell { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--color-surface-raised); }
+.ai2-state-cell .k { font-size: 11px; color: var(--color-text-muted); margin-bottom: 3px; }
+.ai2-state-cell .v { font-size: var(--text-sm); font-weight: var(--font-bold); }
+.ai2-v-good { color: var(--color-primary); }
+.ai2-v-down { color: var(--color-primary-pressed); }
+.ai2-v-neutral { color: var(--color-text-secondary); }
+.ai2-v-warn { color: var(--color-warning); }
+
+/* 기본 분석 / 분석 기준 행 */
+.ai2-kv { display: flex; flex-direction: column; gap: 4px; }
+.ai2-kv-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-divider); font-size: var(--text-xs); line-height: 1.5; }
+.ai2-kv-row:last-child { border-bottom: 0; }
+.ai2-kv-row .k { color: var(--color-text-muted); min-width: 76px; flex-shrink: 0; font-weight: var(--font-semibold); }
+.ai2-kv-row .v { color: var(--color-text-secondary); }
+
+/* 주요 가격 구간 */
+.ai2-zone-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--color-divider); font-size: var(--text-xs); }
+.ai2-zone-row:last-child { border-bottom: 0; }
+.ai2-zone-row .k { color: var(--color-text-secondary); }
+.ai2-zone-row .v { font-weight: var(--font-semibold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+
+/* 관찰 포인트 */
+.ai2-observe-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.ai2-observe-list li { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.55; }
+
+/* 유료 잠금 카드 */
+.ai2-locked-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ai2-locked { position: relative; border: 1px dashed var(--color-border); border-radius: var(--radius-md); padding: 14px 10px; background: var(--color-surface-sunken); text-align: center; }
+.ai2-lock-tag { display: inline-block; font-size: 9px; font-weight: var(--font-bold); color: var(--color-primary); background: #FCF7F8; border: 1px solid #E5E5E5; border-radius: var(--radius-full); padding: 1px 7px; margin-bottom: 6px; }
+.ai2-lock-name { font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--color-text-secondary); }
+.ai2-lock-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* AI 해석 / 안내 카드 */
+.ai2-ai { background: var(--color-primary-soft); border: 1px solid transparent; border-radius: var(--radius-md); padding: var(--space-3); }
+
+/* 상태 메시지 */
+.ai2-state-msg { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.55; padding: 14px 10px; background: var(--color-surface-sunken); border-radius: var(--radius-sm); }
+.ai2-state-msg.warn { color: var(--color-warning); }
+
+/* 로그인 유도 */
+.ai2-login { font-size: var(--text-xs); color: var(--color-text-secondary); background: var(--color-surface-sunken); border-radius: var(--radius-sm); padding: 10px; line-height: 1.55; }
+.ai2-login-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+/* 토글 */
+.ai2-toggle { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--color-text-secondary); padding: 6px 0; cursor: pointer; }
+
+/* 버튼 */
+.ai2-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 12px; border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: var(--font-semibold); cursor: pointer; border: 1px solid var(--color-primary); transition: background .15s, color .15s; }
+.ai2-btn-primary { background: var(--color-primary); color: #fff; }
+.ai2-btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+.ai2-btn-secondary { background: transparent; color: var(--color-primary); }
+.ai2-btn-secondary:hover:not(:disabled) { background: var(--color-primary-soft); }
+.ai2-btn-ghost { background: transparent; color: var(--color-text-secondary); border-color: var(--color-border); }
+.ai2-btn-ghost:hover:not(:disabled) { background: var(--color-surface-sunken); }
+.ai2-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.ai2-btn-block { width: 100%; min-height: 44px; margin-top: 4px; }
+
+.ai2-disclaimer { font-size: 11px; color: var(--color-text-muted); line-height: 1.55; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+
+/* 모바일 */
+@media (max-width: 980px) {
+  #ai .ai2-state-grid { grid-template-columns: 1fr; }
+  #ai .ai2-scope-2col { grid-template-columns: 1fr; }
+  #ai .ai2-locked-grid { grid-template-columns: 1fr; }
+  #ai .ai2-btn { min-height: 44px; }
+  #ai .ai2-toggle { min-height: 44px; }
+}
