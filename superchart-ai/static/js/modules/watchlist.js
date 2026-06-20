@@ -151,7 +151,7 @@ export function renderWL(f = '') {
   if (f) list = list.filter(s => s.code.toLowerCase().includes(fl) || s.name.toLowerCase().includes(fl) || s.kr.includes(f));
   list = _sortSymbols(list);
   if (!list.length) {
-    el.innerHTML = '<div class="' + (!f ? 'state-loading compact' : 'state-empty compact') + '">' + (!f ? '심볼을 로딩 중...' : '검색 결과가 없습니다') + '</div>';
+    el.innerHTML = '<div class="' + (!f ? 'state-loading compact' : 'state-empty compact') + '">' + (!f ? '종목을 불러오는 중입니다…' : '검색 결과가 없습니다') + '</div>';
     return;
   }
   const curSymbol = window.curSymbol || '';

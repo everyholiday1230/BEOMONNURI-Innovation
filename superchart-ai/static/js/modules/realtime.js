@@ -23,7 +23,7 @@ export function renderRealtimeUI() {
   if (pct !== null) {
     const cls = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
     el.className = 'price-big ' + cls;
-    if (badge) { badge.className = 'change-badge ' + cls; badge.textContent = (window.t?window.t('24h 변동'):'24h 변동') + ' ' + (pct > 0 ? '+' : '') + pct.toFixed(2) + '%'; }
+    if (badge) { badge.className = 'change-badge ' + cls; badge.textContent = (window.t?window.t('24시간 변동률'):'24시간 변동률') + ' ' + (pct > 0 ? '+' : '') + pct.toFixed(2) + '%'; }
   }
   document.title = `${curSymbol.replace('USDT', '')} ${fmtPrice(price)} | 범온 AI 슈퍼차트`;
   const chart = window.chart;
@@ -44,9 +44,9 @@ export function renderRealtimeUI() {
     const lE = document.getElementById('ohlcLow');
     const vE = document.getElementById('ohlcVol');
     const _t = window.t || (s => s);
-    if(oE) oE.textContent = _t('시') + ' ' + fp(chart.buffer.open[i]);
-    if(hE) hE.textContent = _t('고') + ' ' + fp(chart.buffer.high[i]);
-    if(lE) lE.textContent = _t('저') + ' ' + fp(chart.buffer.low[i]);
+    if(oE) oE.textContent = _t('시가') + ' ' + fp(chart.buffer.open[i]);
+    if(hE) hE.textContent = _t('24시간 고가') + ' ' + fp(chart.buffer.high[i]);
+    if(lE) lE.textContent = _t('24시간 저가') + ' ' + fp(chart.buffer.low[i]);
     const _kmb=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":v.toFixed(2);
     if(vE){const vol=chart.buffer.volume[i];vE.textContent=_t('거래량')+" "+_kmb(vol)}
     const aE=document.getElementById("ohlcAmount");if(aE){const amt=chart.buffer.volume[i]*chart.buffer.close[i];aE.textContent=_t('거래대금')+" $"+_kmb(amt)}

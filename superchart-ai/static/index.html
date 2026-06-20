@@ -945,13 +945,13 @@ body.dark #_toastContainer .pro-toast-chip {
         <img loading="lazy" id="symIcon" alt="" class="sym-icon-top" width="20" height="20" onerror="this.style.display='none'">
         <span class="sym-name" id="symName">BTC<span class="quote">/USDT</span></span>
         <span class="price-big flat" id="curPrice">-</span>
-        <span id="changeBadge" class="change-badge flat" style="font-size:14px">24h 변동 0.00%</span>
+        <span id="changeBadge" class="change-badge flat" style="font-size:14px">24시간 변동률 -</span>
         <div id="ohlcInfo" style="font-size:13px;color:var(--color-text-muted);margin-left:12px;display:flex;gap:12px;align-items:center">
-          <span id="ohlcOpen" title="시가">시 -</span>
-          <span id="ohlcHigh" title="고가" style="color:#C4384B">고 -</span>
-          <span id="ohlcLow" title="저가" style="color:#3B82F6">저 -</span>
+          <span id="ohlcOpen" title="시가">시가 -</span>
+          <span id="ohlcHigh" title="24시간 고가" style="color:#C4384B">24시간 고가 -</span>
+          <span id="ohlcLow" title="24시간 저가" style="color:#3B82F6">24시간 저가 -</span>
           <span id="ohlcVol" title="거래량">거래량 -</span>
-          <span id="ohlcAmount" title="거래대금">대금 -</span>
+          <span id="ohlcAmount" title="거래대금">거래대금 -</span>
         </div>
       </div>
       <!-- 실시간 WS 점 -->
@@ -1092,7 +1092,7 @@ body.dark #_toastContainer .pro-toast-chip {
   <div id="chartsArea" class="flex-col-full">
     <div id="chart1Panel" class="flex-col-full">
       <div class="chart-wrap" id="chartWrap" style="flex:1;min-height:0;min-width:0">
-        <div class="loading" id="chartLoading" style="display:flex;align-items:center;gap:8px"><span class="skeleton-pulse"></span>차트 로딩 중...</div>
+        <div class="loading" id="chartLoading" style="display:flex;align-items:center;gap:8px"><span class="skeleton-pulse"></span>시세 데이터를 불러오는 중입니다…</div>
         <div id="activeIndList" style="position:absolute;top:22px;left:6px;z-index:3;display:flex;flex-wrap:wrap;gap:3px;pointer-events:none;max-width:50%;font-size:14px"></div>
         <div id="signalBadge" style="position:absolute;top:6px;right:96px;z-index:3;pointer-events:none;font-size:14px;font-weight:700;padding:4px 12px;border-radius:8px;display:none"></div>
         <div id="ladderBadge" style="position:absolute;top:32px;right:96px;z-index:3;pointer-events:none;font-size:14px;font-weight:600;padding:3px 10px;border-radius:6px;display:none;backdrop-filter:blur(8px)"></div>
@@ -1252,34 +1252,35 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="ind-row" data-drawer-group="strategy" class="d-none">
       <div class="ind-group">
         <span class="ind-group-label">이평선 전략</span>
-        <div class="ind-tag" data-strategy="golden" title="EMA 20 ↗ EMA 60 — 단기선이 장기선을 상향 돌파">골든크로스 (매수)</div>
-        <div class="ind-tag" data-strategy="dead" title="EMA 20 ↘ EMA 60 — 단기선이 장기선을 하향 돌파">데드크로스 (매도)</div>
-        <div class="ind-tag" data-strategy="ma_support" title="EMA 60 — 이평선 지지 반등">이평선 지지 (매수)</div>
-        <div class="ind-tag" data-strategy="ma_resist" title="EMA 60 — 이평선 저항 하락">이평선 저항 (매도)</div>
+        <div class="ind-tag" data-strategy="golden" title="EMA 20 ↗ EMA 60 — 단기선이 장기선을 상향 돌파 (참고용)">골든크로스 상승 참고</div>
+        <div class="ind-tag" data-strategy="dead" title="EMA 20 ↘ EMA 60 — 단기선이 장기선을 하향 돌파 (참고용)">데드크로스 하락 참고</div>
+        <div class="ind-tag" data-strategy="ma_support" title="EMA 60 — 이평선 지지 반등 (참고용)">이평선 지지 반등 참고</div>
+        <div class="ind-tag" data-strategy="ma_resist" title="EMA 60 — 이평선 저항 (참고용)">이평선 저항 조정 참고</div>
       </div>
       <div class="ind-group">
         <span class="ind-group-label">모멘텀 전략</span>
-        <div class="ind-tag" data-strategy="rsi_ob" title="RSI 14 — 30 이하 과매도 진입">RSI 과매도 (매수)</div>
-        <div class="ind-tag" data-strategy="rsi_os" title="RSI 14 — 70 이상 과매수 진입">RSI 과매수 (매도)</div>
-        <div class="ind-tag" data-strategy="macd_cross" title="MACD(12,26,9) — 시그널선 상향 돌파">MACD 골든크로스 (매수)</div>
-        <div class="ind-tag" data-strategy="macd_dead" title="MACD(12,26,9) — 시그널선 하향 돌파">MACD 데드크로스 (매도)</div>
-        <div class="ind-tag" data-strategy="stoch_cross" title="스토캐스틱(14,3) — %K가 %D 상향 돌파 (20 이하)">스토캐스틱 (매수)</div>
-        <div class="ind-tag" data-strategy="stoch_cross_sell" title="스토캐스틱(14,3) — %K가 %D 하향 돌파 (80 이상)">스토캐스틱 (매도)</div>
+        <div class="ind-tag" data-strategy="rsi_ob" title="RSI 14 — 30 이하 과매도 진입 (참고용)">RSI 과매도 반등 참고</div>
+        <div class="ind-tag" data-strategy="rsi_os" title="RSI 14 — 70 이상 과매수 진입 (참고용)">RSI 과매수 조정 참고</div>
+        <div class="ind-tag" data-strategy="macd_cross" title="MACD(12,26,9) — 시그널선 상향 돌파 (참고용)">MACD 골든크로스 상승 참고</div>
+        <div class="ind-tag" data-strategy="macd_dead" title="MACD(12,26,9) — 시그널선 하향 돌파 (참고용)">MACD 데드크로스 하락 참고</div>
+        <div class="ind-tag" data-strategy="stoch_cross" title="스토캐스틱(14,3) — %K가 %D 상향 돌파 (20 이하, 참고용)">스토캐스틱 상승 참고</div>
+        <div class="ind-tag" data-strategy="stoch_cross_sell" title="스토캐스틱(14,3) — %K가 %D 하향 돌파 (80 이상, 참고용)">스토캐스틱 조정 참고</div>
       </div>
       <div class="ind-group">
         <span class="ind-group-label">변동성 전략</span>
-        <div class="ind-tag" data-strategy="bb_lower" title="볼린저밴드(20,2) — 하단 터치 후 반등">볼린저 하단 (매수)</div>
-        <div class="ind-tag" data-strategy="bb_upper" title="볼린저밴드(20,2) — 상단 터치 후 반락">볼린저 상단 (매도)</div>
-        <div class="ind-tag" data-strategy="bb_squeeze" title="볼린저밴드(20,2) — 수축 후 확장 진입">볼린저 스퀴즈 (양방향)</div>
-        <div class="ind-tag" data-strategy="supertrend_buy" title="Supertrend(10,3) — 상승 전환">슈퍼트렌드 (매수)</div>
-        <div class="ind-tag" data-strategy="supertrend_sell" title="Supertrend(10,3) — 하락 전환">슈퍼트렌드 (매도)</div>
+        <div class="ind-tag" data-strategy="bb_lower" title="볼린저밴드(20,2) — 하단 터치 후 반등 (참고용)">볼린저 하단 반등 참고</div>
+        <div class="ind-tag" data-strategy="bb_upper" title="볼린저밴드(20,2) — 상단 터치 후 반락 (참고용)">볼린저 상단 조정 참고</div>
+        <div class="ind-tag" data-strategy="bb_squeeze" title="볼린저밴드(20,2) — 수축 후 확장 (참고용)">볼린저 스퀴즈 변동성 참고</div>
+        <div class="ind-tag" data-strategy="supertrend_buy" title="Supertrend(10,3) — 상승 전환 (참고용)">슈퍼트렌드 상승 참고</div>
+        <div class="ind-tag" data-strategy="supertrend_sell" title="Supertrend(10,3) — 하락 전환 (참고용)">슈퍼트렌드 하락 참고</div>
       </div>
       <div class="ind-group">
         <span class="ind-group-label">거래량 전략</span>
-        <div class="ind-tag" data-strategy="vol_break" title="Volume — 평균 대비 2배 이상 돌파">거래량 돌파 (매수)</div>
-        <div class="ind-tag" data-strategy="obv_div_buy" title="OBV — 가격 하락 + OBV 상승 (강세 다이버전스)">OBV 다이버전스 (매수)</div>
-        <div class="ind-tag" data-strategy="obv_div_sell" title="OBV — 가격 상승 + OBV 하락 (약세 다이버전스)">OBV 다이버전스 (매도)</div>
+        <div class="ind-tag" data-strategy="vol_break" title="Volume — 평균 대비 2배 이상 돌파 (참고용)">거래량 돌파 참고</div>
+        <div class="ind-tag" data-strategy="obv_div_buy" title="OBV — 가격 하락 + OBV 상승 (강세 다이버전스, 참고용)">OBV 강세 다이버전스 참고</div>
+        <div class="ind-tag" data-strategy="obv_div_sell" title="OBV — 가격 상승 + OBV 하락 (약세 다이버전스, 참고용)">OBV 약세 다이버전스 참고</div>
       </div>
+      <p class="strategy-disclaimer" style="width:100%;margin:8px 4px 2px;font-size:12px;line-height:1.5;color:var(--color-text-muted)">전략 신호는 조건 기반 참고 정보이며, 매매 결과를 보장하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
     </div>
   </div>
 </div>
