@@ -93,6 +93,12 @@ class IngestManager:
         self._rest.on_candle(self._dispatch_candle)
         self._rest.on_ticker(self._dispatch_ticker)
         self._ws.on_candle(self._dispatch_candle)
+        # Spot 토큰화 증권 동적 목록 보장(leader 워커가 늦게 떠도 안전)
+        try:
+            from src.services.symbol_resolver import refresh_binance_spot_listings
+            await refresh_binance_spot_listings()
+        except Exception as e:
+            logger.warning("ingest.spot_refresh_failed", error=str(e)[:120])
         spot_syms = _build_spot_symbols()
         logger.info("ingest.started", binance=len(syms), binance_spot=len(spot_syms))
         await asyncio.gather(

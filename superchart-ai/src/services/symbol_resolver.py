@@ -91,16 +91,50 @@ DEFAULT_SYMBOLS: tuple[tuple[str, str, str, str, int], ...] = (
 # - symbol_code 는 UI/검색용 안전 코드(영문대문자/숫자)
 # - api_code 는 외부 데이터 공급자 코드(예: Yahoo Finance GC=F)
 CURATED_SYMBOLS: tuple[dict[str, str | int], ...] = (
-    # ── Binance 현물 토큰화 주식/원자재(방식 A: Binance 실거래 종목만 유지) ──
-    # exchange_id=5 = BINANCE_SPOT. api_code 는 실제 Binance Spot 페어.
-    {"symbol_code": "NVDA", "base_asset": "NVDA", "display_name_ko": "엔비디아", "display_name_en": "NVIDIA (Tokenized)", "exchange_id": 5, "exchange_code": "BINANCE_SPOT", "asset_class": "stock", "quote_asset": "USDT", "api_code": "NVDABUSDT"},
-    {"symbol_code": "TSLA", "base_asset": "TSLA", "display_name_ko": "테슬라", "display_name_en": "Tesla (Tokenized)", "exchange_id": 5, "exchange_code": "BINANCE_SPOT", "asset_class": "stock", "quote_asset": "USDT", "api_code": "TSLABUSDT"},
-    {"symbol_code": "XAUUSD", "base_asset": "XAU", "display_name_ko": "금 (XAUT)", "display_name_en": "Gold (XAUT)", "exchange_id": 5, "exchange_code": "BINANCE_SPOT", "asset_class": "commodity", "quote_asset": "USDT", "api_code": "XAUTUSDT"},
+    # 정적 비암호화폐는 두지 않는다. Binance Spot 토큰화 증권/원자재는
+    # BSTOCKS_CATALOG / COMMODITY_TOKEN_CATALOG 화이트리스트 + exchangeInfo
+    # 상장상태 자동감지로 _DYNAMIC_SPOT 에 동적 등록된다.
 )
+
+# ── Binance Spot 토큰화 증권(bStocks) 화이트리스트 ──────────────────
+# Binance 는 exchangeInfo 에 "토큰화 증권" 표시를 제공하지 않으므로(일반 코인과
+# B 접미사가 겹침), 알려진 bStocks 티커를 화이트리스트로 관리하고 실제 상장
+# 여부는 exchangeInfo 의 TRADING 상태로 자동 판별한다.
+#   key   = Binance base asset (예: NVDAB)
+#   value = (표시 symbol_code, 한글명, 영문명, asset_class)
+# 신규 bStocks 가 추가되면 여기 한 줄만 더하면 상장 시 자동 노출된다.
+BSTOCKS_CATALOG: dict[str, tuple[str, str, str, str]] = {
+    "NVDAB": ("NVDA", "엔비디아", "NVIDIA", "stock"),
+    "TSLAB": ("TSLA", "테슬라", "Tesla", "stock"),
+    "CRCLB": ("CRCL", "서클", "Circle", "stock"),
+    "SNDKB": ("SNDK", "샌디스크", "SanDisk", "stock"),
+    "MUB":   ("MU", "마이크론", "Micron", "stock"),
+    "SPCXB": ("SPCX", "스페이스X", "SpaceX", "stock"),
+    "AMDB":  ("AMD", "AMD", "Advanced Micro Devices", "stock"),
+    "INTCB": ("INTC", "인텔", "Intel", "stock"),
+    "MSTRB": ("MSTR", "스트래티지", "Strategy", "stock"),
+    "EWYB":  ("EWY", "한국 ETF", "iShares MSCI South Korea ETF", "etf"),
+}
+
+# ── Binance Spot 원자재 토큰 화이트리스트 ──────────────────────────
+#   key = Binance base asset, value = (표시 symbol_code, 한글명, 영문명, 우선 견적)
+COMMODITY_TOKEN_CATALOG: dict[str, tuple[str, str, str, str]] = {
+    "XAUT": ("XAUUSD", "금", "Gold (Tether Gold)", "USDT"),
+    "PAXG": ("PAXGUSD", "금 (PAXG)", "Gold (PAX Gold)", "USDT"),
+}
+
+# exchangeInfo 자동감지로 채워지는 동적 Spot 종목 카탈로그(런타임)
+_DYNAMIC_SPOT: list[dict[str, str | int]] = []
+
+
+def _curated_all() -> list[dict[str, str | int]]:
+    """정적 CURATED + 동적 Spot(bStocks/원자재) 합본."""
+    return list(CURATED_SYMBOLS) + list(_DYNAMIC_SPOT)
 
 
 def get_curated_catalog() -> list[dict[str, str | int]]:
-    return [row for row in CURATED_SYMBOLS if str(row.get("symbol_code", "")) not in DELISTED_SYMBOLS]
+    return [row for row in _curated_all() if str(row.get("symbol_code", "")) not in DELISTED_SYMBOLS]
+
 
 
 def _iter_seed_symbols() -> list[tuple[str, int, str]]:
@@ -109,7 +143,7 @@ def _iter_seed_symbols() -> list[tuple[str, int, str]]:
         if code in DELISTED_SYMBOLS:
             continue
         rows.append((code, exchange_id, code))
-    for item in CURATED_SYMBOLS:
+    for item in _curated_all():
         code = str(item.get("symbol_code", ""))
         if not code or code in DELISTED_SYMBOLS:
             continue
@@ -160,6 +194,12 @@ async def load():
         SYMBOL_EXCHANGE[s.symbol_code] = s.exchange_id
         api_code = (s.metadata_ or {}).get("api_code")
         SYMBOL_API_MAP[s.symbol_code] = api_code or s.symbol_code
+
+    # Binance Spot 토큰화 증권/원자재(bStocks) 동적 갱신 (TTL 1시간, 실패 무해)
+    try:
+        await refresh_binance_spot_listings()
+    except Exception as e:
+        logger.warning("symbol_resolver.spot_refresh_in_load", error=str(e)[:120])
 
     # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
     for code, exchange_id, api_code in _iter_seed_symbols():
@@ -254,6 +294,83 @@ def get_binance_spot_symbols() -> list[str]:
             seen.add(api)
             out.append(api)
     return out
+
+
+# Binance Spot exchangeInfo 엔드포인트
+_BINANCE_SPOT_EXCHANGE_INFO = "https://api.binance.com/api/v3/exchangeInfo"
+_spot_listings_last_refresh: float = 0.0
+_SPOT_REFRESH_TTL = 3600  # 1시간
+
+
+def _build_dynamic_spot_from_codes(trading_pairs: set[str]) -> list[dict[str, str | int]]:
+    """화이트리스트 ∩ 실제 TRADING 페어 → 동적 Spot 카탈로그 항목 생성.
+
+    bStocks(B 접미사)와 원자재 토큰을 합쳐 exchange_id=5(BINANCE_SPOT)로 등록.
+    표시 symbol_code 는 실종목명(NVDA), api_code 는 실제 Binance 페어(NVDABUSDT).
+    """
+    out: list[dict[str, str | int]] = []
+    seen_codes: set[str] = set()
+
+    # bStocks: base + 'USDT' 페어가 TRADING 인 것만
+    for base, (code, ko, en, asset_class) in BSTOCKS_CATALOG.items():
+        pair = f"{base}USDT"
+        if pair in trading_pairs and code not in seen_codes:
+            seen_codes.add(code)
+            out.append({
+                "symbol_code": code, "base_asset": code,
+                "display_name_ko": ko, "display_name_en": en,
+                "exchange_id": BINANCE_SPOT_EXCHANGE_ID, "exchange_code": "BINANCE_SPOT",
+                "asset_class": asset_class, "quote_asset": "USDT", "api_code": pair,
+            })
+
+    # 원자재 토큰: 우선 견적(USDT) 페어가 TRADING 이면 등록
+    for base, (code, ko, en, quote) in COMMODITY_TOKEN_CATALOG.items():
+        pair = f"{base}{quote}"
+        if pair in trading_pairs and code not in seen_codes:
+            seen_codes.add(code)
+            out.append({
+                "symbol_code": code, "base_asset": base,
+                "display_name_ko": ko, "display_name_en": en,
+                "exchange_id": BINANCE_SPOT_EXCHANGE_ID, "exchange_code": "BINANCE_SPOT",
+                "asset_class": "commodity", "quote_asset": quote, "api_code": pair,
+            })
+    return out
+
+
+async def refresh_binance_spot_listings(force: bool = False) -> int:
+    """Binance Spot exchangeInfo 를 조회해 화이트리스트 중 TRADING 종목만 동적 등록.
+
+    - 실패해도 기존 _DYNAMIC_SPOT 을 유지(차트 전체 장애로 전파하지 않음).
+    - TTL(1시간) 내 재호출은 스킵(force=True 면 무시).
+    반환: 등록된 동적 Spot 종목 수.
+    """
+    global _DYNAMIC_SPOT, _spot_listings_last_refresh
+    now = time.time()
+    if not force and (now - _spot_listings_last_refresh) < _SPOT_REFRESH_TTL and _DYNAMIC_SPOT:
+        return len(_DYNAMIC_SPOT)
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(_BINANCE_SPOT_EXCHANGE_INFO)
+        if r.status_code != 200:
+            logger.warning("symbol_resolver.spot_refresh_http", status=r.status_code)
+            return len(_DYNAMIC_SPOT)
+        data = r.json()
+        trading = {s["symbol"] for s in data.get("symbols", []) if s.get("status") == "TRADING"}
+    except Exception as e:
+        logger.warning("symbol_resolver.spot_refresh_failed", error=str(e)[:160])
+        return len(_DYNAMIC_SPOT)
+
+    new_spot = _build_dynamic_spot_from_codes(trading)
+    _DYNAMIC_SPOT = new_spot
+    _spot_listings_last_refresh = now
+    logger.info(
+        "symbol_resolver.spot_listings_refreshed",
+        count=len(new_spot),
+        codes=[str(i["symbol_code"]) for i in new_spot],
+    )
+    return len(new_spot)
 
 
 def get_api_symbol(sym: str) -> str:
