@@ -26,46 +26,228 @@
   {"@context":"https://schema.org","@type":"Product","name":"Beomon Farm Shipping AI","brand":{"@type":"Brand","name":"Beomon Nuri Innovation"},"description":"An operations AI that plans farm shipping timing and volume using yield, demand, price and logistics data.","category":"Agriculture operations AI","url":"{{SITE_URL}}/en/products/farm-shipping-ai/"}
   </script>
 </head>
-<body data-page="products" data-lang="en">
+<body data-page="products" data-lang="en" data-product-enhanced="custom">
 <div data-layout="header"></div>
 <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/en/">Home</a></li><li><a href="/en/products/">Products</a></li><li aria-current="page">Beomon Farm Shipping AI</li></ol></nav>
 <main id="main-content">
+  <!-- 1. HERO -->
   <section class="product-hero">
-    <div class="hero-copy"><p class="eyebrow">Beomon Farm Shipping AI</p><h1>Decide when and how much to ship, with data</h1><p class="lead">Beomon Farm Shipping AI analyzes crop yield, market prices, supply-demand, and logistics data together to support shipping timing and volume planning. By adding data to experience-based judgment, it improves decision quality for producers and distribution organizations.</p><div class="hero-actions"><a class="button primary" href="/en/contact/">Check feasibility</a><a class="button secondary" href="/en/products/">All products</a></div></div>
-    <figure class="hero-image-card"><picture><source srcset="/assets/farm-shipping-ai.webp" type="image/webp" /><img src="/assets/farm-shipping-ai.jpg" alt="Beomon Farm Shipping AI in the field" width="1600" height="1067"></picture><figcaption>Beomon Farm Shipping AI</figcaption></figure>
+    <div class="hero-copy">
+      <p class="eyebrow">Beomon Farm Shipping AI</p>
+      <h1>Decide when and how much to ship, with data</h1>
+      <p class="lead">Beomon Farm Shipping AI analyzes crop yield, market prices, supply-demand, shipping history, and logistics/storage conditions together to support shipping timing and volume planning for producers and distribution organizations — a decision AI.</p>
+      <ul class="hero-badges" aria-label="Core areas">
+        <li>Crop &amp; Market Data</li>
+        <li>Shipment Planning</li>
+        <li>Scenario Comparison</li>
+        <li>Logistics Review</li>
+      </ul>
+      <div class="hero-actions"><a class="button primary" href="/en/contact/">Check feasibility</a><a class="button secondary" href="#usecases">See use cases</a></div>
+      <p class="note-box">This service is a data analysis tool to support agricultural shipping decisions and does not guarantee any specific price or profit. Actual results can vary by weather, quality, supply-demand, market conditions, and logistics.</p>
+    </div>
+    <div class="hero-mock" role="img" aria-label="Beomon Farm Shipping AI shipping decision dashboard example">
+      <div class="mock-bar"><span class="ico" data-icon="leaf" aria-hidden="true"></span>Shipping decision dashboard</div>
+      <div class="mock-answer">
+        <span class="mock-label">Scenario comparison</span>
+        <p>Compare shipping this week vs. split shipping next week against price, quality, and logistics conditions.</p>
+        <p class="mock-source">Based on crop yield, wholesale prices, supply-demand, and logistics</p>
+      </div>
+      <div class="mock-meta">
+        <span data-icon="trending-up">Price trend</span>
+        <span data-icon="leaf">Crop status</span>
+        <span data-icon="database">Shipping history</span>
+      </div>
+    </div>
   </section>
 
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Problem</p><h2>The problem</h2><p class="muted">Shipping timing and volume directly affect revenue, but yield, price, supply-demand, and logistics information is scattered, making integrated judgment hard. Concentrating shipments at one time raises the risk of price drops, while missing the window lowers quality and profitability.</p></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Solution</p><h2>How we solve it</h2><p class="muted">Beomon Farm Shipping AI integrates crop yield, wholesale prices, supply-demand trends, and logistics conditions by product. By comparing expected outcomes per scenario, it supports shipping timing, volume, and sales-channel decisions.</p></article>
-  </section>
-
-  <section class="section detail-grid">
-    <article class="detail-card reveal-item"><p class="eyebrow">Features</p><h2>Key features</h2><ul><li>Shipping-timing analysis based on yield and demand</li><li>Volume scenarios that follow price trends</li><li>Trend monitoring by product and origin</li><li>Logistics and storage conditions factored in</li><li>Shipping-plan comparison view</li><li>Validation based on past-season data</li></ul></article>
-    <article class="detail-card reveal-item"><p class="eyebrow">Data &amp; Industry</p><h2>Data and targets</h2><ul><li>Weather and crop yield data</li><li>Wholesale prices and supply-demand trends</li><li>Shipping history by product</li><li>Logistics, storage, and transport information</li><li>Producer organizations, distributors, agricultural co-ops, and producer groups</li></ul></article>
-  </section>
-
-  <section class="band"><div class="section" aria-labelledby="outcome-title">
-    <div class="section-heading"><p class="eyebrow">Outcome</p><h2 id="outcome-title">What you gain</h2></div>
+  <!-- 2. PROBLEM -->
+  <section class="band"><div class="section" aria-labelledby="problem-title">
+    <div class="section-heading"><p class="eyebrow">Problem</p><h2 id="problem-title">Shipping timing and volume directly affect revenue, but the information needed is scattered</h2><p>Agricultural shipping decisions are affected by crop status, quality, wholesale prices, supply-demand trends, storage feasibility, transport conditions, and sales-channel situations at once. When this information is spread across systems and individual experience, shipments concentrate at one time or miss the window, raising price and quality risk.</p></div>
     <div class="value-grid">
-      <article class="value-card reveal-item"><h3>Evidence-based shipping decisions</h3><p class="muted">Add data to experience-based judgment to improve decision quality.</p></article>
-      <article class="value-card reveal-item"><h3>Scenario comparison</h3><p class="muted">Compare expected outcomes by shipping timing and volume to reduce risk.</p></article>
-      <article class="value-card reveal-item"><h3>Information integration</h3><p class="muted">See scattered yield, price, and logistics information in one view.</p></article>
-      <article class="value-card reveal-item"><h3>Faster response</h3><p class="muted">Adjust shipping plans more quickly as the market changes.</p></article>
+      <article class="value-card reveal-item"><h3>Price-drop risk from concentrated shipping</h3><p class="muted">When volume concentrates at a similar time, downward price pressure can increase.</p></article>
+      <article class="value-card reveal-item"><h3>Scattered crop, price, and logistics info</h3><p class="muted">Checking crop status, wholesale prices, supply-demand, and logistics separately makes integrated judgment hard.</p></article>
+      <article class="value-card reveal-item"><h3>Limits of experience-based judgment</h3><p class="muted">Experience matters, but as volatility grows, data-based support becomes necessary.</p></article>
+      <article class="value-card reveal-item"><h3>Difficulty adjusting shipping plans</h3><p class="muted">When weather, quality, price, and logistics change, it's hard to compare and revise plans quickly.</p></article>
     </div>
   </div></section>
 
-  <section class="section" aria-labelledby="process-title">
-    <div class="section-heading"><p class="eyebrow">How we work</p><h2 id="process-title">We start from your products and regions</h2><p>We narrow scope to products with clear supply characteristics.</p></div>
-    <ol class="process">
-      <li class="process-step reveal-item"><h3>Product review</h3><p>We map main products, origins, shipping patterns, and price sensitivity.</p></li>
-      <li class="process-step reveal-item"><h3>Align data</h3><p>We define how yield, price, supply-demand, and logistics data connect.</p></li>
-      <li class="process-step reveal-item"><h3>Validate last season</h3><p>We check forecast validity against past shipping cases and price trends.</p></li>
-      <li class="process-step reveal-item"><h3>Apply in field operations</h3><p>We connect the shipping-plan view into the actual decision flow.</p></li>
-    </ol>
+  <!-- 3. SOLUTION -->
+  <section class="section" aria-labelledby="solution-title">
+    <div class="section-heading"><p class="eyebrow">Solution</p><h2 id="solution-title">Connect crop, price, supply-demand, and logistics into one shipping decision flow</h2><p>Beomon Farm Shipping AI analyzes crop status and shipping history, wholesale prices, supply-demand trends, and logistics/storage conditions by product. Users can compare multiple scenarios by shipping timing and volume, and review shipping plans on a better basis for judgment.</p></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Collect</h3><p>Collect and organize product, origin, crop, price, supply-demand, and logistics data.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Analyze</h3><p>Analyze price trends, shipping patterns, demand changes, and logistics conditions together.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Compare</h3><p>Compare scenarios by shipping timing and volume.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Plan</h3><p>Organize selectable shipping plans for the owner to review.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">05</span><h3>Adjust</h3><p>Adjust plans as the market and field conditions change.</p></article>
+    </div>
   </section>
 
-  <section class="section"><div class="cta-band"><p class="eyebrow">Contact</p><h2>Check feasibility based on your products and data</h2><p>Tell us your main products, origins, shipping history, and available price data, and we'll outline a feasible pilot scope and validation approach.</p><a class="button primary" href="/en/contact/">Check feasibility</a></div></section>
+  <!-- 4. DECISION FLOW -->
+  <section class="band"><div class="section" aria-labelledby="flow-title">
+    <div class="section-heading"><p class="eyebrow">Decision Flow</p><h2 id="flow-title">Shipping judgment isn't just about price; it's comparing many conditions together</h2><p>Agricultural shipping decisions are hard to make from today's price alone. You must view crop status, expected volume, storable duration, wholesale price trends, market inflow, sales-channel conditions, and logistics feasibility together. Beomon Farm Shipping AI is designed to compare these variables on one screen.</p></div>
+    <ul class="check-list">
+      <li>Product and grade</li>
+      <li>Origin and production volume</li>
+      <li>Crop status</li>
+      <li>Shippable volume</li>
+      <li>Wholesale price trend</li>
+      <li>Market inflow and supply-demand trends</li>
+      <li>Storable duration</li>
+      <li>Logistics and transport conditions</li>
+      <li>Sales-channel or shipping-destination conditions</li>
+      <li>Past-season shipping history</li>
+    </ul>
+  </div></section>
+
+  <!-- 5. FEATURES -->
+  <section class="section" aria-labelledby="features-title">
+    <div class="section-heading"><p class="eyebrow">Features</p><h2 id="features-title">We analyze the data needed for shipping planning together</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>Shipping analysis by product/origin</h3><p class="muted">Review shipping plans based on product, origin, grade, and shippable volume.</p></article>
+      <article class="value-card reveal-item"><h3>Timing analysis from crop and demand</h3><p class="muted">Support shipping-timing review by considering crop status and market demand together.</p></article>
+      <article class="value-card reveal-item"><h3>Wholesale price trend analysis</h3><p class="muted">Compare past price trends with recent price changes to check volatility ranges.</p></article>
+      <article class="value-card reveal-item"><h3>Volume scenario comparison</h3><p class="muted">Compare scenarios when splitting or adjusting shipping volume to review risk.</p></article>
+      <article class="value-card reveal-item"><h3>Logistics/storage conditions</h3><p class="muted">Factor storable duration, transport conditions, and logistics constraints into plan review.</p></article>
+      <article class="value-card reveal-item"><h3>Trend monitoring by product/origin</h3><p class="muted">Continuously check price, shipping volume, and supply-demand flow by product.</p></article>
+      <article class="value-card reveal-item"><h3>Past-season data validation</h3><p class="muted">Review the validity of analysis criteria against past-season cases and price trends.</p></article>
+      <article class="value-card reveal-item"><h3>Shipping plan comparison view</h3><p class="muted">Compare multiple timing and volume combinations on one screen to support judgment.</p></article>
+    </div>
+  </section>
+
+  <!-- 6. DATA -->
+  <section class="band"><div class="section" aria-labelledby="data-title">
+    <div class="section-heading"><p class="eyebrow">Data</p><h2 id="data-title">Good shipping judgment starts from aligned data</h2><p>Beomon Farm Shipping AI reviews your shipping history together with external price and supply-demand data. Even if data isn't perfect, you can start a pilot by choosing applicable products and periods first.</p></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>Crop data</h3><p class="muted">Growth status, quality grade, expected yield, status by origin</p></article>
+      <article class="value-card reveal-item"><h3>Price data</h3><p class="muted">Wholesale market prices, price trends by product, prices by grade</p></article>
+      <article class="value-card reveal-item"><h3>Supply-demand data</h3><p class="muted">Market inflow, shipping volume, demand changes, supply flow by origin</p></article>
+      <article class="value-card reveal-item"><h3>Shipping history</h3><p class="muted">Shipping date, volume, price, sales channel, quality grade</p></article>
+      <article class="value-card reveal-item"><h3>Logistics/storage data</h3><p class="muted">Transport schedules, storable duration, warehouse status, logistics cost</p></article>
+      <article class="value-card reveal-item"><h3>External variables</h3><p class="muted">Weather, seasonality, holiday/event demand, market movement factors</p></article>
+    </div>
+    <p class="note-box">The analysis level and pilot scope can vary by the range and quality of available data.</p>
+  </div></section>
+
+  <!-- 7. USE CASES -->
+  <section class="section" id="usecases" aria-labelledby="usecase-title">
+    <div class="section-heading"><p class="eyebrow">Use Cases</p><h2 id="usecase-title">Review shipping strategy to fit your product and origin situation</h2></div>
+    <div class="scenario-grid">
+      <article class="scenario-card reveal-item"><h3>Shipping timing comparison</h3><p>Compare shipping this week vs. next week against price, quality, and logistics conditions.</p></article>
+      <article class="scenario-card reveal-item"><h3>Volume distribution scenarios</h3><p>Compare scenarios for shipping all volume at once vs. splitting across multiple times.</p></article>
+      <article class="scenario-card reveal-item"><h3>Price-trend monitoring by product</h3><p>Check wholesale price and inflow trends by product as a basis for adjusting shipping plans.</p></article>
+      <article class="scenario-card reveal-item"><h3>Planning by origin/sales channel</h3><p>Organize plans considering shippable volume by origin and sales-channel conditions together.</p></article>
+      <article class="scenario-card reveal-item"><h3>Comparison with last season</h3><p>Compare past-season shipping timing, price trends, and volume changes to check this year's baseline.</p></article>
+    </div>
+  </section>
+
+  <!-- 8. FOR TEAMS -->
+  <section class="band"><div class="section" aria-labelledby="teams-title">
+    <div class="section-heading"><p class="eyebrow">For Teams</p><h2 id="teams-title">Use it to fit the decision flow of producers, distribution, and co-ops</h2></div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><p class="eyebrow">Producer organizations</p><h3>Strengthen the basis for timing and volume judgment</h3><p class="muted">Review shipping plans by checking crop and shippable volume together with price trends.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Co-ops &amp; producer groups</p><h3>Manage member volume and market conditions together</h3><p class="muted">Compare multiple producers' shipping volume and market flow to support distributed shipping and plan adjustment.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Distributors</p><h3>Consider supply-demand and logistics together</h3><p class="muted">Reflect sales-channel demand, logistics schedules, and storage conditions to review supply plans.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">APC / distribution centers</p><h3>Organize shipping, sorting, and storage with data</h3><p class="muted">Link intake, sorting, storage, and shipping plans to review operational efficiency.</p></article>
+      <article class="value-card reveal-item"><p class="eyebrow">Purchasing &amp; procurement</p><h3>Check price and supply risk proactively</h3><p class="muted">Check price and supply-demand movement for key products to reduce purchasing/procurement risk.</p></article>
+    </div>
+  </div></section>
+
+  <!-- 9. SCENARIO PLANNING -->
+  <section class="section" aria-labelledby="scenario-title">
+    <div class="section-heading"><p class="eyebrow">Scenario Planning</p><h2 id="scenario-title">Comparing multiple options matters more than one fixed answer</h2><p>Agricultural markets can change quickly with weather, quality, supply-demand, logistics, and consumer demand. Rather than asserting one shipping conclusion, Beomon Farm Shipping AI compares multiple timing and volume combinations so owners can make better judgments.</p></div>
+    <div class="scenario-grid">
+      <article class="scenario-card reveal-item"><h3>Ship now</h3><p class="scenario-q">Review factors</p><p>Review current price, quality maintenance, and logistics feasibility.</p></article>
+      <article class="scenario-card reveal-item"><h3>Distributed shipping</h3><p class="scenario-q">Review factors</p><p>Review price-volatility risk, easing volume concentration, and storable duration.</p></article>
+      <article class="scenario-card reveal-item"><h3>Hold shipping</h3><p class="scenario-q">Review factors</p><p>Review storage cost, quality-degradation potential, and future price changes.</p></article>
+      <article class="scenario-card reveal-item"><h3>Sales-channel adjustment</h3><p class="scenario-q">Review factors</p><p>Review channel conditions, transport distance, settlement method, and demand stability.</p></article>
+    </div>
+    <p class="note-box">Scenario comparison is for decision reference; actual prices and profit can vary by market conditions and field circumstances.</p>
+  </section>
+
+  <!-- 10. EXPECTED OUTCOMES -->
+  <section class="band"><div class="section" aria-labelledby="outcome-title">
+    <div class="section-heading"><p class="eyebrow">Expected Outcomes</p><h2 id="outcome-title">Strengthen the basis for shipping judgment and respond to market changes faster</h2></div>
+    <div class="value-grid">
+      <article class="value-card outcome-card reveal-item"><h3>Evidence-based shipping judgment</h3><p class="muted">Add crop, price, supply-demand, and logistics data to experience-based judgment to improve decision quality.</p><p class="metric-hint">Sample metrics: data-based review count, shipping plan time</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Scenario comparison</h3><p class="muted">Compare expected impact by shipping timing and volume options to review risk.</p><p class="metric-hint">Sample metrics: scenario comparison count, plan revision lead time</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Information integration</h3><p class="muted">See scattered crop, price, logistics, and shipping history in one view.</p><p class="metric-hint">Sample metrics: data lookup time, types of reference data</p></article>
+      <article class="value-card outcome-card reveal-item"><h3>Faster response</h3><p class="muted">Adjust shipping plans faster as price and supply-demand change.</p><p class="metric-hint">Sample metrics: plan change time, owner review time</p></article>
+    </div>
+    <p class="note-box">Outcomes can vary by product characteristics, data quality, market volatility, and field operations.</p>
+  </div></section>
+
+  <!-- 11. IMPLEMENTATION -->
+  <section class="section" aria-labelledby="impl-title">
+    <div class="section-heading"><p class="eyebrow">Implementation</p><h2 id="impl-title">Validate small by product and origin, then expand</h2></div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>Product review</h3><p>Map key products, origins, shipping patterns, price sensitivity, storability, and logistics conditions.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>Align data</h3><p>Check the connection scope and quality of crop, price, supply-demand, shipping history, and logistics data.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>Validate last season</h3><p>Check the validity of analysis criteria and scenario comparison against past cases and price trends.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>Apply in field operations</h3><p>Connect the shipping-plan view into the actual decision flow and improve with owner feedback.</p></article>
+    </div>
+    <p class="note-box">An initial pilot is best started with products that have clear supply-demand characteristics and available data. The specific timeline and scope can vary by product, data availability, and field operations.</p>
+  </section>
+
+  <!-- 12. READINESS CHECK -->
+  <section class="band"><div class="section" aria-labelledby="ready-title">
+    <div class="section-heading"><p class="eyebrow">Readiness Check</p><h2 id="ready-title">Having these organized speeds up the feasibility review</h2></div>
+    <ul class="check-list">
+      <li>Are the key products to review first decided?</li>
+      <li>Is origin and shipping-destination information organized?</li>
+      <li>Is there past shipping date, volume, and price history?</li>
+      <li>Are there grade or quality criteria by product?</li>
+      <li>Can you use wholesale or market price data?</li>
+      <li>Can you obtain crop or expected-yield information?</li>
+      <li>Can logistics/storage conditions be organized as data?</li>
+      <li>Is there a shipping decision owner and review process?</li>
+      <li>Is there past-season data to compare in the pilot?</li>
+      <li>Are there criteria to judge adoption impact?</li>
+    </ul>
+    <div class="compare-foot">
+      <p class="compare-note">It's fine if not all data is perfectly ready. Even with product, shipping history, and price data alone, we can review feasibility and pilot scope together.</p>
+      <div class="hero-actions"><a class="button primary" href="/en/contact/">Check feasibility</a></div>
+    </div>
+  </div></section>
+
+  <!-- 13. NOTICE -->
+  <section class="section" aria-labelledby="notice-title">
+    <div class="section-heading"><p class="eyebrow">Notice</p><h2 id="notice-title">Agricultural markets are affected by many external variables</h2></div>
+    <div class="risk-notice">
+      <p class="risk-lead">Beomon Farm Shipping AI is a tool that supports shipping decisions based on crop, price, supply-demand, and logistics data. Agricultural prices and profit can vary by weather, quality, market inflow, consumer demand, policy, and logistics conditions.</p>
+      <ul>
+        <li>This service is a data analysis tool that supports shipping decisions.</li>
+        <li>It does not guarantee any specific price, profit, or sales result.</li>
+        <li>Analysis results can vary by product, data quality, market conditions, and field circumstances.</li>
+        <li>The final shipping decision must be made by the responsible organization's judgment and accountability.</li>
+        <li>The actual operating scope and analysis method may be adjusted by available data and work procedures.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 14. FAQ -->
+  <section class="band"><div class="section" aria-labelledby="faq-title">
+    <div class="section-heading faq-heading"><p class="eyebrow">FAQ</p><h2 id="faq-title">Questions before adopting Farm Shipping AI</h2></div>
+    <div class="faq">
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-1">Is Beomon Farm Shipping AI a price prediction service?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-1" hidden><p>It is not a service whose only purpose is price prediction; it analyzes crop, price, supply-demand, shipping history, and logistics conditions together to support shipping timing and volume decisions. It does not guarantee any specific price or profit.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-2">Which products can it apply to?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-2" hidden><p>Applicable products depend on available data, shipping history, and price data. Early on, it's best to review products with clear supply-demand characteristics and historical data.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-3">What data is needed?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-3" hidden><p>Key data includes product, origin, shipping date, volume, price, quality grade, wholesale prices, supply-demand trends, crop information, and logistics/storage conditions. Even if not all data is perfect, you can start with a narrowed pilot scope.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-4">Can we validate with last season's data?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-4" hidden><p>Yes. Based on past shipping cases and price trends, we can review whether the analysis criteria and scenario comparison help actual decisions.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-5">Does it decide shipping timing and volume automatically?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-5" hidden><p>No. Beomon Farm Shipping AI is a decision-support tool that provides multiple scenarios and a basis for judgment. The final shipping decision must be made by the responsible organization considering market and field conditions.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-6">Can it apply to co-ops or producer groups?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-6" hidden><p>It can be reviewed. It has potential for organizations that must manage multiple producers' volume, products, shipping timing, and market prices together. The actual scope varies by data availability and workflow.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-7">Can logistics or storage conditions be reflected?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-7" hidden><p>If usable data exists — storable duration, transport schedules, warehouse conditions, logistics cost — it can be reflected in shipping scenario review. The specific method varies by data structure.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-8">How is adoption impact measured?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-8" hidden><p>It can be validated by shipping plan time, data lookup time, scenario comparison count, plan revision lead time, and owner review time.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-9">How does a pilot start?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-9" hidden><p>It's best to set the products and origins to apply first, validate last season based on past shipping history and price data, then adjust the scope with field feedback.</p></div></article>
+      <article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="fsfaq-10">How is the adoption cost calculated?<span class="chev" aria-hidden="true"></span></button><div class="faq-a" id="fsfaq-10" hidden><p>Cost varies by number of products, data scope, shipping history size, external price data integration, number of users, screen configuration, and operating model. It's best to estimate after first organizing the pilot scope through consultation.</p></div></article>
+    </div>
+  </div></section>
+
+  <!-- 15. FINAL CTA -->
+  <section class="section"><div class="cta-band">
+    <p class="eyebrow">Contact</p><h2>Check feasibility based on your products and data</h2>
+    <p>Tell us your key products, origins, shipping history, available price data, and logistics/storage conditions, and we'll organize Beomon Farm Shipping AI's pilot scope and validation approach together.</p>
+    <div class="hero-actions cta-actions"><a class="button primary" href="/en/contact/">Check feasibility</a><a class="button secondary" href="/en/products/">View all products</a></div>
+  </div></section>
 </main>
 <div data-layout="footer"></div>
 <script type="module" src="/src/main.js"></script>
