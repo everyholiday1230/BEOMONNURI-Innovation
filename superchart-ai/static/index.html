@@ -226,6 +226,9 @@ body {
   margin: 0 8px 8px;
   padding: 10px;
 }
+/* hidden 속성(JS dismiss/ESC)이 display:flex 보다 우선하도록 강제.
+   이게 없으면 ✕ 닫기를 눌러도 dock.hidden=true 가 시각적으로 무효가 됨. */
+.quick-start-dock[hidden] { display: none !important; }
 
 .quick-start-title {
   font-size: 12px;
@@ -614,6 +617,9 @@ body.dark #_toastContainer .pro-toast-chip {
     display: flex !important;
     bottom: calc(58px + env(safe-area-inset-bottom));
   }
+  /* dismiss/ESC 로 hidden 처리 시 모바일 빠른 액션도 확실히 숨김
+     (.mobile-quick-actions[hidden] 가 .mobile-quick-actions 보다 specificity 우선) */
+  .mobile-quick-actions[hidden] { display: none !important; }
 
   .toolbar {
     border-radius: 0;

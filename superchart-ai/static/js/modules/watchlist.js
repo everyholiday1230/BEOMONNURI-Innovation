@@ -10,6 +10,26 @@ const coinImgUrl = {};
 const _apiMap = {};
 const _apiToFront = {};
 
+// 시총 순(market-cap) 정렬용 정적 순위 맵 (백엔드 symbol_resolver 와 동일 순서).
+// "시총순"(default) 모드에서 서버 순서가 흐트러져도 BTC/ETH 가 상단에 오도록 보강.
+const _MCAP_ORDER = [
+  'BTCUSDT','ETHUSDT','XRPUSDT','BNBUSDT','SOLUSDT',
+  'ADAUSDT','DOGEUSDT','TRXUSDT','AVAXUSDT','LINKUSDT',
+  'TONUSDT','DOTUSDT','SUIUSDT','SHIBUSDT','LTCUSDT',
+  'BCHUSDT','UNIUSDT','NEARUSDT','APTUSDT','ICPUSDT',
+  'ETCUSDT','HBARUSDT','XLMUSDT','RENDERUSDT','FILUSDT',
+  'ARBUSDT','OPUSDT','ATOMUSDT','INJUSDT','FETUSDT',
+  'STXUSDT','IMXUSDT','GRTUSDT','ALGOUSDT','THETAUSDT',
+  'VETUSDT','AAVEUSDT','TIAUSDT','JUPUSDT','SEIUSDT',
+  'KASUSDT','ONDOUSDT','WLDUSDT','ENAUSDT','PEPEUSDT',
+  'BONKUSDT','FLOKIUSDT','WIFUSDT','TRUMPUSDT','PENGUUSDT',
+  'POLUSDT','LABUSDT',
+];
+const _MCAP_RANK = {};
+_MCAP_ORDER.forEach((c, i) => { _MCAP_RANK[c] = i + 1; });
+const _MCAP_UNRANKED = 1e9;
+function _mcapRank(code) { return _MCAP_RANK[(code || '').toUpperCase()] || _MCAP_UNRANKED; }
+
 const _ASSET_QUOTE_BY_CLASS = {
   crypto: '/USDT',
   stock: '/USD',
@@ -131,7 +151,16 @@ export function renderWL(f = '') {
 
 function _sortSymbols(list) {
   const mode = document.getElementById('wlSort')?.value || 'default';
-  if (mode === 'default') return list;
+  if (mode === 'default') {
+    // 시총순: 정적 시총 순위로 정렬. 동순위(미시드)는 서버가 준 순서 유지(안정 정렬).
+    return list
+      .map((s, i) => [s, i])
+      .sort((a, b) => {
+        const ra = _mcapRank(a[0].code), rb = _mcapRank(b[0].code);
+        return ra !== rb ? ra - rb : a[1] - b[1];
+      })
+      .map(pair => pair[0]);
+  }
   const cache = window._wlPriceCache || {};
   const sorted = [...list];
   if (mode === 'gain') sorted.sort((a, b) => (cache[b.code]?.pct || -999) - (cache[a.code]?.pct || -999));

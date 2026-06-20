@@ -18,6 +18,36 @@ DELISTED_SYMBOLS: frozenset[str] = frozenset({
     "CTKUSDT", "BZRXUSDT", "LITUSDT", "AKROUSDT", "BONDUSDT", "YFIIUSDT",
 })
 
+# 시총 순(market-cap) 정렬용 단일 진실 소스.
+# 관심종목 "시총순" 정렬과 DB sort_order 시드(main.py)가 동일한 순위를 쓰도록
+# 여기에 모아둔다. 값이 작을수록 상위 종목(BTC=1). 목록에 없는 심볼은 미시드로
+# 간주해 맨 뒤로 보낸다.
+_MARKET_CAP_ORDER: tuple[str, ...] = (
+    "BTCUSDT", "ETHUSDT", "XRPUSDT", "BNBUSDT", "SOLUSDT",
+    "ADAUSDT", "DOGEUSDT", "TRXUSDT", "AVAXUSDT", "LINKUSDT",
+    "TONUSDT", "DOTUSDT", "SUIUSDT", "SHIBUSDT", "LTCUSDT",
+    "BCHUSDT", "UNIUSDT", "NEARUSDT", "APTUSDT", "ICPUSDT",
+    "ETCUSDT", "HBARUSDT", "XLMUSDT", "RENDERUSDT", "FILUSDT",
+    "ARBUSDT", "OPUSDT", "ATOMUSDT", "INJUSDT", "FETUSDT",
+    "STXUSDT", "IMXUSDT", "GRTUSDT", "ALGOUSDT", "THETAUSDT",
+    "VETUSDT", "AAVEUSDT", "TIAUSDT", "JUPUSDT", "SEIUSDT",
+    "KASUSDT", "ONDOUSDT", "WLDUSDT", "ENAUSDT", "PEPEUSDT",
+    "BONKUSDT", "FLOKIUSDT", "WIFUSDT", "TRUMPUSDT", "PENGUUSDT",
+    "POLUSDT", "LABUSDT",
+)
+
+# symbol_code -> 시총 순위(1부터). 미등록 심볼은 .get(code, 0) 으로 0(미시드) 처리.
+MARKET_CAP_RANK: dict[str, int] = {code: i for i, code in enumerate(_MARKET_CAP_ORDER, start=1)}
+
+# 미시드 심볼을 맨 뒤로 보낼 때 사용하는 큰 값.
+UNRANKED_SENTINEL: int = 10**9
+
+
+def market_cap_rank(symbol_code: str) -> int:
+    """시총 순위(1=BTC) 반환. 미시드면 UNRANKED_SENTINEL(맨 뒤)."""
+    return MARKET_CAP_RANK.get((symbol_code or "").upper(), UNRANKED_SENTINEL)
+
+
 # DB가 일시 장애이거나 로컬 실행에서 미기동인 경우에도 차트 핵심 기능이
 # 500으로 죽지 않도록 하는 안전 심볼셋. 운영에서는 DB 로드가 성공하면
 # 즉시 실제 DB 심볼로 덮어쓴다.

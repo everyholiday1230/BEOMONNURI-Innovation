@@ -169,6 +169,8 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
                 "display_name_en": s.display_name_en,
                 "exchange_code": ec,
                 "asset_class": s.asset_class,
+                # 시총 순 정렬용 랭크 (0/NULL = 미시드 → 맨 뒤). merge 단계에서 보존.
+                "sort_order": s.sort_order,
                 "base_asset": s.base_asset,
                 "quote_asset": s.quote_asset,
                 "img_url": (s.metadata_ or {}).get("img_url"),
@@ -221,7 +223,26 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
             if not prev or priority.get(str(row.get("source")), 0) > priority.get(str(prev.get("source")), 0):
                 dedup[code] = row
 
-        all_rows = sorted(dedup.values(), key=lambda r: (str(r.get("asset_class") or ""), str(r.get("symbol_code") or "")))
+        # 시총 순 정렬: sort_order 1,2,3... 가 상위 종목(BTC/ETH/...).
+        # DB sort_order 가 채워져 있으면(>0) 그것을 쓰고, 아니면 코드 기반
+        # 정적 시총 순위 맵으로 보강한다(동적 추가/원자재/주식 등 미시드 대비).
+        # 둘 다 없으면 맨 뒤로 보내고, 그 안에서는 자산군→심볼코드 순으로 안정 정렬.
+        from src.services.symbol_resolver import market_cap_rank
+
+        def _mcap_rank(r: dict) -> int:
+            so = r.get("sort_order")
+            try:
+                so = int(so) if so is not None else 0
+            except (TypeError, ValueError):
+                so = 0
+            if so > 0:
+                return so
+            return market_cap_rank(str(r.get("symbol_code") or ""))
+
+        all_rows = sorted(
+            dedup.values(),
+            key=lambda r: (_mcap_rank(r), str(r.get("asset_class") or ""), str(r.get("symbol_code") or "")),
+        )
         total = len(all_rows)
         start = (page - 1) * page_size
         chunk = all_rows[start:start + page_size]
