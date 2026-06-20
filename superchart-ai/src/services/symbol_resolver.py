@@ -126,10 +126,50 @@ COMMODITY_TOKEN_CATALOG: dict[str, tuple[str, str, str, str]] = {
 # exchangeInfo 자동감지로 채워지는 동적 Spot 종목 카탈로그(런타임)
 _DYNAMIC_SPOT: list[dict[str, str | int]] = []
 
+# ── xStocks(Backed Finance 토큰화 증권) 화이트리스트 ───────────────
+# Solana 기반 토큰화 주식. Binance 에는 없고 Gate.io/Bybit 등에서 거래된다.
+# 명명: base = "{CORE}X" (예: AAPLX), 견적 USDT. 일반 코인과 X 접미사가
+# 겹치므로 알려진 주식 티커만 화이트리스트로 관리하고 실제 상장 여부는
+# 거래소 API 의 거래상태로 자동 판별한다.
+#   key   = core 티커(미국 주식/ETF), value = (한글명, 영문명, asset_class)
+# Binance bStocks 와 중복되는 종목(NVDA/TSLA/CRCL/COIN)은 bStocks 우선이므로
+# 등록 시 자동 제외된다.
+XSTOCKS_CATALOG: dict[str, tuple[str, str, str]] = {
+    "AAPL":  ("애플", "Apple", "stock"),
+    "MSFT":  ("마이크로소프트", "Microsoft", "stock"),
+    "AMZN":  ("아마존", "Amazon", "stock"),
+    "GOOGL": ("알파벳", "Alphabet", "stock"),
+    "META":  ("메타", "Meta Platforms", "stock"),
+    "NVDA":  ("엔비디아", "NVIDIA", "stock"),
+    "TSLA":  ("테슬라", "Tesla", "stock"),
+    "COIN":  ("코인베이스", "Coinbase", "stock"),
+    "MSTR":  ("스트래티지", "Strategy", "stock"),
+    "HOOD":  ("로빈후드", "Robinhood", "stock"),
+    "CRCL":  ("서클", "Circle", "stock"),
+    "MCD":   ("맥도날드", "McDonald's", "stock"),
+    "KO":    ("코카콜라", "Coca-Cola", "stock"),
+    "PEP":   ("펩시코", "PepsiCo", "stock"),
+    "AVGO":  ("브로드컴", "Broadcom", "stock"),
+    "LLY":   ("일라이 릴리", "Eli Lilly", "stock"),
+    "UNH":   ("유나이티드헬스", "UnitedHealth", "stock"),
+    "ABBV":  ("애브비", "AbbVie", "stock"),
+    "CSCO":  ("시스코", "Cisco", "stock"),
+    "DHR":   ("다나허", "Danaher", "stock"),
+    "HD":    ("홈디포", "Home Depot", "stock"),
+    "MA":    ("마스터카드", "Mastercard", "stock"),
+    "NFLX":  ("넷플릭스", "Netflix", "stock"),
+    "WMT":   ("월마트", "Walmart", "stock"),
+    "SPY":   ("S&P 500 ETF", "SPDR S&P 500 ETF", "etf"),
+    "QQQ":   ("나스닥 100 ETF", "Invesco QQQ", "etf"),
+}
+
+# exchangeInfo 자동감지로 채워지는 동적 xStocks 카탈로그(런타임)
+_DYNAMIC_XSTOCKS: list[dict[str, str | int]] = []
+
 
 def _curated_all() -> list[dict[str, str | int]]:
-    """정적 CURATED + 동적 Spot(bStocks/원자재) 합본."""
-    return list(CURATED_SYMBOLS) + list(_DYNAMIC_SPOT)
+    """정적 CURATED + 동적 Spot(bStocks/원자재) + 동적 xStocks 합본."""
+    return list(CURATED_SYMBOLS) + list(_DYNAMIC_SPOT) + list(_DYNAMIC_XSTOCKS)
 
 
 def get_curated_catalog() -> list[dict[str, str | int]]:
@@ -201,6 +241,12 @@ async def load():
     except Exception as e:
         logger.warning("symbol_resolver.spot_refresh_in_load", error=str(e)[:120])
 
+    # xStocks(Gate/Bybit 토큰화 증권) 동적 갱신 (TTL 1시간, 실패 무해)
+    try:
+        await refresh_xstocks_listings()
+    except Exception as e:
+        logger.warning("symbol_resolver.xstocks_refresh_in_load", error=str(e)[:120])
+
     # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
     for code, exchange_id, api_code in _iter_seed_symbols():
         SYMBOL_EXCHANGE.setdefault(code, exchange_id)
@@ -253,6 +299,7 @@ def get_all_symbols() -> list[str]:
 # 방식 A: Binance 에서 실거래되는 종목만 유니버스에 유지한다.
 BINANCE_EXCHANGE_ID = 2
 BINANCE_SPOT_EXCHANGE_ID = 5
+XSTOCKS_EXCHANGE_ID = 6  # Gate.io/Bybit 토큰화 증권(xStocks)
 BINANCE_EXCHANGE_IDS = frozenset({BINANCE_EXCHANGE_ID, BINANCE_SPOT_EXCHANGE_ID})
 
 
@@ -371,6 +418,112 @@ async def refresh_binance_spot_listings(force: bool = False) -> int:
         codes=[str(i["symbol_code"]) for i in new_spot],
     )
     return len(new_spot)
+
+
+# ── xStocks(Gate.io 주소스 + Bybit 폴백) 동적 로더 ──────────────────
+_GATE_PAIRS_URL = "https://api.gateio.ws/api/v4/spot/currency_pairs"
+_BYBIT_SPOT_URL = "https://api.bybit.com/v5/market/instruments-info?category=spot"
+_xstocks_last_refresh: float = 0.0
+
+
+def _existing_spot_codes() -> set[str]:
+    """이미 등록된 Binance Spot(bStocks/원자재) symbol_code 집합 — xStocks 중복 제거용."""
+    return {str(i.get("symbol_code", "")) for i in _DYNAMIC_SPOT}
+
+
+async def _fetch_gate_xstocks() -> set[str]:
+    """Gate.io 에서 거래가능(tradable)한 xStocks core 티커 집합 반환."""
+    import httpx
+    out: set[str] = set()
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(_GATE_PAIRS_URL)
+    if r.status_code != 200:
+        return out
+    for p in r.json():
+        if p.get("quote") != "USDT" or p.get("trade_status") != "tradable":
+            continue
+        base = str(p.get("base", ""))
+        if base.endswith("X") and base[:-1] in XSTOCKS_CATALOG:
+            out.add(base[:-1])
+    return out
+
+
+async def _fetch_bybit_xstocks() -> set[str]:
+    """Bybit 에서 거래중(Trading)인 xStocks core 티커 집합 반환."""
+    import httpx
+    out: set[str] = set()
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(_BYBIT_SPOT_URL)
+    if r.status_code != 200:
+        return out
+    for it in r.json().get("result", {}).get("list", []):
+        if it.get("quoteCoin") != "USDT" or it.get("status") != "Trading":
+            continue
+        base = str(it.get("baseCoin", ""))
+        if base.endswith("X") and base[:-1] in XSTOCKS_CATALOG:
+            out.add(base[:-1])
+    return out
+
+
+async def refresh_xstocks_listings(force: bool = False) -> int:
+    """Gate.io(주) + Bybit(폴백) 에서 거래중인 xStocks 만 동적 등록.
+
+    - api_code 는 "{source}:{pair}" 형식으로 저장(예: GATE:AAPLX_USDT).
+      Gate 우선, 없으면 Bybit.
+    - Binance bStocks 와 symbol_code 가 겹치면 bStocks 우선(제외).
+    - 실패해도 기존 _DYNAMIC_XSTOCKS 유지.
+    """
+    global _DYNAMIC_XSTOCKS, _xstocks_last_refresh
+    now = time.time()
+    if not force and (now - _xstocks_last_refresh) < _SPOT_REFRESH_TTL and _DYNAMIC_XSTOCKS:
+        return len(_DYNAMIC_XSTOCKS)
+
+    try:
+        gate = await _fetch_gate_xstocks()
+    except Exception as e:
+        logger.warning("symbol_resolver.xstocks_gate_failed", error=str(e)[:160])
+        gate = set()
+    try:
+        bybit = await _fetch_bybit_xstocks()
+    except Exception as e:
+        logger.warning("symbol_resolver.xstocks_bybit_failed", error=str(e)[:160])
+        bybit = set()
+
+    if not gate and not bybit:
+        return len(_DYNAMIC_XSTOCKS)
+
+    taken = _existing_spot_codes()  # bStocks 우선 중복 제거
+    new_x: list[dict[str, str | int]] = []
+    for core in XSTOCKS_CATALOG:
+        if core in taken:  # Binance bStocks 에 이미 있으면 스킵
+            continue
+        ko, en, asset_class = XSTOCKS_CATALOG[core]
+        if core in gate:
+            api = f"GATE:{core}X_USDT"
+        elif core in bybit:
+            api = f"BYBIT:{core}XUSDT"
+        else:
+            continue  # 어느 거래소에서도 거래 안 함
+        new_x.append({
+            "symbol_code": core, "base_asset": core,
+            "display_name_ko": ko, "display_name_en": en,
+            "exchange_id": XSTOCKS_EXCHANGE_ID, "exchange_code": "XSTOCKS",
+            "asset_class": asset_class, "quote_asset": "USDT", "api_code": api,
+        })
+
+    _DYNAMIC_XSTOCKS = new_x
+    _xstocks_last_refresh = now
+    logger.info(
+        "symbol_resolver.xstocks_refreshed",
+        count=len(new_x),
+        codes=[str(i["symbol_code"]) for i in new_x],
+    )
+    return len(new_x)
+
+
+def get_xstocks_symbols() -> list[tuple[str, str]]:
+    """등록된 xStocks 의 (symbol_code, api_code) 목록. api_code 는 GATE:/BYBIT: prefix 포함."""
+    return [(str(i["symbol_code"]), str(i["api_code"])) for i in _DYNAMIC_XSTOCKS]
 
 
 def get_api_symbol(sym: str) -> str:

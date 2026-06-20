@@ -101,12 +101,64 @@ class IngestManager:
             logger.warning("ingest.spot_refresh_failed", error=str(e)[:120])
         spot_syms = _build_spot_symbols()
         logger.info("ingest.started", binance=len(syms), binance_spot=len(spot_syms))
+        # xStocks(Gate/Bybit) 동적 목록 보장
+        try:
+            from src.services.symbol_resolver import refresh_xstocks_listings
+            await refresh_xstocks_listings()
+        except Exception as e:
+            logger.warning("ingest.xstocks_refresh_failed", error=str(e)[:120])
         await asyncio.gather(
             self._rest.start(),
             self._ws.start(),
             self._poll_spot(spot_syms),
+            self._poll_xstocks(),
             return_exceptions=True
         )
+
+    async def _poll_xstocks(self):
+        """xStocks(Gate/Bybit 토큰화 증권) 실시간 폴링.
+
+        market.fetch_candles(exchange_id=6) 를 재사용해 1m 봉을 가져와
+        표시 symbol_code(예: AAPL)로 candle/ticker 전파한다.
+        종목 수가 많아 10초 폴링으로 부하를 줄인다.
+        """
+        from src.services.symbol_resolver import get_xstocks_symbols
+        from src.services import market
+        self._xstocks_running = True
+        last_ot: dict[str, int] = {}
+        while getattr(self, "_xstocks_running", True):
+            pairs = get_xstocks_symbols()
+            if not pairs:
+                await asyncio.sleep(30)
+                continue
+            for code, api_code in pairs:
+                try:
+                    rows = await market.fetch_candles(api_code, 6, "1m", 2)
+                    if not rows:
+                        continue
+                    cur = rows[-1]
+                    cur_ot = int(cur["openTime"])
+                    if code in last_ot and last_ot[code] != cur_ot and len(rows) >= 2:
+                        prev = rows[-2]
+                        await self._dispatch_candle({
+                            "source": "XSTOCKS", "symbol": code, "timeframe": "1m",
+                            "open_time": int(prev["openTime"]), "close_time": int(prev["closeTime"]),
+                            "open": prev["open"], "high": prev["high"], "low": prev["low"],
+                            "close": prev["close"], "volume": prev["volume"],
+                            "is_final": True, "isFinal": True,
+                        })
+                    last_ot[code] = cur_ot
+                    await self._dispatch_candle({
+                        "source": "XSTOCKS", "symbol": code, "timeframe": "1m",
+                        "open_time": cur_ot, "close_time": int(cur["closeTime"]),
+                        "open": cur["open"], "high": cur["high"], "low": cur["low"],
+                        "close": cur["close"], "volume": cur["volume"], "is_final": False,
+                    })
+                    await self._dispatch_ticker({"symbol": code, "last_price": str(cur["close"]), "open": str(cur["open"])})
+                except Exception as e:
+                    logger.debug("ingest.xstocks.silent_except", error=str(e)[:100])
+                await asyncio.sleep(0.3)
+            await asyncio.sleep(10)
 
     async def _poll_spot(self, symbols: list[str]):
         """Binance Spot 토큰화 주식/원자재(NVDABUSDT 등) 실시간 폴링.
@@ -154,6 +206,7 @@ class IngestManager:
 
     async def stop(self):
         self._spot_running = False
+        self._xstocks_running = False
         if self._rest:
             await self._rest.stop()
         if self._ws:

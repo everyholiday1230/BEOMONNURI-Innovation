@@ -7,6 +7,11 @@ BINANCE_BASE = "https://fapi.binance.com"
 BINANCE_SPOT_BASE = "https://api.binance.com"
 BITGET_BASE = "https://api.bitget.com"
 YAHOO_BASE = "https://query1.finance.yahoo.com"
+GATE_BASE = "https://api.gateio.ws"
+BYBIT_BASE = "https://api.bybit.com"
+# xStocks 거래소별 timeframe 매핑
+GATE_TF_MAP = {"1m":"1m","3m":"10m","5m":"5m","15m":"15m","30m":"30m","1h":"1h","2h":"2h","4h":"4h","1d":"1d"}
+BYBIT_TF_MAP = {"1m":"1","3m":"3","5m":"5","15m":"15","30m":"30","1h":"60","2h":"120","4h":"240","1d":"D"}
 log = structlog.get_logger(__name__)
 
 _http: httpx.AsyncClient | None = None
@@ -47,6 +52,20 @@ async def fetch_candles(symbol_code: str, exchange_id: int, timeframe: str, limi
             await cache_set("candle", key, result, ttl)
             return result
         return await _fetch_spot_raw(symbol_code, timeframe, limit, end_time)
+
+    # exchange_id == 6: xStocks (Gate.io 주 / Bybit 폴백). symbol_code 는
+    # "GATE:AAPLX_USDT" 또는 "BYBIT:NVDAXUSDT" 형식(api_code).
+    if exchange_id == 6:
+        if not end_time:
+            key = f"xstk:{symbol_code}:{timeframe}:{limit}"
+            ttl = _CACHE_TTL.get(timeframe, 60)
+            cached = await cache_get("candle", key)
+            if cached is not None:
+                return cached
+            result = await _fetch_xstocks_raw(symbol_code, timeframe, limit)
+            await cache_set("candle", key, result, ttl)
+            return result
+        return await _fetch_xstocks_raw(symbol_code, timeframe, limit)
 
     if not end_time:
         key = f"{symbol_code}:{exchange_id}:{timeframe}:{limit}"
@@ -223,6 +242,99 @@ async def fetch_ticker(symbol_code: str) -> dict | None:
         "change_24h": str(item.get("change24h", "")),
         "ts": item.get("ts") or raw.get("requestTime"),
     }
+
+
+async def _fetch_xstocks_raw(api_code: str, timeframe: str, limit: int) -> list[dict]:
+    """xStocks 캔들 조회. api_code = "GATE:AAPLX_USDT" 또는 "BYBIT:NVDAXUSDT".
+
+    Gate 우선, 빈 결과면 Bybit 폴백(가능하면). 프리픽스가 없으면 Gate 로 간주.
+    """
+    src, _, pair = api_code.partition(":")
+    if not pair:
+        src, pair = "GATE", api_code
+    src = src.upper()
+    rows: list[dict] = []
+    if src == "GATE":
+        rows = await _fetch_gate_raw(pair, timeframe, limit)
+        if not rows:
+            # Gate pair(AAPLX_USDT) → Bybit(AAPLXUSDT) 폴백
+            rows = await _fetch_bybit_raw(pair.replace("_", ""), timeframe, limit)
+    elif src == "BYBIT":
+        rows = await _fetch_bybit_raw(pair, timeframe, limit)
+        if not rows:
+            # Bybit(AAPLXUSDT) → Gate(AAPLX_USDT) 폴백
+            base = pair[:-4] if pair.endswith("USDT") else pair
+            rows = await _fetch_gate_raw(f"{base}_USDT", timeframe, limit)
+    return rows
+
+
+async def _fetch_gate_raw(currency_pair: str, timeframe: str, limit: int) -> list[dict]:
+    """Gate.io spot candlesticks.
+
+    응답: [time(초), quoteVolume, close, high, low, open, baseVolume, closed]
+    """
+    interval = GATE_TF_MAP.get(timeframe, "1h")
+    limit = min(limit, 1000)
+    c = _client()
+    try:
+        r = await c.get(
+            f"{GATE_BASE}/api/v4/spot/candlesticks",
+            params={"currency_pair": currency_pair, "interval": interval, "limit": limit},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+    except Exception:
+        return []
+    if not isinstance(data, list) or not data:
+        return []
+    out = []
+    for k in data:
+        try:
+            t_ms = int(k[0]) * 1000
+            out.append({
+                "openTime": str(t_ms), "closeTime": str(t_ms),
+                "open": k[5], "high": k[3], "low": k[4], "close": k[2],
+                "volume": k[6], "isFinal": True,
+            })
+        except (IndexError, ValueError, TypeError):
+            continue
+    return out
+
+
+async def _fetch_bybit_raw(symbol: str, timeframe: str, limit: int) -> list[dict]:
+    """Bybit v5 spot kline. 응답 list 는 최신순 → 과거순으로 뒤집어 반환.
+
+    각 항목: [startTime(ms), open, high, low, close, volume, turnover]
+    """
+    interval = BYBIT_TF_MAP.get(timeframe, "60")
+    limit = min(limit, 1000)
+    c = _client()
+    try:
+        r = await c.get(
+            f"{BYBIT_BASE}/v5/market/kline",
+            params={"category": "spot", "symbol": symbol, "interval": interval, "limit": limit},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            return []
+        lst = r.json().get("result", {}).get("list", [])
+    except Exception:
+        return []
+    if not lst:
+        return []
+    out = []
+    for k in reversed(lst):  # 최신순 → 과거순
+        try:
+            out.append({
+                "openTime": str(int(k[0])), "closeTime": str(int(k[0])),
+                "open": k[1], "high": k[2], "low": k[3], "close": k[4],
+                "volume": k[5], "isFinal": True,
+            })
+        except (IndexError, ValueError, TypeError):
+            continue
+    return out
 
 
 async def _fetch_bitget_raw(symbol_code: str, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
