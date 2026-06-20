@@ -498,3 +498,28 @@ document.addEventListener('click', function (e) {
     })();
   });
 })();
+
+// ═══ 우측(분석) 패널 접기/펼치기 — 접으면 차트가 자동 확장 ═══
+(function () {
+  function resizeCharts() {
+    // 패널 폭 변경 후 차트 캔버스를 새 영역에 맞춰 다시 그림
+    [window.chart, window.chart2, window.chart3, window.chart4].forEach(function (c) {
+      try { c && typeof c.resize === 'function' && c.resize(); if (c) c._dirty = true; } catch (_) {}
+    });
+  }
+
+  window._toggleRightPanelBtn = function () {
+    const right = document.querySelector('.right');
+    const btn = document.getElementById('rightPanelToggle');
+    if (!right) return;
+    const collapsed = right.classList.toggle('collapsed');
+    document.body.classList.toggle('right-collapsed', collapsed);
+    if (btn) {
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      btn.setAttribute('title', collapsed ? '분석 패널 펼치기' : '분석 패널 접기');
+      btn.setAttribute('aria-label', collapsed ? '분석 패널 펼치기' : '분석 패널 접기');
+    }
+    // 레이아웃(flex) 적용 후 다음 프레임에 차트 리사이즈
+    window.requestAnimationFrame(function () { window.setTimeout(resizeCharts, 60); });
+  };
+})();

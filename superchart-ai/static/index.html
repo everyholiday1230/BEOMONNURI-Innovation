@@ -382,6 +382,34 @@ body {
 /* 일반 지표 그룹은 좌측 골드 톤으로 구분 */
 .basic-row .ind-group { border-left: 3px solid rgba(216,182,106,0.5); }
 
+/* ═══ 우측(분석) 패널 접기/펼치기 버튼 ═══ */
+#rightPanelToggle {
+  position: absolute;
+  top: 50%;
+  right: 380px;            /* 패널 폭과 동일: 패널 좌측 가장자리에 부착 */
+  transform: translateY(-50%);
+  width: 22px;
+  min-height: 44px;        /* 접근성: 터치 영역 44px 이상 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border, #E5E5E5);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--color-surface, #fff);
+  color: #921230;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 40;
+  transition: right .15s ease, background .15s ease;
+}
+#rightPanelToggle:hover { background: #F8EDEF; }
+#rightPanelToggle:focus-visible { outline: 2px solid #921230; outline-offset: 2px; }
+.right.collapsed ~ #rightPanelToggle,
+body.right-collapsed #rightPanelToggle { right: 0; }
+body.right-collapsed #rightPanelToggle { transform: translateY(-50%) scaleX(-1); }
+@media (max-width: 980px) { #rightPanelToggle { display: none; } }
+
 .hero-overlay {
   backdrop-filter: blur(3px);
   background: radial-gradient(circle at top right, rgba(146,18,48,0.24), rgba(15,23,42,0.56));
@@ -1336,6 +1364,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <div class="ind-settings-panel" id="indSettingsPanel"></div>
 
 <div class="resizer-h" id="resizerRight" title="드래그: 패널 크기 조절 · 더블클릭: 접기/펼치기" style="display:flex;align-items:center;justify-content:center"><div style="width:3px;height:30px;background:rgba(216,182,106,0.4);border-radius:2px"></div></div>
+<button id="rightPanelToggle" type="button" aria-label="분석 패널 접기/펼치기" aria-expanded="true" title="분석 패널 접기/펼치기" onclick="window._toggleRightPanelBtn&&window._toggleRightPanelBtn()">◀</button>
 <div id="rightPanel" tabindex="-1" class="right" role="complementary" aria-label="분석 패널">
 
 <!-- 도움말 패널 -->
