@@ -43,7 +43,7 @@
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260620_mockv2">
+<link rel="stylesheet" href="/static/css/main.css?v=20260620_hmv2">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1440,7 +1440,7 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="right-tab active" data-p="ai" data-t="AI" title="AI 종합 분석 · 범온 지표 요약 (무료 체험)">AI<span class="tab-badge">무료</span></div>
     <div class="right-tab" data-p="mtf" data-t="추세강도" title="멀티 타임프레임 범온강도 비교">추세강도</div>
     <div class="right-tab" data-p="hot" title="거래량·변동성 상위 10종목 (실시간)">인기 TOP<span class="tab-dot"></span></div>
-    <div class="right-tab" data-p="heatmap" title="전 종목 실시간 등락률 한눈에">히트맵<span class="tab-dot"></span></div>
+    <div class="right-tab" data-p="heatmap" title="시장 강도·거래 집중·변동성 한눈에 (참고용 분석)">히트맵<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
     <div class="right-tab" data-p="position" title="롱숏 비율 + 청산 히트맵 — 기관 자금 흐름">포지션</div>
@@ -1582,15 +1582,90 @@ body.dark #_toastContainer .pro-toast-chip {
     </div>
   </div>
   <div class="right-pane" id="heatmap">
-    <div style="padding:4px;font-size:14px;color:var(--color-text-muted)">전 종목 실시간 등락률</div>
-    <div style="display:flex;gap:4px;margin-bottom:6px;padding:0 4px;flex-wrap:wrap">
-      <button id="hmTabCrypto" aria-label="히트맵 암호화폐" onclick="window._hmAsset='crypto';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
-      <button id="hmTabStock" aria-label="히트맵 주식" onclick="window._hmAsset='stock';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
-      <button id="hmTabCommodity" aria-label="히트맵 원자재" onclick="window._hmAsset='commodity';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">원자재</button>
-      <button id="hmTabEtf" aria-label="히트맵 ETF" onclick="window._hmAsset='etf';window.loadHeatmap()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">ETF</button>
+    <div class="p-12">
+      <!-- 1) 헤더 -->
+      <div class="hm-header">
+        <div class="pane-title">히트맵</div>
+        <div class="pane-desc">시장 강도, 거래 집중, 변동성 확대 종목을 한눈에 확인합니다.</div>
+        <div class="hm-header-meta">
+          <span class="hm-basis" id="hmBasisLabel">기준 24h</span>
+          <span class="hm-status-badge" id="hmStatusBadge" data-state="loading">불러오는 중</span>
+          <span class="hm-updated" id="hmUpdated"></span>
+        </div>
+      </div>
+
+      <!-- 2) 시장 요약 카드 -->
+      <div id="hmSummary"></div>
+
+      <!-- 16) 미니 통계 바 -->
+      <div id="hmStatBar" class="hm-statbar"></div>
+
+      <!-- 3) 모드 선택 -->
+      <div class="hm-card">
+        <div class="hm-label">표시 모드</div>
+        <div class="hm-tabs" id="hmModeTabs" role="tablist" aria-label="히트맵 표시 모드">
+          <button class="hm-tab active" data-mode="change" role="tab" aria-selected="true">등락률</button>
+          <button class="hm-tab" data-mode="turnover" role="tab" aria-selected="false">거래대금</button>
+          <button class="hm-tab" data-mode="volume" role="tab" aria-selected="false">거래량</button>
+          <button class="hm-tab" data-mode="volatility" role="tab" aria-selected="false">변동성</button>
+          <button class="hm-tab" data-mode="ai" role="tab" aria-selected="false">AI 관심도</button>
+          <button class="hm-tab" data-mode="liquidation" role="tab" aria-selected="false">청산 밀집</button>
+          <button class="hm-tab" data-mode="flow" role="tab" aria-selected="false">자금 흐름</button>
+          <button class="hm-tab" data-mode="strength" role="tab" aria-selected="false">강도 점수</button>
+        </div>
+      </div>
+
+      <!-- 4) 시간 기준 -->
+      <div class="hm-card">
+        <div class="hm-label">시간 기준</div>
+        <div class="hm-tabs hm-tabs-time" id="hmTimeTabs" role="tablist" aria-label="시간 기준 선택">
+          <button class="hm-tab" data-tf="5m" role="tab" aria-selected="false">5m</button>
+          <button class="hm-tab" data-tf="15m" role="tab" aria-selected="false">15m</button>
+          <button class="hm-tab" data-tf="1h" role="tab" aria-selected="false">1h</button>
+          <button class="hm-tab" data-tf="4h" role="tab" aria-selected="false">4h</button>
+          <button class="hm-tab active" data-tf="24h" role="tab" aria-selected="true">24h</button>
+        </div>
+        <div id="hmTimeNote" class="hm-mini-note"></div>
+      </div>
+
+      <!-- 5) 필터 -->
+      <div class="hm-card">
+        <div class="flex-between" style="margin-bottom:6px"><div class="hm-label" style="margin:0">필터</div><button class="hm-btn hm-btn-ghost hm-btn-xs" type="button" onclick="window._hmResetFilters()">필터 초기화</button></div>
+        <input id="hmSearch" class="hm-search" type="search" inputmode="search" placeholder="종목 검색" aria-label="종목 검색" oninput="window._hmOnSearch&&window._hmOnSearch(this.value)">
+        <div id="hmFilters" class="hm-filters"></div>
+      </div>
+
+      <!-- 보기 밀도 / 박스 크기 / 색상 기준 / 그룹화 -->
+      <div class="hm-card">
+        <div class="hm-controls" id="hmControls"></div>
+      </div>
+
+      <!-- 7) 범례 -->
+      <details class="hm-legend" id="hmLegend"><summary>색상 기준 보기</summary><div id="hmLegendBody"></div></details>
+
+      <!-- 6) 메인 히트맵 -->
+      <div id="heatmapGrid" class="hm-grid" role="list" aria-label="종목 히트맵"></div>
+
+      <!-- 8) 선택 종목 상세 -->
+      <div id="hmDetail" class="hm-section-block"></div>
+
+      <!-- 9) 상위 종목 리스트 -->
+      <div id="hmTopLists" class="hm-section-block"></div>
+
+      <!-- 10) AI 히트맵 요약 -->
+      <div id="hmAiSummary" class="hm-section-block"></div>
+
+      <!-- 11) 관심 종목 비교 -->
+      <div id="hmWatchCompare" class="hm-section-block"></div>
+
+      <button class="hm-btn hm-btn-primary hm-btn-block" type="button" onclick="window.loadHeatmap()">데이터 다시 확인</button>
+
+      <!-- 17) AI 관심도 안내 -->
+      <p class="hm-ai-note">AI 관심도는 가격 변화, 거래량 증가, 변동성, 추세 변화, 시장 대비 상대 강도를 종합해 계산한 참고 지표입니다. 추천이 아닌 참고 흐름 지표로만 사용해 주세요.</p>
+
+      <!-- 고지 -->
+      <p class="hm-disclaimer">히트맵은 시장 데이터를 시각화한 참고 정보입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
     </div>
-    <div id="heatmapGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:3px;padding:4px;max-width:100%;overflow-x:hidden"></div>
-    <button aria-label="loadHeatmap" class="ai-btn" data-action="loadHeatmap" style="margin:6px">새로고침</button>
   </div>
 
   <div class="right-pane" id="hot">
@@ -1792,7 +1867,7 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
-<script defer src="/static/js/modules/hotmap.js"></script>
+<script defer src="/static/js/modules/hotmap.js?v=20260620_hmv2"></script>
 <script defer src="/static/js/modules/ai-panel.js"></script>
 <script defer src="/static/js/modules/position-panel.js?v=20260620_posv2"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>

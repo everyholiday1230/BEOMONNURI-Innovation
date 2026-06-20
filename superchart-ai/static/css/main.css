@@ -311,3 +311,153 @@
   #order .mt-acct-grid { grid-template-columns: 1fr; }
   #order .mt-grid-2 { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   히트맵 시장 흐름 대시보드 (#heatmap) — 브랜드 컬러 한정
+   파란색/네온/이모지/로봇/과도한 글로우 미사용.
+   ============================================================ */
+#heatmap .hm-header { margin-bottom: var(--space-3); }
+#heatmap .hm-header .pane-desc { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; line-height: 1.5; }
+.hm-header-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.hm-basis { font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--color-primary); }
+.hm-updated { font-size: var(--text-xs); color: var(--color-text-muted); margin-left: auto; }
+.hm-status-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--font-semibold); line-height: 1; border: 1px solid var(--color-border); }
+.hm-status-badge[data-state="loading"] { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.hm-status-badge[data-state="ok"] { background: var(--color-primary-soft); color: var(--color-primary); border-color: transparent; }
+.hm-status-badge[data-state="partial"], .hm-status-badge[data-state="delayed"] { background: rgba(217,119,6,.1); color: var(--color-warning); border-color: transparent; }
+.hm-status-badge[data-state="empty"], .hm-status-badge[data-state="error"] { background: var(--color-surface-sunken); color: var(--color-text-secondary); }
+
+#heatmap .hm-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); box-shadow: var(--shadow-xs); }
+.hm-label { font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--color-text-secondary); margin-bottom: 8px; }
+.hm-section-block { margin-top: var(--space-3); }
+.hm-card-title { font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--color-text-primary); margin-bottom: var(--space-2); }
+.hm-mini-note { font-size: 11px; color: var(--color-text-muted); margin-top: 6px; line-height: 1.5; }
+
+/* 요약 카드 */
+.hm-summary { background: var(--color-primary-soft); border: 1px solid transparent; border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); }
+.hm-summary-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.hm-summary-top .k { font-size: var(--text-xs); color: var(--color-text-secondary); }
+.hm-strength-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--font-bold); }
+.hm-strength-bull { background: var(--color-primary); color: #fff; }
+.hm-strength-bear { background: var(--color-primary-pressed); color: #fff; }
+.hm-strength-neutral { background: var(--color-surface-sunken); color: var(--color-text-secondary); }
+.hm-strength-vol, .hm-strength-conc { background: rgba(217,119,6,.12); color: var(--color-warning); }
+.hm-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: var(--text-xs); }
+.hm-summary-grid .row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.hm-summary-grid .k { color: var(--color-text-muted); }
+.hm-summary-grid .v { font-weight: var(--font-semibold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 미니 통계 바 */
+.hm-statbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-3); }
+.hm-stat-pill { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--font-semibold); background: var(--color-surface-raised); border: 1px solid var(--color-border); color: var(--color-text-secondary); }
+.hm-stat-pill b { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+
+/* 탭 (모드 / 시간) */
+.hm-tabs { display: flex; flex-wrap: wrap; gap: 4px; background: var(--color-surface-sunken); padding: 3px; border-radius: var(--radius-md); }
+.hm-tabs-time .hm-tab { flex: 1; }
+.hm-tab { min-height: 32px; padding: 0 10px; border: 0; background: transparent; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--font-semibold); border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
+.hm-tab:hover { color: var(--color-text-primary); }
+.hm-tab.active { background: var(--color-primary); color: #fff; }
+.hm-tab[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* 필터 */
+.hm-search { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); background: var(--color-surface-raised); outline: none; margin-bottom: 8px; }
+.hm-search:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+.hm-filters { display: flex; flex-direction: column; gap: 8px; }
+.hm-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.hm-filter-row > .flabel { font-size: 11px; color: var(--color-text-muted); min-width: 52px; }
+.hm-chip { min-height: 30px; padding: 0 10px; border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text-secondary); border-radius: var(--radius-full); cursor: pointer; font-size: var(--text-xs); font-weight: var(--font-semibold); }
+.hm-chip:hover { border-color: var(--color-primary); }
+.hm-chip.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+/* 컨트롤(밀도/크기/색상/그룹) */
+.hm-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hm-control { display: flex; flex-direction: column; gap: 4px; }
+.hm-control > label { font-size: 11px; color: var(--color-text-muted); }
+.hm-select { height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-text-primary); font-size: var(--text-xs); padding: 0 8px; }
+
+/* 범례 */
+.hm-legend { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px var(--space-3); margin-bottom: var(--space-3); }
+.hm-legend > summary { font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--color-text-secondary); cursor: pointer; list-style: none; }
+.hm-legend > summary::-webkit-details-marker { display: none; }
+.hm-legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--color-text-secondary); padding: 3px 0; }
+.hm-legend-swatch { width: 16px; height: 12px; border-radius: 3px; flex-shrink: 0; border: 1px solid var(--color-border); }
+
+/* 메인 히트맵 박스 */
+.hm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: var(--space-3); }
+.hm-box { position: relative; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px; cursor: pointer; overflow: hidden; transition: border-color .15s, transform .12s; min-height: 56px; }
+.hm-box:hover { transform: translateY(-1px); }
+.hm-box:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.hm-box.current { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+.hm-box .hm-box-top { display: flex; align-items: center; gap: 4px; }
+.hm-box .hm-box-name { font-weight: var(--font-bold); font-size: var(--text-xs); color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-box .hm-box-badges { display: flex; gap: 3px; margin-left: auto; flex-shrink: 0; }
+.hm-box .hm-mini-badge { font-size: 8px; font-weight: var(--font-bold); padding: 1px 4px; border-radius: 3px; background: var(--color-primary-soft); color: var(--color-primary); }
+.hm-box .hm-box-pct { font-size: var(--text-sm); font-weight: var(--font-bold); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.hm-box .hm-box-meta { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 리스트 폴백(아주 작은 박스 대체) */
+.hm-grid.list-fallback { grid-template-columns: 1fr; }
+.hm-grid.list-fallback .hm-box { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 10px; }
+.hm-grid.list-fallback .hm-box .hm-box-pct { margin: 0 0 0 auto; }
+.hm-grid.list-fallback .hm-box .hm-box-meta { margin: 0; }
+
+/* 상세 카드 */
+.hm-detail { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3); }
+.hm-detail-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.hm-detail-sym { font-weight: var(--font-bold); font-size: var(--text-sm); color: var(--color-text-primary); }
+.hm-detail-price { font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--color-primary); font-variant-numeric: tabular-nums; }
+.hm-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: var(--text-xs); margin-bottom: 10px; }
+.hm-detail-grid .row { display: flex; justify-content: space-between; gap: 6px; }
+.hm-detail-grid .k { color: var(--color-text-muted); }
+.hm-detail-grid .v { font-weight: var(--font-semibold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+.hm-detail-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 상위 리스트 */
+.hm-top-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.hm-top-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-bottom: 1px solid var(--color-divider); font-size: var(--text-xs); cursor: pointer; }
+.hm-top-row:hover { background: var(--color-primary-soft); }
+.hm-top-rank { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: var(--radius-full); background: var(--color-surface-sunken); color: var(--color-text-secondary); font-size: 10px; font-weight: var(--font-bold); flex-shrink: 0; }
+.hm-top-row:nth-child(-n+3) .hm-top-rank { background: var(--color-primary); color: #fff; }
+.hm-top-name { font-weight: var(--font-semibold); color: var(--color-text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.hm-top-val { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+/* AI 요약 / 관심종목 비교 */
+.hm-ai { background: var(--color-primary-soft); border: 1px solid transparent; border-radius: var(--radius-md); padding: var(--space-3); }
+.hm-ai-text { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+.hm-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: var(--text-xs); }
+.hm-compare-grid .row { display: flex; justify-content: space-between; gap: 6px; }
+.hm-compare-grid .k { color: var(--color-text-muted); }
+.hm-compare-grid .v { font-weight: var(--font-semibold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+
+/* 등락 색상 텍스트 (브랜드 기반: 상승=primary, 하락=dark accent) */
+.hm-up { color: var(--color-primary); }
+.hm-down { color: var(--color-primary-pressed); }
+.hm-flat { color: var(--color-text-muted); }
+
+/* 상태 메시지 */
+.hm-state-msg { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.5; padding: 16px 10px; background: var(--color-surface-sunken); border-radius: var(--radius-sm); text-align: center; }
+.hm-state-msg.delayed { color: var(--color-warning); }
+
+/* 버튼 */
+.hm-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 12px; border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: var(--font-semibold); cursor: pointer; border: 1px solid var(--color-primary); transition: background .15s, color .15s; }
+.hm-btn-primary { background: var(--color-primary); color: #fff; }
+.hm-btn-primary:hover { background: var(--color-primary-hover); }
+.hm-btn-secondary { background: transparent; color: var(--color-primary); }
+.hm-btn-secondary:hover { background: var(--color-primary-soft); }
+.hm-btn-ghost { background: transparent; color: var(--color-text-secondary); border-color: var(--color-border); }
+.hm-btn-ghost:hover { background: var(--color-surface-sunken); }
+.hm-btn-xs { min-height: 28px; padding: 0 8px; }
+.hm-btn-block { width: 100%; min-height: 44px; margin-top: 4px; }
+
+.hm-ai-note { font-size: 11px; color: var(--color-text-muted); line-height: 1.55; margin-top: var(--space-3); }
+.hm-disclaimer { font-size: 11px; color: var(--color-text-muted); line-height: 1.55; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+
+/* 모바일 */
+@media (max-width: 980px) {
+  #heatmap .hm-tab, #heatmap .hm-chip { min-height: 44px; }
+  #heatmap .hm-btn { min-height: 44px; }
+  #heatmap .hm-controls { grid-template-columns: 1fr; }
+  #heatmap .hm-summary-grid { grid-template-columns: 1fr; }
+  #heatmap .hm-grid { grid-template-columns: 1fr 1fr; }
+  #heatmap .hm-search { height: 44px; }
+}
