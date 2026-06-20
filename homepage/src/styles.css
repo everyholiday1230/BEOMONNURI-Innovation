@@ -21,8 +21,9 @@
   --brand-800: #4d0c1b;
   --brand-900: #320914;
   --brand: var(--brand-500);
-  --brand-dark: var(--brand-700);
-  --brand-soft: var(--brand-50);
+  --brand-dark: #6F0E24;  /* hover (Primary Dark) */
+  --brand-deep: #4A0817;  /* Primary Deep */
+  --brand-soft: #F8EDEF;  /* Primary Light */
 
   /* Neutral / gray scale */
   --gray-0:  #ffffff;
@@ -38,12 +39,12 @@
   --gray-900:#161314;
 
   /* Semantic */
-  --ink: var(--gray-900);
-  --muted: var(--gray-600);
-  --line: #e4dcdf;
+  --ink: #171717;
+  --muted: #525252;
+  --line: #E5E5E5;
   --line-strong: #d2c7cb;
   --paper: var(--gray-0);
-  --paper-soft: var(--gray-50);
+  --paper-soft: #FCF7F8;
   --bg: var(--gray-0);
   --success: #1f7a4d;
   --warn: #b4690e;
@@ -341,6 +342,24 @@ p, li, dd, span { text-wrap: pretty; }
 .gateway-card h3 { font-size: clamp(1.2rem, 1.55vw, 1.46rem); max-width: 23ch; margin-top: .1rem; line-height: 1.36; text-wrap: balance; }
 .gateway-card span { color: var(--muted); font-weight: 600; max-width: 36ch; line-height: 1.64; }
 .gateway-primary { grid-row: span 2; color: #fff; background: linear-gradient(150deg, var(--brand-700) 0%, var(--brand-900) 100%); border-color: transparent; }
+
+/* ── Value flow (데이터 → 제품 → 성과) ─────────────────── */
+.value-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 1rem; }
+.flow-node { display: grid; gap: .5rem; align-content: start; padding: clamp(1.3rem, 2.2vw, 1.7rem); border: var(--border); border-radius: var(--radius-lg); background: var(--paper); }
+.flow-node .flow-step { font-size: .74rem; font-weight: 800; letter-spacing: .12em; color: var(--brand); }
+.flow-node h3 { font-size: 1.12rem; }
+.flow-node p { color: var(--muted); line-height: 1.6; font-size: .94rem; }
+.flow-arrow { align-self: center; color: var(--brand); font-weight: 800; font-size: 1.4rem; line-height: 1; }
+
+/* ── Product navigation cards (홈 6개 제품 게이트웨이) ──── */
+.product-nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
+.product-nav-card { position: relative; overflow: hidden; display: grid; align-content: start; gap: .7rem; padding: clamp(1.4rem, 2.4vw, 1.9rem); border: var(--border); border-radius: var(--radius-lg); background: var(--paper); transition: box-shadow .2s var(--ease), border-color .2s var(--ease), transform .1s var(--ease); }
+.product-nav-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--brand); opacity: .9; }
+.product-nav-card:hover { box-shadow: var(--shadow-md); border-color: var(--line-strong); }
+.product-nav-card h3 { font-size: 1.18rem; line-height: 1.35; }
+.product-nav-card p { color: var(--muted); line-height: 1.62; }
+.product-nav-card .target { display: inline-flex; align-items: center; gap: .4rem; align-self: start; padding: .26rem .66rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: .76rem; font-weight: 800; letter-spacing: .01em; }
+.product-nav-card .text-link { margin-top: .15rem; }
 .gateway-primary::after { background: rgba(255,255,255,.4); }
 .gateway-primary .ico, .gateway-primary p, .gateway-primary span { color: rgba(255,255,255,.82); }
 .gateway-primary h3 { font-size: clamp(1.6rem, 2.4vw, 2.4rem); }
@@ -558,6 +577,12 @@ table.compare td { color: var(--muted); }
 .cta-band p { max-width: 60ch; color: rgba(255,255,255,.85); line-height: 1.64; }
 .cta-band .button.primary { background: #fff; color: var(--brand); }
 .cta-band .button.primary:hover { background: var(--brand-50); }
+.cta-band .cta-actions { display: flex; flex-wrap: wrap; gap: .85rem; justify-content: center; }
+.cta-band .button.secondary { color: #fff; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
+.cta-band .button.secondary:hover, .cta-band .button.secondary:focus-visible { background: rgba(255,255,255,.2); border-color: #fff; color: #fff; }
+
+/* What we build 대표 제품 라벨 */
+.build-rep { color: var(--ink); font-weight: 700; font-size: .9rem; margin-top: .1rem; }
 
 /* ── Partner grid (로고 only · 무게 균형 보정) ──────────── */
 /* 7개 로고를 균형있게: 데스크톱은 중앙 정렬된 한 줄 흐름(라인 분리) */
@@ -642,6 +667,7 @@ table.compare td { color: var(--muted); }
   .hero-home { padding: clamp(2rem, 6vw, 3.6rem); min-height: clamp(380px, 46vh, 460px); }
   .hero-home h1, .hero-copy h1 { max-width: 18ch; }
   .product-grid, .value-grid, .metric-strip, .process { grid-template-columns: repeat(2, 1fr); }
+  .product-nav-grid { grid-template-columns: repeat(2, 1fr); }
   .roadmap-grid { grid-template-columns: repeat(2, 1fr); }
   .usecase-grid { grid-template-columns: 1fr 1fr; }
   .conversion-grid { grid-template-columns: 1fr 1fr; }
@@ -680,7 +706,9 @@ table.compare td { color: var(--muted); }
   .dropdown a { text-align: center; }
   .lead { font-size: 1rem; line-height: 1.62; }
   .section-heading { gap: .85rem; }
-  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid, .conversion-grid, .roadmap-grid, .usecase-grid { grid-template-columns: 1fr; }
+  .product-grid, .value-grid, .detail-grid, .metric-strip, .process, .footer-inner, .gateway-grid, .conversion-grid, .roadmap-grid, .usecase-grid, .product-nav-grid { grid-template-columns: 1fr; }
+  .value-flow { grid-template-columns: 1fr; }
+  .value-flow .flow-arrow { transform: rotate(90deg); justify-self: center; }
   table.compare { min-width: 640px; }
   table.compare th, table.compare td { padding: .92rem .96rem; }
   .hero-home h1, .hero-copy h1, .page-hero h1, .product-hero h1 { max-width: 100%; }
