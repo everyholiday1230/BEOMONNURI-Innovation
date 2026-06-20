@@ -43,7 +43,7 @@
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260620_hmv2">
+<link rel="stylesheet" href="/static/css/main.css?v=20260620_htv2">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1439,7 +1439,7 @@ body.dark #_toastContainer .pro-toast-chip {
   <div class="right-tabs">
     <div class="right-tab active" data-p="ai" data-t="AI" title="AI 종합 분석 · 범온 지표 요약 (무료 체험)">AI<span class="tab-badge">무료</span></div>
     <div class="right-tab" data-p="mtf" data-t="추세강도" title="멀티 타임프레임 범온강도 비교">추세강도</div>
-    <div class="right-tab" data-p="hot" title="거래량·변동성 상위 10종목 (실시간)">인기 TOP<span class="tab-dot"></span></div>
+    <div class="right-tab" data-p="hot" title="시장 관심도 랭킹 (참고용)">인기 TOP<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="heatmap" title="시장 강도·거래 집중·변동성 한눈에 (참고용 분석)">히트맵<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
@@ -1670,36 +1670,88 @@ body.dark #_toastContainer .pro-toast-chip {
 
   <div class="right-pane" id="hot">
     <div class="p-12">
-      <!-- 시장 분위기 + 트렌드 인사이트 -->
-      <div class="panel-section" id="trendInsightsBox">
-        <div class="flex-between" style="margin-bottom:6px">
-          <div class="panel-section-title" style="margin-bottom:0">시장 분위기</div>
-          <div id="marketMoodBadge" class="tag-pill tag-pill-neutral"></div>
+      <!-- 1) 헤더 -->
+      <div class="ht-header">
+        <div class="pane-title">인기 TOP</div>
+        <div class="pane-desc">시장 관심도가 높은 종목을 다양한 기준으로 확인합니다.</div>
+        <div class="ht-header-meta">
+          <span class="ht-basis" id="htBasisLabel">기준 종합 · 24h</span>
+          <span class="ht-status-badge" id="htStatusBadge" data-state="loading">불러오는 중</span>
+          <span class="ht-updated" id="htUpdated"></span>
         </div>
-        <div id="marketSummaryStats" class="panel-section-desc"></div>
-        <div id="trendInsightTabs" class="trend-tab-row">
-          <button class="ti-tab active" data-cat="top_gainers" onclick="window._switchTrendCat?.('top_gainers')">상승</button>
-          <button class="ti-tab" data-cat="top_losers" onclick="window._switchTrendCat?.('top_losers')">하락</button>
-          <button class="ti-tab" data-cat="top_volume" onclick="window._switchTrendCat?.('top_volume')">거래량</button>
-          <button class="ti-tab" data-cat="top_volatility" onclick="window._switchTrendCat?.('top_volatility')">변동성</button>
-        </div>
-        <div id="trendInsightList"></div>
       </div>
 
-      <div class="pane-title">인기 종목 TOP 10</div>
-      <div class="pane-desc">거래량과 변동성이 높은 종목 (24시간 기준)</div>
-      <div style="display:flex;gap:4px;margin-bottom:6px">
-        <button id="hotSortTurnover" aria-label="거래대금순 정렬" onclick="window._hotSort='turnover';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px">거래대금순</button>
-        <button id="hotSortMomentum" aria-label="모멘텀순 정렬" onclick="window._hotSort='momentum';window._loadHotCoins&&window._loadHotCoins();document.getElementById('hotSortMomentum').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px';document.getElementById('hotSortTurnover').style.cssText='flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px'" style="flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:11px">모멘텀순</button>
+      <!-- 2) 인기 요약 카드 -->
+      <div id="htSummary"></div>
+
+      <!-- 3) 랭킹 기준 -->
+      <div class="ht-card">
+        <div class="ht-label">랭킹 기준</div>
+        <div class="ht-tabs" id="htBasisTabs" role="tablist" aria-label="랭킹 기준 선택">
+          <button class="ht-tab active" data-basis="composite" role="tab" aria-selected="true">종합</button>
+          <button class="ht-tab" data-basis="turnover" role="tab" aria-selected="false">거래대금</button>
+          <button class="ht-tab" data-basis="gainers" role="tab" aria-selected="false">상승률</button>
+          <button class="ht-tab" data-basis="losers" role="tab" aria-selected="false">하락률</button>
+          <button class="ht-tab" data-basis="volatility" role="tab" aria-selected="false">변동성</button>
+          <button class="ht-tab" data-basis="views" role="tab" aria-selected="false">조회 증가</button>
+          <button class="ht-tab" data-basis="ai" role="tab" aria-selected="false">AI 관심</button>
+          <button class="ht-tab" data-basis="volup" role="tab" aria-selected="false">거래량 증가</button>
+          <button class="ht-tab" data-basis="fav" role="tab" aria-selected="false">관심 등록</button>
+          <button class="ht-tab" data-basis="spike" role="tab" aria-selected="false">급변동</button>
+        </div>
+        <div id="htBasisDesc" class="ht-mini-note"></div>
       </div>
-      <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
-        <button id="hotTabCrypto" aria-label="인기종목 암호화폐" onclick="window._hotAsset='crypto';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:12px">암호화폐</button>
-        <button id="hotTabStock" aria-label="인기종목 주식" onclick="window._hotAsset='stock';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">주식</button>
-        <button id="hotTabCommodity" aria-label="인기종목 원자재" onclick="window._hotAsset='commodity';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">원자재</button>
-        <button id="hotTabEtf" aria-label="인기종목 ETF" onclick="window._hotAsset='etf';window._loadHotCoins()" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px">ETF</button>
+
+      <!-- 4) 시간 기준 -->
+      <div class="ht-card">
+        <div class="ht-label">시간 기준</div>
+        <div class="ht-tabs ht-tabs-time" id="htTimeTabs" role="tablist" aria-label="시간 기준 선택">
+          <button class="ht-tab" data-tf="5m" role="tab" aria-selected="false">5m</button>
+          <button class="ht-tab" data-tf="15m" role="tab" aria-selected="false">15m</button>
+          <button class="ht-tab" data-tf="1h" role="tab" aria-selected="false">1h</button>
+          <button class="ht-tab" data-tf="4h" role="tab" aria-selected="false">4h</button>
+          <button class="ht-tab active" data-tf="24h" role="tab" aria-selected="true">24h</button>
+        </div>
+        <div id="htTimeNote" class="ht-mini-note"></div>
       </div>
-      <div id="hotList" style="font-size:13px"></div>
-      <button aria-label="refreshHot" onclick="window._loadHotCoins()" style="margin-top:8px;padding:6px 12px;background:rgba(146,18,48,0.1);color:#921230;border:none;border-radius:6px;cursor:pointer;font-size:13px">새로고침</button>
+
+      <!-- 5) 필터 -->
+      <div class="ht-card">
+        <div class="flex-between" style="margin-bottom:6px"><div class="ht-label" style="margin:0">필터</div><button class="ht-btn ht-btn-ghost ht-btn-xs" type="button" onclick="window._htResetFilters()">필터 초기화</button></div>
+        <input id="htSearch" class="ht-search" type="search" inputmode="search" placeholder="종목 검색" aria-label="종목 검색" oninput="window._htOnSearch&&window._htOnSearch(this.value)">
+        <div id="htFilters" class="ht-filters"></div>
+      </div>
+
+      <!-- 17/18) 보기 밀도 + 정렬 -->
+      <div class="ht-card">
+        <div class="ht-controls" id="htControls"></div>
+      </div>
+
+      <!-- 10) 급상승 관심 종목 -->
+      <div id="htSurge" class="ht-section-block"></div>
+
+      <!-- 6) 인기 TOP 리스트 -->
+      <div id="hotList" class="ht-list" role="list" aria-label="인기 TOP 리스트"></div>
+
+      <!-- 12) 선택 종목 상세 -->
+      <div id="htDetail" class="ht-section-block"></div>
+
+      <!-- 11) AI 인기 요약 -->
+      <div id="htAiSummary" class="ht-section-block"></div>
+
+      <!-- 14) 내 관심 종목 TOP -->
+      <div id="htWatchTop" class="ht-section-block"></div>
+
+      <button class="ht-btn ht-btn-primary ht-btn-block" type="button" onclick="window._loadHotCoins()">데이터 다시 확인</button>
+
+      <!-- 15) 인기 변화 알림 안내 -->
+      <p class="ht-mini-note">알림은 관심도 TOP 10 진입, 거래대금 급증, 변동성 확대, 순위 급상승, 내 관심 종목 TOP 진입, AI 관심도 상승 등 시장 관심도 변화를 알려주는 기능이며, 매매를 권유하지 않습니다.</p>
+
+      <!-- 9) 관심도 점수 안내 -->
+      <p class="ht-ai-note">시장 관심도 점수는 거래대금, 거래량 변화, 등락률, 변동성, 조회 증가, AI 관심도를 종합한 참고 점수입니다. 관심도 점수는 매매 추천이 아닌 시장 주목도 참고 지표입니다.</p>
+
+      <!-- 고지 -->
+      <p class="ht-disclaimer">인기 TOP은 시장 데이터와 관심도 변화를 기준으로 구성된 참고용 랭킹입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
     </div>
   </div>
 
@@ -1867,7 +1919,7 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
-<script defer src="/static/js/modules/hotmap.js?v=20260620_hmv2"></script>
+<script defer src="/static/js/modules/hotmap.js?v=20260620_htv2"></script>
 <script defer src="/static/js/modules/ai-panel.js"></script>
 <script defer src="/static/js/modules/position-panel.js?v=20260620_posv2"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
