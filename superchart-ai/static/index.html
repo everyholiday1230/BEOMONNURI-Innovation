@@ -43,7 +43,7 @@
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260616_zfix">
+<link rel="stylesheet" href="/static/css/main.css?v=20260620_posv2">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1651,39 +1651,102 @@ body.dark #_toastContainer .pro-toast-chip {
 
   <div class="right-pane" id="position">
     <div class="p-12">
-      <div class="pane-title">포지션 분석</div>
-      <div class="pane-desc">기관·대형 자금 롱숏 비율 + 청산 가격대</div>
+      <!-- 1) 헤더 -->
+      <div class="pa-header">
+        <div class="pane-title">포지션 분석</div>
+        <div class="pane-desc">롱·숏 비율, 대형 자금 흐름, 청산 밀집 구간을 함께 확인합니다.</div>
+        <div class="pa-header-meta">
+          <span class="pa-symbol" id="paSymbol">--</span>
+          <span class="pa-status-badge" id="paStatusBadge" data-state="loading">불러오는 중</span>
+          <span class="pa-updated" id="paUpdated"></span>
+        </div>
+      </div>
 
-      <!-- 1) 정밀 롱숏 비율 -->
+      <!-- 2) 시장 포지션 요약 카드 -->
+      <div class="panel-section pa-summary" id="paSummary">
+        <div class="pa-summary-top">
+          <div class="pa-summary-label">시장 포지션 요약</div>
+          <div id="paSummaryBadge" class="pa-bias-badge pa-bias-neutral">중립</div>
+        </div>
+        <div class="pa-summary-figures" id="paSummaryFigures">
+          <div class="text-muted-sm">데이터를 불러오는 중입니다…</div>
+        </div>
+        <p class="pa-summary-note" id="paSummaryNote"></p>
+      </div>
+
+      <!-- 3) 롱/숏 비율 -->
       <div class="panel-section">
-        <div class="flex-between" style="margin-bottom:6px">
+        <div class="flex-between" style="margin-bottom:8px">
           <div class="panel-section-title" style="margin-bottom:0">롱/숏 비율</div>
           <div id="lsConsensus" class="tag-pill tag-pill-neutral"></div>
         </div>
-        <div id="lsDetailedTable"></div>
-      </div>
-
-      <!-- 2) 펀딩비 -->
-      <div class="panel-section">
-        <div class="flex-between">
-          <div class="text-muted-color" style="font-size:12px">다음 펀딩</div>
-          <div id="fundingRateVal" class="num-tabular text-bold" style="font-size:14px">--</div>
+        <div class="pa-tabs" id="lsTfTabs" role="tablist" aria-label="롱숏 비율 기간 선택">
+          <button class="pa-tab active" data-tf="5m" role="tab" aria-selected="true">5m</button>
+          <button class="pa-tab" data-tf="15m" role="tab" aria-selected="false">15m</button>
+          <button class="pa-tab" data-tf="1h" role="tab" aria-selected="false">1h</button>
         </div>
-        <div id="fundingHint" class="text-muted-sm" style="margin-top:2px"></div>
+        <div id="lsDetailedTable" class="pa-ls-rows"></div>
       </div>
 
-      <!-- 3) 청산 히트맵 -->
+      <!-- 4) 대형 자금 흐름 -->
       <div class="panel-section">
-        <div class="flex-between" style="margin-bottom:6px">
-          <div class="panel-section-title" style="margin-bottom:0">청산 히트맵 (24h)</div>
-          <button onclick="window._toggleLiqOverlay?.()" id="liqOverlayBtn" class="btn-uniform btn-uniform-secondary" style="height:24px;padding:0 8px;font-size:11px">차트 표시</button>
+        <div class="flex-between" style="margin-bottom:8px">
+          <div class="panel-section-title" style="margin-bottom:0">대형 자금 흐름 (1시간)</div>
+          <div id="bigMoneyBadge" class="pa-bias-badge pa-bias-neutral">중립</div>
         </div>
-        <div id="liqSummary" class="num-tabular" style="font-size:12px;margin-bottom:8px"></div>
-        <canvas id="liqHeatmapCanvas" width="280" height="200" style="width:100%;background:var(--color-surface-sunken);border-radius:var(--radius-md)"></canvas>
-        <div id="liqClusters" class="num-tabular" style="font-size:11px;margin-top:8px"></div>
+        <div id="bigMoneyBody">
+          <div class="text-muted-sm">데이터를 불러오는 중입니다…</div>
+        </div>
       </div>
 
-      <button onclick="window._loadPositionData?.()" class="btn-uniform btn-uniform-primary btn-block">새로고침</button>
+      <!-- 5) 펀딩 정보 -->
+      <div class="panel-section">
+        <div class="panel-section-title">펀딩 정보</div>
+        <div id="fundingBody">
+          <div class="text-muted-sm">데이터를 불러오는 중입니다…</div>
+        </div>
+      </div>
+
+      <!-- 6) 청산 히트맵 -->
+      <div class="panel-section">
+        <div class="flex-between" style="margin-bottom:8px">
+          <div class="panel-section-title" style="margin-bottom:0">청산 히트맵</div>
+          <button onclick="window._toggleLiqOverlay?.()" id="liqOverlayBtn" class="pa-btn pa-btn-secondary" type="button">차트 표시</button>
+        </div>
+        <div class="pa-tabs" id="liqPeriodTabs" role="tablist" aria-label="청산 히트맵 기간 선택">
+          <button class="pa-tab" data-period="12h" role="tab" aria-selected="false">12h</button>
+          <button class="pa-tab active" data-period="24h" role="tab" aria-selected="true">24h</button>
+          <button class="pa-tab" data-period="3d" role="tab" aria-selected="false">3d</button>
+          <button class="pa-tab" data-period="7d" role="tab" aria-selected="false">7d</button>
+        </div>
+        <div id="liqSummary" class="num-tabular pa-liq-summary"></div>
+        <div id="liqClusters" class="num-tabular pa-liq-clusters"></div>
+        <div id="liqPriceList" class="pa-liq-list" aria-label="청산 밀집 가격대"></div>
+        <canvas id="liqHeatmapCanvas" width="280" height="200" class="pa-liq-canvas"></canvas>
+      </div>
+
+      <!-- 7) AI 포지션 해석 -->
+      <div class="panel-section pa-ai">
+        <div class="panel-section-title">AI 포지션 해석</div>
+        <p class="pa-ai-text" id="paAiText">데이터를 불러오면 참고 해석이 표시됩니다.</p>
+      </div>
+
+      <!-- 8) 리스크 체크리스트 -->
+      <div class="panel-section">
+        <div class="panel-section-title">리스크 체크리스트</div>
+        <div class="pa-risk-grid" id="paRiskGrid">
+          <span class="pa-risk-badge" data-key="ls">롱·숏 쏠림 <b>--</b></span>
+          <span class="pa-risk-badge" data-key="bigmoney">대형 자금 편향 <b>--</b></span>
+          <span class="pa-risk-badge" data-key="funding">펀딩 부담 <b>--</b></span>
+          <span class="pa-risk-badge" data-key="liq">청산 밀집 구간 <b>--</b></span>
+          <span class="pa-risk-badge" data-key="vol">변동성 주의 <b>--</b></span>
+        </div>
+      </div>
+
+      <button onclick="window._loadPositionData?.()" class="pa-btn pa-btn-primary pa-btn-block" type="button">데이터 다시 확인</button>
+
+      <!-- 고지 -->
+      <p class="pa-disclaimer">포지션 분석, 롱·숏 비율, 펀딩, 청산 히트맵은 시장 데이터를 기반으로 한 참고 정보입니다. 특정 방향의 수익을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
     </div>
   </div>
 
@@ -1692,7 +1755,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
 <script defer src="/static/js/modules/hotmap.js"></script>
 <script defer src="/static/js/modules/ai-panel.js"></script>
-<script defer src="/static/js/modules/position-panel.js"></script>
+<script defer src="/static/js/modules/position-panel.js?v=20260620_posv2"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js"></script>
