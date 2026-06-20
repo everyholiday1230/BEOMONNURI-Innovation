@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /v1/
-Sitemap: https://www.beomonnuri.com/sitemap.xml
+Sitemap: https://chart.beomonnuri.com/sitemap.xml

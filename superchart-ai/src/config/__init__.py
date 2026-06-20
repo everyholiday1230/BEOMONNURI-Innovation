@@ -14,7 +14,7 @@ class _Settings:
     jwt_secret: str = os.environ.get("JWT_SECRET", os.environ.get("SECRET_KEY", "beomon-secret-2026"))
     jwt_expire_minutes: int = int(os.environ.get("JWT_EXPIRE_MINUTES", "1440"))
     jwt_refresh_expire_days: int = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", "30"))
-    public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "https://www.beomonnuri.com")
+    public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "https://chart.beomonnuri.com")
 
 
 settings = _Settings()

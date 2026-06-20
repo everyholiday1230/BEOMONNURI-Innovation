@@ -633,7 +633,7 @@ async def chart_page(symbol: str):
     """종목별 전용 URL — SEO용 서버 렌더 메타태그 포함."""
     import re as _re
     import os as _os
-    _base_url = _os.environ.get("PUBLIC_BASE_URL", "https://www.beomonnuri.com")
+    _base_url = _os.environ.get("PUBLIC_BASE_URL", "https://chart.beomonnuri.com")
     if not _re.match(r'^[A-Z0-9]{2,20}$', symbol.upper()):
         from starlette.responses import FileResponse
         return FileResponse("static/index.html")
