@@ -1,6 +1,6 @@
 # Beomon Nuri Innovation (Official)
 
-> Last updated: 2026-06-16
+> Last updated: 2026-06-20
 
 Beomon Nuri Innovation is an industrial AI product company.
 Core focus: private AI, forecasting AI, workflow automation, and domain-specific operational intelligence.
@@ -19,6 +19,11 @@ https://www.beomonnuri.com/
 - Company (EN): https://www.beomonnuri.com/en/company/
 - Contact (KR): https://www.beomonnuri.com/contact/
 - Contact (EN): https://www.beomonnuri.com/en/contact/
+
+## Guides and content (Korean)
+- Insights hub: https://www.beomonnuri.com/insights/
+- AI adoption guide (PoC process, checklist, definitions): https://www.beomonnuri.com/ai-adoption-guide/
+- FAQ: https://www.beomonnuri.com/faq/
 
 ## Sitemap
 https://www.beomonnuri.com/sitemap.xml

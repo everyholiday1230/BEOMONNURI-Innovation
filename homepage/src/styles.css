@@ -910,3 +910,77 @@ table.product-compare td { color: var(--muted); font-size: .94rem; }
 /* desktop-only line break util */
 .desktop-break { display: none; }
 @media (min-width: 761px) { .desktop-break { display: inline; } }
+
+/* ─────────────────────────────────────────────────────────────
+   Page Summary box ("이 페이지에서 알 수 있는 내용")
+   AI 검색/GEO 인용을 돕는 페이지 상단 요약 박스. 브랜드 컬러 기반, 절제된 톤.
+   ───────────────────────────────────────────────────────────── */
+.page-summary {
+  max-width: 900px;
+  margin-inline: auto;
+  padding: clamp(1.1rem, 2.4vw, 1.6rem) clamp(1.2rem, 2.6vw, 1.8rem);
+  background: var(--brand-soft);
+  border: var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--radius-lg);
+}
+.page-summary > h2 {
+  font-size: 1rem;
+  letter-spacing: .01em;
+  margin: 0 0 .7rem;
+  color: var(--brand-deep);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.page-summary > h2::before {
+  content: "";
+  flex: 0 0 auto;
+  width: .5rem; height: .5rem;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.page-summary ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: .42rem;
+}
+.page-summary li {
+  font-size: .98rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.page-summary li strong { color: var(--brand-deep); font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────────
+   Insights / content hub article list
+   ───────────────────────────────────────────────────────────── */
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: clamp(1rem, 2.4vw, 1.6rem);
+}
+.insight-card {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: clamp(1.2rem, 2.4vw, 1.6rem);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  transition: border-color .2s var(--ease), transform .2s var(--ease);
+}
+.insight-card:hover { border-color: var(--brand); transform: translateY(-2px); }
+.insight-card .insight-tag {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.insight-card h3 { font-size: 1.12rem; line-height: 1.45; margin: 0; }
+.insight-card h3 a { color: var(--ink); text-decoration: none; }
+.insight-card h3 a:hover { color: var(--brand); }
+.insight-card p { font-size: .96rem; line-height: 1.6; color: var(--muted); margin: 0; }
+.insight-card .text-link { margin-top: auto; }

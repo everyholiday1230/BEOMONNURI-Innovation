@@ -173,6 +173,28 @@
   </url>
 
   <url>
+    <loc>https://www.beomonnuri.com/insights/</loc>
+    <lastmod>2026-06-20</lastmod>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.beomonnuri.com/insights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.beomonnuri.com/insights/"/>
+  </url>
+  <url>
+    <loc>https://www.beomonnuri.com/ai-adoption-guide/</loc>
+    <lastmod>2026-06-20</lastmod>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.beomonnuri.com/ai-adoption-guide/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.beomonnuri.com/ai-adoption-guide/"/>
+  </url>
+  <url>
+    <loc>https://www.beomonnuri.com/faq/</loc>
+    <lastmod>2026-06-20</lastmod>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.beomonnuri.com/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.beomonnuri.com/faq/"/>
+  </url>
+
+  <url>
     <loc>https://www.beomonnuri.com/privacy/</loc>
     <lastmod>2026-06-16</lastmod>
     <priority>0.3</priority>

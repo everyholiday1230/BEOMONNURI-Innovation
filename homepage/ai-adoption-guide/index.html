@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기업 AI 도입 가이드 | PoC 절차·체크리스트·보안 요건 | 범온누리 이노베이션</title>
+  <meta name="description" content="기업 AI 도입 절차를 단계별로 안내합니다. 보안형 사내 AI, 프라이빗 AI, 업무 자동화 AI 도입을 위한 AI 파일럿(PoC) 진행 방법, 도입 체크리스트, 데이터·보안 요건, RAG·온프레미스 등 핵심 용어 정의를 정리했습니다." />
+  <meta name="theme-color" content="#921230" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="{{SITE_URL}}/ai-adoption-guide/" />
+  <link rel="alternate" hreflang="ko" href="{{SITE_URL}}/ai-adoption-guide/" />
+  <link rel="alternate" hreflang="x-default" href="{{SITE_URL}}/ai-adoption-guide/" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="기업 AI 도입 가이드 | (주)범온누리 이노베이션" />
+  <meta property="og:description" content="기업 AI 도입 절차, AI 파일럿(PoC) 진행 방법, 도입 체크리스트와 보안 요건을 정리한 가이드입니다." />
+  <meta property="og:url" content="{{SITE_URL}}/ai-adoption-guide/" />
+  <meta property="og:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="(주)범온누리 이노베이션 | AI Product Company" />
+  <meta name="twitter:image" content="{{SITE_URL}}/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body data-page="insights" data-lang="ko">
+<div data-layout="header"></div>
+<nav class="breadcrumb" aria-label="현재 위치"><ol><li><a href="/">홈</a></li><li><a href="/insights/">인사이트</a></li><li aria-current="page">기업 AI 도입 가이드</li></ol></nav>
+<main id="main-content">
+  <section class="page-hero">
+    <p class="eyebrow">AI Adoption Guide</p>
+    <h1>기업 AI 도입은 어떤 절차로 진행하나요?</h1>
+    <p class="lead">보안형 사내 AI, 프라이빗 AI, 업무 자동화 AI를 도입할 때 필요한 절차와 점검 항목을 단계별로 정리했습니다. 작은 범위의 파일럿(PoC)으로 검증한 뒤 운영 단계로 확장하는 방식을 권장합니다.</p>
+  </section>
+
+  <!-- PAGE SUMMARY -->
+  <section class="section">
+    <aside class="page-summary" aria-label="이 페이지에서 알 수 있는 내용">
+      <h2>이 페이지에서 알 수 있는 내용</h2>
+      <ul>
+        <li>기업 AI 도입의 4단계 절차: 과제 정렬 → 데이터·보안 정의 → 파일럿(PoC) → 운영 전환.</li>
+        <li>AI 파일럿(PoC)에서 무엇을 검증하는지와 성공 기준을 정의하는 방법.</li>
+        <li>도입 전에 점검해야 할 데이터·보안·운영 체크리스트.</li>
+        <li>프라이빗 AI, RAG, 온프레미스, AI 에이전트 등 핵심 용어 정의.</li>
+      </ul>
+    </aside>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="section" aria-labelledby="process-title">
+    <div class="section-heading">
+      <p class="eyebrow">Process</p>
+      <h2 id="process-title">기업 AI 도입 4단계 절차</h2>
+      <p>복잡한 제안서보다 실제 적용 가능한 업무 범위를 먼저 좁힌 뒤, 실데이터로 검증하고 운영 전환 여부를 판단합니다.</p>
+    </div>
+    <div class="roadmap-grid">
+      <article class="roadmap-step reveal-item"><span class="step-index">01</span><h3>핵심 과제 정렬</h3><p>성과에 직접 연결되는 업무 1~2개를 선정하고 성공 기준(속도·정확도·절감 시간 등)을 합의합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">02</span><h3>데이터·보안 범위 정의</h3><p>활용할 데이터, 접근 권한, 민감정보 범위, 로그 기준, 운영 환경(온프레미스/프라이빗 클라우드)을 정리합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">03</span><h3>실데이터 파일럿(PoC)</h3><p>실제 업무 데이터를 기준으로 정확도, 처리속도, 사용자 편의성, 운영 적합성을 검증합니다.</p></article>
+      <article class="roadmap-step reveal-item"><span class="step-index">04</span><h3>운영 전환 및 확장</h3><p>검증 결과를 바탕으로 권한·로그·운영 프로세스를 갖추고 적용 부서와 업무 범위를 단계적으로 확장합니다.</p></article>
+    </div>
+  </section>
+
+  <!-- POC CHECKLIST -->
+  <section class="band"><div class="section" aria-labelledby="checklist-title">
+    <div class="section-heading">
+      <p class="eyebrow">Checklist</p>
+      <h2 id="checklist-title">AI 도입 전 점검 체크리스트</h2>
+      <p>아래 항목이 어느 정도 정리되어 있으면 파일럿을 빠르게 시작할 수 있습니다. 모두 갖춰지지 않아도 시작 가능한 범위를 함께 정의할 수 있습니다.</p>
+    </div>
+    <ul class="check-list">
+      <li>해결하려는 업무 과제와 성공 기준이 정의되어 있다.</li>
+      <li>적용 업무와 관련된 문서·데이터에 최소 읽기 권한이 확보되어 있다.</li>
+      <li>업무 맥락을 설명할 현장 담당자가 지정되어 있다.</li>
+      <li>활용 데이터의 민감도와 외부 반출 제한 범위가 정리되어 있다.</li>
+      <li>온프레미스·프라이빗 클라우드 등 운영 환경 요건이 확인되어 있다.</li>
+      <li>접근 권한 정책과 사용 로그 기준이 정의되어 있다.</li>
+      <li>기존 업무 시스템·문서 저장소와의 연동 가능 범위를 확인했다.</li>
+    </ul>
+  </div></section>
+
+  <!-- TERMS -->
+  <section class="section" aria-labelledby="terms-title">
+    <div class="section-heading">
+      <p class="eyebrow">Definitions</p>
+      <h2 id="terms-title">기업 AI 도입 핵심 용어 정의</h2>
+      <p>도입 검토 과정에서 자주 등장하는 용어를 간단히 정리했습니다.</p>
+    </div>
+    <div class="value-grid">
+      <article class="value-card reveal-item"><h3>프라이빗 AI</h3><p class="muted">기업 데이터를 외부로 무분별하게 내보내지 않고, 기업이 통제하는 보안 경계 안에서 활용하는 AI입니다.</p></article>
+      <article class="value-card reveal-item"><h3>사내 문서 검색 AI (RAG)</h3><p class="muted">내부 문서를 검색해 관련 근거를 찾고, 그 내용을 바탕으로 답변을 생성하는 방식(RAG, 검색 증강 생성)으로 구축하는 AI입니다.</p></article>
+      <article class="value-card reveal-item"><h3>온프레미스 / 프라이빗 클라우드</h3><p class="muted">기업이 직접 통제하는 서버 환경 또는 격리된 클라우드 환경에서 AI를 운영하는 방식입니다.</p></article>
+      <article class="value-card reveal-item"><h3>AI 에이전트</h3><p class="muted">정해진 절차에 따라 여러 단계의 업무를 실행하고, 사람의 검토·승인 흐름과 연결되는 업무 자동화 AI입니다.</p></article>
+      <article class="value-card reveal-item"><h3>AI 파일럿 (PoC)</h3><p class="muted">실제 데이터를 기준으로 도입 가능성과 성과를 검증하는 단계입니다. 운영 전환 여부를 판단하는 근거가 됩니다.</p></article>
+      <article class="value-card reveal-item"><h3>운영형 구축</h3><p class="muted">사용자 화면, 권한, 로그, 업무 흐름, 관리 체계까지 포함해 현업이 실제로 사용할 수 있는 형태로 전환하는 단계입니다.</p></article>
+    </div>
+  </section>
+
+  <!-- RELATED -->
+  <section class="band"><div class="section" aria-labelledby="related-title">
+    <div class="section-heading">
+      <p class="eyebrow">Related</p>
+      <h2 id="related-title">함께 보면 좋은 자료와 제품</h2>
+    </div>
+    <div class="insight-grid">
+      <article class="insight-card reveal-item"><span class="insight-tag">FAQ</span><h3><a href="/faq/">자주 묻는 질문(FAQ)</a></h3><p>도입 절차, 보안 요건, 비용 산정에 대한 자주 묻는 질문을 확인하세요.</p><a class="text-link" href="/faq/">자세히 보기</a></article>
+      <article class="insight-card reveal-item"><span class="insight-tag">Product</span><h3><a href="/products/private-ai/">범온 프라이빗 AI</a></h3><p>사내 문서를 보안 환경에서 검색·활용하는 프라이빗 AI입니다.</p><a class="text-link" href="/products/private-ai/">자세히 보기</a></article>
+      <article class="insight-card reveal-item"><span class="insight-tag">Product</span><h3><a href="/products/agent-ai/">범온 에이전트 AI</a></h3><p>반복 업무를 단계별로 실행하는 업무 자동화 AI입니다.</p><a class="text-link" href="/products/agent-ai/">자세히 보기</a></article>
+    </div>
+  </div></section>
+
+  <!-- CTA -->
+  <section class="section"><div class="cta-band">
+    <p class="eyebrow">Contact</p>
+    <h2>우리 조직의 AI 도입 가능성을 진단해 보세요</h2>
+    <p>보유 데이터, 보안 요건, 우선 과제를 기준으로 적용 가능한 제품 조합과 파일럿 범위를 함께 정리합니다.</p>
+    <a class="button primary" href="/contact/">도입 가능성 진단하기</a>
+  </div></section>
+
+</main>
+<div data-layout="footer"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -451,6 +451,7 @@ function renderFooter(lang) {
       <a href="${b}/products/">${t.nav.products}</a>
       <a href="${b}/company/">${t.nav.company}</a>
       <a href="${b}/contact/">${t.nav.contact}</a>
+      ${lang === 'ko' ? '<a href="/insights/">인사이트</a>\n      <a href="/faq/">자주 묻는 질문</a>' : ''}
       <a href="${b}/privacy/">${t.privacy}</a>
     </nav>
     <section class="footer-col footer-company">
