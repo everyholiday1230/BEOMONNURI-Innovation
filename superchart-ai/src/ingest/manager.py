@@ -3,9 +3,20 @@ import asyncio
 import structlog
 from src.ingest.binance_rest import BinanceIngestV2
 from src.ingest.binance_ws import BinanceIngest
-from src.services.symbol_resolver import get_binance_symbols
+from src.services.symbol_resolver import get_binance_symbols, get_binance_spot_symbols
 
 logger = structlog.get_logger(__name__)
+
+
+def _build_spot_symbols() -> list[str]:
+    """Binance Spot 토큰화 주식/원자재 API 페어 목록 (NVDABUSDT 등)."""
+    seen = set()
+    out = []
+    for api in get_binance_spot_symbols():
+        if api and api.endswith("USDT") and api not in seen:
+            seen.add(api)
+            out.append(api)
+    return out
 
 
 def _build_ingest_symbols() -> list[str]:
@@ -82,14 +93,61 @@ class IngestManager:
         self._rest.on_candle(self._dispatch_candle)
         self._rest.on_ticker(self._dispatch_ticker)
         self._ws.on_candle(self._dispatch_candle)
-        logger.info("ingest.started", binance=len(syms))
+        spot_syms = _build_spot_symbols()
+        logger.info("ingest.started", binance=len(syms), binance_spot=len(spot_syms))
         await asyncio.gather(
             self._rest.start(),
             self._ws.start(),
+            self._poll_spot(spot_syms),
             return_exceptions=True
         )
 
+    async def _poll_spot(self, symbols: list[str]):
+        """Binance Spot 토큰화 주식/원자재(NVDABUSDT 등) 실시간 폴링.
+
+        Futures 수집기와 분리: Spot 심볼은 fapi 에 없어 -2 를 유발하므로
+        api.binance.com Spot klines 를 직접 폴링해 candle/ticker 로 전파한다.
+        토큰화 주식은 거래량/갱신이 느려 5초 폴링으로 충분.
+        """
+        if not symbols:
+            return
+        import time as _time
+        from src.services import market
+        self._spot_running = True
+        last_ot: dict[str, int] = {}
+        while getattr(self, "_spot_running", True):
+            for sym in symbols:
+                try:
+                    rows = await market._fetch_spot_raw(sym, "1m", 2)
+                    if not rows:
+                        continue
+                    cur = rows[-1]
+                    cur_ot = int(cur["openTime"])
+                    # 직전 봉 확정 전파
+                    if sym in last_ot and last_ot[sym] != cur_ot and len(rows) >= 2:
+                        prev = rows[-2]
+                        await self._dispatch_candle({
+                            "source": "BINANCE", "symbol": sym, "timeframe": "1m",
+                            "open_time": int(prev["openTime"]), "close_time": int(prev["closeTime"]),
+                            "open": prev["open"], "high": prev["high"], "low": prev["low"],
+                            "close": prev["close"], "volume": prev["volume"],
+                            "is_final": True, "isFinal": True,
+                        })
+                    last_ot[sym] = cur_ot
+                    await self._dispatch_candle({
+                        "source": "BINANCE", "symbol": sym, "timeframe": "1m",
+                        "open_time": cur_ot, "close_time": int(cur["closeTime"]),
+                        "open": cur["open"], "high": cur["high"], "low": cur["low"],
+                        "close": cur["close"], "volume": cur["volume"], "is_final": False,
+                    })
+                    await self._dispatch_ticker({"symbol": sym, "last_price": str(cur["close"]), "open": str(cur["open"])})
+                except Exception as e:
+                    logger.debug("ingest.spot.silent_except", error=str(e)[:100])
+                await asyncio.sleep(0.3)
+            await asyncio.sleep(5)
+
     async def stop(self):
+        self._spot_running = False
         if self._rest:
             await self._rest.stop()
         if self._ws:

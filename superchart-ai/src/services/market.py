@@ -4,6 +4,7 @@ import structlog
 from src.services.redis_cache import cache_get, cache_set
 
 BINANCE_BASE = "https://fapi.binance.com"
+BINANCE_SPOT_BASE = "https://api.binance.com"
 BITGET_BASE = "https://api.bitget.com"
 YAHOO_BASE = "https://query1.finance.yahoo.com"
 log = structlog.get_logger(__name__)
@@ -33,6 +34,19 @@ async def fetch_candles(symbol_code: str, exchange_id: int, timeframe: str, limi
 
     if exchange_id == 4:
         return await _fetch_yahoo_raw(symbol_code, timeframe, limit, end_time)
+
+    # exchange_id == 5: Binance Spot (토큰화 주식/원자재 — NVDABUSDT 등)
+    if exchange_id == 5:
+        if not end_time:
+            key = f"spot:{symbol_code}:{timeframe}:{limit}"
+            ttl = _CACHE_TTL.get(timeframe, 60)
+            cached = await cache_get("candle", key)
+            if cached is not None:
+                return cached
+            result = await _fetch_spot_raw(symbol_code, timeframe, limit, end_time)
+            await cache_set("candle", key, result, ttl)
+            return result
+        return await _fetch_spot_raw(symbol_code, timeframe, limit, end_time)
 
     if not end_time:
         key = f"{symbol_code}:{exchange_id}:{timeframe}:{limit}"
@@ -98,6 +112,51 @@ async def _fetch_raw(symbol_code: str, timeframe: str, limit: int, end_time: int
     if not all_klines:
         return await _fetch_bitget_raw(symbol_code, timeframe, limit, end_time)
 
+    return [{"openTime": str(k[0]), "closeTime": str(k[6]), "open": k[1], "high": k[2],
+             "low": k[3], "close": k[4], "volume": k[5], "isFinal": True} for k in all_klines]
+
+
+async def _fetch_spot_raw(symbol_code: str, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
+    """Binance Spot klines 조회 (api.binance.com/api/v3/klines).
+
+    토큰화 주식/원자재(NVDABUSDT, TSLABUSDT, XAUTUSDT 등)는 Spot 시장에만 존재한다.
+    응답 포맷은 Futures klines 와 동일. 폴백 없음(Spot 미존재 시 빈 배열).
+    """
+    import asyncio as _asyncio
+    interval = TF_MAP.get(timeframe, timeframe)
+    limit = min(limit, MAX_LIMIT)
+    all_klines: list = []
+    et = end_time
+    c = _client()
+    while len(all_klines) < limit:
+        batch = min(1000, limit - len(all_klines))  # Spot klines 최대 1000
+        params = {"symbol": symbol_code, "interval": interval, "limit": batch}
+        if et:
+            params["endTime"] = et
+        r = None
+        for attempt in range(2):
+            try:
+                r = await c.get(f"{BINANCE_SPOT_BASE}/api/v3/klines", params=params, timeout=15)
+                if r.status_code == 200:
+                    break
+                if 400 <= r.status_code < 500:
+                    break
+            except Exception:
+                pass
+            if attempt == 0:
+                await _asyncio.sleep(0.5)
+        if r is None or r.status_code != 200:
+            break
+        data = r.json()
+        if not data:
+            break
+        all_klines = data + all_klines
+        if len(data) < batch:
+            break
+        et = data[0][0] - 1
+
+    if not all_klines:
+        return []
     return [{"openTime": str(k[0]), "closeTime": str(k[6]), "open": k[1], "high": k[2],
              "low": k[3], "close": k[4], "volume": k[5], "isFinal": True} for k in all_klines]
 
