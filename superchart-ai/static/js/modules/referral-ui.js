@@ -19,13 +19,27 @@ async function _safeFetchJson(url, opts) {
 }
 
 // ═══ 회원가입 폼에 추천 코드 입력란 ═══
+// 추천 코드는 "회원가입" 모드에서만 노출한다. authTermsRow(약관 동의)가
+// 로그인=숨김 / 회원가입=표시 로 토글되므로, 추천 코드 행도 그 표시 상태를
+// 따라가도록 동기화한다(로그인 화면에 추천 코드가 뜨던 문제 수정).
 const _authObs = new MutationObserver(() => {
   const modal = document.getElementById('authModal');
-  if (modal && modal.offsetHeight > 0 && !modal.querySelector('#authRefCode')) {
+  if (!modal || modal.offsetHeight <= 0) return;
+  if (!modal.querySelector('#authRefCode')) {
     setTimeout(_injectRefCodeInput, 300);
+  } else {
+    _syncRefCodeVisibility();
   }
 });
 _authObs.observe(document.body, {attributes: true, subtree: true, attributeFilter: ['style','class']});
+
+function _syncRefCodeVisibility() {
+  const refRow = document.getElementById('authRefCodeRow');
+  const termsRow = document.getElementById('authTermsRow');
+  if (!refRow || !termsRow) return;
+  // 약관 동의 행과 동일한 표시 상태(회원가입에서만 보임)로 맞춘다.
+  refRow.style.display = (termsRow.style.display === 'none') ? 'none' : '';
+}
 
 function _injectRefCodeInput() {
   const modal = document.getElementById('authModal');
@@ -37,6 +51,8 @@ function _injectRefCodeInput() {
   refRow.style.cssText = 'margin-bottom:8px';
   refRow.innerHTML = `<input id="authRefCode" placeholder="추천 코드 입력 (선택)" value="${_urlRef}" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">`;
   termsRow.parentNode.insertBefore(refRow, termsRow);
+  // 초기 표시 상태를 약관 행과 동일하게(로그인 모드면 숨김)
+  _syncRefCodeVisibility();
   if (_urlRef) {
     const signupTab = document.getElementById('authTabSignup');
     if (signupTab) signupTab.click();
