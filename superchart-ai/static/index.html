@@ -338,6 +338,50 @@ body {
   box-shadow: 0 4px 10px rgba(146,18,48,0.12);
 }
 
+/* ═══ 범온 AI 지표 강조 (일반 지표와 구분) ═══ */
+.beom-ai-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px 4px;
+}
+.beom-ai-header .beom-ai-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #921230;
+  letter-spacing: -0.01em;
+}
+.beom-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: #921230;
+  border-radius: 9px;
+  letter-spacing: 0.02em;
+}
+.beom-ai-note {
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+/* 범온 AI 그룹: 좌측 #921230 강조선 + 살짝 다른 배경으로 일반 지표와 분리 */
+.premium-row .ind-group {
+  border-left: 3px solid #921230;
+  background: linear-gradient(180deg, rgba(146,18,48,0.05), rgba(255,255,255,0.62));
+}
+.premium-row .ind-group-label { color: #921230; }
+/* 일반 지표 그룹은 좌측 골드 톤으로 구분 */
+.basic-row .ind-group { border-left: 3px solid rgba(216,182,106,0.5); }
+
 .hero-overlay {
   backdrop-filter: blur(3px);
   background: radial-gradient(circle at top right, rgba(146,18,48,0.24), rgba(15,23,42,0.56));
@@ -1135,6 +1179,11 @@ body.dark #_toastContainer .pro-toast-chip {
     </div>
     <!-- ═════ 회원 등급별 안내 배너 (지표 위 전체 폭) ═════ -->
     <div class="ind-row premium-row" data-drawer-group="beom">
+      <div class="beom-ai-header">
+        <span class="beom-ai-title">범온 AI 지표</span>
+        <span class="beom-ai-badge" aria-label="범온 AI 지표">AI</span>
+      </div>
+      <p class="beom-ai-note">시장 흐름, 추세 전환, 거래 밀집, 목표 구간, 단기 대응 구간을 AI 기반으로 정리해 차트 위에 시각화합니다. 모든 신호는 투자 판단을 돕는 참고 정보입니다.</p>
       <div class="ind-group">
         <span class="ind-group-label">AI 캔들·이평선</span>
         <div class="ind-tag pro-ind" data-ind="ultra" title="추세 방향과 강도를 색상으로 표시하는 AI 캔들 | 추천: 5분~1시간">범온 캔들</div>
@@ -1144,7 +1193,7 @@ body.dark #_toastContainer .pro-toast-chip {
       </div>
       <div class="ind-group">
         <span class="ind-group-label">진입·청산 시그널</span>
-        <div class="ind-tag pro-ind" data-ind="ob" title="매수·매도 집중 구간을 자동 감지하여 표시 | 추천: 15분~4시간">거래밀집구간</div>
+        <div class="ind-tag pro-ind" data-ind="ob" title="거래가 집중된 가격대를 자동 감지해 지지·저항 참고 구간으로 표시 | 추천: 15분~4시간">거래밀집구간</div>
         <div class="ind-tag pro-ind" data-ind="obsig" title="추세 시작 구간 감지 시그널 | 추천: 5분~1시간">범온 추세시작</div>
         <div class="ind-tag pro-ind" data-ind="bimaco_tp" title="AI가 예측한 진입·손절·익절 목표가 표시 | 추천: 5분~1시간">AI목표</div>
         <div class="ind-tag pro-ind" data-ind="ttr" title="단타 익절 타이밍 감지 | 추천: 1분~5분">단타 익절</div>
