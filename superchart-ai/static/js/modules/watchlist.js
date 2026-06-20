@@ -80,26 +80,38 @@ export { symbols, coinImgUrl, _apiMap, _apiToFront };
 
 export async function loadSymbolsFromDB() {
   try {
-    symbols.length = 0;
+    const collected = [];
+    const collectedImg = {};
+    const collectedApi = {};
+    const collectedApiToFront = {};
 
     let page = 1;
-    const pageSize = 5000;
+    const pageSize = 500;          // 큰 page_size 는 서버 머지(라이브 fetch) 지연으로 간헐 502 → 작게 페이징
     const seen = new Set();
 
     while (true) {
-      const r = await _df(`/v1/symbols?page=${page}&page_size=${pageSize}`);
-      if (!r || !r.ok) break;
-      const j = await r.json().catch(() => null);
-      const items = (j && j.success && j.data && Array.isArray(j.data.items)) ? j.data.items : [];
+      // 일시적 502/네트워크 오류로 목록이 통째로 비지 않도록 페이지별 재시도
+      let j = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const r = await _df(`/v1/symbols?page=${page}&page_size=${pageSize}`);
+        if (r && r.ok) {
+          j = await r.json().catch(() => null);
+          if (j && j.success && j.data && Array.isArray(j.data.items)) break;
+          j = null;
+        }
+        await new Promise(res => setTimeout(res, 400 * (attempt + 1)));
+      }
+      // 첫 페이지조차 실패하면 기존 목록 유지(빈 화면 방지)하고 종료
+      if (!j) break;
 
+      const items = j.data.items;
       if (!items.length) break;
 
       items.forEach(s => {
         const code = s.symbol_code;
         if (!code || seen.has(code)) return;
         seen.add(code);
-
-        symbols.push({
+        collected.push({
           code,
           name: s.display_name_en || code,
           kr: s.display_name_ko || '',
@@ -107,14 +119,22 @@ export async function loadSymbolsFromDB() {
           exchangeCode: s.exchange_code || null,
           asset: s.asset_class || 'crypto'
         });
-
-        if (s.img_url) coinImgUrl[code] = s.img_url;
-        if (s.api_code) { _apiMap[code] = s.api_code; _apiToFront[s.api_code] = code; }
+        if (s.img_url) collectedImg[code] = s.img_url;
+        if (s.api_code) { collectedApi[code] = s.api_code; collectedApiToFront[s.api_code] = code; }
       });
 
       if (!(j?.data?.has_next)) break;
       page += 1;
       if (page > 50) break; // 안전장치
+    }
+
+    // 일부라도 받아온 경우에만 교체(중간 실패 시 기존 목록 보존)
+    if (collected.length) {
+      symbols.length = 0;
+      collected.forEach(s => symbols.push(s));
+      Object.assign(coinImgUrl, collectedImg);
+      Object.assign(_apiMap, collectedApi);
+      Object.assign(_apiToFront, collectedApiToFront);
     }
 
     window.symbols = symbols;
