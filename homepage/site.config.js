@@ -31,9 +31,8 @@ export const siteConfig = {
   COMPANY_NAME_EN: 'Beomon Nuri Innovation Co., Ltd.',
   CEO_NAME: '권누리',
   CEO_NAME_EN: 'Nuri Kwon',
-  ADDRESS_KR: '경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) 415호',
-  ADDRESS_EN: '415, 190 Galmae-jungang-ro, Guri-si, Gyeonggi-do, Korea (Guri Galmae Hubble Nine Knowledge Industry Center)',
-  FOUNDED_YEAR: '2026.06',
+  ADDRESS_KR: '경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15',
+  ADDRESS_EN: 'D-Zone, 4F-15, 190 Galmae-jungang-ro, Guri-si, Gyeonggi-do, Korea (Guri Galmae Hubble Nine Knowledge Industry Center)',
 };
 
 /** 토큰 치환 맵 (빌드 타임 + 런타임 공용) */

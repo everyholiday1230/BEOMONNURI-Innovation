@@ -22,7 +22,7 @@ const T = {
     privacy: '개인정보처리방침',
     rights: 'All rights reserved.',
     labels: {
-      ceo: '대표자', addr: '주소', founded: '설립', email: '이메일'
+      ceo: '대표자', addr: '주소', email: '이메일'
     }
   },
   en: {
@@ -37,7 +37,7 @@ const T = {
     privacy: 'Privacy Policy',
     rights: 'All rights reserved.',
     labels: {
-      ceo: 'CEO', addr: 'Address', founded: 'Founded', email: 'Email'
+      ceo: 'CEO', addr: 'Address', email: 'Email'
     }
   }
 };
@@ -140,6 +140,96 @@ const PRODUCT_ENHANCEMENT = {
   }
 };
 
+/**
+ * 제품 slug별 고유 FAQ. 존재하면 공통 FAQ 대신 사용한다.
+ */
+const PRODUCT_FAQS = {
+  'private-ai': {
+    ko: [
+      { q: '내부 데이터가 외부 모델 학습에 사용되나요?', a: '도입 방식에 따라 데이터 활용 구조를 분리해 설계할 수 있습니다. 초기 상담에서 모델 사용 방식, 데이터 저장 위치, 로그 정책을 함께 확인합니다.' },
+      { q: '온프레미스 구축이 가능한가요?', a: '보안 요건에 따라 온프레미스 또는 프라이빗 클라우드 환경을 검토할 수 있습니다.' },
+      { q: '기존 문서 저장소와 연동할 수 있나요?', a: '보유 중인 문서 저장소, 권한 체계, 업무 시스템 구조를 확인한 뒤 연동 범위를 정의합니다.' },
+      { q: '어떤 데이터를 먼저 준비해야 하나요?', a: '우선 적용할 규정, 매뉴얼, FAQ, 보고서 등 반복 검색이 많은 문서부터 준비하는 것이 좋습니다.' }
+    ],
+    en: [
+      { q: 'Is our internal data used to train external models?', a: 'Depending on the deployment, we can separate the data-handling architecture. In the initial consultation we review model usage, data storage location, and logging policy together.' },
+      { q: 'Is on-premise deployment possible?', a: 'Depending on your security requirements, we can review on-premise or private cloud environments.' },
+      { q: 'Can it integrate with our existing document repository?', a: 'We define the integration scope after reviewing your document repositories, permission structure, and business systems.' },
+      { q: 'What data should we prepare first?', a: 'Start with frequently searched documents such as policies, manuals, FAQs, and reports.' }
+    ]
+  },
+  'agent-ai': {
+    ko: [
+      { q: '모든 업무를 AI가 자동으로 처리하나요?', a: '아닙니다. 반복적이고 기준이 명확한 업무부터 자동화하고, 중요한 판단이나 승인 지점은 사람이 검토하도록 설계합니다.' },
+      { q: '기존 업무 시스템과 연동할 수 있나요?', a: '연동 가능 여부는 시스템 구조와 권한 정책에 따라 달라집니다. 초기 진단에서 연동 범위를 확인합니다.' },
+      { q: '어떤 업무부터 시작하는 것이 좋나요?', a: '반복도가 높고 처리 기준이 명확하며, 결과 검토가 가능한 업무부터 시작하는 것이 좋습니다.' },
+      { q: '실행 오류가 발생하면 어떻게 하나요?', a: '예외 상황을 감지하면 담당자에게 알리고, 필요한 경우 사람 개입 단계로 전환하도록 설계합니다.' }
+    ],
+    en: [
+      { q: 'Does the AI handle every task automatically?', a: 'No. We automate repetitive, clearly defined tasks first, while important judgments and approval points stay with people.' },
+      { q: 'Can it integrate with existing business systems?', a: 'Integration depends on your system architecture and permission policy. We confirm the scope during the initial assessment.' },
+      { q: 'Which tasks are best to start with?', a: 'Start with tasks that are highly repetitive, have clear processing criteria, and allow result review.' },
+      { q: 'What happens if an execution error occurs?', a: 'When an exception is detected, the system notifies the owner and, if needed, switches to a human-in-the-loop step.' }
+    ]
+  },
+  'superchart-ai': {
+    ko: [
+      { q: '어떤 자산을 분석할 수 있나요?', a: '적용 대상 자산과 데이터 연동 범위는 도입 환경에 따라 달라집니다. 우선 분석할 종목군과 지표를 기준으로 검토합니다.' },
+      { q: '투자 판단을 대신해 주나요?', a: '투자 결정을 대신하는 것이 아니라 시장 데이터와 리스크 신호를 정리해 리서치 판단을 지원합니다.' },
+      { q: '팀 기준 알림을 설정할 수 있나요?', a: '변동성, 추세 전환, 특정 지표 조건 등 팀에서 사용하는 기준을 바탕으로 알림 구조를 설계할 수 있습니다.' },
+      { q: '기존 리서치 방식과 함께 쓸 수 있나요?', a: '기존 분석 방식을 대체하기보다 반복 확인과 정리 시간을 줄이는 보조 도구로 적용할 수 있습니다.' }
+    ],
+    en: [
+      { q: 'Which assets can it analyze?', a: 'The covered assets and data integration scope depend on your environment. We start from the instruments and indicators you want to analyze first.' },
+      { q: 'Does it make investment decisions for us?', a: 'It does not replace investment decisions; it organizes market data and risk signals to support research judgment.' },
+      { q: 'Can we set team-level alerts?', a: 'Yes. We can design alerts based on your team criteria such as volatility, trend reversal, or specific indicator conditions.' },
+      { q: 'Can it be used alongside our existing research process?', a: 'Rather than replacing your current approach, it works as a supporting tool that reduces repetitive checking and summarizing time.' }
+    ]
+  },
+  'farm-shipping-ai': {
+    ko: [
+      { q: '어떤 품목부터 적용하는 것이 좋나요?', a: '출하 시점에 따라 가격 차이가 크고, 과거 데이터가 확보된 품목부터 시작하는 것이 좋습니다.' },
+      { q: '예측 결과가 출하 결정을 대신하나요?', a: '아닙니다. AI는 시세, 수급, 작황 정보를 바탕으로 판단 근거를 제공하고 최종 결정은 담당자가 수행합니다.' },
+      { q: '과거 데이터가 부족해도 가능한가요?', a: '보유 데이터 수준에 따라 적용 범위가 달라집니다. 외부 데이터와 내부 데이터를 함께 검토해 시작 가능한 범위를 정리합니다.' },
+      { q: '산지별 특성을 반영할 수 있나요?', a: '품목, 지역, 출하 패턴, 물류 조건을 기준으로 단계적으로 반영할 수 있습니다.' }
+    ],
+    en: [
+      { q: 'Which products are best to start with?', a: 'Start with products that have large price differences by shipping timing and for which historical data is available.' },
+      { q: 'Do the predictions replace shipping decisions?', a: 'No. The AI provides decision support based on price, supply-demand, and crop data, while the final decision stays with the owner.' },
+      { q: 'Is it possible with limited historical data?', a: 'The scope depends on your available data. We review external and internal data together to define a feasible starting point.' },
+      { q: 'Can it reflect region-specific characteristics?', a: 'Yes. We can reflect product, region, shipping pattern, and logistics conditions step by step.' }
+    ]
+  },
+  'commodity-procurement-ai': {
+    ko: [
+      { q: '어떤 원자재에 적용할 수 있나요?', a: '금속, 에너지, 곡물 등 가격 데이터와 관련 지표를 확보할 수 있는 품목부터 검토할 수 있습니다.' },
+      { q: '구매 시점을 확정해 주나요?', a: 'AI가 구매 결정을 대신하지는 않습니다. 가격 흐름과 리스크 신호를 정리해 담당자의 의사결정을 지원합니다.' },
+      { q: '내부 구매 이력도 활용할 수 있나요?', a: '가능합니다. 구매 이력, 단가, 재고 정책, 조달 주기를 함께 검토하면 더 실무적인 분석이 가능합니다.' },
+      { q: '환율이나 거시 지표도 반영되나요?', a: '품목 특성에 따라 환율, 금리, 수급, 재고 등 관련 지표를 함께 분석할 수 있습니다.' }
+    ],
+    en: [
+      { q: 'Which raw materials can it be applied to?', a: 'We can start with materials such as metals, energy, and grains for which price data and related indicators are available.' },
+      { q: 'Does it fix the purchase timing for us?', a: 'The AI does not make purchase decisions. It organizes price trends and risk signals to support the owner’s decision.' },
+      { q: 'Can our internal purchase history be used?', a: 'Yes. Reviewing purchase history, unit prices, inventory policy, and procurement cycles enables more practical analysis.' },
+      { q: 'Are exchange rates or macro indicators reflected?', a: 'Depending on the material, we can analyze related indicators such as exchange rates, interest rates, supply-demand, and inventory.' }
+    ]
+  },
+  'apartment-management-ai': {
+    ko: [
+      { q: '관리사무소 규모가 작아도 사용할 수 있나요?', a: '가능합니다. 우선 민원, 공지, 시설 점검처럼 부담이 큰 업무부터 단계적으로 적용할 수 있습니다.' },
+      { q: '기존 관리 프로그램과 연동할 수 있나요?', a: '사용 중인 프로그램과 데이터 구조를 확인한 뒤 연동 가능 범위를 검토합니다.' },
+      { q: '입주민 문의에 AI가 바로 답변하나요?', a: '반복 문의는 자동 응대할 수 있도록 설계할 수 있으며, 민감하거나 예외적인 내용은 담당자 검토 단계로 전환할 수 있습니다.' },
+      { q: '회계 업무를 완전히 대체하나요?', a: '회계 담당자의 판단을 대체하는 것이 아니라 정리, 확인, 반복 안내 업무를 보조하는 방향으로 적용합니다.' }
+    ],
+    en: [
+      { q: 'Can a small management office use it?', a: 'Yes. We can apply it step by step, starting with high-burden tasks such as resident inquiries, notices, and facility inspections.' },
+      { q: 'Can it integrate with our existing management software?', a: 'We review the integration scope after checking your current software and data structure.' },
+      { q: 'Does the AI answer resident inquiries directly?', a: 'Repetitive inquiries can be handled automatically, while sensitive or exceptional cases switch to a staff review step.' },
+      { q: 'Does it fully replace accounting work?', a: 'It does not replace the accountant’s judgment; it supports organizing, checking, and repetitive guidance tasks.' }
+    ]
+  }
+};
+
 function normalizePath(pathname = window.location.pathname) {
   return pathname.endsWith('/') ? pathname : `${pathname}/`;
 }
@@ -180,9 +270,11 @@ function injectProductEnhancement(lang) {
     .join('');
   const trustItems = t.trustItems.map((item) => `<li>${item}</li>`).join('');
 
-  const faqItems = t.faqs
+  const slug = productSlug();
+  const faqSource = (PRODUCT_FAQS[slug] && PRODUCT_FAQS[slug][lang]) || t.faqs;
+  const faqItems = faqSource
     .map((item, idx) => {
-      const id = `faq-${productSlug()}-${idx + 1}`;
+      const id = `faq-${slug}-${idx + 1}`;
       return `<article class="faq-item reveal-item"><button class="faq-q" aria-expanded="false" aria-controls="${id}">${item.q}<span class="chev" aria-hidden="true">${iconSvg('chevronDown')}</span></button><div class="faq-a" id="${id}" hidden><p>${item.a}</p></div></article>`;
     })
     .join('');
@@ -368,7 +460,6 @@ function renderFooter(lang) {
       <dl class="footer-meta">
         <div><dt>${L.ceo}</dt><dd>${ceo}</dd></div>
         <div><dt>${L.addr}</dt><dd>${addr}</dd></div>
-        <div><dt>${L.founded}</dt><dd>${siteConfig.FOUNDED_YEAR}</dd></div>
       </dl>
     </section>
     <section class="footer-col footer-contact">

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contact | Beomon Nuri Innovation</title>
-  <meta name="description" content="Contact us about AI product adoption, PoCs and technical collaboration. Share your company details and the product you're interested in." />
+  <title>Check Adoption Fit | Beomon Nuri Innovation</title>
+  <meta name="description" content="Tell us your adoption goals, the data you hold, security requirements, and priority tasks, and we'll organize a fitting product combination and pilot scope. We accept inquiries for secure AI, workflow automation, and industry decision intelligence." />
   <meta name="theme-color" content="#921230" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="{{SITE_URL}}/en/contact/" />
@@ -28,8 +28,8 @@
 <main id="main-content">
   <section class="page-hero contact-hero">
     <p class="eyebrow">Contact</p>
-    <h1>Let's scope your rollout</h1>
-    <p class="lead">Tell us the product you need, the data you hold, and the workflow you want to apply it to, and we'll outline a fitting scope and direction.</p>
+    <h1>Quickly organize the right AI adoption scope for your organization</h1>
+    <p class="lead">Tell us your adoption goals, the data you hold, security requirements, and priority tasks, and we'll organize a fitting product combination and pilot scope as a first step. It's fine if you don't have a concrete plan yet — we'll confirm a feasible starting scope based on your current situation.</p>
   </section>
 
   <section class="section">
@@ -43,7 +43,7 @@
       <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
         <h2 id="form-title" class="sr-only">Inquiry form</h2>
         <div class="form-status" role="status" aria-live="polite"></div>
-        <p class="form-microcopy">Share only essential details first. Additional context is optional.</p>
+        <p class="form-microcopy">Share only essential details first. We'll organize anything else that needs confirming during the consultation.</p>
         <section class="form-success-panel" hidden aria-live="polite"></section>
 
         <div class="form-row">
@@ -72,13 +72,17 @@
             <div class="field"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" /><span class="error-text" aria-live="polite"></span></div>
             <div class="field"><label for="dataType">Data you hold</label><input type="text" id="dataType" name="dataType" placeholder="e.g. internal docs, market data, request records" /><span class="error-text" aria-live="polite"></span></div>
           </div>
+          <div class="form-row optional-grid">
+            <div class="field"><label for="security">Security requirements</label><input type="text" id="security" name="security" placeholder="e.g. on-premise, network isolation, access control" /><span class="error-text" aria-live="polite"></span></div>
+            <div class="field"><label for="reduceTask">Work you most want to reduce</label><input type="text" id="reduceTask" name="reduceTask" placeholder="e.g. recurring reports, document search, inquiry handling" /><span class="error-text" aria-live="polite"></span></div>
+          </div>
         </details>
         <div class="field"><label for="message">Goal / message<span class="req" aria-hidden="true">*</span></label><textarea id="message" name="message" required placeholder="Describe the problem you want to solve and the outcome you expect."></textarea><span class="error-text" aria-live="polite"></span></div>
         <div class="field">
           <label class="consent"><input type="checkbox" name="consent" value="agree" /><span>I agree to the collection and use of my personal information. See the <a href="/en/privacy/">Privacy Policy</a> for items and purpose.<span class="req" aria-hidden="true">*</span></span></label>
           <span class="error-text" data-consent-error aria-live="polite"></span>
         </div>
-        <button type="submit" class="button primary">Send inquiry</button>
+        <button type="submit" class="button primary">Request adoption fit check</button>
       </form>
     </div>
   </section>

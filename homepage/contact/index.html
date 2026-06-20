@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>문의 | (주)범온누리 이노베이션</title>
-  <meta name="description" content="AI 제품 도입, 기술 협력, PoC 상담을 위한 문의 페이지입니다. 회사 정보와 관심 제품을 남겨 주시면 도입 범위를 검토해 드립니다." />
+  <title>도입 가능성 진단 | (주)범온누리 이노베이션</title>
+  <meta name="description" content="도입 목적, 보유 데이터, 보안 요건, 우선 업무를 알려주시면 적용 가능한 제품 조합과 파일럿 범위를 1차로 정리해 드립니다. 보안형 AI·업무 자동화·산업별 의사결정 AI 도입 상담을 접수합니다." />
   <meta name="theme-color" content="#921230" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="{{SITE_URL}}/contact/" />
@@ -29,8 +29,8 @@
 <main id="main-content">
   <section class="page-hero contact-hero">
     <p class="eyebrow">Contact</p>
-    <h1>성과 중심 도입 전략을 함께 설계합니다</h1>
-    <p class="lead">관심 제품, 보유 데이터, 적용 업무를 알려주시면 검증 범위, 보안 기준, 운영 전환 계획까지 신뢰 가능한 실행안으로 정리해 드립니다.</p>
+    <h1>우리 조직에 맞는 AI 도입 범위를 빠르게 정리합니다</h1>
+    <p class="lead">도입 목적, 보유 데이터, 보안 요건, 우선 업무를 알려주시면 적용 가능한 제품 조합과 파일럿 범위를 1차로 정리해 드립니다. 아직 구체적인 계획이 없어도 괜찮습니다. 현재 상황을 기준으로 시작 가능한 범위를 함께 확인합니다.</p>
   </section>
 
   <section class="section">
@@ -55,7 +55,7 @@
       <form id="contact-form" class="form" novalidate aria-labelledby="form-title">
         <h2 id="form-title" class="sr-only">문의 양식</h2>
         <div class="form-status" role="status" aria-live="polite"></div>
-        <p class="form-microcopy">핵심 정보만 먼저 남겨주세요. 추가 정보는 선택 입력입니다.</p>
+        <p class="form-microcopy">핵심 정보만 먼저 남겨주세요. 추가 확인이 필요한 내용은 상담 과정에서 함께 정리해 드립니다.</p>
         <section class="form-success-panel" hidden aria-live="polite"></section>
 
         <div class="form-row">
@@ -107,6 +107,18 @@
               <span class="error-text" aria-live="polite"></span>
             </div>
           </div>
+          <div class="form-row optional-grid">
+            <div class="field">
+              <label for="security">보안 요건</label>
+              <input type="text" id="security" name="security" placeholder="예: 온프레미스, 망분리, 권한 제어" />
+              <span class="error-text" aria-live="polite"></span>
+            </div>
+            <div class="field">
+              <label for="reduceTask">현재 가장 줄이고 싶은 업무</label>
+              <input type="text" id="reduceTask" name="reduceTask" placeholder="예: 반복 보고, 문서 검색, 문의 응대" />
+              <span class="error-text" aria-live="polite"></span>
+            </div>
+          </div>
         </details>
 
         <div class="field">
@@ -115,15 +127,40 @@
           <span class="error-text" aria-live="polite"></span>
         </div>
 
-        <div class="field">
+        <div class="field consent-block">
+          <details class="consent-policy">
+            <summary>[필수] 개인정보 수집·이용 동의 (자세히 보기)</summary>
+            <div class="consent-policy-body">
+              <p>(주)범온누리 이노베이션은 AI 제품 도입 문의 및 상담 응대를 위해 아래와 같이 개인정보를 수집·이용합니다.</p>
+              <h4>1. 수집 항목</h4>
+              <p><strong>필수 항목:</strong><br />회사명, 담당자명, 이메일, 관심 제품, 도입 목적 또는 문의 내용</p>
+              <p><strong>선택 항목:</strong><br />연락처, 보유 데이터 유형, 보안 요건, 현재 줄이고 싶은 업무 또는 자동화 희망 업무, 기타 문의자가 직접 입력한 내용</p>
+              <h4>2. 수집·이용 목적</h4>
+              <ul>
+                <li>AI 제품 및 서비스 도입 문의 확인</li>
+                <li>상담 요청에 대한 연락 및 답변</li>
+                <li>제품 적용 가능성 검토</li>
+                <li>파일럿 및 구축 범위 검토</li>
+                <li>견적, 제안, 미팅 일정 조율</li>
+                <li>상담 이력 관리 및 후속 문의 대응</li>
+              </ul>
+              <h4>3. 보유 및 이용 기간</h4>
+              <p>문의 접수일로부터 3년 또는 정보주체의 삭제 요청 시까지 보관합니다. 다만 계약 체결, 대금 정산, 분쟁 처리 등 관계 법령에 따라 보관이 필요한 경우 해당 법령에서 정한 기간 동안 보관할 수 있습니다.</p>
+              <h4>4. 동의를 거부할 권리 및 불이익</h4>
+              <p>정보주체는 개인정보 수집·이용에 대한 동의를 거부할 권리가 있습니다. 다만 필수 항목에 대한 동의를 거부할 경우 문의 접수 및 상담 응대가 제한될 수 있습니다. 선택 항목은 입력하지 않아도 문의 접수는 가능합니다.</p>
+            </div>
+          </details>
+
+          <p class="consent-notice">선택 항목은 보다 정확한 상담을 위해 수집되며, 입력하지 않아도 문의 접수는 가능합니다. 문의 내용에는 주민등록번호, 계좌번호, 비밀번호, 건강정보 등 민감정보 또는 고유식별정보를 입력하지 말아 주세요.</p>
+
           <label class="consent">
             <input type="checkbox" name="consent" value="agree" />
-            <span>개인정보 수집·이용에 동의합니다. 수집 항목과 목적은 <a href="/privacy/">개인정보처리방침</a>에서 확인할 수 있습니다.<span class="req" aria-hidden="true">*</span></span>
+            <span>위 개인정보 수집·이용 안내를 확인했으며 이에 동의합니다. 자세한 내용은 <a href="/privacy/">개인정보처리방침</a>에서 확인할 수 있습니다.<span class="req" aria-hidden="true">*</span></span>
           </label>
           <span class="error-text" data-consent-error aria-live="polite"></span>
         </div>
 
-        <button type="submit" class="button primary">지금 도입안 제안받기</button>
+        <button type="submit" class="button primary">도입 가능성 진단 요청하기</button>
       </form>
     </div>
   </section>

@@ -74,7 +74,7 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - [ ] `FORM_ENDPOINT` — 비어 있으면 문의 폼이 mailto fallback. Cloudflare Pages Functions/Formspree 등 설정 시 실제 전송
 - [ ] `SITE_URL` — 도메인 변경 시 (현재 `https://www.beomonnuri.com`)
 - [ ] `GOOGLE_SITE_VERIFICATION` / `NAVER_SITE_VERIFICATION` — Search Console / Search Advisor 토큰 입력
-- [ ] 회사 정보(`CEO_NAME`, `ADDRESS_*`, `FOUNDED_YEAR`) 최종값 확인
+- [ ] 회사 정보(`CEO_NAME`, `ADDRESS_*`) 최종값 확인
 
 ### 2. 개인정보처리방침
 - [ ] `{{보유기간}}`, `{{개인정보 보호책임자}}`, `{{시행일}}` — **법무 검토 필수**

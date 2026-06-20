@@ -10,26 +10,26 @@ import { trackEvent } from './site.js';
 const AB_VARIANTS = {
   ko: [
     {
-      heroTitle: '성과 중심 도입 전략을 함께 설계합니다',
-      heroLead: '관심 제품, 보유 데이터, 적용 업무를 알려주시면 검증 범위, 보안 기준, 운영 전환 계획까지 신뢰 가능한 실행안으로 정리해 드립니다.',
-      submitLabel: '지금 도입안 제안받기'
+      heroTitle: '우리 조직에 맞는 AI 도입 범위를 빠르게 정리합니다',
+      heroLead: '도입 목적, 보유 데이터, 보안 요건, 우선 업무를 알려주시면 적용 가능한 제품 조합과 파일럿 범위를 1차로 정리해 드립니다. 아직 구체적인 계획이 없어도 괜찮습니다.',
+      submitLabel: '도입 가능성 진단 요청하기'
     },
     {
-      heroTitle: '우리 조직에 맞는 AI 도입 범위를 빠르게 정리합니다',
-      heroLead: '핵심 정보만 남겨주시면 우선순위 과제와 적용 범위를 1차로 정리해 드립니다.',
+      heroTitle: '지금 상황을 기준으로 시작 가능한 범위를 함께 확인합니다',
+      heroLead: '핵심 정보만 남겨주시면 우선 과제와 적용 가능한 제품 조합을 1차로 정리해 드립니다.',
       submitLabel: '적용 범위 빠르게 받기'
     }
   ],
   en: [
     {
-      heroTitle: "Let's scope your rollout",
-      heroLead: "Tell us the product you need, the data you hold, and the workflow you want to apply it to, and we'll outline a fitting scope and direction.",
-      submitLabel: 'Send inquiry'
+      heroTitle: 'Quickly organize the right AI adoption scope for your organization',
+      heroLead: "Tell us your adoption goals, the data you hold, security requirements, and priority tasks, and we'll organize a fitting product combination and pilot scope as a first step. It's fine if you don't have a concrete plan yet.",
+      submitLabel: 'Request adoption fit check'
     },
     {
-      heroTitle: 'Get a practical rollout scope, fast',
-      heroLead: 'Share only essential context and we will propose a focused first-step scope for your team.',
-      submitLabel: 'Get rollout scope'
+      heroTitle: "We'll confirm a feasible starting scope from where you are today",
+      heroLead: 'Share only essential context and we will outline your priority tasks and a fitting product combination as a first step.',
+      submitLabel: 'Get adoption scope'
     }
   ]
 };
@@ -96,6 +96,8 @@ function buildMailto(data, lang) {
         `Phone: ${data.phone || ''}`,
         `Product: ${data.product}`,
         `Data types: ${data.dataType || ''}`,
+        `Security requirements: ${data.security || ''}`,
+        `Task to reduce: ${data.reduceTask || ''}`,
         '',
         'Message:',
         data.message
@@ -107,6 +109,8 @@ function buildMailto(data, lang) {
         `연락처: ${data.phone || ''}`,
         `관심 제품: ${data.product}`,
         `보유 데이터: ${data.dataType || ''}`,
+        `보안 요건: ${data.security || ''}`,
+        `줄이고 싶은 업무: ${data.reduceTask || ''}`,
         '',
         '문의 내용:',
         data.message
