@@ -609,9 +609,8 @@
     renderBigMoney();
     renderSummary();
     renderLiq();        // liqData 있으면 렌더
-    renderFunding();
     renderAiInterpretation();
-    renderRiskChecklist();
+    // 펀딩 정보 / 리스크 체크리스트 섹션은 index.html에서 제거됨(사용자 요청).
 
     // 상태 배지 판정
     const hasLs = !!lsData;
