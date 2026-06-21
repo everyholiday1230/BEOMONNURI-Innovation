@@ -203,7 +203,7 @@ export async function loadSymbolsFromDB() {
   } catch (e) { }
 }
 
-export function renderWL(f = '') {
+export function renderWL(f = '', skipPrices = false) {
   const el = document.getElementById('watchlist');
   if (!el) return;
   const fl = f.toLowerCase();
@@ -211,9 +211,15 @@ export function renderWL(f = '') {
   let list = symbols;
   if (assetFilter !== 'all') list = list.filter(s => s.asset === assetFilter);
   if (f) list = list.filter(s => s.code.toLowerCase().includes(fl) || s.name.toLowerCase().includes(fl) || s.kr.includes(f));
-  // 가격 상태 필터: 가격 없는 종목 숨기기 / 지원(가격 있는) 종목만 보기
+  // 가격 상태 필터
+  // 기본 동작: 가격이 '확인된 결과 무효(가격 없음)'인 종목은 항상 숨긴다.
+  //   - 아직 확인 전(undefined)인 종목은 표시(초기 빈 화면 깜빡임 방지) → 가격 로드 후 자동 재렌더로 정리.
+  if (window._wlPriceValid) {
+    list = list.filter(s => window._wlPriceValid[s.code] !== false);
+  }
+  // 추가 토글: '지원(가격 있는) 종목만' 선택 시 확인된 유효 종목만 표시
   const pf = window._wlPriceFilter || 'all';
-  if (pf !== 'all' && window._wlPriceValid) {
+  if (pf === 'valid' && window._wlPriceValid) {
     list = list.filter(s => window._wlPriceValid[s.code] === true);
   }
   list = _sortSymbols(list);
@@ -233,7 +239,7 @@ export function renderWL(f = '') {
     </div>
     <div style="text-align:right;min-width:60px;flex-shrink:0" id="wp_${s.code}"><span style="color:var(--muted);font-size:14px">···</span></div></div>`;
   }).join('');
-  loadWLPrices();
+  if (!skipPrices) loadWLPrices();
 }
 
 function _sortSymbols(list) {
@@ -300,18 +306,18 @@ export async function loadWLPrices() {
         el.innerHTML = `<span class="ds-list-badge" title="${txt}">${txt}</span>`;
         continue;
       }
-      const color = d.pct >= 0 ? '#C4384B' : '#3B82F6';
+      const color = d.pct >= 0 ? '#C4384B' : '#4A0817';
       const sign = d.pct >= 0 ? '+' : '';
       const fmt = (PS && PS.formatNumber(d.price) != null) ? PS.formatNumber(d.price).replace(/^₩/, '') : fmtPrice(d.price);
       const pctTxt = Number.isFinite(d.pct) ? `${sign}${d.pct.toFixed(2)}%` : '';
       el.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div>${pctTxt ? `<div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${pctTxt}</div>` : ''}`;
     }
-    // 필터(지원 종목만 보기/가격 없는 종목 숨기기)가 켜져 있으면 목록 갱신
-    // (재진입 방지: 필터 재렌더는 1회만)
-    if (window._wlPriceFilter && window._wlPriceFilter !== 'all' && !window._wlFilterReRender) {
+    // 가격 확인 후 목록 재렌더 — 가격 없는(무효) 종목 자동 숨김 반영.
+    // (재진입 방지: 1회만)
+    if (!window._wlFilterReRender) {
       window._wlFilterReRender = true;
       const curSearch = document.getElementById('searchInput')?.value || '';
-      renderWL(curSearch);
+      renderWL(curSearch, true);
       window._wlFilterReRender = false;
     }
   } catch (e) { /* ticker load fail — silent */ }
