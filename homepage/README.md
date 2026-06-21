@@ -50,6 +50,11 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 문의 완료 UX 개선: 제출 후 다음 단계 안내 패널(접수 후 프로세스) 추가
 - 전환 측정 이벤트 추가(GA4/gtag 및 dataLayer 병행): `contact_cta_click`, `contact_form_start`, `contact_form_submit_attempt`, `contact_form_submit_success`, `contact_form_submit_failure`, `contact_form_mailto_fallback`, `contact_form_validation_error`
 - 홈 레이아웃 고도화: KR/EN 홈에 `Rollout Roadmap`(4단계) 및 `Use Case Preview`(3개 시나리오) 섹션 추가
+- 디자인 1차 고도화: 텍스트 변경 없이 패널·카드 레이아웃 밀도/가독 폭/줄바꿈 규칙 정리, 반응형 브레이크포인트(1200/1024/900/760) 미세 조정
+- 패널 톤 2안 지원: URL 쿼리 `?tone=minimal` / `?tone=premium` 로 패널 라운드·보더·그림자 스타일 전환
+- IA 중복 축소(2026-06-21): KR/EN 홈·제품허브의 대형 FAQ 반복 블록을 전용 FAQ 페이지 유도 섹션으로 정리
+- EN Company 페이지에서 Products 허브와 중복되던 대형 Product Portfolio 섹션을 축소하고 탐색 링크로 정돈
+- EN Privacy 페이지의 초안성 문구 제거 및 정식 안내 톤으로 교체
 
 ## 성능 / 에셋
 

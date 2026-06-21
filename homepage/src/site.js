@@ -234,6 +234,14 @@ function normalizePath(pathname = window.location.pathname) {
   return pathname.endsWith('/') ? pathname : `${pathname}/`;
 }
 
+function applyPanelTone() {
+  const qs = new URLSearchParams(window.location.search);
+  const toneFromQuery = qs.get('tone');
+  const allowed = new Set(['minimal', 'premium']);
+  const tone = allowed.has(toneFromQuery) ? toneFromQuery : 'premium';
+  document.body.dataset.panelTone = tone;
+}
+
 function isProductDetailPage() {
   const path = normalizePath();
   const isProductPath = path.includes('/products/') && !path.endsWith('/products/');
@@ -611,6 +619,8 @@ export function mountLayout() {
   const body = document.body;
   const lang = body.dataset.lang === 'en' ? 'en' : 'ko';
   const page = body.dataset.page || '';
+
+  applyPanelTone();
 
   const headerMount = document.querySelector('[data-layout="header"]');
   const footerMount = document.querySelector('[data-layout="footer"]');
