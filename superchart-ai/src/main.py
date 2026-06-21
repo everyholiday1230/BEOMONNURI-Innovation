@@ -421,13 +421,14 @@ _log_feature_status(logger)
 _enforce_prod(logger)
 
 # ── Rate Limiting ──
-# 차트 서비스는 1페이지 로드에 6~10개 endpoint 호출 + 실시간 갱신
-# 따라서 한도를 600/min 으로 상향 (분당 10개 = 초당 1.7회)
+# 차트 서비스는 1페이지 로드에 6~10개 endpoint 호출 + 실시간 갱신 + 다중 패널 폴링
+# (워치리스트/히트맵/인기TOP/추세강도/포지션 등). 정상 사용에서도 분당 요청이 많아
+# 600/min 은 false 429(요청이 많습니다)를 유발 → 2000/min 으로 상향.
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-limiter = Limiter(key_func=get_remote_address, default_limits=["600/minute"], headers_enabled=True)
+limiter = Limiter(key_func=get_remote_address, default_limits=["2000/minute"], headers_enabled=True)
 
 # ── 모니터링: 요청 추적 + 에러 수집 ──
 from src.services.monitoring import metrics, generate_request_id

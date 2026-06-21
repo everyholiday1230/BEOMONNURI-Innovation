@@ -35,7 +35,8 @@ function _setStatusUI(status, opts) {
       badge.style.display = 'none';
     }
   }
-  if (upd) upd.textContent = opts.updatedText || '';
+  // '마지막 갱신 N분 전' 표시는 사용자 요청으로 노출하지 않음(항상 비움).
+  if (upd) upd.textContent = '';
   if (retry) retry.style.display = opts.showRetry ? '' : 'none';
   // 진단 버튼: admin/dev 모드에서만
   if (diagBtn) {

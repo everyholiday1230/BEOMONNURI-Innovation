@@ -275,7 +275,10 @@ export async function loadWLPrices() {
     for (const t of data) map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
     window._wlPriceCache = window._wlPriceCache || {};
     // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback)
-    const missing = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]);
+    // 요청 폭주(429 "요청이 많습니다")·가격 지연 방지를 위해 동시 개별 호출을 최대 12개로 제한.
+    // 초과분은 가격 미확인 → 가격없음 필터로 자동 숨김 처리됨.
+    const MAX_FILL = 12;
+    const missing = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]).slice(0, MAX_FILL);
     if (missing.length) {
       const fills = await Promise.allSettled(missing.map(s =>
         _df(`/v1/charts/ticker-24hr?symbol=${s.apiCode || s.code}`)
