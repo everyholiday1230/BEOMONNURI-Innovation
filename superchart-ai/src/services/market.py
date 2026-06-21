@@ -67,6 +67,19 @@ async def fetch_candles(symbol_code: str, exchange_id: int, timeframe: str, limi
             return result
         return await _fetch_xstocks_raw(symbol_code, timeframe, limit)
 
+    # exchange_id == 7: Bitget 토큰화 주식. symbol_code(api_code) = "TSLAONUSDT" 형식.
+    if exchange_id == 7:
+        if not end_time:
+            key = f"bgs:{symbol_code}:{timeframe}:{limit}"
+            ttl = _CACHE_TTL.get(timeframe, 60)
+            cached = await cache_get("candle", key)
+            if cached is not None:
+                return cached
+            result = await _fetch_bitget_spot_raw(symbol_code, timeframe, limit)
+            await cache_set("candle", key, result, ttl)
+            return result
+        return await _fetch_bitget_spot_raw(symbol_code, timeframe, limit)
+
     if not end_time:
         key = f"{symbol_code}:{exchange_id}:{timeframe}:{limit}"
         ttl = _CACHE_TTL.get(timeframe, 60)
@@ -387,7 +400,45 @@ async def _fetch_bitget_raw(symbol_code: str, timeframe: str, limit: int, end_ti
     return candles
 
 
-async def _fetch_yahoo_raw(symbol_code: str, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
+# Bitget Spot 캔들 granularity (토큰화 주식용). 선물과 표기가 다름.
+BITGET_SPOT_TF_MAP = {"1m": "1min", "3m": "3min", "5m": "5min", "15m": "15min",
+                      "30m": "30min", "1h": "1h", "4h": "4h", "1d": "1day", "1w": "1week"}
+
+
+async def _fetch_bitget_spot_raw(symbol_code: str, timeframe: str, limit: int) -> list[dict]:
+    """Bitget Spot 캔들 조회 (토큰화 주식 ON 종목 — 예: TSLAONUSDT).
+
+    응답 data: [ts(ms), open, high, low, close, baseVol, quoteVol, usdtVol]
+    프론트 기대 스키마(Binance형 OHLCV)로 정규화.
+    """
+    granularity = BITGET_SPOT_TF_MAP.get(timeframe)
+    if not granularity:
+        return []
+    params = {"symbol": symbol_code, "granularity": granularity, "limit": min(max(limit, 1), 1000)}
+    try:
+        r = await _client().get(f"{BITGET_BASE}/api/v2/spot/market/candles", params=params, timeout=15)
+        raw = r.json()
+    except Exception as e:
+        log.warning("market.bitget_spot_candles_fail", symbol=symbol_code, timeframe=timeframe, err=str(e)[:160])
+        return []
+    if r.status_code != 200 or not isinstance(raw, dict) or raw.get("code") != "00000" or not isinstance(raw.get("data"), list):
+        log.warning("market.bitget_spot_candles_bad", symbol=symbol_code, status=r.status_code, body=str(raw)[:200])
+        return []
+    step = TF_MS.get(timeframe, 0)
+    rows = sorted(raw["data"], key=lambda k: int(k[0]) if k and str(k[0]).isdigit() else 0)
+    candles: list[dict] = []
+    for k in rows[-limit:]:
+        try:
+            open_ts = int(k[0])
+            close_ts = open_ts + step - 1 if step else open_ts
+            candles.append({
+                "openTime": str(open_ts), "closeTime": str(close_ts),
+                "open": str(k[1]), "high": str(k[2]), "low": str(k[3]),
+                "close": str(k[4]), "volume": str(k[5]), "isFinal": True,
+            })
+        except Exception:
+            continue
+    return candles
     """Yahoo Finance chart API 기반 캔들 조회 (주식/원자재/ETF)."""
     import time
 

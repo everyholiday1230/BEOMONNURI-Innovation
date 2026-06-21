@@ -166,10 +166,32 @@ XSTOCKS_CATALOG: dict[str, tuple[str, str, str]] = {
 # exchangeInfo 자동감지로 채워지는 동적 xStocks 카탈로그(런타임)
 _DYNAMIC_XSTOCKS: list[dict[str, str | int]] = []
 
+# ── Bitget 토큰화 주식(ON 접미사) 화이트리스트 ───────────────────────
+# Bitget 의 토큰화 주식은 base 가 "{CORE}ON" 형식(예: TSLAON, NVDAON). USDT 견적.
+# 실제 상장 여부는 Bitget spot symbols API(status='online')로 자동 판별.
+#   key = core 티커, value = (한글명, 영문명, asset_class)
+# Binance bStocks / xStocks 와 core 가 겹치면 그쪽 우선(등록 시 제외) — symbols.py
+# dedup 이 명칭 기준으로 한 번 더 통합하므로 중복 노출은 발생하지 않음.
+BITGET_STOCKS_CATALOG: dict[str, tuple[str, str, str]] = {
+    "AAPL":  ("애플", "Apple", "stock"),
+    "MSFT":  ("마이크로소프트", "Microsoft", "stock"),
+    "AMZN":  ("아마존", "Amazon", "stock"),
+    "GOOGL": ("알파벳", "Alphabet", "stock"),
+    "META":  ("메타", "Meta Platforms", "stock"),
+    "NVDA":  ("엔비디아", "NVIDIA", "stock"),
+    "TSLA":  ("테슬라", "Tesla", "stock"),
+    "AMD":   ("AMD", "Advanced Micro Devices", "stock"),
+    "SPY":   ("S&P 500 ETF", "SPDR S&P 500 ETF", "etf"),
+    "QQQ":   ("나스닥 100 ETF", "Invesco QQQ", "etf"),
+}
+# exchangeInfo 자동감지로 채워지는 동적 Bitget 토큰화 주식 카탈로그(런타임)
+_DYNAMIC_BITGET_STOCKS: list[dict[str, str | int]] = []
+_bitget_stocks_last_refresh: float = 0.0
+
 
 def _curated_all() -> list[dict[str, str | int]]:
-    """정적 CURATED + 동적 Spot(bStocks/원자재) + 동적 xStocks 합본."""
-    return list(CURATED_SYMBOLS) + list(_DYNAMIC_SPOT) + list(_DYNAMIC_XSTOCKS)
+    """정적 CURATED + 동적 Spot(bStocks/원자재) + 동적 xStocks + 동적 Bitget 주식 합본."""
+    return list(CURATED_SYMBOLS) + list(_DYNAMIC_SPOT) + list(_DYNAMIC_XSTOCKS) + list(_DYNAMIC_BITGET_STOCKS)
 
 
 def get_curated_catalog() -> list[dict[str, str | int]]:
@@ -247,6 +269,12 @@ async def load():
     except Exception as e:
         logger.warning("symbol_resolver.xstocks_refresh_in_load", error=str(e)[:120])
 
+    # Bitget 토큰화 주식(ON) 동적 갱신 (TTL 1시간, 실패 무해)
+    try:
+        await refresh_bitget_stocks_listings()
+    except Exception as e:
+        logger.warning("symbol_resolver.bitget_stocks_refresh_in_load", error=str(e)[:120])
+
     # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
     for code, exchange_id, api_code in _iter_seed_symbols():
         SYMBOL_EXCHANGE.setdefault(code, exchange_id)
@@ -300,6 +328,7 @@ def get_all_symbols() -> list[str]:
 BINANCE_EXCHANGE_ID = 2
 BINANCE_SPOT_EXCHANGE_ID = 5
 XSTOCKS_EXCHANGE_ID = 6  # Gate.io/Bybit 토큰화 증권(xStocks)
+BITGET_STOCKS_EXCHANGE_ID = 7  # Bitget 토큰화 주식(ON 접미사)
 BINANCE_EXCHANGE_IDS = frozenset({BINANCE_EXCHANGE_ID, BINANCE_SPOT_EXCHANGE_ID})
 
 
@@ -524,6 +553,73 @@ async def refresh_xstocks_listings(force: bool = False) -> int:
 def get_xstocks_symbols() -> list[tuple[str, str]]:
     """등록된 xStocks 의 (symbol_code, api_code) 목록. api_code 는 GATE:/BYBIT: prefix 포함."""
     return [(str(i["symbol_code"]), str(i["api_code"])) for i in _DYNAMIC_XSTOCKS]
+
+
+# ── Bitget 토큰화 주식(ON) 동적 등록 ──────────────────────────────
+_BITGET_SPOT_SYMBOLS_URL = "https://api.bitget.com/api/v2/spot/public/symbols"
+
+
+async def _fetch_bitget_stocks() -> set[str]:
+    """Bitget 에서 거래중(online)인 토큰화 주식 core 티커 집합 반환.
+
+    Bitget base 는 '{CORE}ON' 형식(예: TSLAON). USDT 견적 + status=='online' 만.
+    """
+    import httpx
+    out: set[str] = set()
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(_BITGET_SPOT_SYMBOLS_URL)
+    if r.status_code != 200:
+        return out
+    for it in r.json().get("data", []):
+        base = str(it.get("baseCoin", "")).upper()
+        if it.get("quoteCoin", "").upper() != "USDT" or it.get("status") != "online":
+            continue
+        if base.endswith("ON") and base[:-2] in BITGET_STOCKS_CATALOG:
+            out.add(base[:-2])
+    return out
+
+
+async def refresh_bitget_stocks_listings(force: bool = False) -> int:
+    """Bitget 에서 거래중인 토큰화 주식만 동적 등록.
+
+    - api_code = "{CORE}ONUSDT" (예: TSLAONUSDT). exchange_id = 7.
+    - Binance bStocks / xStocks 와 core 가 겹치면 그쪽 우선(제외).
+    - 실패해도 기존 _DYNAMIC_BITGET_STOCKS 유지.
+    """
+    global _DYNAMIC_BITGET_STOCKS, _bitget_stocks_last_refresh
+    now = time.time()
+    if not force and (now - _bitget_stocks_last_refresh) < _SPOT_REFRESH_TTL and _DYNAMIC_BITGET_STOCKS:
+        return len(_DYNAMIC_BITGET_STOCKS)
+    try:
+        online = await _fetch_bitget_stocks()
+    except Exception as e:
+        logger.warning("symbol_resolver.bitget_stocks_failed", error=str(e)[:160])
+        return len(_DYNAMIC_BITGET_STOCKS)
+    if not online:
+        return len(_DYNAMIC_BITGET_STOCKS)
+    # bStocks(Binance Spot) + 기존 동적 xStocks 에 이미 있는 core 는 제외(중복 방지)
+    taken = _existing_spot_codes() | {str(i["symbol_code"]) for i in _DYNAMIC_XSTOCKS}
+    new_b: list[dict[str, str | int]] = []
+    for core in BITGET_STOCKS_CATALOG:
+        if core in taken or core not in online:
+            continue
+        ko, en, asset_class = BITGET_STOCKS_CATALOG[core]
+        new_b.append({
+            "symbol_code": core, "base_asset": core,
+            "display_name_ko": ko, "display_name_en": en,
+            "exchange_id": BITGET_STOCKS_EXCHANGE_ID, "exchange_code": "BITGET",
+            "asset_class": asset_class, "quote_asset": "USDT", "api_code": f"{core}ONUSDT",
+        })
+    _DYNAMIC_BITGET_STOCKS = new_b
+    _bitget_stocks_last_refresh = now
+    logger.info("symbol_resolver.bitget_stocks_refreshed", count=len(new_b),
+                codes=[str(i["symbol_code"]) for i in new_b])
+    return len(new_b)
+
+
+def get_bitget_stocks_symbols() -> list[tuple[str, str]]:
+    """등록된 Bitget 토큰화 주식의 (symbol_code, api_code) 목록. api_code = '{CORE}ONUSDT'."""
+    return [(str(i["symbol_code"]), str(i["api_code"])) for i in _DYNAMIC_BITGET_STOCKS]
 
 
 def get_api_symbol(sym: str) -> str:
