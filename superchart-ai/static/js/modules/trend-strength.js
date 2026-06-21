@@ -195,13 +195,14 @@
     renderSummary(d);
     renderGauge(d);
     renderAlign(d);
-    renderComponents(d);
-    renderChange(d);
-    renderVolume(d);
-    renderVolatility(d);
     renderStructure(d);
     renderAi(d);
     applyChartToggles();
+    // 중복·전문수치 상세 섹션 제거(사용자 요청): 추세 구성 요소/추세 변화 감지/
+    // 거래량 확인/변동성 확인. 핵심(종합 점수·시간대별 정렬·가격 구조·AI 해석)만 유지.
+    ['tsComponents', 'tsChange', 'tsVolume', 'tsVolatility'].forEach(id => {
+      const el = document.getElementById(id); if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+    });
   }
 
   function recentChange(d) {
