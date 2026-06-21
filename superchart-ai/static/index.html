@@ -44,7 +44,7 @@
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
 <script defer src="/static/js/modules/data-status.js?v=20260621_dsv1"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260621_dsv1">
+<link rel="stylesheet" href="/static/css/main.css?v=20260621_ptv1">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1040,6 +1040,7 @@ body.dark #_toastContainer .pro-toast-chip {
       <div class="toolbar-spacer"></div>
       <!-- 우측: 회사/사용자 관련 메뉴 -->
       <div class="toolbar-user-group">
+        <button id="pointChip" class="pt-chip d-none" type="button" aria-label="보유 포인트 보기" title="범온 포인트" onclick="window.PointsUI&&window.PointsUI.openPane()">보유 포인트 <b id="pointChipVal">-</b> P</button>
         <span id="userBadge" class="user-badge" data-action="userBadgeClick" title="내 계정">···</span>
         <button id="loginCta" aria-label="로그인 또는 회원가입" data-action="showAuth" class="btn btn-primary btn-sm d-none">회원가입</button>
         <button id="logoutBtn" aria-label="로그아웃" data-action="_logout" class="btn btn-danger btn-xs d-none">로그아웃</button>
@@ -1449,6 +1450,7 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
     <div class="right-tab" data-p="position" title="롱숏 비율 + 청산 히트맵 — 기관 자금 흐름">포지션</div>
+    <div class="right-tab" data-p="points" title="범온 포인트 · 지인 초대 (서비스 기능 이용 포인트)">포인트</div>
   </div>
   <div class="right-pane active" id="ai">
     <div class="p-12">
@@ -2002,6 +2004,43 @@ body.dark #_toastContainer .pro-toast-chip {
     </div>
   </div>
 
+  <div class="right-pane" id="points">
+    <div class="p-12">
+      <!-- 헤더 -->
+      <div class="pt-header">
+        <div class="pane-title">범온 포인트</div>
+        <div class="pane-desc">서비스 기능 이용 포인트와 지인 초대를 관리합니다.</div>
+        <div class="pt-header-meta">
+          <span class="pt-status-badge" id="ptStatusBadge" data-state="loading">불러오는 중</span>
+        </div>
+      </div>
+
+      <!-- 서브 내비게이션 -->
+      <div class="pt-subnav" id="ptSubnav" role="tablist" aria-label="포인트 메뉴">
+        <button class="pt-subtab active" data-sec="mine" role="tab" aria-selected="true">내 포인트</button>
+        <button class="pt-subtab" data-sec="usage" role="tab" aria-selected="false">포인트 사용처</button>
+        <button class="pt-subtab" data-sec="shop" role="tab" aria-selected="false">포인트 상점</button>
+        <button class="pt-subtab" data-sec="indicators" role="tab" aria-selected="false">지표 구매</button>
+        <button class="pt-subtab" data-sec="aipass" role="tab" aria-selected="false">AI 분석 이용권</button>
+        <button class="pt-subtab" data-sec="invite" role="tab" aria-selected="false">지인 초대</button>
+        <button class="pt-subtab" data-sec="invites" role="tab" aria-selected="false">초대 현황</button>
+        <button class="pt-subtab" data-sec="ledger" role="tab" aria-selected="false">포인트 내역</button>
+        <button class="pt-subtab" data-sec="policy" role="tab" aria-selected="false">보상 정책</button>
+      </div>
+
+      <!-- 섹션 컨테이너 -->
+      <div id="ptSection"></div>
+
+      <button class="pt-btn pt-btn-primary pt-btn-block" type="button" onclick="window.PointsUI&&window.PointsUI.reload()">데이터 다시 확인</button>
+
+      <!-- 고지 -->
+      <p class="pt-disclaimer">포인트는 현금으로 환불 또는 출금할 수 없습니다. 포인트는 범온 슈퍼차트 AI 서비스 내 기능 이용에만 사용할 수 있습니다. 부정한 방법으로 적립한 포인트는 회수될 수 있습니다. 레퍼럴 보상은 운영 정책에 따라 지급, 보류, 취소될 수 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- 포인트 확인 모달 마운트 -->
+  <div id="ptModalRoot"></div>
+
 </div>
 
 <div id="dsDiagPanel" class="ds-diag-panel" role="dialog" aria-label="데이터 진단" hidden></div>
@@ -2019,6 +2058,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <script defer src="/static/js/modules/chart-extras.js"></script>
 <script defer src="/static/js/modules/paper-trading.js?v=20260620_mockv2"></script>
 <script defer src="/static/js/modules/referral-ui.js"></script>
+<script defer src="/static/js/modules/points-ui.js?v=20260621_ptv1"></script>
 <script defer src="/static/js/page-events.js"></script>
 <script defer src="/static/js/autobot.js"></script>
 <script defer src="/static/js/draggable-panels.js"></script>
