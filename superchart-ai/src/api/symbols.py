@@ -50,6 +50,36 @@ async def _fetch_live_crypto_rows() -> list[dict]:
             return []
         payload = resp.json() or {}
         symbols = payload.get("symbols") or []
+        # 토큰화 주식/원자재 분류 보정용 화이트리스트(코어 티커 → asset_class).
+        # Binance USDT 선물에는 토큰화 주식(AAPLUSDT 등)/원자재(XAUUSDT 등)도 포함되는데,
+        # 전부 crypto 로 두면 워치리스트 crypto 탭에 주식이 섞인다. base 코어가 알려진
+        # 주식/원자재면 올바른 asset_class 로 재분류한다.
+        try:
+            from src.services.symbol_resolver import (
+                BSTOCKS_CATALOG, COMMODITY_TOKEN_CATALOG, XSTOCKS_CATALOG, BITGET_STOCKS_CATALOG,
+            )
+            _stock_cores: dict[str, str] = {}
+            for _b, (_c, _ko, _en, _ac) in BSTOCKS_CATALOG.items():
+                _stock_cores[str(_c).upper()] = _ac  # 표시코드(NVDA 등) 기준
+            for _core, (_ko, _en, _ac) in XSTOCKS_CATALOG.items():
+                _stock_cores.setdefault(_core.upper(), _ac)
+            for _core, (_ko, _en, _ac) in BITGET_STOCKS_CATALOG.items():
+                _stock_cores.setdefault(_core.upper(), _ac)
+            # 원자재 코어(견적 제거한 base): XAU/XAG/CL/BZ/COPPER/NATGAS/XPT/XPD 등은 commodity
+            _commodity_cores = {"XAU", "XAG", "XPT", "XPD", "CL", "BZ", "COPPER", "NATGAS", "WTI", "BRENT"}
+            for _core, (_c, _ko, _en, _q) in COMMODITY_TOKEN_CATALOG.items():
+                _commodity_cores.add(_core.upper())
+        except Exception:
+            _stock_cores, _commodity_cores = {}, set()
+
+        def _classify(base: str) -> str:
+            b = base.upper()
+            if b in _commodity_cores:
+                return "commodity"
+            if b in _stock_cores:
+                return _stock_cores[b]
+            return "crypto"
+
         rows: list[dict] = []
         for s in symbols:
             if not isinstance(s, dict):
@@ -64,13 +94,14 @@ async def _fetch_live_crypto_rows() -> list[dict]:
             base = str(s.get("baseAsset") or "").upper()
             if not code or not base:
                 continue
+            ac = _classify(base)
             rows.append({
                 "symbol_code": code,
                 "base_asset": base,
                 "display_name_ko": base,
                 "display_name_en": base,
                 "exchange_code": "BINANCE",
-                "asset_class": "crypto",
+                "asset_class": ac,
                 "quote_asset": "USDT",
                 "api_code": code,
             })
@@ -227,16 +258,16 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
             code = str(row.get("symbol_code", ""))
             if ac == "crypto":
                 return "crypto:" + code
-            ko = str(row.get("display_name_ko") or "").strip()
+            # 비암호화폐: 기초자산 코어로 묶는다(거래소별 AAPL / AAPLUSDT 통합).
             base = str(row.get("base_asset") or "").upper()
             if not base:
                 base = code.upper()
-                for q in ("USDT", "USD", "BUSD", "USDC"):
-                    if base.endswith(q) and len(base) > len(q):
-                        base = base[: -len(q)]
-                        break
-            # 한글명이 같으면 동일 자산으로 간주(예: '금' XAUUSD/XAUUSDT). 없으면 기초자산.
-            return f"{ac}:{ko or base}"
+            # USDT/USD/BUSD 등 견적 접미사 제거 → 코어 티커
+            for q in ("USDT", "USDC", "BUSD", "USD"):
+                if base.endswith(q) and len(base) > len(q):
+                    base = base[: -len(q)]
+                    break
+            return f"{ac}:{base}"
 
         for row in merged_rows:
             code = str(row.get("symbol_code", ""))
