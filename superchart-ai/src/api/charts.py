@@ -296,7 +296,7 @@ async def long_short_detailed(symbol: str = "BTCUSDT"):
 
 
 @router.get("/liquidation-heatmap")
-async def liquidation_heatmap(symbol: str = "BTCUSDT"):
+async def liquidation_heatmap(symbol: str = "BTCUSDT", symbolId: str = ""):
     """청산 히트맵 — Binance 강제 청산 주문 기반으로 가격대별 청산 누적량 반환.
 
     Strategy:
@@ -320,6 +320,13 @@ async def liquidation_heatmap(symbol: str = "BTCUSDT"):
     import httpx
     import structlog
     log = structlog.get_logger(__name__)
+
+    # 프론트는 symbolId 로 호출(예: ?symbolId=ETHUSDT). symbolId 우선, 없으면 symbol.
+    import re as _re
+    _sym = (symbolId or symbol or "BTCUSDT").strip().upper()
+    if not _re.fullmatch(r"[A-Z0-9]{2,30}", _sym):
+        _sym = "BTCUSDT"
+    symbol = _sym
 
     cache_key = symbol
     cached = await cache_get("liq_heatmap", cache_key)
@@ -389,6 +396,29 @@ async def liquidation_heatmap(symbol: str = "BTCUSDT"):
     # - 1시간봉 24개에서 변동성 + OI 변화 기반 추정
     # - 큰 캔들 + OI 감소 = 청산 발생
     # - 청산 가격대 = 큰 변동 캔들의 high/low 인근
+
+    if not isinstance(klines, list) or len(klines) < 5:
+        # Binance 선물 fapi 가 막혔거나(예: Render egress IP 451/차단) 빈 응답인 경우,
+        # 자체 캔들 서비스(Bitget 폴백 포함)로 대체해 청산 히트맵을 계속 제공한다.
+        try:
+            from src.services.market import fetch_candles
+            from src.services.symbol_resolver import resolve_symbol
+            api_sym, ex_id = resolve_symbol(symbol if not symbol.startswith("1000") else symbol)
+            cd = await fetch_candles(api_sym, ex_id, "1h", 24)
+            if cd and len(cd) >= 5:
+                # 자체 캔들(dict) → Binance kline 배열 형식으로 변환
+                # 인덱스: [openTime, open, high, low, close, volume, closeTime, quoteVolume]
+                klines = []
+                for c in cd:
+                    o = float(c.get("open") or c.get("o") or 0)
+                    h = float(c.get("high") or c.get("h") or 0)
+                    l = float(c.get("low") or c.get("l") or 0)
+                    cl = float(c.get("close") or c.get("c") or 0)
+                    v = float(c.get("volume") or c.get("v") or 0)
+                    qv = v * cl  # quote volume 근사
+                    klines.append([c.get("openTime", 0), o, h, l, cl, v, c.get("closeTime", 0), qv])
+        except Exception as _e:
+            log.warning("liq_heatmap.candle_fallback_fail", symbol=symbol, err=str(_e)[:120])
 
     if not isinstance(klines, list) or len(klines) < 5:
         return {"success": False, "error": "insufficient data"}

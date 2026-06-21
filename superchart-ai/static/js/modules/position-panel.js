@@ -225,14 +225,8 @@
     if (tp) parts.push(`<div class="pa-fig"><span class="pa-fig-k">롱숏 비율</span><span class="pa-fig-v">${Number.isFinite(Number(tp.ratio)) ? tp.ratio : '--'}</span></div>`);
     if (gl) parts.push(`<div class="pa-fig"><span class="pa-fig-k">전체 참여자 L/S</span><span class="pa-fig-v">${gl.long_pct}% / ${gl.short_pct}%</span></div>`);
     figs.innerHTML = parts.join('');
-
-    let txt;
-    if (st.label.startsWith('롱 우위 강')) txt = '대형 자금 기준 롱 쏠림이 뚜렷합니다. 쏠림이 클수록 반대 방향 변동 시 청산 연쇄 가능성도 함께 커질 수 있어 참고가 필요합니다.';
-    else if (st.label.startsWith('롱 우위')) txt = '대형 자금이 롱 쪽으로 다소 기울어 있습니다. 추세와 함께 청산 구간을 같이 확인하면 도움이 됩니다.';
-    else if (st.label.startsWith('숏 우위 강')) txt = '대형 자금 기준 숏 쏠림이 뚜렷합니다. 쏠림이 클수록 반대 방향 변동 시 청산 연쇄 가능성도 함께 커질 수 있어 참고가 필요합니다.';
-    else if (st.label.startsWith('숏 우위')) txt = '대형 자금이 숏 쪽으로 다소 기울어 있습니다. 추세와 함께 청산 구간을 같이 확인하면 도움이 됩니다.';
-    else txt = '대형 자금의 롱·숏이 균형에 가깝습니다. 뚜렷한 쏠림은 관찰되지 않습니다.';
-    note.textContent = txt + ' (참고용 설명이며 매매를 권유하지 않습니다.)';
+    // 서술 문장은 위 배지(중립/우위)·L/S 수치 표와 중복이라 제거(사용자 요청). 면책은 패널 하단에 유지.
+    note.textContent = '';
   }
 
   // ─────────── 펀딩 정보 ───────────
