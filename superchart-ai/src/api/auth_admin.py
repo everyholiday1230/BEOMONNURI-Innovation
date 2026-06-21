@@ -110,6 +110,11 @@ async def admin_users(
         base = base.where(User.referral_exchange.isnot(None))
     elif status_filter == "unverified":
         base = base.where(User.referral_exchange.is_(None))
+    # 삭제된(익명화된) 회원은 기본 숨김. status_filter='deleted' 로만 조회.
+    if status_filter == "deleted":
+        base = base.where(User.email.ilike("%\\_deleted\\_%"))
+    else:
+        base = base.where(~User.email.ilike("%\\_deleted\\_%"))
 
     # 정렬
     if sort == "created_asc":
@@ -369,16 +374,29 @@ async def admin_force_logout(
     user = result.scalar()
     if not user:
         raise HTTPException(404, "User not found")
-    user.token_version = (user.token_version or 0) + 1
-    await db.commit()
+    new_tv = (user.token_version or 0) + 1
+    try:
+        user.token_version = new_tv
+        await db.commit()
+    except Exception as e:
+        # token_version 컬럼 부재/스키마 불일치 등 — 강제로그아웃은 best-effort 로 처리
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        logger.warning("admin.force_logout_tv_skip", target=str(uid), error=str(e)[:120])
+        return ApiResponse(data={"id": str(uid), "forced": False, "note": "토큰 버전 갱신 불가(스키마) — 세션 만료로 대체됩니다."})
     # 캐시 즉시 무효화
-    from src.services.auth import _tv_cache
-    _tv_cache.pop(str(user.id), None)
-    from src.services.beom_free import invalidate_tier_cache
-    invalidate_tier_cache(str(user.id))
+    try:
+        from src.services.auth import _tv_cache
+        _tv_cache.pop(str(user.id), None)
+        from src.services.beom_free import invalidate_tier_cache
+        invalidate_tier_cache(str(user.id))
+    except Exception:
+        pass
     await _safe_audit(db,
         admin_id="admin_key", action="force_logout", target_user_id=user.id,
-        detail={"old_tv": (user.token_version or 1) - 1},
+        detail={"old_tv": new_tv - 1},
         ip=request.client.host if request.client else None,
     )
     logger.info("admin.force_logout", target=str(user.id), tv=user.token_version)
