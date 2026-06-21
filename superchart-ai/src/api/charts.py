@@ -504,6 +504,10 @@ async def get_candles(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: i
     if symbolId not in SYMBOL_EXCHANGE and symbolId not in SYMBOL_API_MAP.values():
         raise HTTPException(404, f"등록되지 않은 심볼: {symbolId}")
     # 입력 검증 (감사 보고서 9.3 반영)
+    # timeframe 별칭 정규화 — 차트/패널이 24h, 12h 등 별칭을 보내도 거부(400) 대신 매핑.
+    _TF_ALIAS = {"24h": "1d", "1day": "1d", "1D": "1d", "12h": "4h", "8h": "4h", "6h": "4h",
+                 "3d": "1d", "7d": "1w", "1W": "1w", "1week": "1w", "1month": "1M", "1mo": "1M"}
+    timeframe = _TF_ALIAS.get(timeframe, timeframe)
     _ALLOWED_TF = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"}
     if timeframe not in _ALLOWED_TF:
         raise HTTPException(400, f"지원하지 않는 timeframe: {timeframe}. 허용: {sorted(_ALLOWED_TF)}")
