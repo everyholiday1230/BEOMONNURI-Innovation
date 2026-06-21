@@ -50,19 +50,18 @@ router = APIRouter()
 
 
 async def _safe_audit(db, **kwargs) -> None:
-    """관리자 감사 로그 기록 — 실패해도 본 작업이 503으로 막히지 않도록 격리.
+    """관리자 감사 로그 기록 — 완전히 격리된 별도 세션 사용.
 
-    admin_audit_logs 테이블 미존재/스키마 불일치 등에서도 회원 관리(등급/차단/닉네임/
-    강제로그아웃 등)는 정상 동작해야 하므로 try/except 로 감싼다.
+    admin_audit_logs 테이블 미존재/스키마 불일치 시에도 (1) 본 작업 세션을 오염시키지
+    않고 (2) 500 을 유발하지 않도록, 별도 SessionLocal 로 best-effort 기록한다.
+    실패하면 조용히 건너뛴다(경고 로그만).
     """
     try:
-        db.add(AdminAuditLog(**kwargs))
-        await db.commit()
+        from src.db.session import SessionLocal
+        async with SessionLocal() as adb:
+            adb.add(AdminAuditLog(**kwargs))
+            await adb.commit()
     except Exception as e:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
         logger.warning("admin.audit_skip", action=kwargs.get("action"), error=str(e)[:120])
 
 
