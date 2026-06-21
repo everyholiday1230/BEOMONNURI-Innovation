@@ -248,7 +248,8 @@
           <div class="row"><span class="k">최근 변화</span><span class="v"><span class="ts-badge ${rc.cls}">${rc.label}</span></span></div>
           <div class="row"><span class="k">유효 시간대</span><span class="v">${d.validCount} / ${TFS.length}</span></div>
         </div>
-        <p class="ts-summary-text">${interp} 참고용 분석이며 매매를 권유하지 않습니다.</p>
+        <p class="ts-summary-text">${interp}</p>
+        <p class="ts-disclaimer-line">참고용 분석이며 매매를 권유하지 않습니다.</p>
       </div>`;
   }
 
@@ -436,8 +437,7 @@
       if (c.volaState === 'high' || c.volaState === 'extreme') parts.push('변동성이 일부 확대되어 있어, 추세 지속 여부는 주요 가격 구간과 거래량 반응을 함께 확인하는 것이 좋습니다.');
       else parts.push('변동성은 안정적인 편이라 주요 가격 구간과 거래량 반응을 함께 확인하면 도움이 됩니다.');
     }
-    parts.push('위 내용은 참고용 분석이며 매매를 권유하지 않습니다.');
-    el.innerHTML = `<div class="ts-card-title">AI 추세 해석</div><div class="ts-ai"><p class="ts-ai-text">${parts.join(' ')}</p></div>`;
+    el.innerHTML = `<div class="ts-card-title">AI 추세 해석</div><div class="ts-ai"><p class="ts-ai-text">${parts.join(' ')}</p><p class="ts-disclaimer-line">참고용 분석이며 매매를 권유하지 않습니다.</p></div>`;
   }
 
   // ───────── 차트 토글 (graceful: 차트 API 없으면 안내만) ─────────

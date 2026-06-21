@@ -551,7 +551,8 @@
       sentences.push('청산 밀집 구간이 가까울수록 변동성 확대 시 가격이 해당 구간에 반응할 수 있어 함께 보는 것이 좋습니다.');
     }
     sentences.push('위 내용은 시장 데이터 기반 참고 해석이며 매매를 권유하지 않습니다.');
-    el.textContent = sentences.join(' ');
+    const _disc = sentences.pop();
+    el.innerHTML = `${esc(sentences.join(' '))}<span class="pa-disclaimer-line">${esc(_disc)}</span>`;
   }
 
   // ─────────── 리스크 체크리스트 ───────────

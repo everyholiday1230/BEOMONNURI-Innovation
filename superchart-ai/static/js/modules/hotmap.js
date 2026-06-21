@@ -785,7 +785,8 @@ function htRenderSummary(rows) {
         <div class="row"><span class="k">AI 관심도 TOP 1</span><span class="v">${nm(byAi[0])}</span></div>
         <div class="row"><span class="k">내 관심 중 TOP 1</span><span class="v">${favRows.length?nm(favRows[0]):'관심 종목 없음'}</span></div>
       </div>
-      <p class="ht-summary-text">${text} 참고용 분석이며 매매를 권유하지 않습니다.</p>
+      <p class="ht-summary-text">${text}</p>
+      <p class="ht-disclaimer-line">참고용 분석이며 매매를 권유하지 않습니다.</p>
     </div>`;
 }
 
@@ -887,7 +888,8 @@ function htRenderAiSummary(rows) {
   else parts.push('현재 시장 관심도는 여러 종목에 비교적 분산되어 있습니다.');
   if (volHot.length) parts.push(`${esc(volHot[0].base)} 등 일부 종목은 단기 변동성과 조회 증가가 함께 나타나고 있어 추세 지속 여부와 거래량 변화를 함께 확인하는 것이 좋습니다.`);
   parts.push('위 내용은 참고용 분석이며 매매를 권유하지 않습니다.');
-  el.innerHTML = `<div class="ht-card-title">AI 인기 요약</div><div class="ht-ai"><p class="ht-ai-text">${parts.join(' ')}</p></div>`;
+  const _disc = parts.pop();
+  el.innerHTML = `<div class="ht-card-title">AI 인기 요약</div><div class="ht-ai"><p class="ht-ai-text">${parts.join(' ')}</p><p class="ht-disclaimer-line">${_disc}</p></div>`;
 }
 
 function htRenderWatchTop(rows) {

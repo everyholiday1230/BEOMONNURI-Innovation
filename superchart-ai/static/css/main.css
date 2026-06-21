@@ -634,6 +634,10 @@
 .ts-summary-grid .k { color: var(--color-text-muted); }
 .ts-summary-grid .v { font-weight: var(--font-semibold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
 .ts-summary-text { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.55; }
+/* 면책 문구 — 정보 블록 바로 아래 별도 줄로 표시 */
+.ts-disclaimer-line { font-size: 11px; color: var(--color-text-muted); line-height: 1.5; margin-top: 6px; }
+.ht-disclaimer-line { display: block; font-size: 11px; color: var(--color-text-muted); line-height: 1.5; margin-top: 6px; }
+.pa-disclaimer-line { display: block; font-size: 11px; color: var(--color-text-muted); line-height: 1.5; margin-top: 6px; }
 
 /* 강도 게이지 */
 .ts-gauge-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); box-shadow: var(--shadow-xs); }
