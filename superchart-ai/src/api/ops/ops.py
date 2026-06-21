@@ -522,17 +522,27 @@ async def revenue_stats(request: Request):
 
 @router.post("/v1/ops/delete-user")
 async def delete_user(request: Request):
-    """회원 삭제 (soft delete — 상태만 변경)."""
+    """회원 삭제 (soft delete — 비활성화 + 이메일 익명화)."""
     await _auth_admin_check(request)
     body = await request.json()
     uid = body.get("user_id")
     if not uid: return {"success": False, "error": {"code": "BAD_REQUEST", "message": "user_id 필요"}}
     from src.db.session import SessionLocal
     from sqlalchemy import text
-    async with SessionLocal() as db:
-        await db.execute(text("UPDATE users SET status = 'deleted', email = email || '_deleted_' || now()::text WHERE id = :uid"), {"uid": uid})
-        await db.commit()
-    return {"success": True, "data": {"message": "회원 삭제 완료"}}
+    try:
+        async with SessionLocal() as db:
+            # users.status 컬럼은 실제 스키마에 없음 → is_active=false 로 비활성 + 이메일 익명화(재가입 충돌 방지)
+            res = await db.execute(text(
+                "UPDATE users SET is_active = FALSE, "
+                "email = email || '_deleted_' || extract(epoch from now())::bigint::text "
+                "WHERE id = :uid AND email NOT LIKE '%_deleted_%'"
+            ), {"uid": uid})
+            await db.commit()
+            if res.rowcount == 0:
+                return {"success": False, "error": {"code": "NOT_FOUND", "message": "대상 회원이 없거나 이미 삭제됨"}}
+        return {"success": True, "data": {"message": "회원 삭제 완료", "deleted": True}}
+    except Exception as e:
+        return {"success": False, "error": {"code": "DELETE_FAILED", "message": f"삭제 실패: {str(e)[:120]}"}}
 
 
 @router.post("/v1/ops/toggle-symbol")
