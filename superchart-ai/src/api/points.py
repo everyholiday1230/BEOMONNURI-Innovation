@@ -407,3 +407,120 @@ async def admin_grant(req: dict, request: Request, db: AsyncSession = Depends(ge
     except Exception as e:
         await db.rollback()
         raise HTTPException(500, f"처리 실패: {str(e)[:120]}")
+
+
+# ═══ 관리자: 포인트 상품 관리 (기존 point_products 테이블 재사용) ═══
+@router.get("/admin/products", response_model=ApiResponse)
+async def admin_products(request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    """포인트 상점 상품 전체 목록(비활성 포함)."""
+    await _ensure(db)
+    rows = (await db.execute(text(
+        "SELECT code, name, category, description, cost, period, duration_days, active, sort_order "
+        "FROM point_products ORDER BY sort_order, id"
+    ))).fetchall()
+    return ApiResponse(data={"items": [
+        {"code": r[0], "name": r[1], "category": r[2], "description": r[3], "cost": r[4],
+         "period": r[5], "duration_days": r[6], "active": bool(r[7]), "sort_order": r[8]} for r in rows
+    ]})
+
+
+@router.post("/admin/products", response_model=ApiResponse)
+async def admin_upsert_product(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    """상품 생성/수정(코드 기준 upsert)."""
+    await _ensure(db)
+    code = (req.get("code") or "").strip().upper()
+    name = (req.get("name") or "").strip()
+    if not code or not name:
+        raise HTTPException(400, "code 와 name 은 필수입니다")
+    try:
+        cost = int(req.get("cost", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "cost 는 정수여야 합니다")
+    if cost < 0:
+        raise HTTPException(400, "cost 는 0 이상이어야 합니다")
+    category = (req.get("category") or "etc").strip()
+    description = (req.get("description") or "").strip()
+    period = (req.get("period") or "").strip() or None
+    duration_days = req.get("duration_days")
+    try:
+        duration_days = int(duration_days) if duration_days not in (None, "") else None
+    except (TypeError, ValueError):
+        duration_days = None
+    sort_order = req.get("sort_order")
+    try:
+        sort_order = int(sort_order) if sort_order not in (None, "") else 0
+    except (TypeError, ValueError):
+        sort_order = 0
+    active = bool(req.get("active", True))
+    ip = request.client.host if request and request.client else ""
+    try:
+        await db.execute(text(
+            "INSERT INTO point_products (code, name, category, description, cost, period, duration_days, active, sort_order) "
+            "VALUES (:c,:n,:cat,:d,:cost,:p,:dd,:a,:so) "
+            "ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category, "
+            "description=EXCLUDED.description, cost=EXCLUDED.cost, period=EXCLUDED.period, "
+            "duration_days=EXCLUDED.duration_days, active=EXCLUDED.active, sort_order=EXCLUDED.sort_order"
+        ), {"c": code, "n": name, "cat": category, "d": description, "cost": cost,
+            "p": period, "dd": duration_days, "a": active, "so": sort_order})
+        await db.execute(text(
+            "INSERT INTO point_audit (actor, action, user_id, amount, ref, ip, reason, result) "
+            "VALUES ('admin','product_upsert',NULL,:cost,:c,:ip,:rs,'ok')"
+        ), {"cost": cost, "c": code, "ip": ip, "rs": f"상품 저장: {name}"})
+        await db.commit()
+        return ApiResponse(data={"message": f"상품 '{name}' ({code}) 저장 완료"})
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(500, f"저장 실패: {str(e)[:120]}")
+
+
+@router.post("/admin/products/toggle", response_model=ApiResponse)
+async def admin_toggle_product(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    """상품 활성/비활성 전환."""
+    await _ensure(db)
+    code = (req.get("code") or "").strip().upper()
+    row = (await db.execute(text("SELECT active FROM point_products WHERE code=:c"), {"c": code})).fetchone()
+    if not row:
+        raise HTTPException(404, "상품 없음")
+    new_active = not bool(row[0])
+    ip = request.client.host if request and request.client else ""
+    await db.execute(text("UPDATE point_products SET active=:a WHERE code=:c"), {"a": new_active, "c": code})
+    await db.execute(text(
+        "INSERT INTO point_audit (actor, action, ref, ip, reason, result) "
+        "VALUES ('admin','product_toggle',:c,:ip,:rs,'ok')"
+    ), {"c": code, "ip": ip, "rs": f"활성 상태 → {new_active}"})
+    await db.commit()
+    return ApiResponse(data={"message": f"{code} {'활성화' if new_active else '비활성화'} 완료", "active": new_active})
+
+
+# ═══ 포인트 정책(읽기 전용 — 현재 적용 중인 기본값) ═══
+@router.get("/policy", response_model=ApiResponse)
+async def points_policy(request: Request, _a: None = Depends(auth_admin_check)):
+    """현재 코드에 적용 중인 포인트 정책 상수(읽기 전용).
+
+    정직한 한계: 정책을 화면에서 편집하려면 별도 설정 저장소(config 테이블)가 필요하며
+    현재는 referral.py 상수가 단일 출처(SoT)다.
+    """
+    try:
+        from src.api.referral import (
+            POINTS_SIGNUP_REFERRED, POINTS_SIGNUP_REFERRER, POINTS_PAYMENT_REFERRER,
+            MONTHLY_REFERRAL_CAP, EXPIRY_DAYS_REFERRAL, EXPIRY_DAYS_SIGNUP,
+        )
+    except Exception:
+        POINTS_SIGNUP_REFERRED = POINTS_SIGNUP_REFERRER = POINTS_PAYMENT_REFERRER = 0
+        MONTHLY_REFERRAL_CAP = EXPIRY_DAYS_REFERRAL = EXPIRY_DAYS_SIGNUP = 0
+    return ApiResponse(data={
+        "signup_bonus": POINTS_SIGNUP_REFERRED,
+        "signup_bonus_expiry_days": EXPIRY_DAYS_SIGNUP,
+        "referrer_reward": POINTS_SIGNUP_REFERRER,
+        "referrer_reward_trigger": "피추천인 이메일 인증 완료 시",
+        "referrer_reward_expiry_days": EXPIRY_DAYS_REFERRAL,
+        "first_payment_bonus": POINTS_PAYMENT_REFERRER,
+        "monthly_cap": MONTHLY_REFERRAL_CAP,
+        "use_order": "유효기간이 짧은 순(FIFO by expiry)",
+        "disclaimer": "포인트는 현금으로 환불 또는 출금할 수 없으며, 범온 슈퍼차트 AI 서비스 내 기능 이용에만 사용할 수 있습니다.",
+        "editable": False,
+        "note": "정책 편집은 별도 설정 저장소(config) 연동 후 제공됩니다. 현재 값은 코드 상수 기준입니다.",
+    })

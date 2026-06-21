@@ -207,3 +207,53 @@ async def on_payment(db: AsyncSession, user_id: str):
     # 추천인 포인트
     await _add_points(db, referrer_id, POINTS_PAYMENT_REFERRER, "referral_payment", "피추천인 첫 결제 보너스", link_id)
     await db.commit()
+
+
+# ─── 관리자: 부정 사용 신호 (읽기 전용 휴리스틱) ───
+@router.get("/admin/fraud-signals", response_model=ApiResponse)
+async def admin_fraud_signals(request: Request, db: AsyncSession = Depends(get_db), _admin: None = Depends(auth_admin_check)):
+    """레퍼럴 부정 사용 신호(읽기 전용).
+
+    정직한 한계: 현재 referral_links 데이터만으로 판정하는 경량 휴리스틱이다.
+    동일 IP/기기 기반 탐지는 가입·요청 로깅(IP/디바이스 핑거프린트) 연동이 필요하며 후속 과제다.
+    조치(차단/회수)는 수행하지 않고 신호만 제공한다.
+    """
+    signals: list[dict] = []
+    # 1) 자가 추천(가입 시 차단되지만 잔존 데이터 점검)
+    try:
+        self_ref = (await db.execute(text(
+            "SELECT COUNT(*) FROM referral_links WHERE referrer_id = referred_id"
+        ))).scalar() or 0
+        if self_ref:
+            signals.append({"type": "self_referral", "label": "자가 추천(추천인=피추천인)", "count": int(self_ref),
+                            "severity": "high", "detail": "정상 흐름에서는 차단되지만 잔존 데이터가 있는지 확인하세요."})
+    except Exception:
+        pass
+    # 2) 동일 피추천인이 복수 링크(중복 연결)
+    try:
+        dup_rows = (await db.execute(text(
+            "SELECT referred_id, COUNT(*) c FROM referral_links GROUP BY referred_id HAVING COUNT(*) > 1 ORDER BY c DESC LIMIT 20"
+        ))).fetchall()
+        for r in dup_rows:
+            signals.append({"type": "duplicate_referred", "label": "동일 피추천인 복수 연결",
+                            "target": str(r[0]), "count": int(r[1]), "severity": "medium",
+                            "detail": "한 회원이 여러 추천 링크에 연결됨 — 중복/조작 가능성 점검."})
+    except Exception:
+        pass
+    # 3) 추천인 단기 폭주(같은 날 다수 초대) — 상위 10
+    try:
+        burst_rows = (await db.execute(text(
+            "SELECT referrer_id, created_at::date d, COUNT(*) c FROM referral_links "
+            "GROUP BY referrer_id, created_at::date HAVING COUNT(*) >= 5 ORDER BY c DESC LIMIT 10"
+        ))).fetchall()
+        for r in burst_rows:
+            signals.append({"type": "burst", "label": "단기 다수 초대(같은 날 5건+)",
+                            "target": str(r[0]), "date": str(r[1]), "count": int(r[2]), "severity": "medium",
+                            "detail": "동일 추천인이 짧은 기간에 다수 초대 — 어뷰징 가능성 점검."})
+    except Exception:
+        pass
+    return ApiResponse(data={
+        "signals": signals,
+        "total": len(signals),
+        "note": "경량 휴리스틱(현 데이터 기준). 동일 IP·기기 탐지는 가입/요청 로깅 연동 후 제공됩니다. 본 화면은 신호만 제공하며 자동 조치는 하지 않습니다.",
+    })
