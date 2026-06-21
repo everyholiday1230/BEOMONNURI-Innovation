@@ -19,39 +19,39 @@
      ══════════════════════════════════════════════ */
 
   /* Brand */
-  --color-primary: #6A1E33;
-  --color-primary-hover: #7A243E;
-  --color-primary-pressed: #4F1524;
+  --color-primary: #921230;
+  --color-primary-hover: #6F0E24;
+  --color-primary-pressed: #4A0817;
   --color-secondary: #B8942E;
   --color-secondary-light: #D8B66A;
 
   /* Background */
-  --color-bg: #F7F1EA;
-  --color-surface: #F3ECE4;
-  --color-surface-raised: #FFFDF9;
-  --color-surface-sunken: #EDE4D7;
+  --color-bg: #FAFAFA;
+  --color-surface: #FCF7F8;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #F8EDEF;
 
   /* Text */
-  --color-text-primary: #3D2B1F;
-  --color-text-secondary: #6B5B50;
+  --color-text-primary: #171717;
+  --color-text-secondary: #525252;
   --color-text-muted: #8E7D72;
-  --color-text-inverse: #FFFDF9;
+  --color-text-inverse: #FFFFFF;
 
   /* Border */
-  --color-border: rgba(216,182,106,0.25);
-  --color-border-strong: rgba(216,182,106,0.5);
-  --color-divider: rgba(61,43,31,0.08);
+  --color-border: #E5E5E5;
+  --color-border-strong: #d2c7cb;
+  --color-divider: rgba(23,23,23,0.08);
 
   /* Semantic */
-  --color-success: #4A9E6B;
-  --color-warning: #D97706;
-  --color-error: #A8334B;
-  --color-info: #3B5BA0;
+  --color-success: #1f7a4d;
+  --color-warning: #b4690e;
+  --color-error: #c0392b;
+  --color-info: #6F0E24;
 
   /* Shadow */
-  --shadow-sm: 0 1px 3px rgba(106,30,51,0.06);
-  --shadow-md: 0 4px 12px rgba(106,30,51,0.10);
-  --shadow-lg: 0 12px 32px rgba(106,30,51,0.14);
+  --shadow-sm: 0 1px 3px rgba(146,18,48,0.06);
+  --shadow-md: 0 4px 12px rgba(146,18,48,0.10);
+  --shadow-lg: 0 12px 32px rgba(146,18,48,0.14);
 
   /* Font */
   --font-sans: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', Roboto, sans-serif;
@@ -76,7 +76,7 @@
   --z-base: 0; --z-sticky: 10; --z-drawer: 50; --z-modal: 1000; --z-toast: 1100; --z-splash: 9000;
 
   /* primary-soft (공통 추가) */
-  --color-primary-soft: rgba(106,30,51,0.08);
+  --color-primary-soft: rgba(146,18,48,0.08);
 
   /* 하위 호환 */
   --bg: var(--color-bg);
@@ -388,7 +388,7 @@ button:focus-visible,
 .ad-dialog-btns{display:flex;gap:8px;justify-content:flex-end}
 .ad-dialog-btns button{padding:6px 16px;border:none;border-radius:6px;cursor:pointer;font-size:12px}
 .ad-btn-cancel{background:var(--border);color:var(--text)}
-.ad-btn-ok{background:#6A1E33;color:#fff}
+.ad-btn-ok{background:#921230;color:#fff}
 .ad-btn-danger{background:var(--color-error);color:#fff}
 </style>
 
@@ -413,15 +413,19 @@ button:focus-visible,
   <div role="tablist" style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
     <button role="tab" aria-selected="true" class="admin-tab active" data-action="adminTab" data-param="overview">개요</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="users">회원</button>
-    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="logs">로그</button>
-    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="content">공지/FAQ</button>
-    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="settings">설정</button>
-    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="metrics">메트릭</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="subscriptions">구독/결제</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="points">포인트/레퍼럴</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symdata">심볼/시장 데이터</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="aiusage">AI 사용량</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symbols">종목</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="tickets">문의</button>
-    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="verifications">인증요청
-      <button data-action="adminTab" data-param="symbols" class="admin-tab">종목</button>
-      <button data-action="adminTab" data-param="subscriptions" class="admin-tab">구독</button>
-      <button data-action="adminTab" data-param="system" class="admin-tab">시스템</button></button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="content">공지/FAQ</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="plans">요금제</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="verifications">인증요청</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="logs">보안/로그</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="metrics">메트릭</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="system">시스템</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="settings">설정</button>
   </div>
   <div id="tab-overview">
   <div class="grid">
@@ -767,6 +771,75 @@ button:focus-visible,
       </div>
     </div>
   </div>
+
+  <!-- 포인트/레퍼럴 관리 -->
+  <div class="admin-section-gap" data-section="points">
+    <div class="grid">
+      <div class="card"><h3>발행 코드 수</h3><div class="val" id="ptTotalCodes">-</div></div>
+      <div class="card"><h3>레퍼럴 연결</h3><div class="val" id="ptTotalLinks">-</div></div>
+      <div class="card"><h3>유료 전환</h3><div class="val" id="ptTotalPaid">-</div></div>
+      <div class="card"><h3>누적 발행 포인트</h3><div class="val" id="ptTotalPoints">-</div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>포인트 수동 지급 / 회수</h3>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;margin-top:8px">
+        <input id="ptAdjEmail" class="admin-input" placeholder="회원 이메일">
+        <input id="ptAdjAmount" class="admin-input" type="number" placeholder="포인트 (+지급 / -회수)">
+      </div>
+      <input id="ptAdjNote" class="admin-input" placeholder="사유 메모 (감사 로그에 기록됩니다)" style="margin-top:6px;width:100%">
+      <button onclick="adjustPoints()" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">포인트 조정 실행</button>
+      <div id="ptAdjResult" style="margin-top:6px;font-size:12px"></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--color-text-muted);line-height:1.5">포인트 지급·회수는 감사 목적으로 기록됩니다. 포인트는 현금으로 환불 또는 출금할 수 없으며, 서비스 내 기능 이용에만 사용됩니다.</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>레퍼럴 코드 목록 <span id="ptListCount" style="color:var(--color-primary);font-size:13px;margin-left:6px"></span></h3>
+      <table id="ptListTable" style="margin-top:8px"><thead><tr><th>코드</th><th>회원</th><th>닉네임</th><th>보유 P</th><th>초대 수</th><th>생성일</th></tr></thead><tbody><tr><td colspan="6" style="color:var(--muted)">로딩 중...</td></tr></tbody></table>
+      <button onclick="loadPointsAdmin()" class="btn btn-secondary btn-sm" style="margin-top:8px">새로고침</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>포인트 상품 · 정책 · 부정 사용 관리</h3>
+      <p style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-top:6px">포인트 상품 관리, 포인트 정책(유효기간·월 한도·사용 우선순위), 레퍼럴 캠페인, 부정 사용 탐지(동일 IP·기기·자가 추천 등)는 포인트 소멸 버킷(point_lots)·상품 테이블·부정사용 신호 등 백엔드 연동(Phase 2)이 필요합니다.</p>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:6px">필요 API: /referral/admin/products(상품 CRUD), /referral/admin/policy(정책), /referral/admin/fraud(부정사용 큐), /referral/admin/campaign(캠페인). 현재는 실제 데이터가 없어 표시하지 않습니다.</p>
+    </div>
+  </div>
+
+  <!-- 심볼/시장 데이터 관리 -->
+  <div class="admin-section-gap" data-section="symdata">
+    <div class="card">
+      <h3>심볼/시장 데이터 관리 <span id="symDataCount" style="color:var(--color-primary);font-size:13px;margin-left:6px"></span></h3>
+      <div class="admin-row" style="margin-top:8px">
+        <input id="symDataSearch" class="admin-filter admin-search" placeholder="심볼 검색 (BTC, 비트코인 ...)" aria-label="심볼 검색">
+        <select id="symDataFilter" class="admin-filter" aria-label="상태 필터">
+          <option value="all">전체 상태</option>
+          <option value="invalid">가격 없음/이상만</option>
+        </select>
+        <button onclick="loadSymbolData()" class="btn btn-secondary btn-sm">새로고침</button>
+      </div>
+      <div id="symDataStatus" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
+      <div style="overflow-x:auto;margin-top:8px"><table id="symDataTable"><thead><tr><th>표시 심볼</th><th>원본</th><th>마켓</th><th>현재가</th><th>24h</th><th>거래대금</th><th>상태</th></tr></thead><tbody><tr><td colspan="7" style="color:var(--muted)">로딩 중...</td></tr></tbody></table></div>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:8px;line-height:1.5">심볼 정규화·가격 유효성·상태 판정은 data-status.js 기준입니다. WebSocket 상태·재시도 기록·거래소 매핑 수정 등 심화 진단은 종목별 진단 백엔드(Phase 2) 연동 후 제공됩니다.</p>
+    </div>
+  </div>
+
+  <!-- AI 사용량 관리 (연동 필요) -->
+  <div class="admin-section-gap" data-section="aiusage">
+    <div class="card">
+      <h3>AI 사용량 관리</h3>
+      <p style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-top:6px">전체/무료/유료 AI 호출 수, 실패율, 평균 응답 시간, 사용량 상위 회원·심볼, 기능별 사용량(AI 무료 분석·추세 해석·히트맵 요약·포지션 해석 등)은 AI 호출 로깅 백엔드(Phase 2) 연동이 필요합니다.</p>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:6px">필요 API: /ops/ai-usage(집계), /ops/ai-usage/logs(사용 로그: 시간·회원·기능·심볼·시간봉·상태·응답시간·비용·오류). 현재는 실제 집계 데이터가 없어 표시하지 않습니다.</p>
+    </div>
+  </div>
+
+  <!-- 요금제 관리 (연동 필요) -->
+  <div class="admin-section-gap" data-section="plans">
+    <div class="card">
+      <h3>요금제 관리</h3>
+      <p style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-top:6px">요금제명·가격·결제 주기·AI 분석 횟수·사용 가능 지표·기능 제한·활성 상태 관리. 가격/기능 제한 변경은 운영 로그에 기록되어야 합니다.</p>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:6px">필요 API: /ops/plans(요금제 CRUD), /ops/plans/{id}(수정+감사 로그). 현재는 요금제 테이블 백엔드(Phase 2) 연동 전이라 표시하지 않습니다.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;padding:10px 12px;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:8px;font-size:11px;color:var(--color-text-secondary);line-height:1.55">관리자 페이지의 모든 주요 작업은 보안 및 감사 목적으로 기록됩니다. 개인정보와 결제 정보는 권한이 있는 관리자만 열람할 수 있으며, 외부 공유를 금지합니다.</div>
 
 </div>
 </div>
@@ -1194,10 +1267,9 @@ async function loadLogs(page){
 // 탭 전환 — data-section 속성 기반 (admin.html의 각 섹션이 data-section="xxx"로 표시됨)
 // overview: 맨 앞 2개 grid + 새로고침 버튼 (data-section 없는 요소)
 function showAdminTab(tab){
-  // 1. 탭 버튼 active 표시 전환 + aria-selected 동기화
-  const labelMap = {overview:'개요', users:'회원', logs:'로그', content:'공지', settings:'설정', metrics:'메트릭', tickets:'문의', verifications:'인증요청'};
+  // 1. 탭 버튼 active 표시 전환 + aria-selected 동기화 (data-param 기준 — 견고)
   document.querySelectorAll('.admin-tab').forEach(b=>{
-    const isActive = b.textContent.includes(labelMap[tab] || '');
+    const isActive = (b.getAttribute('data-param') === tab);
     b.classList.toggle('active', isActive);
     b.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
@@ -1228,8 +1300,100 @@ function showAdminTab(tab){
   else if (tab === 'content') { loadNotices(); loadFaqs(); }
   else if (tab === 'settings') loadSettings();
   else if (tab === 'logs') loadLogs();
+  else if (tab === 'points') { if (typeof loadPointsAdmin === 'function') loadPointsAdmin(); }
+  else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
 }
 window.showAdminTab = showAdminTab;
+
+// ─────────── 포인트/레퍼럴 관리 ───────────
+async function loadPointsAdmin(){
+  try{
+    const r = await window.api.raw('/v1/referral/admin/stats');
+    if(r.ok){ const j = await r.json(); const d = (j&&j.data)||{};
+      const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=(v==null?'-':Number(v).toLocaleString());};
+      set('ptTotalCodes', d.total_codes); set('ptTotalLinks', d.total_links); set('ptTotalPaid', d.total_paid); set('ptTotalPoints', d.total_points_issued);
+    }
+  }catch(e){}
+  try{
+    const r2 = await window.api.raw('/v1/referral/admin/list?page=1');
+    const tb = document.querySelector('#ptListTable tbody');
+    if(r2.ok && tb){ const j2 = await r2.json(); const items=((j2&&j2.data&&j2.data.items)||[]);
+      const cnt=document.getElementById('ptListCount'); if(cnt) cnt.textContent=items.length+'건';
+      const _e=s=>{const x=document.createElement('div');x.textContent=s==null?'':String(s);return x.innerHTML;};
+      tb.innerHTML = items.length ? items.map(it=>`<tr><td>${_e(it.code)}</td><td>${_e(it.email)}</td><td>${_e(it.nickname)}</td><td>${Number(it.points||0).toLocaleString()}</td><td>${Number(it.referrals||0).toLocaleString()}</td><td>${_e((it.date||'').slice(0,10))}</td></tr>`).join('')
+        : '<tr><td colspan="6" style="color:var(--muted)">레퍼럴 코드가 없습니다.</td></tr>';
+    } else if (tb) { tb.innerHTML='<tr><td colspan="6" style="color:var(--color-error)">목록을 불러오지 못했습니다.</td></tr>'; }
+  }catch(e){ const tb=document.querySelector('#ptListTable tbody'); if(tb) tb.innerHTML='<tr><td colspan="6" style="color:var(--color-error)">목록을 불러오지 못했습니다.</td></tr>'; }
+}
+window.loadPointsAdmin = loadPointsAdmin;
+
+async function adjustPoints(){
+  const email=(document.getElementById('ptAdjEmail')||{}).value||'';
+  const amount=parseInt((document.getElementById('ptAdjAmount')||{}).value||'0',10);
+  const note=(document.getElementById('ptAdjNote')||{}).value||'관리자 수동 조정';
+  const res=document.getElementById('ptAdjResult');
+  if(!email.trim()||!amount){ if(res){res.style.color='var(--color-error)';res.textContent='이메일과 0이 아닌 포인트 값을 입력해 주세요.';} return; }
+  const action = amount>0 ? '지급' : '회수';
+  if(!confirm(`${email} 회원에게 ${Math.abs(amount).toLocaleString()} P를 ${action}하시겠습니까?\n사유: ${note}\n\n이 작업은 감사 로그에 기록됩니다.`)) return;
+  try{
+    const r=await window.api.raw('/v1/referral/admin/adjust',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),amount,note})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok){ if(res){res.style.color='var(--color-success)';res.textContent=(j&&j.data&&j.data.message)||`${amount>0?'+':''}${amount} P ${action} 완료`;} loadPointsAdmin(); }
+    else { if(res){res.style.color='var(--color-error)';res.textContent=(j&&j.detail)||'포인트 조정에 실패했습니다.';} }
+  }catch(e){ if(res){res.style.color='var(--color-error)';res.textContent='네트워크 오류로 포인트 조정에 실패했습니다.';} }
+}
+window.adjustPoints = adjustPoints;
+
+// ─────────── 심볼/시장 데이터 관리 ───────────
+let _symDataRows = [];
+async function loadSymbolData(){
+  const tb=document.querySelector('#symDataTable tbody');
+  const statusEl=document.getElementById('symDataStatus');
+  if(statusEl) statusEl.textContent='심볼·가격 데이터를 불러오는 중입니다…';
+  try{
+    const r=await window.api.raw('/v1/symbols?page_size=3000');
+    const j=r.ok ? await r.json() : null;
+    const items=(j&&j.data&&j.data.items)||[];
+    const PS=window.PriceStatus, SD=window.SymbolData;
+    _symDataRows = items.map(it=>{
+      const norm = SD ? SD.normalize(it.symbol_code, it.exchange_code) : {displaySymbol:it.symbol_code, market:it.quote_asset};
+      // /v1/symbols 응답에는 실시간 가격이 없을 수 있음 → 상태만 판정(가격 미수신)
+      const price = it.last_price!=null ? it.last_price : null;
+      const v = PS ? PS.validate(price) : {valid:(price>0), status:'NO_PRICE'};
+      return {
+        display: norm.displaySymbol || it.symbol_code, raw: it.symbol_code, market: norm.market || it.quote_asset || '-',
+        price, pct: it.price_change_pct, turnover: it.quote_volume,
+        status: price==null ? 'NO_PRICE' : v.status, valid: (price!=null && v.valid),
+      };
+    });
+    renderSymbolData();
+    if(statusEl) statusEl.textContent = `총 ${items.length.toLocaleString()}개 심볼. /v1/symbols 목록에는 실시간 가격이 포함되지 않아 가격·상태는 시세 연동(Phase 2) 후 정확히 표시됩니다.`;
+  }catch(e){ if(tb) tb.innerHTML='<tr><td colspan="7" style="color:var(--color-error)">심볼 데이터를 불러오지 못했습니다.</td></tr>'; if(statusEl) statusEl.textContent=''; }
+}
+window.loadSymbolData = loadSymbolData;
+
+function renderSymbolData(){
+  const tb=document.querySelector('#symDataTable tbody'); if(!tb) return;
+  const q=((document.getElementById('symDataSearch')||{}).value||'').toLowerCase().trim();
+  const filt=(document.getElementById('symDataFilter')||{}).value||'all';
+  const cntEl=document.getElementById('symDataCount');
+  const txtMap=window.DataStatusText||{};
+  const PS=window.PriceStatus;
+  const _e=s=>{const x=document.createElement('div');x.textContent=s==null?'':String(s);return x.innerHTML;};
+  let rows=_symDataRows;
+  if(q) rows=rows.filter(r=>r.display.toLowerCase().includes(q)||r.raw.toLowerCase().includes(q));
+  if(filt==='invalid') rows=rows.filter(r=>!r.valid);
+  if(cntEl) cntEl.textContent=rows.length+'개';
+  const badge=st=>`<span class="badge" style="background:${st==='READY'?'var(--color-primary-soft)':'#F8EDEF'};color:var(--color-primary)">${_e(txtMap[st]||'가격 데이터 없음')}</span>`;
+  const fmtPrice=p=>{ if(p==null) return '-'; if(PS&&PS.formatNumber(p)!=null) return PS.formatNumber(p).replace(/^₩/,''); return String(p); };
+  const fmtPct=p=>p==null||isNaN(p)?'-':(p>=0?'+':'')+Number(p).toFixed(2)+'%';
+  const fmtVol=v=>{v=Number(v);if(!isFinite(v))return '-';return v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v.toFixed(0);};
+  tb.innerHTML = rows.length ? rows.slice(0,300).map(r=>`<tr><td>${_e(r.display)}</td><td style="color:var(--muted)">${_e(r.raw)}</td><td>${_e(r.market)}</td><td>${r.price==null?'<span style="color:var(--muted)">시세 연동 예정</span>':fmtPrice(r.price)}</td><td>${fmtPct(r.pct)}</td><td>${fmtVol(r.turnover)}</td><td>${badge(r.status)}</td></tr>`).join('')
+    : '<tr><td colspan="7" style="color:var(--muted)">조건에 맞는 심볼이 없습니다.</td></tr>';
+}
+document.addEventListener('input',e=>{ if(e.target&&e.target.id==='symDataSearch') renderSymbolData(); });
+document.addEventListener('change',e=>{ if(e.target&&e.target.id==='symDataFilter') renderSymbolData(); });
+
 
 // ═══════════════════════════════════════════════
 // 이벤트 위임 (inline onclick/onchange 대체)

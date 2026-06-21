@@ -538,8 +538,8 @@ async def admin(request: _Req):
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --color-primary:#6A1E33;
-  --color-primary-hover:#7A243E;
+  --color-primary:#921230;
+  --color-primary-hover:#6F0E24;
   --color-bg:#F7F1EA;
   --color-surface-raised:#FFFDF9;
   --color-text-primary:#3D2B1F;
@@ -547,7 +547,7 @@ async def admin(request: _Req):
   --color-border:rgba(216,182,106,0.25);
   --color-border-strong:rgba(216,182,106,0.5);
   --color-error:#A8334B;
-  --shadow-md:0 4px 12px rgba(106,30,51,0.08);
+  --shadow-md:0 4px 12px rgba(146,18,48,0.08);
 }
 body{
   background:var(--color-bg);color:var(--color-text-primary);
@@ -578,7 +578,7 @@ body{
 }
 .box input:focus{
   border-color:var(--color-primary);
-  box-shadow:0 0 0 3px rgba(106,30,51,0.15)
+  box-shadow:0 0 0 3px rgba(146,18,48,0.15)
 }
 .box button{
   width:100%;padding:10px;margin-top:20px;
@@ -721,8 +721,8 @@ async def reset_browser_state():
 body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
      min-height:100vh;margin:0;background:#F7F1EA;color:#3D2B1F;text-align:center}
 .box{padding:32px;background:#FFFDF9;border-radius:12px;
-     box-shadow:0 4px 12px rgba(106,30,51,0.1);max-width:400px}
-h2{color:#6A1E33;margin:0 0 12px}
+     box-shadow:0 4px 12px rgba(146,18,48,0.1);max-width:400px}
+h2{color:#921230;margin:0 0 12px}
 p{color:#6B5B50;margin:0;font-size:14px;line-height:1.6}
 </style></head>
 <body>
