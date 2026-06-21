@@ -206,6 +206,11 @@ export function renderWL(f = '') {
   let list = symbols;
   if (assetFilter !== 'all') list = list.filter(s => s.asset === assetFilter);
   if (f) list = list.filter(s => s.code.toLowerCase().includes(fl) || s.name.toLowerCase().includes(fl) || s.kr.includes(f));
+  // 가격 상태 필터: 가격 없는 종목 숨기기 / 지원(가격 있는) 종목만 보기
+  const pf = window._wlPriceFilter || 'all';
+  if (pf !== 'all' && window._wlPriceValid) {
+    list = list.filter(s => window._wlPriceValid[s.code] === true);
+  }
   list = _sortSymbols(list);
   if (!list.length) {
     el.innerHTML = '<div class="' + (!f ? 'state-loading compact' : 'state-empty compact') + '">' + (!f ? '종목을 불러오는 중입니다…' : '검색 결과가 없습니다') + '</div>';
@@ -274,15 +279,35 @@ export async function loadWLPrices() {
       if (d) window._wlPriceCache[s.code] = d;
     }
     const fmtPrice = window.fmtPrice || (v => String(v));
+    const PS = window.PriceStatus;
+    window._wlPriceValid = window._wlPriceValid || {};
     for (const s of symbols) {
       const el = document.getElementById('wp_' + s.code);
       if (!el) continue;
       const d = map[s.apiCode || s.code] || map[s.code];
-      if (!d) continue;
+      // 가격 유효성 검증 (data-status.js). 0/NaN/null 은 무효 처리.
+      const v = (d && PS) ? PS.validate(d.price) : { valid: !!(d && Number.isFinite(d.price) && d.price > 0), status: 'NO_PRICE' };
+      window._wlPriceValid[s.code] = !!(d && v.valid);
+      if (!d || !v.valid) {
+        // 빈칸/··· 대신 상태 배지 표시
+        const status = !d ? 'NO_PRICE' : (v.status || 'SUSPENDED');
+        const txt = (window.DataStatusText && window.DataStatusText[status]) || '가격 데이터 없음';
+        el.innerHTML = `<span class="ds-list-badge" title="${txt}">${txt}</span>`;
+        continue;
+      }
       const color = d.pct >= 0 ? '#C4384B' : '#3B82F6';
       const sign = d.pct >= 0 ? '+' : '';
-      const fmt = fmtPrice(d.price);
-      el.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div><div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${sign}${d.pct.toFixed(2)}%</div>`;
+      const fmt = (PS && PS.formatNumber(d.price) != null) ? PS.formatNumber(d.price).replace(/^₩/, '') : fmtPrice(d.price);
+      const pctTxt = Number.isFinite(d.pct) ? `${sign}${d.pct.toFixed(2)}%` : '';
+      el.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div>${pctTxt ? `<div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${pctTxt}</div>` : ''}`;
+    }
+    // 필터(지원 종목만 보기/가격 없는 종목 숨기기)가 켜져 있으면 목록 갱신
+    // (재진입 방지: 필터 재렌더는 1회만)
+    if (window._wlPriceFilter && window._wlPriceFilter !== 'all' && !window._wlFilterReRender) {
+      window._wlFilterReRender = true;
+      const curSearch = document.getElementById('searchInput')?.value || '';
+      renderWL(curSearch);
+      window._wlFilterReRender = false;
     }
   } catch (e) { /* ticker load fail — silent */ }
 }
@@ -291,6 +316,14 @@ export async function loadWLPrices() {
 window.renderWL = renderWL;
 window.loadWLPrices = loadWLPrices;
 window._wlPriceCache = window._wlPriceCache || {};
+window._wlPriceFilter = window._wlPriceFilter || 'all';
+
+// 가격 상태 필터 (전체 / 가격 없는 종목 숨기기 / 지원 종목만 보기)
+window._wlSetPriceFilter = function(v) {
+  window._wlPriceFilter = v || 'all';
+  const curSearch = document.getElementById('searchInput')?.value || '';
+  renderWL(curSearch);
+};
 
 // 검색 + 정렬 이벤트
 const _searchEl = document.getElementById('searchInput');

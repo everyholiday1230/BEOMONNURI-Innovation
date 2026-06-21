@@ -996,6 +996,16 @@ body.dark #_toastContainer .pro-toast-chip {
     </select>
   </div>
 
+  <div style="display:flex;align-items:center;gap:6px;padding:4px 10px 6px;font-size:11px;color:var(--color-text-muted)">
+    <label for="wlPriceFilter" class="sr-only">가격 상태 필터</label>
+    <span>표시</span>
+    <select id="wlPriceFilter" class="toolbar-select" style="flex:1;cursor:pointer;font-size:11px" aria-label="가격 상태 필터" onchange="window._wlSetPriceFilter&&window._wlSetPriceFilter(this.value)">
+      <option value="all" selected>전체 종목</option>
+      <option value="hide_noprice">가격 없는 종목 숨기기</option>
+      <option value="supported_only">지원 종목만 보기</option>
+    </select>
+  </div>
+
   <div class="watchlist" id="watchlist"></div>
   <div style="padding:6px 10px;border-top:1px solid rgba(216,182,106,0.2);font-size:10px;color:var(--color-text-muted);text-align:center;flex-shrink:0;line-height:1.5">
     <div>범온누리 이노베이션 · support@beomonnuri.com</div>
