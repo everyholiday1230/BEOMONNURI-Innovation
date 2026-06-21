@@ -501,8 +501,12 @@ async def get_candles(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: i
     # 화이트리스트 검증 — DB에 등록된 심볼만 허용
     from src.services.symbol_resolver import SYMBOL_EXCHANGE, SYMBOL_API_MAP, ensure_fresh
     await ensure_fresh()
-    if symbolId not in SYMBOL_EXCHANGE and symbolId not in SYMBOL_API_MAP.values():
-        raise HTTPException(404, f"등록되지 않은 심볼: {symbolId}")
+    _whitelisted = (symbolId in SYMBOL_EXCHANGE) or (symbolId in SYMBOL_API_MAP.values())
+    # 화이트리스트에 없지만 형식이 유효한 심볼(목록엔 있으나 캔들 소스 미연결 등):
+    # 404 대신 빈 캔들 + unsupported 표기로 응답한다. 프론트는 '데이터 없음'으로 처리하고
+    # 콘솔 404/재시도 폭주를 막는다. 외부 API 호출 없이 즉시 반환(부하 0).
+    if not _whitelisted:
+        return ApiResponse(data={"symbolId": symbolId, "timeframe": timeframe, "candles": [], "supported": False, "note": "이 종목은 현재 캔들 데이터를 제공하지 않습니다."})
     # 입력 검증 (감사 보고서 9.3 반영)
     # timeframe 별칭 정규화 — 차트/패널이 24h, 12h 등 별칭을 보내도 거부(400) 대신 매핑.
     _TF_ALIAS = {"24h": "1d", "1day": "1d", "1D": "1d", "12h": "4h", "8h": "4h", "6h": "4h",

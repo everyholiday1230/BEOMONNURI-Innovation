@@ -68,16 +68,42 @@ async def apply_code(req: dict, user_id: str = Depends(get_current_user_id), db:
     referrer_id = str(referrer[0])
     if referrer_id == user_id:
         raise HTTPException(400, "본인 코드는 사용할 수 없습니다")
-    # 연결 생성
+    # 연결 생성 (추천인 보상은 '이메일 인증 완료' 시점에 지급 — 부정 가입 방지)
     await db.execute(text(
         "INSERT INTO referral_links (referrer_id, referred_id, referral_code) VALUES (:rid, :uid, :c)"
     ), {"rid": referrer_id, "uid": user_id, "c": code})
-    # 포인트 적립 — 추천인
-    await _add_points(db, referrer_id, POINTS_SIGNUP_REFERRER, "referral_signup", f"추천인 가입 보너스 ({code})")
-    # 포인트 적립 — 피추천인
-    await _add_points(db, user_id, POINTS_SIGNUP_REFERRED, "signup_bonus", "가입 웰컴 보너스")
+    # 포인트 적립 — 피추천인 가입 축하(즉시). 추천인 보상은 verify_email 에서 지급.
+    await _add_points(db, user_id, POINTS_SIGNUP_REFERRED, "signup_bonus", "가입 축하 포인트")
     await db.commit()
-    return ApiResponse(data={"message": f"+{POINTS_SIGNUP_REFERRED}P 적립! 추천인에게도 +{POINTS_SIGNUP_REFERRER}P 적립됨"})
+    return ApiResponse(data={"message": f"가입 축하 포인트 +{POINTS_SIGNUP_REFERRED}P 적립! 이메일 인증을 완료하면 추천인에게도 보상이 지급됩니다."})
+
+
+async def reward_referrer_on_verify(db: AsyncSession, referred_id: str) -> bool:
+    """피추천인 이메일 인증 완료 시 추천인에게 보상 1회 지급(멱등).
+
+    중복 지급 방지: 해당 link 에 대해 이미 referral_signup 보상 ledger 가 있으면 건너뛴다.
+    호출 측에서 commit 한다(여기서는 commit 하지 않음).
+    """
+    link = (await db.execute(text(
+        "SELECT id, referrer_id, referral_code, status FROM referral_links WHERE referred_id = :uid"
+    ), {"uid": referred_id})).fetchone()
+    if not link:
+        return False
+    link_id, referrer_id, code, status = str(link[0]), str(link[1]), link[2], (link[3] or "registered")
+    if referrer_id == str(referred_id):
+        return False  # 자가 추천 방어
+    # 이미 이 link 로 추천인 보상이 지급되었는지 (멱등)
+    paid = (await db.execute(text(
+        "SELECT 1 FROM point_ledger WHERE user_id = :rid AND reason = 'referral_signup' AND ref_id = :lid LIMIT 1"
+    ), {"rid": referrer_id, "lid": link_id})).fetchone()
+    if paid:
+        return False
+    await _add_points(db, referrer_id, POINTS_SIGNUP_REFERRER, "referral_signup", f"추천 보상 — 이메일 인증 완료 ({code})", link_id)
+    try:
+        await db.execute(text("UPDATE referral_links SET status = 'verified' WHERE id = :lid AND status = 'registered'"), {"lid": link_id})
+    except Exception:
+        pass
+    return True
 
 
 @router.get("/points", response_model=ApiResponse)

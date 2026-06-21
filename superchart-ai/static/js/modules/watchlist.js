@@ -92,14 +92,19 @@ window._symbolLogoImg = function(code, base, px, extraStyle) {
   const coinPath = token ? `/static/coin-logos/${token}.png` : '';
   const stockPath = token ? `/static/stock-logos/${token}.png` : '';
   const badge = _symbolBadgeSvg(base, px);
-  // onerror 체인: db → coin → stock → badge. data-step 으로 진행 단계 추적(무한루프 방지).
+  // 자산군 판별: 주식/ETF/원자재는 stock-logos 우선, 그 외(crypto)는 coin-logos만 시도
+  let asset = 'crypto';
+  try { if (Array.isArray(window.symbols)) { const s = window.symbols.find(x => x.code === code); if (s && s.asset) asset = s.asset; } } catch (e) {}
+  const stockFirst = (asset === 'stock' || asset === 'etf' || asset === 'commodity');
+  const local1 = stockFirst ? stockPath : coinPath;
+  const local2 = stockFirst ? coinPath : stockPath;
+  // onerror 체인: db → 로컬1 → 로컬2 → badge. 같은 자산군 경로만 시도해 중복 404 절감.
   const onerr = `var s=this.getAttribute('data-step')||'0';`
-    + `if(s==='0'){this.setAttribute('data-step','1');this.src='${coinPath}';}`
-    + `else if(s==='1'){this.setAttribute('data-step','2');this.src='${stockPath}';}`
+    + `if(s==='0'){this.setAttribute('data-step','1');this.src='${local1}';}`
+    + `else if(s==='1'){this.setAttribute('data-step','2');this.src='${local2}';}`
     + `else if(s==='2'){this.setAttribute('data-step','3');this.src='${badge}';}`
     + `else{this.onerror=null;}`;
-  // 시작 src: db값 있으면 db, 없으면 로컬 coin 경로부터(없으면 onerror가 단계 진행)
-  const startSrc = dbUrl || coinPath || badge;
+  const startSrc = dbUrl || local1 || badge;
   const startStep = dbUrl ? '0' : '1';
   const style = `width:${px}px;height:${px}px;border-radius:50%;flex-shrink:0;${extraStyle || ''}`;
   return `<img src="${startSrc}" data-step="${startStep}" loading="lazy" decoding="async" alt="" onerror="${onerr}" style="${style}">`;

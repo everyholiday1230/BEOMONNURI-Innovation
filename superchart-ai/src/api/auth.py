@@ -232,9 +232,15 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     from datetime import datetime, timezone
     user.email_verified_at = datetime.now(timezone.utc)
     user.email_token = None
+    # 추천 보상: 피추천인 이메일 인증 완료 시 추천인에게 1회 지급(멱등). 실패해도 인증은 진행.
+    try:
+        from src.api.referral import reward_referrer_on_verify
+        await reward_referrer_on_verify(db, str(user.id))
+    except Exception:
+        pass
     await db.commit()
     from starlette.responses import HTMLResponse
-    return HTMLResponse('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="background:#F7F1EA;color:#3D2B1F;display:flex;align-items:center;justify-content:center;height:100vh;font-family:Inter,-apple-system,sans-serif;margin:0"><div style="text-align:center;background:#F3ECE4;padding:40px;border-radius:12px;border:1px solid rgba(216,182,106,0.25);box-shadow:0 4px 16px rgba(106,30,51,0.08);max-width:400px"><div style="font-size:40px;margin-bottom:12px">✅</div><h1 style="color:#6A1E33;font-size:20px;margin:0 0 8px">이메일 인증 완료</h1><p style="color:#8E7D72;font-size:13px;margin:0 0 20px">이메일 인증이 완료되었습니다.</p><a href="/" style="display:inline-block;padding:10px 24px;background:#6A1E33;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:13px">서비스로 돌아가기</a></div></body></html>')
+    return HTMLResponse('<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="background:#F7F1EA;color:#3D2B1F;display:flex;align-items:center;justify-content:center;height:100vh;font-family:Inter,-apple-system,sans-serif;margin:0"><div style="text-align:center;background:#F3ECE4;padding:40px;border-radius:12px;border:1px solid rgba(216,182,106,0.25);box-shadow:0 4px 16px rgba(146,18,48,0.08);max-width:400px"><div style="font-size:40px;margin-bottom:12px">✅</div><h1 style="color:#921230;font-size:20px;margin:0 0 8px">이메일 인증 완료</h1><p style="color:#8E7D72;font-size:13px;margin:0 0 20px">이메일 인증이 완료되었습니다.</p><a href="/" style="display:inline-block;padding:10px 24px;background:#921230;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:13px">서비스로 돌아가기</a></div></body></html>')
 
 # ═══ 비밀번호 자가 재설정 ═══
 @router.post("/forgot-password", response_model=ApiResponse)
@@ -262,11 +268,11 @@ async def reset_password_page(token: str):
     """비밀번호 재설정 페이지 (HTML)."""
     from starlette.responses import HTMLResponse
     return HTMLResponse(f'''<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="background:#F7F1EA;color:#3D2B1F;display:flex;align-items:center;justify-content:center;height:100vh;font-family:Inter,-apple-system,sans-serif;margin:0">
-    <div style="background:#F3ECE4;padding:30px;border-radius:12px;border:1px solid rgba(216,182,106,0.25);box-shadow:0 4px 16px rgba(106,30,51,0.08);max-width:360px;width:90%">
-    <h2 style="color:#6A1E33;text-align:center;margin:0 0 16px">🔑 비밀번호 재설정</h2>
+    <div style="background:#F3ECE4;padding:30px;border-radius:12px;border:1px solid rgba(216,182,106,0.25);box-shadow:0 4px 16px rgba(146,18,48,0.08);max-width:360px;width:90%">
+    <h2 style="color:#921230;text-align:center;margin:0 0 16px">🔑 비밀번호 재설정</h2>
     <input id="pw1" type="password" placeholder="새 비밀번호 (8자 이상)" style="width:100%;padding:10px;margin:6px 0;background:#FFFDF9;border:1px solid rgba(216,182,106,0.3);border-radius:6px;color:#3D2B1F;font-size:13px;box-sizing:border-box">
     <input id="pw2" type="password" placeholder="비밀번호 확인" style="width:100%;padding:10px;margin:6px 0;background:#FFFDF9;border:1px solid rgba(216,182,106,0.3);border-radius:6px;color:#3D2B1F;font-size:13px;box-sizing:border-box">
-    <button onclick="resetPw()" style="width:100%;padding:10px;background:#6A1E33;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-top:8px">재설정</button>
+    <button onclick="resetPw()" style="width:100%;padding:10px;background:#921230;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-top:8px">재설정</button>
     <p id="msg" style="margin-top:12px;font-size:12px;text-align:center"></p>
     <script>
     async function resetPw(){{
@@ -277,7 +283,7 @@ async def reset_password_page(token: str):
       if(pw1!==pw2){{msg.textContent="비밀번호가 일치하지 않습니다";msg.style.color="#C4384B";return}}
       const r=await fetch("/v1/auth/confirm-reset",{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{token:"{token}",password:pw1}})}});
       const d=await r.json();
-      if(d.success){{msg.textContent="✅ 비밀번호가 변경되었습니다. 로그인해주세요.";msg.style.color="#4A9E6B"}}
+      if(d.success){{msg.textContent="✅ 비밀번호가 변경되었습니다. 로그인해주세요.";msg.style.color="#1f7a4d"}}
       else{{msg.textContent=d.detail||"실패";msg.style.color="#C4384B"}}
     }}
     </script>
