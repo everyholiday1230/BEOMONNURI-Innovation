@@ -215,13 +215,37 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
         dedup: dict[str, dict] = {}
         # 우선순위: db > curated > live
         priority = {"db": 3, "curated": 2, "live": 1}
+
+        def _dedup_key(row: dict) -> str:
+            """중복 제거 키.
+
+            - crypto: symbol_code 그대로(예: SHIBUSDT vs 1000SHIBUSDT 는 별개 계약이라 유지).
+            - stock/etf/commodity: 같은 기초자산이 거래소별로 AAPL(xStocks)·AAPLUSDT(Binance)
+              처럼 다른 코드로 중복 노출되므로, 자산군+기초자산명으로 묶어 1개만 남긴다.
+            """
+            ac = str(row.get("asset_class") or "crypto")
+            code = str(row.get("symbol_code", ""))
+            if ac == "crypto":
+                return "crypto:" + code
+            ko = str(row.get("display_name_ko") or "").strip()
+            base = str(row.get("base_asset") or "").upper()
+            if not base:
+                base = code.upper()
+                for q in ("USDT", "USD", "BUSD", "USDC"):
+                    if base.endswith(q) and len(base) > len(q):
+                        base = base[: -len(q)]
+                        break
+            # 한글명이 같으면 동일 자산으로 간주(예: '금' XAUUSD/XAUUSDT). 없으면 기초자산.
+            return f"{ac}:{ko or base}"
+
         for row in merged_rows:
             code = str(row.get("symbol_code", ""))
             if not code:
                 continue
-            prev = dedup.get(code)
+            key = _dedup_key(row)
+            prev = dedup.get(key)
             if not prev or priority.get(str(row.get("source")), 0) > priority.get(str(prev.get("source")), 0):
-                dedup[code] = row
+                dedup[key] = row
 
         # 시총 순 정렬: sort_order 1,2,3... 가 상위 종목(BTC/ETH/...).
         # DB sort_order 가 채워져 있으면(>0) 그것을 쓰고, 아니면 코드 기반
