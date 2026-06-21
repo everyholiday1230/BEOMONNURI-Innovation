@@ -333,20 +333,25 @@ async def today_stats(request: Request):
     await _auth_admin_check(request)
     from src.db.session import SessionLocal
     from sqlalchemy import text
-    async with SessionLocal() as db:
-        r = await db.execute(text("""
-            SELECT
-                (SELECT count(*) FROM users WHERE created_at >= CURRENT_DATE) as new_users_today,
-                (SELECT count(*) FROM users) as total_users,
-                (SELECT count(*) FROM access_logs WHERE created_at >= CURRENT_DATE) as visits_today,
-                (SELECT count(*) FROM alert_rules WHERE is_active = true) as active_alerts,
-                (SELECT count(*) FROM bot_trades WHERE opened_at >= CURRENT_DATE) as bot_trades_today
-        """))
-        row = r.fetchone()
+    # 각 카운트를 독립적으로 조회 — 일부 테이블이 없어도(예: alert_rules/bot_trades 미생성)
+    # 전체 503 대신 해당 항목만 0 으로 처리(graceful degradation).
+    async def _count(sql: str) -> int:
+        try:
+            async with SessionLocal() as db:
+                r = await db.execute(text(sql))
+                v = r.scalar()
+                return int(v or 0)
+        except Exception:
+            return 0
+    new_users_today = await _count("SELECT count(*) FROM users WHERE created_at >= CURRENT_DATE")
+    total_users = await _count("SELECT count(*) FROM users")
+    visits_today = await _count("SELECT count(*) FROM access_logs WHERE created_at >= CURRENT_DATE")
+    active_alerts = await _count("SELECT count(*) FROM alert_rules WHERE is_active = true")
+    bot_trades_today = await _count("SELECT count(*) FROM bot_trades WHERE opened_at >= CURRENT_DATE")
     return {"success": True, "data": {
-        "new_users_today": row[0], "total_users": row[1],
-        "visits_today": row[2], "active_alerts": row[3],
-        "bot_trades_today": row[4]
+        "new_users_today": new_users_today, "total_users": total_users,
+        "visits_today": visits_today, "active_alerts": active_alerts,
+        "bot_trades_today": bot_trades_today
     }}
 
 

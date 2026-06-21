@@ -428,7 +428,7 @@ async def admin_products(request: Request, db: AsyncSession = Depends(get_db), _
 async def admin_upsert_product(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
     """상품 생성/수정(코드 기준 upsert)."""
     await _ensure(db)
-    code = (req.get("code") or "").strip().upper()
+    code = (req.get("code") or "").strip()
     name = (req.get("name") or "").strip()
     if not code or not name:
         raise HTTPException(400, "code 와 name 은 필수입니다")
@@ -480,17 +480,18 @@ async def admin_upsert_product(req: dict, request: Request, db: AsyncSession = D
 async def admin_toggle_product(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
     """상품 활성/비활성 전환."""
     await _ensure(db)
-    code = (req.get("code") or "").strip().upper()
-    row = (await db.execute(text("SELECT active FROM point_products WHERE code=:c"), {"c": code})).fetchone()
+    code = (req.get("code") or "").strip()
+    row = (await db.execute(text("SELECT active, code FROM point_products WHERE lower(code)=lower(:c)"), {"c": code})).fetchone()
     if not row:
         raise HTTPException(404, "상품 없음")
     new_active = not bool(row[0])
+    stored_code = row[1]
     ip = request.client.host if request and request.client else ""
-    await db.execute(text("UPDATE point_products SET active=:a WHERE code=:c"), {"a": new_active, "c": code})
+    await db.execute(text("UPDATE point_products SET active=:a WHERE code=:c"), {"a": new_active, "c": stored_code})
     await db.execute(text(
         "INSERT INTO point_audit (actor, action, ref, ip, reason, result) "
         "VALUES ('admin','product_toggle',:c,:ip,:rs,'ok')"
-    ), {"c": code, "ip": ip, "rs": f"활성 상태 → {new_active}"})
+    ), {"c": stored_code, "ip": ip, "rs": f"활성 상태 → {new_active}"})
     await db.commit()
     return ApiResponse(data={"message": f"{code} {'활성화' if new_active else '비활성화'} 완료", "active": new_active})
 

@@ -157,13 +157,21 @@ async def admin_pending_verifications(
 ):
     """관리자 대기 중 인증 요청 목록."""
     await auth_admin_check(request)
-    results = (
-        await db.execute(
-            select(VerificationRequest)
-            .where(VerificationRequest.status == "pending")
-            .order_by(VerificationRequest.created_at.desc())
-        )
-    ).scalars().all()
+    try:
+        results = (
+            await db.execute(
+                select(VerificationRequest)
+                .where(VerificationRequest.status == "pending")
+                .order_by(VerificationRequest.created_at.desc())
+            )
+        ).scalars().all()
+    except Exception:
+        # 인증요청 테이블 미생성/스키마 불일치 등 — 503 대신 빈 목록으로 안전 반환
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        return ApiResponse(data=[])
     # 사용자 정보 조회
     user_ids = [v.user_id for v in results]
     users = {}
