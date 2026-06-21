@@ -307,18 +307,8 @@ function renderBoxes(list) {
   const listFallback = (HM.density === 'detail' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches);
   grid.classList.toggle('list-fallback', listFallback);
 
-  // size 가중치(시각적): 거래대금/거래량/변동성 상위에 grid-column span 2 부여
-  let sizeKey = HM.size;
-  let spanThreshold = Infinity;
-  if (sizeKey !== 'equal') {
-    const key = sizeKey === 'volume' ? 'vol' : sizeKey === 'mktcap' ? 'turnover' : 'turnover'; // 시총 데이터 없음 → 거래대금 근사
-    const sorted = arr.map(r => r[key]).sort((a, b) => b - a);
-    spanThreshold = sorted[Math.min(3, sorted.length - 1)] || Infinity; // 상위 4개 크게
-    arr._sizeKey = key;
-  }
-
+  // 모든 박스를 동일 크기(1칸)로 통일 — 종목별 크기 차이로 레이아웃이 들쭉날쭉하던 문제 제거.
   grid.innerHTML = arr.map(r => {
-    const big = sizeKey !== 'equal' && !listFallback && r[arr._sizeKey] >= spanThreshold;
     const bg = boxColor(r);
     const isCur = r.code === cur;
     const badges = [];
@@ -329,7 +319,7 @@ function renderBoxes(list) {
     let metaLine = '';
     if (dens !== 'simple') metaLine = `<div class="hm-box-meta">${metaForMode(r)}</div>`;
     if (dens === 'detail') metaLine = `<div class="hm-box-meta">${esc(metaForMode(r))} · 변동성 ${r.volatility.toFixed(1)}% · AI ${r.aiScore}</div>`;
-    return `<div class="hm-box ${isCur?'current':''}" role="listitem" tabindex="0" data-code="${esc(r.code)}" aria-label="${esc(aria)}" style="background:${bg};${big?'grid-column:span 2;':''}">
+    return `<div class="hm-box ${isCur?'current':''}" role="listitem" tabindex="0" data-code="${esc(r.code)}" aria-label="${esc(aria)}" style="background:${bg};">
       <div class="hm-box-top"><span class="hm-box-name">${esc(r.base)}</span><span class="hm-box-badges">${badges.join('')}</span></div>
       <div class="hm-box-pct ${pctClass(r.pct)}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</div>
       ${metaLine}
