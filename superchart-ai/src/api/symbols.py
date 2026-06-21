@@ -262,11 +262,13 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
             base = str(row.get("base_asset") or "").upper()
             if not base:
                 base = code.upper()
-            # USDT/USD/BUSD 등 견적 접미사 제거 → 코어 티커
             for q in ("USDT", "USDC", "BUSD", "USD"):
                 if base.endswith(q) and len(base) > len(q):
                     base = base[: -len(q)]
                     break
+            # 동일 자산의 별칭 통합(예: 금 토큰 XAUT[Tether Gold] / XAU 는 같은 '금'으로 묶음).
+            _ALIAS = {"XAUT": "XAU"}
+            base = _ALIAS.get(base, base)
             return f"{ac}:{base}"
 
         for row in merged_rows:
