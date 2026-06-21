@@ -366,59 +366,57 @@ async def liquidation_heatmap(symbol: str = "BTCUSDT", symbolId: str = ""):
             symbol = fut_symbol
 
             # 2) Open Interest 24h 추이
-            oi_r = await client.get(
-                f"https://fapi.binance.com/futures/data/openInterestHist"
-                f"?symbol={symbol}&period=1h&limit=24"
-            )
-            oi_data = oi_r.json()
-
-            # 3) 24h 캔들 (가격 변동 기반 청산 추정)
-            klines_r = await client.get(
-                f"https://fapi.binance.com/fapi/v1/klines"
-                f"?symbol={symbol}&interval=1h&limit=24"
-            )
-            klines = klines_r.json()
-
-            # 4) 펀딩비 (포지션 편향)
-            funding_r = await client.get(
-                f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
-            )
-            funding = funding_r.json()
-            funding_rate = float(funding.get("lastFundingRate", 0))
+            oi_data = []
+            funding_rate = 0.0
+            klines = []
+            # OI/펀딩은 Binance 선물에서 best-effort (Render에서 막히면 0 처리)
+            try:
+                oi_r = await client.get(
+                    f"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24"
+                )
+                oi_data = oi_r.json()
+                if not isinstance(oi_data, list):
+                    oi_data = []
+            except Exception:
+                oi_data = []
+            try:
+                funding_r = await client.get(
+                    f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
+                )
+                funding = funding_r.json()
+                funding_rate = float(funding.get("lastFundingRate", 0)) if isinstance(funding, dict) else 0.0
+            except Exception:
+                funding_rate = 0.0
     except Exception as e:
         log.warning("liq_heatmap.fetch_fail", symbol=symbol, err=str(e)[:120])
-        stale = await cache_get("liq_heatmap_last", cache_key)
-        if stale:
-            return stale
-        return {"success": False, "error": str(e)}
+        oi_data, funding_rate, klines = [], 0.0, []
+
+    # 캔들은 항상 자체 서비스(fetch_candles, Bitget 폴백 포함)로 — Render egress 에서
+    # Binance fapi 가 차단되어도 청산 히트맵이 동작하도록 한다.
+    try:
+        from src.services.market import fetch_candles
+        from src.services.symbol_resolver import resolve_symbol
+        api_sym, ex_id = resolve_symbol(symbol)
+        cd = await fetch_candles(api_sym, ex_id, "1h", 24)
+        klines = []
+        for c in (cd or []):
+            try:
+                o = float(c.get("open") or c.get("o") or 0)
+                h = float(c.get("high") or c.get("h") or 0)
+                l = float(c.get("low") or c.get("l") or 0)
+                cl = float(c.get("close") or c.get("c") or 0)
+                v = float(c.get("volume") or c.get("v") or 0)
+                klines.append([c.get("openTime", 0), o, h, l, cl, v, c.get("closeTime", 0), v * cl])
+            except Exception:
+                continue
+    except Exception as e:
+        log.warning("liq_heatmap.candle_fetch_fail", symbol=symbol, err=str(e)[:120])
+        klines = []
 
     # 청산 추정 알고리즘:
     # - 1시간봉 24개에서 변동성 + OI 변화 기반 추정
     # - 큰 캔들 + OI 감소 = 청산 발생
     # - 청산 가격대 = 큰 변동 캔들의 high/low 인근
-
-    if not isinstance(klines, list) or len(klines) < 5:
-        # Binance 선물 fapi 가 막혔거나(예: Render egress IP 451/차단) 빈 응답인 경우,
-        # 자체 캔들 서비스(Bitget 폴백 포함)로 대체해 청산 히트맵을 계속 제공한다.
-        try:
-            from src.services.market import fetch_candles
-            from src.services.symbol_resolver import resolve_symbol
-            api_sym, ex_id = resolve_symbol(symbol if not symbol.startswith("1000") else symbol)
-            cd = await fetch_candles(api_sym, ex_id, "1h", 24)
-            if cd and len(cd) >= 5:
-                # 자체 캔들(dict) → Binance kline 배열 형식으로 변환
-                # 인덱스: [openTime, open, high, low, close, volume, closeTime, quoteVolume]
-                klines = []
-                for c in cd:
-                    o = float(c.get("open") or c.get("o") or 0)
-                    h = float(c.get("high") or c.get("h") or 0)
-                    l = float(c.get("low") or c.get("l") or 0)
-                    cl = float(c.get("close") or c.get("c") or 0)
-                    v = float(c.get("volume") or c.get("v") or 0)
-                    qv = v * cl  # quote volume 근사
-                    klines.append([c.get("openTime", 0), o, h, l, cl, v, c.get("closeTime", 0), qv])
-        except Exception as _e:
-            log.warning("liq_heatmap.candle_fallback_fail", symbol=symbol, err=str(_e)[:120])
 
     if not isinstance(klines, list) or len(klines) < 5:
         return {"success": False, "error": "insufficient data"}
