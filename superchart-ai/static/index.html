@@ -43,7 +43,8 @@
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260620_aiv2">
+<script defer src="/static/js/modules/data-status.js?v=20260621_dsv1"></script>
+<link rel="stylesheet" href="/static/css/main.css?v=20260621_dsv1">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -1025,6 +1026,10 @@ body.dark #_toastContainer .pro-toast-chip {
           <span id="ohlcVol" title="거래량">거래량 -</span>
           <span id="ohlcAmount" title="거래대금">거래대금 -</span>
         </div>
+        <span id="priceStatusBadge" class="ds-badge ds-badge-loading" role="status" aria-live="polite" style="display:none"></span>
+        <span id="priceUpdatedAt" class="ds-updated" aria-live="polite"></span>
+        <button id="priceRetryBtn" type="button" class="ds-retry-btn" aria-label="가격 데이터 다시 확인" style="display:none" onclick="window._retryPrice&&window._retryPrice()">데이터 다시 확인</button>
+        <button id="dsDiagBtn" type="button" class="ds-diag-btn" aria-label="데이터 진단 보기" style="display:none" onclick="window._dsToggleDiag&&window._dsToggleDiag()">데이터 진단</button>
       </div>
       <!-- 실시간 WS 점 -->
       <span id="portfolioWidget" class="portfolio-widget"></span>
@@ -1998,6 +2003,8 @@ body.dark #_toastContainer .pro-toast-chip {
   </div>
 
 </div>
+
+<div id="dsDiagPanel" class="ds-diag-panel" role="dialog" aria-label="데이터 진단" hidden></div>
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260620_htv2"></script>

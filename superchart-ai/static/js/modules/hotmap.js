@@ -72,7 +72,7 @@ const _SUPPORTED_TF = ['24h'];
 function favSet() { try { return new Set(window._favSymbols || []); } catch { return new Set(); } }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const fmtNum = v => { v = Number(v) || 0; return v >= 1e9 ? (v/1e9).toFixed(2)+'B' : v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : v.toFixed(0); };
-const fmtPrice = p => { p = Number(p) || 0; return p >= 1000 ? p.toLocaleString('en-US',{maximumFractionDigits:2}) : (p < 1 ? p.toFixed(6) : p.toFixed(2)); };
+const fmtPrice = p => { if (window.PriceStatus) { const n = window.PriceStatus.formatNumber(p); if (n != null) return n.replace(/^₩/, ''); } p = Number(p) || 0; return p >= 1000 ? p.toLocaleString('en-US',{maximumFractionDigits:2}) : (p < 1 ? p.toFixed(6) : p.toFixed(2)); };
 
 /* ─────────── 행 빌드 + AI 관심도 ─────────── */
 function buildRows() {
@@ -93,6 +93,8 @@ function buildRows() {
       const turnover = qv > 0 ? qv : (last > 0 && vol > 0 ? last * vol : 0);
       const volatility = (high > 0 && low > 0 && last > 0) ? ((high - low) / last) * 100 : 0;
       const { base, quote, market } = _hmFormatParts(s.code);
+      // 가격 유효성 (data-status.js)
+      const pv = window.PriceStatus ? window.PriceStatus.validate(last) : { valid: (Number.isFinite(last) && last > 0), status: 'NO_PRICE' };
       rows.push({
         code: s.code, base, quote, market,
         kr: s.kr || s.display_name_ko || '',
@@ -100,9 +102,14 @@ function buildRows() {
         cats: _hmCategory(base),
         img: imgs[s.code] || '',
         pct, last, high, low, vol, turnover, volatility,
+        priceValid: pv.valid, priceStatus: pv.status,
         isFav: favs.has(s.code),
       });
     }
+    // 유효 가격 종목만 랭킹/색상 계산에 사용. 제외 수 집계.
+    const valid = rows.filter(r => r.priceValid && Number.isFinite(r.pct));
+    rows._excluded = rows.length - valid.length;
+    rows._total = rows.length;
     // 상대강도 + AI 관심도 (참고 지표) — 시장 평균 대비 정규화
     if (rows.length) {
       const avgPct = rows.reduce((a, r) => a + r.pct, 0) / rows.length;
@@ -126,6 +133,8 @@ function buildRows() {
 /* ─────────── 필터/정렬 ─────────── */
 function applyFilters(rows) {
   let list = rows.slice();
+  // 가격 데이터 없는 종목은 랭킹/색상 계산에서 제외
+  list = list.filter(r => r.priceValid && Number.isFinite(r.pct));
   if (HM.market !== 'all') list = list.filter(r => r.market === HM.market);
   if (HM.watchOnly || HM.category === 'watch' || HM.group === 'watch') list = list.filter(r => r.isFav);
   else if (HM.category !== 'all') list = list.filter(r => r.cats.includes(HM.category));
@@ -509,13 +518,22 @@ window.loadHeatmap = async function() {
     const rows = await buildRows();
     HM.rows = rows;
     if (!rows.length) { grid.innerHTML = '<div class="hm-state-msg" style="grid-column:1/-1">히트맵을 구성하기에 충분한 시장 데이터가 아직 부족합니다. 거래량이 누적되면 자동으로 반영됩니다.</div>'; setStatus('empty'); renderSummary([]); renderTopLists([]); renderAiSummary([]); renderWatchCompare([]); return; }
+    const validRows = rows.filter(r => r.priceValid && Number.isFinite(r.pct));
     const filtered = applyFilters(rows);
     const sorted = sortForMode(filtered);
-    renderSummary(rows);
+    renderSummary(validRows);
     renderBoxes(sorted);
-    renderTopLists(rows);
-    renderAiSummary(rows);
-    renderWatchCompare(rows);
+    renderTopLists(validRows);
+    renderAiSummary(validRows);
+    renderWatchCompare(validRows);
+    // 가격 데이터 없는 종목 제외 안내
+    if (rows._excluded > 0) {
+      const note = document.createElement('div');
+      note.className = 'ds-excluded-note';
+      note.style.gridColumn = '1/-1';
+      note.textContent = `가격 데이터가 없는 ${rows._excluded}개 종목은 랭킹·색상 계산에서 제외되었습니다.`;
+      grid.appendChild(note);
+    }
     if (HM.selected) { const upd = rows.find(r => r.code === HM.selected.code); if (upd) { HM.selected = upd; renderDetail(); } }
     // 일부 종목만 매칭된 경우 partial
     const matched = rows.length, totalSyms = (window.symbols || []).filter(s => (s.asset || 'crypto') === 'crypto').length || rows.length;
@@ -673,6 +691,8 @@ function htSortRows(rows) {
 
 function htApplyFilters(rows) {
   let list = rows.slice();
+  // 가격 데이터 없는 종목은 랭킹에서 제외
+  list = list.filter(r => r.priceValid && Number.isFinite(r.pct));
   if (HT.market !== 'all') list = list.filter(r => r.market === HT.market);
   if (HT.watchOnly || HT.category === 'watch' || HT.basis === 'fav') list = list.filter(r => r.isFav);
   else if (HT.category !== 'all') list = list.filter(r => r.cats.includes(HT.category));
@@ -926,6 +946,7 @@ window._loadHotCoins = async function() {
     const byTurn = rows.slice().sort((a, b) => b.turnover - a.turnover);
     byTurn.forEach((r, i) => { r.turnoverRank = i; });
     HT.rows = rows;
+    const validRowsHt = rows.filter(r => r.priceValid && Number.isFinite(r.pct));
     if (!rows.length) { listEl.innerHTML = '<div class="ht-state-msg">인기 순위를 계산하기에 충분한 데이터가 아직 부족합니다. 거래량과 조회 데이터가 누적되면 자동으로 반영됩니다.</div>'; htSetStatus('empty'); htRenderSummary([]); htRenderSurge([]); htRenderAiSummary([]); htRenderWatchTop([]); return; }
 
     const filtered = htApplyFilters(rows);
@@ -941,11 +962,18 @@ window._loadHotCoins = async function() {
     });
     htSavePrevRank(sorted.slice(0, 30).map(r => r.code));
 
-    htRenderSummary(rows);
-    htRenderSurge(rows);
+    htRenderSummary(validRowsHt);
+    htRenderSurge(validRowsHt);
     htRenderList(sorted);
-    htRenderAiSummary(rows);
-    htRenderWatchTop(rows);
+    htRenderAiSummary(validRowsHt);
+    htRenderWatchTop(validRowsHt);
+    // 가격 데이터 없는 종목 제외 안내
+    if (rows._excluded > 0) {
+      const note = document.createElement('div');
+      note.className = 'ds-excluded-note';
+      note.textContent = `가격 데이터가 없는 ${rows._excluded}개 종목은 랭킹 계산에서 제외되었습니다.`;
+      listEl.appendChild(note);
+    }
     if (HT.selected) { const upd = sorted.find(r => r.code === HT.selected.code) || rows.find(r => r.code === HT.selected.code); if (upd) { HT.selected = upd; htRenderDetail(); } }
 
     const totalSyms = (window.symbols || []).filter(s => (s.asset || 'crypto') === 'crypto').length || rows.length;
