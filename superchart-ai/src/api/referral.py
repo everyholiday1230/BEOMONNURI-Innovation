@@ -11,10 +11,17 @@ from src.services.admin_helpers import auth_admin_check
 
 router = APIRouter(prefix="/referral", tags=["referral"])
 
-# 포인트 설정
-POINTS_SIGNUP_REFERRER = 100   # 추천인: 피추천인 가입 시
-POINTS_SIGNUP_REFERRED = 50    # 피추천인: 가입 웰컴 보너스
-POINTS_PAYMENT_REFERRER = 500  # 추천인: 피추천인 첫 결제 시
+# 포인트 기본 정책 (2026-06 권장값)
+# 주의: 추천인 보상의 정식 트리거는 "피추천인 이메일 인증 완료"이며, 월 최대
+# 레퍼럴 보상(50,000P)·유효기간(레퍼럴 90일/가입축하 30일)·짧은 순 사용은
+# 포인트 소멸 버킷(point_lots) + 부정사용 검증과 함께 Phase 2(백엔드)에서
+# 적용한다. 현재 apply()는 가입 시점에 적립하는 기존 동작을 유지한다.
+POINTS_SIGNUP_REFERRER = 1000   # 추천인 보상 (정식: 피추천인 이메일 인증 완료 시)
+POINTS_SIGNUP_REFERRED = 1000   # 피추천인: 가입 축하 포인트
+POINTS_PAYMENT_REFERRER = 5000  # 추천인: 피추천인 첫 결제 추가 보상
+MONTHLY_REFERRAL_CAP = 50000    # 월 최대 레퍼럴 보상 (Phase 2 적용)
+EXPIRY_DAYS_REFERRAL = 90       # 레퍼럴 포인트 유효기간 (Phase 2 적용)
+EXPIRY_DAYS_SIGNUP = 30         # 가입 축하 포인트 유효기간 (Phase 2 적용)
 
 
 def _generate_code(length=8):
