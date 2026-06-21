@@ -1307,13 +1307,27 @@ window.showAdminTab = showAdminTab;
 
 // ─────────── 포인트/레퍼럴 관리 ───────────
 async function loadPointsAdmin(){
+  // 신규 포인트 시스템 개요(있으면 우선) → 없으면 레퍼럴 통계 폴백
+  let usedOverview = false;
   try{
-    const r = await window.api.raw('/v1/referral/admin/stats');
-    if(r.ok){ const j = await r.json(); const d = (j&&j.data)||{};
+    const ro = await window.api.raw('/v1/points/admin/overview');
+    if(ro.ok){ const jo = await ro.json(); const o=(jo&&jo.data)||{};
       const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=(v==null?'-':Number(v).toLocaleString());};
-      set('ptTotalCodes', d.total_codes); set('ptTotalLinks', d.total_links); set('ptTotalPaid', d.total_paid); set('ptTotalPoints', d.total_points_issued);
+      set('ptTotalCodes', o.purchases); set('ptTotalLinks', o.today_grant); set('ptTotalPaid', o.today_use); set('ptTotalPoints', o.total_issued);
+      const lab=(id,t)=>{const e=document.getElementById(id); if(e&&e.previousElementSibling) e.previousElementSibling.textContent=t;};
+      lab('ptTotalCodes','상품 구매 수'); lab('ptTotalLinks','오늘 지급'); lab('ptTotalPaid','오늘 사용'); lab('ptTotalPoints','누적 발행 포인트');
+      usedOverview = true;
     }
   }catch(e){}
+  if(!usedOverview){
+    try{
+      const r = await window.api.raw('/v1/referral/admin/stats');
+      if(r.ok){ const j = await r.json(); const d = (j&&j.data)||{};
+        const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=(v==null?'-':Number(v).toLocaleString());};
+        set('ptTotalCodes', d.total_codes); set('ptTotalLinks', d.total_links); set('ptTotalPaid', d.total_paid); set('ptTotalPoints', d.total_points_issued);
+      }
+    }catch(e){}
+  }
   try{
     const r2 = await window.api.raw('/v1/referral/admin/list?page=1');
     const tb = document.querySelector('#ptListTable tbody');
@@ -1335,8 +1349,12 @@ async function adjustPoints(){
   if(!email.trim()||!amount){ if(res){res.style.color='var(--color-error)';res.textContent='이메일과 0이 아닌 포인트 값을 입력해 주세요.';} return; }
   const action = amount>0 ? '지급' : '회수';
   if(!confirm(`${email} 회원에게 ${Math.abs(amount).toLocaleString()} P를 ${action}하시겠습니까?\n사유: ${note}\n\n이 작업은 감사 로그에 기록됩니다.`)) return;
+  // 신규 포인트 시스템(lot+감사) 우선 → 없으면 레퍼럴 adjust 폴백
   try{
-    const r=await window.api.raw('/v1/referral/admin/adjust',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),amount,note})});
+    let r=await window.api.raw('/v1/points/admin/grant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),amount,note})});
+    if(r.status===404){
+      r=await window.api.raw('/v1/referral/admin/adjust',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),amount,note})});
+    }
     const j=await r.json().catch(()=>({}));
     if(r.ok){ if(res){res.style.color='var(--color-success)';res.textContent=(j&&j.data&&j.data.message)||`${amount>0?'+':''}${amount} P ${action} 완료`;} loadPointsAdmin(); }
     else { if(res){res.style.color='var(--color-error)';res.textContent=(j&&j.detail)||'포인트 조정에 실패했습니다.';} }
