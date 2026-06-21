@@ -422,6 +422,7 @@ button:focus-visible,
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="content">공지/FAQ</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="plans">요금제</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="verifications">인증요청</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="admins">관리자 권한</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="logs">보안/로그</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="metrics">메트릭</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="system">시스템</button>
@@ -836,6 +837,39 @@ button:focus-visible,
       <h3>요금제 관리</h3>
       <p style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin-top:6px">요금제명·가격·결제 주기·AI 분석 횟수·사용 가능 지표·기능 제한·활성 상태 관리. 가격/기능 제한 변경은 운영 로그에 기록되어야 합니다.</p>
       <p style="font-size:11px;color:var(--color-text-muted);margin-top:6px">필요 API: /ops/plans(요금제 CRUD), /ops/plans/{id}(수정+감사 로그). 현재는 요금제 테이블 백엔드(Phase 2) 연동 전이라 표시하지 않습니다.</p>
+    </div>
+  </div>
+
+  <!-- 관리자 권한 관리 -->
+  <div class="admin-section-gap" data-section="admins">
+    <div class="card">
+      <h3>관리자 계정 등록 / 권한 부여</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+        <input id="admEmail" class="admin-input" placeholder="관리자 이메일">
+        <input id="admName" class="admin-input" placeholder="이름">
+        <select id="admRole" class="admin-input">
+          <option value="super">최고 관리자</option>
+          <option value="ops">운영 관리자</option>
+          <option value="support">고객지원 관리자</option>
+          <option value="content">콘텐츠 관리자</option>
+          <option value="billing">결제 관리자</option>
+          <option value="data">데이터 관리자</option>
+          <option value="readonly" selected>읽기 전용 관리자</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary)"><input type="checkbox" id="adm2fa"> 2단계 인증 사용 권장</label>
+      </div>
+      <button onclick="createAdminAccount()" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">관리자 등록</button>
+      <div id="admCreateResult" style="margin-top:6px;font-size:12px"></div>
+      <p style="margin-top:8px;font-size:11px;color:var(--color-text-muted);line-height:1.5">1차 관리자 인증 게이트는 ADMIN_KEY입니다. 본 화면은 관리자 계정·역할·2단계 인증 사용 여부를 등록/관리하고 권한 변경을 감사 로그로 남기는 레지스트리입니다. 역할별 메뉴 접근 강제 및 로그인 2단계 인증 강제는 세션 기반 관리자 로그인 연동 후 적용됩니다.</p>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>관리자 계정 목록 <span id="admListCount" style="color:var(--color-primary);font-size:13px;margin-left:6px"></span></h3>
+      <div style="overflow-x:auto;margin-top:8px"><table id="admTable"><thead><tr><th>이메일</th><th>이름</th><th>역할</th><th>2FA</th><th>상태</th><th>작업</th></tr></thead><tbody><tr><td colspan="6" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+      <button onclick="loadAdminAccounts()" class="btn btn-secondary btn-sm" style="margin-top:8px">새로고침</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>권한 변경 감사 로그</h3>
+      <div style="overflow-x:auto;margin-top:8px"><table id="admAuditTable"><thead><tr><th>시간</th><th>작업</th><th>대상</th><th>변경 전</th><th>변경 후</th><th>상세</th></tr></thead><tbody><tr><td colspan="6" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
     </div>
   </div>
 
@@ -1302,6 +1336,7 @@ function showAdminTab(tab){
   else if (tab === 'logs') loadLogs();
   else if (tab === 'points') { if (typeof loadPointsAdmin === 'function') loadPointsAdmin(); }
   else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
+  else if (tab === 'admins') { if (typeof loadAdminAccounts === 'function') loadAdminAccounts(); }
 }
 window.showAdminTab = showAdminTab;
 
@@ -1389,6 +1424,103 @@ async function loadSymbolData(){
   }catch(e){ if(tb) tb.innerHTML='<tr><td colspan="7" style="color:var(--color-error)">심볼 데이터를 불러오지 못했습니다.</td></tr>'; if(statusEl) statusEl.textContent=''; }
 }
 window.loadSymbolData = loadSymbolData;
+
+// ─────────── 관리자 권한 관리 (RBAC 레지스트리 + 감사) ───────────
+function _admEsc(s){const x=document.createElement('div');x.textContent=s==null?'':String(s);return x.innerHTML;}
+const _ADM_ROLE_LABEL={super:'최고 관리자',ops:'운영 관리자',support:'고객지원 관리자',content:'콘텐츠 관리자',billing:'결제 관리자',data:'데이터 관리자',readonly:'읽기 전용 관리자'};
+function _admRoleSelect(email, role){
+  const opts=Object.keys(_ADM_ROLE_LABEL).map(k=>`<option value="${k}"${k===role?' selected':''}>${_ADM_ROLE_LABEL[k]}</option>`).join('');
+  return `<select onchange="updateAdminRole('${_admEsc(email)}', this.value)" class="admin-input" style="padding:3px 6px;font-size:12px">${opts}</select>`;
+}
+async function loadAdminAccounts(){
+  const tb=document.querySelector('#admTable tbody');
+  if(tb) tb.innerHTML='<tr><td colspan="6" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  try{
+    const r=await window.api.raw('/v1/admin-roles/accounts');
+    const j=r.ok?await r.json():null;
+    const items=(j&&j.data&&j.data.items)||[];
+    const cnt=document.getElementById('admListCount'); if(cnt) cnt.textContent=items.length+'명';
+    if(tb){
+      tb.innerHTML=items.length?items.map(it=>`<tr>
+        <td>${_admEsc(it.email)}</td>
+        <td>${_admEsc(it.name)}</td>
+        <td>${_admRoleSelect(it.email, it.role)}</td>
+        <td><label style="cursor:pointer"><input type="checkbox" ${it.two_factor?'checked':''} onchange="setAdmin2fa('${_admEsc(it.email)}', this.checked)"> ${it.two_factor?'사용':'미사용'}</label></td>
+        <td>${it.active?'<span style="color:var(--color-success)">활성</span>':'<span style="color:var(--color-text-muted)">비활성</span>'}</td>
+        <td>${it.active?`<button class="btn btn-secondary btn-sm" onclick="deactivateAdmin('${_admEsc(it.email)}')">비활성화</button>`:'-'}</td>
+      </tr>`).join('')
+        :'<tr><td colspan="6" style="color:var(--color-text-muted)">등록된 관리자 계정이 없습니다.</td></tr>';
+    }
+  }catch(e){ if(tb) tb.innerHTML='<tr><td colspan="6" style="color:var(--color-error)">목록을 불러오지 못했습니다. (테이블 미생성 시 첫 등록 후 표시)</td></tr>'; }
+  loadAdminAudit();
+}
+window.loadAdminAccounts = loadAdminAccounts;
+
+async function createAdminAccount(){
+  const email=((document.getElementById('admEmail')||{}).value||'').trim();
+  const name=((document.getElementById('admName')||{}).value||'').trim();
+  const role=(document.getElementById('admRole')||{}).value||'readonly';
+  const twoFactor=!!(document.getElementById('adm2fa')||{}).checked;
+  const res=document.getElementById('admCreateResult');
+  if(!email||email.indexOf('@')<0){ if(res){res.style.color='var(--color-error)';res.textContent='유효한 이메일을 입력해 주세요.';} return; }
+  if(!confirm(`${email} 계정을 '${_ADM_ROLE_LABEL[role]}' 권한으로 등록하시겠습니까?\n\n이 작업은 감사 로그에 기록됩니다.`)) return;
+  try{
+    const r=await window.api.raw('/v1/admin-roles/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,name,role,two_factor:twoFactor})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok){ if(res){res.style.color='var(--color-success)';res.textContent=(j&&j.data&&j.data.message)||'등록 완료';} loadAdminAccounts(); }
+    else { if(res){res.style.color='var(--color-error)';res.textContent=(j&&j.detail)||'등록에 실패했습니다.';} }
+  }catch(e){ if(res){res.style.color='var(--color-error)';res.textContent='네트워크 오류로 등록에 실패했습니다.';} }
+}
+window.createAdminAccount = createAdminAccount;
+
+async function updateAdminRole(email, role){
+  if(!confirm(`${email} 의 권한을 '${_ADM_ROLE_LABEL[role]}'(으)로 변경하시겠습니까?\n\n이 작업은 감사 로그에 기록됩니다.`)){ loadAdminAccounts(); return; }
+  try{
+    const r=await window.api.raw('/v1/admin-roles/update-role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); alert((j&&j.detail)||'권한 변경 실패'); }
+  }catch(e){ alert('네트워크 오류'); }
+  loadAdminAccounts();
+}
+window.updateAdminRole = updateAdminRole;
+
+async function setAdmin2fa(email, enabled){
+  try{
+    const r=await window.api.raw('/v1/admin-roles/set-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,enabled})});
+    if(!r.ok){ alert('2단계 인증 설정 변경 실패'); }
+  }catch(e){ alert('네트워크 오류'); }
+  loadAdminAccounts();
+}
+window.setAdmin2fa = setAdmin2fa;
+
+async function deactivateAdmin(email){
+  if(!confirm(`${email} 계정을 비활성화하시겠습니까?\n\n계정은 삭제되지 않고 비활성 처리되며, 이 작업은 감사 로그에 기록됩니다.`)) return;
+  try{
+    const r=await window.api.raw('/v1/admin-roles/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); alert((j&&j.detail)||'비활성화 실패'); }
+  }catch(e){ alert('네트워크 오류'); }
+  loadAdminAccounts();
+}
+window.deactivateAdmin = deactivateAdmin;
+
+async function loadAdminAudit(){
+  const tb=document.querySelector('#admAuditTable tbody');
+  if(!tb) return;
+  try{
+    const r=await window.api.raw('/v1/admin-roles/audit?page=1');
+    const j=r.ok?await r.json():null;
+    const items=(j&&j.data&&j.data.items)||[];
+    tb.innerHTML=items.length?items.map(it=>`<tr>
+      <td>${_admEsc((it.date||'').slice(0,19).replace('T',' '))}</td>
+      <td>${_admEsc(it.action)}</td>
+      <td>${_admEsc(it.target)}</td>
+      <td>${_admEsc(it.before)}</td>
+      <td>${_admEsc(it.after)}</td>
+      <td>${_admEsc(it.detail)}</td>
+    </tr>`).join('')
+      :'<tr><td colspan="6" style="color:var(--color-text-muted)">권한 변경 이력이 없습니다.</td></tr>';
+  }catch(e){ tb.innerHTML='<tr><td colspan="6" style="color:var(--color-text-muted)">감사 로그를 불러오지 못했습니다.</td></tr>'; }
+}
+window.loadAdminAudit = loadAdminAudit;
 
 function renderSymbolData(){
   const tb=document.querySelector('#symDataTable tbody'); if(!tb) return;
