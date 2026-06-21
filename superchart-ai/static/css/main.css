@@ -937,6 +937,14 @@
 /* 정책 리스트 */
 .pt-policy-list { margin: 0; padding-left: 16px; display: grid; gap: 6px; }
 .pt-policy-list li { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.55; }
+/* 보상 정책 접이식 토글 */
+.pt-policy-toggle { padding: 0; }
+.pt-policy-toggle > summary { list-style: none; cursor: pointer; padding: var(--space-3); font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--color-text-primary); display: flex; align-items: center; justify-content: space-between; }
+.pt-policy-toggle > summary::-webkit-details-marker { display: none; }
+.pt-policy-toggle > summary::after { content: "▾"; color: var(--color-text-muted); font-size: 12px; transition: transform .15s; }
+.pt-policy-toggle[open] > summary::after { transform: rotate(180deg); }
+.pt-policy-toggle > ul, .pt-policy-toggle > p { padding-left: var(--space-3); padding-right: var(--space-3); }
+.pt-policy-toggle > p { padding-bottom: var(--space-3); }
 
 /* 상태 메시지 */
 .pt-state-msg { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.55; padding: 14px 10px; background: var(--color-surface-sunken); border-radius: var(--radius-sm); text-align: center; }

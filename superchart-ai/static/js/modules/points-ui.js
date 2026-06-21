@@ -140,16 +140,16 @@
         <button class="pt-btn pt-btn-ghost" type="button" onclick="window.PointsUI.go('ledger')">포인트 내역 보기</button>
         <button class="pt-btn pt-btn-primary" type="button" onclick="window.PointsUI.go('invite')">지인 초대하고 포인트 받기</button>
       </div>
-      <div class="pt-card" style="margin-top:12px">
-        <div class="pt-card-title">보상 정책</div>
-        <ul class="pt-policy-list">
+      <details class="pt-card pt-policy-toggle" style="margin-top:12px">
+        <summary class="pt-policy-summary">보상 정책 안내 보기</summary>
+        <ul class="pt-policy-list" style="margin-top:10px">
           <li>가입 축하 포인트 1,000 P (유효기간 30일)</li>
           <li>추천인 보상 1,000 P · 초대받은 사용자의 이메일 인증 완료 시 (유효기간 90일)</li>
           <li>첫 결제 추가 보상 5,000 P · 초대받은 사용자의 첫 결제 완료 시</li>
           <li>월 최대 레퍼럴 보상 50,000 P · 포인트는 유효기간이 짧은 순으로 사용</li>
         </ul>
         <p class="pt-mini-note">포인트는 현금으로 환불 또는 출금할 수 없으며, 범온 슈퍼차트 AI 서비스 내 기능 이용에만 사용할 수 있습니다.</p>
-      </div>`;
+      </details>`;
   }
   function isThisMonth(dateStr) { if (!dateStr) return false; const d = new Date(dateStr), n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth(); }
 
