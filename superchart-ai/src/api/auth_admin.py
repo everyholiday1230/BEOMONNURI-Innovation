@@ -49,6 +49,23 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
+async def _safe_audit(db, **kwargs) -> None:
+    """관리자 감사 로그 기록 — 실패해도 본 작업이 503으로 막히지 않도록 격리.
+
+    admin_audit_logs 테이블 미존재/스키마 불일치 등에서도 회원 관리(등급/차단/닉네임/
+    강제로그아웃 등)는 정상 동작해야 하므로 try/except 로 감싼다.
+    """
+    try:
+        db.add(AdminAuditLog(**kwargs))
+        await db.commit()
+    except Exception as e:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        logger.warning("admin.audit_skip", action=kwargs.get("action"), error=str(e)[:120])
+
+
 # ══════════════════════════════════════════════
 # 사용자 관리
 # ══════════════════════════════════════════════
@@ -202,12 +219,11 @@ async def admin_set_beom_allowed(req: dict, request: Request, db: AsyncSession =
         raise HTTPException(404, "User not found")
     user.beom_allowed = allowed
     await db.commit()
-    db.add(AdminAuditLog(
+    await _safe_audit(db,
         admin_id="admin_key", action="set_beom_allowed", target_user_id=user.id,
         detail={"allowed": allowed},
         ip=request.client.host if request.client else None,
-    ))
-    await db.commit()
+    )
     return ApiResponse(data={"id": str(user.id), "beom_allowed": user.beom_allowed})
 
 
@@ -236,14 +252,11 @@ async def admin_set_tier(req: dict, request: Request, db: AsyncSession = Depends
     from src.services.beom_free import invalidate_tier_cache
     invalidate_tier_cache(str(user.id))
 
-    db.add(
-        AdminAuditLog(
-            admin_id="admin_key", action="set_tier", target_user_id=user.id,
-            detail={"new_tier": tier, "exchange": user.referral_exchange},
-            ip=request.client.host if request.client else None,
-        )
+    await _safe_audit(db,
+        admin_id="admin_key", action="set_tier", target_user_id=user.id,
+        detail={"new_tier": tier, "exchange": user.referral_exchange},
+        ip=request.client.host if request.client else None,
     )
-    await db.commit()
     return ApiResponse(
         data={"id": str(user.id), "tier": user.tier, "referral_exchange": user.referral_exchange}
     )
@@ -265,14 +278,12 @@ async def admin_set_nickname(req: dict, request: Request, db: AsyncSession = Dep
         raise HTTPException(400, "이미 사용 중인 닉네임")
     old = user.nickname
     user.nickname = nickname
-    db.add(
-        AdminAuditLog(
-            admin_id="admin_key", action="set_nickname", target_user_id=user.id,
-            detail={"old": old, "new": nickname},
-            ip=request.client.host if request.client else None,
-        )
-    )
     await db.commit()
+    await _safe_audit(db,
+        admin_id="admin_key", action="set_nickname", target_user_id=user.id,
+        detail={"old": old, "new": nickname},
+        ip=request.client.host if request.client else None,
+    )
     return ApiResponse(data={"id": str(user.id), "nickname": user.nickname})
 
 
@@ -359,19 +370,17 @@ async def admin_force_logout(
     if not user:
         raise HTTPException(404, "User not found")
     user.token_version = (user.token_version or 0) + 1
+    await db.commit()
     # 캐시 즉시 무효화
     from src.services.auth import _tv_cache
     _tv_cache.pop(str(user.id), None)
     from src.services.beom_free import invalidate_tier_cache
     invalidate_tier_cache(str(user.id))
-    db.add(
-        AdminAuditLog(
-            admin_id="admin_key", action="force_logout", target_user_id=user.id,
-            detail={"old_tv": (user.token_version or 1) - 1},
-            ip=request.client.host if request.client else None,
-        )
+    await _safe_audit(db,
+        admin_id="admin_key", action="force_logout", target_user_id=user.id,
+        detail={"old_tv": (user.token_version or 1) - 1},
+        ip=request.client.host if request.client else None,
     )
-    await db.commit()
     logger.info("admin.force_logout", target=str(user.id), tv=user.token_version)
     return ApiResponse(
         data={"id": str(user.id), "forced": True, "token_version": user.token_version}
