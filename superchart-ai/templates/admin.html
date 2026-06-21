@@ -1329,7 +1329,15 @@ const H=()=>{const h={'Content-Type':'application/json'};const t=_csrfToken();if
 _showDashboard();
 function _showDashboard(){
   document.getElementById('dashboard').style.display='block';
-  loadStats();loadLogs();loadNotices();loadFaqs();loadSettings();loadMetrics();loadTickets();loadVerifications();loadAdminReferral();loadAdminProducts();
+  // 개별 호출을 안전하게 — 하나라도 미정의/오류여도 이후 코드(탭 클릭 핸들러 등록 등)가
+  // 끊기지 않도록 각 호출을 try/catch 로 격리. (이전: 미정의 함수 호출로 전체 스크립트 중단됨)
+  const _initCalls = [
+    ()=>loadStats(), ()=>loadLogs(), ()=>loadNotices(), ()=>loadFaqs(),
+    ()=>loadSettings(), ()=>loadMetrics(), ()=>loadTickets(), ()=>loadVerifications(),
+    ()=>{ if(typeof loadPointsAdmin==='function') loadPointsAdmin(); },
+    ()=>{ if(typeof loadProducts==='function') loadProducts(); },
+  ];
+  _initCalls.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('admin init skip', e&&e.message); } });
   // 초기 탭 (overview) — showAdminTab은 아래에서 정의되므로 지연 호출
   setTimeout(()=>{ if(typeof showAdminTab==='function') showAdminTab('overview'); }, 0);
 }
@@ -1897,11 +1905,11 @@ async function setProduct(){
   const price=parseInt(document.getElementById('prodPrice')?.value||'0');
   if(!code){_toast('지표코드를 입력하세요',false);return}
   try{const r=await window.api.raw('/v1/purchases/admin/set-product',{method:'POST',body:{indicator_code:code,name,price,is_active:true}});const d=await r.json();
-    if(d.success){_toast('상품 저장 완료',true);loadAdminProducts();}else _toast(_errMsg(d),false);
+    if(d.success){_toast('상품 저장 완료',true);if(typeof loadAdminProducts==='function')loadAdminProducts();}else _toast(_errMsg(d),false);
   }catch(e){_toast('네트워크 오류',false)}}
 async function setProductActive(code,active){
   try{const r=await window.api.raw('/v1/purchases/admin/set-product',{method:'POST',body:{indicator_code:code,is_active:active}});const d=await r.json();
-    if(d.success){loadAdminProducts();}else _toast(_errMsg(d),false);
+    if(d.success){if(typeof loadAdminProducts==='function')loadAdminProducts();}else _toast(_errMsg(d),false);
   }catch(e){_toast('네트워크 오류',false)}}
 async function grantIndicator(){
   const email=prompt('구매 부여할 회원 이메일');if(!email)return;
