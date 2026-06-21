@@ -645,7 +645,7 @@
   const REVIEW_TAGS = ['추세추종','역추세','돌파','눌림','과매수','과매도','변동성','계획 준수','계획 이탈'];
   let _reviewTarget = null; // {id, kind}
   function openReview(id, kind) {
-    if (!isLoggedIn()) { window.showToast?.('복기 메모 저장은 로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal?.(); return; }
+    if (!isLoggedIn()) { if (typeof window.showMemberOnlyNotice === 'function') { window.showMemberOnlyNotice('복기 메모 저장'); } else { window.showToast?.('복기 메모 저장은 로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal?.(); } return; }
     const obj = kind === 'pos' ? State.positions.find(x => x.id === id) : State.history.find(x => x.id === id);
     if (!obj) return;
     _reviewTarget = { id, kind };

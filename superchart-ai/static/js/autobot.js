@@ -132,15 +132,23 @@
                   || !!window.userName
                   || /(?:^|;\s*)csrf_token=/.test(document.cookie || '');
     if(!loggedIn){
-      window.showToast && window.showToast('로그인 후 이용 가능', '#3B82F6');
-      window.showAuth && window.showAuth();
+      if (typeof window.showMemberOnlyNotice === 'function') {
+        window.showMemberOnlyNotice('오토봇 분석');
+      } else {
+        window.showToast && window.showToast('로그인 후 이용 가능', '#3B82F6');
+        window.showAuth && window.showAuth();
+      }
       return;
     }
     const premium = (typeof window.isPremium === 'function' && window.isPremium())
                  || window.userPlan === 'pro'
                  || window.userPlan === 'premium';
     if(!premium){
-      window.showToast && window.showToast('VIP 회원 전용 기능입니다', '#D8B66A');
+      if (typeof window.showPremiumOnlyNotice === 'function') {
+        window.showPremiumOnlyNotice('오토봇 분석');
+      } else {
+        window.showToast && window.showToast('VIP 회원 전용 기능입니다', '#D8B66A');
+      }
       return;
     }
     const opening = panel.style.display === 'none';
@@ -220,7 +228,13 @@
       }
       const data = d.data || {};
       if(data._access === 'pro_only'){
-        if(!silent) window.showToast && window.showToast('VIP 회원 전용입니다', '#D8B66A');
+        if(!silent){
+          if (typeof window.showPremiumOnlyNotice === 'function') {
+            window.showPremiumOnlyNotice('오토봇 분석 결과');
+          } else {
+            window.showToast && window.showToast('VIP 회원 전용입니다', '#D8B66A');
+          }
+        }
         return;
       }
       window._autobotActive = true;

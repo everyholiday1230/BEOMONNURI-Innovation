@@ -4109,20 +4109,28 @@ function vo() {
       await De(),
       N &&
         N.readyState === 1 &&
-        (window._lastWsSub &&
+        (() => {
+          const _oldChannels = [];
+          window._lastWsSub && _oldChannels.push(window._lastWsSub);
+          window._lastWsTickerSub && _oldChannels.push(window._lastWsTickerSub);
+          _oldChannels.length &&
+            N.send(
+              JSON.stringify({
+                action: "unsubscribe",
+                channels: _oldChannels,
+              }),
+            );
+
+          window._lastWsSub = { name: "candle", symbolId: B, timeframe: A };
+          window._lastWsTickerSub = { name: "ticker", symbolId: B };
+
           N.send(
             JSON.stringify({
-              action: "unsubscribe",
-              channels: [window._lastWsSub],
+              action: "subscribe",
+              channels: [window._lastWsSub, window._lastWsTickerSub],
             }),
-          ),
-        (window._lastWsSub = { name: "candle", symbolId: B, timeframe: A }),
-        N.send(
-          JSON.stringify({
-            action: "subscribe",
-            channels: [window._lastWsSub],
-          }),
-        )));
+          );
+        })());
   }
   (document.querySelector(".right-tab.active")?.dataset.p === "ai" &&
     G() &&
@@ -6239,17 +6247,107 @@ function Ne() {
         }
       }),
   ),
+  function _showUnifiedNotice(kind, featureLabel) {
+    const feature = String(featureLabel || "기능").trim();
+    const esc = (s) =>
+      String(s || "").replace(
+        /[&<>"']/g,
+        (ch) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[ch],
+      );
+
+    const configs = {
+      member: {
+        tone: "member",
+        badge: "MEMBER ONLY",
+        title: "회원 전용 기능입니다",
+        desc: `<b>${esc(feature)}</b>은(는) 로그인 후 이용할 수 있습니다.<br>지금 로그인하고 모든 기능을 사용해보세요.`,
+        actions: `<button type="button" class="pro-notice-btn ghost" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open')">닫기</button>
+          <button type="button" class="pro-notice-btn" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window.showAuth?.()">로그인</button>
+          <button type="button" class="pro-notice-btn secondary" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window.showAuth?.('register')">회원가입</button>`,
+      },
+      premium: {
+        tone: "premium",
+        badge: "PREMIUM",
+        title: "VIP 전용 기능입니다",
+        desc: `<b>${esc(feature)}</b>은(는) VIP 플랜에서 제공됩니다.<br>구독 플랜을 확인하고 기능을 활성화해보세요.`,
+        actions: `<button type="button" class="pro-notice-btn ghost" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open')">닫기</button>
+          <button type="button" class="pro-notice-btn secondary" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window._showSubscribePlans?.()">구독 플랜</button>
+          <button type="button" class="pro-notice-btn" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window.showAuth?.()">로그인</button>`,
+      },
+      coming: {
+        tone: "coming",
+        badge: "COMING SOON",
+        title: "결제 시스템 준비 중",
+        desc: `현재 <b>${esc(feature)}</b> 기능은 고도화 중입니다.<br>오픈 시 가장 먼저 사용하실 수 있도록 안내해드릴게요.`,
+        actions: `<button type="button" class="pro-notice-btn ghost" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open')">닫기</button>
+          <button type="button" class="pro-notice-btn secondary" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window._showSubscribePlans?.()">플랜 확인</button>
+          <button type="button" class="pro-notice-btn" onclick="document.getElementById('_unifiedNoticeModal')?.classList.remove('open');window.showAuth?.()">알림 받기</button>`,
+      },
+    };
+
+    const cfg = configs[kind] || configs.member;
+
+    let modal = document.getElementById("_unifiedNoticeModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "_unifiedNoticeModal";
+      modal.className = "pro-notice-modal";
+      modal.onclick = (ev) => {
+        if (ev.target === modal) modal.classList.remove("open");
+      };
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `<div class="pro-notice-card pro-notice-${cfg.tone}" role="dialog" aria-modal="true" aria-label="서비스 안내">
+      <div class="pro-notice-badge pro-notice-badge-${cfg.tone}">${cfg.badge}</div>
+      <h3 class="pro-notice-title">${cfg.title}</h3>
+      <p class="pro-notice-desc">${cfg.desc}</p>
+      <div class="pro-notice-actions">${cfg.actions}</div>
+    </div>`;
+
+    modal.classList.add("open");
+  }
+
+  window.showMemberOnlyNotice = (featureLabel) =>
+    _showUnifiedNotice("member", featureLabel);
+  window.showPremiumOnlyNotice = (featureLabel) =>
+    _showUnifiedNotice("premium", featureLabel);
+  window.showComingSoonNotice = (featureLabel) =>
+    _showUnifiedNotice("coming", featureLabel);
+
   document.querySelectorAll(".right-tab").forEach(
     (e) =>
       (e.onclick = function () {
-        if (!G()) {
-          (X(
-            "\uD68C\uC6D0 \uC804\uC6A9 \uAE30\uB2A5\uC785\uB2C8\uB2E4. \uB85C\uADF8\uC778 \uD6C4 \uC774\uC6A9\uD574\uC8FC\uC138\uC694.",
-            "#D8B66A",
-          ),
-            showAuth());
+        const paneKey = this.dataset.p;
+        const pane = document.getElementById(paneKey);
+        if (!pane) {
+          window._tabDiag = { missingPane: paneKey, at: Date.now() };
+          X("탭 패널을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", "#3B82F6");
           return;
         }
+
+        const guestAllowedTabs = new Set([
+          "ai",
+          "mtf",
+          "hot",
+          "heatmap",
+          "order",
+          "position",
+        ]);
+        if (!G() && !guestAllowedTabs.has(paneKey)) {
+          window.showMemberOnlyNotice?.(
+            this.textContent?.replace(/[\s]+$/g, "").trim() || "회원 전용 기능",
+          );
+          return;
+        }
+
         (document
           .querySelectorAll(".right-tab")
           .forEach((a) => a.classList.remove("active")),
@@ -6257,11 +6355,15 @@ function Ne() {
             .querySelectorAll(".right-pane")
             .forEach((a) => a.classList.remove("active")),
           this.classList.add("active"),
-          document.getElementById(this.dataset.p).classList.add("active"),
-          this.dataset.p === "mtf" && loadMTF(),
-          this.dataset.p === "heatmap" && loadHeatmap(),
-          this.dataset.p === "alerts" && window._initBeomAlertPanel?.(),
-          this.dataset.p === "ai" && G() && requestAI());
+          pane.classList.add("active"),
+          paneKey === "mtf" && window.loadMTF?.(),
+          paneKey === "heatmap" && window.loadHeatmap?.(),
+          paneKey === "hot" && window._loadHotCoins?.(),
+          paneKey === "position" && window._loadPositionData?.(),
+          paneKey === "points" && window.PointsUI?.reload?.(),
+          paneKey === "order" && window.PaperTrading?.refresh?.(),
+          paneKey === "alerts" && window._initBeomAlertPanel?.(),
+          paneKey === "ai" && G() && requestAI());
       }),
   ));
 async function no() {
@@ -7523,6 +7625,15 @@ function kt() {
     a && window._selectSym(a.symbolId || B);
   }));
 let Ie = 1e3;
+function _wsSendSafe(payload) {
+  try {
+    if (!N || N.readyState !== 1) return !1;
+    N.send(JSON.stringify(payload));
+    return !0;
+  } catch {
+    return !1;
+  }
+}
 if (G() && "Notification" in window && Notification.permission === "granted")
   try {
     navigator.serviceWorker?.ready?.then((e) => {
@@ -7555,6 +7666,8 @@ function It() {
       ((N.onopen = () => {
         ((window._wsConnecting = !1),
           (Ie = 1e3),
+          (window._lastWsMsgAt = Date.now()),
+          (window._lastWsPingAt = 0),
           n &&
             ((n.style.background = "#C4384B"),
             (n.title = "\uC2E4\uC2DC\uAC04 \uC5F0\uACB0\uB428")),
@@ -7597,10 +7710,11 @@ function It() {
         (N.onmessage = (a) => {
           try {
             const r = JSON.parse(a.data);
-            if (
-              ((window._lastWsMsgAt = Date.now()),
-              window._wsDebug && r.type === "candle.update")
-            ) {
+            if ((window._lastWsMsgAt = Date.now()), r.type === "pong") {
+              window._lastWsPongAt = Date.now();
+              return;
+            }
+            if (window._wsDebug && r.type === "candle.update") {
               const i = r.data || {};
             }
             if (r.type === "alert" && r.data) {
@@ -7937,6 +8051,30 @@ setInterval(() => {
             (e.title = `\uC2E4\uC2DC\uAC04 (\uB9C8\uC9C0\uB9C9 ${a}s \uC804) \u2014 \uB2E4\uC18C \uC9C0\uC5F0`))
           : ((e.style.background = "#3B82F6"),
             (e.title = `\uC2E4\uC2DC\uAC04 \uB04A\uAE40 (${a}s \uC804 \uB9C8\uC9C0\uB9C9 \uC218\uC2E0) \u2014 \uC11C\uBC84 /v1/debug/ingest \uD655\uC778 \uAD8C\uC7A5`));
+
+      // 네트워크는 살아 있지만 메시지가 멈춘 경우 자동 복구
+      if (a >= 20 && Date.now() - (window._lastWsPingAt || 0) > 15000) {
+        _wsSendSafe({ action: "ping" });
+        window._lastWsPingAt = Date.now();
+      }
+
+      if (a >= 90 && Date.now() - (window._lastWsResubAt || 0) > 30000) {
+        const channels = [];
+        window._lastWsSub && channels.push(window._lastWsSub);
+        window._lastWsTickerSub && channels.push(window._lastWsTickerSub);
+        window._lastWsSubChart2 && channels.push(window._lastWsSubChart2);
+        if (window._lastWsAllTickers?.length) {
+          channels.push(...window._lastWsAllTickers.slice(0, 50));
+        }
+        channels.length && _wsSendSafe({ action: "subscribe", channels });
+        window._lastWsResubAt = Date.now();
+      }
+
+      if (a >= 150 && !window._wsConnecting) {
+        try {
+          N.close(4000, "stale_connection");
+        } catch {}
+      }
     } catch {}
 }, 5e3);
 function Eo() {

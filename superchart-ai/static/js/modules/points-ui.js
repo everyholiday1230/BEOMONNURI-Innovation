@@ -317,7 +317,7 @@
 
   // 구매/사용 확인 모달
   function buy(featureName, cost) {
-    if (!isLoggedIn()) { window.showToast && window.showToast('로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal && window.showAuthModal(); return; }
+    if (!isLoggedIn()) { if (typeof window.showMemberOnlyNotice === 'function') { window.showMemberOnlyNotice('포인트 기능'); } else { window.showToast && window.showToast('로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal && window.showAuthModal(); } return; }
     const root = document.getElementById('ptModalRoot'); if (!root) return;
     if (P.points < cost) {
       const need = cost - P.points;
@@ -359,7 +359,7 @@
 
   // 실제 상품 구매 (코드 기반) — /v1/points/buy
   function buyCode(code, name, cost) {
-    if (!isLoggedIn()) { window.showToast && window.showToast('로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal && window.showAuthModal(); return; }
+    if (!isLoggedIn()) { if (typeof window.showMemberOnlyNotice === 'function') { window.showMemberOnlyNotice('포인트 기능'); } else { window.showToast && window.showToast('로그인 후 이용할 수 있습니다', '#921230'); window.showAuthModal && window.showAuthModal(); } return; }
     const root = document.getElementById('ptModalRoot'); if (!root) return;
     const usable = P.usable || P.points;
     if (usable < cost) {

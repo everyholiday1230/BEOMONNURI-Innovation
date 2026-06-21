@@ -54,5 +54,9 @@ window._showSubscribePlans = function() {
 };
 
 window._subscribe = function(planCode) {
-  window.showToast('결제 시스템이 곧 오픈됩니다. 사전 등록하시면 할인 혜택을 드립니다.', '#D8B66A');
+  if (typeof window.showComingSoonNotice === 'function') {
+    window.showComingSoonNotice('구독 결제');
+  } else {
+    window.showToast('결제 시스템이 곧 오픈됩니다. 사전 등록하시면 할인 혜택을 드립니다.', '#D8B66A');
+  }
 };

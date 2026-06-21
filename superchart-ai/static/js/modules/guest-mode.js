@@ -104,11 +104,13 @@
     e.stopPropagation();
     e.stopImmediatePropagation();
     
-    const name = target.textContent.replace(/[\s]+$/g, '').trim() || '회원 전용';
-    if (window.showToast) {
-      window.showToast('회원 전용 기능입니다. 로그인 후 이용해주세요.', '#921230');
+    const name = target.textContent.replace(/[\s]+$/g, '').trim() || '회원 전용 기능';
+    if (typeof window.showMemberOnlyNotice === 'function') {
+      window.showMemberOnlyNotice(name);
+    } else {
+      window.showToast?.('회원 전용 기능입니다. 로그인 후 이용해주세요.', '#921230');
+      window.showAuth?.();
     }
-    if (window.showAuth) window.showAuth();
     return false;
   }, true);  // capture=true → 가장 먼저 실행
 
