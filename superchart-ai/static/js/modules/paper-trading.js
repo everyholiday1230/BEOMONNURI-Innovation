@@ -96,6 +96,8 @@
 
   // ───────── 포맷 ─────────
   const fmtP = p => { p = Number(p) || 0; return p >= 1000 ? p.toLocaleString('en-US', { maximumFractionDigits: 2 }) : p.toFixed(p < 1 ? 6 : 2); };
+  // 숫자 input value 용: 콤마 없는 순수 숫자 문자열 (number input은 콤마를 거부함)
+  const inputVal = p => { p = Number(p); if (!Number.isFinite(p) || p <= 0) return ''; return p >= 1 ? String(Math.round(p * 100) / 100) : p.toFixed(8).replace(/0+$/, '').replace(/\.$/, ''); };
   const fmtUSD = v => { v = Number(v) || 0; return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(2); };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   function symShort(sym) { return (sym || '').replace('USDT', '').replace('KRW-', ''); }
@@ -295,8 +297,8 @@
         </div>
         <div class="mt-field"><label>심볼</label><input class="mt-input" id="mtSym" value="${esc(symShort(sym))}/USDT" disabled></div>
         <div class="mt-grid-2">
-          <div class="mt-field"><label>기준 가격</label><input class="mt-input" id="mtRefPrice" type="number" inputmode="decimal" step="any" value="${cur ? fmtP(cur) : ''}" ${Form.priceMode==='current'?'disabled':''} oninput="window.PaperTrading.recompute()"></div>
-          <div class="mt-field"><label>진입가</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? fmtP(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
+          <div class="mt-field"><label>기준 가격</label><input class="mt-input" id="mtRefPrice" type="number" inputmode="decimal" step="any" value="${cur ? inputVal(cur) : ''}" ${Form.priceMode==='current'?'disabled':''} oninput="window.PaperTrading.recompute()"></div>
+          <div class="mt-field"><label>진입가</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? inputVal(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
         </div>
         <div class="mt-field">
           <label>투입 금액 (USDT, 증거금)</label>
@@ -744,7 +746,7 @@
       if (!Number.isFinite(price)) return;
       const map = { entry: 'mtEntry', target: 'mtTarget', stop: 'mtStop' };
       const id = map[d._mockKey];
-      if (id) { const el = document.getElementById(id); if (el) { el.value = fmtP(price); recompute(); } }
+      if (id) { const el = document.getElementById(id); if (el) { el.value = inputVal(price); recompute(); } }
     });
   }
 
@@ -804,7 +806,7 @@
       if (Form.priceMode === 'current') {
         const cur = getCurrentPrice(window.curSymbol);
         const refEl = document.getElementById('mtRefPrice');
-        if (cur && refEl && document.activeElement !== refEl) { refEl.value = fmtP(cur); }
+        if (cur && refEl && document.activeElement !== refEl) { refEl.value = inputVal(cur); }
       }
     }, 2000);
     // 종목 변경 시 빌더 갱신 + 오버레이 재적용
