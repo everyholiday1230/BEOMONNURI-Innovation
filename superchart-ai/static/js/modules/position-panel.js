@@ -695,12 +695,46 @@
   window._retryLiquidationHeatmap = loadLiquidationHeatmap;
 
   // _selectSym 래핑(기존 함수 보존) → 종목 변경 후 symbolChanged 발생
+  // 미지원(가격/캔들 없음) 종목 선택 시 1회 안내 토스트(차단하지 않음).
+  let _unsupNotified = {};
+  function _showSymToast(msg) {
+    let t = document.getElementById('_symToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = '_symToast';
+      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;'
+        + 'background:var(--color-surface-raised,#1a1a1a);color:var(--color-text,#fff);'
+        + 'border:1px solid var(--color-primary,#921230);border-radius:8px;padding:10px 16px;'
+        + 'font-size:13px;max-width:90vw;box-shadow:0 4px 16px rgba(0,0,0,0.25);opacity:0;transition:opacity .2s';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = '1';
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+  }
+  function _notifyIfUnsupported(sym) {
+    if (!sym || _unsupNotified[sym]) return;
+    // 가격 검증 결과는 비동기로 채워지므로 약간 지연 후 확인.
+    setTimeout(() => {
+      try {
+        const valid = window._wlPriceValid || {};
+        if (valid[sym] === false) {
+          _unsupNotified[sym] = true;
+          _showSymToast('이 종목은 현재 가격·차트 데이터를 제공하지 않습니다. 참고용 정보가 제한될 수 있습니다.');
+        }
+      } catch (e) {}
+    }, 1200);
+  }
+
   function _hookSelectSym() {
     const orig = window._selectSym;
     if (typeof orig !== 'function' || orig._symEvtHooked) return;
     const wrapped = async function(sym) {
       const r = await orig.apply(this, arguments);
       try { document.dispatchEvent(new CustomEvent('symbolChanged', { detail: { symbol: sym } })); } catch (e) {}
+      // 선택한 종목이 가격/캔들 미지원으로 확인된 경우 안내(차단하지 않음).
+      try { _notifyIfUnsupported(sym); } catch (e) {}
       return r;
     };
     wrapped._symEvtHooked = true;
