@@ -1713,18 +1713,6 @@ body.dark #_toastContainer .pro-toast-chip {
         </div>
       </div>
 
-      <!-- 5) 필터 -->
-      <div class="hm-card">
-        <div class="flex-between" style="margin-bottom:6px"><div class="hm-label" style="margin:0">필터</div><button class="hm-btn hm-btn-ghost hm-btn-xs" type="button" onclick="window._hmResetFilters()">필터 초기화</button></div>
-        <input id="hmSearch" class="hm-search" type="search" inputmode="search" placeholder="종목 검색" aria-label="종목 검색" oninput="window._hmOnSearch&&window._hmOnSearch(this.value)">
-        <div id="hmFilters" class="hm-filters"></div>
-      </div>
-
-      <!-- 보기 밀도 / 박스 크기 / 색상 기준 / 그룹화 -->
-      <div class="hm-card">
-        <div class="hm-controls" id="hmControls"></div>
-      </div>
-
       <!-- 7) 범례 -->
       <details class="hm-legend" id="hmLegend"><summary>색상 기준 보기</summary><div id="hmLegendBody"></div></details>
 
