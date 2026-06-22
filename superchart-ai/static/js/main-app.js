@@ -6313,17 +6313,17 @@ function Ne() {
     </div>`;
 
     modal.classList.add("open");
-  }
+  },
 
   window.showMemberOnlyNotice = function (featureLabel) {
     return _showUnifiedNotice("member", featureLabel);
-  };
+  },
   window.showPremiumOnlyNotice = function (featureLabel) {
     return _showUnifiedNotice("premium", featureLabel);
-  };
+  },
   window.showComingSoonNotice = function (featureLabel) {
     return _showUnifiedNotice("coming", featureLabel);
-  };
+  },
 
   document.querySelectorAll(".right-tab").forEach(
     (e) =>
