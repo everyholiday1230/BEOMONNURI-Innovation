@@ -22,6 +22,8 @@
   - 저커버리지(<35%) 상황에서 1회 자동 재시도해 초기 진입 시 가격 배지 품질 개선
   - 자산 탭 필터를 localStorage(`chartOS_wlAssetFilter`)에 저장/복원
   - `symbolChanged` 시 검색어가 현재 종목으로 잠겨 리스트가 1개만 보이는 상황을 자동 복구
+  - 심볼 목록 로컬 캐시(`chartOS_wlSymbolsCache_v1`)를 도입해 네트워크 지연/일시 장애 시에도 워치리스트 즉시 복구
+  - 가격 캐시 로컬 복구(`chartOS_wlPriceCache_v1`, TTL 5분) + 초기 렌더 즉시 표시로 `···` 체감 시간 단축
 - `static/index.html`
   - 워치리스트 자산 탭에 `전체` 탭 추가 및 기본 활성화
 

@@ -10,6 +10,92 @@ const coinImgUrl = {};
 const _apiMap = {};
 const _apiToFront = {};
 
+const WL_SYMBOLS_CACHE_KEY = 'chartOS_wlSymbolsCache_v1';
+const WL_PRICE_CACHE_KEY = 'chartOS_wlPriceCache_v1';
+const WL_PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function _safeParse(raw, fallback = null) {
+  try { return JSON.parse(raw); } catch (_) { return fallback; }
+}
+
+function _hydrateSymbolsCache() {
+  let raw = null;
+  try { raw = localStorage.getItem(WL_SYMBOLS_CACHE_KEY); } catch (_) { raw = null; }
+  const cached = _safeParse(raw, null);
+  if (!cached || !Array.isArray(cached.items) || !cached.items.length) return false;
+  symbols.length = 0;
+  cached.items.forEach(s => {
+    if (!s || !s.code) return;
+    symbols.push({
+      code: s.code,
+      name: s.name || s.code,
+      kr: s.kr || '',
+      apiCode: s.apiCode || null,
+      exchangeCode: s.exchangeCode || null,
+      asset: s.asset || 'crypto'
+    });
+    if (s.apiCode) {
+      _apiMap[s.code] = s.apiCode;
+      _apiToFront[s.apiCode] = s.code;
+    }
+    if (s.imgUrl) coinImgUrl[s.code] = s.imgUrl;
+  });
+  window.symbols = symbols;
+  return true;
+}
+
+function _persistSymbolsCache() {
+  try {
+    const items = symbols.slice(0, 600).map(s => ({
+      code: s.code,
+      name: s.name,
+      kr: s.kr,
+      apiCode: s.apiCode,
+      exchangeCode: s.exchangeCode,
+      asset: s.asset,
+      imgUrl: coinImgUrl[s.code] || ''
+    }));
+    localStorage.setItem(WL_SYMBOLS_CACHE_KEY, JSON.stringify({ at: Date.now(), items }));
+  } catch (_) {}
+}
+
+function _hydratePriceCache() {
+  let raw = null;
+  try { raw = localStorage.getItem(WL_PRICE_CACHE_KEY); } catch (_) { raw = null; }
+  const cached = _safeParse(raw, null);
+  if (!cached || typeof cached !== 'object') return {};
+  const at = Number(cached.at || 0);
+  if (!at || (Date.now() - at) > WL_PRICE_CACHE_TTL_MS) return {};
+  return (cached.map && typeof cached.map === 'object') ? cached.map : {};
+}
+
+function _persistPriceCache(cacheMap) {
+  if (!cacheMap || typeof cacheMap !== 'object') return;
+  try {
+    const now = Date.now();
+    if (window._wlPriceCacheSavedAt && (now - window._wlPriceCacheSavedAt) < 3000) return;
+    window._wlPriceCacheSavedAt = now;
+    localStorage.setItem(WL_PRICE_CACHE_KEY, JSON.stringify({ at: now, map: cacheMap }));
+  } catch (_) {}
+}
+
+function _renderPriceCellHtml(d) {
+  const fmtPrice = window.fmtPrice || (v => String(v));
+  const PS = window.PriceStatus;
+  if (!d) return '<span style="color:var(--muted);font-size:14px">···</span>';
+  const v = PS ? PS.validate(d.price) : { valid: !!(Number.isFinite(d.price) && d.price > 0), status: 'NO_PRICE' };
+  if (!v.valid) {
+    const status = v.status || 'NO_PRICE';
+    const txt = (window.DataStatusText && window.DataStatusText[status]) || '가격 데이터 없음';
+    return `<span class="ds-list-badge" title="${txt}">${txt}</span>`;
+  }
+  const color = d.pct >= 0 ? '#C4384B' : '#4A0817';
+  const sign = d.pct >= 0 ? '+' : '';
+  const fmt = (PS && PS.formatNumber(d.price) != null) ? PS.formatNumber(d.price).replace(/^₩/, '') : fmtPrice(d.price);
+  const pctTxt = Number.isFinite(d.pct) ? `${sign}${d.pct.toFixed(2)}%` : '';
+  return `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div>${pctTxt ? `<div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${pctTxt}</div>` : ''}`;
+}
+
 // 시총 순(market-cap) 정렬용 정적 순위 맵 (백엔드 symbol_resolver 와 동일 순서).
 // "시총순"(default) 모드에서 서버 순서가 흐트러져도 BTC/ETH 가 상단에 오도록 보강.
 const _MCAP_ORDER = [
@@ -142,6 +228,9 @@ export { symbols, coinImgUrl, _apiMap, _apiToFront };
 
 export async function loadSymbolsFromDB() {
   try {
+    // 네트워크가 느린 환경에서도 사용자 체감 공백을 줄이기 위해 로컬 캐시를 먼저 복구
+    if (!symbols.length) _hydrateSymbolsCache();
+
     const collected = [];
     const collectedImg = {};
     const collectedApi = {};
@@ -197,6 +286,7 @@ export async function loadSymbolsFromDB() {
       Object.assign(coinImgUrl, collectedImg);
       Object.assign(_apiMap, collectedApi);
       Object.assign(_apiToFront, collectedApiToFront);
+      _persistSymbolsCache();
     }
 
     window.symbols = symbols;
@@ -227,13 +317,15 @@ export function renderWL(f = '', skipPrices = false) {
   el.innerHTML = list.map(s => {
     const { base, quote } = _formatSymbolDisplay(s);
     const logoImg = window._symbolLogoImg(s.code, base, 20);
+    const cached = (window._wlPriceCache || {})[s.code] || null;
+    const priceHtml = _renderPriceCellHtml(cached);
     return `<div class="wl-item ${s.code === curSymbol ? 'active' : ''}" data-symbol="${s.code}" onclick="window._selectSym('${s.code}')">
     <div style="display:flex;align-items:center;gap:8px">
       ${logoImg}
       <div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:14px;color:var(--wl-gold);white-space:nowrap">${base}${quote ? `<span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:2px">${quote}</span>` : ''}</div>
       <div style="color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(localStorage.getItem('chartOS_lang')||'ko')==='ko'?(s.kr||s.name||base):(s.name||s.kr||base)}</div></div>
     </div>
-    <div style="text-align:right;min-width:60px;flex-shrink:0" id="wp_${s.code}"><span style="color:var(--muted);font-size:14px">···</span></div></div>`;
+    <div style="text-align:right;min-width:60px;flex-shrink:0" id="wp_${s.code}">${priceHtml}</div></div>`;
   }).join('');
   if (!skipPrices) loadWLPrices({ reason: 'render' });
 }
@@ -309,7 +401,6 @@ export async function loadWLPrices(opts = {}) {
       const d = readPrice(s);
       if (d) window._wlPriceCache[s.code] = d;
     }
-    const fmtPrice = window.fmtPrice || (v => String(v));
     const PS = window.PriceStatus;
     window._wlPriceValid = window._wlPriceValid || {};
     let validCount = 0;
@@ -321,19 +412,9 @@ export async function loadWLPrices(opts = {}) {
       const v = (d && PS) ? PS.validate(d.price) : { valid: !!(d && Number.isFinite(d.price) && d.price > 0), status: 'NO_PRICE' };
       window._wlPriceValid[s.code] = !!(d && v.valid);
       if (window._wlPriceValid[s.code]) validCount += 1;
-      if (!d || !v.valid) {
-        // 빈칸/··· 대신 상태 배지 표시
-        const status = !d ? 'NO_PRICE' : (v.status || 'SUSPENDED');
-        const txt = (window.DataStatusText && window.DataStatusText[status]) || '가격 데이터 없음';
-        el.innerHTML = `<span class="ds-list-badge" title="${txt}">${txt}</span>`;
-        continue;
-      }
-      const color = d.pct >= 0 ? '#C4384B' : '#4A0817';
-      const sign = d.pct >= 0 ? '+' : '';
-      const fmt = (PS && PS.formatNumber(d.price) != null) ? PS.formatNumber(d.price).replace(/^₩/, '') : fmtPrice(d.price);
-      const pctTxt = Number.isFinite(d.pct) ? `${sign}${d.pct.toFixed(2)}%` : '';
-      el.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div>${pctTxt ? `<div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${pctTxt}</div>` : ''}`;
+      el.innerHTML = _renderPriceCellHtml(d);
     }
+    _persistPriceCache(window._wlPriceCache);
     const total = symbols.length || 0;
     const coverage = total ? (validCount / total) : 0;
     window._wlPriceCoverage = { validCount, total, coverage, at: Date.now() };
@@ -363,7 +444,7 @@ export async function loadWLPrices(opts = {}) {
 // window 노출
 window.renderWL = renderWL;
 window.loadWLPrices = loadWLPrices;
-window._wlPriceCache = window._wlPriceCache || {};
+window._wlPriceCache = window._wlPriceCache || _hydratePriceCache();
 window._wlPriceFilter = window._wlPriceFilter || 'all';
 window._wlPriceLoading = false;
 window._wlPriceLastAt = 0;
