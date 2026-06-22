@@ -55,6 +55,8 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - IA 중복 축소(2026-06-21): KR/EN 홈·제품허브의 대형 FAQ 반복 블록을 전용 FAQ 페이지 유도 섹션으로 정리
 - EN Company 페이지에서 Products 허브와 중복되던 대형 Product Portfolio 섹션을 축소하고 탐색 링크로 정돈
 - EN Privacy 페이지의 초안성 문구 제거 및 정식 안내 톤으로 교체
+- IA 재정렬(2026-06-21): Company 페이지의 제품 중심 블록을 Products 허브로 이동·통합하고, Company를 신뢰/철학/운영원칙/회사정보 중심으로 재구성
+- KR/EN Products 허브에 `Industry fit` 섹션을 추가해 산업별 적용 영역과 추천 제품 매핑을 한 화면에서 비교 가능하도록 개선
 
 ## 성능 / 에셋
 

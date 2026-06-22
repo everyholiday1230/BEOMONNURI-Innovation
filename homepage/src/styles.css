@@ -803,9 +803,9 @@ table.product-compare td { color: var(--muted); font-size: .94rem; }
 .partner-card:hover { background: var(--paper-soft); }
 .partner-card img {
   width: auto; max-width: min(100%, 176px); height: 54px; object-fit: contain;
-  filter: grayscale(1) opacity(.5); transition: filter .25s var(--ease), opacity .25s var(--ease);
+  filter: none; opacity: 1; transition: filter .25s var(--ease), opacity .25s var(--ease);
 }
-.partner-card:hover img, .partner-card:focus-within img { filter: grayscale(0) opacity(1); }
+.partner-card:hover img, .partner-card:focus-within img { filter: none; opacity: 1; }
 /* 로고별 시각적 무게 보정 (종횡비·여백 편차 흡수) */
 .partner-card img.logo-tall { height: 66px; }
 .partner-card img.logo-wide { height: 44px; }
@@ -818,11 +818,50 @@ table.product-compare td { color: var(--muted); font-size: .94rem; }
 .partner-card img[src$='knal-kor.png'],
 .partner-card img[src$='knal.png'] { max-width: min(100%, 178px); }
 
+/* 홈 Network marquee (Hero 바로 아래 자동 가로 이동) */
+.home-network-marquee .partner-marquee {
+  display: flex;
+  overflow: hidden;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+}
+.home-network-marquee .partner-track {
+  display: flex;
+  flex-shrink: 0;
+  min-width: max-content;
+  animation: partner-marquee-scroll 28s linear infinite;
+}
+.home-network-marquee .partner-track .partner-card {
+  flex: 0 0 220px;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
+  border-bottom: 0;
+}
+@media (max-width: 760px) {
+  .home-network-marquee .partner-track .partner-card {
+    flex-basis: 170px;
+    width: 170px;
+    min-width: 170px;
+    max-width: 170px;
+  }
+}
+.home-network-marquee .partner-marquee:hover .partner-track {
+  animation-play-state: paused;
+}
+@keyframes partner-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
 /* ── Reveal motion ─────────────────────────────────────── */
 .reveal-item { opacity: 0; transform: translateY(12px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
 .reveal-item.is-visible { opacity: 1; transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  /* 대표님 요청: 홈 네트워크 로고는 자동 이동 유지 */
+  .home-network-marquee .partner-track { animation: partner-marquee-scroll 28s linear infinite !important; }
   .reveal-item { opacity: 1; transform: none; }
 }
 /* JS 미실행/미지원 시에도 콘텐츠가 보이도록 안전장치 */
