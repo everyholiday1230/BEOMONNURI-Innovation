@@ -525,7 +525,14 @@ function initNav() {
     setOpen(navToggle.getAttribute('aria-expanded') !== 'true');
   });
   navLinks.querySelectorAll('a').forEach((link) =>
-    link.addEventListener('click', () => setOpen(false))
+    link.addEventListener('click', () => {
+      const isDropdownTrigger = link.matches('a[aria-haspopup="true"]');
+      const mobile = window.matchMedia('(max-width: 760px)').matches;
+      // 모바일에서 제품 상위 메뉴 클릭은 서브메뉴 토글 용도로 사용하므로
+      // 즉시 닫지 않고 하위 메뉴 클릭 시에만 닫히도록 유지한다.
+      if (mobile && isDropdownTrigger) return;
+      setOpen(false);
+    })
   );
   // Esc 로 닫기 + 포커스 복귀
   document.addEventListener('keydown', (e) => {
@@ -552,9 +559,17 @@ function initNav() {
     trigger.addEventListener('click', (e) => {
       // 모바일에서는 첫 탭에 펼치기(바로 이동 방지), 데스크톱은 그대로 이동
       if (isMobile()) {
-        const open = dd.classList.toggle('open');
-        trigger.setAttribute('aria-expanded', String(open));
-        if (open) e.preventDefault();
+        const isOpen = dd.classList.contains('open');
+        if (!isOpen) {
+          dd.classList.add('open');
+          trigger.setAttribute('aria-expanded', 'true');
+          e.preventDefault();
+          return;
+        }
+
+        // 이미 열려있을 때 두 번째 탭은 제품 목록 페이지로 이동
+        dd.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
       }
     });
     // 데스크톱 키보드 접근: 포커스 시 열기, blur 시 닫기
