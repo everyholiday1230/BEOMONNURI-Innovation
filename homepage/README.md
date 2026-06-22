@@ -107,3 +107,48 @@ npm run preview  # wrangler pages dev 로 dist 미리보기 (3000)
 - 고객-facing 페이지에 내부 작업 설명·면책·임시 문구를 넣지 않음
 - 협력기관 로고는 로고 only로 유지하고 접근성은 `alt` 로만 보장
 - 기존 브랜드 컬러(#921230)와 파트너 자산 유지·정돈
+
+---
+
+## 현재 구현 상태 (2026-06-22 업데이트)
+
+### ✅ 완료된 핵심 기능
+- 전역 UI를 **3D/모션 중심 프리미엄 스타일**로 리디자인
+  - Hero 영역에 depth scene(3단 레이어 카드) 자동 주입
+  - 패널/카드/테이블/CTA의 입체 그림자, 글래스 하이라이트, 섬세한 hover lift 적용
+  - pointer fine 디바이스에서 카드 tilt 인터랙션(마우스 위치 기반) 적용
+  - 스크롤 기반 Hero depth parallax 적용
+- 배경/헤더/섹션의 시각 계층 강화
+  - Ambient orb 애니메이션 배경
+  - 헤더 glassmorphism 강화
+  - 섹션 타이틀/분리선/패널 경계 정교화
+- 모션 접근성 유지
+  - `prefers-reduced-motion` 환경에서 애니메이션 자동 비활성화
+  - 모바일(<=760px)에서 과도한 transform 제한
+
+### 🌐 주요 진입 URI 요약
+- 홈: `/` (KR), `/en/` (EN)
+- 제품 허브: `/products/`, `/en/products/`
+- 회사 소개: `/company/`, `/en/company/`
+- 문의: `/contact/`, `/en/contact/`
+- FAQ: `/faq/`
+- 인사이트: `/insights/`
+- 정책: `/privacy/`, `/en/privacy/`
+
+### ⚠️ 아직 미구현/추가 개선 권장
+- 고급 모션의 사용자 제어 토글(UI에서 직접 on/off) 미구현
+- 섹션별 개별 모션 프리셋(A/B 테스트용) 미구현
+- Lighthouse 기반 모션/페인트 비용 정량 리포트 자동화 미구현
+
+### 🚀 다음 단계 권장
+1. 실사용 디바이스별(고주사율/저사양) 체감 성능 QA
+2. 주요 전환 버튼 클릭률 변화(리디자인 전/후) 비교 대시보드 연결
+3. Home 외 상세 페이지별 hero 변형(제품별 시그니처 모션) 확장
+4. 모션 강도 설정 토글(기본/강화/정적) 추가
+
+### 배포/운영 상태
+- Platform: Cloudflare Pages
+- Build: Vite
+- Runtime UI: `src/site.js` + `src/styles.css`
+- Latest visual upgrade: 2026-06-22
+- Status: 개발 반영 완료 (배포 전 빌드/검증 필요)

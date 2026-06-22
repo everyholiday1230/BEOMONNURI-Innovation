@@ -1102,3 +1102,286 @@ body[data-panel-tone='premium'] :is(.gateway-card, .product-nav-card, .value-car
 .insight-card h3 a:hover { color: var(--brand); }
 .insight-card p { font-size: .96rem; line-height: 1.6; color: var(--muted); margin: 0; }
 .insight-card .text-link { margin-top: auto; }
+
+/* ─────────────────────────────────────────────────────────────
+   Premium 3D Motion Redesign Layer (2026-06-22)
+   전체 사이트 패널/레이아웃을 입체적으로 강화하는 오버라이드
+   ───────────────────────────────────────────────────────────── */
+body.motion-lux {
+  background:
+    radial-gradient(1200px 620px at 10% -8%, rgba(146,18,48,.12), transparent 62%),
+    radial-gradient(980px 560px at 88% 6%, rgba(79,11,27,.1), transparent 60%),
+    linear-gradient(180deg, #fff 0%, #fcf9fa 58%, #f9f4f6 100%);
+}
+
+body.motion-lux::before,
+body.motion-lux::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  width: min(34vw, 420px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: .3;
+  animation: ambient-orb 16s ease-in-out infinite alternate;
+}
+
+body.motion-lux::before {
+  top: 8vh;
+  left: -8vw;
+  background: radial-gradient(circle at 32% 32%, rgba(146,18,48,.26), rgba(146,18,48,.06) 52%, transparent 78%);
+}
+
+body.motion-lux::after {
+  bottom: 4vh;
+  right: -10vw;
+  background: radial-gradient(circle at 42% 42%, rgba(60,7,19,.28), rgba(118,16,39,.08) 56%, transparent 80%);
+  animation-delay: 1.8s;
+}
+
+body.motion-lux .site-header {
+  background: color-mix(in srgb, var(--paper) 78%, rgba(255,255,255,.3));
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 20%, var(--line));
+  box-shadow: 0 10px 26px rgba(28,14,18,.07);
+  backdrop-filter: blur(20px);
+}
+
+body.motion-lux .section,
+body.motion-lux .hero,
+body.motion-lux .page-hero,
+body.motion-lux .product-hero {
+  position: relative;
+}
+
+body.motion-lux .section::before {
+  content: '';
+  position: absolute;
+  inset: 14% 4% auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(146,18,48,.16), transparent);
+  opacity: .5;
+  pointer-events: none;
+}
+
+body.motion-lux :is(
+  .gateway-card,
+  .product-nav-card,
+  .value-card,
+  .task-card,
+  .scenario-card,
+  .flow-node,
+  .roadmap-step,
+  .usecase-card,
+  .signal-card,
+  .trust-card,
+  .faq-item,
+  .detail-card,
+  .contact-card,
+  .form,
+  .product-card,
+  .partner-card,
+  .term-wrap,
+  .product-compare-wrap,
+  .risk-notice,
+  .page-summary,
+  .cta-band
+) {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--line));
+  box-shadow: 0 16px 40px rgba(34,16,22,.08), 0 5px 14px rgba(34,16,22,.05);
+  transform-style: preserve-3d;
+  transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease);
+}
+
+body.motion-lux :is(
+  .gateway-card,
+  .product-nav-card,
+  .value-card,
+  .task-card,
+  .scenario-card,
+  .flow-node,
+  .roadmap-step,
+  .usecase-card,
+  .signal-card,
+  .trust-card,
+  .product-card,
+  .partner-card
+):hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--brand) 46%, var(--line));
+  box-shadow: 0 22px 46px rgba(31,12,18,.15), 0 9px 18px rgba(31,12,18,.09);
+}
+
+.motion-tilt {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --shine-x: 50%;
+  --shine-y: 50%;
+  will-change: transform;
+  transform: perspective(1100px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+}
+
+.motion-tilt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(240px circle at var(--shine-x) var(--shine-y), rgba(255,255,255,.24), transparent 62%);
+  opacity: .6;
+}
+
+body.motion-lux .hero-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  align-items: stretch;
+  gap: clamp(1.1rem, 2.6vw, 2rem);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 30px 70px rgba(18,8,12,.36);
+  overflow: hidden;
+}
+
+body.motion-lux .hero-home::after {
+  content: '';
+  position: absolute;
+  inset: auto -24% -42% auto;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.21) 0%, rgba(255,255,255,0) 68%);
+  animation: hero-glow 8.8s ease-in-out infinite;
+}
+
+.hero-depth-scene {
+  display: grid;
+  align-content: center;
+  gap: .72rem;
+  perspective: 1200px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-depth-card {
+  padding: .95rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.26);
+  background: linear-gradient(165deg, rgba(255,255,255,.24), rgba(255,255,255,.06));
+  box-shadow: 0 20px 36px rgba(10,4,7,.22);
+  backdrop-filter: blur(12px);
+  transform: translateZ(0);
+  animation: float-card 5.4s ease-in-out infinite;
+}
+
+.hero-depth-card:nth-child(2) { animation-delay: .6s; }
+.hero-depth-card:nth-child(3) { animation-delay: 1.2s; }
+
+.hero-depth-card span {
+  display: block;
+  color: rgba(255,255,255,.7);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.hero-depth-card strong {
+  display: block;
+  margin-top: .2rem;
+  color: #fff;
+  font-size: .95rem;
+  line-height: 1.35;
+}
+
+.hero-depth-card small {
+  display: block;
+  margin-top: .26rem;
+  color: rgba(255,255,255,.72);
+  font-size: .72rem;
+}
+
+body.motion-lux .hero-badges li {
+  border-color: rgba(255,255,255,.28);
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+body.motion-lux .section-heading h2 {
+  text-shadow: 0 10px 26px rgba(146,18,48,.1);
+}
+
+body.motion-lux .cta-band {
+  background:
+    linear-gradient(132deg, rgba(58,8,20,.94), rgba(146,18,48,.92)),
+    radial-gradient(circle at 80% 12%, rgba(255,255,255,.18), transparent 44%);
+}
+
+body.motion-lux .reveal-item {
+  opacity: 0;
+  transform: translateY(22px) scale(.985);
+  filter: blur(4px);
+  transition:
+    opacity .66s var(--ease),
+    transform .66s var(--ease),
+    filter .66s var(--ease);
+}
+
+body.motion-lux .reveal-item.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+@keyframes ambient-orb {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(24px, -18px, 0) scale(1.08); }
+}
+
+@keyframes hero-glow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .46; }
+  50% { transform: translate3d(-18px, -12px, 0) scale(1.1); opacity: .7; }
+}
+
+@keyframes float-card {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+@media (max-width: 1100px) {
+  body.motion-lux .hero-home {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-depth-scene {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: start;
+  }
+}
+
+@media (max-width: 760px) {
+  body.motion-lux .hero-home {
+    border-radius: 18px;
+    padding: clamp(1.4rem, 5vw, 2rem);
+  }
+
+  .hero-depth-scene {
+    grid-template-columns: 1fr;
+  }
+
+  body.motion-lux :is(.gateway-card, .product-nav-card, .value-card, .roadmap-step, .task-card, .scenario-card, .usecase-card, .product-card) {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.motion-lux::before,
+  body.motion-lux::after,
+  body.motion-lux .hero-home::after,
+  .hero-depth-card {
+    animation: none !important;
+  }
+}
+

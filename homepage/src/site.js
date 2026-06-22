@@ -576,6 +576,80 @@ function initReveal() {
   }, 3000);
 }
 
+function initPremiumMotion() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  document.body.classList.add('motion-lux');
+
+  const hero = document.querySelector('.hero-home');
+  if (hero && !hero.querySelector('.hero-depth-scene')) {
+    hero.insertAdjacentHTML('beforeend', `
+      <aside class="hero-depth-scene" aria-hidden="true">
+        <article class="hero-depth-card" data-depth="0.45">
+          <span>Secure Boundary</span>
+          <strong>Private AI Zone</strong>
+          <small>Zero-leak architecture</small>
+        </article>
+        <article class="hero-depth-card" data-depth="0.65">
+          <span>Workflow Layer</span>
+          <strong>Agent Orchestration</strong>
+          <small>Human-in-the-loop control</small>
+        </article>
+        <article class="hero-depth-card" data-depth="0.85">
+          <span>Decision Layer</span>
+          <strong>Signal Intelligence</strong>
+          <small>Operations KPI tracking</small>
+        </article>
+      </aside>
+    `);
+  }
+
+  const tiltTargets = document.querySelectorAll(
+    '.hero-depth-card, .product-nav-card, .value-card, .roadmap-step, .task-card, .scenario-card, .signal-card, .trust-card, .usecase-card, .product-card'
+  );
+
+  const allowTilt = window.matchMedia('(pointer: fine)').matches;
+  if (allowTilt) {
+    tiltTargets.forEach((el) => {
+      el.classList.add('motion-tilt');
+      const applyTilt = (event) => {
+        const rect = el.getBoundingClientRect();
+        const px = (event.clientX - rect.left) / rect.width;
+        const py = (event.clientY - rect.top) / rect.height;
+        const rotateY = (px - 0.5) * 8;
+        const rotateX = (0.5 - py) * 8;
+        el.style.setProperty('--tilt-x', `${rotateX.toFixed(2)}deg`);
+        el.style.setProperty('--tilt-y', `${rotateY.toFixed(2)}deg`);
+        el.style.setProperty('--shine-x', `${(px * 100).toFixed(2)}%`);
+        el.style.setProperty('--shine-y', `${(py * 100).toFixed(2)}%`);
+      };
+
+      const resetTilt = () => {
+        el.style.setProperty('--tilt-x', '0deg');
+        el.style.setProperty('--tilt-y', '0deg');
+      };
+
+      el.addEventListener('pointermove', applyTilt);
+      el.addEventListener('pointerleave', resetTilt);
+      el.addEventListener('pointerup', resetTilt);
+    });
+  }
+
+  const depthNodes = document.querySelectorAll('.hero-depth-card[data-depth]');
+  if (depthNodes.length > 0) {
+    const parallax = () => {
+      const y = window.scrollY || 0;
+      depthNodes.forEach((node) => {
+        const depth = Number(node.dataset.depth || 0.6);
+        node.style.transform = `translate3d(0, ${(-y * depth * 0.08).toFixed(2)}px, 0)`;
+      });
+    };
+    parallax();
+    window.addEventListener('scroll', parallax, { passive: true });
+  }
+}
+
 /* ───────────────────────── FAQ 아코디언 ───────────────────────── */
 function initFaq() {
   document.querySelectorAll('.faq-item > button.faq-q').forEach((btn) => {
@@ -630,6 +704,7 @@ export function mountLayout() {
   injectProductEnhancement(lang);
   optimizeImages();
   initNav();
+  initPremiumMotion();
   initReveal();
   initFaq();
   initCtaTracking(lang);
