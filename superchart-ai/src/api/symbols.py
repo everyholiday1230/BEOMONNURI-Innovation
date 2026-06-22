@@ -4,6 +4,8 @@ import time
 import uuid as _uuid
 import structlog
 import httpx
+from pathlib import Path
+from functools import lru_cache
 from fastapi import APIRouter, Request
 from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,62 @@ BINANCE_FAPI = "https://fapi.binance.com"
 LIVE_SYMBOLS_CACHE_TTL = 60
 _live_symbols_cache_rows: list[dict] = []
 _live_symbols_cache_ts: float = 0.0
+
+_STATIC_ROOT = Path(__file__).resolve().parent.parent.parent / "static"
+
+@lru_cache(maxsize=1)
+def _logo_inventory() -> dict[str, set[str]]:
+    inv = {"coin": set(), "stock": set()}
+    try:
+        for p in (_STATIC_ROOT / "coin-logos").glob("*"):
+            if p.is_file():
+                inv["coin"].add(p.name.upper())
+        for p in (_STATIC_ROOT / "stock-logos").glob("*"):
+            if p.is_file():
+                inv["stock"].add(p.name.upper())
+    except Exception:
+        pass
+    return inv
+
+
+def _symbol_token(row: dict) -> str:
+    raw = str(row.get("base_asset") or row.get("symbol_code") or "").upper().strip()
+    if raw.startswith("KRW-"):
+        raw = raw[4:]
+    for q in ("USDT", "USDC", "BUSD", "USD", "KRW"):
+        if raw.endswith(q) and len(raw) > len(q):
+            raw = raw[:-len(q)]
+            break
+    return "".join(ch for ch in raw if ch.isalnum())
+
+
+def _fallback_logo_url(row: dict) -> str | None:
+    token = _symbol_token(row)
+    if not token:
+        return None
+    ac = str(row.get("asset_class") or "crypto").lower()
+    inv = _logo_inventory()
+    if ac in ("stock", "etf", "commodity"):
+        candidates = [
+            ("stock", f"{token}.SVG"),
+            ("stock", f"{token}.PNG"),
+        ]
+    else:
+        candidates = [
+            ("coin", f"{token}.PNG"),
+            ("coin", f"{token}.SVG"),
+        ]
+    for bucket, filename in candidates:
+        if filename in inv[bucket]:
+            return f"/static/{bucket}-logos/{filename.lower()}"
+    return None
+
+
+def _resolve_img_url(row: dict) -> str | None:
+    img = row.get("img_url")
+    if isinstance(img, str) and img.strip():
+        return img.strip()
+    return _fallback_logo_url(row)
 
 def _matches_symbol_filters(row: dict, q: str = "", asset_class: str | None = None, exchange: str | None = None) -> bool:
     if asset_class and str(row.get("asset_class") or "").lower() != asset_class.lower():
@@ -163,6 +221,7 @@ def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asse
             asset_class=str(row.get("asset_class") or "crypto"),
             base_asset=str(row.get("base_asset") or row.get("symbol_code") or ""),
             quote_asset=str(row.get("quote_asset") or "USDT"),
+            img_url=_resolve_img_url(row),
             api_code=row.get("api_code") or row.get("symbol_code"),
         ))
     return PagedData(items=items, page=page, page_size=page_size, total=total, has_next=(page * page_size < total))
@@ -175,7 +234,7 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
     page = max(page, 1)
     # ── Redis 캐시 (60초) — 페이지 첫 로드 시 동일 쿼리가 다수 발생 ──
     from src.services.redis_cache import cache_get, cache_set
-    cache_key = f"q={q}|ac={asset_class or ''}|ex={exchange or ''}|p={page}|ps={page_size}"
+    cache_key = f"v2|q={q}|ac={asset_class or ''}|ex={exchange or ''}|p={page}|ps={page_size}"
     cached = await cache_get("symbols_search", cache_key)
     if cached is not None:
         return ApiResponse(data=cached)
@@ -314,7 +373,7 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
                 asset_class=str(row.get("asset_class") or "crypto"),
                 base_asset=str(row.get("base_asset") or row.get("symbol_code") or ""),
                 quote_asset=str(row.get("quote_asset") or "USDT"),
-                img_url=row.get("img_url"),
+                img_url=_resolve_img_url(row),
                 api_code=row.get("api_code") or row.get("symbol_code"),
             )
             for row in chunk

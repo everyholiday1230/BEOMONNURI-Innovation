@@ -74,6 +74,7 @@ let _hmLoading = false;
 let _hmLastRunAt = 0;
 let _htLoading = false;
 let _htLastRunAt = 0;
+let _htPendingRefresh = false;
 
 function favSet() { try { return new Set(window._favSymbols || []); } catch { return new Set(); } }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -941,7 +942,10 @@ window._hotAsset = window._hotAsset || 'crypto';
 window._loadHotCoins = async function(opts = {}) {
   const force = !!opts.force;
   const now = Date.now();
-  if (_htLoading) return;
+  if (_htLoading) {
+    if (force) _htPendingRefresh = true;
+    return;
+  }
   if (!force && now - _htLastRunAt < _HT_REFRESH_COOLDOWN_MS) return;
   _htLoading = true;
   _htLastRunAt = now;
@@ -996,24 +1000,46 @@ window._loadHotCoins = async function(opts = {}) {
     htSetStatus('error');
   } finally {
     _htLoading = false;
+    if (_htPendingRefresh) {
+      _htPendingRefresh = false;
+      setTimeout(() => { try { window._loadHotCoins({ force: true, reason: 'queued_user_refresh' }); } catch (_) {} }, 0);
+    }
   }
 };
 
 /* 인기 TOP 액션 */
-window._htResetFilters = function() { HT.market='all'; HT.category='all'; HT.turnoverTop='all'; HT.changeFilter='all'; HT.watchOnly=false; HT.search=''; const s=document.getElementById('htSearch'); if(s)s.value=''; htSyncChips(); window._loadHotCoins(); };
-window._htOnSearch = function(v) { HT.search = (v||'').trim(); window._loadHotCoins(); };
-window._htAddFav = function(code) { if (window._addFavSym && !favSet().has(code)) window._addFavSym(code); else if (window._removeFavSym && favSet().has(code)) window._removeFavSym(code); setTimeout(() => window._loadHotCoins(), 200); };
+window._htResetFilters = function() { HT.market='all'; HT.category='all'; HT.turnoverTop='all'; HT.changeFilter='all'; HT.watchOnly=false; HT.search=''; const s=document.getElementById('htSearch'); if(s)s.value=''; htSyncChips(); window._loadHotCoins({ force: true, reason: 'reset_filters' }); };
+window._htOnSearch = function(v) { HT.search = (v||'').trim(); window._loadHotCoins({ force: true, reason: 'search' }); };
+window._htAddFav = function(code) { if (window._addFavSym && !favSet().has(code)) window._addFavSym(code); else if (window._removeFavSym && favSet().has(code)) window._removeFavSym(code); setTimeout(() => window._loadHotCoins({ force: true, reason: 'fav_change' }), 200); };
 window._htOpenAi = function(code) { if (window._selectSym) window._selectSym(code); const t = document.querySelector('.right-tab[data-p="ai"]'); if (t) t.click(); };
 window._htOpenHeatmap = function(code) { if (window._selectSym) window._selectSym(code); const t = document.querySelector('.right-tab[data-p="heatmap"]'); if (t) t.click(); };
 
 /* 인기 TOP 이벤트 */
 document.addEventListener('click', (e) => {
   const bt = e.target.closest('#htBasisTabs .ht-tab');
-  if (bt) { const b = bt.dataset.basis; if (b && b !== HT.basis) { HT.basis = b; document.querySelectorAll('#htBasisTabs .ht-tab').forEach(t => { const on = t === bt; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); }); htRenderBasisTime(); window._loadHotCoins(); } return; }
+  if (bt) {
+    const b = bt.dataset.basis;
+    if (b && b !== HT.basis) {
+      HT.basis = b;
+      // 랭킹 기준 탭 변경 시, 리스트 정렬도 기준 우선으로 즉시 맞춘다.
+      // (이전 정렬 옵션이 유지되어 체감상 "고정"처럼 보이는 현상 방지)
+      HT.sort = 'attention';
+      const sortSel = document.querySelector('#htControls .ht-select[data-ckey="sort"]');
+      if (sortSel) sortSel.value = 'attention';
+      document.querySelectorAll('#htBasisTabs .ht-tab').forEach(t => {
+        const on = t === bt;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', String(on));
+      });
+      htRenderBasisTime();
+      window._loadHotCoins({ force: true, reason: 'basis_changed' });
+    }
+    return;
+  }
   const tt = e.target.closest('#htTimeTabs .ht-tab');
-  if (tt) { const tf = tt.dataset.tf; if (tf && tf !== HT.tf) { HT.tf = tf; document.querySelectorAll('#htTimeTabs .ht-tab').forEach(t => { const on = t === tt; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); }); htRenderBasisTime(); window._loadHotCoins(); } return; }
+  if (tt) { const tf = tt.dataset.tf; if (tf && tf !== HT.tf) { HT.tf = tf; document.querySelectorAll('#htTimeTabs .ht-tab').forEach(t => { const on = t === tt; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); }); htRenderBasisTime(); window._loadHotCoins({ force: true, reason: 'timeframe_changed' }); } return; }
   const fc = e.target.closest('#htFilters .ht-chip');
-  if (fc) { const k = fc.dataset.fkey, v = fc.dataset.fval; if (k === 'watchOnly') HT.watchOnly = (v === 'true'); else HT[k] = v; htSyncChips(); window._loadHotCoins(); return; }
+  if (fc) { const k = fc.dataset.fkey, v = fc.dataset.fval; if (k === 'watchOnly') HT.watchOnly = (v === 'true'); else HT[k] = v; htSyncChips(); window._loadHotCoins({ force: true, reason: 'filter_changed' }); return; }
   // 관심 버튼(리스트 내)
   const favBtn = e.target.closest('#hotList [data-fav]');
   if (favBtn) { e.stopPropagation(); window._htAddFav(favBtn.dataset.fav); return; }
@@ -1028,7 +1054,7 @@ document.addEventListener('change', (e) => {
   const sel = e.target.closest('#htControls .ht-select');
   if (!sel) return;
   HT[sel.dataset.ckey] = sel.value;
-  window._loadHotCoins();
+  window._loadHotCoins({ force: true, reason: 'control_changed' });
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;

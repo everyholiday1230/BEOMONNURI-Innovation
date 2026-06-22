@@ -144,9 +144,18 @@
     const sym = window.curSymbol || 'BTCUSDT';
     const cur = getCurrentPrice(sym);
     const num = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : NaN; };
-    const refPrice = Form.priceMode === 'current' ? cur : num('mtRefPrice');
+    const typedRef = num('mtRefPrice');
+    const cachedRef = (window._wlPriceCache && window._wlPriceCache[sym] && window._wlPriceCache[sym].price) ? window._wlPriceCache[sym].price : NaN;
+    const fallbackRef = Number.isFinite(cur) && cur > 0
+      ? cur
+      : (Number.isFinite(typedRef) && typedRef > 0
+          ? typedRef
+          : (Number.isFinite(cachedRef) && cachedRef > 0 ? cachedRef : NaN));
+    const refPrice = Form.priceMode === 'current'
+      ? fallbackRef
+      : (Number.isFinite(typedRef) && typedRef > 0 ? typedRef : fallbackRef);
     let entry = num('mtEntry');
-    if (!Number.isFinite(entry)) entry = refPrice; // 기본: 기준가
+    if (!Number.isFinite(entry) || entry <= 0) entry = refPrice; // 기본: 기준가(복구 포함)
     const amount = num('mtAmount');
     const target = num('mtTarget');
     const stop = num('mtStop');
@@ -162,7 +171,7 @@
   // ───────── 계산(예상 손익/손익비/필요승률/청산) ─────────
   function compute(f) {
     const out = { valid: false, errors: [] };
-    if (!Number.isFinite(f.entry) || f.entry <= 0) out.errors.push('진입가를 확인해 주세요. 기준 가격을 불러오지 못했을 수 있습니다.');
+    if (!Number.isFinite(f.entry) || f.entry <= 0) out.errors.push('진입가를 확인해 주세요. 현재가를 다시 불러오는 중일 수 있습니다.');
     if (!Number.isFinite(f.amount) || f.amount <= 0) out.errors.push('투입 금액을 입력해 주세요.');
     if (f.amount > availableBalance() + 1e-9) out.errors.push(`가상 잔고가 부족합니다. 사용 가능: ${fmtUSD(availableBalance())}`);
 
@@ -267,7 +276,9 @@
     const el = document.getElementById('mtBuilder');
     if (!el) return;
     const sym = window.curSymbol || 'BTCUSDT';
-    const cur = getCurrentPrice(sym);
+    const curRaw = getCurrentPrice(sym);
+    const cached = (window._wlPriceCache && window._wlPriceCache[sym] && window._wlPriceCache[sym].price) ? window._wlPriceCache[sym].price : null;
+    const cur = (Number.isFinite(curRaw) && curRaw > 0) ? curRaw : ((Number.isFinite(cached) && cached > 0) ? cached : null);
     const lev = Form.leverage;
     const tier = levTier(lev);
     const levChips = [1, 2, 3, 5, 10].map(L =>
@@ -806,7 +817,7 @@
       if (Form.priceMode === 'current') {
         const cur = getCurrentPrice(window.curSymbol);
         const refEl = document.getElementById('mtRefPrice');
-        if (cur && refEl && document.activeElement !== refEl) { refEl.value = inputVal(cur); }
+        if (Number.isFinite(cur) && cur > 0 && refEl && document.activeElement !== refEl) { refEl.value = inputVal(cur); }
       }
     }, 2000);
     // 종목 변경 시 빌더 갱신 + 오버레이 재적용

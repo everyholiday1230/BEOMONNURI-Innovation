@@ -269,7 +269,6 @@
         <div class="row"><span class="k">누적 초대 수</span><span class="v">${fmtP(P.referrals)}</span></div>
         <div class="row"><span class="k">유료 전환 수</span><span class="v">${fmtP(P.paid)}</span></div>
       </div>
-      <p class="pt-phase2">초대일·가입자(이메일 마스킹)·가입 상태·보상 조건·지급 상태 등 상세 목록은 초대 현황 백엔드 연동(Phase 2) 후 표시됩니다. 초대받은 사용자의 이메일은 ab***@example.com 형태로 마스킹되어 표시됩니다.</p>
     </div>`;
   }
 
