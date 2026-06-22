@@ -207,17 +207,13 @@ export function renderWL(f = '', skipPrices = false) {
   const el = document.getElementById('watchlist');
   if (!el) return;
   const fl = f.toLowerCase();
-  const assetFilter = window._wlAssetFilter || 'crypto';
+  const assetFilter = window._wlAssetFilter || 'all';
   let list = symbols;
   if (assetFilter !== 'all') list = list.filter(s => s.asset === assetFilter);
   if (f) list = list.filter(s => s.code.toLowerCase().includes(fl) || s.name.toLowerCase().includes(fl) || s.kr.includes(f));
   // 가격 상태 필터
-  // 기본 동작: 가격이 '확인된 결과 무효(가격 없음)'인 종목은 항상 숨긴다.
-  //   - 아직 확인 전(undefined)인 종목은 표시(초기 빈 화면 깜빡임 방지) → 가격 로드 후 자동 재렌더로 정리.
-  if (window._wlPriceValid) {
-    list = list.filter(s => window._wlPriceValid[s.code] !== false);
-  }
-  // 추가 토글: '지원(가격 있는) 종목만' 선택 시 확인된 유효 종목만 표시
+  // 기본값(all): 가격 미지원/지연 종목도 목록에 표시하고 상태 배지로 안내한다.
+  // valid 필터를 선택한 경우에만 가격 확인 완료 + 유효 종목만 표시한다.
   const pf = window._wlPriceFilter || 'all';
   if (pf === 'valid' && window._wlPriceValid) {
     list = list.filter(s => window._wlPriceValid[s.code] === true);
@@ -239,7 +235,7 @@ export function renderWL(f = '', skipPrices = false) {
     </div>
     <div style="text-align:right;min-width:60px;flex-shrink:0" id="wp_${s.code}"><span style="color:var(--muted);font-size:14px">···</span></div></div>`;
   }).join('');
-  if (!skipPrices) loadWLPrices();
+  if (!skipPrices) loadWLPrices({ reason: 'render' });
 }
 
 function _sortSymbols(list) {
@@ -265,7 +261,14 @@ function _sortSymbols(list) {
   return sorted;
 }
 
-export async function loadWLPrices() {
+export async function loadWLPrices(opts = {}) {
+  const force = !!opts.force;
+  const now = Date.now();
+  const cooldown = 1200;
+  if (!force && window._wlPriceLoading) return;
+  if (!force && window._wlPriceLastAt && (now - window._wlPriceLastAt) < cooldown) return;
+  window._wlPriceLoading = true;
+  window._wlPriceLastAt = now;
   try {
     const r = await _df('/v1/charts/ticker-24hr');
     if (!r || !r.ok) return;
@@ -275,33 +278,49 @@ export async function loadWLPrices() {
     for (const t of data) map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
     window._wlPriceCache = window._wlPriceCache || {};
     // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback)
-    // 요청 폭주(429 "요청이 많습니다")·가격 지연 방지를 위해 동시 개별 호출을 최대 12개로 제한.
-    // 초과분은 가격 미확인 → 가격없음 필터로 자동 숨김 처리됨.
-    const MAX_FILL = 12;
-    const missing = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]).slice(0, MAX_FILL);
+    // 요청 폭주를 막기 위해 상한은 두되, 초기 12개 제한으로 가격 미확인 종목이 과도하게 남는 문제를 완화.
+    const MAX_FILL = Math.min(80, Math.max(24, symbols.length));
+    const curSym = window.curSymbol || '';
+    const missingAll = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]);
+    // 현재 선택 종목/상단 노출 종목부터 우선 보강
+    const missing = missingAll.sort((a, b) => {
+      if (a.code === curSym) return -1;
+      if (b.code === curSym) return 1;
+      return 0;
+    }).slice(0, MAX_FILL);
     if (missing.length) {
-      const fills = await Promise.allSettled(missing.map(s =>
+      await Promise.allSettled(missing.map(s =>
         _df(`/v1/charts/ticker-24hr?symbol=${s.apiCode || s.code}`)
           .then(r2 => (r2 && r2.ok) ? r2.json() : null)
           .then(d2 => {
-            if (d2 && d2.lastPrice) map[d2.symbol || s.code] = { price: parseFloat(d2.lastPrice), pct: parseFloat(d2.priceChangePercent || 0) };
+            if (d2 && d2.lastPrice) {
+              const norm = { price: parseFloat(d2.lastPrice), pct: parseFloat(d2.priceChangePercent || 0) };
+              map[d2.symbol || s.apiCode || s.code] = norm;
+              map[s.apiCode || s.code] = norm;
+              map[s.code] = norm;
+            }
           }).catch(() => {})
       ));
     }
+
+    const readPrice = (s) => map[s.apiCode || s.code] || map[s.code] || window._wlPriceCache?.[s.code] || null;
+
     for (const s of symbols) {
-      const d = map[s.apiCode || s.code] || map[s.code];
+      const d = readPrice(s);
       if (d) window._wlPriceCache[s.code] = d;
     }
     const fmtPrice = window.fmtPrice || (v => String(v));
     const PS = window.PriceStatus;
     window._wlPriceValid = window._wlPriceValid || {};
+    let validCount = 0;
     for (const s of symbols) {
       const el = document.getElementById('wp_' + s.code);
       if (!el) continue;
-      const d = map[s.apiCode || s.code] || map[s.code];
+      const d = readPrice(s);
       // 가격 유효성 검증 (data-status.js). 0/NaN/null 은 무효 처리.
       const v = (d && PS) ? PS.validate(d.price) : { valid: !!(d && Number.isFinite(d.price) && d.price > 0), status: 'NO_PRICE' };
       window._wlPriceValid[s.code] = !!(d && v.valid);
+      if (window._wlPriceValid[s.code]) validCount += 1;
       if (!d || !v.valid) {
         // 빈칸/··· 대신 상태 배지 표시
         const status = !d ? 'NO_PRICE' : (v.status || 'SUSPENDED');
@@ -315,8 +334,22 @@ export async function loadWLPrices() {
       const pctTxt = Number.isFinite(d.pct) ? `${sign}${d.pct.toFixed(2)}%` : '';
       el.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--wl-gold)">${fmt}</div>${pctTxt ? `<div style="color:${color};font-size:14px;font-weight:600;margin-top:1px">${pctTxt}</div>` : ''}`;
     }
-    // 가격 확인 후 목록 재렌더 — 가격 없는(무효) 종목 자동 숨김 반영.
-    // (재진입 방지: 1회만)
+    const total = symbols.length || 0;
+    const coverage = total ? (validCount / total) : 0;
+    window._wlPriceCoverage = { validCount, total, coverage, at: Date.now() };
+
+    // 커버리지가 낮으면(초기 네트워크 지연/일시 장애) 1회 자동 재시도
+    if (total >= 20 && coverage < 0.35) {
+      const now = Date.now();
+      if (!window._wlLowCoverageRetryAt || (now - window._wlLowCoverageRetryAt) > 15000) {
+        window._wlLowCoverageRetryAt = now;
+        setTimeout(() => {
+          try { loadWLPrices({ force: true, reason: 'low_coverage_retry' }); } catch (_) {}
+        }, 2500);
+      }
+    }
+
+    // 가격 확인 후 목록 재렌더 (정렬/표시 업데이트)
     if (!window._wlFilterReRender) {
       window._wlFilterReRender = true;
       const curSearch = document.getElementById('searchInput')?.value || '';
@@ -324,6 +357,7 @@ export async function loadWLPrices() {
       window._wlFilterReRender = false;
     }
   } catch (e) { /* ticker load fail — silent */ }
+  finally { window._wlPriceLoading = false; }
 }
 
 // window 노출
@@ -331,6 +365,8 @@ window.renderWL = renderWL;
 window.loadWLPrices = loadWLPrices;
 window._wlPriceCache = window._wlPriceCache || {};
 window._wlPriceFilter = window._wlPriceFilter || 'all';
+window._wlPriceLoading = false;
+window._wlPriceLastAt = 0;
 
 // 가격 상태 필터 (전체 / 가격 없는 종목 숨기기 / 지원 종목만 보기)
 window._wlSetPriceFilter = function(v) {
@@ -358,15 +394,40 @@ if (_sortEl) {
 
 const _assetTabs = document.querySelectorAll('#assetTabs .asset-tab');
 if (_assetTabs.length) {
-  window._wlAssetFilter = window._wlAssetFilter || 'crypto';
+  const savedAsset = localStorage.getItem('chartOS_wlAssetFilter');
+  const allowed = new Set(['all', 'crypto', 'stock', 'commodity', 'etf']);
+  window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (window._wlAssetFilter || 'all');
+  if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'all';
   _setAssetTabActive(window._wlAssetFilter);
   _assetTabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      const nextAsset = tab.dataset.asset || 'crypto';
+      const nextAsset = tab.dataset.asset || 'all';
       window._wlAssetFilter = nextAsset;
+      localStorage.setItem('chartOS_wlAssetFilter', nextAsset);
       _setAssetTabActive(nextAsset);
       const curSearch = document.getElementById('searchInput')?.value || '';
       renderWL(curSearch);
     });
   });
 }
+
+// 검색어가 현재 선택 종목을 가리키는 상태로 고정되어 "선택한 종목만 보임"처럼 느껴질 때 자동 복구
+// (사용자가 명시적으로 다른 검색어를 입력한 경우는 유지)
+document.addEventListener('symbolChanged', () => {
+  const searchEl = document.getElementById('searchInput');
+  if (!searchEl) return;
+  const q = (searchEl.value || '').trim();
+  if (!q) return;
+  const sym = String(window.curSymbol || '').toUpperCase();
+  const base = sym.replace('USDT', '').replace('KRW-', '');
+  const nq = q.toUpperCase().replace(/\s+/g, '');
+  const mayLocked = (
+    nq === sym ||
+    nq === base ||
+    nq === `${base}/USDT` ||
+    nq === `${base}/KRW`
+  );
+  if (!mayLocked) return;
+  searchEl.value = '';
+  renderWL('');
+});

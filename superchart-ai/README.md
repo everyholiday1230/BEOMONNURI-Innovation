@@ -12,6 +12,19 @@
 - 알림 시스템
 - 사용자 인증 + 워치리스트
 
+## 🆕 2026-06-22 워치리스트 가시성/가격 커버리지 고도화
+
+- `static/js/modules/watchlist.js`
+  - 기본 가격 필터 정책을 `all` 중심으로 조정: 가격 미확인 종목도 리스트에서 유지하고 상태 배지로 안내
+  - 가격 수집 안정화: in-flight lock + 1.2초 cooldown 추가로 중복 호출/레이스 완화
+  - 누락 티커 보강 범위 확대(`MAX_FILL` 동적 상향) + 현재 선택 종목 우선 보강
+  - 가격 맵 조회 시 캐시 fallback(`_wlPriceCache`) 적용으로 순간 API 누락 시 리스트 공백 방지
+  - 저커버리지(<35%) 상황에서 1회 자동 재시도해 초기 진입 시 가격 배지 품질 개선
+  - 자산 탭 필터를 localStorage(`chartOS_wlAssetFilter`)에 저장/복원
+  - `symbolChanged` 시 검색어가 현재 종목으로 잠겨 리스트가 1개만 보이는 상황을 자동 복구
+- `static/index.html`
+  - 워치리스트 자산 탭에 `전체` 탭 추가 및 기본 활성화
+
 ## 🆕 2026-06 실서비스 UX 개선 (실제 차트 페이지)
 
 `static/index.html`, `static/js/page-events.js` 기준으로 실제 서비스 화면 UX를 보강했습니다.
