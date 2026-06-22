@@ -6315,7 +6315,7 @@ function Ne() {
     modal.classList.add("open");
   }
 
-  ;window.showMemberOnlyNotice = function (featureLabel) {
+  window.showMemberOnlyNotice = function (featureLabel) {
     return _showUnifiedNotice("member", featureLabel);
   };
   window.showPremiumOnlyNotice = function (featureLabel) {
