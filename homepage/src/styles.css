@@ -329,6 +329,49 @@ p, li, dd { text-wrap: pretty; }
 .hero-badges { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0; list-style: none; }
 .hero-badges li { padding: .4rem .85rem; border: var(--border); border-radius: 999px; background: var(--paper-soft); color: var(--muted); font-size: .82rem; font-weight: 700; letter-spacing: .01em; }
 
+/* 홈 히어로를 템플릿(DevFolio)처럼 중앙 정렬 + 사진 위 타이핑 */
+.hero-home.hero-home-typed {
+  width: 100vw;
+  margin-top: 0;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  min-height: clamp(560px, calc(100vh - 80px), 980px);
+  padding: clamp(2.8rem, 7vw, 6.5rem) clamp(1.2rem, 4vw, 3rem);
+  border-radius: 0;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.hero-home.hero-home-typed .hero-copy {
+  max-width: min(100%, 58rem);
+  margin-inline: auto;
+  justify-items: center;
+  text-align: center;
+  gap: 1.1rem;
+}
+.hero-home.hero-home-typed h1 {
+  max-width: 22ch;
+  font-size: clamp(2.5rem, 6vw, 5.1rem);
+  line-height: 1.04;
+  letter-spacing: -.04em;
+}
+.hero-home.hero-home-typed .hero-sub {
+  color: rgba(255,255,255,.98);
+  max-width: 30ch;
+  font-size: clamp(1.35rem, 2.8vw, 2.3rem);
+  font-weight: 800;
+  min-height: 1.65em;
+}
+.hero-home.hero-home-typed .typed::after {
+  content: '|';
+  margin-left: .08em;
+  opacity: .92;
+  animation: typed-caret-blink .9s steps(1) infinite;
+}
+@keyframes typed-caret-blink {
+  50% { opacity: 0; }
+}
+
 /* Hero system panel — 대기업형 커스텀 아키텍처 다이어그램 */
 .brand-system-panel {
   padding: clamp(1.3rem, 2.4vw, 1.7rem);

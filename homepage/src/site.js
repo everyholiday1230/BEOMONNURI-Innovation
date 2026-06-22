@@ -13,7 +13,16 @@ const T = {
   ko: {
     skip: '본문 바로가기',
     company: 'AI Product Company',
-    nav: { home: '홈', products: '제품', company: '회사', contact: '문의', cta: '상담하기' },
+    nav: {
+      home: '홈',
+      products: '제품',
+      company: '회사',
+      contact: '문의',
+      faq: 'FAQ',
+      insights: '인사이트',
+      guide: '도입 가이드',
+      cta: '상담하기'
+    },
     menuOpen: '메뉴 열기',
     footerTagline: '산업 현장에서 신뢰할 수 있는 운영 지능 제품을 설계하고 운영합니다.',
     footerNavTitle: '바로가기',
@@ -28,7 +37,16 @@ const T = {
   en: {
     skip: 'Skip to content',
     company: 'AI Product Company',
-    nav: { home: 'Home', products: 'Products', company: 'Company', contact: 'Contact', cta: 'Get in touch' },
+    nav: {
+      home: 'Home',
+      products: 'Products',
+      company: 'Company',
+      contact: 'Contact',
+      faq: 'FAQ',
+      insights: 'Insights',
+      guide: 'Adoption Guide',
+      cta: 'Get in touch'
+    },
     menuOpen: 'Open menu',
     footerTagline: 'We design and operate dependable operating-intelligence products for real industrial environments.',
     footerNavTitle: 'Explore',
@@ -69,12 +87,24 @@ export function trackEvent(name, params = {}) {
 /* 네비게이션 정의 */
 function navItems(lang) {
   const b = base(lang);
-  return [
+  const core = [
     { key: 'home', href: `${b}/` },
     { key: 'products', href: `${b}/products/` },
     { key: 'company', href: `${b}/company/` },
     { key: 'contact', href: `${b}/contact/` }
   ];
+
+  // 한국어 사이트는 기존 홈페이지의 상단 연결(FAQ/인사이트/도입 가이드)을 그대로 노출
+  if (lang === 'ko') {
+    return [
+      ...core,
+      { key: 'faq', href: '/faq/' },
+      { key: 'insights', href: '/insights/' },
+      { key: 'guide', href: '/ai-adoption-guide/' }
+    ];
+  }
+
+  return core;
 }
 
 /* 제품 드롭다운 항목 */
@@ -459,7 +489,7 @@ function renderFooter(lang) {
       <a href="${b}/products/">${t.nav.products}</a>
       <a href="${b}/company/">${t.nav.company}</a>
       <a href="${b}/contact/">${t.nav.contact}</a>
-      ${lang === 'ko' ? '<a href="/insights/">인사이트</a>\n      <a href="/faq/">자주 묻는 질문</a>' : ''}
+      ${lang === 'ko' ? '<a href="/faq/">FAQ</a>\n      <a href="/insights/">인사이트</a>\n      <a href="/ai-adoption-guide/">도입 가이드</a>' : ''}
       <a href="${b}/privacy/">${t.privacy}</a>
     </nav>
     <section class="footer-col footer-company">
@@ -576,6 +606,127 @@ function initReveal() {
   }, 3000);
 }
 
+function initHeroTyping() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 1) 일반 타이틀은 1회 타이핑
+  const titles = document.querySelectorAll('.hero-home h1, .page-hero h1');
+  titles.forEach((title, index) => {
+    // DevFolio 스타일 홈 히어로(hero-home-typed)는 타이틀 고정, 서브라인만 타이핑
+    if (title.closest('.hero-home-typed')) return;
+    if (title.dataset.typedReady === 'true') return;
+    title.dataset.typedReady = 'true';
+
+    if (reduce) {
+      title.classList.add('typing-done');
+      return;
+    }
+
+    const fullText = (title.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!fullText) return;
+
+    const speed = 34;
+    const startDelay = index * 200;
+    title.textContent = '';
+    title.classList.add('typing-active');
+
+    let cursor = 0;
+    window.setTimeout(() => {
+      const timer = window.setInterval(() => {
+        cursor += 1;
+        title.textContent = fullText.slice(0, cursor);
+        if (cursor >= fullText.length) {
+          window.clearInterval(timer);
+          title.classList.remove('typing-active');
+          title.classList.add('typing-done');
+        }
+      }, speed);
+    }, startDelay);
+  });
+
+  // 2) data-typing="true" 요소는 타입 → 정지 → 지우기 루프로 반복
+  const loopTargets = document.querySelectorAll('[data-typing="true"], .typed[data-typed-items]');
+  loopTargets.forEach((el) => {
+    if (el.dataset.typedReady === 'true') return;
+    el.dataset.typedReady = 'true';
+
+    const fromTypingItems = (el.dataset.typingItems || '')
+      .split('|')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const fromTypedItems = (el.dataset.typedItems || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const fallback = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    const phrases = fromTypingItems.length > 0
+      ? fromTypingItems
+      : (fromTypedItems.length > 0 ? fromTypedItems : (fallback ? [fallback] : []));
+    if (phrases.length === 0) return;
+
+    // 접근성의 reduced-motion 설정이 켜져 있어도,
+    // 대표님 요청한 홈 히어로(.hero-home-typed) 제품명 타이핑은 강제 실행한다.
+    const forceLoopTyping = el.closest('.hero-home-typed') || el.dataset.forceTyping === 'true';
+    if (reduce && !forceLoopTyping) {
+      el.textContent = phrases.join(' · ');
+      el.classList.add('typing-done');
+      return;
+    }
+
+    const toPositive = (value, fallback) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n >= 0 ? n : fallback;
+    };
+    const typeSpeed = toPositive(el.dataset.typingSpeed, 68);
+    const eraseSpeed = toPositive(el.dataset.erasingSpeed, 42);
+    const holdAfterType = toPositive(el.dataset.typingHold, 1200);
+    const holdAfterErase = toPositive(el.dataset.typingGap, 320);
+
+    const debugTyping = new URLSearchParams(window.location.search).has('typing_debug');
+    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    el.classList.add('typing-active');
+    el.textContent = '';
+
+    const startLoop = async () => {
+      let phraseIndex = 0;
+      while (true) {
+        const current = phrases[phraseIndex] || '';
+
+        for (let cursor = 1; cursor <= current.length; cursor += 1) {
+          el.textContent = current.slice(0, cursor);
+          await sleep(typeSpeed);
+        }
+
+        if (debugTyping) {
+          // 디버그 모드에서만 로그 출력 (기본 동작에는 영향 없음)
+          console.debug('[typing]', 'typed', current);
+        }
+
+        await sleep(holdAfterType);
+
+        for (let cursor = current.length - 1; cursor >= 0; cursor -= 1) {
+          el.textContent = current.slice(0, cursor);
+          await sleep(eraseSpeed);
+        }
+
+        if (debugTyping) {
+          console.debug('[typing]', 'erased', current);
+        }
+
+        await sleep(holdAfterErase);
+        phraseIndex = (phraseIndex + 1) % phrases.length;
+      }
+    };
+
+    window.setTimeout(() => {
+      startLoop().catch(() => {
+        // 애니메이션 실패 시에도 페이지 기능이 중단되지 않도록 보호
+      });
+    }, 260);
+  });
+}
+
 function initPremiumMotion() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) return;
@@ -583,7 +734,7 @@ function initPremiumMotion() {
   document.body.classList.add('motion-lux');
 
   const hero = document.querySelector('.hero-home');
-  if (hero && !hero.querySelector('.hero-depth-scene')) {
+  if (hero && !hero.classList.contains('hero-home-typed') && !hero.querySelector('.hero-depth-scene')) {
     hero.insertAdjacentHTML('beforeend', `
       <aside class="hero-depth-scene" aria-hidden="true">
         <article class="hero-depth-card" data-depth="0.45">
@@ -704,6 +855,7 @@ export function mountLayout() {
   injectProductEnhancement(lang);
   optimizeImages();
   initNav();
+  initHeroTyping();
   initPremiumMotion();
   initReveal();
   initFaq();
