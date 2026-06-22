@@ -6315,12 +6315,15 @@ function Ne() {
     modal.classList.add("open");
   }
 
-  window.showMemberOnlyNotice = (featureLabel) =>
-    _showUnifiedNotice("member", featureLabel);
-  window.showPremiumOnlyNotice = (featureLabel) =>
-    _showUnifiedNotice("premium", featureLabel);
-  window.showComingSoonNotice = (featureLabel) =>
-    _showUnifiedNotice("coming", featureLabel);
+  ;window.showMemberOnlyNotice = function (featureLabel) {
+    return _showUnifiedNotice("member", featureLabel);
+  };
+  window.showPremiumOnlyNotice = function (featureLabel) {
+    return _showUnifiedNotice("premium", featureLabel);
+  };
+  window.showComingSoonNotice = function (featureLabel) {
+    return _showUnifiedNotice("coming", featureLabel);
+  };
 
   document.querySelectorAll(".right-tab").forEach(
     (e) =>
