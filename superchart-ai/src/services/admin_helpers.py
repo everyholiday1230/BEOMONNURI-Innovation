@@ -15,6 +15,7 @@ auth.py에서 추출한 관리자 인증 관련 로직 모음:
 import os as _os
 import secrets as _secrets
 from datetime import datetime, timezone, timedelta
+from typing import Any
 
 import bcrypt as _admin_bcrypt
 import structlog
@@ -41,6 +42,57 @@ ADMIN_LOCK_SECONDS = 5 if _os.getenv("ENV") == "test" else 900
 # 참고: 단일 워커 가정. 다중 워커 시 Redis 기반으로 이전 필요.
 admin_login_fails: dict = {}
 
+# ── 역할/권한 정책 ──
+# NOTE: 메뉴/액션 권한의 단일 출처. admin_roles.py UI 정책과 동기화 대상.
+ADMIN_ROLE_POLICIES: dict[str, dict[str, Any]] = {
+    "super": {
+        "label": "최고 관리자",
+        "menus": "*",
+        "permissions": ["*"],
+    },
+    "ops": {
+        "label": "운영 관리자",
+        "menus": ["overview", "users", "subscriptions", "tickets", "content", "system", "metrics", "symdata", "aiusage", "superchart"],
+        "permissions": [
+            "overview.read", "users.read", "users.write",
+            "subscriptions.read", "subscriptions.write",
+            "tickets.read", "tickets.write",
+            "content.read", "content.write",
+            "metrics.read", "logs.read", "symdata.read", "aiusage.read",
+            "superchart.read", "superchart.write",
+            "system.read", "system.ops",
+        ],
+    },
+    "support": {
+        "label": "고객지원 관리자",
+        "menus": ["overview", "tickets", "users", "content"],
+        "permissions": ["overview.read", "users.read", "tickets.read", "tickets.write", "content.read"],
+    },
+    "content": {
+        "label": "콘텐츠 관리자",
+        "menus": ["overview", "content", "plans"],
+        "permissions": ["overview.read", "content.read", "content.write", "plans.read", "plans.write"],
+    },
+    "billing": {
+        "label": "결제 관리자",
+        "menus": ["overview", "subscriptions", "points", "plans"],
+        "permissions": [
+            "overview.read", "subscriptions.read", "subscriptions.write",
+            "points.read", "points.write", "plans.read", "plans.write",
+        ],
+    },
+    "data": {
+        "label": "데이터 관리자",
+        "menus": ["overview", "symdata", "symbols", "metrics", "aiusage", "superchart"],
+        "permissions": ["overview.read", "symdata.read", "symdata.write", "symbols.read", "symbols.write", "metrics.read", "aiusage.read", "superchart.read", "superchart.write"],
+    },
+    "readonly": {
+        "label": "읽기 전용 관리자",
+        "menus": ["overview", "metrics", "system"],
+        "permissions": ["overview.read", "metrics.read", "system.read"],
+    },
+}
+
 
 # ── 감사 로그 ──
 
@@ -56,13 +108,15 @@ def admin_audit(action: str, request=None, **extra) -> None:
 
 # ── JWT 쿠키 서명/검증 ──
 
-def sign_admin_cookie(sid: str = ""):
+def sign_admin_cookie(sid: str = "", admin_email: str = "", admin_role: str = "super"):
     """admin 세션 JWT 발급. 반환: (token, sid)."""
     sid = sid or _secrets.token_hex(16)
     token = _admin_jwt.encode(
         {
             "purpose": "admin_session",
             "sid": sid,
+            "adm": (admin_email or "").strip().lower()[:200],
+            "role": admin_role if admin_role in ADMIN_ROLE_POLICIES else "super",
             "exp": datetime.now(timezone.utc) + timedelta(seconds=ADMIN_COOKIE_MAX_AGE),
         },
         _admin_settings.jwt_secret,
@@ -109,6 +163,96 @@ def get_admin_cookie_sid(request) -> str:
         return payload.get("sid", "")
     except Exception:
         return ""
+
+
+def get_admin_cookie_claims(request) -> dict:
+    """admin JWT claims 추출(검증 실패 시 빈 dict)."""
+    cookie = request.cookies.get(ADMIN_COOKIE, "")
+    if not cookie:
+        return {}
+    try:
+        return _admin_jwt.decode(cookie, _admin_settings.jwt_secret, algorithms=["HS256"])
+    except Exception:
+        return {}
+
+
+def _role_permissions(role: str) -> list[str]:
+    pol = ADMIN_ROLE_POLICIES.get(role, ADMIN_ROLE_POLICIES["readonly"])
+    perms = pol.get("permissions") or []
+    return perms if isinstance(perms, list) else []
+
+
+async def resolve_admin_context(request: Request, db=None) -> dict[str, Any]:
+    """현재 관리자 컨텍스트(이메일/역할/권한/메뉴) 계산.
+
+    기본 정책:
+    - 세션/헤더 인증 성공 + 식별 정보 없으면 super(하위 호환)
+    - 이메일이 있으면 admin_accounts를 조회해 role/active 반영
+    """
+    claims = get_admin_cookie_claims(request)
+    role = (claims.get("role") or "").strip().lower() or "super"
+    admin_email = (claims.get("adm") or request.headers.get("x-admin-email") or "").strip().lower()
+
+    # x-admin-key 헤더 인증만 사용하는 기존 경로(식별 불가)는 super로 하위 호환
+    if not admin_email:
+        role = role if role in ADMIN_ROLE_POLICIES else "super"
+        pol = ADMIN_ROLE_POLICIES.get(role, ADMIN_ROLE_POLICIES["super"])
+        return {
+            "admin_email": "",
+            "role": role,
+            "role_label": pol.get("label", role),
+            "menus": pol.get("menus", "*"),
+            "permissions": _role_permissions(role),
+            "source": "legacy_key",
+        }
+
+    if db is not None:
+        try:
+            from sqlalchemy import text as _text
+            row = (await db.execute(_text(
+                "SELECT role, active FROM admin_accounts WHERE email=:e LIMIT 1"
+            ), {"e": admin_email})).fetchone()
+            if row:
+                if row[1] is False:
+                    raise HTTPException(403, "비활성 관리자 계정")
+                role = (row[0] or "readonly").strip().lower()
+            else:
+                # 등록되지 않은 이메일은 최소권한으로 제한
+                role = "readonly"
+        except HTTPException:
+            raise
+        except Exception:
+            # 테이블 미생성 등 초기 상태: claim role 또는 super 유지
+            if role not in ADMIN_ROLE_POLICIES:
+                role = "super"
+
+    if role not in ADMIN_ROLE_POLICIES:
+        role = "readonly"
+    pol = ADMIN_ROLE_POLICIES.get(role, ADMIN_ROLE_POLICIES["readonly"])
+    return {
+        "admin_email": admin_email,
+        "role": role,
+        "role_label": pol.get("label", role),
+        "menus": pol.get("menus", []),
+        "permissions": _role_permissions(role),
+        "source": "admin_account" if admin_email else "legacy_key",
+    }
+
+
+def is_admin_allowed(ctx: dict[str, Any], permission: str) -> bool:
+    perms = ctx.get("permissions") or []
+    if "*" in perms:
+        return True
+    return permission in perms
+
+
+async def require_admin_permission(request: Request, db, permission: str) -> dict[str, Any]:
+    """관리자 인증 + permission 체크. 실패 시 403."""
+    await auth_admin_check(request)
+    ctx = await resolve_admin_context(request, db=db)
+    if not is_admin_allowed(ctx, permission):
+        raise HTTPException(403, f"권한 부족: {permission}")
+    return ctx
 
 
 # ── Redis 세션 레지스트리 ──
@@ -202,15 +346,17 @@ __all__ = [
     # constants
     "ADMIN_COOKIE", "ADMIN_COOKIE_MAX_AGE", "ADMIN_SESSION_PREFIX",
     "ADMIN_MAX_FAILS", "ADMIN_LOCK_SECONDS",
+    # policies
+    "ADMIN_ROLE_POLICIES",
     # state
     "admin_login_fails",
     # JWT
     "sign_admin_cookie", "verify_admin_cookie", "verify_admin_cookie_async",
-    "get_admin_cookie_sid",
+    "get_admin_cookie_sid", "get_admin_cookie_claims",
     # session registry
     "register_session", "is_session_valid", "revoke_session", "revoke_all_admin_sessions",
     # check
-    "auth_admin_check",
+    "auth_admin_check", "resolve_admin_context", "is_admin_allowed", "require_admin_permission",
     # audit
     "admin_audit",
 ]

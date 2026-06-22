@@ -421,6 +421,7 @@ button:focus-visible,
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="subscriptions">구독/결제</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="points">포인트/레퍼럴</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symdata">심볼/시장 데이터</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="superchart">슈퍼차트 자산</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="aiusage">AI 사용량</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symbols">종목</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="tickets">문의</button>
@@ -463,7 +464,7 @@ button:focus-visible,
         <input id="newUserEmail" class="admin-input" placeholder="이메일">
         <input id="newUserNick" class="admin-input" placeholder="닉네임">
         <input id="newUserPw" class="admin-input" type="password" placeholder="비밀번호">
-        <select id="newUserTier" class="admin-input"><option value="free">Free</option><option value="vip">VIP</option><option value="pro">PRO</option><option value="vvip">VVIP</option></select>
+        <select id="newUserTier" class="admin-input"><option value="free">Free</option><option value="pro">VIP</option><option value="premium">VVIP</option></select>
       </div>
       <button onclick="createUser()" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">회원 생성</button>
       <div id="createUserResult" style="margin-top:6px;font-size:12px"></div>
@@ -850,6 +851,49 @@ button:focus-visible,
     </div>
   </div>
 
+  <!-- 슈퍼차트 자산 통합 관리 -->
+  <div class="admin-section-gap" data-section="superchart">
+    <div class="card">
+      <h3>슈퍼차트 자산 통합 관리</h3>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:4px">레이아웃/드로잉/지표프리셋/알림/워치리스트를 회원 단위로 조회·정리·삭제할 수 있습니다.</p>
+      <div class="admin-stat-grid" style="margin-top:10px">
+        <div class="admin-stat"><span>레이아웃</span><strong id="scTotalLayouts">-</strong></div>
+        <div class="admin-stat"><span>드로잉</span><strong id="scTotalDrawings">-</strong></div>
+        <div class="admin-stat"><span>지표 프리셋</span><strong id="scTotalPresets">-</strong></div>
+        <div class="admin-stat"><span>알림(활성)</span><strong id="scTotalAlerts">-</strong></div>
+        <div class="admin-stat"><span>워치리스트</span><strong id="scTotalWatchlists">-</strong></div>
+        <div class="admin-stat"><span>워치리스트 아이템</span><strong id="scTotalWatchItems">-</strong></div>
+      </div>
+      <div id="scTopUsers" style="margin-top:10px;font-size:12px;color:var(--color-text-secondary)">로딩 중...</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="admin-row" style="margin-top:4px">
+        <input id="scUserSearch" class="admin-filter admin-search" placeholder="회원 이메일/닉네임/추천코드 검색" aria-label="슈퍼차트 회원 검색">
+        <button onclick="loadSuperchartUsers(1)" class="btn btn-secondary btn-sm">검색</button>
+        <button onclick="loadSuperchartAdmin()" class="btn btn-secondary btn-sm">전체 새로고침</button>
+      </div>
+      <div style="overflow-x:auto;margin-top:8px">
+        <table id="scUserTable"><thead><tr><th>회원</th><th>등급</th><th>레이아웃</th><th>드로잉</th><th>프리셋</th><th>알림(활성)</th><th>워치리스트</th><th>총 자산</th><th>관리</th></tr></thead><tbody><tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table>
+      </div>
+      <div id="scUserPage" style="margin-top:8px;font-size:12px;color:var(--color-text-muted)"></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <h3 id="scDetailTitle">회원 선택 후 자산 상세가 표시됩니다.</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="bulkSuperchartAction('disable_alerts')" class="btn btn-secondary btn-xs">알림 전체 비활성</button>
+          <button onclick="bulkSuperchartAction('reset_watchlists')" class="btn btn-secondary btn-xs">워치리스트 초기화</button>
+          <button onclick="bulkSuperchartAction('delete_all')" class="btn btn-danger btn-xs">슈퍼차트 자산 전체 삭제</button>
+        </div>
+      </div>
+      <div id="scDetailSummary" style="margin-top:8px;font-size:12px;color:var(--color-text-secondary)">-</div>
+      <div style="overflow-x:auto;margin-top:8px">
+        <table id="scAssetTable"><thead><tr><th>자산유형</th><th>ID</th><th>핵심정보</th><th>작업</th></tr></thead><tbody><tr><td colspan="4" style="color:var(--color-text-muted)">상세 데이터 없음</td></tr></tbody></table>
+      </div>
+      <pre id="scSettingsJson" style="margin-top:8px;background:var(--color-surface);padding:8px;border-radius:6px;font-size:11px;white-space:pre-wrap;color:var(--color-text-secondary)">user_chart_settings: -</pre>
+    </div>
+  </div>
+
   <!-- AI 사용량 관리 (실시간 메트릭) -->
   <div class="admin-section-gap" data-section="aiusage">
     <div class="card">
@@ -863,8 +907,15 @@ button:focus-visible,
         <div class="admin-stat"><span>전체 요청 수</span><strong id="aiTotalReq">-</strong></div>
         <div class="admin-stat"><span>전체 에러율</span><strong id="aiErrRate">-</strong></div>
         <div class="admin-stat"><span>WS 연결 수</span><strong id="aiWs">-</strong></div>
+        <div class="admin-stat"><span>WS Drop</span><strong id="aiWsDrop">-</strong></div>
+        <div class="admin-stat"><span>WS Failed Send</span><strong id="aiWsFail">-</strong></div>
+        <div class="admin-stat"><span>WS 평균 전송(ms)</span><strong id="aiWsAvgMs">-</strong></div>
+        <div class="admin-stat"><span>WS Pending(T/C)</span><strong id="aiWsPending">-</strong></div>
+        <div class="admin-stat"><span>WS RateLimited</span><strong id="aiWsRate">-</strong></div>
         <div class="admin-stat"><span>가동 시간</span><strong id="aiUptime">-</strong></div>
       </div>
+      <div id="aiWsAlerts" style="margin-top:8px;font-size:12px;color:var(--color-warning)">WS 알림: -</div>
+      <div id="aiWsTrend" style="margin-top:4px;font-size:11px;color:var(--color-text-muted)">WS 최근 추이: -</div>
       <h4 style="margin-top:14px;font-size:13px;color:var(--color-text-secondary)">요청 상위 경로</h4>
       <div style="overflow-x:auto;margin-top:6px"><table id="aiTopTable"><thead><tr><th>경로</th><th>요청 수</th></tr></thead><tbody><tr><td colspan="2" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
       <button onclick="loadAiUsage()" class="btn btn-secondary btn-sm" style="margin-top:8px">새로고침</button>
@@ -1325,17 +1376,74 @@ let userPage=1;
 // 하위 호환을 위해 _csrfToken 이름 유지 (H() 함수가 사용)
 function _csrfToken(){return window.api?._readCsrfToken?.() || (function(){const m=document.cookie.match(/csrf_token=([^;]+)/);return m?decodeURIComponent(m[1]):'';})();}
 const H=()=>{const h={'Content-Type':'application/json'};const t=_csrfToken();if(t)h['X-CSRF-Token']=t;return h;};
+
+const _TAB_PERM = {
+  overview:'overview.read', users:'users.read', subscriptions:'subscriptions.read', points:'points.read',
+  symdata:'symdata.read', superchart:'superchart.read', aiusage:'aiusage.read', symbols:'symbols.read', tickets:'tickets.read',
+  content:'content.read', plans:'plans.read', verifications:'users.read', admins:'admins.manage',
+  logs:'logs.read', metrics:'metrics.read', system:'system.read', settings:'system.read'
+};
+let _ADMIN_CTX = { role:'super', permissions:['*'], menus:'*' };
+
+function _hasPerm(perm){
+  const perms = _ADMIN_CTX?.permissions || [];
+  return perms.includes('*') || perms.includes(perm);
+}
+function _canOpenTab(tab){
+  const perm = _TAB_PERM[tab];
+  return !perm || _hasPerm(perm);
+}
+function _needPerm(perm, msg){
+  if(_hasPerm(perm)) return true;
+  _toastInline(msg || '권한이 없어 실행할 수 없습니다.', false);
+  return false;
+}
+function _toastInline(msg, ok){
+  const el=document.createElement('div');
+  el.textContent=msg;
+  el.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:8px 12px;border-radius:8px;color:#fff;z-index:99999;font-size:12px;background:'+(ok?'#16A34A':'#6F0E24');
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1800);
+}
+async function _loadAdminContext(){
+  try{
+    const r = await window.api.raw('/v1/auth/admin/me');
+    if(!r.ok) return;
+    const j = await r.json();
+    if(j?.success && j?.data){
+      _ADMIN_CTX = j.data;
+    }
+  }catch(e){}
+}
+function _applyRoleToTabs(){
+  document.querySelectorAll('.admin-tab').forEach(btn=>{
+    const tab = btn.getAttribute('data-param') || '';
+    const allowed = _canOpenTab(tab);
+    btn.disabled = !allowed;
+    btn.style.opacity = allowed ? '1' : '0.45';
+    btn.title = allowed ? '' : '현재 관리자 권한으로 접근할 수 없습니다.';
+  });
+}
 // 대시보드는 이미 인증된 상태 (admin session cookie) — 바로 로드
 _showDashboard();
-function _showDashboard(){
+async function _showDashboard(){
   document.getElementById('dashboard').style.display='block';
+  await _loadAdminContext();
+  _applyRoleToTabs();
   // 개별 호출을 안전하게 — 하나라도 미정의/오류여도 이후 코드(탭 클릭 핸들러 등록 등)가
   // 끊기지 않도록 각 호출을 try/catch 로 격리. (이전: 미정의 함수 호출로 전체 스크립트 중단됨)
   const _initCalls = [
-    ()=>loadStats(), ()=>loadLogs(), ()=>loadNotices(), ()=>loadFaqs(),
-    ()=>loadSettings(), ()=>loadMetrics(), ()=>loadTickets(), ()=>loadVerifications(),
-    ()=>{ if(typeof loadPointsAdmin==='function') loadPointsAdmin(); },
-    ()=>{ if(typeof loadProducts==='function') loadProducts(); },
+    ()=>_canOpenTab('overview') && loadStats(),
+    ()=>_canOpenTab('logs') && loadLogs(),
+    ()=>_canOpenTab('content') && loadNotices(),
+    ()=>_canOpenTab('content') && loadFaqs(),
+    ()=>_canOpenTab('settings') && loadSettings(),
+    ()=>_canOpenTab('metrics') && loadMetrics(),
+    ()=>_canOpenTab('tickets') && loadTickets(),
+    ()=>_canOpenTab('verifications') && loadVerifications(),
+    ()=>{ if(_canOpenTab('superchart') && typeof loadSuperchartAdmin==='function') loadSuperchartAdmin(); },
+    ()=>{ if(_canOpenTab('points') && typeof loadPointsAdmin==='function') loadPointsAdmin(); },
+    ()=>{ if(_canOpenTab('points') && typeof loadProducts==='function') loadProducts(); },
   ];
   _initCalls.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('admin init skip', e&&e.message); } });
   // 초기 탭 (overview) — showAdminTab은 아래에서 정의되므로 지연 호출
@@ -1362,6 +1470,10 @@ async function loadLogs(page){
 // 탭 전환 — data-section 속성 기반 (admin.html의 각 섹션이 data-section="xxx"로 표시됨)
 // overview: 맨 앞 2개 grid + 새로고침 버튼 (data-section 없는 요소)
 function showAdminTab(tab){
+  if(!_canOpenTab(tab)){
+    _toastInline('권한이 없어 접근할 수 없습니다.', false);
+    return;
+  }
   // 1. 탭 버튼 active 표시 전환 + aria-selected 동기화 (data-param 기준 — 견고)
   document.querySelectorAll('.admin-tab').forEach(b=>{
     const isActive = (b.getAttribute('data-param') === tab);
@@ -1397,6 +1509,7 @@ function showAdminTab(tab){
   else if (tab === 'logs') loadLogs();
   else if (tab === 'points') { if (typeof loadPointsAdmin === 'function') loadPointsAdmin(); if (typeof loadProducts === 'function') loadProducts(); }
   else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
+  else if (tab === 'superchart') { if (typeof loadSuperchartAdmin === 'function') loadSuperchartAdmin(); }
   else if (tab === 'admins') { if (typeof loadAdminAccounts === 'function') loadAdminAccounts(); }
   else if (tab === 'aiusage') { if (typeof loadAiUsage === 'function') loadAiUsage(); }
   else if (tab === 'plans') { if (typeof loadPlans === 'function') loadPlans(); }
@@ -1520,6 +1633,7 @@ async function loadAdminAccounts(){
 window.loadAdminAccounts = loadAdminAccounts;
 
 async function createAdminAccount(){
+  if(!_needPerm('admins.manage')) return;
   const email=((document.getElementById('admEmail')||{}).value||'').trim();
   const name=((document.getElementById('admName')||{}).value||'').trim();
   const role=(document.getElementById('admRole')||{}).value||'readonly';
@@ -1537,6 +1651,7 @@ async function createAdminAccount(){
 window.createAdminAccount = createAdminAccount;
 
 async function updateAdminRole(email, role){
+  if(!_needPerm('admins.manage')) return;
   if(!confirm(`${email} 의 권한을 '${_ADM_ROLE_LABEL[role]}'(으)로 변경하시겠습니까?\n\n이 작업은 감사 로그에 기록됩니다.`)){ loadAdminAccounts(); return; }
   try{
     const r=await window.api.raw('/v1/admin-roles/update-role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})});
@@ -1547,6 +1662,7 @@ async function updateAdminRole(email, role){
 window.updateAdminRole = updateAdminRole;
 
 async function setAdmin2fa(email, enabled){
+  if(!_needPerm('admins.manage')) return;
   try{
     const r=await window.api.raw('/v1/admin-roles/set-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,enabled})});
     if(!r.ok){ alert('2단계 인증 설정 변경 실패'); }
@@ -1556,6 +1672,7 @@ async function setAdmin2fa(email, enabled){
 window.setAdmin2fa = setAdmin2fa;
 
 async function deactivateAdmin(email){
+  if(!_needPerm('admins.manage')) return;
   if(!confirm(`${email} 계정을 비활성화하시겠습니까?\n\n계정은 삭제되지 않고 비활성 처리되며, 이 작업은 감사 로그에 기록됩니다.`)) return;
   try{
     const r=await window.api.raw('/v1/admin-roles/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
@@ -1597,6 +1714,32 @@ async function loadAiUsage(){
     const num=v=>(v==null?'-':Number(v).toLocaleString());
     set('aiCalls',num(ai.calls)); set('aiFailures',num(ai.failures)); set('aiFailRate',ai.failure_rate||'-'); set('aiAvgMs',num(ai.avg_ms));
     set('aiTotalReq',num(d.total_requests)); set('aiErrRate',d.error_rate||'-'); set('aiWs',num(d.ws_connections)); set('aiUptime',_fmtUptime(d.uptime_sec));
+
+    const ws = (d && d.ws) || {};
+    set('aiWsDrop', num(ws.broadcast_dropped));
+    set('aiWsFail', num(ws.broadcast_failed));
+    set('aiWsAvgMs', ws.avg_broadcast_ms==null?'-':Number(ws.avg_broadcast_ms).toFixed(3));
+    set('aiWsPending', `${num(ws.pending_tickers)}/${num(ws.pending_candles)}`);
+    set('aiWsRate', num(ws.inbound_rate_limited));
+
+    const alertsEl = document.getElementById('aiWsAlerts');
+    const alerts = (d && d.ws_alerts) || (ws && ws.alerts) || [];
+    if(alertsEl){
+      if(!alerts.length) alertsEl.textContent='WS 알림: 정상';
+      else alertsEl.textContent='WS 알림: '+alerts.map(a=>`${a.code}(${a.value}/${a.threshold})`).join(', ');
+    }
+
+    const trendEl = document.getElementById('aiWsTrend');
+    try{
+      const tr = await window.api.raw('/v1/ops/ws-metrics-history?limit=12');
+      if(tr.ok){
+        const tj = await tr.json();
+        const series = (tj && tj.data && tj.data.series) || [];
+        const compact = series.slice(-8).map(s=>`c${s.connections}|d${s.broadcast_dropped}`).join('  ›  ');
+        if(trendEl) trendEl.textContent = 'WS 최근 추이: ' + (compact || '-');
+      } else if(trendEl) trendEl.textContent = 'WS 최근 추이: 조회 실패';
+    }catch(_e){ if(trendEl) trendEl.textContent = 'WS 최근 추이: 네트워크 오류'; }
+
     const tb=document.querySelector('#aiTopTable tbody');
     if(tb){ const tp=d.top_paths||{}; const entries=Object.keys(tp).map(k=>[k,tp[k]]);
       tb.innerHTML=entries.length?entries.map(([p,c])=>`<tr><td>${_admEsc(p)}</td><td>${Number(c).toLocaleString()}</td></tr>`).join(''):'<tr><td colspan="2" style="color:var(--color-text-muted)">데이터 없음</td></tr>'; }
@@ -1754,6 +1897,177 @@ document.addEventListener('input',e=>{ if(e.target&&e.target.id==='symDataSearch
 document.addEventListener('change',e=>{ if(e.target&&e.target.id==='symDataFilter') renderSymbolData(); });
 
 
+// ─────────── 슈퍼차트 자산 통합 관리 ───────────
+let _scUserPage = 1;
+let _scSelectedUserId = '';
+let _scSelectedEmail = '';
+
+function _scNum(v){ return Number(v || 0).toLocaleString(); }
+
+async function loadSuperchartOverview(){
+  try{
+    const r = await window.api.raw('/v1/auth/admin/superchart/overview');
+    if(!r.ok) return;
+    const j = await r.json();
+    const t = (j && j.data && j.data.totals) || {};
+    const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=_scNum(v);};
+    set('scTotalLayouts', t.layouts);
+    set('scTotalDrawings', t.drawings);
+    set('scTotalPresets', t.presets);
+    const scAlertEl = document.getElementById('scTotalAlerts');
+    if(scAlertEl) scAlertEl.textContent = `${_scNum(t.alerts)} (${_scNum(t.active_alerts)} 활성)`;
+    set('scTotalWatchlists', t.watchlists);
+    set('scTotalWatchItems', t.watchlist_items);
+
+    const topEl=document.getElementById('scTopUsers');
+    if(topEl){
+      const rows=(j?.data?.top_users)||[];
+      topEl.innerHTML = rows.length
+        ? `<b>상위 자산 보유 회원</b>: ${rows.map(u=>`${E(u.email)}(${_scNum(u.total_assets)})`).join(' · ')}`
+        : '상위 자산 보유 회원 데이터가 없습니다.';
+    }
+  }catch(e){}
+}
+
+async function loadSuperchartUsers(page){
+  _scUserPage = Math.max(1, Number(page||1));
+  const q=((document.getElementById('scUserSearch')||{}).value||'').trim();
+  const tb=document.querySelector('#scUserTable tbody');
+  if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  try{
+    const r = await window.api.raw(`/v1/auth/admin/superchart/users?page=${_scUserPage}&page_size=20&q=${encodeURIComponent(q)}`);
+    const j = r.ok ? await r.json() : null;
+    const d = (j && j.data) || {};
+    const items = d.users || [];
+    if(tb){
+      tb.innerHTML = items.length ? items.map(u=>`<tr>
+        <td>${E(u.nickname||'-')}<div style="font-size:11px;color:var(--color-text-muted)">${E(u.email||'-')}</div></td>
+        <td>${E(u.tier||'-')} · ${u.is_active?'<span style="color:var(--color-success)">활성</span>':'<span style="color:var(--color-error)">차단</span>'}</td>
+        <td>${_scNum(u.layouts)}</td>
+        <td>${_scNum(u.drawings)}</td>
+        <td>${_scNum(u.presets)}</td>
+        <td>${_scNum(u.alerts)} (${_scNum(u.active_alerts)})</td>
+        <td>${_scNum(u.watchlists)} / ${_scNum(u.watchlist_items)}</td>
+        <td><b>${_scNum(u.total_assets)}</b><div style="font-size:11px;color:var(--color-text-muted)">${E((u.last_layout_updated_at||'').slice(0,16))||'-'}</div></td>
+        <td><button class="btn btn-primary btn-xs" onclick="showSuperchartAssets('${E(u.user_id)}','${E(u.email)}')">상세</button></td>
+      </tr>`).join('') : '<tr><td colspan="9" style="color:var(--color-text-muted)">조건에 맞는 회원이 없습니다.</td></tr>';
+    }
+    const total = Number(d.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / Number(d.page_size || 20)));
+    const pg=document.getElementById('scUserPage');
+    if(pg){
+      pg.innerHTML = `${_scUserPage} / ${totalPages} (총 ${_scNum(total)}명) `
+        + (_scUserPage>1?`<button class="btn btn-secondary btn-xs" onclick="loadSuperchartUsers(${_scUserPage-1})">이전</button>`:'')
+        + (_scUserPage<totalPages?` <button class="btn btn-secondary btn-xs" onclick="loadSuperchartUsers(${_scUserPage+1})">다음</button>`:'');
+    }
+  }catch(e){
+    if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-error)">목록을 불러오지 못했습니다.</td></tr>';
+  }
+}
+
+async function showSuperchartAssets(uid,email){
+  _scSelectedUserId = uid;
+  _scSelectedEmail = email || '';
+  const title=document.getElementById('scDetailTitle');
+  if(title) title.textContent = `${email} 회원 슈퍼차트 자산 상세`;
+  const summary=document.getElementById('scDetailSummary');
+  const tb=document.querySelector('#scAssetTable tbody');
+  const settingsEl=document.getElementById('scSettingsJson');
+  if(tb) tb.innerHTML='<tr><td colspan="4" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  try{
+    const r=await window.api.raw(`/v1/auth/admin/superchart/user-assets/${uid}`);
+    const j=r.ok?await r.json():null;
+    const d=(j&&j.data)||{};
+    const c=d.counts||{};
+    if(summary){
+      summary.innerHTML = `레이아웃 ${_scNum(c.layouts)} · 드로잉 ${_scNum(c.drawings)} · 프리셋 ${_scNum(c.presets)} · 알림 ${_scNum(c.alerts)} · 워치리스트 ${_scNum(c.watchlists)} · 아이템 ${_scNum(c.watchlist_items)}`;
+    }
+
+    const rows=[];
+    (d.layouts||[]).forEach(x=>rows.push({type:'chart_layouts',id:x.id,info:`${x.name||'-'} / ${x.symbol_code||'-'} / ${x.timeframe||'-'}`}));
+    (d.drawings||[]).forEach(x=>rows.push({type:'chart_drawings',id:x.id,info:`${x.drawing_type||'-'} / locked:${x.is_locked?'Y':'N'}`}));
+    (d.presets||[]).forEach(x=>rows.push({type:'indicator_presets',id:x.id,info:`${x.indicator_code||'-'} / pane:${x.pane_index}`}));
+    (d.alerts||[]).forEach(x=>rows.push({type:'alert_rules',id:x.id,info:`${x.rule_type||'-'} / ${x.timeframe||'-'} / ${x.is_active?'활성':'비활성'}`}));
+    (d.watchlists||[]).forEach(x=>rows.push({type:'watchlists',id:x.id,info:`${x.name||'-'} / default:${x.is_default?'Y':'N'}`}));
+    (d.watchlist_items||[]).forEach(x=>rows.push({type:'watchlist_items',id:x.id,info:`${x.symbol_code||'-'} / sort:${x.sort_order}`}));
+
+    if(tb){
+      tb.innerHTML = rows.length
+        ? rows.slice(0, 400).map(x=>`<tr>
+            <td>${E(x.type)}</td>
+            <td style="font-size:11px;color:var(--color-text-muted)">${E(x.id)}</td>
+            <td>${E(x.info)}</td>
+            <td><button class="btn btn-danger btn-xs" onclick="deleteSuperchartAsset('${x.type}','${x.id}')">삭제</button></td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" style="color:var(--color-text-muted)">삭제 가능한 자산이 없습니다.</td></tr>';
+    }
+
+    if(settingsEl){
+      const st=d.user_chart_settings||{};
+      settingsEl.textContent='user_chart_settings: ' + (st.settings_json ? JSON.stringify(st.settings_json, null, 2) : '-');
+    }
+  }catch(e){
+    if(tb) tb.innerHTML='<tr><td colspan="4" style="color:var(--color-error)">상세를 불러오지 못했습니다.</td></tr>';
+    if(settingsEl) settingsEl.textContent='user_chart_settings: 로드 실패';
+  }
+}
+
+async function deleteSuperchartAsset(assetType, assetId){
+  if(!_needPerm('superchart.write')) return;
+  if(!_scSelectedUserId){ _toast('먼저 회원 상세를 선택하세요.', false); return; }
+  if(!confirm(`선택한 ${assetType} 자산 1건을 삭제하시겠습니까?`)) return;
+  try{
+    const r=await window.api.raw(`/v1/auth/admin/superchart/user-assets/${assetType}/${assetId}?user_id=${encodeURIComponent(_scSelectedUserId)}`, {method:'DELETE'});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j?.success!==false){
+      _toast('자산 삭제 완료', true);
+      await showSuperchartAssets(_scSelectedUserId, _scSelectedEmail);
+      await loadSuperchartUsers(_scUserPage);
+      await loadSuperchartOverview();
+    }else{
+      _toast(_errMsg(j) || '삭제 실패', false);
+    }
+  }catch(e){
+    _toast('네트워크 오류', false);
+  }
+}
+
+async function bulkSuperchartAction(action){
+  if(!_needPerm('superchart.write')) return;
+  if(!_scSelectedUserId){ _toast('먼저 회원 상세를 선택하세요.', false); return; }
+  const msgMap={
+    disable_alerts:'선택 회원의 알림을 모두 비활성화하시겠습니까?',
+    reset_watchlists:'선택 회원의 워치리스트를 모두 삭제하시겠습니까?',
+    delete_all:'선택 회원의 슈퍼차트 자산 전체를 삭제하시겠습니까?'
+  };
+  if(!confirm(msgMap[action]||'작업을 실행하시겠습니까?')) return;
+  try{
+    const r=await window.api.raw('/v1/auth/admin/superchart/user-assets/bulk-action', {method:'POST', body:{user_id:_scSelectedUserId, action}});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j?.success!==false){
+      _toast('일괄 작업 완료', true);
+      await showSuperchartAssets(_scSelectedUserId, _scSelectedEmail);
+      await loadSuperchartUsers(_scUserPage);
+      await loadSuperchartOverview();
+    }else{
+      _toast(_errMsg(j) || '작업 실패', false);
+    }
+  }catch(e){
+    _toast('네트워크 오류', false);
+  }
+}
+
+async function loadSuperchartAdmin(){
+  await loadSuperchartOverview();
+  await loadSuperchartUsers(_scUserPage || 1);
+}
+window.loadSuperchartAdmin = loadSuperchartAdmin;
+window.loadSuperchartUsers = loadSuperchartUsers;
+window.showSuperchartAssets = showSuperchartAssets;
+window.deleteSuperchartAsset = deleteSuperchartAsset;
+window.bulkSuperchartAction = bulkSuperchartAction;
+
+
 // ═══════════════════════════════════════════════
 // 이벤트 위임 (inline onclick/onchange 대체)
 // data-action, data-change, data-param 속성 기반
@@ -1844,6 +2158,7 @@ async function setBeomAllowed(uid,allowed){
 // ─── ops 연결: 시스템/구독/종목/통계/봇/실시간 ───
 const _SYS_MAP={'restart-server':'/v1/ops/restart-server','clear-all-cache':'/v1/ops/clear-cache','run-cleanup':'/v1/ops/backup-db','db-vacuum':'/v1/ops/backup-db'};
 async function sysAction(action){
+  if(!_needPerm('system.ops')) return;
   const url=_SYS_MAP[action]||('/v1/ops/'+action);
   if(!confirm(action+' 실행할까요?'))return;
   try{const r=await window.api.raw(url,{method:'POST'});const d=await r.json();
@@ -1851,6 +2166,7 @@ async function sysAction(action){
   }catch(e){_toast('네트워크 오류',false)}
 }
 async function quickAction(url,method){
+  if(!_needPerm('system.ops')) return;
   try{const r=await window.api.raw(url,{method:method||'POST'});const d=await r.json();
     const el=document.getElementById('quickResult');
     if(el)el.innerHTML='<pre style="font-size:11px;white-space:pre-wrap">'+E(JSON.stringify(d.data||d,null,2))+'</pre>';
@@ -2390,6 +2706,7 @@ window._adminAdjustPoints = async function(email) {
 };
 
 async function deleteUser(uid, email) {
+  if(!_needPerm('users.write')) return;
   const who = email ? `${email} 회원` : '이 회원';
   if (!confirm(`${who}을(를) 영구 삭제하시겠습니까?\n\n복구할 수 없으며, 이 작업은 운영 로그에 기록됩니다.`)) return;
   try {

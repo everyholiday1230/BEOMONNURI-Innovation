@@ -34,8 +34,27 @@ async def ops_metrics(request: Request):
     await _auth_admin_check(request)
     summary = metrics.get_summary()
     summary["alerts"] = metrics.check_alerts()
-    summary["ws_connections"] = ws_manager.connection_count
+    ws_snapshot = ws_manager.metrics_snapshot()
+    summary["ws_connections"] = ws_snapshot.get("connection_count", ws_manager.connection_count)
+    summary["ws"] = ws_snapshot
+    summary["ws_alerts"] = ws_manager.ws_alerts()
     return summary
+
+
+@router.get("/v1/ops/ws-metrics-history")
+async def ws_metrics_history(request: Request, limit: int = 180):
+    """WS 성능 시계열(초 단위 샘플) 조회."""
+    await _auth_admin_check(request)
+    data = ws_manager.metrics_history(limit=limit)
+    return {
+        "success": True,
+        "data": {
+            "limit": max(1, min(2000, int(limit or 180))),
+            "count": len(data),
+            "alerts": ws_manager.ws_alerts(),
+            "series": data,
+        },
+    }
 
 
 @router.get("/v1/debug/ingest")
@@ -55,6 +74,7 @@ async def debug_ingest(request: Request):
         for s, v in (st.get("by_symbol") or {}).items()
         if v.get("last_at", 0) > now - 120
     }
+    ws_snapshot = ws_manager.metrics_snapshot()
     return {
         "total_candles_received": st.get("total_candles", 0),
         "total_broadcasts_sent": st.get("total_broadcasts", 0),
@@ -64,8 +84,9 @@ async def debug_ingest(request: Request):
             "age_sec": round(now - last_c, 1) if last_c else None,
         },
         "last_broadcast_age_sec": round(now - last_b, 1) if last_b else None,
-        "ws_connections": ws_manager.connection_count,
-        "subscription_keys": len(ws_manager._subscriptions),
+        "ws_connections": ws_snapshot.get("connection_count", ws_manager.connection_count),
+        "subscription_keys": ws_snapshot.get("subscription_keys", len(ws_manager._subscriptions)),
+        "ws_perf": ws_snapshot,
         "active_symbols_60s": len(active),
         "by_symbol_recent": active,
     }
@@ -136,10 +157,19 @@ async def ops_dashboard(request: Request):
     }
 
     # 5. WebSocket
+    ws_snapshot = ws_manager.metrics_snapshot()
     ws_info = {
-        "connections": ws_manager.connection_count,
-        "subscriptions": len(ws_manager._subscriptions),
+        "connections": ws_snapshot.get("connection_count", ws_manager.connection_count),
+        "subscriptions": ws_snapshot.get("subscription_keys", len(ws_manager._subscriptions)),
         "ip_count": len(ws_manager._ip_counts),
+        "pending_tickers": ws_snapshot.get("pending_tickers", 0),
+        "pending_candles": ws_snapshot.get("pending_candles", 0),
+        "broadcast_dropped": ws_snapshot.get("broadcast_dropped", 0),
+        "broadcast_failed": ws_snapshot.get("broadcast_failed", 0),
+        "inbound_rate_limited": ws_snapshot.get("inbound_rate_limited", 0),
+        "subscription_rejected": ws_snapshot.get("subscription_rejected", 0),
+        "alerts": ws_manager.ws_alerts(),
+        "perf": ws_snapshot,
     }
 
     # 6. Leader
@@ -162,6 +192,10 @@ async def ops_dashboard(request: Request):
         alerts.append({"level": "warning", "msg": f"에러율 {summary['error_rate']}"})
     if ws_info["connections"] == 0:
         alerts.append({"level": "info", "msg": "WS 연결 0개"})
+    if ws_info["broadcast_dropped"] > 0:
+        alerts.append({"level": "warning", "msg": f"WS backpressure drop {ws_info['broadcast_dropped']}건"})
+    if ws_info["inbound_rate_limited"] > 0:
+        alerts.append({"level": "info", "msg": f"WS rate-limit 발생 {ws_info['inbound_rate_limited']}건"})
     if not leader_info["is_me"]:
         alerts.append({"level": "warning", "msg": f"이 워커가 leader 아님 (holder={leader_info['holder']})"})
 

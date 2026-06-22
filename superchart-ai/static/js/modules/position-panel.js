@@ -13,6 +13,9 @@
   let selectedTf = '5m';      // 롱숏 기간 (백엔드 지원: 5m/15m/1h)
   let selectedLiqPeriod = '24h'; // 청산 기간 (백엔드 지원: 24h만. 12h/3d/7d는 준비중)
   const SUPPORTED_LIQ_PERIODS = ['24h'];
+  const POSITION_REFRESH_COOLDOWN_MS = 1200;
+  let _positionLoading = false;
+  let _positionLastRunAt = 0;
 
   function getApiSymbol() {
     const sym = window.curSymbol || 'BTCUSDT';
@@ -616,10 +619,23 @@
     setUpdatedNow();
   }
 
-  window._loadPositionData = async function() {
+  window._loadPositionData = async function(opts = {}) {
+    const force = !!opts.force;
+    const now = Date.now();
+    if (_positionLoading) return;
+    if (!force && now - _positionLastRunAt < POSITION_REFRESH_COOLDOWN_MS) return;
+    _positionLoading = true;
+    _positionLastRunAt = now;
     setStatus('loading');
-    const [ls, ] = await Promise.all([loadLongShortDetailed(), loadLiquidationHeatmap()]);
-    renderAll();
+    try {
+      await Promise.all([loadLongShortDetailed(), loadLiquidationHeatmap()]);
+      renderAll();
+    } catch (e) {
+      setStatus('error');
+      setUpdatedNow();
+    } finally {
+      _positionLoading = false;
+    }
   };
 
   // ─────────── 이벤트 바인딩 ───────────
@@ -670,7 +686,7 @@
   // 포지션 탭 열릴 때 로드
   document.addEventListener('click', (e) => {
     const tab = e.target.closest('.right-tab');
-    if (tab && tab.dataset.p === 'position') window._loadPositionData();
+    if (tab && tab.dataset.p === 'position') window._loadPositionData({ force: true });
   });
 
   // 30초 주기 갱신 (탭 활성 + 문서 표시 중)

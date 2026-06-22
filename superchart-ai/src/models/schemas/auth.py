@@ -77,6 +77,7 @@ class FcmTokenRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     key: str
     password: str = Field(min_length=1)
+    email: EmailStr | None = None
 
 
 class AdminUserIdRequest(BaseModel):

@@ -19,19 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db
 from src.models.schemas import ApiResponse
-from src.services.admin_helpers import auth_admin_check
+from src.services.admin_helpers import ADMIN_ROLE_POLICIES, auth_admin_check, require_admin_permission
 
 router = APIRouter(prefix="/admin-roles", tags=["AdminRoles"])
 
-# 7개 역할 + 메뉴 접근(참고 정책). 실제 강제는 세션 RBAC 연동 시 적용.
+# 7개 역할 + 메뉴 접근 정책은 admin_helpers의 단일 출처를 사용.
 ROLES = {
-    "super":   {"label": "최고 관리자", "menus": "*"},
-    "ops":     {"label": "운영 관리자", "menus": ["overview", "users", "subscriptions", "tickets", "content", "system", "metrics"]},
-    "support": {"label": "고객지원 관리자", "menus": ["overview", "tickets", "users"]},
-    "content": {"label": "콘텐츠 관리자", "menus": ["overview", "content", "plans"]},
-    "billing": {"label": "결제 관리자", "menus": ["overview", "subscriptions", "points"]},
-    "data":    {"label": "데이터 관리자", "menus": ["overview", "symdata", "symbols", "metrics"]},
-    "readonly": {"label": "읽기 전용 관리자", "menus": ["overview", "metrics", "system"]},
+    k: {
+        "label": v.get("label", k),
+        "menus": v.get("menus", []),
+    }
+    for k, v in ADMIN_ROLE_POLICIES.items()
 }
 
 _ensured = False
@@ -90,6 +88,7 @@ async def list_roles(_a: None = Depends(auth_admin_check)):
 
 @router.get("/accounts", response_model=ApiResponse)
 async def list_accounts(request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     rows = (await db.execute(text(
         "SELECT email, name, role, two_factor, active, created_at FROM admin_accounts ORDER BY created_at DESC LIMIT 200"
@@ -102,6 +101,7 @@ async def list_accounts(request: Request, db: AsyncSession = Depends(get_db), _a
 
 @router.post("/accounts", response_model=ApiResponse)
 async def create_account(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     email = (req.get("email") or "").strip().lower()
     name = (req.get("name") or "").strip()
@@ -127,6 +127,7 @@ async def create_account(req: dict, request: Request, db: AsyncSession = Depends
 
 @router.post("/update-role", response_model=ApiResponse)
 async def update_role(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     email = (req.get("email") or "").strip().lower()
     role = (req.get("role") or "").strip()
@@ -149,6 +150,7 @@ async def update_role(req: dict, request: Request, db: AsyncSession = Depends(ge
 
 @router.post("/set-2fa", response_model=ApiResponse)
 async def set_2fa(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     email = (req.get("email") or "").strip().lower()
     enabled = bool(req.get("enabled", False))
@@ -164,6 +166,7 @@ async def set_2fa(req: dict, request: Request, db: AsyncSession = Depends(get_db
 
 @router.post("/delete", response_model=ApiResponse)
 async def delete_account(req: dict, request: Request, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     email = (req.get("email") or "").strip().lower()
     row = (await db.execute(text("SELECT role FROM admin_accounts WHERE email=:e"), {"e": email})).fetchone()
@@ -179,6 +182,7 @@ async def delete_account(req: dict, request: Request, db: AsyncSession = Depends
 
 @router.get("/audit", response_model=ApiResponse)
 async def role_audit(request: Request, page: int = 1, db: AsyncSession = Depends(get_db), _a: None = Depends(auth_admin_check)):
+    await require_admin_permission(request, db, "admins.manage")
     await _ensure(db)
     off = max(0, (page - 1) * 30)
     rows = (await db.execute(text(

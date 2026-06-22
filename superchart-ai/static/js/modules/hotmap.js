@@ -68,6 +68,12 @@ const HM = {
   status: 'loading',
 };
 const _SUPPORTED_TF = ['24h'];
+const _HM_REFRESH_COOLDOWN_MS = 1200;
+const _HT_REFRESH_COOLDOWN_MS = 1200;
+let _hmLoading = false;
+let _hmLastRunAt = 0;
+let _htLoading = false;
+let _htLastRunAt = 0;
 
 function favSet() { try { return new Set(window._favSymbols || []); } catch { return new Set(); } }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -494,9 +500,15 @@ function renderTimeNote() {
 
 /* ─────────── 메인 진입점 ─────────── */
 window._hmAsset = window._hmAsset || 'crypto';
-window.loadHeatmap = async function() {
+window.loadHeatmap = async function(opts = {}) {
+  const force = !!opts.force;
+  const now = Date.now();
+  if (_hmLoading) return;
+  if (!force && now - _hmLastRunAt < _HM_REFRESH_COOLDOWN_MS) return;
+  _hmLoading = true;
+  _hmLastRunAt = now;
   const grid = document.getElementById('heatmapGrid');
-  if (!grid) return;
+  if (!grid) { _hmLoading = false; return; }
   renderControlsOnce();
   renderTimeNote();
   renderLegend();
@@ -532,6 +544,8 @@ window.loadHeatmap = async function() {
   } catch (e) {
     grid.innerHTML = '<div class="hm-state-msg" style="grid-column:1/-1">히트맵 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
     setStatus('error');
+  } finally {
+    _hmLoading = false;
   }
 };
 
@@ -595,7 +609,7 @@ document.addEventListener('keydown', (e) => {
 // 탭 열릴 때 로드
 document.addEventListener('click', (e) => {
   const tab = e.target.closest('.right-tab');
-  if (tab && tab.dataset.p === 'heatmap') window.loadHeatmap();
+  if (tab && tab.dataset.p === 'heatmap') window.loadHeatmap({ force: true });
 });
 // 30초 주기 갱신
 setInterval(() => { if (document.hidden) return; const a = document.querySelector('.right-tab.active'); if (a && a.dataset.p === 'heatmap') window.loadHeatmap(); }, 30000);
@@ -924,9 +938,15 @@ function htRenderBasisTime() {
 }
 
 window._hotAsset = window._hotAsset || 'crypto';
-window._loadHotCoins = async function() {
+window._loadHotCoins = async function(opts = {}) {
+  const force = !!opts.force;
+  const now = Date.now();
+  if (_htLoading) return;
+  if (!force && now - _htLastRunAt < _HT_REFRESH_COOLDOWN_MS) return;
+  _htLoading = true;
+  _htLastRunAt = now;
   const listEl = document.getElementById('hotList');
-  if (!listEl) return;
+  if (!listEl) { _htLoading = false; return; }
   htBuildControlsOnce();
   htRenderBasisTime();
   htSetStatus('loading');
@@ -974,6 +994,8 @@ window._loadHotCoins = async function() {
   } catch (e) {
     listEl.innerHTML = '<div class="ht-state-msg">인기 TOP 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
     htSetStatus('error');
+  } finally {
+    _htLoading = false;
   }
 };
 
@@ -1013,5 +1035,5 @@ document.addEventListener('keydown', (e) => {
   const row = e.target.closest && e.target.closest('#hotList .ht-row');
   if (row) { e.preventDefault(); const r = HT.rows.find(x => x.code === row.dataset.code); if (r) { HT.selected = r; htRenderDetail(); if (window._selectSym) window._selectSym(row.dataset.code); } }
 });
-document.addEventListener('click', (e) => { const tab = e.target.closest('.right-tab'); if (tab && tab.dataset.p === 'hot') window._loadHotCoins(); });
+document.addEventListener('click', (e) => { const tab = e.target.closest('.right-tab'); if (tab && tab.dataset.p === 'hot') window._loadHotCoins({ force: true }); });
 setInterval(() => { if (document.hidden) return; const a = document.querySelector('.right-tab.active'); if (a && a.dataset.p === 'hot') window._loadHotCoins(); }, 30000);

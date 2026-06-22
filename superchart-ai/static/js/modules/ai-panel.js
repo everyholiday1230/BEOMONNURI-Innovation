@@ -273,7 +273,14 @@
 
   // ───────── 메인: window._updateBeomSummary (이름 유지) ─────────
   let _busy = false;
+  let _lastRunAt = 0;
+  const AI_REFRESH_COOLDOWN_MS = 1200;
   window._updateBeomSummary = async function(manual) {
+    const force = manual === true;
+    const now = Date.now();
+    if (_busy) return;
+    if (!force && now - _lastRunAt < AI_REFRESH_COOLDOWN_MS) return;
+    _lastRunAt = now;
     if (!window.curSymbol) return;
     setHeader();
     renderUsage();
@@ -288,7 +295,7 @@
       incUsage();
       renderUsage();
     }
-    if (_busy) return; _busy = true;
+    _busy = true;
     setStatus('loading');
     const sumEl = document.getElementById('ai2Summary');
     if (sumEl && manual) sumEl.innerHTML = '<div class="ai2-card-title">현재 종목 AI 요약</div><div class="ai2-summary"><p class="ai2-summary-text">AI가 현재 차트 데이터를 요약하는 중입니다. 잠시만 기다려 주세요.</p></div>';

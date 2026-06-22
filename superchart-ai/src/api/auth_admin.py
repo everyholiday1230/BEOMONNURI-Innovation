@@ -28,17 +28,24 @@ from src.models.schemas import (
     ApiResponse,
     AdminLoginRequest, AdminUserIdRequest, AdminBlockUserRequest,
 )
-from src.models.tables import AccessLog, AdminAuditLog, User
+from src.models.tables import (
+    AccessLog,
+    AdminAuditLog,
+    User,
+)
 from src.services.admin_helpers import (
     ADMIN_COOKIE,
     ADMIN_COOKIE_MAX_AGE,
     ADMIN_LOCK_SECONDS,
     ADMIN_MAX_FAILS,
+    ADMIN_ROLE_POLICIES,
     admin_audit,
     admin_login_fails,
     auth_admin_check,
     get_admin_cookie_sid,
     register_session,
+    require_admin_permission,
+    resolve_admin_context,
     revoke_session,
     sign_admin_cookie,
 )
@@ -47,6 +54,11 @@ from src.services.auth import hash_password
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+async def _require_perm(request: Request, db: AsyncSession, permission: str):
+    """관리자 권한 체크(인증 + RBAC)."""
+    return await require_admin_permission(request, db, permission)
 
 
 async def _safe_audit(db, **kwargs) -> None:
@@ -80,7 +92,7 @@ async def admin_users(
     db: AsyncSession = Depends(get_db),
 ):
     """사용자 목록 (필터/정렬/페이징)."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.read")
 
     # 전체 등급 집계 (필터 무관)
     tier_counts = {}
@@ -168,7 +180,7 @@ async def admin_users(
 @router.get("/admin/user-detail/{uid}", response_model=ApiResponse)
 async def admin_user_detail(uid: str, request: Request, db: AsyncSession = Depends(get_db)):
     """사용자 상세 정보 (활동 이력 포함)."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.read")
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar()
     if not user:
@@ -208,7 +220,7 @@ async def admin_user_detail(uid: str, request: Request, db: AsyncSession = Depen
 @router.post("/admin/set-beom-allowed", response_model=ApiResponse)
 async def admin_set_beom_allowed(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """범온지표 설정 권한 부여/회수 (운영자 전용)."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.write")
     uid = req.get("user_id")
     if not uid and (req.get("email") or "").strip():
         row = (await db.execute(select(User).where(User.email == req["email"].strip()))).scalar()
@@ -234,7 +246,7 @@ async def admin_set_beom_allowed(req: dict, request: Request, db: AsyncSession =
 @router.post("/admin/set-tier", response_model=ApiResponse)
 async def admin_set_tier(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """사용자 등급 변경."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.write")
     uid = req.get("user_id")
     tier = req.get("tier")
     if not uid or tier not in ("free", "pro", "premium"):
@@ -269,7 +281,7 @@ async def admin_set_tier(req: dict, request: Request, db: AsyncSession = Depends
 @router.post("/admin/set-nickname", response_model=ApiResponse)
 async def admin_set_nickname(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """관리자: 회원 닉네임 변경."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.write")
     uid = req.get("user_id")
     nickname = (req.get("nickname") or "").strip()
     if not uid or not (2 <= len(nickname) <= 20):
@@ -294,7 +306,7 @@ async def admin_set_nickname(req: dict, request: Request, db: AsyncSession = Dep
 @router.post("/admin/reset-user-password", response_model=ApiResponse)
 async def admin_reset_user_password(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """관리자가 회원 비밀번호 초기화/변경."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.write")
     uid = req.get("user_id")
     new_password = req.get("new_password", "")
     if not uid or not new_password or len(new_password) < 6:
@@ -318,9 +330,9 @@ async def admin_revoke_referral(
     req: AdminUserIdRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _admin: None = Depends(auth_admin_check),
 ):
     """레퍼럴 인증 취소 → free로 다운그레이드."""
+    await _require_perm(request, db, "users.write")
     uid = req.user_id
     if not uid:
         raise HTTPException(400, "user_id required")
@@ -341,9 +353,9 @@ async def admin_block_user(
     req: AdminBlockUserRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _admin: None = Depends(auth_admin_check),
 ):
     """사용자 차단/해제."""
+    await _require_perm(request, db, "users.write")
     uid = req.user_id
     block = req.block
     if not uid:
@@ -363,9 +375,9 @@ async def admin_force_logout(
     req: AdminUserIdRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _admin: None = Depends(auth_admin_check),
 ):
     """강제 로그아웃 — token_version 증가로 기존 JWT 즉시 무효화."""
+    await _require_perm(request, db, "users.write")
     uid = req.user_id
     if not uid:
         raise HTTPException(400, "user_id required")
@@ -416,7 +428,7 @@ async def admin_access_logs(
     db: AsyncSession = Depends(get_db),
 ):
     """접속/인증 로그 조회."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "logs.read")
     q = select(AccessLog).order_by(desc(AccessLog.created_at))
     if event_type:
         q = q.where(AccessLog.event_type == event_type)
@@ -449,9 +461,17 @@ async def admin_access_logs(
 # 세션 관리 (로그인/로그아웃)
 # ══════════════════════════════════════════════
 
+@router.get("/admin/me", response_model=ApiResponse)
+async def admin_me(request: Request, db: AsyncSession = Depends(get_db)):
+    """현재 관리자 권한 컨텍스트 조회 (역할/권한/메뉴)."""
+    await auth_admin_check(request)
+    ctx = await resolve_admin_context(request, db=db)
+    return ApiResponse(data=ctx)
+
+
 @router.post("/admin/login", response_model=ApiResponse)
-async def admin_login(req: AdminLoginRequest, request: Request):
-    """관리자 로그인 — key + password 2요소 검증."""
+async def admin_login(req: AdminLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """관리자 로그인 — key + password 2요소 검증 + 역할 컨텍스트 부여."""
     ip = request.client.host if request.client else "unknown"
 
     # Rate limit 체크
@@ -486,15 +506,47 @@ async def admin_login(req: AdminLoginRequest, request: Request):
     # 성공 — 실패 카운트 초기화
     admin_login_fails.pop(ip, None)
 
-    token, sid = sign_admin_cookie()
-    await register_session(sid)
-    admin_audit("admin_login_ok", request)
+    # 선택 이메일이 있으면 admin_accounts 역할 반영 (없으면 super 하위호환)
+    role = "super"
+    login_email = (str(req.email or "").strip().lower())
+    if login_email:
+        try:
+            row = (await db.execute(text(
+                "SELECT role, active FROM admin_accounts WHERE email=:e LIMIT 1"
+            ), {"e": login_email})).fetchone()
+            if row:
+                if row[1] is False:
+                    raise HTTPException(403, "비활성 관리자 계정")
+                role = (row[0] or "readonly").strip().lower()
+            else:
+                role = "readonly"
+        except HTTPException:
+            raise
+        except Exception:
+            # 테이블 미생성/초기 상태 등은 하위호환(super)
+            role = "super"
 
-    resp = JSONResponse({"success": True, "data": {"authenticated": True}})
+    token, sid = sign_admin_cookie(admin_email=login_email, admin_role=role)
+    await register_session(sid)
+    admin_audit("admin_login_ok", request, admin_email=login_email or "legacy", role=role)
+
+    role_pol = ADMIN_ROLE_POLICIES.get(role, ADMIN_ROLE_POLICIES["readonly"])
+    resp = JSONResponse({"success": True, "data": {
+        "authenticated": True,
+        "admin_email": login_email,
+        "role": role,
+        "role_label": role_pol.get("label", role),
+        "menus": role_pol.get("menus", []),
+    }})
     is_prod = _os.getenv("ENV", "").lower() in ("prod", "production")
     resp.set_cookie(
         ADMIN_COOKIE, token,
         httponly=True, secure=is_prod, samesite="lax",
+        max_age=ADMIN_COOKIE_MAX_AGE, path="/",
+    )
+    resp.set_cookie(
+        "admin_role", role,
+        httponly=False, secure=is_prod, samesite="lax",
         max_age=ADMIN_COOKIE_MAX_AGE, path="/",
     )
     # CSRF 토큰 (admin 세션용)
@@ -517,13 +569,14 @@ async def admin_logout(request: Request):
     admin_audit("admin_logout", request)
     resp = JSONResponse({"success": True, "data": {"logged_out": True}})
     resp.delete_cookie(ADMIN_COOKIE, path="/")
+    resp.delete_cookie("admin_role", path="/")
     return resp
 
 
 @router.post("/admin/create-user", response_model=ApiResponse)
 async def admin_create_user(data: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """관리자 회원 생성."""
-    await auth_admin_check(request)
+    await _require_perm(request, db, "users.write")
     
     email = data.get("email", "").strip()
     nickname = data.get("nickname", "").strip()
@@ -550,3 +603,425 @@ async def admin_create_user(data: dict, request: Request, db: AsyncSession = Dep
     await db.commit()
     
     return ApiResponse(data={"success": True, "message": f"{nickname} 계정 생성 완료"})
+
+
+# ══════════════════════════════════════════════
+# 슈퍼차트 통합 관리
+# ══════════════════════════════════════════════
+
+@router.get("/admin/superchart/overview", response_model=ApiResponse)
+async def admin_superchart_overview(request: Request, db: AsyncSession = Depends(get_db)):
+    """슈퍼차트 핵심 자산 전역 현황 집계."""
+    await _require_perm(request, db, "superchart.read")
+
+    totals_sql = text("""
+        SELECT
+          (SELECT COUNT(*) FROM chart_layouts) AS layouts,
+          (SELECT COUNT(*) FROM chart_drawings) AS drawings,
+          (SELECT COUNT(*) FROM indicator_presets) AS presets,
+          (SELECT COUNT(*) FROM alert_rules) AS alerts,
+          (SELECT COUNT(*) FROM alert_rules WHERE is_active = TRUE) AS active_alerts,
+          (SELECT COUNT(*) FROM watchlists) AS watchlists,
+          (SELECT COUNT(*) FROM watchlist_items) AS watchlist_items,
+          (SELECT COUNT(*) FROM user_chart_settings) AS user_chart_settings
+    """)
+    totals_row = (await db.execute(totals_sql)).fetchone()
+
+    top_users_sql = text("""
+        SELECT
+          u.id::text AS user_id,
+          u.email,
+          u.nickname,
+          COALESCE(cl.cnt, 0) AS layouts,
+          COALESCE(cd.cnt, 0) AS drawings,
+          COALESCE(ip.cnt, 0) AS presets,
+          COALESCE(ar.cnt, 0) AS alerts,
+          COALESCE(wl.cnt, 0) AS watchlists,
+          COALESCE(wi.cnt, 0) AS watchlist_items,
+          (COALESCE(cl.cnt, 0) + COALESCE(cd.cnt, 0) + COALESCE(ip.cnt, 0)
+            + COALESCE(ar.cnt, 0) + COALESCE(wl.cnt, 0) + COALESCE(wi.cnt, 0)) AS total_assets
+        FROM users u
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM chart_layouts GROUP BY user_id) cl ON cl.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM chart_drawings GROUP BY user_id) cd ON cd.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM indicator_presets GROUP BY user_id) ip ON ip.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM alert_rules GROUP BY user_id) ar ON ar.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM watchlists GROUP BY user_id) wl ON wl.user_id = u.id
+        LEFT JOIN (
+            SELECT w.user_id, COUNT(*) AS cnt
+            FROM watchlist_items wi
+            JOIN watchlists w ON w.id = wi.watchlist_id
+            GROUP BY w.user_id
+        ) wi ON wi.user_id = u.id
+        WHERE u.email NOT LIKE '%_deleted_%'
+        ORDER BY total_assets DESC, u.created_at DESC
+        LIMIT 10
+    """)
+    top_rows = (await db.execute(top_users_sql)).fetchall()
+
+    return ApiResponse(data={
+        "totals": {
+            "layouts": int(totals_row[0] or 0),
+            "drawings": int(totals_row[1] or 0),
+            "presets": int(totals_row[2] or 0),
+            "alerts": int(totals_row[3] or 0),
+            "active_alerts": int(totals_row[4] or 0),
+            "watchlists": int(totals_row[5] or 0),
+            "watchlist_items": int(totals_row[6] or 0),
+            "user_chart_settings": int(totals_row[7] or 0),
+        },
+        "top_users": [
+            {
+                "user_id": r[0],
+                "email": r[1],
+                "nickname": r[2],
+                "layouts": int(r[3] or 0),
+                "drawings": int(r[4] or 0),
+                "presets": int(r[5] or 0),
+                "alerts": int(r[6] or 0),
+                "watchlists": int(r[7] or 0),
+                "watchlist_items": int(r[8] or 0),
+                "total_assets": int(r[9] or 0),
+            }
+            for r in top_rows
+        ],
+    })
+
+
+@router.get("/admin/superchart/users", response_model=ApiResponse)
+async def admin_superchart_users(
+    request: Request,
+    q: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    """슈퍼차트 자산 기준 회원 목록 (검색/페이지네이션)."""
+    await _require_perm(request, db, "superchart.read")
+
+    page = max(1, int(page or 1))
+    page_size = min(100, max(5, int(page_size or 20)))
+    offset = (page - 1) * page_size
+
+    where_clause = "WHERE u.email NOT LIKE '%_deleted_%'"
+    params: dict[str, object] = {"limit": page_size, "offset": offset}
+    if q:
+        where_clause += " AND (u.email ILIKE :q OR u.nickname ILIKE :q OR COALESCE(u.referral_code,'') ILIKE :q)"
+        params["q"] = f"%{q.strip()}%"
+
+    count_sql = text(f"SELECT COUNT(*) FROM users u {where_clause}")
+    total = (await db.execute(count_sql, params)).scalar() or 0
+
+    list_sql = text(f"""
+        SELECT
+          u.id::text AS user_id,
+          u.email,
+          u.nickname,
+          u.tier,
+          u.is_active,
+          COALESCE(cl.cnt, 0) AS layouts,
+          COALESCE(cd.cnt, 0) AS drawings,
+          COALESCE(ip.cnt, 0) AS presets,
+          COALESCE(ar.cnt, 0) AS alerts,
+          COALESCE(ar.active_cnt, 0) AS active_alerts,
+          COALESCE(wl.cnt, 0) AS watchlists,
+          COALESCE(wi.cnt, 0) AS watchlist_items,
+          (COALESCE(cl.cnt, 0) + COALESCE(cd.cnt, 0) + COALESCE(ip.cnt, 0)
+            + COALESCE(ar.cnt, 0) + COALESCE(wl.cnt, 0) + COALESCE(wi.cnt, 0)) AS total_assets,
+          cl.last_updated
+        FROM users u
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS cnt, MAX(updated_at) AS last_updated
+            FROM chart_layouts GROUP BY user_id
+        ) cl ON cl.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM chart_drawings GROUP BY user_id) cd ON cd.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM indicator_presets GROUP BY user_id) ip ON ip.user_id = u.id
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS cnt, COUNT(*) FILTER (WHERE is_active = TRUE) AS active_cnt
+            FROM alert_rules GROUP BY user_id
+        ) ar ON ar.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS cnt FROM watchlists GROUP BY user_id) wl ON wl.user_id = u.id
+        LEFT JOIN (
+            SELECT w.user_id, COUNT(*) AS cnt
+            FROM watchlist_items wi
+            JOIN watchlists w ON w.id = wi.watchlist_id
+            GROUP BY w.user_id
+        ) wi ON wi.user_id = u.id
+        {where_clause}
+        ORDER BY total_assets DESC, u.created_at DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    rows = (await db.execute(list_sql, params)).fetchall()
+
+    return ApiResponse(data={
+        "total": int(total),
+        "page": page,
+        "page_size": page_size,
+        "users": [
+            {
+                "user_id": r[0],
+                "email": r[1],
+                "nickname": r[2],
+                "tier": r[3],
+                "is_active": bool(r[4]),
+                "layouts": int(r[5] or 0),
+                "drawings": int(r[6] or 0),
+                "presets": int(r[7] or 0),
+                "alerts": int(r[8] or 0),
+                "active_alerts": int(r[9] or 0),
+                "watchlists": int(r[10] or 0),
+                "watchlist_items": int(r[11] or 0),
+                "total_assets": int(r[12] or 0),
+                "last_layout_updated_at": str(r[13]) if r[13] else None,
+            }
+            for r in rows
+        ],
+    })
+
+
+@router.get("/admin/superchart/user-assets/{uid}", response_model=ApiResponse)
+async def admin_superchart_user_assets(uid: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """특정 회원의 슈퍼차트 자산 상세 조회."""
+    await _require_perm(request, db, "superchart.read")
+
+    user_row = (await db.execute(text(
+        "SELECT id::text, email, nickname, tier, is_active FROM users WHERE id::text = :uid LIMIT 1"
+    ), {"uid": uid})).fetchone()
+    if not user_row:
+        raise HTTPException(404, "User not found")
+
+    layouts = (await db.execute(text("""
+        SELECT cl.id::text, cl.name, cl.timeframe, cl.chart_type, cl.theme,
+               cl.is_favorite, cl.updated_at, s.symbol_code
+        FROM chart_layouts cl
+        LEFT JOIN symbols s ON s.id = cl.symbol_id
+        WHERE cl.user_id::text = :uid
+        ORDER BY cl.updated_at DESC
+        LIMIT 200
+    """), {"uid": uid})).fetchall()
+
+    drawings = (await db.execute(text("""
+        SELECT id::text, drawing_type, is_locked, layout_id::text, symbol_id::text
+        FROM chart_drawings
+        WHERE user_id::text = :uid
+        ORDER BY id DESC
+        LIMIT 200
+    """), {"uid": uid})).fetchall()
+
+    presets = (await db.execute(text("""
+        SELECT id::text, indicator_code, is_enabled, pane_index, layout_id::text
+        FROM indicator_presets
+        WHERE user_id::text = :uid
+        ORDER BY id DESC
+        LIMIT 200
+    """), {"uid": uid})).fetchall()
+
+    alerts = (await db.execute(text("""
+        SELECT id::text, rule_type, timeframe, delivery_channel, is_active, created_at
+        FROM alert_rules
+        WHERE user_id::text = :uid
+        ORDER BY created_at DESC
+        LIMIT 200
+    """), {"uid": uid})).fetchall()
+
+    watchlists = (await db.execute(text("""
+        SELECT id::text, name, is_default, sort_order
+        FROM watchlists
+        WHERE user_id::text = :uid
+        ORDER BY sort_order ASC, id ASC
+        LIMIT 200
+    """), {"uid": uid})).fetchall()
+
+    watchlist_items = (await db.execute(text("""
+        SELECT wi.id::text, wi.watchlist_id::text, wi.sort_order, s.symbol_code
+        FROM watchlist_items wi
+        JOIN watchlists w ON w.id = wi.watchlist_id
+        LEFT JOIN symbols s ON s.id = wi.symbol_id
+        WHERE w.user_id::text = :uid
+        ORDER BY wi.sort_order ASC, wi.id ASC
+        LIMIT 300
+    """), {"uid": uid})).fetchall()
+
+    settings = (await db.execute(text("""
+        SELECT settings_json, updated_at
+        FROM user_chart_settings
+        WHERE user_id::text = :uid
+        LIMIT 1
+    """), {"uid": uid})).fetchone()
+
+    return ApiResponse(data={
+        "user": {
+            "user_id": user_row[0],
+            "email": user_row[1],
+            "nickname": user_row[2],
+            "tier": user_row[3],
+            "is_active": bool(user_row[4]),
+        },
+        "counts": {
+            "layouts": len(layouts),
+            "drawings": len(drawings),
+            "presets": len(presets),
+            "alerts": len(alerts),
+            "watchlists": len(watchlists),
+            "watchlist_items": len(watchlist_items),
+            "has_user_chart_settings": bool(settings),
+        },
+        "layouts": [
+            {
+                "id": r[0], "name": r[1], "timeframe": r[2], "chart_type": r[3], "theme": r[4],
+                "is_favorite": bool(r[5]), "updated_at": str(r[6]) if r[6] else None, "symbol_code": r[7],
+            }
+            for r in layouts
+        ],
+        "drawings": [
+            {
+                "id": r[0], "drawing_type": r[1], "is_locked": bool(r[2]),
+                "layout_id": r[3], "symbol_id": r[4],
+            }
+            for r in drawings
+        ],
+        "presets": [
+            {
+                "id": r[0], "indicator_code": r[1], "is_enabled": bool(r[2]),
+                "pane_index": int(r[3] or 0), "layout_id": r[4],
+            }
+            for r in presets
+        ],
+        "alerts": [
+            {
+                "id": r[0], "rule_type": r[1], "timeframe": r[2],
+                "delivery_channel": r[3], "is_active": bool(r[4]),
+                "created_at": str(r[5]) if r[5] else None,
+            }
+            for r in alerts
+        ],
+        "watchlists": [
+            {
+                "id": r[0], "name": r[1], "is_default": bool(r[2]), "sort_order": int(r[3] or 0),
+            }
+            for r in watchlists
+        ],
+        "watchlist_items": [
+            {
+                "id": r[0], "watchlist_id": r[1], "sort_order": int(r[2] or 0), "symbol_code": r[3],
+            }
+            for r in watchlist_items
+        ],
+        "user_chart_settings": {
+            "settings_json": settings[0] if settings else None,
+            "updated_at": str(settings[1]) if settings and settings[1] else None,
+        },
+    })
+
+
+@router.delete("/admin/superchart/user-assets/{asset_type}/{asset_id}", response_model=ApiResponse)
+async def admin_superchart_delete_asset(
+    asset_type: str,
+    asset_id: str,
+    request: Request,
+    user_id: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    """슈퍼차트 단일 자산 삭제."""
+    await _require_perm(request, db, "superchart.write")
+
+    table_map = {
+        "chart_layouts": "chart_layouts",
+        "chart_drawings": "chart_drawings",
+        "indicator_presets": "indicator_presets",
+        "alert_rules": "alert_rules",
+        "watchlists": "watchlists",
+        "watchlist_items": "watchlist_items",
+    }
+    table_name = table_map.get(asset_type)
+    if not table_name:
+        raise HTTPException(400, "지원하지 않는 asset_type")
+
+    if asset_type == "watchlist_items" and user_id:
+        q = text("""
+            DELETE FROM watchlist_items wi
+            USING watchlists w
+            WHERE wi.id::text = :asset_id
+              AND wi.watchlist_id = w.id
+              AND w.user_id::text = :uid
+        """)
+        params = {"asset_id": asset_id, "uid": user_id}
+    elif user_id:
+        q = text(f"DELETE FROM {table_name} WHERE id::text = :asset_id AND user_id::text = :uid")
+        params = {"asset_id": asset_id, "uid": user_id}
+    else:
+        q = text(f"DELETE FROM {table_name} WHERE id::text = :asset_id")
+        params = {"asset_id": asset_id}
+
+    result = await db.execute(q, params)
+    await db.commit()
+
+    deleted = int(result.rowcount or 0) > 0
+    await _safe_audit(
+        db,
+        admin_id="admin_key",
+        action="superchart_delete_asset",
+        target_user_id=user_id or None,
+        detail={"asset_type": asset_type, "asset_id": asset_id, "deleted": deleted},
+        ip=request.client.host if request.client else None,
+    )
+
+    return ApiResponse(data={"deleted": deleted, "asset_type": asset_type, "asset_id": asset_id})
+
+
+@router.post("/admin/superchart/user-assets/bulk-action", response_model=ApiResponse)
+async def admin_superchart_bulk_action(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
+    """회원 단위 슈퍼차트 자산 일괄 작업."""
+    await _require_perm(request, db, "superchart.write")
+
+    uid = str(req.get("user_id") or "").strip()
+    action = str(req.get("action") or "").strip().lower()
+    if not uid:
+        raise HTTPException(400, "user_id 필요")
+    if action not in {"delete_all", "disable_alerts", "delete_alerts", "reset_watchlists"}:
+        raise HTTPException(400, "지원하지 않는 action")
+
+    affected: dict[str, int] = {}
+
+    if action == "delete_all":
+        r1 = await db.execute(text("DELETE FROM alert_rules WHERE user_id::text = :uid"), {"uid": uid})
+        r2 = await db.execute(text("DELETE FROM chart_drawings WHERE user_id::text = :uid"), {"uid": uid})
+        r3 = await db.execute(text("DELETE FROM indicator_presets WHERE user_id::text = :uid"), {"uid": uid})
+        r4 = await db.execute(text("DELETE FROM chart_layouts WHERE user_id::text = :uid"), {"uid": uid})
+        r5 = await db.execute(text("DELETE FROM watchlist_items WHERE watchlist_id IN (SELECT id FROM watchlists WHERE user_id::text = :uid)"), {"uid": uid})
+        r6 = await db.execute(text("DELETE FROM watchlists WHERE user_id::text = :uid"), {"uid": uid})
+        r7 = await db.execute(text("DELETE FROM user_chart_settings WHERE user_id::text = :uid"), {"uid": uid})
+        affected = {
+            "alerts": int(r1.rowcount or 0),
+            "drawings": int(r2.rowcount or 0),
+            "presets": int(r3.rowcount or 0),
+            "layouts": int(r4.rowcount or 0),
+            "watchlist_items": int(r5.rowcount or 0),
+            "watchlists": int(r6.rowcount or 0),
+            "user_chart_settings": int(r7.rowcount or 0),
+        }
+    elif action == "disable_alerts":
+        r = await db.execute(text("UPDATE alert_rules SET is_active = FALSE WHERE user_id::text = :uid AND is_active = TRUE"), {"uid": uid})
+        affected = {"alerts_disabled": int(r.rowcount or 0)}
+    elif action == "delete_alerts":
+        r = await db.execute(text("DELETE FROM alert_rules WHERE user_id::text = :uid"), {"uid": uid})
+        affected = {"alerts_deleted": int(r.rowcount or 0)}
+    elif action == "reset_watchlists":
+        r1 = await db.execute(text("DELETE FROM watchlist_items WHERE watchlist_id IN (SELECT id FROM watchlists WHERE user_id::text = :uid)"), {"uid": uid})
+        r2 = await db.execute(text("DELETE FROM watchlists WHERE user_id::text = :uid"), {"uid": uid})
+        affected = {
+            "watchlist_items_deleted": int(r1.rowcount or 0),
+            "watchlists_deleted": int(r2.rowcount or 0),
+        }
+
+    await db.commit()
+
+    await _safe_audit(
+        db,
+        admin_id="admin_key",
+        action="superchart_bulk_action",
+        target_user_id=uid,
+        detail={"action": action, "affected": affected},
+        ip=request.client.host if request.client else None,
+    )
+
+    return ApiResponse(data={"action": action, "user_id": uid, "affected": affected})
