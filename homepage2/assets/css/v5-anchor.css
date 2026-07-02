@@ -1,0 +1,250 @@
+/* =========================================================
+   BEOMONNURI v5 — CSS ANCHOR POSITIONING (2025-2026 spec)
+   Smart popovers that automatically follow their anchor and
+   flip away from viewport edges. Zero JS for positioning.
+
+   Spec: https://drafts.csswg.org/css-anchor-position-1/
+   Support: Chrome 125+, Edge 125+, Safari 26+ (Firefox: in-progress)
+   ========================================================= */
+
+/* ===== Detect support ===== */
+@supports (anchor-name: --x) {
+  html { --anchor-supported: 1; }
+}
+
+/* ===== Anchor target — the element being followed ===== */
+[data-anchor] {
+  /* Each anchor will get its name set inline via JS:
+     style="anchor-name: --info-X" */
+  cursor: help;
+  position: relative;
+  border-bottom: 1px dotted currentColor;
+  transition: color 0.2s;
+}
+[data-anchor]:hover {
+  color: var(--acid);
+}
+/* Subtle "?" affordance for any data-anchor */
+[data-anchor]::after {
+  content: '';
+  display: inline-block;
+  width: 4px; height: 4px;
+  background: var(--acid);
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: super;
+  opacity: 0.5;
+  transition: opacity 0.2s, transform 0.2s;
+}
+[data-anchor]:hover::after {
+  opacity: 1;
+  transform: scale(1.4);
+}
+
+/* ===== The popover ===== */
+.info-popover {
+  position: fixed;       /* will be overridden by anchor positioning */
+  top: anchor(bottom);   /* default below anchor */
+  left: anchor(left);
+  margin-top: 12px;
+  width: 280px;
+  background: rgba(13, 13, 13, 0.95);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  color: var(--bg);
+  border: 1px solid rgba(146, 18, 48, 0.5);
+  padding: 16px 18px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  z-index: 9000;
+
+  /* Hide by default — JS opens via .open class */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.98);
+  transition: opacity 0.25s cubic-bezier(.4,0,.1,1),
+              transform 0.25s cubic-bezier(.4,0,.1,1),
+              visibility 0s linear 0.25s;
+  pointer-events: none;
+
+  /* Glow */
+  box-shadow:
+    0 20px 50px -12px rgba(13,13,13,0.6),
+    0 0 0 1px rgba(146,18,48,0.2),
+    0 0 24px rgba(146,18,48,0.15);
+
+  /* AUTO-FLIP: try multiple positions if default doesn't fit */
+  position-try-fallbacks:
+    --bottom-right,
+    --top-left,
+    --top-right,
+    flip-block,
+    flip-inline;
+}
+.info-popover.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+  pointer-events: auto;
+}
+
+/* Try-fallback definitions */
+@position-try --bottom-right {
+  top: anchor(bottom);
+  left: auto;
+  right: anchor(right);
+  margin-top: 12px;
+}
+@position-try --top-left {
+  top: auto;
+  bottom: anchor(top);
+  left: anchor(left);
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+@position-try --top-right {
+  top: auto;
+  bottom: anchor(top);
+  left: auto;
+  right: anchor(right);
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+/* Acid connector line at top */
+.info-popover::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--acid), transparent);
+}
+
+/* ===== Popover content components ===== */
+.info-popover .ip-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--acid-bright);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-popover .ip-label::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--acid-bright);
+  border-radius: 50%;
+  animation: blink 1.5s ease-in-out infinite;
+}
+.info-popover .ip-value {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--bg);
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.info-popover .ip-value .unit {
+  font-family: var(--mono);
+  font-size: 0.35em;
+  color: var(--acid-bright);
+  letter-spacing: 0;
+  margin-left: 4px;
+  font-weight: 500;
+}
+.info-popover .ip-chart {
+  width: 100%;
+  height: 56px;
+  margin: 10px 0;
+  display: block;
+}
+.info-popover .ip-desc {
+  font-size: 12.5px;
+  color: rgba(246, 244, 239, 0.7);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.info-popover .ip-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(246, 244, 239, 0.4);
+  padding-top: 8px;
+  border-top: 1px solid rgba(246, 244, 239, 0.1);
+}
+.info-popover .ip-meta .ok {
+  color: #10b981;
+}
+.info-popover .ip-meta .warn {
+  color: var(--acid-bright);
+}
+
+/* ===== Variants ===== */
+
+/* Wide popover (for richer product cards / partner info) */
+.info-popover.wide {
+  width: 360px;
+  padding: 20px 22px;
+}
+.info-popover.wide .ip-value {
+  font-size: 26px;
+}
+
+/* Bright (light background variant) — used over dark sections */
+.info-popover.bright {
+  background: rgba(246, 244, 239, 0.96);
+  backdrop-filter: blur(20px) saturate(140%);
+  color: var(--paper);
+  border-color: rgba(13, 13, 13, 0.15);
+  box-shadow:
+    0 20px 50px -12px rgba(13,13,13,0.18),
+    0 0 0 1px rgba(13,13,13,0.05);
+}
+.info-popover.bright .ip-desc {
+  color: var(--mute);
+}
+.info-popover.bright .ip-value {
+  color: var(--paper);
+}
+.info-popover.bright .ip-meta {
+  color: var(--mute);
+  border-top-color: var(--mute-line);
+}
+
+/* ===== Fallback for browsers without anchor positioning ===== */
+@supports not (anchor-name: --x) {
+  /* JS will handle positioning instead.
+     Just style the popover; it'll be position:fixed with manual coords. */
+  .info-popover {
+    top: 0; left: 0;
+    transform: translate(var(--fb-x, 0), var(--fb-y, 0)) translateY(-6px) scale(0.98);
+  }
+  .info-popover.open {
+    transform: translate(var(--fb-x, 0), var(--fb-y, 0)) translateY(0) scale(1);
+  }
+}
+
+/* ===== Mobile: disable hover-based anchors, show inline ===== */
+@media (hover: none), (max-width: 700px) {
+  [data-anchor] { border-bottom: 0; cursor: default; }
+  [data-anchor]::after { display: none; }
+  .info-popover { display: none; }
+}
+
+/* ===== Reduced motion ===== */
+@media not all and (prefers-reduced-motion: reduce) {
+  .info-popover {
+    transition: opacity 0.1s, visibility 0s;
+    transform: none !important;
+  }
+}

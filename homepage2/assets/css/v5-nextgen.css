@@ -1,0 +1,522 @@
+/* =========================================================
+   BEOMONNURI v5 — NEXTGEN
+   Builds on v4 (ai-frontier.css). Adds:
+   - GPU neural activation viz layer
+   - 3D cylinder partner marquee
+   - Live LLM hero terminal
+   - Mouse trail particle layer
+   - Chromatic aberration SVG filter
+   - Sound toggle
+   - Advanced scroll-linked transforms
+   ========================================================= */
+
+/* ===== Chromatic aberration filter wrapper ===== */
+.chroma-shift {
+  filter: url(#chroma);
+  transition: filter 0.2s;
+}
+
+/* ============================================================
+   CROSS-DOCUMENT VIEW TRANSITIONS (Chrome 126+)
+   When the browser navigates between pages on the same origin,
+   the browser automatically snapshots the old page and animates
+   into the new page. Shared elements (matching view-transition-name)
+   morph from one position/size to the other.
+   ============================================================ */
+@view-transition {
+  navigation: auto;
+}
+
+/* Default root transition — soft crossfade + scale */
+::view-transition-old(root) {
+  animation: vt-out 0.45s cubic-bezier(.7, 0, .2, 1) both;
+}
+::view-transition-new(root) {
+  animation: vt-in 0.55s cubic-bezier(.4, 0, .1, 1) both;
+}
+@keyframes vt-out {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.985); filter: blur(3px); }
+}
+@keyframes vt-in {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.99); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* Named shared elements — these morph from page to page */
+.brand               { view-transition-name: brand; }
+.partner-marquee     { view-transition-name: partner-marquee; }
+nav.top              { view-transition-name: nav-top; }
+footer               { view-transition-name: footer; }
+.ai-widget           { view-transition-name: ai-widget; }
+.status-orb          { view-transition-name: status-orb; }
+.scroll-progress     { view-transition-name: scroll-progress; }
+
+/* Smooth morph for shared elements */
+::view-transition-old(brand),
+::view-transition-new(brand),
+::view-transition-old(nav-top),
+::view-transition-new(nav-top),
+::view-transition-old(partner-marquee),
+::view-transition-new(partner-marquee),
+::view-transition-old(footer),
+::view-transition-new(footer),
+::view-transition-old(ai-widget),
+::view-transition-new(ai-widget),
+::view-transition-old(status-orb),
+::view-transition-new(status-orb),
+::view-transition-old(scroll-progress),
+::view-transition-new(scroll-progress) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Make the morphing extra smooth */
+@media all {
+  ::view-transition-group(brand),
+  ::view-transition-group(nav-top),
+  ::view-transition-group(partner-marquee),
+  ::view-transition-group(footer),
+  ::view-transition-group(ai-widget),
+  ::view-transition-group(status-orb) {
+    animation-duration: 0.55s;
+    animation-timing-function: cubic-bezier(.4, 0, .1, 1);
+  }
+}
+
+/* Reduced motion: instant */
+@media not all and (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+}
+
+/* ===== Sound + theme toggle bar (floating top-left of hero, mono pills) ===== */
+.system-bar {
+  position: absolute; top: 24px; right: 50%; transform: translateX(50%);
+  z-index: 50;
+  display: flex; gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.system-bar button {
+  background: rgba(246, 244, 239, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--mute-line);
+  padding: 7px 12px;
+  display: flex; align-items: center; gap: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.system-bar button:hover {
+  background: var(--paper); color: var(--bg);
+  border-color: var(--paper);
+}
+.system-bar button .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mute);
+}
+.system-bar button.active .dot {
+  background: var(--acid); animation: blink 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgba(146,18,48,0.2);
+}
+@media (max-width: 700px) { .system-bar { display: none; } }
+
+/* ===== Hero LLM Terminal ===== */
+.llm-terminal {
+  position: relative;
+  margin-top: 36px;
+  max-width: 580px;
+  background: rgba(13, 13, 13, 0.85);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(146, 18, 48, 0.4);
+  color: var(--bg);
+  font-family: var(--mono);
+  z-index: 5;
+}
+.llm-terminal .lt-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(246, 244, 239, 0.1);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.llm-terminal .lt-bar .left {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--acid-bright);
+}
+.llm-terminal .lt-bar .left::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--acid-bright);
+  box-shadow: 0 0 0 3px rgba(196,26,63,0.25);
+  animation: blink 1.4s ease-in-out infinite;
+}
+.llm-terminal .lt-bar .right {
+  color: rgba(246,244,239,0.5);
+}
+.llm-terminal .lt-input {
+  display: flex; align-items: center;
+  padding: 0;
+}
+.llm-terminal .lt-input::before {
+  content: '>'; padding: 0 14px;
+  color: var(--acid-bright); font-weight: 700;
+  font-size: 14px;
+}
+.llm-terminal .lt-input input {
+  flex: 1; background: transparent; border: none;
+  color: var(--bg);
+  font: inherit; font-size: 13px;
+  padding: 14px 4px;
+  letter-spacing: 0;
+  outline: none;
+  caret-color: var(--acid-bright);
+}
+.llm-terminal .lt-input input::placeholder { color: rgba(246,244,239,0.4); }
+.llm-terminal .lt-input button {
+  background: var(--acid);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 12px 18px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.llm-terminal .lt-input button:hover { background: var(--acid-bright); }
+.llm-terminal .lt-input button:disabled {
+  opacity: 0.5; cursor: wait;
+}
+.llm-terminal .lt-output {
+  padding: 12px 18px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, padding 0.4s ease;
+}
+.llm-terminal.has-output .lt-output {
+  max-height: 320px;
+  padding: 16px 18px 20px;
+  border-top: 1px solid rgba(246, 244, 239, 0.1);
+  overflow-y: auto;
+}
+.llm-terminal .lt-output .meta {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--acid-bright);
+  margin-bottom: 8px;
+}
+.llm-terminal .lt-output .stream::after {
+  content: '▋';
+  color: var(--acid-bright);
+  margin-left: 2px;
+  animation: blink 0.6s steps(2) infinite;
+}
+.llm-terminal .lt-output.done .stream::after { content: ''; }
+.llm-terminal .lt-suggest {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 0 14px 12px;
+}
+.llm-terminal .lt-suggest button {
+  background: transparent;
+  border: 1px solid rgba(246,244,239,0.18);
+  color: rgba(246,244,239,0.7);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.llm-terminal .lt-suggest button:hover {
+  background: var(--acid); color: #fff; border-color: var(--acid);
+}
+
+/* ===== Neural activation overlay (canvas) — disabled per user feedback ===== */
+#neural-grid {
+  display: none;
+}
+
+/* ===== Global GPU particles (covers full viewport on all pages) ===== */
+#gpu-particles {
+  opacity: 0.85;          /* default — appropriate over hero */
+  transition: opacity 0.6s ease;
+}
+/* On non-home pages, particles are subtler */
+body:not(.has-hero) #gpu-particles {
+  opacity: 0.55;
+}
+/* Mobile: turn down */
+@media (max-width: 700px) {
+  #gpu-particles { opacity: 0.4; }
+}
+@media (hover: none) {
+  /* On touch devices, particles only react to taps — keep them visible but subtle */
+  #gpu-particles { opacity: 0.35; }
+}
+
+/* ===== GLSL Liquid Hero Layer ===== */
+#liquid-hero {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.8;
+  mix-blend-mode: multiply;
+  display: block;
+}
+
+/* ===== Three.js Refraction Glass Orbs ===== */
+#glass-orbs {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+#glass-orbs canvas { width: 100%; height: 100%; display: block; }
+
+/* ===== Mouse trail canvas ===== */
+#mouse-trail {
+  position: fixed; inset: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9998;
+  mix-blend-mode: multiply;
+  display: block;
+}
+@media (hover: none) { #mouse-trail { display: none; } }
+
+/* ===== 3D Cylinder Partner Marquee ===== */
+.partner-cylinder {
+  position: relative;
+  height: 260px;
+  background:
+    radial-gradient(ellipse 60% 80% at 50% 50%, rgba(146,18,48,0.04), transparent 70%),
+    var(--bg);
+  border-top: 1px solid var(--paper);
+  border-bottom: 1px solid var(--paper);
+  overflow: hidden;
+  perspective: 900px;
+  perspective-origin: 50% 50%;
+}
+.partner-cylinder::before,
+.partner-cylinder::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 180px;
+  z-index: 4; pointer-events: none;
+}
+.partner-cylinder::before { left: 0; background: linear-gradient(90deg, var(--bg) 25%, transparent); }
+.partner-cylinder::after  { right: 0; background: linear-gradient(-90deg, var(--bg) 25%, transparent); }
+
+.partner-cylinder-head {
+  position: absolute; left: 32px; top: 50%; transform: translateY(-50%);
+  z-index: 5;
+  background: var(--bg);
+  padding: 8px 14px 8px 0;
+  border-right: 1px solid var(--mute-line);
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--acid);
+  display: flex; align-items: center; gap: 10px;
+}
+.partner-cylinder-head::before {
+  content: ''; width: 7px; height: 7px; background: var(--acid); border-radius: 50%;
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.cylinder-stage {
+  position: absolute; left: 50%; top: 50%;
+  transform-style: preserve-3d;
+  animation: rotateCylinder 40s linear infinite;
+  will-change: transform;
+}
+.partner-cylinder:hover .cylinder-stage {
+  animation-play-state: paused;
+}
+.cylinder-face {
+  position: absolute;
+  width: 260px; height: 140px;
+  left: -130px; top: -70px;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding: 0 22px;
+  background: linear-gradient(180deg, rgba(246,244,239,0.95), rgba(236,232,223,0.85));
+  border: 1px solid var(--paper);
+  box-shadow:
+    0 20px 40px -10px rgba(13,13,13,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: box-shadow 0.3s;
+}
+.cylinder-face::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+.cylinder-face svg {
+  width: 64px; height: 64px;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.cylinder-face .meta {
+  display: flex; flex-direction: column; gap: 5px;
+  line-height: 1.15;
+  position: relative; z-index: 1;
+}
+.cylinder-face .meta .cat {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--acid); font-weight: 700;
+}
+.cylinder-face .meta .name {
+  font-family: var(--sans); font-weight: 900;
+  font-size: 15px; letter-spacing: -0.025em;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+@keyframes rotateCylinder {
+  from { transform: translate(-50%, -50%) rotateY(0deg); }
+  to   { transform: translate(-50%, -50%) rotateY(-360deg); }
+}
+@media (max-width: 700px) {
+  .partner-cylinder { height: 140px; perspective: 900px; }
+  .cylinder-face { width: 160px; height: 70px; left: -80px; top: -35px; padding: 0 12px; gap: 8px; }
+  .cylinder-face svg { width: 36px; height: 36px; }
+  .cylinder-face .meta .name { font-size: 11px; }
+  .partner-cylinder-head { display: none; }
+}
+
+/* ===== System status orb (bottom-left floating live indicator) ===== */
+.status-orb {
+  position: fixed;
+  bottom: 24px; left: 24px;
+  z-index: 80;
+  background: rgba(13,13,13,0.85);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(146,18,48,0.4);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bg);
+}
+.status-orb::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.3), 0 0 12px rgba(16,185,129,0.6);
+  animation: pulse-orb 2s ease-in-out infinite;
+}
+@keyframes pulse-orb {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.3), 0 0 12px rgba(16,185,129,0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(16,185,129,0.1), 0 0 20px rgba(16,185,129,0.8); }
+}
+.status-orb .v { color: #10b981; font-weight: 700; }
+@media (max-width: 700px) {
+  .status-orb { bottom: 16px; left: 16px; padding: 8px 11px; font-size: 9.5px; }
+}
+
+/* ===== Section transition slabs ===== */
+.slab-divider {
+  height: 80px;
+  background:
+    linear-gradient(180deg, var(--bg), var(--bg-deep)),
+    repeating-linear-gradient(90deg, transparent 0, transparent 60px, rgba(146,18,48,0.05) 60px, rgba(146,18,48,0.05) 61px);
+  position: relative;
+  overflow: hidden;
+}
+.slab-divider::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--acid), transparent);
+  transform: translateY(-50%);
+  animation: slab-shine 4s ease-in-out infinite;
+}
+@keyframes slab-shine {
+  0%, 100% { transform: translateY(-50%) translateX(-100%); }
+  50% { transform: translateY(-50%) translateX(100%); }
+}
+
+/* ===== Tilt / parallax cards ===== */
+.tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(.2,.7,.2,1);
+}
+
+/* ===== Live "thinking" log ticker (subtle, top of intel section) ===== */
+.thinking-strip {
+  background: rgba(13,13,13,0.95);
+  color: var(--bg);
+  padding: 10px 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(246,244,239,0.1);
+  border-bottom: 1px solid rgba(246,244,239,0.1);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  position: relative;
+}
+.thinking-strip-track {
+  display: flex; gap: 32px;
+  animation: thinking-scroll 60s linear infinite;
+  width: max-content;
+  white-space: nowrap;
+}
+.thinking-strip-track span {
+  color: rgba(246,244,239,0.8);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.thinking-strip-track .acid { color: var(--acid-bright); font-weight: 600; }
+.thinking-strip-track .ok { color: #10b981; }
+.thinking-strip-track::before {
+  content: '◉ THINKING'; color: var(--acid-bright); font-weight: 700;
+}
+@keyframes thinking-scroll {
+  to { transform: translateX(-50%); }
+}
+
+/* ===== Container quary based fluid sizing ===== */
+@container (max-width: 700px) {
+  .svc h3 { font-size: 22px; }
+}
+.svc, .prod-detail .pd-cell { container-type: inline-size; }
+
+/* ===== Animated CSS variable accent for sections ===== */
+@property --acc-x { syntax: '<percentage>'; initial-value: 50%; inherits: false; }
+@property --acc-y { syntax: '<percentage>'; initial-value: 50%; inherits: false; }
+
+.svc {
+  background:
+    radial-gradient(circle at var(--acc-x) var(--acc-y), rgba(146,18,48,0.02), transparent 60%),
+    var(--bg);
+  transition: --acc-x 0.6s ease, --acc-y 0.6s ease, background 0.4s;
+}
+
+/* ===== Scroll progress bar at the very top ===== */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  z-index: 200;
+  pointer-events: none;
+}
+.scroll-progress > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--acid), var(--acid-bright), var(--plasma));
+  transform-origin: left;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.06s linear;
+  box-shadow: 0 0 12px rgba(146,18,48,0.6);
+}
