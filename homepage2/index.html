@@ -76,8 +76,44 @@
       height: calc(100svh - 72px);
     }
     body.has-hero .hero-inline-partners {
-      height: clamp(120px, 20vh, 160px);
-      margin-top: 22px;
+      height: clamp(128px, 21vh, 168px);
+      margin-top: 30px;
+    }
+    body.has-hero .hero-inline-partners .cylinder-face {
+      width: 154px;
+      height: 68px;
+      left: -77px;
+      top: -34px;
+      padding: 0 10px;
+    }
+    body.has-hero .hero-inline-partners .cylinder-face .logo-mark {
+      width: 114px;
+      height: 32px;
+      transform-origin: center;
+    }
+    body.has-hero .hero-inline-partners .cylinder-face .logo-mark.logo-youth-foundation {
+      transform: scale(1.2);
+    }
+    body.has-hero .hero-inline-partners .cylinder-face .logo-mark.logo-localmotive {
+      width: 126px;
+      height: 34px;
+      transform: scale(1.04);
+    }
+  }
+  @media (max-width: 400px) {
+    body.has-hero .hero-inline-partners {
+      margin-top: 26px;
+      height: clamp(120px, 20vh, 154px);
+    }
+    body.has-hero .hero-inline-partners .cylinder-face {
+      width: 146px;
+      height: 64px;
+      left: -73px;
+      top: -32px;
+    }
+    body.has-hero .hero-inline-partners .cylinder-face .logo-mark {
+      width: 106px;
+      height: 30px;
     }
   }
 </style>
