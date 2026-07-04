@@ -12,6 +12,31 @@
 - 알림 시스템
 - 사용자 인증 + 워치리스트
 
+## 🆕 2026-07-04 결제/레퍼럴/포인트/관리자 고도화 (핵심 백엔드)
+
+- 대상 모듈:
+  - `src/api/purchases.py`
+  - `src/api/referral.py`
+  - `.env.example`
+- 개선 내용:
+  - 결제 웹훅 엔드포인트 추가: `POST /v1/purchases/webhook/payment`
+    - HMAC-SHA256 서명 검증 (`PAYMENT_WEBHOOK_SECRET`)
+    - 멱등 처리 (`payment_events`의 `provider + event_id` unique)
+    - 주문 상태(`pending/paid/failed/canceled`) 반영
+    - 결제 성공 시 레퍼럴 첫 결제 보상 `on_payment()` 원자적 연동
+  - 구매 플로우 고도화:
+    - `POST /v1/purchases/buy` 시 `order_id` 발급
+    - `GET /v1/purchases/mine`에 `order_id`, `payment_ref` 노출
+  - 레퍼럴 정합성 강화:
+    - 월 지급 상한(`MONTHLY_REFERRAL_CAP`) 실제 적용
+    - 이메일 인증 보상/첫 결제 보상 멱등 강화
+    - `registered → verified → paid` 상태 전이 보강
+    - point_lots 존재 시 자동 연동(만료/FIFO 정책과 정합)
+  - 관리자 운영 API 추가:
+    - `GET /v1/referral/admin/integrity-check` (이상 데이터 탐지)
+    - `POST /v1/referral/admin/reconcile` (건별 복구, dry-run 지원)
+    - `GET /v1/purchases/admin/payments` (결제 이벤트 감사 조회)
+
 ## 🆕 2026-07-04 랜딩 SEO/디자인 고도화
 
 - 대상 페이지: `https://chart.beomonnuri.com/landing`
