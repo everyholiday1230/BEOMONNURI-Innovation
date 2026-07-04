@@ -1,0 +1,11 @@
+# Workspace-level ignores
+.wrangler/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log

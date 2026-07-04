@@ -831,6 +831,36 @@ button:focus-visible,
       <div style="overflow-x:auto;margin-top:8px"><table id="fraudTable"><thead><tr><th>유형</th><th>대상</th><th>건수</th><th>심각도</th><th>설명</th></tr></thead><tbody><tr><td colspan="5" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
       <button onclick="loadFraudSignals()" class="btn btn-secondary btn-sm" style="margin-top:8px">새로고침</button>
     </div>
+    <div class="card" style="margin-top:12px">
+      <h3>레퍼럴 정합성 점검 / 복구</h3>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:4px">점검 결과를 확인한 뒤 dry-run으로 복구 예정 액션을 검토하고 실제 복구를 실행할 수 있습니다.</p>
+      <div class="admin-row" style="margin-top:8px">
+        <button onclick="loadReferralIntegrity()" class="btn btn-secondary btn-sm">정합성 점검 새로고침</button>
+        <span id="ptIntegritySummary" style="font-size:12px;color:var(--color-text-secondary)">아직 점검되지 않았습니다.</span>
+      </div>
+      <div style="overflow-x:auto;margin-top:8px"><table id="ptIntegrityTable"><thead><tr><th>유형</th><th>대상</th><th>건수</th><th>상세</th></tr></thead><tbody><tr><td colspan="4" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr auto auto;gap:6px;margin-top:10px;align-items:center">
+        <input id="ptReconcileReferredId" class="admin-input" placeholder="복구 대상 referred_id (사용자 ID)">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary)"><input type="checkbox" id="ptReconcileDryRun" checked> dry-run</label>
+        <button onclick="runReferralReconcile(false)" class="btn btn-secondary btn-sm">dry-run 실행</button>
+        <button onclick="runReferralReconcile(true)" class="btn btn-primary btn-sm">실제 복구 실행</button>
+      </div>
+      <pre id="ptReconcileResult" style="margin-top:8px;background:var(--color-surface);padding:10px;border-radius:6px;font-size:11px;white-space:pre-wrap;color:var(--color-text-secondary)">복구 결과가 여기에 표시됩니다.</pre>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <h3>결제 이벤트 감사 로그</h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="loadAdminPayments(1)" class="btn btn-secondary btn-sm">새로고침</button>
+          <span id="ptPaymentsPageInfo" style="font-size:12px;color:var(--color-text-muted)">page 1</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto;margin-top:8px"><table id="ptPaymentsTable"><thead><tr><th>시각</th><th>provider</th><th>event_id</th><th>status</th><th>order_id</th><th>user_id</th><th>indicator</th><th>amount</th><th>processed</th></tr></thead><tbody><tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+      <div class="admin-row admin-row-end" style="margin-top:8px">
+        <button onclick="loadAdminPayments(Math.max(1, (window._adminPaymentPage||1)-1))" class="btn btn-secondary btn-xs">이전</button>
+        <button onclick="loadAdminPayments((window._adminPaymentPage||1)+1)" class="btn btn-secondary btn-xs">다음</button>
+      </div>
+    </div>
   </div>
 
   <!-- 심볼/시장 데이터 관리 -->
@@ -1444,6 +1474,8 @@ async function _showDashboard(){
     ()=>{ if(_canOpenTab('superchart') && typeof loadSuperchartAdmin==='function') loadSuperchartAdmin(); },
     ()=>{ if(_canOpenTab('points') && typeof loadPointsAdmin==='function') loadPointsAdmin(); },
     ()=>{ if(_canOpenTab('points') && typeof loadProducts==='function') loadProducts(); },
+    ()=>{ if(_canOpenTab('points') && typeof loadReferralIntegrity==='function') loadReferralIntegrity(); },
+    ()=>{ if(_canOpenTab('points') && typeof loadAdminPayments==='function') loadAdminPayments(1); },
   ];
   _initCalls.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('admin init skip', e&&e.message); } });
   // 초기 탭 (overview) — showAdminTab은 아래에서 정의되므로 지연 호출
@@ -1507,7 +1539,12 @@ function showAdminTab(tab){
   else if (tab === 'content') { loadNotices(); loadFaqs(); }
   else if (tab === 'settings') loadSettings();
   else if (tab === 'logs') loadLogs();
-  else if (tab === 'points') { if (typeof loadPointsAdmin === 'function') loadPointsAdmin(); if (typeof loadProducts === 'function') loadProducts(); }
+  else if (tab === 'points') {
+    if (typeof loadPointsAdmin === 'function') loadPointsAdmin();
+    if (typeof loadProducts === 'function') loadProducts();
+    if (typeof loadReferralIntegrity === 'function') loadReferralIntegrity();
+    if (typeof loadAdminPayments === 'function') loadAdminPayments(1);
+  }
   else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
   else if (tab === 'superchart') { if (typeof loadSuperchartAdmin === 'function') loadSuperchartAdmin(); }
   else if (tab === 'admins') { if (typeof loadAdminAccounts === 'function') loadAdminAccounts(); }
@@ -1826,6 +1863,103 @@ async function loadFraudSignals(){
   }catch(e){ tb.innerHTML='<tr><td colspan="5" style="color:var(--color-text-muted)">신호를 불러오지 못했습니다.</td></tr>'; }
 }
 window.loadFraudSignals = loadFraudSignals;
+
+let _adminPaymentPage = 1;
+window._adminPaymentPage = 1;
+
+async function loadReferralIntegrity(){
+  const summaryEl=document.getElementById('ptIntegritySummary');
+  const tb=document.querySelector('#ptIntegrityTable tbody');
+  if(tb) tb.innerHTML='<tr><td colspan="4" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  if(summaryEl) summaryEl.textContent='정합성 점검 실행 중...';
+  try{
+    const r=await window.api.raw('/v1/referral/admin/integrity-check');
+    const j=r.ok?await r.json():null;
+    const d=(j&&j.data)||{};
+    const dup=d.duplicate_referred_links||[];
+    const missSignup=d.missing_signup_reward||[];
+    const missPay=d.missing_payment_reward||[];
+    const rows=[];
+    rows.push({type:'중복 referred_id',target:dup.length?dup.map(x=>x.referred_id).join(', '):'-',count:dup.length,detail:'동일 피추천인 복수 링크'});
+    rows.push({type:'미지급 가입보상',target:missSignup.length?missSignup.map(x=>x.referred_id).join(', '):'-',count:missSignup.length,detail:'status=verified/paid 이나 referral_signup 원장 누락'});
+    rows.push({type:'미지급 결제보상',target:missPay.length?missPay.map(x=>x.referred_id).join(', '):'-',count:missPay.length,detail:'status=paid 이나 referral_payment 원장 누락'});
+    if(tb){
+      tb.innerHTML=rows.map(rw=>`<tr><td>${_admEsc(rw.type)}</td><td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${_admEsc(rw.target)}">${_admEsc(rw.target)}</td><td>${Number(rw.count||0).toLocaleString()}</td><td style="font-size:11px;color:var(--color-text-secondary)">${_admEsc(rw.detail)}</td></tr>`).join('');
+    }
+    if(summaryEl){
+      const totalIssue=dup.length+missSignup.length+missPay.length;
+      summaryEl.textContent = totalIssue===0 ? '정합성 이슈 없음' : `이슈 ${totalIssue.toLocaleString()}건 (중복 ${dup.length}, 가입보상 ${missSignup.length}, 결제보상 ${missPay.length})`;
+      summaryEl.style.color = totalIssue===0 ? 'var(--color-success)' : 'var(--color-warning)';
+    }
+  }catch(e){
+    if(tb) tb.innerHTML='<tr><td colspan="4" style="color:var(--color-error)">정합성 점검 조회에 실패했습니다.</td></tr>';
+    if(summaryEl){ summaryEl.textContent='정합성 점검 실패'; summaryEl.style.color='var(--color-error)'; }
+  }
+}
+window.loadReferralIntegrity = loadReferralIntegrity;
+
+async function runReferralReconcile(forceApply){
+  const input=document.getElementById('ptReconcileReferredId');
+  const dryBox=document.getElementById('ptReconcileDryRun');
+  const out=document.getElementById('ptReconcileResult');
+  const referredId=((input&&input.value)||'').trim();
+  if(!referredId){
+    if(out) out.textContent='referred_id를 입력해 주세요.';
+    return;
+  }
+  const dryRun = forceApply ? false : !!(dryBox&&dryBox.checked);
+  if(forceApply){
+    if(!confirm(`referred_id=${referredId} 대상 복구를 실제 실행하시겠습니까?`)) return;
+  }
+  if(out) out.textContent='복구 요청 중...';
+  try{
+    const r=await window.api.raw('/v1/referral/admin/reconcile', {method:'POST', body:{referred_id:referredId, dry_run:dryRun}});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){
+      if(out) out.textContent=`실패: ${_errMsg(j)}`;
+      return;
+    }
+    if(out) out.textContent=JSON.stringify((j&&j.data)||j, null, 2);
+    await loadReferralIntegrity();
+    if(!dryRun && typeof loadPointsAdmin==='function') await loadPointsAdmin();
+  }catch(e){
+    if(out) out.textContent='네트워크 오류로 복구 요청에 실패했습니다.';
+  }
+}
+window.runReferralReconcile = runReferralReconcile;
+
+async function loadAdminPayments(page){
+  _adminPaymentPage = Math.max(1, Number(page||1));
+  window._adminPaymentPage = _adminPaymentPage;
+  const info=document.getElementById('ptPaymentsPageInfo');
+  const tb=document.querySelector('#ptPaymentsTable tbody');
+  if(info) info.textContent=`page ${_adminPaymentPage} 로딩 중...`;
+  if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  try{
+    const r=await window.api.raw(`/v1/purchases/admin/payments?page=${_adminPaymentPage}`);
+    const j=r.ok?await r.json():null;
+    const d=(j&&j.data)||{};
+    const items=d.items||[];
+    if(tb){
+      tb.innerHTML=items.length?items.map(it=>`<tr>
+        <td style="font-size:11px">${_admEsc((it.created_at||'').slice(0,19).replace('T',' '))}</td>
+        <td>${_admEsc(it.provider||'-')}</td>
+        <td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="${_admEsc(it.event_id||'')}">${_admEsc(it.event_id||'-')}</td>
+        <td>${_admEsc(it.status||'-')}</td>
+        <td style="font-size:11px">${_admEsc(it.order_id||'-')}</td>
+        <td style="font-size:11px">${_admEsc(it.user_id||'-')}</td>
+        <td>${_admEsc(it.indicator_code||'-')}</td>
+        <td>${it.amount==null?'-':Number(it.amount).toLocaleString()} ${_admEsc(it.currency||'')}</td>
+        <td>${it.processed?'<span style="color:var(--color-success)">processed</span>':'<span style="color:var(--color-warning)">pending</span>'}</td>
+      </tr>`).join(''):'<tr><td colspan="9" style="color:var(--color-text-muted)">결제 이벤트가 없습니다.</td></tr>';
+    }
+    if(info) info.textContent=`page ${_adminPaymentPage} · ${items.length}건`;
+  }catch(e){
+    if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-error)">결제 이벤트를 불러오지 못했습니다.</td></tr>';
+    if(info) info.textContent=`page ${_adminPaymentPage} 조회 실패`;
+  }
+}
+window.loadAdminPayments = loadAdminPayments;
 
 // ─────────── 요금제 관리 ───────────
 async function loadPlans(){

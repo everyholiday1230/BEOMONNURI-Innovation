@@ -36,6 +36,10 @@
     - `GET /v1/referral/admin/integrity-check` (이상 데이터 탐지)
     - `POST /v1/referral/admin/reconcile` (건별 복구, dry-run 지원)
     - `GET /v1/purchases/admin/payments` (결제 이벤트 감사 조회)
+  - 관리자 UI 연동(`templates/admin.html`):
+    - 포인트/레퍼럴 탭에서 정합성 점검 결과 테이블 실시간 조회
+    - `referred_id` 기준 dry-run/실행 복구 폼 제공
+    - 결제 이벤트 감사 로그 페이지네이션 조회(최근 이벤트 추적)
 
 ## 🆕 2026-07-04 랜딩 SEO/디자인 고도화
 
