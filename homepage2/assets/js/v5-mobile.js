@@ -43,9 +43,6 @@
           <a href="why.html"       ${activeHref === 'why.html' ? 'class="active"' : ''}>
             <span>WHY</span><span class="num">03</span>
           </a>
-          <a href="cases.html"     ${activeHref === 'cases.html' ? 'class="active"' : ''}>
-            <span>CASES</span><span class="num">04</span>
-          </a>
         </nav>
         <div class="cta-row">
           <a href="contact.html">
@@ -54,7 +51,7 @@
           </a>
         </div>
         <div class="meta-row">
-          <span class="live">SYSTEM LIVE · KR-PRIVATE · 99.98% UPTIME</span>
+          <span class="live">SYSTEM LIVE · KR-PRIVATE · STATUS</span>
           <span>© 2026 BEOMONNURI INC. · v2.6</span>
         </div>
       </div>

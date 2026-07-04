@@ -15,8 +15,8 @@
 <meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="apple-touch-icon" href="assets/favicon.svg">
+<link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/logos/company/favicon-192.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,24 +32,125 @@
     if (m.includes('Transition was skipped') || m.includes('view transition')) e.preventDefault();
   });
 </script>
+<style>
+  .products-home-summary {
+    padding: 28px 0 44px;
+    border-bottom: 1px solid rgba(13,13,13,0.12);
+  }
+  .products-home-summary .hero-bottom {
+    margin-top: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid rgba(13,13,13,0.3);
+  }
+  .products-home-summary .hb-cell {
+    border-right: 1px solid rgba(13,13,13,0.3);
+  }
+  .products-home-summary .hb-cell:last-child {
+    border-right: 0;
+  }
+  .home-transfer-products {
+    padding: 42px 0 54px;
+    border-bottom: 1px solid rgba(13,13,13,0.12);
+    background: linear-gradient(180deg, rgba(146,18,48,0.035), transparent 70%);
+  }
+  .home-transfer-products .ht-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+  }
+  .home-transfer-products .ht-card {
+    border: 1px solid rgba(13,13,13,0.15);
+    background: rgba(255,255,255,0.72);
+    padding: 24px;
+  }
+  .home-transfer-products .ht-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(24px, 2.2vw, 34px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .home-transfer-products .ht-sub {
+    color: rgba(13,13,13,0.72);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .home-transfer-products .ht-pipe {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .home-transfer-products .ht-step {
+    border: 1px dashed rgba(13,13,13,0.2);
+    padding: 10px;
+    min-height: 92px;
+  }
+  .home-transfer-products .ht-step .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    color: rgba(13,13,13,0.56);
+    margin-bottom: 8px;
+  }
+  .home-transfer-products .ht-step .v {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .home-transfer-products .ht-list {
+    display: grid;
+    gap: 8px;
+  }
+  .home-transfer-products .ht-list a {
+    display: block;
+    padding: 10px 12px;
+    border: 1px solid rgba(13,13,13,0.16);
+    font-weight: 700;
+    transition: 0.2s ease;
+  }
+  .home-transfer-products .ht-list a:hover {
+    background: #921230;
+    border-color: #921230;
+    color: #fff;
+  }
+  @media (max-width: 960px) {
+    .products-home-summary .hero-bottom {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .products-home-summary .hb-cell {
+      border-right: 1px solid rgba(13,13,13,0.3);
+      border-bottom: 1px solid rgba(13,13,13,0.3);
+    }
+    .home-transfer-products .ht-grid { grid-template-columns: 1fr; }
+    .home-transfer-products .ht-pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .products-home-summary .hero-bottom {
+      grid-template-columns: 1fr;
+    }
+    .products-home-summary .hb-cell {
+      border-right: 0;
+    }
+  }
+</style>
 </head>
 
 <body class="grain">
-
-<div class="cursor-ring"></div>
-<div class="cursor-dot"></div>
-
 <!-- NAV -->
 <nav class="top">
   <div class="container row">
     <a class="brand" href="index.html">
-      <span class="box"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#BFFF00"/><rect x="8" y="7" width="4" height="18" fill="#0d0d0d"/><path d="M12 7 H18 a4 4 0 0 1 0 8 H12 Z" fill="#0d0d0d"/><path d="M12 15 H19 a5 5 0 0 1 0 10 H12 Z" fill="#0d0d0d"/><circle cx="23" cy="9" r="2.4" fill="#921230"/></svg></span> BEOMONNURI<sup style="font-size:0.45em; vertical-align: top; letter-spacing: 0.05em;">®</sup>
+      <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></span>
+      <span class="brand-copy">
+        <span class="brand-ko">범온누리 이노베이션</span>
+        <span class="brand-en">BEOMONNURI INNOVATION</span>
+      </span>
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
       <a href="products.html" class="active">Products</a>
       <a href="why.html">Why</a>
-      <a href="cases.html">Cases</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
   </div>
@@ -70,6 +171,59 @@
       <div><div class="k">/ DEPLOY</div><div class="v">On-Prem · Private Cloud</div></div>
       <div><div class="k">/ TIMELINE</div><div class="v">6 weeks <span class="ac">→</span> Operate</div></div>
       <div><div class="k">/ DATA</div><div class="v">KR · PRIVATE</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="products-home-summary reveal" id="products-home-summary">
+  <div class="container">
+    <div class="sect-label">HOME RELOCATION / CORE SUMMARY</div>
+    <div class="hero-bottom">
+      <div class="hb-cell">
+        <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
+        <div class="val">보안 환경의<br>엔터프라이즈 AI</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
+        <div class="val">4개의 AI 제품<br>산업별 맞춤 운영</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
+        <div class="val">목표 기반으로<br>성과 점검</div>
+      </div>
+      <div class="hb-cell cta-cell">
+        <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
+        <div class="val"><a href="contact.html">도입 진단<span class="arr">↗</span></a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home-transfer-products reveal" id="home-transfer-products">
+  <div class="container">
+    <div class="sect-label">HOME RELOCATION / PRODUCTS CONTEXT</div>
+    <div class="ht-grid">
+      <article class="ht-card">
+        <h2 class="ht-title">홈의 파이프라인 설명을<br>Products에서 바로 확인</h2>
+        <p class="ht-sub">홈에서 빠진 핵심 설명(입력→보안 임베딩→추론→운영 결과)을 제품 관점으로 재배치했습니다. 제품 검토 전에 전체 흐름을 먼저 이해할 수 있습니다.</p>
+        <div class="ht-pipe">
+          <div class="ht-step"><div class="k">01 · INPUT</div><div class="v">데이터 수집</div></div>
+          <div class="ht-step"><div class="k">02 · EMBED</div><div class="v">보안 임베딩·인덱싱</div></div>
+          <div class="ht-step"><div class="k">03 · AGENT</div><div class="v">추론·업무 실행</div></div>
+          <div class="ht-step"><div class="k">04 · OUTPUT</div><div class="v">성과 점검</div></div>
+        </div>
+      </article>
+      <aside class="ht-card">
+        <h3 class="ht-title">제품 탐색 순서</h3>
+        <p class="ht-sub">조직의 우선 과제 기준으로 빠르게 이동하세요.</p>
+        <div class="ht-list">
+          <a href="products-private.html">보안 우선 조직 → 프라이빗 AI</a>
+          <a href="products-agent.html">반복 업무 자동화 → 에이전트 AI</a>
+          <a href="products-superchart.html">시장·리서치 분석 → 슈퍼차트 AI</a>
+          <a href="products-apartment.html">관리 운영 통합 → 공동주택 관리 AI</a>
+          <a href="why.html">도입 원칙 확인 → Why 페이지</a>
+        </div>
+      </aside>
     </div>
   </div>
 </section>
@@ -165,8 +319,8 @@
   <div class="container">
     <div class="footer-grid">
       <div>
-        <div class="ft-brand">범온누리<sup style="font-size:0.5em;">®</sup></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 데모가 아닌 KPI로 증명합니다.</div>
+        <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
+        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>
@@ -178,14 +332,12 @@
       <div>
         <h5>Company</h5>
         <a href="why.html">Why Beomonnuri</a>
-        <a href="cases.html">Cases</a>
         <a href="contact.html">Contact</a>
       </div>
       <div>
         <h5>Connect</h5>
-        <a href="/cdn-cgi/l/email-protection#18707d747477587a7d77757776766d6a71367971"><span class="__cf_email__" data-cfemail="9cf4f9f0f0f3dcfef9f3f1f3f2f2e9eef5b2fdf5">[email&#160;protected]</span></a>
-        <a href="#">+82 2 0000 0000</a>
-        <a href="#">Seoul, KR</a>
+        <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
+        <a href="#">경기도 구리시 /갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -196,7 +348,6 @@
 
 <!-- AI WIDGET -->
 <div class="scroll-progress" aria-hidden="true"><div></div></div>
-<canvas id="mouse-trail" aria-hidden="true"></canvas>
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
     <filter id="chroma">
@@ -212,7 +363,7 @@
   </defs>
 </svg>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="assets/js/ai-frontier.js"></script>
+<script src="assets/js/ai-frontier.js"></script>
 <script src="assets/js/v5-nextgen.js"></script>
 <script src="assets/js/v5-webgpu.js"></script>
 <script src="assets/js/v5-anchor.js"></script>

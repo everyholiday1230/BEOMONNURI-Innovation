@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Why us — 범온누리</title>
-<meta name="description" content="AI를 운영 시스템으로 설계합니다. SECURE · OPERABLE · MEASURABLE. 데모가 아닌 KPI로 증명.">
+<meta name="description" content="AI를 운영 시스템으로 설계합니다. SECURE · OPERABLE · MEASURABLE 원칙으로 프로젝트를 진행합니다.">
 
 <meta name="theme-color" content="#921230">
 <link rel="canonical" href="https://beomonnuri.ai/why.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BEOMONNURI">
 <meta property="og:title" content="Why BEOMONNURI — 운영 시스템으로서의 AI">
-<meta property="og:description" content="SECURE · OPERABLE · MEASURABLE. KPI로 증명.">
+<meta property="og:description" content="SECURE · OPERABLE · MEASURABLE 원칙 기반 접근.">
 <meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="apple-touch-icon" href="assets/favicon.svg">
+<link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/logos/company/favicon-192.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,24 +32,104 @@
     if (m.includes('Transition was skipped') || m.includes('view transition')) e.preventDefault();
   });
 </script>
+<style>
+  .home-transfer-why {
+    padding: 42px 0 54px;
+    border-bottom: 1px solid rgba(13,13,13,0.12);
+    background: linear-gradient(180deg, rgba(146,18,48,0.035), transparent 70%);
+  }
+  .home-transfer-why .hw-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 20px;
+  }
+  .home-transfer-why .hw-card {
+    border: 1px solid rgba(13,13,13,0.15);
+    background: rgba(255,255,255,0.72);
+    padding: 24px;
+  }
+  .home-transfer-why .hw-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(24px, 2.2vw, 34px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .home-transfer-why .hw-sub {
+    color: rgba(13,13,13,0.72);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .home-transfer-why .hw-steps {
+    display: grid;
+    gap: 8px;
+  }
+  .home-transfer-why .hw-step {
+    border: 1px dashed rgba(13,13,13,0.2);
+    padding: 10px 12px;
+  }
+  .home-transfer-why .hw-step .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    color: rgba(13,13,13,0.56);
+    margin-bottom: 4px;
+  }
+  .home-transfer-why .hw-step .v {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .home-transfer-why .hw-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .home-transfer-why .hw-metrics .m {
+    border: 1px solid rgba(13,13,13,0.16);
+    background: rgba(255,255,255,0.76);
+    padding: 12px;
+  }
+  .home-transfer-why .hw-metrics .mk {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(13,13,13,0.56);
+    margin-bottom: 4px;
+    letter-spacing: 0.07em;
+  }
+  .home-transfer-why .hw-metrics .mv {
+    font-size: 19px;
+    font-weight: 800;
+    color: #921230;
+    margin-bottom: 4px;
+  }
+  .home-transfer-why .hw-metrics .md {
+    font-size: 12px;
+    line-height: 1.45;
+    color: rgba(13,13,13,0.72);
+  }
+  @media (max-width: 960px) {
+    .home-transfer-why .hw-grid { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 
 <body class="grain">
-
-<div class="cursor-ring"></div>
-<div class="cursor-dot"></div>
-
 <!-- NAV -->
 <nav class="top">
   <div class="container row">
     <a class="brand" href="index.html">
-      <span class="box"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#BFFF00"/><rect x="8" y="7" width="4" height="18" fill="#0d0d0d"/><path d="M12 7 H18 a4 4 0 0 1 0 8 H12 Z" fill="#0d0d0d"/><path d="M12 15 H19 a5 5 0 0 1 0 10 H12 Z" fill="#0d0d0d"/><circle cx="23" cy="9" r="2.4" fill="#921230"/></svg></span> BEOMONNURI<sup style="font-size:0.45em; vertical-align: top; letter-spacing: 0.05em;">®</sup>
+      <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></span>
+      <span class="brand-copy">
+        <span class="brand-ko">범온누리 이노베이션</span>
+        <span class="brand-en">BEOMONNURI INNOVATION</span>
+      </span>
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
       <a href="products.html">Products</a>
       <a href="why.html" class="active">Why</a>
-      <a href="cases.html">Cases</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
   </div>
@@ -72,6 +152,33 @@
       <div><div class="k">/ PRINCIPLES</div><div class="v">Secure · Operable · Measurable</div></div>
       <div><div class="k">/ TIMELINE</div><div class="v">6 weeks <span class="ac">→</span> Operate</div></div>
       <div><div class="k">/ PROOF</div><div class="v">KPI · 측정 가능</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="home-transfer-why reveal" id="home-transfer-why">
+  <div class="container">
+    <div class="sect-label">HOME RELOCATION / WHY CONTEXT</div>
+    <div class="hw-grid">
+      <article class="hw-card">
+        <h2 class="hw-title">홈의 도입 방식(3단계)을<br>Why 상단에 재배치</h2>
+        <p class="hw-sub">진단 → 파일럿 → 운영 전환 흐름을 원칙 설명 전에 먼저 배치해, 의사결정 순서가 자연스럽게 이어지도록 구성했습니다.</p>
+        <div class="hw-steps">
+          <div class="hw-step"><div class="k">STEP 01 · DIAGNOSE</div><div class="v">핵심 과제 정의, 데이터 범위·목표 기준 협의</div></div>
+          <div class="hw-step"><div class="k">STEP 02 · PILOT</div><div class="v">실데이터 기반 검증, 사용자 피드백과 보안 점검 병행</div></div>
+          <div class="hw-step"><div class="k">STEP 03 · OPERATE</div><div class="v">운영 전환 후 정기 점검과 개선 루프 진행</div></div>
+        </div>
+      </article>
+      <aside class="hw-card">
+        <h3 class="hw-title">성과 지표 안내</h3>
+        <p class="hw-sub">홈의 인텔 섹션 메시지를 유지하되 과장 표현 없이, 실제 수치는 프로젝트 범위에 따라 별도 합의·측정한다는 원칙을 명확히 표시합니다.</p>
+        <div class="hw-metrics">
+          <div class="m"><div class="mk">THROUGHPUT</div><div class="mv">예시 지표</div><div class="md">실제 처리량은 환경·데이터 조건에 따라 달라집니다.</div></div>
+          <div class="m"><div class="mk">ACCURACY</div><div class="mv">합의 기준 측정</div><div class="md">평가 항목과 기준은 도입 전 협의합니다.</div></div>
+          <div class="m"><div class="mk">PROCESS TIME</div><div class="mv">업무별 상이</div><div class="md">자동화 범위·승인 절차에 따라 시간 차이가 있습니다.</div></div>
+          <div class="m"><div class="mk">SECURITY LOG</div><div class="mv">감사 가능</div><div class="md">접근·활용 이력은 로그 정책에 따라 점검합니다.</div></div>
+        </div>
+      </aside>
     </div>
   </div>
 </section>
@@ -207,7 +314,7 @@
       우리는 AI를<br>
       <span class="stroke">데모로</span> 끝내지 않는다.<br>
       <span style="font-family: var(--en); font-style: italic;">OPERATING</span> <span class="red">SYSTEM</span>으로,<br>
-      KPI로 증명한다.
+      목표 지표를 함께 정의하고 점검한다.
     </div>
     <div class="mf-sign">
       <div class="sig">— 범온누리 (BEOMONNURI)<br>SEOUL · 2026</div>
@@ -221,8 +328,8 @@
   <div class="container">
     <div class="footer-grid">
       <div>
-        <div class="ft-brand">범온누리<sup style="font-size:0.5em;">®</sup></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 데모가 아닌 KPI로 증명합니다.</div>
+        <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
+        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>
@@ -234,14 +341,12 @@
       <div>
         <h5>Company</h5>
         <a href="why.html">Why Beomonnuri</a>
-        <a href="cases.html">Cases</a>
         <a href="contact.html">Contact</a>
       </div>
       <div>
         <h5>Connect</h5>
-        <a href="/cdn-cgi/l/email-protection#5f373a3333301f3d3a30323031312a2d36713e36"><span class="__cf_email__" data-cfemail="fd9598919192bd9f989290929393888f94d39c94">[email&#160;protected]</span></a>
-        <a href="#">+82 2 0000 0000</a>
-        <a href="#">Seoul, KR</a>
+        <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
+        <a href="#">경기도 구리시 /갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -252,7 +357,6 @@
 
 <!-- AI WIDGET -->
 <div class="scroll-progress" aria-hidden="true"><div></div></div>
-<canvas id="mouse-trail" aria-hidden="true"></canvas>
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
     <filter id="chroma">
@@ -268,7 +372,7 @@
   </defs>
 </svg>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="assets/js/ai-frontier.js"></script>
+<script src="assets/js/ai-frontier.js"></script>
 <script src="assets/js/v5-nextgen.js"></script>
 <script src="assets/js/v5-webgpu.js"></script>
 <script src="assets/js/v5-anchor.js"></script>

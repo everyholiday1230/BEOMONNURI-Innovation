@@ -5,9 +5,20 @@
 
 /* ---------- CUSTOM CURSOR ---------- */
 (() => {
-  const dot = document.querySelector('.cursor-dot');
-  const ring = document.querySelector('.cursor-ring');
-  if (!dot || !ring || matchMedia('(hover: none)').matches) return;
+  if (matchMedia('(hover: none)').matches) return;
+  let dot = document.querySelector('.cursor-dot');
+  let ring = document.querySelector('.cursor-ring');
+
+  if (!ring) {
+    ring = document.createElement('div');
+    ring.className = 'cursor-ring';
+    document.body.appendChild(ring);
+  }
+  if (!dot) {
+    dot = document.createElement('div');
+    dot.className = 'cursor-dot';
+    document.body.appendChild(dot);
+  }
   let mx = innerWidth/2, my = innerHeight/2, rx = mx, ry = my;
   addEventListener('mousemove', e => {
     mx = e.clientX; my = e.clientY;
@@ -46,18 +57,17 @@
 /* ---------- DATA TICKER ---------- */
 (() => {
   const items = [
-    {sym:'KOSPI', val:'2,718.4', d:'+0.42%'},
-    {sym:'KOSDAQ', val:'862.1', d:'+0.78%'},
-    {sym:'USD/KRW', val:'1,362', d:'-0.11%', down:true},
-    {sym:'WTI', val:'$76.2', d:'+1.24%'},
-    {sym:'NICKEL', val:'$18,420', d:'-0.62%', down:true},
-    {sym:'배추(상)', val:'₩4,820/kg', d:'+2.10%'},
-    {sym:'GPU·H100', val:'avail.', d:'4 nodes'},
-    {sym:'RAG·INDEX', val:'128,420 docs', d:'+312'},
-    {sym:'AGENTS·LIVE', val:'27', d:'+3'},
-    {sym:'PILOTS·Q2', val:'8 orgs', d:'active'},
-    {sym:'LATENCY·P95', val:'186 ms', d:'-12ms'},
-    {sym:'UPTIME·30D', val:'99.98%', d:'green'},
+    {sym:'MARKET A', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'MARKET B', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'FX', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'COMMODITY', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'OPS INDEX', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'AI NODE', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'RAG INDEX', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'AGENT FLOW', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'PILOT', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'LATENCY', val:'SAMPLE', d:'예시 데이터'},
+    {sym:'STATUS', val:'SAMPLE', d:'예시 화면'},
   ];
   const build = () => items.map(i => `
     <div class="tk-item">

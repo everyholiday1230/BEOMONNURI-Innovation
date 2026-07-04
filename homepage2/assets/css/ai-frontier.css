@@ -117,20 +117,49 @@ nav.top .row {
   height: 64px;
 }
 .brand {
-  font-family: var(--display); font-size: 20px; letter-spacing: -0.01em;
-  display: flex; align-items: center; gap: 10px;
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand .brand-copy {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.05;
+}
+.brand .brand-ko {
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: -0.025em;
+}
+.brand .brand-en {
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: rgba(13,13,13,0.62);
 }
 .brand .box {
-  width: 26px; height: 26px;
+  width: 34px;
+  height: 34px;
   display: inline-block;
   position: relative;
   overflow: hidden;
   border-radius: 4px;
   line-height: 0;
 }
+.brand .box img,
 .brand .box svg {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   display: block;
+  object-fit: contain;
+  object-position: center;
 }
 .brand .box::before {
   content: ''; position: absolute; inset: 0;
@@ -559,7 +588,6 @@ nav.top .row {
 
 .pm-item {
   display: flex; align-items: center; justify-content: center;
-  gap: 16px;
   padding: 0 44px;
   height: 80px;
   border-right: 1px solid var(--mute-line);
@@ -574,32 +602,42 @@ nav.top .row {
   opacity: 1;
 }
 .pm-item .logo-mark {
-  width: 56px; height: 56px;
+  width: 180px;
+  height: 44px;
+  max-width: none;
+  max-height: none;
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
+  object-position: center;
 }
-.pm-item .meta {
-  display: flex; flex-direction: column; gap: 4px;
-  line-height: 1.15;
+
+/* visually boost logos that look small while preserving original ratio */
+.pm-item .logo-mark.logo-edu-dku,
+.pm-item .logo-mark.logo-lab-knl,
+.pm-item .logo-mark.logo-youth-foundation,
+.pm-item .logo-mark.logo-moel,
+.pm-item .logo-mark.logo-korcham {
+  transform: scale(1.32);
+  transform-origin: center;
 }
-.pm-item .meta .cat {
-  font-family: var(--mono); font-size: 9.5px;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--acid);
-  font-weight: 600;
+
+/* two-logo rework: youth-foundation + localmotive */
+.pm-item .logo-mark.logo-youth-foundation {
+  transform: scale(1.40);
 }
-.pm-item .meta .name {
-  font-family: var(--sans); font-weight: 800;
-  font-size: 15px; letter-spacing: -0.025em;
-  color: var(--paper);
-  white-space: nowrap;
+.pm-item .logo-mark.logo-localmotive {
+  width: 210px;
+  height: 48px;
+  transform: scale(1.16);
+  transform-origin: center;
 }
+
+.pm-item .meta,
+.pm-item .meta .cat,
+.pm-item .meta .name,
 .pm-item .meta .name .en {
-  font-family: var(--mono); font-size: 11px;
-  font-weight: 500;
-  color: var(--mute);
-  margin-left: 6px;
-  letter-spacing: 0.04em;
+  display: none;
 }
 
 @keyframes pm-scroll {
@@ -609,8 +647,25 @@ nav.top .row {
   .partner-marquee-head { display: none; }
   .partner-marquee-track { padding-left: 0; animation-duration: 36s; }
   .pm-item { padding: 0 24px; height: 64px; }
-  .pm-item .logo-mark { width: 42px; height: 42px; }
-  .pm-item .meta .name { font-size: 13px; }
+  .pm-item .logo-mark { width: 132px; height: 34px; max-width: none; max-height: none; object-fit: contain; object-position: center; }
+  .pm-item .logo-mark.logo-edu-dku,
+  .pm-item .logo-mark.logo-lab-knl,
+  .pm-item .logo-mark.logo-youth-foundation,
+  .pm-item .logo-mark.logo-moel,
+  .pm-item .logo-mark.logo-korcham {
+    transform: scale(1.2);
+  }
+
+  /* two-logo rework: youth-foundation + localmotive */
+  .pm-item .logo-mark.logo-youth-foundation {
+    transform: scale(1.28);
+  }
+  .pm-item .logo-mark.logo-localmotive {
+    width: 154px;
+    height: 40px;
+    transform: scale(1.08);
+    transform-origin: center;
+  }
 }
 
 /* ----- LEGACY DATA TICKER (kept for fallback / other pages) ----- */
@@ -1040,9 +1095,16 @@ footer {
   gap: 50px; margin-bottom: 40px;
 }
 .footer-grid .ft-brand {
-  font-family: var(--display);
-  font-size: 28px; letter-spacing: -0.02em;
-  color: var(--paper); margin-bottom: 14px;
+  margin-bottom: 14px;
+}
+.footer-grid .ft-brand img {
+  display: block;
+  width: 240px;
+  height: 48px;
+  max-width: 100%;
+  max-height: 48px;
+  object-fit: contain;
+  object-position: left center;
 }
 .footer-grid .ft-tag {
   font-size: 13.5px; line-height: 1.65;
@@ -1848,6 +1910,11 @@ footer {
   body { cursor: auto !important; }
   .cursor-ring, .cursor-dot { display: none; }
   nav.top .nav-links a:not(.cta):not(.brand) { display: none; }
+  .brand { font-size: 14px; gap: 8px; }
+  .brand .box { width: 28px; height: 28px; }
+  .brand .brand-copy { gap: 1px; }
+  .brand .brand-ko { font-size: 12px; }
+  .brand .brand-en { font-size: 7.5px; letter-spacing: 0.1em; }
   .hud { display: none; }
   .hero { padding-top: 80px; }
   .hero h1 { margin-top: 24px; font-size: clamp(48px, 14vw, 80px); }

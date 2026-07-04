@@ -18,23 +18,23 @@ const initAnchorPositioning = () => {
      ========================================================== */
   const popoverData = {
     'hud-latency': {
-      label: '/ LATENCY · P95',
-      value: '142', unit: 'ms',
-      desc: '최근 30일 P95 응답 지연시간. 목표 200ms 이하 유지 중.',
+      label: '/ LATENCY · SAMPLE',
+      value: 'N/A', unit: '',
+      desc: '예시 지표입니다. 실제 응답 지연시간은 도입 환경에 따라 측정됩니다.',
       meta: { left: '30d avg', right: '<span class="ok">▲ within SLA</span>' },
       chartData: [180, 165, 172, 158, 161, 145, 152, 148, 155, 142, 138, 145, 142],
     },
     'hud-tps': {
       label: '/ THROUGHPUT',
-      value: '3,847', unit: 'tok/s',
-      desc: '초당 처리되는 토큰 수. 멀티-에이전트 워크로드 합산.',
+      value: 'SAMPLE', unit: '',
+      desc: '예시 처리량 지표입니다. 실제 수치는 운영 환경에 따라 달라집니다.',
       meta: { left: 'live · 1s tick', right: '<span class="ok">●</span> stable' },
       chartData: [3200, 3450, 3380, 3620, 3580, 3700, 3750, 3680, 3820, 3850, 3790, 3847],
     },
     'hud-uptime': {
-      label: '/ UPTIME · 30D',
-      value: '99.98', unit: '%',
-      desc: 'KR-PRIVATE 운영 환경 가동률. 계획 정비 시간 제외.',
+      label: '/ STATUS',
+      value: 'LIVE', unit: '',
+      desc: '운영 상태 표시에 대한 예시입니다.',
       meta: { left: '30d window', right: '<span class="ok">▲ green</span>' },
       chartData: [99.95, 100, 99.98, 100, 99.99, 100, 99.97, 100, 99.98, 99.99, 100, 99.98],
     },
@@ -47,7 +47,7 @@ const initAnchorPositioning = () => {
     'hud-region': {
       label: '/ REGION',
       value: 'KR', unit: 'PRIVATE',
-      desc: '국내 보안 환경 전용. 데이터 외부 유출 0건. 감사 로그 ed25519 서명.',
+      desc: '보안 환경 관련 안내 예시입니다. 실제 보안 정책과 운영 기준은 프로젝트별로 협의합니다.',
       meta: { left: 'compliance', right: '<span class="ok">●</span> verified' },
     },
     'hud-model': {
@@ -60,28 +60,28 @@ const initAnchorPositioning = () => {
     // INTEL metrics
     'intel-throughput': {
       label: '/ MODEL THROUGHPUT',
-      value: '3,847', unit: 'tok/s',
-      desc: 'P95 지연 186ms 이하 유지하며 측정. 멀티-테넌트 환경 합산.',
+      value: 'SAMPLE', unit: '',
+      desc: '예시 처리량 지표입니다. 실제 수치는 도입 환경에 따라 달라집니다.',
       meta: { left: '30d avg', right: '<span class="ok">▲</span> +12% MoM' },
       chartData: [60, 65, 58, 72, 68, 75, 78, 70, 82, 85, 79, 88, 85],
     },
     'intel-accuracy': {
       label: '/ SEARCH ACCURACY',
-      value: '94', unit: '%',
-      desc: '내부 문서 Top-3 검색 정확도. 정답이 상위 3건 안에 포함된 비율.',
+      value: 'SAMPLE', unit: '',
+      desc: '예시 정확도 지표입니다. 실제 평가지표는 사전 합의 후 측정합니다.',
       meta: { left: 'eval set: 1,240 q', right: 'rerank v3' },
       chartData: [78, 82, 85, 87, 86, 89, 90, 91, 92, 93, 93, 94, 94],
     },
     'intel-processing': {
       label: '/ PROCESSING TIME',
-      value: '−68', unit: '%',
-      desc: '도입 전 대비 평균 업무 처리시간 단축률. 7개 파일럿 평균.',
+      value: 'SAMPLE', unit: '',
+      desc: '예시 효율 지표입니다. 실제 성과는 도입 범위와 기준에 따라 산정합니다.',
       meta: { left: 'baseline: pre-AI', right: 'verified' },
     },
     'intel-leakage': {
       label: '/ DATA LEAKAGE',
-      value: '0', unit: '건',
-      desc: '누적 운영 기간 전체에서 발생한 외부 유출 건수. RBAC + 감사 로그.',
+      value: 'SAMPLE', unit: '',
+      desc: '보안 관련 예시 지표입니다. 실제 운영 결과는 계약된 범위에서 점검합니다.',
       meta: { left: 'since launch', right: '<span class="ok">●</span> zero-trust' },
     },
   };

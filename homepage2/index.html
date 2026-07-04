@@ -24,8 +24,8 @@
 <meta name="twitter:description" content="범온누리 AI 운영체제. 데이터를 성과로.">
 <meta name="twitter:image" content="https://beomonnuri.ai/assets/og-image.png">
 
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="apple-touch-icon" href="assets/favicon.svg">
+<link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/logos/company/favicon-192.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,6 +45,42 @@
     if (m.includes('Transition was skipped') || m.includes('view transition')) e.preventDefault();
   });
 </script>
+<style>
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body.has-hero {
+    overflow: hidden;
+  }
+  body.has-hero .hero {
+    min-height: 100svh;
+    height: 100svh;
+    padding: 88px 0 0;
+  }
+  body.has-hero .hero > .container {
+    height: calc(100svh - 88px);
+    display: flex;
+    flex-direction: column;
+  }
+  body.has-hero .hero-inline-partners {
+    margin-top: 18px;
+    height: clamp(136px, 19.2vh, 192px);
+    flex: 0 0 auto;
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero {
+      padding-top: 72px;
+    }
+    body.has-hero .hero > .container {
+      height: calc(100svh - 72px);
+    }
+    body.has-hero .hero-inline-partners {
+      height: clamp(120px, 20vh, 160px);
+      margin-top: 14px;
+    }
+  }
+</style>
 </head>
 
 <body class="grain has-hero">
@@ -82,23 +118,21 @@
 <div class="scroll-progress" aria-hidden="true"><div></div></div>
 
 <!-- ===== MOUSE TRAIL ===== -->
-<canvas id="mouse-trail" aria-hidden="true"></canvas>
-
 <!-- ===== CUSTOM CURSOR ===== -->
-<div class="cursor-ring"></div>
-<div class="cursor-dot"></div>
-
 <!-- ===== NAV ===== -->
 <nav class="top">
   <div class="container row">
     <a class="brand" href="index.html">
-      <span class="box"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#BFFF00"/><rect x="8" y="7" width="4" height="18" fill="#0d0d0d"/><path d="M12 7 H18 a4 4 0 0 1 0 8 H12 Z" fill="#0d0d0d"/><path d="M12 15 H19 a5 5 0 0 1 0 10 H12 Z" fill="#0d0d0d"/><circle cx="23" cy="9" r="2.4" fill="#921230"/></svg></span> BEOMONNURI<sup style="font-size:0.45em; vertical-align: top; letter-spacing: 0.05em;">®</sup>
+      <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></span>
+      <span class="brand-copy">
+        <span class="brand-ko">범온누리 이노베이션</span>
+        <span class="brand-en">BEOMONNURI INNOVATION</span>
+      </span>
     </a>
     <div class="nav-links">
       <a href="index.html" class="active">Home</a>
       <a href="products.html">Products</a>
       <a href="why.html">Why</a>
-      <a href="cases.html">Cases</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
   </div>
@@ -122,280 +156,21 @@
       <span class="row"><span class="ko">성과로<span class="acid">.</span></span></span>
     </h1>
 
-    <!-- LIVE LLM TERMINAL -->
-    <div class="llm-terminal">
-      <div class="lt-bar">
-        <div class="left">AI에게 물어보세요</div>
-        <div class="right">범온누리 AI</div>
-      </div>
-      <div class="lt-input">
-        <input type="text" placeholder="기업 AI에 대해 물어보세요..." autocomplete="off" maxlength="120">
-        <button>ASK ↗</button>
-      </div>
-      <div class="lt-suggest">
-        <button>4개 제품 요약</button>
-        <button>보안은 어떻게?</button>
-        <button>도입까지 얼마나?</button>
-      </div>
-      <div class="lt-output">
-        <div class="meta">BEOMONNURI · AI</div>
-        <div class="stream"></div>
-      </div>
+    <!-- ===== 3D CYLINDER PARTNER MARQUEE ===== -->
+    <div class="partner-cylinder hero-inline-partners">
+      <div class="cylinder-stage" id="cylinder-stage"></div>
     </div>
 
-    <div class="hero-bottom" style="margin-top: 56px;">
-      <div class="hb-cell">
-        <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
-        <div class="val">보안 환경의<br>엔터프라이즈 AI</div>
-      </div>
-      <div class="hb-cell">
-        <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
-        <div class="val">4개의 AI 제품<br>산업별 맞춤 운영</div>
-      </div>
-      <div class="hb-cell">
-        <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
-        <div class="val">데모가 아닌<br>KPI로 증명</div>
-      </div>
-      <div class="hb-cell cta-cell">
-        <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
-        <div class="val"><a href="contact.html">도입 진단<span class="arr">↗</span></a></div>
-      </div>
+    <!-- Hidden v4-style flat marquee for SVG source (display: none) -->
+    <div class="partner-marquee" aria-hidden="true" style="display: none">
+      <div class="partner-marquee-track" id="partner-marquee-track"></div>
     </div>
+
   </div>
 </section>
-
-<!-- ===== 3D CYLINDER PARTNER MARQUEE ===== -->
-<div class="partner-cylinder">
-  <div class="cylinder-stage" id="cylinder-stage"></div>
-</div>
-
-<!-- Hidden v4-style flat marquee for SVG source (display: none) -->
-<div class="partner-marquee" aria-hidden="true" style="display: none">
-  <div class="partner-marquee-track" id="partner-marquee-track"></div>
-</div>
-
-<!-- ===== PIPELINE ===== -->
-<section class="pipeline reveal">
-  <div class="container">
-    <div class="sect-label">SECTION 02 / LIVE PIPELINE</div>
-    <div class="sect-head">
-      <h2><span class="stroke">DATA</span> · 파이프라인,<br>실시간으로 <span class="acid">흐른다</span>.</h2>
-      <div class="lead">데이터 수집부터 운영 성과까지. 모든 단계는 측정되고, 추적되고, 감사 가능합니다. 위 캔버스는 지금 이 순간의 처리 흐름을 보여줍니다.</div>
-    </div>
-    <div class="pipe-canvas-wrap">
-      <canvas id="pipe-canvas"></canvas>
-      <div class="pipe-labels">
-        <div><div class="k">[ 01 · INPUT ]</div><div class="v">데이터 <span class="ac">수집</span></div></div>
-        <div><div class="k">[ 02 · EMBED · INDEX ]</div><div class="v">보안 <span class="ac">임베딩</span></div></div>
-        <div><div class="k">[ 03 · AGENT · REASONING ]</div><div class="v">AI <span class="ac">추론</span></div></div>
-        <div><div class="k">[ 04 · OUTPUT ]</div><div class="v">운영 <span class="ac">성과</span></div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== THINKING STRIP ===== -->
-<div class="thinking-strip">
-  <div class="thinking-strip-track">
-    <span>agent.session.start <span class="acid">uid=A2F71</span></span>
-    <span>rag.query <span class="acid">top_k=5</span></span>
-    <span>embed.batch <span class="ok">n=312</span></span>
-    <span>rerank.complete <span class="ok">score=0.94</span></span>
-    <span>tool.invoke <span class="acid">db.query</span> t=42ms</span>
-    <span>guardrail.pass <span class="ok">policy=KR-PRIV</span></span>
-    <span>workflow.step <span class="acid">approve.waiting</span></span>
-    <span>audit.log <span class="ok">signed=ed25519</span></span>
-    <span>cache.hit <span class="ok">ratio=0.71</span></span>
-    <span>agent.respond <span class="acid">tokens=1284</span></span>
-    <span>private.vault <span class="ok">encrypt=AES256</span></span>
-    <!-- duplicate for seamless loop -->
-    <span>agent.session.start <span class="acid">uid=A2F71</span></span>
-    <span>rag.query <span class="acid">top_k=5</span></span>
-    <span>embed.batch <span class="ok">n=312</span></span>
-    <span>rerank.complete <span class="ok">score=0.94</span></span>
-    <span>tool.invoke <span class="acid">db.query</span> t=42ms</span>
-    <span>guardrail.pass <span class="ok">policy=KR-PRIV</span></span>
-    <span>workflow.step <span class="acid">approve.waiting</span></span>
-    <span>audit.log <span class="ok">signed=ed25519</span></span>
-    <span>cache.hit <span class="ok">ratio=0.71</span></span>
-    <span>agent.respond <span class="acid">tokens=1284</span></span>
-    <span>private.vault <span class="ok">encrypt=AES256</span></span>
-  </div>
-</div>
-
-<!-- ===== PRODUCTS ===== -->
-<section class="services reveal" id="products">
-  <div class="container">
-    <div class="sect-label">SECTION 03 / PRODUCTS</div>
-    <div class="sect-head">
-      <h2>4개의 AI 제품,<br><span class="stroke">하나의</span> <span class="acid">OS.</span></h2>
-      <div class="lead">산업의 다른 언어를 같은 AI 운영체제 위에서 작동시킵니다. 보안, 측정, 확장은 공통 인프라가 책임집니다.</div>
-    </div>
-
-    <div class="svc-grid">
-      <a href="products-private.html" class="svc">
-        <div class="n"><span>/01 PRIVATE AI</span><span>RAG</span></div>
-        <div class="big-arrow">↗</div>
-        <div class="for">FOR · 보안 기업·기관</div>
-        <h3>범온<br>프라이빗 AI</h3>
-        <p>내부 문서와 지식을 보안 환경에서 검색·활용하는 사내 AI.</p>
-        <div class="tags"><span class="tag">private</span><span class="tag">rag</span><span class="tag">rbac</span></div>
-        <div class="mini-viz"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-      </a>
-      <a href="products-agent.html" class="svc">
-        <div class="n"><span>/02 AGENT AI</span><span>HITL</span></div>
-        <div class="big-arrow">↗</div>
-        <div class="for">FOR · 운영·백오피스</div>
-        <h3>범온<br>에이전트 AI</h3>
-        <p>반복 업무 자동화 + 사람의 검토·승인 흐름을 연결합니다.</p>
-        <div class="tags"><span class="tag">workflow</span><span class="tag">automation</span><span class="tag">hitl</span></div>
-        <div class="mini-viz"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-      </a>
-      <a href="products-superchart.html" class="svc">
-        <div class="n"><span>/03 SUPERCHART AI</span><span>SIGNAL</span></div>
-        <div class="big-arrow">↗</div>
-        <div class="for">FOR · 금융·리서치</div>
-        <h3>범온<br>슈퍼차트 AI</h3>
-        <p>시장 데이터·기술 지표·리스크 신호를 통합 분석합니다.</p>
-        <div class="tags"><span class="tag">market</span><span class="tag">signals</span><span class="tag">risk</span></div>
-        <div class="mini-viz"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-      </a>
-      <a href="products-apartment.html" class="svc">
-        <div class="n"><span>/04 APT MGMT</span><span>OPS</span></div>
-        <div class="big-arrow">↗</div>
-        <div class="for">FOR · 공동주택 관리</div>
-        <h3>범온<br>공동주택 관리 AI</h3>
-        <p>민원·시설·회계·공지를 하나의 운영 흐름으로 통합합니다.</p>
-        <div class="tags"><span class="tag">complaints</span><span class="tag">facility</span><span class="tag">ops</span></div>
-        <div class="mini-viz"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-      </a>
-    </div>
-  </div>
-</section>
-
-<!-- ===== INTEL ===== -->
-<section class="intel reveal" id="impact">
-  <div class="container">
-    <div class="sect-label">SECTION 04 / LIVE INTELLIGENCE</div>
-    <div class="sect-head">
-      <h2><span class="stroke">증명</span>은<br>실시간이다<span style="color: var(--acid-bright)">.</span></h2>
-      <div class="lead">파일럿 환경에서 측정되고 있는 실제 운영 지표입니다. 페이지를 떠나도 시스템은 작동을 멈추지 않습니다.</div>
-    </div>
-
-    <div class="intel-grid">
-      <div class="intel-cell large">
-        <div class="ic-label">/01 · MODEL THROUGHPUT</div>
-        <div class="ic-value" data-count="3847">0<span class="unit">tok/s</span></div>
-        <div class="ic-sub">최근 30일 평균 처리량. P95 latency 186ms 이하 유지.</div>
-        <canvas data-chart="throughput"></canvas>
-      </div>
-      <div class="intel-cell">
-        <div class="ic-label">/02 · SEARCH ACCURACY</div>
-        <div class="ic-value" data-count="94">0<span class="unit">%</span></div>
-        <div class="ic-sub">사내 문서 Top-3 정확도</div>
-      </div>
-      <div class="intel-cell">
-        <div class="ic-label">/03 · PROCESSING TIME</div>
-        <div class="ic-value" data-count="-68">0<span class="unit">%</span></div>
-        <div class="ic-sub">평균 처리시간 단축</div>
-      </div>
-      <div class="intel-cell">
-        <div class="ic-label">/04 · DATA LEAKAGE</div>
-        <div class="ic-value" data-count="0">0<span class="unit">건</span></div>
-        <div class="ic-sub">데이터 외부 유출 · 누적 운영 기간 전체</div>
-      </div>
-      <div class="intel-cell">
-        <div class="ic-label">/05 · LIVE AUDIT STREAM</div>
-        <div class="intel-log"></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== HOW ===== -->
-<section class="how reveal" id="how">
-  <div class="container">
-    <div class="sect-label">SECTION 05 / METHOD</div>
-    <div class="sect-head">
-      <h2>도입은 <span class="acid">3단계</span>.<br>운영은 <span class="stroke">영구적</span>.</h2>
-      <div class="lead">진단 → 파일럿 → 운영. 평균 6주 안에 운영 환경에 안착합니다.</div>
-    </div>
-    <div class="how-grid">
-      <div class="how-cell">
-        <div class="step"><span class="num">01.</span> WEEK 01–02 · DIAGNOSE</div>
-        <h3>진단<br>도입 가능성 확인</h3>
-        <p>업무 흐름과 데이터 자산을 진단합니다. 첫 미팅에서 6주 안의 KPI 목표를 합의합니다.</p>
-        <div class="stack"><span>workshop</span><span>data audit</span><span>KPI</span></div>
-      </div>
-      <div class="how-cell">
-        <div class="step"><span class="num">02.</span> WEEK 03–05 · PILOT</div>
-        <h3>파일럿<br>실제 데이터로 학습</h3>
-        <p>보안 환경에 임베딩 인덱스를 구축하고, 실제 업무 일부를 AI 흐름으로 옮깁니다.</p>
-        <div class="stack"><span>private rag</span><span>guardrail</span><span>HITL</span></div>
-      </div>
-      <div class="how-cell">
-        <div class="step"><span class="num">03.</span> WEEK 06+ · OPERATE</div>
-        <h3>운영<br>KPI로 증명</h3>
-        <p>지속적인 모니터링과 개선. 모든 흐름은 측정되고, 감사되고, 보고됩니다.</p>
-        <div class="stack"><span>monitoring</span><span>audit</span><span>improve</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== MANIFESTO ===== -->
-<section class="manifesto reveal">
-  <div class="container">
-    <div class="mf-label">★ A NOTE FROM 범온누리 · 2026</div>
-    <div class="mf-text">
-      우리는 AI를<br>
-      <span class="stroke">데모로</span> 끝내지 않는다.<br>
-      <span style="font-family: var(--en); font-style: italic;">OPERATING</span> <span class="red">SYSTEM</span>으로,<br>
-      KPI로 증명한다.
-    </div>
-    <div class="mf-sign">
-      <div class="sig">— 범온누리 (BEOMONNURI)<br>SEOUL · 2026</div>
-      <div class="num">N°04</div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== FOOTER ===== -->
-<footer>
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <div class="ft-brand">범온누리<sup style="font-size:0.5em;">®</sup></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 데모가 아닌 KPI로 증명합니다.</div>
-      </div>
-      <div>
-        <h5>Products</h5>
-        <a href="products-private.html">프라이빗 AI</a>
-        <a href="products-agent.html">에이전트 AI</a>
-        <a href="products-superchart.html">슈퍼차트 AI</a>
-        <a href="products-apartment.html">공동주택 관리 AI</a>
-      </div>
-      <div>
-        <h5>Company</h5>
-        <a href="why.html">Why Beomonnuri</a>
-        <a href="cases.html">Cases</a>
-        <a href="contact.html">Contact</a>
-      </div>
-      <div>
-        <h5>Connect</h5>
-        <a href="/cdn-cgi/l/email-protection#1f777a7373705f7d7a70727071716a6d76317e76"><span class="__cf_email__" data-cfemail="f9919c959596b99b9c96949697978c8b90d79890">[email&#160;protected]</span></a>
-        <a href="#">+82 2 0000 0000</a>
-        <a href="#">Seoul, KR</a>
-      </div>
-    </div>
-    <div class="ft-bottom-row">
-      <span>© 2026 BEOMONNURI INC.</span>
-    </div>
-  </div>
-</footer>
 
 <!-- ===== AI WIDGET ===== -->
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="assets/js/ai-frontier.js"></script>
+<script src="assets/js/ai-frontier.js"></script>
 <script src="assets/js/v5-nextgen.js"></script>
 <script src="assets/js/v5-webgpu.js"></script>
 <script src="assets/js/v5-anchor.js"></script>

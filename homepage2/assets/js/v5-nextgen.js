@@ -928,67 +928,42 @@ const reducedV5 = false;
   const stage = $5('#cylinder-stage');
   if (!stage) return;
 
-  const partners = [
-    { id: 'gov-gg',    cat: '公 GOV',     ko: '경기도경제과학진흥원' },
-    { id: 'fin-nh',    cat: '金 FIN',     ko: '농협 NH' },
-    { id: 'inv-posco', cat: '投 INVEST',  ko: '포스코기술투자' },
-    { id: 'edu-dku',   cat: '學 EDU',     ko: '단국대학교' },
-    { id: 'lab-knl',   cat: '研 LAB',     ko: '한국나노분석랩' },
-    { id: 'kiss',      cat: '育 K-ISS',   ko: '강동 K-ISS' },
-    { id: 'startup',     cat: '起 STARTUP', ko: '모두의창업' },
-    { id: 'moel',        cat: '公 GOV',     ko: '고용노동부' },
-    { id: 'korcham',     cat: '商 KORCHAM', ko: '대한상공회의소' },
-    { id: 'ykorea',      cat: '青 YOUTH',   ko: '청년재단' },
-    { id: 'localmotive', cat: '走 STARTUP', ko: 'Localmotive' },
-    { id: 'mss',         cat: '中 GOV',     ko: '중소벤처기업부' },
+  const partnerOrder = [
+    'mss', 'fin-nh', 'inv-posco', 'edu-dku', 'lab-knl', 'kiss',
+    'startup', 'youth-foundation', 'localmotive', 'gov-gg', 'moel', 'korcham'
   ];
 
-  // Reuse SVGs already in v4 marquee
-  const svgMap = {};
-  $$5('#partner-marquee-track .pm-item').forEach(item => {
-    const svg = item.querySelector('svg');
-    if (!svg) return;
-    const label = svg.getAttribute('aria-label');
-    if (label) svgMap[label] = svg.outerHTML;
-  });
-  const labelOf = {
-    'gov-gg': '경기도경제과학진흥원', 'fin-nh': '농협', 'inv-posco': '포스코기술투자',
-    'edu-dku': '단국대학교', 'lab-knl': '한국나노분석랩', 'kiss': 'K-ISS',
-    'startup': '모두의창업',
-    'moel': '고용노동부', 'korcham': '대한상공회의소',
-    'ykorea': '청년재단', 'localmotive': 'Localmotive',
-    'mss': '중소벤처기업부'
+  // Reuse official logo images already populated in flat marquee.
+  const logoMap = {};
+  const collectLogos = () => {
+    $$5('#partner-marquee-track .pm-item').forEach(item => {
+      const id = item.getAttribute('data-partner-id');
+      const img = item.querySelector('img.logo-mark');
+      if (!id || !img) return;
+      logoMap[id] = `<img class="logo-mark logo-${id}" src="${img.src}" alt="${img.alt || ''}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`;
+    });
   };
 
-  const N = partners.length;
-  const radius = 480;          // larger radius for more dramatic 3D
+  const N = partnerOrder.length;
+  const radius = 480;
   const angleStep = 360 / N;
 
-  // Render only after marquee has built (which clones SVGs).
   const render = () => {
-    if (Object.keys(svgMap).length === 0) return false;
-    stage.innerHTML = partners.map((p, i) => {
-      const svgHtml = svgMap[labelOf[p.id]] || '';
+    if (!partnerOrder.every((id) => logoMap[id])) return false;
+    stage.innerHTML = partnerOrder.map((id, i) => {
       const angle = i * angleStep;
       return `<div class="cylinder-face" style="transform: rotateY(${angle}deg) translateZ(${radius}px);">
-        ${svgHtml}
-        <div class="meta">
-          <div class="cat">${p.cat}</div>
-          <div class="name">${p.ko}</div>
-        </div>
+        ${logoMap[id]}
       </div>`;
     }).join('');
     return true;
   };
 
-  // Wait for marquee to populate
   const tryRender = () => {
-    $$5('#partner-marquee-track .pm-item svg').forEach(svg => {
-      const label = svg.getAttribute('aria-label');
-      if (label && !svgMap[label]) svgMap[label] = svg.outerHTML;
-    });
+    collectLogos();
     if (!render()) setTimeout(tryRender, 200);
   };
+
   setTimeout(tryRender, 300);
 })();
 
@@ -1011,7 +986,7 @@ const reducedV5 = false;
 03) 슈퍼차트 AI — 금융·리서치 시장 데이터 분석
 04) 공동주택 관리 AI — 민원·시설·회계·공지 통합
 
-원칙: SECURE · OPERABLE · MEASURABLE. 데모가 아닌 KPI로 증명.
+원칙: SECURE · OPERABLE · MEASURABLE. 목표 지표를 함께 정의하고 점검합니다.
 간결하고 신뢰감 있는 한국어로 2~3문장 답변.`;
 
   const send = async () => {
@@ -1151,7 +1126,7 @@ const reducedV5 = false;
   if (!orb) return;
   const valSpan = orb.querySelector('.v');
   if (!valSpan) return;
-  const stats = ['99.98%', '99.99%', '99.97%', '100.00%'];
+  const stats = ['LIVE', 'ACTIVE', 'RUNNING', 'ONLINE'];
   let i = 0;
   setInterval(() => {
     i = (i + 1) % stats.length;

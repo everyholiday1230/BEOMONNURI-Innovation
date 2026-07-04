@@ -20,9 +20,21 @@ const reduced = false;
 /* ---------- CUSTOM CURSOR ---------- */
 (() => {
   if (matchMedia('(hover: none)').matches) return;
-  const ring = $('.cursor-ring');
-  const dot = $('.cursor-dot');
-  if (!ring || !dot) return;
+
+  let ring = $('.cursor-ring');
+  let dot = $('.cursor-dot');
+
+  // HTML에서 커서 노드를 제거한 상태여도 런타임에서 안전하게 복구
+  if (!ring) {
+    ring = document.createElement('div');
+    ring.className = 'cursor-ring';
+    document.body.appendChild(ring);
+  }
+  if (!dot) {
+    dot = document.createElement('div');
+    dot.className = 'cursor-dot';
+    document.body.appendChild(dot);
+  }
 
   let mx = innerWidth/2, my = innerHeight/2, rx = mx, ry = my;
   addEventListener('mousemove', e => {
@@ -96,143 +108,26 @@ const reduced = false;
 })();
 
 /* ---------- PARTNER LOGO MARQUEE ----------
-   고화질 SVG 모노그램 로고 — 무한 확대해도 깨지지 않음.
-   각 파트너의 한자/이니셜을 모티프로 한 자체 디자인 로고.
-   ※ 실제 공식 로고로 교체하려면 logoSvg 함수에서 대응되는 case만 바꾸세요. */
+   파트너 공식 로고 이미지 렌더링 (텍스트 라벨 제거: 로고만 노출). */
 (() => {
   const partners = [
-    { id: 'gov-gg',    cat: '公 GOV',       ko: '경기도경제과학진흥원',   en: 'GBSA',     mono: 'GG' },
-    { id: 'fin-nh',    cat: '金 FIN',       ko: '농협',                  en: 'NH',       mono: 'NH' },
-    { id: 'inv-posco', cat: '投 INVEST',    ko: '포스코기술투자',         en: 'PTI',      mono: 'PT' },
-    { id: 'edu-dku',   cat: '學 EDU',       ko: '단국대학교',            en: 'DKU',      mono: 'DK' },
-    { id: 'lab-knl',   cat: '研 LAB',       ko: '한국나노분석랩',         en: 'KNL',      mono: 'KN' },
-    { id: 'kiss',      cat: '育 K-ISS',     ko: '강동 K-ISS 멘토링센터',  en: 'K-ISS',    mono: 'KI' },
-    { id: 'startup',   cat: '起 STARTUP',   ko: '모두의창업',            en: 'MODU',     mono: 'MD' },
-    { id: 'moel',      cat: '公 GOV',       ko: '고용노동부',            en: 'MOEL',     mono: 'ML' },
-    { id: 'korcham',   cat: '商 KORCHAM',   ko: '대한상공회의소',         en: 'KORCHAM',  mono: 'KC' },
-    { id: 'ykorea',    cat: '青 YOUTH',     ko: '청년재단',              en: 'Y-KOREA',  mono: 'YK' },
-    { id: 'localmotive', cat: '走 STARTUP', ko: 'Localmotive',         en: 'LMV',      mono: 'LM' },
-    { id: 'mss',       cat: '中 SMB',       ko: '중소벤처기업부',         en: 'MSS',      mono: 'MS' },
+    { id: 'mss', alt: '중소벤처기업부 공식 로고', src: 'assets/img/logos/partners/mss.png' },
+    { id: 'fin-nh', alt: '농협 공식 로고', src: 'assets/img/logos/partners/nonghyup.png' },
+    { id: 'inv-posco', alt: '포스코기술투자 공식 로고', src: 'assets/img/logos/partners/posco-technology-investment.png' },
+    { id: 'edu-dku', alt: '단국대학교 공식 로고', src: 'assets/img/logos/partners/dankook-university.png' },
+    { id: 'lab-knl', alt: '한국나노분석랩 공식 로고', src: 'assets/img/logos/partners/knal-kor.png' },
+    { id: 'kiss', alt: '강동 K-ISS 멘토링센터 공식 로고', src: 'assets/img/logos/partners/gangdong-kiss.png' },
+    { id: 'startup', alt: '모두의창업 공식 로고', src: 'assets/img/logos/partners/modoo-startup.png' },
+    { id: 'youth-foundation', alt: '청년재단 공식 로고', src: 'assets/img/logos/partners/youth-foundation.png' },
+    { id: 'localmotive', alt: '(주)로컬모티브 공식 로고', src: 'assets/img/logos/partners/localmotive.png' },
+    { id: 'gov-gg', alt: '경기도경제과학진흥원 공식 로고', src: 'assets/img/logos/partners/gbsa.png' },
+    { id: 'moel', alt: '고용노동부 공식 로고', src: 'assets/img/logos/partners/moel.png' },
+    { id: 'korcham', alt: '대한상공회의소 공식 로고', src: 'assets/img/logos/partners/korcham.png' },
   ];
 
-  // SVG monogram generator — bold geometric marks for each partner.
-  const logoSvg = (p) => {
-    const variants = {
-      'gov-gg': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="경기도경제과학진흥원">
-          <rect width="64" height="64" fill="#0d0d0d"/>
-          <path d="M14 18 L32 14 L50 18 L50 30 L40 30 L40 26 L32 22 L24 26 L24 30 L14 30 Z" fill="#f6f4ef"/>
-          <rect x="14" y="34" width="36" height="3" fill="#921230"/>
-          <text x="32" y="50" text-anchor="middle" font-family="Archivo Black" font-size="11" font-weight="900" fill="#f6f4ef" letter-spacing="-0.5">GBSA</text>
-        </svg>`,
-      'fin-nh': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="농협">
-          <circle cx="32" cy="32" r="30" fill="#0d6638"/>
-          <path d="M22 18 L22 46 L26 46 L26 28 L38 46 L42 46 L42 18 L38 18 L38 36 L26 18 Z" fill="#fff"/>
-          <text x="32" y="58" text-anchor="middle" font-family="Archivo Black" font-size="6" fill="#0d6638" letter-spacing="0.5">NONGHYUP</text>
-        </svg>`,
-      'inv-posco': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="포스코기술투자">
-          <rect width="64" height="64" fill="#0d0d0d"/>
-          <path d="M14 16 L20 16 L32 32 L44 16 L50 16 L36 36 L36 48 L28 48 L28 36 Z" fill="#921230"/>
-          <rect x="14" y="50" width="36" height="2" fill="#f6f4ef"/>
-        </svg>`,
-      'edu-dku': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="단국대학교">
-          <rect width="64" height="64" fill="#003876"/>
-          <path d="M14 18 L26 18 Q34 18 34 32 Q34 46 26 46 L14 46 Z" fill="none" stroke="#fff" stroke-width="4"/>
-          <text x="42" y="42" font-family="Archivo Black" font-size="22" fill="#fff">K</text>
-          <rect x="14" y="50" width="36" height="2" fill="#ffd200"/>
-        </svg>`,
-      'lab-knl': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="한국나노분석랩">
-          <rect width="64" height="64" fill="#f6f4ef" stroke="#0d0d0d" stroke-width="2"/>
-          <circle cx="32" cy="28" r="10" fill="none" stroke="#0d0d0d" stroke-width="2"/>
-          <circle cx="32" cy="28" r="4" fill="#921230"/>
-          <circle cx="32" cy="28" r="16" fill="none" stroke="#0d0d0d" stroke-width="1" stroke-dasharray="2 2"/>
-          <text x="32" y="55" text-anchor="middle" font-family="Archivo Black" font-size="8" fill="#0d0d0d">KNL</text>
-        </svg>`,
-      'kiss': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="K-ISS">
-          <rect width="64" height="64" fill="#921230"/>
-          <text x="32" y="34" text-anchor="middle" font-family="Archivo Black" font-size="22" fill="#fff" letter-spacing="-1">K</text>
-          <line x1="20" y1="42" x2="44" y2="42" stroke="#fff" stroke-width="1.5"/>
-          <text x="32" y="54" text-anchor="middle" font-family="Archivo Black" font-size="9" fill="#fff" letter-spacing="0.5">ISS</text>
-        </svg>`,
-      'startup': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="모두의창업">
-          <rect width="64" height="64" fill="#f6f4ef" stroke="#0d0d0d" stroke-width="2"/>
-          <circle cx="20" cy="32" r="6" fill="#921230"/>
-          <circle cx="32" cy="32" r="6" fill="#0d0d0d"/>
-          <circle cx="44" cy="32" r="6" fill="#921230"/>
-          <text x="32" y="54" text-anchor="middle" font-family="Archivo Black" font-size="7" fill="#0d0d0d">MODU</text>
-        </svg>`,
-      'moel': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="고용노동부">
-          <rect width="64" height="64" fill="#003876"/>
-          <!-- Stylized 'ML' with worker-motion arch -->
-          <path d="M12 44 L12 22 L18 22 L24 34 L30 22 L36 22 L36 44 L30 44 L30 32 L26 40 L22 40 L18 32 L18 44 Z" fill="#fff"/>
-          <path d="M40 22 L44 22 L44 40 L52 40 L52 44 L40 44 Z" fill="#fff"/>
-          <rect x="10" y="50" width="44" height="2" fill="#00a3e0"/>
-          <text x="32" y="60" text-anchor="middle" font-family="Archivo Black" font-size="6" fill="#fff" letter-spacing="0.4">MOEL · KR</text>
-        </svg>`,
-      'korcham': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="대한상공회의소">
-          <rect width="64" height="64" fill="#0d0d0d"/>
-          <!-- KOREA CHAMBER motif — building columns + roof -->
-          <path d="M10 22 L32 12 L54 22 L54 26 L10 26 Z" fill="#c8102e"/>
-          <rect x="14" y="28" width="4" height="18" fill="#f6f4ef"/>
-          <rect x="22" y="28" width="4" height="18" fill="#f6f4ef"/>
-          <rect x="30" y="28" width="4" height="18" fill="#f6f4ef"/>
-          <rect x="38" y="28" width="4" height="18" fill="#f6f4ef"/>
-          <rect x="46" y="28" width="4" height="18" fill="#f6f4ef"/>
-          <rect x="10" y="48" width="44" height="3" fill="#f6f4ef"/>
-          <text x="32" y="60" text-anchor="middle" font-family="Archivo Black" font-size="7" fill="#c8102e" letter-spacing="0.3">KORCHAM</text>
-        </svg>`,
-      'ykorea': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="청년재단">
-          <rect width="64" height="64" fill="#00a99d"/>
-          <!-- Bold Y with sunrise curve for youth -->
-          <path d="M14 14 L24 32 L24 46 L30 46 L30 32 L40 14 L34 14 L27 26 L20 14 Z" fill="#fff"/>
-          <circle cx="46" cy="20" r="6" fill="#ffd200"/>
-          <path d="M40 26 Q46 20 52 26" fill="none" stroke="#fff" stroke-width="1.5"/>
-          <text x="32" y="60" text-anchor="middle" font-family="Archivo Black" font-size="6" fill="#fff" letter-spacing="0.4">YOUTH · KR</text>
-        </svg>`,
-      'localmotive': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="Localmotive">
-          <rect width="64" height="64" fill="#f6f4ef" stroke="#0d0d0d" stroke-width="2"/>
-          <!-- Locomotive-inspired train silhouette + arrow -->
-          <rect x="10" y="22" width="30" height="18" fill="#0d0d0d"/>
-          <rect x="40" y="18" width="14" height="22" fill="#921230"/>
-          <circle cx="18" cy="44" r="4" fill="#0d0d0d"/>
-          <circle cx="30" cy="44" r="4" fill="#0d0d0d"/>
-          <circle cx="46" cy="44" r="4" fill="#921230"/>
-          <path d="M52 22 L58 22 L54 18 L58 18" fill="none" stroke="#921230" stroke-width="1.5"/>
-          <text x="32" y="58" text-anchor="middle" font-family="Archivo Black" font-size="6" fill="#0d0d0d" letter-spacing="0.4">LOCALMOTIVE</text>
-        </svg>`,
-      'mss': `
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark" aria-label="중소벤처기업부">
-          <rect width="64" height="64" fill="#003876"/>
-          <path d="M18 20 L32 16 L46 20 L46 26 L18 26 Z" fill="#fff"/>
-          <rect x="22" y="30" width="20" height="2" fill="#fff"/>
-          <rect x="22" y="36" width="20" height="2" fill="#fff"/>
-          <text x="32" y="52" text-anchor="middle" font-family="Archivo Black" font-size="7" fill="#fff">MSS</text>
-        </svg>`,
-    };
-    return variants[p.id] || `
-      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="logo-mark">
-        <rect width="64" height="64" fill="#0d0d0d"/>
-        <text x="32" y="40" text-anchor="middle" font-family="Archivo Black" font-size="22" fill="#f6f4ef">${p.mono}</text>
-      </svg>`;
-  };
-
   const itemHtml = (p) => `
-    <div class="pm-item" data-cursor>
-      ${logoSvg(p)}
-      <div class="meta">
-        <div class="cat">${p.cat}</div>
-        <div class="name">${p.ko}<span class="en">${p.en}</span></div>
-      </div>
+    <div class="pm-item" data-cursor data-partner-id="${p.id}">
+      <img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
     </div>`;
 
   const track = $('#partner-marquee-track');
@@ -245,20 +140,18 @@ const reduced = false;
 /* ---------- LEGACY DATA TICKER (still used on other pages) ---------- */
 (() => {
   const items = [
-    { sym: 'KOSPI', val: '2,718.4', d: '+0.42%' },
-    { sym: 'KOSDAQ', val: '862.1', d: '+0.78%' },
-    { sym: 'USD/KRW', val: '1,362', d: '-0.11%', down: true },
-    { sym: 'WTI', val: '$76.2', d: '+1.24%' },
-    { sym: 'NICKEL', val: '$18,420', d: '-0.62%', down: true },
-    { sym: '배추(상)', val: '₩4,820/kg', d: '+2.10%' },
-    { sym: 'H100·NODE', val: '4 avail', d: 'ready' },
-    { sym: 'RAG·INDEX', val: '128,420 docs', d: '+312' },
-    { sym: 'AGENTS·LIVE', val: '27', d: '+3' },
-    { sym: 'PILOTS·Q2', val: '8 orgs', d: 'active' },
-    { sym: 'LATENCY·P95', val: '186 ms', d: '-12ms' },
-    { sym: 'UPTIME·30D', val: '99.98%', d: 'green' },
-    { sym: 'BTC', val: '$72,481', d: '+1.84%' },
-    { sym: 'ETH', val: '$3,892', d: '+0.92%' },
+    { sym: 'MARKET A', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'MARKET B', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'FX', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'COMMODITY', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'OPS INDEX', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'AI NODE', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'RAG INDEX', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'AGENT FLOW', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'PILOT', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'LATENCY', val: 'SAMPLE', d: '예시 데이터' },
+    { sym: 'STATUS', val: 'SAMPLE', d: '예시 화면' },
+    { sym: 'SIGNAL', val: 'SAMPLE', d: '예시 데이터' },
   ];
   const build = () => items.map(i => `
     <div class="tk-item">
@@ -884,7 +777,7 @@ const reduced = false;
 2) 에이전트 AI — 반복 업무 자동화 + 사람 검토 흐름
 3) 슈퍼차트 AI — 금융/리서치 시장 데이터 분석
 4) 공동주택 관리 AI — 민원·시설·회계·공지 통합
-모든 제품은 KR-PRIVATE 환경에서 작동, 데이터 외부 유출 0건을 보장합니다.
+모든 제품은 KR-PRIVATE 원칙 기반으로 설계되며, 보안 정책은 도입 범위에 맞춰 협의됩니다.
 간결하고 신뢰감 있는 한국어로 2~4문장으로 답하세요.
 
 사용자 질문: ${text}`;
