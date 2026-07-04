@@ -87,22 +87,51 @@
     resize();
     window.addEventListener('resize', resize);
 
-    // Generate fake OHLC data
     const bars = 80;
-    const data = [];
-    let price = 67500;
-    for (let i = 0; i < bars; i++) {
-      const change = (Math.random() - 0.48) * 800;
-      const open = price;
-      const close = price + change;
-      const high = Math.max(open, close) + Math.random() * 400;
-      const low = Math.min(open, close) - Math.random() * 400;
-      data.push({ o: open, h: high, l: low, c: close, v: Math.random() });
-      price = close;
+    let data = [];
+
+    function buildFallbackData() {
+      const out = [];
+      let price = 67500;
+      for (let i = 0; i < bars; i++) {
+        const change = (Math.random() - 0.48) * 650;
+        const open = price;
+        const close = price + change;
+        const high = Math.max(open, close) + Math.random() * 260;
+        const low = Math.min(open, close) - Math.random() * 260;
+        out.push({ o: open, h: high, l: low, c: close, v: Math.random() });
+        price = close;
+      }
+      return out;
+    }
+
+    async function loadHeroCandles() {
+      try {
+        const res = await fetch('/v1/charts/candles?symbolId=BTCUSDT&timeframe=5m&limit=120', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('candles fetch failed');
+        const payload = await res.json();
+        const candles = (payload && payload.data && payload.data.candles) || [];
+        if (!Array.isArray(candles) || candles.length < 30) throw new Error('insufficient candles');
+        const normalized = candles.slice(-bars).map(c => ({
+          o: Number(c.open),
+          h: Number(c.high),
+          l: Number(c.low),
+          c: Number(c.close),
+          v: Number(c.volume || 0),
+        })).filter(c => Number.isFinite(c.o) && Number.isFinite(c.h) && Number.isFinite(c.l) && Number.isFinite(c.c));
+        if (normalized.length < 30) throw new Error('invalid candles');
+        data = normalized;
+      } catch (_) {
+        data = buildFallbackData();
+      }
     }
 
     let animOffset = 0;
     function drawChart() {
+      if (!data.length) {
+        requestAnimationFrame(drawChart);
+        return;
+      }
       ctx.clearRect(0, 0, W, H);
 
       // Background gradient
@@ -170,7 +199,8 @@
       // Current price line
       const lastClose = data[data.length - 1].c;
       const lastY = toY(lastClose);
-      ctx.strokeStyle = 'rgba(146,18,48,0.6)';
+      const pulse = 0.45 + (Math.sin(animOffset / 18) + 1) * 0.2;
+      ctx.strokeStyle = `rgba(146,18,48,${pulse.toFixed(3)})`;
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(0, lastY); ctx.lineTo(W, lastY); ctx.stroke();
@@ -178,24 +208,21 @@
 
       // Price label
       ctx.fillStyle = '#921230';
-      ctx.fillRect(W - 80, lastY - 10, 80, 20);
+      ctx.fillRect(W - 96, lastY - 11, 96, 22);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('$' + lastClose.toFixed(0), W - 74, lastY + 4);
+      ctx.fillText('BEOM ' + lastClose.toFixed(0), W - 90, lastY + 4);
 
-      // Animate last candle
+      // Watermark
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.font = '600 13px "Pretendard", sans-serif';
+      ctx.fillText('BEOMONNURI CANDLE', 20, 24);
+
       animOffset++;
-      if (animOffset % 60 === 0) {
-        const last = data[data.length - 1];
-        const change = (Math.random() - 0.48) * 200;
-        last.c += change;
-        last.h = Math.max(last.h, last.c);
-        last.l = Math.min(last.l, last.c);
-      }
-
       requestAnimationFrame(drawChart);
     }
-    drawChart();
+
+    loadHeroCandles().finally(() => drawChart());
   }
 
   // === Smooth scroll for anchor links ===
