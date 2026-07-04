@@ -54,8 +54,40 @@ html, body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: normal;
   overflow-x: hidden;
 }
+
+/* 문장 흐름 우선: 의미 단위가 중간에 부자연스럽게 끊기지 않도록 통일 */
+.sect-head .lead,
+.page-hero .lead,
+.prod-detail .pd-lead,
+.products-index .pi-desc,
+.roll-row-v4 .rr-desc,
+.principle-cell p,
+.sec-item-v4 .sb p,
+.contact-left p,
+.ci-block .ci-value,
+.footer-grid .ft-tag,
+.compare-table td,
+.compare-table th,
+.home-transfer-why .hw-sub,
+.home-transfer-why .hw-step .v,
+.home-transfer-why .hw-metrics .md,
+.home-transfer-products .ht-sub,
+.home-transfer-products .ht-step .v {
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: normal;
+  text-wrap: pretty;
+}
+
+/* 짧은 핵심 구문(예: 사용 이력) 고정 */
+.nb-phrase {
+  white-space: nowrap;
+}
+
 a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 
@@ -1719,6 +1751,15 @@ footer {
 .contact-section {
   padding: 100px 0;
   background: var(--bg);
+  scroll-margin-top: 96px;
+}
+.contact-partner-wrap {
+  margin-top: 52px;
+  scroll-margin-top: 96px;
+}
+.contact-partner-wrap .partner-marquee {
+  position: relative;
+  z-index: 1;
 }
 .contact-grid {
   display: grid;
@@ -1848,6 +1889,7 @@ footer {
   .prod-detail .pd-cell { border-bottom: 1px solid var(--mute-line); }
   .partner-grid-v4 { grid-template-columns: repeat(3, 1fr); }
   .contact-grid { grid-template-columns: 1fr; gap: 40px; }
+  .contact-partner-wrap { margin-top: 40px; }
   .contact-info-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
   .cf-row { grid-template-columns: 1fr; gap: 8px; }
   .cf-row .cf-label { padding-top: 0; }
@@ -1863,6 +1905,7 @@ footer {
   .roll-row-v4 { grid-template-columns: 1fr; gap: 8px; padding: 20px 0; }
   .roll-row-v4 .rr-tag { justify-content: flex-start; }
   .contact-info-grid { grid-template-columns: 1fr; }
+  .contact-partner-wrap { margin-top: 32px; }
 }
 
 /* ----- SCROLL REVEAL -----
