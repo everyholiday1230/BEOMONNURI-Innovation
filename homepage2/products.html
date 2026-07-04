@@ -4,17 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Products — 범온누리</title>
-<meta name="description" content="4개의 AI 제품: 프라이빗 AI · 에이전트 AI · 슈퍼차트 AI · 공동주택 관리 AI. 하나의 보안 인프라 위에서 운영합니다.">
+<meta name="description" content="4개의 AI 제품(프라이빗·에이전트·슈퍼차트·공동주택 관리) 비교와 함께 홈페이지/웹사이트 제작, 광고 이미지 제작, MVP 제작, 스타트업 MVP, 예비창업자 MVP 외주까지 한 번에 확인하세요.">
+<meta name="keywords" content="AI 제품 성능,엔터프라이즈 AI,프라이빗 AI,에이전트 AI,슈퍼차트 AI,공동주택 관리 AI,AI 도입 성능 진단,업무 자동화 KPI,홈페이지 제작,웹사이트 제작,광고 이미지 제작,MVP 제작,스타트업 MVP,예비창업자 MVP,외주 개발">
 
 <meta name="theme-color" content="#921230">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <link rel="canonical" href="https://beomonnuri.ai/products.html">
+<meta property="og:url" content="https://beomonnuri.ai/products.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BEOMONNURI">
 <meta property="og:title" content="BEOMONNURI Products — 4개의 AI 제품">
-<meta property="og:description" content="프라이빗 · 에이전트 · 슈퍼차트 · 공동주택 관리.">
+<meta property="og:description" content="처리시간·자동화율·정확도·운영 안정성 기준으로 4개 AI 제품을 비교하세요.">
 <meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BEOMONNURI Products — 4개의 AI 제품">
+<meta name="twitter:description" content="처리시간·정확도·운영 안정성 목표를 기준으로 우리 조직에 맞는 AI 제품을 비교하세요.">
+<meta name="twitter:image" content="https://beomonnuri.ai/assets/og-image.png">
 <link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/img/logos/company/favicon-192.png">
 
@@ -114,7 +120,128 @@
     border-color: #921230;
     color: #fff;
   }
+  .performance-hub {
+    padding: 44px 0 56px;
+    border-bottom: 1px solid rgba(13,13,13,0.12);
+  }
+  .performance-hub .perf-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 20px;
+  }
+  .performance-hub .perf-card {
+    border: 1px solid rgba(13,13,13,0.15);
+    background: rgba(255,255,255,0.78);
+    padding: 24px;
+  }
+  .performance-hub .perf-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(23px, 2.15vw, 32px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .performance-hub .perf-sub {
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(13,13,13,0.72);
+    margin-bottom: 16px;
+  }
+  .performance-hub .perf-list {
+    display: grid;
+    gap: 10px;
+  }
+  .performance-hub .perf-list li {
+    border: 1px dashed rgba(13,13,13,0.2);
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .performance-hub .perf-links {
+    display: grid;
+    gap: 8px;
+  }
+  .performance-hub .perf-links a {
+    display: block;
+    border: 1px solid rgba(13,13,13,0.16);
+    padding: 11px 12px;
+    font-weight: 700;
+    transition: 0.2s ease;
+  }
+  .performance-hub .perf-links a:hover {
+    background: #921230;
+    border-color: #921230;
+    color: #fff;
+  }
+  .build-services-hub {
+    padding: 44px 0 58px;
+    border-bottom: 1px solid rgba(13,13,13,0.12);
+    background: linear-gradient(180deg, rgba(146,18,48,0.06), rgba(255,255,255,0.78));
+  }
+  .build-services-hub .bs-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+  }
+  .build-services-hub .bs-card {
+    border: 1px solid rgba(13,13,13,0.15);
+    background: rgba(255,255,255,0.8);
+    padding: 24px;
+  }
+  .build-services-hub .bs-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(23px, 2.1vw, 32px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .build-services-hub .bs-sub {
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(13,13,13,0.74);
+    margin-bottom: 14px;
+  }
+  .build-services-hub .bs-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .build-services-hub .bs-tag {
+    border: 1px solid rgba(13,13,13,0.18);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.9);
+  }
+  .build-services-hub .bs-check {
+    display: grid;
+    gap: 10px;
+  }
+  .build-services-hub .bs-check li {
+    border: 1px dashed rgba(13,13,13,0.2);
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .build-services-hub .bs-links {
+    display: grid;
+    gap: 8px;
+  }
+  .build-services-hub .bs-links a {
+    display: block;
+    border: 1px solid rgba(13,13,13,0.16);
+    padding: 11px 12px;
+    font-weight: 700;
+    transition: 0.2s ease;
+  }
+  .build-services-hub .bs-links a:hover {
+    background: #921230;
+    border-color: #921230;
+    color: #fff;
+  }
   @media (max-width: 960px) {
+    .performance-hub .perf-grid { grid-template-columns: 1fr; }
     .products-home-summary .hero-bottom {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -124,6 +251,7 @@
     }
     .home-transfer-products .ht-grid { grid-template-columns: 1fr; }
     .home-transfer-products .ht-pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .build-services-hub .bs-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 640px) {
     .products-home-summary .hero-bottom {
@@ -134,6 +262,65 @@
     }
   }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "name": "BEOMONNURI Products",
+      "url": "https://beomonnuri.ai/products.html",
+      "inLanguage": "ko-KR",
+      "about": "엔터프라이즈 AI 제품 성능 비교",
+      "keywords": ["AI 제품 성능", "AI 도입 진단", "엔터프라이즈 AI", "업무 자동화 KPI"],
+      "mainEntity": {
+        "@id": "https://beomonnuri.ai/products.html#product-list"
+      }
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://beomonnuri.ai/products.html#product-list",
+      "itemListOrder": "https://schema.org/ItemListOrderAscending",
+      "numberOfItems": 4,
+      "itemListElement": [
+        {"@type":"ListItem","position":1,"name":"범온 프라이빗 AI","url":"https://beomonnuri.ai/products-private.html"},
+        {"@type":"ListItem","position":2,"name":"범온 에이전트 AI","url":"https://beomonnuri.ai/products-agent.html"},
+        {"@type":"ListItem","position":3,"name":"범온 슈퍼차트 AI","url":"https://beomonnuri.ai/products-superchart.html"},
+        {"@type":"ListItem","position":4,"name":"범온 공동주택 관리 AI","url":"https://beomonnuri.ai/products-apartment.html"}
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "AI 제품 성능은 어떤 기준으로 비교하나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "처리시간, 정확도, 자동화 범위, 운영 안정성(권한·로그·장애 대응) 기준으로 비교하며 실제 수치는 프로젝트 범위와 데이터 조건에 따라 합의 후 측정합니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "도입 전에 성능 목표를 설정할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "가능합니다. 도입 진단 단계에서 우선 과제와 현재 운영 지표를 확인하고 파일럿 단계에서 측정 항목과 목표값을 함께 정의합니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "홈페이지/웹사이트 제작, 광고 이미지, MVP 외주도 함께 진행할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "가능합니다. 홈페이지 제작, 웹사이트 제작, 광고 이미지 제작, MVP 제작(스타트업 MVP/예비창업자 MVP 포함)을 제품 도입 전략과 함께 설계해 통합 실행할 수 있습니다."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 
 <body class="grain">
@@ -164,12 +351,12 @@
       <span class="ko">4개의 </span><span class="acid">AI 제품</span>,<br>
       <span class="stroke">하나의</span> OS.
     </h1>
-    <p class="lead">조직의 우선 과제와 보유 데이터에 맞춰 시작할 수 있는 4개의 AI 제품. 보안형 사내 AI부터 산업별 의사결정 AI까지, 모두 하나의 운영체제 위에서 작동합니다.</p>
+    <p class="lead">조직의 <span class="nb-phrase">우선 과제</span>와 보유 데이터에 맞춰 시작할 수 있는 4개의 AI 제품. 보안형 사내 AI부터 산업별 의사결정 AI까지, 하나의 운영 기준 위에서 연동되도록 설계됩니다.</p>
 
     <div class="page-hero-meta">
       <div><div class="k">/ TOTAL</div><div class="v"><span class="ac">04</span> Products</div></div>
       <div><div class="k">/ DEPLOY</div><div class="v">On-Prem · Private Cloud</div></div>
-      <div><div class="k">/ TIMELINE</div><div class="v">6 weeks <span class="ac">→</span> Operate</div></div>
+      <div><div class="k">/ TIMELINE</div><div class="v">도입 일정 <span class="ac">협의</span></div></div>
       <div><div class="k">/ DATA</div><div class="v">KR · PRIVATE</div></div>
     </div>
   </div>
@@ -181,15 +368,15 @@
     <div class="hero-bottom">
       <div class="hb-cell">
         <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
-        <div class="val">보안 환경의<br>엔터프라이즈 AI</div>
+        <div class="val">보안 환경의 엔터프라이즈 AI</div>
       </div>
       <div class="hb-cell">
         <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
-        <div class="val">4개의 AI 제품<br>산업별 맞춤 운영</div>
+        <div class="val">4개의 AI 제품, 산업별 맞춤 운영</div>
       </div>
       <div class="hb-cell">
         <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
-        <div class="val">목표 기반으로<br>성과 점검</div>
+        <div class="val">목표 기반 성과 점검</div>
       </div>
       <div class="hb-cell cta-cell">
         <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
@@ -215,13 +402,80 @@
       </article>
       <aside class="ht-card">
         <h3 class="ht-title">제품 탐색 순서</h3>
-        <p class="ht-sub">조직의 우선 과제 기준으로 빠르게 이동하세요.</p>
+        <p class="ht-sub">조직의 <span class="nb-phrase">우선 과제</span> 기준으로 빠르게 이동하세요.</p>
         <div class="ht-list">
           <a href="products-private.html">보안 우선 조직 → 프라이빗 AI</a>
           <a href="products-agent.html">반복 업무 자동화 → 에이전트 AI</a>
           <a href="products-superchart.html">시장·리서치 분석 → 슈퍼차트 AI</a>
           <a href="products-apartment.html">관리 운영 통합 → 공동주택 관리 AI</a>
           <a href="why.html">도입 원칙 확인 → Why 페이지</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="performance-hub reveal" id="performance-hub">
+  <div class="container">
+    <div class="sect-label">MARKETING / SEARCH INTENT · PRODUCT PERFORMANCE</div>
+    <div class="perf-grid">
+      <article class="perf-card">
+        <h2 class="perf-title">제품 성능 기준으로<br>도입 우선순위를 정리하세요</h2>
+        <p class="perf-sub">검색 유입 사용자가 많이 찾는 기준(처리시간, 정확도, 자동화 범위, 운영 안정성)을 중심으로 제품 선택 흐름을 정리했습니다. 실제 수치는 프로젝트 범위·데이터 조건에 따라 합의 후 측정합니다.</p>
+        <ul class="perf-list">
+          <li><strong>처리시간 단축</strong> — 현재 프로세스 대비 자동화 가능한 단계와 승인 흐름을 진단</li>
+          <li><strong>정확도/재현성</strong> — 조직별 평가 기준으로 반복 측정 가능한 방식 제안</li>
+          <li><strong>운영 안정성</strong> — 권한, 로그, 장애 대응 기준을 포함한 운영 체크리스트 적용</li>
+          <li><strong>확장성</strong> — 단일 제품 도입 후 4개 제품 연동 시나리오까지 단계별 확장</li>
+        </ul>
+      </article>
+      <aside class="perf-card">
+        <h3 class="perf-title">성능 중심 빠른 이동</h3>
+        <p class="perf-sub">관심 성능 목표에 맞춰 상세 페이지로 이동해 비교 검토하세요.</p>
+        <div class="perf-links">
+          <a href="products-private.html">보안·정확도 우선 → 범온 프라이빗 AI</a>
+          <a href="products-agent.html">처리시간·자동화 우선 → 범온 에이전트 AI</a>
+          <a href="products-superchart.html">신호 정확도·리스크 감지 우선 → 범온 슈퍼차트 AI</a>
+          <a href="products-apartment.html">운영 안정성·민원 처리 우선 → 공동주택 관리 AI</a>
+          <a href="contact.html">우리 조직 성능 목표 기준으로 도입 진단 요청 ↗</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="build-services-hub reveal" id="build-services-hub">
+  <div class="container">
+    <div class="sect-label">PRODUCT EXTENSION / OUTSOURCING · MVP STUDIO</div>
+    <div class="bs-grid">
+      <article class="bs-card">
+        <h2 class="bs-title">제품 도입과 함께<br>외주·MVP를 통합 실행하세요</h2>
+        <p class="bs-sub">AI 제품 도입만이 아니라 <strong>홈페이지 제작</strong>, <strong>웹사이트 제작</strong>, <strong>광고 이미지 제작</strong>, <strong>MVP 제작</strong>을 하나의 로드맵으로 연결합니다. 스타트업 MVP와 예비창업자 MVP까지 초기 검증에 맞춘 속도 중심 실행이 가능합니다.</p>
+        <div class="bs-tags" aria-label="서비스 키워드">
+          <span class="bs-tag">홈페이지 제작</span>
+          <span class="bs-tag">웹사이트 제작</span>
+          <span class="bs-tag">광고 이미지 제작</span>
+          <span class="bs-tag">MVP 제작</span>
+          <span class="bs-tag">스타트업 MVP</span>
+          <span class="bs-tag">예비창업자 MVP</span>
+          <span class="bs-tag">외주 개발</span>
+        </div>
+        <ul class="bs-check">
+          <li><strong>전략 정렬</strong> — 타깃 고객/수익모델에 맞는 페이지 구조와 제품 메시지 설계</li>
+          <li><strong>빠른 제작</strong> — 랜딩·브랜드 페이지·광고 크리에이티브를 단기 반복 배포</li>
+          <li><strong>MVP 검증</strong> — 핵심 기능 우선 구현 + 사용자 반응 데이터 기반 개선 루프</li>
+          <li><strong>확장 전환</strong> — MVP 이후 제품형 서비스/운영 자동화 단계로 확장 지원</li>
+        </ul>
+      </article>
+      <aside class="bs-card">
+        <h3 class="bs-title">외주·MVP 빠른 시작</h3>
+        <p class="bs-sub">현재 단계에 맞는 트랙을 선택하면 도입 상담에서 일정과 범위를 바로 제안합니다.</p>
+        <div class="bs-links">
+          <a href="contact.html">홈페이지/웹사이트 제작 상담 요청 ↗</a>
+          <a href="contact.html">광고 이미지 제작 패키지 문의 ↗</a>
+          <a href="contact.html">스타트업 MVP 제작 상담 ↗</a>
+          <a href="contact.html">예비창업자 MVP 검증 트랙 문의 ↗</a>
+          <a href="contact.html">AI 제품 + 외주 통합 로드맵 요청 ↗</a>
         </div>
       </aside>
     </div>
@@ -320,7 +574,7 @@
     <div class="footer-grid">
       <div>
         <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 위에서 운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
+        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 기준으로 설계·운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>

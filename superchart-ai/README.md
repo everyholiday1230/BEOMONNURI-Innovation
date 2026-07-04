@@ -12,6 +12,17 @@
 - 알림 시스템
 - 사용자 인증 + 워치리스트
 
+## 🆕 2026-07-04 랜딩 SEO/디자인 고도화
+
+- 대상 페이지: `https://chart.beomonnuri.com/landing`
+- 핵심 키워드 반영: `AI 지표`, `AI자동분석`, `AI 차트`, `AI 차트분석`, `퀀트`
+- 개선 내용:
+  - 메타 태그(Title/Description/Keywords/OG) 정교화
+  - `SoftwareApplication + FAQPage + BreadcrumbList` 구조화 데이터(JSON-LD) 고도화
+  - 검색 의도 중심 키워드 섹션 + 성능 기준(지연시간/정확도/자동화율/안정성) 섹션 추가
+  - 회사 홈페이지 톤앤매너(와인 컬러·모노 라벨·엔터프라이즈 카피) 반영
+  - 푸터에 회사 홈페이지(`https://beomonnuri.ai/`) 연결 추가
+
 ## 🆕 2026-06-22 워치리스트 가시성/가격 커버리지 고도화
 
 - `static/js/modules/watchlist.js`

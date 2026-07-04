@@ -35,7 +35,32 @@
 - 인덱스 인텔 섹션 문구를 “예시 지표” 중심으로 조정
 - 틱커 수치를 실제 수치처럼 보이지 않도록 `SAMPLE/예시 데이터`로 변경
 
-### E. 파트너 표기 반영
+### E. 마케팅/검색(SEO) 강화 — 제품 성능 중심
+- 홈/제품/슈퍼차트 페이지 메타 태그를 `제품 성능` 검색 의도 기준으로 고도화
+  - 핵심 키워드: 처리시간, 정확도, 자동화율, 운영 안정성, 성능 진단
+- 제품 허브(`products.html`)에 성능 기준 안내 섹션 신설
+  - 검색 유입 사용자가 바로 비교할 수 있도록 내부 링크 구조 강화
+- 슈퍼차트 상세(`products-superchart.html`)에 성능 진단 프레임 섹션 신설
+  - 신호 정확도/지연시간/운영 안정성 중심 카피 및 CTA 추가
+- JSON-LD 구조화데이터 강화
+  - `products.html`: `CollectionPage + ItemList + FAQPage` 그래프
+  - `products-superchart.html`: `Service + BreadcrumbList + FAQPage` 그래프
+
+### F. Products 확장 — 외주·MVP 서비스 라인 반영
+- `products.html`에 **외주·MVP 통합 섹션** 신설 (`#build-services-hub`)
+- 반영 키워드:
+  - 홈페이지 제작
+  - 웹사이트 제작
+  - 광고 이미지 제작
+  - MVP 제작
+  - 스타트업 MVP
+  - 예비창업자 MVP
+  - 외주 개발
+- SEO 확장:
+  - `products.html` 메타 description/keywords에 서비스 키워드 추가
+  - `FAQPage` JSON-LD에 외주·MVP 가능 여부 Q&A 추가
+
+### G. 파트너 표기 반영
 - 파트너 배열에 아래 항목 반영:
   - 청년재단
   - (주)로컬모티브
@@ -57,6 +82,7 @@
 ## 4) 아직 미완료(사용자 확인 필요)
 1. **청년재단 공식 CI 원본 확정**
 2. **(주)로컬모티브 공식 CI 원본 확정**
+3. 성능 섹션 문구의 최종 세일즈 톤(강한 카피 vs 사실 중심 카피) 확정
 
 > 현재는 후보 이미지(JPG)를 적용해 둔 상태이며, 공식 배포본(PNG/SVG 권장) 확인 후 교체 필요.
 
@@ -67,7 +93,7 @@
 4. 필요 시 배포 전 최종 빌드/검증 수행
 
 ## 6) 수정된 주요 파일
-- HTML: `index.html`, `products*.html`, `why.html`, `contact.html`
+- HTML: `index.html`, `products.html`, `products-superchart.html`, `products*.html`, `why.html`, `contact.html`
 - JS: `assets/js/ai-frontier.js`, `assets/js/core.js`, `assets/js/v5-nextgen.js`, `assets/js/v5-anchor.js`, `assets/js/v5-mobile.js`
 - CSS: `assets/css/ai-frontier.css`, `assets/css/v5-nextgen.css`
 - 삭제: `cases.html`
