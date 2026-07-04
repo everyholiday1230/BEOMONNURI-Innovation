@@ -392,6 +392,7 @@ const reducedV5 = false;
    4. MOUSE TRAIL PARTICLE SYSTEM (Verlet integration)
    ============================================================ */
 (() => {
+  return; // 마우스 트레일(따라다니는 점) 비활성화
   if (reducedV5) return;
   if (matchMedia('(hover: none)').matches) return;
   const canvas = $5('#mouse-trail');
