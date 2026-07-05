@@ -1,459 +1,642 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>범온 AI 슈퍼차트 | AI 지표 · AI 자동분석 · AI 차트분석 · 퀀트 리서치</title>
-<meta name="description" content="범온 AI 슈퍼차트는 차트 지표·드로잉·AI 해설·AI 예측을 제공하는 실시간 차트 분석 플랫폼입니다.">
-<meta name="keywords" content="AI 지표,AI자동분석,AI 자동분석,AI 차트,AI 차트분석,퀀트,퀀트 트레이딩,퀀트 리서치,트레이딩 AI,실시간 차트 분석,범온 슈퍼차트,SuperChart AI">
-<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="범온 AI 슈퍼차트">
-<meta property="og:locale" content="ko_KR">
-<meta property="og:title" content="범온 AI 슈퍼차트 | AI 지표 · AI 자동분석 · AI 차트분석">
-<meta property="og:description" content="차트 지표·드로잉·AI 자동해설·AI 예측을 제공하는 실시간 차트 분석 플랫폼.">
-<meta property="og:image" content="https://chart.beomonnuri.com/static/og-image.png">
-<meta property="og:url" content="https://chart.beomonnuri.com/landing">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="범온 AI 슈퍼차트 | AI 지표 · AI 차트분석">
-<meta name="twitter:description" content="복잡한 차트와 지표를 AI 해설·예측으로 빠르게 확인하는 실시간 차트 분석 플랫폼.">
-<link rel="canonical" href="https://chart.beomonnuri.com/landing">
-<link rel="icon" type="image/png" sizes="64x64" href="/static/favicon.png?v=2"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<!-- ===== SEO — Meta ===== -->
+<title>범온 슈퍼차트 AI · AI 지표·AI 자동분석·AI 차트분석 — BEOMONNURI</title>
+<meta name="description" content="범온누리 이노베이션이 만든 AI 차트 분석 플랫폼. 자체 학습 Transformer + LLM으로 AI 지표, AI 자동분석, 실시간 AI 차트를 하나의 화면에. 신호 정확도·지연시간·자동화율·운영 안정성을 기준으로 설계된 퀀트 리서치 AI.">
+<meta name="keywords" content="AI 지표, AI 자동분석, AI 차트, AI 차트분석, 퀀트, 슈퍼차트 AI, 범온누리, BEOMONNURI, 실시간 차트, Transformer 예측, LLM 해설, 금융 리서치 AI, 트레이딩 자동화, 신호 정확도, 지연시간, RSI, MACD, 볼린저밴드, 범온 캔들">
+<meta name="author" content="BEOMONNURI Inc.">
 <meta name="theme-color" content="#921230">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+<link rel="canonical" href="https://chart.beomonnuri.com/landing">
+
+<!-- ===== SEO — Open Graph ===== -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BEOMONNURI · SUPERCHART AI">
+<meta property="og:title" content="범온 슈퍼차트 AI — AI 지표·AI 차트분석·퀀트 리서치">
+<meta property="og:description" content="자체 Canvas 차트 엔진 + Transformer 예측 + LLM 해설. AI 지표·AI 자동분석·AI 차트를 한 화면에. 성능 기준(지연시간·정확도·자동화율·안정성)으로 설계.">
+<meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
+<meta property="og:url" content="https://chart.beomonnuri.com/landing">
+<meta property="og:locale" content="ko_KR">
+
+<!-- ===== SEO — Twitter ===== -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="범온 슈퍼차트 AI — AI 지표·AI 차트분석">
+<meta name="twitter:description" content="Transformer + LLM 기반 AI 차트 분석. 자체 Canvas 엔진. WebSocket 실시간. AI 지표·AI 자동분석 통합.">
+<meta name="twitter:image" content="https://beomonnuri.ai/assets/og-image.png">
+
+<!-- ===== Favicon & Fonts ===== -->
+<link rel="icon" type="image/svg+xml" href="/static/landing-assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/static/landing-assets/landing.css">
+
+<!-- ===== JSON-LD · SEO 강화 ===== -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
+      "@id": "https://beomonnuri.ai/#organization",
       "name": "범온누리 이노베이션",
       "alternateName": "BEOMONNURI INNOVATION",
       "url": "https://beomonnuri.ai/",
-      "sameAs": [
-        "https://chart.beomonnuri.com/landing",
-        "https://beomonnuri.ai/"
-      ]
-    },
-    {
-      "@type": "SoftwareApplication",
-      "name": "범온 AI 슈퍼차트",
-      "applicationCategory": "FinanceApplication",
-      "operatingSystem": "Web",
-      "url": "https://chart.beomonnuri.com/landing",
-      "description": "차트 지표·드로잉·AI 해설·AI 예측을 제공하는 실시간 차트 분석 플랫폼",
-      "featureList": [
-        "실시간 차트 데이터 스트림",
-        "범온 지표 + 보조지표 + 드로잉 도구",
-        "AI 차트 해설(/v1/analysis/chart)",
-        "AI 가격 예측(/v1/analysis/predict)",
-        "자체 개발 AI 기반 차트 해설/예측"
-      ],
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "KRW"
+      "logo": "https://beomonnuri.ai/assets/img/logos/company/beomonnuri-logo.png",
+      "email": "beomonnuri@gmail.com",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15",
+        "addressLocality": "구리시",
+        "addressRegion": "경기도",
+        "addressCountry": "KR"
       }
     },
     {
       "@type": "WebSite",
-      "name": "범온 AI 슈퍼차트",
+      "@id": "https://chart.beomonnuri.com/#website",
+      "name": "BEOMONNURI SUPERCHART AI",
       "url": "https://chart.beomonnuri.com/",
-      "inLanguage": "ko-KR"
+      "inLanguage": "ko-KR",
+      "publisher": {"@id": "https://beomonnuri.ai/#organization"}
     },
     {
-      "@type": "WebPage",
-      "name": "범온 AI 슈퍼차트 랜딩",
-      "url": "https://chart.beomonnuri.com/landing",
+      "@type": "SoftwareApplication",
+      "@id": "https://chart.beomonnuri.com/landing#software",
+      "name": "범온 슈퍼차트 AI",
+      "alternateName": "SUPERCHART AI",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web Browser",
+      "url": "https://chart.beomonnuri.com/",
+      "description": "자체 Canvas 차트 엔진 + Transformer 예측 + LLM 해설로 AI 지표·AI 자동분석·AI 차트를 통합 제공하는 실시간 리서치 플랫폼.",
+      "featureList": [
+        "AI 지표 (범온 캔들, 정/역배열, AI 목표)",
+        "AI 자동분석 (지표 신호 요약 + LLM 해설)",
+        "실시간 WebSocket 차트",
+        "자체 Canvas 차트 엔진",
+        "Transformer 가격 예측",
+        "스마트 알림 (가격/RSI/BEOM_SIGNAL)",
+        "리플레이 모드"
+      ],
+      "keywords": "AI 지표, AI 자동분석, AI 차트, AI 차트분석, 퀀트",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "KRW",
+        "description": "기본 차트 및 일부 무료 지표 제공"
+      },
+      "provider": {"@id": "https://beomonnuri.ai/#organization"}
+    },
+    {
+      "@type": "Service",
+      "name": "범온 슈퍼차트 AI — 금융 리서치 AI",
+      "serviceType": "AI Chart Analysis · Quant Research Automation",
+      "provider": {"@id": "https://beomonnuri.ai/#organization"},
+      "areaServed": "KR",
       "inLanguage": "ko-KR",
-      "keywords": "AI 지표, AI자동분석, AI 차트, AI 차트분석, 퀀트"
+      "url": "https://chart.beomonnuri.com/landing",
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Performance Frame",
+        "itemListElement": [
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "신호 정확도 검증 · Accuracy"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "지연시간 관리 · Latency"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "분석 자동화율 · Automation"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "운영 안정성 · Stability"}}
+        ]
+      }
     },
     {
       "@type": "BreadcrumbList",
       "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "HOME", "item": "https://beomonnuri.ai/"},
+        {"@type": "ListItem", "position": 2, "name": "PRODUCTS", "item": "https://beomonnuri.ai/products.html"},
+        {"@type": "ListItem", "position": 3, "name": "SUPERCHART AI", "item": "https://chart.beomonnuri.com/landing"}
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
         {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "홈",
-          "item": "https://chart.beomonnuri.com/"
+          "@type": "Question",
+          "name": "무료로 사용할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "기본 차트와 일부 무료 지표(RSI, MACD, 볼린저밴드, 슈퍼트렌드 등)를 사용할 수 있습니다. 범온 Pro 지표와 고급 기능은 멤버십·상품 정책에 따라 제공됩니다."
+          }
         },
         {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "AI 슈퍼차트 랜딩",
-          "item": "https://chart.beomonnuri.com/landing"
+          "@type": "Question",
+          "name": "어떤 종목을 지원하나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "심볼 검색에 노출되는 암호화폐·주식 종목을 지원합니다. 지원 목록은 데이터 연동 및 운영 정책에 따라 업데이트됩니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "AI 예측의 정확도는 어떤가요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AI 예측은 참고 정보로 제공되며, 투자 결정의 유일한 근거로 사용해서는 안 됩니다. Transformer 모델은 과거 패턴 학습 기반이며, 시장 상황에 따라 정확도가 달라질 수 있습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "모바일에서도 사용할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "네, 반응형 웹으로 설계되어 모바일 브라우저에서 바로 사용 가능합니다. 별도 앱 설치가 필요 없습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "AI 지표와 일반 기술 지표의 차이는 무엇인가요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "범온 캔들, 정/역배열, AI 목표 같은 AI 지표는 여러 시장 신호를 조합해 추세·진입·리스크를 구조적으로 판단합니다. 일반 지표(RSI, MACD 등)는 개별 관점만 제공하지만, AI 지표는 지표 간 상호작용까지 반영해 의사결정 준비 시간을 줄입니다."
+          }
         }
       ]
     }
   ]
 }
 </script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "무료로 사용할 수 있나요?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "기본 차트와 일부 무료 지표(RSI, MACD, 볼린저밴드, 슈퍼트렌드 등)를 사용할 수 있습니다. 범온 Pro 지표와 고급 기능은 멤버십/상품 정책에 따라 제공됩니다."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "어떤 종목을 지원하나요?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "심볼 검색에서 제공되는 암호화폐/주식 종목을 지원합니다. 지원 목록은 운영 정책과 데이터 연동 상태에 따라 업데이트됩니다."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "AI 예측의 정확도는 어떤가요?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "AI 예측은 참고 정보이며 투자 판단의 유일 근거로 사용하면 안 됩니다. 모델 정확도는 시장 상황에 따라 달라질 수 있습니다."
-      }
-    }
-  ]
-}
-</script>
-<link rel="stylesheet" href="/static/css/landing.css">
 </head>
-<body>
-<!-- Navigation -->
-<nav class="nav" id="nav">
-  <div class="nav-inner">
-    <a href="/" class="nav-brand" aria-label="범온 AI 슈퍼차트 홈">
-      <img src="/static/logo.png" alt="범온 AI 슈퍼차트" width="32" height="32" class="nav-logo">
-      <span class="nav-copy">
-        <span class="nav-name">범온 AI 슈퍼차트</span>
-        <span class="nav-sub">BEOMONNURI INNOVATION</span>
+
+<body class="grain">
+
+<!-- Skip link -->
+<a href="#main" class="skip-link">본문으로 건너뛰기</a>
+
+<!-- Scroll progress -->
+<div class="scroll-progress" aria-hidden="true"><div id="scrollBar"></div></div>
+
+<!-- ===== NAV ===== -->
+<nav class="top" aria-label="주요 내비게이션">
+  <div class="container row">
+    <a class="brand" href="https://beomonnuri.ai/">
+      <span class="box"><img src="/static/landing-assets/beomonnuri-logo.png" alt="범온누리 이노베이션 로고"></span>
+      <span class="brand-copy">
+        <span class="brand-ko">범온누리 이노베이션</span>
+        <span class="brand-en">BEOMONNURI · SUPERCHART AI</span>
       </span>
     </a>
-    <div class="nav-links" id="navLinks">
-      <a href="#features" class="nav-link">기능</a>
-      <a href="#keywords" class="nav-link">AI 분석</a>
-      <a href="#performance" class="nav-link">성능 기준</a>
-      <a href="#indicators" class="nav-link">지표</a>
-      <a href="#technology" class="nav-link">기술</a>
-      <a href="#faq" class="nav-link">FAQ</a>
+    <div class="nav-links">
+      <a href="https://chart.beomonnuri.com/chart" class="cta"><span>무료로 차트 시작 →</span></a>
     </div>
-    <div class="nav-actions">
-      <a href="/chart" class="btn-nav-secondary">로그인</a>
-      <a href="/chart" class="btn-nav-primary">무료로 시작</a>
-    </div>
-    <button class="nav-toggle" id="navToggle" aria-label="메뉴 열기">
-      <span></span><span></span><span></span>
-    </button>
   </div>
 </nav>
 
-<main id="main-content">
-<!-- Hero Section -->
-<section class="hero">
-  <div class="hero-bg">
-    <div class="hero-grid"></div>
-    <div class="hero-glow hero-glow-1"></div>
-    <div class="hero-glow hero-glow-2"></div>
-  </div>
-  <div class="container hero-content">
-    <p class="hero-topline" data-animate="fade-up">BEOMONNURI · ENTERPRISE AI · SEOUL, KR</p>
-    <div class="hero-badge" data-animate="fade-up">
-      <span class="badge-dot"></span>
-      실시간 서비스 운영 중
+<main id="main">
+
+<!-- ===== HERO ===== -->
+<section class="hero" aria-labelledby="hero-h">
+  <canvas class="hero-lines" id="heroLines" aria-hidden="true"></canvas>
+
+  <div class="container">
+    <div class="hero-top">
+      <span>BEOMONNURI · ENTERPRISE AI · SEOUL, KR</span>
+      <span class="live-tag">LIVE · 실시간 서비스 운영 중</span>
     </div>
-    <h1 class="hero-title" data-animate="fade-up" data-delay="100">
-      복잡한 차트 분석,<br>
-      <span class="text-gradient">AI가 대신합니다</span>
+
+    <h1 id="hero-h">
+      <span class="row"><span class="ko">시장을</span></span>
+      <span class="row"><span class="stroke">REALTIME</span></span>
+      <span class="row"><span class="ko">한 화면에<span class="acid">.</span></span></span>
     </h1>
-    <p class="hero-desc" data-animate="fade-up" data-delay="200">
-      복잡한 차트와 지표를 자체 개발 AI가 해설·예측하고,<br>
-      범온누리 캔들 중심 차트 화면에서 바로 확인할 수 있습니다.
+
+    <p class="hero-lead">
+      복잡한 차트와 지표를 <strong>자체 개발 AI</strong>가 해설·예측하고, <strong>범온누리 캔들 중심</strong> 차트 화면에서 바로 확인합니다. 자체 Canvas 엔진 · <span class="nb-phrase">Transformer 예측</span> · <span class="nb-phrase">LLM 해설</span>을 한 번에.
     </p>
-    <div class="hero-cta" data-animate="fade-up" data-delay="300">
-      <a href="/chart" class="btn-primary btn-lg">
-        <span>차트 시작하기</span>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+
+    <div class="hero-cta-row">
+      <a href="https://chart.beomonnuri.com/chart" class="btn btn-primary">
+        <span>무료로 차트 시작하기</span>
+        <span class="arrow">→</span>
       </a>
-      <a href="#features" class="btn-secondary btn-lg">기능 살펴보기</a>
+      <a href="#performance" class="btn btn-ghost">
+        <span>성능 기준 보기</span>
+        <span class="arrow">↓</span>
+      </a>
     </div>
-    <div class="hero-stats" data-animate="fade-up" data-delay="400">
-      <div class="stat">
-        <span class="stat-number" data-count="47">0</span><span class="stat-plus">+</span>
-        <span class="stat-label">차트 지표·도구</span>
+
+    <!-- KPI ribbon -->
+    <div class="kpi-ribbon" role="group" aria-label="주요 성능 지표">
+      <div class="kpi">
+        <div class="k">/ INDICATORS</div>
+        <div class="v"><span class="accent">30+</span><span class="u">지표·도구</span></div>
+        <div class="d">범온 캔들 · 정/역배열 · AI 목표 · 슈퍼트렌드 등</div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat">
-        <span class="stat-number">WS</span>
-        <span class="stat-label">실시간 스트림</span>
+      <div class="kpi">
+        <div class="k">/ STREAM</div>
+        <div class="v">WS<span class="u">실시간</span></div>
+        <div class="d">WebSocket 직결 · Binance / Upbit 데이터 파이프라인</div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat">
-        <span class="stat-number">AI</span>
-        <span class="stat-label">해설·예측 API</span>
+      <div class="kpi">
+        <div class="k">/ ENGINE</div>
+        <div class="v">AI<span class="u">해설·예측</span></div>
+        <div class="d">Transformer 예측 + LLM(Ollama) 자연어 해설</div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat">
-        <span class="stat-number">LIVE</span>
-        <span class="stat-label">실시간 분석 지원</span>
-      </div>
-    </div>
-  </div>
-  <div class="hero-visual" data-animate="fade-up" data-delay="500">
-    <div class="browser-frame">
-      <div class="browser-dots"><span></span><span></span><span></span></div>
-      <div class="browser-url">beomonnuri.com/chart</div>
-      <div class="browser-content">
-        <div class="mock-chart">
-          <canvas id="heroChart" width="800" height="400"></canvas>
-        </div>
+      <div class="kpi">
+        <div class="k">/ STATUS</div>
+        <div class="v"><span class="accent">LIVE</span><span class="u">운영 중</span></div>
+        <div class="d">chart.beomonnuri.com — 브라우저에서 즉시 실행</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Features Section -->
-<section class="section" id="features">
+<!-- ===== PAGE META ===== -->
+<section class="page-meta" aria-label="페이지 메타 정보">
   <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">핵심 기능</span>
-      <h2 class="section-title">트레이딩에 필요한 모든 것</h2>
-      <p class="section-desc">차트·지표·AI 해설/예측·알림을 한 화면 흐름으로 제공합니다.</p>
+    <div class="crumb">
+      <a href="https://beomonnuri.ai/">HOME</a>
+      <span class="sep">·</span>
+      <a href="https://beomonnuri.ai/products.html">PRODUCTS</a>
+      <span class="sep">·</span>
+      <span class="current">SUPERCHART AI</span>
     </div>
-    <div class="features-grid">
-      <div class="feature-card feature-card-lg" data-animate="fade-up">
-        <div class="feature-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        </div>
-        <h3 class="feature-title">자체 Canvas 차트 엔진</h3>
-        <p class="feature-desc">HTML5 Canvas 기반 차트 UI로 캔들/라인/영역 차트와 드로잉 워크플로를 제공합니다.</p>
-        <ul class="feature-list">
-          <li>캔들, 라인, 영역 차트</li>
-          <li>확대/이동(줌·스크롤)</li>
-          <li>드로잉 도구 (추세선, 피보나치, 수평선)</li>
+    <div class="meta-grid">
+      <div>
+        <div class="k">/ PRODUCT ID</div>
+        <div class="v"><span class="ac">03</span> SUPERCHART AI<small>범온누리 4개 AI 라인업 · 금융 리서치</small></div>
+      </div>
+      <div>
+        <div class="k">/ RUNTIME</div>
+        <div class="v">Realtime<small>WebSocket · Binance · Upbit</small></div>
+      </div>
+      <div>
+        <div class="k">/ AI CORE</div>
+        <div class="v">Transformer + LLM<small>자체 학습 모델 · Ollama 서빙</small></div>
+      </div>
+      <div>
+        <div class="k">/ STATUS</div>
+        <div class="v"><span class="ac">● LIVE</span><small>chart.beomonnuri.com</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PERFORMANCE FRAME (SEO 핵심) ===== -->
+<section class="section" id="performance" aria-labelledby="perf-h">
+  <div class="container">
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 01 · PERFORMANCE FRAME</div>
+        <h2 id="perf-h"><span class="ko">성능 기준으로</span><br>설계된 <span class="acid">AI 차트</span></h2>
+      </div>
+      <p>
+        AI 차트 분석은 결국 <strong>지연시간</strong>, <strong>신호 정확도</strong>, <strong>자동화율</strong>, <strong>운영 안정성</strong>의 문제입니다. 슈퍼차트 AI는 이 네 가지를 성능 목표로 설계되고, 조직의 리서치 워크플로에 맞춰 합의된 기준으로 측정·개선합니다.
+      </p>
+    </div>
+
+    <div class="perf-grid">
+      <div class="perf-cell">
+        <span class="badge">LATENCY</span>
+        <h3>지연시간 관리</h3>
+        <p>실시간 데이터 반영 속도와 알림 전달 흐름을 함께 점검해 체감 지연을 최소화합니다.</p>
+        <ul>
+          <li>WebSocket 직결 스트림</li>
+          <li>경보 감지~전달 시간 측정</li>
+          <li>시장 급변 구간 별도 모니터링</li>
+        </ul>
+      </div>
+      <div class="perf-cell">
+        <span class="badge">ACCURACY</span>
+        <h3>신호 정확도 검증</h3>
+        <p>AI 지표와 자동 분석 결과를 백테스트 관점으로 검증해 전략 신뢰도를 높입니다.</p>
+        <ul>
+          <li>신호 분류 정확도 기준 설정</li>
+          <li>오탐·미탐 케이스 분리 분석</li>
+          <li>주기별 성능 리포트 생성</li>
+        </ul>
+      </div>
+      <div class="perf-cell">
+        <span class="badge">AUTOMATION</span>
+        <h3>분석 자동화율</h3>
+        <p>반복 차트 판독과 조건 탐색을 자동화해 트레이더가 의사결정에 집중하도록 설계했습니다.</p>
+        <ul>
+          <li>지표 신호 요약 자동 생성</li>
+          <li>LLM 해설로 판독 시간 단축</li>
+          <li>조건 기반 스마트 알림</li>
+        </ul>
+      </div>
+      <div class="perf-cell">
+        <span class="badge">STABILITY</span>
+        <h3>운영 안정성</h3>
+        <p>실시간 수집·분석·알림 파이프라인을 모니터링해 예측 가능한 운영 품질을 유지합니다.</p>
+        <ul>
+          <li>수집 · 분석 · 알림 파이프라인</li>
+          <li>접근 권한 · 로그 정책 점검</li>
+          <li>리스크 이벤트 대응 플로우</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CORE FEATURES ===== -->
+<section class="section alt" aria-labelledby="feat-h">
+  <div class="container">
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 02 · CORE MODULES</div>
+        <h2 id="feat-h"><span class="ko">차트·지표·AI가</span><br>하나로 <span class="stroke">CONNECTED</span></h2>
+      </div>
+      <p>
+        캔들·라인·영역 차트, 드로잉, 실시간 데이터, AI 예측, LLM 해설, 알림 — 여섯 개의 핵심 모듈이 하나의 화면에서 유기적으로 작동합니다.
+      </p>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat-cell">
+        <div class="num">/ 01</div>
+        <h3>자체 Canvas 차트 엔진</h3>
+        <p>HTML5 Canvas 기반의 자체 개발 차트 UI로 캔들·라인·영역 차트와 드로잉 워크플로를 제공합니다.</p>
+        <ul>
+          <li>캔들 · 라인 · 영역 차트</li>
+          <li>확대·이동 (줌/스크롤)</li>
+          <li>추세선 · 피보나치 · 수평선</li>
           <li>리플레이 모드</li>
         </ul>
       </div>
-      <div class="feature-card" data-animate="fade-up" data-delay="100">
-        <div class="feature-icon feature-icon-gold">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <h3 class="feature-title">실시간 데이터</h3>
-        <p class="feature-desc">실시간 가격·캔들·거래량을 차트에 반영해 현재 시장 흐름을 즉시 확인할 수 있습니다.</p>
+      <div class="feat-cell">
+        <div class="num">/ 02</div>
+        <h3>실시간 데이터</h3>
+        <p>실시간 가격·캔들·거래량을 차트에 반영해 현재 시장 흐름을 즉시 확인할 수 있습니다.</p>
+        <ul>
+          <li>WebSocket 직결 스트림</li>
+          <li>Binance · Upbit 파이프라인</li>
+          <li>거래량 · VWAP 실시간 반영</li>
+        </ul>
       </div>
-      <div class="feature-card" data-animate="fade-up" data-delay="200">
-        <div class="feature-icon feature-icon-blue">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-        </div>
-        <h3 class="feature-title">AI 분석 엔진</h3>
-        <p class="feature-desc">자체 개발 AI 분석 엔진이 지표 조합을 해석해 차트 해설과 가격 예측 정보를 제공합니다.</p>
+      <div class="feat-cell">
+        <div class="num">/ 03</div>
+        <h3>AI 분석 엔진</h3>
+        <p>자체 개발 AI 분석 엔진이 지표 조합을 해석해 차트 해설과 가격 예측 정보를 제공합니다.</p>
+        <ul>
+          <li>Transformer 기반 가격 예측</li>
+          <li>LLM(Ollama · kanana-chart) 해설</li>
+          <li>다중 지표 신호 통합 판독</li>
+        </ul>
       </div>
-
-      <div class="feature-card" data-animate="fade-up" data-delay="200">
-        <div class="feature-icon feature-icon-purple">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-        </div>
-        <h3 class="feature-title">스마트 알림</h3>
-        <p class="feature-desc">가격 조건, RSI 조건, BEOM_SIGNAL 조건 기반 알림을 저장하고 트리거 이력을 제공합니다.</p>
+      <div class="feat-cell">
+        <div class="num">/ 04</div>
+        <h3>스마트 알림</h3>
+        <p>가격 조건, RSI 조건, BEOM_SIGNAL 조건 기반 알림을 저장하고 트리거 이력을 제공합니다.</p>
+        <ul>
+          <li>가격 · RSI · MACD 조건</li>
+          <li>BEOM_SIGNAL 커스텀 트리거</li>
+          <li>알림 이력 저장 · 재조회</li>
+        </ul>
       </div>
-
-    </div>
-  </div>
-</section>
-
-<section class="section" id="keywords">
-  <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">검색 핵심 키워드</span>
-      <h2 class="section-title">AI 지표 · AI 자동분석 · AI 차트분석 · 퀀트</h2>
-      <p class="section-desc">실제 검색 의도(지표 해석·자동 분석·퀀트 검증)에 맞춰 정보 구조와 문장을 고도화했습니다.</p>
-    </div>
-    <div class="keyword-grid" data-animate="fade-up" data-delay="100">
-      <article class="keyword-card">
+      <div class="feat-cell">
+        <div class="num">/ 05</div>
         <h3>AI 지표</h3>
         <p>범온 캔들, 정/역배열, AI 목표 등 독자 지표로 추세·진입·리스크를 구조적으로 확인합니다.</p>
-      </article>
-      <article class="keyword-card">
-        <h3>AI 자동분석</h3>
-        <p>지표 신호 요약과 AI 해설/예측 API를 통해 차트 판독 시간을 줄이고 의사결정 준비를 돕습니다.</p>
-      </article>
-      <article class="keyword-card">
-        <h3>AI 차트 / AI 차트분석</h3>
-        <p>실시간 데이터, 다중 지표, 리스크 이벤트를 한 화면에서 통합해 시장 상황을 빠르게 파악할 수 있습니다.</p>
-      </article>
-      <article class="keyword-card">
-        <h3>퀀트 리서치</h3>
-        <p>지표 신호·AI 코멘터리를 함께 보며 전략 검증 흐름을 지원합니다.</p>
-      </article>
+        <ul>
+          <li>범온 캔들 · 범온 캔들 PRO</li>
+          <li>정배열 · 역배열 자동 판별</li>
+          <li>AI 목표 · 단타 익절</li>
+        </ul>
+      </div>
+      <div class="feat-cell">
+        <div class="num">/ 06</div>
+        <h3>AI 자동분석 · 퀀트 리서치</h3>
+        <p>지표 신호 요약과 AI 해설·예측 API를 통해 차트 판독 시간을 줄이고 의사결정 준비를 돕습니다.</p>
+        <ul>
+          <li>지표 신호 자동 요약</li>
+          <li>퀀트 리서치용 API 접근</li>
+          <li>전략 검증 흐름 지원</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section section-performance" id="performance">
+<!-- ===== AI INDICATORS ===== -->
+<section class="section" aria-labelledby="ind-h">
   <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">성능 중심 분석 프레임</span>
-      <h2 class="section-title">차트와 지표를 실행 가능한 정보로 정리합니다</h2>
-      <p class="section-desc">실제 서비스 기능(실시간 데이터·지표·자체 개발 AI 해설/예측·알림)을 기준으로 운영 흐름을 설명합니다.</p>
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 03 · AI INDICATORS</div>
+        <h2 id="ind-h"><span class="ko">범온 지표로</span><br>보는 <span class="acid">시장 신호</span></h2>
+      </div>
+      <p>
+        추세부터 청산까지, 여섯 개 카테고리로 조직화된 지표 라이브러리. <span class="nb-phrase">범온 캔들</span>, <span class="nb-phrase">범온 추세시작</span>, <span class="nb-phrase">AI 목표</span> 등 자체 개발 <strong>Pro 지표</strong>는 시장 판독의 관점 자체를 바꿉니다.
+      </p>
     </div>
-    <div class="performance-grid" data-animate="fade-up" data-delay="100">
-      <article class="performance-card">
-        <p class="performance-kpi">Latency</p>
-        <h3>지연시간 관리</h3>
-        <p>실시간 데이터 반영 속도와 알림 전달 흐름을 함께 점검해 체감 지연을 최소화합니다.</p>
-      </article>
-      <article class="performance-card">
-        <p class="performance-kpi">Accuracy</p>
-        <h3>신호 정확도 검증</h3>
-        <p>AI 지표와 자동 분석 결과를 백테스트 관점으로 검증해 전략 신뢰도를 높입니다.</p>
-      </article>
-      <article class="performance-card">
-        <p class="performance-kpi">Automation</p>
-        <h3>분석 자동화율</h3>
-        <p>반복 차트 판독과 조건 탐색을 자동화해 트레이더가 의사결정에 집중하도록 설계했습니다.</p>
-      </article>
-      <article class="performance-card">
-        <p class="performance-kpi">Stability</p>
-        <h3>운영 안정성</h3>
-        <p>실시간 수집·분석·알림 파이프라인을 모니터링해 예측 가능한 운영 품질을 유지합니다.</p>
-      </article>
-    </div>
-  </div>
-</section>
 
-<!-- Indicators Section -->
-<section class="section section-dark" id="indicators">
-  <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">독자 지표 시스템</span>
-      <h2 class="section-title">실전 지표·보조지표·드로잉 도구</h2>
-      <p class="section-desc">범온 지표와 대표 보조지표를 함께 사용해 시장을 다각도로 해석합니다.</p>
-    </div>
-    <div class="indicators-grid" data-animate="fade-up" data-delay="100">
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">추세 확인</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item ind-pro">범온 캔들</span>
-          <span class="ind-item ind-pro">범온 캔들 PRO</span>
-          <span class="ind-item">범온MA</span>
-          <span class="ind-item">슈퍼트렌드</span>
-          <span class="ind-item">일목균형표</span>
-          <span class="ind-item ind-pro">정/역배열</span>
+    <div class="ind-grid">
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 01</div>
+        <h4>추세 <span class="ac">확인</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag pro">범온 캔들</span>
+          <span class="ind-tag pro">범온 캔들 PRO</span>
+          <span class="ind-tag pro">범온MA</span>
+          <span class="ind-tag">슈퍼트렌드</span>
+          <span class="ind-tag">일목균형표</span>
+          <span class="ind-tag pro">정/역배열</span>
         </div>
       </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">진입 신호</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item ind-pro">범온 추세시작</span>
-          <span class="ind-item">추세반전</span>
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 02</div>
+        <h4>진입 <span class="ac">신호</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag pro">범온 추세시작</span>
+          <span class="ind-tag">추세반전</span>
         </div>
       </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">청산/손절</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item ind-pro">단타 익절</span>
-          <span class="ind-item ind-pro">AI목표</span>
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 03</div>
+        <h4>청산 · <span class="ac">손절</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag pro">단타 익절</span>
+          <span class="ind-tag pro">AI 목표</span>
         </div>
       </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">과열/강도</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item">RSI</span>
-          <span class="ind-item">MACD</span>
-          <span class="ind-item">스토캐스틱</span>
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 04</div>
+        <h4>과열 · <span class="ac">강도</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag">RSI</span>
+          <span class="ind-tag">MACD</span>
+          <span class="ind-tag">스토캐스틱</span>
         </div>
       </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">구조/매물대</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item">거래밀집구간</span>
-          <span class="ind-item">자동추세선</span>
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 05</div>
+        <h4>구조 · <span class="ac">매물대</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag">거래밀집구간</span>
+          <span class="ind-tag">자동추세선</span>
         </div>
       </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">변동성</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item">볼린저밴드</span>
-        </div>
-      </div>
-      <div class="ind-category">
-        <div class="ind-cat-icon"></div>
-        <h4 class="ind-cat-title">거래량</h4>
-        <div class="ind-cat-items">
-          <span class="ind-item">VWAP</span>
+      <div class="ind-cell">
+        <div class="cat-id">/ CATEGORY 06</div>
+        <h4>변동성 · <span class="ac">거래량</span></h4>
+        <div class="ind-tags">
+          <span class="ind-tag">볼린저밴드</span>
+          <span class="ind-tag">VWAP</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Technology Section -->
-<section class="section" id="technology">
+<!-- ===== TECH STACK (DARK) ===== -->
+<section class="section dark" aria-labelledby="tech-h">
   <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">기술 스택</span>
-      <h2 class="section-title">신뢰할 수 있는 기술 기반</h2>
-      <p class="section-desc">안정성과 성능을 최우선으로 설계된 아키텍처.</p>
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 04 · TECH STACK</div>
+        <h2 id="tech-h"><span class="ko">외부 의존성 없이</span><br><span class="stroke">BUILT IN-HOUSE</span></h2>
+      </div>
+      <p>
+        FastAPI 백엔드부터 자체 Canvas 렌더러까지, 슈퍼차트 AI의 모든 계층은 <strong>범온누리가 직접 설계·운영</strong>합니다. 외부 SaaS 종속 없이 성능·보안·확장성을 조직 기준에 맞춰 최적화합니다.
+      </p>
     </div>
-    <div class="tech-grid" data-animate="fade-up" data-delay="100">
-      <div class="tech-card">
-        <div class="tech-card-inner">
-          <div class="tech-front">
-            <div class="tech-icon">BE</div>
-            <h4>백엔드</h4>
-            <p>FastAPI + PostgreSQL</p>
-          </div>
-          <div class="tech-back">
-            <p>비동기 처리, 초당 수천 요청 처리. SQLAlchemy ORM + Redis 캐싱으로 밀리초 단위 응답.</p>
+
+    <div class="tech-grid">
+      <div class="tech-cell">
+        <div class="letter">BE</div>
+        <h4>백엔드</h4>
+        <div class="sub">FastAPI + PostgreSQL</div>
+        <p>비동기 처리, 초당 수천 요청 처리. SQLAlchemy ORM + Redis 캐싱으로 밀리초 단위 응답.</p>
+      </div>
+      <div class="tech-cell">
+        <div class="letter">AI</div>
+        <h4>AI 엔진</h4>
+        <div class="sub">Transformer + LLM</div>
+        <p>자체 학습 Transformer 모델로 가격 예측. Ollama LLM이 차트 상황을 자연어로 해설합니다.</p>
+      </div>
+      <div class="tech-cell">
+        <div class="letter">RT</div>
+        <h4>실시간</h4>
+        <div class="sub">WebSocket 직결</div>
+        <p>실시간 데이터 파이프라인을 통해 차트 화면에 가격·캔들·거래량을 안정적으로 반영합니다.</p>
+      </div>
+      <div class="tech-cell">
+        <div class="letter">CH</div>
+        <h4>차트 엔진</h4>
+        <div class="sub">자체 Canvas 렌더러</div>
+        <p>HTML5 Canvas 기반 자체 개발. 외부 의존성 제로. TypedArray 버퍼로 메모리 효율 극대화.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SEARCH INTENT KEYWORDS (SEO 강화) ===== -->
+<section class="section alt" aria-labelledby="kw-h">
+  <div class="container">
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 05 · SEARCH INTENT</div>
+        <h2 id="kw-h"><span class="ko">검색되는</span><br><span class="acid">키워드로</span> 정리</h2>
+      </div>
+      <p>
+        많이 찾는 검색어 그대로 정리했습니다. 각 키워드는 슈퍼차트 AI가 실제로 다루는 핵심 기능 영역과 대응합니다.
+      </p>
+    </div>
+
+    <div class="kw-matrix">
+      <span class="kw-chip hero-kw">AI 지표</span>
+      <span class="kw-chip hero-kw">AI 자동분석</span>
+      <span class="kw-chip hero-kw">AI 차트</span>
+      <span class="kw-chip hero-kw">AI 차트분석</span>
+      <span class="kw-chip hero-kw">퀀트</span>
+      <span class="kw-chip">실시간 차트</span>
+      <span class="kw-chip">Transformer 예측</span>
+      <span class="kw-chip">LLM 해설</span>
+      <span class="kw-chip">범온 캔들</span>
+      <span class="kw-chip">신호 정확도</span>
+      <span class="kw-chip">지연시간 최소화</span>
+      <span class="kw-chip">RSI · MACD</span>
+      <span class="kw-chip">볼린저밴드</span>
+      <span class="kw-chip">퀀트 리서치</span>
+      <span class="kw-chip">트레이딩 자동화</span>
+      <span class="kw-chip">백테스트</span>
+    </div>
+
+    <p class="kw-desc">
+      <strong>AI 지표</strong>는 여러 시장 신호를 조합해 추세·진입·리스크를 구조적으로 판단합니다. <strong>AI 자동분석</strong>은 지표 신호 요약과 LLM 해설로 차트 판독 시간을 줄이고, <strong>AI 차트·AI 차트분석</strong>은 실시간 데이터·다중 지표·리스크 이벤트를 한 화면에서 통합합니다. <strong>퀀트</strong> 관점에서는 지표 신호·AI 코멘터리를 함께 보며 전략 검증 흐름을 지원합니다.
+    </p>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="section" aria-labelledby="faq-h">
+  <div class="container">
+    <div class="sect-head">
+      <div>
+        <div class="id">/ 06 · FAQ</div>
+        <h2 id="faq-h"><span class="ko">자주 묻는</span><br><span class="stroke">QUESTIONS</span></h2>
+      </div>
+      <p>
+        가장 많이 받는 질문 다섯 가지를 정리했습니다. 더 궁금한 점은 범온누리 이노베이션 홈페이지의 도입 진단 문의를 이용해 주세요.
+      </p>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">
+          <span><span class="idx">01</span>무료로 사용할 수 있나요?</span>
+          <span class="icon" aria-hidden="true">+</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            기본 차트와 일부 무료 지표(<strong>RSI, MACD, 볼린저밴드, 슈퍼트렌드</strong> 등)를 사용할 수 있습니다. 범온 Pro 지표(범온 캔들, AI 목표, 단타 익절 등)와 고급 기능은 멤버십·상품 정책에 따라 제공됩니다.
           </div>
         </div>
       </div>
-      <div class="tech-card">
-        <div class="tech-card-inner">
-          <div class="tech-front">
-            <div class="tech-icon">AI</div>
-            <h4>AI 엔진</h4>
-            <p>Transformer + LLM</p>
-          </div>
-          <div class="tech-back">
-            <p>자체 학습 Transformer 모델로 가격 예측. Ollama LLM이 차트 상황을 자연어로 해설합니다.</p>
-          </div>
-        </div>
-      </div>
-      <div class="tech-card">
-        <div class="tech-card-inner">
-          <div class="tech-front">
-            <div class="tech-icon">RT</div>
-            <h4>실시간</h4>
-            <p>WebSocket 직결</p>
-          </div>
-          <div class="tech-back">
-            <p>실시간 데이터 파이프라인을 통해 차트 화면에 가격·캔들·거래량을 안정적으로 반영합니다.</p>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">
+          <span><span class="idx">02</span>어떤 종목을 지원하나요?</span>
+          <span class="icon" aria-hidden="true">+</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            심볼 검색에 노출되는 <strong>암호화폐·주식</strong> 종목을 지원합니다. 지원 목록은 데이터 연동 및 운영 정책에 따라 지속적으로 업데이트됩니다.
           </div>
         </div>
       </div>
-      <div class="tech-card">
-        <div class="tech-card-inner">
-          <div class="tech-front">
-            <div class="tech-icon">CH</div>
-            <h4>차트 엔진</h4>
-            <p>자체 Canvas 렌더러</p>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">
+          <span><span class="idx">03</span>AI 예측의 정확도는 어떤가요?</span>
+          <span class="icon" aria-hidden="true">+</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            AI 예측은 <strong>참고 정보</strong>로 제공되며, 투자 결정의 유일한 근거로 사용해서는 안 됩니다. Transformer 모델은 과거 패턴 학습 기반이며, 시장 상황에 따라 정확도가 달라질 수 있습니다. 조직 도입 시 백테스트 관점의 정확도 목표를 함께 합의해 측정합니다.
           </div>
-          <div class="tech-back">
-            <p>HTML5 Canvas 기반 자체 개발. 외부 의존성 제로. TypedArray 버퍼로 메모리 효율 극대화.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">
+          <span><span class="idx">04</span>모바일에서도 사용할 수 있나요?</span>
+          <span class="icon" aria-hidden="true">+</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            네, <strong>반응형 웹</strong>으로 설계되어 모바일 브라우저에서 바로 사용 가능합니다. 별도 앱 설치가 필요 없으며, 초보 집중 모드·모바일 퀵 액션 등 모바일 전용 UX 개선이 반영되어 있습니다.
+          </div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">
+          <span><span class="idx">05</span>AI 지표와 일반 기술 지표의 차이는 무엇인가요?</span>
+          <span class="icon" aria-hidden="true">+</span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-inner">
+            <strong>범온 캔들 · 정/역배열 · AI 목표</strong> 같은 AI 지표는 여러 시장 신호를 조합해 추세·진입·리스크를 구조적으로 판단합니다. 일반 지표(RSI, MACD 등)는 개별 관점만 제공하지만, AI 지표는 지표 간 상호작용까지 반영해 의사결정 준비 시간을 줄입니다.
           </div>
         </div>
       </div>
@@ -461,87 +644,156 @@
   </div>
 </section>
 
-<!-- FAQ Section -->
-<section class="section section-dark" id="faq">
-  <div class="container">
-    <div class="section-header" data-animate="fade-up">
-      <span class="section-tag">자주 묻는 질문</span>
-      <h2 class="section-title">궁금한 점이 있으신가요?</h2>
-    </div>
-    <div class="faq-list" data-animate="fade-up" data-delay="100">
-      <details class="faq-item">
-        <summary class="faq-question">
-          <span>무료로 사용할 수 있나요?</span>
-          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </summary>
-        <div class="faq-answer">기본 차트와 일부 무료 지표(RSI, MACD, 볼린저밴드, 슈퍼트렌드 등)를 사용할 수 있습니다. 범온 Pro 지표와 고급 기능은 멤버십/상품 정책에 따라 제공됩니다.</div>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">
-          <span>어떤 종목을 지원하나요?</span>
-          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </summary>
-        <div class="faq-answer">심볼 검색에 노출되는 암호화폐·주식 종목을 지원합니다. 지원 목록은 데이터 연동 및 운영 정책에 따라 업데이트됩니다.</div>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">
-          <span>AI 예측의 정확도는 어떤가요?</span>
-          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </summary>
-        <div class="faq-answer">AI 예측은 참고 정보로 제공되며, 투자 결정의 유일한 근거로 사용해서는 안 됩니다. Transformer 모델은 과거 패턴 학습 기반이며, 시장 상황에 따라 정확도가 달라질 수 있습니다.</div>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">
-          <span>모바일에서도 사용할 수 있나요?</span>
-          <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </summary>
-        <div class="faq-answer">네, 반응형 웹으로 설계되어 모바일 브라우저에서 바로 사용 가능합니다. 별도 앱 설치가 필요 없습니다.</div>
-      </details>
-    </div>
-  </div>
-</section>
+</main>
 
-<!-- CTA Section -->
-<section class="section section-cta">
+<!-- ===== FINAL CTA ===== -->
+<section class="final-cta">
   <div class="container">
-    <div class="cta-content" data-animate="fade-up">
-      <h2 class="cta-title">AI 지표·AI 차트분석을 지금 시작하세요</h2>
-      <p class="cta-desc">가입 후 기본 차트와 AI 분석 탭을 바로 확인할 수 있습니다. 유료 기능은 지표/멤버십 정책에 따라 제공됩니다.</p>
-      <a href="/chart" class="btn-primary btn-xl">
+    <div class="fc-id">/ START NOW</div>
+    <h2>
+      <span class="ko">AI 지표·</span><span class="stroke">AI 차트분석</span><br>
+      <span class="ko">을 지금</span> <span class="acid">시작하세요.</span>
+    </h2>
+    <p>
+      가입 후 기본 차트와 AI 분석 탭을 바로 확인할 수 있습니다. 유료 기능은 지표·멤버십 정책에 따라 제공됩니다.
+    </p>
+    <div class="cta-row">
+      <a href="https://chart.beomonnuri.com/chart" class="btn btn-primary">
         <span>무료로 차트 시작하기</span>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <span class="arrow">→</span>
+      </a>
+      <a href="https://beomonnuri.ai/contact.html" class="btn btn-ghost">
+        <span>엔터프라이즈 도입 진단</span>
+        <span class="arrow">↗</span>
       </a>
     </div>
   </div>
 </section>
-</main>
 
-<!-- Footer -->
-<footer class="footer">
+<!-- ===== FOOTER (Minimal) ===== -->
+<footer class="footer-min">
   <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <img src="/static/logo.png" alt="범온 AI 슈퍼차트" width="28" height="28">
-        <span>범온 AI 슈퍼차트</span>
-      </div>
-      <div class="footer-links">
-        <a href="/terms">이용약관</a>
-        <a href="/privacy">개인정보처리방침</a>
-        <a href="/faq">FAQ</a>
-        <a href="/notice">공지사항</a>
-      </div>
-      <div class="footer-info">
-        <p>범온누리 이노베이션 · support@beomonnuri.com</p>
-        <p><a class="footer-company-link" href="https://beomonnuri.ai/" target="_blank" rel="noopener">회사 홈페이지 보러가기 (beomonnuri.ai)</a></p>
-        <p class="footer-disclaimer">본 서비스는 투자 조언을 제공하지 않습니다. 모든 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다.</p>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>© 2026 BEOMON AI SuperChart. All rights reserved.</p>
+    <div class="ft-min-row">
+      <span class="ft-copy">© 2026 SUPERCHART AI</span>
+      <span class="ft-meta">ENTERPRISE AI · SEOUL, KR</span>
     </div>
   </div>
 </footer>
 
-<script src="/static/js/landing.js"></script>
+<!-- ===== SCRIPTS ===== -->
+<script>
+// Scroll progress bar
+(function() {
+  const bar = document.getElementById('scrollBar');
+  function tick() {
+    const h = document.documentElement;
+    const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  }
+  document.addEventListener('scroll', tick, { passive: true });
+  tick();
+})();
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.toggle('open');
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+});
+
+// Reveal on scroll
+(function() {
+  const io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.section, .perf-cell, .feat-cell, .ind-cell').forEach(function(el) {
+    el.classList.add('reveal');
+    io.observe(el);
+  });
+})();
+
+// Hero live lines background (subtle chart-inspired)
+(function() {
+  const canvas = document.getElementById('heroLines');
+  if (!canvas) return;
+  const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduce) return;
+
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const lines = [];
+  const LINE_COUNT = 5;
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function initLines() {
+    lines.length = 0;
+    for (let i = 0; i < LINE_COUNT; i++) {
+      const points = [];
+      const step = 60;
+      const cnt = Math.ceil(W / step) + 2;
+      let y = H * (0.4 + Math.random() * 0.4);
+      for (let j = 0; j < cnt; j++) {
+        y += (Math.random() - 0.5) * 40;
+        y = Math.max(H * 0.2, Math.min(H * 0.85, y));
+        points.push({ x: j * step, y: y, ty: y, vy: 0 });
+      }
+      lines.push({
+        pts: points,
+        opacity: 0.10 + i * 0.04,
+        offset: i * 20,
+        speed: 0.4 + i * 0.15
+      });
+    }
+  }
+
+  let t = 0;
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.01;
+    lines.forEach(function(line, li) {
+      // update
+      line.pts.forEach(function(p, i) {
+        p.vy += (Math.sin(t * line.speed + i * 0.4 + li) * 0.3 - (p.y - p.ty) * 0.02);
+        p.vy *= 0.9;
+        p.y += p.vy;
+      });
+      // draw
+      ctx.beginPath();
+      ctx.moveTo(line.pts[0].x, line.pts[0].y + line.offset);
+      for (let i = 1; i < line.pts.length - 1; i++) {
+        const xc = (line.pts[i].x + line.pts[i + 1].x) / 2;
+        const yc = (line.pts[i].y + line.pts[i + 1].y) / 2 + line.offset;
+        ctx.quadraticCurveTo(line.pts[i].x, line.pts[i].y + line.offset, xc, yc);
+      }
+      ctx.strokeStyle = 'rgba(146, 18, 48, ' + line.opacity + ')';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', function() {
+    resize(); initLines();
+  });
+  resize(); initLines(); frame();
+})();
+</script>
+
 </body>
 </html>
