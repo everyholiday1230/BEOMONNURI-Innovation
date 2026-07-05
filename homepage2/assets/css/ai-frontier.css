@@ -658,6 +658,10 @@ nav.top .row {
 .pm-item .logo-mark.logo-youth-foundation {
   transform: scale(1.40);
 }
+/* 대한상공회의소 로고 원본 외곽 네모(배경 박스) 시각 최소화 */
+.pm-item .logo-mark.logo-korcham {
+  clip-path: inset(9% 5% 9% 5%);
+}
 .pm-item .logo-mark.logo-localmotive {
   width: 210px;
   height: 48px;
@@ -691,6 +695,9 @@ nav.top .row {
   /* two-logo rework: youth-foundation + localmotive */
   .pm-item .logo-mark.logo-youth-foundation {
     transform: scale(1.28);
+  }
+  .pm-item .logo-mark.logo-korcham {
+    clip-path: inset(10% 6% 10% 6%);
   }
   .pm-item .logo-mark.logo-localmotive {
     width: 154px;

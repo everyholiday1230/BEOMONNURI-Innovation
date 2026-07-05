@@ -942,7 +942,20 @@ const reducedV5 = false;
     'moel': { src: 'assets/img/logos/partners/moel.png', alt: '고용노동부 공식 로고' },
     'korcham': { src: 'assets/img/logos/partners/korcham.png', alt: '대한상공회의소 공식 로고' },
   };
-  const partnerOrder = Object.keys(partnerLogos);
+  const partnerOrder = [
+    'mss',
+    'moel',
+    'gov-gg',
+    'korcham',
+    'startup',
+    'inv-posco',
+    'fin-nh',
+    'youth-foundation',
+    'edu-dku',
+    'localmotive',
+    'lab-knl',
+    'kiss',
+  ];
 
   // Prefer logos copied from hidden flat marquee, fallback to static source paths.
   const logoMap = {};
