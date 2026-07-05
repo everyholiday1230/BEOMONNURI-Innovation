@@ -191,12 +191,50 @@
   }
 
   // ───────── 렌더 ─────────
+  function isPaidUser() {
+    try { return typeof window.isPremium === 'function' ? !!window.isPremium() : false; }
+    catch (e) { return false; }
+  }
+
+  // 유료 잠금 카드 — 비유료 사용자에게 심화 섹션 대신 표시
+  function renderLockCard(el, title, feats) {
+    if (!el) return;
+    el.style.display = '';
+    el.innerHTML = `
+      <div class="ts-card ts-locked-card">
+        <div class="ts-locked-head">
+          <span class="ts-card-title" style="margin:0">${title}</span>
+          <span class="ts-lock-tag">PRO 전용</span>
+        </div>
+        <ul class="ts-lock-list">${feats.map(f => `<li>${f}</li>`).join('')}</ul>
+        <button class="ts-btn ts-btn-primary ts-btn-block" type="button"
+          onclick="window._ai2OpenPlans ? window._ai2OpenPlans() : (window._showSubscribePlans ? window._showSubscribePlans() : (window.showAuth&&window.showAuth()))">
+          PRO로 업그레이드하고 심화 분석 보기
+        </button>
+      </div>`;
+  }
+
   function render(d) {
+    // ── 무료: 종합 요약 + 추세강도 게이지 ──
     renderSummary(d);
     renderGauge(d);
-    renderAlign(d);
-    renderStructure(d);
-    renderAi(d);
+
+    const paid = isPaidUser();
+    if (paid) {
+      // ── 유료(PRO/VIP): 시간대별 정렬 · 주요 가격 구조 · AI 추세 해석 ──
+      renderAlign(d);
+      renderStructure(d);
+      renderAi(d);
+    } else {
+      // 비유료: 심화 섹션을 잠금 카드로 대체
+      renderLockCard(document.getElementById('tsAlign'), '시간대별 추세 정렬',
+        ['5m~1d 다중 시간대 추세 방향·강도', '시간대 정렬(정배열/역배열) 진단']);
+      const stEl = document.getElementById('tsStructure');
+      if (stEl) { stEl.style.display = 'none'; stEl.innerHTML = ''; }
+      renderLockCard(document.getElementById('tsAi'), 'AI 추세 해석',
+        ['현재 추세에 대한 AI 자연어 해설', '가격 구조·모멘텀 종합 시나리오']);
+    }
+
     applyChartToggles();
     // 중복·전문수치 상세 섹션 제거(사용자 요청): 추세 구성 요소/추세 변화 감지/
     // 거래량 확인/변동성 확인. 핵심(종합 점수·시간대별 정렬·가격 구조·AI 해석)만 유지.

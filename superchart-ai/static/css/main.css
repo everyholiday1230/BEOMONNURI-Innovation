@@ -85,6 +85,8 @@
 .pa-liq-item .pa-liq-dist { color: var(--color-text-muted); margin-left: auto; font-variant-numeric: tabular-nums; }
 .pa-liq-strength { height: 4px; border-radius: var(--radius-full); background: var(--color-primary); flex-shrink: 0; }
 .pa-liq-canvas { width: 100%; background: var(--color-surface-sunken); border-radius: var(--radius-md); display: block; }
+.pa-liq-estimate { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; padding: 5px 8px; margin-bottom: 6px;
+  border: 1px dashed var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-sunken); }
 
 /* AI 해석 */
 .pa-ai { background: var(--color-primary-soft); border: 1px solid transparent; }
@@ -981,3 +983,66 @@
   #points .pt-subtab, #points .pt-cat-chip, #points .pt-btn { min-height: 44px; }
   #points .pt-balance-grid, #points .pt-share-grid { grid-template-columns: 1fr; }
 }
+
+/* ── 추세강도 무료/유료 분리 (PRO 배지 + 잠금 카드) ── */
+.tab-badge-pro { background: var(--wl-gold); color: #fff; }
+.ts-locked-card { position: relative; border: 1px dashed var(--color-border); background: var(--color-surface-sunken); }
+.ts-locked-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ts-lock-tag { display: inline-block; font-size: 9px; font-weight: 700; color: #fff; background: var(--wl-gold); border-radius: 999px; padding: 2px 8px; }
+.ts-lock-list { list-style: none; margin: 0 0 10px; padding: 0; }
+.ts-lock-list li { position: relative; padding-left: 16px; font-size: 12px; color: var(--color-text-muted, #666); line-height: 1.7; }
+.ts-lock-list li::before { content: '🔒'; position: absolute; left: 0; font-size: 10px; }
+
+/* ─────────────────────────────────────────────
+   우측 패널 컴팩트 레이아웃 — 탭 내용을 최대한 한 화면에
+   (카드 간격·패딩·디스클레이머 축소, 정보는 유지)
+   ───────────────────────────────────────────── */
+.right-pane > .p-12 { padding: 8px 10px 12px; }
+.right-pane > .p-12 > * + * { margin-top: 8px; }
+
+/* 헤더 설명(pane-desc) 압축 */
+.right-pane .pane-desc { font-size: 11px; line-height: 1.4; margin-top: 2px; }
+
+/* 카드 공통 패딩·마진 축소 */
+.right-pane .mt-card,
+.right-pane .ts-card,
+.right-pane .ht-card,
+.right-pane .pa-card,
+.right-pane .ai2-card,
+.right-pane .mt-pnl-card,
+.right-pane .panel-section {
+  padding: 8px 10px;
+  margin: 0;
+}
+.right-pane .mt-card-title,
+.right-pane .ts-card-title,
+.right-pane .ht-card-title,
+.right-pane .ai2-card-title,
+.right-pane .panel-section-title { margin-bottom: 6px; font-size: 12px; }
+
+/* 입력 필드 높이 축소 (모의주문 등) */
+.right-pane .mt-field { margin-bottom: 6px; }
+.right-pane .mt-field > label { font-size: 11px; margin-bottom: 2px; }
+.right-pane .mt-input { padding: 6px 8px; font-size: 13px; }
+
+/* 디스클레이머/보조 안내문 — 아주 작게, 여백 최소화 (법적 고지 유지) */
+.right-pane .mt-disclaimer,
+.right-pane .ts-disclaimer,
+.right-pane .ht-disclaimer,
+.right-pane .pa-disclaimer,
+.right-pane .pt-disclaimer,
+.right-pane .ai2-disclaimer,
+.right-pane .ht-ai-note,
+.right-pane .hm-ai-note,
+.right-pane .mt-note {
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--color-text-muted, #999);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* 행 간격 축소 (예상손익/롱숏 등) */
+.right-pane .mt-pnl-row,
+.right-pane .pa-ls-rows > *,
+.right-pane .ht-row { padding-top: 4px; padding-bottom: 4px; }

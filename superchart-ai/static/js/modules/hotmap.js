@@ -481,7 +481,7 @@ async function renderLiquidationMode() {
           ${ml?`<div class="row"><span class="k">하단 롱 청산 밀집</span><span class="v">$${fmtPrice(ml.price)} (${dist(ml.price)})</span></div>`:''}
           ${ms?`<div class="row"><span class="k">상단 숏 청산 밀집</span><span class="v">$${fmtPrice(ms.price)} (${dist(ms.price)})</span></div>`:''}
         </div>
-        <p class="hm-mini-note">청산 히트맵은 시장 데이터 기반 참고 정보이며, 특정 가격 도달을 보장하지 않습니다.</p>
+        <p class="hm-mini-note">⚠ 추정치 — 실제 청산 데이터가 아닌 거래량·변동성·미결제약정(OI)·펀딩비 기반 추정입니다. 특정 가격 도달을 보장하지 않으며 참고용입니다.</p>
       </div>`;
     setStatus('ok'); setUpdated();
   } catch (e) {
@@ -667,7 +667,7 @@ function htSavePrevRank(orderedCodes) { try { const m = {}; orderedCodes.forEach
 function htSortRows(rows) {
   const s = rows.slice();
   const b = HT.basis;
-  // 기준 우선, 그 다음 정렬 옵션
+  // 랭킹 기준(basis)이 곧 정렬 기준 — 버튼별로 결과가 확실히 달라지도록 단일화한다.
   const byBasis = {
     composite: (a, b2) => b2.attention - a.attention,
     turnover: (a, b2) => b2.turnover - a.turnover,
@@ -681,16 +681,6 @@ function htSortRows(rows) {
     spike: (a, b2) => (Math.abs(b2.pct) + b2.volatility) - (Math.abs(a.pct) + a.volatility),
   };
   s.sort(byBasis[b] || byBasis.composite);
-  // 정렬 옵션이 기본(관심도)과 다르면 재정렬
-  const bySort = {
-    attention: null,
-    turnover: (a, b2) => b2.turnover - a.turnover,
-    gainers: (a, b2) => b2.pct - a.pct,
-    losers: (a, b2) => a.pct - b2.pct,
-    volatility: (a, b2) => b2.volatility - a.volatility,
-    rankup: (a, b2) => (b2._rankDelta || -999) - (a._rankDelta || -999),
-  };
-  if (HT.sort !== 'attention' && bySort[HT.sort]) s.sort(bySort[HT.sort]);
   return s;
 }
 
@@ -759,8 +749,7 @@ function htBuildControlsOnce() {
     cEl.dataset.built = '1';
     const sel = (label, key, opts, cur) => `<div class="ht-control"><label>${label}</label><select class="ht-select" data-ckey="${key}">${opts.map(([v, t]) => `<option value="${v}" ${v===cur?'selected':''}>${t}</option>`).join('')}</select></div>`;
     cEl.innerHTML =
-      sel('보기 밀도', 'density', [['simple','간단히'],['standard','표준'],['detail','상세']], HT.density) +
-      sel('정렬', 'sort', [['attention','관심도 높은 순'],['turnover','거래대금 높은 순'],['gainers','상승률 높은 순'],['losers','하락률 큰 순'],['volatility','변동성 높은 순'],['rankup','순위 상승 순']], HT.sort);
+      sel('보기 밀도', 'density', [['simple','간단히'],['standard','표준'],['detail','상세']], HT.density);
   }
   htSyncChips();
 }
@@ -884,7 +873,6 @@ function htRenderDetail() {
         <button class="ht-btn ht-btn-primary ht-btn-xs" type="button" onclick="window._selectSym&&window._selectSym('${esc(r.code)}')">차트로 보기</button>
         <button class="ht-btn ht-btn-secondary ht-btn-xs" type="button" onclick="window._htAddFav('${esc(r.code)}')">${isFav?'관심 종목 해제':'관심 종목 추가'}</button>
         <button class="ht-btn ht-btn-ghost ht-btn-xs" type="button" onclick="window._htOpenAi('${esc(r.code)}')">AI 분석 보기</button>
-        <button class="ht-btn ht-btn-ghost ht-btn-xs" type="button" onclick="window._htOpenHeatmap('${esc(r.code)}')">히트맵에서 보기</button>
       </div>
     </div>`;
 }
@@ -1021,11 +1009,6 @@ document.addEventListener('click', (e) => {
     const b = bt.dataset.basis;
     if (b && b !== HT.basis) {
       HT.basis = b;
-      // 랭킹 기준 탭 변경 시, 리스트 정렬도 기준 우선으로 즉시 맞춘다.
-      // (이전 정렬 옵션이 유지되어 체감상 "고정"처럼 보이는 현상 방지)
-      HT.sort = 'attention';
-      const sortSel = document.querySelector('#htControls .ht-select[data-ckey="sort"]');
-      if (sortSel) sortSel.value = 'attention';
       document.querySelectorAll('#htBasisTabs .ht-tab').forEach(t => {
         const on = t === bt;
         t.classList.toggle('active', on);

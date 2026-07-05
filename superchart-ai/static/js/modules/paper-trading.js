@@ -233,7 +233,6 @@
     recompute();           // P&L/Liq/Risk/Validation + overlay
     renderPositions();
     renderRecords();
-    renderAiReview();
   }
 
   // 2) 계좌 요약
@@ -318,11 +317,7 @@
             ${[10,25,50,75,100].map(p => `<button class="mt-quick-btn" type="button" onclick="window.PaperTrading.setAmountPercent(${p})">${p}%</button>`).join('')}
           </div>
         </div>
-        <div class="mt-grid-2">
-          <div class="mt-field"><label>수량 (자동 계산)</label><input class="mt-input" id="mtQty" disabled></div>
-          <div class="mt-field"><label>수수료율 (%)</label><input class="mt-input" id="mtFee" type="number" inputmode="decimal" step="0.001" value="${Form.feeRate}" oninput="window.PaperTrading.setFee(this.value)"></div>
-        </div>
-        <div class="mt-field"><label>슬리피지 가정 (%)</label><input class="mt-input" id="mtSlip" type="number" inputmode="decimal" step="0.01" value="${Form.slippage}" oninput="window.PaperTrading.setSlippage(this.value)"></div>
+        <div class="mt-field"><label>수량 (자동 계산)</label><input class="mt-input" id="mtQty" disabled></div>
       </div>
 
       <!-- 레버리지 -->
@@ -358,14 +353,10 @@
     if (ts) {
       ts.innerHTML = `
         <div class="mt-stat"><span class="k">목표가까지 거리</span><span class="v">${c.targetDist!=null?(c.targetDist>=0?'+':'')+c.targetDist.toFixed(2)+'%':'-'}</span></div>
-        <div class="mt-stat"><span class="k">손절가까지 거리</span><span class="v">${c.stopDist!=null?(c.stopDist>=0?'+':'')+c.stopDist.toFixed(2)+'%':'-'}</span></div>
-        <div class="mt-stat"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
-        <div class="mt-stat"><span class="k">필요 승률</span><span class="v">${c.reqWin!=null?c.reqWin.toFixed(1)+'%':'-'}</span></div>`;
+        <div class="mt-stat"><span class="k">손절가까지 거리</span><span class="v">${c.stopDist!=null?(c.stopDist>=0?'+':'')+c.stopDist.toFixed(2)+'%':'-'}</span></div>`;
     }
 
     renderPnlCard(f, c);
-    renderLiqCard(f, c);
-    renderRiskCard(f, c);
     renderValidation(c);
 
     const btn = document.getElementById('mtCreateBtn');
@@ -387,11 +378,6 @@
         <div class="mt-pnl-row"><span class="k">목표 도달 시 예상 수익</span><span class="v ${c.expGain!=null?pc(c.expGain):''}">${c.expGain!=null?(c.expGain>=0?'+':'')+fmtUSD(c.expGain):'-'}</span></div>
         <div class="mt-pnl-row"><span class="k">손절 도달 시 예상 손실</span><span class="v ${c.expLoss!=null?pc(c.expLoss):''}">${c.expLoss!=null?fmtUSD(c.expLoss):'-'}</span></div>
         <div class="mt-pnl-row"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">필요 승률</span><span class="v">${c.reqWin!=null?c.reqWin.toFixed(1)+'%':'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">수수료(왕복) 반영</span><span class="v">-${fmtUSD(c.feeRoundTrip)}</span></div>
-        <div class="mt-pnl-row"><span class="k">슬리피지 가정 반영</span><span class="v">-${fmtUSD(c.slipCost)}</span></div>
-        <div class="mt-pnl-row"><span class="k">레버리지 반영 변동률</span><span class="v">가격 1% 당 ROE 약 ${c.levMove.toFixed(0)}%</span></div>
-        <p class="mt-note">위 수치는 입력값과 가정값을 기반으로 한 참고 계산입니다. 실제 거래 결과와 다를 수 있습니다.</p>
       </div>`;
   }
 

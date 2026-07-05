@@ -36,36 +36,43 @@ async def _ensure_tables(db: AsyncSession):
     global _ensured
     if _ensured:
         return
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS referral_codes (
-            id BIGSERIAL PRIMARY KEY,
-            user_id TEXT NOT NULL UNIQUE,
-            code TEXT NOT NULL UNIQUE,
-            commission_rate INTEGER DEFAULT 20,
-            tier TEXT DEFAULT 'bronze',
-            total_earned INTEGER DEFAULT 0,
-            total_referrals INTEGER DEFAULT 0,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    """))
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS referral_links (
-            id BIGSERIAL PRIMARY KEY,
-            referrer_id TEXT NOT NULL,
-            referred_id TEXT NOT NULL,
-            referral_code TEXT,
-            status TEXT NOT NULL DEFAULT 'registered',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            paid_at TIMESTAMPTZ,
-            UNIQUE (referred_id)
-        )
-    """))
-    await db.execute(text("CREATE INDEX IF NOT EXISTS idx_referral_links_referrer ON referral_links(referrer_id, created_at DESC)"))
-    await db.execute(text("CREATE INDEX IF NOT EXISTS idx_referral_links_status ON referral_links(status, created_at DESC)"))
+    try:
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS referral_codes (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL UNIQUE,
+                code TEXT NOT NULL UNIQUE,
+                commission_rate INTEGER DEFAULT 20,
+                tier TEXT DEFAULT 'bronze',
+                total_earned INTEGER DEFAULT 0,
+                total_referrals INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """))
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS referral_links (
+                id BIGSERIAL PRIMARY KEY,
+                referrer_id TEXT NOT NULL,
+                referred_id TEXT NOT NULL,
+                referral_code TEXT,
+                status TEXT NOT NULL DEFAULT 'registered',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                paid_at TIMESTAMPTZ,
+                UNIQUE (referred_id)
+            )
+        """))
+        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_referral_links_referrer ON referral_links(referrer_id, created_at DESC)"))
+        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_referral_links_status ON referral_links(status, created_at DESC)"))
 
-    # point_lots 테이블이 있는 경우 ref_id 기반 추적 인덱스 보강
-    await db.execute(text("CREATE INDEX IF NOT EXISTS idx_point_ledger_reason_ref ON point_ledger(reason, ref_id, user_id)"))
-    await db.commit()
+        # point_lots 테이블이 있는 경우 ref_id 기반 추적 인덱스 보강
+        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_point_ledger_reason_ref ON point_ledger(reason, ref_id, user_id)"))
+        await db.commit()
+    except Exception:
+        # 권한 부족 등 DDL 실패 시 요청 전체를 실패시키지 않는다.
+        try:
+            await db.rollback()
+        except Exception:
+            pass
     _ensured = True
 
 

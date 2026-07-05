@@ -33,70 +33,84 @@ _ensured = False
 
 
 async def _ensure_tables(db: AsyncSession):
-    """결제/구매 관련 테이블 및 컬럼 멱등 보장."""
+    """결제/구매 관련 테이블 및 컬럼 멱등 보장.
+
+    DDL 실행이 권한 부족 등으로 실패하더라도(예: 테이블 소유자가 다른 DB 롤인 경우)
+    조회/구매 요청 전체가 503으로 실패하지 않도록 방어한다. 테이블/컬럼은 대개
+    이미 존재하므로 실패를 삼키고 이후 재시도를 막는다.
+    """
     global _ensured
     if _ensured:
         return
 
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS indicator_products (
-            id BIGSERIAL PRIMARY KEY,
-            indicator_code TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            price INTEGER NOT NULL DEFAULT 0,
-            currency TEXT NOT NULL DEFAULT 'KRW',
-            description TEXT,
-            sort_order INTEGER DEFAULT 0,
-            is_active BOOLEAN NOT NULL DEFAULT TRUE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    """))
+    try:
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS indicator_products (
+                id BIGSERIAL PRIMARY KEY,
+                indicator_code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT 'KRW',
+                description TEXT,
+                sort_order INTEGER DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """))
 
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS user_purchases (
-            id BIGSERIAL PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            indicator_code TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            price INTEGER NOT NULL DEFAULT 0,
-            order_id TEXT,
-            payment_ref TEXT,
-            purchased_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE (user_id, indicator_code)
-        )
-    """))
-    await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS order_id TEXT"))
-    await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS payment_ref TEXT"))
-    await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"))
-    await db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_purchases_order_id ON user_purchases(order_id) WHERE order_id IS NOT NULL"))
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_purchases (
+                id BIGSERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                indicator_code TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                price INTEGER NOT NULL DEFAULT 0,
+                order_id TEXT,
+                payment_ref TEXT,
+                purchased_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                UNIQUE (user_id, indicator_code)
+            )
+        """))
+        await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS order_id TEXT"))
+        await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS payment_ref TEXT"))
+        await db.execute(text("ALTER TABLE user_purchases ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"))
+        await db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_purchases_order_id ON user_purchases(order_id) WHERE order_id IS NOT NULL"))
 
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS payment_events (
-            id BIGSERIAL PRIMARY KEY,
-            provider TEXT NOT NULL,
-            event_id TEXT NOT NULL,
-            event_type TEXT,
-            status TEXT NOT NULL,
-            order_id TEXT,
-            user_id TEXT,
-            indicator_code TEXT,
-            amount INTEGER,
-            currency TEXT,
-            tx_id TEXT,
-            payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-            processed BOOLEAN NOT NULL DEFAULT FALSE,
-            processed_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE (provider, event_id)
-        )
-    """))
-    await db.execute(text("CREATE INDEX IF NOT EXISTS idx_payment_events_order ON payment_events(order_id, created_at DESC)"))
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS payment_events (
+                id BIGSERIAL PRIMARY KEY,
+                provider TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                event_type TEXT,
+                status TEXT NOT NULL,
+                order_id TEXT,
+                user_id TEXT,
+                indicator_code TEXT,
+                amount INTEGER,
+                currency TEXT,
+                tx_id TEXT,
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                processed BOOLEAN NOT NULL DEFAULT FALSE,
+                processed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                UNIQUE (provider, event_id)
+            )
+        """))
+        await db.execute(text("CREATE INDEX IF NOT EXISTS idx_payment_events_order ON payment_events(order_id, created_at DESC)"))
 
-    await db.commit()
+        await db.commit()
+    except Exception:
+        # 권한 부족 등으로 DDL 실패 시: 세션 롤백 후 이후 요청은 정상 진행.
+        # (테이블/컬럼은 이미 존재하는 것으로 간주 — 마이그레이션은 alembic으로 관리)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
     _ensured = True
+
 
 
 def _new_order_id() -> str:
