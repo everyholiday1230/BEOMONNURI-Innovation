@@ -102,16 +102,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: flex; align-items: center; gap: 14px;
 }
 .brand .box {
-  width: 44px; height: 44px; border: 1px solid var(--mute-line);
-  display: grid; place-items: center; background: #fff;
-  position: relative; overflow: hidden;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  position: relative;
 }
-.brand .box::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, transparent 60%, var(--acid-glow) 100%);
-  pointer-events: none;
-}
-.brand .box img { width: 28px; height: 28px; object-fit: contain; }
+.brand .box img { width: 40px; height: 40px; object-fit: contain; }
 .brand-copy { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
 .brand-ko {
   font-family: var(--sans); font-weight: 900; font-size: 14px;
