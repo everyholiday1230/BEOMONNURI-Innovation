@@ -937,7 +937,7 @@ const reducedV5 = false;
     'kiss': { src: 'assets/img/logos/partners/gangdong-kiss.png', alt: '강동 K-ISS 멘토링센터 공식 로고' },
     'startup': { src: 'assets/img/logos/partners/modoo-startup.png', alt: '모두의창업 공식 로고' },
     'youth-foundation': { src: 'assets/img/logos/partners/youth-foundation.png', alt: '청년재단 공식 로고' },
-    'localmotive': { src: 'assets/img/logos/partners/localmotive.png', alt: '(주)로컬모티브 공식 로고' },
+    'localmotive': { src: 'assets/img/logos/partners/localmotive.jpg', alt: '(주)로컬모티브 공식 로고' },
     'gov-gg': { src: 'assets/img/logos/partners/gbsa.png', alt: '경기도경제과학진흥원 공식 로고' },
     'moel': { src: 'assets/img/logos/partners/moel.png', alt: '고용노동부 공식 로고' },
     'korcham': { src: 'assets/img/logos/partners/korcham.png', alt: '대한상공회의소 공식 로고' },
