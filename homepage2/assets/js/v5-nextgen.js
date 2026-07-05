@@ -928,19 +928,41 @@ const reducedV5 = false;
   const stage = $5('#cylinder-stage');
   if (!stage) return;
 
-  const partnerOrder = [
-    'mss', 'fin-nh', 'inv-posco', 'edu-dku', 'lab-knl', 'kiss',
-    'startup', 'youth-foundation', 'localmotive', 'gov-gg', 'moel', 'korcham'
-  ];
+  const partnerLogos = {
+    'mss': { src: 'assets/img/logos/partners/mss.png', alt: '중소벤처기업부 공식 로고' },
+    'fin-nh': { src: 'assets/img/logos/partners/nonghyup.png', alt: '농협 공식 로고' },
+    'inv-posco': { src: 'assets/img/logos/partners/posco-technology-investment.png', alt: '포스코기술투자 공식 로고' },
+    'edu-dku': { src: 'assets/img/logos/partners/dankook-university.png', alt: '단국대학교 공식 로고' },
+    'lab-knl': { src: 'assets/img/logos/partners/knal-kor.png', alt: '한국나노분석랩 공식 로고' },
+    'kiss': { src: 'assets/img/logos/partners/gangdong-kiss.png', alt: '강동 K-ISS 멘토링센터 공식 로고' },
+    'startup': { src: 'assets/img/logos/partners/modoo-startup.png', alt: '모두의창업 공식 로고' },
+    'youth-foundation': { src: 'assets/img/logos/partners/youth-foundation.png', alt: '청년재단 공식 로고' },
+    'localmotive': { src: 'assets/img/logos/partners/localmotive.png', alt: '(주)로컬모티브 공식 로고' },
+    'gov-gg': { src: 'assets/img/logos/partners/gbsa.png', alt: '경기도경제과학진흥원 공식 로고' },
+    'moel': { src: 'assets/img/logos/partners/moel.png', alt: '고용노동부 공식 로고' },
+    'korcham': { src: 'assets/img/logos/partners/korcham.png', alt: '대한상공회의소 공식 로고' },
+  };
+  const partnerOrder = Object.keys(partnerLogos);
 
-  // Reuse official logo images already populated in flat marquee.
+  // Prefer logos copied from hidden flat marquee, fallback to static source paths.
   const logoMap = {};
+  const logoHtml = (id, src, alt) => `<img class="logo-mark logo-${id}" src="${src}" alt="${alt || ''}" loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
+
   const collectLogos = () => {
     $$5('#partner-marquee-track .pm-item').forEach(item => {
       const id = item.getAttribute('data-partner-id');
       const img = item.querySelector('img.logo-mark');
-      if (!id || !img) return;
-      logoMap[id] = `<img class="logo-mark logo-${id}" src="${img.src}" alt="${img.alt || ''}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`;
+      if (!id || !img || !img.src) return;
+      logoMap[id] = logoHtml(id, img.src, img.alt || partnerLogos[id]?.alt || '');
+    });
+  };
+
+  const ensureFallbackLogos = () => {
+    partnerOrder.forEach((id) => {
+      if (logoMap[id]) return;
+      const fallback = partnerLogos[id];
+      if (!fallback) return;
+      logoMap[id] = logoHtml(id, fallback.src, fallback.alt);
     });
   };
 
@@ -949,6 +971,7 @@ const reducedV5 = false;
   const angleStep = 360 / N;
 
   const render = () => {
+    ensureFallbackLogos();
     if (!partnerOrder.every((id) => logoMap[id])) return false;
     stage.innerHTML = partnerOrder.map((id, i) => {
       const angle = i * angleStep;
@@ -959,12 +982,19 @@ const reducedV5 = false;
     return true;
   };
 
+  let tries = 0;
   const tryRender = () => {
     collectLogos();
-    if (!render()) setTimeout(tryRender, 200);
+    const hasAllFromMarquee = partnerOrder.every((id) => logoMap[id]);
+    if (!hasAllFromMarquee && tries < 12) {
+      tries += 1;
+      setTimeout(tryRender, 200);
+      return;
+    }
+    render();
   };
 
-  setTimeout(tryRender, 300);
+  setTimeout(tryRender, 180);
 })();
 
 /* ============================================================

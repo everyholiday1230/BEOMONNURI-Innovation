@@ -338,9 +338,6 @@ body:not(.has-hero) #gpu-particles {
   animation: rotateCylinder 40s linear infinite;
   will-change: transform;
 }
-.partner-cylinder:hover .cylinder-stage {
-  animation-play-state: paused;
-}
 .cylinder-face {
   position: absolute;
   width: 260px; height: 140px;
@@ -388,10 +385,9 @@ body:not(.has-hero) #gpu-particles {
   transform: scale(1.42);
 }
 .cylinder-face .logo-mark.logo-localmotive {
-  width: 220px;
-  height: 60px;
-  transform: scale(1.12);
-  transform-origin: center;
+  width: 188px;
+  height: 50px;
+  transform: none;
 }
 
 .cylinder-face .meta,
@@ -421,10 +417,9 @@ body:not(.has-hero) #gpu-particles {
     transform: scale(1.28);
   }
   .cylinder-face .logo-mark.logo-localmotive {
-    width: 132px;
-    height: 38px;
-    transform: scale(1.08);
-    transform-origin: center;
+    width: 112px;
+    height: 30px;
+    transform: none;
   }
   .partner-cylinder-head { display: none; }
 }
