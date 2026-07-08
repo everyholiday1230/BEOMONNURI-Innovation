@@ -28,10 +28,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css">
-<link rel="stylesheet" href="assets/css/v5-anchor.css">
-<link rel="stylesheet" href="assets/css/v5-mobile.css">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708g">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -109,7 +109,15 @@
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
-      <a href="products.html" class="active">Products</a>
+      <div class="nav-dd">
+        <a href="products.html" class="active" aria-haspopup="true">Products</a>
+        <div class="nav-dd-menu" role="menu">
+          <a href="products.html" role="menuitem">전체 제품 보기</a>
+          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
+          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+        </div>
+      </div>
       <a href="why.html">Why</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
@@ -226,15 +234,40 @@
   </div>
 </section>
 
+<!-- CORE SUMMARY -->
+<section class="products-home-summary product-core-summary reveal">
+  <div class="container">
+    <div class="sect-label">SUPERCHART AI / CORE SUMMARY</div>
+    <div class="hero-bottom">
+      <div class="hb-cell">
+        <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
+        <div class="val">금융 · 투자 리서치 조직</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
+        <div class="val">시장 데이터 · 신호 통합 분석</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
+        <div class="val">신호 정확도 · 리스크 감지 점검</div>
+      </div>
+      <div class="hb-cell cta-cell">
+        <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
+        <div class="val"><a href="contact.html">도입 진단<span class="arr">↗</span></a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="prod-nav reveal">
   <div class="container">
     <a class="pn-cell prev" href="products-agent.html">
       <div class="pn-k">← PREV / 02</div>
       <div class="pn-v">범온 <span class="acid">에이전트</span> AI</div>
     </a>
-    <a class="pn-cell next" href="products-apartment.html">
-      <div class="pn-k">NEXT / 04</div>
-      <div class="pn-v">범온 <span class="acid">공동주택 관리</span> AI →</div>
+    <a class="pn-cell next" href="contact.html">
+      <div class="pn-k">NEXT STEP</div>
+      <div class="pn-v"><span class="acid">도입 진단</span> 신청 →</div>
     </a>
   </div>
 </section>
@@ -244,14 +277,13 @@
     <div class="footer-grid">
       <div>
         <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 기준으로 설계·운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
+        <div class="ft-tag">보안 환경에서 운영하는 엔터프라이즈 AI. 3개의 AI 제품을 조직의 과제에 맞춰 개별 도입할 수 있도록 설계하며, 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>
         <a href="products-private.html">프라이빗 AI</a>
         <a href="products-agent.html">에이전트 AI</a>
         <a href="products-superchart.html">슈퍼차트 AI</a>
-        <a href="products-apartment.html">공동주택 관리 AI</a>
       </div>
       <div>
         <h5>Company</h5>
@@ -261,7 +293,7 @@
       <div>
         <h5>Connect</h5>
         <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
-        <a href="#">경기도 구리시 /갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
+        <a href="#">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -286,10 +318,10 @@
   </defs>
 </svg>
 
-<script src="assets/js/ai-frontier.js"></script>
-<script src="assets/js/v5-nextgen.js"></script>
-<script src="assets/js/v5-webgpu.js"></script>
-<script src="assets/js/v5-anchor.js"></script>
-<script src="assets/js/v5-mobile.js"></script>
+<script src="assets/js/ai-frontier.js?v=20260708g"></script>
+<script src="assets/js/v5-nextgen.js?v=20260708g"></script>
+<script src="assets/js/v5-webgpu.js?v=20260708g"></script>
+<script src="assets/js/v5-anchor.js?v=20260708g"></script>
+<script src="assets/js/v5-mobile.js?v=20260708g"></script>
 </body>
 </html>

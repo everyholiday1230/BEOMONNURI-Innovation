@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>범온누리 · BEOMONNURI — Living Intelligence OS</title>
-<meta name="description" content="범온누리 AI 운영체제. 4개의 AI 제품을 성능 지표(처리시간·정확도·자동화율·운영 안정성) 기준으로 설계하는 엔터프라이즈 AI.">
+<title>범온누리 · BEOMONNURI — 보안 환경의 엔터프라이즈 AI</title>
+<meta name="description" content="범온누리. 3개의 AI 제품을 성능 지표(처리시간·정확도·자동화율·운영 안정성) 기준으로 설계하는 보안 환경의 엔터프라이즈 AI.">
 
 <!-- SEO + Open Graph -->
-<meta name="keywords" content="범온누리, BEOMONNURI, AI 운영체제, 엔터프라이즈 AI, 프라이빗 AI, 에이전트 AI, 슈퍼차트, AI 제품 성능, AI 도입 성능 진단, 업무 자동화 KPI, KR-PRIVATE">
+<meta name="keywords" content="범온누리, BEOMONNURI, 엔터프라이즈 AI, 보안 AI, 프라이빗 AI, 에이전트 AI, 슈퍼차트, AI 제품 성능, AI 도입 성능 진단, 업무 자동화 KPI, KR-PRIVATE">
 <meta name="author" content="BEOMONNURI Inc.">
 <meta name="theme-color" content="#921230">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
@@ -16,13 +16,13 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BEOMONNURI">
-<meta property="og:title" content="BEOMONNURI — 엔터프라이즈 AI 운영체제">
-<meta property="og:description" content="처리시간·정확도·자동화율·운영 안정성 기준으로 4개의 AI 제품을 설계하는 엔터프라이즈 AI 운영체제.">
+<meta property="og:title" content="BEOMONNURI — 보안 환경의 엔터프라이즈 AI">
+<meta property="og:description" content="처리시간·정확도·자동화율·운영 안정성 기준으로 3개의 AI 제품을 설계하는 보안 환경의 엔터프라이즈 AI.">
 <meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
 <meta property="og:locale" content="ko_KR">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="BEOMONNURI — 엔터프라이즈 AI 운영체제">
+<meta name="twitter:title" content="BEOMONNURI — 보안 환경의 엔터프라이즈 AI">
 <meta name="twitter:description" content="AI 제품 성능 기준(처리시간·정확도·자동화율·운영 안정성)으로 도입 전략을 설계하세요.">
 <meta name="twitter:image" content="https://beomonnuri.ai/assets/og-image.png">
 
@@ -37,10 +37,10 @@
 <!-- Three.js for v4 hero neural network (lighter background layer) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<link rel="stylesheet" href="assets/css/ai-frontier.css">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css">
-<link rel="stylesheet" href="assets/css/v5-anchor.css">
-<link rel="stylesheet" href="assets/css/v5-mobile.css">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708g">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -190,7 +190,15 @@
     </a>
     <div class="nav-links">
       <a href="index.html" class="active">Home</a>
-      <a href="products.html">Products</a>
+      <div class="nav-dd">
+        <a href="products.html" aria-haspopup="true">Products</a>
+        <div class="nav-dd-menu" role="menu">
+          <a href="products.html" role="menuitem">전체 제품 보기</a>
+          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
+          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+        </div>
+      </div>
       <a href="why.html">Why</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
@@ -242,10 +250,10 @@
 </section>
 
 <!-- ===== AI WIDGET ===== -->
-<script src="assets/js/ai-frontier.js"></script>
-<script src="assets/js/v5-nextgen.js"></script>
-<script src="assets/js/v5-webgpu.js"></script>
-<script src="assets/js/v5-anchor.js"></script>
-<script src="assets/js/v5-mobile.js"></script>
+<script src="assets/js/ai-frontier.js?v=20260708g"></script>
+<script src="assets/js/v5-nextgen.js?v=20260708g"></script>
+<script src="assets/js/v5-webgpu.js?v=20260708g"></script>
+<script src="assets/js/v5-anchor.js?v=20260708g"></script>
+<script src="assets/js/v5-mobile.js?v=20260708g"></script>
 </body>
 </html>

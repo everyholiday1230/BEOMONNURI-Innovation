@@ -27,10 +27,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css">
-<link rel="stylesheet" href="assets/css/v5-anchor.css">
-<link rel="stylesheet" href="assets/css/v5-mobile.css">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708g">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -143,7 +143,15 @@
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
-      <a href="products.html">Products</a>
+      <div class="nav-dd">
+        <a href="products.html" aria-haspopup="true">Products</a>
+        <div class="nav-dd-menu" role="menu">
+          <a href="products.html" role="menuitem">전체 제품 보기</a>
+          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
+          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+        </div>
+      </div>
       <a href="why.html" class="active">Why</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
@@ -173,11 +181,11 @@
 
 <section class="home-transfer-why reveal" id="home-transfer-why">
   <div class="container">
-    <div class="sect-label">HOME RELOCATION / WHY CONTEXT</div>
+    <div class="sect-label">HOW WE START / 도입 방식</div>
     <div class="hw-grid">
       <article class="hw-card">
-        <h2 class="hw-title">홈의 도입 방식(3단계)을<br>Why 상단에 재배치</h2>
-        <p class="hw-sub">진단 → 파일럿 → 운영 전환 흐름을 원칙 설명 전에 먼저 배치해, 의사결정 순서가 자연스럽게 이어지도록 구성했습니다.</p>
+        <h2 class="hw-title">진단 → 파일럿 →<br>운영 전환, 3단계로.</h2>
+        <p class="hw-sub">한 번에 전면 도입하지 않습니다. 핵심 과제를 좁혀 진단하고, 실데이터로 검증한 뒤, 검증된 범위부터 운영으로 전환합니다.</p>
         <div class="hw-steps">
           <div class="hw-step"><div class="k">STEP 01 · DIAGNOSE</div><div class="v">핵심 과제 정의, 데이터 범위·목표 기준 협의</div></div>
           <div class="hw-step"><div class="k">STEP 02 · PILOT</div><div class="v">실데이터 기반 검증, 사용자 피드백과 보안 점검 병행</div></div>
@@ -186,9 +194,9 @@
       </article>
       <aside class="hw-card">
         <h3 class="hw-title">성과 지표 안내</h3>
-        <p class="hw-sub">홈의 인텔 섹션 메시지를 유지하되 과장 표현 없이, 실제 수치는 프로젝트 범위에 따라 별도 합의·측정한다는 원칙을 명확히 표시합니다.</p>
+        <p class="hw-sub">성과는 측정 가능한 기준으로 점검합니다. 다만 실제 수치는 조직의 환경과 데이터 조건에 따라 달라지므로, 평가 항목과 목표값은 도입 전 함께 합의합니다.</p>
         <div class="hw-metrics">
-          <div class="m"><div class="mk">THROUGHPUT</div><div class="mv">예시 지표</div><div class="md">실제 처리량은 환경·데이터 조건에 따라 달라집니다.</div></div>
+          <div class="m"><div class="mk">THROUGHPUT</div><div class="mv">환경별 상이</div><div class="md">실제 처리량은 환경·데이터 조건에 따라 달라집니다.</div></div>
           <div class="m"><div class="mk">ACCURACY</div><div class="mv">합의 기준 측정</div><div class="md">평가 항목과 기준은 도입 전 협의합니다.</div></div>
           <div class="m"><div class="mk">PROCESS TIME</div><div class="mv">업무별 상이</div><div class="md">자동화 범위·승인 절차에 따라 시간 차이가 있습니다.</div></div>
           <div class="m"><div class="mk">SECURITY LOG</div><div class="mv">감사 가능</div><div class="md">접근·활용 이력은 로그 정책에 따라 점검합니다.</div></div>
@@ -344,14 +352,13 @@
     <div class="footer-grid">
       <div>
         <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 기준으로 설계·운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
+        <div class="ft-tag">보안 환경에서 운영하는 엔터프라이즈 AI. 3개의 AI 제품을 조직의 과제에 맞춰 개별 도입할 수 있도록 설계하며, 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>
         <a href="products-private.html">프라이빗 AI</a>
         <a href="products-agent.html">에이전트 AI</a>
         <a href="products-superchart.html">슈퍼차트 AI</a>
-        <a href="products-apartment.html">공동주택 관리 AI</a>
       </div>
       <div>
         <h5>Company</h5>
@@ -361,7 +368,7 @@
       <div>
         <h5>Connect</h5>
         <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
-        <a href="#">경기도 구리시 /갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
+        <a href="#">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -387,10 +394,10 @@
   </defs>
 </svg>
 
-<script src="assets/js/ai-frontier.js"></script>
-<script src="assets/js/v5-nextgen.js"></script>
-<script src="assets/js/v5-webgpu.js"></script>
-<script src="assets/js/v5-anchor.js"></script>
-<script src="assets/js/v5-mobile.js"></script>
+<script src="assets/js/ai-frontier.js?v=20260708g"></script>
+<script src="assets/js/v5-nextgen.js?v=20260708g"></script>
+<script src="assets/js/v5-webgpu.js?v=20260708g"></script>
+<script src="assets/js/v5-anchor.js?v=20260708g"></script>
+<script src="assets/js/v5-mobile.js?v=20260708g"></script>
 </body>
 </html>

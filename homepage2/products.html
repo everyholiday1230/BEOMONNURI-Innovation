@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Products — 범온누리</title>
-<meta name="description" content="4개의 AI 제품(프라이빗·에이전트·슈퍼차트·공동주택 관리) 비교와 함께 홈페이지/웹사이트 제작, 광고 이미지 제작, MVP 제작, 스타트업 MVP, 예비창업자 MVP 외주까지 한 번에 확인하세요.">
-<meta name="keywords" content="AI 제품 성능,엔터프라이즈 AI,프라이빗 AI,에이전트 AI,슈퍼차트 AI,공동주택 관리 AI,AI 도입 성능 진단,업무 자동화 KPI,홈페이지 제작,웹사이트 제작,광고 이미지 제작,MVP 제작,스타트업 MVP,예비창업자 MVP,외주 개발">
+<meta name="description" content="3개의 AI 제품(프라이빗·에이전트·슈퍼차트) 비교와 함께 홈페이지/웹사이트 제작, 광고 이미지 제작, MVP 제작, 스타트업 MVP, 예비창업자 MVP 외주까지 한 번에 확인하세요.">
+<meta name="keywords" content="AI 제품 성능,엔터프라이즈 AI,프라이빗 AI,에이전트 AI,슈퍼차트 AI,AI 도입 성능 진단,업무 자동화 KPI,홈페이지 제작,웹사이트 제작,광고 이미지 제작,MVP 제작,스타트업 MVP,예비창업자 MVP,외주 개발">
 
 <meta name="theme-color" content="#921230">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
@@ -13,12 +13,12 @@
 <meta property="og:url" content="https://beomonnuri.ai/products.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BEOMONNURI">
-<meta property="og:title" content="BEOMONNURI Products — 4개의 AI 제품">
-<meta property="og:description" content="처리시간·자동화율·정확도·운영 안정성 기준으로 4개 AI 제품을 비교하세요.">
+<meta property="og:title" content="BEOMONNURI Products — 3개의 AI 제품">
+<meta property="og:description" content="처리시간·자동화율·정확도·운영 안정성 기준으로 3개 AI 제품을 비교하세요.">
 <meta property="og:image" content="https://beomonnuri.ai/assets/og-image.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="BEOMONNURI Products — 4개의 AI 제품">
+<meta name="twitter:title" content="BEOMONNURI Products — 3개의 AI 제품">
 <meta name="twitter:description" content="처리시간·정확도·운영 안정성 목표를 기준으로 우리 조직에 맞는 AI 제품을 비교하세요.">
 <meta name="twitter:image" content="https://beomonnuri.ai/assets/og-image.png">
 <link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
@@ -28,10 +28,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css">
-<link rel="stylesheet" href="assets/css/v5-anchor.css">
-<link rel="stylesheet" href="assets/css/v5-mobile.css">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708g">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708g">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -281,12 +281,11 @@
       "@type": "ItemList",
       "@id": "https://beomonnuri.ai/products.html#product-list",
       "itemListOrder": "https://schema.org/ItemListOrderAscending",
-      "numberOfItems": 4,
+      "numberOfItems": 3,
       "itemListElement": [
         {"@type":"ListItem","position":1,"name":"범온 프라이빗 AI","url":"https://beomonnuri.ai/products-private.html"},
         {"@type":"ListItem","position":2,"name":"범온 에이전트 AI","url":"https://beomonnuri.ai/products-agent.html"},
-        {"@type":"ListItem","position":3,"name":"범온 슈퍼차트 AI","url":"https://beomonnuri.ai/products-superchart.html"},
-        {"@type":"ListItem","position":4,"name":"범온 공동주택 관리 AI","url":"https://beomonnuri.ai/products-apartment.html"}
+        {"@type":"ListItem","position":3,"name":"범온 슈퍼차트 AI","url":"https://beomonnuri.ai/products-superchart.html"}
       ]
     },
     {
@@ -336,7 +335,15 @@
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
-      <a href="products.html" class="active">Products</a>
+      <div class="nav-dd">
+        <a href="products.html" class="active" aria-haspopup="true">Products</a>
+        <div class="nav-dd-menu" role="menu">
+          <a href="products.html" role="menuitem">전체 제품 보기</a>
+          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
+          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+        </div>
+      </div>
       <a href="why.html">Why</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
@@ -348,136 +355,16 @@
   <div class="container">
     <div class="crumb"><a href="index.html">HOME</a> · PRODUCTS</div>
     <h1>
-      <span class="ko">4개의 </span><span class="acid">AI 제품</span>,<br>
-      <span class="stroke">하나의</span> OS.
+      <span class="ko">3개의 </span><span class="acid">AI 제품</span>,<br>
+      <span class="stroke">각자의</span> 현장에.
     </h1>
-    <p class="lead">조직의 <span class="nb-phrase">우선 과제</span>와 보유 데이터에 맞춰 시작할 수 있는 4개의 AI 제품. 보안형 사내 AI부터 산업별 의사결정 AI까지, 하나의 운영 기준 위에서 연동되도록 설계됩니다.</p>
+    <p class="lead">조직의 <span class="nb-phrase">우선 과제</span>와 보유 데이터에 맞춰 시작할 수 있는 3개의 AI 제품. 보안형 사내 AI부터 산업별 의사결정 AI까지, 각 제품을 필요한 범위에서 개별 도입할 수 있도록 설계됩니다.</p>
 
     <div class="page-hero-meta">
-      <div><div class="k">/ TOTAL</div><div class="v"><span class="ac">04</span> Products</div></div>
+      <div><div class="k">/ TOTAL</div><div class="v"><span class="ac">03</span> Products</div></div>
       <div><div class="k">/ DEPLOY</div><div class="v">On-Prem · Private Cloud</div></div>
       <div><div class="k">/ TIMELINE</div><div class="v">도입 일정 <span class="ac">협의</span></div></div>
       <div><div class="k">/ DATA</div><div class="v">KR · PRIVATE</div></div>
-    </div>
-  </div>
-</section>
-
-<section class="products-home-summary reveal" id="products-home-summary">
-  <div class="container">
-    <div class="sect-label">HOME RELOCATION / CORE SUMMARY</div>
-    <div class="hero-bottom">
-      <div class="hb-cell">
-        <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
-        <div class="val">보안 환경의 엔터프라이즈 AI</div>
-      </div>
-      <div class="hb-cell">
-        <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
-        <div class="val">4개의 AI 제품, 산업별 맞춤 운영</div>
-      </div>
-      <div class="hb-cell">
-        <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
-        <div class="val">목표 기반 성과 점검</div>
-      </div>
-      <div class="hb-cell cta-cell">
-        <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
-        <div class="val"><a href="contact.html">도입 진단<span class="arr">↗</span></a></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="home-transfer-products reveal" id="home-transfer-products">
-  <div class="container">
-    <div class="sect-label">HOME RELOCATION / PRODUCTS CONTEXT</div>
-    <div class="ht-grid">
-      <article class="ht-card">
-        <h2 class="ht-title">홈의 파이프라인 설명을<br>Products에서 바로 확인</h2>
-        <p class="ht-sub">홈에서 빠진 핵심 설명(입력→보안 임베딩→추론→운영 결과)을 제품 관점으로 재배치했습니다. 제품 검토 전에 전체 흐름을 먼저 이해할 수 있습니다.</p>
-        <div class="ht-pipe">
-          <div class="ht-step"><div class="k">01 · INPUT</div><div class="v">데이터 수집</div></div>
-          <div class="ht-step"><div class="k">02 · EMBED</div><div class="v">보안 임베딩·인덱싱</div></div>
-          <div class="ht-step"><div class="k">03 · AGENT</div><div class="v">추론·업무 실행</div></div>
-          <div class="ht-step"><div class="k">04 · OUTPUT</div><div class="v">성과 점검</div></div>
-        </div>
-      </article>
-      <aside class="ht-card">
-        <h3 class="ht-title">제품 탐색 순서</h3>
-        <p class="ht-sub">조직의 <span class="nb-phrase">우선 과제</span> 기준으로 빠르게 이동하세요.</p>
-        <div class="ht-list">
-          <a href="products-private.html">보안 우선 조직 → 프라이빗 AI</a>
-          <a href="products-agent.html">반복 업무 자동화 → 에이전트 AI</a>
-          <a href="products-superchart.html">시장·리서치 분석 → 슈퍼차트 AI</a>
-          <a href="products-apartment.html">관리 운영 통합 → 공동주택 관리 AI</a>
-          <a href="why.html">도입 원칙 확인 → Why 페이지</a>
-        </div>
-      </aside>
-    </div>
-  </div>
-</section>
-
-<section class="performance-hub reveal" id="performance-hub">
-  <div class="container">
-    <div class="sect-label">MARKETING / SEARCH INTENT · PRODUCT PERFORMANCE</div>
-    <div class="perf-grid">
-      <article class="perf-card">
-        <h2 class="perf-title">제품 성능 기준으로<br>도입 우선순위를 정리하세요</h2>
-        <p class="perf-sub">검색 유입 사용자가 많이 찾는 기준(처리시간, 정확도, 자동화 범위, 운영 안정성)을 중심으로 제품 선택 흐름을 정리했습니다. 실제 수치는 프로젝트 범위·데이터 조건에 따라 합의 후 측정합니다.</p>
-        <ul class="perf-list">
-          <li><strong>처리시간 단축</strong> — 현재 프로세스 대비 자동화 가능한 단계와 승인 흐름을 진단</li>
-          <li><strong>정확도/재현성</strong> — 조직별 평가 기준으로 반복 측정 가능한 방식 제안</li>
-          <li><strong>운영 안정성</strong> — 권한, 로그, 장애 대응 기준을 포함한 운영 체크리스트 적용</li>
-          <li><strong>확장성</strong> — 단일 제품 도입 후 4개 제품 연동 시나리오까지 단계별 확장</li>
-        </ul>
-      </article>
-      <aside class="perf-card">
-        <h3 class="perf-title">성능 중심 빠른 이동</h3>
-        <p class="perf-sub">관심 성능 목표에 맞춰 상세 페이지로 이동해 비교 검토하세요.</p>
-        <div class="perf-links">
-          <a href="products-private.html">보안·정확도 우선 → 범온 프라이빗 AI</a>
-          <a href="products-agent.html">처리시간·자동화 우선 → 범온 에이전트 AI</a>
-          <a href="products-superchart.html">신호 정확도·리스크 감지 우선 → 범온 슈퍼차트 AI</a>
-          <a href="products-apartment.html">운영 안정성·민원 처리 우선 → 공동주택 관리 AI</a>
-          <a href="contact.html">우리 조직 성능 목표 기준으로 도입 진단 요청 ↗</a>
-        </div>
-      </aside>
-    </div>
-  </div>
-</section>
-
-<section class="build-services-hub reveal" id="build-services-hub">
-  <div class="container">
-    <div class="sect-label">PRODUCT EXTENSION / OUTSOURCING · MVP STUDIO</div>
-    <div class="bs-grid">
-      <article class="bs-card">
-        <h2 class="bs-title">제품 도입과 함께<br>외주·MVP를 통합 실행하세요</h2>
-        <p class="bs-sub">AI 제품 도입만이 아니라 <strong>홈페이지 제작</strong>, <strong>웹사이트 제작</strong>, <strong>광고 이미지 제작</strong>, <strong>MVP 제작</strong>을 하나의 로드맵으로 연결합니다. 스타트업 MVP와 예비창업자 MVP까지 초기 검증에 맞춘 속도 중심 실행이 가능합니다.</p>
-        <div class="bs-tags" aria-label="서비스 키워드">
-          <span class="bs-tag">홈페이지 제작</span>
-          <span class="bs-tag">웹사이트 제작</span>
-          <span class="bs-tag">광고 이미지 제작</span>
-          <span class="bs-tag">MVP 제작</span>
-          <span class="bs-tag">스타트업 MVP</span>
-          <span class="bs-tag">예비창업자 MVP</span>
-          <span class="bs-tag">외주 개발</span>
-        </div>
-        <ul class="bs-check">
-          <li><strong>전략 정렬</strong> — 타깃 고객/수익모델에 맞는 페이지 구조와 제품 메시지 설계</li>
-          <li><strong>빠른 제작</strong> — 랜딩·브랜드 페이지·광고 크리에이티브를 단기 반복 배포</li>
-          <li><strong>MVP 검증</strong> — 핵심 기능 우선 구현 + 사용자 반응 데이터 기반 개선 루프</li>
-          <li><strong>확장 전환</strong> — MVP 이후 제품형 서비스/운영 자동화 단계로 확장 지원</li>
-        </ul>
-      </article>
-      <aside class="bs-card">
-        <h3 class="bs-title">외주·MVP 빠른 시작</h3>
-        <p class="bs-sub">현재 단계에 맞는 트랙을 선택하면 도입 상담에서 일정과 범위를 바로 제안합니다.</p>
-        <div class="bs-links">
-          <a href="contact.html">홈페이지/웹사이트 제작 상담 요청 ↗</a>
-          <a href="contact.html">광고 이미지 제작 패키지 문의 ↗</a>
-          <a href="contact.html">스타트업 MVP 제작 상담 ↗</a>
-          <a href="contact.html">예비창업자 MVP 검증 트랙 문의 ↗</a>
-          <a href="contact.html">AI 제품 + 외주 통합 로드맵 요청 ↗</a>
-        </div>
-      </aside>
     </div>
   </div>
 </section>
@@ -523,20 +410,8 @@
         </div>
       </a>
 
-      <a href="products-apartment.html" class="pi-card">
-        <div class="pi-top"><span>/04 · APT MGMT AI</span><span>OPS</span></div>
-        <div class="pi-arrow">↗</div>
-        <div class="pi-for">FOR · 관리사무소 · 주택관리업체</div>
-        <div class="pi-title"><span>범온 </span><span class="acid">공동주택 관리</span> AI</div>
-        <div class="pi-desc">민원·시설·회계·공지를 하나의 운영 흐름으로 통합하는 관리사무소 AI.</div>
-        <div class="pi-tags">
-          <span class="pi-tag">complaints</span><span class="pi-tag">facility</span>
-          <span class="pi-tag">accounting</span><span class="pi-tag">ops</span>
-        </div>
-      </a>
-
       <a href="#build-services-hub" class="pi-card">
-        <div class="pi-top"><span>/05 · OUTSOURCING · MVP STUDIO</span><span>BUILD</span></div>
+        <div class="pi-top"><span>/04 · OUTSOURCING · MVP STUDIO</span><span>BUILD</span></div>
         <div class="pi-arrow">↗</div>
         <div class="pi-for">FOR · 스타트업 · 예비창업자 · 사내 신사업팀</div>
         <div class="pi-title"><span>제품 도입 + </span><span class="acid">외주·MVP</span> 통합 실행</div>
@@ -573,12 +448,130 @@
           <tr><td class="pname"><a href="products-private.html">범온 프라이빗 AI</a></td><td>전 산업 · 기업 일반</td><td>사내 지식 검색을 보안 환경에서 수행</td><td>내부 문서 · 규정 · 지식</td></tr>
           <tr><td class="pname"><a href="products-agent.html">범온 에이전트 AI</a></td><td>운영 · 백오피스 팀</td><td>반복 업무의 실행 자동화</td><td>업무 절차 · 문서</td></tr>
           <tr><td class="pname"><a href="products-superchart.html">범온 슈퍼차트 AI</a></td><td>금융 · 투자 리서치</td><td>시장 데이터 해석과 신호 정리</td><td>시세 · 지표 · 차트</td></tr>
-          <tr><td class="pname"><a href="products-apartment.html">범온 공동주택 관리 AI</a></td><td>공동주택 관리</td><td>민원 · 시설 · 회계 업무 효율화</td><td>민원 · 점검 · 회계</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
+
+<section class="products-home-summary reveal" id="products-home-summary">
+  <div class="container">
+    <div class="sect-label">CORE SUMMARY / 핵심 요약</div>
+    <div class="hero-bottom">
+      <div class="hb-cell">
+        <div class="label"><span>WHO</span><span class="ix">[ A ]</span></div>
+        <div class="val">보안 환경의 엔터프라이즈 AI</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>WHAT</span><span class="ix">[ B ]</span></div>
+        <div class="val">3개의 AI 제품, 산업별 맞춤 운영</div>
+      </div>
+      <div class="hb-cell">
+        <div class="label"><span>HOW</span><span class="ix">[ C ]</span></div>
+        <div class="val">목표 기반 성과 점검</div>
+      </div>
+      <div class="hb-cell cta-cell">
+        <div class="label"><span>START</span><span class="ix">[ D ]</span></div>
+        <div class="val"><a href="contact.html">도입 진단<span class="arr">↗</span></a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home-transfer-products reveal" id="home-transfer-products">
+  <div class="container">
+    <div class="sect-label">HOW IT WORKS / 동작 흐름</div>
+    <div class="ht-grid">
+      <article class="ht-card">
+        <h2 class="ht-title">데이터에서 성과까지,<br>하나의 흐름으로</h2>
+        <p class="ht-sub">모든 제품은 같은 흐름을 따릅니다. 데이터 수집 → 보안 임베딩·인덱싱 → 추론·업무 실행 → 성과 점검. 제품을 검토하기 전에 전체 동작 방식을 먼저 이해할 수 있습니다.</p>
+        <div class="ht-pipe">
+          <div class="ht-step"><div class="k">01 · INPUT</div><div class="v">데이터 수집</div></div>
+          <div class="ht-step"><div class="k">02 · EMBED</div><div class="v">보안 임베딩·인덱싱</div></div>
+          <div class="ht-step"><div class="k">03 · AGENT</div><div class="v">추론·업무 실행</div></div>
+          <div class="ht-step"><div class="k">04 · OUTPUT</div><div class="v">성과 점검</div></div>
+        </div>
+      </article>
+      <aside class="ht-card">
+        <h3 class="ht-title">제품 탐색 순서</h3>
+        <p class="ht-sub">조직의 <span class="nb-phrase">우선 과제</span> 기준으로 빠르게 이동하세요.</p>
+        <div class="ht-list">
+          <a href="products-private.html">보안 우선 조직 → 프라이빗 AI</a>
+          <a href="products-agent.html">반복 업무 자동화 → 에이전트 AI</a>
+          <a href="products-superchart.html">시장·리서치 분석 → 슈퍼차트 AI</a>
+          <a href="why.html">도입 원칙 확인 → Why 페이지</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="performance-hub reveal" id="performance-hub">
+  <div class="container">
+    <div class="sect-label">PERFORMANCE / 성능 기준 도입</div>
+    <div class="perf-grid">
+      <article class="perf-card">
+        <h2 class="perf-title">제품 성능 기준으로<br>도입 우선순위를 정리하세요</h2>
+        <p class="perf-sub">검색 유입 사용자가 많이 찾는 기준(처리시간, 정확도, 자동화 범위, 운영 안정성)을 중심으로 제품 선택 흐름을 정리했습니다. 실제 수치는 프로젝트 범위·데이터 조건에 따라 합의 후 측정합니다.</p>
+        <ul class="perf-list">
+          <li><strong>처리시간 단축</strong> — 현재 프로세스 대비 자동화 가능한 단계와 승인 흐름을 진단</li>
+          <li><strong>정확도/재현성</strong> — 조직별 평가 기준으로 반복 측정 가능한 방식 제안</li>
+          <li><strong>운영 안정성</strong> — 권한, 로그, 장애 대응 기준을 포함한 운영 체크리스트 적용</li>
+          <li><strong>확장성</strong> — 단일 제품 도입 후 3개 제품 연동 시나리오까지 단계별 확장</li>
+        </ul>
+      </article>
+      <aside class="perf-card">
+        <h3 class="perf-title">성능 중심 빠른 이동</h3>
+        <p class="perf-sub">관심 성능 목표에 맞춰 상세 페이지로 이동해 비교 검토하세요.</p>
+        <div class="perf-links">
+          <a href="products-private.html">보안·정확도 우선 → 범온 프라이빗 AI</a>
+          <a href="products-agent.html">처리시간·자동화 우선 → 범온 에이전트 AI</a>
+          <a href="products-superchart.html">신호 정확도·리스크 감지 우선 → 범온 슈퍼차트 AI</a>
+          <a href="contact.html">우리 조직 성능 목표 기준으로 도입 진단 요청 ↗</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="build-services-hub reveal" id="build-services-hub">
+  <div class="container">
+    <div class="sect-label">OUTSOURCING · MVP STUDIO / 외주 · MVP</div>
+    <div class="bs-grid">
+      <article class="bs-card">
+        <h2 class="bs-title">제품 도입과 함께<br>외주·MVP를 통합 실행하세요</h2>
+        <p class="bs-sub">AI 제품 도입만이 아니라 <strong>홈페이지 제작</strong>, <strong>웹사이트 제작</strong>, <strong>광고 이미지 제작</strong>, <strong>MVP 제작</strong>을 하나의 로드맵으로 연결합니다. 스타트업 MVP와 예비창업자 MVP까지 초기 검증에 맞춘 속도 중심 실행이 가능합니다.</p>
+        <div class="bs-tags" aria-label="서비스 키워드">
+          <span class="bs-tag">홈페이지 제작</span>
+          <span class="bs-tag">웹사이트 제작</span>
+          <span class="bs-tag">광고 이미지 제작</span>
+          <span class="bs-tag">MVP 제작</span>
+          <span class="bs-tag">스타트업 MVP</span>
+          <span class="bs-tag">예비창업자 MVP</span>
+          <span class="bs-tag">외주 개발</span>
+        </div>
+        <ul class="bs-check">
+          <li><strong>전략 정렬</strong> — 타깃 고객/수익모델에 맞는 페이지 구조와 제품 메시지 설계</li>
+          <li><strong>빠른 제작</strong> — 랜딩·브랜드 페이지·광고 크리에이티브를 단기 반복 배포</li>
+          <li><strong>MVP 검증</strong> — 핵심 기능 우선 구현 + 사용자 반응 데이터 기반 개선 루프</li>
+          <li><strong>확장 전환</strong> — MVP 이후 제품형 서비스/운영 자동화 단계로 확장 지원</li>
+        </ul>
+      </article>
+      <aside class="bs-card">
+        <h3 class="bs-title">외주·MVP 빠른 시작</h3>
+        <p class="bs-sub">현재 단계에 맞는 트랙을 선택하면 도입 상담에서 일정과 범위를 바로 제안합니다.</p>
+        <div class="bs-links">
+          <a href="contact.html">홈페이지/웹사이트 제작 상담 요청 ↗</a>
+          <a href="contact.html">광고 이미지 제작 패키지 문의 ↗</a>
+          <a href="contact.html">스타트업 MVP 제작 상담 ↗</a>
+          <a href="contact.html">예비창업자 MVP 검증 트랙 문의 ↗</a>
+          <a href="contact.html">AI 제품 + 외주 통합 로드맵 요청 ↗</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
 
 <!-- FOOTER -->
 <footer>
@@ -586,14 +579,13 @@
     <div class="footer-grid">
       <div>
         <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고"></div>
-        <div class="ft-tag">엔터프라이즈 AI 운영체제. 4개의 AI 제품을 하나의 보안 인프라 기준으로 설계·운영합니다. 조직의 목표와 지표를 함께 정의하고 점검합니다.</div>
+        <div class="ft-tag">보안 환경에서 운영하는 엔터프라이즈 AI. 3개의 AI 제품을 조직의 과제에 맞춰 개별 도입할 수 있도록 설계하며, 목표와 지표를 함께 정의하고 점검합니다.</div>
       </div>
       <div>
         <h5>Products</h5>
         <a href="products-private.html">프라이빗 AI</a>
         <a href="products-agent.html">에이전트 AI</a>
         <a href="products-superchart.html">슈퍼차트 AI</a>
-        <a href="products-apartment.html">공동주택 관리 AI</a>
       </div>
       <div>
         <h5>Company</h5>
@@ -603,7 +595,7 @@
       <div>
         <h5>Connect</h5>
         <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
-        <a href="#">경기도 구리시 /갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
+        <a href="#">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -629,10 +621,10 @@
   </defs>
 </svg>
 
-<script src="assets/js/ai-frontier.js"></script>
-<script src="assets/js/v5-nextgen.js"></script>
-<script src="assets/js/v5-webgpu.js"></script>
-<script src="assets/js/v5-anchor.js"></script>
-<script src="assets/js/v5-mobile.js"></script>
+<script src="assets/js/ai-frontier.js?v=20260708g"></script>
+<script src="assets/js/v5-nextgen.js?v=20260708g"></script>
+<script src="assets/js/v5-webgpu.js?v=20260708g"></script>
+<script src="assets/js/v5-anchor.js?v=20260708g"></script>
+<script src="assets/js/v5-mobile.js?v=20260708g"></script>
 </body>
 </html>

@@ -75,7 +75,6 @@
   - `products-private.html`
   - `products-agent.html`
   - `products-superchart.html`
-  - `products-apartment.html`
 - Why: `why.html`
 - Contact: `contact.html`
 
