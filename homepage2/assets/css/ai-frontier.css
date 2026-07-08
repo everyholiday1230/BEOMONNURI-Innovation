@@ -1589,38 +1589,46 @@ footer {
   min-height: 360px;
   cursor: pointer;
   isolation: isolate;
-  transition: background 0.4s cubic-bezier(.6,0,.1,1), color 0.4s;
+  border: 1px solid transparent;
+  transition: transform 0.35s cubic-bezier(.6,0,.1,1), box-shadow 0.35s, border-color 0.35s;
+}
+/* Top accent line that scales in on hover (line-based, no full fill) */
+.products-index .pi-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--acid);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.4s cubic-bezier(.6,0,.1,1);
+  z-index: 2;
 }
 .products-index .pi-card:hover {
-  background: var(--acid);
-  color: #fff;
+  transform: translateY(-4px);
+  border-color: var(--mute-line);
+  box-shadow: 0 22px 48px -20px rgba(13,13,13,0.28);
 }
+.products-index .pi-card:hover::before { transform: scaleX(1); }
 .products-index .pi-top {
   display: flex; justify-content: space-between;
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em;
   color: var(--acid);
   margin-bottom: 20px; text-transform: uppercase;
-  transition: color 0.4s;
 }
-.products-index .pi-card:hover .pi-top { color: #fff; }
 .products-index .pi-arrow {
   position: absolute; top: 38px; right: 36px;
   font-family: var(--display); font-size: 32px;
-  color: var(--paper);
-  transition: transform 0.35s cubic-bezier(.6,0,.1,1), color 0.4s;
+  color: var(--mute);
+  transition: transform 0.35s cubic-bezier(.6,0,.1,1), color 0.35s;
 }
 .products-index .pi-card:hover .pi-arrow {
   transform: translate(6px, -6px);
-  color: #fff;
+  color: var(--acid);
 }
 .products-index .pi-for {
   font-family: var(--mono); font-size: 11px;
   color: var(--mute);
   text-transform: uppercase; letter-spacing: 0.06em;
   margin-top: 32px; margin-bottom: 12px;
-  transition: color 0.4s;
 }
-.products-index .pi-card:hover .pi-for { color: rgba(255,255,255,0.7); }
 .products-index .pi-title {
   font-family: var(--sans); font-weight: 900; letter-spacing: -0.035em;
   font-size: clamp(28px, 3.4vw, 38px); line-height: 1.05;
@@ -1628,27 +1636,23 @@ footer {
 }
 .products-index .pi-title .acid {
   color: var(--acid);
-  transition: color 0.4s;
 }
-.products-index .pi-card:hover .pi-title .acid { color: #fff; }
 .products-index .pi-desc {
   color: var(--mute); font-size: 14px; line-height: 1.55;
   max-width: 40ch;
   margin-bottom: auto;
-  transition: color 0.4s;
 }
-.products-index .pi-card:hover .pi-desc { color: rgba(255,255,255,0.85); }
 .products-index .pi-tags {
   display: flex; gap: 6px; margin-top: 22px; flex-wrap: wrap;
 }
 .products-index .pi-tag {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
   padding: 4px 10px; border: 1px solid var(--mute-line); color: var(--mute);
-  transition: border-color 0.4s, color 0.4s;
+  transition: border-color 0.35s, color 0.35s;
 }
 .products-index .pi-card:hover .pi-tag {
-  border-color: rgba(255,255,255,0.4);
-  color: rgba(255,255,255,0.9);
+  border-color: var(--acid);
+  color: var(--acid);
 }
 @media (max-width: 900px) {
   .products-index .pi-grid { grid-template-columns: 1fr; }
@@ -2096,7 +2100,20 @@ footer {
   .brand .brand-en { font-size: 7.5px; letter-spacing: 0.1em; }
   .hud { display: none; }
   .hero { padding-top: 80px; }
-  .hero h1 { margin-top: 24px; font-size: clamp(48px, 14vw, 80px); }
+  .hero h1 {
+    margin-top: 24px;
+    font-size: clamp(46px, 12.5vw, 76px);
+    letter-spacing: -0.05em;
+  }
+  /* OPERATIONS(아웃라인 이탤릭)이 화면 끝에 닿지 않도록 미세 축소 */
+  .hero h1 .row .glitch,
+  .hero h1 .stroke {
+    display: inline-block;
+    transform-origin: left center;
+  }
+  .hero h1 .stroke {
+    -webkit-text-stroke-width: 1.5px;
+  }
   .hero-bottom { grid-template-columns: 1fr; }
   .svc-grid { grid-template-columns: 1fr; }
   .intel-grid { grid-template-columns: 1fr; }

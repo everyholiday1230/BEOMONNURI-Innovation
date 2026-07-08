@@ -258,9 +258,11 @@ body.nav-open {
 
   /* Hero h1 — tighter clamp */
   .hero h1 {
-    font-size: clamp(44px, 12vw, 72px);
+    font-size: clamp(44px, 11.5vw, 70px);
+    letter-spacing: -0.05em;
     margin-top: 28px;
   }
+  .hero h1 .stroke { -webkit-text-stroke-width: 1.5px; }
   /* Hide HUD on phones (already in v5) */
   .hud { display: none; }
   /* System bar */
@@ -508,8 +510,8 @@ body.nav-open {
 /* Very narrow phones (<= 400px) */
 @media (max-width: 400px) {
   .container { padding: 0 16px; }
-  .hero h1 { font-size: clamp(38px, 13vw, 56px); }
-  .page-hero h1 { font-size: clamp(38px, 14vw, 64px); }
+  .hero h1 { font-size: clamp(34px, 9.6vw, 46px); letter-spacing: -0.055em; }
+  .page-hero h1 { font-size: clamp(36px, 12vw, 58px); }
   .hero-top { font-size: 9px; }
 }
 
