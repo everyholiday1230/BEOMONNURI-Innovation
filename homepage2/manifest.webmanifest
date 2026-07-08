@@ -1,0 +1,31 @@
+{
+  "name": "범온누리 이노베이션",
+  "short_name": "범온누리",
+  "description": "보안 환경에서 운영하는 엔터프라이즈 AI. 프라이빗 AI·에이전트 AI·슈퍼차트 AI.",
+  "lang": "ko-KR",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#921230",
+  "icons": [
+    {
+      "src": "assets/img/logos/company/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/logos/company/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/logos/company/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

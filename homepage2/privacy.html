@@ -8,17 +8,21 @@
 <meta name="theme-color" content="#921230">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://beomonnuri.ai/privacy.html">
-<link rel="icon" type="image/png" href="assets/img/logos/company/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/img/logos/company/favicon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/img/logos/company/favicon-512.png">
 <link rel="apple-touch-icon" href="assets/img/logos/company/favicon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708o">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708o">
-<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708o">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708o">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708q">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708q">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708q">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708q">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -26,7 +30,11 @@
   });
 </script>
 <style>
-  .legal-doc { padding: 40px 0 96px; }
+  /* Privacy hero: compact so the reading body follows closely */
+  .page-hero-legal { padding: 120px 0 48px; }
+  .page-hero-legal h1 { margin-bottom: 4px; }
+  .page-hero-legal .lead { max-width: 760px; }
+  .legal-doc { padding: 44px 0 96px; }
   .legal-doc .container { max-width: 920px; }
   .legal-doc h2 {
     font-family: 'Archivo Black', sans-serif;
@@ -101,7 +109,7 @@
 </nav>
 
 <!-- PAGE HERO -->
-<section class="page-hero">
+<section class="page-hero page-hero-legal">
   <div class="container">
     <div class="crumb"><a href="index.html">HOME</a> · PRIVACY</div>
     <h1>
@@ -238,10 +246,10 @@
   </defs>
 </svg>
 
-<script src="assets/js/ai-frontier.js?v=20260708o"></script>
-<script src="assets/js/v5-nextgen.js?v=20260708o"></script>
-<script src="assets/js/v5-webgpu.js?v=20260708o"></script>
-<script src="assets/js/v5-anchor.js?v=20260708o"></script>
-<script src="assets/js/v5-mobile.js?v=20260708o"></script>
+<script src="assets/js/ai-frontier.js?v=20260708q"></script>
+<script src="assets/js/v5-nextgen.js?v=20260708q"></script>
+<script src="assets/js/v5-webgpu.js?v=20260708q"></script>
+<script src="assets/js/v5-anchor.js?v=20260708q"></script>
+<script src="assets/js/v5-mobile.js?v=20260708q"></script>
 </body>
 </html>
