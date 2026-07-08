@@ -154,6 +154,15 @@
       return;
     }
 
+    // 서버 혼잡/중복요청 (429)
+    if (resp && resp.status === 429) {
+      const err = (data && data.error) || {};
+      _replaceLastBot(err.message || 'AI 신호 요청이 많습니다. 잠시 후 다시 시도해주세요.');
+      _setStatus('error', '대기 중');
+      _finish(sendBtn);
+      return;
+    }
+
     const payload = (data && data.data) ? data.data : data;
     if (!payload) {
       _replaceLastBot('응답을 이해하지 못했습니다. 다시 시도해주세요.');

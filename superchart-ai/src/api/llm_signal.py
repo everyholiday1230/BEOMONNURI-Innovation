@@ -140,12 +140,19 @@ async def chat(
     tier = _tier_from_request(request)
     is_unlimited = tier in ("pro", "premium")
 
-    # ── 무료 한도 소비 (pro/premium은 항상 무료) ──
-    within_free = True if is_unlimited else consume_free_quota(user_id, FEATURE)
-
     # ── LLM 호출: 자연어 → DSL (실제 토큰 카운트 포함) ──
-    llm = await generate_signal_dsl(message, symbol=symbol, timeframe=timeframe)
+    # 서버 보호: 동시 실행 세마포어 + 사용자당 중복요청 방지.
+    llm = await generate_signal_dsl(message, symbol=symbol, timeframe=timeframe, user_id=user_id)
+    err0 = llm.get("error")
+    if err0 == "busy_user":
+        raise HTTPException(429, detail={"code": "BUSY_USER", "message": "이전 요청을 처리 중입니다. 완료 후 다시 시도해주세요."})
+    if err0 == "busy":
+        raise HTTPException(429, detail={"code": "BUSY", "message": "AI 신호 요청이 많아 잠시 대기 중입니다. 잠시 후 다시 시도해주세요."})
     total_tokens = int(llm.get("total_tokens", 0) or 0)
+
+    # ── 무료 한도 소비 (pro/premium은 항상 무료) ──
+    # busy 로 조기 반환된 경우에는 여기까지 오지 않으므로 무료 횟수를 낭비하지 않는다.
+    within_free = True if is_unlimited else consume_free_quota(user_id, FEATURE)
 
     # ── 과금: 무료 한도 초과분만 토큰 비례 차감 ──
     charged = 0

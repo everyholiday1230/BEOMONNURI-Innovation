@@ -399,6 +399,12 @@ async def lifespan(app: FastAPI):
     from src.services.market import _http
     if _http and not _http.is_closed:
         await _http.aclose()
+    # LLM 신호 공유 클라이언트 정리
+    try:
+        from src.services.llm_signal import aclose as _llm_aclose
+        await _llm_aclose()
+    except Exception:
+        pass
     # Redis 풀 리셋 (루프 안전)
     from src.services.redis_cache import reset_redis_pool as _rr1
     from src.db.redis import reset_redis_pool as _rr2
