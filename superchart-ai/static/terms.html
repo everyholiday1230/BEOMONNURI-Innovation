@@ -4,194 +4,293 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>이용약관 — 범온 AI 슈퍼차트</title>
-<link rel="stylesheet" href="/static/css/main.css">
+<meta name="description" content="범온 AI 슈퍼차트 서비스 이용약관 — 서비스 내용, 결제·환불, LLM 신호, 면책, 분쟁 해결에 관한 규정.">
+<meta name="robots" content="index,follow">
+<!--
+  ⚠️ 이 페이지는 독립 문서이므로 차트 앱 전용 스타일(/static/css/main.css)을
+  로드하지 않습니다. main.css 는 body 를 flex/100vh/overflow:hidden 으로 강제해
+  문서형 페이지 레이아웃을 깨뜨리므로 의도적으로 제외합니다.
+-->
 <style>
 :root{
-  --wine:#921230;
-  --wine-2:#6A1E33;
-  --gold:#D8B66A;
-  --ink:#1f2937;
-  --muted:#6b7280;
-  --line:rgba(216,182,106,0.32);
-  --surface:rgba(255,255,255,0.84);
+  --wine:#921230; --wine-2:#6A1E33; --gold:#D8B66A;
+  --ink:#1f2937; --muted:#6b7280; --line:rgba(216,182,106,0.32);
+  --surface:rgba(255,255,255,0.9); --radius:12px;
 }
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{
-  max-width:1040px;
-  margin:0 auto;
-  padding:36px 18px 72px;
-  background:
-    radial-gradient(circle at 10% 8%, rgba(146,18,48,0.08), transparent 32%),
-    radial-gradient(circle at 90% 90%, rgba(216,182,106,0.16), transparent 34%),
-    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
-  color:var(--ink);
-  font-family:'Pretendard Variable',sans-serif;
+  margin:0; padding:0; color:var(--ink);
+  font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
   line-height:1.82;
+  background:
+    radial-gradient(circle at 10% 8%, rgba(146,18,48,0.07), transparent 32%),
+    radial-gradient(circle at 90% 92%, rgba(216,182,106,0.14), transparent 34%),
+    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
+  min-height:100vh;
 }
-h1{font-size:30px;color:var(--wine);margin-bottom:8px;letter-spacing:-0.02em}
-h2{
-  font-size:19px;
-  color:var(--wine-2);
-  margin-top:34px;
-  margin-bottom:14px;
+.wrap{max-width:1000px; margin:0 auto; padding:0 18px 80px}
+
+/* 상단 바 */
+.topbar{
+  position:sticky; top:0; z-index:10;
+  background:rgba(252,250,247,0.92); backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);
-  padding-bottom:10px;
-  letter-spacing:-0.01em;
 }
-h3{font-size:15px;margin-top:20px;color:#4b5563}
-p,li{font-size:14px;color:#334155}
-.meta{font-size:13px;color:#8E7D72;margin-bottom:30px}
-a{color:var(--wine);font-weight:600}
-a:hover{color:#a31540}
-a:focus-visible{
-  outline:3px solid rgba(146,18,48,0.26);
-  outline-offset:2px;
-  border-radius:8px;
+.topbar-inner{max-width:1000px; margin:0 auto; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px}
+.brand{font-weight:800; color:var(--wine); font-size:15px; letter-spacing:-0.02em; text-decoration:none}
+.topnav a{font-size:13px; color:var(--muted); text-decoration:none; margin-left:14px; font-weight:600}
+.topnav a:hover{color:var(--wine)}
+
+h1{font-size:30px; color:var(--wine); margin:36px 0 8px; letter-spacing:-0.02em}
+.meta{font-size:13px; color:#8E7D72; margin-bottom:20px}
+.notice-box{
+  background:rgba(146,18,48,0.05); border:1px solid rgba(146,18,48,0.18);
+  border-radius:var(--radius); padding:14px 16px; margin-bottom:24px; font-size:13px; color:#4a2330;
 }
 
-p,ol,ul,table{
-  background:var(--surface);
-  border:1px solid rgba(216,182,106,0.18);
-  border-radius:12px;
-  padding:12px 14px;
-  margin-bottom:12px;
+/* 목차 */
+.toc{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px 18px; margin-bottom:28px; box-shadow:0 6px 16px rgba(15,23,42,0.04);
+}
+.toc-title{font-weight:700; color:var(--wine-2); font-size:14px; margin-bottom:10px}
+.toc ol{margin:0; padding-left:20px; columns:2; column-gap:24px}
+.toc li{font-size:13px; margin-bottom:5px; break-inside:avoid}
+.toc a{color:#4b5563; text-decoration:none}
+.toc a:hover{color:var(--wine); text-decoration:underline}
+
+h2{
+  font-size:19px; color:var(--wine-2); margin:34px 0 14px; scroll-margin-top:70px;
+  border-bottom:1px solid var(--line); padding-bottom:10px; letter-spacing:-0.01em;
+}
+h3{font-size:15px; margin-top:20px; color:#4b5563}
+p,li{font-size:14px; color:#334155}
+a{color:var(--wine); font-weight:600}
+a:hover{color:#a31540}
+a:focus-visible,h2:focus-visible{outline:3px solid rgba(146,18,48,0.26); outline-offset:2px; border-radius:8px}
+
+.card{
+  background:var(--surface); border:1px solid rgba(216,182,106,0.2);
+  border-radius:var(--radius); padding:14px 16px; margin-bottom:14px;
   box-shadow:0 6px 16px rgba(15,23,42,0.04);
 }
-
-ol,ul{padding-left:32px}
-li{margin-bottom:6px}
+.card ol,.card ul{margin:0; padding-left:22px}
+.card li{margin-bottom:6px}
+.card p{margin:0 0 8px} .card p:last-child{margin-bottom:0}
 
 table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  font-size:13px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  overflow:hidden;
+  width:100%; border-collapse:separate; border-spacing:0; font-size:13px;
+  border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+  background:var(--surface); box-shadow:0 6px 16px rgba(15,23,42,0.04); margin-bottom:14px;
 }
-table td,table th{
-  border-bottom:1px solid rgba(216,182,106,0.24) !important;
-  border-right:1px solid rgba(216,182,106,0.18) !important;
-  padding:9px !important;
-}
-table tr:last-child td{border-bottom:none !important}
-table td:last-child, table th:last-child{border-right:none !important}
+th,td{border-bottom:1px solid rgba(216,182,106,0.24); border-right:1px solid rgba(216,182,106,0.18); padding:10px; text-align:left; vertical-align:top}
+tr:last-child td{border-bottom:none}
+th:last-child,td:last-child{border-right:none}
+th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03)); font-weight:700; color:#4a2330; width:32%}
+.ph{color:#a31540; background:rgba(216,182,106,0.16); padding:1px 6px; border-radius:6px; font-weight:600}
 
-@media (prefers-contrast: more){
-  p,ol,ul,table{border-color:#7a1a30}
-  p,li{color:#1f2937}
-}
+.backlink{margin-top:40px; text-align:center}
 
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation:none !important;transition:none !important}
-}
-
+@media (prefers-contrast: more){ .card,table{border-color:#7a1a30} p,li{color:#1f2937} }
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *,*::before,*::after{animation:none!important;transition:none!important} }
 @media (max-width:720px){
-  body{padding:24px 12px 56px}
-  h1{font-size:24px}
-  h2{font-size:17px}
-  p,li{font-size:13px}
-  table{font-size:12px;display:block;overflow:auto}
+  .wrap{padding:0 12px 56px}
+  h1{font-size:24px} h2{font-size:17px} p,li{font-size:13px}
+  .toc ol{columns:1}
+  table{font-size:12px}
+  th{width:38%}
 }
 </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/" class="brand">범온 AI 슈퍼차트</a>
+    <nav class="topnav">
+      <a href="/terms">이용약관</a>
+      <a href="/privacy">개인정보</a>
+      <a href="/faq">FAQ</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
 <h1>이용약관</h1>
-<p class="meta">시행일: 2026년 5월 16일 | 최종 수정: 2026년 5월 16일</p>
+<p class="meta">시행일: 2026년 5월 16일 · 최종 개정일: 2026년 5월 16일</p>
+
+<div class="notice-box">
+본 약관은 범온 AI 슈퍼차트(이하 "서비스")의 이용에 관한 회사와 회원 간 권리·의무를 정합니다.
+서비스는 <b>투자 자문·중개가 아니며</b>, 제공되는 모든 지표·AI·시그널은 참고 정보입니다.
+투자 판단과 그 결과는 전적으로 이용자 본인의 책임입니다.
+</div>
 
 <h2>서비스 운영자 정보</h2>
-<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px"><tr><td style="padding:6px;border:1px solid rgba(216,182,106,0.3);width:30%;font-weight:600">서비스명</td><td style="padding:6px;border:1px solid rgba(216,182,106,0.3)">범온 AI 슈퍼차트 (BEOM ON AI Chart)</td></tr><tr><td style="padding:6px;border:1px solid rgba(216,182,106,0.3);font-weight:600">운영</td><td style="padding:6px;border:1px solid rgba(216,182,106,0.3)">범온누리</td></tr><tr><td style="padding:6px;border:1px solid rgba(216,182,106,0.3);font-weight:600">대표</td><td style="padding:6px;border:1px solid rgba(216,182,106,0.3)">범온누리</td></tr><tr><td style="padding:6px;border:1px solid rgba(216,182,106,0.3);font-weight:600">이메일</td><td style="padding:6px;border:1px solid rgba(216,182,106,0.3)">support@beomonnuri.com</td></tr><tr><td style="padding:6px;border:1px solid rgba(216,182,106,0.3);font-weight:600">웹사이트</td><td style="padding:6px;border:1px solid rgba(216,182,106,0.3)">https://www.beomonnuri.com</td></tr></table>
+<table>
+<tr><th>서비스명</th><td>범온 AI 슈퍼차트 (BEOM ON AI Chart)</td></tr>
+<tr><th>상호(운영)</th><td>범온누리</td></tr>
+<tr><th>대표자</th><td><span class="ph">[대표자 성명 기입]</span></td></tr>
+<tr><th>사업장 주소</th><td><span class="ph">[사업장 주소 기입]</span></td></tr>
+<tr><th>사업자등록번호</th><td><span class="ph">[사업자등록번호 기입]</span></td></tr>
+<tr><th>통신판매업 신고번호</th><td><span class="ph">[통신판매업 신고번호 기입]</span></td></tr>
+<tr><th>고객문의 이메일</th><td>support@beomonnuri.com</td></tr>
+<tr><th>웹사이트</th><td>https://www.beomonnuri.com</td></tr>
+</table>
+<div class="card"><p style="font-size:12px;color:var(--muted);margin:0">※ <b>전자상거래 등에서의 소비자보호에 관한 법률</b>에 따라 유료 결제 서비스 제공 시 위 사업자 신원정보(상호·대표자·주소·사업자등록번호·통신판매업 신고번호·연락처)를 정확히 표시해야 합니다. <span class="ph">[ ]</span> 항목은 실제 정보로 반드시 채워주세요.</p></div>
 
-<h2>제1조 (목적)</h2>
-<p>본 약관은 범온 AI 슈퍼차트(이하 "서비스")이 제공하는 암호화폐·주식 차트 분석 서비스의 이용 조건 및 절차, 회사와 회원 간의 권리·의무·책임사항을 규정함을 목적으로 합니다.</p>
+<div class="toc">
+  <div class="toc-title">목차</div>
+  <ol>
+    <li><a href="#a1">제1조 목적</a></li>
+    <li><a href="#a2">제2조 정의</a></li>
+    <li><a href="#a3">제3조 약관의 효력 및 변경</a></li>
+    <li><a href="#a4">제4조 회원가입 및 계정</a></li>
+    <li><a href="#a5">제5조 이용 연령 제한</a></li>
+    <li><a href="#a6">제6조 서비스의 내용</a></li>
+    <li><a href="#a7">제7조 나만의 AI 신호 및 LLM 토큰</a></li>
+    <li><a href="#a8">제8조 결제·포인트·유료 지표</a></li>
+    <li><a href="#a9">제9조 청약철회 및 환불</a></li>
+    <li><a href="#a10">제10조 투자 관련 면책</a></li>
+    <li><a href="#a11">제11조 지식재산권</a></li>
+    <li><a href="#a12">제12조 회원의 금지행위</a></li>
+    <li><a href="#a13">제13조 서비스 제공 중단</a></li>
+    <li><a href="#a14">제14조 회원 탈퇴 및 자격 상실</a></li>
+    <li><a href="#a15">제15조 책임 제한 및 손해배상</a></li>
+    <li><a href="#a16">제16조 준거법 및 분쟁 해결</a></li>
+    <li><a href="#a17">제17조 기타</a></li>
+  </ol>
+</div>
 
-<h2>제2조 (정의)</h2>
-<ol>
-<li><b>"서비스"</b>란 www.beomonnuri.com을 통해 제공되는 실시간 차트 분석, AI 분석, 범온 지표, 모의주문, 알림 등 일체의 서비스를 말합니다.</li>
+<h2 id="a1">제1조 (목적)</h2>
+<div class="card"><p>본 약관은 범온누리(이하 "회사")가 제공하는 범온 AI 슈퍼차트(이하 "서비스")의 이용 조건 및 절차, 회사와 회원 간의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.</p></div>
+
+<h2 id="a2">제2조 (정의)</h2>
+<div class="card"><ol>
+<li><b>"서비스"</b>란 웹사이트를 통해 제공되는 실시간 차트 조회, 기술적 지표, 범온 지표, 나만의 AI 신호, 모의주문, 알림, 포인트 등 일체의 서비스를 말합니다.</li>
 <li><b>"회원"</b>이란 본 약관에 동의하고 회원가입을 완료한 자를 말합니다.</li>
-<li><b>"범온 지표"</b>란 당사가 독자 개발한 기술적 분석 지표(범온캔들, 범온MA, 과열분석, 강도측정, 매매압력, 자금흐름, IMACD, 거래밀집구간 등)를 말합니다.</li>
-</ol>
+<li><b>"범온 지표"</b>란 회사가 독자 개발한 기술적 분석 지표(범온캔들, 범온MA, 과열분석, 강도측정, 매매압력, 자금흐름, IMACD, 거래밀집구간 등)를 말하며, 세부 산출 방식은 영업비밀입니다.</li>
+<li><b>"나만의 AI 신호"</b>란 회원이 대화(자연어)로 요청한 조건을 표준 기술지표(RSI·MACD·이동평균·볼린저밴드·스토캐스틱·거래량·가격 등)로 변환하여 차트에 표시해 주는 대화형 기능을 말합니다.</li>
+<li><b>"포인트"</b>란 서비스 내 기능 이용 및 나만의 AI 신호 등에 사용할 수 있는 회사가 정한 적립·차감 단위를 말합니다.</li>
+</ol></div>
 
-<h2>제3조 (약관의 효력 및 변경)</h2>
-<ol>
+<h2 id="a3">제3조 (약관의 효력 및 변경)</h2>
+<div class="card"><ol>
 <li>본 약관은 서비스 화면에 게시하거나 기타 방법으로 회원에게 공지함으로써 효력이 발생합니다.</li>
-<li>회사는 관련 법령을 위배하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 7일 전 공지합니다.</li>
-<li>회원이 변경된 약관에 동의하지 않을 경우 서비스 이용을 중단하고 탈퇴할 수 있습니다.</li>
-</ol>
+<li>회사는 관련 법령을 위배하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 적용일 및 사유를 명시하여 최소 7일 전(회원에게 불리하거나 중대한 변경은 30일 전) 공지합니다.</li>
+<li>회원이 변경된 약관에 동의하지 않을 경우 서비스 이용을 중단하고 탈퇴할 수 있으며, 공지된 적용일 이후에도 서비스를 계속 이용하는 경우 변경 약관에 동의한 것으로 봅니다.</li>
+</ol></div>
 
-<h2>제4조 (회원가입 및 계정)</h2>
-<ol>
+<h2 id="a4">제4조 (회원가입 및 계정)</h2>
+<div class="card"><ol>
 <li>회원가입은 이메일 인증 또는 소셜 로그인(Google)을 통해 완료됩니다.</li>
 <li>회원은 정확한 정보를 제공해야 하며, 허위 정보로 인한 불이익은 회원에게 귀속됩니다.</li>
-<li>계정은 본인만 사용할 수 있으며, 타인에게 양도·대여할 수 없습니다.</li>
-<li>비밀번호 관리 책임은 회원에게 있습니다.</li>
-</ol>
+<li>계정은 본인만 사용할 수 있으며, 타인에게 양도·대여·공유할 수 없습니다.</li>
+<li>계정 및 비밀번호 관리 책임은 회원에게 있으며, 회원의 관리 소홀로 인한 손해에 대해 회사는 책임지지 않습니다.</li>
+</ol></div>
 
-<h2>제4-2조 (이용 연령 제한)</h2>
-<ol>
-<li>본 서비스는 만 14세 이상만 이용할 수 있습니다.</li>
-<li>만 14세 미만의 아동은 회원가입이 불가하며, 가입 사실이 확인될 경우 즉시 탈퇴 처리됩니다.</li>
-<li>회사는 만 14세 미만 아동의 개인정보를 수집하지 않습니다.</li>
-</ol>
+<h2 id="a5">제5조 (이용 연령 제한)</h2>
+<div class="card"><ol>
+<li>본 서비스는 만 14세 이상만 회원가입 및 이용할 수 있습니다.</li>
+<li>투자 관련 정보의 특성상 만 19세 이상의 이용을 권장합니다.</li>
+<li>만 14세 미만 아동의 가입 사실이 확인될 경우 회사는 즉시 탈퇴 처리하며, 해당 아동의 개인정보를 수집하지 않습니다.</li>
+</ol></div>
 
-<h2>제5조 (서비스 내용)</h2>
-<ol>
-<li><b>무료 서비스:</b> 실시간 차트 조회, 일반 보조지표(RSI, MACD, 볼린저밴드 등), AI 탭 기본 요약, 인기 종목, 히트맵</li>
-<li><b>회원 서비스:</b> 범온 지표 전체, 유사패턴 분석, 모의주문, 차트 설정 저장, 알림</li>
-<li><b>유료 지표 구매 회원:</b> 개별 결제로 구매한 프리미엄 지표 및 부가 기능 이용</li>
-</ol>
+<h2 id="a6">제6조 (서비스의 내용)</h2>
+<div class="card"><ol>
+<li><b>무료 서비스:</b> 실시간 차트 조회, 일반 보조지표(RSI, MACD, 볼린저밴드 등), 인기 종목, 히트맵, 나만의 AI 신호(1일 무료 제공 횟수 범위 내).</li>
+<li><b>회원 서비스:</b> 범온 지표, 유사패턴 분석, 모의주문, 차트 설정 저장, 알림.</li>
+<li><b>유료 서비스:</b> 개별 결제로 구매한 프리미엄 지표·부가 기능, 포인트를 소모하는 기능(나만의 AI 신호의 무료 횟수 초과분 등).</li>
+<li>회사는 서비스의 내용·구성을 운영상 또는 기술상 필요에 따라 변경할 수 있으며, 중요한 변경은 사전 공지합니다.</li>
+</ol></div>
 
-<h2>제6조 (투자 관련 면책)</h2>
-<ol>
-<li><b>본 서비스는 투자 자문이 아닙니다.</b> 제공되는 모든 분석, 시그널, AI 판단은 참고 정보일 뿐이며 투자 권유가 아닙니다.</li>
-<li>서비스 이용으로 발생하는 투자 손실에 대해 회사는 일체의 책임을 지지 않습니다.</li>
-<li>과거 데이터 기반 분석은 미래 수익을 보장하지 않습니다.</li>
-<li>모의주문 기능은 교육 목적이며, 실제 거래와 결과가 다를 수 있습니다.</li>
-</ol>
+<h2 id="a7">제7조 (나만의 AI 신호 및 LLM 토큰)</h2>
+<div class="card"><ol>
+<li>나만의 AI 신호는 회원의 자연어 요청을 <b>표준 공개 기술지표</b>로 변환하여 차트에 표시하는 기능이며, 회사의 독자 지표(범온 지표)의 내부 로직을 제공하거나 학습에 사용하지 않습니다.</li>
+<li>본 기능은 대규모 언어모델(LLM)을 이용하며, 처리량은 <b>토큰(token)</b> 단위로 산정됩니다. 회원의 입력·출력 텍스트 길이에 따라 실제 사용 토큰량이 결정됩니다.</li>
+<li>1일 무료 제공 횟수를 초과하는 이용에 대해서는 실제 사용 토큰량에 비례하여 포인트가 차감됩니다. 토큰당 차감 비율 및 무료 횟수는 회사가 정하며, 변경 시 서비스 내 공지합니다.</li>
+<li>포인트 잔액이 부족한 경우 해당 요청은 수행되지 않으며, 포인트 충전 또는 결제가 필요합니다.</li>
+<li>AI가 생성한 신호는 참고 정보이며, 그 정확성·수익성을 보장하지 않습니다. 본조는 제10조(투자 관련 면책)의 적용을 받습니다.</li>
+</ol></div>
 
-<h2>제7조 (지적재산권)</h2>
-<ol>
-<li>범온 지표, AI 분석 알고리즘, 차트 엔진 등 서비스의 모든 기술적 자산은 회사에 귀속됩니다.</li>
-<li>회원은 서비스 콘텐츠를 개인 용도로만 사용할 수 있으며, 무단 복제·배포·역공학을 금지합니다.</li>
+<h2 id="a8">제8조 (결제·포인트·유료 지표)</h2>
+<div class="card"><ol>
+<li>유료 지표는 지표 단위의 1회성 구매이며, 별도로 명시적으로 동의하지 않는 한 자동 정기결제는 발생하지 않습니다.</li>
+<li>결제는 회사가 안내하는 결제대행사(PG)를 통해 이루어지며, 결제 과정에서 필요한 정보는 결제대행사가 처리합니다.</li>
+<li>포인트는 추천(레퍼럴)·이벤트 등으로 적립될 수 있고, 서비스 내 기능 이용 시 차감됩니다. 포인트는 현금으로 환급되지 않으며, 유효기간이 설정된 포인트는 기간 경과 시 소멸될 수 있습니다.</li>
+<li>포인트 정책(적립·차감·유효기간)은 운영 상황에 따라 변경될 수 있으며, 회원에게 불리한 변경은 사전 공지합니다.</li>
+</ol></div>
+
+<h2 id="a9">제9조 (청약철회 및 환불)</h2>
+<div class="card"><ol>
+<li>회원은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따라 유료 결제일부터 7일 이내에 청약철회를 할 수 있습니다.</li>
+<li>다만 <b>디지털 콘텐츠(지표·포인트 소모 기능 등)</b>의 경우, 회원이 콘텐츠를 사용(활성화)하거나 그 제공이 개시된 때에는 관련 법령이 정하는 범위에서 청약철회가 제한될 수 있습니다. 회사는 이 경우 청약철회가 제한된다는 사실을 결제 전에 표시하거나 시용(試用) 상품 제공 등 필요한 조치를 취합니다.</li>
+<li>회사의 귀책사유(결제 오류, 중복 결제, 서비스 미제공 등)로 인한 환불은 전액 이루어집니다.</li>
+<li>이미 사용한 포인트·차감된 토큰 비용은 원칙적으로 환불 대상에서 제외됩니다.</li>
+<li>환불 요청 및 문의는 support@beomonnuri.com으로 접수합니다.</li>
+</ol></div>
+
+<h2 id="a10">제10조 (투자 관련 면책)</h2>
+<div class="card"><ol>
+<li><b>본 서비스는 자본시장법상 투자자문업·투자중개업에 해당하지 않으며, 투자 자문이 아닙니다.</b> 제공되는 모든 지표·AI 분석·시그널·나만의 AI 신호는 참고 정보일 뿐 투자 권유가 아닙니다.</li>
+<li>서비스 이용으로 발생하는 투자 손실에 대해 회사는 책임을 지지 않습니다.</li>
+<li>과거 데이터 기반 분석은 미래 수익을 보장하지 않으며, 암호화폐·선물 거래는 높은 변동성과 원금 손실 위험을 수반합니다.</li>
+<li>모의주문 기능은 교육·연습 목적이며 실제 거래와 결과가 다를 수 있습니다(슬리피지 미반영 등).</li>
+</ol></div>
+
+<h2 id="a11">제11조 (지식재산권)</h2>
+<div class="card"><ol>
+<li>범온 지표, AI 분석·신호 생성 알고리즘, 차트 엔진 등 서비스의 모든 기술적 자산과 콘텐츠에 대한 지식재산권은 회사에 귀속됩니다.</li>
+<li>회원은 서비스 콘텐츠를 개인적·비상업적 용도로만 이용할 수 있으며, 무단 복제·배포·역공학·크롤링을 금지합니다.</li>
 <li>스크린샷 공유 시 출처(범온 AI 슈퍼차트)를 명시해야 합니다.</li>
-</ol>
+</ol></div>
 
-<h2>제8조 (금지행위)</h2>
-<p>회원은 다음 행위를 해서는 안 됩니다:</p>
-<ol>
-<li>서비스를 이용한 불법 행위</li>
-<li>타인의 계정 도용 또는 개인정보 침해</li>
-<li>서비스 시스템에 대한 해킹, 크롤링, 과도한 API 호출</li>
+<h2 id="a12">제12조 (회원의 금지행위)</h2>
+<div class="card"><p>회원은 다음 행위를 해서는 안 됩니다.</p><ol>
+<li>서비스를 이용한 불법 행위 또는 법령·공서양속 위반 행위</li>
+<li>타인의 계정 도용, 개인정보 침해, 명의 도용</li>
+<li>서비스 시스템에 대한 해킹, 크롤링, 자동화 도구를 이용한 과도한 요청, 우회 접근</li>
+<li>나만의 AI 신호 등 AI 기능을 악용하여 시스템에 부하를 유발하거나 부정하게 포인트를 취득하는 행위</li>
 <li>허위 정보 유포 또는 서비스 운영 방해</li>
-<li>서비스 데이터를 상업적으로 재판매</li>
-</ol>
+<li>서비스 데이터·콘텐츠의 상업적 재판매·재배포</li>
+</ol></div>
 
-<h2>제9조 (서비스 중단)</h2>
-<ol>
-<li>회사는 시스템 점검, 장비 교체, 천재지변 등 불가피한 사유로 서비스를 일시 중단할 수 있습니다.</li>
-<li>거래소 API 장애, 데이터 제공업체 문제 등 외부 요인에 의한 서비스 지연·오류에 대해 회사는 책임을 지지 않습니다.</li>
-</ol>
+<h2 id="a13">제13조 (서비스 제공 중단)</h2>
+<div class="card"><ol>
+<li>회사는 시스템 점검, 장비 교체, 천재지변 등 불가피한 사유로 서비스를 일시 중단할 수 있으며, 사전 공지를 원칙으로 하되 긴급한 경우 사후 공지할 수 있습니다.</li>
+<li>거래소 API 장애, 데이터·LLM 제공 인프라 문제 등 외부 요인에 의한 서비스 지연·오류에 대해 회사는 고의 또는 중대한 과실이 없는 한 책임을 지지 않습니다.</li>
+</ol></div>
 
-<h2>제10조 (회원 탈퇴 및 자격 상실)</h2>
-<ol>
-<li>회원은 언제든지 탈퇴를 요청할 수 있으며, 회사는 즉시 처리합니다.</li>
-<li>탈퇴 시 개인정보는 관련 법령에 따라 일정 기간 보관 후 파기합니다.</li>
-<li>금지행위 위반 시 회사는 사전 통보 없이 이용을 제한하거나 회원 자격을 상실시킬 수 있습니다.</li>
-</ol>
+<h2 id="a14">제14조 (회원 탈퇴 및 자격 상실)</h2>
+<div class="card"><ol>
+<li>회원은 언제든지 탈퇴를 요청할 수 있으며, 회사는 관련 절차에 따라 처리합니다.</li>
+<li>탈퇴 시 개인정보는 <a href="/privacy">개인정보처리방침</a> 및 관련 법령에 따라 일정 기간 보관 후 파기합니다.</li>
+<li>회원이 본 약관 또는 관련 법령을 위반한 경우, 회사는 사전 통보 후(긴급 시 사후 통보) 이용을 제한하거나 회원 자격을 상실시킬 수 있습니다.</li>
+</ol></div>
 
-<h2>제11조 (손해배상)</h2>
-<p>회사는 무료로 제공하는 서비스에 대해 별도의 손해배상 책임을 지지 않습니다. 다만, 회사의 고의 또는 중대한 과실로 인한 손해는 예외로 합니다.</p>
+<h2 id="a15">제15조 (책임 제한 및 손해배상)</h2>
+<div class="card"><ol>
+<li>회사는 무료로 제공하는 서비스의 이용과 관련하여 관련 법령에 특별한 규정이 없는 한 책임을 지지 않습니다.</li>
+<li>회사의 고의 또는 중대한 과실로 회원에게 손해가 발생한 경우, 회사는 관련 법령이 정하는 범위에서 책임을 부담합니다.</li>
+<li>천재지변, 제3자(거래소·PG·LLM 인프라 등)의 귀책, 회원의 귀책으로 인한 손해에 대해서는 회사의 책임이 제한됩니다.</li>
+</ol></div>
 
-<h2>제12조 (분쟁 해결)</h2>
-<ol>
-<li>본 약관에 관한 분쟁은 대한민국 법률을 준거법으로 합니다.</li>
-<li>서비스 이용과 관련한 분쟁은 회사 소재지 관할 법원을 전속 관할로 합니다.</li>
-</ol>
+<h2 id="a16">제16조 (준거법 및 분쟁 해결)</h2>
+<div class="card"><ol>
+<li>본 약관 및 서비스 이용에 관하여는 대한민국 법률을 준거법으로 합니다.</li>
+<li>회사와 회원 간 분쟁이 발생한 경우 상호 협의를 통해 원만히 해결하는 것을 원칙으로 합니다.</li>
+<li>협의가 이루어지지 않을 경우, 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른 소비자분쟁조정위원회 등의 분쟁조정을 신청할 수 있습니다.</li>
+<li>소송이 제기되는 경우 관할 법원은 관련 법령에 따라 정합니다.</li>
+</ol></div>
 
-<h2>제13조 (기타)</h2>
-<p>본 약관에 명시되지 않은 사항은 관련 법령 및 상관례에 따릅니다.</p>
+<h2 id="a17">제17조 (기타)</h2>
+<div class="card"><p>본 약관에 명시되지 않은 사항은 관련 법령 및 상관례에 따릅니다. 본 약관의 일부가 무효로 판단되더라도 나머지 조항의 효력에는 영향을 미치지 않습니다.</p></div>
 
-<p style="margin-top:40px;text-align:center"><a href="/">← 홈으로 돌아가기</a></p>
+<div class="notice-box" style="margin-top:28px">
+※ 본 약관 문안은 일반적인 관행과 관련 법령의 취지를 반영해 작성된 <b>참고용 초안</b>이며, 법률 자문을 대체하지 않습니다.
+실제 시행 전 <b>자격 있는 법률 전문가의 검토</b>와 사업자 신원정보(<span class="ph">[ ]</span> 표시 항목) 기입을 반드시 완료하시기 바랍니다.
+</div>
+
+<p class="backlink"><a href="/">← 홈으로 돌아가기</a> · <a href="/privacy">개인정보처리방침</a> · <a href="/faq">FAQ</a></p>
+</div>
 </body>
 </html>

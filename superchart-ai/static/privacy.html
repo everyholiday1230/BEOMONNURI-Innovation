@@ -4,199 +4,200 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>개인정보처리방침 — 범온 AI 슈퍼차트</title>
-<link rel="stylesheet" href="/static/css/main.css">
+<meta name="description" content="범온 AI 슈퍼차트 개인정보처리방침 — 수집 항목, 이용 목적, 보유 기간, 위탁, 이용자 권리, 안전성 확보조치.">
+<meta name="robots" content="index,follow">
+<!-- 독립 문서: 차트 앱 전용 /static/css/main.css 를 의도적으로 로드하지 않음(레이아웃 충돌 방지). -->
 <style>
 :root{
-  --wine:#921230;
-  --wine-2:#6A1E33;
-  --gold:#D8B66A;
-  --ink:#1f2937;
-  --muted:#6b7280;
-  --line:rgba(216,182,106,0.32);
-  --surface:rgba(255,255,255,0.84);
+  --wine:#921230; --wine-2:#6A1E33; --gold:#D8B66A;
+  --ink:#1f2937; --muted:#6b7280; --line:rgba(216,182,106,0.32);
+  --surface:rgba(255,255,255,0.9); --radius:12px;
 }
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{
-  max-width:1040px;
-  margin:0 auto;
-  padding:36px 18px 72px;
-  background:
-    radial-gradient(circle at 8% 8%, rgba(146,18,48,0.08), transparent 32%),
-    radial-gradient(circle at 94% 92%, rgba(216,182,106,0.16), transparent 36%),
-    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
-  color:var(--ink);
-  font-family:'Pretendard Variable',sans-serif;
+  margin:0; padding:0; color:var(--ink);
+  font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
   line-height:1.82;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(146,18,48,0.07), transparent 32%),
+    radial-gradient(circle at 94% 92%, rgba(216,182,106,0.14), transparent 36%),
+    linear-gradient(180deg,#fcfaf7 0%,#f7f1ea 100%);
+  min-height:100vh;
 }
-h1{
-  font-size:30px;
-  color:var(--wine);
-  margin-bottom:8px;
-  letter-spacing:-0.02em;
-}
-h2{
-  font-size:19px;
-  color:var(--wine-2);
-  margin-top:34px;
-  margin-bottom:14px;
-  border-bottom:1px solid var(--line);
-  padding-bottom:10px;
-  letter-spacing:-0.01em;
-}
-p,li{font-size:14px;color:#334155}
-.meta{font-size:13px;color:#8E7D72;margin-bottom:30px}
-a{color:var(--wine);font-weight:600}
-a:hover{color:#a31540}
-a:focus-visible{
-  outline:3px solid rgba(146,18,48,0.26);
-  outline-offset:2px;
-  border-radius:8px;
-}
-
-body > *{
-  background:transparent;
-}
-
-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  margin:14px 0;
-  font-size:13px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  overflow:hidden;
-  background:var(--surface);
-  box-shadow:0 10px 22px rgba(15,23,42,0.06);
-}
-th,td{
-  border-bottom:1px solid rgba(216,182,106,0.24);
-  border-right:1px solid rgba(216,182,106,0.18);
-  padding:10px;
-  text-align:left;
-}
-tr:last-child td{border-bottom:none}
-th:last-child, td:last-child{border-right:none}
-th{
-  background:linear-gradient(180deg, rgba(146,18,48,0.08), rgba(146,18,48,0.03));
-  font-weight:700;
-  color:#4a2330;
-}
-ol,ul{
-  padding-left:18px;
-}
-li{margin-bottom:6px}
-
-p,table,ol,ul{
-  background:var(--surface);
-  border:1px solid rgba(216,182,106,0.18);
-  border-radius:12px;
-  padding:12px 14px;
-  margin-bottom:12px;
-  box-shadow:0 6px 16px rgba(15,23,42,0.04);
-}
-
-@media (prefers-contrast: more){
-  p,table,ol,ul{border-color:#7a1a30}
-  p,li{color:#1f2937}
-}
-
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation:none !important;transition:none !important}
-}
-
-@media (max-width:720px){
-  body{padding:24px 12px 56px}
-  h1{font-size:24px}
-  h2{font-size:17px}
-  p,li{font-size:13px}
-  table{font-size:12px;display:block;overflow:auto}
-}
+.wrap{max-width:1000px; margin:0 auto; padding:0 18px 80px}
+.topbar{position:sticky; top:0; z-index:10; background:rgba(252,250,247,0.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line)}
+.topbar-inner{max-width:1000px; margin:0 auto; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px}
+.brand{font-weight:800; color:var(--wine); font-size:15px; letter-spacing:-0.02em; text-decoration:none}
+.topnav a{font-size:13px; color:var(--muted); text-decoration:none; margin-left:14px; font-weight:600}
+.topnav a:hover{color:var(--wine)}
+h1{font-size:30px; color:var(--wine); margin:36px 0 8px; letter-spacing:-0.02em}
+.meta{font-size:13px; color:#8E7D72; margin-bottom:20px}
+.notice-box{background:rgba(146,18,48,0.05); border:1px solid rgba(146,18,48,0.18); border-radius:var(--radius); padding:14px 16px; margin-bottom:24px; font-size:13px; color:#4a2330}
+.toc{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; margin-bottom:28px; box-shadow:0 6px 16px rgba(15,23,42,0.04)}
+.toc-title{font-weight:700; color:var(--wine-2); font-size:14px; margin-bottom:10px}
+.toc ol{margin:0; padding-left:20px; columns:2; column-gap:24px}
+.toc li{font-size:13px; margin-bottom:5px; break-inside:avoid}
+.toc a{color:#4b5563; text-decoration:none} .toc a:hover{color:var(--wine); text-decoration:underline}
+h2{font-size:19px; color:var(--wine-2); margin:34px 0 14px; scroll-margin-top:70px; border-bottom:1px solid var(--line); padding-bottom:10px; letter-spacing:-0.01em}
+p,li{font-size:14px; color:#334155}
+a{color:var(--wine); font-weight:600} a:hover{color:#a31540}
+a:focus-visible,h2:focus-visible{outline:3px solid rgba(146,18,48,0.26); outline-offset:2px; border-radius:8px}
+.card{background:var(--surface); border:1px solid rgba(216,182,106,0.2); border-radius:var(--radius); padding:14px 16px; margin-bottom:14px; box-shadow:0 6px 16px rgba(15,23,42,0.04)}
+.card ol,.card ul{margin:0; padding-left:22px} .card li{margin-bottom:6px}
+.card p{margin:0 0 8px} .card p:last-child{margin-bottom:0}
+table{width:100%; border-collapse:separate; border-spacing:0; font-size:13px; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--surface); box-shadow:0 6px 16px rgba(15,23,42,0.04); margin-bottom:14px}
+th,td{border-bottom:1px solid rgba(216,182,106,0.24); border-right:1px solid rgba(216,182,106,0.18); padding:10px; text-align:left; vertical-align:top}
+tr:last-child td{border-bottom:none} th:last-child,td:last-child{border-right:none}
+th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03)); font-weight:700; color:#4a2330}
+.ph{color:#a31540; background:rgba(216,182,106,0.16); padding:1px 6px; border-radius:6px; font-weight:600}
+.backlink{margin-top:40px; text-align:center}
+@media (prefers-contrast: more){ .card,table{border-color:#7a1a30} p,li{color:#1f2937} }
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *,*::before,*::after{animation:none!important;transition:none!important} }
+@media (max-width:720px){ .wrap{padding:0 12px 56px} h1{font-size:24px} h2{font-size:17px} p,li{font-size:13px} .toc ol{columns:1} table{font-size:12px} }
 </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/" class="brand">범온 AI 슈퍼차트</a>
+    <nav class="topnav"><a href="/terms">이용약관</a><a href="/privacy">개인정보</a><a href="/faq">FAQ</a></nav>
+  </div>
+</div>
+
+<div class="wrap">
 <h1>개인정보처리방침</h1>
-<p class="meta">시행일: 2026년 5월 16일 | 최종 수정: 2026년 5월 16일</p>
+<p class="meta">시행일: 2026년 5월 16일 · 최종 개정일: 2026년 5월 16일</p>
 
-<p>범온 AI 슈퍼차트(이하 "회사")은 「개인정보 보호법」에 따라 이용자의 개인정보를 보호하고 이와 관련한 고충을 신속하게 처리하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다.</p>
+<div class="notice-box">
+범온누리(이하 "회사")는 범온 AI 슈퍼차트 서비스 제공과 관련하여 「개인정보 보호법」 제30조에 따라
+정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하게 처리하기 위하여 본 개인정보처리방침을 수립·공개합니다.
+</div>
 
-<h2>제1조 (수집하는 개인정보)</h2>
+<div class="toc">
+  <div class="toc-title">목차</div>
+  <ol>
+    <li><a href="#p1">제1조 처리하는 개인정보 항목</a></li>
+    <li><a href="#p2">제2조 개인정보의 처리 목적</a></li>
+    <li><a href="#p3">제3조 처리 및 보유 기간</a></li>
+    <li><a href="#p4">제4조 개인정보의 파기</a></li>
+    <li><a href="#p5">제5조 제3자 제공</a></li>
+    <li><a href="#p6">제6조 처리의 위탁</a></li>
+    <li><a href="#p7">제7조 정보주체의 권리·의무 및 행사방법</a></li>
+    <li><a href="#p8">제8조 개인정보의 안전성 확보조치</a></li>
+    <li><a href="#p9">제9조 쿠키 등 자동수집장치</a></li>
+    <li><a href="#p10">제10조 만 14세 미만 아동</a></li>
+    <li><a href="#p11">제11조 개인정보 보호책임자</a></li>
+    <li><a href="#p12">제12조 권익침해 구제방법</a></li>
+    <li><a href="#p13">제13조 방침의 변경</a></li>
+  </ol>
+</div>
+
+<h2 id="p1">제1조 (처리하는 개인정보 항목)</h2>
 <table>
-<tr><th>구분</th><th>수집 항목</th><th>수집 목적</th></tr>
-<tr><td>회원가입</td><td>이메일, 닉네임, 비밀번호(암호화)</td><td>회원 식별, 서비스 제공</td></tr>
-<tr><td>소셜 로그인</td><td>이메일, 이름 (Google 제공)</td><td>간편 로그인</td></tr>
-<tr><td>지표 구매·결제</td><td>구매 내역, 결제 식별 정보</td><td>유료 지표 제공, 환불 처리</td></tr>
-<tr><td>서비스 이용</td><td>접속 IP, 브라우저 정보, 접속 시간</td><td>보안, 서비스 개선</td></tr>
-<tr><td>차트 설정</td><td>지표 설정, 관심종목, 알림 규칙</td><td>개인화 서비스 제공</td></tr>
+<tr><th>구분</th><th>수집 항목</th><th>수집 방법</th></tr>
+<tr><td>회원가입</td><td>이메일, 닉네임, 비밀번호(bcrypt 단방향 암호화 저장)</td><td>이용자 직접 입력</td></tr>
+<tr><td>소셜 로그인</td><td>이메일, 이름 (Google 제공)</td><td>Google OAuth</td></tr>
+<tr><td>유료 결제</td><td>결제 식별정보, 구매 내역 (카드번호 등 결제정보는 결제대행사가 처리하며 회사는 원문을 저장하지 않음)</td><td>결제 시 자동 수집</td></tr>
+<tr><td>나만의 AI 신호</td><td>이용자가 입력한 대화 문구, 요청 종목·시간대, 사용 토큰량, 차감 포인트, 요청 시각</td><td>기능 이용 시 자동 수집</td></tr>
+<tr><td>서비스 이용</td><td>접속 IP, 브라우저·기기 정보, 접속·이용 기록</td><td>서비스 이용 시 자동 생성</td></tr>
+<tr><td>개인화 설정</td><td>지표 설정, 관심종목, 알림 규칙, 모의주문 기록</td><td>이용자 직접 입력</td></tr>
 </table>
 
-<h2>제2조 (개인정보 이용 목적)</h2>
-<ol>
-<li>회원 관리: 가입·탈퇴, 본인 확인, 부정 이용 방지</li>
-<li>서비스 제공: 차트 설정 저장/복원, 알림 발송, 개인화 분석</li>
-<li>서비스 개선: 이용 통계 분석, 신규 기능 개발</li>
-<li>고객 지원: 문의 응대, 공지사항 전달</li>
-</ol>
+<h2 id="p2">제2조 (개인정보의 처리 목적)</h2>
+<div class="card"><ol>
+<li>회원 관리: 가입·탈퇴 의사 확인, 본인 식별, 부정 이용 방지</li>
+<li>서비스 제공: 차트 설정 저장·복원, 알림 발송, 나만의 AI 신호 생성·과금(포인트 차감), 개인화 분석</li>
+<li>결제 처리: 유료 지표 제공, 결제·환불, 구매 이력 관리</li>
+<li>서비스 개선: 이용 통계 분석, 오류 진단, 신규 기능 개발</li>
+<li>고객 지원 및 고지: 문의 응대, 공지·약관 변경 안내</li>
+</ol></div>
 
-<h2>제3조 (개인정보 보유 및 파기)</h2>
+<h2 id="p3">제3조 (처리 및 보유 기간)</h2>
 <table>
 <tr><th>항목</th><th>보유 기간</th><th>근거</th></tr>
-<tr><td>회원 정보</td><td>탈퇴 시까지</td><td>서비스 제공</td></tr>
-<tr><td>접속 로그</td><td>3개월</td><td>통신비밀보호법</td></tr>
-<tr><td>결제·구매 기록</td><td>5년</td><td>전자상거래법</td></tr>
-<tr><td>탈퇴 회원 정보</td><td>탈퇴 후 30일</td><td>부정 가입 방지</td></tr>
+<tr><td>회원 정보</td><td>회원 탈퇴 시까지</td><td>서비스 제공</td></tr>
+<tr><td>탈퇴 회원 정보</td><td>탈퇴 후 30일</td><td>부정 재가입·악용 방지</td></tr>
+<tr><td>접속 기록·IP</td><td>3개월</td><td>「통신비밀보호법」</td></tr>
+<tr><td>계약·청약철회·대금결제·재화공급 기록</td><td>5년</td><td>「전자상거래법」</td></tr>
+<tr><td>소비자 불만·분쟁처리 기록</td><td>3년</td><td>「전자상거래법」</td></tr>
+<tr><td>나만의 AI 신호 이용 기록</td><td>1년 (통계·부정이용 방지 목적)</td><td>서비스 운영</td></tr>
 </table>
-<p>보유 기간 경과 시 지체 없이 파기합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하며, 종이 문서는 분쇄합니다.</p>
+<div class="card"><p>보유 기간이 경과하거나 처리 목적이 달성된 개인정보는 지체 없이 파기합니다.</p></div>
 
-<h2>제4조 (개인정보의 제3자 제공)</h2>
-<p>회사는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다. 다만, 다음의 경우는 예외로 합니다:</p>
-<ol>
-<li>이용자가 사전에 동의한 경우</li>
-<li>법령에 의해 요구되는 경우 (수사기관 요청 등)</li>
-</ol>
+<h2 id="p4">제4조 (개인정보의 파기)</h2>
+<div class="card"><ol>
+<li>파기 절차: 목적 달성 후 내부 방침 및 관련 법령에 따라 파기합니다.</li>
+<li>파기 방법: 전자적 파일은 복구 불가능한 방법으로 영구 삭제하며, 출력물은 분쇄하거나 소각합니다.</li>
+</ol></div>
 
-<h2>제5조 (개인정보 처리 위탁)</h2>
-<p>회사는 서비스 운영을 위해 다음과 같이 개인정보 처리를 위탁합니다:</p>
+<h2 id="p5">제5조 (개인정보의 제3자 제공)</h2>
+<div class="card"><p>회사는 원칙적으로 정보주체의 개인정보를 제3자에게 제공하지 않습니다. 다만, 다음의 경우는 예외로 합니다.</p><ol>
+<li>정보주체가 사전에 동의한 경우</li>
+<li>법령에 특별한 규정이 있거나, 수사기관이 법령에 정해진 절차와 방법에 따라 요청한 경우</li>
+</ol></div>
+
+<h2 id="p6">제6조 (개인정보 처리의 위탁)</h2>
+<div class="card"><p>회사는 원활한 서비스 제공을 위해 다음과 같이 개인정보 처리를 위탁하며, 위탁계약 시 개인정보가 안전하게 관리되도록 필요한 사항을 규정합니다.</p></div>
 <table>
-<tr><th>수탁업체</th><th>위탁 업무</th></tr>
-<tr><td>Amazon Web Services (AWS)</td><td>서버 호스팅, 데이터 저장</td></tr>
-<tr><td>Google (Firebase)</td><td>푸시 알림 발송</td></tr>
+<tr><th>수탁자</th><th>위탁 업무</th><th>비고</th></tr>
+<tr><td>Amazon Web Services (AWS)</td><td>서버 호스팅, 데이터 저장·처리</td><td>클라우드 인프라</td></tr>
+<tr><td>Google</td><td>소셜 로그인(OAuth), 푸시 알림</td><td>이용자 동의 기반</td></tr>
+<tr><td>LLM 추론 인프라 (Ollama 등 자체/위탁 서버)</td><td>나만의 AI 신호의 자연어 처리</td><td>대화 문구가 신호 변환 목적으로 처리됨</td></tr>
+<tr><td><span class="ph">[결제대행사(PG)명 기입]</span></td><td>유료 결제 처리, 결제 인증</td><td>카드정보 등은 PG가 직접 처리</td></tr>
 </table>
+<div class="card"><p style="font-size:12px;color:var(--muted);margin:0">※ 실제 이용 중인 결제대행사명을 <span class="ph">[ ]</span>에 정확히 기입하세요. LLM 추론을 외부 사업자에게 위탁하는 경우 해당 수탁자명도 명시해야 합니다.</p></div>
 
-<h2>제6조 (이용자의 권리)</h2>
-<ol>
-<li>이용자는 언제든지 자신의 개인정보를 조회·수정할 수 있습니다 (설정 메뉴).</li>
-<li>회원 탈퇴를 통해 개인정보 삭제를 요청할 수 있습니다.</li>
-<li>개인정보 열람·정정·삭제·처리정지 요구는 이메일로 접수합니다.</li>
-</ol>
+<h2 id="p7">제7조 (정보주체의 권리·의무 및 행사방법)</h2>
+<div class="card"><ol>
+<li>정보주체는 언제든지 자신의 개인정보에 대한 열람·정정·삭제·처리정지를 요구할 수 있습니다.</li>
+<li>일부 정보는 서비스 내 설정 메뉴에서 직접 조회·수정할 수 있으며, 그 외의 요구는 이메일(support@beomonnuri.com)로 접수합니다.</li>
+<li>회사는 요구를 받은 경우 지체 없이 필요한 조치를 취하며, 법령상 보관 의무가 있는 정보는 삭제가 제한될 수 있습니다.</li>
+<li>정보주체는 개인정보를 정확하게 유지할 의무가 있으며, 부정확한 정보 입력으로 인한 불이익은 정보주체에게 귀속될 수 있습니다.</li>
+</ol></div>
 
-<h2>제7조 (개인정보 보호 조치)</h2>
-<ol>
-<li><b>기술적 조치:</b> 비밀번호 bcrypt 암호화, JWT 토큰 인증, HTTPS 통신, CSP 보안 헤더</li>
-<li><b>관리적 조치:</b> 개인정보 접근 권한 최소화, 접근 로그 기록</li>
-<li><b>물리적 조치:</b> 클라우드 서버 물리적 접근 통제 (AWS 데이터센터)</li>
-</ol>
+<h2 id="p8">제8조 (개인정보의 안전성 확보조치)</h2>
+<div class="card"><ol>
+<li><b>기술적 조치:</b> 비밀번호 bcrypt 단방향 암호화, JWT 토큰 기반 인증, HTTPS(전송구간 암호화), CSP 등 보안 헤더 적용, 접근권한 관리.</li>
+<li><b>관리적 조치:</b> 개인정보 접근 권한 최소화 및 분리, 접근 기록 보관·점검.</li>
+<li><b>물리적 조치:</b> 클라우드(AWS) 데이터센터의 물리적 접근 통제에 의존.</li>
+</ol></div>
 
-<h2>제8조 (쿠키 및 자동 수집)</h2>
-<ol>
-<li>서비스는 인증 토큰 저장을 위해 HttpOnly 쿠키를 사용합니다.</li>
-<li>차트 설정, 테마 등은 브라우저 localStorage에 저장되며 서버로 전송되지 않습니다 (로그인 시 서버 동기화).</li>
-<li>이용자는 브라우저 설정에서 쿠키를 거부할 수 있으나, 로그인 기능이 제한될 수 있습니다.</li>
-</ol>
+<h2 id="p9">제9조 (쿠키 등 자동수집장치)</h2>
+<div class="card"><ol>
+<li>회사는 로그인 세션 유지를 위해 인증 토큰을 저장하는 HttpOnly 쿠키 및 CSRF 방지 쿠키를 사용합니다.</li>
+<li>차트 설정·테마 등 일부 정보는 브라우저 localStorage에 저장되며(로그인 시 서버 동기화), 서버로 별도 전송되지 않는 항목이 있습니다.</li>
+<li>정보주체는 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 이 경우 로그인 등 일부 기능 이용이 제한될 수 있습니다.</li>
+</ol></div>
 
-<h2>제8-2조 (만 14세 미만 아동)</h2>
-<p>회사는 만 14세 미만 아동의 개인정보를 수집하지 않습니다. 만 14세 미만임이 확인된 경우 즉시 해당 정보를 파기하고 계정을 삭제합니다.</p>
+<h2 id="p10">제10조 (만 14세 미만 아동의 개인정보)</h2>
+<div class="card"><p>회사는 만 14세 미만 아동의 개인정보를 수집하지 않습니다. 만 14세 미만임이 확인된 경우 즉시 해당 정보를 파기하고 계정을 삭제합니다.</p></div>
 
-<h2>제9조 (개인정보 보호책임자)</h2>
-<p>개인정보 관련 문의는 아래로 연락해주세요:</p>
+<h2 id="p11">제11조 (개인정보 보호책임자)</h2>
+<div class="card"><p>회사는 개인정보 처리에 관한 업무를 총괄하는 개인정보 보호책임자를 지정하고 있습니다.</p>
 <ul>
-<li>담당: 범온 AI 슈퍼차트 운영팀</li>
-<li>이메일: support@beomonnuri.com</li>
+<li>개인정보 보호책임자: <span class="ph">[성명/직책 기입]</span></li>
+<li>연락처(이메일): support@beomonnuri.com</li>
 </ul>
+<p style="font-size:12px;color:var(--muted)">※ 개인정보 보호책임자 성명·직책을 <span class="ph">[ ]</span>에 기입하세요.</p></div>
 
-<h2>제10조 (방침 변경)</h2>
-<p>본 방침이 변경될 경우 시행일 7일 전 서비스 내 공지합니다. 중요한 변경 시 이메일로 개별 통지합니다.</p>
+<h2 id="p12">제12조 (권익침해 구제방법)</h2>
+<div class="card"><p>정보주체는 개인정보 침해로 인한 구제를 받기 위하여 아래 기관에 분쟁 해결이나 상담을 신청할 수 있습니다.</p><ul>
+<li>개인정보분쟁조정위원회: 1833-6972 (www.kopico.go.kr)</li>
+<li>개인정보침해신고센터: 118 (privacy.kisa.or.kr)</li>
+<li>대검찰청 사이버수사과: 1301 (www.spo.go.kr)</li>
+<li>경찰청 사이버수사국: 182 (ecrm.police.go.kr)</li>
+</ul></div>
 
-<p style="margin-top:40px;text-align:center"><a href="/">← 홈으로 돌아가기</a></p>
+<h2 id="p13">제13조 (개인정보처리방침의 변경)</h2>
+<div class="card"><p>본 방침은 법령·서비스 변경에 따라 개정될 수 있으며, 변경 시 시행 7일 전(중요한 변경은 30일 전) 서비스 내 공지합니다. 중요한 변경의 경우 이메일 등으로 개별 통지할 수 있습니다.</p></div>
+
+<div class="notice-box" style="margin-top:28px">
+※ 본 처리방침은 「개인정보 보호법」 제30조의 취지를 반영한 <b>참고용 초안</b>이며 법률 자문을 대체하지 않습니다.
+실제 처리 현황(수탁자·보유기간 등)과 일치하도록 검토하고, 시행 전 <b>자격 있는 전문가의 확인</b> 및 <span class="ph">[ ]</span> 항목 기입을 완료하시기 바랍니다.
+</div>
+
+<p class="backlink"><a href="/">← 홈으로 돌아가기</a> · <a href="/terms">이용약관</a> · <a href="/faq">FAQ</a></p>
+</div>
 </body>
 </html>
