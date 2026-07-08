@@ -360,9 +360,9 @@ body:not(.has-hero) #gpu-particles {
   opacity: 0.6;
 }
 .cylinder-face .logo-mark {
-  width: 200px;
-  height: 56px;
-  max-width: none;
+  width: auto;
+  height: 46px;
+  max-width: 210px;
   max-height: none;
   object-fit: contain;
   object-position: center;
@@ -371,27 +371,52 @@ body:not(.has-hero) #gpu-particles {
   z-index: 1;
 }
 
-.cylinder-face .logo-mark.logo-edu-dku,
-.cylinder-face .logo-mark.logo-lab-knl,
-.cylinder-face .logo-mark.logo-youth-foundation,
+/* ---- Per-logo optical normalization (aspect ratio preserved) ----
+   Square/symbol-over-text logos read small at a shared height,
+   so they get a larger height. Wide wordmarks get a smaller height
+   plus a max-width cap so nothing overpowers the row. */
+
+/* Square / vertical (symbol + text stacked) — boost height */
+.cylinder-face .logo-mark.logo-mss,
 .cylinder-face .logo-mark.logo-moel,
-.cylinder-face .logo-mark.logo-korcham {
-  transform: scale(1.34);
-  transform-origin: center;
+.cylinder-face .logo-mark.logo-edu-dku {
+  height: 72px;
+  max-width: 150px;
+}
+.cylinder-face .logo-mark.logo-lab-knl {
+  height: 64px;
+  max-width: 160px;
 }
 
-/* two-logo rework: youth-foundation + localmotive */
-.cylinder-face .logo-mark.logo-youth-foundation {
-  transform: scale(1.42);
+/* Wide wordmarks — constrain by width, modest height */
+.cylinder-face .logo-mark.logo-gov-gg,
+.cylinder-face .logo-mark.logo-startup,
+.cylinder-face .logo-mark.logo-inv-posco,
+.cylinder-face .logo-mark.logo-fin-nh {
+  height: 40px;
+  max-width: 196px;
 }
-/* 대한상공회의소 로고 원본 외곽 네모(배경 박스) 시각 최소화 */
-.cylinder-face .logo-mark.logo-korcham {
-  clip-path: inset(9% 5% 9% 5%);
+/* 청년재단: 별 심볼 + 글자 세로 구성 → 조금 더 크게 */
+.cylinder-face .logo-mark.logo-youth-foundation {
+  height: 80px;
+  max-width: 185px;
+}
+
+/* Extra-wide wordmarks — cap width tighter, smaller height */
+.cylinder-face .logo-mark.logo-kiss {
+  height: 34px;
+  max-width: 210px;
 }
 .cylinder-face .logo-mark.logo-localmotive {
-  width: 188px;
-  height: 50px;
-  transform: none;
+  height: 40px;
+  max-width: 180px;
+}
+
+/* 대한상공회의소 로고 원본 외곽 네모(배경 박스) 시각 최소화 */
+.cylinder-face .logo-mark.logo-korcham {
+  height: 52px;
+  max-width: 175px;
+  clip-path: inset(9% 5% 9% 5%);
 }
 
 .cylinder-face .meta,

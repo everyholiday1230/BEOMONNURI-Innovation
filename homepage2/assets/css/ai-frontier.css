@@ -747,9 +747,9 @@ nav.top .row {
   opacity: 1;
 }
 .pm-item .logo-mark {
-  width: 180px;
-  height: 44px;
-  max-width: none;
+  width: auto;
+  height: 40px;
+  max-width: 190px;
   max-height: none;
   flex-shrink: 0;
   display: block;
@@ -757,29 +757,45 @@ nav.top .row {
   object-position: center;
 }
 
-/* visually boost logos that look small while preserving original ratio */
-.pm-item .logo-mark.logo-edu-dku,
-.pm-item .logo-mark.logo-lab-knl,
-.pm-item .logo-mark.logo-youth-foundation,
+/* ---- Per-logo optical normalization (aspect ratio preserved) ---- */
+/* Square / vertical (symbol + text stacked) — boost height */
+.pm-item .logo-mark.logo-mss,
 .pm-item .logo-mark.logo-moel,
-.pm-item .logo-mark.logo-korcham {
-  transform: scale(1.32);
-  transform-origin: center;
+.pm-item .logo-mark.logo-edu-dku {
+  height: 62px;
+  max-width: 130px;
 }
-
-/* two-logo rework: youth-foundation + localmotive */
+.pm-item .logo-mark.logo-lab-knl {
+  height: 56px;
+  max-width: 140px;
+}
+/* Wide wordmarks — modest height, width cap */
+.pm-item .logo-mark.logo-gov-gg,
+.pm-item .logo-mark.logo-startup,
+.pm-item .logo-mark.logo-inv-posco,
+.pm-item .logo-mark.logo-fin-nh {
+  height: 34px;
+  max-width: 178px;
+}
+/* 청년재단: 별 심볼 + 글자 세로 구성 → 조금 더 크게 */
 .pm-item .logo-mark.logo-youth-foundation {
-  transform: scale(1.40);
+  height: 64px;
+  max-width: 172px;
+}
+/* Extra-wide wordmarks */
+.pm-item .logo-mark.logo-kiss {
+  height: 30px;
+  max-width: 200px;
+}
+.pm-item .logo-mark.logo-localmotive {
+  height: 34px;
+  max-width: 165px;
 }
 /* 대한상공회의소 로고 원본 외곽 네모(배경 박스) 시각 최소화 */
 .pm-item .logo-mark.logo-korcham {
+  height: 46px;
+  max-width: 158px;
   clip-path: inset(9% 5% 9% 5%);
-}
-.pm-item .logo-mark.logo-localmotive {
-  width: 210px;
-  height: 48px;
-  transform: scale(1.16);
-  transform-origin: center;
 }
 
 .pm-item .meta,
