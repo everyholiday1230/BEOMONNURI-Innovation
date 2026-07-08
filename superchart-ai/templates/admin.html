@@ -423,6 +423,7 @@ button:focus-visible,
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symdata">심볼/시장 데이터</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="superchart">슈퍼차트 자산</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="aiusage">AI 사용량</button>
+    <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="llmsignal">AI 신호</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="symbols">종목</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="tickets">문의</button>
     <button role="tab" aria-selected="false" class="admin-tab" data-action="adminTab" data-param="content">공지/FAQ</button>
@@ -952,6 +953,39 @@ button:focus-visible,
     </div>
   </div>
 
+  <!-- 나만의 AI 신호 (LLM) 사용 통계/감사 -->
+  <div class="admin-section-gap" data-section="llmsignal">
+    <div class="card">
+      <h3>나만의 AI 신호 — 사용 통계 <span id="llmSigStatus" style="color:var(--color-text-muted);font-size:12px;margin-left:6px"></span></h3>
+      <p style="font-size:11px;color:var(--color-text-muted);margin-top:4px">LLM 대화형 신호 생성 요청 이력(llm_signal_log)에 기반한 통계입니다.</p>
+      <div class="admin-stat-grid" style="margin-top:10px">
+        <div class="admin-stat"><span>총 요청 수</span><strong id="llmSigReq">-</strong></div>
+        <div class="admin-stat"><span>이용 회원 수</span><strong id="llmSigUsers">-</strong></div>
+        <div class="admin-stat"><span>총 토큰</span><strong id="llmSigTokens">-</strong></div>
+        <div class="admin-stat"><span>총 차감 포인트</span><strong id="llmSigCharged">-</strong></div>
+        <div class="admin-stat"><span>유료(무료초과) 호출</span><strong id="llmSigPaid">-</strong></div>
+        <div class="admin-stat"><span>생성 드로잉 수</span><strong id="llmSigDraw">-</strong></div>
+        <div class="admin-stat"><span>오늘 요청</span><strong id="llmSigTodayReq">-</strong></div>
+        <div class="admin-stat"><span>오늘 토큰</span><strong id="llmSigTodayTok">-</strong></div>
+        <div class="admin-stat"><span>오늘 차감 P</span><strong id="llmSigTodayChg">-</strong></div>
+      </div>
+      <h4 style="margin-top:14px;font-size:13px;color:var(--color-text-secondary)">상태별 분포</h4>
+      <div style="overflow-x:auto;margin-top:6px"><table id="llmSigStatusTable"><thead><tr><th>상태</th><th>건수</th></tr></thead><tbody><tr><td colspan="2" style="color:var(--color-text-muted)">-</td></tr></tbody></table></div>
+      <h4 style="margin-top:14px;font-size:13px;color:var(--color-text-secondary)">사용 상위 회원</h4>
+      <div style="overflow-x:auto;margin-top:6px"><table id="llmSigTopTable"><thead><tr><th>회원 ID</th><th>요청</th><th>토큰</th><th>차감 P</th></tr></thead><tbody><tr><td colspan="4" style="color:var(--color-text-muted)">-</td></tr></tbody></table></div>
+      <button onclick="loadLlmSignal()" class="btn btn-secondary btn-sm" style="margin-top:8px">새로고침</button>
+    </div>
+    <div class="card">
+      <h3>요청 감사 로그</h3>
+      <div style="overflow-x:auto;margin-top:6px"><table id="llmSigAuditTable"><thead><tr><th>시각</th><th>회원</th><th>종목</th><th>TF</th><th>메시지</th><th>신호</th><th>토큰</th><th>차감</th><th>상태</th></tr></thead><tbody><tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <button onclick="llmSigAuditPage(-1)" class="btn btn-secondary btn-sm">이전</button>
+        <span id="llmSigAuditPageInfo" style="font-size:12px;color:var(--color-text-muted)">-</span>
+        <button onclick="llmSigAuditPage(1)" class="btn btn-secondary btn-sm">다음</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 요금제 관리 -->
   <div class="admin-section-gap" data-section="plans">
     <div class="card">
@@ -1409,7 +1443,7 @@ const H=()=>{const h={'Content-Type':'application/json'};const t=_csrfToken();if
 
 const _TAB_PERM = {
   overview:'overview.read', users:'users.read', subscriptions:'subscriptions.read', points:'points.read',
-  symdata:'symdata.read', superchart:'superchart.read', aiusage:'aiusage.read', symbols:'symbols.read', tickets:'tickets.read',
+  symdata:'symdata.read', superchart:'superchart.read', aiusage:'aiusage.read', llmsignal:'aiusage.read', symbols:'symbols.read', tickets:'tickets.read',
   content:'content.read', plans:'plans.read', verifications:'users.read', admins:'admins.manage',
   logs:'logs.read', metrics:'metrics.read', system:'system.read', settings:'system.read'
 };
@@ -1549,6 +1583,7 @@ function showAdminTab(tab){
   else if (tab === 'superchart') { if (typeof loadSuperchartAdmin === 'function') loadSuperchartAdmin(); }
   else if (tab === 'admins') { if (typeof loadAdminAccounts === 'function') loadAdminAccounts(); }
   else if (tab === 'aiusage') { if (typeof loadAiUsage === 'function') loadAiUsage(); }
+  else if (tab === 'llmsignal') { if (typeof loadLlmSignal === 'function') loadLlmSignal(); }
   else if (tab === 'plans') { if (typeof loadPlans === 'function') loadPlans(); }
 }
 window.showAdminTab = showAdminTab;
@@ -1784,6 +1819,56 @@ async function loadAiUsage(){
   }catch(e){ if(st) st.textContent='네트워크 오류'; }
 }
 window.loadAiUsage = loadAiUsage;
+
+// ─────────── 나만의 AI 신호 (LLM) 통계/감사 ───────────
+let _llmSigAuditPage = 1;
+function _llmEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function loadLlmSignal(){
+  const st=document.getElementById('llmSigStatus'); if(st) st.textContent='불러오는 중…';
+  try{
+    const r=await window.api.raw('/v1/llm-signal/admin/stats');
+    if(!r.ok){ if(st) st.textContent='통계를 불러오지 못했습니다.'; return; }
+    const j=await r.json(); const d=(j&&j.data)||{};
+    const t=d.totals||{}, today=d.today||{};
+    const num=v=>(v==null?'-':Number(v).toLocaleString());
+    const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=num(v);};
+    set('llmSigReq',t.requests); set('llmSigUsers',t.users); set('llmSigTokens',t.tokens);
+    set('llmSigCharged',t.charged); set('llmSigPaid',t.free_calls); set('llmSigDraw',t.drawings);
+    set('llmSigTodayReq',today.requests); set('llmSigTodayTok',today.tokens); set('llmSigTodayChg',today.charged);
+    const stt=document.querySelector('#llmSigStatusTable tbody');
+    if(stt){ const rows=d.by_status||[]; stt.innerHTML=rows.length?rows.map(x=>`<tr><td>${_llmEsc(x.status)}</td><td>${num(x.cnt)}</td></tr>`).join(''):'<tr><td colspan="2" style="color:var(--color-text-muted)">데이터 없음</td></tr>'; }
+    const tpt=document.querySelector('#llmSigTopTable tbody');
+    if(tpt){ const rows=d.top_users||[]; tpt.innerHTML=rows.length?rows.map(x=>`<tr><td>${_llmEsc(String(x.user_id).slice(0,12))}…</td><td>${num(x.requests)}</td><td>${num(x.tokens)}</td><td>${num(x.charged)}</td></tr>`).join(''):'<tr><td colspan="4" style="color:var(--color-text-muted)">데이터 없음</td></tr>'; }
+    if(st) st.textContent='';
+    _llmSigAuditPage=1; loadLlmSigAudit();
+  }catch(e){ if(st) st.textContent='오류'; }
+}
+async function loadLlmSigAudit(){
+  const tb=document.querySelector('#llmSigAuditTable tbody');
+  if(!tb) return;
+  try{
+    const r=await window.api.raw('/v1/llm-signal/admin/audit?page='+_llmSigAuditPage+'&page_size=50');
+    const j=r.ok?await r.json():null; const d=(j&&j.data)||{};
+    const items=d.items||[];
+    tb.innerHTML=items.length?items.map(it=>`<tr>
+      <td>${_llmEsc((it.created_at||'').toString().slice(0,19).replace('T',' '))}</td>
+      <td>${_llmEsc(String(it.user_id||'').slice(0,10))}</td>
+      <td>${_llmEsc(it.symbol)}</td>
+      <td>${_llmEsc(it.timeframe)}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_llmEsc(it.message)}</td>
+      <td>${_llmEsc(it.signal_count)}</td>
+      <td>${_llmEsc(it.total_tokens)}</td>
+      <td>${_llmEsc(it.charged_points)}</td>
+      <td>${_llmEsc(it.status)}</td>
+    </tr>`).join(''):'<tr><td colspan="9" style="color:var(--color-text-muted)">요청 이력이 없습니다.</td></tr>';
+    const info=document.getElementById('llmSigAuditPageInfo');
+    if(info){ const total=d.total||0, ps=d.page_size||50, pages=Math.max(1,Math.ceil(total/ps)); info.textContent=`${d.page||1} / ${pages} (총 ${total.toLocaleString()}건)`; }
+  }catch(e){ tb.innerHTML='<tr><td colspan="9" style="color:var(--color-text-muted)">감사 로그를 불러오지 못했습니다.</td></tr>'; }
+}
+function llmSigAuditPage(delta){ _llmSigAuditPage=Math.max(1,_llmSigAuditPage+delta); loadLlmSigAudit(); }
+window.loadLlmSignal = loadLlmSignal;
+window.loadLlmSigAudit = loadLlmSigAudit;
+window.llmSigAuditPage = llmSigAuditPage;
 
 // ─────────── 포인트 상품 관리 ───────────
 async function loadProducts(){

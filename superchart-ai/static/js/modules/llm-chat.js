@@ -68,6 +68,27 @@
     return n;
   }
 
+  function _setStatus(state, text) {
+    const b = _el('llmStatusBadge');
+    if (!b) return;
+    b.dataset.state = state;
+    b.textContent = text;
+  }
+
+  function _setUsage(text) {
+    const u = _el('llmUsage');
+    if (u) u.textContent = text || '';
+  }
+
+  function _syncMeta() {
+    const sym = window.curSymbol || 'BTCUSDT';
+    const tf = window.curTf || '1h';
+    const s = _el('llmMetaSym');
+    const t = _el('llmMetaTf');
+    if (s) s.textContent = sym.replace('USDT', '/USDT');
+    if (t) t.textContent = tf;
+  }
+
   // ── 전송 ──
   let _sending = false;
   async function sendMessage() {
@@ -78,6 +99,10 @@
     if (!message) return;
 
     _sending = true;
+    const sendBtn = _el('llmChatSend');
+    if (sendBtn) sendBtn.disabled = true;
+    _syncMeta();
+    _setStatus('loading', '생성 중');
     input.value = '';
     _appendMsg('user', message);
     _appendMsg('bot', '신호를 만드는 중입니다…', '');
@@ -101,7 +126,8 @@
       data = await resp.json().catch(() => null);
     } catch (e) {
       _replaceLastBot('네트워크 오류로 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      _sending = false;
+      _setStatus('error', '오류');
+      _finish(sendBtn);
       return;
     }
 
@@ -109,27 +135,30 @@
     if (resp && resp.status === 402) {
       const err = (data && data.error) || {};
       _replaceLastBot(err.message || '무료 횟수를 모두 사용했습니다. 포인트가 필요합니다.');
+      _setStatus('error', '포인트 부족');
       if (typeof window._ai2OpenPlans === 'function') {
         try { window._ai2OpenPlans(); } catch (_) {}
       } else if (typeof window.showToast === 'function') {
         window.showToast('포인트가 부족합니다. 충전 후 이용해주세요.', '#921230');
       }
-      _sending = false;
+      _finish(sendBtn);
       return;
     }
 
     // 인증 필요
     if (resp && (resp.status === 401)) {
       _replaceLastBot('로그인이 필요합니다.');
+      _setStatus('error', '로그인 필요');
       if (typeof window.showAuthModal === 'function') window.showAuthModal();
-      _sending = false;
+      _finish(sendBtn);
       return;
     }
 
     const payload = (data && data.data) ? data.data : data;
     if (!payload) {
       _replaceLastBot('응답을 이해하지 못했습니다. 다시 시도해주세요.');
-      _sending = false;
+      _setStatus('error', '오류');
+      _finish(sendBtn);
       return;
     }
 
@@ -140,6 +169,8 @@
     else if (payload.free_used === false) parts.push('무료');
     const meta = parts.join(' · ');
     _replaceLastBot(payload.reply || '완료했습니다.', meta);
+    _setStatus('ready', drawn > 0 ? `신호 ${drawn}개` : '준비됨');
+    _setUsage(meta);
 
     // 히스토리 저장
     const hist = _loadHistory();
@@ -147,7 +178,12 @@
     hist.push({ role: 'bot', text: payload.reply || '', signals: payload.signals || [] });
     _saveHistory(hist);
 
+    _finish(sendBtn);
+  }
+
+  function _finish(sendBtn) {
     _sending = false;
+    if (sendBtn) sendBtn.disabled = false;
   }
 
   function _replaceLastBot(text, meta) {
@@ -195,6 +231,7 @@
     document.querySelectorAll('#llm .llm-example').forEach(btn => {
       btn.addEventListener('click', () => useExample(btn.dataset.ex || btn.textContent));
     });
+    _syncMeta();
   }
 
   // 전역 노출 (다른 모듈/HTML에서 호출용)
