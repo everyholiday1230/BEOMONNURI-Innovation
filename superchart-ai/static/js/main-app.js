@@ -6337,6 +6337,7 @@ function Ne() {
         }
 
         const guestAllowedTabs = new Set([
+          "llm",
           "ai",
           "mtf",
           "hot",

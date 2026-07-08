@@ -1046,3 +1046,22 @@
 .right-pane .mt-pnl-row,
 .right-pane .pa-ls-rows > *,
 .right-pane .ht-row { padding-top: 4px; padding-bottom: 4px; }
+
+/* ── 나만의 AI 신호 (LLM 채팅) ── */
+.llm-chat-log{max-height:280px;overflow-y:auto;padding:8px;background:var(--color-surface,#fff);border:1px solid var(--border,rgba(216,182,106,.25));border-radius:8px;margin:8px 0;display:flex;flex-direction:column;gap:8px}
+.llm-msg{max-width:92%;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.5;word-break:break-word}
+.llm-msg-user{align-self:flex-end;background:#921230;color:#fff;border-bottom-right-radius:2px}
+.llm-msg-bot{align-self:flex-start;background:rgba(216,182,106,.12);color:var(--color-text-primary,#3D2B1F);border-bottom-left-radius:2px}
+.llm-msg-meta{font-size:11px;opacity:.7;margin-top:4px}
+.llm-examples{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.llm-example{font-size:12px;padding:5px 9px;border:1px solid var(--border,rgba(216,182,106,.4));border-radius:14px;background:transparent;color:var(--color-text-secondary,#6B5B50);cursor:pointer;transition:background .15s}
+.llm-example:hover{background:rgba(216,182,106,.12)}
+.llm-input-row{display:flex;gap:6px;align-items:flex-end;margin-top:6px}
+.llm-input{flex:1;padding:8px 10px;border:1px solid var(--border,rgba(216,182,106,.4));border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;outline:none;background:var(--color-surface,#fff);color:var(--color-text-primary,#3D2B1F)}
+.llm-input:focus{border-color:#921230;box-shadow:0 0 0 3px rgba(146,18,48,.12)}
+.llm-send-btn{padding:8px 14px;background:#921230;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.llm-send-btn:hover{background:#6F0E24}
+.llm-actions{margin-top:8px}
+.llm-clear-btn{width:100%;padding:7px;background:transparent;border:1px solid var(--border,rgba(216,182,106,.4));border-radius:8px;color:var(--color-text-secondary,#6B5B50);font-size:12px;cursor:pointer}
+.llm-clear-btn:hover{background:rgba(216,182,106,.08)}
+.llm-disclaimer{font-size:11px;color:var(--color-text-muted,#8E7D72);line-height:1.5;margin-top:10px}

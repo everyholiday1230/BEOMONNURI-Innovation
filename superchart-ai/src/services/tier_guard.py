@@ -3,7 +3,7 @@ import os
 from fastapi import HTTPException, Depends
 from src.services.auth import decode_token
 
-FREE_LIMITS = {"ai_analysis": 3, "ai_predict": 3, "ai_chat": 5}
+FREE_LIMITS = {"ai_analysis": 3, "ai_predict": 3, "ai_chat": 5, "llm_signal": 2}
 
 def _get_redis():
     import redis
@@ -80,3 +80,31 @@ def require_tier(feature: str):
             raise HTTPException(401, "인증이 필요합니다.")
         return check_tier_limit(auth[7:], feature)
     return Depends(_check)
+
+
+def consume_free_quota(user_id: str, feature: str) -> bool:
+    """무료 일일 한도 소비 시도.
+
+    반환:
+        True  → 이번 호출이 무료 한도 내 (포인트 차감 불필요)
+        False → 무료 한도 초과 (호출자가 포인트로 과금해야 함)
+
+    check_tier_limit 과 달리 초과 시 예외를 던지지 않고 False 를 반환하여,
+    "무료 소진 후에는 포인트 차감" 정책을 구현할 수 있게 한다.
+    pro/premium 및 FREE_TRIAL_MODE 는 항상 무료(True).
+    """
+    if os.getenv("FREE_TRIAL_MODE", "").lower() in ("1", "true", "on", "yes"):
+        return True
+    limit = FREE_LIMITS.get(feature)
+    if limit is None:
+        return True  # 한도 미설정 기능은 무료 취급
+    try:
+        r = _get_redis()
+        key = f"usage:{user_id}:{feature}"
+        used = r.incr(key)
+        if used == 1:
+            r.expire(key, 86400)  # 24시간 TTL
+        return used <= limit
+    except Exception:
+        # Redis 장애 시: 안전하게 무료 처리(과금하지 않음)
+        return True

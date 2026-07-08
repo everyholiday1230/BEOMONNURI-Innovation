@@ -1249,12 +1249,12 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="quick-start-actions">
       <button type="button" class="quick-start-btn" data-quick-action="search" title="심볼 검색창으로 이동">1) 종목 찾기</button>
       <button type="button" class="quick-start-btn" data-quick-action="tf-5m" title="5분봉으로 바로 전환">2) 5분봉</button>
-      <button type="button" class="quick-start-btn" data-quick-action="open-ai" title="AI 분석 탭으로 이동">3) AI 분석</button>
+      <button type="button" class="quick-start-btn" data-quick-action="open-hot" title="인기 TOP 탭으로 이동">3) 인기 TOP</button>
       <button type="button" class="quick-start-btn" id="quickStartBeginner" data-quick-action="beginner" aria-pressed="false" title="초보 집중 모드 토글">초보 집중 모드</button>
       <button type="button" class="quick-start-btn is-primary" data-quick-action="signup" title="회원가입/로그인">회원가입</button>
     </div>
     <button type="button" class="quick-start-dismiss" data-quick-action="dismiss" aria-label="빠른 시작 닫기">✕</button>
-    <p id="quickStartTip" class="quick-start-tip" aria-live="polite">처음이라면 ①종목 선택 → ②5분봉 → ③AI 분석 순서로 확인해보세요. 단축키 <b>/</b>를 누르면 검색창으로 바로 이동합니다.</p>
+    <p id="quickStartTip" class="quick-start-tip" aria-live="polite">처음이라면 ①종목 선택 → ②5분봉 → ③인기 TOP 순서로 확인해보세요. 단축키 <b>/</b>를 누르면 검색창으로 바로 이동합니다.</p>
   </section>
   <!-- 데모매매 플로팅 패널 제거됨 — 모의주문 탭(#order)으로 통합 -->
   <div id="ohlcBar" class="ohlc-bar d-none"></div>
@@ -1508,8 +1508,6 @@ body.dark #_toastContainer .pro-toast-chip {
 <p class="muted-note">거래밀집구간 · 자동 추세선 · 범온 캔들 · 목표도달 · 강도측정 · 매매압력 · Q-Signal · Ladder</p>
 <b class="text-accent">서브차트</b>
 <p class="muted-note">RSI · MACD · 스토캐스틱 · OBV · ATR · CCI · ADX · W%R · MFI · CMF · ROC · IMACD (최대 3개)</p>
-<b class="text-accent">AI 기능</b>
-<p class="muted-note">AI 분석 (추세강도 게이지) · MTF 다중 타임프레임 비교</p>
 <b class="text-accent">차트</b>
 <p class="muted-note">캔들/라인/영역 전환 · 스크린샷(Ctrl+S) · 피보나치/추세선/수평선/수직선 드로잉</p>
 <b class="text-accent">지표 설정 · 프리셋</b>
@@ -1533,174 +1531,32 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 </div></div></div>
   <div class="right-tabs">
-    <div class="right-tab active" data-p="ai" data-t="AI" title="AI 무료 시장 상태 요약 (참고용 체험)">AI<span class="tab-badge">무료</span></div>
-    <div class="right-tab" data-p="mtf" data-t="추세강도" title="추세 방향·강도는 무료, 심화 분석은 PRO">추세강도<span class="tab-badge tab-badge-pro">PRO</span></div>
+    <div class="right-tab active" data-p="llm" title="AI와 대화하며 나만의 신호를 만들어 차트에 표시">나만의 AI 신호<span class="tab-badge">AI</span></div>
     <div class="right-tab" data-p="hot" title="시장 관심도 랭킹 (참고용)">인기 TOP<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="similar" style="display:none" title="현재 패턴과 유사한 과거 차트 검색 (AI)">유사차트</div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
-    <div class="right-tab" data-p="position" title="롱숏 비율 + 청산 히트맵 — 기관 자금 흐름">포지션</div>
     <div class="right-tab" data-p="points" title="범온 포인트 · 지인 초대 (서비스 기능 이용 포인트)">포인트</div>
   </div>
-  <div class="right-pane active" id="ai">
+  <div class="right-pane active" id="llm">
     <div class="p-12">
-      <!-- 1) 헤더 -->
-      <div class="ai2-header">
-        <div class="pane-title">AI 무료 분석</div>
-        <div class="pane-desc">현재 종목의 시장 상태를 AI가 무료로 간단히 요약합니다. 심화 추세 분석은 추세강도(PRO) 탭에서 확인하세요.</div>
-        <div class="ai2-header-meta">
-          <span class="ai2-symbol" id="ai2Symbol">BTC/USDT</span>
-          <span class="ai2-basis" id="ai2Basis">기준 1h</span>
-          <span class="ai2-status-badge" id="ai2StatusBadge" data-state="loading">불러오는 중</span>
-          <span class="ai2-updated" id="ai2Updated"></span>
-        </div>
-        <div class="ai2-usage" id="aiUsageInfo"></div>
+      <div class="pane-title">나만의 AI 신호</div>
+      <div class="pane-desc">AI와 대화하면 원하는 매매 신호를 만들어 차트에 표시합니다. 무료는 하루 2회, 이후에는 사용한 만큼 포인트가 차감됩니다.</div>
+      <div id="llmChatLog" class="llm-chat-log" aria-live="polite">
+        <div class="llm-msg llm-msg-bot"><div class="llm-msg-body">예: "RSI가 30 아래로 내려가면 매수 표시해줘", "20일선이 50일선을 위로 뚫으면 매수", "가격이 70000 위로 가면 매도 표시" 처럼 말씀해보세요.</div></div>
       </div>
-
-      <!-- 2) 무료 분석 안내 -->
-      <!-- 3) 현재 종목 AI 요약 -->
-      <div id="ai2Summary"></div>
-
-      <!-- 4) 시장 상태 카드 -->
-      <div id="ai2State" class="ai2-section-block"></div>
-
-      <!-- 5) 기본 분석 -->
-      <div id="ai2Basic" class="ai2-section-block"></div>
-
-      <!-- 6) 주요 가격 구간 -->
-      <div id="ai2Zones" class="ai2-section-block"></div>
-
-      <!-- 7) 관찰 포인트 -->
-      <div id="ai2Observe" class="ai2-section-block"></div>
-
-      <!-- 12) 분석 기준 -->
-      <div id="ai2Basis2" class="ai2-section-block"></div>
-
-      <!-- 분석 새로고침 + 무료 횟수 상태 -->
-      <button class="ai2-btn ai2-btn-primary ai2-btn-block" type="button" id="ai2RefreshBtn" aria-label="AI 분석 새로고침" onclick="window._updateBeomSummary(true)">AI 분석 새로고침</button>
-      <div id="ai2UsageState" class="ai2-mini-note"></div>
-
-      <!-- 11) 로그인/회원가입 유도 -->
-      <div id="ai2LoginPrompt" class="ai2-section-block"></div>
-
-      <!-- (로그인 시) 선택 지표 상세 분석 결과 — 기존 main-app 연동 컨테이너 유지 -->
-      <div id="aiResult" class="ai2-section-block" style="max-width:100%;overflow-x:hidden"></div>
-
-      <!-- 8) 무료 vs 유료 범위 -->
-      <div class="ai2-card ai2-section-block">
-        <div class="ai2-card-title">무료 / 유료 기능 범위</div>
-        <div class="ai2-scope-2col">
-          <div>
-            <div class="ai2-scope-head">무료 제공</div>
-            <ul class="ai2-scope-list">
-              <li>AI 시장 요약</li>
-              <li>추세·거래량·변동성 기본 분석</li>
-              <li>주요 가격 구간</li>
-              <li>관찰 포인트</li>
-            </ul>
-          </div>
-          <div>
-            <div class="ai2-scope-head">유료 기능</div>
-            <ul class="ai2-scope-list ai2-scope-paid">
-              <li>다중 시간대 상세 분석</li>
-              <li>지표 조합 해석</li>
-              <li>AI 시나리오 분석</li>
-              <li>심화 리스크 체크</li>
-              <li>저장 및 복기 기능</li>
-            </ul>
-          </div>
-        </div>
+      <div class="llm-examples">
+        <button type="button" class="llm-example" data-ex="RSI가 30 아래로 내려가면 매수 표시해줘">RSI 과매도 매수</button>
+        <button type="button" class="llm-example" data-ex="20일 이동평균선이 50일 이동평균선을 위로 돌파하면 매수 표시해줘">골든크로스 매수</button>
+        <button type="button" class="llm-example" data-ex="가격이 70000 위로 올라가면 매도 표시해줘">가격 돌파 매도</button>
       </div>
-
-      <!-- 9) 유료 기능 미리보기 (잠금 카드) -->
-      <div class="ai2-section-block">
-        <div class="ai2-card-title">유료 기능 미리보기</div>
-        <div class="ai2-locked-grid">
-          <div class="ai2-locked" aria-label="유료 기능 — 심화 AI 분석"><span class="ai2-lock-tag">유료 기능</span><div class="ai2-lock-name">심화 AI 분석</div></div>
-          <div class="ai2-locked" aria-label="유료 기능 — AI 시나리오"><span class="ai2-lock-tag">유료 기능</span><div class="ai2-lock-name">AI 시나리오</div></div>
-          <div class="ai2-locked" aria-label="유료 기능 — 리스크 체크"><span class="ai2-lock-tag">유료 기능</span><div class="ai2-lock-name">리스크 체크</div></div>
-          <div class="ai2-locked" aria-label="유료 기능 — 다중 시간대 분석"><span class="ai2-lock-tag">유료 기능</span><div class="ai2-lock-name">다중 시간대 분석</div></div>
-          <div class="ai2-locked" aria-label="유료 기능 — 분석 기록 저장"><span class="ai2-lock-tag">유료 기능</span><div class="ai2-lock-name">분석 기록 저장</div></div>
-        </div>
-        <div class="ai2-lock-actions">
-          <button class="ai2-btn ai2-btn-primary" type="button" aria-label="전체 기능 보기" onclick="window._ai2OpenPlans&&window._ai2OpenPlans()">전체 기능 보기</button>
-          <button class="ai2-btn ai2-btn-secondary" type="button" aria-label="로그인하고 더 보기" onclick="window.showAuthModal&&window.showAuthModal()">로그인하고 더 보기</button>
-          <button class="ai2-btn ai2-btn-ghost" type="button" aria-label="요금제 확인" onclick="window._ai2OpenPlans&&window._ai2OpenPlans()">요금제 확인</button>
-        </div>
+      <div class="llm-input-row">
+        <textarea id="llmChatInput" class="llm-input" rows="2" placeholder="원하는 신호를 자연어로 설명해주세요 (Enter 전송)"></textarea>
+        <button type="button" id="llmChatSend" class="llm-send-btn">보내기</button>
       </div>
-
-      <!-- 14) 차트 표시 토글 -->
-      <div class="ai2-card ai2-section-block">
-        <div class="ai2-card-title">차트 표시</div>
-        <label class="ai2-toggle"><input type="checkbox" id="ai2TogZones" onchange="window._ai2Toggle&&window._ai2Toggle()"> 주요 가격 구간 표시</label>
-        <label class="ai2-toggle"><input type="checkbox" id="ai2TogObserve" onchange="window._ai2Toggle&&window._ai2Toggle()"> 관찰 포인트 표시</label>
-        <label class="ai2-toggle"><input type="checkbox" id="ai2TogBadge" onchange="window._ai2Toggle&&window._ai2Toggle()"> AI 요약 배지 표시</label>
-        <p class="ai2-mini-note" id="ai2ToggleNote"></p>
+      <div class="llm-actions">
+        <button type="button" id="llmChatClear" class="llm-clear-btn">차트에서 신호 지우기</button>
       </div>
-
-      <!-- 고지 -->
-      <p class="ai2-disclaimer">AI 무료 분석은 시장 데이터를 기반으로 한 참고용 요약입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
-    </div>
-  </div>
-  <div class="right-pane" id="mtf">
-    <div class="p-12">
-      <!-- 1) 헤더 -->
-      <div class="ts-header">
-        <div class="pane-title">추세강도</div>
-        <div class="pane-desc">종합 방향·강도는 무료로, 다중 시간대 정렬·가격 구조·AI 해석은 PRO에서 확인합니다.</div>
-        <div class="ts-header-meta">
-          <span class="ts-symbol"><span id="mtfSymbol">BTC</span><span class="ts-symq">/USDT</span></span>
-          <img loading="lazy" id="mtfSymbolImg" src="" alt="" class="ts-symimg" style="display:none">
-          <span id="mtfSymbolKr" class="ts-symkr">비트코인</span>
-          <span class="ts-basis" id="tsBasisLabel">기준 1h</span>
-          <span class="ts-status-badge" id="tsStatusBadge" data-state="loading">불러오는 중</span>
-          <span class="ts-updated" id="tsUpdated"></span>
-        </div>
-      </div>
-
-      <!-- 2) 종합 추세 요약 -->
-      <div id="tsSummary"></div>
-
-      <!-- 3) 추세 강도 게이지 -->
-      <div id="tsGauge"></div>
-
-      <!-- 4) 시간대별 추세 정렬 -->
-      <div id="tsAlign" class="ts-section-block"></div>
-
-      <!-- 5) 추세 구성 요소 -->
-      <div id="tsComponents" class="ts-section-block"></div>
-
-      <!-- 6) 추세 변화 감지 -->
-      <div id="tsChange" class="ts-section-block"></div>
-
-      <!-- 7) 거래량 확인 -->
-      <div id="tsVolume" class="ts-section-block"></div>
-
-      <!-- 8) 변동성 확인 -->
-      <div id="tsVolatility" class="ts-section-block"></div>
-
-      <!-- 9) 주요 가격 구조 -->
-      <div id="tsStructure" class="ts-section-block"></div>
-
-      <!-- 10) AI 추세 해석 -->
-      <div id="tsAi" class="ts-section-block"></div>
-
-      <!-- 기존 호환용(미사용, 숨김) -->
-      <div id="mtfGrid" hidden></div>
-
-      <button class="ts-btn ts-btn-primary ts-btn-block" type="button" onclick="window.loadMTF()">데이터 다시 확인</button>
-
-      <!-- 11) 차트 표시 토글 -->
-      <div class="ts-card ts-toggles">
-        <div class="ts-card-title">차트 표시</div>
-        <label class="ts-toggle"><input type="checkbox" id="tsTogStrength" onchange="window._tsToggle&&window._tsToggle()"> 추세강도 표시</label>
-        <label class="ts-toggle"><input type="checkbox" id="tsTogStructure" onchange="window._tsToggle&&window._tsToggle()"> 주요 가격 구조 표시</label>
-        <label class="ts-toggle"><input type="checkbox" id="tsTogChange" onchange="window._tsToggle&&window._tsToggle()"> 추세 변화 구간 표시</label>
-        <label class="ts-toggle"><input type="checkbox" id="tsTogBadge" onchange="window._tsToggle&&window._tsToggle()"> 시간대별 추세 배지 표시</label>
-        <p class="ts-mini-note" id="tsToggleNote"></p>
-      </div>
-
-      <!-- 고지 -->
-      <p class="ts-disclaimer">추세강도는 가격, 거래량, 변동성 등 시장 데이터를 기반으로 계산한 참고용 분석입니다. 특정 방향의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
+      <p class="llm-disclaimer">본 기능은 표준 기술지표(RSI·MACD·이동평균·볼린저·스토캐스틱·거래량·가격)를 기반으로 신호를 생성합니다. 투자 판단과 책임은 이용자 본인에게 있습니다.</p>
     </div>
   </div>
   <div class="right-pane" id="similar">
@@ -1848,87 +1704,6 @@ body.dark #_toastContainer .pro-toast-chip {
   <!-- 복기 작성 / 초기화 확인 모달 마운트 -->
   <div id="mtModalRoot"></div>
 
-  <div class="right-pane" id="position">
-    <div class="p-12">
-      <!-- 1) 헤더 -->
-      <div class="pa-header">
-        <div class="pane-title">포지션 분석</div>
-        <div class="pane-desc">롱·숏 비율, 대형 자금 흐름, 청산 밀집 구간을 함께 확인합니다.</div>
-        <div class="pa-header-meta">
-          <span class="pa-symbol" id="paSymbol">--</span>
-          <span class="pa-status-badge" id="paStatusBadge" data-state="loading">불러오는 중</span>
-          <span class="pa-updated" id="paUpdated"></span>
-        </div>
-      </div>
-
-      <!-- 2) 시장 포지션 요약 카드 -->
-      <div class="panel-section pa-summary" id="paSummary">
-        <div class="pa-summary-top">
-          <div class="pa-summary-label">시장 포지션 요약</div>
-          <div id="paSummaryBadge" class="pa-bias-badge pa-bias-neutral">중립</div>
-        </div>
-        <div class="pa-summary-figures" id="paSummaryFigures">
-          <div class="text-muted-sm">데이터를 불러오는 중입니다…</div>
-        </div>
-        <p class="pa-summary-note" id="paSummaryNote"></p>
-      </div>
-
-      <!-- 3) 롱/숏 비율 -->
-      <div class="panel-section">
-        <div class="flex-between" style="margin-bottom:8px">
-          <div class="panel-section-title" style="margin-bottom:0">롱/숏 비율</div>
-          <div id="lsConsensus" class="tag-pill tag-pill-neutral"></div>
-        </div>
-        <div class="pa-tabs" id="lsTfTabs" role="tablist" aria-label="롱숏 비율 기간 선택">
-          <button class="pa-tab active" data-tf="5m" role="tab" aria-selected="true">5m</button>
-          <button class="pa-tab" data-tf="15m" role="tab" aria-selected="false">15m</button>
-          <button class="pa-tab" data-tf="1h" role="tab" aria-selected="false">1h</button>
-        </div>
-        <div id="lsDetailedTable" class="pa-ls-rows"></div>
-      </div>
-
-      <!-- 4) 대형 자금 흐름 -->
-      <div class="panel-section">
-        <div class="flex-between" style="margin-bottom:8px">
-          <div class="panel-section-title" style="margin-bottom:0">대형 자금 흐름 (1시간)</div>
-          <div id="bigMoneyBadge" class="pa-bias-badge pa-bias-neutral">중립</div>
-        </div>
-        <div id="bigMoneyBody">
-          <div class="text-muted-sm">데이터를 불러오는 중입니다…</div>
-        </div>
-      </div>
-
-      <!-- 6) 청산 히트맵 -->
-      <div class="panel-section">
-        <div class="flex-between" style="margin-bottom:8px">
-          <div class="panel-section-title" style="margin-bottom:0">청산 히트맵</div>
-          <button onclick="window._toggleLiqOverlay?.()" id="liqOverlayBtn" class="pa-btn pa-btn-secondary" type="button">차트 표시</button>
-        </div>
-        <div class="pa-tabs" id="liqPeriodTabs" role="tablist" aria-label="청산 히트맵 기간 선택">
-          <button class="pa-tab" data-period="12h" role="tab" aria-selected="false">12h</button>
-          <button class="pa-tab active" data-period="24h" role="tab" aria-selected="true">24h</button>
-          <button class="pa-tab" data-period="3d" role="tab" aria-selected="false">3d</button>
-          <button class="pa-tab" data-period="7d" role="tab" aria-selected="false">7d</button>
-        </div>
-        <div id="liqSummary" class="num-tabular pa-liq-summary"></div>
-        <div id="liqClusters" class="num-tabular pa-liq-clusters"></div>
-        <div id="liqPriceList" class="pa-liq-list" aria-label="청산 밀집 가격대"></div>
-        <canvas id="liqHeatmapCanvas" width="280" height="200" class="pa-liq-canvas"></canvas>
-      </div>
-
-      <!-- 7) AI 포지션 해석 -->
-      <div class="panel-section pa-ai">
-        <div class="panel-section-title">AI 포지션 해석</div>
-        <p class="pa-ai-text" id="paAiText">데이터를 불러오면 참고 해석이 표시됩니다.</p>
-      </div>
-
-      <button onclick="window._loadPositionData?.()" class="pa-btn pa-btn-primary pa-btn-block" type="button">데이터 다시 확인</button>
-
-      <!-- 고지 -->
-      <p class="pa-disclaimer">포지션 분석, 롱·숏 비율, 펀딩, 청산 히트맵은 시장 데이터를 기반으로 한 참고 정보입니다. 특정 방향의 수익을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 사용자에게 있습니다.</p>
-    </div>
-  </div>
-
   <div class="right-pane" id="points">
     <div class="p-12">
       <!-- 헤더 -->
@@ -1968,10 +1743,8 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260621_htv4"></script>
-<script defer src="/static/js/modules/ai-panel.js?v=20260620_aiv2"></script>
-<script defer src="/static/js/modules/position-panel.js?v=20260621_posv6"></script>
+<script defer src="/static/js/modules/llm-chat.js?v=20260708_llm1"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
-<script defer src="/static/js/modules/trend-strength.js?v=20260621_tsv3"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js"></script>
 <script defer src="/static/js/modules/shortcuts.js?v=20260526_i18n"></script>
@@ -2066,7 +1839,6 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <div id="mobileQuickActions" class="mobile-quick-actions" role="navigation" aria-label="모바일 빠른 액션" hidden>
   <button type="button" data-mobile-action="search">종목검색</button>
-  <button type="button" data-mobile-action="ai">AI분석</button>
   <button type="button" data-mobile-action="guide">가이드</button>
   <button type="button" data-mobile-action="signup" class="is-primary">회원가입</button>
 </div>

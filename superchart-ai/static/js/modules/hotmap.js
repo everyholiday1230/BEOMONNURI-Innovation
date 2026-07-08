@@ -359,7 +359,6 @@ function renderDetail() {
       <div class="hm-detail-actions">
         <button class="hm-btn hm-btn-primary hm-btn-xs" type="button" onclick="window._selectSym&&window._selectSym('${esc(r.code)}')">차트로 보기</button>
         <button class="hm-btn hm-btn-secondary hm-btn-xs" type="button" onclick="window._hmAddFav('${esc(r.code)}')">${isFav?'관심 종목 해제':'관심 종목 추가'}</button>
-        <button class="hm-btn hm-btn-ghost hm-btn-xs" type="button" onclick="window._hmOpenAi('${esc(r.code)}')">AI 분석 보기</button>
       </div>
     </div>`;
 }
@@ -562,13 +561,6 @@ window._hmAddFav = function(code) {
   else if (window._removeFavSym && favSet().has(code)) { window._removeFavSym(code); }
   setTimeout(() => window.loadHeatmap(), 200);
 };
-window._hmOpenAi = function(code) {
-  if (window._selectSym) window._selectSym(code);
-  // AI 분석 탭으로 전환 시도
-  const aiTab = document.querySelector('.right-tab[data-p="ai"]');
-  if (aiTab) aiTab.click();
-};
-
 /* ─────────── 이벤트 바인딩 ─────────── */
 document.addEventListener('click', (e) => {
   // 모드 탭

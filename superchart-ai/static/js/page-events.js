@@ -108,14 +108,14 @@ document.addEventListener('click', function (e) {
     if (tip) tip.innerHTML = text;
   }
 
-  function openRightPaneAI() {
-    const aiTab = document.querySelector('.right-tab[data-p="ai"]');
-    aiTab && aiTab.click();
+  function openRightPaneHot() {
+    const hotTab = document.querySelector('.right-tab[data-p="hot"]');
+    hotTab && hotTab.click();
     if (window.innerWidth <= 980) {
       const mnRight = document.getElementById('mnRight');
       mnRight && mnRight.click();
     }
-    markFunnelStep('ai_tab_open');
+    markFunnelStep('hot_tab_open');
   }
 
   function setTimeframe(tf) {
@@ -334,18 +334,8 @@ document.addEventListener('click', function (e) {
         markFunnelStep('timeframe_select', { timeframe: tfBtn.dataset.tf });
       }
 
-      const aiTab = e.target.closest('.right-tab[data-p="ai"]');
-      if (aiTab) {
-        markFunnelStep('ai_tab_open');
-      }
-
       if (e.target.closest('#loginCta') || e.target.closest('#heroStart')) {
         markFunnelStep('signup_click');
-      }
-
-      if (e.target.closest('#aiIndRunBtn')) {
-        markFunnelStep('ai_analysis_run');
-        trackUx('superchart_ai_analysis_run', { source: 'ai_panel' });
       }
     });
 
@@ -366,10 +356,10 @@ document.addEventListener('click', function (e) {
           setTip('5분봉으로 전환했습니다. 단기 진입 타이밍 확인에 적합합니다.');
           trackUx('superchart_quick_start_click', { action: 'tf_5m' });
           break;
-        case 'open-ai':
-          openRightPaneAI();
-          setTip('AI 분석 탭을 열었습니다. 지표 요약과 진입 시그널을 먼저 확인하세요.');
-          trackUx('superchart_quick_start_click', { action: 'open_ai' });
+        case 'open-hot':
+          openRightPaneHot();
+          setTip('인기 TOP 탭을 열었습니다. 시장 관심도 랭킹을 확인하세요.');
+          trackUx('superchart_quick_start_click', { action: 'open_hot' });
           break;
         case 'beginner':
           toggleBeginner();
@@ -410,8 +400,8 @@ document.addEventListener('click', function (e) {
           focusSearch();
           setTip('모바일 종목 검색으로 이동했습니다.');
         } else if (action === 'ai') {
-          openRightPaneAI();
-          setTip('모바일 AI 분석 탭을 열었습니다.');
+          openRightPaneHot();
+          setTip('모바일 인기 TOP 탭을 열었습니다.');
         } else if (action === 'guide') {
           localStorage.removeItem('chartOS_quickStartDismissed');
           isMobileView = window.innerWidth <= 980;

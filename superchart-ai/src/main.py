@@ -497,6 +497,8 @@ from src.api.admin_roles import router as admin_roles_router
 app.include_router(admin_roles_router, prefix="/v1", tags=["AdminRoles"])  # /v1/admin-roles/*
 from src.api.plans import router as plans_router
 app.include_router(plans_router, prefix="/v1", tags=["Plans"])  # /v1/plans/*
+from src.api.llm_signal import router as llm_signal_router
+app.include_router(llm_signal_router, prefix="/v1", tags=["LLM Signal"])  # /v1/llm-signal/*
 
 # 보안: 소스 코드 보호 (chart-engine + 서버 파일) — src/middleware/source_protection.py로 분리
 from src.middleware.source_protection import register as _register_source_protection

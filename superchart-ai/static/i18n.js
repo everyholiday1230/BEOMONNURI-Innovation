@@ -4014,10 +4014,8 @@ function setupMutationTranslator() {
 }
 function refreshDynamicUi() {
   if (window.renderRealtimeUI) try { window.renderRealtimeUI(); } catch (e) {}
-  if (window._updateBeomSummary) try { window._updateBeomSummary(); } catch (e) {}
   if (window._updateActiveIndList) try { window._updateActiveIndList(); } catch (e) {}
   if (window.renderWL) try { window.renderWL(document.getElementById('searchInput')?.value || ''); } catch (e) {}
-  if (window.loadMTF) try { window.loadMTF(); } catch (e) {}
   if (window.requestAI) try { document.querySelector('.right-tab.active')?.dataset.p === 'ai' && window.requestAI(); } catch (e) {}
 }
 function setLanguage(lang) {
