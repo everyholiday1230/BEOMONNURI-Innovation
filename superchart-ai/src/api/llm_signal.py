@@ -176,12 +176,17 @@ async def chat(
                           prompt_tokens=llm.get("prompt_tokens", 0), completion_tokens=llm.get("completion_tokens", 0),
                           total_tokens=total_tokens, charged=charged, free_used=not within_free,
                           tier=tier, status="llm_fail")
+        err = llm.get("error")
+        if err in ("llm_unavailable", "llm_http_404", "llm_http_500", "llm_http_502", "llm_http_503"):
+            reply = "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요. (관리자: Ollama 서버/모델 설정을 확인하세요)"
+        else:
+            reply = "요청을 신호로 바꾸지 못했습니다. 예: 'RSI가 30 아래로 가면 매수 표시해줘' 처럼 조건을 구체적으로 적어주세요."
         return ApiResponse(data={
-            "reply": "요청을 신호로 바꾸지 못했습니다. 예: 'RSI가 30 아래로 가면 매수 표시해줘' 처럼 조건을 구체적으로 적어주세요.",
+            "reply": reply,
             "signals": [], "drawings": [],
             "tokens": total_tokens, "charged": charged,
             "free_used": not within_free,
-            "error": llm.get("error"),
+            "error": err,
         })
 
     # ── DSL 검증 + 규칙 평가 ──
@@ -255,6 +260,29 @@ async def preview(req: dict):
         "signals": valid_signals, "drawings": drawings,
         "symbol": symbol, "timeframe": timeframe,
     })
+
+
+@router.get("/health", response_model=ApiResponse)
+async def health():
+    """Ollama 연결/모델 상태 점검 (공개). 신호 기능 동작 가능 여부 진단용."""
+    import httpx as _httpx
+    from src.services.llm_signal import OLLAMA_URL, OLLAMA_MODEL
+    info = {"model": OLLAMA_MODEL, "url": OLLAMA_URL, "reachable": False, "model_available": None, "models": []}
+    # /api/generate → /api/tags 로 변환해 설치된 모델 목록 조회
+    tags_url = OLLAMA_URL.rsplit("/api/", 1)[0] + "/api/tags"
+    try:
+        async with _httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(tags_url)
+        if r.status_code == 200:
+            info["reachable"] = True
+            data = r.json()
+            names = [m.get("name", "") for m in (data.get("models") or [])]
+            info["models"] = names
+            base = OLLAMA_MODEL.split(":")[0]
+            info["model_available"] = any(n == OLLAMA_MODEL or n.split(":")[0] == base for n in names)
+    except Exception as e:
+        info["error"] = str(e)[:160]
+    return ApiResponse(data=info)
 
 
 @router.get("/admin/stats", response_model=ApiResponse)

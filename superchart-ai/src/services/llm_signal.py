@@ -19,7 +19,8 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "kanana-chart")
+# 신호 생성 전용 모델 — 표준 Ollama 모델 사용(기본 llama3). llm_commentary와 독립.
+OLLAMA_MODEL = os.getenv("LLM_SIGNAL_MODEL", os.getenv("OLLAMA_MODEL", "llama3"))
 OLLAMA_TIMEOUT = float(os.getenv("LLM_SIGNAL_TIMEOUT", "40"))
 
 # 표준 지표만 노출하는 시스템 프롬프트 (범온 지표 언급 전혀 없음)

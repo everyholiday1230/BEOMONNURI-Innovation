@@ -6394,6 +6394,8 @@ window._manualAiRefresh = function () {
 };
 let St = !1;
 ((window.requestAI = async function () {
+  // AI 분석 탭 제거됨 — 대상 DOM(aiResult)이 없으면 아무 것도 하지 않는다.
+  if (!document.getElementById("aiResult")) return;
   if (!St && requireLogin("AI \uBD84\uC11D")) {
     ((St = !0),
       (document.getElementById("aiResult").innerHTML =
