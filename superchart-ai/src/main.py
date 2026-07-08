@@ -362,12 +362,24 @@ async def lifespan(app: FastAPI):
 
     app.state.ticker_fallback_task = asyncio.create_task(_ticker_fallback_loop())
 
-    # WS 좀비 연결 주기적 정리 (60초마다)
+    # WS 좀비 연결 + ingest_stats 정리 (60초마다)
     async def _ws_cleanup_loop():
         while True:
             await asyncio.sleep(60)
             try:
                 await ws_manager.cleanup_dead()
+            except Exception as _e:
+                logger.debug("main.silent_except", error=str(_e)[:100])
+            # ingest_stats["by_symbol"] 무제한 증가 방지:
+            # 최근 10분간 수신 없는 심볼 엔트리 제거 (진단은 최근 120초만 노출하므로 영향 없음).
+            try:
+                st = getattr(app.state, "ingest_stats", None)
+                if st and isinstance(st.get("by_symbol"), dict):
+                    cutoff = _time.time() - 600
+                    bs = st["by_symbol"]
+                    stale = [k for k, v in bs.items() if v.get("last_at", 0) < cutoff]
+                    for k in stale:
+                        bs.pop(k, None)
             except Exception as _e:
                 logger.debug("main.silent_except", error=str(_e)[:100])
     asyncio.create_task(_ws_cleanup_loop())

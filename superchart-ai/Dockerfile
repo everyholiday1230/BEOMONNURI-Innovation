@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir .
-RUN pip install --no-cache-dir torch --extra-index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 

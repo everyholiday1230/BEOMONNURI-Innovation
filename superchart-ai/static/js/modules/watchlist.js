@@ -375,9 +375,12 @@ export async function loadWLPrices(opts = {}) {
     const map = {};
     for (const t of data) map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
     window._wlPriceCache = window._wlPriceCache || {};
-    // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback)
-    // 요청 폭주를 막기 위해 상한은 두되, 초기 12개 제한으로 가격 미확인 종목이 과도하게 남는 문제를 완화.
-    const MAX_FILL = Math.min(80, Math.max(24, symbols.length));
+    // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback).
+    // 개별 호출은 서버에서 Bitget 실패 시 Binance fapi(현재 -1003 밴)까지 재시도해
+    // 요청당 최대 5초 지연 + 커넥션/메모리 폭주를 유발한다(Render OOM 원인).
+    // 따라서 개별 보강은 "현재 선택 종목" 중심의 소수(8개)로 강하게 제한한다.
+    // 나머지 미확인 종목은 캐시 fallback + 다음 주기 전체 ticker 갱신으로 채워진다.
+    const MAX_FILL = 8;
     const curSym = window.curSymbol || '';
     const missingAll = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]);
     // 현재 선택 종목/상단 노출 종목부터 우선 보강

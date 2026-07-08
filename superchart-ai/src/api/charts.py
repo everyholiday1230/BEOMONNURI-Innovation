@@ -2,10 +2,17 @@
 import time
 from fastapi import APIRouter, HTTPException
 from src.models.schemas import ApiResponse
-from src.services.market import fetch_candles
+from src.services.market import fetch_candles, _client
 from src.services.symbol_resolver import resolve_symbol
 
 router = APIRouter()
+
+# ═══ Binance fallback circuit breaker ═══
+# Render egress IP가 Binance에 -1003(rate-limit)로 밴된 상태에서 개별 종목
+# fallback이 매번 5초 타임아웃을 소진 → 요청 폭주 시 커넥션/메모리 누적(OOM).
+# fallback이 실패하면 일정 시간(기본 300초) Binance 시도를 건너뛴다.
+_binance_fallback_blocked_until = 0.0
+_BINANCE_FALLBACK_COOLDOWN = 300.0
 
 # ═══ 캐시 헬퍼 (Redis shared cache) ═══
 # 공통 위치: src/services/redis_cache.py
@@ -74,7 +81,7 @@ async def proxy_ticker_24hr(symbol: str = ""):
 
     응답 형태는 Binance fapi 24hr과 동일하게 정규화하여 프론트엔드는 변경 불필요.
     """
-    import httpx
+    global _binance_fallback_blocked_until
     import structlog
     log = structlog.get_logger(__name__)
 
@@ -102,8 +109,8 @@ async def proxy_ticker_24hr(symbol: str = ""):
         url = "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES"
 
     try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(url)
+        c = _client()
+        r = await c.get(url, timeout=5)
         raw = r.json()
     except Exception as e:
         stale = await cache_get("ticker24_last", cache_key)
@@ -115,8 +122,11 @@ async def proxy_ticker_24hr(symbol: str = ""):
 
     # Bitget success: {"code": "00000", "data": [{...}]}
     if not isinstance(raw, dict) or raw.get("code") != "00000" or not raw.get("data"):
-        # Bitget 실패 → Binance Futures fallback (FLOW 등 Bitget 미지원 종목)
-        if symbol:
+        # Bitget 실패 → Binance Futures fallback (FLOW 등 Bitget 미지원 종목).
+        # 단, Binance가 밴 상태면(circuit open) fallback을 건너뛰어 5초 타임아웃
+        # 누적으로 인한 커넥션/메모리 폭주를 방지한다.
+        now_ts = time.time()
+        if symbol and now_ts >= _binance_fallback_blocked_until:
             try:
                 # Binance는 SHIB→1000SHIBUSDT, PEPE→1000PEPEUSDT 등 사용
                 binance_sym = symbol
@@ -127,22 +137,27 @@ async def proxy_ticker_24hr(symbol: str = ""):
                     binance_sym = f"1000{symbol}"
                     binance_scale = 1000  # 가격을 1000으로 나눠야 원래 단위
 
-                async with httpx.AsyncClient(timeout=5) as c:
-                    binance_url = f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={binance_sym}"
-                    br = await c.get(binance_url)
-                    bd = br.json()
-                    if isinstance(bd, dict) and "lastPrice" in bd:
-                        # 1000x 코인은 가격/거래량 보정
-                        if binance_scale > 1:
-                            for k in ("lastPrice", "highPrice", "lowPrice", "openPrice", "prevClosePrice", "weightedAvgPrice"):
-                                if k in bd:
-                                    bd[k] = str(float(bd[k]) / binance_scale)
-                            bd["symbol"] = symbol  # 원래 심볼로 복원
-                        data = bd
-                        await cache_set("ticker24", cache_key, data, ttl=30)
-                        return data
+                c = _client()
+                binance_url = f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={binance_sym}"
+                br = await c.get(binance_url, timeout=5)
+                bd = br.json()
+                if isinstance(bd, dict) and "lastPrice" in bd:
+                    # 1000x 코인은 가격/거래량 보정
+                    if binance_scale > 1:
+                        for k in ("lastPrice", "highPrice", "lowPrice", "openPrice", "prevClosePrice", "weightedAvgPrice"):
+                            if k in bd:
+                                bd[k] = str(float(bd[k]) / binance_scale)
+                        bd["symbol"] = symbol  # 원래 심볼로 복원
+                    data = bd
+                    await cache_set("ticker24", cache_key, data, ttl=30)
+                    return data
+                # lastPrice 없음 = 밴(-1003)/에러 응답 → circuit open
+                _binance_fallback_blocked_until = now_ts + _BINANCE_FALLBACK_COOLDOWN
+                log.warning("ticker.binance_fallback_blocked", cooldown=_BINANCE_FALLBACK_COOLDOWN)
             except Exception:
-                pass
+                # 네트워크/타임아웃 실패도 circuit open
+                _binance_fallback_blocked_until = now_ts + _BINANCE_FALLBACK_COOLDOWN
+                log.warning("ticker.binance_fallback_blocked", cooldown=_BINANCE_FALLBACK_COOLDOWN)
         stale = await cache_get("ticker24_last", cache_key)
         log.warning(
             "ticker.upstream_err",

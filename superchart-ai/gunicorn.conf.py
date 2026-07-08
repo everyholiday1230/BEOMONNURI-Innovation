@@ -1,6 +1,14 @@
 """Gunicorn 설정 — 워커 수를 서버 사양(CPU/메모리)에 맞춰 자동 계산.
 
-목적:
+⚠️ 현재 미사용(NOT USED IN DEPLOYMENT) — 2026-07 확인.
+  - Dockerfile(Render), chart-os.service(systemd) 모두 `uvicorn ... --workers 1`
+    로 직접 실행하며 gunicorn 을 호출하지 않는다.
+  - gunicorn 패키지는 pyproject/requirements 의존성에도 없어 설치조차 되지 않는다.
+  - 따라서 이 파일의 워커 자동계산 로직은 실제 배포에 전혀 영향을 주지 않는다.
+  - 향후 gunicorn 다중 워커로 전환할 때만 사용. (512MB Render 환경에서는
+    단일 uvicorn 워커가 메모리상 더 안전하므로 전환 비권장.)
+
+목적(전환 시):
   - 서버를 옮겨도(다른 사양) 그 서버에 맞는 적정 워커 수를 자동으로 사용.
   - 무한정 늘려 메모리가 터지는(OOM) 일이 없도록 메모리 기준 상한을 둔다.
 
