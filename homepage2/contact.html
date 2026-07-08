@@ -181,7 +181,20 @@
         </div>
 
         <div class="cf-row">
-          <div class="cf-label">[ /07 · SUBMIT ]</div>
+          <div class="cf-label">[ /07 · CONSENT ]</div>
+          <div class="cf-consent" style="display:flex;align-items:flex-start;gap:10px;font-family:var(--sans);font-size:13.5px;line-height:1.6;">
+            <input type="checkbox" id="consent" name="consent" required style="margin-top:3px;flex:0 0 auto;">
+            <label for="consent" style="cursor:pointer;">
+              개인정보 수집 · 이용에 동의합니다. (필수)<br>
+              <span style="font-size:12px;color:rgba(246,244,239,0.55);">
+                수집 항목: 회사·기관명, 담당자 이름·직책, 이메일 / 수집 목적: 도입 진단 문의 응대 및 상담 / 보유 기간: 문의 처리 완료 후 관련 법령에 따라 보관·파기. 자세한 내용은 <a href="privacy.html" style="color:inherit;text-decoration:underline;">개인정보처리방침</a>을 확인하세요.
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="cf-row">
+          <div class="cf-label">[ /08 · SUBMIT ]</div>
           <button type="submit" style="padding: 18px 28px; background: var(--acid); color: #fff; font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; border: none; cursor: pointer; transition: background 0.3s; align-self: start;">
             진단 신청 보내기 →
           </button>
@@ -203,6 +216,10 @@
             var priority = (form.priority.value || '').trim();
             if (!org || !contact || !email) {
               alert('회사·기관명, 담당자, 이메일은 필수 입력입니다.');
+              return;
+            }
+            if (!form.consent.checked) {
+              alert('개인정보 수집·이용 동의가 필요합니다.');
               return;
             }
             var interest = Array.prototype.slice
@@ -283,6 +300,7 @@
         <h5>Company</h5>
         <a href="why.html">Why Beomonnuri</a>
         <a href="contact.html">Contact</a>
+        <a href="privacy.html">개인정보처리방침</a>
       </div>
       <div>
         <h5>Connect</h5>
