@@ -498,6 +498,15 @@ button:focus-visible,
       <table id="logTable"><thead><tr><th>시간</th><th>IP</th><th>유형</th><th>UA</th><th>유저</th></tr></thead><tbody></tbody></table>
       <div class="admin-center" style="margin-top:8px"><button data-action="logsPrev" class="btn btn-primary btn-xs">◀</button><span id="logPageInfo" style="margin:0 10px;font-size:10px;color:var(--muted)">1</span><button data-action="logsNext" class="btn btn-primary btn-xs">▶</button></div>
     </div>
+    <div class="card">
+      <h3>회원 행동 로그 조회</h3>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 8px">특정 회원의 최근 접속·행동 기록(IP·경로·시각)을 조회합니다. 회원 상세에서 확인한 사용자 ID를 입력하세요.</p>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input id="userLogUid" aria-label="회원 ID" placeholder="user_id (UUID)" class="admin-input" style="flex:1;min-width:220px">
+        <button data-action="loadUserLogs" class="btn btn-primary btn-xs">조회</button>
+      </div>
+      <table id="userLogTable" style="margin-top:8px"><thead><tr><th>시각</th><th>IP</th><th>경로</th></tr></thead><tbody><tr><td colspan="3" style="color:var(--muted)">회원 ID를 입력해 조회하세요.</td></tr></tbody></table>
+    </div>
   </div>
   <!-- 공지사항 관리 -->
   <div class="admin-section-gap" data-section="content">
@@ -770,13 +779,25 @@ button:focus-visible,
         <button onclick="sysAction('db-vacuum')" class="btn btn-primary btn-sm">🗄️ DB Vacuum</button>
       </div>
       <div style="margin-top:12px">
-        <h4 style="font-size:12px;margin-bottom:6px">최근 에러 로그</h4>
-        <pre id="errorLog" style="background:var(--color-surface);padding:10px;border-radius:6px;font-size:11px;max-height:200px;overflow-y:auto;white-space:pre-wrap;color:var(--color-text-secondary)">로딩 중...</pre>
+        <h4 style="font-size:12px;margin-bottom:6px">최근 에러 로그 <button data-action="loadErrorLog" class="btn btn-secondary btn-xs" style="margin-left:6px">새로고침</button></h4>
+        <pre id="errorLog" style="background:var(--color-surface);padding:10px;border-radius:6px;font-size:11px;max-height:200px;overflow-y:auto;white-space:pre-wrap;color:var(--color-text-secondary)">시스템 탭을 열면 자동으로 로드됩니다.</pre>
       </div>
       <div style="margin-top:12px">
         <h4 style="font-size:12px;margin-bottom:6px">디스크 사용량</h4>
-        <div id="diskInfo" style="font-size:12px;color:var(--muted)">로딩 중...</div>
+        <div id="diskInfo" style="font-size:12px;color:var(--muted)">-</div>
       </div>
+    </div>
+    <div class="card">
+      <h3>데이터베이스 상태 <button data-action="loadDbStatus" class="btn btn-secondary btn-xs" style="margin-left:6px">새로고침</button></h3>
+      <div class="admin-stat-grid" style="margin-top:10px">
+        <div class="admin-stat"><span>DB 크기</span><strong id="dbSize">-</strong></div>
+        <div class="admin-stat"><span>Alembic 버전</span><strong id="dbAlembic">-</strong></div>
+        <div class="admin-stat"><span>테이블 수</span><strong id="dbTables">-</strong></div>
+        <div class="admin-stat"><span>인덱스 수</span><strong id="dbIndexes">-</strong></div>
+        <div class="admin-stat"><span>파티션 수</span><strong id="dbPartitions">-</strong></div>
+      </div>
+      <h4 style="margin-top:12px;font-size:12px;color:var(--color-text-secondary)">테이블별 행 수 (상위)</h4>
+      <div style="overflow-x:auto;margin-top:6px"><table id="dbTableStats"><thead><tr><th>테이블</th><th>행 수(추정)</th></tr></thead><tbody><tr><td colspan="2" style="color:var(--muted)">-</td></tr></tbody></table></div>
     </div>
   </div>
 
@@ -798,6 +819,12 @@ button:focus-visible,
       <button onclick="adjustPoints()" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">포인트 조정 실행</button>
       <div id="ptAdjResult" style="margin-top:6px;font-size:12px"></div>
       <div style="margin-top:8px;font-size:11px;color:var(--color-text-muted);line-height:1.5">포인트 지급·회수는 감사 목적으로 기록됩니다. 포인트는 현금으로 환불 또는 출금할 수 없으며, 서비스 내 기능 이용에만 사용됩니다.</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>포인트 감사 로그 <span id="ptAuditStatus" style="color:var(--color-text-muted);font-size:12px;margin-left:6px"></span></h3>
+      <p style="font-size:11px;color:var(--color-text-muted);margin:4px 0 8px">모든 포인트 적립·차감·조정·소멸 기록(point_audit·원장)입니다. 최신순으로 표시됩니다.</p>
+      <div style="overflow-x:auto"><table id="ptAuditTable"><thead><tr><th>시각</th><th>주체</th><th>동작</th><th>회원ID</th><th>증감</th><th>이전</th><th>이후</th><th>사유</th><th>결과</th></tr></thead><tbody><tr><td colspan="9" style="color:var(--muted)">로딩 중...</td></tr></tbody></table></div>
+      <div class="admin-center" style="margin-top:8px"><button data-action="ptAuditPrev" class="btn btn-primary btn-xs">◀</button><span id="ptAuditPageInfo" style="margin:0 10px;font-size:10px;color:var(--muted)">1</span><button data-action="ptAuditNext" class="btn btn-primary btn-xs">▶</button></div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>레퍼럴 코드 목록 <span id="ptListCount" style="color:var(--color-primary);font-size:13px;margin-left:6px"></span></h3>
@@ -1038,6 +1065,11 @@ button:focus-visible,
     <div class="card" style="margin-top:12px">
       <h3>권한 변경 감사 로그</h3>
       <div style="overflow-x:auto;margin-top:8px"><table id="admAuditTable"><thead><tr><th>시간</th><th>작업</th><th>대상</th><th>변경 전</th><th>변경 후</th><th>상세</th></tr></thead><tbody><tr><td colspan="6" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>역할 정의 목록 <button data-action="loadAdminRoles" class="btn btn-secondary btn-xs" style="margin-left:6px">새로고침</button></h3>
+      <p style="font-size:11px;color:var(--color-text-muted);margin:4px 0 8px">각 역할(role)에 부여된 접근 가능 메뉴 정의입니다.</p>
+      <div style="overflow-x:auto"><table id="admRolesTable"><thead><tr><th>역할 키</th><th>역할명</th><th>접근 메뉴</th></tr></thead><tbody><tr><td colspan="3" style="color:var(--color-text-muted)">-</td></tr></tbody></table></div>
     </div>
   </div>
 
@@ -1578,10 +1610,15 @@ function showAdminTab(tab){
     if (typeof loadProducts === 'function') loadProducts();
     if (typeof loadReferralIntegrity === 'function') loadReferralIntegrity();
     if (typeof loadAdminPayments === 'function') loadAdminPayments(1);
+    if (typeof loadPointAudit === 'function') loadPointAudit();
   }
   else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
   else if (tab === 'superchart') { if (typeof loadSuperchartAdmin === 'function') loadSuperchartAdmin(); }
-  else if (tab === 'admins') { if (typeof loadAdminAccounts === 'function') loadAdminAccounts(); }
+  else if (tab === 'admins') {
+    if (typeof loadAdminAccounts === 'function') loadAdminAccounts();
+    if (typeof loadAdminRoles === 'function') loadAdminRoles();
+  }
+  else if (tab === 'system') { if (typeof loadSystem === 'function') loadSystem(); }
   else if (tab === 'aiusage') { if (typeof loadAiUsage === 'function') loadAiUsage(); }
   else if (tab === 'llmsignal') { if (typeof loadLlmSignal === 'function') loadLlmSignal(); }
   else if (tab === 'plans') { if (typeof loadPlans === 'function') loadPlans(); }
@@ -1869,6 +1906,104 @@ function llmSigAuditPage(delta){ _llmSigAuditPage=Math.max(1,_llmSigAuditPage+de
 window.loadLlmSignal = loadLlmSignal;
 window.loadLlmSigAudit = loadLlmSigAudit;
 window.llmSigAuditPage = llmSigAuditPage;
+
+// ─────────── 포인트 감사 로그 ───────────
+let _ptAuditPage = 1;
+async function loadPointAudit(){
+  const tb = document.querySelector('#ptAuditTable tbody');
+  const st = document.getElementById('ptAuditStatus');
+  if(!tb) return;
+  if(st) st.textContent = '불러오는 중…';
+  try{
+    const r = await window.api.raw('/v1/points/admin/audit?page=' + _ptAuditPage);
+    const j = r.ok ? await r.json() : null;
+    const items = (j && j.data && j.data.items) || [];
+    const amtColor = v => (Number(v) >= 0 ? 'var(--color-price-up,#c4384b)' : 'var(--color-price-down,#3b82f6)');
+    tb.innerHTML = items.length ? items.map(it => `<tr>
+      <td>${_admEsc(String(it.date||'').slice(0,19).replace('T',' '))}</td>
+      <td>${_admEsc(it.actor)}</td>
+      <td>${_admEsc(it.action)}</td>
+      <td>${_admEsc(String(it.user_id||'').slice(0,10))}</td>
+      <td style="color:${amtColor(it.amount)};font-weight:600">${it.amount>=0?'+':''}${_admEsc(it.amount)}</td>
+      <td>${_admEsc(it.before)}</td>
+      <td>${_admEsc(it.after)}</td>
+      <td>${_admEsc(it.reason)}</td>
+      <td>${_admEsc(it.result)}</td>
+    </tr>`).join('') : '<tr><td colspan="9" style="color:var(--color-text-muted)">기록이 없습니다.</td></tr>';
+    const info = document.getElementById('ptAuditPageInfo'); if(info) info.textContent = _ptAuditPage;
+    if(st) st.textContent = '';
+  }catch(e){ if(st) st.textContent = '오류'; }
+}
+function ptAuditPrev(){ if(_ptAuditPage>1){ _ptAuditPage--; loadPointAudit(); } }
+function ptAuditNext(){ _ptAuditPage++; loadPointAudit(); }
+window.loadPointAudit = loadPointAudit;
+
+// ─────────── 회원 행동 로그 ───────────
+async function loadUserLogs(){
+  const uid = (document.getElementById('userLogUid')||{}).value || '';
+  const tb = document.querySelector('#userLogTable tbody');
+  if(!tb) return;
+  if(!uid.trim()){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">회원 ID를 입력하세요.</td></tr>'; return; }
+  tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">조회 중…</td></tr>';
+  try{
+    const r = await fetch('/v1/ops/user-logs?user_id=' + encodeURIComponent(uid.trim()), {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const j = await r.json();
+    const logs = (j && j.data && j.data.logs) || [];
+    tb.innerHTML = logs.length ? logs.map(l => `<tr>
+      <td>${_admEsc(String(l.time||'').slice(0,19).replace('T',' '))}</td>
+      <td>${_admEsc(l.ip)}</td>
+      <td>${_admEsc(l.path)}</td>
+    </tr>`).join('') : '<tr><td colspan="3" style="color:var(--color-text-muted)">해당 회원의 기록이 없습니다.</td></tr>';
+  }catch(e){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">조회 실패</td></tr>'; }
+}
+window.loadUserLogs = loadUserLogs;
+
+// ─────────── 시스템: 에러 로그 / DB 상태 ───────────
+async function loadErrorLog(){
+  const pre = document.getElementById('errorLog');
+  if(pre) pre.textContent = '불러오는 중…';
+  try{
+    const r = await fetch('/v1/ops/error-log', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const j = await r.json();
+    if(pre) pre.textContent = (j && j.data && j.data.log) ? j.data.log : '로드 실패';
+  }catch(e){ if(pre) pre.textContent = '로드 실패'; }
+}
+async function loadDbStatus(){
+  try{
+    const r = await fetch('/v1/ops/db-status', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const j = await r.json();
+    const d = (j && j.data) ? j.data : j; // db-status는 래핑 없이 반환될 수 있음
+    const set = (id,v)=>{const e=document.getElementById(id); if(e) e.textContent=(v==null?'-':v);};
+    set('dbSize', d.db_size); set('dbAlembic', d.alembic_version);
+    set('dbTables', d.table_count); set('dbIndexes', d.index_count); set('dbPartitions', d.partition_count);
+    const tb = document.querySelector('#dbTableStats tbody');
+    if(tb){
+      const entries = Object.entries(d.tables||{}).slice(0,20);
+      tb.innerHTML = entries.length ? entries.map(([k,v])=>`<tr><td>${_admEsc(k)}</td><td>${_admEsc(Number(v).toLocaleString())}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--color-text-muted)">데이터 없음</td></tr>';
+    }
+  }catch(e){ /* silent */ }
+}
+function loadSystem(){ loadErrorLog(); loadDbStatus(); }
+window.loadErrorLog = loadErrorLog;
+window.loadDbStatus = loadDbStatus;
+window.loadSystem = loadSystem;
+
+// ─────────── 관리자 역할 목록 ───────────
+async function loadAdminRoles(){
+  const tb = document.querySelector('#admRolesTable tbody');
+  if(!tb) return;
+  try{
+    const r = await window.api.raw('/v1/admin-roles/roles');
+    const j = r.ok ? await r.json() : null;
+    const roles = (j && j.data && j.data.roles) || [];
+    tb.innerHTML = roles.length ? roles.map(x => `<tr>
+      <td>${_admEsc(x.key)}</td>
+      <td>${_admEsc(x.label)}</td>
+      <td style="font-size:11px">${_admEsc((x.menus||[]).join(', '))}</td>
+    </tr>`).join('') : '<tr><td colspan="3" style="color:var(--color-text-muted)">역할 정의가 없습니다.</td></tr>';
+  }catch(e){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">불러오지 못했습니다.</td></tr>'; }
+}
+window.loadAdminRoles = loadAdminRoles;
 
 // ─────────── 포인트 상품 관리 ───────────
 async function loadProducts(){
@@ -2321,6 +2456,12 @@ document.addEventListener('click', function(e){
       case 'logsNext':
         if (typeof logPage !== 'undefined' && typeof loadLogs==='function') loadLogs(logPage + 1);
         break;
+      case 'loadUserLogs': if (typeof loadUserLogs==='function') loadUserLogs(); break;
+      case 'ptAuditPrev': if (typeof ptAuditPrev==='function') ptAuditPrev(); break;
+      case 'ptAuditNext': if (typeof ptAuditNext==='function') ptAuditNext(); break;
+      case 'loadErrorLog': if (typeof loadErrorLog==='function') loadErrorLog(); break;
+      case 'loadDbStatus': if (typeof loadDbStatus==='function') loadDbStatus(); break;
+      case 'loadAdminRoles': if (typeof loadAdminRoles==='function') loadAdminRoles(); break;
       case 'bulkUpgrade': if (typeof bulkUpgrade==='function') bulkUpgrade(); break;
       case 'showNoticeForm': if (typeof showNoticeForm==='function') showNoticeForm(); break;
       case 'saveNotice': if (typeof saveNotice==='function') saveNotice(); break;
