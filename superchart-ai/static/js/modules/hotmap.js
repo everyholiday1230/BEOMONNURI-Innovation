@@ -1038,3 +1038,25 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('click', (e) => { const tab = e.target.closest('.right-tab'); if (tab && tab.dataset.p === 'hot') window._loadHotCoins({ force: true }); });
 setInterval(() => { if (document.hidden) return; const a = document.querySelector('.right-tab.active'); if (a && a.dataset.p === 'hot') window._loadHotCoins(); }, 30000);
+
+/* ─────────────────────────────────────────────────────────────
+   소유권 방어: compare.js(구버전)가 동적 import 시점에 window._loadHotCoins 를
+   basis(종합/거래대금/상승률/하락률/변동성)를 모르는 옛 구현으로 덮어쓰는 문제 방지.
+   현재 인기 TOP DOM(#htBasisTabs)은 이 hotmap.js 구현만 지원하므로,
+   이 구현을 확정 버전으로 잠근다. (다른 곳의 재할당은 무시)
+   ───────────────────────────────────────────────────────────── */
+(function () {
+  const _canonicalLoadHot = window._loadHotCoins;
+  if (typeof _canonicalLoadHot !== 'function') return;
+  try {
+    Object.defineProperty(window, '_loadHotCoins', {
+      configurable: true,
+      enumerable: true,
+      get() { return _canonicalLoadHot; },
+      set(_v) { /* 외부(구버전 compare.js 등) 재할당 무시 — hotmap 구현 유지 */ },
+    });
+  } catch (_) {
+    // defineProperty 실패 시 폴백: 주기적으로 복원
+    setInterval(() => { if (window._loadHotCoins !== _canonicalLoadHot) window._loadHotCoins = _canonicalLoadHot; }, 1000);
+  }
+})();
