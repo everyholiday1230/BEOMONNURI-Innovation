@@ -259,6 +259,186 @@ async def preview(req: dict):
     })
 
 
+# 프론트 신호 빌더가 노출할 지표 카탈로그.
+# 지표탭 5개 그룹의 공개 표준 지표만 (범온 고유 지표 제외).
+# 각 항목: key(백엔드 indicator), label(표시명), group, params(조정 가능한 파라미터),
+#          scale(값 범위 힌트), ops(허용 연산), default_value(기본 임계값 힌트).
+INDICATOR_CATALOG = [
+    # ── 추세 (이동평균 계열) ──
+    {"key": "ema", "label": "EMA (지수이동평균)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    {"key": "sma", "label": "SMA (단순이동평균)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    {"key": "wma", "label": "WMA (가중이동평균)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    {"key": "hma", "label": "HMA (헐이동평균)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    {"key": "dema", "label": "DEMA (이중지수이평)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    {"key": "tema", "label": "TEMA (삼중지수이평)", "group": "추세",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
+     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
+     "value_kind": "price"},
+    # ── 모멘텀 (오실레이터) ──
+    {"key": "rsi", "label": "RSI", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["below", "above", "cross_up", "cross_down"], "value_kind": "level",
+     "range": [0, 100], "default_value": 30},
+    {"key": "macd", "label": "MACD", "group": "모멘텀",
+     "params": [], "ops": ["above", "below", "cross_up", "cross_down"],
+     "value_kind": "zero", "default_value": 0},
+    {"key": "stochastic", "label": "스토캐스틱", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+    {"key": "cci", "label": "CCI", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "level", "range": [-200, 200], "default_value": 100},
+    {"key": "roc", "label": "ROC (변화율)", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 12, "min": 1, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    {"key": "willr", "label": "윌리엄스 %R", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["below", "above"], "value_kind": "level", "range": [-100, 0], "default_value": -80},
+    {"key": "stochrsi", "label": "스토캐스틱 RSI", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+    {"key": "mom", "label": "모멘텀", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 10, "min": 1, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    {"key": "tsi", "label": "TSI", "group": "모멘텀",
+     "params": [], "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    {"key": "trix", "label": "TRIX", "group": "모멘텀",
+     "params": [{"key": "period", "label": "기간", "default": 15, "min": 2, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    {"key": "ao", "label": "AO (오썸)", "group": "모멘텀",
+     "params": [], "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    # ── 변동성 ──
+    {"key": "bollinger", "label": "볼린저 밴드(중심)", "group": "변동성",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
+     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+    {"key": "keltner", "label": "켈트너(중심)", "group": "변동성",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
+     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+    {"key": "envelope", "label": "엔벨로프(중심)", "group": "변동성",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
+     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+    {"key": "atr", "label": "ATR (평균진폭)", "group": "변동성",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "number"},
+    # ── 거래량 ──
+    {"key": "volume", "label": "거래량", "group": "거래량",
+     "params": [], "ops": ["above", "below"], "value_kind": "number"},
+    {"key": "obv", "label": "OBV", "group": "거래량",
+     "params": [], "ops": ["above", "below"], "value_kind": "number", "default_value": 0},
+    {"key": "mfi", "label": "MFI", "group": "거래량",
+     "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+    {"key": "cmf", "label": "CMF (차이킨)", "group": "거래량",
+     "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
+     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
+    # ── 가격구조 ──
+    {"key": "vwap", "label": "VWAP", "group": "가격구조",
+     "params": [], "supports_cross": True,
+     "ops": ["cross_up", "cross_down", "above", "below"], "value_kind": "price"},
+    {"key": "price", "label": "가격(종가)", "group": "가격구조",
+     "params": [], "supports_cross": True,
+     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+]
+
+
+@router.get("/indicators", response_model=ApiResponse)
+async def indicators():
+    """신호 빌더가 노출할 지표 카탈로그 (공개, 지표탭 표준 지표)."""
+    groups: dict[str, list] = {}
+    for item in INDICATOR_CATALOG:
+        groups.setdefault(item["group"], []).append(item)
+    return ApiResponse(data={
+        "groups": [{"name": g, "indicators": items} for g, items in groups.items()],
+        "ops": {
+            "above": "위로 돌파/이상", "below": "아래로 돌파/이하",
+            "cross_up": "상향 돌파(골든크로스)", "cross_down": "하향 돌파(데드크로스)",
+        },
+        "actions": {"buy": "매수 표시", "sell": "매도 표시", "zone": "관심 구간"},
+    })
+
+
+@router.post("/build", response_model=ApiResponse)
+async def build(req: dict):
+    """버튼식 신호 빌더 — AND로 결합된 여러 조건을 평가해 차트 드로잉 반환.
+
+    무료·과금 없음·LLM 미사용. 인증 불필요(공개 시세·표준 지표만).
+
+    요청 형식:
+      {
+        "conditions": [
+           {"indicator":"rsi","period":14,"op":"below","value":30},
+           {"indicator":"ema","period":20,"op":"cross_up",
+            "target":{"indicator":"ema","period":50}}
+        ],
+        "action": "buy",           # buy | sell | zone
+        "combine": "and",          # 현재 and 만 지원
+        "symbol": "BTCUSDT", "timeframe": "1h",
+        "label": "내 매수 신호"      # 선택
+      }
+    """
+    conditions_in = req.get("conditions")
+    if not isinstance(conditions_in, list) or not conditions_in:
+        raise HTTPException(400, "조건을 1개 이상 추가해주세요.")
+
+    action = str(req.get("action", "buy")).lower().strip()
+    if action not in ("buy", "sell", "zone"):
+        action = "buy"
+    label = str(req.get("label", "") or "").strip()[:60]
+    symbol = str(req.get("symbol", "") or "").strip() or "BTCUSDT"
+    timeframe = str(req.get("timeframe", "") or "").strip() or "1h"
+
+    # 조건 검증/정규화
+    try:
+        conditions = signal_rules.validate_conditions(conditions_in)
+    except signal_rules.RuleError as e:
+        return ApiResponse(data={
+            "reply": "유효한 조건이 없습니다. 지표·조건·값을 확인해주세요.",
+            "conditions": [], "drawings": [], "detail": str(e),
+        })
+
+    try:
+        api_sym, exchange_id = resolve_symbol(symbol)
+        candles = await fetch_candles(api_sym, exchange_id, timeframe, CANDLE_LIMIT)
+    except Exception:
+        candles = []
+
+    drawings = signal_rules.evaluate_group(candles, conditions, action, label) if candles else []
+
+    act_ko = {"buy": "매수", "sell": "매도", "zone": "관심구간"}.get(action, action)
+    n_marks = len(drawings)
+    if not candles:
+        reply = "시세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."
+    elif n_marks:
+        cond_txt = "모든 조건" if len(conditions) > 1 else "조건"
+        reply = f"{cond_txt}을 동시에 만족하는 {act_ko} 신호 {n_marks}개를 차트에 표시했습니다."
+    else:
+        reply = "조건은 유효하지만 최근 구간에서 동시에 만족하는 지점이 없습니다. 값이나 기간을 조정해보세요."
+
+    return ApiResponse(data={
+        "reply": reply,
+        "conditions": conditions,
+        "action": action,
+        "drawings": drawings,
+        "count": n_marks,
+        "symbol": symbol, "timeframe": timeframe,
+    })
+
+
 @router.get("/health", response_model=ApiResponse)
 async def health():
     """신호 엔진 상태 점검 (공개). 기본은 규칙 파서(무료·항상 가용)."""

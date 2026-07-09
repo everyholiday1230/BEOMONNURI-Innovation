@@ -693,3 +693,118 @@ def summarize(signals: list[dict], drawings: list[dict]) -> str:
     if n_zones:
         parts.append(f"관심구간 {n_zones}개")
     return " · ".join(parts)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  AND 다중조건 그룹 평가 (버튼식 신호 빌더)
+# ══════════════════════════════════════════════════════════════════
+def _condition_state(candles_ohlcv: dict, cond: dict) -> np.ndarray:
+    """조건 하나를 봉별 불리언 상태(True/False) 시계열로 변환.
+
+    - above/below: 지표값이 임계값보다 크/작으면 True (그 상태가 유지되는 구간 전체)
+    - cross_up/cross_down: 교차가 발생한 봉만 True (순간 이벤트)
+    """
+    indicator = cond["indicator"]
+    op = cond["op"]
+    period = cond["period"]
+    series = _series_for(indicator, period, candles_ohlcv)
+    n = len(series)
+    state = np.zeros(n, dtype=bool)
+
+    if op in ("cross_up", "cross_down"):
+        tgt = cond["target"]
+        series_b = _series_for(tgt["indicator"], tgt["period"], candles_ohlcv)
+        m = min(len(series), len(series_b))
+        for i in range(1, m):
+            if any(math.isnan(x) for x in (series[i], series_b[i], series[i - 1], series_b[i - 1])):
+                continue
+            if op == "cross_up":
+                if series[i - 1] <= series_b[i - 1] and series[i] > series_b[i]:
+                    state[i] = True
+            else:
+                if series[i - 1] >= series_b[i - 1] and series[i] < series_b[i]:
+                    state[i] = True
+    else:  # above / below — 유지 상태
+        value = cond["value"]
+        for i in range(n):
+            v = series[i]
+            if math.isnan(v):
+                continue
+            if op == "above":
+                state[i] = v > value
+            elif op == "below":
+                state[i] = v < value
+    return state
+
+
+def evaluate_group(candles: list[dict], conditions: list[dict], action: str,
+                   label: str = "") -> list[dict]:
+    """여러 조건을 AND로 결합해 모두 만족되는 '진입 봉'에 마커를 만든다.
+
+    로직:
+      - 각 조건을 봉별 불리언 상태로 변환.
+        · above/below 는 유지 상태(구간), cross_up/down 은 순간 이벤트.
+      - 모든 조건 AND → combined 상태.
+      - combined 가 False→True 로 바뀌는 봉(진입 시점)에만 마커.
+        (교차형 조건이 하나라도 있으면 그 순간에만 True 이므로 자연스럽게 진입점이 됨)
+
+    반환: evaluate() 와 동일한 드로잉 객체 리스트.
+    """
+    if not candles or not conditions:
+        return []
+    ohlcv = _extract_ohlcv(candles)
+    close = ohlcv["close"]
+    n = len(close)
+
+    states = [_condition_state(ohlcv, c) for c in conditions]
+    combined = np.ones(n, dtype=bool)
+    for s in states:
+        m = min(len(combined), len(s))
+        combined = combined[:m] & s[:m]
+        n = m
+
+    # False→True 진입 봉 추출
+    entry_idxs: list[int] = []
+    for i in range(1, n):
+        if combined[i] and not combined[i - 1]:
+            entry_idxs.append(i)
+    entry_idxs = entry_idxs[-MAX_MARKERS_PER_SIGNAL:]
+
+    drawings: list[dict] = []
+    for i in entry_idxs:
+        if i < 0 or i >= len(close):
+            continue
+        price = float(close[i])
+        t = _candle_time(candles[i]) if i < len(candles) else None
+        if action == "buy":
+            drawings.append({
+                "type": "signal", "index": i, "time": t, "price": price,
+                "signalType": "ku", "color": "#C4384B",
+                "label": label or "매수", "_llm": True,
+            })
+        elif action == "sell":
+            drawings.append({
+                "type": "signal", "index": i, "time": t, "price": price,
+                "signalType": "kd", "color": "#3B82F6",
+                "label": label or "매도", "_llm": True,
+            })
+        elif action == "zone":
+            end_i = min(i + 10, len(close) - 1)
+            drawings.append({
+                "type": "box", "index": i, "time": t, "price": price,
+                "price2": price * 0.995, "endIndex": end_i,
+                "endTime": _candle_time(candles[end_i]) if end_i < len(candles) else None,
+                "color": "rgba(216,182,106,0.2)",
+                "label": label or "관심 구간", "_llm": True,
+            })
+    return drawings
+
+
+def validate_conditions(conditions: list) -> list[dict]:
+    """빌더가 보낸 조건 배열을 검증/정규화한다 (validate_dsl 의 조건 단위 재사용)."""
+    wrapped = {"signals": [dict(c, action="buy") for c in conditions if isinstance(c, dict)]}
+    validated = validate_dsl(wrapped)
+    # action 은 그룹 단위로 별도 지정되므로 조건에서는 제거
+    for v in validated:
+        v.pop("action", None)
+    return validated

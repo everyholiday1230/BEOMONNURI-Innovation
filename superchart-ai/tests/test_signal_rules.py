@@ -67,3 +67,48 @@ def test_isolation_no_beomonnuri_import():
         # 주석/문서화 문자열 언급은 허용하되, 실제 import 구문은 없어야 함
         assert f"from src.services.{banned}" not in src
         assert f"import {banned}" not in src
+
+
+# ── AND 다중조건 그룹 (버튼식 빌더) ──
+def test_validate_conditions():
+    conds = sr.validate_conditions([
+        {"indicator": "rsi", "period": 14, "op": "below", "value": 30},
+        {"indicator": "price", "op": "cross_up", "target": {"indicator": "ema", "period": 20}},
+    ])
+    assert len(conds) == 2
+    # action 은 조건에서 제거되어야 한다 (그룹 단위 지정)
+    assert all("action" not in c for c in conds)
+
+
+def test_evaluate_group_single_matches_evaluate():
+    candles = _candles(150)
+    conds = sr.validate_conditions([{"indicator": "rsi", "period": 14, "op": "below", "value": 45}])
+    drawings = sr.evaluate_group(candles, conds, "buy", "테스트")
+    assert isinstance(drawings, list)
+    for d in drawings:
+        assert d["type"] == "signal"
+        assert d["signalType"] == "ku"
+        assert "time" in d
+        assert d["_llm"] is True
+
+
+def test_evaluate_group_and_is_subset():
+    # AND 결합 결과는 각 단일 조건보다 신호가 많을 수 없다 (더 엄격).
+    candles = _candles(200)
+    c1 = sr.validate_conditions([{"indicator": "rsi", "period": 14, "op": "below", "value": 55}])
+    c2 = sr.validate_conditions([{"indicator": "rsi", "period": 14, "op": "below", "value": 55},
+                                 {"indicator": "price", "op": "above", "value": 0}])
+    d1 = sr.evaluate_group(candles, c1, "buy")
+    d2 = sr.evaluate_group(candles, c2, "buy")
+    # price>0 은 항상 참이므로 두 결과 개수가 같아야 한다
+    assert len(d1) == len(d2)
+
+
+def test_evaluate_group_rejects_beomonnuri():
+    # 범온 지표는 validate_conditions 에서 제거된다.
+    try:
+        sr.validate_conditions([{"indicator": "beom_candle", "op": "above", "value": 1}])
+        assert False, "should raise (no valid conditions)"
+    except sr.RuleError:
+        pass
+
