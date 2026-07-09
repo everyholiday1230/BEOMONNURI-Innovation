@@ -46,6 +46,13 @@
     if (!buf || !buf.length || timeMs == null) return -1;
     const target = timeMs > 1e12 ? Math.floor(timeMs / 1000) : timeMs;
     const times = buf.time, len = buf.length;
+    if (len < 1) return -1;
+    // 버퍼 시간 범위 밖이면 매핑하지 않음 (화면에 없는 봉)
+    const first = Math.floor(times[0]);
+    const last = Math.floor(times[len - 1]);
+    // 봉 간격(초) 추정 — 범위 밖 여유 판단용
+    const step = len > 1 ? Math.abs(Math.floor(times[1]) - first) || 60 : 60;
+    if (target < first - step || target > last + step) return -1;
     let lo = 0, hi = len - 1, best = -1, bestDiff = Infinity;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
@@ -55,7 +62,8 @@
       if (tv === target) return mid;
       if (tv < target) lo = mid + 1; else hi = mid - 1;
     }
-    return best;
+    // 근접 매핑은 봉 간격 이내일 때만 인정
+    return bestDiff <= step ? best : -1;
   }
   function _renderDrawings(drawings) {
     const chart = window.chart;
@@ -151,6 +159,7 @@
     const meta = CAT_MAP[key];
     _renderIndChips();
     if (!meta) return;
+    _el('sbValue').dataset.set = '';   // 새 지표 → 값 자동채움 재개
     _el('sbDetail').style.display = '';
     _el('sbDetailName').textContent = meta.label;
     _renderParamsInline(_el('sbParams'), meta, 'sbP');
@@ -187,7 +196,7 @@
       b.type = 'button';
       b.className = 'sb-op-chip' + (op === curOp ? ' active' : '');
       b.textContent = OP_LABEL[op] || op;
-      b.addEventListener('click', () => { curOp = op; _renderOpChips(meta); _onOpChange(); _updatePreview(); });
+      b.addEventListener('click', () => { curOp = op; _renderOpChips(meta); _el('sbValue').dataset.set = ''; _onOpChange(); _updatePreview(); });
       box.appendChild(b);
     });
   }
@@ -209,8 +218,11 @@
       } else if (meta.value_kind === 'price') {
         vLabel.textContent = '가격'; vHint.textContent = '가격 값 입력';
       } else { vLabel.textContent = '값'; vHint.textContent = ''; }
-      if (meta.default_value != null) { vInput.value = meta.default_value; }
-      else if (vInput.dataset.set !== '1') { vInput.value = ''; }
+      // 조건(op)에 따라 적절한 기본값 자동 설정 (사용자가 직접 수정하기 전까지)
+      let dv = null;
+      if (meta.default_by_op && meta.default_by_op[curOp] != null) dv = meta.default_by_op[curOp];
+      else if (meta.default_value != null) dv = meta.default_value;
+      if (dv != null && vInput.dataset.set !== '1') { vInput.value = dv; }
     }
   }
 
@@ -218,9 +230,13 @@
     const sel = _el('sbTargetIndicator');
     if (!sel || !CATALOG) return;
     sel.innerHTML = '';
+    // 교차 대상은 가격 스케일 지표만 (이동평균·밴드 중심선·VWAP·가격).
+    // RSI 같은 오실레이터를 가격과 교차시키는 것은 의미가 없으므로 제외.
     (CATALOG.groups || []).forEach(g => {
+      const items = (g.indicators || []).filter(ind => ind.value_kind === 'price');
+      if (!items.length) return;
       const og = document.createElement('optgroup'); og.label = g.name;
-      (g.indicators || []).forEach(ind => {
+      items.forEach(ind => {
         const o = document.createElement('option'); o.value = ind.key; o.textContent = ind.label;
         og.appendChild(o);
       });
@@ -324,9 +340,11 @@
     const symbol = window.curSymbol || 'BTCUSDT';
     const timeframe = window.curTf || '1h';
     const label = (_el('sbLabel').value || '').trim();
+    const bufLen = (window.chart && window.chart.buffer && window.chart.buffer.length) || 0;
 
     try {
       const body = { conditions, action, combine: 'and', symbol, timeframe, label };
+      if (bufLen > 0) body.limit = bufLen;
       let resp;
       if (window.api && window.api.raw) {
         resp = await window.api.raw(API + '/v1/llm-signal/build', { method: 'POST', body });

@@ -264,54 +264,52 @@ async def preview(req: dict):
 # 각 항목: key(백엔드 indicator), label(표시명), group, params(조정 가능한 파라미터),
 #          scale(값 범위 힌트), ops(허용 연산), default_value(기본 임계값 힌트).
 INDICATOR_CATALOG = [
-    # ── 추세 (이동평균 계열) ──
+    # ── 추세 (이동평균 계열) — 가격 스케일이라 '다른 지표와 교차'만 의미 있음 ──
+    #    (절대 임계값 above/below 는 가격 단위를 몰라 부적절 → 교차 전용)
     {"key": "ema", "label": "EMA (지수이동평균)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "sma", "label": "SMA (단순이동평균)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "wma", "label": "WMA (가중이동평균)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "hma", "label": "HMA (헐이동평균)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "dema", "label": "DEMA (이중지수이평)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "tema", "label": "TEMA (삼중지수이평)", "group": "추세",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 1, "max": 400}],
-     "supports_cross": True, "ops": ["cross_up", "cross_down", "above", "below"],
-     "value_kind": "price"},
-    # ── 모멘텀 (오실레이터) ──
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
+    # ── 모멘텀 (오실레이터) — 값 비교. 조건 방향별 적정 기본값 제공 ──
     {"key": "rsi", "label": "RSI", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["below", "above", "cross_up", "cross_down"], "value_kind": "level",
-     "range": [0, 100], "default_value": 30},
+     "ops": ["below", "above"], "value_kind": "level",
+     "range": [0, 100], "default_value": 30, "default_by_op": {"below": 30, "above": 70}},
     {"key": "macd", "label": "MACD", "group": "모멘텀",
-     "params": [], "ops": ["above", "below", "cross_up", "cross_down"],
-     "value_kind": "zero", "default_value": 0},
+     "params": [], "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
     {"key": "stochastic", "label": "스토캐스틱", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100],
+     "default_value": 20, "default_by_op": {"below": 20, "above": 80}},
     {"key": "cci", "label": "CCI", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
-     "ops": ["above", "below"], "value_kind": "level", "range": [-200, 200], "default_value": 100},
+     "ops": ["below", "above"], "value_kind": "level", "range": [-200, 200],
+     "default_value": -100, "default_by_op": {"below": -100, "above": 100}},
     {"key": "roc", "label": "ROC (변화율)", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 12, "min": 1, "max": 100}],
      "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
     {"key": "willr", "label": "윌리엄스 %R", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["below", "above"], "value_kind": "level", "range": [-100, 0], "default_value": -80},
+     "ops": ["below", "above"], "value_kind": "level", "range": [-100, 0],
+     "default_value": -80, "default_by_op": {"below": -80, "above": -20}},
     {"key": "stochrsi", "label": "스토캐스틱 RSI", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100],
+     "default_value": 20, "default_by_op": {"below": 20, "above": 80}},
     {"key": "mom", "label": "모멘텀", "group": "모멘텀",
      "params": [{"key": "period", "label": "기간", "default": 10, "min": 1, "max": 100}],
      "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
@@ -322,37 +320,36 @@ INDICATOR_CATALOG = [
      "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
     {"key": "ao", "label": "AO (오썸)", "group": "모멘텀",
      "params": [], "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
-    # ── 변동성 ──
-    {"key": "bollinger", "label": "볼린저 밴드(중심)", "group": "변동성",
+    # ── 변동성 — 중심선(밴드)은 가격 스케일 → 교차 전용. ATR 은 값 비교. ──
+    {"key": "bollinger", "label": "볼린저(중심선)", "group": "변동성",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
-     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
-    {"key": "keltner", "label": "켈트너(중심)", "group": "변동성",
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
+    {"key": "keltner", "label": "켈트너(중심선)", "group": "변동성",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
-     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
-    {"key": "envelope", "label": "엔벨로프(중심)", "group": "변동성",
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
+    {"key": "envelope", "label": "엔벨로프(중심선)", "group": "변동성",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
-     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+     "supports_cross": True, "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "atr", "label": "ATR (평균진폭)", "group": "변동성",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["above", "below"], "value_kind": "number"},
-    # ── 거래량 ──
-    {"key": "volume", "label": "거래량", "group": "거래량",
-     "params": [], "ops": ["above", "below"], "value_kind": "number"},
-    {"key": "obv", "label": "OBV", "group": "거래량",
-     "params": [], "ops": ["above", "below"], "value_kind": "number", "default_value": 0},
-    {"key": "mfi", "label": "MFI", "group": "거래량",
+     "ops": ["above", "below"], "value_kind": "number",
+     "hint": "가격 단위의 변동폭(절대값)"},
+    # ── 거래량 — OBV/거래량 절대값은 어려워 제외, MFI/CMF 만 노출 ──
+    {"key": "mfi", "label": "MFI (자금흐름)", "group": "거래량",
      "params": [{"key": "period", "label": "기간", "default": 14, "min": 2, "max": 100}],
-     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100], "default_value": 20},
+     "ops": ["below", "above"], "value_kind": "level", "range": [0, 100],
+     "default_value": 20, "default_by_op": {"below": 20, "above": 80}},
     {"key": "cmf", "label": "CMF (차이킨)", "group": "거래량",
      "params": [{"key": "period", "label": "기간", "default": 20, "min": 2, "max": 100}],
-     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0},
-    # ── 가격구조 ──
+     "ops": ["above", "below"], "value_kind": "zero", "default_value": 0,
+     "range": [-1, 1]},
+    # ── 가격구조 — VWAP/가격은 다른 지표와의 교차로 사용 ──
     {"key": "vwap", "label": "VWAP", "group": "가격구조",
      "params": [], "supports_cross": True,
-     "ops": ["cross_up", "cross_down", "above", "below"], "value_kind": "price"},
+     "ops": ["cross_up", "cross_down"], "value_kind": "price"},
     {"key": "price", "label": "가격(종가)", "group": "가격구조",
      "params": [], "supports_cross": True,
-     "ops": ["above", "below", "cross_up", "cross_down"], "value_kind": "price"},
+     "ops": ["cross_up", "cross_down"], "value_kind": "price"},
 ]
 
 
@@ -411,9 +408,17 @@ async def build(req: dict):
             "conditions": [], "drawings": [], "detail": str(e),
         })
 
+    # 프론트 차트 버퍼 길이(limit)를 받아 동일 구간으로 계산 → 마커 시간이 화면과 정합.
+    # 지표 계산 정확도(초기 워밍업)를 위해 최소 300, 최대 CANDLE_LIMIT 로 클램프.
+    try:
+        req_limit = int(req.get("limit", 0) or 0)
+    except (TypeError, ValueError):
+        req_limit = 0
+    limit = max(300, min(CANDLE_LIMIT, req_limit)) if req_limit > 0 else CANDLE_LIMIT
+
     try:
         api_sym, exchange_id = resolve_symbol(symbol)
-        candles = await fetch_candles(api_sym, exchange_id, timeframe, CANDLE_LIMIT)
+        candles = await fetch_candles(api_sym, exchange_id, timeframe, limit)
     except Exception:
         candles = []
 
