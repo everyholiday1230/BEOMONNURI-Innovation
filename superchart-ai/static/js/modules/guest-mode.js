@@ -92,7 +92,17 @@
     const target = e.target.closest(
       '.ind-tag[data-ind], .ind-tag[data-sub], .sub-ind[data-sub], ' +
       '[data-strategy], [data-draw], [data-action="applyPreset"], ' +
-      '[data-ma-type], [data-action="captureChart"], [data-action="saveSettings"]'
+      '[data-ma-type], [data-action="captureChart"], [data-action="saveSettings"], ' +
+      // 분석·차트 기능도 회원 전용 (예측·투영·리플레이·차트 도구·나만의 신호)
+      '[data-action="startForecast"], [data-action="startProjection"], ' +
+      '[data-action="clearForecast"], [data-action="startReplayMode"], ' +
+      '[data-action="stopReplayMode"], [data-action="replayFwd1"], ' +
+      '[data-action="replayFwd10"], [data-action="replayBack1"], ' +
+      '[data-action="replayBack10"], [data-action="replaySpeedUp"], ' +
+      '[data-action="replaySpeedDown"], [data-action="toggleLogScale"], ' +
+      '[data-action="toggleMagnet"], [data-action="buy"], ' +
+      '[data-action="sell"], [data-action="zone"], ' +
+      '.sb-preset, #sbAddCond, #sbRun'
     );
     if (!target) return;
     
