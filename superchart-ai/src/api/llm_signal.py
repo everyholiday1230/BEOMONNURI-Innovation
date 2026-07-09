@@ -11,7 +11,6 @@
 """
 from __future__ import annotations
 
-import math
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,9 +23,8 @@ from src.services.auth import get_current_user_id, decode_token
 from src.services.market import fetch_candles
 from src.services.symbol_resolver import resolve_symbol
 from src.services import signal_rules
+from src.services import signal_nlp
 from src.services.llm_signal import generate_signal_dsl
-from src.services.tier_guard import consume_free_quota
-from src.api.points import spend, _balance
 from src.services.admin_helpers import auth_admin_check
 
 router = APIRouter(prefix="/llm-signal", tags=["LLM Signal"])
@@ -35,6 +33,10 @@ FEATURE = "llm_signal"
 # 토큰당 포인트 환율 (기본 1토큰=1포인트). 운영 중 env로 조정 가능.
 TOKEN_PER_POINT = max(1, int(os.getenv("LLM_TOKEN_PER_POINT", "1")))
 CANDLE_LIMIT = 1000
+
+# 규칙 파서가 실패했을 때만 외부 LLM(Ollama 등) 폴백을 쓸지 여부.
+# 기본 비활성 → 완전 무료(규칙 파서)만으로 동작. 외부 LLM 구성 시 "1"로 켠다.
+_LLM_FALLBACK_ENABLED = os.getenv("LLM_SIGNAL_USE_OLLAMA", "0") == "1"
 
 _ensured = False
 
@@ -138,77 +140,64 @@ async def chat(
     timeframe = str(req.get("timeframe", "") or "").strip() or "1h"
 
     tier = _tier_from_request(request)
-    is_unlimited = tier in ("pro", "premium")
 
-    # ── LLM 호출: 자연어 → DSL (실제 토큰 카운트 포함) ──
-    # 서버 보호: 동시 실행 세마포어 + 사용자당 중복요청 방지.
-    llm = await generate_signal_dsl(message, symbol=symbol, timeframe=timeframe, user_id=user_id)
-    err0 = llm.get("error")
-    if err0 == "busy_user":
-        raise HTTPException(429, detail={"code": "BUSY_USER", "message": "이전 요청을 처리 중입니다. 완료 후 다시 시도해주세요."})
-    if err0 == "busy":
-        raise HTTPException(429, detail={"code": "BUSY", "message": "AI 신호 요청이 많아 잠시 대기 중입니다. 잠시 후 다시 시도해주세요."})
-    total_tokens = int(llm.get("total_tokens", 0) or 0)
+    # ── 1차: 규칙 기반 파서 (무료·즉시·외부 의존 없음) ──
+    # 대부분의 표준 조건("RSI 30 아래 매수", "20/50 골든크로스" 등)을 LLM 없이 처리.
+    # 규칙 파서로 신호를 만들면 토큰/포인트 과금 없이 무료로 제공한다.
+    dsl = signal_nlp.parse(message)
+    source = "rule"
+    total_tokens = 0
+    llm_pt = llm_ct = 0
 
-    # ── 무료 한도 소비 (pro/premium은 항상 무료) ──
-    # busy 로 조기 반환된 경우에는 여기까지 오지 않으므로 무료 횟수를 낭비하지 않는다.
-    within_free = True if is_unlimited else consume_free_quota(user_id, FEATURE)
+    # ── 2차(폴백): 규칙 파서가 실패한 경우에만 LLM 시도(선택 기능) ──
+    # 기본 비활성(LLM_SIGNAL_USE_OLLAMA != "1"). 외부 LLM 미구성 시 규칙 파서만으로 동작.
+    if not dsl.get("signals") and _LLM_FALLBACK_ENABLED:
+        llm = await generate_signal_dsl(message, symbol=symbol, timeframe=timeframe, user_id=user_id)
+        err0 = llm.get("error")
+        if err0 == "busy_user":
+            raise HTTPException(429, detail={"code": "BUSY_USER", "message": "이전 요청을 처리 중입니다. 완료 후 다시 시도해주세요."})
+        if err0 == "busy":
+            raise HTTPException(429, detail={"code": "BUSY", "message": "AI 신호 요청이 많아 잠시 대기 중입니다. 잠시 후 다시 시도해주세요."})
+        if llm.get("ok") and llm.get("dsl"):
+            dsl = llm["dsl"]
+            source = "llm"
+            total_tokens = int(llm.get("total_tokens", 0) or 0)
+            llm_pt = int(llm.get("prompt_tokens", 0) or 0)
+            llm_ct = int(llm.get("completion_tokens", 0) or 0)
 
-    # ── 과금: 무료 한도 초과분만 토큰 비례 차감 ──
+    # 규칙 파서는 무료 → 무료 한도를 소비하지 않는다. (과금 없음)
+    within_free = True
     charged = 0
-    if not within_free and not is_unlimited and total_tokens > 0:
-        charged = math.ceil(total_tokens / TOKEN_PER_POINT)
-        bal = await _balance(db, user_id)
-        if bal < charged:
-            # 무료 소진 + 포인트 부족 → 결제 유도 (402)
-            raise HTTPException(
-                402,
-                detail={
-                    "code": "INSUFFICIENT_POINTS",
-                    "message": f"무료 횟수를 모두 사용했습니다. 이번 요청에는 {charged}P가 필요하지만 잔액은 {bal}P입니다.",
-                    "required": charged,
-                    "balance": bal,
-                },
-            )
-        ok = await spend(db, user_id, charged, reason="llm_signal",
-                         note=f"tokens={total_tokens}", ref_id=None)
-        if not ok:
-            raise HTTPException(402, detail={"code": "INSUFFICIENT_POINTS", "message": "포인트가 부족합니다.", "required": charged})
-        await db.commit()
 
-    # ── LLM 실패 처리 ──
-    if not llm.get("ok") or not llm.get("dsl"):
+    # ── 신호를 못 만든 경우 안내 ──
+    if not dsl.get("signals"):
         await _log_signal(db, user_id=user_id, symbol=symbol, timeframe=timeframe,
                           message=message, signals=[], drawing_count=0,
-                          prompt_tokens=llm.get("prompt_tokens", 0), completion_tokens=llm.get("completion_tokens", 0),
-                          total_tokens=total_tokens, charged=charged, free_used=not within_free,
-                          tier=tier, status="llm_fail")
-        err = llm.get("error")
-        if err in ("llm_unavailable", "llm_http_404", "llm_http_500", "llm_http_502", "llm_http_503"):
-            reply = "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요. (관리자: Ollama 서버/모델 설정을 확인하세요)"
-        else:
-            reply = "요청을 신호로 바꾸지 못했습니다. 예: 'RSI가 30 아래로 가면 매수 표시해줘' 처럼 조건을 구체적으로 적어주세요."
+                          prompt_tokens=llm_pt, completion_tokens=llm_ct,
+                          total_tokens=total_tokens, charged=charged, free_used=False,
+                          tier=tier, status="no_signal")
         return ApiResponse(data={
-            "reply": reply,
+            "reply": ("요청을 신호로 바꾸지 못했습니다. 예: 'RSI가 30 아래로 가면 매수 표시해줘', "
+                      "'20일선이 50일선을 위로 뚫으면 매수', '가격이 70000 위로 가면 매도 표시' 처럼 "
+                      "지표·숫자·조건·매매를 함께 말씀해주세요."),
             "signals": [], "drawings": [],
-            "tokens": total_tokens, "charged": charged,
-            "free_used": not within_free,
-            "error": err,
+            "tokens": total_tokens, "charged": charged, "free_used": False,
+            "source": source,
         })
 
     # ── DSL 검증 + 규칙 평가 ──
     try:
-        valid_signals = signal_rules.validate_dsl(llm["dsl"])
+        valid_signals = signal_rules.validate_dsl(dsl)
     except signal_rules.RuleError as e:
         await _log_signal(db, user_id=user_id, symbol=symbol, timeframe=timeframe,
                           message=message, signals=[], drawing_count=0,
-                          prompt_tokens=llm.get("prompt_tokens", 0), completion_tokens=llm.get("completion_tokens", 0),
-                          total_tokens=total_tokens, charged=charged, free_used=not within_free,
+                          prompt_tokens=llm_pt, completion_tokens=llm_ct,
+                          total_tokens=total_tokens, charged=charged, free_used=False,
                           tier=tier, status="invalid_dsl")
         return ApiResponse(data={
             "reply": "표준 지표(RSI, MACD, 이동평균, 볼린저, 스토캐스틱, 거래량, 가격)로 만들 수 있는 조건으로 다시 말씀해주세요.",
             "signals": [], "drawings": [],
-            "tokens": total_tokens, "charged": charged, "free_used": not within_free,
+            "tokens": total_tokens, "charged": charged, "free_used": False,
             "detail": str(e),
         })
 
@@ -224,8 +213,8 @@ async def chat(
 
     await _log_signal(db, user_id=user_id, symbol=symbol, timeframe=timeframe,
                       message=message, signals=valid_signals, drawing_count=len(drawings),
-                      prompt_tokens=llm.get("prompt_tokens", 0), completion_tokens=llm.get("completion_tokens", 0),
-                      total_tokens=total_tokens, charged=charged, free_used=not within_free,
+                      prompt_tokens=llm_pt, completion_tokens=llm_ct,
+                      total_tokens=total_tokens, charged=charged, free_used=False,
                       tier=tier, status="ok")
 
     return ApiResponse(data={
@@ -236,7 +225,8 @@ async def chat(
         "timeframe": timeframe,
         "tokens": total_tokens,
         "charged": charged,
-        "free_used": not within_free,
+        "free_used": False,
+        "source": source,
         "tier": tier,
     })
 
@@ -271,24 +261,31 @@ async def preview(req: dict):
 
 @router.get("/health", response_model=ApiResponse)
 async def health():
-    """Ollama 연결/모델 상태 점검 (공개). 신호 기능 동작 가능 여부 진단용."""
-    import httpx as _httpx
-    from src.services.llm_signal import OLLAMA_URL, OLLAMA_MODEL
-    info = {"model": OLLAMA_MODEL, "url": OLLAMA_URL, "reachable": False, "model_available": None, "models": []}
-    # /api/generate → /api/tags 로 변환해 설치된 모델 목록 조회
-    tags_url = OLLAMA_URL.rsplit("/api/", 1)[0] + "/api/tags"
-    try:
-        async with _httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(tags_url)
-        if r.status_code == 200:
-            info["reachable"] = True
-            data = r.json()
-            names = [m.get("name", "") for m in (data.get("models") or [])]
-            info["models"] = names
-            base = OLLAMA_MODEL.split(":")[0]
-            info["model_available"] = any(n == OLLAMA_MODEL or n.split(":")[0] == base for n in names)
-    except Exception as e:
-        info["error"] = str(e)[:160]
+    """신호 엔진 상태 점검 (공개). 기본은 규칙 파서(무료·항상 가용)."""
+    info = {
+        "engine": "rule",              # 1차 엔진: 규칙 기반 파서(무료)
+        "rule_parser": True,           # 규칙 파서는 외부 의존 없이 항상 가용
+        "llm_fallback_enabled": _LLM_FALLBACK_ENABLED,
+    }
+    # LLM 폴백이 켜져 있을 때만 Ollama 상태를 함께 진단한다.
+    if _LLM_FALLBACK_ENABLED:
+        import httpx as _httpx
+        from src.services.llm_signal import OLLAMA_URL, OLLAMA_MODEL
+        info.update({"model": OLLAMA_MODEL, "url": OLLAMA_URL,
+                     "reachable": False, "model_available": None, "models": []})
+        tags_url = OLLAMA_URL.rsplit("/api/", 1)[0] + "/api/tags"
+        try:
+            async with _httpx.AsyncClient(timeout=5) as c:
+                r = await c.get(tags_url)
+            if r.status_code == 200:
+                info["reachable"] = True
+                data = r.json()
+                names = [m.get("name", "") for m in (data.get("models") or [])]
+                info["models"] = names
+                base = OLLAMA_MODEL.split(":")[0]
+                info["model_available"] = any(n == OLLAMA_MODEL or n.split(":")[0] == base for n in names)
+        except Exception as e:
+            info["error"] = str(e)[:160]
     return ApiResponse(data=info)
 
 

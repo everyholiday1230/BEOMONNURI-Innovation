@@ -23,7 +23,25 @@ import math
 import numpy as np
 
 # ── 화이트리스트 (이 밖의 값은 전부 거부) ───────────────────────────
-ALLOWED_INDICATORS = {"rsi", "macd", "ema", "sma", "bollinger", "stochastic", "volume", "price"}
+# 우리 "지표탭"의 공개 표준 지표만 포함한다 (범온 고유 지표는 제외).
+#   추세: ema, sma, wma, hma, dema, tema  (일목/PSAR/슈퍼트렌드는 밴드/방향형이라 임계·교차 신호에서 제외)
+#   모멘텀: rsi, macd, stochastic, cci, roc, willr, stochrsi, mom, tsi, trix, ao
+#   변동성: bollinger, keltner, envelope, atr
+#   거래량: volume, obv, mfi, cmf
+#   가격구조: vwap, price
+ALLOWED_INDICATORS = {
+    # 추세 (이동평균 계열 — 종가 기준 값 시계열)
+    "ema", "sma", "wma", "hma", "dema", "tema",
+    # 모멘텀 (오실레이터)
+    "rsi", "macd", "stochastic", "cci", "roc", "willr", "stochrsi",
+    "mom", "tsi", "trix", "ao",
+    # 변동성
+    "bollinger", "keltner", "envelope", "atr",
+    # 거래량
+    "volume", "obv", "mfi", "cmf",
+    # 가격구조
+    "vwap", "price",
+}
 ALLOWED_OPS = {"above", "below", "cross_up", "cross_down"}
 ALLOWED_ACTIONS = {"buy", "sell", "line", "zone"}
 
@@ -152,19 +170,278 @@ def _stochastic(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: in
     return k
 
 
+# ── 추세: 추가 이동평균 계열 (공개 표준) ─────────────────────────────
+def _wma(data: np.ndarray, period: int) -> np.ndarray:
+    """가중이동평균 (최근값에 선형 가중치)."""
+    n = len(data)
+    out = np.full(n, np.nan)
+    if n == 0:
+        return out
+    weights = np.arange(1, period + 1, dtype=float)
+    wsum = weights.sum()
+    for i in range(n):
+        if i + 1 < period:
+            w = np.arange(1, i + 2, dtype=float)
+            out[i] = float(np.dot(data[:i + 1], w) / w.sum())
+        else:
+            out[i] = float(np.dot(data[i - period + 1:i + 1], weights) / wsum)
+    return out
+
+
+def _hma(data: np.ndarray, period: int) -> np.ndarray:
+    """헐 이동평균 (지연 최소화): WMA(2*WMA(n/2) - WMA(n), sqrt(n))."""
+    if len(data) == 0 or period < 2:
+        return data.astype(float)
+    half = max(1, period // 2)
+    sqrt_p = max(1, int(round(math.sqrt(period))))
+    raw = 2.0 * _wma(data, half) - _wma(data, period)
+    raw = np.nan_to_num(raw, nan=0.0)
+    return _wma(raw, sqrt_p)
+
+
+def _dema(data: np.ndarray, period: int) -> np.ndarray:
+    """이중지수이동평균: 2*EMA - EMA(EMA)."""
+    e1 = _ema(data, period)
+    e2 = _ema(e1, period)
+    return 2.0 * e1 - e2
+
+
+def _tema(data: np.ndarray, period: int) -> np.ndarray:
+    """삼중지수이동평균: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA))."""
+    e1 = _ema(data, period)
+    e2 = _ema(e1, period)
+    e3 = _ema(e2, period)
+    return 3.0 * e1 - 3.0 * e2 + e3
+
+
+# ── 모멘텀: 추가 오실레이터 (공개 표준) ──────────────────────────────
+def _cci(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 20) -> np.ndarray:
+    """상품채널지수 (CCI)."""
+    tp = (high + low + close) / 3.0
+    n = len(tp)
+    out = np.full(n, 0.0)
+    sma_tp = _sma(tp, period)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        window = tp[start:i + 1]
+        mad = float(np.mean(np.abs(window - sma_tp[i]))) if len(window) else 0.0
+        if mad > 1e-12:
+            out[i] = (tp[i] - sma_tp[i]) / (0.015 * mad)
+        else:
+            out[i] = 0.0
+    return out
+
+
+def _roc(close: np.ndarray, period: int = 12) -> np.ndarray:
+    """변화율 (Rate of Change, %)."""
+    n = len(close)
+    out = np.full(n, 0.0)
+    for i in range(n):
+        if i >= period and close[i - period] != 0:
+            out[i] = (close[i] - close[i - period]) / close[i - period] * 100.0
+    return out
+
+
+def _willr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> np.ndarray:
+    """윌리엄스 %R (-100 ~ 0)."""
+    n = len(close)
+    out = np.full(n, -50.0)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        hh = np.max(high[start:i + 1])
+        ll = np.min(low[start:i + 1])
+        if hh - ll > 1e-12:
+            out[i] = (hh - close[i]) / (hh - ll) * -100.0
+        else:
+            out[i] = -50.0
+    return out
+
+
+def _stochrsi(close: np.ndarray, period: int = 14) -> np.ndarray:
+    """스토캐스틱 RSI (0 ~ 100)."""
+    rsi = _rsi(close, period)
+    n = len(rsi)
+    out = np.full(n, 50.0)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        window = rsi[start:i + 1]
+        lo = float(np.min(window))
+        hi = float(np.max(window))
+        if hi - lo > 1e-12:
+            out[i] = (rsi[i] - lo) / (hi - lo) * 100.0
+        else:
+            out[i] = 50.0
+    return out
+
+
+def _mom(close: np.ndarray, period: int = 10) -> np.ndarray:
+    """모멘텀 (가격 차이)."""
+    n = len(close)
+    out = np.full(n, 0.0)
+    for i in range(n):
+        if i >= period:
+            out[i] = close[i] - close[i - period]
+    return out
+
+
+def _tsi(close: np.ndarray, long: int = 25, short: int = 13) -> np.ndarray:
+    """참strength지수 (TSI, -100 ~ 100)."""
+    if len(close) < 2:
+        return np.zeros(len(close))
+    momentum = np.diff(close, prepend=close[0])
+    ema1 = _ema(momentum, long)
+    ema2 = _ema(ema1, short)
+    abs_ema1 = _ema(np.abs(momentum), long)
+    abs_ema2 = _ema(abs_ema1, short)
+    out = np.zeros(len(close))
+    for i in range(len(close)):
+        if abs_ema2[i] > 1e-12:
+            out[i] = 100.0 * ema2[i] / abs_ema2[i]
+    return out
+
+
+def _trix(close: np.ndarray, period: int = 15) -> np.ndarray:
+    """TRIX (삼중평활 EMA의 변화율, %)."""
+    e1 = _ema(close, period)
+    e2 = _ema(e1, period)
+    e3 = _ema(e2, period)
+    n = len(close)
+    out = np.full(n, 0.0)
+    for i in range(1, n):
+        if e3[i - 1] != 0:
+            out[i] = (e3[i] - e3[i - 1]) / e3[i - 1] * 100.0
+    return out
+
+
+def _ao(high: np.ndarray, low: np.ndarray) -> np.ndarray:
+    """오썸 오실레이터 (AO): SMA5(중간가) - SMA34(중간가)."""
+    median = (high + low) / 2.0
+    return _sma(median, 5) - _sma(median, 34)
+
+
+# ── 변동성 (공개 표준) ───────────────────────────────────────────────
+def _atr(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> np.ndarray:
+    """평균진폭 (ATR)."""
+    n = len(close)
+    tr = np.zeros(n)
+    for i in range(n):
+        if i == 0:
+            tr[i] = high[i] - low[i]
+        else:
+            tr[i] = max(high[i] - low[i], abs(high[i] - close[i - 1]), abs(low[i] - close[i - 1]))
+    return _ema(tr, period)
+
+
+def _keltner_mid(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 20) -> np.ndarray:
+    """켈트너 채널 중심선 (EMA)."""
+    return _ema(close, period)
+
+
+def _envelope_mid(close: np.ndarray, period: int = 20) -> np.ndarray:
+    """엔벨로프 중심선 (SMA)."""
+    return _sma(close, period)
+
+
+# ── 거래량 (공개 표준) ───────────────────────────────────────────────
+def _obv(close: np.ndarray, volume: np.ndarray) -> np.ndarray:
+    """온밸런스볼륨 (OBV)."""
+    n = len(close)
+    out = np.zeros(n)
+    for i in range(1, n):
+        if close[i] > close[i - 1]:
+            out[i] = out[i - 1] + volume[i]
+        elif close[i] < close[i - 1]:
+            out[i] = out[i - 1] - volume[i]
+        else:
+            out[i] = out[i - 1]
+    return out
+
+
+def _mfi(high: np.ndarray, low: np.ndarray, close: np.ndarray, volume: np.ndarray,
+         period: int = 14) -> np.ndarray:
+    """자금흐름지수 (MFI, 0 ~ 100)."""
+    tp = (high + low + close) / 3.0
+    mf = tp * volume
+    n = len(close)
+    out = np.full(n, 50.0)
+    for i in range(1, n):
+        start = max(1, i - period + 1)
+        pos = neg = 0.0
+        for j in range(start, i + 1):
+            if tp[j] > tp[j - 1]:
+                pos += mf[j]
+            elif tp[j] < tp[j - 1]:
+                neg += mf[j]
+        if neg > 1e-12:
+            mr = pos / neg
+            out[i] = 100.0 - (100.0 / (1.0 + mr))
+        elif pos > 0:
+            out[i] = 100.0
+        else:
+            out[i] = 50.0
+    return out
+
+
+def _cmf(high: np.ndarray, low: np.ndarray, close: np.ndarray, volume: np.ndarray,
+         period: int = 20) -> np.ndarray:
+    """차이킨 자금흐름 (CMF, -1 ~ 1)."""
+    n = len(close)
+    mfv = np.zeros(n)
+    for i in range(n):
+        rng = high[i] - low[i]
+        if rng > 1e-12:
+            mfm = ((close[i] - low[i]) - (high[i] - close[i])) / rng
+        else:
+            mfm = 0.0
+        mfv[i] = mfm * volume[i]
+    out = np.full(n, 0.0)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        vsum = float(np.sum(volume[start:i + 1]))
+        if vsum > 1e-12:
+            out[i] = float(np.sum(mfv[start:i + 1])) / vsum
+    return out
+
+
+# ── 가격구조 (공개 표준) ─────────────────────────────────────────────
+def _vwap(high: np.ndarray, low: np.ndarray, close: np.ndarray, volume: np.ndarray) -> np.ndarray:
+    """거래량가중평균가 (VWAP, 누적)."""
+    tp = (high + low + close) / 3.0
+    n = len(close)
+    out = np.zeros(n)
+    cum_pv = 0.0
+    cum_v = 0.0
+    for i in range(n):
+        cum_pv += tp[i] * volume[i]
+        cum_v += volume[i]
+        out[i] = cum_pv / cum_v if cum_v > 1e-12 else close[i]
+    return out
+
+
 def _series_for(indicator: str, period: int, ohlcv: dict) -> np.ndarray:
     """지표 이름 → 평가에 쓸 대표 시계열 반환 (표준 지표만)."""
     close = ohlcv["close"]
+    high = ohlcv["high"]
+    low = ohlcv["low"]
+    volume = ohlcv["volume"]
     if indicator == "price":
         return close
     if indicator == "volume":
-        return ohlcv["volume"]
+        return volume
     if indicator == "rsi":
         return _rsi(close, period or 14)
     if indicator == "ema":
         return _ema(close, period or 20)
     if indicator == "sma":
         return _sma(close, period or 20)
+    if indicator == "wma":
+        return _wma(close, period or 20)
+    if indicator == "hma":
+        return _hma(close, period or 20)
+    if indicator == "dema":
+        return _dema(close, period or 20)
+    if indicator == "tema":
+        return _tema(close, period or 20)
     if indicator == "macd":
         macd_line, _sig = _macd(close)
         return macd_line
@@ -172,7 +449,37 @@ def _series_for(indicator: str, period: int, ohlcv: dict) -> np.ndarray:
         _u, mid, _l = _bollinger(close, period or 20)
         return mid
     if indicator == "stochastic":
-        return _stochastic(ohlcv["high"], ohlcv["low"], close, period or 14)
+        return _stochastic(high, low, close, period or 14)
+    if indicator == "cci":
+        return _cci(high, low, close, period or 20)
+    if indicator == "roc":
+        return _roc(close, period or 12)
+    if indicator == "willr":
+        return _willr(high, low, close, period or 14)
+    if indicator == "stochrsi":
+        return _stochrsi(close, period or 14)
+    if indicator == "mom":
+        return _mom(close, period or 10)
+    if indicator == "tsi":
+        return _tsi(close)
+    if indicator == "trix":
+        return _trix(close, period or 15)
+    if indicator == "ao":
+        return _ao(high, low)
+    if indicator == "atr":
+        return _atr(high, low, close, period or 14)
+    if indicator == "keltner":
+        return _keltner_mid(high, low, close, period or 20)
+    if indicator == "envelope":
+        return _envelope_mid(close, period or 20)
+    if indicator == "obv":
+        return _obv(close, volume)
+    if indicator == "mfi":
+        return _mfi(high, low, close, volume, period or 14)
+    if indicator == "cmf":
+        return _cmf(high, low, close, volume, period or 20)
+    if indicator == "vwap":
+        return _vwap(high, low, close, volume)
     # 도달 불가 (검증에서 이미 걸러짐)
     raise RuleError(f"unsupported indicator: {indicator}")
 
