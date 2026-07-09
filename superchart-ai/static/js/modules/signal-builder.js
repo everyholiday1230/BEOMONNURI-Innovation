@@ -89,9 +89,19 @@
         n++;
       } catch (_) {}
     }
-    chart._dirty = true;
-    if (typeof window._refreshOverlays === 'function') { try { window._refreshOverlays(); } catch (_) {} }
+    // 주의: window._refreshOverlays() 는 지표 기반으로 drawings 를 재구성하며
+    // _calcOwner="llm" 이 아닌 것을 필터로 제거한다(우리 신호도 삭제됨).
+    // 따라서 여기서는 호출하지 않고, 차트 자체 렌더만 트리거한다.
+    _requestRender(chart);
     return n;
+  }
+
+  // 차트 자체 렌더 트리거 (_refreshOverlays 를 우회 — 우리 신호 보존)
+  // 차트는 requestAnimationFrame 렌더 루프에서 _dirty 를 소비하므로
+  // _dirty=true 만 설정하면 다음 프레임에 자동으로 다시 그려진다.
+  // (기존 entrySignal 등 다른 신호도 동일한 방식을 사용)
+  function _requestRender(chart) {
+    chart._dirty = true;
   }
 
   // ── 메타/상태 ──
@@ -369,7 +379,8 @@
 
   function _clear() {
     _clearChartSignals();
-    if (typeof window._refreshOverlays === 'function') { try { window._refreshOverlays(); } catch (_) {} }
+    const chart = window.chart;
+    if (chart) _requestRender(chart);
     _setResult('', '차트의 신호를 지웠습니다.'); _setStatus('ready', '준비됨');
     if (typeof window.showToast === 'function') window.showToast('내 신호를 지웠습니다.', '#8E7D72');
   }
