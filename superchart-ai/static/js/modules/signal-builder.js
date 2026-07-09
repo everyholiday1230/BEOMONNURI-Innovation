@@ -65,6 +65,23 @@
     // 근접 매핑은 봉 간격 이내일 때만 인정
     return bestDiff <= step ? best : -1;
   }
+  // 현재 차트 버퍼를 백엔드가 이해하는 캔들 배열로 추출 (openTime 은 ms)
+  function _extractCandles() {
+    const buf = window.chart && window.chart.buffer;
+    if (!buf || !buf.length) return null;
+    const n = buf.length;
+    const out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = buf.time[i];
+      out[i] = {
+        openTime: String(t < 1e12 ? Math.round(t * 1000) : Math.round(t)),  // 초→ms
+        open: buf.open[i], high: buf.high[i], low: buf.low[i],
+        close: buf.close[i], volume: buf.volume ? buf.volume[i] : 0,
+      };
+    }
+    return out;
+  }
+
   function _renderDrawings(drawings) {
     const chart = window.chart;
     if (!chart || typeof chart.addDrawing !== 'function') return 0;
@@ -356,10 +373,13 @@
     const timeframe = window.curTf || '1h';
     const label = (_el('sbLabel').value || '').trim();
     const bufLen = (window.chart && window.chart.buffer && window.chart.buffer.length) || 0;
+    const candles = _extractCandles();
 
     try {
       const body = { conditions, action, combine: 'and', symbol, timeframe, label };
-      if (bufLen > 0) body.limit = bufLen;
+      // 현재 차트 버퍼(과거 스크롤 포함)를 그대로 보내 화면과 완전 정합시킨다.
+      if (candles && candles.length >= 50) body.candles = candles;
+      else if (bufLen > 0) body.limit = bufLen;
       let resp;
       if (window.api && window.api.raw) {
         resp = await window.api.raw(API + '/v1/llm-signal/build', { method: 'POST', body });
@@ -384,29 +404,54 @@
     }
   }
 
-  // 종목/타임프레임이 바뀌면 마지막에 적용한 신호를 새 데이터로 자동 재계산.
-  // (프로젝트에 symbolChanged 이벤트가 실제로 dispatch 되지 않아 폴링으로 감지)
+  // 종목/타임프레임이 바뀌거나 과거 데이터가 추가되면 마지막에 적용한 신호를
+  // 새 데이터로 자동 재계산. (symbolChanged 이벤트가 실제로 dispatch 되지 않아 폴링)
   let _lastApplied = null;
-  let _watchSym = null, _watchTf = null, _watchLogin = null;
+  let _watchSym = null, _watchTf = null, _watchLogin = null, _watchBufLen = 0;
+  let _recalcTimer = null;
+  function _bufLen() {
+    return (window.chart && window.chart.buffer && window.chart.buffer.length) || 0;
+  }
+  function _scheduleRecalc(delay) {
+    if (_recalcTimer) clearTimeout(_recalcTimer);
+    _recalcTimer = setTimeout(() => {
+      _recalcTimer = null;
+      if (!_running && conditions.length && _lastApplied && _isLoggedIn()) _run();
+    }, delay);
+  }
   function _startWatcher() {
-    _watchSym = window.curSymbol; _watchTf = window.curTf; _watchLogin = _isLoggedIn();
+    _watchSym = window.curSymbol; _watchTf = window.curTf;
+    _watchLogin = _isLoggedIn(); _watchBufLen = _bufLen();
     setInterval(() => {
       // 로그인 상태 변화 감지 → 게이트 갱신
       const li = _isLoggedIn();
       if (li !== _watchLogin) { _watchLogin = li; _applyGate(); }
-      const sym = window.curSymbol, tf = window.curTf;
-      if (sym === _watchSym && tf === _watchTf) return;
-      _watchSym = sym; _watchTf = tf;
-      _syncMeta();
-      // 조건이 있고, 이전에 한 번 적용했다면 새 종목/시간대로 자동 재계산
-      if (conditions.length && _lastApplied && _isLoggedIn()) {
-        // 차트 버퍼가 새 데이터로 갱신될 시간을 잠깐 준 뒤 재계산
-        setTimeout(() => { if (!_running) _run(); }, 700);
-      } else {
-        // 아직 적용 전이면 기존 신호만 정리
-        _clearChartSignals();
-        const chart = window.chart; if (chart) _requestRender(chart);
+
+      const sym = window.curSymbol, tf = window.curTf, bl = _bufLen();
+
+      // 1) 종목/타임프레임 변경 → 재계산
+      if (sym !== _watchSym || tf !== _watchTf) {
+        _watchSym = sym; _watchTf = tf; _watchBufLen = bl;
+        _syncMeta();
+        if (conditions.length && _lastApplied && _isLoggedIn()) {
+          _scheduleRecalc(700);   // 버퍼 갱신 대기 후 재계산
+        } else {
+          _clearChartSignals();
+          const chart = window.chart; if (chart) _requestRender(chart);
+        }
+        return;
       }
+
+      // 2) 과거 데이터가 추가로 로드됨(버퍼 길이 증가) → 새 구간 포함 재계산
+      //    (사용자가 과거로 스크롤해 더 불러온 경우. '차트에 표시'를 눌러둔 상태면 자동 확장)
+      if (bl > _watchBufLen) {
+        _watchBufLen = bl;
+        if (conditions.length && _lastApplied && _isLoggedIn()) {
+          _scheduleRecalc(400);
+        }
+        return;
+      }
+      _watchBufLen = bl;
     }, 600);
   }
 

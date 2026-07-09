@@ -408,19 +408,38 @@ async def build(req: dict, user_id: str = Depends(get_current_user_id)):
             "conditions": [], "drawings": [], "detail": str(e),
         })
 
-    # 프론트 차트 버퍼 길이(limit)를 받아 동일 구간으로 계산 → 마커 시간이 화면과 정합.
-    # 지표 계산 정확도(초기 워밍업)를 위해 최소 300, 최대 CANDLE_LIMIT 로 클램프.
-    try:
-        req_limit = int(req.get("limit", 0) or 0)
-    except (TypeError, ValueError):
-        req_limit = 0
-    limit = max(300, min(CANDLE_LIMIT, req_limit)) if req_limit > 0 else CANDLE_LIMIT
+    # 캔들 확보 우선순위:
+    # 1) 프론트가 현재 차트 버퍼(과거 스크롤 포함)를 보내면 그대로 사용 → 화면과 완전 정합.
+    #    사용자가 과거로 이동해 더 불러온 구간도 그대로 평가된다.
+    # 2) 없으면 서버가 최신 구간을 조회(limit).
+    candles: list[dict] = []
+    raw_candles = req.get("candles")
+    if isinstance(raw_candles, list) and len(raw_candles) >= 50:
+        # 신뢰 경계: 필요한 필드만 정규화(과도한 크기 방지 위해 최대 CANDLE_LIMIT*2)
+        for c in raw_candles[-(CANDLE_LIMIT * 2):]:
+            if not isinstance(c, dict):
+                continue
+            candles.append({
+                "openTime": c.get("openTime") or c.get("time") or c.get("t"),
+                "open": c.get("open") or c.get("o"),
+                "high": c.get("high") or c.get("h"),
+                "low": c.get("low") or c.get("l"),
+                "close": c.get("close") or c.get("c"),
+                "volume": c.get("volume") or c.get("v") or 0,
+            })
 
-    try:
-        api_sym, exchange_id = resolve_symbol(symbol)
-        candles = await fetch_candles(api_sym, exchange_id, timeframe, limit)
-    except Exception:
-        candles = []
+    if not candles:
+        # 프론트 차트 버퍼 길이(limit)를 받아 동일 구간으로 계산.
+        try:
+            req_limit = int(req.get("limit", 0) or 0)
+        except (TypeError, ValueError):
+            req_limit = 0
+        limit = max(300, min(CANDLE_LIMIT, req_limit)) if req_limit > 0 else CANDLE_LIMIT
+        try:
+            api_sym, exchange_id = resolve_symbol(symbol)
+            candles = await fetch_candles(api_sym, exchange_id, timeframe, limit)
+        except Exception:
+            candles = []
 
     drawings = signal_rules.evaluate_group(candles, conditions, action, label) if candles else []
 
