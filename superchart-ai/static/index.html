@@ -1541,8 +1541,11 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="p-12">
       <!-- 헤더 -->
       <div class="sb-header">
-        <div class="pane-title">나만의 신호 만들기</div>
-        <div class="pane-desc">지표를 고르고 조건을 정하면 차트에 매수·매도 지점을 직접 표시합니다. 조건을 여러 개 더하면 <b>모두 동시에 만족(AND)</b>할 때만 신호가 나옵니다.</div>
+        <div class="sb-title-row">
+          <div class="pane-title">나만의 신호 만들기</div>
+          <span class="sb-free-badge">무료</span>
+        </div>
+        <div class="pane-desc">지표를 골라 조건을 만들면 차트에 매수·매도 지점을 표시합니다. 조건을 여러 개 더하면 <b>모두 동시에 만족(AND)</b>할 때만 신호가 나옵니다.</div>
         <div class="sb-meta">
           <span class="sb-meta-sym" id="sbMetaSym">BTC/USDT</span>
           <span class="sb-meta-tf" id="sbMetaTf">1h</span>
@@ -1550,82 +1553,96 @@ body.dark #_toastContainer .pro-toast-chip {
         </div>
       </div>
 
-      <!-- 1) 조건 목록 -->
-      <div class="sb-section">
-        <div class="sb-section-title"><span class="sb-step">1</span> 조건 <span class="sb-hint">(모두 만족해야 신호 발생)</span></div>
-        <div id="sbCondList" class="sb-cond-list">
-          <!-- 조건 카드가 여기에 추가됨 -->
-          <div class="sb-empty" id="sbCondEmpty">아직 조건이 없습니다. 아래에서 지표를 골라 조건을 추가하세요.</div>
-        </div>
-      </div>
-
-      <!-- 2) 조건 추가 폼 -->
-      <div class="sb-section sb-builder">
-        <div class="sb-section-title"><span class="sb-step">2</span> 조건 추가</div>
-
-        <label class="sb-field">
-          <span class="sb-label">지표</span>
-          <select id="sbIndicator" class="sb-select"></select>
-        </label>
-
-        <!-- 지표 파라미터 (기간 등) — 동적으로 채워짐 -->
-        <div id="sbParams" class="sb-params"></div>
-
-        <label class="sb-field">
-          <span class="sb-label">조건</span>
-          <select id="sbOp" class="sb-select"></select>
-        </label>
-
-        <!-- 값(임계값) 입력 또는 대상 지표 선택 (조건에 따라 전환) -->
-        <div id="sbValueWrap" class="sb-field">
-          <span class="sb-label" id="sbValueLabel">값</span>
-          <input id="sbValue" class="sb-input" type="number" step="any" inputmode="decimal">
-          <span class="sb-value-hint" id="sbValueHint"></span>
-        </div>
-        <div id="sbTargetWrap" class="sb-field" style="display:none">
-          <span class="sb-label">대상 지표</span>
-          <select id="sbTargetIndicator" class="sb-select"></select>
-          <div id="sbTargetParams" class="sb-params"></div>
-        </div>
-
-        <button type="button" id="sbAddCond" class="sb-btn sb-btn-ghost sb-btn-add">+ 조건 추가</button>
-      </div>
-
-      <!-- 3) 액션 + 만들기 -->
-      <div class="sb-section">
-        <div class="sb-section-title"><span class="sb-step">3</span> 신호 종류</div>
-        <div class="sb-action-row" id="sbActionRow" role="radiogroup" aria-label="신호 종류">
-          <button type="button" class="sb-action sb-action-buy active" data-action="buy">매수 ▲</button>
-          <button type="button" class="sb-action sb-action-sell" data-action="sell">매도 ▼</button>
-          <button type="button" class="sb-action sb-action-zone" data-action="zone">관심구간</button>
-        </div>
-        <label class="sb-field" style="margin-top:8px">
-          <span class="sb-label">이름 <span class="sb-hint">(선택)</span></span>
-          <input id="sbLabel" class="sb-input" type="text" maxlength="30" placeholder="예: 내 골든크로스 매수">
-        </label>
-        <div class="sb-run-row">
-          <button type="button" id="sbClear" class="sb-btn sb-btn-ghost" title="차트에 표시된 내 신호를 모두 지웁니다">신호 지우기</button>
-          <button type="button" id="sbRun" class="sb-btn sb-btn-primary">차트에 표시</button>
-        </div>
-        <div id="sbResult" class="sb-result" aria-live="polite"></div>
-      </div>
-
-      <!-- 빠른 예시 (프리셋) -->
-      <div class="sb-section">
-        <div class="sb-section-title"><span class="sb-step">★</span> 빠른 시작</div>
+      <!-- 빠른 시작 -->
+      <div class="sb-quickstart">
+        <div class="sb-quickstart-label">⚡ 빠른 시작</div>
         <div class="sb-presets">
           <button type="button" class="sb-preset" data-preset="rsi_os">RSI 과매도 매수</button>
           <button type="button" class="sb-preset" data-preset="golden">골든크로스 매수</button>
-          <button type="button" class="sb-preset" data-preset="rsi_trend">RSI+추세 동시 매수</button>
+          <button type="button" class="sb-preset" data-preset="rsi_trend">RSI+추세 매수</button>
           <button type="button" class="sb-preset" data-preset="rsi_ob">RSI 과매수 매도</button>
         </div>
+      </div>
+
+      <!-- 내 조건 목록 -->
+      <div class="sb-section">
+        <div class="sb-section-title">
+          <span class="sb-step">1</span> 내 조건
+          <span class="sb-cond-count" id="sbCondCount">0개</span>
+        </div>
+        <div id="sbCondList" class="sb-cond-list">
+          <div class="sb-empty" id="sbCondEmpty">
+            <div class="sb-empty-icon">＋</div>
+            아직 조건이 없어요.<br>아래에서 지표를 골라 조건을 추가하세요.
+          </div>
+        </div>
+      </div>
+
+      <!-- 조건 만들기 (카드) -->
+      <div class="sb-section sb-builder">
+        <div class="sb-section-title"><span class="sb-step">2</span> 조건 추가</div>
+
+        <!-- 지표 그룹 탭 -->
+        <div class="sb-group-tabs" id="sbGroupTabs"></div>
+        <!-- 지표 칩 -->
+        <div class="sb-ind-chips" id="sbIndChips"></div>
+
+        <!-- 선택한 지표 상세 -->
+        <div class="sb-detail" id="sbDetail" style="display:none">
+          <div class="sb-detail-head">
+            <span class="sb-detail-name" id="sbDetailName">지표</span>
+            <div id="sbParams" class="sb-params-inline"></div>
+          </div>
+
+          <div class="sb-field">
+            <span class="sb-label">조건</span>
+            <div class="sb-op-chips" id="sbOpChips"></div>
+          </div>
+
+          <!-- 값 입력 -->
+          <div id="sbValueWrap" class="sb-field">
+            <span class="sb-label" id="sbValueLabel">값</span>
+            <div class="sb-value-row">
+              <input id="sbValue" class="sb-input" type="number" step="any" inputmode="decimal">
+              <span class="sb-value-hint" id="sbValueHint"></span>
+            </div>
+          </div>
+          <!-- 대상 지표 (교차) -->
+          <div id="sbTargetWrap" class="sb-field" style="display:none">
+            <span class="sb-label">대상 지표 (이 지표를 교차)</span>
+            <select id="sbTargetIndicator" class="sb-select"></select>
+            <div id="sbTargetParams" class="sb-params-inline"></div>
+          </div>
+
+          <div class="sb-preview" id="sbCondPreview"></div>
+          <button type="button" id="sbAddCond" class="sb-btn sb-btn-add">＋ 이 조건 추가</button>
+        </div>
+      </div>
+
+      <!-- 신호 종류 + 실행 -->
+      <div class="sb-section">
+        <div class="sb-section-title"><span class="sb-step">3</span> 신호 종류</div>
+        <div class="sb-action-row" id="sbActionRow" role="radiogroup" aria-label="신호 종류">
+          <button type="button" class="sb-action sb-action-buy active" data-action="buy"><b>매수</b><small>▲ 상승 진입</small></button>
+          <button type="button" class="sb-action sb-action-sell" data-action="sell"><b>매도</b><small>▼ 하락 진입</small></button>
+          <button type="button" class="sb-action sb-action-zone" data-action="zone"><b>관심</b><small>◆ 구간 표시</small></button>
+        </div>
+        <label class="sb-field" style="margin-top:10px">
+          <span class="sb-label">신호 이름 <span class="sb-hint">(선택)</span></span>
+          <input id="sbLabel" class="sb-input" type="text" maxlength="30" placeholder="예: 내 골든크로스 매수">
+        </label>
+        <div class="sb-run-row">
+          <button type="button" id="sbClear" class="sb-btn sb-btn-ghost" title="차트에 표시된 내 신호를 모두 지웁니다">지우기</button>
+          <button type="button" id="sbRun" class="sb-btn sb-btn-primary">📈 차트에 표시</button>
+        </div>
+        <div id="sbResult" class="sb-result" aria-live="polite"></div>
       </div>
 
       <!-- 사용 안내 -->
       <div class="sb-info-card">
         <div class="sb-info-row"><span class="sb-info-k">이용 요금</span><span class="sb-info-v">완전 무료 · 무제한</span></div>
-        <div class="sb-info-row"><span class="sb-info-k">사용 지표</span><span class="sb-info-v">지표탭의 추세·모멘텀·변동성·거래량·가격구조</span></div>
-        <div class="sb-info-row"><span class="sb-info-k">신호 방식</span><span class="sb-info-v">여러 조건을 AND로 조합 가능</span></div>
+        <div class="sb-info-row"><span class="sb-info-k">사용 지표</span><span class="sb-info-v">추세·모멘텀·변동성·거래량·가격구조</span></div>
+        <div class="sb-info-row"><span class="sb-info-k">조합 방식</span><span class="sb-info-v">여러 조건 AND (모두 만족)</span></div>
       </div>
 
       <p class="llm-disclaimer">표준 기술지표 기반의 참고용 신호입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 이용자 본인에게 있습니다.</p>
@@ -1815,7 +1832,7 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260621_htv4"></script>
-<script defer src="/static/js/modules/signal-builder.js?v=20260709_sb1"></script>
+<script defer src="/static/js/modules/signal-builder.js?v=20260709_sb2"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js"></script>

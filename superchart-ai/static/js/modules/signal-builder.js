@@ -1,27 +1,30 @@
 // ═══════════════════════════════════════════════
-// signal-builder.js — 나만의 신호 (버튼식 빌더)
+// signal-builder.js — 나만의 신호 (버튼식 빌더 v2)
 //
-// 고객이 지표탭의 표준 지표를 골라 조건을 만들고, 여러 조건을 AND로
-// 묶어 매수/매도/관심 신호를 차트에 직접 표시한다. (AI/대화 아님, 완전 무료)
-// 백엔드: GET /v1/llm-signal/indicators (카탈로그), POST /v1/llm-signal/build (평가)
+// 지표탭 표준 지표를 칩으로 고르고, 기간/조건/값을 정해 조건을 만들고,
+// 여러 조건을 AND로 묶어 매수/매도/관심 신호를 차트에 표시한다.
+// (AI/대화 아님 · 완전 무료 · LLM 미사용)
+// 백엔드: GET /v1/llm-signal/indicators, POST /v1/llm-signal/build
 // ═══════════════════════════════════════════════
 (function () {
   'use strict';
 
   const API = window.API || '';
-  const OWNER = 'llm';   // 차트 드로잉 소유자 태그 (기존 신호 정리 로직과 호환)
+  const OWNER = 'llm';
 
-  let CATALOG = null;        // {groups, ops, actions}
-  let CAT_MAP = {};          // key -> indicator meta
+  let CATALOG = null;
+  let CAT_MAP = {};
   const OP_LABEL = {
-    above: '위로 돌파 / 이상',
-    below: '아래로 돌파 / 이하',
-    cross_up: '상향 돌파(골든크로스)',
-    cross_down: '하향 돌파(데드크로스)',
+    above: '이상 / 위로 돌파',
+    below: '이하 / 아래로 돌파',
+    cross_up: '상향 돌파 (골든크로스)',
+    cross_down: '하향 돌파 (데드크로스)',
   };
 
-  let conditions = [];       // 현재 조건 배열
+  let conditions = [];
   let action = 'buy';
+  let curKey = null;   // 현재 선택한 지표 key
+  let curOp = null;    // 현재 선택한 op
 
   function _el(id) { return document.getElementById(id); }
   function _esc(s) {
@@ -30,7 +33,7 @@
     ));
   }
 
-  // ── 차트 렌더 (time→버퍼 index 매핑, llm-chat.js와 동일 원리) ──
+  // ── 차트 렌더 (time→버퍼 index 매핑) ──
   function _clearChartSignals() {
     const chart = window.chart;
     if (chart && chart.overlay && Array.isArray(chart.overlay.drawings)) {
@@ -38,13 +41,11 @@
       chart._dirty = true;
     }
   }
-
   function _timeToIndex(chart, timeMs) {
     const buf = chart && chart.buffer;
     if (!buf || !buf.length || timeMs == null) return -1;
     const target = timeMs > 1e12 ? Math.floor(timeMs / 1000) : timeMs;
-    const times = buf.time;
-    const len = buf.length;
+    const times = buf.time, len = buf.length;
     let lo = 0, hi = len - 1, best = -1, bestDiff = Infinity;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
@@ -56,7 +57,6 @@
     }
     return best;
   }
-
   function _renderDrawings(drawings) {
     const chart = window.chart;
     if (!chart || typeof chart.addDrawing !== 'function') return 0;
@@ -79,16 +79,14 @@
         }
         chart.addDrawing(obj);
         n++;
-      } catch (_) { /* skip */ }
+      } catch (_) {}
     }
     chart._dirty = true;
-    if (typeof window._refreshOverlays === 'function') {
-      try { window._refreshOverlays(); } catch (_) {}
-    }
+    if (typeof window._refreshOverlays === 'function') { try { window._refreshOverlays(); } catch (_) {} }
     return n;
   }
 
-  // ── 메타 표시 ──
+  // ── 메타/상태 ──
   function _syncMeta() {
     const sym = window.curSymbol || 'BTCUSDT';
     const tf = window.curTf || '1h';
@@ -96,142 +94,159 @@
     if (s) s.textContent = sym.replace('USDT', '/USDT');
     if (t) t.textContent = tf;
   }
-  function _setStatus(state, text) {
-    const b = _el('sbStatus');
-    if (b) { b.dataset.state = state; b.textContent = text; }
-  }
-  function _setResult(cls, text) {
-    const r = _el('sbResult');
-    if (r) { r.className = 'sb-result' + (cls ? ' ' + cls : ''); r.textContent = text || ''; }
-  }
+  function _setStatus(state, text) { const b = _el('sbStatus'); if (b) { b.dataset.state = state; b.textContent = text; } }
+  function _setResult(cls, text) { const r = _el('sbResult'); if (r) { r.className = 'sb-result' + (cls ? ' ' + cls : ''); r.textContent = text || ''; } }
 
-  // ── 카탈로그 로드 + 셀렉트 채우기 ──
+  // ── 카탈로그 로드 ──
   async function _loadCatalog() {
     try {
       const resp = await fetch(API + '/v1/llm-signal/indicators', { credentials: 'include' });
       const j = await resp.json();
       CATALOG = (j && j.data) ? j.data : null;
     } catch (_) { CATALOG = null; }
-    if (!CATALOG) return;
+    if (!CATALOG) { _setResult('error', '지표 목록을 불러오지 못했습니다. 새로고침해 주세요.'); return; }
     CAT_MAP = {};
     (CATALOG.groups || []).forEach(g => (g.indicators || []).forEach(ind => { CAT_MAP[ind.key] = ind; }));
-    _fillIndicatorSelect(_el('sbIndicator'));
-    _fillIndicatorSelect(_el('sbTargetIndicator'), true);
-    _onIndicatorChange();
+    _renderGroupTabs();
+    _fillTargetSelect();
   }
 
-  function _fillIndicatorSelect(sel, targetOnly) {
-    if (!sel || !CATALOG) return;
-    sel.innerHTML = '';
-    (CATALOG.groups || []).forEach(g => {
-      const og = document.createElement('optgroup');
-      og.label = g.name;
-      (g.indicators || []).forEach(ind => {
-        // 대상 지표(교차용)는 이동평균/가격/vwap 계열만 의미 있음 → 전부 노출하되 라벨 그대로
-        const o = document.createElement('option');
-        o.value = ind.key;
-        o.textContent = ind.label;
-        og.appendChild(o);
-      });
-      sel.appendChild(og);
+  // 그룹 탭
+  let curGroup = 0;
+  function _renderGroupTabs() {
+    const tabs = _el('sbGroupTabs');
+    if (!tabs || !CATALOG) return;
+    tabs.innerHTML = '';
+    (CATALOG.groups || []).forEach((g, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sb-group-tab' + (i === curGroup ? ' active' : '');
+      b.textContent = g.name;
+      b.addEventListener('click', () => { curGroup = i; _renderGroupTabs(); _renderIndChips(); });
+      tabs.appendChild(b);
     });
-    if (targetOnly) sel.value = 'ema';
+    _renderIndChips();
   }
 
-  // 파라미터 입력칸 생성 (기간 등)
-  function _renderParams(container, meta, prefix) {
+  // 지표 칩
+  function _renderIndChips() {
+    const box = _el('sbIndChips');
+    if (!box || !CATALOG) return;
+    box.innerHTML = '';
+    const g = CATALOG.groups[curGroup];
+    if (!g) return;
+    (g.indicators || []).forEach(ind => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sb-ind-chip' + (ind.key === curKey ? ' active' : '');
+      b.textContent = ind.label.replace(/\s*\(.*\)/, '');  // 괄호 설명 제거해 짧게
+      b.title = ind.label;
+      b.addEventListener('click', () => _selectIndicator(ind.key));
+      box.appendChild(b);
+    });
+  }
+
+  function _selectIndicator(key) {
+    curKey = key;
+    const meta = CAT_MAP[key];
+    _renderIndChips();
+    if (!meta) return;
+    _el('sbDetail').style.display = '';
+    _el('sbDetailName').textContent = meta.label;
+    _renderParamsInline(_el('sbParams'), meta, 'sbP');
+    // op 칩
+    curOp = (meta.ops && meta.ops[0]) || 'above';
+    _renderOpChips(meta);
+    _onOpChange();
+    _updatePreview();
+  }
+
+  function _renderParamsInline(container, meta, prefix) {
     container.innerHTML = '';
     if (!meta || !meta.params || !meta.params.length) return;
     meta.params.forEach(p => {
-      const wrap = document.createElement('label');
-      wrap.className = 'sb-field';
-      wrap.innerHTML = `<span class="sb-label">${_esc(p.label)}</span>`;
+      const wrap = document.createElement('span');
+      wrap.className = 'sb-mini';
+      wrap.innerHTML = `<span>${_esc(p.label)}</span>`;
       const inp = document.createElement('input');
-      inp.className = 'sb-input';
-      inp.type = 'number';
-      inp.id = prefix + '_' + p.key;
-      inp.value = p.default;
+      inp.type = 'number'; inp.value = p.default;
       if (p.min != null) inp.min = p.min;
       if (p.max != null) inp.max = p.max;
       inp.dataset.pkey = p.key;
+      inp.addEventListener('input', _updatePreview);
       wrap.appendChild(inp);
       container.appendChild(wrap);
     });
   }
 
-  // 지표 변경 → 파라미터/연산/값 UI 갱신
-  function _onIndicatorChange() {
-    const key = _el('sbIndicator').value;
-    const meta = CAT_MAP[key];
-    if (!meta) return;
-    _renderParams(_el('sbParams'), meta, 'sbP');
-
-    // 연산 셀렉트
-    const opSel = _el('sbOp');
-    opSel.innerHTML = '';
+  function _renderOpChips(meta) {
+    const box = _el('sbOpChips');
+    box.innerHTML = '';
     (meta.ops || ['above', 'below']).forEach(op => {
-      const o = document.createElement('option');
-      o.value = op; o.textContent = OP_LABEL[op] || op;
-      opSel.appendChild(o);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sb-op-chip' + (op === curOp ? ' active' : '');
+      b.textContent = OP_LABEL[op] || op;
+      b.addEventListener('click', () => { curOp = op; _renderOpChips(meta); _onOpChange(); _updatePreview(); });
+      box.appendChild(b);
     });
-    _onOpChange();
   }
 
-  // 연산 변경 → 값 입력 vs 대상 지표 전환
   function _onOpChange() {
-    const key = _el('sbIndicator').value;
-    const meta = CAT_MAP[key] || {};
-    const op = _el('sbOp').value;
-    const isCross = (op === 'cross_up' || op === 'cross_down');
-    // 교차: 대상 지표 선택 / 임계값: 숫자 입력
+    const meta = CAT_MAP[curKey] || {};
+    const isCross = (curOp === 'cross_up' || curOp === 'cross_down');
     _el('sbValueWrap').style.display = isCross ? 'none' : '';
     _el('sbTargetWrap').style.display = isCross ? '' : 'none';
-
     if (isCross) {
       const tmeta = CAT_MAP[_el('sbTargetIndicator').value];
-      _renderParams(_el('sbTargetParams'), tmeta, 'sbT');
+      _renderParamsInline(_el('sbTargetParams'), tmeta, 'sbT');
     } else {
-      // 값 힌트/기본값
-      const vLabel = _el('sbValueLabel');
-      const vHint = _el('sbValueHint');
-      const vInput = _el('sbValue');
+      const vLabel = _el('sbValueLabel'), vHint = _el('sbValueHint'), vInput = _el('sbValue');
       if (meta.value_kind === 'level' && meta.range) {
-        vLabel.textContent = '값';
-        vHint.textContent = `범위 ${meta.range[0]} ~ ${meta.range[1]}`;
+        vLabel.textContent = '값'; vHint.textContent = `범위 ${meta.range[0]} ~ ${meta.range[1]}`;
       } else if (meta.value_kind === 'zero') {
-        vLabel.textContent = '값'; vHint.textContent = '0 기준선 비교 권장';
+        vLabel.textContent = '기준값'; vHint.textContent = '0 기준선 권장';
       } else if (meta.value_kind === 'price') {
         vLabel.textContent = '가격'; vHint.textContent = '가격 값 입력';
-      } else {
-        vLabel.textContent = '값'; vHint.textContent = '';
-      }
-      if (meta.default_value != null && (vInput.value === '' || vInput.dataset.auto === '1')) {
-        vInput.value = meta.default_value;
-        vInput.dataset.auto = '1';
-      }
+      } else { vLabel.textContent = '값'; vHint.textContent = ''; }
+      if (meta.default_value != null) { vInput.value = meta.default_value; }
+      else if (vInput.dataset.set !== '1') { vInput.value = ''; }
     }
+  }
+
+  function _fillTargetSelect() {
+    const sel = _el('sbTargetIndicator');
+    if (!sel || !CATALOG) return;
+    sel.innerHTML = '';
+    (CATALOG.groups || []).forEach(g => {
+      const og = document.createElement('optgroup'); og.label = g.name;
+      (g.indicators || []).forEach(ind => {
+        const o = document.createElement('option'); o.value = ind.key; o.textContent = ind.label;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+    sel.value = 'ema';
+    sel.addEventListener('change', () => {
+      _renderParamsInline(_el('sbTargetParams'), CAT_MAP[sel.value], 'sbT');
+      _updatePreview();
+    });
   }
 
   function _readParams(container) {
     const out = {};
-    container.querySelectorAll('input[data-pkey]').forEach(inp => {
-      out[inp.dataset.pkey] = parseInt(inp.value, 10);
-    });
+    container.querySelectorAll('input[data-pkey]').forEach(inp => { out[inp.dataset.pkey] = parseInt(inp.value, 10); });
     return out;
   }
 
-  // ── 조건 추가 ──
-  function _addCondition() {
-    const key = _el('sbIndicator').value;
-    const meta = CAT_MAP[key];
-    if (!meta) return;
-    const op = _el('sbOp').value;
-    const isCross = (op === 'cross_up' || op === 'cross_down');
-
-    const cond = { indicator: key, op };
+  // 현재 폼 → 조건 객체 (없으면 null)
+  function _currentCond() {
+    if (!curKey) return null;
+    const meta = CAT_MAP[curKey];
+    const isCross = (curOp === 'cross_up' || curOp === 'cross_down');
+    const cond = { indicator: curKey, op: curOp };
     const params = _readParams(_el('sbParams'));
     if (params.period != null && !isNaN(params.period)) cond.period = params.period;
-
     if (isCross) {
       const tkey = _el('sbTargetIndicator').value;
       const tparams = _readParams(_el('sbTargetParams'));
@@ -239,64 +254,72 @@
       if (tparams.period != null && !isNaN(tparams.period)) cond.target.period = tparams.period;
     } else {
       const v = parseFloat(_el('sbValue').value);
-      if (isNaN(v)) { _setResult('warn', '값을 입력해주세요.'); return; }
+      if (isNaN(v)) return null;
       cond.value = v;
     }
+    return cond;
+  }
 
-    conditions.push(cond);
+  function _condText(c) {
+    const meta = CAT_MAP[c.indicator] || { label: c.indicator };
+    const name = meta.label.replace(/\s*\(.*\)/, '') + (c.period ? ` <b>${c.period}</b>` : '');
+    if (c.op === 'cross_up' || c.op === 'cross_down') {
+      const tmeta = CAT_MAP[c.target.indicator] || { label: c.target.indicator };
+      const tname = tmeta.label.replace(/\s*\(.*\)/, '') + (c.target.period ? ` <b>${c.target.period}</b>` : '');
+      return `${name} 이(가) ${tname} 을(를) <b>${c.op === 'cross_up' ? '상향 돌파' : '하향 돌파'}</b>`;
+    }
+    return `${name} 이(가) <b>${c.value}</b> ${c.op === 'above' ? '이상' : '이하'}`;
+  }
+
+  function _updatePreview() {
+    const c = _currentCond();
+    const box = _el('sbCondPreview');
+    if (!box) return;
+    box.innerHTML = c ? '조건: ' + _condText(c) : '';
+  }
+
+  function _addCondition() {
+    const c = _currentCond();
+    if (!c) { _setResult('warn', '값을 입력해주세요.'); return; }
+    conditions.push(c);
     _renderConditions();
     _setResult('', '조건을 추가했습니다. 더 추가하거나 "차트에 표시"를 누르세요.');
   }
 
-  function _condToText(c) {
-    const meta = CAT_MAP[c.indicator] || { label: c.indicator };
-    const name = meta.label + (c.period ? ` (${c.period})` : '');
-    if (c.op === 'cross_up' || c.op === 'cross_down') {
-      const tmeta = CAT_MAP[c.target.indicator] || { label: c.target.indicator };
-      const tname = tmeta.label + (c.target.period ? ` (${c.target.period})` : '');
-      return `${name} 이(가) ${tname} 을(를) ${c.op === 'cross_up' ? '상향 돌파' : '하향 돌파'}`;
-    }
-    return `${name} 이(가) ${c.value} ${c.op === 'above' ? '위로/이상' : '아래로/이하'}`;
-  }
-
   function _renderConditions() {
-    const list = _el('sbCondList');
-    const empty = _el('sbCondEmpty');
+    const list = _el('sbCondList'), empty = _el('sbCondEmpty'), count = _el('sbCondCount');
     if (!list) return;
-    // 기존 카드 제거 (empty 제외)
     list.querySelectorAll('.sb-cond-card').forEach(n => n.remove());
-    if (!conditions.length) {
-      if (empty) empty.style.display = '';
-      return;
-    }
+    if (count) count.textContent = conditions.length + '개';
+    if (!conditions.length) { if (empty) empty.style.display = ''; return; }
     if (empty) empty.style.display = 'none';
     conditions.forEach((c, i) => {
       const card = document.createElement('div');
       card.className = 'sb-cond-card';
-      const andBadge = i > 0 ? '<span class="sb-cond-and">AND</span>' : '';
-      card.innerHTML = `${andBadge}<span class="sb-cond-text">${_esc(_condToText(c))}</span>` +
+      const lead = i > 0 ? '<span class="sb-cond-and">AND</span>' : `<span class="sb-cond-num">${i + 1}</span>`;
+      card.innerHTML = `${lead}<span class="sb-cond-text">${_condText(c)}</span>` +
                        `<button type="button" class="sb-cond-del" data-i="${i}" title="삭제">×</button>`;
       list.appendChild(card);
     });
     list.querySelectorAll('.sb-cond-del').forEach(btn => {
-      btn.addEventListener('click', () => {
-        conditions.splice(parseInt(btn.dataset.i, 10), 1);
-        _renderConditions();
-      });
+      btn.addEventListener('click', () => { conditions.splice(parseInt(btn.dataset.i, 10), 1); _renderConditions(); });
     });
   }
 
-  // ── 만들기 (백엔드 평가 + 차트 표시) ──
+  // ── 실행 ──
   let _running = false;
   async function _run() {
     if (_running) return;
-    if (!conditions.length) { _setResult('warn', '조건을 1개 이상 추가해주세요.'); return; }
+    if (!conditions.length) {
+      // 조건을 안 넣고 눌렀으면, 현재 폼의 조건이라도 있으면 자동 추가
+      const c = _currentCond();
+      if (c) { conditions.push(c); _renderConditions(); }
+      else { _setResult('warn', '조건을 1개 이상 추가해주세요.'); return; }
+    }
     _running = true;
-    const runBtn = _el('sbRun');
-    if (runBtn) runBtn.disabled = true;
+    const runBtn = _el('sbRun'); if (runBtn) runBtn.disabled = true;
     _syncMeta();
-    _setStatus('loading', '계산 중');
-    _setResult('', '');
+    _setStatus('loading', '계산 중'); _setResult('', '');
 
     const symbol = window.curSymbol || 'BTCUSDT';
     const timeframe = window.curTf || '1h';
@@ -310,106 +333,72 @@
       } else {
         resp = await fetch(API + '/v1/llm-signal/build', {
           method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
       }
       const j = await resp.json().catch(() => null);
       const payload = (j && j.data) ? j.data : j;
-      if (!resp.ok || !payload) {
-        _setStatus('error', '오류');
-        _setResult('error', (payload && payload.detail) || '조건을 확인해주세요.');
-        return;
-      }
+      if (!resp.ok || !payload) { _setStatus('error', '오류'); _setResult('error', (payload && payload.detail) || '조건을 확인해주세요.'); return; }
       const drawn = _renderDrawings(payload.drawings);
-      if (drawn > 0) {
-        _setStatus('ok', `신호 ${drawn}개`);
-        _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`);
-      } else {
-        _setStatus('ready', '표시할 신호 없음');
-        _setResult('warn', payload.reply || '최근 구간에 조건을 만족하는 지점이 없습니다.');
-      }
+      if (drawn > 0) { _setStatus('ok', `신호 ${drawn}개`); _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`); }
+      else { _setStatus('ready', '표시할 신호 없음'); _setResult('warn', payload.reply || '최근 구간에 조건을 만족하는 지점이 없습니다. 값이나 기간을 조정해보세요.'); }
     } catch (e) {
-      _setStatus('error', '오류');
-      _setResult('error', '네트워크 오류로 처리하지 못했습니다.');
+      _setStatus('error', '오류'); _setResult('error', '네트워크 오류로 처리하지 못했습니다.');
     } finally {
-      _running = false;
-      if (runBtn) runBtn.disabled = false;
+      _running = false; if (runBtn) runBtn.disabled = false;
     }
   }
 
   function _clear() {
     _clearChartSignals();
     if (typeof window._refreshOverlays === 'function') { try { window._refreshOverlays(); } catch (_) {} }
-    _setResult('', '차트의 신호를 지웠습니다.');
-    _setStatus('ready', '준비됨');
+    _setResult('', '차트의 신호를 지웠습니다.'); _setStatus('ready', '준비됨');
     if (typeof window.showToast === 'function') window.showToast('내 신호를 지웠습니다.', '#8E7D72');
   }
 
-  // ── 액션 선택 ──
   function _bindActions() {
     document.querySelectorAll('#sbActionRow .sb-action').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#sbActionRow .sb-action').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        action = btn.dataset.action || 'buy';
+        btn.classList.add('active'); action = btn.dataset.action || 'buy';
       });
     });
   }
 
-  // ── 프리셋 ──
+  // 프리셋
   const PRESETS = {
-    rsi_os: { action: 'buy', label: 'RSI 과매도 매수',
-      conditions: [{ indicator: 'rsi', period: 14, op: 'below', value: 30 }] },
-    rsi_ob: { action: 'sell', label: 'RSI 과매수 매도',
-      conditions: [{ indicator: 'rsi', period: 14, op: 'above', value: 70 }] },
-    golden: { action: 'buy', label: '골든크로스 매수',
-      conditions: [{ indicator: 'ema', period: 20, op: 'cross_up', target: { indicator: 'ema', period: 50 } }] },
-    rsi_trend: { action: 'buy', label: 'RSI+추세 동시 매수',
-      conditions: [
-        { indicator: 'rsi', period: 14, op: 'below', value: 45 },
-        { indicator: 'price', op: 'cross_up', target: { indicator: 'ema', period: 20 } },
-      ] },
+    rsi_os: { action: 'buy', label: 'RSI 과매도 매수', conditions: [{ indicator: 'rsi', period: 14, op: 'below', value: 30 }] },
+    rsi_ob: { action: 'sell', label: 'RSI 과매수 매도', conditions: [{ indicator: 'rsi', period: 14, op: 'above', value: 70 }] },
+    golden: { action: 'buy', label: '골든크로스 매수', conditions: [{ indicator: 'ema', period: 20, op: 'cross_up', target: { indicator: 'ema', period: 50 } }] },
+    rsi_trend: { action: 'buy', label: 'RSI+추세 매수', conditions: [
+      { indicator: 'rsi', period: 14, op: 'below', value: 45 },
+      { indicator: 'price', op: 'cross_up', target: { indicator: 'ema', period: 20 } }] },
   };
   function _applyPreset(name) {
-    const p = PRESETS[name];
-    if (!p) return;
+    const p = PRESETS[name]; if (!p) return;
     conditions = JSON.parse(JSON.stringify(p.conditions));
     action = p.action;
-    document.querySelectorAll('#sbActionRow .sb-action').forEach(b =>
-      b.classList.toggle('active', b.dataset.action === action));
+    document.querySelectorAll('#sbActionRow .sb-action').forEach(b => b.classList.toggle('active', b.dataset.action === action));
     const lbl = _el('sbLabel'); if (lbl) lbl.value = p.label;
     _renderConditions();
-    _setResult('', '빠른 시작을 불러왔습니다. "차트에 표시"를 누르세요.');
+    _setResult('', '빠른 시작을 불러왔어요. "차트에 표시"를 누르세요.');
   }
 
-  // ── 초기화 ──
   function init() {
-    if (!_el('sbIndicator')) return;   // 패널이 없으면 skip
+    if (!_el('sbIndChips')) return;
     _loadCatalog();
     _bindActions();
-    _el('sbIndicator').addEventListener('change', () => {
-      const v = _el('sbValue'); if (v) v.dataset.auto = '1';
-      _onIndicatorChange();
-    });
-    _el('sbOp').addEventListener('change', _onOpChange);
-    _el('sbTargetIndicator').addEventListener('change', _onOpChange);
+    _el('sbValue').addEventListener('input', () => { _el('sbValue').dataset.set = '1'; _updatePreview(); });
     _el('sbAddCond').addEventListener('click', _addCondition);
     _el('sbRun').addEventListener('click', _run);
     _el('sbClear').addEventListener('click', _clear);
-    document.querySelectorAll('.sb-preset').forEach(btn =>
-      btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
+    document.querySelectorAll('.sb-preset').forEach(btn => btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
     _syncMeta();
   }
 
-  // 종목/타임프레임 변경 시 메타 갱신
   window.addEventListener('symbolChanged', _syncMeta);
-
   window.signalBuilder = { run: _run, clear: _clear, applyPreset: _applyPreset };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
