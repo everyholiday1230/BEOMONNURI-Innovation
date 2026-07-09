@@ -336,6 +336,11 @@
   let _running = false;
   async function _run() {
     if (_running) return;
+    if (!_isLoggedIn()) {
+      _applyGate();
+      if (typeof window.showAuthModal === 'function') window.showAuthModal();
+      return;
+    }
     if (!conditions.length) {
       // 조건을 안 넣고 눌렀으면, 현재 폼의 조건이라도 있으면 자동 추가
       const c = _currentCond();
@@ -368,6 +373,8 @@
       const payload = (j && j.data) ? j.data : j;
       if (!resp.ok || !payload) { _setStatus('error', '오류'); _setResult('error', (payload && payload.detail) || '조건을 확인해주세요.'); return; }
       const drawn = _renderDrawings(payload.drawings);
+      // 성공적으로 적용됨 → 종목/타임프레임 변경 시 자동 재계산 대상으로 기록
+      _lastApplied = { symbol, timeframe };
       if (drawn > 0) { _setStatus('ok', `신호 ${drawn}개`); _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`); }
       else { _setStatus('ready', '표시할 신호 없음'); _setResult('warn', payload.reply || '최근 구간에 조건을 만족하는 지점이 없습니다. 값이나 기간을 조정해보세요.'); }
     } catch (e) {
@@ -377,8 +384,35 @@
     }
   }
 
+  // 종목/타임프레임이 바뀌면 마지막에 적용한 신호를 새 데이터로 자동 재계산.
+  // (프로젝트에 symbolChanged 이벤트가 실제로 dispatch 되지 않아 폴링으로 감지)
+  let _lastApplied = null;
+  let _watchSym = null, _watchTf = null, _watchLogin = null;
+  function _startWatcher() {
+    _watchSym = window.curSymbol; _watchTf = window.curTf; _watchLogin = _isLoggedIn();
+    setInterval(() => {
+      // 로그인 상태 변화 감지 → 게이트 갱신
+      const li = _isLoggedIn();
+      if (li !== _watchLogin) { _watchLogin = li; _applyGate(); }
+      const sym = window.curSymbol, tf = window.curTf;
+      if (sym === _watchSym && tf === _watchTf) return;
+      _watchSym = sym; _watchTf = tf;
+      _syncMeta();
+      // 조건이 있고, 이전에 한 번 적용했다면 새 종목/시간대로 자동 재계산
+      if (conditions.length && _lastApplied && _isLoggedIn()) {
+        // 차트 버퍼가 새 데이터로 갱신될 시간을 잠깐 준 뒤 재계산
+        setTimeout(() => { if (!_running) _run(); }, 700);
+      } else {
+        // 아직 적용 전이면 기존 신호만 정리
+        _clearChartSignals();
+        const chart = window.chart; if (chart) _requestRender(chart);
+      }
+    }, 600);
+  }
+
   function _clear() {
     _clearChartSignals();
+    _lastApplied = null;
     const chart = window.chart;
     if (chart) _requestRender(chart);
     _setResult('', '차트의 신호를 지웠습니다.'); _setStatus('ready', '준비됨');
@@ -415,6 +449,7 @@
 
   function init() {
     if (!_el('sbIndChips')) return;
+    _applyGate();
     _loadCatalog();
     _bindActions();
     _el('sbValue').addEventListener('input', () => { _el('sbValue').dataset.set = '1'; _updatePreview(); });
@@ -422,10 +457,31 @@
     _el('sbRun').addEventListener('click', _run);
     _el('sbClear').addEventListener('click', _clear);
     document.querySelectorAll('.sb-preset').forEach(btn => btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
+    const gb = _el('sbGateLogin');
+    if (gb) gb.addEventListener('click', () => { if (typeof window.showAuthModal === 'function') window.showAuthModal(); });
     _syncMeta();
+    _startWatcher();
   }
 
-  window.addEventListener('symbolChanged', _syncMeta);
+  // 로그인 여부에 따라 패널 내용/게이트 토글
+  function _isLoggedIn() {
+    try { return typeof window.isLoggedIn === 'function' ? !!window.isLoggedIn() : true; }
+    catch (_) { return true; }
+  }
+  function _applyGate() {
+    const gate = _el('sbGate'), content = _el('sbContent');
+    if (!gate || !content) return;
+    const ok = _isLoggedIn();
+    gate.style.display = ok ? 'none' : 'flex';
+    content.style.display = ok ? '' : 'none';
+    if (!ok) {  // 비로그인 → 차트의 내 신호도 정리
+      _clearChartSignals();
+      const chart = window.chart; if (chart) _requestRender(chart);
+    }
+  }
+
+  // 다른 모듈이 쓰는 이벤트도 함께 구독(있으면 즉시 반영, 없어도 폴링이 처리)
+  document.addEventListener('symbolChanged', _syncMeta);
   window.signalBuilder = { run: _run, clear: _clear, applyPreset: _applyPreset };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

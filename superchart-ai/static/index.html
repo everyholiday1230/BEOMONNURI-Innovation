@@ -1538,7 +1538,14 @@ body.dark #_toastContainer .pro-toast-chip {
     <div class="right-tab" data-p="points" title="범온 포인트 · 지인 초대 (서비스 기능 이용 포인트)">포인트</div>
   </div>
   <div class="right-pane active" id="llm">
-    <div class="p-12">
+    <!-- 로그인 게이트 (비로그인 시 표시) -->
+    <div class="sb-gate" id="sbGate" style="display:none">
+      <div class="sb-gate-icon">🔒</div>
+      <div class="sb-gate-title">로그인이 필요합니다</div>
+      <div class="sb-gate-desc">나만의 신호 만들기는 회원 전용 기능입니다.<br>로그인 후 지표를 골라 나만의 매매 신호를 만들어 보세요.</div>
+      <button type="button" id="sbGateLogin" class="sb-btn sb-btn-primary" style="max-width:200px">로그인 / 회원가입</button>
+    </div>
+    <div class="p-12" id="sbContent">
       <!-- 헤더 -->
       <div class="sb-header">
         <div class="sb-title-row">
@@ -1832,7 +1839,7 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <script type="module" src="/static/js/main-app.js?v=20260617_stability2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260621_htv4"></script>
-<script defer src="/static/js/modules/signal-builder.js?v=20260709_sb4"></script>
+<script defer src="/static/js/modules/signal-builder.js?v=20260709_sb5"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js"></script>

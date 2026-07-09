@@ -1204,3 +1204,9 @@
 .sb-info-k { color: var(--color-text-secondary,#8e7d72); }
 .sb-info-v { color: var(--color-text-primary,#3d2b1f); font-weight: 600; }
 #llm .llm-disclaimer { font-size: 11px; color: var(--color-text-secondary,#8e7d72); line-height: 1.5; }
+
+/* 로그인 게이트 */
+.sb-gate { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 24px; gap: 12px; min-height: 300px; }
+.sb-gate-icon { font-size: 40px; opacity: .8; }
+.sb-gate-title { font-size: 16px; font-weight: 700; color: var(--color-text-primary,#3d2b1f); }
+.sb-gate-desc { font-size: 13px; color: var(--color-text-secondary,#8e7d72); line-height: 1.7; margin-bottom: 8px; }

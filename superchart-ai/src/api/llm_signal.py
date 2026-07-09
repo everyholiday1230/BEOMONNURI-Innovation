@@ -370,10 +370,10 @@ async def indicators():
 
 
 @router.post("/build", response_model=ApiResponse)
-async def build(req: dict):
+async def build(req: dict, user_id: str = Depends(get_current_user_id)):
     """버튼식 신호 빌더 — AND로 결합된 여러 조건을 평가해 차트 드로잉 반환.
 
-    무료·과금 없음·LLM 미사용. 인증 불필요(공개 시세·표준 지표만).
+    무료·과금 없음·LLM 미사용. 회원 전용(로그인 필수).
 
     요청 형식:
       {
