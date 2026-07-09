@@ -587,13 +587,28 @@ def _threshold_events(series: np.ndarray, op: str, value: float) -> list[int]:
     return idxs
 
 
+def _candle_time(candle: dict) -> int | None:
+    """캔들의 시작 시각(ms) 추출. 프론트가 index 대신 시간으로 정렬하기 위함."""
+    for k in ("openTime", "time", "t", "opentime", "ts"):
+        v = candle.get(k)
+        if v is not None:
+            try:
+                return int(float(v))
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
 def evaluate(candles: list[dict], signals: list[dict]) -> list[dict]:
     """검증된 signal 규칙들을 캔들에 적용해 차트 드로잉 객체 리스트를 만든다.
 
     반환: overlay-engine.addDrawing()이 이해하는 객체 리스트.
-      - action buy/sell → {"type":"signal","index":i,"price":p,"signalType":"ku|kd","label":...}
+      - action buy/sell → {"type":"signal","index":i,"time":ms,"price":p,"signalType":"ku|kd",...}
       - action line     → {"type":"hline","price":value,...}
-      - action zone     → {"type":"box",...} (볼린저 상/하단 사이 등 단순 영역)
+      - action zone     → {"type":"box",...} (단순 영역)
+
+    각 마커에는 index 뿐 아니라 "time"(캔들 시작 ms)을 함께 담는다.
+    프론트 차트 버퍼 길이가 서버 조회 길이와 달라도 time으로 정확히 정렬할 수 있다.
     """
     if not candles:
         return []
@@ -637,23 +652,26 @@ def evaluate(candles: list[dict], signals: list[dict]) -> list[dict]:
             if i < 0 or i >= n:
                 continue
             price = float(close[i])
+            t = _candle_time(candles[i]) if i < len(candles) else None
             if action == "buy":
                 drawings.append({
-                    "type": "signal", "index": i, "price": price,
+                    "type": "signal", "index": i, "time": t, "price": price,
                     "signalType": "ku", "color": "#C4384B",
                     "label": label or "매수", "_llm": True,
                 })
             elif action == "sell":
                 drawings.append({
-                    "type": "signal", "index": i, "price": price,
+                    "type": "signal", "index": i, "time": t, "price": price,
                     "signalType": "kd", "color": "#3B82F6",
                     "label": label or "매도", "_llm": True,
                 })
             elif action == "zone":
                 # 단순 영역: 이벤트 봉 기준 ±0.5% 박스
+                end_i = min(i + 10, n - 1)
                 drawings.append({
-                    "type": "box", "index": i, "price": price,
-                    "price2": price * 0.995, "endIndex": min(i + 10, n - 1),
+                    "type": "box", "index": i, "time": t, "price": price,
+                    "price2": price * 0.995, "endIndex": end_i,
+                    "endTime": _candle_time(candles[end_i]) if end_i < len(candles) else None,
                     "color": "rgba(216,182,106,0.2)",
                     "label": label or "관심 구간", "_llm": True,
                 })

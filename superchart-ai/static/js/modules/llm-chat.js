@@ -49,14 +49,53 @@
     }
   }
 
+  // 서버가 준 캔들 시각(ms) → 현재 차트 버퍼의 index 로 변환.
+  // 서버 조회 캔들 수(1000)와 화면 버퍼 길이가 달라도 시간 기준으로 정확히 정렬된다.
+  function _timeToIndex(chart, timeMs) {
+    const buf = chart && chart.buffer;
+    if (!buf || !buf.length || timeMs == null) return -1;
+    // 버퍼 time 은 초 단위(오래된→최신 정렬). 서버 time 은 ms.
+    const target = timeMs > 1e12 ? Math.floor(timeMs / 1000) : timeMs;
+    const times = buf.time;
+    const len = buf.length;
+    // 정확히 일치하는 봉 우선 (동일 타임프레임이면 openTime 이 정확히 일치)
+    // 이진탐색 (times 는 오름차순)
+    let lo = 0, hi = len - 1, best = -1, bestDiff = Infinity;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const tv = Math.floor(times[mid]);
+      const diff = Math.abs(tv - target);
+      if (diff < bestDiff) { bestDiff = diff; best = mid; }
+      if (tv === target) return mid;
+      if (tv < target) lo = mid + 1; else hi = mid - 1;
+    }
+    // 완전 일치가 없으면, 가장 가까운 봉이 1봉 간격 이내일 때만 사용
+    return best;
+  }
+
   function _renderDrawings(drawings) {
     const chart = window.chart;
     if (!chart || typeof chart.addDrawing !== 'function') return 0;
     _clearChartSignals();
+    const bufLen = (chart.buffer && chart.buffer.length) || 0;
     let n = 0;
     for (const d of (drawings || [])) {
       try {
         const obj = Object.assign({}, d, { _calcOwner: OWNER });
+        // 서버 index 는 서버 조회 배열 기준 → 화면 버퍼 기준 index 로 재매핑.
+        if (typeof d.time === 'number') {
+          const idx = _timeToIndex(chart, d.time);
+          if (idx >= 0) obj.index = idx;
+        }
+        // endTime 도 동일하게 매핑 (box 영역)
+        if (typeof d.endTime === 'number') {
+          const eidx = _timeToIndex(chart, d.endTime);
+          if (eidx >= 0) obj.endIndex = eidx;
+        }
+        // 매핑 결과가 버퍼 범위를 벗어나면 스킵 (hline 은 index 불필요)
+        if (obj.type !== 'hline') {
+          if (typeof obj.index !== 'number' || obj.index < 0 || obj.index >= bufLen) continue;
+        }
         chart.addDrawing(obj);
         n++;
       } catch (_) { /* skip bad drawing */ }
