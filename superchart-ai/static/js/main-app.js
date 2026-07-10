@@ -342,7 +342,7 @@ function Ft(e, n) {
 }
 const F = "";
 window.API = F;
-var B = "BTCUSDT",
+var B = "SNDKUSDT",
   A = "5m";
 ((window.curSymbol = B),
   (window.curTf = A),
