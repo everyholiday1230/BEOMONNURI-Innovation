@@ -92,9 +92,13 @@
     if (window.isLoggedIn?.()) return;  // 로그인 상태면 통과
     
     const target = e.target.closest(
-      '.ind-tag[data-ind], .ind-tag[data-sub], .sub-ind[data-sub], ' +
+      // 지표(범온지표 포함)·보조지표·이동평균 — 클래스 기반으로 전부 커버(속성 유무 무관)
+      '.ind-tag, .sub-ind, [data-ind], [data-sub], [data-ma-type], ' +
+      // 매매전략·드로잉·프리셋
       '[data-strategy], [data-draw], [data-action="applyPreset"], ' +
-      '[data-ma-type], [data-action="captureChart"], [data-action="saveSettings"], ' +
+      // 저장/캡처 등
+      '[data-action="captureChart"], [data-action="saveSettings"], ' +
+      '[data-action="saveWorkspace"], [data-action="saveUserPreset"], ' +
       // 분석·차트 기능도 회원 전용 (예측·투영·리플레이·차트 도구·나만의 신호)
       '[data-action="startForecast"], [data-action="startProjection"], ' +
       '[data-action="clearForecast"], [data-action="startReplayMode"], ' +

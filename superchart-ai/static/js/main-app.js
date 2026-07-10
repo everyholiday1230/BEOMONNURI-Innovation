@@ -6344,6 +6344,7 @@ function Ne() {
           "heatmap",
           "order",
           "position",
+          "points",
         ]);
         if (!G() && !guestAllowedTabs.has(paneKey)) {
           window.showMemberOnlyNotice?.(
