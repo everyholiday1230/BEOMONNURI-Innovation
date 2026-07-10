@@ -16,6 +16,10 @@ _lock = asyncio.Lock() if hasattr(asyncio, 'Lock') else None
 DELISTED_SYMBOLS: frozenset[str] = frozenset({
     "BTSUSDT", "BTCSTUSDT", "DREPUSDT", "COCOSUSDT", "SRMUSDT", "HNTUSDT",
     "CTKUSDT", "BZRXUSDT", "LITUSDT", "AKROUSDT", "BONDUSDT", "YFIIUSDT",
+    # 워치리스트에 실시간 가격(ticker-24hr)이 잡히지 않는 토큰화 주식 — 목록에서 제외.
+    # (일반 티커 피드에 없어 가격 미표시 → 사용자 혼란. 2026-07 정리)
+    "ABBV", "BBXUSDT", "DHR", "DISUSDT", "HDUSDT", "KO", "MA", "MCD",
+    "NFLX", "NOKUSDT", "NVOUSDT", "PAYPUSDT", "PEP", "QNTXUSDT", "UBERUSDT", "UNH",
 })
 
 # 시총 순(market-cap) 정렬용 단일 진실 소스.
