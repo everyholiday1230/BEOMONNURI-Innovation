@@ -354,8 +354,10 @@
   async function _run() {
     if (_running) return;
     if (!_isLoggedIn()) {
-      _applyGate();
-      if (typeof window.showAuthModal === 'function') window.showAuthModal();
+      // 비로그인 시 guest-mode 통일 게이트가 이미 패널을 덮고 있으나,
+      // 혹시 실행 경로로 들어오면 로그인 모달을 띄운다.
+      if (typeof window.showAuth === 'function') window.showAuth();
+      else if (typeof window.showAuthModal === 'function') window.showAuthModal();
       return;
     }
     if (!conditions.length) {
@@ -423,9 +425,9 @@
     _watchSym = window.curSymbol; _watchTf = window.curTf;
     _watchLogin = _isLoggedIn(); _watchBufLen = _bufLen();
     setInterval(() => {
-      // 로그인 상태 변화 감지 → 게이트 갱신
+      // 로그인 상태 변화는 guest-mode.js 가 게이트를 자동 갱신하므로 여기선 추적만.
       const li = _isLoggedIn();
-      if (li !== _watchLogin) { _watchLogin = li; _applyGate(); }
+      if (li !== _watchLogin) { _watchLogin = li; }
 
       const sym = window.curSymbol, tf = window.curTf, bl = _bufLen();
 
@@ -494,7 +496,6 @@
 
   function init() {
     if (!_el('sbIndChips')) return;
-    _applyGate();
     _loadCatalog();
     _bindActions();
     _el('sbValue').addEventListener('input', () => { _el('sbValue').dataset.set = '1'; _updatePreview(); });
@@ -502,27 +503,14 @@
     _el('sbRun').addEventListener('click', _run);
     _el('sbClear').addEventListener('click', _clear);
     document.querySelectorAll('.sb-preset').forEach(btn => btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
-    const gb = _el('sbGateLogin');
-    if (gb) gb.addEventListener('click', () => { if (typeof window.showAuthModal === 'function') window.showAuthModal(); });
     _syncMeta();
     _startWatcher();
   }
 
-  // 로그인 여부에 따라 패널 내용/게이트 토글
+  // 로그인 여부 (실행 가드/자동재계산 판단용). 게이트 UI 자체는 guest-mode.js 담당.
   function _isLoggedIn() {
     try { return typeof window.isLoggedIn === 'function' ? !!window.isLoggedIn() : true; }
     catch (_) { return true; }
-  }
-  function _applyGate() {
-    const gate = _el('sbGate'), content = _el('sbContent');
-    if (!gate || !content) return;
-    const ok = _isLoggedIn();
-    gate.style.display = ok ? 'none' : 'flex';
-    content.style.display = ok ? '' : 'none';
-    if (!ok) {  // 비로그인 → 차트의 내 신호도 정리
-      _clearChartSignals();
-      const chart = window.chart; if (chart) _requestRender(chart);
-    }
   }
 
   // 다른 모듈이 쓰는 이벤트도 함께 구독(있으면 즉시 반영, 없어도 폴링이 처리)
