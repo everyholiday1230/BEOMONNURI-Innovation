@@ -1,11 +1,38 @@
 """DB 연결."""
+import os
 import time
 import logging
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.config import settings
 
-engine = create_async_engine(settings.database_url, pool_size=50, max_overflow=50, pool_pre_ping=True, pool_recycle=3600)
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        v = int(os.getenv(name, "") or default)
+        return v if v > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+# ── 커넥션 풀 크기 ────────────────────────────────────────────────
+# Render basic-256mb Postgres 는 최대 100 connection. 앱은 uvicorn 단일
+# 프로세스로 구동되므로, 한 프로세스가 풀을 과도하게 열면 DB 한도를 소진해
+# "connection 초과 / ERR_CONNECTION_CLOSED" 를 유발한다.
+# 256MB DB 기준 보수적으로 pool_size=10 + overflow=10 (최대 20)로 제한.
+# 상위 DB 플랜으로 올릴 경우 환경변수로 확장.
+_POOL_SIZE = _env_int("DB_POOL_SIZE", 10)
+_MAX_OVERFLOW = _env_int("DB_MAX_OVERFLOW", 10)
+_POOL_TIMEOUT = _env_int("DB_POOL_TIMEOUT", 30)
+
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=_POOL_SIZE,
+    max_overflow=_MAX_OVERFLOW,
+    pool_timeout=_POOL_TIMEOUT,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 # ── 슬로우 쿼리 로깅 (1초 이상) ──
@@ -30,8 +57,14 @@ def _after_cursor_execute(conn, cursor, statement, parameters, context, executem
         )
 
 async def get_db():
+    # 예외 발생 시 롤백을 보장해 세션 오염/커넥션 누수를 방지한다.
+    # (기존: 예외가 나도 rollback 없이 세션이 닫혀 트랜잭션이 애매하게 남을 수 있었음)
     async with SessionLocal() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
 
 from contextlib import asynccontextmanager
 
