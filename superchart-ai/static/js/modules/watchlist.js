@@ -303,9 +303,9 @@ export function renderWL(f = '', skipPrices = false) {
   const el = document.getElementById('watchlist');
   if (!el) return;
   const fl = f.toLowerCase();
-  const assetFilter = window._wlAssetFilter || 'all';
+  const assetFilter = window._wlAssetFilter || 'stock';
   let list = symbols;
-  if (assetFilter !== 'all') list = list.filter(s => s.asset === assetFilter);
+  list = list.filter(s => s.asset === assetFilter);
   if (f) list = list.filter(s => s.code.toLowerCase().includes(fl) || s.name.toLowerCase().includes(fl) || s.kr.includes(f));
   // 가격 상태 필터
   // 기본값(all): 가격 미지원/지연 종목도 목록에 표시하고 상태 배지로 안내한다.
@@ -485,13 +485,14 @@ if (_sortEl) {
 const _assetTabs = document.querySelectorAll('#assetTabs .asset-tab');
 if (_assetTabs.length) {
   const savedAsset = localStorage.getItem('chartOS_wlAssetFilter');
-  const allowed = new Set(['all', 'crypto', 'stock', 'commodity', 'etf']);
-  window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (window._wlAssetFilter || 'all');
-  if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'all';
+  // 전체(all)·ETF 탭 제거 → 허용: 주식/암호화폐/원자재. 기본값은 주식.
+  const allowed = new Set(['stock', 'crypto', 'commodity']);
+  window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (allowed.has(window._wlAssetFilter) ? window._wlAssetFilter : 'stock');
+  if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'stock';
   _setAssetTabActive(window._wlAssetFilter);
   _assetTabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      const nextAsset = tab.dataset.asset || 'all';
+      const nextAsset = tab.dataset.asset || 'stock';
       window._wlAssetFilter = nextAsset;
       localStorage.setItem('chartOS_wlAssetFilter', nextAsset);
       _setAssetTabActive(nextAsset);
