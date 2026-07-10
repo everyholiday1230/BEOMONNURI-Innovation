@@ -335,7 +335,9 @@ async def clear_cache(request: Request):
 async def bot_status(request: Request):
     """데모봇 현황."""
     await _auth_admin_check(request)
-    import subprocess, json, glob
+    import subprocess
+    import json
+    import glob
     # 실행 중 봇 수
     result = subprocess.run(["pgrep", "-fc", "megabot_div_"], capture_output=True, text=True)
     running = int(result.stdout.strip()) if result.returncode == 0 else 0

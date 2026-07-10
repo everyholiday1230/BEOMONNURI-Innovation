@@ -439,6 +439,9 @@ async def _fetch_bitget_spot_raw(symbol_code: str, timeframe: str, limit: int) -
         except Exception:
             continue
     return candles
+
+
+async def _fetch_yahoo_raw(symbol_code: str, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
     """Yahoo Finance chart API 기반 캔들 조회 (주식/원자재/ETF)."""
     import time
 

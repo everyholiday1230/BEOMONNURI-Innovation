@@ -70,7 +70,7 @@ async def _redis_listener():
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(_redis_listener())
-    print(f"[WS Server] Started on :8001, listening Redis Pub/Sub")
+    print("[WS Server] Started on :8001, listening Redis Pub/Sub")
 
 
 if __name__ == "__main__":

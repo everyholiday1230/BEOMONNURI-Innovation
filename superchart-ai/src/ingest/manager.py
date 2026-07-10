@@ -169,7 +169,6 @@ class IngestManager:
         """
         if not symbols:
             return
-        import time as _time
         from src.services import market
         self._spot_running = True
         last_ot: dict[str, int] = {}

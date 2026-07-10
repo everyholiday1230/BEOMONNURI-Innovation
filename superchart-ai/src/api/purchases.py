@@ -13,7 +13,6 @@ import hmac
 import json
 import os
 import secrets
-from datetime import datetime, timezone
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request

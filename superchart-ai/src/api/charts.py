@@ -503,7 +503,6 @@ router.include_router(qsignal_router)
 async def hot_coins(asset_class: str = "crypto"):
     """인기 종목 TOP 10 — Binance 24hr ticker 기반."""
     import httpx
-    from src.services.redis_cache import _get_cached, _set_cached
     
     key = f"hot:{asset_class}"
     cached = await _get_cached("hot", key, 60)

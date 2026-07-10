@@ -7,7 +7,7 @@ import httpx
 from pathlib import Path
 from functools import lru_cache
 from fastapi import APIRouter, Request
-from sqlalchemy import select, or_, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from src.db.session import get_db
