@@ -14,7 +14,6 @@
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -120,9 +119,14 @@ async def _balance(db: AsyncSession, user_id: str) -> int:
 
 async def _ledger_add(db: AsyncSession, user_id: str, amount: int, reason: str, note: str = "", ref_id: str | None = None) -> tuple[int, int]:
     """잔액 정본(users.points) + point_ledger 갱신 (기존 패턴과 동일)."""
-    before = await _balance(db, user_id)
-    after = before + amount
-    await db.execute(text("UPDATE users SET points=:p WHERE id=:u"), {"p": after, "u": user_id})
+    # 원자적 증감 — 동시 요청에도 잔액이 어긋나지 않도록 DB에서 직접 더한다.
+    after = (await db.execute(text(
+        "UPDATE users SET points = COALESCE(points, 0) + :a WHERE id = :u RETURNING points"
+    ), {"a": amount, "u": user_id})).scalar()
+    if after is None:
+        return 0, 0
+    after = int(after)
+    before = after - amount
     await db.execute(text(
         "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) VALUES (:u,:a,:b,:r,:ref,:n)"
     ), {"u": user_id, "a": amount, "b": after, "r": reason, "ref": ref_id, "n": note})
@@ -157,14 +161,30 @@ async def expire_sweep(db: AsyncSession, user_id: str):
 
 async def spend(db: AsyncSession, user_id: str, amount: int, reason: str, note: str = "", ref_id: str | None = None) -> bool:
     """포인트 사용: 소멸 임박(유효기간 짧은) lot부터 FIFO 차감 + 정본 잔액/원장 갱신.
-    잔액 부족이면 False (변경 없음)."""
+    잔액 부족이면 False (변경 없음).
+
+    동시성: 정본 잔액 차감은 조건부 원자 UPDATE(points >= amount)로 수행해
+    동시 요청에도 이중 차감/음수 잔액이 발생하지 않는다.
+    """
     if amount <= 0:
         return False
     await expire_sweep(db, user_id)
-    bal = await _balance(db, user_id)
-    if bal < amount:
-        return False
-    # 유효기간 짧은 순(만료 임박) → NULL(무기한)은 가장 나중
+
+    # 조건부 원자 차감 — 잔액이 충분할 때만 차감되고, 부족하면 0행 → False.
+    after = (await db.execute(text(
+        "UPDATE users SET points = COALESCE(points,0) - :amt "
+        "WHERE id = :u AND COALESCE(points,0) >= :amt RETURNING points"
+    ), {"amt": amount, "u": user_id})).scalar()
+    if after is None:
+        return False  # 잔액 부족 (변경 없음)
+    after = int(after)
+
+    # 원장 기록
+    await db.execute(text(
+        "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) VALUES (:u,:a,:b,:r,:ref,:n)"
+    ), {"u": user_id, "a": -amount, "b": after, "r": reason, "ref": ref_id, "n": note})
+
+    # 소멸 임박(유효기간 짧은) lot 부터 FIFO 로 remaining 차감 (보조 원장)
     lots = (await db.execute(text(
         "SELECT id, remaining FROM point_lots WHERE user_id=:u AND remaining>0 "
         "ORDER BY (expires_at IS NULL), expires_at ASC, created_at ASC"
@@ -176,8 +196,6 @@ async def spend(db: AsyncSession, user_id: str, amount: int, reason: str, note: 
         take = min(int(lot[1] or 0), need)
         await db.execute(text("UPDATE point_lots SET remaining=remaining-:t WHERE id=:id"), {"t": take, "id": lot[0]})
         need -= take
-    # lot 합이 잔액보다 적을 수 있음(과거 적립이 lot 없이 들어온 경우) → 정본 잔액 기준으로 차감 보장
-    await _ledger_add(db, user_id, -amount, reason, note, ref_id)
     return True
 
 

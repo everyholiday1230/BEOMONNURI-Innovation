@@ -407,10 +407,16 @@ async def _add_points(db: AsyncSession, user_id: str, amount: int, reason: str, 
     if amount == 0:
         return
 
-    cur = (await db.execute(text("SELECT COALESCE(points, 0) FROM users WHERE id = :uid"), {"uid": user_id})).scalar() or 0
-    new_balance = int(cur) + int(amount)
+    # 원자적 증감 — read-modify-write 대신 DB에서 직접 더해 동시성 경합을 제거한다.
+    # RETURNING 으로 갱신 후 잔액을 받아 원장에 정확히 기록.
+    new_balance = (await db.execute(text(
+        "UPDATE users SET points = COALESCE(points, 0) + :amt WHERE id = :uid RETURNING points"
+    ), {"amt": int(amount), "uid": user_id})).scalar()
+    if new_balance is None:
+        # 대상 사용자가 없으면 원장/lot 도 남기지 않음
+        return
+    new_balance = int(new_balance)
 
-    await db.execute(text("UPDATE users SET points = :p WHERE id = :uid"), {"p": new_balance, "uid": user_id})
     await db.execute(text(
         "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) "
         "VALUES (:uid, :amt, :bal, :reason, :ref, :note)"
