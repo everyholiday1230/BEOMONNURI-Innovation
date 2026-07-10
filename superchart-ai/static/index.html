@@ -44,7 +44,7 @@
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
 <script defer src="/static/js/modules/data-status.js?v=20260621_dsv2"></script>
-<link rel="stylesheet" href="/static/css/main.css?v=20260710_tok2">
+<link rel="stylesheet" href="/static/css/main.css?v=20260710_tok3">
 <style>
 /* ===== 접근성/포커스 ===== */
 .skip-link {
@@ -54,14 +54,14 @@
   z-index: 9999;
   padding: 8px 10px;
   border-radius: 8px;
-  background: #921230;
+  background: var(--color-primary);
   color: #fff;
   text-decoration: none;
   transition: top .15s ease;
 }
 .skip-link:focus { top: 8px; }
 :focus-visible {
-  outline: 2px solid #921230;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -144,7 +144,7 @@ body {
   transition: all .18s ease;
 }
 .asset-tab:hover {
-  color: #921230;
+  color: var(--color-primary);
   background: rgba(146,18,48,0.06);
 }
 .asset-tab.active {
@@ -244,7 +244,7 @@ body {
 .quick-start-title {
   font-size: 12px;
   font-weight: 800;
-  color: #921230;
+  color: var(--color-primary);
 }
 
 .quick-start-actions {
@@ -265,9 +265,9 @@ body {
   cursor: pointer;
   white-space: nowrap;
 }
-.quick-start-btn:hover { border-color: #921230; color: #921230; }
-.quick-start-btn.is-primary { background: #921230; color: #fff; border-color: #921230; }
-.quick-start-btn.is-active { background: rgba(146,18,48,0.12); color: #921230; border-color: #921230; }
+.quick-start-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.quick-start-btn.is-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.quick-start-btn.is-active { background: rgba(146,18,48,0.12); color: var(--color-primary); border-color: var(--color-primary); }
 .quick-start-tip {
   width: 100%;
   font-size: 12px;
@@ -282,7 +282,7 @@ body {
   font-size: 14px;
   padding: 2px 4px;
 }
-#quickStartTip b { color: #921230; }
+#quickStartTip b { color: var(--color-primary); }
 
 .chart-wrap {
   border-radius: 12px;
@@ -351,7 +351,7 @@ body {
 .beom-ai-header .beom-ai-title {
   font-size: 14px;
   font-weight: 800;
-  color: #921230;
+  color: var(--color-primary);
   letter-spacing: -0.01em;
 }
 .beom-ai-badge {
@@ -362,7 +362,7 @@ body {
   font-size: 11px;
   font-weight: 800;
   color: #fff;
-  background: #921230;
+  background: var(--color-primary);
   border-radius: 9px;
   letter-spacing: 0.02em;
 }
@@ -374,12 +374,12 @@ body {
   line-height: 1.5;
   color: var(--color-text-muted);
 }
-/* 범온 AI 그룹: 좌측 #921230 강조선 + 살짝 다른 배경으로 일반 지표와 분리 */
+/* 범온 AI 그룹: 좌측 var(--color-primary) 강조선 + 살짝 다른 배경으로 일반 지표와 분리 */
 .premium-row .ind-group {
-  border-left: 3px solid #921230;
+  border-left: 3px solid var(--color-primary);
   background: linear-gradient(180deg, rgba(146,18,48,0.05), rgba(255,255,255,0.62));
 }
-.premium-row .ind-group-label { color: #921230; }
+.premium-row .ind-group-label { color: var(--color-primary); }
 /* 일반 지표 그룹은 좌측 골드 톤으로 구분 */
 .basic-row .ind-group { border-left: 3px solid rgba(216,182,106,0.5); }
 
@@ -398,14 +398,14 @@ body {
   border-right: none;
   border-radius: 8px 0 0 8px;
   background: var(--color-surface, #fff);
-  color: #921230;
+  color: var(--color-primary);
   font-size: 12px;
   cursor: pointer;
   z-index: 40;
   transition: right .15s ease, background .15s ease;
 }
 #rightPanelToggle:hover { background: #F8EDEF; }
-#rightPanelToggle:focus-visible { outline: 2px solid #921230; outline-offset: 2px; }
+#rightPanelToggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .right.collapsed ~ #rightPanelToggle,
 body.right-collapsed #rightPanelToggle { right: 0; }
 body.right-collapsed #rightPanelToggle { transform: translateY(-50%) scaleX(-1); }
@@ -519,7 +519,7 @@ body.right-collapsed #rightPanelToggle { transform: translateY(-50%) scaleX(-1);
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(180deg, #921230, #7c1028);
+  background: linear-gradient(180deg, var(--color-primary), #7c1028);
 }
 .pro-notice-btn.secondary {
   color: #032129;
@@ -571,7 +571,7 @@ body.dark .pro-notice-btn.ghost {
 .mobile-nav button { border-radius: 10px; }
 .mobile-nav button.active {
   background: rgba(146,18,48,0.12);
-  color: #921230;
+  color: var(--color-primary);
 }
 
 .mobile-quick-actions {
@@ -600,9 +600,9 @@ body.dark .pro-notice-btn.ghost {
   font-weight: 700;
 }
 .mobile-quick-actions button.is-primary {
-  background: #921230;
+  background: var(--color-primary);
   color: #fff;
-  border-color: #921230;
+  border-color: var(--color-primary);
 }
 
 body.beginner-focus #ohlcInfo,
@@ -611,8 +611,8 @@ body.beginner-focus .tb-more,
 body.beginner-focus #portfolioWidget { display: none !important; }
 body.beginner-focus #quickStartBeginner {
   background: rgba(146,18,48,0.12);
-  color: #921230;
-  border-color: #921230;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 /* ===== 다크모드 정교화 ===== */
@@ -663,7 +663,7 @@ body.dark .mobile-quick-actions button {
 
 body.dark .quick-start-btn.is-primary,
 body.dark .mobile-quick-actions button.is-primary {
-  background: #a31540;
+  background: var(--color-primary-hover);
   border-color: #c23b66;
 }
 
@@ -730,7 +730,7 @@ body:not(.dark) .left-brand-sub {
 #helpPanel .text-accent {
   display: inline-block;
   margin-top: 8px;
-  color: #921230;
+  color: var(--color-primary);
 }
 
 #_toastContainer .pro-toast {
@@ -757,7 +757,7 @@ body:not(.dark) .left-brand-sub {
   align-items: center;
   justify-content: center;
   background: rgba(146,18,48,0.1);
-  color: #921230;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 800;
   flex-shrink: 0;
@@ -1066,7 +1066,7 @@ body.dark #_toastContainer .pro-toast-chip {
   </div>
 </div>
 
-<div id="noticeBanner" style="display:none;position:fixed;top:0;left:0;width:100%;z-index:9998;background:linear-gradient(90deg,#921230,#A31540);color:#fff;font-size:14px;padding:10px 44px 10px 16px;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(106,30,51,0.3)"><span id="noticeBannerText"></span></div>
+<div id="noticeBanner" style="display:none;position:fixed;top:0;left:0;width:100%;z-index:9998;background:linear-gradient(90deg,var(--color-primary),var(--color-primary-hover));color:#fff;font-size:14px;padding:10px 44px 10px 16px;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(106,30,51,0.3)"><span id="noticeBannerText"></span></div>
 <div id="leftPanel" tabindex="-1" class="left" role="complementary" aria-label="종목 목록">
   <div id="mobileOverlay" class="mobile-overlay" style="display:none" data-action="closeOverlay"></div>
   <div class="left-brand-header">
@@ -1099,7 +1099,7 @@ body.dark #_toastContainer .pro-toast-chip {
   <div class="search-box"><label for="searchInput" class="sr-only">종목 검색</label><input id="searchInput" placeholder="심볼 검색..." autocomplete="off"></div>
   <!-- 자산 탭 -->
   <div id="assetTabs" style="display:flex;border-bottom:1px solid rgba(216,182,106,0.2);background:var(--color-surface);font-size:14px">
-    <div class="asset-tab active" data-asset="stock" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;font-weight:600;border-bottom:2px solid #921230">주식</div>
+    <div class="asset-tab active" data-asset="stock" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;font-weight:600;border-bottom:2px solid var(--color-primary)">주식</div>
     <div class="asset-tab" data-asset="crypto" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">암호화폐</div>
     <div class="asset-tab" data-asset="commodity" style="flex:1;text-align:center;padding:5px 0;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent">원자재</div>
   </div>
@@ -1143,8 +1143,8 @@ body.dark #_toastContainer .pro-toast-chip {
         <span id="changeBadge" class="change-badge flat" style="font-size:14px">24시간 변동률 -</span>
         <div id="ohlcInfo" style="font-size:13px;color:var(--color-text-muted);margin-left:12px;display:flex;gap:12px;align-items:center">
           <span id="ohlcOpen" title="시가">시가 -</span>
-          <span id="ohlcHigh" title="24시간 고가" style="color:#C4384B">24시간 고가 -</span>
-          <span id="ohlcLow" title="24시간 저가" style="color:#3B82F6">24시간 저가 -</span>
+          <span id="ohlcHigh" title="24시간 고가" style="color:var(--color-price-up)">24시간 고가 -</span>
+          <span id="ohlcLow" title="24시간 저가" style="color:var(--color-price-down)">24시간 저가 -</span>
           <span id="ohlcVol" title="거래량">거래량 -</span>
           <span id="ohlcAmount" title="거래대금">거래대금 -</span>
         </div>
@@ -1207,9 +1207,9 @@ body.dark #_toastContainer .pro-toast-chip {
         <button class="tb" id="logScaleBtn" data-action="toggleLogScale" title="가격축 로그/선형 전환" aria-label="로그 스케일 전환">선형</button>
         <button class="tb" id="magnetBtn" data-action="toggleMagnet" title="크로스헤어 자석(캔들 OHLC에 스냅)" aria-label="자석 모드">자석</button>
         <div style="display:inline-flex;gap:2px;background:rgba(216,182,106,0.08);border-radius:6px;padding:2px" title="차트 분할 레이아웃">
-          <button class="tb-layout active" data-layout="1" onclick="window._setChartLayout?.(1)" title="단일 차트" aria-label="1분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:#921230;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">1</button>
-          <button class="tb-layout" data-layout="2" onclick="window._setChartLayout?.(2)" title="2개 분할 (좌우)" aria-label="2분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊟</button>
-          <button class="tb-layout" data-layout="4" onclick="window._setChartLayout?.(4)" title="4개 분할 (2x2)" aria-label="4분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:#921230;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊞</button>
+          <button class="tb-layout active" data-layout="1" onclick="window._setChartLayout?.(1)" title="단일 차트" aria-label="1분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:var(--color-primary);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">1</button>
+          <button class="tb-layout" data-layout="2" onclick="window._setChartLayout?.(2)" title="2개 분할 (좌우)" aria-label="2분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:var(--color-primary);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊟</button>
+          <button class="tb-layout" data-layout="4" onclick="window._setChartLayout?.(4)" title="4개 분할 (2x2)" aria-label="4분할" style="width:28px;height:28px;border:none;border-radius:4px;cursor:pointer;background:transparent;color:var(--color-primary);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0">⊞</button>
         </div>
         <button class="tb" id="compareBtn" onclick="window._toggleCompareMode?.()" title="여러 종목을 한 차트에 비교 (정규화 라인)" aria-label="종목 비교">비교</button>
         <details class="tb-more" style="position:relative;display:inline-block">
@@ -1273,7 +1273,7 @@ body.dark #_toastContainer .pro-toast-chip {
   </div>
   <div id="adminTools" style="display:none;background:rgba(255,253,249,0.95);border-top:1px solid rgba(216,182,106,0.3);padding:4px 8px;font-size:14px;color:var(--text)">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="color:#A31540;font-weight:700;font-size:14px">ADMIN</span>
+      <span style="color:var(--color-primary-hover);font-weight:700;font-size:14px">ADMIN</span>
       <button data-action="startReplayMode" id="replayStartBtn" class="btn-mini is-primary" aria-label="리플레이 시작">▶ Replay</button>
       <div id="replayControls" style="display:none;align-items:center;gap:4px">
         <button aria-label="10봉 뒤로 이동" data-action="replayBack10" class="btn-mini">⏪10</button>
@@ -1283,14 +1283,14 @@ body.dark #_toastContainer .pro-toast-chip {
         <select id="replaySpeed" aria-label="재생 속도 선택" onchange="const v=parseInt(this.value,10);if(v>0)chart.replayAutoPlay(v);else chart.replayAutoStop()" style="padding:1px 4px;background:var(--color-surface-raised);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">
           <option value="0">⏸ 정지</option><option value="2000">2초</option><option value="1000">1초</option><option value="500">0.5초</option><option value="200">0.2초</option><option value="100">0.1초</option><option value="50">0.05초</option><option value="20">0.02초</option><option value="5">MAX</option>
         </select>
-        <button aria-label="재생 속도 증가" data-action="replaySpeedUp" class="btn-mini" style="color:#C4384B;border-color:rgba(74,158,107,0.4)" title="빠르게">+</button>
+        <button aria-label="재생 속도 증가" data-action="replaySpeedUp" class="btn-mini" style="color:var(--color-price-up);border-color:rgba(74,158,107,0.4)" title="빠르게">+</button>
         <button aria-label="재생 속도 감소" data-action="replaySpeedDown" class="btn-mini" style="color:var(--color-error);border-color:rgba(196,56,75,0.4)" title="느리게">-</button>
         <span id="replayInfo" style="color:var(--muted);font-size:14px">0/0</span>
         <button aria-label="Replay 모드 종료" data-action="stopReplayMode" style="padding:1px 8px;background:rgba(196,56,75,0.2);border:1px solid rgba(196,56,75,0.4);border-radius:6px;color:var(--color-error);cursor:pointer;font-size:14px">✕ 종료</button>
       </div>
       <span style="color:var(--border)">|</span>
-      <button aria-label="시나리오 예측 시작" data-action="startForecast" style="padding:2px 8px;background:rgba(74,158,107,0.15);border:1px solid rgba(74,158,107,0.3);border-radius:6px;color:#C4384B;cursor:pointer;font-size:14px">시나리오</button>
-      <button aria-label="경로 투영 시작" data-action="startProjection" style="padding:2px 8px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);border-radius:6px;color:#A31540;cursor:pointer;font-size:14px">경로투영</button>
+      <button aria-label="시나리오 예측 시작" data-action="startForecast" style="padding:2px 8px;background:rgba(74,158,107,0.15);border:1px solid rgba(74,158,107,0.3);border-radius:6px;color:var(--color-price-up);cursor:pointer;font-size:14px">시나리오</button>
+      <button aria-label="경로 투영 시작" data-action="startProjection" style="padding:2px 8px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);border-radius:6px;color:var(--color-primary-hover);cursor:pointer;font-size:14px">경로투영</button>
       <button aria-label="예측 지우기" data-action="clearForecast" style="padding:2px 6px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px">지우기</button>
     </div>
   </div>
@@ -1340,7 +1340,7 @@ body.dark #_toastContainer .pro-toast-chip {
     </div>
     <div class="ind-row basic-row" data-drawer-group="public">
       <div class="ind-group">
-        <span class="ind-group-label" style="color:#921230">추세</span>
+        <span class="ind-group-label" style="color:var(--color-primary)">추세</span>
         <div class="ind-tag" data-ma-type="EMA" title="최근 가격에 가중치를 둔 이동평균선">EMA</div>
         <div class="ind-tag" data-ma-type="SMA" title="일정 기간 종가의 단순 평균선">SMA</div>
         <div class="ind-tag" data-ma-type="WMA" title="최근 가격에 선형 가중치를 둔 평균선">WMA</div>
@@ -1355,7 +1355,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <!-- +추세 버튼 제거 (이평선 개별 추가로 대체) -->
       </div>
       <div class="ind-group">
-        <span class="ind-group-label" style="color:#921230">모멘텀</span>
+        <span class="ind-group-label" style="color:var(--color-primary)">모멘텀</span>
         <div class="ind-tag sub-ind" data-sub="rsi" title="과매수/과매도 판단 (기준: 70/30)">RSI</div>
         <div class="ind-tag sub-ind" data-sub="macd" title="이동평균 수렴·확산으로 추세 전환 감지">MACD</div>
         <div class="ind-tag sub-ind" data-sub="stoch" title="과매수/과매도 교차 시그널">스토캐스틱</div>
@@ -1369,7 +1369,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="ind-tag sub-ind" data-sub="ao" title="오썸오실레이터 · 시장 모멘텀 방향 감지">AO</div>
       </div>
       <div class="ind-group">
-        <span class="ind-group-label" style="color:#921230">변동성</span>
+        <span class="ind-group-label" style="color:var(--color-primary)">변동성</span>
         <div class="ind-tag" data-ind="dayband" title="당일 고가/저가/중심/25%/75% 밴드">고가저가</div>
         <div class="ind-tag" data-ind="bb" data-sub="bb" title="가격 변동 범위를 밴드로 표시">볼린저</div>
         <div class="ind-tag" data-ind="keltner" data-sub="keltner" title="켈트너채널 · 변동성 기반 상하 밴드">켈트너</div>
@@ -1378,7 +1378,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="ind-tag sub-ind" data-sub="rs" title="시장(BTC) 대비 상대 강도 · 1 이상이면 시장보다 강함">RS</div>
       </div>
       <div class="ind-group">
-        <span class="ind-group-label" style="color:#921230">거래량</span>
+        <span class="ind-group-label" style="color:var(--color-primary)">거래량</span>
         <div class="ind-tag" data-ind="vol" data-sub="vol" title="차트 하단 거래량 바 표시/숨기기">거래량</div>
         <div class="ind-tag sub-ind" data-sub="obv" title="매수/매도 거래량 누적 비교">OBV</div>
         <div class="ind-tag" data-ind="volprofile" data-sub="volprofile" title="가격대별 거래량 분포 표시">거래량분포</div>
@@ -1387,7 +1387,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="ind-tag sub-ind" data-sub="volosc" title="거래량 증감 추세 측정">거래량추세</div>
       </div>
       <div class="ind-group">
-        <span class="ind-group-label" style="color:#921230">가격구조</span>
+        <span class="ind-group-label" style="color:var(--color-primary)">가격구조</span>
         <div class="ind-tag" data-ind="vwap" data-sub="vwap" title="거래량 가중 평균가 (기관 기준선)">VWAP</div>
         <div class="ind-tag" data-ind="pivot" data-sub="pivot" title="피봇 포인트 · 당일 지지/저항 자동 계산">피봇</div>
         
@@ -1514,8 +1514,8 @@ body.dark #_toastContainer .pro-toast-chip {
 <p class="muted-note">하단 <b>지표설정 저장</b> 버튼으로 현재 지표 선택을 서버에 저장합니다 (로그인 필요). 드로잉(추세선/수평선)은 브라우저에 자동 저장됩니다.</p>
 <b class="text-accent">추천 지표 조합</b>
 <table style="width:100%;font-size:14px;line-height:1.8;margin:4px 0 12px">
-<tr><td style="color:#C4384B;width:30%">초보자</td><td>BEOM + EMA20/50 + RSI</td></tr>
-<tr><td style="color:#921230">중급자</td><td>BEOM + 목표도달 + 거래밀집구간 + MACD</td></tr>
+<tr><td style="color:var(--color-price-up);width:30%">초보자</td><td>BEOM + EMA20/50 + RSI</td></tr>
+<tr><td style="color:var(--color-primary)">중급자</td><td>BEOM + 목표도달 + 거래밀집구간 + MACD</td></tr>
 <tr><td style="color:var(--gold-text)">고급자</td><td>BEOM + 진입시그널 + 강도측정 + 추세전환 + 거래밀집구간</td></tr>
 </table>
 <b class="text-accent">면책 조항</b>
@@ -1524,7 +1524,7 @@ body.dark #_toastContainer .pro-toast-chip {
 과거 수익률이 미래 수익을 보장하지 않습니다. 암호화폐 선물 거래는 높은 위험을 수반하며 원금 손실이 발생할 수 있습니다.
 </p>
 <div style="margin-top:12px;display:flex;gap:8px">
-<button aria-label="openFaqFromHelp" data-action="openFaqFromHelp" style="flex:1;padding:8px;background:#921230;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">FAQ 센터</button>
+<button aria-label="openFaqFromHelp" data-action="openFaqFromHelp" style="flex:1;padding:8px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">FAQ 센터</button>
 <button aria-label="startTourFromHelp" data-action="startTourFromHelp" style="flex:1;padding:8px;background:var(--color-surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;color:var(--color-text-primary)">퀵 투어</button>
 </div>
 </div></div></div>
@@ -1676,7 +1676,7 @@ body.dark #_toastContainer .pro-toast-chip {
           <option value="50">50봉</option>
         </select>
       </div>
-      <button aria-label="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" id="similarRunBtn" title="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" style="width:100%;padding:8px;background:#921230;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">분석 실행</button>
+      <button aria-label="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" id="similarRunBtn" title="현재 차트 패턴과 유사한 과거 패턴을 검색합니다" style="width:100%;padding:8px;background:var(--color-primary);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">분석 실행</button>
       <div id="similarResult" style="margin-top:16px">
         <div style="color:var(--color-text-muted);font-size:14px;text-align:center;padding:20px 0">
           현재 차트와 유사한 과거 패턴을 찾아<br>이후 가격 변화를 분석합니다.<br><br>
@@ -1684,7 +1684,7 @@ body.dark #_toastContainer .pro-toast-chip {
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px">
-        <button aria-label="분석 결과를 저장합니다" onclick="window._saveSimilarResult()" title="분석 결과를 저장합니다" style="flex:1;padding:6px;background:rgba(196,56,75,0.15);color:#C4384B;border:1px solid rgba(196,56,75,0.4);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">결과 저장</button>
+        <button aria-label="분석 결과를 저장합니다" onclick="window._saveSimilarResult()" title="분석 결과를 저장합니다" style="flex:1;padding:6px;background:rgba(196,56,75,0.15);color:var(--color-price-up);border:1px solid rgba(196,56,75,0.4);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">결과 저장</button>
         <button aria-label="분석 결과를 클립보드에 복사합니다" onclick="window._shareSimilarResult()" title="분석 결과를 클립보드에 복사합니다" style="flex:1;padding:6px;background:rgba(216,182,106,0.15);color:var(--gold-text);border:1px solid rgba(216,182,106,0.4);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">공유 복사</button>
       </div>
     </div>

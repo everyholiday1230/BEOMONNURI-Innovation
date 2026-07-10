@@ -46,10 +46,10 @@ h1{font-size:30px;font-weight:800;color:var(--wine);margin-bottom:8px;letter-spa
 .notice-title{font-size:17px;font-weight:700;color:#2f1d1f;margin:6px 0 10px;letter-spacing:-0.01em}
 .notice-body{font-size:14px;color:#475569;line-height:1.78}
 .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px;vertical-align:middle}
-.badge-new{background:rgba(146,18,48,0.12);color:#921230}
+.badge-new{background:rgba(146,18,48,0.12);color:var(--wine)}
 .badge-update{background:rgba(216,182,106,0.2);color:#8B6914}
 .badge-event{background:rgba(59,130,246,0.14);color:#1d4ed8}
-a{color:#921230;font-weight:600}
+a{color:var(--wine);font-weight:600}
 a:hover{color:#a31540}
 a:focus-visible{
   outline:3px solid rgba(146,18,48,0.26);
@@ -82,7 +82,7 @@ a:focus-visible{
 <div id="noticeList"><div style="color:#8E7D72;text-align:center;padding:24px">불러오는 중...</div></div>
 
 <div style="margin-top:40px;text-align:center">
-<a href="/" style="display:inline-block;padding:10px 24px;background:#921230;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">차트로 돌아가기</a>
+<a href="/" style="display:inline-block;padding:10px 24px;background:var(--wine);color:#fff;border-radius:8px;text-decoration:none;font-weight:600">차트로 돌아가기</a>
 </div>
 <script>
 const _NBADGE={notice:['badge-new','공지'],update:['badge-update','업데이트'],event:['badge-event','이벤트']};
@@ -98,7 +98,7 @@ function _esc(s){const d=document.createElement('div');d.textContent=s==null?'':
     el.innerHTML=d.map(n=>{
       const b=_NBADGE[n.content_type]||_NBADGE.notice;
       const date=(n.created_at||'').slice(0,10).replace(/-/g,'.');
-      const pin=n.is_pinned?'<span class="badge" style="background:#92123022;color:#921230">📌 고정</span>':'';
+      const pin=n.is_pinned?'<span class="badge" style="background:#92123022;color:var(--wine)">📌 고정</span>':'';
       return `<div class="notice"><div class="notice-date">${_esc(date)}</div>
         <div class="notice-title">${pin}<span class="badge ${b[0]}">${b[1]}</span>${_esc(n.title)}</div>
         <div class="notice-body">${(n.content||'').replace(/\n/g,'<br>')}</div></div>`;
