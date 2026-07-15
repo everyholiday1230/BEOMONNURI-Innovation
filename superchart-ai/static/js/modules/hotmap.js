@@ -266,35 +266,9 @@ function htSyncChips() {
 function htRenderSummary(rows) {
   const el = document.getElementById('htSummary');
   if (!el) return;
-  const byTurn = rows.slice().sort((a, b) => b.turnover - a.turnover);
-  const byGain = rows.slice().sort((a, b) => b.pct - a.pct);
-  const byLoss = rows.slice().sort((a, b) => a.pct - b.pct);
-  const byVola = rows.slice().sort((a, b) => b.volatility - a.volatility);
-  const top5turn = byTurn.slice(0, 5).reduce((s, r) => s + r.turnover, 0);
-  const allT = rows.reduce((s, r) => s + r.turnover, 0) || 1;
-  const conc = top5turn / allT;
-  const volHotRows = rows.filter(r => r.volatility >= 8);
-  let text;
-  if (conc >= 0.5) text = `현재 시장 관심은 ${esc(byTurn[0]?byTurn[0].base:'대형')} 등 대형 종목 중심으로 형성되고 있습니다.`;
-  else text = '현재 시장 관심은 여러 종목에 분산되어 있습니다.';
-  if (volHotRows.length) text += ` ${esc(volHotRows[0].base)} 등 ${volHotRows.length}개 종목에서 단기 변동성이 확대되고 있어 추세 지속 여부를 함께 확인하는 것이 좋습니다.`;
-  const nm = r => r ? esc(r.base) : '-';
-  el.innerHTML = `
-    <div class="ht-summary">
-      <p class="ht-summary-text">${text}</p>
-      <button type="button" class="ht-summary-toggle" onclick="window._htToggleSummary()" aria-expanded="${HT.summaryOpen?'true':'false'}">
-        시장 요약 상세 <span class="ht-advanced-arrow">${HT.summaryOpen?'▲':'▼'}</span>
-      </button>
-      <div class="ht-summary-body" ${HT.summaryOpen?'':'hidden'}>
-        <div class="ht-summary-grid">
-          <div class="row"><span class="k">거래대금 TOP 1</span><span class="v">${nm(byTurn[0])}</span></div>
-          <div class="row"><span class="k">상승률 TOP 1</span><span class="v ht-up">${nm(byGain[0])}</span></div>
-          <div class="row"><span class="k">하락률 TOP 1</span><span class="v ht-down">${nm(byLoss[0])}</span></div>
-          <div class="row"><span class="k">변동성 TOP 1</span><span class="v">${nm(byVola[0])}</span></div>
-        </div>
-      </div>
-      <p class="ht-disclaimer-line">참고용 분석이며 매매를 권유하지 않습니다.</p>
-    </div>`;
+  // 요약 텍스트는 실제 리스트(정렬 가능)에서 확인할 수 있는 정보라 제거.
+  // 리스트가 스크롤 없이 바로 보이도록 이 블록은 비워둔다.
+  el.innerHTML = '';
 }
 window._htToggleSummary = function () {
   HT.summaryOpen = !HT.summaryOpen;
