@@ -103,7 +103,7 @@
     document.querySelectorAll('#ptSubnav .pt-subtab').forEach(t => {
       const on = t.dataset.sec === P.sec; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on));
     });
-    if (!isLoggedIn() && ['mine','ledger','invite','invites'].includes(P.sec)) {
+    if (!isLoggedIn() && ['mine','ledger','invite'].includes(P.sec)) {
       el.innerHTML = `<div class="pt-state-msg">로그인하면 보유 포인트, 적립·사용 내역, 지인 초대 현황을 확인할 수 있습니다.
         <div style="margin-top:10px"><button class="pt-btn pt-btn-primary pt-btn-xs" type="button" onclick="window.showAuthModal&&window.showAuthModal()">로그인</button></div></div>`;
       return;
@@ -113,7 +113,7 @@
         <div style="margin-top:10px"><button class="pt-btn pt-btn-secondary pt-btn-xs" type="button" onclick="window.PointsUI.reload()">데이터 다시 확인</button></div></div>`;
       return;
     }
-    const fn = { mine: secMine, usage: secUsage, shop: secShop, indicators: secIndicators, aipass: secAiPass, invite: secInvite, invites: secInvites, ledger: secLedger, policy: secPolicy };
+    const fn = { mine: secMine, shop: secShop, invite: secInvite, ledger: secLedger };
     el.innerHTML = (fn[P.sec] || secMine)();
   }
 
@@ -153,18 +153,7 @@
   }
   function isThisMonth(dateStr) { if (!dateStr) return false; const d = new Date(dateStr), n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth(); }
 
-  // 2) 포인트 사용처
-  function secUsage() {
-    const items = [
-      '유료 지표 이용 (1일/7일/30일/영구)', '프리셋 구성 이용', '고급 히트맵 상세 보기',
-      '인기 TOP 상세 보기', '모의주문 저장 슬롯 확장', '관심 종목 슬롯 확장', '차트 저장·공유 기능',
-    ];
-    return `<div class="pt-card"><div class="pt-card-title">포인트 사용처</div>
-      <ul class="pt-policy-list">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
-      <p class="pt-mini-note">포인트는 범온 슈퍼차트 AI 서비스 내 기능 이용에만 사용됩니다.</p></div>`;
-  }
-
-  // 3) 포인트 상점
+  // 2) 포인트 상점
   function secShop() {
     const catalog = P.shop && P.shop.length ? P.shop : SHOP.map(s => ({ ...s, code: '' }));
     const list = catalog.filter(s => s.cat ? s.cat === P.shopCat : s.category === P.shopCat);
@@ -187,40 +176,7 @@
     </div>`;
   }
 
-  // 4) 지표 구매
-  function secIndicators() {
-    const inds = [
-      { name: '범온 캔들 PRO', cat: 'AI 캔들', desc: 'AI 기반 캔들 해석 강화', costs: [['1일', 300], ['7일', 1500], ['30일', 4500], ['영구', 20000]] },
-      { name: '자동추세선', cat: '추세', desc: '주요 추세 자동 표시', costs: [['7일', 1000], ['30일', 3000]] },
-      { name: '거래밀집구간', cat: '거래량', desc: '가격 밀집 구간 시각화', costs: [['7일', 1200], ['30일', 3600]] },
-      { name: '범온 MACD', cat: '모멘텀', desc: '범온 보정 MACD', costs: [['7일', 800], ['30일', 2400]] },
-    ];
-    return `${inds.map(indCard).join('')}<p class="pt-phase2">지표 포인트 구매·이용 기간 적용은 Phase 2 연동 후 활성화됩니다. 현재는 지표 구성과 포인트 가격을 안내합니다.</p>`;
-  }
-  function indCard(ind) {
-    return `<div class="pt-card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="pt-prod-name">${esc(ind.name)}</div><span class="pt-badge">${esc(ind.cat)}</span></div>
-      <div class="pt-prod-desc">${esc(ind.desc)}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-        ${ind.costs.map(([per, cost]) => `<button class="pt-btn pt-btn-secondary pt-btn-xs" type="button" onclick="window.PointsUI.buy('${esc(ind.name)} ${per}', ${cost})">${per} · ${fmtP(cost)} P</button>`).join('')}
-      </div>
-      <div class="pt-prod-meta" style="margin-top:6px">현재 이용 상태: 연동 예정</div>
-    </div>`;
-  }
-
-  // 5) AI 분석 이용권
-  function secAiPass() {
-    return `<div class="pt-card"><div class="pt-card-title">AI 분석 이용권</div>
-      <p class="pt-mini-note">무료 분석 횟수를 모두 사용했을 때 포인트로 AI 심화 분석을 이용할 수 있습니다.</p>
-      <div class="pt-prod" style="margin-top:10px">
-        <div class="pt-prod-info"><div class="pt-prod-name">AI 심화 분석 1회</div><div class="pt-prod-desc">현재 종목을 더 깊이 분석하는 AI 이용권</div></div>
-        <div class="pt-prod-right"><div class="pt-prod-price">1,000 P</div><button class="pt-btn pt-btn-primary pt-btn-xs" type="button" style="margin-top:6px" onclick="window.PointsUI.buyCode('ai_deep_1','AI 심화 분석 1회', 1000)">이용하기</button></div>
-      </div>
-      <p class="pt-mini-note">분석 결과는 참고용 정보이며, 매매를 권유하지 않습니다.</p>
-      <p class="pt-phase2">포인트 차감 후 AI 심화 분석 실행은 Phase 2 연동 후 활성화됩니다.</p></div>`;
-  }
-
-  // 6) 지인 초대
+  // 4) 지인 초대
   function secInvite() {
     const origin = window.location.origin;
     const code = P.code || '코드 준비 중';
@@ -238,16 +194,13 @@
         <button class="pt-btn pt-btn-ghost" type="button" onclick="window.PointsUI.share('kakao')">카카오톡으로 공유</button>
         <button class="pt-btn pt-btn-ghost" type="button" onclick="window.PointsUI.share('sms')">문자로 공유</button>
         <button class="pt-btn pt-btn-ghost" type="button" onclick="window.PointsUI.share('email')">이메일로 공유</button>
-        <button class="pt-btn pt-btn-secondary" type="button" onclick="window.PointsUI.go('invites')">초대 현황 보기</button>
       </div>
     </div>
     <div class="pt-card">
-      <div class="pt-card-title">초대 보상</div>
+      <div class="pt-card-title">초대 현황</div>
       <div class="pt-balance-grid">
-        <div class="row"><span class="k">이번 달 초대 수</span><span class="v">연동 예정</span></div>
         <div class="row"><span class="k">누적 초대 수</span><span class="v">${fmtP(P.referrals)}</span></div>
-        <div class="row"><span class="k">지급 완료 포인트</span><span class="v">연동 예정</span></div>
-        <div class="row"><span class="k">지급 대기 포인트</span><span class="v">연동 예정</span></div>
+        <div class="row"><span class="k">유료 전환 수</span><span class="v">${fmtP(P.paid)}</span></div>
       </div>
       <ul class="pt-policy-list" style="margin-top:10px">
         <li>가입 축하 포인트: 추천 코드로 가입한 사용자에게 1,000 P (유효기간 30일)</li>
@@ -260,37 +213,11 @@
     </div>`;
   }
 
-  // 7) 초대 현황
-  function secInvites() {
-    // 상세 초대 목록은 백엔드 엔드포인트(Phase 2) 필요 — 현재는 집계만 실제 표시
-    return `<div class="pt-card">
-      <div class="pt-card-title">초대 현황</div>
-      <div class="pt-balance-grid">
-        <div class="row"><span class="k">누적 초대 수</span><span class="v">${fmtP(P.referrals)}</span></div>
-        <div class="row"><span class="k">유료 전환 수</span><span class="v">${fmtP(P.paid)}</span></div>
-      </div>
-    </div>`;
-  }
-
-  // 8) 포인트 내역
+  // 7) 포인트 내역
   function secLedger() {
     if (!P.history.length) return '<div class="pt-state-msg">포인트 내역이 없습니다.</div>';
     return `<div class="pt-card"><div class="pt-card-title">포인트 내역</div>
       ${P.history.map(h => `<div class="pt-row"><div class="left"><div class="rtype">${esc(LEDGER_LABEL[h.reason] || h.reason || '포인트')}</div><div class="rnote">${esc(h.note || '')} · ${esc((h.date || '').slice(0, 16).replace('T', ' '))} · 잔여 ${fmtP(h.balance)} P</div></div><div class="ramt ${h.amount >= 0 ? 'pt-amt-plus' : 'pt-amt-minus'}">${h.amount >= 0 ? '+' : ''}${fmtP(h.amount)} P</div></div>`).join('')}
-    </div>`;
-  }
-
-  // 9) 보상 정책
-  function secPolicy() {
-    return `<div class="pt-card"><div class="pt-card-title">보상 정책</div>
-      <ul class="pt-policy-list">
-        <li>가입 축하 포인트: 추천 코드로 가입하면 가입자에게 포인트가 지급됩니다.</li>
-        <li>초대 보상: 초대받은 사용자가 조건을 충족하면 추천인에게 포인트가 지급됩니다.</li>
-        <li>첫 결제 추가 보상: 초대받은 사용자의 첫 결제 완료 시 추천인에게 추가 포인트가 지급됩니다.</li>
-        <li>포인트는 유효기간이 짧은 포인트부터 사용됩니다.</li>
-        <li>부정 사용(자가 추천, 반복 가입, 동일 기기·IP 등)이 확인되면 보상이 보류·제외되거나 포인트가 회수될 수 있습니다.</li>
-      </ul>
-      <p class="pt-disclaimer" style="margin-top:12px;border-top:0;padding-top:0">포인트는 현금으로 환불 또는 출금할 수 없습니다. 포인트는 범온 슈퍼차트 AI 서비스 내 기능 이용에만 사용할 수 있습니다. 부정한 방법으로 적립한 포인트는 회수될 수 있습니다. 레퍼럴 보상은 운영 정책에 따라 지급, 보류, 취소될 수 있습니다.</p>
     </div>`;
   }
 

@@ -34,7 +34,14 @@
     leverage: State.settings.leverage,
     feeRate: State.settings.feeRate,
     slippage: 0.05,        // % 가정
+    advancedOpen: localStorage.getItem('paperAdvancedOpen') === '1',
   };
+  function toggleAdvanced() {
+    Form.advancedOpen = !Form.advancedOpen;
+    try { localStorage.setItem('paperAdvancedOpen', Form.advancedOpen ? '1' : '0'); } catch {}
+    renderBuilder();
+    recompute();
+  }
 
   // 기록 필터/정렬
   let recordFilter = 'all';
@@ -249,7 +256,10 @@
     el.innerHTML = `
       <div class="mt-acct">
         <div class="mt-acct-top"><span class="k">가상 잔고(평가)</span><span class="v">${fmtUSD(eq)}</span></div>
-        <div class="mt-acct-grid">
+        <button type="button" class="mt-acct-toggle" onclick="window.PaperTrading.toggleAcctDetail()" aria-expanded="${State._acctDetailOpen?'true':'false'}">
+          계좌 상세 <span class="mt-advanced-arrow">${State._acctDetailOpen?'▲':'▼'}</span>
+        </button>
+        <div class="mt-acct-grid" ${State._acctDetailOpen?'':'hidden'}>
           <div class="row"><span class="k">사용 가능 잔고</span><span class="v">${fmtUSD(avail)}</span></div>
           <div class="row"><span class="k">사용 중 증거금</span><span class="v">${fmtUSD(used)}</span></div>
           <div class="row"><span class="k">평가 손익</span><span class="v ${pc(unreal)}">${unreal>=0?'+':''}${fmtUSD(unreal)}</span></div>
@@ -260,6 +270,10 @@
         </div>
         <div class="mt-acct-foot"><button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.confirmReset()">계좌 초기화</button></div>
       </div>`;
+  }
+  function toggleAcctDetail() {
+    State._acctDetailOpen = !State._acctDetailOpen;
+    renderAccount();
   }
 
   // 18) 로그인 안내
@@ -289,27 +303,15 @@
     else if (lev >= 10) levWarn = '<div class="mt-lev-warn high">높은 위험: 레버리지가 높을수록 손실과 청산 위험이 커집니다.</div>';
 
     el.innerHTML = `
-      <!-- 방향 연습 -->
+      <!-- 기본: 방향 + 진입가 + 금액 -->
       <div class="mt-card">
-        <div class="mt-card-title">방향 선택</div>
+        <div class="mt-card-title">모의 주문</div>
         <div class="mt-dir">
           <button class="mt-dir-btn ${Form.direction==='long'?'active':''}" type="button" onclick="window.PaperTrading.setDirection('long')">롱 방향 연습</button>
           <button class="mt-dir-btn ${Form.direction==='short'?'active short':''}" type="button" onclick="window.PaperTrading.setDirection('short')">숏 방향 연습</button>
         </div>
-      </div>
-
-      <!-- 가격 방식 + 진입 조건 -->
-      <div class="mt-card">
-        <div class="mt-card-title">진입 조건</div>
-        <div class="mt-seg" style="margin-bottom:10px">
-          <button class="mt-seg-btn ${Form.priceMode==='current'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('current')">현재가 기준</button>
-          <button class="mt-seg-btn ${Form.priceMode==='limit'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('limit')">지정가 기준</button>
-        </div>
         <div class="mt-field"><label>심볼</label><input class="mt-input" id="mtSym" value="${esc(symShort(sym))}/USDT" disabled></div>
-        <div class="mt-grid-2">
-          <div class="mt-field"><label>기준 가격</label><input class="mt-input" id="mtRefPrice" type="number" inputmode="decimal" step="any" value="${cur ? inputVal(cur) : ''}" ${Form.priceMode==='current'?'disabled':''} oninput="window.PaperTrading.recompute()"></div>
-          <div class="mt-field"><label>진입가</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? inputVal(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
-        </div>
+        <div class="mt-field"><label>진입가 (${Form.priceMode==='current'?'현재가 기준':'지정가 기준'})</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? inputVal(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
         <div class="mt-field">
           <label>투입 금액 (USDT, 증거금)</label>
           <input class="mt-input" id="mtAmount" type="number" inputmode="decimal" step="any" value="50" oninput="window.PaperTrading.recompute()">
@@ -318,24 +320,38 @@
           </div>
         </div>
         <div class="mt-field"><label>수량 (자동 계산)</label><input class="mt-input" id="mtQty" disabled></div>
+        <div class="mt-lev-tier">레버리지 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
       </div>
 
-      <!-- 레버리지 -->
-      <div class="mt-card">
-        <div class="mt-card-title">레버리지 설정</div>
-        <div class="mt-lev-chips">${levChips}</div>
-        <div class="mt-lev-tier">현재 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
-        ${levWarn}
-      </div>
-
-      <!-- 목표/손절 -->
-      <div class="mt-card">
-        <div class="mt-card-title">목표가 · 손절 기준가</div>
-        <div class="mt-grid-2">
-          <div class="mt-field"><label>목표가</label><input class="mt-input" id="mtTarget" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
-          <div class="mt-field"><label>손절 기준가</label><input class="mt-input" id="mtStop" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
+      <!-- 고급 설정 (접이식) -->
+      <button type="button" class="mt-advanced-toggle" onclick="window.PaperTrading.toggleAdvanced()" aria-expanded="${Form.advancedOpen?'true':'false'}">
+        고급 설정 (지정가 · 레버리지 · 목표/손절)
+        <span class="mt-advanced-arrow">${Form.advancedOpen?'▲':'▼'}</span>
+      </button>
+      <div class="mt-advanced-body" ${Form.advancedOpen?'':'hidden'}>
+        <div class="mt-card">
+          <div class="mt-card-title">진입 조건</div>
+          <div class="mt-seg" style="margin-bottom:10px">
+            <button class="mt-seg-btn ${Form.priceMode==='current'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('current')">현재가 기준</button>
+            <button class="mt-seg-btn ${Form.priceMode==='limit'?'active':''}" type="button" onclick="window.PaperTrading.setPriceMode('limit')">지정가 기준</button>
+          </div>
+          <div class="mt-field"><label>기준 가격</label><input class="mt-input" id="mtRefPrice" type="number" inputmode="decimal" step="any" value="${cur ? inputVal(cur) : ''}" ${Form.priceMode==='current'?'disabled':''} oninput="window.PaperTrading.recompute()"></div>
         </div>
-        <div class="mt-stat-grid" id="mtTargetStats"></div>
+
+        <div class="mt-card">
+          <div class="mt-card-title">레버리지 설정</div>
+          <div class="mt-lev-chips">${levChips}</div>
+          ${levWarn}
+        </div>
+
+        <div class="mt-card">
+          <div class="mt-card-title">목표가 · 손절 기준가</div>
+          <div class="mt-grid-2">
+            <div class="mt-field"><label>목표가</label><input class="mt-input" id="mtTarget" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
+            <div class="mt-field"><label>손절 기준가</label><input class="mt-input" id="mtStop" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
+          </div>
+          <div class="mt-stat-grid" id="mtTargetStats"></div>
+        </div>
       </div>`;
   }
 
@@ -787,6 +803,7 @@
     setFilter, setSort,
     openReview, closeReview, saveReview,
     toggleOverlay, confirmReset, doReset,
+    toggleAdvanced, toggleAcctDetail,
     restoreChartMarkers, renderAll,
     getState: () => State, getCurrentPrice,
   };
