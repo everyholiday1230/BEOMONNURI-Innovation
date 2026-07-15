@@ -1753,6 +1753,9 @@ body.dark #_toastContainer .pro-toast-chip {
       <!-- 2) 모의 계좌 요약 -->
       <div id="mtAccount"></div>
 
+      <!-- 대회 순위(리더보드) -->
+      <div id="mtLeaderboard" class="mt-section-block"></div>
+
       <!-- 비로그인 안내 (조건부) -->
       <div id="mtLoginHint"></div>
 
@@ -1767,9 +1770,6 @@ body.dark #_toastContainer .pro-toast-chip {
 
       <!-- 8) 유효성/상태 메시지 -->
       <div id="mtValidation" class="mt-validation" role="status" aria-live="polite"></div>
-
-      <!-- 13) 모의 주문 생성 -->
-      <button id="mtCreateBtn" class="mt-btn mt-btn-primary mt-btn-block" type="button" onclick="window.PaperTrading.create()">모의 주문 생성</button>
 
       <!-- 12) 차트 연동 토글 -->
       <label class="mt-overlay-toggle"><input type="checkbox" id="mtOverlayToggle" onchange="window.PaperTrading.toggleOverlay(this.checked)"> 차트에 가상 진입가·목표가·손절 기준가 표시</label>

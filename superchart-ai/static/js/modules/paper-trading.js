@@ -184,12 +184,12 @@
 
     // 방향별 목표/손절 유효성
     if (f.target != null) {
-      if (f.direction === 'long' && f.target <= f.entry) out.errors.push('롱 방향 연습에서는 목표가가 진입가보다 높아야 합니다.');
-      if (f.direction === 'short' && f.target >= f.entry) out.errors.push('숏 방향 연습에서는 목표가가 진입가보다 낮아야 합니다.');
+      if (f.direction === 'long' && f.target <= f.entry) out.errors.push('매수에서는 목표가가 진입가보다 높아야 합니다.');
+      if (f.direction === 'short' && f.target >= f.entry) out.errors.push('매도에서는 목표가가 진입가보다 낮아야 합니다.');
     }
     if (f.stop != null) {
-      if (f.direction === 'long' && f.stop >= f.entry) out.errors.push('롱 방향 연습에서는 손절 기준가가 진입가보다 낮아야 합니다.');
-      if (f.direction === 'short' && f.stop <= f.entry) out.errors.push('숏 방향 연습에서는 손절 기준가가 진입가보다 높아야 합니다.');
+      if (f.direction === 'long' && f.stop >= f.entry) out.errors.push('매수에서는 손절 기준가가 진입가보다 낮아야 합니다.');
+      if (f.direction === 'short' && f.stop <= f.entry) out.errors.push('매도에서는 손절 기준가가 진입가보다 높아야 합니다.');
     }
 
     if (Number.isFinite(f.entry) && f.entry > 0 && Number.isFinite(f.amount) && f.amount > 0) {
@@ -235,6 +235,7 @@
   // ═══════════════════════════════════════════════════
   function renderAll() {
     renderAccount();
+    renderLeaderboard();
     renderLoginHint();
     renderBuilder();
     recompute();           // P&L/Liq/Risk/Validation + overlay
@@ -271,6 +272,70 @@
         <div class="mt-acct-foot"><button class="mt-btn mt-btn-ghost mt-btn-xs" type="button" onclick="window.PaperTrading.confirmReset()">계좌 초기화</button></div>
       </div>`;
   }
+
+  // 대회 순위(리더보드) — 접이식(기본 접힘), 펼칠 때 서버에서 조회
+  let _leaderboardOpen = false;
+  let _leaderboardData = null;
+  let _leaderboardLoading = false;
+  function renderLeaderboard() {
+    const el = document.getElementById('mtLeaderboard');
+    if (!el) return;
+    if (!_leaderboardOpen) {
+      el.innerHTML = `
+        <button type="button" class="mt-advanced-toggle" onclick="window.PaperTrading.toggleLeaderboard()">
+          🏆 대회 순위 보기
+          <span class="mt-advanced-arrow">▼</span>
+        </button>`;
+      return;
+    }
+    const head = `
+      <button type="button" class="mt-advanced-toggle" onclick="window.PaperTrading.toggleLeaderboard()" aria-expanded="true">
+        🏆 대회 순위
+        <span class="mt-advanced-arrow">▲</span>
+      </button>`;
+    if (_leaderboardLoading) { el.innerHTML = head + '<div class="mt-state-msg">순위를 불러오는 중입니다...</div>'; return; }
+    if (!_leaderboardData) { el.innerHTML = head + '<div class="mt-state-msg">순위를 불러오지 못했습니다. 다시 시도해 주세요.</div>'; return; }
+    const { items, myRank } = _leaderboardData;
+    if (!items || !items.length) {
+      el.innerHTML = head + '<div class="mt-state-msg">아직 완료된 모의 거래가 없습니다. 매수·매도로 첫 거래를 남기면 순위에 반영됩니다.</div>';
+      return;
+    }
+    const medal = r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r;
+    const row = (it) => `
+      <div class="mt-lb-row ${it.isMe ? 'me' : ''}">
+        <span class="mt-lb-rank">${medal(it.rank)}</span>
+        <span class="mt-lb-name">${esc(it.nickname)}${it.isMe ? ' (나)' : ''}</span>
+        <span class="mt-lb-trades">${it.tradeCount}회</span>
+        <span class="mt-lb-pnl ${it.pnl >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg'}">${it.pnl >= 0 ? '+' : ''}${fmtUSD(it.pnl)} (${it.pnlPct >= 0 ? '+' : ''}${it.pnlPct.toFixed(1)}%)</span>
+      </div>`;
+    let body = items.map(row).join('');
+    if (myRank && !items.some(it => it.isMe)) {
+      body += `<div class="mt-lb-sep">···</div>` + row(myRank);
+    }
+    el.innerHTML = head + `
+      <div class="mt-lb-list">
+        <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래</span><span class="mt-lb-pnl">누적 손익</span></div>
+        ${body}
+      </div>
+      <p class="mt-note">실현 손익(청산 완료된 모의 거래) 기준 순위이며, 진행 중인 포지션의 평가 손익은 포함되지 않습니다.</p>`;
+  }
+  async function toggleLeaderboard() {
+    _leaderboardOpen = !_leaderboardOpen;
+    if (_leaderboardOpen) await fetchLeaderboard();
+    else renderLeaderboard();
+  }
+  async function fetchLeaderboard() {
+    _leaderboardLoading = true;
+    renderLeaderboard();
+    try {
+      const r = await fetch('/v1/paper/leaderboard?limit=50', { credentials: 'include' });
+      const d = await r.json();
+      _leaderboardData = (d && d.success) ? d.data : null;
+    } catch { _leaderboardData = null; }
+    _leaderboardLoading = false;
+    renderLeaderboard();
+  }
+
   function toggleAcctDetail() {
     State._acctDetailOpen = !State._acctDetailOpen;
     renderAccount();
@@ -303,22 +368,22 @@
     else if (lev >= 10) levWarn = '<div class="mt-lev-warn high">높은 위험: 레버리지가 높을수록 손실과 청산 위험이 커집니다.</div>';
 
     el.innerHTML = `
-      <!-- 기본: 방향 + 진입가 + 금액 -->
+      <!-- 기본: 방향(매수/매도, 클릭 즉시 체결) + 투입금액 -->
       <div class="mt-card">
         <div class="mt-card-title">모의 주문 · ${esc(symShort(sym))}/USDT</div>
-        <div class="mt-dir">
-          <button class="mt-dir-btn ${Form.direction==='long'?'active':''}" type="button" onclick="window.PaperTrading.setDirection('long')">롱 방향 연습</button>
-          <button class="mt-dir-btn ${Form.direction==='short'?'active short':''}" type="button" onclick="window.PaperTrading.setDirection('short')">숏 방향 연습</button>
+        <div class="mt-dir mt-dir-instant">
+          <button class="mt-dir-btn mt-buy-btn" type="button" onclick="window.PaperTrading.instantOrder('long')">매수</button>
+          <button class="mt-dir-btn mt-sell-btn short" type="button" onclick="window.PaperTrading.instantOrder('short')">매도</button>
         </div>
-        <div class="mt-field"><label>진입가 (${Form.priceMode==='current'?'현재가 기준':'지정가 기준'})</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? inputVal(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
         <div class="mt-field">
           <label>투입 금액 (USDT, 증거금)</label>
-          <input class="mt-input" id="mtAmount" type="number" inputmode="decimal" step="any" value="50" oninput="window.PaperTrading.recompute()">
+          <input class="mt-input" id="mtAmount" type="number" inputmode="decimal" step="any" value="${inputVal(Math.min(50, Math.max(1, availableBalance())))}" oninput="window.PaperTrading.recompute()">
           <div class="mt-quick">
             ${[25,50,100].map(p => `<button class="mt-quick-btn" type="button" onclick="window.PaperTrading.setAmountPercent(${p})">${p}%</button>`).join('')}
           </div>
         </div>
         <div class="mt-lev-tier">수량 <b id="mtQtyInline">-</b> · 레버리지 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
+        <input class="mt-input" id="mtEntry" type="hidden">
         <input class="mt-input" id="mtQty" disabled hidden>
       </div>
 
@@ -344,7 +409,7 @@
         </div>
 
         <div class="mt-card">
-          <div class="mt-card-title">목표가 · 손절 기준가</div>
+          <div class="mt-card-title">목표가 · 손절 기준가 (선택)</div>
           <div class="mt-grid-2">
             <div class="mt-field"><label>목표가</label><input class="mt-input" id="mtTarget" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
             <div class="mt-field"><label>손절 기준가</label><input class="mt-input" id="mtStop" type="number" inputmode="decimal" step="any" placeholder="선택" oninput="window.PaperTrading.recompute()"></div>
@@ -377,8 +442,10 @@
     renderPnlCard(f, c);
     renderValidation(c);
 
-    const btn = document.getElementById('mtCreateBtn');
-    if (btn) btn.disabled = !c.valid;
+    // 매수/매도 버튼: 투입 금액이 유효할 때만 눌러서 즉시 체결 가능
+    // (target/stop 미설정은 정상 — 목표/손절 없이도 매수/매도 가능해야 함)
+    const amountOk = Number.isFinite(f.amount) && f.amount > 0 && f.amount <= availableBalance() + 1e-9 && Number.isFinite(f.entry) && f.entry > 0;
+    document.querySelectorAll('.mt-buy-btn, .mt-sell-btn').forEach(b => { b.disabled = !amountOk; });
 
     if (document.getElementById('mtOverlayToggle')?.checked) drawBuilderOverlay(f, c);
     return { f, c };
@@ -492,7 +559,7 @@
   // ───────── 13) 모의 주문 생성 ─────────
   function create() {
     const { f, c } = recompute();
-    if (!c.valid) { window.showToast?.('입력값을 확인해 주세요', '#921230'); return; }
+    if (!c.valid) { window.showToast?.((c.errors && c.errors[0]) || '입력값을 확인해 주세요', '#921230'); return; }
     if (!isLoggedIn() && State.positions.length >= GUEST_MAX_POSITIONS) {
       window.showToast?.(`비로그인은 임시 모의 포지션 ${GUEST_MAX_POSITIONS}개까지 연습할 수 있습니다`, '#921230');
       window.showAuthModal?.();
@@ -511,7 +578,13 @@
     State.positions.push(pos);
     save();
     renderAll();
-    window.showToast?.(`${symShort(f.sym)} ${f.direction==='long'?'롱':'숏'} 방향 모의 주문을 생성했습니다`, '#921230');
+    window.showToast?.(`${symShort(f.sym)} ${f.direction==='long'?'매수':'매도'} 모의 주문이 체결되었습니다`, '#921230');
+  }
+
+  // 매수/매도 버튼 클릭 → 방향 설정 후 즉시 체결 (별도 생성 버튼 없이 바로 진입)
+  function instantOrder(direction) {
+    Form.direction = direction;
+    create();
   }
 
   // ───────── 14) 진행 중인 모의 포지션 ─────────
@@ -530,7 +603,7 @@
       return `
         <div class="mt-pos ${p.direction==='short'?'short':''}">
           <div class="mt-pos-top">
-            <div><span class="mt-pos-sym" onclick="window._selectSym&&window._selectSym('${p.sym}')">${symShort(p.sym)}/USDT</span><span class="mt-dir-tag ${p.direction==='short'?'short':''}">${p.direction==='long'?'롱':'숏'} ${p.leverage}x</span></div>
+            <div><span class="mt-pos-sym" onclick="window._selectSym&&window._selectSym('${p.sym}')">${symShort(p.sym)}/USDT</span><span class="mt-dir-tag ${p.direction==='short'?'short':''}">${p.direction==='long'?'매수':'매도'} ${p.leverage}x</span></div>
             <span class="mt-status ${stt[1]}">${stt[0]}</span>
           </div>
           <div class="mt-pos-grid">
@@ -626,7 +699,7 @@
   function renderRecords() {
     const el = document.getElementById('mtRecords');
     if (!el) return;
-    const filters = [['all','전체'],['long','롱'],['short','숏'],['win','수익'],['loss','손실'],['week','이번 주'],['month','이번 달']];
+    const filters = [['all','전체'],['long','매수'],['short','매도'],['win','수익'],['loss','손실'],['week','이번 주'],['month','이번 달']];
     const sorts = [['recent','최신순'],['pnl_high','손익 높은 순'],['loss_big','손실 큰 순'],['hold_long','보유 시간 긴 순'],['rr_high','손익비 높은 순']];
     const list = filteredRecords();
     let body;
@@ -638,7 +711,7 @@
       const stt = STATUS_LABEL[h.status] || STATUS_LABEL.manual;
       return `<div class="mt-record">
         <div class="left">
-          <div><span class="rsym" onclick="window._selectSym&&window._selectSym('${h.sym}')">${symShort(h.sym)}</span> · ${h.direction==='long'?'롱':'숏'} ${h.leverage||1}x · <span class="mt-status ${stt[1]}" style="height:16px;font-size:9px">${stt[0]}</span></div>
+          <div><span class="rsym" onclick="window._selectSym&&window._selectSym('${h.sym}')">${symShort(h.sym)}</span> · ${h.direction==='long'?'매수':'매도'} ${h.leverage||1}x · <span class="mt-status ${stt[1]}" style="height:16px;font-size:9px">${stt[0]}</span></div>
           <div class="rmeta">${d.toLocaleDateString('ko-KR')} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} · R:R ${h.rr!=null?h.rr.toFixed(2):'-'}${h.review?' · 복기 있음':''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -672,7 +745,7 @@
     root.innerHTML = `
       <div class="mt-modal-overlay" onclick="if(event.target===this)window.PaperTrading.closeReview()">
         <div class="mt-modal" role="dialog" aria-label="복기 작성">
-          <h3>복기 작성 — ${symShort(obj.sym)} ${obj.direction==='long'?'롱':'숏'}</h3>
+          <h3>복기 작성 — ${symShort(obj.sym)} ${obj.direction==='long'?'매수':'매도'}</h3>
           ${f('진입 이유','entryReason','어떤 근거로 진입을 연습했나요')}
           ${f('종료 이유','exitReason','왜 종료했나요')}
           ${f('잘한 점','good','계획대로 지킨 점')}
@@ -799,13 +872,13 @@
 
   // ───────── 외부 노출 ─────────
   window.PaperTrading = {
-    create, recompute,
+    create, instantOrder, recompute,
     setDirection, setPriceMode, setLeverage, customLeverage, setFee, setSlippage, setAmountPercent,
     editPosition, closePosition, deletePosition,
     setFilter, setSort,
     openReview, closeReview, saveReview,
     toggleOverlay, confirmReset, doReset,
-    toggleAdvanced, toggleAcctDetail,
+    toggleAdvanced, toggleAcctDetail, toggleLeaderboard,
     restoreChartMarkers, renderAll,
     getState: () => State, getCurrentPrice,
   };
