@@ -838,19 +838,6 @@ async def post_autobot_signals(request: Request):
     )
     return ApiResponse(data=result)
 
-@router.get("/similar-pattern")
-async def get_similar_pattern(symbolId: str = "BTCUSDT", timeframe: str = "1h", period: int = 100, future: int = 20):
-    """유사패턴 분석 — 현재 차트와 비슷한 과거 패턴 검색"""
-    period = min(max(period, 20), 500)
-    future = min(max(future, 5), 100)
-    from src.services.similar_pattern import find_similar_patterns
-    api_sym, exchange_id = resolve_symbol(symbolId)
-    candles = await fetch_candles(api_sym, exchange_id, timeframe, max(500, period + future + 200))
-    if not candles:
-        return ApiResponse(data={"patterns": [], "stats": {}})
-    result = find_similar_patterns(candles, period=period, future=future)
-    return ApiResponse(data=result)
-
 
 
 @router.get("/ind-beomauto2", response_model=ApiResponse)

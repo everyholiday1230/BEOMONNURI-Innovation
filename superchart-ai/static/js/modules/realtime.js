@@ -22,7 +22,6 @@ function _setStatusUI(status, opts) {
   opts = opts || {};
   const badge = document.getElementById('priceStatusBadge');
   const upd = document.getElementById('priceUpdatedAt');
-  const retry = document.getElementById('priceRetryBtn');
   const diagBtn = document.getElementById('dsDiagBtn');
   const txtMap = window.DataStatusText || {};
   const clsMap = window.DataStatusBadgeClass || {};
@@ -37,10 +36,11 @@ function _setStatusUI(status, opts) {
   }
   // '마지막 갱신 N분 전' 표시는 사용자 요청으로 노출하지 않음(항상 비움).
   if (upd) upd.textContent = '';
-  if (retry) retry.style.display = opts.showRetry ? '' : 'none';
-  // 진단 버튼: admin/dev 모드에서만
+  // 진단 버튼: 관리자 전용. URL 파라미터(?diag=1)나 localStorage 플래그로는
+  // 노출되지 않도록 한다(누구나 URL만 바꿔 내부 데이터소스/에러로그 등 진단
+  // 정보를 볼 수 있었던 허점 제거). window.isAdmin()의 서버 검증 role에만 의존.
   if (diagBtn) {
-    const isDev = (function(){ try { return localStorage.getItem('chartOS_devDiag') === '1' || /[?&]diag=1/.test(location.search) || (window.userPlan === 'admin'); } catch { return false; } })();
+    const isDev = (typeof window.isAdmin === 'function') ? !!window.isAdmin() : false;
     diagBtn.style.display = isDev ? '' : 'none';
   }
 }
@@ -78,12 +78,12 @@ export function renderRealtimeUI() {
       const numTxt = PS ? PS.format(good.price, curSymbol) : fmtPrice(good.price);
       el.textContent = numTxt;
       el.className = 'price-big flat';
-      _setStatusUI(DS.STALE || 'STALE', { updatedText: '마지막 수신 가격 · 최신 가격이 아닐 수 있습니다.', showRetry: true });
+      _setStatusUI(DS.STALE || 'STALE', { updatedText: '마지막 수신 가격 · 최신 가격이 아닐 수 있습니다.' });
     } else {
       el.textContent = (window.DataStatusText && window.DataStatusText[v.status]) || '가격 데이터 없음';
       el.className = 'price-big flat';
-      if (badge) { badge.className = 'change-badge flat'; badge.textContent = '24시간 변동률 확인 필요'; }
-      _setStatusUI(v.status, { showRetry: true });
+      if (badge) { badge.className = 'change-badge flat'; badge.textContent = '24시간 변동률 확인 중'; }
+      _setStatusUI(v.status, {});
     }
     document.title = `${curSymbol.replace('USDT', '')} · 가격 확인 중 | 범온 AI 슈퍼차트`;
     return;
@@ -107,7 +107,7 @@ export function renderRealtimeUI() {
 
   // 상태: 지연/오래됨이면 배지, 아니면 숨김. 마지막 갱신 표시.
   const updatedText = window.DataFmt ? window.DataFmt.lastUpdate(ts) : '';
-  _setStatusUI(v.status, { updatedText, showRetry: (v.status === (DS.STALE || 'STALE')) });
+  _setStatusUI(v.status, { updatedText });
 
   document.title = `${curSymbol.replace('USDT', '')} ${_newTxt} | 범온 AI 슈퍼차트`;
 
@@ -157,18 +157,6 @@ window._clearPriceOnSymbolChange = function() {
   _setStatusUI((window.DataState && window.DataState.LOADING) || 'LOADING', { updatedText: '' });
 };
 
-// 수동 재시도
-window._retryPrice = function() {
-  _diag.retryCount = (_diag.retryCount || 0) + 1; _diag.userAction = 'manual_retry';
-  const badge = document.getElementById('priceStatusBadge');
-  if (badge) { badge.textContent = '가격 데이터를 다시 확인하고 있습니다.'; badge.className = 'ds-badge ds-badge-loading'; badge.style.display = ''; }
-  try {
-    if (typeof window.loadHeatmap === 'function') { /* no-op */ }
-    // 현재 종목 재선택으로 가격 재요청 트리거
-    if (typeof window._selectSym === 'function' && window.curSymbol) window._selectSym(window.curSymbol);
-  } catch (e) { _diag.lastError = String(e).slice(0, 120); }
-  setTimeout(renderRealtimeUI, 1500);
-};
 
 // 진단 패널 토글 (admin/dev)
 window._dsToggleDiag = function() {

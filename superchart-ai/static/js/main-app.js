@@ -8061,7 +8061,7 @@ setInterval(() => {
           ? ((e.style.background = "#D8B66A"),
             (e.title = `\uC2E4\uC2DC\uAC04 (\uB9C8\uC9C0\uB9C9 ${a}s \uC804) \u2014 \uB2E4\uC18C \uC9C0\uC5F0`))
           : ((e.style.background = "#3B82F6"),
-            (e.title = `\uC2E4\uC2DC\uAC04 \uB04A\uAE40 (${a}s \uC804 \uB9C8\uC9C0\uB9C9 \uC218\uC2E0) \u2014 \uC11C\uBC84 /v1/debug/ingest \uD655\uC778 \uAD8C\uC7A5`));
+            (e.title = `\uC2E4\uC2DC\uAC04 \uC5F0\uACB0\uC744 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4`));
 
       // 네트워크는 살아 있지만 메시지가 멈춘 경우 자동 복구
       if (a >= 20 && Date.now() - (window._lastWsPingAt || 0) > 15000) {

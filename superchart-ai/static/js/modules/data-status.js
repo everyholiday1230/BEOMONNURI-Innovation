@@ -36,15 +36,15 @@
   const STATUS_TEXT = {
     LOADING: '가격 확인 중',
     READY: '정상',
-    DELAYED: '데이터 지연',
-    PARTIAL: '일부 데이터',
-    NO_PRICE: '가격 데이터 없음',
-    NO_SYMBOL: '심볼 정보 없음',
+    DELAYED: '가격 갱신 중',
+    PARTIAL: '일부 종목 준비 중',
+    NO_PRICE: '가격 준비 중',
+    NO_SYMBOL: '종목 정보 준비 중',
     UNSUPPORTED: '현재 미지원',
-    SUSPENDED: '거래 상태 확인 필요',
-    DELISTED: '상장 상태 확인 필요',
-    ERROR: '데이터를 불러오지 못했습니다',
-    STALE: '오래된 데이터',
+    SUSPENDED: '거래 일시 중지',
+    DELISTED: '거래 지원 종료',
+    ERROR: '잠시 후 다시 확인해 주세요',
+    STALE: '가격 갱신 중',
   };
 
   // 배지 클래스 (CSS .ds-badge-*)
@@ -163,7 +163,7 @@
     const age = Date.now() - Number(ts);
     if (age < 0) return '';
     const min = Math.floor(age / 60000), sec = Math.floor(age / 1000);
-    if (age >= STALE_MS) { const d = new Date(Number(ts)); return `오래된 데이터 · 마지막 갱신 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+    if (age >= STALE_MS) { const d = new Date(Number(ts)); return `마지막 갱신 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
     if (min >= 1) return `마지막 갱신 ${min}분 전`;
     return `마지막 갱신 ${Math.max(1, sec)}초 전`;
   }

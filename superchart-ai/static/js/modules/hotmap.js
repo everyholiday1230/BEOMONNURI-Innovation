@@ -202,8 +202,8 @@ function htApplyFilters(rows) {
   return list;
 }
 
-const HT_STATUS = { loading: ['불러오는 중','loading'], ok: ['정상','ok'], partial: ['일부 데이터','partial'], delayed: ['데이터 지연','delayed'], empty: ['데이터 부족','empty'], error: ['오류','error'] };
-function htSetStatus(kind) { const b = document.getElementById('htStatusBadge'); if (!b) return; const s = HT_STATUS[kind] || HT_STATUS.loading; b.textContent = s[0]; b.setAttribute('data-state', s[1]); }
+const HT_STATUS = { loading: ['불러오는 중','loading'], ok: ['정상','ok'], partial: ['준비 중','partial'], delayed: ['갱신 중','delayed'], empty: ['집계 중','empty'], error: ['잠시 후 다시 확인','error'] };
+function htSetStatus(kind) { const b = document.getElementById('htStatusBadge'); if (b) { const s = HT_STATUS[kind] || HT_STATUS.loading; b.textContent = s[0]; b.setAttribute('data-state', s[1]); } const rb = document.getElementById('htReloadBtn'); if (rb) rb.style.display = (kind === 'error') ? '' : 'none'; }
 function htSetUpdated() { const el = document.getElementById('htUpdated'); if (!el) return; const d = new Date(); el.textContent = `업데이트 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
 
 function htScoreClass(s) { return s >= 80 ? 'ht-score-high' : s >= 60 ? 'ht-score-mid' : s >= 40 ? 'ht-score-watch' : 'ht-score-low'; }

@@ -49,9 +49,10 @@
   };
 
   function setStatus(kind) {
-    const b = document.getElementById('ptStatusBadge'); if (!b) return;
-    const map = { loading: ['불러오는 중', 'loading'], ok: ['정상', 'ok'], guest: ['로그인 필요', 'guest'], error: ['오류', 'error'] };
-    const s = map[kind] || map.loading; b.textContent = s[0]; b.setAttribute('data-state', s[1]);
+    const b = document.getElementById('ptStatusBadge');
+    const map = { loading: ['불러오는 중', 'loading'], ok: ['정상', 'ok'], guest: ['로그인 필요', 'guest'], error: ['잠시 후 다시 확인', 'error'] };
+    if (b) { const s = map[kind] || map.loading; b.textContent = s[0]; b.setAttribute('data-state', s[1]); }
+    const rb = document.getElementById('ptReloadBtn'); if (rb) rb.style.display = (kind === 'error') ? '' : 'none';
   }
 
   // ───────── 데이터 로드 ─────────
