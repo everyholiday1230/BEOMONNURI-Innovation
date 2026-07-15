@@ -1026,7 +1026,35 @@ const reducedV5 = false;
       return;
     }
     render();
+    startRotation();
   };
+
+  // Drive rotation via requestAnimationFrame instead of a CSS animation.
+  // Some browsers stall/steady CSS transform animations when combined with
+  // `perspective` + `overflow: hidden` on the parent (seen on Safari/iOS and
+  // some Chromium/GPU driver combos), leaving the cylinder visibly frozen.
+  // Manual rAF control is more reliable across environments.
+  const ROTATION_PERIOD_MS = 40000; // matches previous 40s CSS animation
+  let rotationVisible = true;
+  document.addEventListener('visibilitychange', () => {
+    rotationVisible = !document.hidden;
+  });
+
+  function startRotation() {
+    let start = null;
+    const spin = (now) => {
+      if (!rotationVisible) {
+        requestAnimationFrame(spin);
+        return;
+      }
+      if (start === null) start = now;
+      const elapsed = (now - start) % ROTATION_PERIOD_MS;
+      const angle = -(elapsed / ROTATION_PERIOD_MS) * 360;
+      stage.style.transform = `translate(-50%, -50%) rotateY(${angle}deg)`;
+      requestAnimationFrame(spin);
+    };
+    requestAnimationFrame(spin);
+  }
 
   setTimeout(tryRender, 180);
 })();

@@ -334,8 +334,8 @@ body:not(.has-hero) #gpu-particles {
 
 .cylinder-stage {
   position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%) rotateY(0deg);
   transform-style: preserve-3d;
-  animation: rotateCylinder 40s linear infinite;
   will-change: transform;
 }
 .cylinder-face {
@@ -425,10 +425,6 @@ body:not(.has-hero) #gpu-particles {
   display: none;
 }
 
-@keyframes rotateCylinder {
-  from { transform: translate(-50%, -50%) rotateY(0deg); }
-  to   { transform: translate(-50%, -50%) rotateY(-360deg); }
-}
 @media (max-width: 700px) {
   .partner-cylinder { height: 140px; perspective: 900px; }
   .cylinder-face { width: 160px; height: 70px; left: -80px; top: -35px; padding: 0 12px; }
