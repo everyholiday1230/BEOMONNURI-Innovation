@@ -26,6 +26,20 @@ async def get_server_time():
     """서버 UTC 타임스탬프 (밀리초)."""
     return ApiResponse(data={"ts": int(time.time() * 1000)})
 
+def _mark_stale(data):
+    """업스트림(Bitget/Binance) 전체 실패로 24시간 캐시(ticker24_last)를 대신
+    반환할 때, 프론트엔드가 "오래된 가격을 현재가처럼" 표시하지 않도록 명시적
+    표시 필드를 추가한다. Binance 호환 응답 형식(딕셔너리 키)은 그대로 두고
+    필드만 추가하므로 기존 파싱 로직에 영향 없음. 원본 캐시 객체를 변경하지
+    않기 위해 새 dict/list 로 감싼다.
+    """
+    if isinstance(data, list):
+        return [{**item, "stale": True} if isinstance(item, dict) else item for item in data]
+    if isinstance(data, dict):
+        return {**data, "stale": True}
+    return data
+
+
 def _bitget_to_binance_ticker(row: dict, symbol_in: str, scale: int = 1) -> dict:
     """Normalise a Bitget v2 mix ticker row to Binance fapi 24hr shape.
 
@@ -116,7 +130,7 @@ async def proxy_ticker_24hr(symbol: str = ""):
         stale = await cache_get("ticker24_last", cache_key)
         if stale is not None:
             log.warning("ticker.upstream_fail_stale_fallback", symbol=symbol, err=str(e))
-            return stale
+            return _mark_stale(stale)
         log.warning("ticker.upstream_fail_no_fallback", symbol=symbol, err=str(e))
         return {"code": -1, "msg": f"upstream error: {e}"}
 
@@ -166,7 +180,7 @@ async def proxy_ticker_24hr(symbol: str = ""):
             msg=(raw or {}).get("msg") if isinstance(raw, dict) else str(raw)[:200],
         )
         if stale is not None:
-            return stale
+            return _mark_stale(stale)
         return raw
 
     rows = raw["data"]

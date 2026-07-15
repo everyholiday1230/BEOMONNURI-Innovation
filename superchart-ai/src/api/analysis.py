@@ -134,8 +134,12 @@ async def analyze(req: AnalysisRequest, request: Request):
         await check_tier_limit(auth[7:], "ai_analysis")
     else:
         # 비로그인: IP 기반 rate limit (일 1회 / 1h 5회)
-        _ip = (request.client.host if request.client else "") or \
-              request.headers.get("x-forwarded-for", "").split(",")[0].strip() or "unknown"
+        # uvicorn 이 --proxy-headers --forwarded-allow-ips 로 기동되어(Dockerfile)
+        # X-Forwarded-For 를 이미 request.client.host 에 반영해준다. 여기서
+        # x-forwarded-for 헤더를 다시 직접 파싱하면 다중 프록시 체인의 첫 값
+        # (클라이언트가 임의로 주입 가능)을 신뢰하게 되어 rate limit 우회 경로가
+        # 될 수 있었다. request.client.host 하나만 신뢰한다.
+        _ip = (request.client.host if request.client else "") or "unknown"
         _key_day = f"guest_ai:{_ip}:day"
         _key_hour = f"guest_ai:{_ip}:hour"
         try:

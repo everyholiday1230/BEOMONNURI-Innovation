@@ -1,5 +1,6 @@
 """차트 분석 API — 백테스트, 학습 데이터."""
-from fastapi import APIRouter, Depends
+import re
+from fastapi import APIRouter, Depends, HTTPException
 from src.models.schemas import ApiResponse
 from src.services.market import fetch_candles
 from src.services.symbol_resolver import resolve_symbol
@@ -8,8 +9,23 @@ from src.services.auth import get_current_user_id
 
 router = APIRouter()
 
+_SAFE_TOKEN_RE = re.compile(r"[^A-Za-z0-9_-]")
+
+
+def _safe_filename_token(value: str, default: str = "na", max_len: int = 40) -> str:
+    """파일명에 삽입할 값에서 경로 조작(../, /, 특수문자)에 쓰일 수 있는 문자를 제거.
+
+    analyze_checked/save_train 이 symbol/tf 를 검증 없이 f-string으로 파일 경로에
+    직접 삽입해, 예: symbol='../../../etc/cron.d/evil' 로 data/results/ 밖에
+    임의 경로에 파일을 쓸 수 있었다(Path Traversal). 영문/숫자/'_'/'-' 만 남기고
+    나머지는 제거, 빈 값이면 안전한 기본값으로 대체.
+    """
+    cleaned = _SAFE_TOKEN_RE.sub("", str(value or ""))[:max_len]
+    return cleaned or default
+
 @router.get("/backtest", response_model=ApiResponse)
-async def get_backtest(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: int = 2000, mode: str = "B"):
+async def get_backtest(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: int = 2000, mode: str = "B",
+                        user_id: str = Depends(get_current_user_id)):
     key = f"{symbolId}:{timeframe}:{limit}:{mode}:v12dual"
     cached = await _get_cached("bt", key, 120)
     if cached is not None:
@@ -33,22 +49,28 @@ async def get_backtest(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: 
     return ApiResponse(data=result)
 
 @router.post("/analyze-checked", response_model=ApiResponse)
-async def analyze_checked(body: dict):
-    """체크된 봉들 일괄 분석"""
+async def analyze_checked(body: dict, user_id: str = Depends(get_current_user_id)):
+    """체크된 봉들 일괄 분석 (Alt+클릭 개발자 도구 — 로그인 필요)."""
     import json
     bars = body.get("bars", [])
     symbol = body.get("symbol", "")
     tf = body.get("tf", "")
-    
+
+    if not isinstance(bars, list):
+        raise HTTPException(400, "bars 는 배열이어야 합니다")
+    if len(bars) > 500:
+        raise HTTPException(400, "한 번에 분석 가능한 봉은 최대 500개입니다")
     if not bars:
         return ApiResponse(data={"summary": "체크된 봉이 없습니다"})
-    
-    # 파일 저장
+
+    # 파일 저장 — symbol/tf 를 안전하게 정제해 경로 조작(Path Traversal) 방지
+    safe_symbol = _safe_filename_token(symbol)
+    safe_tf = _safe_filename_token(tf)
     import time as _t
-    fname = f"data/results/checked_{symbol}_{tf}_{int(_t.time())}.json"
+    fname = f"data/results/checked_{safe_symbol}_{safe_tf}_{int(_t.time())}.json"
     import os; os.makedirs("data/results", exist_ok=True)
     with open(fname, "w") as f:
-        json.dump({"symbol": symbol, "tf": tf, "bars": bars}, f, indent=2, ensure_ascii=False)
+        json.dump({"symbol": symbol, "tf": tf, "bars": bars, "user_id": user_id}, f, indent=2, ensure_ascii=False)
     
     # 분석
     total = len(bars)
@@ -92,14 +114,19 @@ async def save_train(body: dict, user_id: str = Depends(get_current_user_id)):
     import json
     import time as _t
     import os
+    if not isinstance(body.get("points", []), list) or len(body.get("points", [])) > 1000:
+        raise HTTPException(400, "points 는 배열이며 최대 1000개까지 저장 가능합니다")
     os.makedirs("data/results", exist_ok=True)
-    fname = f"data/results/train_{body.get('symbol','')}_{body.get('tf','')}_{int(_t.time())}.json"
+    safe_symbol = _safe_filename_token(body.get('symbol', ''))
+    safe_tf = _safe_filename_token(body.get('tf', ''))
+    fname = f"data/results/train_{safe_symbol}_{safe_tf}_{int(_t.time())}.json"
     with open(fname, "w") as f:
         json.dump(body, f, indent=2, ensure_ascii=False)
     return ApiResponse(data={"file": fname, "count": len(body.get("points", []))})
 
 @router.get("/train-range", response_model=ApiResponse)
-async def train_range(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: int = 2000, startIdx: int = 0, endIdx: int = 0):
+async def train_range(symbolId: str = "BTCUSDT", timeframe: str = "5m", limit: int = 2000, startIdx: int = 0, endIdx: int = 0,
+                       user_id: str = Depends(get_current_user_id)):
     """진입~청산 구간의 7개 지표값 반환"""
     api_sym, exchange_id = resolve_symbol(symbolId)
     candles = await fetch_candles(api_sym, exchange_id, timeframe, limit)

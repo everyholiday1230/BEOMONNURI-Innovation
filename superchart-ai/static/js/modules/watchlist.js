@@ -373,7 +373,17 @@ export async function loadWLPrices(opts = {}) {
     const data = await r.json().catch(() => null);
     if (!Array.isArray(data)) return;
     const map = {};
-    for (const t of data) map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
+    let staleCount = 0;
+    for (const t of data) {
+      map[t.symbol] = { price: parseFloat(t.lastPrice), pct: parseFloat(t.priceChangePercent) };
+      if (t.stale) staleCount++;
+    }
+    if (staleCount > 0) {
+      // 서버가 업스트림(Bitget/Binance) 전체 실패로 24시간 지난 캐시를 대신
+      // 반환한 상태(charts.py _mark_stale). 가격 자체는 그대로 표시하되,
+      // 콘솔에 남겨 실제 장애 발생 시 원인 파악이 쉽도록 한다.
+      console.warn(`[watchlist] ${staleCount}개 종목이 오래된(최대 24h) 가격 데이터입니다 — 업스트림 연동 확인 필요`);
+    }
     window._wlPriceCache = window._wlPriceCache || {};
     // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback).
     // 개별 호출은 서버에서 Bitget 실패 시 Binance fapi(현재 -1003 밴)까지 재시도해

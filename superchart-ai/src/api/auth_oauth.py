@@ -86,14 +86,19 @@ async def google_callback(
     if not all([client_id, client_secret, code]):
         raise HTTPException(400, "인증 실패")
 
-    # state 검증 (signed JWT)
-    if state:
-        try:
-            payload = _jwt.decode(state, _auth_settings.jwt_secret, algorithms=["HS256"])
-            if payload.get("purpose") != "oauth":
-                raise HTTPException(400, "Invalid state")
-        except Exception:
-            raise HTTPException(400, "Invalid or expired state")
+    # state 검증 (signed JWT) — 반드시 존재해야 함. 빈 값으로 검증을 건너뛸 수
+    # 있으면 공격자가 state 없이 직접 callback URL을 피해자에게 열게 해
+    # Login CSRF(피해자를 공격자 의도의 계정으로 로그인시키는 공격)가 가능하다.
+    if not state:
+        raise HTTPException(400, "Invalid state")
+    try:
+        payload = _jwt.decode(state, _auth_settings.jwt_secret, algorithms=["HS256"])
+        if payload.get("purpose") != "oauth":
+            raise HTTPException(400, "Invalid state")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Invalid or expired state")
 
     # 토큰 교환
     async with httpx.AsyncClient(timeout=10) as c:

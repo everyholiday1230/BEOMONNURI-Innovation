@@ -1,7 +1,7 @@
 """알림 API — DB 영속화 + 사용자별 소유권."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db
@@ -80,6 +80,7 @@ async def alert_history(request: Request, db: AsyncSession = Depends(get_db), li
 
     일반 알림(PRICE_CROSS_*, RSI_*)의 last_triggered_at 기준 + BEOM_SIGNAL 이력.
     """
+    limit = max(1, min(limit, 100))
     token = request.cookies.get("auth_token") or (request.headers.get("authorization","")[7:] if request.headers.get("authorization","").startswith("Bearer ") else "")
     if not token:
         return ApiResponse(data={"items": []})
@@ -122,12 +123,24 @@ async def create_alert(req: AlertCreate, request: Request, db: AsyncSession = De
     user_id = await _get_uid_from_request(request)
     if not user_id:
         raise HTTPException(401, "로그인이 필요합니다")
+    from src.services.beom_free import get_user_tier
+    tier = await get_user_tier(request)
     # BEOM_SIGNAL은 VIP 이상만
     if req.rule_type == "BEOM_SIGNAL":
-        from src.services.beom_free import get_user_tier
-        tier = await get_user_tier(request)
         if tier not in ("pro", "premium"):
             raise HTTPException(403, "VIP회원 전용 기능입니다")
+    # 사용자당 알림 개수 상한 — 제한이 없으면 무제한 생성으로 alert_engine의
+    # 메모리 캐시(_rules)가 무한히 커져 평가 루프 성능 저하/OOM 위험이 있다.
+    _ALERT_LIMIT = 100 if tier in ("pro", "premium") else 20
+    from src.models.tables import AlertRule
+    import uuid as _uuid
+    existing_count = (await db.execute(
+        select(func.count()).select_from(AlertRule).where(
+            AlertRule.user_id == _uuid.UUID(user_id), AlertRule.is_active == True  # noqa: E712
+        )
+    )).scalar() or 0
+    if existing_count >= _ALERT_LIMIT:
+        raise HTTPException(429, f"알림은 최대 {_ALERT_LIMIT}개까지 생성할 수 있습니다. 기존 알림을 삭제한 후 다시 시도해주세요.")
     symbol_id, symbol_code = await _resolve_symbol(db, req.symbol)
     try:
         rec = await alert_engine.create_rule(
@@ -197,6 +210,7 @@ async def trigger_beom_signal(request: Request, body: dict, db: AsyncSession = D
 @router.get("/beom-signals")
 async def get_beom_signals(request: Request, db: AsyncSession = Depends(get_db), limit: int = 50):
     """BEOM 시그널 이력 조회 — VIP: 구독 종목만 / VVIP: 전체."""
+    limit = max(1, min(limit, 200))
     from src.api.charts_indicators import get_user_tier
     tier = await get_user_tier(request)
     if tier not in ("pro", "premium"):
