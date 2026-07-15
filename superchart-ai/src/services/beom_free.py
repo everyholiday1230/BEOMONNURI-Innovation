@@ -22,6 +22,37 @@ def _effective_tier_from_row(tier: str, created_at) -> str:
     return tier
 
 
+async def get_user_tier_by_id(user_id: str, fallback: str = "free") -> str:
+    """get_user_tier() 와 동일한 캐시(_TIER_CACHE)를 공유하는, user_id 직접 조회 버전.
+
+    tier_guard.py 처럼 이미 토큰을 디코드해 user_id 를 확보한 호출자를 위한 헬퍼.
+    invalidate_tier_cache(user_id) 로 이 결과도 함께 즉시 무효화된다.
+    """
+    if not user_id:
+        return "guest"
+
+    if os.getenv("FREE_TRIAL_MODE", "").lower() in ("1", "true", "on", "yes"):
+        return "premium"
+
+    now = time.time()
+    cached = _TIER_CACHE.get(user_id)
+    if cached and cached[1] > now:
+        return cached[0]
+
+    try:
+        from src.db.session import get_db_context
+        from sqlalchemy import text
+        async with get_db_context() as db:
+            row = (await db.execute(text("SELECT tier, created_at FROM users WHERE id = :uid"), {"uid": user_id})).first()
+            if not row:
+                return fallback
+            tier = _effective_tier_from_row(row[0], row[1])
+            _TIER_CACHE[user_id] = (tier, now + _TIER_CACHE_TTL)
+            return tier
+    except Exception:
+        return fallback
+
+
 async def get_user_tier(request: Request) -> str:
     # BYPASS: popo 계정 항상 premium
     _bypass_cookie = request.cookies.get('auth_token') or ''

@@ -1,7 +1,22 @@
-"""회원 등급 기반 접근 제어 — Redis 기반 일일 사용량 제한."""
+"""회원 등급 기반 접근 제어 — Redis 기반 일일 사용량 제한.
+
+등급(tier) 조회 정책(2026-07 개선):
+- 기존: JWT 토큰 payload 에 발급 시점의 tier 를 그대로 신뢰 → 관리자가
+  등급을 올려도 사용자가 이미 들고 있는 액세스 토큰(최대 24시간)이 만료
+  되거나 재로그인하기 전까지 예전 등급으로 취급되는 문제가 있었다.
+- 개선: src/services/beom_free.py 가 이미 구축해둔 "DB 조회 + 짧은 TTL
+  메모리 캐시 + invalidate_tier_cache()" 패턴을 그대로 재사용한다(단일
+  uvicorn 프로세스 구성이므로 프로세스 메모리 dict 캐시로 충분 — Redis
+  왕복을 추가하지 않음). 관리자/거래소 인증 승인 지점(auth_admin.py,
+  auth_exchange.py, auth.py)은 이미 beom_free.invalidate_tier_cache() 를
+  호출하고 있었으므로, 여기서도 같은 캐시를 참조하면 등급 변경이 즉시
+  반영된다(추가 연동 지점 불필요).
+- DB/캐시 조회가 실패하면 토큰의 tier 로 안전하게 폴백(서비스 가용성 우선).
+"""
 import os
 from fastapi import HTTPException, Depends
 from src.services.auth import decode_token
+from src.services.beom_free import get_user_tier_by_id
 
 FREE_LIMITS = {"ai_analysis": 3, "ai_predict": 3, "ai_chat": 5, "llm_signal": 2}
 
@@ -17,7 +32,7 @@ def _get_redis():
 def _clean_old(user_id: str, feature: str):
     pass  # Redis TTL이 자동 처리
 
-def check_tier_limit(token: str, feature: str) -> str:
+async def check_tier_limit(token: str, feature: str) -> str:
     try:
         payload = decode_token(token)
     except Exception as e:
@@ -27,7 +42,9 @@ def check_tier_limit(token: str, feature: str) -> str:
         raise HTTPException(401, "인증이 필요합니다. 로그인해주세요.")
 
     user_id = payload.get("sub", "")
-    tier = payload.get("tier", "free")
+    # beom_free 의 DB+캐시(TTL 30초) 조회 재사용 — 관리자가 등급을 바꾸면
+    # invalidate_tier_cache() 로 이 캐시도 함께 즉시 삭제되어 반영된다.
+    tier = await get_user_tier_by_id(user_id, fallback=payload.get("tier", "free"))
 
     # ── 무료 체험 기간(FREE_TRIAL_MODE): 로그인만 하면 전 기능 무제한 ──
     # 환경변수로 on/off (영구 코드변경 X). 끄면 즉시 원래 등급제로 복귀.
@@ -78,7 +95,7 @@ def require_tier(feature: str):
         auth = request.headers.get("authorization", "")
         if not auth.startswith("Bearer "):
             raise HTTPException(401, "인증이 필요합니다.")
-        return check_tier_limit(auth[7:], feature)
+        return await check_tier_limit(auth[7:], feature)
     return Depends(_check)
 
 

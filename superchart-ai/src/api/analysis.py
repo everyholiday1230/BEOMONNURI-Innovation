@@ -131,7 +131,7 @@ async def analyze(req: AnalysisRequest, request: Request):
     from src.services.tier_guard import check_tier_limit
     auth = request.headers.get("authorization", "")
     if auth.startswith("Bearer "):
-        check_tier_limit(auth[7:], "ai_analysis")
+        await check_tier_limit(auth[7:], "ai_analysis")
     else:
         # 비로그인: IP 기반 rate limit (일 1회 / 1h 5회)
         _ip = (request.client.host if request.client else "") or \
@@ -407,7 +407,7 @@ async def chat_with_ai(req: dict, request: Request, user_id: str = _Depends(_get
     from src.services.tier_guard import check_tier_limit
     auth = request.headers.get("authorization", "")
     if auth.startswith("Bearer "):
-        check_tier_limit(auth[7:], "ai_chat")
+        await check_tier_limit(auth[7:], "ai_chat")
 
     _chat_rate_check(user_id)
 
@@ -484,7 +484,7 @@ async def ai_predict(req: AnalysisRequest, request: Request):
     from src.services.tier_guard import check_tier_limit
     auth = request.headers.get("authorization", "")
     if auth.startswith("Bearer "):
-        check_tier_limit(auth[7:], "ai_predict")
+        await check_tier_limit(auth[7:], "ai_predict")
     symbol = str(req.symbol_id)
     api_sym, exchange_id = resolve_symbol(symbol)
     candles = await fetch_candles(api_sym, exchange_id, req.timeframe, 2000)
