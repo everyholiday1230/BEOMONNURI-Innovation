@@ -317,7 +317,7 @@
         <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래</span><span class="mt-lb-pnl">누적 손익</span></div>
         ${body}
       </div>
-      <p class="mt-note">실현 손익(청산 완료된 모의 거래) 기준 순위이며, 진행 중인 포지션의 평가 손익은 포함되지 않습니다.</p>`;
+      <p class="mt-note">상위 50명까지 표시됩니다. 실현 손익(청산 완료된 모의 거래) 기준 순위이며, 진행 중인 포지션의 평가 손익은 포함되지 않습니다. 계좌를 초기화해도 거래 기록과 순위는 유지됩니다.</p>`;
   }
   async function toggleLeaderboard() {
     _leaderboardOpen = !_leaderboardOpen;
@@ -841,12 +841,12 @@
   // ───────── 초기화/리셋 모달 ─────────
   function confirmReset() {
     const root = document.getElementById('mtModalRoot');
-    if (!root) { if (confirm('모의 계좌를 초기화할까요? (가상 잔고 $1,000으로 리셋, 진행 중 포지션 삭제)')) doReset(); return; }
+    if (!root) { if (confirm('모의 계좌를 초기화할까요? (가상 잔고 $1,000으로 리셋, 진행 중 포지션 삭제 · 거래 기록과 대회 순위는 유지됩니다)')) doReset(); return; }
     root.innerHTML = `
       <div class="mt-modal-overlay" onclick="if(event.target===this)window.PaperTrading.closeReview()">
         <div class="mt-modal" role="dialog" aria-label="계좌 초기화 확인">
           <h3>모의 계좌 초기화</h3>
-          <p style="font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.6">가상 잔고를 $1,000으로 되돌리고 진행 중인 모의 포지션을 모두 삭제합니다. 저장된 기록과 복기 메모도 함께 삭제됩니다. 계속할까요?</p>
+          <p style="font-size:var(--text-sm);color:var(--color-text-secondary);line-height:1.6">가상 잔고를 $1,000으로 되돌리고 진행 중인 모의 포지션을 모두 삭제합니다. <b style="color:var(--color-text-primary)">완료된 거래 기록과 대회 순위는 그대로 유지됩니다.</b> 계속할까요?</p>
           <div class="mt-modal-actions">
             <button class="mt-btn mt-btn-ghost" type="button" onclick="window.PaperTrading.closeReview()">취소</button>
             <button class="mt-btn mt-btn-primary" type="button" onclick="window.PaperTrading.doReset()">초기화</button>
@@ -855,7 +855,10 @@
       </div>`;
   }
   function doReset() {
-    State.balance = INITIAL_BALANCE; State.positions = []; State.history = [];
+    // history(거래 기록)는 지우지 않는다 — 대회 순위는 history 안의 실현손익
+    // 합계를 기준으로 매겨지므로(백엔드 get_leaderboard), 기록을 지우면 지금까지
+    // 쌓은 순위 성과가 함께 사라진다. 잔고/진행 포지션만 초기화한다.
+    State.balance = INITIAL_BALANCE; State.positions = [];
     save();
     if (isLoggedIn()) { fetch('/v1/paper/reset', { method: 'POST', credentials: 'include' }).catch(() => {}); }
     closeReview(); clearBuilderOverlay(); renderAll();

@@ -215,7 +215,14 @@ async def reset_paper_state(
     db: AsyncSession = Depends(get_db),
     user_id: str | None = Depends(_get_user_id_optional),
 ):
-    """모의주문 초기화 ($1,000 리셋)."""
+    """모의주문 초기화 — 가상 잔고를 $1,000으로 되돌리고 진행 중인 포지션을 삭제한다.
+
+    거래 기록(history)은 지우지 않는다. 대회 순위(리더보드)는 balance가 아니라
+    history 안에 누적된 실현손익(pnl) 합계를 기준으로 매기므로(get_leaderboard
+    참고), 잔고를 초기화해도 지금까지 거둔 순위 성과에는 영향이 없다 — 손실이
+    난 사용자가 초기화로 순위 반영을 회피하는 것을 방지하면서도, '계좌 초기화'
+    라는 이름 그대로 잔고/포지션은 실제로 리셋된다.
+    """
     if not user_id:
         return ApiResponse(data={"reset": False, "reason": "not_authenticated"})
 
@@ -223,14 +230,12 @@ async def reset_paper_state(
 
     try:
         await db.execute(text("""
-            INSERT INTO paper_trading_state (user_id, balance, positions, history, pending_orders, settings, updated_at)
-            VALUES (:uid, :bal, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '{"leverage":5,"marginMode":"isolated"}'::jsonb, now())
-            ON CONFLICT (user_id) DO UPDATE SET
-                balance = EXCLUDED.balance,
+            UPDATE paper_trading_state SET
+                balance = :bal,
                 positions = '[]'::jsonb,
-                history = '[]'::jsonb,
                 pending_orders = '[]'::jsonb,
                 updated_at = now()
+            WHERE user_id = :uid
         """), {"uid": user_id, "bal": INITIAL_BALANCE})
         await db.commit()
         return ApiResponse(data={"reset": True})
@@ -243,10 +248,14 @@ async def reset_paper_state(
 
 
 # ─── 대회 순위(리더보드) ───
-# 실현손익(balance - INITIAL_BALANCE) 기준. 미실현 포지션 평가손익은 실시간 가격이
-# 필요해 서버에서 매 조회마다 계산하기엔 부담이 크므로, "확정된 성과" 기준으로
-# 순위를 매긴다(대회 취지상 실현 성과 기준이 일관되고 공정함).
+# 실현손익은 history(청산 완료된 거래 배열) 안의 pnl 합계를 기준으로 계산한다.
+# balance 컬럼을 직접 쓰지 않는 이유: '계좌 초기화'(/reset)는 사용자가 언제든
+# 잔고/진행 포지션을 리셋할 수 있는 정상 기능인데, balance 기준으로 순위를
+# 매기면 손실이 난 사용자가 초기화로 순위 페널티를 회피할 수 있어 대회
+# 공정성이 깨진다. history 는 초기화 시에도 보존되므로, 잔고를 몇 번을
+# 리셋해도 지금까지 거둔 실현손익 합계는 그대로 순위에 반영된다.
 LEADERBOARD_MIN_TRADES = 1  # 최소 거래(청산 완료) 1건 이상만 순위 노출 — 미참여자 제외
+LEADERBOARD_MAX_RESULTS = 50  # 상위 노출 인원 상한
 
 
 @router.get("/leaderboard", response_model=ApiResponse)
@@ -256,26 +265,36 @@ async def get_leaderboard(
     db: AsyncSession = Depends(get_db),
     user_id: str | None = Depends(_get_user_id_optional),
 ):
-    """모의투자 대회 순위 — 실현손익(수익률) 기준 상위 사용자.
+    """모의투자 대회 순위 — 누적 실현손익(history 기준) 상위 사용자.
 
-    개인정보 보호: 이메일 등 민감정보 없이 닉네임만 노출.
+    상위 최대 50명까지 노출한다. 개인정보 보호를 위해 이메일 등은 노출하지
+    않고 닉네임만 표시한다.
     """
-    limit = max(1, min(limit, 100))
+    limit = max(1, min(limit, LEADERBOARD_MAX_RESULTS))
     await _ensure_table(db)
 
-    try:
-        rows = (await db.execute(text("""
-            SELECT p.user_id, u.nickname,
-                   p.balance,
-                   (p.balance - :init) AS pnl,
-                   ((p.balance - :init) / :init * 100) AS pnl_pct,
-                   jsonb_array_length(p.history) AS trade_count
+    # history 배열 원소의 pnl 합계 + 건수를 서브쿼리로 미리 집계 후 순위 매김.
+    # jsonb_array_elements 로 배열을 행으로 풀어 SUM((elem->>'pnl')::numeric).
+    agg_cte = """
+        WITH agg AS (
+            SELECT p.user_id,
+                   COALESCE(SUM((h.elem->>'pnl')::numeric), 0) AS realized_pnl,
+                   COUNT(h.elem) AS trade_count
             FROM paper_trading_state p
-            JOIN users u ON u.id::text = p.user_id
-            WHERE jsonb_array_length(p.history) >= :min_trades
-            ORDER BY pnl DESC
+            LEFT JOIN LATERAL jsonb_array_elements(p.history) AS h(elem) ON true
+            GROUP BY p.user_id
+        )
+    """
+
+    try:
+        rows = (await db.execute(text(agg_cte + """
+            SELECT a.user_id, u.nickname, a.realized_pnl, a.trade_count
+            FROM agg a
+            JOIN users u ON u.id::text = a.user_id
+            WHERE a.trade_count >= :min_trades
+            ORDER BY a.realized_pnl DESC
             LIMIT :lim
-        """), {"init": INITIAL_BALANCE, "min_trades": LEADERBOARD_MIN_TRADES, "lim": limit})).fetchall()
+        """), {"min_trades": LEADERBOARD_MIN_TRADES, "lim": limit})).fetchall()
     except Exception:
         rows = []
 
@@ -283,10 +302,9 @@ async def get_leaderboard(
         "rank": i + 1,
         "userId": str(r[0]),
         "nickname": r[1] or "익명",
-        "balance": float(r[2] or 0),
-        "pnl": float(r[3] or 0),
-        "pnlPct": round(float(r[4] or 0), 2),
-        "tradeCount": int(r[5] or 0),
+        "pnl": float(r[2] or 0),
+        "pnlPct": round(float(r[2] or 0) / INITIAL_BALANCE * 100, 2),
+        "tradeCount": int(r[3] or 0),
         "isMe": (user_id is not None and str(r[0]) == user_id),
     } for i, r in enumerate(rows)]
 
@@ -298,27 +316,24 @@ async def get_leaderboard(
         else:
             # 상위 목록에 없으면 별도로 내 순위 계산
             try:
-                row = (await db.execute(text("""
-                    WITH ranked AS (
-                        SELECT user_id, balance,
-                               (balance - :init) AS pnl,
-                               ROW_NUMBER() OVER (ORDER BY (balance - :init) DESC) AS rnk
-                        FROM paper_trading_state
-                        WHERE jsonb_array_length(history) >= :min_trades
+                row = (await db.execute(text(agg_cte + """
+                    , ranked AS (
+                        SELECT user_id, realized_pnl, trade_count,
+                               ROW_NUMBER() OVER (ORDER BY realized_pnl DESC) AS rnk
+                        FROM agg
+                        WHERE trade_count >= :min_trades
                     )
-                    SELECT r.rnk, r.balance, r.pnl, u.nickname,
-                           jsonb_array_length(p.history) AS trade_count
+                    SELECT r.rnk, r.realized_pnl, r.trade_count, u.nickname
                     FROM ranked r
                     JOIN users u ON u.id::text = r.user_id
-                    JOIN paper_trading_state p ON p.user_id = r.user_id
                     WHERE r.user_id = :uid
-                """), {"init": INITIAL_BALANCE, "min_trades": LEADERBOARD_MIN_TRADES, "uid": user_id})).first()
+                """), {"min_trades": LEADERBOARD_MIN_TRADES, "uid": user_id})).first()
                 if row:
                     my_rank = {
                         "rank": int(row[0]), "userId": user_id, "nickname": row[3] or "익명",
-                        "balance": float(row[1] or 0), "pnl": float(row[2] or 0),
-                        "pnlPct": round(float(row[2] or 0) / INITIAL_BALANCE * 100, 2),
-                        "tradeCount": int(row[4] or 0), "isMe": True,
+                        "pnl": float(row[1] or 0),
+                        "pnlPct": round(float(row[1] or 0) / INITIAL_BALANCE * 100, 2),
+                        "tradeCount": int(row[2] or 0), "isMe": True,
                     }
             except Exception:
                 my_rank = None
@@ -326,6 +341,6 @@ async def get_leaderboard(
     return ApiResponse(data={
         "items": items,
         "myRank": my_rank,
-        "totalParticipants": len(items) if len(items) < limit else None,
+        "maxRank": LEADERBOARD_MAX_RESULTS,
         "initialBalance": INITIAL_BALANCE,
     })
