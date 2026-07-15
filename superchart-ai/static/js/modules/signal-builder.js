@@ -327,6 +327,29 @@
     conditions.push(c);
     _renderConditions();
     _setResult('', '조건을 추가했습니다. 더 추가하거나 "차트에 표시"를 누르세요.');
+    _setBuilderOpen(false);
+  }
+
+  // ── 빌더(조건 추가 폼) 접이식 ──
+  function _setBuilderOpen(open) {
+    const body = _el('sbBuilderBody'), toggle = _el('sbBuilderToggle'), arrow = _el('sbBuilderArrow');
+    if (!body || !toggle) return;
+    body.style.display = open ? '' : 'none';
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (arrow) arrow.textContent = open ? '▲' : '▼';
+  }
+  function _bindBuilderToggle() {
+    const toggle = _el('sbBuilderToggle');
+    if (toggle) toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') === 'true';
+      _setBuilderOpen(!open);
+    });
+    const infoToggle = _el('sbInfoToggle'), infoCard = _el('sbInfoCard'), infoArrow = _el('sbInfoArrow');
+    if (infoToggle && infoCard) infoToggle.addEventListener('click', () => {
+      const isHidden = infoCard.hasAttribute('hidden');
+      if (isHidden) { infoCard.removeAttribute('hidden'); infoToggle.setAttribute('aria-expanded', 'true'); if (infoArrow) infoArrow.textContent = '▲'; }
+      else { infoCard.setAttribute('hidden', ''); infoToggle.setAttribute('aria-expanded', 'false'); if (infoArrow) infoArrow.textContent = '▼'; }
+    });
   }
 
   function _renderConditions() {
@@ -492,6 +515,7 @@
     const lbl = _el('sbLabel'); if (lbl) lbl.value = p.label;
     _renderConditions();
     _setResult('', '빠른 시작을 불러왔어요. "차트에 표시"를 누르세요.');
+    _setBuilderOpen(false);
   }
 
   function init() {
@@ -503,6 +527,7 @@
     _el('sbRun').addEventListener('click', _run);
     _el('sbClear').addEventListener('click', _clear);
     document.querySelectorAll('.sb-preset').forEach(btn => btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
+    _bindBuilderToggle();
     _syncMeta();
     _startWatcher();
   }

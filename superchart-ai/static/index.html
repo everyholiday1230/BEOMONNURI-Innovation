@@ -1578,8 +1578,11 @@ body.dark #_toastContainer .pro-toast-chip {
 
       <!-- 조건 만들기 (카드) -->
       <div class="sb-section sb-builder">
-        <div class="sb-section-title"><span class="sb-step">2</span> 조건 추가</div>
-
+        <button type="button" class="sb-section-title sb-builder-toggle" id="sbBuilderToggle" aria-expanded="true">
+          <span><span class="sb-step">2</span> 조건 추가</span>
+          <span class="sb-advanced-arrow" id="sbBuilderArrow">▲</span>
+        </button>
+        <div id="sbBuilderBody">
         <!-- 지표 그룹 탭 -->
         <div class="sb-group-tabs" id="sbGroupTabs"></div>
         <!-- 지표 칩 -->
@@ -1615,6 +1618,7 @@ body.dark #_toastContainer .pro-toast-chip {
           <div class="sb-preview" id="sbCondPreview"></div>
           <button type="button" id="sbAddCond" class="sb-btn sb-btn-add">＋ 이 조건 추가</button>
         </div>
+        </div>
       </div>
 
       <!-- 신호 종류 + 실행 -->
@@ -1637,7 +1641,10 @@ body.dark #_toastContainer .pro-toast-chip {
       </div>
 
       <!-- 사용 안내 -->
-      <div class="sb-info-card">
+      <button type="button" class="sb-info-toggle" id="sbInfoToggle" aria-expanded="false">
+        이용 안내 <span class="sb-advanced-arrow" id="sbInfoArrow">▼</span>
+      </button>
+      <div class="sb-info-card" id="sbInfoCard" hidden>
         <div class="sb-info-row"><span class="sb-info-k">이용 요금</span><span class="sb-info-v">완전 무료 · 무제한</span></div>
         <div class="sb-info-row"><span class="sb-info-k">사용 지표</span><span class="sb-info-v">추세·모멘텀·변동성·거래량·가격구조</span></div>
         <div class="sb-info-row"><span class="sb-info-k">조합 방식</span><span class="sb-info-v">여러 조건 AND (모두 만족)</span></div>
