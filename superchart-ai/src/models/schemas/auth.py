@@ -88,6 +88,7 @@ class AdminUserIdRequest(BaseModel):
 class AdminBlockUserRequest(BaseModel):
     user_id: str = Field(min_length=1)
     block: bool = True
+    reason: str = Field(default="", max_length=500)
 
 
 __all__ = [

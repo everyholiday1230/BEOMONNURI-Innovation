@@ -354,10 +354,15 @@ async def admin_block_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """사용자 차단/해제."""
+    """사용자 차단/해제.
+
+    차단 사유(reason)는 users 테이블에 별도 컬럼이 없어 감사 로그
+    (admin_audit_logs)에 기록한다 — "왜 차단했는지" 추적 가능하도록.
+    """
     await _require_perm(request, db, "users.write")
     uid = req.user_id
     block = req.block
+    reason = (req.reason or "").strip()
     if not uid:
         raise HTTPException(400, "user_id required")
     result = await db.execute(select(User).where(User.id == uid))
@@ -366,7 +371,12 @@ async def admin_block_user(
         raise HTTPException(404, "User not found")
     user.is_active = not block
     await db.commit()
-    logger.info("admin.block_user", target=str(user.id), blocked=block)
+    await _safe_audit(db,
+        admin_id="admin_key", action=("block_user" if block else "unblock_user"), target_user_id=user.id,
+        detail={"reason": reason} if reason else {},
+        ip=request.client.host if request.client else None,
+    )
+    logger.info("admin.block_user", target=str(user.id), blocked=block, reason=reason[:100])
     return ApiResponse(data={"id": str(user.id), "is_active": user.is_active})
 
 

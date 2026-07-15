@@ -74,8 +74,22 @@
 
     const r = await fetch(url, fetchOpts);
 
-    // 401 감지 → 세션 만료 처리 (기존 _401handled 로직과 호환)
-    if (r.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/signup')) {
+    // 401 감지 → 세션 만료 처리.
+    // fetch.js(dedupFetch)와 동일하게 먼저 refresh 토큰으로 1회 재발급을 시도한다.
+    // 예전에는 이 raw()가 refresh 없이 즉시 clearAuthState()를 호출했는데, dedupFetch를
+    // 쓰는 다른 요청이 거의 동시에 refresh에 성공해도 이 함수가 먼저 로그아웃을
+    // 확정시켜버려 "예고 없이 로그아웃되는" 문제가 있었다. 두 헬퍼의 401 처리 순서를
+    // 통일해 이 경합을 없앤다.
+    if (r.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/signup') && !url.includes('/auth/refresh') && !url.includes('/portfolio')) {
+      if (!opts._refreshed) {
+        opts._refreshed = true;
+        try {
+          const rf = await fetch((window.API || '') + '/v1/auth/refresh', { method: 'POST', credentials: 'include' });
+          if (rf.ok) {
+            return raw(url, opts); // 갱신 성공 → 원요청 재시도(1회만, opts._refreshed로 무한루프 방지)
+          }
+        } catch (e) { /* fallthrough */ }
+      }
       if (!window._401handled) {
         window._401handled = true;
         if (typeof window.clearAuthState === 'function') {

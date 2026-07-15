@@ -877,13 +877,21 @@ button:focus-visible,
     </div>
     <div class="card" style="margin-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <h3>중복 결제 의심 내역</h3>
+        <button onclick="loadDuplicatePayments()" class="btn btn-secondary btn-sm">새로고침</button>
+      </div>
+      <p style="font-size:12px;color:var(--color-text-muted);margin-top:4px">동일 사용자가 같은 지표를 서로 다른 결제 건으로 2회 이상 완료(paid)한 경우입니다. PG 확인 후 아래 결제 이벤트 감사 로그에서 중복분을 환불 처리하세요.</p>
+      <div style="overflow-x:auto;margin-top:8px"><table id="ptDuplicatesTable"><thead><tr><th>user_id</th><th>indicator</th><th>결제건수</th><th>event_id 목록</th><th>금액 목록</th><th>최근 결제</th></tr></thead><tbody><tr><td colspan="6" style="color:var(--color-text-muted)">새로고침을 눌러 조회하세요.</td></tr></tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <h3>결제 이벤트 감사 로그</h3>
         <div style="display:flex;gap:6px;align-items:center">
           <button onclick="loadAdminPayments(1)" class="btn btn-secondary btn-sm">새로고침</button>
           <span id="ptPaymentsPageInfo" style="font-size:12px;color:var(--color-text-muted)">page 1</span>
         </div>
       </div>
-      <div style="overflow-x:auto;margin-top:8px"><table id="ptPaymentsTable"><thead><tr><th>시각</th><th>provider</th><th>event_id</th><th>status</th><th>order_id</th><th>user_id</th><th>indicator</th><th>amount</th><th>processed</th></tr></thead><tbody><tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
+      <div style="overflow-x:auto;margin-top:8px"><table id="ptPaymentsTable"><thead><tr><th>시각</th><th>provider</th><th>event_id</th><th>status</th><th>order_id</th><th>user_id</th><th>indicator</th><th>amount</th><th>processed</th><th>조치</th></tr></thead><tbody><tr><td colspan="10" style="color:var(--color-text-muted)">로딩 중...</td></tr></tbody></table></div>
       <div class="admin-row admin-row-end" style="margin-top:8px">
         <button onclick="loadAdminPayments(Math.max(1, (window._adminPaymentPage||1)-1))" class="btn btn-secondary btn-xs">이전</button>
         <button onclick="loadAdminPayments((window._adminPaymentPage||1)+1)" class="btn btn-secondary btn-xs">다음</button>
@@ -1542,6 +1550,7 @@ async function _showDashboard(){
     ()=>{ if(_canOpenTab('points') && typeof loadProducts==='function') loadProducts(); },
     ()=>{ if(_canOpenTab('points') && typeof loadReferralIntegrity==='function') loadReferralIntegrity(); },
     ()=>{ if(_canOpenTab('points') && typeof loadAdminPayments==='function') loadAdminPayments(1); },
+    ()=>{ if(_canOpenTab('points') && typeof loadDuplicatePayments==='function') loadDuplicatePayments(); },
   ];
   _initCalls.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('admin init skip', e&&e.message); } });
   // 초기 탭 (overview) — showAdminTab은 아래에서 정의되므로 지연 호출
@@ -1610,6 +1619,7 @@ function showAdminTab(tab){
     if (typeof loadProducts === 'function') loadProducts();
     if (typeof loadReferralIntegrity === 'function') loadReferralIntegrity();
     if (typeof loadAdminPayments === 'function') loadAdminPayments(1);
+    if (typeof loadDuplicatePayments === 'function') loadDuplicatePayments();
     if (typeof loadPointAudit === 'function') loadPointAudit();
   }
   else if (tab === 'symdata') { if (typeof loadSymbolData === 'function') loadSymbolData(); }
@@ -2154,7 +2164,7 @@ async function loadAdminPayments(page){
   const info=document.getElementById('ptPaymentsPageInfo');
   const tb=document.querySelector('#ptPaymentsTable tbody');
   if(info) info.textContent=`page ${_adminPaymentPage} 로딩 중...`;
-  if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
+  if(tb) tb.innerHTML='<tr><td colspan="10" style="color:var(--color-text-muted)">로딩 중...</td></tr>';
   try{
     const r=await window.api.raw(`/v1/purchases/admin/payments?page=${_adminPaymentPage}`);
     const j=r.ok?await r.json():null;
@@ -2171,15 +2181,58 @@ async function loadAdminPayments(page){
         <td>${_admEsc(it.indicator_code||'-')}</td>
         <td>${it.amount==null?'-':Number(it.amount).toLocaleString()} ${_admEsc(it.currency||'')}</td>
         <td>${it.processed?'<span style="color:var(--color-success)">processed</span>':'<span style="color:var(--color-warning)">pending</span>'}</td>
-      </tr>`).join(''):'<tr><td colspan="9" style="color:var(--color-text-muted)">결제 이벤트가 없습니다.</td></tr>';
+        <td>${(it.status==='paid'&&it.user_id&&it.indicator_code)?`<button onclick="adminRefundPayment('${_admEsc(it.user_id)}','${_admEsc(it.indicator_code)}')" class="btn btn-danger btn-xs">환불처리</button>`:'-'}</td>
+      </tr>`).join(''):'<tr><td colspan="10" style="color:var(--color-text-muted)">결제 이벤트가 없습니다.</td></tr>';
     }
     if(info) info.textContent=`page ${_adminPaymentPage} · ${items.length}건`;
   }catch(e){
-    if(tb) tb.innerHTML='<tr><td colspan="9" style="color:var(--color-error)">결제 이벤트를 불러오지 못했습니다.</td></tr>';
+    if(tb) tb.innerHTML='<tr><td colspan="10" style="color:var(--color-error)">결제 이벤트를 불러오지 못했습니다.</td></tr>';
     if(info) info.textContent=`page ${_adminPaymentPage} 조회 실패`;
   }
 }
 window.loadAdminPayments = loadAdminPayments;
+
+async function adminRefundPayment(userId, indicatorCode){
+  if(!confirm(`user_id=${userId} 의 ${indicatorCode} 결제를 환불 처리할까요?\nPG(결제대행사) 측 실제 환불은 별도로 처리했는지 반드시 확인해주세요.`)) return;
+  try{
+    const note = prompt('환불 사유(선택, 감사 로그에 기록됩니다):','') || '';
+    const r=await window.api.raw('/v1/purchases/admin/refund',{method:'POST',body:{user_id:userId,indicator_code:indicatorCode,note}});
+    const j=await r.json();
+    if(r.ok && j.success){
+      alert('환불 처리되었습니다. 해당 사용자의 지표 접근 권한이 즉시 제거됩니다.');
+      await loadAdminPayments(window._adminPaymentPage||1);
+      if(typeof loadDuplicatePayments==='function') await loadDuplicatePayments();
+    } else {
+      alert('환불 처리 실패: ' + ((j&&j.error&&j.error.message)||'알 수 없는 오류'));
+    }
+  }catch(e){
+    alert('네트워크 오류로 환불 처리에 실패했습니다.');
+  }
+}
+window.adminRefundPayment = adminRefundPayment;
+
+async function loadDuplicatePayments(){
+  const tb=document.querySelector('#ptDuplicatesTable tbody');
+  if(tb) tb.innerHTML='<tr><td colspan="6" style="color:var(--color-text-muted)">조회 중...</td></tr>';
+  try{
+    const r=await window.api.raw('/v1/purchases/admin/duplicate-payments');
+    const j=r.ok?await r.json():null;
+    const items=(j&&j.data&&j.data.items)||[];
+    if(tb){
+      tb.innerHTML=items.length?items.map(it=>`<tr>
+        <td style="font-size:11px">${_admEsc(it.user_id||'-')}</td>
+        <td>${_admEsc(it.indicator_code||'-')}</td>
+        <td style="color:var(--color-error);font-weight:600">${it.paid_count}건</td>
+        <td style="font-size:11px">${(it.event_ids||[]).map(_admEsc).join(', ')}</td>
+        <td style="font-size:11px">${(it.amounts||[]).map(a=>a==null?'-':Number(a).toLocaleString()).join(', ')}</td>
+        <td style="font-size:11px">${_admEsc((it.last_at||'').slice(0,19).replace('T',' '))}</td>
+      </tr>`).join(''):'<tr><td colspan="6" style="color:var(--color-success)">중복 결제 의심 내역이 없습니다.</td></tr>';
+    }
+  }catch(e){
+    if(tb) tb.innerHTML='<tr><td colspan="6" style="color:var(--color-error)">조회에 실패했습니다.</td></tr>';
+  }
+}
+window.loadDuplicatePayments = loadDuplicatePayments;
 
 // ─────────── 요금제 관리 ───────────
 async function loadPlans(){
@@ -2666,8 +2719,10 @@ async function grantReferral(uid){
 document.getElementById('userSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter'){userPage=1;loadStats()}});
 async function blockUser(uid,block){
   if(!await adConfirm(block?'이 사용자를 차단하시겠습니까?':'이 사용자의 차단을 해제하시겠습니까?'))return;
+  let reason='';
+  if(block){ reason=prompt('차단 사유를 입력해주세요(감사 로그에 기록됩니다):','')||''; }
   try{
-    const r=await window.api.raw('/v1/auth/admin/block-user', {method:'POST',body:{user_id:uid,block}});
+    const r=await window.api.raw('/v1/auth/admin/block-user', {method:'POST',body:{user_id:uid,block,reason}});
     if(r.ok){_toast(block?'차단 완료':'차단 해제 완료',true);loadStats()}else{const d=await r.json();_toast(_errMsg(d),false)}
   }catch(e){_toast('네트워크 오류',false)}
 }

@@ -471,3 +471,74 @@ async def admin_payments(request: Request, page: int = 1, db: AsyncSession = Dep
             "created_at": str(r[11]) if r[11] else None,
         } for r in rows],
     })
+
+
+@router.post("/admin/refund", response_model=ApiResponse)
+async def admin_refund(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
+    """결제 환불 처리(운영자) — user_purchases 상태를 'refunded'로 변경.
+
+    PG(결제대행사) 측에서 실제 환불이 처리된 뒤, 그 결과를 내부 상태에 동기화하기
+    위한 용도. 기존 admin/grant(grant=false)는 레코드를 DELETE해 결제 이력 자체가
+    사라졌는데, 환불은 "결제했다가 취소된 사실"을 감사 기록으로 남겨야 하므로
+    상태만 변경한다(이력 보존).
+    """
+    await auth_admin_check(request)
+    await _ensure_tables(db)
+
+    code = (req.get("indicator_code") or "").strip()
+    uid = req.get("user_id")
+    note = (req.get("note") or "").strip()
+    if not uid and (req.get("email") or "").strip():
+        row = (await db.execute(text("SELECT id FROM users WHERE email=:e"), {"e": req["email"].strip()})).fetchone()
+        if not row:
+            raise HTTPException(404, "해당 이메일 회원 없음")
+        uid = str(row[0])
+    if not uid or not code:
+        raise HTTPException(400, "user_id(또는 email)와 indicator_code 필요")
+
+    result = await db.execute(text(
+        "UPDATE user_purchases SET status='refunded', updated_at=now() "
+        "WHERE user_id=:uid AND indicator_code=:c AND status='paid'"
+    ), {"uid": uid, "c": code})
+    if int(result.rowcount or 0) == 0:
+        await db.rollback()
+        raise HTTPException(404, "결제 완료(paid) 상태의 구매 내역을 찾을 수 없습니다")
+
+    await db.execute(text(
+        "INSERT INTO payment_events (provider, event_id, event_type, status, order_id, user_id, indicator_code, processed, processed_at, payload) "
+        "VALUES ('admin', :eid, 'refund', 'refunded', NULL, :uid, :c, true, now(), CAST(:payload AS JSONB))"
+    ), {
+        "eid": f"admin_refund_{_new_order_id()}",
+        "uid": uid, "c": code,
+        "payload": json.dumps({"note": note, "action": "admin_refund"}, ensure_ascii=False),
+    })
+    await db.commit()
+    return ApiResponse(data={"user_id": uid, "indicator_code": code, "status": "refunded"})
+
+
+@router.get("/admin/duplicate-payments", response_model=ApiResponse)
+async def admin_duplicate_payments(request: Request, db: AsyncSession = Depends(get_db)):
+    """중복 결제 의심 탐지(운영자) — 동일 사용자+상품에 결제 완료(paid) 이벤트가
+
+    2건 이상 기록된 경우를 찾는다. 서로 다른 event_id로 같은 상품을 두 번 결제한
+    경우(PG 오류, 사용자 중복 클릭 등) user_purchases는 최신 1건만 반영되지만
+    payment_events 에는 모든 이벤트가 남으므로, 여기서 집계해 관리자에게 노출한다.
+    """
+    await auth_admin_check(request)
+    await _ensure_tables(db)
+
+    rows = (await db.execute(text(
+        "SELECT user_id, indicator_code, COUNT(*) AS paid_count, "
+        "       array_agg(event_id ORDER BY created_at) AS event_ids, "
+        "       array_agg(amount ORDER BY created_at) AS amounts, "
+        "       MAX(created_at) AS last_at "
+        "FROM payment_events "
+        "WHERE status='paid' AND user_id IS NOT NULL AND indicator_code IS NOT NULL "
+        "GROUP BY user_id, indicator_code "
+        "HAVING COUNT(*) > 1 "
+        "ORDER BY last_at DESC LIMIT 100"
+    ))).fetchall()
+    return ApiResponse(data={"items": [{
+        "user_id": r[0], "indicator_code": r[1], "paid_count": r[2],
+        "event_ids": r[3], "amounts": r[4], "last_at": str(r[5]) if r[5] else None,
+    } for r in rows]})

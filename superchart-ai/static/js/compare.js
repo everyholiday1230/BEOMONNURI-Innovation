@@ -37,12 +37,20 @@ window._indProducts=window._indProducts||{};
 function _hasPurchase(id){return (window._purchased||[]).includes(id)||(window.isAdmin&&window.isAdmin())||window._beomAllowed;}
 window._buyIndicator=async function(id){
   const _T=window.t||(s=>s);
+  const _btn=document.querySelector(`button[onclick="window._buyIndicator('${id}')"]`);
+  if(_btn){ if(_btn.disabled)return; _btn.disabled=true; }
   try{const r=await fetch((window.API||'')+'/v1/purchases/buy',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({indicator_code:id})});
     const d=await r.json();
     if(d.data&&d.data.status==='paid'){window.showToast&&window.showToast(_T('이미 보유한 지표입니다'),'#16A34A');}
-    else if(d.data){window.showToast&&window.showToast(_T('결제 준비됨 — 결제 연동 후 자동 활성화됩니다'),'#D8B66A');}
+    else if(d.data){
+      // 현재 결제(PG) 연동이 준비되지 않아 실제 결제가 진행되지 않는다. 사용자가
+      // '결제됐다'고 오해하지 않도록 명확히 안내하고 문의 채널로 유도한다.
+      window.showToast&&window.showToast(_T('결제 기능은 준비 중입니다. 구매를 원하시면 고객센터로 문의해 주세요.'),'#D8B66A');
+      if(typeof window._showSupport==='function') window._showSupport();
+    }
     else window.showToast&&window.showToast(_T('구매 요청 실패'),'#3B82F6');
   }catch(e){window.showToast&&window.showToast(_T('네트워크 오류'),'#3B82F6');}
+  finally{ if(_btn) _btn.disabled=false; }
 };
 function _renderIndSettings(name,id){const r=_subDefaults[id];
   const prod=window._indProducts&&window._indProducts[id];
