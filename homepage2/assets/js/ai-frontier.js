@@ -149,6 +149,52 @@ const pausableInterval = (fn, ms) => {
   const html = partners.map(itemHtml).join('');
   // Duplicate for seamless loop
   track.innerHTML = html + html;
+
+  // Drive the scroll via requestAnimationFrame instead of the CSS
+  // `pm-scroll` animation. Some browsers/GPU driver combos stall CSS
+  // transform animations on long-lived elements, leaving the marquee
+  // visibly frozen (seen on the hero cylinder too). Manual rAF control
+  // is more reliable across environments and pauses when tab is hidden.
+  const SCROLL_SPEED_PX_PER_MS = 0.045; // ~ matches previous 50s/track-width feel
+  let marqueeVisible = true;
+  document.addEventListener('visibilitychange', () => {
+    marqueeVisible = !document.hidden;
+  });
+  let marqueeHovered = false;
+  const marqueeEl = track.closest('.partner-marquee');
+  if (marqueeEl) {
+    marqueeEl.addEventListener('mouseenter', () => { marqueeHovered = true; });
+    marqueeEl.addEventListener('mouseleave', () => { marqueeHovered = false; });
+  }
+
+  const startMarqueeScroll = () => {
+    let offset = 0;
+    let halfWidth = track.scrollWidth / 2;
+    let last = null;
+    const step = (now) => {
+      if (!marqueeVisible || marqueeHovered) {
+        last = null;
+        requestAnimationFrame(step);
+        return;
+      }
+      if (last === null) last = now;
+      const dt = now - last;
+      last = now;
+      // Re-measure in case images finished loading and changed width.
+      if (track.scrollWidth > 0) halfWidth = track.scrollWidth / 2;
+      offset += SCROLL_SPEED_PX_PER_MS * dt;
+      if (halfWidth > 0 && offset >= halfWidth) offset -= halfWidth;
+      track.style.transform = `translateX(${-offset}px)`;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  // Only animate marquees that are actually visible (skip the hidden
+  // index.html source track used solely to feed the 3D cylinder).
+  if (getComputedStyle(track.closest('.partner-marquee') || track).display !== 'none') {
+    startMarqueeScroll();
+  }
 })();
 
 /* ---------- LEGACY DATA TICKER (still used on other pages) ---------- */
