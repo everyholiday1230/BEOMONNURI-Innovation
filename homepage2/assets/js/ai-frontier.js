@@ -127,7 +127,7 @@ const pausableInterval = (fn, ms) => {
   const partners = [
     { id: 'mss', alt: '중소벤처기업부 공식 로고', src: 'assets/img/logos/partners/mss.png' },
     { id: 'moel', alt: '고용노동부 공식 로고', src: 'assets/img/logos/partners/moel.png' },
-    { id: 'gov-gg', alt: '경기도경제과학진흥원 공식 로고', src: 'assets/img/logos/partners/gbsa.png' },
+    { id: 'gov-gg', alt: '경기도경제과학진흥원 공식 로고', src: 'assets/img/logos/partners/gbsa.png', webp: 'assets/img/logos/partners/gbsa.webp' },
     { id: 'korcham', alt: '대한상공회의소 공식 로고', src: 'assets/img/logos/partners/korcham.png' },
     { id: 'startup', alt: '모두의창업 공식 로고', src: 'assets/img/logos/partners/modoo-startup.png' },
     { id: 'inv-posco', alt: '포스코기술투자 공식 로고', src: 'assets/img/logos/partners/posco-technology-investment.png' },
