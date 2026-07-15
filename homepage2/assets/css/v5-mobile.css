@@ -525,7 +525,7 @@ body.nav-open {
 }
 
 /* ===== Prefer reduced motion ===== */
-@media not all and (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   .mobile-menu,
   .mobile-menu nav a,
   .nav-hamburger .bars span {

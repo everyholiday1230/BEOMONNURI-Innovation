@@ -12,6 +12,20 @@
 
 const $5 = (s, r = document) => r.querySelector(s);
 const $$5 = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+// Pauses interval-driven demo/status updates while the tab is hidden to avoid
+// wasting CPU on invisible content. Resumes automatically when visible again.
+const pausableInterval5 = (fn, ms) => {
+  let id = setInterval(fn, ms);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(id);
+    } else {
+      id = setInterval(fn, ms);
+    }
+  });
+  return id;
+};
 // Always run all animations/WebGL effects — branded experience takes priority.
 // (Original prefers-reduced-motion check disabled per client direction 2026-07.)
 const reducedV5 = false;
@@ -69,7 +83,7 @@ const reducedV5 = false;
   }, { passive: true });
 
   // Decay
-  setInterval(() => {
+  pausableInterval5(() => {
     target *= 0.85;
     if (target < 0.05) target = 0;
     if (!raf) raf = requestAnimationFrame(updateAberration);
@@ -86,6 +100,9 @@ const reducedV5 = false;
   const canvas = $5('#neural-grid');
   const hero = $5('.hero');
   if (!canvas || !hero) return;
+  // Disabled per user feedback (see v5-nextgen.css #neural-grid { display:none }).
+  // Skip WebGL init entirely to avoid wasting GPU/CPU on an invisible canvas.
+  if (getComputedStyle(canvas).display === 'none') return;
 
   const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
   if (!gl) {
@@ -784,6 +801,7 @@ const reducedV5 = false;
   let visible = true;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
+  let envFrameCount = 0;
   const tick = () => {
     if (!visible) { requestAnimationFrame(tick); return; }
     const t = clock.getElapsedTime();
@@ -791,8 +809,11 @@ const reducedV5 = false;
     mouse.y += (mouse.ty - mouse.y) * 0.06;
     envMat.uniforms.uTime.value = t;
 
-    // Update env every few frames
-    cubeCamera.update(renderer, envScene);
+    // Update env every few frames (throttled — reflection env changes slowly)
+    envFrameCount++;
+    if (envFrameCount % 3 === 0) {
+      cubeCamera.update(renderer, envScene);
+    }
 
     orbs.forEach(o => {
       const ud = o.userData;
@@ -1041,6 +1062,9 @@ const reducedV5 = false;
     meta.textContent = `BEOMONNURI · 추론 중 · query="${q.slice(0, 40)}"`;
 
     try {
+      if (!window.genspark || typeof window.genspark.complete !== 'function') {
+        throw new Error('AI 응답 서비스를 사용할 수 없습니다.');
+      }
       const res = await window.genspark.complete({
         messages: [
           { role: 'user', content: `${SYSTEM}\n\n사용자: ${q}` }
@@ -1170,7 +1194,7 @@ const reducedV5 = false;
   if (!valSpan) return;
   const stats = ['LIVE', 'ACTIVE', 'RUNNING', 'ONLINE'];
   let i = 0;
-  setInterval(() => {
+  pausableInterval5(() => {
     i = (i + 1) % stats.length;
     valSpan.textContent = stats[i];
   }, 4500);

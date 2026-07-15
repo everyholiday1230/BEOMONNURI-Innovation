@@ -30,7 +30,7 @@
   // Update the label in system bar (Home only)
   const labelButton = document.querySelector('.system-bar button.active .label');
 
-  const NUM_PARTICLES = 80;
+  const NUM_PARTICLES = innerWidth < 700 ? 40 : 80;
 
   // Shared resize logic — full viewport
   const dpr = Math.min(devicePixelRatio || 1, 2);

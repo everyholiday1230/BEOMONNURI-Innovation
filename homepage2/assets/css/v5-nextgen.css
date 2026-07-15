@@ -85,7 +85,7 @@ footer               { view-transition-name: footer; }
 }
 
 /* Reduced motion: instant */
-@media not all and (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) { animation: none; }
 }

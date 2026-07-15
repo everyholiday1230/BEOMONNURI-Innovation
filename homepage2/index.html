@@ -39,7 +39,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
 
 <!-- Three.js for v4 hero neural network (lighter background layer) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 
 <link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708s">
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
@@ -166,6 +166,7 @@
 </head>
 
 <body class="grain has-hero">
+<a href="#main-content" class="skip-link">본문으로 바로가기</a>
 
 <!-- ===== INLINE SVG FILTERS ===== -->
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
@@ -202,7 +203,7 @@
 <!-- ===== MOUSE TRAIL ===== -->
 <!-- ===== CUSTOM CURSOR ===== -->
 <!-- ===== NAV ===== -->
-<nav class="top">
+<nav class="top" aria-label="주 내비게이션">
   <div class="container row">
     <a class="brand" href="index.html">
       <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고" decoding="async" width="34" height="34"></span>
@@ -228,6 +229,7 @@
   </div>
 </nav>
 
+<main id="main-content">
 <!-- ===== HERO ===== -->
 <section class="hero">
   <canvas id="hero-canvas"></canvas>
@@ -261,6 +263,7 @@
 
 <section id="search-intent-performance" style="border-top:1px solid rgba(13,13,13,.12);background:rgba(246,244,239,.88);">
   <div class="container" style="padding:32px 0 40px;display:grid;gap:16px;">
+    <h2 style="margin:0;font-size:20px;line-height:1.4;">성능 중심 AI 도입 전략</h2>
     <p style="margin:0;font-size:15px;line-height:1.7;color:rgba(13,13,13,.78);">
       범온누리는 제품 소개를 넘어 <strong>성능 중심 도입 전략</strong>을 제안합니다. 검색 사용자가 많이 찾는 기준(처리시간, 정확도, 자동화율, 운영 안정성)으로 제품 비교와 파일럿 범위를 정리할 수 있습니다.
     </p>
@@ -271,6 +274,39 @@
     </div>
   </div>
 </section>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="ft-brand"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고" loading="lazy" decoding="async" width="140" height="32"></div>
+        <div class="ft-tag">보안 환경에서 운영하는 엔터프라이즈 AI. 3개의 AI 제품을 조직의 과제에 맞춰 개별 도입할 수 있도록 설계하며, 목표와 지표를 함께 정의하고 점검합니다.</div>
+      </div>
+      <div>
+        <h5>Products</h5>
+        <a href="products-private.html">프라이빗 AI</a>
+        <a href="products-agent.html">에이전트 AI</a>
+        <a href="products-superchart.html">슈퍼차트 AI</a>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <a href="why.html">Why Beomonnuri</a>
+        <a href="contact.html">Contact</a>
+        <a href="privacy.html">개인정보처리방침</a>
+      </div>
+      <div>
+        <h5>Connect</h5>
+        <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
+        <a href="https://maps.google.com/?q=경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15" target="_blank" rel="noopener noreferrer">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
+      </div>
+    </div>
+    <div class="ft-bottom-row">
+      <span>© 2026 BEOMONNURI INC.</span>
+    </div>
+  </div>
+</footer>
 
 <!-- ===== AI WIDGET ===== -->
 <script src="assets/js/ai-frontier.js?v=20260708s"></script>

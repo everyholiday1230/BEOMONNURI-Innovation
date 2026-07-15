@@ -3,7 +3,7 @@
   "short_name": "범온누리",
   "description": "보안 환경에서 운영하는 엔터프라이즈 AI. 프라이빗 AI·에이전트 AI·슈퍼차트 AI.",
   "lang": "ko-KR",
-  "start_url": "/index.html",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f6f4ef",

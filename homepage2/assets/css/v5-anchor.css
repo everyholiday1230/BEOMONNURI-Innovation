@@ -242,7 +242,7 @@
 }
 
 /* ===== Reduced motion ===== */
-@media not all and (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   .info-popover {
     transition: opacity 0.1s, visibility 0s;
     transform: none !important;

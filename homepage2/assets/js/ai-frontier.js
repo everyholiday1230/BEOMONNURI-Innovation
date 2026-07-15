@@ -17,6 +17,20 @@ const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 // (Original prefers-reduced-motion check disabled per client direction 2026-07.)
 const reduced = false;
 
+// Pauses interval-driven demo/HUD updates while the tab is hidden to avoid
+// wasting CPU on invisible content. Resumes automatically when visible again.
+const pausableInterval = (fn, ms) => {
+  let id = setInterval(fn, ms);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(id);
+    } else {
+      id = setInterval(fn, ms);
+    }
+  });
+  return id;
+};
+
 /* ---------- CUSTOM CURSOR ---------- */
 (() => {
   if (matchMedia('(hover: none)').matches) return;
@@ -90,13 +104,13 @@ const reduced = false;
   const chart = $('.hud-mini-chart');
 
   if (t) {
-    setInterval(() => {
+    pausableInterval(() => {
       const d = new Date();
       t.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }, 1000);
   }
 
-  setInterval(() => {
+  pausableInterval(() => {
     if (lat) lat.textContent = (128 + Math.floor(Math.random() * 36)) + ' ms';
     if (tps) tps.textContent = (3500 + Math.floor(Math.random() * 900)).toLocaleString();
     if (chart) {
@@ -456,7 +470,7 @@ const reduced = false;
       size: 2 + Math.random() * 2.5,
     });
   };
-  setInterval(spawnPacket, 280);
+  pausableInterval(spawnPacket, 280);
   for (let i = 0; i < 12; i++) {
     packets.push({
       progress: Math.random(),
@@ -716,7 +730,7 @@ const reduced = false;
     while (log.children.length > 10) log.removeChild(log.lastChild);
   };
   for (let k = 0; k < 6; k++) push();
-  setInterval(push, 1100);
+  pausableInterval(push, 1100);
 })();
 
 /* ---------- AI WIDGET ---------- */
@@ -780,6 +794,9 @@ const reduced = false;
 간결하고 신뢰감 있는 한국어로 2~4문장으로 답하세요.
 
 사용자 질문: ${text}`;
+      if (!window.genspark || typeof window.genspark.complete !== 'function') {
+        throw new Error('AI 응답 서비스를 사용할 수 없습니다.');
+      }
       const res = await window.genspark.complete({
         messages: [{ role: 'user', content: prompt }],
       });
