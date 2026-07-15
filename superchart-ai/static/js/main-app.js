@@ -6696,7 +6696,11 @@ function kt() {
           : ((y.innerHTML = ""),
             (E = new mt(y)),
             E?.loadBars(i),
-            E?.clearDrawings()),
+            E?.clearDrawings(),
+            E?.linkTo &&
+              window.chart &&
+              window.chart.linkTo &&
+              (E.linkTo(window.chart), window.chart.linkTo(E))),
         E && (E.showVolume = C("vol")),
         (window._chart2DataContext = { symbol: e, timeframe: n }),
         E.candleRenderer && (E.candleRenderer._chartType = qt),

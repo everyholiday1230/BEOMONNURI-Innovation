@@ -186,7 +186,7 @@
       // 패널별 ChartCore 인스턴스 (없으면 생성, 있으면 재사용)
       let chart = window._subCharts[panelId];
       if (!chart || chart._destroyed) {
-        chart = new window.ChartCore(wrap);
+        chart = new window.ChartCore(wrap, { slider: false });
         chart.showVolume = false;
         chart.onLoadMore(async () => {
           if (!chart.buffer.length) return;
@@ -198,6 +198,12 @@
         });
         window._subCharts[panelId] = chart;
         try { window._bindDrawing && window._bindDrawing(chart); } catch (e) {}
+        try {
+          if (window.chart && chart.linkTo && window.chart.linkTo) {
+            chart.linkTo(window.chart);
+            window.chart.linkTo(chart);
+          }
+        } catch (e) {}
         wrap.addEventListener('mousedown', () => _setActivePanel(panelId));
       }
       chart._subSymbol = symbol; chart._subTf = timeframe;
