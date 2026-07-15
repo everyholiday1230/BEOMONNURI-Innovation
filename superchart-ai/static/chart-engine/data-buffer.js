@@ -46,6 +46,8 @@ export class DataBuffer {
     this.open[i] = o; this.high[i] = h; this.low[i] = l;
     this.close[i] = c;
     if (Number.isFinite(v) && v >= 0) this.volume[i] = v;
+    // 마지막 캔들 값이 바뀌면 캐시된 min/max가 최신 값을 반영하지 못할 수 있어 무효화한다.
+    this._invalidatePriceRangeCache();
   }
 
   finalizeLast() {
@@ -67,9 +69,34 @@ export class DataBuffer {
   }
 
   priceRange(from, to) {
-    let min = Infinity, max = -Infinity;
     const lo = Math.max(0, from);
     const hi = Math.min(this.length, to);
+    if (lo >= hi) return { min: 0, max: 1 };
+
+    const cache = this._priceRangeCache;
+    // 캐시가 있고, 새 구간이 이전 캐시 구간을 완전히 포함(순수 확장)하는
+    // 경우에만 가장자리만 증분 스캔한다. 축소/불연속인 경우는 정확성을
+    // 위해 아래에서 전체 재스캔한다.
+    if (cache && lo <= cache.lo && hi >= cache.hi) {
+      let { min, max } = cache;
+      // 왼쪽으로 확장된 가장자리만 스캔
+      for (let i = lo; i < cache.lo; i++) {
+        const h = this.high[i], l = this.low[i];
+        if (Number.isFinite(h) && h > max) max = h;
+        if (Number.isFinite(l) && l < min) min = l;
+      }
+      // 오른쪽으로 확장된 가장자리만 스캔
+      for (let i = cache.hi; i < hi; i++) {
+        const h = this.high[i], l = this.low[i];
+        if (Number.isFinite(h) && h > max) max = h;
+        if (Number.isFinite(l) && l < min) min = l;
+      }
+      this._priceRangeCache = { lo, hi, min, max };
+      return { min, max };
+    }
+
+    // 캐시를 활용할 수 없는 경우(축소/불연속/최초 호출): 전체 재스캔
+    let min = Infinity, max = -Infinity;
     for (let i = lo; i < hi; i++) {
       const h = this.high[i], l = this.low[i];
       // NaN 방어 — NaN은 모든 비교에 false이므로 명시적으로 검사
@@ -78,11 +105,18 @@ export class DataBuffer {
     }
     // 유효한 값이 없으면 0~1 반환 (setRange가 호출돼도 안전)
     if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: 0, max: 1 };
+    this._priceRangeCache = { lo, hi, min, max };
     return { min, max };
+  }
+
+  /** 데이터가 변경(append/update/prepend)되면 캐시를 무효화해야 한다. */
+  _invalidatePriceRangeCache() {
+    this._priceRangeCache = null;
   }
 
   loadBulk(bars) {
     this.length = 0;
+    this._invalidatePriceRangeCache();
     for (const b of bars) {
       this.append(b.time || b.openTime, b.open, b.high, b.low, b.close, b.volume || 0);
     }
@@ -113,6 +147,8 @@ export class DataBuffer {
       this.volume[i] = b.volume || 0;
     }
     this.length = newLen;
+    // 기존 데이터의 인덱스가 전부 이동했으므로 캐시된 구간 인덱스도 무의미해진다.
+    this._invalidatePriceRangeCache();
     return count;
   }
 
