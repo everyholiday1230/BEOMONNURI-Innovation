@@ -24,7 +24,8 @@ CREATE TABLE users (
     email_verified_at TIMESTAMPTZ,
     email_token       VARCHAR(100),
     reset_token       VARCHAR(100),
-    reset_token_at    TIMESTAMPTZ
+    reset_token_at    TIMESTAMPTZ,
+    points            INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_users_created_at ON users(created_at);
 

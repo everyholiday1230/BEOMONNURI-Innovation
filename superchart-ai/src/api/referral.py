@@ -403,24 +403,54 @@ async def admin_reconcile(req: dict, request: Request, db: AsyncSession = Depend
 # ─── 내부 헬퍼 ───
 
 async def _add_points(db: AsyncSession, user_id: str, amount: int, reason: str, note: str = "", ref_id: str = None):
-    """포인트 적립/차감 + 원장 기록 + point_lots 연동."""
+    """포인트 적립/차감 + 원장 기록 + point_lots 연동.
+
+    동시 중복 지급 방지: 1회성 보상(referral_signup/referral_payment/signup_bonus)은
+    point_ledger(reason, ref_id, user_id) 에 걸린 부분 유니크 인덱스
+    (uq_point_ledger_reward_once, ensure_schema.sql)로 보호된다.
+    "잔액 먼저 갱신 → 원장 기록" 순서 대신 "원장 먼저 기록(충돌 시 즉시 중단) →
+    잔액 갱신" 순서로 실행해, 동시 요청이 경합해도 예외/rollback 없이 안전하게
+    두 번째 시도만 조용히 무시할 수 있게 한다(호출자의 트랜잭션 흐름을 깨지 않음).
+    points.py의 'purchase' 등 반복 가능한 reason은 인덱스 대상이 아니므로 정상 동작.
+    """
     if amount == 0:
         return
 
-    # 원자적 증감 — read-modify-write 대신 DB에서 직접 더해 동시성 경합을 제거한다.
-    # RETURNING 으로 갱신 후 잔액을 받아 원장에 정확히 기록.
+    _once_reasons = ("referral_signup", "referral_payment", "signup_bonus")
+    if ref_id and reason in _once_reasons:
+        # 원장에 먼저 기록 시도 — 이미 같은 (reason, ref_id, user_id) 조합이 있으면
+        # ON CONFLICT DO NOTHING 으로 아무 일도 하지 않고 NULL 반환.
+        # WHERE 절은 uq_point_ledger_reward_once 인덱스의 조건과 정확히 일치해야 함.
+        ins = await db.execute(text(
+            "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) "
+            "VALUES (:uid, :amt, NULL, :reason, :ref, :note) "
+            "ON CONFLICT (reason, ref_id, user_id) "
+            "WHERE ref_id IS NOT NULL AND reason IN ('referral_signup','referral_payment','signup_bonus') "
+            "DO NOTHING "
+            "RETURNING id"
+        ), {"uid": user_id, "amt": int(amount), "reason": reason, "ref": ref_id, "note": note})
+        ledger_id = ins.scalar()
+        if ledger_id is None:
+            # 이미 다른 요청이 먼저 지급을 완료함 — 중복 차단(정상 동작), 조용히 종료
+            return
+    else:
+        ledger_id = (await db.execute(text(
+            "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) "
+            "VALUES (:uid, :amt, NULL, :reason, :ref, :note) RETURNING id"
+        ), {"uid": user_id, "amt": int(amount), "reason": reason, "ref": ref_id, "note": note})).scalar()
+
+    # 원장 기록 성공 후 잔액 갱신(원자적 증감) → 방금 삽입한 행(id 로 정확히 특정)에
+    # 실제 반영 후 잔액을 기록한다.
     new_balance = (await db.execute(text(
         "UPDATE users SET points = COALESCE(points, 0) + :amt WHERE id = :uid RETURNING points"
     ), {"amt": int(amount), "uid": user_id})).scalar()
     if new_balance is None:
-        # 대상 사용자가 없으면 원장/lot 도 남기지 않음
+        # 대상 사용자가 없음 — 이미 기록된 원장 행의 balance 는 NULL 로 남는다(드문 케이스).
         return
     new_balance = int(new_balance)
-
     await db.execute(text(
-        "INSERT INTO point_ledger (user_id, amount, balance, reason, ref_id, note) "
-        "VALUES (:uid, :amt, :bal, :reason, :ref, :note)"
-    ), {"uid": user_id, "amt": int(amount), "bal": new_balance, "reason": reason, "ref": ref_id, "note": note})
+        "UPDATE point_ledger SET balance = :bal WHERE id = :lid"
+    ), {"bal": new_balance, "lid": ledger_id})
 
     try:
         await _try_add_point_lot(db, user_id, int(amount), reason, ref_id)

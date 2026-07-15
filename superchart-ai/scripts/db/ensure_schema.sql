@@ -37,6 +37,20 @@ CREATE INDEX IF NOT EXISTS idx_point_ledger_created
 -- 멱등 조회(reason+ref_id+user_id) — 이미 코드에서 생성하나 정합성 위해 재보장
 CREATE INDEX IF NOT EXISTS idx_point_ledger_reason_ref
     ON point_ledger(reason, ref_id, user_id);
+-- ★ 동시 중복 지급 방지(레이스 컨디션 방어) ★
+-- referral.py의 reward_referrer_on_verify/on_payment/apply_code 는
+-- "SELECT로 지급 여부 확인 → 없으면 INSERT" 패턴을 쓰는데, 이 둘 사이에는 원자성이
+-- 없어 동시 요청(중복 클릭/웹훅 재전송 등)이 겹치면 같은 (user_id, reason, ref_id)
+-- 조합으로 point_ledger 행이 2번 INSERT 될 수 있다(= 포인트 중복 지급).
+-- 대상은 "1회성 보상" 3종(referral_signup/referral_payment/signup_bonus)만으로
+-- 명시적으로 좁힌다 — points.py의 'purchase'(포인트 상품, 같은 상품 여러 번 구매가
+-- 정상 흐름) 등 반복 가능한 reason 까지 함께 막히는 부작용을 방지하기 위함.
+-- ref_id가 없는 기존 레코드(관리자 수동 조정 등)는 영향받지 않음 —
+-- 순수 추가(additive), 기존 데이터 무손실.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_point_ledger_reward_once
+    ON point_ledger(reason, ref_id, user_id)
+    WHERE ref_id IS NOT NULL
+      AND reason IN ('referral_signup', 'referral_payment', 'signup_bonus');
 
 -- ── user_purchases: 지표/상품 구매 (status 필터 조회 보강) ──
 CREATE INDEX IF NOT EXISTS idx_user_purchases_user_status
@@ -79,3 +93,11 @@ CREATE INDEX IF NOT EXISTS ix_access_logs_event
 -- ── users: 대시보드 필터(등급/가입일) ──
 CREATE INDEX IF NOT EXISTS ix_users_tier ON users(tier);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+
+-- ── users.points: 포인트 정본 잔액 컬럼 (referral.py/points.py가 전제하는 컬럼) ──
+-- 배경: referral.py, points.py가 "UPDATE users SET points = ..." 를 전제로 작성됐으나
+--   이 컬럼을 생성하는 코드가 ddl.sql/모델/마이그레이션 어디에도 없었다. 컬럼이 없는
+--   환경에서는 포인트 지급·조회·레퍼럴 보상이 전부 실패한다. IF NOT EXISTS 로 안전하게
+--   추가한다(이미 존재하면 아무 일도 하지 않음 — 기존 데이터/값 무손실).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_users_points ON users(points) WHERE points > 0;

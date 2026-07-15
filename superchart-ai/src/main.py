@@ -89,6 +89,10 @@ async def lifespan(app: FastAPI):
         logger.warning("seed.symbol_sort_order.failed", error=str(e)[:200])
 
     # ensure_schema.sql 자동 실행 (최근 추가 테이블/컬럼 보장 — Render 정합성)
+    # 문장 단위로 분리해 개별 실행한다: asyncpg의 execute()에 세미콜론으로 구분된
+    # 여러 문장을 한 번에 넘기면 simple query protocol 상 암묵적으로 하나로 묶여,
+    # 앞쪽 문장 하나가 실패(예: 대상 테이블이 아직 없어 인덱스 생성 실패)하면 뒤쪽의
+    # 안전한 문장(예: users.points 컬럼 보강)까지 함께 실행되지 않을 위험이 있었다.
     try:
         from pathlib import Path as _Path
         _ddl = _Path(__file__).resolve().parent.parent / "scripts" / "db" / "ensure_schema.sql"
@@ -96,9 +100,20 @@ async def lifespan(app: FastAPI):
         if _ddl.exists() and _db_url:
             import asyncpg as _apg
             _c = await _apg.connect(_db_url)
-            await _c.execute(_ddl.read_text(encoding="utf-8"))
+            _raw = _ddl.read_text(encoding="utf-8")
+            # 줄 단위 주석(--) 제거 후 세미콜론 기준으로 개별 문장 분리
+            _lines = [_ln.split("--", 1)[0] for _ln in _raw.splitlines()]
+            _stmts = [s.strip() for s in "\n".join(_lines).split(";") if s.strip()]
+            _ok, _fail = 0, 0
+            for _stmt in _stmts:
+                try:
+                    await _c.execute(_stmt)
+                    _ok += 1
+                except Exception as _se:
+                    _fail += 1
+                    logger.debug("startup.ensure_schema.stmt_failed", error=str(_se)[:150], stmt=_stmt[:80])
             await _c.close()
-            logger.info("startup.ensure_schema.applied")
+            logger.info("startup.ensure_schema.applied", ok=_ok, failed=_fail)
     except Exception as e:
         logger.warning("startup.ensure_schema.failed", error=str(e)[:200])
 

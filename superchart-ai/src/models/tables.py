@@ -35,6 +35,7 @@ class User(Base):
     email_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reset_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reset_token_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    points: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
