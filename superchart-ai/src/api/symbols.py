@@ -24,15 +24,21 @@ _live_symbols_cache_ts: float = 0.0
 _STATIC_ROOT = Path(__file__).resolve().parent.parent.parent / "static"
 
 @lru_cache(maxsize=1)
-def _logo_inventory() -> dict[str, set[str]]:
-    inv = {"coin": set(), "stock": set()}
+def _logo_inventory() -> dict[str, dict[str, str]]:
+    """asset_class별 로고 파일 인벤토리.
+
+    반환값은 {대문자 파일명: 실제(원본 대소문자) 파일명} 매핑이다.
+    파일 존재 여부는 대문자로 비교하고, URL에는 실제 파일명을 그대로
+    사용해 대소문자 구분 파일시스템(Linux)에서 404가 나지 않도록 한다.
+    """
+    inv: dict[str, dict[str, str]] = {"coin": {}, "stock": {}}
     try:
         for p in (_STATIC_ROOT / "coin-logos").glob("*"):
             if p.is_file():
-                inv["coin"].add(p.name.upper())
+                inv["coin"][p.name.upper()] = p.name
         for p in (_STATIC_ROOT / "stock-logos").glob("*"):
             if p.is_file():
-                inv["stock"].add(p.name.upper())
+                inv["stock"][p.name.upper()] = p.name
     except Exception:
         pass
     return inv
@@ -66,8 +72,9 @@ def _fallback_logo_url(row: dict) -> str | None:
             ("coin", f"{token}.SVG"),
         ]
     for bucket, filename in candidates:
-        if filename in inv[bucket]:
-            return f"/static/{bucket}-logos/{filename.lower()}"
+        actual = inv[bucket].get(filename)
+        if actual:
+            return f"/static/{bucket}-logos/{actual}"
     return None
 
 
