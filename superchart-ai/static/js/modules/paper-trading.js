@@ -305,22 +305,21 @@
     el.innerHTML = `
       <!-- 기본: 방향 + 진입가 + 금액 -->
       <div class="mt-card">
-        <div class="mt-card-title">모의 주문</div>
+        <div class="mt-card-title">모의 주문 · ${esc(symShort(sym))}/USDT</div>
         <div class="mt-dir">
           <button class="mt-dir-btn ${Form.direction==='long'?'active':''}" type="button" onclick="window.PaperTrading.setDirection('long')">롱 방향 연습</button>
           <button class="mt-dir-btn ${Form.direction==='short'?'active short':''}" type="button" onclick="window.PaperTrading.setDirection('short')">숏 방향 연습</button>
         </div>
-        <div class="mt-field"><label>심볼</label><input class="mt-input" id="mtSym" value="${esc(symShort(sym))}/USDT" disabled></div>
         <div class="mt-field"><label>진입가 (${Form.priceMode==='current'?'현재가 기준':'지정가 기준'})</label><input class="mt-input" id="mtEntry" type="number" inputmode="decimal" step="any" placeholder="${cur ? inputVal(cur) : '진입가'}" oninput="window.PaperTrading.recompute()"></div>
         <div class="mt-field">
           <label>투입 금액 (USDT, 증거금)</label>
           <input class="mt-input" id="mtAmount" type="number" inputmode="decimal" step="any" value="50" oninput="window.PaperTrading.recompute()">
           <div class="mt-quick">
-            ${[10,25,50,75,100].map(p => `<button class="mt-quick-btn" type="button" onclick="window.PaperTrading.setAmountPercent(${p})">${p}%</button>`).join('')}
+            ${[25,50,100].map(p => `<button class="mt-quick-btn" type="button" onclick="window.PaperTrading.setAmountPercent(${p})">${p}%</button>`).join('')}
           </div>
         </div>
-        <div class="mt-field"><label>수량 (자동 계산)</label><input class="mt-input" id="mtQty" disabled></div>
-        <div class="mt-lev-tier">레버리지 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
+        <div class="mt-lev-tier">수량 <b id="mtQtyInline">-</b> · 레버리지 <b>${lev}x</b> · 위험 등급 <span class="mt-tier ${tier.cls}">${tier.label}</span></div>
+        <input class="mt-input" id="mtQty" disabled hidden>
       </div>
 
       <!-- 고급 설정 (접이식) -->
@@ -361,8 +360,11 @@
     const c = compute(f);
 
     // 수량 표시
+    const qtyStr = c.qty ? (c.qty >= 1 ? c.qty.toFixed(4) : c.qty.toFixed(8)) : '';
     const qEl = document.getElementById('mtQty');
-    if (qEl) qEl.value = c.qty ? (c.qty >= 1 ? c.qty.toFixed(4) : c.qty.toFixed(8)) : '';
+    if (qEl) qEl.value = qtyStr;
+    const qInlineEl = document.getElementById('mtQtyInline');
+    if (qInlineEl) qInlineEl.textContent = qtyStr || '-';
 
     // 목표/손절 거리·RR 통계
     const ts = document.getElementById('mtTargetStats');
