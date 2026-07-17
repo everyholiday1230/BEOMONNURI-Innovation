@@ -54,16 +54,6 @@ async def get_user_tier_by_id(user_id: str, fallback: str = "free") -> str:
 
 
 async def get_user_tier(request: Request) -> str:
-    # BYPASS: popo 계정 항상 premium
-    _bypass_cookie = request.cookies.get('auth_token') or ''
-    _bypass_auth = request.headers.get('authorization', '')
-    if _bypass_cookie or _bypass_auth:
-        try:
-            _t = _bypass_cookie or (_bypass_auth[7:] if _bypass_auth.startswith('Bearer ') else '')
-            if _t:
-                _p = decode_token(_t)
-                if _p.get('sub') == '8f99c39e-a043-4182-ada5-30e6e8aecc2e': return 'premium'
-        except Exception:  pass
     """요청에서 사용자 tier 추출 — DB 기준 현재 tier 반환. 토큰 없으면 'guest'."""
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):

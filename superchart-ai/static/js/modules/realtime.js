@@ -26,7 +26,11 @@ function _setStatusUI(status, opts) {
   const txtMap = window.DataStatusText || {};
   const clsMap = window.DataStatusBadgeClass || {};
   if (badge) {
-    if (status && status !== (_DS().READY || 'READY')) {
+    const DS = _DS();
+    // 가격은 유효하지만 갱신이 지연된 상태(DELAYED/STALE = '가격 갱신 중')는
+    // 사용자 요청으로 배지를 노출하지 않는다. 실제 가격 이상 상태만 표시.
+    const HIDE = (status === (DS.DELAYED || 'DELAYED') || status === (DS.STALE || 'STALE'));
+    if (status && status !== (DS.READY || 'READY') && !HIDE) {
       badge.textContent = txtMap[status] || '가격 확인 중';
       badge.className = 'ds-badge ' + (clsMap[status] || 'ds-badge-loading');
       badge.style.display = '';

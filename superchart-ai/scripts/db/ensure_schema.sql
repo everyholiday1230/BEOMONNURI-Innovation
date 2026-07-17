@@ -61,12 +61,85 @@ CREATE INDEX IF NOT EXISTS idx_point_purchases_user_created
     ON point_purchases(user_id, created_at DESC);
 
 -- ── llm_signal_log: 나만의 신호 사용 이력 (대시보드 통계/감사) ──
+-- API 최초 호출 전에도 부팅 시 인덱스를 생성할 수 있도록 런타임 정의와 같은
+-- 최소 테이블을 선제 보장한다. IF NOT EXISTS이므로 기존 테이블/데이터는 변경하지 않는다.
+CREATE TABLE IF NOT EXISTS llm_signal_log (
+    id                BIGSERIAL PRIMARY KEY,
+    user_id           TEXT NOT NULL,
+    symbol            TEXT,
+    timeframe         TEXT,
+    message           TEXT,
+    signals_json      TEXT,
+    signal_count      INTEGER NOT NULL DEFAULT 0,
+    drawing_count     INTEGER NOT NULL DEFAULT 0,
+    prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens      INTEGER NOT NULL DEFAULT 0,
+    charged_points    INTEGER NOT NULL DEFAULT 0,
+    free_used         BOOLEAN NOT NULL DEFAULT FALSE,
+    tier              TEXT,
+    status            TEXT NOT NULL DEFAULT 'ok',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS idx_llm_signal_log_user_created
     ON llm_signal_log(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_llm_signal_log_created
     ON llm_signal_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_llm_signal_log_status
     ON llm_signal_log(status);
+
+-- ── signal_posts: 사용자 제작 신호 + 선택 공개 게시판 ──
+-- 신호는 생성 시 항상 비공개이며 소유자가 명시적으로 공개한 경우만 게시판에 노출한다.
+CREATE TABLE IF NOT EXISTS signal_posts (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        TEXT NOT NULL,
+    title          VARCHAR(80) NOT NULL,
+    description    VARCHAR(500) NOT NULL DEFAULT '',
+    symbol         VARCHAR(30) NOT NULL,
+    timeframe      VARCHAR(10) NOT NULL,
+    action         VARCHAR(10) NOT NULL,
+    conditions     JSONB NOT NULL,
+    is_public      BOOLEAN NOT NULL DEFAULT FALSE,
+    view_count     INTEGER NOT NULL DEFAULT 0,
+    like_count     INTEGER NOT NULL DEFAULT 0,
+    favorite_count INTEGER NOT NULL DEFAULT 0,
+    published_at   TIMESTAMPTZ,
+    deleted_at     TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE signal_posts ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE signal_posts ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE signal_posts ADD COLUMN IF NOT EXISTS favorite_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE signal_posts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_signal_posts_user_created
+    ON signal_posts(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_signal_posts_public_published
+    ON signal_posts(published_at DESC) WHERE is_public = TRUE;
+
+-- 사용자별 중복 반응 방지: 한 신호당 좋아요/즐겨찾기/조회 각 1회.
+CREATE TABLE IF NOT EXISTS signal_post_likes (
+    signal_id BIGINT NOT NULL REFERENCES signal_posts(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (signal_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS signal_post_favorites (
+    signal_id BIGINT NOT NULL REFERENCES signal_posts(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (signal_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS signal_post_views (
+    signal_id BIGINT NOT NULL REFERENCES signal_posts(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (signal_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_signal_post_likes_user
+    ON signal_post_likes(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_signal_post_favorites_user
+    ON signal_post_favorites(user_id, created_at DESC);
 
 -- ── referral_links: 추천 관계 (추천인별/상태별 조회) ──
 CREATE INDEX IF NOT EXISTS idx_referral_links_referrer
@@ -77,6 +150,31 @@ CREATE INDEX IF NOT EXISTS idx_referral_links_status
 -- ── payment_events: 결제 웹훅 이벤트 (주문별 감사 조회) ──
 CREATE INDEX IF NOT EXISTS idx_payment_events_order
     ON payment_events(order_id, created_at DESC);
+
+-- ── paper_trade_records: 검증 완료 모의거래 불변 원장 ──
+-- paper_trading_state.history는 사용자 화면 동기화용이며 수정될 수 있다.
+-- 리더보드는 이 append-only 원장만 사용하고 (user_id, trade_id) 최초 기록을 보존한다.
+CREATE TABLE IF NOT EXISTS paper_trade_records (
+    user_id      TEXT NOT NULL,
+    trade_id     VARCHAR(100) NOT NULL,
+    symbol       VARCHAR(30) NOT NULL,
+    direction    VARCHAR(10) NOT NULL,
+    entry_price  DOUBLE PRECISION NOT NULL,
+    exit_price   DOUBLE PRECISION NOT NULL,
+    quantity     DOUBLE PRECISION NOT NULL,
+    margin       DOUBLE PRECISION NOT NULL,
+    leverage     DOUBLE PRECISION NOT NULL,
+    status       VARCHAR(20) NOT NULL,
+    realized_pnl DOUBLE PRECISION NOT NULL,
+    pnl_pct      DOUBLE PRECISION NOT NULL,
+    opened_at    TIMESTAMPTZ NOT NULL,
+    closed_at    TIMESTAMPTZ NOT NULL,
+    trade_json   JSONB NOT NULL,
+    recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, trade_id)
+);
+CREATE INDEX IF NOT EXISTS idx_paper_trade_records_rank
+    ON paper_trade_records(user_id, closed_at DESC);
 
 -- ── demo_trades / support_tickets: 대시보드 목록 (사용자·상태별) ──
 CREATE INDEX IF NOT EXISTS idx_demo_trades_user

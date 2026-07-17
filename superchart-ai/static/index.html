@@ -88,6 +88,86 @@ body {
   padding-inline: 8px;
 }
 
+/* ══════ 세로 도구 레일 (종목 목록과 차트 사이) ══════ */
+.tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 56px;
+  padding: 8px 6px;
+  background: linear-gradient(180deg, rgba(255,251,247,0.96), rgba(248,243,236,0.96));
+  border-right: 1px solid rgba(216,182,106,0.3);
+  box-shadow: inset -1px 0 0 rgba(216,182,106,0.12);
+  overflow-y: auto;
+  z-index: 20;
+}
+.tool-rail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 1px solid rgba(216,182,106,0.35);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.5);
+  color: #032129;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.1s ease;
+}
+.tool-rail-btn:hover {
+  background: rgba(216,182,106,0.16);
+  border-color: rgba(216,182,106,0.6);
+}
+.tool-rail-btn:active { transform: scale(0.96); }
+.tool-rail-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+.tool-rail-btn.active {
+  background: rgba(146,18,48,0.12);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+body.dark .tool-rail {
+  background: linear-gradient(180deg, #0a2e3a, #08252f);
+  border-right-color: rgba(255,255,255,0.08);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06);
+}
+body.dark .tool-rail-btn {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.12);
+  color: #e6edf3;
+}
+body.dark .tool-rail-btn:hover {
+  background: rgba(88,166,255,0.12);
+  border-color: rgba(88,166,255,0.4);
+}
+body.dark .tool-rail-btn.active {
+  background: rgba(146,18,48,0.28);
+  border-color: var(--color-primary);
+  color: #ffd7df;
+}
+/* 모바일: 세로 레일을 유지하되 폭을 줄여 차트 영역을 확보 */
+@media (max-width: 980px) {
+  .tool-rail {
+    width: 44px;
+    padding: 6px 4px;
+    gap: 5px;
+  }
+  .tool-rail-btn {
+    min-height: 46px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+}
+
 .left,
 .right {
   background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,243,236,0.95));
@@ -1130,6 +1210,14 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 
 <div class="resizer-h" id="resizerLeft" title="드래그: 패널 크기 조절"></div>
+<!-- ══════ 세로 도구 레일 (종목 목록과 차트 사이): 지표/범온지표/매매전략/드로잉/프리셋 ══════ -->
+<nav id="toolRail" class="tool-rail" role="toolbar" aria-orientation="vertical" aria-label="지표 및 도구 레일">
+  <button aria-label="공개 지표 패널" class="tool-rail-btn" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
+  <button aria-label="범온 지표 패널" class="tool-rail-btn" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온<br>지표</button>
+  <button aria-label="매매전략 패널" class="tool-rail-btn" id="strategyDrawerToggle" title="매매전략 패널">매매<br>전략</button>
+  <button aria-label="드로잉 도구" class="tool-rail-btn" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
+  <button aria-label="프리셋" class="tool-rail-btn" id="presetDrawerToggle" title="프리셋">프리셋</button>
+</nav>
 <div id="mainContent" tabindex="-1" class="center" role="main" aria-label="차트 메인 영역">
   <div class="toolbar">
     <!-- ══════ 1행: 종목 정보 + 파트너 + 사용자 메뉴 ══════ -->
@@ -1185,13 +1273,6 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="tb" data-tf="1d" title="일봉 차트">일봉</div>
         <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
         <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
-      </div>
-      <div class="toolbar-control-group toolbar-control-group-tools" aria-label="지표 도구 그룹">
-        <button aria-label="공개 지표 패널" class="tb fw-600" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
-        <button aria-label="범온 지표 패널" class="tb fw-600" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온지표</button>
-        <button aria-label="매매전략 패널" class="tb fw-600" id="strategyDrawerToggle" title="매매전략 패널">매매전략</button>
-        <button aria-label="드로잉 도구" class="tb fw-600" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
-        <button aria-label="프리셋" class="tb fw-600" id="presetDrawerToggle" title="프리셋">프리셋</button>
       </div>
     </div>
 
@@ -1529,6 +1610,7 @@ body.dark #_toastContainer .pro-toast-chip {
 </div></div></div>
   <div class="right-tabs">
     <div class="right-tab active" data-p="llm" title="지표를 골라 나만의 매매 신호를 직접 만들어 차트에 표시">나만의 신호<span class="tab-badge">NEW</span></div>
+    <div class="right-tab" data-p="signals" title="사용자가 선택해 공개한 신호 게시판">신호 게시판</div>
     <div class="right-tab" data-p="hot" title="시장 관심도 랭킹 (참고용)">인기 TOP<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
     <div class="right-tab" data-p="points" title="범온 포인트 · 지인 초대 (서비스 기능 이용 포인트)">포인트</div>
@@ -1634,7 +1716,9 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="sb-run-row">
           <button type="button" id="sbClear" class="sb-btn sb-btn-ghost" title="차트에 표시된 내 신호를 모두 지웁니다">지우기</button>
           <button type="button" id="sbRun" class="sb-btn sb-btn-primary">📈 차트에 표시</button>
+          <button type="button" id="sbSave" class="sb-btn sb-btn-secondary" disabled>비공개 저장</button>
         </div>
+        <div class="sb-save-note">저장한 신호는 기본 비공개입니다. 신호 게시판의 내 신호에서 선택해 공개할 수 있습니다.</div>
         <div id="sbResult" class="sb-result" aria-live="polite"></div>
       </div>
 
@@ -1649,6 +1733,33 @@ body.dark #_toastContainer .pro-toast-chip {
       </div>
 
       <p class="llm-disclaimer">표준 기술지표 기반의 참고용 신호입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 이용자 본인에게 있습니다.</p>
+    </div>
+  </div>
+  <div class="right-pane" id="signals">
+    <div class="p-12">
+      <div class="sg-header">
+        <div class="pane-title">공개 신호 게시판</div>
+        <div class="pane-desc">사용자가 직접 만든 신호 중 공개를 선택한 항목입니다. 다른 사용자의 조건을 확인하고 현재 차트에 적용할 수 있습니다.</div>
+      </div>
+      <div class="sg-subnav" id="sgSubnav" role="tablist" aria-label="신호 게시판 메뉴">
+        <button type="button" class="sg-subtab active" data-section="board" role="tab" aria-selected="true">공개 게시판</button>
+        <button type="button" class="sg-subtab" data-section="my" role="tab" aria-selected="false">내 신호</button>
+        <button type="button" class="sg-subtab" data-section="favorites" role="tab" aria-selected="false">내 즐겨찾기</button>
+      </div>
+      <div class="sg-toolbar" id="sgToolbar">
+        <select id="sgSort" class="sg-select" aria-label="신호 정렬">
+          <option value="popular">인기순</option>
+          <option value="newest">최신순</option>
+          <option value="likes">좋아요순</option>
+          <option value="favorites">즐겨찾기순</option>
+        </select>
+        <input id="sgSymbolFilter" class="sg-input" type="search" maxlength="30" placeholder="종목 필터 (예: BTCUSDT)">
+        <button type="button" id="sgRefresh" class="sg-btn sg-btn-ghost">새로고침</button>
+      </div>
+      <div id="sgStatus" class="sg-status" aria-live="polite"></div>
+      <div id="sgList" class="sg-list"></div>
+      <button type="button" id="sgMore" class="sg-btn sg-btn-block" hidden>더 보기</button>
+      <p class="sg-disclaimer">공개 신호는 사용자 제작 참고 정보이며 투자 추천이 아닙니다. 신호의 성과나 미래 수익을 보장하지 않습니다.</p>
     </div>
   </div>
   <div class="right-pane" id="hot">
@@ -1677,9 +1788,6 @@ body.dark #_toastContainer .pro-toast-chip {
         <div id="htBasisDesc" class="ht-mini-note"></div>
         <div class="ht-controls" id="htControls"></div>
       </div>
-
-      <!-- 10) 급상승 관심 종목 -->
-      <div id="htSurge" class="ht-section-block"></div>
 
       <!-- 6) 인기 TOP 리스트 -->
       <div id="hotList" class="ht-list" role="list" aria-label="인기 TOP 리스트"></div>
@@ -1720,14 +1828,8 @@ body.dark #_toastContainer .pro-toast-chip {
       <!-- 3~7) 모의 주문 빌더 -->
       <div id="mtBuilder"></div>
 
-      <!-- 9) 예상 손익 카드 -->
-      <div id="mtPnlCard"></div>
-
       <!-- 8) 유효성/상태 메시지 -->
       <div id="mtValidation" class="mt-validation" role="status" aria-live="polite"></div>
-
-      <!-- 12) 차트 연동 토글 -->
-      <label class="mt-overlay-toggle"><input type="checkbox" id="mtOverlayToggle" onchange="window.PaperTrading.toggleOverlay(this.checked)"> 차트에 가상 진입가·목표가·손절 기준가 표시</label>
 
       <!-- 14) 진행 중인 모의 포지션 -->
       <div id="mtPositions" class="mt-section-block"></div>
@@ -1742,6 +1844,7 @@ body.dark #_toastContainer .pro-toast-chip {
 
   <!-- 복기 작성 / 초기화 확인 모달 마운트 -->
   <div id="mtModalRoot"></div>
+  <div id="sgModalRoot"></div>
 
   <div class="right-pane" id="points">
     <div class="p-12">
@@ -1750,7 +1853,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="pane-title">범온 포인트</div>
         <div class="pane-desc">서비스 기능 이용 포인트와 지인 초대를 관리합니다.</div>
         <div class="pt-header-meta">
-          <span class="pt-status-badge" id="ptStatusBadge" data-state="loading">불러오는 중</span>
+          <span class="pt-status-badge" id="ptStatusBadge" data-state="loading" style="display:none"></span>
         </div>
       </div>
 
@@ -1781,7 +1884,8 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <script type="module" src="/static/js/main-app.js?v=20260710_gate2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260709_htv5"></script>
-<script defer src="/static/js/modules/signal-builder.js?v=20260710_sb7"></script>
+<script defer src="/static/js/modules/signal-builder.js?v=20260717_sb8"></script>
+<script defer src="/static/js/modules/signal-board.js?v=20260717_sg1"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js?v=20260710_g4"></script>

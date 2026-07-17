@@ -67,9 +67,14 @@ def create_access_token(user_id: str, tier: str = "free", created_at: str = "", 
         payload["created_at"] = created_at
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, token_version: int = 0) -> str:
+    """사용자 token_version에 묶인 refresh token을 발급한다."""
     exp = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
-    return jwt.encode({"sub": user_id, "exp": exp, "type": "refresh"}, settings.jwt_secret, algorithm="HS256")
+    return jwt.encode(
+        {"sub": user_id, "exp": exp, "type": "refresh", "tv": int(token_version or 0)},
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
@@ -85,7 +90,7 @@ async def get_current_user_id(creds: HTTPAuthorizationCredentials | None = Depen
         if not sub:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "유효하지 않은 토큰입니다")
         # boot_id 검증 — 서버 재시작 후 기존 토큰 무효화
-        if payload.get("bid") and payload.get("bid") != SERVER_BOOT_ID and payload.get("sub") != "8f99c39e-a043-4182-ada5-30e6e8aecc2e":
+        if payload.get("bid") and payload.get("bid") != SERVER_BOOT_ID:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "세션이 만료되었습니다. 다시 로그인해주세요")
         # token_version 검증
         tv = payload.get("tv", 0)
@@ -105,7 +110,7 @@ async def get_optional_user_id(creds: HTTPAuthorizationCredentials | None = Depe
         sub = payload.get("sub")
         if not sub:
             return None
-        if payload.get("bid") and payload.get("bid") != SERVER_BOOT_ID and payload.get("sub") != "8f99c39e-a043-4182-ada5-30e6e8aecc2e":
+        if payload.get("bid") and payload.get("bid") != SERVER_BOOT_ID:
             return None
         tv = payload.get("tv", 0)
         if not await _check_token_version(sub, tv):
@@ -124,7 +129,7 @@ async def _check_token_version(user_id: str, jwt_tv: int) -> bool:
     now = time.time()
     cached = _tv_cache.get(user_id)
     if cached and cached[1] > now:
-        return jwt_tv >= cached[0]
+        return jwt_tv == cached[0]
     try:
         from src.db.session import get_db_context
         from sqlalchemy import text
@@ -134,7 +139,7 @@ async def _check_token_version(user_id: str, jwt_tv: int) -> bool:
                 return False
             db_tv = row[0] or 0
             _tv_cache[user_id] = (db_tv, now + 30)
-            return jwt_tv >= db_tv
+            return jwt_tv == db_tv
     except Exception as e:
         import structlog
         structlog.get_logger().warning("token_version.db_check_failed", user_id=user_id, error=str(e))

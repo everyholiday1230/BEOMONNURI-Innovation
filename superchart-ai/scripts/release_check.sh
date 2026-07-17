@@ -47,7 +47,24 @@ check_status "candles endpoint" GET "/v1/charts/candles?symbolId=BTCUSDT&timefra
 check_status "SQLi validation" GET "/v1/charts/candles?symbolId=BTC';DROP&timeframe=1m" 400
 check_status "XSS validation" GET "/v1/charts/candles?symbolId=%3Cscript%3E&timeframe=1m" 400
 check_status "invalid timeframe validation" GET "/v1/charts/candles?symbolId=BTCUSDT&timeframe=invalid" 400
-check_status "unknown symbol validation" GET "/v1/charts/candles?symbolId=NONEXISTENT&timeframe=1m" 404
+unsupported_code=$(curl -sS -o /tmp/rc_body.txt -w "%{http_code}" "${BASE_URL}/v1/charts/candles?symbolId=NONEXISTENT&timeframe=1m" || true)
+if [[ "$unsupported_code" == "200" ]] && python3 - /tmp/rc_body.txt <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1]))
+data = payload.get("data") or {}
+assert payload.get("success") is True
+assert data.get("supported") is False
+assert data.get("candles") == []
+PY
+then
+  ok "unsupported symbol fallback (200 + supported=false)"
+else
+  ng "unsupported symbol fallback (expected 200 + supported=false + empty candles)"
+  head -c 220 /tmp/rc_body.txt || true
+  echo
+fi
 # 미인증 요청은 401(우선 인증), 설정/미들웨어 순서에 따라 403(CSRF) 가능
 csrf_code=$(curl -sS -o /tmp/rc_body.txt -w "%{http_code}" -X POST -H "Content-Type: application/json" -H "Cookie: csrf_token=test" -d '{"nickname":"qa"}' "${BASE_URL}/v1/auth/update-profile" || true)
 if [[ "$csrf_code" == "401" || "$csrf_code" == "403" ]]; then

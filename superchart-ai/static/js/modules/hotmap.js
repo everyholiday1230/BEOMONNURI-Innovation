@@ -125,7 +125,6 @@ const HT = {
   selected: null,
   rows: [],
   summaryOpen: localStorage.getItem('htSummaryOpen') === '1',
-  extraOpen: localStorage.getItem('htExtraOpen') === '1',
   watchOpen: localStorage.getItem('htWatchOpen') === '1',
 };
 const _HT_SUPPORTED_TF = ['24h'];
@@ -276,27 +275,6 @@ window._htToggleSummary = function () {
   htRenderSummary(HT.rows);
 };
 
-function htRenderSurge(rows) {
-  const el = document.getElementById('htSurge');
-  if (!el) return;
-  // 급상승 관심: 조회증가 proxy + 변동성 + 거래대금 결합 상위, 변동성 큰 것
-  const surge = rows.filter(r => r.volatility >= 6 && r.viewsScore >= 50).sort((a, b) => (b.viewsScore + b.volatility) - (a.viewsScore + a.volatility)).slice(0, 5);
-  if (!surge.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `
-    <button type="button" class="ht-summary-toggle" onclick="window._htToggleExtra()" aria-expanded="${HT.extraOpen?'true':'false'}">
-      급상승 관심 종목 (${surge.length}) <span class="ht-advanced-arrow">${HT.extraOpen?'▲':'▼'}</span>
-    </button>
-    <div class="ht-surge" ${HT.extraOpen?'':'hidden'}>
-      ${surge.map(r => `<div class="ht-top-row" data-code="${esc(r.code)}" role="button" tabindex="0" style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;cursor:pointer;font-size:var(--text-xs)"><span style="font-weight:600">${esc(r.base)}<span style="color:var(--color-text-muted);font-weight:400">${esc(r.quote)}</span></span><span class="${htPctClass(r.pct)}" style="font-variant-numeric:tabular-nums">${r.pct>=0?'+':''}${r.pct.toFixed(2)}% · 변동성 ${r.volatility.toFixed(1)}%</span></div>`).join('')}
-      <p class="ht-mini-note">급상승 관심 종목은 단기 변동성이 클 수 있으므로 리스크 확인이 필요합니다.</p>
-    </div>`;
-}
-window._htToggleExtra = function () {
-  HT.extraOpen = !HT.extraOpen;
-  try { localStorage.setItem('htExtraOpen', HT.extraOpen ? '1' : '0'); } catch {}
-  htRenderSurge(HT.rows);
-};
-
 function htRenderList(rows) {
   const listEl = document.getElementById('hotList');
   if (!listEl) return;
@@ -429,7 +407,7 @@ window._loadHotCoins = async function(opts = {}) {
     byTurn.forEach((r, i) => { r.turnoverRank = i; });
     HT.rows = rows;
     const validRowsHt = rows.filter(r => r.priceValid && Number.isFinite(r.pct));
-    if (!rows.length) { listEl.innerHTML = '<div class="ht-state-msg">인기 순위를 계산하기에 충분한 데이터가 아직 부족합니다. 거래량과 조회 데이터가 누적되면 자동으로 반영됩니다.</div>'; htSetStatus('empty'); htRenderSummary([]); htRenderSurge([]); htRenderWatchTop([]); return; }
+    if (!rows.length) { listEl.innerHTML = '<div class="ht-state-msg">인기 순위를 계산하기에 충분한 데이터가 아직 부족합니다. 거래량과 조회 데이터가 누적되면 자동으로 반영됩니다.</div>'; htSetStatus('empty'); htRenderSummary([]); htRenderWatchTop([]); return; }
 
     const filtered = htApplyFilters(rows);
     let sorted = htSortRows(filtered);
@@ -445,7 +423,6 @@ window._loadHotCoins = async function(opts = {}) {
     htSavePrevRank(sorted.slice(0, 30).map(r => r.code));
 
     htRenderSummary(validRowsHt);
-    htRenderSurge(validRowsHt);
     htRenderList(sorted);
     htRenderWatchTop(validRowsHt);
     // 가격 데이터 없는 종목 제외 안내
@@ -506,9 +483,6 @@ document.addEventListener('click', (e) => {
   // 리스트 행 → 상세 + 차트
   const row = e.target.closest('#hotList .ht-row');
   if (row) { const code = row.dataset.code; const r = HT.rows.find(x => x.code === code); if (r) { HT.selected = r; htRenderDetail(); if (window._selectSym) window._selectSym(code); document.getElementById('htDetail')?.scrollIntoView({ behavior:'smooth', block:'nearest' }); } return; }
-  // 급상승/관심 행
-  const sr = e.target.closest('#htSurge .ht-top-row');
-  if (sr) { const r = HT.rows.find(x => x.code === sr.dataset.code); if (r) { HT.selected = r; htRenderDetail(); } return; }
 });
 document.addEventListener('change', (e) => {
   const sel = e.target.closest('#htControls .ht-select');

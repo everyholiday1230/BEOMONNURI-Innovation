@@ -54,7 +54,7 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
     except Exception:
         pass  # 레퍼럴 실패해도 가입은 성공
     access = create_access_token(str(user.id), _effective_tier(user), str(user.created_at.isoformat()), user.role, getattr(user,'token_version',0) or 0)
-    refresh = create_refresh_token(str(user.id))
+    refresh = create_refresh_token(str(user.id), getattr(user, 'token_version', 0) or 0)
     from starlette.responses import JSONResponse
     resp = JSONResponse({"success": True, "data": {
         "user": {"id": str(user.id), "email": user.email, "nickname": user.nickname, "role": user.role, "tier": _effective_tier(user)},
@@ -96,7 +96,7 @@ async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(
     db.add(AccessLog(ip=ip, path="/v1/auth/login", method="POST", user_id=user.id, user_agent=ua, event_type="login_ok"))
     await db.commit()
     access = create_access_token(str(user.id), _effective_tier(user), str(user.created_at.isoformat()), user.role, getattr(user,'token_version',0) or 0)
-    refresh = create_refresh_token(str(user.id))
+    refresh = create_refresh_token(str(user.id), getattr(user, 'token_version', 0) or 0)
     from starlette.responses import JSONResponse
     resp = JSONResponse({"success": True, "data": {
         "user": {"id": str(user.id), "email": user.email, "nickname": user.nickname, "role": user.role, "tier": _effective_tier(user)},
@@ -142,12 +142,18 @@ async def update_profile(req: UpdateProfileRequest, user_id: str = Depends(get_c
         if dup:
             raise HTTPException(400, "이미 사용 중인 닉네임입니다")
         user.nickname = nick
+    password_changed = False
     if req.old_password and req.new_password:
         if not verify_password(req.old_password, user.password_hash):
             raise HTTPException(400, "현재 비밀번호가 틀렸습니다")
         user.password_hash = hash_password(req.new_password)
+        user.token_version = (user.token_version or 0) + 1
+        password_changed = True
     await db.commit()
-    return ApiResponse(data={"nickname": user.nickname})
+    if password_changed:
+        from src.services.auth import _tv_cache
+        _tv_cache.pop(str(user.id), None)
+    return ApiResponse(data={"nickname": user.nickname, "password_changed": password_changed})
 
 @router.post("/delete-account", response_model=ApiResponse)
 async def delete_account(req: DeleteAccountRequest, user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
@@ -329,13 +335,19 @@ async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
         if payload.get("type") != "refresh":
             raise ValueError("not refresh")
         uid = payload.get("sub")
+        token_tv = payload.get("tv")
+        if not uid or type(token_tv) is not int:
+            raise ValueError("refresh token missing token_version")
     except Exception:
         raise HTTPException(401, "유효하지 않은 refresh 토큰입니다")
     user = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(401, "사용자를 찾을 수 없습니다")
-    access = create_access_token(str(user.id), _effective_tier(user), str(user.created_at.isoformat()), user.role, getattr(user, 'token_version', 0) or 0)
-    new_refresh = create_refresh_token(str(user.id))
+    current_tv = getattr(user, "token_version", 0) or 0
+    if token_tv != current_tv:
+        raise HTTPException(401, "폐기된 refresh 토큰입니다. 다시 로그인해주세요")
+    access = create_access_token(str(user.id), _effective_tier(user), str(user.created_at.isoformat()), user.role, current_tv)
+    new_refresh = create_refresh_token(str(user.id), current_tv)
     resp = JSONResponse({"success": True, "data": {"expires_in": 3600}})
     _set_auth_cookies(resp, access, new_refresh, request)
     return resp

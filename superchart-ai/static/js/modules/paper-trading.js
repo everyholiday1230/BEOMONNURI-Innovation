@@ -199,7 +199,7 @@
       const feeRoundTrip = notional * (f.feeRate / 100) * 2;
       const slipCost = notional * (f.slippage / 100);
 
-      let expGain = null, expLoss = null, rr = null, reqWin = null;
+      let expGain = null, expLoss = null, rr = null;
       if (f.target != null) {
         const d = f.direction === 'long' ? (f.target - f.entry) : (f.entry - f.target);
         expGain = d * qty - feeRoundTrip - slipCost;
@@ -210,7 +210,6 @@
       }
       if (expGain != null && expLoss != null && expLoss !== 0) {
         rr = Math.abs(expGain / expLoss);
-        reqWin = rr > 0 ? (1 / (1 + rr)) * 100 : null; // 손익분기 필요 승률
       }
       const targetDist = f.target != null ? ((f.target - f.entry) / f.entry) * 100 : null;
       const stopDist = f.stop != null ? ((f.stop - f.entry) / f.entry) * 100 : null;
@@ -223,7 +222,7 @@
 
       Object.assign(out, {
         notional, qty, margin, feeRoundTrip, slipCost,
-        expGain, expLoss, rr, reqWin, targetDist, stopDist, liq, liqDist, levMove,
+        expGain, expLoss, rr, targetDist, stopDist, liq, liqDist, levMove,
       });
     }
     out.valid = out.errors.length === 0 && Number.isFinite(f.entry) && Number.isFinite(f.amount) && f.amount > 0;
@@ -305,7 +304,7 @@
       <div class="mt-lb-row ${it.isMe ? 'me' : ''}">
         <span class="mt-lb-rank">${medal(it.rank)}</span>
         <span class="mt-lb-name">${esc(it.nickname)}${it.isMe ? ' (나)' : ''}</span>
-        <span class="mt-lb-trades">${it.tradeCount}회</span>
+        <span class="mt-lb-trades">${it.tradeCount}회 · 승률 ${(it.winRate || 0).toFixed(0)}%</span>
         <span class="mt-lb-pnl ${it.pnl >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg'}">${it.pnl >= 0 ? '+' : ''}${fmtUSD(it.pnl)} (${it.pnlPct >= 0 ? '+' : ''}${it.pnlPct.toFixed(1)}%)</span>
       </div>`;
     let body = items.map(row).join('');
@@ -314,10 +313,10 @@
     }
     el.innerHTML = head + `
       <div class="mt-lb-list">
-        <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래</span><span class="mt-lb-pnl">누적 손익</span></div>
+        <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래 · 승률</span><span class="mt-lb-pnl">누적 손익</span></div>
         ${body}
       </div>
-      <p class="mt-note">상위 50명까지 표시됩니다. 실현 손익(청산 완료된 모의 거래) 기준 순위이며, 진행 중인 포지션의 평가 손익은 포함되지 않습니다. 계좌를 초기화해도 거래 기록과 순위는 유지됩니다.</p>`;
+      <p class="mt-note">상위 50명까지 표시됩니다. 진입가·종료가·수량·방향으로 서버가 재계산해 검증한 종료 거래만 불변 원장에 최초 1회 기록되고 순위에 반영됩니다. 계좌를 초기화하거나 화면 기록을 지워도 원장과 순위는 유지됩니다.</p>`;
   }
   async function toggleLeaderboard() {
     _leaderboardOpen = !_leaderboardOpen;
@@ -439,7 +438,6 @@
         <div class="mt-stat"><span class="k">손절가까지 거리</span><span class="v">${c.stopDist!=null?(c.stopDist>=0?'+':'')+c.stopDist.toFixed(2)+'%':'-'}</span></div>`;
     }
 
-    renderPnlCard(f, c);
     renderValidation(c);
 
     // 매수/매도 버튼: 투입 금액이 유효할 때만 눌러서 즉시 체결 가능
@@ -447,23 +445,9 @@
     const amountOk = Number.isFinite(f.amount) && f.amount > 0 && f.amount <= availableBalance() + 1e-9 && Number.isFinite(f.entry) && f.entry > 0;
     document.querySelectorAll('.mt-buy-btn, .mt-sell-btn').forEach(b => { b.disabled = !amountOk; });
 
-    if (document.getElementById('mtOverlayToggle')?.checked) drawBuilderOverlay(f, c);
+    // 진입가·목표가·손절 기준가는 항상 차트에 표시(디폴트 ON).
+    drawBuilderOverlay(f, c);
     return { f, c };
-  }
-
-  // 9) 예상 손익 카드
-  function renderPnlCard(f, c) {
-    const el = document.getElementById('mtPnlCard');
-    if (!el) return;
-    if (!c.qty) { el.innerHTML = ''; return; }
-    const pc = v => v >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
-    el.innerHTML = `
-      <div class="mt-pnl-card">
-        <div class="mt-card-title">예상 손익 (참고용)</div>
-        <div class="mt-pnl-row"><span class="k">목표 도달 시 예상 수익</span><span class="v ${c.expGain!=null?pc(c.expGain):''}">${c.expGain!=null?(c.expGain>=0?'+':'')+fmtUSD(c.expGain):'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">손절 도달 시 예상 손실</span><span class="v ${c.expLoss!=null?pc(c.expLoss):''}">${c.expLoss!=null?fmtUSD(c.expLoss):'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
-      </div>`;
   }
 
   // 10) 청산 위험 참고
@@ -867,10 +851,8 @@
 
   // ───────── 차트 마커 복원 (다른 모듈 호환용 유지) ─────────
   function restoreChartMarkers() {
-    if (document.getElementById('mtOverlayToggle')?.checked) {
-      const { f, c } = recompute();
-      drawBuilderOverlay(f, c);
-    }
+    const { f, c } = recompute();
+    drawBuilderOverlay(f, c);
   }
 
   // ───────── 외부 노출 ─────────

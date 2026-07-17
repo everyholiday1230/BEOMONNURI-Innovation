@@ -372,8 +372,9 @@
     });
   }
 
-  // ── 실행 ──
+  // ── 실행 / 비공개 저장 ──
   let _running = false;
+  let _lastSavable = null;
   async function _run() {
     if (_running) return;
     if (!_isLoggedIn()) {
@@ -420,6 +421,11 @@
       const drawn = _renderDrawings(payload.drawings);
       // 성공적으로 적용됨 → 종목/타임프레임 변경 시 자동 재계산 대상으로 기록
       _lastApplied = { symbol, timeframe };
+      _lastSavable = {
+        conditions: JSON.parse(JSON.stringify(conditions)), action, symbol, timeframe,
+        title: label || `${symbol.replace('USDT', '/USDT')} ${action === 'buy' ? '매수' : action === 'sell' ? '매도' : '관심'} 신호`,
+      };
+      const saveBtn = _el('sbSave'); if (saveBtn) saveBtn.disabled = false;
       if (drawn > 0) { _setStatus('ok', `신호 ${drawn}개`); _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`); }
       else { _setStatus('ready', '표시할 신호 없음'); _setResult('warn', payload.reply || '최근 구간에 조건을 만족하는 지점이 없습니다. 값이나 기간을 조정해보세요.'); }
     } catch (e) {
@@ -427,6 +433,49 @@
     } finally {
       _running = false; if (runBtn) runBtn.disabled = false;
     }
+  }
+
+  async function _savePrivate() {
+    if (!_isLoggedIn()) {
+      window.showAuth?.();
+      return;
+    }
+    if (!_lastSavable) {
+      _setResult('warn', '먼저 신호를 차트에 표시해 조건을 확인해주세요.');
+      return;
+    }
+    const btn = _el('sbSave');
+    if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+    try {
+      const resp = window.api?.raw
+        ? await window.api.raw(API + '/v1/signals', { method: 'POST', body: _lastSavable })
+        : await fetch(API + '/v1/signals', {
+            method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(_lastSavable),
+          });
+      const body = await resp.json().catch(() => null);
+      if (!resp.ok || !body?.success) throw new Error(body?.detail || '저장 실패');
+      _setResult('ok', '비공개로 저장했습니다. 신호 게시판의 내 신호에서 공개할 수 있습니다.');
+      window.SignalBoard?.refreshMy?.();
+      window.showToast?.('신호를 비공개로 저장했습니다.', '#921230');
+    } catch (_) {
+      _setResult('error', '신호를 저장하지 못했습니다. 다시 시도해주세요.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '비공개 저장'; }
+    }
+  }
+
+  async function _applySharedSignal(item) {
+    if (!item || !Array.isArray(item.conditions) || !item.conditions.length) return;
+    conditions = JSON.parse(JSON.stringify(item.conditions));
+    action = ['buy', 'sell', 'zone'].includes(item.action) ? item.action : 'buy';
+    document.querySelectorAll('#sbActionRow .sb-action').forEach(
+      b => b.classList.toggle('active', b.dataset.action === action)
+    );
+    const label = _el('sbLabel'); if (label) label.value = item.title || '';
+    _renderConditions();
+    document.querySelector('.right-tab[data-p="llm"]')?.click();
+    await _run();
   }
 
   // 종목/타임프레임이 바뀌거나 과거 데이터가 추가되면 마지막에 적용한 신호를
@@ -448,6 +497,7 @@
     _watchSym = window.curSymbol; _watchTf = window.curTf;
     _watchLogin = _isLoggedIn(); _watchBufLen = _bufLen();
     setInterval(() => {
+
       // 로그인 상태 변화는 guest-mode.js 가 게이트를 자동 갱신하므로 여기선 추적만.
       const li = _isLoggedIn();
       if (li !== _watchLogin) { _watchLogin = li; }
@@ -525,6 +575,7 @@
     _el('sbValue').addEventListener('input', () => { _el('sbValue').dataset.set = '1'; _updatePreview(); });
     _el('sbAddCond').addEventListener('click', _addCondition);
     _el('sbRun').addEventListener('click', _run);
+    _el('sbSave').addEventListener('click', _savePrivate);
     _el('sbClear').addEventListener('click', _clear);
     document.querySelectorAll('.sb-preset').forEach(btn => btn.addEventListener('click', () => _applyPreset(btn.dataset.preset)));
     _bindBuilderToggle();
@@ -540,7 +591,12 @@
 
   // 다른 모듈이 쓰는 이벤트도 함께 구독(있으면 즉시 반영, 없어도 폴링이 처리)
   document.addEventListener('symbolChanged', _syncMeta);
-  window.signalBuilder = { run: _run, clear: _clear, applyPreset: _applyPreset };
+  window.signalBuilder = {
+    run: _run,
+    clear: _clear,
+    applyPreset: _applyPreset,
+    applySharedSignal: _applySharedSignal,
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
