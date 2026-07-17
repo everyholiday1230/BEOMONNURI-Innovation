@@ -165,14 +165,15 @@ window._syncMagnetBtn = function(){
   btn.classList.toggle('active',on);
   btn.title=on?'크로스헤어 자석: 켜짐 (캔들 OHLC에 스냅)':'크로스헤어 자석: 꺼짐 (자유 이동)';
 };
-// 차트가 준비되면 저장된 설정(로그스케일/자석)을 적용하고 버튼을 동기화한다.
+// 차트가 준비되면 저장된 설정(자석)을 적용하고 버튼을 동기화한다.
+// 가격축은 선형만 지원한다(로그 스케일 제거). 과거에 로그로 저장된 값이 있어도 선형으로 강제한다.
 (function _restoreChartPrefs(tries){
   if(window.chart&&typeof window.chart.setPriceScaleMode==='function'){
     try{
-      if(localStorage.getItem('chartOS_logScale')==='1')window.chart.setPriceScaleMode('log');
+      window.chart.setPriceScaleMode('linear');
+      try{localStorage.removeItem('chartOS_logScale');}catch(_){}
       if(localStorage.getItem('chartOS_magnet')==='1'&&window.chart.setMagnet)window.chart.setMagnet(true);
     }catch(_){}
-    window._syncLogScaleBtn?.();
     window._syncMagnetBtn?.();
     return;
   }
