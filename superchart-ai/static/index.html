@@ -1267,8 +1267,8 @@ body.dark #_toastContainer .pro-toast-chip {
   <div class="toolbar">
     <!-- ══════ 0행: 사이트맵 네비게이션 (브랜드 로고 높이에 정렬) ══════ -->
     <nav class="site-nav" role="navigation" aria-label="주요 메뉴">
-      <a href="/landing" class="site-nav-item" data-nav="home" title="범온 AI 슈퍼차트 홈">홈</a>
-      <a href="/chart" class="site-nav-item active" data-nav="chart" title="차트">차트</a>
+      <button type="button" class="site-nav-item" data-nav="home" title="범온 AI 슈퍼차트 홈">홈</button>
+      <button type="button" class="site-nav-item active" data-nav="chart" title="차트">차트</button>
       <a href="/notice" class="site-nav-item" data-nav="notice" title="공지사항">공지사항</a>
     </nav>
     <!-- ══════ 1행: 종목 정보 + 파트너 + 사용자 메뉴 ══════ -->
@@ -2141,5 +2141,63 @@ body.dark #_toastContainer .pro-toast-chip {
   setTimeout(collapseAll, 800);
 })();
 </script>
+<script>
+/* 상단 네비: 홈=랜딩 오버레이 표시, 차트=오버레이 닫기(차트 화면), 공지사항=링크 이동 */
+(function(){
+  'use strict';
+  function openLanding(){
+    var view = document.getElementById('landingView');
+    var frame = document.getElementById('landingFrame');
+    if (!view || !frame) return;
+    if (!frame.src) { frame.src = frame.dataset.src || '/landing'; } // 최초 클릭 시에만 로드
+    view.classList.add('open');
+    setActive('home');
+  }
+  function closeLanding(){
+    document.getElementById('landingView')?.classList.remove('open');
+    setActive('chart');
+  }
+  function setActive(navKey){
+    document.querySelectorAll('.site-nav-item').forEach(function(b){
+      if (b.dataset.nav === 'notice') return; // 공지사항은 페이지 이동 링크라 활성표시 제외
+      b.classList.toggle('active', b.dataset.nav === navKey);
+    });
+  }
+  document.addEventListener('click', function(e){
+    var item = e.target.closest('.site-nav-item');
+    if (!item) return;
+    var nav = item.dataset.nav;
+    if (nav === 'home') { e.preventDefault(); openLanding(); }
+    else if (nav === 'chart') { e.preventDefault(); closeLanding(); }
+    // notice(a href)는 기본 동작(페이지 이동) 유지
+  });
+})();
+</script>
+<style>
+/* 홈(랜딩) 화면 오버레이 — 네비 바 아래 전체 영역을 덮어 랜딩페이지 표시 */
+#landingView {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 50px; /* 상단 네비(site-nav) 높이만큼 아래에서 시작 */
+  z-index: 40;
+  background: var(--color-bg, #fff);
+  display: none;
+}
+#landingView.open { display: block; }
+#landingView iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+@media (max-width: 980px) {
+  #landingView { top: 44px; }
+}
+</style>
+<div id="landingView" role="region" aria-label="홈">
+  <iframe id="landingFrame" title="범온 AI 슈퍼차트 홈" loading="lazy" data-src="/landing"></iframe>
+</div>
 </body>
 </html>
