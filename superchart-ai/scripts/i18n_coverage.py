@@ -43,6 +43,18 @@ def extract_korean_snippets(text: str) -> list[str]:
     return out
 
 
+# HTML 태그를 제거하고 태그 사이 텍스트 노드만 뽑는다 (자동번역은 텍스트노드 단위).
+_TAG = re.compile(r"<[^>]+>")
+
+
+def text_nodes_only(snip: str) -> list[str]:
+    # 조각이 태그를 포함하면 태그 사이 텍스트만 분리
+    if "<" in snip and ">" in snip:
+        parts = _TAG.split(snip)
+        return [normalize(p) for p in parts if HANGUL.search(p) and normalize(p)]
+    return [normalize(snip)] if HANGUL.search(snip) else []
+
+
 def normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
@@ -67,11 +79,12 @@ def main():
             continue
         text = f.read_text(encoding="utf-8", errors="ignore")
         for snip in extract_korean_snippets(text):
-            n = normalize(snip)
-            if n in en_norm or n in seen:
-                continue
-            seen.add(n)
-            missing.setdefault(f.name, []).append(snip)
+            for node in text_nodes_only(snip):
+                n = normalize(node)
+                if n in en_norm or n in seen:
+                    continue
+                seen.add(n)
+                missing.setdefault(f.name, []).append(node)
 
     total = sum(len(v) for v in missing.values())
     print(f"[missing candidates] {total}\n")
