@@ -522,6 +522,13 @@
 .ht-control > label { font-size: 11px; color: var(--color-text-muted); }
 .ht-select { height: 34px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-text-primary); font-size: var(--text-xs); padding: 0 8px; }
 
+/* 랭킹 기준 헤더: 라벨 + 밀도 드롭다운을 한 줄에 (드롭다운은 우측 정렬·컴팩트) */
+.ht-basis-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.ht-basis-head .ht-label { margin-bottom: 0; }
+.ht-basis-head .ht-controls { display: block; }
+.ht-basis-head .ht-control { flex-direction: row; }
+.ht-select-sm { height: 26px; font-size: 11px; padding: 0 20px 0 6px; border-radius: var(--radius-sm, 6px); cursor: pointer; }
+
 /* 등락 색상 (브랜드: 상승=primary, 하락=dark accent) */
 .ht-up { color: var(--color-primary); }
 .ht-down { color: var(--color-primary-pressed); }

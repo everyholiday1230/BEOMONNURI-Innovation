@@ -249,9 +249,10 @@ function htBuildControlsOnce() {
   const cEl = document.getElementById('htControls');
   if (cEl && !cEl.dataset.built) {
     cEl.dataset.built = '1';
-    const sel = (label, key, opts, cur) => `<div class="ht-control"><label>${label}</label><select class="ht-select" data-ckey="${key}">${opts.map(([v, t]) => `<option value="${v}" ${v===cur?'selected':''}>${t}</option>`).join('')}</select></div>`;
+    // '보기 밀도' 라벨 제거 — 드롭다운만 랭킹 기준 옆에 컴팩트하게 표시
+    const sel = (key, opts, cur) => `<div class="ht-control"><select class="ht-select ht-select-sm" data-ckey="${key}" aria-label="보기 밀도">${opts.map(([v, t]) => `<option value="${v}" ${v===cur?'selected':''}>${t}</option>`).join('')}</select></div>`;
     cEl.innerHTML =
-      sel('보기 밀도', 'density', [['simple','간단히'],['standard','표준'],['detail','상세']], HT.density);
+      sel('density', [['simple','간단히'],['standard','표준'],['detail','상세']], HT.density);
   }
   htSyncChips();
 }

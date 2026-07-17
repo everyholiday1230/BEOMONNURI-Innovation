@@ -1777,7 +1777,10 @@ body.dark #_toastContainer .pro-toast-chip {
 
       <!-- 3) 랭킹 기준 + 보기 밀도 -->
       <div class="ht-card">
-        <div class="ht-label">랭킹 기준</div>
+        <div class="ht-basis-head">
+          <span class="ht-label">랭킹 기준</span>
+          <div class="ht-controls" id="htControls"></div>
+        </div>
         <div class="ht-tabs" id="htBasisTabs" role="tablist" aria-label="랭킹 기준 선택">
           <button class="ht-tab active" data-basis="composite" role="tab" aria-selected="true">종합</button>
           <button class="ht-tab" data-basis="turnover" role="tab" aria-selected="false">거래대금</button>
@@ -1786,7 +1789,6 @@ body.dark #_toastContainer .pro-toast-chip {
           <button class="ht-tab" data-basis="volatility" role="tab" aria-selected="false">변동성</button>
         </div>
         <div id="htBasisDesc" class="ht-mini-note"></div>
-        <div class="ht-controls" id="htControls"></div>
       </div>
 
       <!-- 6) 인기 TOP 리스트 -->
