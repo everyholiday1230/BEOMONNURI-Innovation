@@ -80,7 +80,8 @@
   };
 
   function applyLayoutDOM(n) {
-    const area = document.getElementById('chartsArea');
+    // 분할 대상은 chartPanels(레일 제외 영역). 하위호환으로 없으면 chartsArea.
+    const area = document.getElementById('chartPanels') || document.getElementById('chartsArea');
     if (!area) return;
 
     // 기존 추가 패널 제거 (+ ChartCore 인스턴스 정리)

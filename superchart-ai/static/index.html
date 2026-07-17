@@ -133,7 +133,17 @@ body.dark .site-nav-item.active { color: #ffd7df; background: rgba(146,18,48,0.2
   .site-nav-item { font-size: 14px; padding: 6px 10px; }
 }
 
-/* ══════ 세로 도구 레일 (종목 목록과 차트 사이) ══════ */
+/* ══════ 세로 도구 레일 (차트+보조지표 구간 왼쪽에만) ══════ */
+/* chartsArea 를 [레일 | 차트패널] 가로 배치로 만든다 (레일이 차트 높이에만 나오도록) */
+#chartsArea {
+  flex-direction: row !important;
+  align-items: stretch;
+}
+#chartPanels {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
 .tool-rail {
   display: flex;
   flex-direction: column;
@@ -1255,14 +1265,6 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 
 <div class="resizer-h" id="resizerLeft" title="드래그: 패널 크기 조절"></div>
-<!-- ══════ 세로 도구 레일 (종목 목록과 차트 사이): 지표/범온지표/매매전략/드로잉/프리셋 ══════ -->
-<nav id="toolRail" class="tool-rail" role="toolbar" aria-orientation="vertical" aria-label="지표 및 도구 레일">
-  <button aria-label="공개 지표 패널" class="tool-rail-btn" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
-  <button aria-label="범온 지표 패널" class="tool-rail-btn" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온<br>지표</button>
-  <button aria-label="매매전략 패널" class="tool-rail-btn" id="strategyDrawerToggle" title="매매전략 패널">매매<br>전략</button>
-  <button aria-label="드로잉 도구" class="tool-rail-btn" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
-  <button aria-label="프리셋" class="tool-rail-btn" id="presetDrawerToggle" title="프리셋">프리셋</button>
-</nav>
 <div id="mainContent" tabindex="-1" class="center" role="main" aria-label="차트 메인 영역">
   <div class="toolbar">
     <!-- ══════ 0행: 사이트맵 네비게이션 (브랜드 로고 높이에 정렬) ══════ -->
@@ -1388,6 +1390,15 @@ body.dark #_toastContainer .pro-toast-chip {
   <!-- 데모매매 플로팅 패널 제거됨 — 모의주문 탭(#order)으로 통합 -->
   <div id="ohlcBar" class="ohlc-bar d-none"></div>
   <div id="chartsArea" class="flex-col-full">
+    <!-- ══════ 세로 도구 레일 (차트+보조지표 구간에만): 지표/범온지표/매매전략/드로잉/프리셋 ══════ -->
+    <nav id="toolRail" class="tool-rail" role="toolbar" aria-orientation="vertical" aria-label="지표 및 도구 레일">
+      <button aria-label="공개 지표 패널" class="tool-rail-btn" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
+      <button aria-label="범온 지표 패널" class="tool-rail-btn" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온<br>지표</button>
+      <button aria-label="매매전략 패널" class="tool-rail-btn" id="strategyDrawerToggle" title="매매전략 패널">매매<br>전략</button>
+      <button aria-label="드로잉 도구" class="tool-rail-btn" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
+      <button aria-label="프리셋" class="tool-rail-btn" id="presetDrawerToggle" title="프리셋">프리셋</button>
+    </nav>
+    <div id="chartPanels" class="flex-col-full">
     <div id="chart1Panel" class="flex-col-full">
       <div class="chart-wrap" id="chartWrap" style="flex:1;min-height:0;min-width:0">
         <div class="loading" id="chartLoading" style="display:flex;align-items:center;gap:8px"><span class="skeleton-pulse"></span>시세 데이터를 불러오는 중입니다…</div>
@@ -1401,6 +1412,7 @@ body.dark #_toastContainer .pro-toast-chip {
       </div>
     </div>
     
+    </div><!-- /chartPanels -->
   </div>
   <div id="adminTools" style="display:none;background:rgba(255,253,249,0.95);border-top:1px solid rgba(216,182,106,0.3);padding:4px 8px;font-size:14px;color:var(--text)">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
