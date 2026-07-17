@@ -529,6 +529,29 @@
 .ht-basis-head .ht-control { flex-direction: row; }
 .ht-select-sm { height: 26px; font-size: 11px; padding: 0 20px 0 6px; border-radius: var(--radius-sm, 6px); cursor: pointer; }
 
+/* ── 공개 지표 그룹 접기/펼치기 (추세/모멘텀/변동성/거래량/가격구조) ── */
+.ind-collapsible-groups .ind-group > .ind-group-label {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.ind-collapsible-groups .ind-group > .ind-group-label::after {
+  content: "▾";
+  font-size: 11px;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.ind-collapsible-groups .ind-group.is-collapsed > .ind-group-label::after {
+  transform: rotate(-90deg);
+}
+/* 접힘 상태: 라벨(제목)만 남기고 나머지(지표 태그·목록) 숨김 */
+.ind-collapsible-groups .ind-group.is-collapsed > *:not(.ind-group-label) {
+  display: none !important;
+}
+
 /* 등락 색상 (브랜드: 상승=primary, 하락=dark accent) */
 .ht-up { color: var(--color-primary); }
 .ht-down { color: var(--color-primary-pressed); }

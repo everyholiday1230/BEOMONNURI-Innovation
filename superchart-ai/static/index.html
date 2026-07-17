@@ -1418,7 +1418,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="ind-tag pro-ind" data-ind="ladder" style="display:none">Ladder</div>
       </div>
     </div>
-    <div class="ind-row basic-row" data-drawer-group="public">
+    <div class="ind-row basic-row ind-collapsible-groups" data-drawer-group="public">
       <div class="ind-group">
         <span class="ind-group-label" style="color:var(--color-primary)">추세</span>
         <div class="ind-tag" data-ma-type="EMA" title="최근 가격에 가중치를 둔 이동평균선">EMA</div>
@@ -2057,6 +2057,37 @@ body.dark #_toastContainer .pro-toast-chip {
       retryBtn.textContent = '지금 재시도';
     }
   });
+})();
+</script>
+<script>
+/* 공개 지표 그룹(추세/모멘텀/변동성/거래량/가격구조): 기본 접힘 + 제목 클릭 토글 */
+(function(){
+  'use strict';
+  function collapseAll(){
+    document.querySelectorAll('.ind-collapsible-groups .ind-group').forEach(function(g){
+      // 사용자가 아직 손대지 않은 그룹만 초기 접힘 처리(중복 실행 안전)
+      if (!g.dataset.collapseInit) {
+        g.dataset.collapseInit = '1';
+        g.classList.add('is-collapsed');
+      }
+    });
+  }
+  // 제목(라벨) 클릭 시 해당 그룹만 토글 — 이벤트 위임
+  document.addEventListener('click', function(e){
+    var label = e.target.closest('.ind-collapsible-groups .ind-group > .ind-group-label');
+    if (!label) return;
+    var group = label.parentElement;
+    if (!group) return;
+    group.dataset.collapseInit = '1';
+    group.classList.toggle('is-collapsed');
+  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', collapseAll);
+  } else {
+    collapseAll();
+  }
+  // 드로어가 처음 열릴 때도 보장
+  setTimeout(collapseAll, 800);
 })();
 </script>
 </body>
