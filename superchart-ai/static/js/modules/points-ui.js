@@ -340,11 +340,9 @@
   function closeModal() { const root = document.getElementById('ptModalRoot'); if (root) root.innerHTML = ''; }
 
   function openPane() {
-    const tab = document.querySelector('.right-tab[data-p="points"]');
-    if (tab) tab.click();
-    // 우측 패널 열기(모바일)
-    document.querySelector('.right')?.classList.add('open');
-    P.sec = 'mine'; render();
+    // 포인트는 네비게이션 팝업으로 표시된다.
+    if (window._openPointsPopup) { window._openPointsPopup(); return; }
+    P.sec = 'mine'; load(); render();
   }
 
   // ───────── 이벤트 ─────────
