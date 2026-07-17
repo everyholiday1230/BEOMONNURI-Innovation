@@ -11,6 +11,9 @@
 from __future__ import annotations
 
 import json
+import math
+import re
+import time
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import text
@@ -25,6 +28,124 @@ router = APIRouter(prefix="/v1/paper", tags=["PaperTrading"])
 INITIAL_BALANCE = 1000.0
 MAX_HISTORY = 200  # 최근 200건만 유지
 MAX_POSITIONS = 50
+
+_SYMBOL_RE = re.compile(r"^[A-Z0-9-]{2,30}$")
+_ALLOWED_DIRECTIONS = {"long", "short"}
+_ALLOWED_CLOSE_STATUSES = {"target", "stop", "manual", "expired"}
+_MAX_TRADE_AGE_MS = 10 * 365 * 24 * 60 * 60 * 1000
+_MAX_PRICE_MOVE_RATIO = 100.0
+_MAX_NOTIONAL = 100_000_000.0
+_PNL_TOLERANCE_ABS = 0.05
+_PNL_TOLERANCE_RATIO = 0.01
+
+
+def _finite_number(value, *, positive: bool = False) -> float | None:
+    """Return a finite float while rejecting booleans and invalid numeric input."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or (positive and number <= 0):
+        return None
+    return number
+
+
+def _validate_trade_record(record: object, *, now_ms: int | None = None) -> dict | None:
+    """Validate one closed trade and recompute its realized PnL server-side.
+
+    The client-provided ``pnl`` is never used as the leaderboard score. A small
+    tolerance comparison is retained as a tamper/corruption check so records
+    with contradictory values do not silently enter the ranking.
+    """
+    if not isinstance(record, dict):
+        return None
+    trade_id = str(record.get("id", "")).strip()[:100]
+    symbol = str(record.get("sym", "")).strip().upper()
+    direction = str(record.get("direction", "")).strip().lower()
+    status = str(record.get("status", "manual")).strip().lower()
+    if not trade_id or not _SYMBOL_RE.fullmatch(symbol):
+        return None
+    if direction not in _ALLOWED_DIRECTIONS or status not in _ALLOWED_CLOSE_STATUSES:
+        return None
+
+    entry = _finite_number(record.get("entry"), positive=True)
+    exit_price = _finite_number(record.get("exit"), positive=True)
+    qty = _finite_number(record.get("qty"), positive=True)
+    margin = _finite_number(record.get("margin"), positive=True)
+    leverage = _finite_number(record.get("leverage", 1), positive=True)
+    created_at = _finite_number(record.get("createdAt"), positive=True)
+    closed_at = _finite_number(record.get("closedAt"), positive=True)
+    if None in (entry, exit_price, qty, margin, leverage, created_at, closed_at):
+        return None
+    if closed_at < created_at or closed_at - created_at > _MAX_TRADE_AGE_MS:
+        return None
+    clock = now_ms if now_ms is not None else int(time.time() * 1000)
+    if closed_at > clock + 5 * 60 * 1000:
+        return None
+    if leverage > 125 or entry * qty > _MAX_NOTIONAL:
+        return None
+    move_ratio = max(entry, exit_price) / min(entry, exit_price)
+    if move_ratio > _MAX_PRICE_MOVE_RATIO:
+        return None
+
+    direction_sign = 1.0 if direction == "long" else -1.0
+    computed_pnl = (exit_price - entry) * qty * direction_sign
+    supplied_pnl = _finite_number(record.get("pnl"))
+    if supplied_pnl is None:
+        return None
+    tolerance = max(_PNL_TOLERANCE_ABS, abs(computed_pnl) * _PNL_TOLERANCE_RATIO)
+    if abs(supplied_pnl - computed_pnl) > tolerance:
+        return None
+
+    normalized = dict(record)
+    normalized.update({
+        "id": trade_id,
+        "sym": symbol,
+        "direction": direction,
+        "entry": entry,
+        "exit": exit_price,
+        "qty": qty,
+        "margin": margin,
+        "leverage": leverage,
+        "status": status,
+        "createdAt": int(created_at),
+        "closedAt": int(closed_at),
+        "holdMs": max(0, int(closed_at - created_at)),
+        "pnl": round(computed_pnl, 8),
+        "pct": round(((exit_price - entry) / entry) * 100 * direction_sign, 8),
+        "serverVerified": True,
+    })
+    return normalized
+
+
+def _validated_history(history: object, *, now_ms: int | None = None) -> list[dict]:
+    """Return valid unique records, preserving the latest bounded history order."""
+    if not isinstance(history, list):
+        return []
+    valid: list[dict] = []
+    seen_ids: set[str] = set()
+    for record in history[-MAX_HISTORY:]:
+        normalized = _validate_trade_record(record, now_ms=now_ms)
+        if not normalized or normalized["id"] in seen_ids:
+            continue
+        seen_ids.add(normalized["id"])
+        valid.append(normalized)
+    return valid
+
+
+def _leaderboard_stats(history: object) -> dict:
+    """Compute leaderboard metrics exclusively from server-validated records."""
+    trades = _validated_history(history)
+    pnl = sum(float(trade["pnl"]) for trade in trades)
+    wins = sum(1 for trade in trades if float(trade["pnl"]) > 0)
+    return {
+        "pnl": round(pnl, 8),
+        "tradeCount": len(trades),
+        "winCount": wins,
+        "winRate": round((wins / len(trades) * 100), 2) if trades else 0.0,
+    }
 
 
 async def _ensure_table(db: AsyncSession) -> None:
@@ -41,12 +162,94 @@ async def _ensure_table(db: AsyncSession) -> None:
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
         """))
+        await db.execute(text("""
+            CREATE TABLE IF NOT EXISTS paper_trade_records (
+                user_id TEXT NOT NULL,
+                trade_id VARCHAR(100) NOT NULL,
+                symbol VARCHAR(30) NOT NULL,
+                direction VARCHAR(10) NOT NULL,
+                entry_price DOUBLE PRECISION NOT NULL,
+                exit_price DOUBLE PRECISION NOT NULL,
+                quantity DOUBLE PRECISION NOT NULL,
+                margin DOUBLE PRECISION NOT NULL,
+                leverage DOUBLE PRECISION NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                realized_pnl DOUBLE PRECISION NOT NULL,
+                pnl_pct DOUBLE PRECISION NOT NULL,
+                opened_at TIMESTAMPTZ NOT NULL,
+                closed_at TIMESTAMPTZ NOT NULL,
+                trade_json JSONB NOT NULL,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                PRIMARY KEY (user_id, trade_id)
+            )
+        """))
+        await db.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_paper_trade_records_rank "
+            "ON paper_trade_records(user_id, closed_at DESC)"
+        ))
         await db.commit()
     except Exception:
         try:
             await db.rollback()
         except Exception:
             pass
+
+
+async def _append_trade_records(db: AsyncSession, user_id: str, history: object) -> int:
+    """Append verified closed trades to the immutable leaderboard ledger.
+
+    Existing ``(user_id, trade_id)`` rows are never updated. This makes the
+    first verified version authoritative and prevents later client edits or
+    deletes from rewriting leaderboard history.
+    """
+    inserted = 0
+    for trade in _validated_history(history):
+        result = await db.execute(text("""
+            INSERT INTO paper_trade_records
+                (user_id, trade_id, symbol, direction, entry_price, exit_price,
+                 quantity, margin, leverage, status, realized_pnl, pnl_pct,
+                 opened_at, closed_at, trade_json)
+            VALUES
+                (:uid, :trade_id, :symbol, :direction, :entry, :exit, :qty,
+                 :margin, :leverage, :status, :pnl, :pct,
+                 to_timestamp(:opened_ms / 1000.0),
+                 to_timestamp(:closed_ms / 1000.0), CAST(:trade_json AS JSONB))
+            ON CONFLICT (user_id, trade_id) DO NOTHING
+            RETURNING trade_id
+        """), {
+            "uid": user_id,
+            "trade_id": trade["id"],
+            "symbol": trade["sym"],
+            "direction": trade["direction"],
+            "entry": trade["entry"],
+            "exit": trade["exit"],
+            "qty": trade["qty"],
+            "margin": trade["margin"],
+            "leverage": trade["leverage"],
+            "status": trade["status"],
+            "pnl": trade["pnl"],
+            "pct": trade["pct"],
+            "opened_ms": trade["createdAt"],
+            "closed_ms": trade["closedAt"],
+            "trade_json": json.dumps(trade, ensure_ascii=False),
+        })
+        if result.scalar() is not None:
+            inserted += 1
+    return inserted
+
+
+async def _backfill_trade_records(db: AsyncSession) -> int:
+    """One-way backfill of valid legacy state histories into the ledger."""
+    rows = (await db.execute(text("""
+        SELECT user_id, history FROM paper_trading_state
+        WHERE jsonb_array_length(history) > 0
+    """))).fetchall()
+    inserted = 0
+    for row in rows:
+        inserted += await _append_trade_records(db, str(row[0]), row[1] or [])
+    if inserted:
+        await db.commit()
+    return inserted
 
 
 @router.get("/state", response_model=ApiResponse)
@@ -126,10 +329,7 @@ async def sync_paper_state(
         positions = []
     positions = positions[:MAX_POSITIONS]
 
-    history = payload.get("history") or []
-    if not isinstance(history, list):
-        history = []
-    history = history[-MAX_HISTORY:]
+    history = _validated_history(payload.get("history") or [])
 
     pending = payload.get("pendingOrders") or []
     if not isinstance(pending, list):
@@ -149,6 +349,7 @@ async def sync_paper_state(
     settings = {"leverage": lev, "marginMode": mode}
 
     try:
+        ledger_inserted = await _append_trade_records(db, user_id, history)
         await db.execute(text("""
             INSERT INTO paper_trading_state (user_id, balance, positions, history, pending_orders, settings, updated_at)
             VALUES (:uid, :bal, CAST(:pos AS JSONB), CAST(:hist AS JSONB), CAST(:pend AS JSONB), CAST(:set AS JSONB), now())
@@ -168,7 +369,11 @@ async def sync_paper_state(
             "set": json.dumps(settings),
         })
         await db.commit()
-        return ApiResponse(data={"synced": True})
+        return ApiResponse(data={
+            "synced": True,
+            "verifiedTrades": len(history),
+            "ledgerInserted": ledger_inserted,
+        })
     except Exception as e:
         try:
             await db.rollback()
@@ -241,74 +446,98 @@ async def get_leaderboard(
     limit = max(1, min(limit, LEADERBOARD_MAX_RESULTS))
     await _ensure_table(db)
 
-    # history 배열 원소의 pnl 합계 + 건수를 서브쿼리로 미리 집계 후 순위 매김.
-    # jsonb_array_elements 로 배열을 행으로 풀어 SUM((elem->>'pnl')::numeric).
-    agg_cte = """
-        WITH agg AS (
-            SELECT p.user_id,
-                   COALESCE(SUM((h.elem->>'pnl')::numeric), 0) AS realized_pnl,
-                   COUNT(h.elem) AS trade_count
-            FROM paper_trading_state p
-            LEFT JOIN LATERAL jsonb_array_elements(p.history) AS h(elem) ON true
-            GROUP BY p.user_id
-        )
-    """
-
     try:
-        rows = (await db.execute(text(agg_cte + """
-            SELECT a.user_id, u.nickname, a.realized_pnl, a.trade_count
-            FROM agg a
-            JOIN users u ON u.id::text = a.user_id
-            WHERE a.trade_count >= :min_trades
-            ORDER BY a.realized_pnl DESC
+        # One-way migration of valid legacy JSON histories. Existing ledger rows
+        # are immutable because the append helper uses ON CONFLICT DO NOTHING.
+        await _backfill_trade_records(db)
+        rows = (await db.execute(text("""
+            WITH agg AS (
+                SELECT r.user_id,
+                       SUM(r.realized_pnl) AS realized_pnl,
+                       COUNT(*) AS trade_count,
+                       COUNT(*) FILTER (WHERE r.realized_pnl > 0) AS win_count
+                FROM paper_trade_records r
+                GROUP BY r.user_id
+            ), ranked AS (
+                SELECT a.*,
+                       ROW_NUMBER() OVER (
+                           ORDER BY a.realized_pnl DESC, a.win_count DESC,
+                                    a.trade_count DESC, a.user_id
+                       ) AS rank
+                FROM agg a
+                WHERE a.trade_count >= :min_trades
+            )
+            SELECT r.rank, r.user_id, u.nickname, r.realized_pnl,
+                   r.trade_count, r.win_count
+            FROM ranked r
+            JOIN users u ON u.id::text = r.user_id
+            ORDER BY r.rank
             LIMIT :lim
         """), {"min_trades": LEADERBOARD_MIN_TRADES, "lim": limit})).fetchall()
     except Exception:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         rows = []
 
-    items = [{
-        "rank": i + 1,
-        "userId": str(r[0]),
-        "nickname": r[1] or "익명",
-        "pnl": float(r[2] or 0),
-        "pnlPct": round(float(r[2] or 0) / INITIAL_BALANCE * 100, 2),
-        "tradeCount": int(r[3] or 0),
-        "isMe": (user_id is not None and str(r[0]) == user_id),
-    } for i, r in enumerate(rows)]
+    def make_item(row, *, mine: bool) -> dict:
+        pnl = float(row[3] or 0)
+        trades = int(row[4] or 0)
+        wins = int(row[5] or 0)
+        return {
+            "rank": int(row[0]),
+            "userId": str(row[1]),
+            "nickname": row[2] or "익명",
+            "pnl": round(pnl, 8),
+            "pnlPct": round(pnl / INITIAL_BALANCE * 100, 2),
+            "tradeCount": trades,
+            "winCount": wins,
+            "winRate": round(wins / trades * 100, 2) if trades else 0.0,
+            "serverVerified": True,
+            "isMe": mine,
+        }
 
-    my_rank = None
-    if user_id:
-        found = next((it for it in items if it["isMe"]), None)
-        if found:
-            my_rank = found
-        else:
-            # 상위 목록에 없으면 별도로 내 순위 계산
+    items = [make_item(row, mine=(user_id is not None and str(row[1]) == user_id)) for row in rows]
+
+    my_rank = next((item for item in items if item["isMe"]), None)
+    if user_id and my_rank is None:
+        try:
+            row = (await db.execute(text("""
+                WITH agg AS (
+                    SELECT r.user_id,
+                           SUM(r.realized_pnl) AS realized_pnl,
+                           COUNT(*) AS trade_count,
+                           COUNT(*) FILTER (WHERE r.realized_pnl > 0) AS win_count
+                    FROM paper_trade_records r
+                    GROUP BY r.user_id
+                ), ranked AS (
+                    SELECT a.*,
+                           ROW_NUMBER() OVER (
+                               ORDER BY a.realized_pnl DESC, a.win_count DESC,
+                                        a.trade_count DESC, a.user_id
+                           ) AS rank
+                    FROM agg a
+                    WHERE a.trade_count >= :min_trades
+                )
+                SELECT r.rank, r.user_id, u.nickname, r.realized_pnl,
+                       r.trade_count, r.win_count
+                FROM ranked r
+                JOIN users u ON u.id::text = r.user_id
+                WHERE r.user_id = :uid
+            """), {"min_trades": LEADERBOARD_MIN_TRADES, "uid": user_id})).first()
+            if row:
+                my_rank = make_item(row, mine=True)
+        except Exception:
             try:
-                row = (await db.execute(text(agg_cte + """
-                    , ranked AS (
-                        SELECT user_id, realized_pnl, trade_count,
-                               ROW_NUMBER() OVER (ORDER BY realized_pnl DESC) AS rnk
-                        FROM agg
-                        WHERE trade_count >= :min_trades
-                    )
-                    SELECT r.rnk, r.realized_pnl, r.trade_count, u.nickname
-                    FROM ranked r
-                    JOIN users u ON u.id::text = r.user_id
-                    WHERE r.user_id = :uid
-                """), {"min_trades": LEADERBOARD_MIN_TRADES, "uid": user_id})).first()
-                if row:
-                    my_rank = {
-                        "rank": int(row[0]), "userId": user_id, "nickname": row[3] or "익명",
-                        "pnl": float(row[1] or 0),
-                        "pnlPct": round(float(row[1] or 0) / INITIAL_BALANCE * 100, 2),
-                        "tradeCount": int(row[2] or 0), "isMe": True,
-                    }
+                await db.rollback()
             except Exception:
-                my_rank = None
+                pass
 
     return ApiResponse(data={
         "items": items,
         "myRank": my_rank,
         "maxRank": LEADERBOARD_MAX_RESULTS,
         "initialBalance": INITIAL_BALANCE,
+        "rankingBasis": "server_verified_realized_pnl",
     })

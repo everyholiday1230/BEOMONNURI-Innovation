@@ -496,6 +496,7 @@ from src.api import auth, symbols, charts, watchlists, layouts, alerts, analysis
 from src.api import portfolio
 from src.api import paper_trading
 from src.api import qsignal
+from src.api import signal_board
 app.include_router(auth.router, prefix="/v1/auth", tags=["Auth"])
 app.include_router(site.router, prefix="/v1/site", tags=["Site"])
 app.include_router(symbols.router, prefix="/v1", tags=["Symbols"])
@@ -508,6 +509,7 @@ app.include_router(analysis.router, prefix="/v1/analysis", tags=["AI Analysis"])
 app.include_router(trading.router, prefix="/v1/trading", tags=["Auto Trading"])
 app.include_router(portfolio.router, prefix="/v1/portfolio", tags=["Portfolio"])
 app.include_router(paper_trading.router)  # /v1/paper/* (prefix는 router에 정의)
+app.include_router(signal_board.router)  # /v1/signals/* (prefix는 router에 정의)
 from src.api.referral import router as referral_router
 from src.api.purchases import router as purchases_router
 app.include_router(referral_router, prefix="/v1", tags=["Referral"])
