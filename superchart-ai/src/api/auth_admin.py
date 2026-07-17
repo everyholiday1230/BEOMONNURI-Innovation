@@ -321,7 +321,10 @@ async def admin_reset_user_password(req: dict, request: Request, db: AsyncSessio
     if not user:
         raise HTTPException(404, "User not found")
     user.password_hash = hash_password(new_password)
+    user.token_version = (user.token_version or 0) + 1
     await db.commit()
+    from src.services.auth import _tv_cache
+    _tv_cache.pop(str(user.id), None)
     return ApiResponse(data={"reset": True, "user_id": uid})
 
 

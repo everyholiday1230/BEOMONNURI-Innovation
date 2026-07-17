@@ -55,7 +55,8 @@ ADMIN_ROLE_POLICIES: dict[str, dict[str, Any]] = {
         "menus": ["overview", "users", "subscriptions", "tickets", "content", "system", "metrics", "symdata", "aiusage", "superchart"],
         "permissions": [
             "overview.read", "users.read", "users.write",
-            "subscriptions.read", "subscriptions.write",
+            "subscriptions.read", "subscriptions.write", "subscriptions.refund",
+            "referrals.read", "referrals.write",
             "tickets.read", "tickets.write",
             "content.read", "content.write",
             "metrics.read", "logs.read", "symdata.read", "aiusage.read",
@@ -77,8 +78,9 @@ ADMIN_ROLE_POLICIES: dict[str, dict[str, Any]] = {
         "label": "결제 관리자",
         "menus": ["overview", "subscriptions", "points", "plans"],
         "permissions": [
-            "overview.read", "subscriptions.read", "subscriptions.write",
-            "points.read", "points.write", "plans.read", "plans.write",
+            "overview.read", "subscriptions.read", "subscriptions.write", "subscriptions.refund",
+            "points.read", "points.write", "referrals.read", "referrals.write",
+            "plans.read", "plans.write",
         ],
     },
     "data": {
@@ -92,6 +94,60 @@ ADMIN_ROLE_POLICIES: dict[str, dict[str, Any]] = {
         "permissions": ["overview.read", "metrics.read", "system.read"],
     },
 }
+
+
+# ── 공통 관리자 API 경로별 세부 권한 ──
+# auth_admin_check()만 호출하는 기존 라우트에도 최소권한을 적용한다.
+# 더 구체적인 prefix를 먼저 비교해야 한다.
+_ADMIN_PATH_PERMISSIONS: tuple[tuple[str, str, str | None], ...] = (
+    # 운영 시스템
+    ("/v1/ops/restart-server", "system.ops", "POST"),
+    ("/v1/ops/restart-bots", "system.ops", "POST"),
+    ("/v1/ops/clear-cache", "system.ops", "POST"),
+    ("/v1/ops/backup-db", "system.ops", "POST"),
+    ("/v1/ops/delete-user", "users.write", "POST"),
+    ("/v1/ops/toggle-symbol", "symbols.write", "POST"),
+    ("/v1/ops/push-notice", "content.write", "POST"),
+    ("/v1/ops/user-logs", "logs.read", "GET"),
+    ("/v1/ops/revenue-stats", "subscriptions.read", "GET"),
+    ("/v1/ops/", "system.read", "GET"),
+    ("/v1/debug/", "system.read", "GET"),
+    ("/v1/stats/visits", "metrics.read", "GET"),
+    # 구매/결제
+    ("/v1/purchases/admin/refund", "subscriptions.refund", "POST"),
+    ("/v1/purchases/admin/payments", "subscriptions.read", "GET"),
+    ("/v1/purchases/admin/duplicate-payments", "subscriptions.read", "GET"),
+    ("/v1/purchases/admin/", "subscriptions.write", "POST"),
+    ("/v1/purchases/admin/", "subscriptions.read", "GET"),
+    # 포인트/레퍼럴
+    ("/v1/points/admin/", "points.write", "POST"),
+    ("/v1/points/admin/", "points.read", "GET"),
+    ("/v1/points/policy", "points.read", "GET"),
+    ("/v1/referral/admin/", "referrals.write", "POST"),
+    ("/v1/referral/admin/", "referrals.read", "GET"),
+    # 거래소 가입 인증 승인/반려
+    ("/v1/auth/admin/approve-verification", "subscriptions.write", "POST"),
+    ("/v1/auth/admin/reject-verification", "subscriptions.write", "POST"),
+    ("/v1/auth/admin/pending-verifications", "subscriptions.read", "GET"),
+    # 콘텐츠/사이트 설정
+    ("/v1/site/notices/admin", "content.read", "GET"),
+    ("/v1/site/notices", "content.write", None),
+    ("/v1/site/faqs", "content.write", None),
+    ("/v1/site/settings", "system.ops", "POST"),
+    ("/v1/site/settings", "content.read", "GET"),
+    # 요금제
+    ("/v1/plans", "plans.write", "POST"),
+    ("/v1/plans", "plans.read", "GET"),
+)
+
+
+def required_admin_permission(path: str, method: str) -> str | None:
+    """요청 경로/메서드에 필요한 세부 관리자 권한을 반환한다."""
+    method = (method or "").upper()
+    for prefix, permission, required_method in _ADMIN_PATH_PERMISSIONS:
+        if path.startswith(prefix) and (required_method is None or method == required_method):
+            return permission
+    return None
 
 
 # ── 감사 로그 ──
@@ -182,7 +238,7 @@ def _role_permissions(role: str) -> list[str]:
     return perms if isinstance(perms, list) else []
 
 
-async def resolve_admin_context(request: Request, db=None) -> dict[str, Any]:
+async def resolve_admin_context(request: Request, db=None, *, fail_closed: bool = False) -> dict[str, Any]:
     """현재 관리자 컨텍스트(이메일/역할/권한/메뉴) 계산.
 
     기본 정책:
@@ -221,9 +277,16 @@ async def resolve_admin_context(request: Request, db=None) -> dict[str, Any]:
                 role = "readonly"
         except HTTPException:
             raise
-        except Exception:
-            # 테이블 미생성 등 초기 상태: claim role 또는 super 유지
-            if role not in ADMIN_ROLE_POLICIES:
+        except Exception as e:
+            if fail_closed:
+                logger.warning(
+                    "admin.role_lookup_fail_closed",
+                    admin_email=admin_email,
+                    error=str(e)[:100],
+                )
+                role = "readonly"
+            # 초기/비민감 경로는 기존 claim 역할 호환 유지
+            elif role not in ADMIN_ROLE_POLICIES:
                 role = "super"
 
     if role not in ADMIN_ROLE_POLICIES:
@@ -270,24 +333,21 @@ async def register_session(sid: str) -> None:
 
 async def is_session_valid(sid: str) -> bool:
     """Redis에서 세션 유효성 확인.
-    
-    정책:
-    - ENV=prod/production/live: fail-closed (Redis 장애 시 거부)
-    - 그 외 (dev/local): fail-open (개발 편의)
+
+    Redis가 세션 키의 존재를 명시적으로 확인한 경우에만 유효하다.
+    미설정, 연결 오류, 응답 없음은 환경과 관계없이 fail-closed 처리한다.
     """
+    if not sid:
+        return False
     try:
         from src.db.redis import redis_client
         r = await redis_client()
-        if r:
-            return await r.exists(f"{ADMIN_SESSION_PREFIX}{sid}")
+        if not r:
+            return False
+        return bool(await r.exists(f"{ADMIN_SESSION_PREFIX}{sid}"))
     except Exception as e:
-        logger.debug("admin.is_session_valid_fail", error=str(e)[:100])
-    # fallback: 환경별 정책
-    import os as _os
-    _env = _os.getenv("ENV", "").lower()
-    if _env in ("prod", "production", "live"):
-        return False  # fail-closed (보안 우선)
-    return True  # dev/local: fail-open
+        logger.warning("admin.is_session_valid_fail_closed", error=str(e)[:100])
+        return False
 
 
 async def revoke_session(sid: str) -> None:
@@ -318,15 +378,54 @@ async def revoke_all_admin_sessions() -> None:
 
 # ── 통합 인증 체크 (엔드포인트에서 호출) ──
 
+async def _enforce_mapped_admin_permission(request: Request) -> None:
+    """공통 인증만 사용하던 관리자 API에 경로 기반 최소권한을 적용한다."""
+    permission = required_admin_permission(request.url.path, request.method)
+    if not permission:
+        return
+
+    # 이메일 기반 관리자 세션은 DB의 현재 role/active를 다시 조회한다.
+    # 역할 하향/비활성화가 기존 JWT 만료까지 지연되지 않도록 하고,
+    # 조회 실패 시 민감 경로는 readonly로 강등(fail-closed)한다.
+    claims = get_admin_cookie_claims(request)
+    admin_email = (claims.get("adm") or request.headers.get("x-admin-email") or "").strip().lower()
+    if admin_email:
+        try:
+            from src.db.session import get_db_context
+            async with get_db_context() as db:
+                ctx = await resolve_admin_context(request, db=db, fail_closed=True)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning("admin.permission_db_fail_closed", error=str(e)[:100])
+            pol = ADMIN_ROLE_POLICIES["readonly"]
+            ctx = {"role": "readonly", "permissions": pol["permissions"]}
+    else:
+        # 레거시 내부 헤더 인증은 식별 가능한 계정이 없어 기존 super 정책 유지.
+        ctx = await resolve_admin_context(request)
+
+    if not is_admin_allowed(ctx, permission):
+        admin_audit(
+            "admin_permission_denied",
+            request,
+            role=ctx.get("role", "unknown"),
+            permission=permission,
+            path=request.url.path,
+        )
+        raise HTTPException(403, f"권한 부족: {permission}")
+
+
 async def auth_admin_check(request: Request) -> None:
-    """관리자 권한 검증 — 실패 시 403 raise.
+    """관리자 인증 및 경로별 세부 권한 검증 — 실패 시 403 raise.
 
     검증 순서:
     1. Admin session cookie (브라우저) — Redis 검증
     2. X-Admin-Key + X-Admin-Password 헤더 (내부 스크립트)
+    3. 보호 경로에 매핑된 세부 권한 검사
     """
     # 1. Admin session cookie
     if await verify_admin_cookie_async(request):
+        await _enforce_mapped_admin_permission(request)
         return
     # 2. 헤더 조합 (내부 스크립트용)
     admin_key = _os.getenv("ADMIN_KEY", "")
@@ -336,7 +435,10 @@ async def auth_admin_check(request: Request) -> None:
     if admin_key and pw_hash and hk == admin_key and hp:
         try:
             if _admin_bcrypt.checkpw(hp.encode(), pw_hash.encode()):
+                await _enforce_mapped_admin_permission(request)
                 return
+        except HTTPException:
+            raise
         except Exception as e:
             logger.debug("admin.header_check_fail", error=str(e)[:100])
     raise HTTPException(403, "Forbidden")
@@ -357,6 +459,7 @@ __all__ = [
     "register_session", "is_session_valid", "revoke_session", "revoke_all_admin_sessions",
     # check
     "auth_admin_check", "resolve_admin_context", "is_admin_allowed", "require_admin_permission",
+    "required_admin_permission",
     # audit
     "admin_audit",
 ]

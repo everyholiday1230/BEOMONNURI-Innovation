@@ -153,7 +153,7 @@ async def google_callback(
         user.role,
         getattr(user, "token_version", 0) or 0,
     )
-    refresh = create_refresh_token(str(user.id))
+    refresh = create_refresh_token(str(user.id), getattr(user, 'token_version', 0) or 0)
 
     resp = RedirectResponse("/")
     set_auth_cookies(resp, access, refresh, request)

@@ -225,14 +225,74 @@ async def buy(req: dict, user_id: str = Depends(get_current_user_id), db: AsyncS
     })
 
 
+def _normalize_payment_status(status: str | None) -> str:
+    """PG별 취소 상태 표기를 내부 표준값으로 통일한다."""
+    normalized = (status or "").strip().lower()
+    return "canceled" if normalized == "cancelled" else normalized
+
+
+def _resolve_payment_transition(current: str | None, incoming: str) -> tuple[str, bool, str]:
+    """순서가 뒤바뀐 웹훅이 확정된 구매 상태를 되돌리지 않도록 한다.
+
+    paid/refunded는 내부 권한에 직접 영향을 주는 종결 상태다. paid는 관리자 환불만
+    refunded로 바꿀 수 있고, refunded는 PG 웹훅으로 다시 활성화할 수 없다.
+    failed/canceled 주문은 같은 주문의 후속 paid 이벤트로 복구할 수 있다.
+    """
+    current_status = _normalize_payment_status(current) or "pending"
+    incoming_status = _normalize_payment_status(incoming)
+
+    if current_status == "refunded":
+        return current_status, False, "refunded_is_terminal"
+    if current_status == "paid":
+        reason = "duplicate_status" if incoming_status == "paid" else "paid_is_terminal"
+        return current_status, False, reason
+    if current_status in {"failed", "canceled"} and incoming_status != "paid":
+        reason = "duplicate_status" if current_status == incoming_status else "terminal_failure"
+        return current_status, False, reason
+    if incoming_status == "pending" and current_status != "pending":
+        return current_status, False, "stale_pending"
+    if incoming_status == current_status:
+        return current_status, False, "duplicate_status"
+    return incoming_status, True, "applied"
+
+
+def _payment_lookup_mode(order_id: str, user_id: str, indicator_code: str) -> str | None:
+    """order_id가 제공되면 다른 주문으로 fallback하지 않는다."""
+    if order_id:
+        return "order_id"
+    if user_id and indicator_code:
+        return "identity"
+    return None
+
+
+def _payment_order_mismatch(
+    *,
+    order_user_id: str,
+    order_indicator_code: str,
+    order_amount: int,
+    order_currency: str,
+    payload_user_id: str,
+    payload_indicator_code: str,
+    payload_amount: int,
+    payload_currency: str,
+    amount_provided: bool,
+    currency_provided: bool,
+) -> str | None:
+    """서명된 payload도 주문 원장과 대조해 잘못된 권한 부여를 차단한다."""
+    if payload_user_id and payload_user_id != order_user_id:
+        return "user_id_mismatch"
+    if payload_indicator_code and payload_indicator_code != order_indicator_code:
+        return "indicator_code_mismatch"
+    if amount_provided and payload_amount != order_amount:
+        return "amount_mismatch"
+    if currency_provided and payload_currency.upper() != order_currency.upper():
+        return "currency_mismatch"
+    return None
+
+
 @router.post("/webhook/payment", response_model=ApiResponse)
 async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """결제 PG 웹훅.
-
-    필수 필드(권장):
-    - provider, event_id, status, order_id
-    선택: user_id, indicator_code, amount, currency, tx_id, event_type
-    """
+    """서명·멱등성·주문 잠금·단조 상태 전이를 적용한 결제 PG 웹훅."""
     await _ensure_tables(db)
 
     raw = await request.body()
@@ -241,21 +301,43 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     try:
         payload = json.loads(raw.decode("utf-8") or "{}")
-    except Exception:
+    except (UnicodeDecodeError, json.JSONDecodeError):
         raise HTTPException(400, "invalid json payload")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "json object payload required")
 
-    provider = (payload.get("provider") or "unknown").strip().lower()
-    event_id = (payload.get("event_id") or payload.get("id") or "").strip()
-    status = (payload.get("status") or "").strip().lower()
-    order_id = (payload.get("order_id") or "").strip()
-    event_type = (payload.get("event_type") or payload.get("type") or "payment").strip()
+    provider = str(payload.get("provider") or "unknown").strip().lower()
+    event_id = str(payload.get("event_id") or payload.get("id") or "").strip()
+    status = _normalize_payment_status(str(payload.get("status") or ""))
+    order_id = str(payload.get("order_id") or "").strip()
+    event_type = str(payload.get("event_type") or payload.get("type") or "payment").strip()
+    payload_uid = str(payload.get("user_id") or "").strip()
+    payload_code = str(payload.get("indicator_code") or "").strip()
+    payload_currency = str(payload.get("currency") or "KRW").strip()
+    amount_provided = "amount" in payload and payload.get("amount") is not None
+    currency_provided = "currency" in payload and payload.get("currency") is not None
 
     if not event_id:
         raise HTTPException(400, "event_id 필요")
-    if status not in {"paid", "failed", "canceled", "cancelled", "pending"}:
+    if status not in {"paid", "failed", "canceled", "pending"}:
         raise HTTPException(400, "지원하지 않는 status")
+    try:
+        amount = int(payload.get("amount") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "amount는 정수여야 합니다")
+    if amount < 0:
+        raise HTTPException(400, "amount는 0 이상이어야 합니다")
 
-    # 멱등 이벤트 등록
+    # on_payment 내부의 스키마 확인은 commit할 수 있으므로 이벤트 트랜잭션 시작 전에
+    # 완료한다. 실제 보상 변경은 아래 nested transaction(savepoint)에서 격리한다.
+    referral_on_payment = None
+    if status == "paid":
+        from src.api.referral import _ensure_tables as ensure_referral_tables
+        from src.api.referral import on_payment
+
+        await ensure_referral_tables(db)
+        referral_on_payment = on_payment
+
     ins = await db.execute(text(
         "INSERT INTO payment_events (provider, event_id, event_type, status, order_id, user_id, indicator_code, amount, currency, tx_id, payload) "
         "VALUES (:provider, :event_id, :event_type, :status, :order_id, :uid, :code, :amount, :currency, :tx_id, CAST(:payload AS JSONB)) "
@@ -266,33 +348,38 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         "event_type": event_type,
         "status": status,
         "order_id": order_id or None,
-        "uid": (payload.get("user_id") or "").strip() or None,
-        "code": (payload.get("indicator_code") or "").strip() or None,
-        "amount": int(payload.get("amount") or 0),
-        "currency": (payload.get("currency") or "KRW").strip(),
-        "tx_id": (payload.get("tx_id") or payload.get("transaction_id") or "").strip() or None,
+        "uid": payload_uid or None,
+        "code": payload_code or None,
+        "amount": amount,
+        "currency": payload_currency,
+        "tx_id": str(payload.get("tx_id") or payload.get("transaction_id") or "").strip() or None,
         "payload": json.dumps(payload, ensure_ascii=False),
     })
 
-    inserted = int(ins.rowcount or 0)
-    if inserted == 0:
+    if int(ins.rowcount or 0) == 0:
         await db.rollback()
         return ApiResponse(data={"accepted": True, "already_processed": True, "event_id": event_id})
 
+    # 서로 다른 event_id가 동시에 도착해도 같은 주문 행을 직렬 처리한다.
+    # order_id가 명시됐는데 찾지 못한 경우 identity fallback을 금지해 오주문 연결을 막는다.
+    lookup_mode = _payment_lookup_mode(order_id, payload_uid, payload_code)
     row = None
-    if order_id:
+    if lookup_mode == "order_id":
         row = (await db.execute(text(
-            "SELECT user_id, indicator_code, status FROM user_purchases WHERE order_id=:oid LIMIT 1"
+            "SELECT up.user_id, up.indicator_code, up.status, up.order_id, up.price, "
+            "       COALESCE(ip.currency, 'KRW') "
+            "FROM user_purchases up "
+            "LEFT JOIN indicator_products ip ON ip.indicator_code = up.indicator_code "
+            "WHERE up.order_id=:oid LIMIT 1 FOR UPDATE OF up"
         ), {"oid": order_id})).fetchone()
-
-    if not row:
-        uid = (payload.get("user_id") or "").strip()
-        code = (payload.get("indicator_code") or "").strip()
-        if uid and code:
-            row = (await db.execute(text(
-                "SELECT user_id, indicator_code, status FROM user_purchases "
-                "WHERE user_id=:uid AND indicator_code=:code LIMIT 1"
-            ), {"uid": uid, "code": code})).fetchone()
+    elif lookup_mode == "identity":
+        row = (await db.execute(text(
+            "SELECT up.user_id, up.indicator_code, up.status, up.order_id, up.price, "
+            "       COALESCE(ip.currency, 'KRW') "
+            "FROM user_purchases up "
+            "LEFT JOIN indicator_products ip ON ip.indicator_code = up.indicator_code "
+            "WHERE up.user_id=:uid AND up.indicator_code=:code LIMIT 1 FOR UPDATE OF up"
+        ), {"uid": payload_uid, "code": payload_code})).fetchone()
 
     if not row:
         await db.execute(text(
@@ -304,11 +391,51 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             "linked": False,
             "message": "주문 매칭 실패(이벤트는 기록됨)",
             "event_id": event_id,
+            "match_failure": "unknown_order_id" if order_id else "missing_or_unknown_identity",
         })
 
-    uid, code, before_status = str(row[0]), str(row[1]), (row[2] or "pending")
+    uid, code = str(row[0]), str(row[1])
+    before_status = _normalize_payment_status(row[2]) or "pending"
+    matched_order_id = str(row[3]) if row[3] else None
+    order_amount = int(row[4] or 0)
+    order_currency = str(row[5] or "KRW")
+    mismatch = _payment_order_mismatch(
+        order_user_id=uid,
+        order_indicator_code=code,
+        order_amount=order_amount,
+        order_currency=order_currency,
+        payload_user_id=payload_uid,
+        payload_indicator_code=payload_code,
+        payload_amount=amount,
+        payload_currency=payload_currency,
+        amount_provided=amount_provided,
+        currency_provided=currency_provided,
+    )
+    if mismatch:
+        await db.execute(text(
+            "UPDATE payment_events SET processed=true, processed_at=now() "
+            "WHERE provider=:provider AND event_id=:event_id"
+        ), {"provider": provider, "event_id": event_id})
+        await db.commit()
+        logger.warning(
+            "purchases.webhook.order_mismatch",
+            event_id=event_id,
+            order_id=matched_order_id,
+            mismatch=mismatch,
+        )
+        return ApiResponse(data={
+            "accepted": True,
+            "linked": False,
+            "event_id": event_id,
+            "order_id": matched_order_id,
+            "status": before_status,
+            "match_failure": mismatch,
+        })
 
-    if status == "paid":
+    effective_status, transition_applied, transition_reason = _resolve_payment_transition(before_status, status)
+    referral_result = {"linked": False, "rewarded": False, "skipped": True}
+
+    if transition_applied and effective_status == "paid":
         await db.execute(text(
             "UPDATE user_purchases "
             "SET status='paid', purchased_at=COALESCE(purchased_at, now()), "
@@ -320,38 +447,23 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             "code": code,
         })
 
-        referral_result = {"linked": False, "rewarded": False}
-        if before_status != "paid":
-            try:
-                from src.api.referral import on_payment
-                referral_result = await on_payment(
+        try:
+            async with db.begin_nested():
+                referral_result = await referral_on_payment(
                     db,
                     uid,
-                    payment_ref=(payload.get("tx_id") or event_id),
+                    payment_ref=str(payload.get("tx_id") or event_id),
                     autocommit=False,
                 )
-            except Exception as e:
-                logger.warning("purchases.webhook.referral_failed", event_id=event_id, user_id=uid, error=str(e)[:160])
-
+        except Exception as e:
+            # SAVEPOINT만 rollback되므로 구매 확정과 이벤트 처리는 계속 커밋할 수 있다.
+            referral_result = {"linked": False, "rewarded": False, "error": "reward_failed"}
+            logger.warning("purchases.webhook.referral_failed", event_id=event_id, user_id=uid, error=str(e)[:160])
+    elif transition_applied:
         await db.execute(text(
-            "UPDATE payment_events SET processed=true, processed_at=now() WHERE provider=:provider AND event_id=:event_id"
-        ), {"provider": provider, "event_id": event_id})
-        await db.commit()
-        return ApiResponse(data={
-            "accepted": True,
-            "event_id": event_id,
-            "order_id": order_id,
-            "user_id": uid,
-            "indicator_code": code,
-            "status": "paid",
-            "before_status": before_status,
-            "referral": referral_result,
-        })
-
-    if status in {"failed", "canceled", "cancelled"}:
-        await db.execute(text(
-            "UPDATE user_purchases SET status=:st, updated_at=now() WHERE user_id=:uid AND indicator_code=:code"
-        ), {"st": "canceled" if status in {"canceled", "cancelled"} else "failed", "uid": uid, "code": code})
+            "UPDATE user_purchases SET status=:st, updated_at=now() "
+            "WHERE user_id=:uid AND indicator_code=:code"
+        ), {"st": effective_status, "uid": uid, "code": code})
 
     await db.execute(text(
         "UPDATE payment_events SET processed=true, processed_at=now() WHERE provider=:provider AND event_id=:event_id"
@@ -359,12 +471,17 @@ async def payment_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     await db.commit()
     return ApiResponse(data={
         "accepted": True,
+        "linked": True,
         "event_id": event_id,
-        "order_id": order_id,
-        "status": status,
+        "order_id": matched_order_id,
+        "event_status": status,
+        "status": effective_status,
         "before_status": before_status,
+        "transition_applied": transition_applied,
+        "transition_reason": transition_reason,
         "user_id": uid,
         "indicator_code": code,
+        "referral": referral_result,
     })
 
 

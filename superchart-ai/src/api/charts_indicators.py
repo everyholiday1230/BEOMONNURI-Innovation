@@ -850,8 +850,21 @@ async def get_beom_auto2_events(symbolId: str = "BTCUSDT", timeframe: str = "5m"
     """
     import json as _json
     from pathlib import Path as _Path
+    from src.utils.validators import is_valid_symbol, is_valid_timeframe
+
+    # Path traversal 차단: symbolId, timeframe 검증
+    if not is_valid_symbol(symbolId.upper()):
+        return ApiResponse(data={"events": []})
+    if not is_valid_timeframe(timeframe):
+        return ApiResponse(data={"events": []})
+
     _dir = "beomauto2_events_instant" if mode == "instant" else "beomauto2_events"
-    p = _Path(f"data/{_dir}/{symbolId}_{timeframe}.json")
+    p = _Path(f"data/{_dir}/{symbolId}_{timeframe}.json").resolve()
+
+    # 추가 안전장치: 해석된 경로가 data 디렉토리 하위인지 확인
+    _data_root = _Path("data").resolve()
+    if not str(p).startswith(str(_data_root)):
+        return ApiResponse(data={"events": []})
     if not p.exists():
         return ApiResponse(data={"events": []})
     try:

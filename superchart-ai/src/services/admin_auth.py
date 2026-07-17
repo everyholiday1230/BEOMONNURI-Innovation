@@ -42,7 +42,6 @@ def verify_admin_key(request: Request) -> None:
         HTTPException(403): 키가 없거나 일치하지 않을 때
 
     헤더: x-admin-key
-    쿼리: ?admin_key=... (CORS preflight 우회용, 권장 X)
     """
     _check_key_strength()
 
@@ -51,7 +50,7 @@ def verify_admin_key(request: Request) -> None:
         # 키가 환경변수에 없으면 모든 요청 거부
         raise HTTPException(503, "Admin 시스템 비활성화 (ADMIN_KEY 미설정)")
 
-    provided = request.headers.get("x-admin-key", "") or request.query_params.get("admin_key", "")
+    provided = request.headers.get("x-admin-key", "")
 
     if not provided:
         raise HTTPException(403, "Admin 인증 필요")

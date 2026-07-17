@@ -13,50 +13,18 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db
 from src.models.schemas import ApiResponse
-from src.services.auth import decode_token
+from src.services.auth import get_optional_user_id
 
 router = APIRouter(prefix="/v1/paper", tags=["PaperTrading"])
 
 INITIAL_BALANCE = 1000.0
 MAX_HISTORY = 200  # 최근 200건만 유지
 MAX_POSITIONS = 50
-
-_bearer_optional = HTTPBearer(auto_error=False)
-
-
-async def _get_user_id_optional(
-    request: Request,
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer_optional),
-) -> str | None:
-    """선택적 인증 — 토큰 있으면 user_id 반환, 없거나 무효면 None.
-
-    cookie 인증도 지원 (auth_token).
-    """
-    token = None
-    if creds:
-        token = creds.credentials
-    else:
-        token = request.cookies.get("auth_token")
-
-    if not token:
-        return None
-
-    try:
-        payload = decode_token(token)
-        if payload.get("type") == "refresh":
-            return None
-        sub = payload.get("sub")
-        if not sub:
-            return None
-        return str(sub)
-    except Exception:
-        return None
 
 
 async def _ensure_table(db: AsyncSession) -> None:
@@ -85,7 +53,7 @@ async def _ensure_table(db: AsyncSession) -> None:
 async def get_paper_state(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(_get_user_id_optional),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """사용자 모의주문 상태 조회. 비로그인은 None 반환 (클라이언트는 localStorage 사용)."""
     if not user_id:
@@ -137,7 +105,7 @@ async def sync_paper_state(
     request: Request,
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(_get_user_id_optional),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """클라이언트 → 서버 동기화. 비로그인은 무시 (클라이언트는 localStorage만 사용)."""
     if not user_id:
@@ -213,7 +181,7 @@ async def sync_paper_state(
 async def reset_paper_state(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(_get_user_id_optional),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """모의주문 초기화 — 가상 잔고를 $1,000으로 되돌리고 진행 중인 포지션을 삭제한다.
 
@@ -263,7 +231,7 @@ async def get_leaderboard(
     request: Request,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    user_id: str | None = Depends(_get_user_id_optional),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """모의투자 대회 순위 — 누적 실현손익(history 기준) 상위 사용자.
 

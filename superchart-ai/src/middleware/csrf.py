@@ -9,7 +9,8 @@
 - 안전 메서드 (GET/HEAD/OPTIONS): 검증 불필요
 - WebSocket/정적파일/health: 상태 변경 아님
 - 인증 시작 엔드포인트(signup/login 등): 아직 쿠키 없음
-- 비로그인 요청(csrf_token 쿠키 없음): 통과 (보호할 세션이 없음)
+- 비로그인 요청(auth_token도 csrf_token도 없음): 통과 (보호할 세션이 없음)
+- 인증된 요청(auth_token 있음)인데 csrf_token 없음: 거부 (쿠키 삭제 공격 방지)
 """
 from fastapi import FastAPI
 from starlette.responses import JSONResponse
@@ -56,15 +57,25 @@ async def _csrf_protection(request, call_next):
     # 인증 시작 엔드포인트 제외 (쿠키 없음)
     if path in CSRF_EXEMPT_PATHS:
         return await call_next(request)
-    # CSRF 토큰 쿠키가 있을 때만 검증 (비로그인 요청은 쿠키 없음 → 통과)
+    # CSRF 토큰 검증
     csrf_cookie = request.cookies.get("csrf_token")
+    auth_cookie = request.cookies.get("auth_token")
+
     if csrf_cookie:
+        # 쿠키와 헤더 일치 검증
         csrf_header = request.headers.get("x-csrf-token", "")
         if csrf_header != csrf_cookie:
             return JSONResponse(
                 {"success": False, "error": {"code": "CSRF_INVALID", "message": "CSRF token mismatch"}},
                 status_code=403,
             )
+    elif auth_cookie:
+        # 인증된 상태(auth_token 존재)인데 csrf_token이 없으면 거부
+        # 공격자가 csrf_token 쿠키를 제거/덮어쓴 경우 방어
+        return JSONResponse(
+            {"success": False, "error": {"code": "CSRF_MISSING", "message": "CSRF token cookie required for authenticated requests"}},
+            status_code=403,
+        )
     return await call_next(request)
 
 

@@ -8,23 +8,9 @@ from src.db.session import get_db
 from src.models.schemas import ApiResponse
 from src.models.tables import Symbol
 from src.services.alert_engine import alert_engine
+from src.services.auth import get_current_user_id, get_optional_user_id
 
 router = APIRouter()
-
-async def _get_uid_from_request(request: Request) -> str | None:
-    """쿠키/Bearer에서 user_id 추출. 실패 시 None."""
-    token = request.cookies.get("auth_token") or ""
-    auth_h = request.headers.get("authorization", "")
-    if not token and auth_h.startswith("Bearer "):
-        token = auth_h[7:]
-    if not token:
-        return None
-    try:
-        from src.services.auth import decode_token
-        payload = decode_token(token)
-        return payload.get("sub")
-    except Exception:
-        return None
 
 
 
@@ -60,35 +46,25 @@ async def _resolve_symbol(db: AsyncSession, symbol: str) -> tuple[str, str]:
 
 
 @router.get("", response_model=ApiResponse)
-async def list_alerts(request: Request):
-    """본인 알림 목록만 반환."""
-    token = request.cookies.get("auth_token") or (request.headers.get("authorization","")[7:] if request.headers.get("authorization","").startswith("Bearer ") else "")
-    if not token:
-        return ApiResponse(data={"items": []})
-    try:
-        from src.services.auth import decode_token
-        payload = decode_token(token)
-        user_id = payload.get("sub","")
-    except Exception:
+async def list_alerts(user_id: str | None = Depends(get_optional_user_id)):
+    """본인 알림 목록만 반환. 비로그인은 빈 목록."""
+    if not user_id:
         return ApiResponse(data={"items": []})
     return ApiResponse(data={"items": alert_engine.list_user_rules(user_id)})
 
 
 @router.get("/history", response_model=ApiResponse)
-async def alert_history(request: Request, db: AsyncSession = Depends(get_db), limit: int = 30):
+async def alert_history(
+    db: AsyncSession = Depends(get_db),
+    limit: int = 30,
+    user_id: str | None = Depends(get_optional_user_id),
+):
     """내 알림 트리거 히스토리 — 최근 발동된 내역.
 
     일반 알림(PRICE_CROSS_*, RSI_*)의 last_triggered_at 기준 + BEOM_SIGNAL 이력.
     """
     limit = max(1, min(limit, 100))
-    token = request.cookies.get("auth_token") or (request.headers.get("authorization","")[7:] if request.headers.get("authorization","").startswith("Bearer ") else "")
-    if not token:
-        return ApiResponse(data={"items": []})
-    try:
-        from src.services.auth import decode_token
-        payload = decode_token(token)
-        user_id = payload.get("sub", "")
-    except Exception:
+    if not user_id:
         return ApiResponse(data={"items": []})
 
     from sqlalchemy import text as _t
@@ -119,10 +95,12 @@ async def alert_history(request: Request, db: AsyncSession = Depends(get_db), li
 
 
 @router.post("", response_model=ApiResponse)
-async def create_alert(req: AlertCreate, request: Request, db: AsyncSession = Depends(get_db)):
-    user_id = await _get_uid_from_request(request)
-    if not user_id:
-        raise HTTPException(401, "로그인이 필요합니다")
+async def create_alert(
+    req: AlertCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
     from src.services.beom_free import get_user_tier
     tier = await get_user_tier(request)
     # BEOM_SIGNAL은 VIP 이상만
@@ -166,11 +144,8 @@ async def create_alert(req: AlertCreate, request: Request, db: AsyncSession = De
 
 
 @router.delete("/{alert_id}", response_model=ApiResponse)
-async def delete_alert(alert_id: str, request: Request):
+async def delete_alert(alert_id: str, user_id: str = Depends(get_current_user_id)):
     """본인 소유 알림만 삭제 허용."""
-    user_id = await _get_uid_from_request(request)
-    if not user_id:
-        raise HTTPException(401, "로그인이 필요합니다")
     ok = await alert_engine.delete_rule(user_id=user_id, rule_id=alert_id)
     if not ok:
         raise HTTPException(404, "Alert not found or not owned by user")
@@ -178,12 +153,14 @@ async def delete_alert(alert_id: str, request: Request):
 
 
 @router.post("/beom-signal-trigger")
-async def trigger_beom_signal(request: Request, body: dict, db: AsyncSession = Depends(get_db)):
+async def trigger_beom_signal(
+    request: Request,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
     """BEOM AI 시그널 발생 시 → 이력 저장 + 구독자 알림."""
     from src.services.alert_engine import alert_engine
-    user_id = await _get_uid_from_request(request)
-    if not user_id:
-        return {"success": False, "error": "VIP only"}
     # tier 확인
     from src.services.beom_free import get_user_tier
     tier = await get_user_tier(request)
@@ -208,9 +185,16 @@ async def trigger_beom_signal(request: Request, body: dict, db: AsyncSession = D
 
 
 @router.get("/beom-signals")
-async def get_beom_signals(request: Request, db: AsyncSession = Depends(get_db), limit: int = 50):
+async def get_beom_signals(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    limit: int = 50,
+    user_id: str | None = Depends(get_optional_user_id),
+):
     """BEOM 시그널 이력 조회 — VIP: 구독 종목만 / VVIP: 전체."""
     limit = max(1, min(limit, 200))
+    if not user_id:
+        return {"success": False, "data": {"_access": "login_required"}}
     from src.api.charts_indicators import get_user_tier
     tier = await get_user_tier(request)
     if tier not in ("pro", "premium"):
@@ -225,13 +209,16 @@ async def get_beom_signals(request: Request, db: AsyncSession = Depends(get_db),
 
 
 @router.get("/beom-signal-slots")
-async def get_beom_signal_slots(request: Request, db: AsyncSession = Depends(get_db)):
+async def get_beom_signal_slots(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
+):
     """VIP 시그널 알림 슬롯 확인 — VIP: 3개 / VVIP: 무제한."""
     from src.api.charts_indicators import get_user_tier
     tier = await get_user_tier(request)
     if tier not in ("pro", "premium"):
         return {"success": False, "data": {"_access": "pro_only"}}
-    user_id = await _get_uid_from_request(request)
     if not user_id:
         return {"success": False, "data": {"_access": "login_required"}}
     count_result = await db.execute(
