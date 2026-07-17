@@ -61,6 +61,26 @@ CREATE INDEX IF NOT EXISTS idx_point_purchases_user_created
     ON point_purchases(user_id, created_at DESC);
 
 -- ── llm_signal_log: 나만의 신호 사용 이력 (대시보드 통계/감사) ──
+-- API 최초 호출 전에도 부팅 시 인덱스를 생성할 수 있도록 런타임 정의와 같은
+-- 최소 테이블을 선제 보장한다. IF NOT EXISTS이므로 기존 테이블/데이터는 변경하지 않는다.
+CREATE TABLE IF NOT EXISTS llm_signal_log (
+    id                BIGSERIAL PRIMARY KEY,
+    user_id           TEXT NOT NULL,
+    symbol            TEXT,
+    timeframe         TEXT,
+    message           TEXT,
+    signals_json      TEXT,
+    signal_count      INTEGER NOT NULL DEFAULT 0,
+    drawing_count     INTEGER NOT NULL DEFAULT 0,
+    prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens      INTEGER NOT NULL DEFAULT 0,
+    charged_points    INTEGER NOT NULL DEFAULT 0,
+    free_used         BOOLEAN NOT NULL DEFAULT FALSE,
+    tier              TEXT,
+    status            TEXT NOT NULL DEFAULT 'ok',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS idx_llm_signal_log_user_created
     ON llm_signal_log(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_llm_signal_log_created
