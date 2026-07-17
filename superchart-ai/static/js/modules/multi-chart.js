@@ -95,7 +95,11 @@
     if (n === 1) {
       area.style.display = 'flex';
       area.style.flexDirection = 'column';
+      // 2/4분할에서 설정된 grid 잔여 스타일 초기화 (안 지우면 단일 복귀 시 레이아웃 깨짐)
       area.style.gridTemplate = '';
+      area.style.gridTemplateColumns = '';
+      area.style.gridTemplateRows = '';
+      area.style.gap = '';
     } else if (n === 2) {
       area.style.display = 'grid';
       area.style.gridTemplateColumns = '1fr 1fr';
