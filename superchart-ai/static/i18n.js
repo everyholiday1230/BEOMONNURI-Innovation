@@ -11,8 +11,11 @@ const TRANSLATIONS = {
       
     } },
   en: { flag: '🇺🇸', name: 'English', texts: {
+      '가상 진입가 $': 'Virtual Entry $',
+      '목표가 $': 'Target $',
+      '손절 기준가 $': 'Stop $',
+      '45개 코인': '45 coins',
       '전용 지표와 실시간 시그널로': ' proprietary indicators & real-time signals to', 
-      '추세·진입·목표까지 한눈에 확인하세요': 'see trend, entry, and target at a glance',
       '지표 자동분석': ' indicators auto-analyzed',
       '범온 AI 슈퍼차트 홈': 'BEOMON AI SuperChart Home',
       '표준 기술지표 기반의 참고용 신호입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 이용자 본인에게 있습니다.': 'These are reference signals based on standard technical indicators. They do not guarantee any symbol\u2019s rise or fall, nor recommend trading. Investment decisions and responsibility rest with the user.',
