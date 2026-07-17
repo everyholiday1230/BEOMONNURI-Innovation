@@ -90,3 +90,28 @@ def test_paper_ledger_is_append_only_and_leaderboard_uses_it():
     leaderboard = source.split("async def get_leaderboard", 1)[1]
     assert "FROM paper_trade_records" in leaderboard
     assert "jsonb_array_elements" not in leaderboard
+
+
+def test_signal_board_frontend_is_wired_and_publicly_readable():
+    index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    board = (ROOT / "static" / "js" / "modules" / "signal-board.js").read_text(encoding="utf-8")
+    builder = (ROOT / "static" / "js" / "modules" / "signal-builder.js").read_text(encoding="utf-8")
+    guest = (ROOT / "static" / "js" / "modules" / "guest-mode.js").read_text(encoding="utf-8")
+
+    assert 'id="signals"' in index
+    assert 'data-p="signals"' in index
+    assert "/static/js/modules/signal-board.js" in index
+    assert "{ id: 'signals'" not in guest
+    assert "/v1/signals/board" in board
+    assert "toggleReaction(like.dataset.sgLike, 'like')" in board
+    assert "toggleReaction(favorite.dataset.sgFavorite, 'favorite')" in board
+    assert "`/v1/signals/${id}/${type}`" in board
+    assert "/v1/signals" in builder
+    assert "applySharedSignal" in builder
+
+
+def test_signal_board_frontend_exposes_all_server_sort_modes():
+    index = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+
+    for sort in ("popular", "newest", "likes", "favorites"):
+        assert f'value="{sort}"' in index

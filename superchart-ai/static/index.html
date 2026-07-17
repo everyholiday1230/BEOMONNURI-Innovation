@@ -1529,6 +1529,7 @@ body.dark #_toastContainer .pro-toast-chip {
 </div></div></div>
   <div class="right-tabs">
     <div class="right-tab active" data-p="llm" title="지표를 골라 나만의 매매 신호를 직접 만들어 차트에 표시">나만의 신호<span class="tab-badge">NEW</span></div>
+    <div class="right-tab" data-p="signals" title="사용자가 선택해 공개한 신호 게시판">신호 게시판</div>
     <div class="right-tab" data-p="hot" title="시장 관심도 랭킹 (참고용)">인기 TOP<span class="tab-dot"></span></div>
     <div class="right-tab" data-p="order" title="가상 자금 리스크 관리 연습 (실제 거래 아님)">모의주문</div>
     <div class="right-tab" data-p="points" title="범온 포인트 · 지인 초대 (서비스 기능 이용 포인트)">포인트</div>
@@ -1634,7 +1635,9 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="sb-run-row">
           <button type="button" id="sbClear" class="sb-btn sb-btn-ghost" title="차트에 표시된 내 신호를 모두 지웁니다">지우기</button>
           <button type="button" id="sbRun" class="sb-btn sb-btn-primary">📈 차트에 표시</button>
+          <button type="button" id="sbSave" class="sb-btn sb-btn-secondary" disabled>비공개 저장</button>
         </div>
+        <div class="sb-save-note">저장한 신호는 기본 비공개입니다. 신호 게시판의 내 신호에서 선택해 공개할 수 있습니다.</div>
         <div id="sbResult" class="sb-result" aria-live="polite"></div>
       </div>
 
@@ -1649,6 +1652,33 @@ body.dark #_toastContainer .pro-toast-chip {
       </div>
 
       <p class="llm-disclaimer">표준 기술지표 기반의 참고용 신호입니다. 특정 종목의 상승·하락을 보장하거나 매매를 권유하지 않습니다. 투자 판단과 책임은 이용자 본인에게 있습니다.</p>
+    </div>
+  </div>
+  <div class="right-pane" id="signals">
+    <div class="p-12">
+      <div class="sg-header">
+        <div class="pane-title">공개 신호 게시판</div>
+        <div class="pane-desc">사용자가 직접 만든 신호 중 공개를 선택한 항목입니다. 다른 사용자의 조건을 확인하고 현재 차트에 적용할 수 있습니다.</div>
+      </div>
+      <div class="sg-subnav" id="sgSubnav" role="tablist" aria-label="신호 게시판 메뉴">
+        <button type="button" class="sg-subtab active" data-section="board" role="tab" aria-selected="true">공개 게시판</button>
+        <button type="button" class="sg-subtab" data-section="my" role="tab" aria-selected="false">내 신호</button>
+        <button type="button" class="sg-subtab" data-section="favorites" role="tab" aria-selected="false">내 즐겨찾기</button>
+      </div>
+      <div class="sg-toolbar" id="sgToolbar">
+        <select id="sgSort" class="sg-select" aria-label="신호 정렬">
+          <option value="popular">인기순</option>
+          <option value="newest">최신순</option>
+          <option value="likes">좋아요순</option>
+          <option value="favorites">즐겨찾기순</option>
+        </select>
+        <input id="sgSymbolFilter" class="sg-input" type="search" maxlength="30" placeholder="종목 필터 (예: BTCUSDT)">
+        <button type="button" id="sgRefresh" class="sg-btn sg-btn-ghost">새로고침</button>
+      </div>
+      <div id="sgStatus" class="sg-status" aria-live="polite"></div>
+      <div id="sgList" class="sg-list"></div>
+      <button type="button" id="sgMore" class="sg-btn sg-btn-block" hidden>더 보기</button>
+      <p class="sg-disclaimer">공개 신호는 사용자 제작 참고 정보이며 투자 추천이 아닙니다. 신호의 성과나 미래 수익을 보장하지 않습니다.</p>
     </div>
   </div>
   <div class="right-pane" id="hot">
@@ -1736,6 +1766,7 @@ body.dark #_toastContainer .pro-toast-chip {
 
   <!-- 복기 작성 / 초기화 확인 모달 마운트 -->
   <div id="mtModalRoot"></div>
+  <div id="sgModalRoot"></div>
 
   <div class="right-pane" id="points">
     <div class="p-12">
@@ -1775,7 +1806,8 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <script type="module" src="/static/js/main-app.js?v=20260710_gate2"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260709_htv5"></script>
-<script defer src="/static/js/modules/signal-builder.js?v=20260710_sb7"></script>
+<script defer src="/static/js/modules/signal-builder.js?v=20260717_sb8"></script>
+<script defer src="/static/js/modules/signal-board.js?v=20260717_sg1"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js?v=20260710_g4"></script>

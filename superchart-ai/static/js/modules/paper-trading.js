@@ -304,7 +304,7 @@
       <div class="mt-lb-row ${it.isMe ? 'me' : ''}">
         <span class="mt-lb-rank">${medal(it.rank)}</span>
         <span class="mt-lb-name">${esc(it.nickname)}${it.isMe ? ' (나)' : ''}</span>
-        <span class="mt-lb-trades">${it.tradeCount}회</span>
+        <span class="mt-lb-trades">${it.tradeCount}회 · 승률 ${(it.winRate || 0).toFixed(0)}%</span>
         <span class="mt-lb-pnl ${it.pnl >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg'}">${it.pnl >= 0 ? '+' : ''}${fmtUSD(it.pnl)} (${it.pnlPct >= 0 ? '+' : ''}${it.pnlPct.toFixed(1)}%)</span>
       </div>`;
     let body = items.map(row).join('');
@@ -313,10 +313,10 @@
     }
     el.innerHTML = head + `
       <div class="mt-lb-list">
-        <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래</span><span class="mt-lb-pnl">누적 손익</span></div>
+        <div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래 · 승률</span><span class="mt-lb-pnl">누적 손익</span></div>
         ${body}
       </div>
-      <p class="mt-note">상위 50명까지 표시됩니다. 실현 손익(청산 완료된 모의 거래) 기준 순위이며, 진행 중인 포지션의 평가 손익은 포함되지 않습니다. 계좌를 초기화해도 거래 기록과 순위는 유지됩니다.</p>`;
+      <p class="mt-note">상위 50명까지 표시됩니다. 진입가·종료가·수량·방향으로 서버가 재계산해 검증한 종료 거래만 불변 원장에 최초 1회 기록되고 순위에 반영됩니다. 계좌를 초기화하거나 화면 기록을 지워도 원장과 순위는 유지됩니다.</p>`;
   }
   async function toggleLeaderboard() {
     _leaderboardOpen = !_leaderboardOpen;
