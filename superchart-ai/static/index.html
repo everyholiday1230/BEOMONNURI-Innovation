@@ -88,6 +88,48 @@ body {
   padding-inline: 8px;
 }
 
+/* ══════ 사이트맵 네비게이션 (브랜드 로고 높이에 정렬한 상단 메뉴) ══════ */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 50px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(216,182,106,0.25);
+  background: rgba(255,251,247,0.6);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.site-nav::-webkit-scrollbar { display: none; }
+.site-nav-item {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.site-nav-item:hover { color: var(--color-primary); background: rgba(216,182,106,0.12); }
+.site-nav-item.active { color: var(--color-primary); }
+.site-nav-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+body.dark .site-nav {
+  background: rgba(10,46,58,0.5);
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+body.dark .site-nav-item { color: #b9c6cf; }
+body.dark .site-nav-item:hover,
+body.dark .site-nav-item.active { color: #ffd7df; background: rgba(146,18,48,0.22); }
+@media (max-width: 980px) {
+  .site-nav { min-height: 44px; padding: 0 8px; }
+  .site-nav-item { font-size: 14px; padding: 6px 10px; }
+}
+
 /* ══════ 세로 도구 레일 (종목 목록과 차트 사이) ══════ */
 .tool-rail {
   display: flex;
@@ -1220,6 +1262,15 @@ body.dark #_toastContainer .pro-toast-chip {
 </nav>
 <div id="mainContent" tabindex="-1" class="center" role="main" aria-label="차트 메인 영역">
   <div class="toolbar">
+    <!-- ══════ 0행: 사이트맵 네비게이션 (브랜드 로고 높이에 정렬) ══════ -->
+    <nav class="site-nav" role="navigation" aria-label="주요 메뉴">
+      <button type="button" class="site-nav-item active" data-nav="home" title="차트 홈">홈</button>
+      <button type="button" class="site-nav-item" data-nav="llm" title="지표를 골라 나만의 매매 신호를 직접 만들기">나만의 신호</button>
+      <button type="button" class="site-nav-item" data-nav="signals" title="사용자가 공개한 신호 게시판">신호 게시판</button>
+      <button type="button" class="site-nav-item" data-nav="hot" title="시장 관심도 랭킹">인기 TOP</button>
+      <button type="button" class="site-nav-item" data-nav="order" title="가상 자금 리스크 관리 연습">모의주문</button>
+      <button type="button" class="site-nav-item" data-nav="points" title="범온 포인트 · 지인 초대">포인트</button>
+    </nav>
     <!-- ══════ 1행: 종목 정보 + 파트너 + 사용자 메뉴 ══════ -->
     <div class="toolbar-row toolbar-row-primary">
       <button class="hamburger" aria-label="종목 목록 열기" data-action="toggleLeft">☰</button>
@@ -2088,6 +2139,47 @@ body.dark #_toastContainer .pro-toast-chip {
   }
   // 드로어가 처음 열릴 때도 보장
   setTimeout(collapseAll, 800);
+})();
+</script>
+<script>
+/* 사이트맵 네비게이션: 클릭 시 해당 우측 패널 탭으로 이동 (홈 = 차트 포커스) */
+(function(){
+  'use strict';
+  function setActive(navKey){
+    document.querySelectorAll('.site-nav-item').forEach(function(b){
+      b.classList.toggle('active', b.dataset.nav === navKey);
+    });
+  }
+  document.addEventListener('click', function(e){
+    var item = e.target.closest('.site-nav-item');
+    if (!item) return;
+    var nav = item.dataset.nav;
+    setActive(nav);
+    if (nav === 'home') {
+      // 홈: 차트 영역으로 포커스 (모바일에서 열린 패널 닫기)
+      document.querySelector('.right')?.classList.remove('open');
+      document.querySelector('.left')?.classList.remove('open');
+      document.getElementById('mobileOverlay')?.classList.remove('open');
+      document.getElementById('mainContent')?.focus?.();
+      return;
+    }
+    // 해당 우측 패널 탭 활성화 (기존 로직 재사용)
+    var tab = document.querySelector('.right-tab[data-p="' + nav + '"]');
+    if (tab) {
+      // 모바일에서는 우측 패널을 열어준다
+      if (window.innerWidth <= 980) {
+        document.querySelector('.right')?.classList.add('open');
+        document.getElementById('mobileOverlay')?.classList.add('open');
+      }
+      tab.click();
+    }
+  });
+  // 우측 탭을 직접 눌렀을 때도 상단 네비 상태 동기화
+  document.addEventListener('click', function(e){
+    var tab = e.target.closest('.right-tab');
+    if (!tab) return;
+    setActive(tab.dataset.p);
+  });
 })();
 </script>
 </body>
