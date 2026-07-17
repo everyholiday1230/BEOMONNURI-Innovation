@@ -27,8 +27,9 @@ curl "http://localhost:8000/v1/charts/candles?symbolId=BTC';DROP&timeframe=1m"
 # XSS payload (400 기대)
 curl "http://localhost:8000/v1/charts/candles?symbolId=%3Cscript%3E&timeframe=1m"
 
-# 미등록 심볼 (404 기대)
+# 미지원 심볼 (200 + supported:false + 빈 candles 기대)
 curl "http://localhost:8000/v1/charts/candles?symbolId=NONEXISTENT&timeframe=1m"
+# → 200 + {success:true, data:{candles:[], supported:false, ...}}
 
 # 잘못된 timeframe (400 기대)
 curl "http://localhost:8000/v1/charts/candles?symbolId=BTCUSDT&timeframe=invalid"
