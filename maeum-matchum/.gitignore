@@ -1,0 +1,13 @@
+node_modules/
+*.log
+.env
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+.DS_Store
+
+# AI 모델 서버 (셀프호스팅)
+.venv/
+.run/
+models/*.gguf

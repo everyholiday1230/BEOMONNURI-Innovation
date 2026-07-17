@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#ff5a7a" />
+  <meta name="description" content="마음맞춤 — AI가 연애와 결혼의 의사결정을 도와주는 에이전트" />
+  <title>마음맞춤 · 연애 의사결정 AI</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cafe24+Ssurround&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 헤더 -->
+    <header class="app-header">
+      <div class="brand" id="brandHome">
+        <span class="brand-logo">💗</span>
+        <div>
+          <div class="brand-name">마음맞춤</div>
+          <div class="brand-tag">연애·결혼 의사결정 AI 에이전트</div>
+        </div>
+      </div>
+      <div class="ai-badge" id="aiBadge" title="AI 상태">···</div>
+    </header>
+
+    <main id="view"><!-- 뷰가 여기에 렌더링됩니다 --></main>
+
+    <nav class="tabbar" id="tabbar">
+      <button class="tab" data-tab="home">
+        <span class="tab-ico">🏠</span><span class="tab-label">홈</span>
+      </button>
+      <button class="tab" data-tab="diagnose">
+        <span class="tab-ico">💘</span><span class="tab-label">진단</span>
+      </button>
+      <button class="tab" data-tab="chat">
+        <span class="tab-ico">💬</span><span class="tab-label">AI 상담</span>
+      </button>
+      <button class="tab" data-tab="result">
+        <span class="tab-ico">📊</span><span class="tab-label">결과</span>
+      </button>
+    </nav>
+
+    <footer class="app-footer">
+      <span>ⓒ 마음맞춤</span>
+      <span class="dot">·</span>
+      <span>HyperCLOVA X SEED 0.5B</span>
+      <span class="dot">·</span>
+      <span>본 서비스는 참고용이며 최종 결정은 본인의 몫입니다</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "maeum-matchum",
+  "version": "1.0.0",
+  "description": "마음맞춤 — 연애·결혼 의사결정 AI 에이전트 (HyperCLOVA X SEED 0.5B)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "init-db": "node src/db/init.js"
+  },
+  "keywords": ["dating", "marriage", "decision", "ai-agent", "hyperclova", "seed"],
+  "author": "마음맞춤",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2"
+  }
+}

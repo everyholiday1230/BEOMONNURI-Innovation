@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────
+# Render 배포 설정 (마음맞춤 웹앱)
+# - 웹앱만 Render에서 구동, AI(SEED)는 외부 AWS 서버 사용
+# - AI 미연결 시 규칙 엔진으로 자동 폴백되어 서비스는 항상 동작
+# ─────────────────────────────────────────────────────────────
+services:
+  - type: web
+    name: maeum-matchum
+    runtime: node
+    plan: free
+    rootDir: maeum-matchum
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/ai-status
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # AI 서버(AWS)를 연결하려면 아래 두 값을 Render 대시보드에서 설정하세요.
+      # 비워두거나 연결 실패 시 규칙 엔진으로 자동 폴백됩니다.
+      - key: AI_BASE_URL
+        sync: false          # 예: http://<AWS_IP_또는_도메인>:8008/v1
+      - key: AI_MODEL
+        value: HyperCLOVAX-SEED-Text-Instruct-0.5B
+      - key: AI_API_KEY
+        sync: false          # AI 서버에 인증을 걸었다면 여기에 키 입력
+      # AI 서버를 아직 안 붙였다면 true 로 두면 규칙 엔진만 사용
+      - key: AI_DISABLED
+        value: "false"
+    # SQLite 데이터 영구 보존용 디스크 (무료 플랜은 미지원 → 필요 시 유료 플랜/PostgreSQL)
+    # disk:
+    #   name: data
+    #   mountPath: /opt/render/project/src/maeum-matchum/data
+    #   sizeGB: 1
