@@ -214,13 +214,7 @@ async def _usable_and_expiring(db: AsyncSession, user_id: str):
 
 
 _DEFAULT_PRODUCTS = [
-    ("ai_deep_1", "AI 심화 분석 1회", "ai", "현재 종목을 더 깊이 분석하는 AI 이용권 1회", 1000, "1회", None, 1),
-    ("ai_risk_1", "AI 리스크 체크 1회", "ai", "포지션·변동성 기반 리스크 점검 1회", 800, "1회", None, 2),
-    ("ind_beom_pro_7", "범온 캔들 PRO 7일", "indicator", "범온 캔들 PRO 지표 7일 이용", 3000, "7일", 7, 3),
-    ("preset_premium_30", "프리미엄 프리셋 30일", "preset", "고급 프리셋 구성 30일 이용", 2500, "30일", 30, 4),
-    ("heatmap_detail_24", "히트맵 상세 보기 24시간", "chart", "히트맵 상세 모드 24시간 이용", 500, "24시간", 1, 5),
-    ("paper_slot_10", "모의주문 저장 슬롯 +10", "paper", "모의 포지션 저장 슬롯 10개 확장", 1500, "영구", None, 6),
-    ("watch_slot_ext", "관심 종목 슬롯 확장", "data", "관심 종목 저장 개수 확장", 1200, "영구", None, 7),
+    ("signal_build_1", "나만의 신호 만들기 1회", "ai", "버튼식 빌더로 나만의 매매 신호를 만드는 이용권 1회", 1000, "1회", None, 1),
 ]
 
 

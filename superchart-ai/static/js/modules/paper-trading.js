@@ -445,7 +445,8 @@
     const amountOk = Number.isFinite(f.amount) && f.amount > 0 && f.amount <= availableBalance() + 1e-9 && Number.isFinite(f.entry) && f.entry > 0;
     document.querySelectorAll('.mt-buy-btn, .mt-sell-btn').forEach(b => { b.disabled = !amountOk; });
 
-    if (document.getElementById('mtOverlayToggle')?.checked) drawBuilderOverlay(f, c);
+    // 진입가·목표가·손절 기준가는 항상 차트에 표시(디폴트 ON).
+    drawBuilderOverlay(f, c);
     return { f, c };
   }
 
@@ -850,10 +851,8 @@
 
   // ───────── 차트 마커 복원 (다른 모듈 호환용 유지) ─────────
   function restoreChartMarkers() {
-    if (document.getElementById('mtOverlayToggle')?.checked) {
-      const { f, c } = recompute();
-      drawBuilderOverlay(f, c);
-    }
+    const { f, c } = recompute();
+    drawBuilderOverlay(f, c);
   }
 
   // ───────── 외부 노출 ─────────

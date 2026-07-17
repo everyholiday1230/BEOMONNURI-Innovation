@@ -88,6 +88,86 @@ body {
   padding-inline: 8px;
 }
 
+/* ══════ 세로 도구 레일 (종목 목록과 차트 사이) ══════ */
+.tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 56px;
+  padding: 8px 6px;
+  background: linear-gradient(180deg, rgba(255,251,247,0.96), rgba(248,243,236,0.96));
+  border-right: 1px solid rgba(216,182,106,0.3);
+  box-shadow: inset -1px 0 0 rgba(216,182,106,0.12);
+  overflow-y: auto;
+  z-index: 20;
+}
+.tool-rail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 1px solid rgba(216,182,106,0.35);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.5);
+  color: #032129;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.1s ease;
+}
+.tool-rail-btn:hover {
+  background: rgba(216,182,106,0.16);
+  border-color: rgba(216,182,106,0.6);
+}
+.tool-rail-btn:active { transform: scale(0.96); }
+.tool-rail-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+.tool-rail-btn.active {
+  background: rgba(146,18,48,0.12);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+body.dark .tool-rail {
+  background: linear-gradient(180deg, #0a2e3a, #08252f);
+  border-right-color: rgba(255,255,255,0.08);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06);
+}
+body.dark .tool-rail-btn {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.12);
+  color: #e6edf3;
+}
+body.dark .tool-rail-btn:hover {
+  background: rgba(88,166,255,0.12);
+  border-color: rgba(88,166,255,0.4);
+}
+body.dark .tool-rail-btn.active {
+  background: rgba(146,18,48,0.28);
+  border-color: var(--color-primary);
+  color: #ffd7df;
+}
+/* 모바일: 세로 레일을 유지하되 폭을 줄여 차트 영역을 확보 */
+@media (max-width: 980px) {
+  .tool-rail {
+    width: 44px;
+    padding: 6px 4px;
+    gap: 5px;
+  }
+  .tool-rail-btn {
+    min-height: 46px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+}
+
 .left,
 .right {
   background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,243,236,0.95));
@@ -1130,6 +1210,14 @@ body.dark #_toastContainer .pro-toast-chip {
 </div>
 
 <div class="resizer-h" id="resizerLeft" title="드래그: 패널 크기 조절"></div>
+<!-- ══════ 세로 도구 레일 (종목 목록과 차트 사이): 지표/범온지표/매매전략/드로잉/프리셋 ══════ -->
+<nav id="toolRail" class="tool-rail" role="toolbar" aria-orientation="vertical" aria-label="지표 및 도구 레일">
+  <button aria-label="공개 지표 패널" class="tool-rail-btn" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
+  <button aria-label="범온 지표 패널" class="tool-rail-btn" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온<br>지표</button>
+  <button aria-label="매매전략 패널" class="tool-rail-btn" id="strategyDrawerToggle" title="매매전략 패널">매매<br>전략</button>
+  <button aria-label="드로잉 도구" class="tool-rail-btn" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
+  <button aria-label="프리셋" class="tool-rail-btn" id="presetDrawerToggle" title="프리셋">프리셋</button>
+</nav>
 <div id="mainContent" tabindex="-1" class="center" role="main" aria-label="차트 메인 영역">
   <div class="toolbar">
     <!-- ══════ 1행: 종목 정보 + 파트너 + 사용자 메뉴 ══════ -->
@@ -1185,13 +1273,6 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="tb" data-tf="1d" title="일봉 차트">일봉</div>
         <div class="tb" data-tf="1w" title="주봉 차트">주봉</div>
         <div class="tb" data-tf="1M" title="월봉 차트">월봉</div>
-      </div>
-      <div class="toolbar-control-group toolbar-control-group-tools" aria-label="지표 도구 그룹">
-        <button aria-label="공개 지표 패널" class="tb fw-600" id="indDrawerToggle" data-drawer="public" title="공개 지표 패널">지표</button>
-        <button aria-label="범온 지표 패널" class="tb fw-600" id="beomDrawerToggle" data-drawer="beom" title="범온 지표 패널">범온지표</button>
-        <button aria-label="매매전략 패널" class="tb fw-600" id="strategyDrawerToggle" title="매매전략 패널">매매전략</button>
-        <button aria-label="드로잉 도구" class="tb fw-600" id="drawingDrawerToggle" title="드로잉 도구">드로잉</button>
-        <button aria-label="프리셋" class="tb fw-600" id="presetDrawerToggle" title="프리셋">프리셋</button>
       </div>
     </div>
 
@@ -1750,9 +1831,6 @@ body.dark #_toastContainer .pro-toast-chip {
       <!-- 8) 유효성/상태 메시지 -->
       <div id="mtValidation" class="mt-validation" role="status" aria-live="polite"></div>
 
-      <!-- 12) 차트 연동 토글 -->
-      <label class="mt-overlay-toggle"><input type="checkbox" id="mtOverlayToggle" onchange="window.PaperTrading.toggleOverlay(this.checked)"> 차트에 가상 진입가·목표가·손절 기준가 표시</label>
-
       <!-- 14) 진행 중인 모의 포지션 -->
       <div id="mtPositions" class="mt-section-block"></div>
 
@@ -1775,7 +1853,7 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="pane-title">범온 포인트</div>
         <div class="pane-desc">서비스 기능 이용 포인트와 지인 초대를 관리합니다.</div>
         <div class="pt-header-meta">
-          <span class="pt-status-badge" id="ptStatusBadge" data-state="loading">불러오는 중</span>
+          <span class="pt-status-badge" id="ptStatusBadge" data-state="loading" style="display:none"></span>
         </div>
       </div>
 

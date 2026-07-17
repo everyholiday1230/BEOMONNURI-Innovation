@@ -33,13 +33,7 @@
 
   // 포인트 상점 카탈로그(운영 설정 전제, 표시용 — 실제 구매는 Phase 2)
   const SHOP = [
-    { cat: 'ai', name: 'AI 심화 분석 1회', desc: '현재 종목을 더 깊이 분석하는 AI 이용권 1회', cost: 1000, period: '1회' },
-    { cat: 'ai', name: 'AI 리스크 체크 1회', desc: '포지션·변동성 기반 리스크 점검 1회', cost: 800, period: '1회' },
-    { cat: 'indicator', name: '범온 캔들 PRO 7일', desc: '범온 캔들 PRO 지표 7일 이용', cost: 3000, period: '7일' },
-    { cat: 'preset', name: '프리미엄 프리셋 30일', desc: '고급 프리셋 구성 30일 이용', cost: 2500, period: '30일' },
-    { cat: 'chart', name: '히트맵 상세 보기 24시간', desc: '히트맵 상세 모드 24시간 이용', cost: 500, period: '24시간' },
-    { cat: 'paper', name: '모의주문 저장 슬롯 +10', desc: '모의 포지션 저장 슬롯 10개 확장', cost: 1500, period: '영구' },
-    { cat: 'data', name: '관심 종목 슬롯 확장', desc: '관심 종목 저장 개수 확장', cost: 1200, period: '영구' },
+    { cat: 'ai', name: '나만의 신호 만들기 1회', desc: '버튼식 빌더로 나만의 매매 신호를 만드는 이용권 1회', cost: 1000, period: '1회', code: 'signal_build_1' },
   ];
   const SHOP_CATS = [['ai','AI 분석'],['indicator','지표'],['preset','프리셋'],['chart','차트 기능'],['paper','모의주문'],['data','데이터 기능'],['etc','기타']];
 
@@ -50,8 +44,14 @@
 
   function setStatus(kind) {
     const b = document.getElementById('ptStatusBadge');
-    const map = { loading: ['불러오는 중', 'loading'], ok: ['정상', 'ok'], guest: ['로그인 필요', 'guest'], error: ['잠시 후 다시 확인', 'error'] };
-    if (b) { const s = map[kind] || map.loading; b.textContent = s[0]; b.setAttribute('data-state', s[1]); }
+    // '정상'/'불러오는 중' 같은 상시 상태 뱃지는 노출하지 않는다.
+    // 사용자가 조치해야 하는 상태(로그인 필요/오류)만 표시한다.
+    const map = { guest: ['로그인 필요', 'guest'], error: ['잠시 후 다시 확인', 'error'] };
+    if (b) {
+      const s = map[kind];
+      if (s) { b.textContent = s[0]; b.setAttribute('data-state', s[1]); b.style.display = ''; }
+      else { b.textContent = ''; b.style.display = 'none'; }
+    }
     const rb = document.getElementById('ptReloadBtn'); if (rb) rb.style.display = (kind === 'error') ? '' : 'none';
   }
 
