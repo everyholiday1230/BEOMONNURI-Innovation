@@ -212,15 +212,11 @@
 .mt-tier-high { background: rgba(217,119,6,.12); color: var(--color-warning); }
 .mt-tier-extreme { background: var(--color-primary); color: #fff; }
 
-/* 목표/손절 + 예상 손익 카드 */
+/* 목표/손절 통계 */
 .mt-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: var(--text-xs); }
 .mt-stat { display: flex; flex-direction: column; gap: 2px; }
 .mt-stat .k { color: var(--color-text-muted); }
 .mt-stat .v { font-weight: var(--font-bold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
-.mt-pnl-card { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); }
-.mt-pnl-row { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; font-size: var(--text-xs); }
-.mt-pnl-row .k { color: var(--color-text-secondary); }
-.mt-pnl-row .v { font-weight: var(--font-bold); font-variant-numeric: tabular-nums; }
 .mt-note { font-size: 11px; color: var(--color-text-muted); line-height: 1.5; margin-top: 8px; }
 
 /* 청산 참고 */
@@ -567,8 +563,7 @@
 .ht-score-watch { color: var(--color-warning); }
 .ht-score-low { color: var(--color-text-muted); }
 
-/* 급상승 / 상세 / 관심 TOP */
-.ht-surge { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-left: 3px solid var(--color-warning); border-radius: var(--radius-md); padding: var(--space-3); }
+/* 상세 / 관심 TOP */
 .ht-detail { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3); }
 .ht-detail-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
 .ht-detail-sym { font-weight: var(--font-bold); font-size: var(--text-sm); color: var(--color-text-primary); }
@@ -1013,7 +1008,6 @@
 .right-pane .ht-card,
 .right-pane .pa-card,
 .right-pane .ai2-card,
-.right-pane .mt-pnl-card,
 .right-pane .panel-section {
   padding: 8px 10px;
   margin: 0;
@@ -1046,8 +1040,7 @@
   opacity: 0.7;
 }
 
-/* 행 간격 축소 (예상손익/롱숏 등) */
-.right-pane .mt-pnl-row,
+/* 행 간격 축소 (롱숏/인기 TOP 등) */
 .right-pane .pa-ls-rows > *,
 .right-pane .ht-row { padding-top: 4px; padding-bottom: 4px; }
 

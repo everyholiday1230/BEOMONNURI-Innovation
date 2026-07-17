@@ -199,7 +199,7 @@
       const feeRoundTrip = notional * (f.feeRate / 100) * 2;
       const slipCost = notional * (f.slippage / 100);
 
-      let expGain = null, expLoss = null, rr = null, reqWin = null;
+      let expGain = null, expLoss = null, rr = null;
       if (f.target != null) {
         const d = f.direction === 'long' ? (f.target - f.entry) : (f.entry - f.target);
         expGain = d * qty - feeRoundTrip - slipCost;
@@ -210,7 +210,6 @@
       }
       if (expGain != null && expLoss != null && expLoss !== 0) {
         rr = Math.abs(expGain / expLoss);
-        reqWin = rr > 0 ? (1 / (1 + rr)) * 100 : null; // 손익분기 필요 승률
       }
       const targetDist = f.target != null ? ((f.target - f.entry) / f.entry) * 100 : null;
       const stopDist = f.stop != null ? ((f.stop - f.entry) / f.entry) * 100 : null;
@@ -223,7 +222,7 @@
 
       Object.assign(out, {
         notional, qty, margin, feeRoundTrip, slipCost,
-        expGain, expLoss, rr, reqWin, targetDist, stopDist, liq, liqDist, levMove,
+        expGain, expLoss, rr, targetDist, stopDist, liq, liqDist, levMove,
       });
     }
     out.valid = out.errors.length === 0 && Number.isFinite(f.entry) && Number.isFinite(f.amount) && f.amount > 0;
@@ -439,7 +438,6 @@
         <div class="mt-stat"><span class="k">손절가까지 거리</span><span class="v">${c.stopDist!=null?(c.stopDist>=0?'+':'')+c.stopDist.toFixed(2)+'%':'-'}</span></div>`;
     }
 
-    renderPnlCard(f, c);
     renderValidation(c);
 
     // 매수/매도 버튼: 투입 금액이 유효할 때만 눌러서 즉시 체결 가능
@@ -449,21 +447,6 @@
 
     if (document.getElementById('mtOverlayToggle')?.checked) drawBuilderOverlay(f, c);
     return { f, c };
-  }
-
-  // 9) 예상 손익 카드
-  function renderPnlCard(f, c) {
-    const el = document.getElementById('mtPnlCard');
-    if (!el) return;
-    if (!c.qty) { el.innerHTML = ''; return; }
-    const pc = v => v >= 0 ? 'mt-pnl-pos' : 'mt-pnl-neg';
-    el.innerHTML = `
-      <div class="mt-pnl-card">
-        <div class="mt-card-title">예상 손익 (참고용)</div>
-        <div class="mt-pnl-row"><span class="k">목표 도달 시 예상 수익</span><span class="v ${c.expGain!=null?pc(c.expGain):''}">${c.expGain!=null?(c.expGain>=0?'+':'')+fmtUSD(c.expGain):'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">손절 도달 시 예상 손실</span><span class="v ${c.expLoss!=null?pc(c.expLoss):''}">${c.expLoss!=null?fmtUSD(c.expLoss):'-'}</span></div>
-        <div class="mt-pnl-row"><span class="k">손익비 (R:R)</span><span class="v">${c.rr!=null?c.rr.toFixed(2):'-'}</span></div>
-      </div>`;
   }
 
   // 10) 청산 위험 참고
