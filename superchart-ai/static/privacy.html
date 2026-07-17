@@ -67,7 +67,7 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
 
 <div class="wrap">
 <h1>개인정보처리방침</h1>
-<p class="meta">시행일: 2026년 5월 16일 · 최종 개정일: 2026년 5월 16일</p>
+<p class="meta">시행일: 2026년 5월 16일 · 최종 개정일: 2026년 7월 17일</p>
 
 <div class="notice-box">
 범온누리(이하 "회사")는 범온 AI 슈퍼차트 서비스 제공과 관련하여 「개인정보 보호법」 제30조에 따라
@@ -83,6 +83,7 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
     <li><a href="#p4">제4조 개인정보의 파기</a></li>
     <li><a href="#p5">제5조 제3자 제공</a></li>
     <li><a href="#p6">제6조 처리의 위탁</a></li>
+    <li><a href="#p6b">제6조의2 개인정보의 국외 이전</a></li>
     <li><a href="#p7">제7조 정보주체의 권리·의무 및 행사방법</a></li>
     <li><a href="#p8">제8조 개인정보의 안전성 확보조치</a></li>
     <li><a href="#p9">제9조 쿠키 등 자동수집장치</a></li>
@@ -97,9 +98,11 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
 <table>
 <tr><th>구분</th><th>수집 항목</th><th>수집 방법</th></tr>
 <tr><td>회원가입</td><td>이메일, 닉네임, 비밀번호(bcrypt 단방향 암호화 저장)</td><td>이용자 직접 입력</td></tr>
-<tr><td>소셜 로그인</td><td>이메일, 이름 (Google 제공)</td><td>Google OAuth</td></tr>
+<tr><td>소셜 로그인</td><td>이메일, 이름/닉네임 (Google·Naver 등 제공)</td><td>Google·Naver OAuth</td></tr>
 <tr><td>유료 결제</td><td>결제 식별정보, 구매 내역 (카드번호 등 결제정보는 결제대행사가 처리하며 회사는 원문을 저장하지 않음)</td><td>결제 시 자동 수집</td></tr>
 <tr><td>나만의 AI 신호</td><td>이용자가 입력한 대화 문구, 요청 종목·시간대, 사용 토큰량, 차감 포인트, 요청 시각</td><td>기능 이용 시 자동 수집</td></tr>
+<tr><td>공개 콘텐츠·순위</td><td>신호 게시판에 공개한 신호 구성·닉네임, 대회/순위에 표시되는 닉네임·모의 실적</td><td>이용자가 공개 선택 시</td></tr>
+<tr><td>지인 초대</td><td>초대 코드, 추천인·피추천인 연결 정보, 적립·차감 내역</td><td>기능 이용 시 자동 수집</td></tr>
 <tr><td>서비스 이용</td><td>접속 IP, 브라우저·기기 정보, 접속·이용 기록</td><td>서비스 이용 시 자동 생성</td></tr>
 <tr><td>개인화 설정</td><td>지표 설정, 관심종목, 알림 규칙, 모의주문 기록</td><td>이용자 직접 입력</td></tr>
 </table>
@@ -122,6 +125,7 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
 <tr><td>계약·청약철회·대금결제·재화공급 기록</td><td>5년</td><td>「전자상거래법」</td></tr>
 <tr><td>소비자 불만·분쟁처리 기록</td><td>3년</td><td>「전자상거래법」</td></tr>
 <tr><td>나만의 AI 신호 이용 기록</td><td>1년 (통계·부정이용 방지 목적)</td><td>서비스 운영</td></tr>
+<tr><td>지인 초대·포인트 적립/차감 기록</td><td>부정이용 방지 및 정산을 위해 필요한 기간(관련 법령상 보관 의무가 있는 경우 그 기간)</td><td>서비스 운영·법령</td></tr>
 </table>
 <div class="card"><p>보유 기간이 경과하거나 처리 목적이 달성된 개인정보는 지체 없이 파기합니다.</p></div>
 
@@ -135,7 +139,8 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
 <div class="card"><p>회사는 원칙적으로 정보주체의 개인정보를 제3자에게 제공하지 않습니다. 다만, 다음의 경우는 예외로 합니다.</p><ol>
 <li>정보주체가 사전에 동의한 경우</li>
 <li>법령에 특별한 규정이 있거나, 수사기관이 법령에 정해진 절차와 방법에 따라 요청한 경우</li>
-</ol></div>
+</ol>
+<p style="margin-top:8px">※ 회원이 <b>신호 게시판 공개, 대회/순위 참여 등을 직접 선택</b>한 경우, 해당 기능의 성격상 회원의 <b>닉네임과 공개한 콘텐츠·실적</b>이 다른 이용자에게 노출됩니다. 이는 제3자 제공이 아닌 정보주체의 공개 선택에 따른 것이며, 회원은 공개를 취소할 수 있습니다.</p></div>
 
 <h2 id="p6">제6조 (개인정보 처리의 위탁)</h2>
 <div class="card"><p>회사는 원활한 서비스 제공을 위해 다음과 같이 개인정보 처리를 위탁하며, 위탁계약 시 개인정보가 안전하게 관리되도록 필요한 사항을 규정합니다.</p></div>
@@ -143,10 +148,23 @@ th{background:linear-gradient(180deg,rgba(146,18,48,0.08),rgba(146,18,48,0.03));
 <tr><th>수탁자</th><th>위탁 업무</th><th>비고</th></tr>
 <tr><td>Amazon Web Services (AWS)</td><td>서버 호스팅, 데이터 저장·처리</td><td>클라우드 인프라</td></tr>
 <tr><td>Google</td><td>소셜 로그인(OAuth), 푸시 알림</td><td>이용자 동의 기반</td></tr>
+<tr><td>Naver</td><td>소셜 로그인(OAuth)</td><td>이용자 동의 기반</td></tr>
 <tr><td>LLM 추론 인프라 (Ollama 등 자체/위탁 서버)</td><td>나만의 AI 신호의 자연어 처리</td><td>대화 문구가 신호 변환 목적으로 처리됨</td></tr>
 <tr><td><span class="ph">[결제대행사(PG)명 기입]</span></td><td>유료 결제 처리, 결제 인증</td><td>카드정보 등은 PG가 직접 처리</td></tr>
 </table>
 <div class="card"><p style="font-size:12px;color:var(--muted);margin:0">※ 실제 이용 중인 결제대행사명을 <span class="ph">[ ]</span>에 정확히 기입하세요. LLM 추론을 외부 사업자에게 위탁하는 경우 해당 수탁자명도 명시해야 합니다.</p></div>
+
+<h2 id="p6b">제6조의2 (개인정보의 국외 이전)</h2>
+<div class="card"><p>회사는 안정적인 서비스 제공을 위해 국외에 소재한 클라우드 인프라를 이용하며, 이 과정에서 개인정보가 국외에서 저장·처리될 수 있습니다. 「개인정보 보호법」에 따라 아래와 같이 국외 이전 사항을 안내합니다.</p></div>
+<table>
+<tr><th>이전받는 자</th><td>Amazon Web Services, Inc. (AWS)</td></tr>
+<tr><th>이전 국가</th><td>싱가포르(ap-southeast-1) 등 서비스 구성에 따른 AWS 리전 <span class="ph">[실제 리전 확인·기입]</span></td></tr>
+<tr><th>이전 항목</th><td>본 방침 제1조의 수집 항목 중 서비스 제공에 필요한 정보</td></tr>
+<tr><th>이전 일시·방법</th><td>서비스 이용 시 네트워크를 통한 전송(암호화 구간)</td></tr>
+<tr><th>이전 목적</th><td>서버 호스팅, 데이터 저장·처리</td></tr>
+<tr><th>보유·이용 기간</th><td>회원 탈퇴 또는 위탁계약 종료 시까지(법령상 보관분 예외)</td></tr>
+</table>
+<div class="card"><p style="font-size:12px;color:var(--muted);margin:0">※ 실제 사용 중인 AWS 리전(국가)을 확인하여 <span class="ph">[ ]</span>에 정확히 기입하세요. LLM 추론 등 다른 국외 인프라를 이용하는 경우 이전받는 자·국가·항목을 함께 명시해야 합니다.</p></div>
 
 <h2 id="p7">제7조 (정보주체의 권리·의무 및 행사방법)</h2>
 <div class="card"><ol>
