@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db
@@ -218,13 +218,57 @@ _DEFAULT_PRODUCTS = [
 ]
 
 
-async def _seed_products(db: AsyncSession):
-    for code, name, cat, desc, cost, period, dur, order in _DEFAULT_PRODUCTS:
-        await db.execute(text(
-            "INSERT INTO point_products (code, name, category, description, cost, period, duration_days, sort_order) "
-            "VALUES (:c,:n,:cat,:d,:cost,:p,:dur,:o) ON CONFLICT (code) DO NOTHING"
-        ), {"c": code, "n": name, "cat": cat, "d": desc, "cost": cost, "p": period, "dur": dur, "o": order})
-    await db.commit()
+# 카탈로그 동기화는 프로세스당 1회만 수행 (매 요청마다 재실행 방지).
+_catalog_synced = False
+
+# 과거 기본 상품 코드 — 상점 개편 전 시드되었던 항목. 데이터는 지우지 않고
+# active=FALSE 로만 숨긴다(구매 이력/감사 로그 보존). 관리자가 직접 추가한
+# 상품은 이 목록에 없으므로 영향을 받지 않는다.
+_LEGACY_PRODUCT_CODES = [
+    "ai_deep_1", "ai_risk_1", "ind_beom_pro_7", "preset_premium_30",
+    "heatmap_detail_24", "paper_slot_10", "watch_slot_ext",
+]
+
+
+async def _sync_catalog(db: AsyncSession) -> None:
+    """코드 정의(_DEFAULT_PRODUCTS)를 상점에 반영 + 과거 기본 상품 숨김.
+
+    안전 원칙:
+    - 데이터를 삭제하지 않는다. 과거 기본 상품은 active=FALSE 로만 전환한다.
+    - 카탈로그 상품은 upsert 로 최신 정보 반영 + active=TRUE 로 되돌린다.
+    - 관리자가 직접 추가한 상품(레거시 목록에 없음)은 건드리지 않는다.
+    - 멱등하며, 이미 원하는 상태면 실질적 변경이 없다.
+    """
+    global _catalog_synced
+    if _catalog_synced:
+        return
+    catalog_codes = {row[0] for row in _DEFAULT_PRODUCTS}
+    try:
+        # 1) 카탈로그 상품 upsert (활성화 포함)
+        for code, name, cat, desc, cost, period, dur, order in _DEFAULT_PRODUCTS:
+            await db.execute(text(
+                "INSERT INTO point_products (code, name, category, description, cost, period, duration_days, active, sort_order) "
+                "VALUES (:c,:n,:cat,:d,:cost,:p,:dur,TRUE,:o) "
+                "ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category, "
+                "description=EXCLUDED.description, cost=EXCLUDED.cost, period=EXCLUDED.period, "
+                "duration_days=EXCLUDED.duration_days, active=TRUE, sort_order=EXCLUDED.sort_order"
+            ), {"c": code, "n": name, "cat": cat, "d": desc, "cost": cost, "p": period, "dur": dur, "o": order})
+        # 2) 과거 기본 상품 중 현재 카탈로그에 없는 것만 비활성화(삭제 아님)
+        legacy_to_hide = [c for c in _LEGACY_PRODUCT_CODES if c not in catalog_codes]
+        if legacy_to_hide:
+            await db.execute(
+                text("UPDATE point_products SET active=FALSE WHERE code IN :codes AND active=TRUE").bindparams(
+                    bindparam("codes", expanding=True)
+                ),
+                {"codes": legacy_to_hide},
+            )
+        await db.commit()
+        _catalog_synced = True
+    except Exception:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
 
 
 # ─────────────────────────── 사용자 엔드포인트 ───────────────────────────
@@ -255,12 +299,8 @@ async def summary(user_id: str = Depends(get_current_user_id), db: AsyncSession 
 @router.get("/shop", response_model=ApiResponse)
 async def shop(db: AsyncSession = Depends(get_db)):
     await _ensure(db)
-    try:
-        cnt = int((await db.execute(text("SELECT COUNT(*) FROM point_products"))).scalar() or 0)
-        if cnt == 0:
-            await _seed_products(db)
-    except Exception:
-        await db.rollback()
+    # 코드 정의를 상점의 단일 출처로 반영(프로세스당 1회, 멱등, 데이터 삭제 없음).
+    await _sync_catalog(db)
     rows = (await db.execute(text(
         "SELECT code, name, category, description, cost, period, active FROM point_products WHERE active=TRUE ORDER BY sort_order, id"
     ))).fetchall()
