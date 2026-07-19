@@ -8939,6 +8939,20 @@ window._renderUserPresets = function () {
     : '<div style="color:#8E7D72;padding:4px 0;width:100%">저장된 프리셋이 없습니다.</div>';
 };
 setTimeout(() => window._renderUserPresets && window._renderUserPresets(), 0);
+// 차트 설정 저장: 종목·타임프레임·지표·드로잉을 한 번에 저장. 로그인 시 자동 복원.
+window._saveChartSettings = function () {
+  if (window.requireLogin && !window.requireLogin("차트 설정 저장")) return;
+  try {
+    window._saveUserSettings && window._saveUserSettings();
+    window.saveIndSettings && window.saveIndSettings();
+    window._saveDrawings && window._saveDrawings();
+    window.saveSubRatios && window.saveSubRatios();
+  } catch (_) {}
+  (window.showToast || function () {})(
+    "차트 설정이 저장되었습니다. 로그인하면 그대로 복원됩니다.",
+    "#A31540",
+  );
+};
 function Fo() {
   if (!ze.length) return;
   const e = ze.filter(

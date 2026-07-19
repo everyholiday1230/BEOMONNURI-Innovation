@@ -39,7 +39,7 @@
 <link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
 
-<script defer src="/static/i18n.js?v=20260719_i18n12"></script>
+<script defer src="/static/i18n.js?v=20260719_i18n13"></script>
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
@@ -1561,11 +1561,11 @@ body.dark #_toastContainer .pro-toast-chip {
         <div class="ind-tag" data-action="applyPreset" data-param="clean" title="모든 지표 끄기 + 차트 리셋">클린</div>
         <div class="ind-tag" data-action="applyPreset" data-param="beom" title="5분봉 | 거래량 + 범온무료 + RSI + 범온캔들·MA·OB·추세시작">범온 기본</div>
         <div class="panel-section" style="margin-top:12px">
-          <div class="panel-section-title" style="color:#8B6914">내 프리셋</div>
+          <div class="panel-section-title" style="color:#8B6914">차트 설정 저장</div>
           <div class="workspace-btn-row">
-            <button aria-label="현재 지표 구성을 내 프리셋으로 저장" onclick="window._saveUserPreset()" title="현재 켜진 지표 구성을 내 프리셋으로 저장" class="btn-uniform btn-uniform-primary">현재 구성 저장</button>
+            <button aria-label="현재 차트 설정 저장" onclick="window._saveChartSettings()" title="현재 종목·타임프레임·지표·드로잉을 저장합니다. 로그인하면 그대로 복원됩니다." class="btn-uniform btn-uniform-primary">현재 차트 설정 저장</button>
           </div>
-          <div id="userPresetList" style="font-size:12px;margin-top:6px"></div>
+          <p class="muted-note" style="margin-top:6px">저장하면 다음에 로그인할 때 종목·타임프레임·지표·드로잉이 그대로 복원됩니다.</p>
         </div>
       </div>
     </div>
@@ -1657,7 +1657,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <b class="text-accent">차트</b>
 <p class="muted-note">캔들/라인/영역 전환 · 스크린샷(Ctrl+S) · 피보나치/추세선/수평선/수직선 드로잉</p>
 <b class="text-accent">지표 설정 · 프리셋</b>
-<p class="muted-note">지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 <b>기본값</b> 버튼으로 초기값 복원. 자주 쓰는 지표 구성은 프리셋 메뉴의 <b>내 프리셋</b>으로 저장/불러오기 할 수 있습니다.</p>
+<p class="muted-note">지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 <b>기본값</b> 버튼으로 초기값 복원. <b>차트 설정 저장</b> 버튼을 누르면 현재 종목·타임프레임·지표·드로잉이 저장되어, 다음에 로그인할 때 그대로 복원됩니다.</p>
 <b class="text-accent">지표 저장</b>
 <p class="muted-note">하단 <b>지표설정 저장</b> 버튼으로 현재 지표 선택을 서버에 저장합니다 (로그인 필요). 드로잉(추세선/수평선)은 브라우저에 자동 저장됩니다.</p>
 <b class="text-accent">추천 지표 조합</b>
@@ -1884,7 +1884,7 @@ body.dark #_toastContainer .pro-toast-chip {
 
 <div id="dsDiagPanel" class="ds-diag-panel" role="dialog" aria-label="데이터 진단" hidden></div>
 
-<script type="module" src="/static/js/main-app.js?v=20260719_bitmart3"></script>
+<script type="module" src="/static/js/main-app.js?v=20260719_chartsave"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260709_htv5"></script>
 <script defer src="/static/js/modules/signal-builder.js?v=20260717_sb8"></script>
 <script defer src="/static/js/modules/signal-board.js?v=20260717_sg1"></script>

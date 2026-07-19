@@ -14,11 +14,28 @@ I18N = Path(__file__).resolve().parent.parent / "static" / "i18n.js"
 
 # 여기에 번역을 채운다 (실행 시마다 새 배치로 교체 가능)
 EN = {
-    "요금제 표시/설명 카탈로그를 관리합니다(요금제명·가격·결제주기·AI 분석 횟수 표기·기능 설명·활성). 실제 기능 제한 강제값은 tier_guard가 단일 출처이며, 본 화면의 'AI 분석 횟수'는 표시용입니다.": "Manages the plan display/description catalog (plan name, price, billing cycle, AI-analysis count label, feature description, active). The actual enforced feature limits come solely from tier_guard; the 'AI analysis count' on this screen is for display only.",
+    "차트 설정 저장": "Save Chart Settings",
+    "현재 차트 설정 저장": "Save current chart settings",
+    "현재 종목·타임프레임·지표·드로잉을 저장합니다. 로그인하면 그대로 복원됩니다.": "Saves the current symbol, timeframe, indicators and drawings. They are restored when you log in.",
+    "저장하면 다음에 로그인할 때 종목·타임프레임·지표·드로잉이 그대로 복원됩니다.": "Once saved, your symbol, timeframe, indicators and drawings are restored the next time you log in.",
+    "차트 설정이 저장되었습니다. 로그인하면 그대로 복원됩니다.": "Chart settings saved. They will be restored when you log in.",
+    "지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 기본값 버튼으로 초기값 복원. 차트 설정 저장 버튼을 누르면 현재 종목·타임프레임·지표·드로잉이 저장되어, 다음에 로그인할 때 그대로 복원됩니다.": "Click an indicator to apply it to the chart; its settings popup opens automatically. Use the Default button in the popup to restore initial values. Press Save Chart Settings to store your current symbol, timeframe, indicators and drawings, so they are restored the next time you log in.",
 }
 JA = {
+    "차트 설정 저장": "チャート設定を保存",
+    "현재 차트 설정 저장": "現在のチャート設定を保存",
+    "현재 종목·타임프레임·지표·드로잉을 저장합니다. 로그인하면 그대로 복원됩니다.": "現在の銘柄・時間足・指標・描画を保存します。ログインすると復元されます。",
+    "저장하면 다음에 로그인할 때 종목·타임프레임·지표·드로잉이 그대로 복원됩니다.": "保存すると、次回ログイン時に銘柄・時間足・指標・描画がそのまま復元されます。",
+    "차트 설정이 저장되었습니다. 로그인하면 그대로 복원됩니다.": "チャート設定を保存しました。ログインすると復元されます。",
+    "지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 기본값 버튼으로 초기값 복원. 차트 설정 저장 버튼을 누르면 현재 종목·타임프레임·지표·드로잉이 저장되어, 다음에 로그인할 때 그대로 복원됩니다.": "指標をクリックするとチャートに適用され、設定ポップアップが自動で開きます。ポップアップの「デフォルト」ボタンで初期値に戻せます。「チャート設定を保存」を押すと、現在の銘柄・時間足・指標・描画が保存され、次回ログイン時にそのまま復元されます。",
 }
 ZH = {
+    "차트 설정 저장": "保存图表设置",
+    "현재 차트 설정 저장": "保存当前图表设置",
+    "현재 종목·타임프레임·지표·드로잉을 저장합니다. 로그인하면 그대로 복원됩니다.": "保存当前的交易品种、时间周期、指标和绘图。登录后即可恢复。",
+    "저장하면 다음에 로그인할 때 종목·타임프레임·지표·드로잉이 그대로 복원됩니다.": "保存后，下次登录时会自动恢复交易品种、时间周期、指标和绘图。",
+    "차트 설정이 저장되었습니다. 로그인하면 그대로 복원됩니다.": "图表设置已保存。登录后即可恢复。",
+    "지표를 클릭하면 차트에 적용되며 설정 팝업이 자동으로 열립니다. 설정 팝업의 기본값 버튼으로 초기값 복원. 차트 설정 저장 버튼을 누르면 현재 종목·타임프레임·지표·드로잉이 저장되어, 다음에 로그인할 때 그대로 복원됩니다.": "点击指标即可应用到图表，并自动打开设置弹窗。用弹窗中的“默认”按钮恢复初始值。点击“保存图表设置”后，当前的交易品种、时间周期、指标和绘图将被保存，下次登录时自动恢复。",
 }
 
 
