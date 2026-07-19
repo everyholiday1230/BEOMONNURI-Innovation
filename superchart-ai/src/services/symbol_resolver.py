@@ -128,6 +128,7 @@ def classify_bitmart_symbol(symbol_code: str, market_group: str | None = None) -
       2) tradfi_info.market_group 매핑
       3) crypto (기본)
     """
+    from src.services.bitmart_names import EXTRA_STOCK_NAMES
     code = (symbol_code or "").upper()
     if code in _BM_INDEX_SYMBOLS:
         ko, en = _BM_INDEX_SYMBOLS[code]
@@ -138,17 +139,25 @@ def classify_bitmart_symbol(symbol_code: str, market_group: str | None = None) -
     if code in _BM_COMMODITY_SYMBOLS:
         ko, en = _BM_COMMODITY_SYMBOLS[code]
         return "commodity", ko, en
+
+    def _stock_name():
+        if code in _BM_STOCK_NAMES:
+            return _BM_STOCK_NAMES[code]
+        if code in EXTRA_STOCK_NAMES:
+            return EXTRA_STOCK_NAMES[code]
+        return (None, None)
+
     if market_group:
         ac = _MARKET_GROUP_CLASS.get(market_group)
         if ac == "forex":
             ko, en = _BM_FOREX_NAMES.get(code, (None, None))
             return ac, ko, en
         if ac:
-            ko, en = _BM_STOCK_NAMES.get(code, (None, None))
+            ko, en = _stock_name()
             return ac, ko, en
     # market_group 없이도 알려진 주식이면 stock
-    if code in _BM_STOCK_NAMES:
-        ko, en = _BM_STOCK_NAMES[code]
+    ko, en = _stock_name()
+    if ko or en:
         return "stock", ko, en
     return "crypto", None, None
 

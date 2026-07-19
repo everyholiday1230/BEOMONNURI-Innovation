@@ -377,12 +377,21 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
 
 @router.post("/symbols/refresh-metadata")
 async def refresh_symbol_metadata(request: Request, only_missing: bool = True):
-    """CoinGecko 기반 메타데이터 일괄 갱신 (Admin-Key 필요).
+    """[비활성] 메타데이터 외부 갱신 — 방식 C: BitMart 외 외부 데이터 소스 사용 안 함.
 
-    Query:
-        only_missing: True (default) — display_name_ko==base_asset 인 종목만
-                      False — 전체 종목 강제 갱신 (느림)
+    CoinGecko 등 외부 호출을 제거했다. 종목 한글/영문명은 BitMart 분류맵
+    (symbol_resolver + bitmart_names)에서 제공한다.
     """
+    from src.services.admin_auth import verify_admin_key
+    verify_admin_key(request)
+    return ApiResponse(data={
+        "disabled": True,
+        "note": "외부(CoinGecko) 메타데이터 갱신은 비활성화되었습니다. 모든 데이터는 BitMart 기반입니다.",
+    })
+
+
+async def _refresh_symbol_metadata_legacy(request: Request, only_missing: bool = True):
+    """[미사용 보존] 이전 CoinGecko 기반 메타데이터 일괄 갱신."""
     from src.services.admin_auth import verify_admin_key
     verify_admin_key(request)
     from src.services.symbol_metadata import update_db_metadata
@@ -454,15 +463,11 @@ async def sync_symbols_from_file(request: Request):
 
 @router.get("/symbols/lookup-metadata")
 async def lookup_one_symbol(base: str, request: Request):
-    """단일 base_asset 메타데이터 조회 (Admin-Key 필요).
-
-    예: GET /v1/symbols/lookup-metadata?base=BTC
-    """
+    """[비활성] 단일 종목 외부 메타데이터 조회 — 방식 C: BitMart 외 외부 소스 미사용."""
     from src.services.admin_auth import verify_admin_key
     verify_admin_key(request)
-    from src.services.symbol_metadata import lookup_symbol_metadata
-    meta = await lookup_symbol_metadata(base)
-    return ApiResponse(data=meta)
+    return ApiResponse(data={"disabled": True, "base": base,
+                             "note": "외부(CoinGecko) 조회는 비활성화되었습니다."})
 
 @router.get("/symbols/{symbol_id}", response_model=ApiResponse)
 async def get_symbol(symbol_id: str, db: AsyncSession = Depends(get_db)):
