@@ -119,7 +119,7 @@ function buildRows() {
 const HT = {
   basis: 'composite',  // composite|turnover|gainers|losers|volatility|views|ai|volup|fav|spike
   tf: '24h',
-  market: 'all', category: 'all', turnoverTop: 'all', changeFilter: 'all', watchOnly: false, search: '',
+  market: 'all', category: 'all', turnoverTop: 'all', changeFilter: 'all', watchOnly: false, search: '', assetClass: 'all',
   density: 'standard', // simple|standard|detail
   sort: 'attention',   // attention|turnover|gainers|losers|volatility|rankup
   selected: null,
@@ -190,6 +190,7 @@ function htApplyFilters(rows) {
   let list = rows.slice();
   // 가격 데이터 없는 종목은 랭킹에서 제외
   list = list.filter(r => r.priceValid && Number.isFinite(r.pct));
+  if (HT.assetClass && HT.assetClass !== 'all') list = list.filter(r => (r.asset || 'crypto') === HT.assetClass);
   if (HT.market !== 'all') list = list.filter(r => r.market === HT.market);
   if (HT.watchOnly || HT.category === 'watch' || HT.basis === 'fav') list = list.filter(r => r.isFav);
   else if (HT.category !== 'all') list = list.filter(r => r.cats.includes(HT.category));
@@ -240,6 +241,7 @@ function htBuildControlsOnce() {
     fEl.dataset.built = '1';
     const row = (label, key, opts) => `<div class="ht-filter-row"><span class="flabel">${label}</span>${opts.map(([v, t]) => `<button class="ht-chip" data-fkey="${key}" data-fval="${v}">${t}</button>`).join('')}</div>`;
     fEl.innerHTML =
+      row('자산', 'assetClass', [['all','전체'],['crypto','암호화폐'],['stock','주식'],['metal','금속'],['forex','외환'],['index','지수'],['commodity','원자재']]) +
       row('마켓', 'market', [['all','전체'],['USDT','USDT'],['BTC','BTC'],['KRW','KRW']]) +
       row('유형', 'category', [['all','전체'],['major','메이저'],['alt','알트'],['defi','DeFi'],['ai','AI'],['layer1','Layer1'],['meme','Meme'],['watch','관심종목']]) +
       row('거래대금', 'turnoverTop', [['all','전체'],['100','상위 100'],['50','상위 50'],['20','상위 20']]) +
