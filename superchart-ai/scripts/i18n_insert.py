@@ -13,35 +13,31 @@ from pathlib import Path
 I18N = Path(__file__).resolve().parent.parent / "static" / "i18n.js"
 
 # 여기에 번역을 채운다 (실행 시마다 새 배치로 교체 가능)
-EN = {
-    "프리셋 '": "Preset '", "' 저장됨": "' saved", "' 적용": "' applied",
-    '코드': 'Code', '코드 복사됨': 'Code copied',
-    '과매수': 'Overbought', '과매도': 'Oversold',
-    '범온 포인트 · 지인 초대': 'Beomon Points · Invite Friends',
-    '업데이트': 'Update', '이벤트': 'Event', '베타 테스트 안내': 'Beta Test Notice',
-    '현재 범온 AI 슈퍼차트는 베타 테스트 중입니다. 이용 중 불편하거나 개선이 필요한 점은 피드백으로 알려주시면 빠르게 반영하겠습니다. 감사합니다.': 'BEOMON AI SuperChart is currently in beta testing. If you find anything inconvenient or in need of improvement, please let us know via feedback and we will address it promptly. Thank you.',
-    '불러오는 중...': 'Loading...', '📌 고정': '📌 Pinned',
-    '예고 없이 로그아웃되는': 'being logged out without notice',
-}
-JA = {
-    "프리셋 '": "プリセット '", "' 저장됨": "' を保存しました", "' 적용": "' を適用",
-    '코드': 'コード', '코드 복사됨': 'コードをコピーしました',
-    '과매수': '買われすぎ', '과매도': '売られすぎ',
-    '범온 포인트 · 지인 초대': 'BEOMON ポイント · 友達招待',
-    '업데이트': 'アップデート', '이벤트': 'イベント', '베타 테스트 안내': 'ベータテストのお知らせ',
-    '현재 범온 AI 슈퍼차트는 베타 테스트 중입니다. 이용 중 불편하거나 개선이 필요한 점은 피드백으로 알려주시면 빠르게 반영하겠습니다. 감사합니다.': '現在BEOMON AIスーパーチャートはベータテスト中です。ご利用中に不便な点や改善が必要な点はフィードバックでお知らせいただければ、速やかに反映いたします。ありがとうございます。',
-    '불러오는 중...': '読み込み中...', '📌 고정': '📌 固定',
-    '예고 없이 로그아웃되는': '予告なくログアウトされる',
-}
+EN = {}
+JA = {}
 ZH = {
-    "프리셋 '": "预设 '", "' 저장됨": "' 已保存", "' 적용": "' 已应用",
-    '코드': '代码', '코드 복사됨': '已复制代码',
-    '과매수': '超买', '과매도': '超卖',
-    '범온 포인트 · 지인 초대': 'BEOMON 积分 · 邀请好友',
-    '업데이트': '更新', '이벤트': '活动', '베타 테스트 안내': '公测说明',
-    '현재 범온 AI 슈퍼차트는 베타 테스트 중입니다. 이용 중 불편하거나 개선이 필요한 점은 피드백으로 알려주시면 빠르게 반영하겠습니다. 감사합니다.': 'BEOMON AI超级图表目前处于公测阶段。使用中如有不便或需要改进之处，请通过反馈告知我们，我们将尽快处理。谢谢。',
-    '불러오는 중...': '加载中...', '📌 고정': '📌 置顶',
-    '예고 없이 로그아웃되는': '在无预警的情况下被登出',
+    '고가저가': '高低',
+    '공개': '公开',
+    '과매도': '超卖',
+    '과매수': '超买',
+    '관심': '关注',
+    '기본값': '默认值',
+    '내 프리셋': '我的预设',
+    '돌파': '突破',
+    '리플레이': '回放',
+    '매매': '交易',
+    '매수매도': '买卖',
+    '비교': '对比',
+    '손익비': '盈亏比',
+    '수직선': '垂直线',
+    '수직선 그리기 (특정 시점 표시)': '绘制垂直线（标记特定时点）',
+    '오류': '错误',
+    '저장된 프리셋이 없습니다.': '没有已保存的预设。',
+    '전체': '全部',
+    '준비 중': '准备中',
+    '테마': '主题',
+    '현재 구성 저장': '保存当前配置',
+    '현재 지표 구성을 내 프리셋으로 저장': '将当前指标配置保存为我的预设',
 }
 
 def _existing_keys(block: str) -> set[str]:
@@ -58,7 +54,13 @@ def insert(lang_marker: str, next_marker: str | None, mapping: dict[str, str], s
         raise SystemExit(f"marker not found: {lang_marker}")
     open_idx = src.find("texts: {", i)
     line_end = src.find("\n", open_idx)
-    j = src.find(next_marker) if next_marker else len(src)
+    if next_marker:
+        j = src.find(next_marker)
+    else:
+        # 마지막 언어(zh) 블록은 TRANSLATIONS 객체 이후의 별도 사전(EN_GLOSSARY 등)을
+        # 존재키 판정에 포함하지 않도록 경계를 그 앞으로 제한한다.
+        g = src.find("EN_GLOSSARY", i)
+        j = g if g > 0 else len(src)
     block = src[i:j]
     have = _existing_keys(block)
     lines = []
