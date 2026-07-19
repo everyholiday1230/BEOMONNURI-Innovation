@@ -103,7 +103,15 @@ async function _injectReferralDashboard() {
   const nextTier = {bronze:{name:'Silver',need:5}, silver:{name:'Gold',need:20}, gold:{name:'Diamond',need:50}, diamond:{name:'Max',need:0}};
   const nt = nextTier[tier] || {name:'',need:0};
 
-  const inner = modal.querySelector('div > div') || modal;
+  // 모달 내 기존 #referralDashboard(플레이스홀더 또는 이전 주입분)를 모두 제거해 중복 방지.
+  // 첫 번째 플레이스홀더 위치를 기억해 그 자리에 새 대시보드를 넣는다.
+  const _dupes = modal.querySelectorAll('#referralDashboard');
+  let _anchor = null, _anchorParent = null;
+  _dupes.forEach((el, idx) => {
+    if (idx === 0) { _anchor = el.nextSibling; _anchorParent = el.parentNode; }
+    el.remove();
+  });
+  const inner = _anchorParent || modal.querySelector('div > div') || modal;
   const section = document.createElement('div');
   section.id = 'referralDashboard';
   section.dataset.filled = '1';
@@ -165,7 +173,8 @@ async function _injectReferralDashboard() {
       • 적립 포인트는 서비스 내 혜택에 사용됩니다
     </div>
   `;
-  inner.appendChild(section);
+  if (_anchor && _anchor.parentNode === inner) inner.insertBefore(section, _anchor);
+  else inner.appendChild(section);
 
   // ── 프리미엄 지표 스토어 ──
   try {
