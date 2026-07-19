@@ -4457,8 +4457,32 @@ const TRANSLATIONS = {
 function rememberLanguage(lang) {
   try { localStorage.setItem('chartOS_lang', lang); } catch (e) {}
 }
+function getStoredLanguage() {
+  try { return localStorage.getItem('chartOS_lang') || ''; } catch (e) { return ''; }
+}
+// 브라우저(접속 국가) 언어 자동 감지 — 첫 방문(저장값 없음)에만 사용.
+// ko→한국어, ja→일본어, zh→중국어, 그 외 전부 영어(en).
+function detectBrowserLanguage() {
+  try {
+    const langs = (navigator.languages && navigator.languages.length)
+      ? navigator.languages
+      : [navigator.language || navigator.userLanguage || ''];
+    for (const raw of langs) {
+      const code = String(raw || '').toLowerCase();
+      if (code.startsWith('ko')) return 'ko';
+      if (code.startsWith('ja')) return 'ja';
+      if (code.startsWith('zh')) return 'zh';
+      if (code.startsWith('en')) return 'en';
+    }
+  } catch (e) {}
+  return 'en'; // 그 외 모든 국가/언어 → 영어
+}
 function getRememberedLanguage() {
-  try { return localStorage.getItem('chartOS_lang') || 'ko'; } catch (e) { return 'ko'; }
+  // 저장된 선택이 있으면 그대로, 없으면 브라우저 언어로 자동 결정(사전에 있는 언어만).
+  const stored = getStoredLanguage();
+  if (stored && TRANSLATIONS[stored]) return stored;
+  const detected = detectBrowserLanguage();
+  return TRANSLATIONS[detected] ? detected : 'en';
 }
 function getInitialLanguage() {
   try {
