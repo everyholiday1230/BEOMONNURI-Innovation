@@ -36,7 +36,7 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
     user = User(email=req.email, password_hash=hash_password(req.password), nickname=req.nickname,
                 phone=req.phone or None,
                 gender=(req.gender or None), birthday=(req.birthday or None),
-                birth_year=(req.birth_year or None), age_range=(req.age_range or None))
+                birth_year=(req.birth_year or None))
     db.add(user)
     await db.commit()
     await db.refresh(user)

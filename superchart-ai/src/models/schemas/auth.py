@@ -15,7 +15,6 @@ class SignupRequest(BaseModel):
     gender: str = Field(default="", max_length=10)          # M / F / U 등
     birthday: str = Field(default="", max_length=10)        # MM-DD
     birth_year: str = Field(default="", max_length=4, pattern=r"^[0-9]*$")   # YYYY
-    age_range: str = Field(default="", max_length=20)       # 예: 20-29
 
 
 class LoginRequest(BaseModel):
