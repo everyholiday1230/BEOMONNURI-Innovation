@@ -88,13 +88,14 @@ function Oe(e) {
     (COS.features.bimacoDelay = !0));
   const n = document.getElementById("userBadge");
   n && (n.textContent = t("\uB85C\uADF8\uC778"));
+  const _pc = document.getElementById("pointChip");
+  _pc && _pc.classList.add("d-none");
   const a = document.getElementById("logoutBtn");
   a && (a.style.display = "none");
   const r = document.getElementById("settingsBtn");
   r && (r.style.display = "none");
   const i = document.getElementById("loginCta");
-  if ((i && (i.style.display = ""), e?.resetChart)) {
-    (localStorage.removeItem("chartOS_presetVer"),
+  if ((i && (i.classList.remove("d-none"), (i.style.display = "")), e?.resetChart)) {    (localStorage.removeItem("chartOS_presetVer"),
       localStorage.removeItem("chartOS_indSettings"),
       localStorage.removeItem("chartOS_customMA"),
       localStorage.removeItem("chartOS_customSUB"),
