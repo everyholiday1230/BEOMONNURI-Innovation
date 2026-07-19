@@ -18,6 +18,7 @@ import os
 from datetime import datetime, timezone, timedelta
 
 import httpx
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import jwt as _jwt
 from sqlalchemy import select
@@ -34,6 +35,7 @@ from src.services.auth import (
 )
 from src.services.auth_helpers import effective_tier, set_auth_cookies
 
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -117,6 +119,13 @@ async def google_callback(
             },
         )
         if r.status_code != 200:
+            logger.warning(
+                "oauth.google.token_exchange_failed",
+                status=r.status_code,
+                body=r.text[:300],
+                redirect_uri=redirect_uri,
+                client_id_tail=client_id[-12:] if client_id else "",
+            )
             raise HTTPException(400, "Google 인증 실패")
         tokens = r.json()
 
@@ -248,10 +257,18 @@ async def naver_callback(
             },
         )
         if r.status_code != 200:
+            logger.warning(
+                "oauth.naver.token_exchange_failed",
+                status=r.status_code,
+                body=r.text[:300],
+                redirect_uri=redirect_uri,
+                client_id_tail=client_id[-8:] if client_id else "",
+            )
             raise HTTPException(400, "네이버 인증 실패")
         tokens = r.json()
         access_token = tokens.get("access_token")
         if not access_token:
+            logger.warning("oauth.naver.no_access_token", body=r.text[:300])
             raise HTTPException(400, "네이버 인증 실패")
 
         r2 = await c.get(

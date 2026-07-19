@@ -98,8 +98,10 @@ def test_signal_board_frontend_is_wired_and_publicly_readable():
     builder = (ROOT / "static" / "js" / "modules" / "signal-builder.js").read_text(encoding="utf-8")
     guest = (ROOT / "static" / "js" / "modules" / "guest-mode.js").read_text(encoding="utf-8")
 
-    assert 'id="signals"' in index
-    assert 'data-p="signals"' in index
+    # 신호 게시판은 네비게이션 팝업으로 제공된다(우측 패널 탭에서 이전됨).
+    assert 'id="signalsPopup"' in index
+    assert 'data-nav="signals"' in index
+    assert 'id="sgList"' in index
     assert "/static/js/modules/signal-board.js" in index
     assert "{ id: 'signals'" not in guest
     assert "/v1/signals/board" in board
