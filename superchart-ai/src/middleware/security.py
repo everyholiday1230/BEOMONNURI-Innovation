@@ -64,7 +64,7 @@ _CSP = (
     "connect-src 'self' ws: wss:; "
     "font-src 'self'; "
     "object-src 'none'; "
-    "frame-ancestors 'none'; "
+    "frame-ancestors 'self'; "
     "form-action 'self'; "
     "base-uri 'self'; "
     "upgrade-insecure-requests"
@@ -153,7 +153,7 @@ def create_middleware(generate_request_id, metrics, logger):
 
         # 보안 헤더
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
