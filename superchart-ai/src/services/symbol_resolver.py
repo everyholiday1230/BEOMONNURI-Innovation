@@ -43,6 +43,7 @@ _BM_INDEX_SYMBOLS: dict[str, tuple[str, str]] = {
 _BM_METAL_SYMBOLS: dict[str, tuple[str, str]] = {
     "XAUUSDT":  ("금", "Gold"),
     "XAUTUSDT": ("금 (테더골드)", "Tether Gold"),
+    "PAXGUSDT": ("금 (팍스골드)", "PAX Gold"),
     "XAGUSDT":  ("은", "Silver"),
     "SLVONUSDT":("은 (iShares Silver Trust)", "iShares Silver Trust"),
     "XPTUSDT":  ("백금", "Platinum"),
