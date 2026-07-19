@@ -93,7 +93,8 @@ a:focus-visible{
 <script>
 const _NBADGE={notice:['badge-new','공지'],update:['badge-update','업데이트'],event:['badge-event','이벤트']};
 const _NFALLBACK=`
-<div class="notice"><div class="notice-title">베타 테스트 안내</div><div class="notice-body">현재 범온 AI 슈퍼차트는 베타 테스트 중입니다. 이용 중 불편하거나 개선이 필요한 점은 피드백으로 알려주시면 빠르게 반영하겠습니다. 감사합니다.</div></div>`;
+<div class="notice"><div class="notice-date">2026.07.19</div><div class="notice-title"><span class="badge badge-event">이벤트</span>🎉 범온 AI 슈퍼차트 베타 오픈</div><div class="notice-body">범온 AI 슈퍼차트가 <b>베타 오픈</b>했습니다! 오픈을 기념하여 <b>나만의 신호를 비롯한 주요 기능을 베타 기간 동안 무료</b>로 제공합니다.<br><br>실시간 차트, 40여 종의 독자 지표(범온캔들·강도측정·매매압력 등), 나만의 신호 빌더, 모의주문, 신호 게시판, 대회 순위까지 지금 바로 이용해 보세요.<br><br>더 강력한 기능들이 <b>곧 공개(Coming Soon)</b>됩니다. 많은 관심과 피드백 부탁드립니다. 🙌</div></div>
+<div class="notice"><div class="notice-title"><span class="badge badge-new">안내</span>베타 기간 안내</div><div class="notice-body">현재 서비스는 베타 테스트 중이며, 일부 기능은 준비 중이거나 변경될 수 있습니다. 이용 중 불편하거나 개선이 필요한 점은 상단 <b>피드백</b> 버튼으로 알려주시면 빠르게 반영하겠습니다. 감사합니다.</div></div>`;
 function _esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 (async function(){
   const el=document.getElementById('noticeList');

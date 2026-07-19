@@ -1303,6 +1303,10 @@
 .notice-close:hover { background: var(--color-primary-soft); color: var(--color-primary); }
 .notice-body { font-size: var(--text-sm); color: var(--color-text-primary); line-height: 1.6; margin-bottom: 16px; }
 .notice-date { font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 12px; }
+.notice-title .badge,.notice .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px;vertical-align:middle}
+.badge-new{background:rgba(146,18,48,0.12);color:var(--color-primary,#921230)}
+.badge-update{background:rgba(216,182,106,0.22);color:#8B6914}
+.badge-event{background:rgba(59,130,246,0.16);color:#1d4ed8}
 .notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .notice-btn { flex: 1; min-height: 40px; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-semibold);
   cursor: pointer; transition: background .15s, filter .15s; border: 1px solid transparent; white-space: nowrap; }
