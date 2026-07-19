@@ -120,7 +120,10 @@ const _ASSET_QUOTE_BY_CLASS = {
   crypto: '/USDT',
   stock: '/USD',
   commodity: '/USD',
-  etf: '/USD'
+  etf: '/USD',
+  metal: '/USD',
+  forex: '/USD',
+  index: ''
 };
 
 function _formatSymbolDisplay(s) {
@@ -179,7 +182,7 @@ function _localLogoPaths(code, base) {
   if (!token) return ['', ''];
   const asset = _assetOfSymbol(code);
   if (!asset) return ['', ''];
-  const isStockLike = asset === 'stock' || asset === 'etf' || asset === 'commodity';
+  const isStockLike = asset === 'stock' || asset === 'etf' || asset === 'commodity' || asset === 'metal' || asset === 'forex' || asset === 'index';
   if (isStockLike) {
     return [`/static/stock-logos/${token}.svg`, `/static/stock-logos/${token}.png`];
   }
@@ -495,10 +498,10 @@ if (_sortEl) {
 const _assetTabs = document.querySelectorAll('#assetTabs .asset-tab');
 if (_assetTabs.length) {
   const savedAsset = localStorage.getItem('chartOS_wlAssetFilter');
-  // 전체(all)·ETF 탭 제거 → 허용: 주식/암호화폐/원자재. 기본값은 주식.
-  const allowed = new Set(['stock', 'crypto', 'commodity']);
-  window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (allowed.has(window._wlAssetFilter) ? window._wlAssetFilter : 'stock');
-  if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'stock';
+  // 6개 자산군: 암호화폐/주식/금속/외환/지수/원자재. 기본값은 암호화폐.
+  const allowed = new Set(['crypto', 'stock', 'metal', 'forex', 'index', 'commodity']);
+  window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (allowed.has(window._wlAssetFilter) ? window._wlAssetFilter : 'crypto');
+  if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'crypto';
   _setAssetTabActive(window._wlAssetFilter);
   _assetTabs.forEach(tab => {
     tab.addEventListener('click', () => {

@@ -113,35 +113,10 @@ async def _fetch_live_crypto_rows() -> list[dict]:
 
     try:
         from src.services import bitmart
+        from src.services.symbol_resolver import classify_bitmart_symbol
         contracts = await bitmart.fetch_contract_symbols()
         if not contracts:
             return _live_symbols_cache_rows
-
-        # 토큰화 주식/원자재 분류 보정 (BitMart TradFi Stocks 포함).
-        try:
-            from src.services.symbol_resolver import (
-                BSTOCKS_CATALOG, COMMODITY_TOKEN_CATALOG, XSTOCKS_CATALOG, BITGET_STOCKS_CATALOG,
-            )
-            _stock_cores: dict[str, str] = {}
-            for _b, (_c, _ko, _en, _ac) in BSTOCKS_CATALOG.items():
-                _stock_cores[str(_c).upper()] = _ac
-            for _core, (_ko, _en, _ac) in XSTOCKS_CATALOG.items():
-                _stock_cores.setdefault(_core.upper(), _ac)
-            for _core, (_ko, _en, _ac) in BITGET_STOCKS_CATALOG.items():
-                _stock_cores.setdefault(_core.upper(), _ac)
-            _commodity_cores = {"XAU", "XAG", "XPT", "XPD", "CL", "BZ", "COPPER", "NATGAS", "WTI", "BRENT"}
-            for _core, (_c, _ko, _en, _q) in COMMODITY_TOKEN_CATALOG.items():
-                _commodity_cores.add(_core.upper())
-        except Exception:
-            _stock_cores, _commodity_cores = {}, set()
-
-        def _classify(base: str) -> str:
-            b = base.upper()
-            if b in _commodity_cores:
-                return "commodity"
-            if b in _stock_cores:
-                return _stock_cores[b]
-            return "crypto"
 
         rows: list[dict] = []
         for cinfo in contracts:
@@ -149,12 +124,12 @@ async def _fetch_live_crypto_rows() -> list[dict]:
             base = str(cinfo.get("base_asset") or "").upper()
             if not code or not base:
                 continue
-            ac = _classify(base)
+            ac, name_ko, name_en = classify_bitmart_symbol(code)
             rows.append({
                 "symbol_code": code,
                 "base_asset": base,
-                "display_name_ko": base,
-                "display_name_en": base,
+                "display_name_ko": name_ko or base,
+                "display_name_en": name_en or base,
                 "exchange_code": "BITMART",
                 "asset_class": ac,
                 "quote_asset": "USDT",
@@ -264,6 +239,16 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
                 "api_code": (s.metadata_ or {}).get("api_code") or s.symbol_code,
                 "source": "db",
             }
+            # 방식 C: BitMart TradFi 분류로 asset_class/이름 보정 (DB 값이 오래되어
+            # 금/외환/지수/원자재/주식이 crypto 로 남아있어도 올바른 탭에 들어가도록).
+            from src.services.symbol_resolver import classify_bitmart_symbol
+            _ac, _ko, _en = classify_bitmart_symbol(str(s.symbol_code))
+            if _ac != "crypto":
+                row["asset_class"] = _ac
+                if _ko and (not row.get("display_name_ko") or row["display_name_ko"] == s.base_asset):
+                    row["display_name_ko"] = _ko
+                if _en and (not row.get("display_name_en") or row["display_name_en"] == s.base_asset):
+                    row["display_name_en"] = _en
             if _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
                 merged_rows.append(row)
 

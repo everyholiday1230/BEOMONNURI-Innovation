@@ -81,9 +81,20 @@ class IngestManager:
         self._rest.on_candle(self._dispatch_candle)
         self._rest.on_ticker(self._dispatch_ticker)
         self._ws.on_candle(self._dispatch_candle)
+        self._ws.on_ticker(self._dispatch_ticker)
         logger.info("ingest.started", bitmart=len(syms))
         await asyncio.gather(
             self._rest.start(),
             self._ws.start(),
             return_exceptions=True
         )
+
+    async def stop(self):
+        if self._rest:
+            await self._rest.stop()
+        if self._ws:
+            await self._ws.stop()
+        for t in self._tasks:
+            if not t.done():
+                t.cancel()
+        logger.info("ingest.stopped")
