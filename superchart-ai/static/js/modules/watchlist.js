@@ -155,9 +155,23 @@ window.coinImgUrl = coinImgUrl;
  * 어떤 단계가 404/누락이어도 항상 무언가는 표시되도록 보장한다.
  * 새 종목이 로고 없이 추가돼도 자동으로 배지가 떠 "마크 누락" 재발을 예방한다.
  */
-function _symbolBadgeSvg(base, px) {
-  const label = String(base || '?').slice(0, 4);
+function _symbolBadgeSvg(base, px, asset) {
   const half = Math.round(px / 2);
+  // 로고가 없는 자산군(금속/외환/지수/원자재)은 테마 이모지 배지로 표시
+  const THEME = {
+    metal:     { emo: '🥇', bg: '%23B8860B' },
+    forex:     { emo: '💱', bg: '%232E7D6B' },
+    index:     { emo: '📊', bg: '%233B5BA5' },
+    commodity: { emo: '🛢️', bg: '%238B5E3C' },
+    preipo:    { emo: '🚀', bg: '%236A1E33' },
+  };
+  const th = asset && THEME[asset];
+  if (th) {
+    const efs = Math.round(px * 0.6);
+    const ey = Math.round(px * 0.72);
+    return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22${px}%22 height=%22${px}%22><rect width=%22${px}%22 height=%22${px}%22 rx=%22${half}%22 fill=%22${th.bg}%22/><text x=%22${half}%22 y=%22${ey}%22 text-anchor=%22middle%22 font-size=%22${efs}%22>${th.emo}</text></svg>`;
+  }
+  const label = String(base || '?').slice(0, 4);
   const fs = px <= 18 ? 7 : 8;
   const ty = Math.round(px * 0.66);
   return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22${px}%22 height=%22${px}%22><rect width=%22${px}%22 height=%22${px}%22 rx=%22${half}%22 fill=%22%236A1E33%22/><text x=%22${half}%22 y=%22${ty}%22 text-anchor=%22middle%22 fill=%22%23fff%22 font-size=%22${fs}%22>${label}</text></svg>`;
@@ -200,12 +214,18 @@ function _localLogoPaths(code, base) {
 window._symbolLogoImg = function(code, base, px, extraStyle) {
   px = px || 20;
   const dbUrl = (window.coinImgUrl || {})[code] || '';
-  const badge = _symbolBadgeSvg(base, px);
-  const onerr = `if(this.getAttribute('data-step')!=='1'){this.setAttribute('data-step','1');this.src='${badge}';}else{this.onerror=null;}`;
-  const startSrc = dbUrl || badge;
-  const startStep = dbUrl ? '0' : '1';
+  const asset = _assetOfSymbol(code);
+  const badge = _symbolBadgeSvg(base, px, asset);
+  const [p1, p2] = _localLogoPaths(code, base);
+  // 우선순위: DB img → 로컬 로고 파일 → 테마 배지
+  const chain = [dbUrl, p1, p2].filter(Boolean);
+  const startSrc = chain.length ? chain[0] : badge;
+  const rest = chain.slice(1);
   const style = `width:${px}px;height:${px}px;border-radius:50%;flex-shrink:0;${extraStyle || ''}`;
-  return `<img src="${startSrc}" data-step="${startStep}" loading="lazy" decoding="async" alt="" onerror="${onerr}" style="${style}">`;
+  // 후보 목록을 &#39;(작은따옴표)로 감싼 배열로 만들어 onerror 속성(큰따옴표) 충돌 방지
+  const q = rest.map(u => `&#39;${u}&#39;`).join(',');
+  const onerr = `var q=[${q}];if(this._i==null){this._i=0}if(this._i&lt;q.length){this.src=q[this._i++];}else{this.onerror=null;this.src=&#39;${badge}&#39;;}`;
+  return `<img src="${startSrc}" loading="lazy" decoding="async" alt="" onerror="${onerr}" style="${style}">`;
 };
 
 window._updateSymIcon = function(code) {
