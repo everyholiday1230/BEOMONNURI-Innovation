@@ -66,7 +66,7 @@ async def check_tier_limit(token: str, feature: str) -> str:
             r.expire(key, 86400)  # 24시간 TTL
         if used > limit:
             raise HTTPException(429, f"무료 사용자는 {feature} 기능을 하루 {limit}회까지 사용할 수 있습니다. "
-                                     f"레퍼럴 인증으로 무제한 이용하세요.")
+                                     f"거래소 인증으로 무제한 이용하세요.")
     except HTTPException:
         raise
     except Exception:

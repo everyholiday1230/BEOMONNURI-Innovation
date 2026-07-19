@@ -118,7 +118,7 @@ async function _injectReferralDashboard() {
   section.style.cssText = 'border-top:1px solid var(--border);padding-top:16px;margin-top:16px';
   section.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:16px;font-weight:700;color:var(--gold-text)">레퍼럴 프로그램</span>
+      <span style="font-size:16px;font-weight:700;color:var(--gold-text)">친구 초대</span>
       <span style="padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${tierColors[tier]}22;color:${tierColors[tier]};border:1px solid ${tierColors[tier]}55">${tierNames[tier]}</span>
     </div>
 
