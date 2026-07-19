@@ -8955,11 +8955,10 @@ window._saveChartSettings = function () {
 };
 function Fo() {
   if (!ze.length) return;
+  // 방식 C: BitMart 는 USDT 계약(주식/금속/외환/지수 포함) 전부 futures/ticker 를 제공.
+  // 자산군 제한 없이 USDT 계약이면 모두 실시간 구독한다.
   const e = ze.filter(
-    (y) =>
-      (y.exchangeCode || "").toUpperCase() !== "UPBIT" &&
-      (y.asset || "crypto") === "crypto" &&
-      (y.apiCode || y.code).toUpperCase().endsWith("USDT"),
+    (y) => (y.apiCode || y.code).toUpperCase().endsWith("USDT"),
   );
   if (!e.length) return;
   // 방식 C: 관심종목 실시간 티커도 BitMart WebSocket 사용 (Binance 미사용).

@@ -422,6 +422,20 @@ async def load():
     # 사용하지 않는다(BitMart 일원화). BitMart 계약 목록(TradFi Stocks 포함)은
     # api/symbols.py 의 _fetch_live_crypto_rows() 가 담당한다.
 
+    # 방식 C: 화이트리스트/해석 캐시에 BitMart 라이브 계약을 모두 반영한다.
+    # (candles/ticker 화이트리스트가 BitMart 실거래 종목을 인식해 '데이터 없음'을 방지)
+    try:
+        from src.services import bitmart
+        contracts = await bitmart.fetch_contract_symbols()
+        for c in contracts:
+            code = str(c.get("symbol", "")).upper()
+            if not code or code in DELISTED_SYMBOLS:
+                continue
+            SYMBOL_EXCHANGE.setdefault(code, BINANCE_EXCHANGE_ID)  # 2 = BitMart 계약 조회 경로
+            SYMBOL_API_MAP.setdefault(code, code)
+    except Exception as e:
+        logger.warning("symbol_resolver.bitmart_contracts_in_load", error=str(e)[:120])
+
     # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
     for code, exchange_id, api_code in _iter_seed_symbols():
         SYMBOL_EXCHANGE.setdefault(code, exchange_id)
