@@ -253,31 +253,15 @@ async def load():
     for s in rows:
         if s.symbol_code in DELISTED_SYMBOLS or s.status != "active":
             continue
-        # 방식 A: Binance(Futures crypto=2 / Spot 토큰=5) 종목만 유지.
-        # DB 에 잔존하는 Twelve Data 주식/ETF/원자재는 노출에서 제외.
-        if not is_binance_exchange(s.exchange_id):
-            continue
+        # 방식 C: 모든 데이터는 BitMart Futures. DB 심볼은 BTCUSDT 포맷이 동일하므로
+        # 그대로 사용한다(exchange_id 무관하게 crypto/토큰화주식 전부 BitMart 계약으로 조회).
         SYMBOL_EXCHANGE[s.symbol_code] = s.exchange_id
         api_code = (s.metadata_ or {}).get("api_code")
         SYMBOL_API_MAP[s.symbol_code] = api_code or s.symbol_code
 
-    # Binance Spot 토큰화 증권/원자재(bStocks) 동적 갱신 (TTL 1시간, 실패 무해)
-    try:
-        await refresh_binance_spot_listings()
-    except Exception as e:
-        logger.warning("symbol_resolver.spot_refresh_in_load", error=str(e)[:120])
-
-    # xStocks(Gate/Bybit 토큰화 증권) 동적 갱신 (TTL 1시간, 실패 무해)
-    try:
-        await refresh_xstocks_listings()
-    except Exception as e:
-        logger.warning("symbol_resolver.xstocks_refresh_in_load", error=str(e)[:120])
-
-    # Bitget 토큰화 주식(ON) 동적 갱신 (TTL 1시간, 실패 무해)
-    try:
-        await refresh_bitget_stocks_listings()
-    except Exception as e:
-        logger.warning("symbol_resolver.bitget_stocks_refresh_in_load", error=str(e)[:120])
+    # 방식 C: Binance Spot / Gate / Bybit / Bitget 등 타 거래소 동적 목록 갱신은
+    # 사용하지 않는다(BitMart 일원화). BitMart 계약 목록(TradFi Stocks 포함)은
+    # api/symbols.py 의 _fetch_live_crypto_rows() 가 담당한다.
 
     # DB에 아직 반영되지 않은 필수/신규 종목을 메모리 카탈로그로 보강
     for code, exchange_id, api_code in _iter_seed_symbols():

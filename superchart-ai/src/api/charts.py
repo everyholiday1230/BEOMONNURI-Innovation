@@ -87,17 +87,14 @@ def _bitget_to_binance_ticker(row: dict, symbol_in: str, scale: int = 1) -> dict
 
 @router.get("/ticker-24hr")
 async def proxy_ticker_24hr(symbol: str = ""):
-    """24hr ticker — Bitget v2 mix 사용 (Redis 캐시 30s + ban 탄력성).
+    """24hr ticker — BitMart Futures 사용 (Redis 캐시 30s + 탄력성).
 
-    Render egress IP가 Binance에 persistent rate-limit(code -1003)으로 밴되어
-    기존 Binance fapi 프록시가 사용 불가 상태. 차트 캔들은 이미 Bitget WS
-    ingest로 들어오고 있어 데이터 소스 일관성 측면에서도 Bitget으로 일원화.
-
-    응답 형태는 Binance fapi 24hr과 동일하게 정규화하여 프론트엔드는 변경 불필요.
+    방식 C: 모든 시세를 BitMart 로 일원화. 응답 형태는 Binance fapi 24hr 과
+    동일하게 정규화하여 프론트엔드는 변경 불필요.
     """
-    global _binance_fallback_blocked_until
     import structlog
     log = structlog.get_logger(__name__)
+    from src.services import bitmart
 
     cache_key = symbol or "all"
 
@@ -106,26 +103,8 @@ async def proxy_ticker_24hr(symbol: str = ""):
     if cached is not None:
         return cached
 
-    # Bitget는 PEPEUSDT 등을 그대로 받고, "1000PEPEUSDT" alias는 없음.
-    # Binance 호환을 위해 "1000" 접두를 벗기고 가격을 1000배 스케일해서 보정.
-    bitget_symbol = symbol
-    scale = 1
-    if symbol and symbol.upper().startswith("1000"):
-        bitget_symbol = symbol[4:]
-        scale = 1000
-
-    url = "https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES"
-    if bitget_symbol:
-        url += f"&symbol={bitget_symbol}"
-    else:
-        # 전체 심볼 조회는 복수형 엔드포인트 (/tickers) 사용
-        # 단수 /ticker?productType=... 은 symbol 필수 → 400 에러
-        url = "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES"
-
     try:
-        c = _client()
-        r = await c.get(url, timeout=5)
-        raw = r.json()
+        data = await bitmart.ticker_24hr(symbol)
     except Exception as e:
         stale = await cache_get("ticker24_last", cache_key)
         if stale is not None:
@@ -134,61 +113,14 @@ async def proxy_ticker_24hr(symbol: str = ""):
         log.warning("ticker.upstream_fail_no_fallback", symbol=symbol, err=str(e))
         return {"code": -1, "msg": f"upstream error: {e}"}
 
-    # Bitget success: {"code": "00000", "data": [{...}]}
-    if not isinstance(raw, dict) or raw.get("code") != "00000" or not raw.get("data"):
-        # Bitget 실패 → Binance Futures fallback (FLOW 등 Bitget 미지원 종목).
-        # 단, Binance가 밴 상태면(circuit open) fallback을 건너뛰어 5초 타임아웃
-        # 누적으로 인한 커넥션/메모리 폭주를 방지한다.
-        now_ts = time.time()
-        if symbol and now_ts >= _binance_fallback_blocked_until:
-            try:
-                # Binance는 SHIB→1000SHIBUSDT, PEPE→1000PEPEUSDT 등 사용
-                binance_sym = symbol
-                binance_scale = 1
-                _1000_coins = ("SHIB", "PEPE", "BONK", "FLOKI", "LUNC", "XEC", "BTTC", "SPELL")
-                base = symbol.replace("USDT", "")
-                if base in _1000_coins:
-                    binance_sym = f"1000{symbol}"
-                    binance_scale = 1000  # 가격을 1000으로 나눠야 원래 단위
-
-                c = _client()
-                binance_url = f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={binance_sym}"
-                br = await c.get(binance_url, timeout=5)
-                bd = br.json()
-                if isinstance(bd, dict) and "lastPrice" in bd:
-                    # 1000x 코인은 가격/거래량 보정
-                    if binance_scale > 1:
-                        for k in ("lastPrice", "highPrice", "lowPrice", "openPrice", "prevClosePrice", "weightedAvgPrice"):
-                            if k in bd:
-                                bd[k] = str(float(bd[k]) / binance_scale)
-                        bd["symbol"] = symbol  # 원래 심볼로 복원
-                    data = bd
-                    await cache_set("ticker24", cache_key, data, ttl=30)
-                    return data
-                # lastPrice 없음 = 밴(-1003)/에러 응답 → circuit open
-                _binance_fallback_blocked_until = now_ts + _BINANCE_FALLBACK_COOLDOWN
-                log.warning("ticker.binance_fallback_blocked", cooldown=_BINANCE_FALLBACK_COOLDOWN)
-            except Exception:
-                # 네트워크/타임아웃 실패도 circuit open
-                _binance_fallback_blocked_until = now_ts + _BINANCE_FALLBACK_COOLDOWN
-                log.warning("ticker.binance_fallback_blocked", cooldown=_BINANCE_FALLBACK_COOLDOWN)
+    # BitMart 실패(빈 결과 / 에러 dict) → stale 폴백
+    bad = (not data) or (isinstance(data, dict) and data.get("code") == -1)
+    if bad:
         stale = await cache_get("ticker24_last", cache_key)
-        log.warning(
-            "ticker.upstream_err",
-            symbol=symbol,
-            code=(raw or {}).get("code") if isinstance(raw, dict) else None,
-            msg=(raw or {}).get("msg") if isinstance(raw, dict) else str(raw)[:200],
-        )
+        log.warning("ticker.upstream_err", symbol=symbol, body=str(data)[:200])
         if stale is not None:
             return _mark_stale(stale)
-        return raw
-
-    rows = raw["data"]
-    if symbol:
-        row = rows[0]
-        data = _bitget_to_binance_ticker(row, symbol, scale=scale)
-    else:
-        data = [_bitget_to_binance_ticker(r_, r_.get("symbol", ""), 1) for r_ in rows]
+        return data
 
     await cache_set("ticker24", cache_key, data, ttl=30)
     await cache_set("ticker24_last", cache_key, data, ttl=86400)
@@ -197,39 +129,14 @@ async def proxy_ticker_24hr(symbol: str = ""):
 
 @router.get("/long-short")
 async def proxy_long_short(symbol: str = "BTCUSDT"):
-    """Binance 롱숏 비율 프록시 (Redis 캐시 60s + 탄력성)."""
-    import httpx
-    import structlog
-    log = structlog.get_logger(__name__)
+    """롱숏 계정 비율 — BitMart 공개 API 미제공으로 비활성화.
 
-    cache_key = symbol
-
-    cached = await cache_get("longshort", cache_key)
-    if cached is not None:
-        return cached
-
-    url = f"https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=5m&limit=1"
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(url)
-        data = r.json()
-    except Exception as e:
-        stale = await cache_get("longshort_last", cache_key)
-        if stale is not None:
-            log.warning("longshort.upstream_fail_stale_fallback", symbol=symbol, err=str(e))
-            return stale
-        return {"code": -1, "msg": f"upstream error: {e}"}
-
-    if isinstance(data, dict) and data.get("code") and data.get("code") != 0:
-        stale = await cache_get("longshort_last", cache_key)
-        log.warning("longshort.upstream_err", symbol=symbol, code=data.get("code"), msg=data.get("msg"))
-        if stale is not None:
-            return stale
-        return data
-
-    await cache_set("longshort", cache_key, data, ttl=60)
-    await cache_set("longshort_last", cache_key, data, ttl=86400)
-    return data
+    방식 C: 데이터 소스를 BitMart 로 일원화하면서 롱숏 비율은 BitMart 공개
+    엔드포인트가 없어 제공할 수 없다. 프론트가 안전하게 '데이터 없음'으로
+    처리하도록 빈 배열을 반환한다.
+    """
+    return {"code": 0, "data": [], "unsupported": True,
+            "note": "롱숏 비율은 현재 데이터 소스(BitMart)에서 제공하지 않습니다."}
 
 
 @router.get("/liquidation-heatmap")
@@ -270,63 +177,38 @@ async def liquidation_heatmap(symbol: str = "BTCUSDT", symbolId: str = ""):
     if cached is not None:
         return cached
 
+    # 방식 C: 가격/펀딩비는 BitMart 에서 조회. OI 히스토리는 BitMart 공개 API
+    # 미제공이라 사용하지 않고(빈 배열), 청산 추정은 캔들 변동성 기반으로 동작한다.
+    from src.services import bitmart
+    current_price = 0.0
+    funding_rate = 0.0
+    oi_data: list = []
+    klines: list = []
     try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            # 1) 현재가 조회 (견고화: 1000-접두 변형 재시도 + 캔들 폴백)
-            async def _fetch_price(sym_try):
-                try:
-                    rr = await client.get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym_try}")
-                    return float(rr.json().get("price", 0)), sym_try
-                except Exception:
-                    return 0.0, sym_try
-
-            current_price, fut_symbol = await _fetch_price(symbol)
-            if current_price <= 0 and not symbol.startswith("1000"):
-                # 일부 밈코인은 선물에서 1000-접두로 상장(PEPE→1000PEPE)
-                base = symbol.replace("USDT", "")
-                current_price, fut_symbol = await _fetch_price(f"1000{base}USDT")
-            if current_price <= 0:
-                # 마지막 폴백: 우리 자체 캔들 데이터의 종가
-                try:
-                    from src.services.market import fetch_candles
-                    from src.services.symbol_resolver import resolve_symbol
-                    api_sym, ex_id = resolve_symbol(symbol)
-                    cd = await fetch_candles(api_sym, ex_id, "1h", 2)
-                    if cd:
-                        current_price = float(cd[-1].get("close") or cd[-1].get("c") or 0)
-                except Exception:
-                    pass
-            if current_price <= 0:
-                return {"success": False, "error": "invalid price"}
-
-            # 이후 선물 데이터 조회는 가격이 잡힌 fut_symbol 기준
-            symbol = fut_symbol
-
-            # 2) Open Interest 24h 추이
-            oi_data = []
-            funding_rate = 0.0
-            klines = []
-            # OI/펀딩은 Binance 선물에서 best-effort (Render에서 막히면 0 처리)
-            try:
-                oi_r = await client.get(
-                    f"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24"
-                )
-                oi_data = oi_r.json()
-                if not isinstance(oi_data, list):
-                    oi_data = []
-            except Exception:
-                oi_data = []
-            try:
-                funding_r = await client.get(
-                    f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
-                )
-                funding = funding_r.json()
-                funding_rate = float(funding.get("lastFundingRate", 0)) if isinstance(funding, dict) else 0.0
-            except Exception:
-                funding_rate = 0.0
+        tk = await bitmart.fetch_ticker(symbol)
+        if tk and tk.get("last_price"):
+            current_price = float(tk["last_price"])
     except Exception as e:
-        log.warning("liq_heatmap.fetch_fail", symbol=symbol, err=str(e)[:120])
-        oi_data, funding_rate, klines = [], 0.0, []
+        log.warning("liq_heatmap.price_fail", symbol=symbol, err=str(e)[:120])
+
+    if current_price <= 0:
+        # 폴백: 자체 캔들 데이터의 종가
+        try:
+            from src.services.market import fetch_candles
+            from src.services.symbol_resolver import resolve_symbol
+            api_sym, ex_id = resolve_symbol(symbol)
+            cd = await fetch_candles(api_sym, ex_id, "1h", 2)
+            if cd:
+                current_price = float(cd[-1].get("close") or cd[-1].get("c") or 0)
+        except Exception:
+            pass
+    if current_price <= 0:
+        return {"success": False, "error": "invalid price"}
+
+    try:
+        funding_rate = await bitmart.fetch_funding_rate(symbol)
+    except Exception:
+        funding_rate = 0.0
 
     # 캔들은 항상 자체 서비스(fetch_candles, Bitget 폴백 포함)로 — Render egress 에서
     # Binance fapi 가 차단되어도 청산 히트맵이 동작하도록 한다.
@@ -532,9 +414,10 @@ async def hot_coins(asset_class: str = "crypto"):
     
     if asset_class == 'crypto':
         try:
-            async with httpx.AsyncClient(timeout=10) as c:
-                r = await c.get("https://api.binance.com/api/v3/ticker/24hr")
-                tickers = r.json()
+            from src.services import bitmart
+            tickers = await bitmart.ticker_24hr("")
+            if not isinstance(tickers, list):
+                tickers = []
             
             results = []
             for t in tickers:
@@ -604,9 +487,10 @@ async def trend_insights():
             ))).fetchall()
         our_symbols = {r[0]: r[1] for r in rows}
 
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get("https://api.binance.com/api/v3/ticker/24hr")
-            tickers = r.json()
+        from src.services import bitmart
+        tickers = await bitmart.ticker_24hr("")
+        if not isinstance(tickers, list):
+            tickers = []
 
         items = []
         for t in tickers:

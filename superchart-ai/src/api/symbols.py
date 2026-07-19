@@ -101,7 +101,10 @@ def _matches_symbol_filters(row: dict, q: str = "", asset_class: str | None = No
 
 
 async def _fetch_live_crypto_rows() -> list[dict]:
-    """Binance USDT 무기한 선물 전체 종목을 동적으로 수집."""
+    """BitMart USDT 무기한 선물 전체 종목을 동적으로 수집.
+
+    방식 C: 데이터 소스를 BitMart 로 일원화. 심볼 포맷은 Binance 와 동일(BTCUSDT).
+    """
     global _live_symbols_cache_rows, _live_symbols_cache_ts
 
     now = time.time()
@@ -109,28 +112,23 @@ async def _fetch_live_crypto_rows() -> list[dict]:
         return _live_symbols_cache_rows
 
     try:
-        async with httpx.AsyncClient(timeout=12) as client:
-            resp = await client.get(f"{BINANCE_FAPI}/fapi/v1/exchangeInfo")
-        if resp.status_code != 200:
-            return []
-        payload = resp.json() or {}
-        symbols = payload.get("symbols") or []
-        # 토큰화 주식/원자재 분류 보정용 화이트리스트(코어 티커 → asset_class).
-        # Binance USDT 선물에는 토큰화 주식(AAPLUSDT 등)/원자재(XAUUSDT 등)도 포함되는데,
-        # 전부 crypto 로 두면 워치리스트 crypto 탭에 주식이 섞인다. base 코어가 알려진
-        # 주식/원자재면 올바른 asset_class 로 재분류한다.
+        from src.services import bitmart
+        contracts = await bitmart.fetch_contract_symbols()
+        if not contracts:
+            return _live_symbols_cache_rows
+
+        # 토큰화 주식/원자재 분류 보정 (BitMart TradFi Stocks 포함).
         try:
             from src.services.symbol_resolver import (
                 BSTOCKS_CATALOG, COMMODITY_TOKEN_CATALOG, XSTOCKS_CATALOG, BITGET_STOCKS_CATALOG,
             )
             _stock_cores: dict[str, str] = {}
             for _b, (_c, _ko, _en, _ac) in BSTOCKS_CATALOG.items():
-                _stock_cores[str(_c).upper()] = _ac  # 표시코드(NVDA 등) 기준
+                _stock_cores[str(_c).upper()] = _ac
             for _core, (_ko, _en, _ac) in XSTOCKS_CATALOG.items():
                 _stock_cores.setdefault(_core.upper(), _ac)
             for _core, (_ko, _en, _ac) in BITGET_STOCKS_CATALOG.items():
                 _stock_cores.setdefault(_core.upper(), _ac)
-            # 원자재 코어(견적 제거한 base): XAU/XAG/CL/BZ/COPPER/NATGAS/XPT/XPD 등은 commodity
             _commodity_cores = {"XAU", "XAG", "XPT", "XPD", "CL", "BZ", "COPPER", "NATGAS", "WTI", "BRENT"}
             for _core, (_c, _ko, _en, _q) in COMMODITY_TOKEN_CATALOG.items():
                 _commodity_cores.add(_core.upper())
@@ -146,17 +144,9 @@ async def _fetch_live_crypto_rows() -> list[dict]:
             return "crypto"
 
         rows: list[dict] = []
-        for s in symbols:
-            if not isinstance(s, dict):
-                continue
-            if s.get("quoteAsset") != "USDT":
-                continue
-            if s.get("contractType") != "PERPETUAL":
-                continue
-            if s.get("status") != "TRADING":
-                continue
-            code = str(s.get("symbol") or "").upper()
-            base = str(s.get("baseAsset") or "").upper()
+        for cinfo in contracts:
+            code = str(cinfo.get("symbol") or "").upper()
+            base = str(cinfo.get("base_asset") or "").upper()
             if not code or not base:
                 continue
             ac = _classify(base)
@@ -165,7 +155,7 @@ async def _fetch_live_crypto_rows() -> list[dict]:
                 "base_asset": base,
                 "display_name_ko": base,
                 "display_name_en": base,
-                "exchange_code": "BINANCE",
+                "exchange_code": "BITMART",
                 "asset_class": ac,
                 "quote_asset": "USDT",
                 "api_code": code,

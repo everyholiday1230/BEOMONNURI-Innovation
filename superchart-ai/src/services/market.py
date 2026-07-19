@@ -1,7 +1,13 @@
-"""시장 데이터 서비스 — Binance/Bitget Futures 캔들 fetch (페이지네이션 + 캐시)."""
+"""시장 데이터 서비스 — BitMart Futures 캔들 fetch (페이지네이션 + 캐시).
+
+방식 C: 모든 시세 데이터를 BitMart Futures 로 일원화. 아래 Binance/Bitget/Gate/
+Bybit/Yahoo BASE 상수와 _fetch_* 함수들은 하위 호환/롤백 용도로 남겨두었으나
+현재 라우팅에서는 사용하지 않는다.
+"""
 import httpx
 import structlog
 from src.services.redis_cache import cache_get, cache_set
+from src.services import bitmart as _bitmart
 
 BINANCE_BASE = "https://fapi.binance.com"
 BINANCE_SPOT_BASE = "https://api.binance.com"
@@ -31,7 +37,31 @@ _CACHE_TTL = {"1m": 120, "5m": 300, "15m": 600, "1h": 1800, "4h": 3600, "1d": 72
 
 
 async def fetch_candles(symbol_code: str, exchange_id: int, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
-    """시장 캔들 조회. crypto는 Binance/Bitget, 기타 자산은 Yahoo Finance를 사용."""
+    """시장 캔들 조회.
+
+    방식 C: 모든 종목/거래소를 BitMart Futures 로 일원화한다. exchange_id 는
+    하위 호환을 위해 시그니처에 남겨두지만 라우팅에는 사용하지 않는다.
+    (기존 Binance/Bitget/Gate/Bybit/Yahoo 경로 함수는 코드상 유지하되 미사용.)
+    """
+    if not symbol_code or len(symbol_code) < 1:
+        return []
+
+    limit = min(max(limit, 1), 3000)
+
+    if not end_time:
+        key = f"bm:{symbol_code}:{timeframe}:{limit}"
+        ttl = _CACHE_TTL.get(timeframe, 60)
+        cached = await cache_get("candle", key)
+        if cached is not None:
+            return cached
+        result = await _bitmart.fetch_candles(symbol_code, timeframe, limit, end_time)
+        await cache_set("candle", key, result, ttl)
+        return result
+    return await _bitmart.fetch_candles(symbol_code, timeframe, limit, end_time)
+
+
+async def _fetch_candles_legacy(symbol_code: str, exchange_id: int, timeframe: str, limit: int, end_time: int | None = None) -> list[dict]:
+    """[미사용 보존] 이전 Binance/Bitget/Gate/Bybit/Yahoo 멀티소스 라우팅."""
     if not symbol_code or len(symbol_code) < 1:
         return []
 
@@ -194,12 +224,28 @@ async def _fetch_spot_raw(symbol_code: str, timeframe: str, limit: int, end_time
 
 
 async def fetch_ticker(symbol_code: str) -> dict | None:
-    """Fetch a Futures ticker with Binance first and Bitget as regional fallback.
+    """실시간 티커 조회 — BitMart Futures.
 
-    Frontend realtime expects ``symbol`` and ``last_price``. Binance Futures can
-    return HTTP 451 in restricted locations, so ticker delivery must not depend
-    only on Binance kline polling.
+    방식 C: 모든 티커를 BitMart 로 일원화. 프론트 realtime 은 symbol/last_price 를
+    기대한다. (이전 Binance/Bitget 멀티소스 로직은 _fetch_ticker_legacy 로 보존.)
     """
+    if not symbol_code or len(symbol_code) < 2:
+        return None
+    try:
+        from src.services.symbol_resolver import get_api_symbol
+        api_symbol = get_api_symbol(symbol_code)
+    except Exception:
+        api_symbol = symbol_code
+    result = await _bitmart.fetch_ticker(api_symbol)
+    if result:
+        # 프론트가 원본 심볼코드로 매칭하도록 보정
+        result["symbol"] = symbol_code
+        result["api_symbol"] = api_symbol
+    return result
+
+
+async def _fetch_ticker_legacy(symbol_code: str) -> dict | None:
+    """[미사용 보존] 이전 Binance→Bitget 폴백 티커 로직."""
     if not symbol_code or len(symbol_code) < 2:
         return None
     try:
