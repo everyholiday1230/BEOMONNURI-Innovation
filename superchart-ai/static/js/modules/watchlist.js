@@ -123,7 +123,8 @@ const _ASSET_QUOTE_BY_CLASS = {
   etf: '/USD',
   metal: '/USD',
   forex: '/USD',
-  index: ''
+  index: '',
+  preipo: '/USD'
 };
 
 function _formatSymbolDisplay(s) {
@@ -182,7 +183,7 @@ function _localLogoPaths(code, base) {
   if (!token) return ['', ''];
   const asset = _assetOfSymbol(code);
   if (!asset) return ['', ''];
-  const isStockLike = asset === 'stock' || asset === 'etf' || asset === 'commodity' || asset === 'metal' || asset === 'forex' || asset === 'index';
+  const isStockLike = asset === 'stock' || asset === 'etf' || asset === 'commodity' || asset === 'metal' || asset === 'forex' || asset === 'index' || asset === 'preipo';
   if (isStockLike) {
     return [`/static/stock-logos/${token}.svg`, `/static/stock-logos/${token}.png`];
   }
@@ -499,7 +500,7 @@ const _assetTabs = document.querySelectorAll('#assetTabs .asset-tab');
 if (_assetTabs.length) {
   const savedAsset = localStorage.getItem('chartOS_wlAssetFilter');
   // 6개 자산군: 암호화폐/주식/금속/외환/지수/원자재. 기본값은 암호화폐.
-  const allowed = new Set(['crypto', 'stock', 'metal', 'forex', 'index', 'commodity']);
+  const allowed = new Set(['crypto', 'stock', 'metal', 'forex', 'index', 'commodity', 'preipo']);
   window._wlAssetFilter = allowed.has(savedAsset) ? savedAsset : (allowed.has(window._wlAssetFilter) ? window._wlAssetFilter : 'crypto');
   if (!allowed.has(window._wlAssetFilter)) window._wlAssetFilter = 'crypto';
   _setAssetTabActive(window._wlAssetFilter);

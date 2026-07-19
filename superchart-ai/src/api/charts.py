@@ -405,16 +405,12 @@ async def hot_coins(asset_class: str = "crypto"):
     if cached is not None:
         return cached
     
-    # DB에서 우리 종목 목록
-    from src.db.session import SessionLocal
-    from sqlalchemy import text
-    async with SessionLocal() as db:
-        rows = (await db.execute(text("SELECT symbol_code FROM symbols WHERE status='active' AND asset_class = :cls"), {"cls": asset_class})).fetchall()
-    our_symbols = set(r[0] for r in rows)
-    
     if asset_class == 'crypto':
         try:
             from src.services import bitmart
+            from src.services.symbol_resolver import classify_bitmart_symbol
+            contracts = await bitmart.fetch_contract_symbols()
+            mg_map = {c["symbol"]: c.get("market_group") for c in contracts}
             tickers = await bitmart.ticker_24hr("")
             if not isinstance(tickers, list):
                 tickers = []
@@ -422,7 +418,9 @@ async def hot_coins(asset_class: str = "crypto"):
             results = []
             for t in tickers:
                 sym = t['symbol']
-                if sym not in our_symbols: continue
+                ac, _ko, _en = classify_bitmart_symbol(sym, mg_map.get(sym))
+                if ac != 'crypto':
+                    continue
                 try:
                     results.append({
                         "symbol": sym,
@@ -479,15 +477,10 @@ async def trend_insights():
         return cached
 
     try:
-        from src.db.session import SessionLocal
-        from sqlalchemy import text
-        async with SessionLocal() as db:
-            rows = (await db.execute(text(
-                "SELECT symbol_code, display_name_ko FROM symbols WHERE status='active' AND asset_class='crypto'"
-            ))).fetchall()
-        our_symbols = {r[0]: r[1] for r in rows}
-
         from src.services import bitmart
+        from src.services.symbol_resolver import classify_bitmart_symbol
+        contracts = await bitmart.fetch_contract_symbols()
+        mg_map = {c["symbol"]: c.get("market_group") for c in contracts}
         tickers = await bitmart.ticker_24hr("")
         if not isinstance(tickers, list):
             tickers = []
@@ -495,12 +488,14 @@ async def trend_insights():
         items = []
         for t in tickers:
             sym = t.get('symbol', '')
-            if sym not in our_symbols:
+            # 인기 트렌드는 암호화폐만 대상 (주식/지수/외환 제외)
+            ac, ko, _en = classify_bitmart_symbol(sym, mg_map.get(sym))
+            if ac != 'crypto':
                 continue
             try:
                 items.append({
                     "symbol": sym,
-                    "name_ko": our_symbols.get(sym, sym),
+                    "name_ko": ko or sym.replace('USDT', ''),
                     "price": float(t['lastPrice']),
                     "change_pct": float(t['priceChangePercent']),
                     "volume": float(t['quoteVolume']),

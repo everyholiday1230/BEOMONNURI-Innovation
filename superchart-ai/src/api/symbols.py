@@ -124,7 +124,7 @@ async def _fetch_live_crypto_rows() -> list[dict]:
             base = str(cinfo.get("base_asset") or "").upper()
             if not code or not base:
                 continue
-            ac, name_ko, name_en = classify_bitmart_symbol(code)
+            ac, name_ko, name_en = classify_bitmart_symbol(code, cinfo.get("market_group"))
             rows.append({
                 "symbol_code": code,
                 "base_asset": base,
@@ -270,8 +270,9 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
                 "source": "curated",
             })
 
-        # 3) Binance 전체 USDT 선물(동적 확장)
+        # 3) BitMart 전체 계약(동적 확장) — 방식 C: 종목 유니버스의 정본
         live_rows = await _fetch_live_crypto_rows()
+        live_codes = {str(r.get("symbol_code", "")) for r in live_rows}
         for row in live_rows:
             if str(row.get("symbol_code", "")) in DELISTED_SYMBOLS:
                 continue
@@ -283,10 +284,16 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
                 "source": "live",
             })
 
+        # 방식 C: 종목은 BitMart 에 실재하는 것만 노출한다. BitMart 계약 목록을
+        # 정상적으로 받아왔다면, 그 목록에 없는 (구)DB/curated 잔존 종목은 제외한다.
+        # (BitMart 목록을 못 받은 경우엔 필터하지 않아 기존 목록으로 폴백.)
+        if live_codes:
+            merged_rows = [r for r in merged_rows if str(r.get("symbol_code", "")) in live_codes]
+
         # 4) 중복 제거 + 정렬 + 페이징
         dedup: dict[str, dict] = {}
-        # 우선순위: db > curated > live
-        priority = {"db": 3, "curated": 2, "live": 1}
+        # 우선순위: live > db > curated (BitMart 실시간 분류/이름을 최우선)
+        priority = {"live": 3, "db": 2, "curated": 1}
 
         def _dedup_key(row: dict) -> str:
             """중복 제거 키.

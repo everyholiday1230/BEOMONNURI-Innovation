@@ -293,11 +293,14 @@ async def fetch_contract_symbols() -> list[dict]:
         base = str(r.get("base_currency", "")).upper()
         if not sym or not base:
             continue
+        ti = r.get("tradfi_info")
+        market_group = ti.get("market_group") if isinstance(ti, dict) else None
         out.append({
             "symbol": sym,
             "base_asset": base,
             "quote_asset": "USDT",
             "api_code": sym,
+            "market_group": market_group,
         })
     return out
 

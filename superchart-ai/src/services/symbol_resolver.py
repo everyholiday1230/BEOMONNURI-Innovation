@@ -12,103 +12,147 @@ logger = structlog.get_logger(__name__)
 # 화이트리스트로 분류한다. 목록에 없으면 crypto 로 간주한다.
 #   값: symbol_code -> (asset_class, 한글명, 영문명)
 # ══════════════════════════════════════════════════════════════════════════
-BITMART_TRADFI: dict[str, tuple[str, str, str]] = {
-    # ── 금속 (metal) ──
-    "XAUUSDT":  ("metal", "금", "Gold"),
-    "XAUTUSDT": ("metal", "금 (테더골드)", "Tether Gold"),
-    "XAGUSDT":  ("metal", "은", "Silver"),
-    "XPTUSDT":  ("metal", "백금", "Platinum"),
-    "XPDUSDT":  ("metal", "팔라듐", "Palladium"),
-    "GLDUSDT":  ("metal", "금 ETF", "SPDR Gold Shares"),
-    "GDXUSDT":  ("metal", "금광업 ETF", "VanEck Gold Miners ETF"),
-    # ── 외환 (forex) ──
-    "EURUSDT":  ("forex", "유로/달러", "EUR/USD"),
-    "GBPUSDT":  ("forex", "파운드/달러", "GBP/USD"),
-    "JPYUSDT":  ("forex", "엔/달러", "JPY/USD"),
-    "AUDUSDT":  ("forex", "호주달러/달러", "AUD/USD"),
-    "CADUSDT":  ("forex", "캐나다달러/달러", "CAD/USD"),
-    "CHFUSDT":  ("forex", "스위스프랑/달러", "CHF/USD"),
-    "NZDUSDT":  ("forex", "뉴질랜드달러/달러", "NZD/USD"),
-    # ── 지수 (index) ──
-    "SPXUSDT":    ("index", "S&P 500", "S&P 500"),
-    "SPX500USDT": ("index", "S&P 500", "S&P 500 Index"),
-    "NAS100USDT": ("index", "나스닥 100", "Nasdaq 100"),
-    "US30USDT":   ("index", "다우존스 30", "Dow Jones 30"),
-    "US500USDT":  ("index", "S&P 500", "US 500"),
-    "US100USDT":  ("index", "나스닥 100", "US 100"),
-    "GER40USDT":  ("index", "독일 DAX 40", "Germany DAX 40"),
-    "UK100USDT":  ("index", "영국 FTSE 100", "UK 100"),
-    "HK50USDT":   ("index", "홍콩 항셍 50", "Hong Kong 50"),
-    "JP225USDT":  ("index", "일본 닛케이 225", "Japan 225"),
-    "SOXXUSDT":   ("index", "반도체 ETF", "iShares Semiconductor ETF"),
-    "TQQQUSDT":   ("index", "나스닥100 3배 ETF", "ProShares UltraPro QQQ"),
-    "QQQXUSDT":   ("index", "나스닥 100 ETF", "Invesco QQQ"),
-    "SPYXUSDT":   ("index", "S&P 500 ETF", "SPDR S&P 500 ETF"),
-    # ── 원자재 (commodity) ──
-    "CLUSDT":     ("commodity", "WTI 원유", "WTI Crude Oil"),
-    "COPPERUSDT": ("commodity", "구리", "Copper"),
-    "NGASUSDT":   ("commodity", "천연가스", "Natural Gas"),
-    # ── 주식 (stock) ── (미국/해외 개별주 + 토큰화 주식)
-    "AAPLUSDT":  ("stock", "애플", "Apple"),
-    "AAPLXUSDT": ("stock", "애플", "Apple"),
-    "TSLAUSDT":  ("stock", "테슬라", "Tesla"),
-    "TSLAXUSDT": ("stock", "테슬라", "Tesla"),
-    "NVDAUSDT":  ("stock", "엔비디아", "NVIDIA"),
-    "NVDAXUSDT": ("stock", "엔비디아", "NVIDIA"),
-    "MSFTUSDT":  ("stock", "마이크로소프트", "Microsoft"),
-    "AMZNUSDT":  ("stock", "아마존", "Amazon"),
-    "AMZNXUSDT": ("stock", "아마존", "Amazon"),
-    "GOOGLUSDT": ("stock", "알파벳", "Alphabet"),
-    "GOOGLXUSDT":("stock", "알파벳", "Alphabet"),
-    "METAUSDT":  ("stock", "메타", "Meta Platforms"),
-    "METAXUSDT": ("stock", "메타", "Meta Platforms"),
-    "COINUSDT":  ("stock", "코인베이스", "Coinbase"),
-    "COINXUSDT": ("stock", "코인베이스", "Coinbase"),
-    "MSTRUSDT":  ("stock", "스트래티지", "Strategy (MicroStrategy)"),
-    "MSTRXUSDT": ("stock", "스트래티지", "Strategy (MicroStrategy)"),
-    "HOODUSDT":  ("stock", "로빈후드", "Robinhood"),
-    "HOODXUSDT": ("stock", "로빈후드", "Robinhood"),
-    "CRCLUSDT":  ("stock", "서클", "Circle"),
-    "CRCLXUSDT": ("stock", "서클", "Circle"),
-    "ORCLUSDT":  ("stock", "오라클", "Oracle"),
-    "ORCLXUSDT": ("stock", "오라클", "Oracle"),
-    "PLTRUSDT":  ("stock", "팔란티어", "Palantir"),
-    "PLTRXUSDT": ("stock", "팔란티어", "Palantir"),
-    "NFLXUSDT":  ("stock", "넷플릭스", "Netflix"),
-    "AMDUSDT":   ("stock", "AMD", "Advanced Micro Devices"),
-    "INTCUSDT":  ("stock", "인텔", "Intel"),
-    "MUUSDT":    ("stock", "마이크론", "Micron"),
-    "SNDKUSDT":  ("stock", "샌디스크", "SanDisk"),
-    "CRWVUSDT":  ("stock", "코어위브", "CoreWeave"),
-    "RTXUSDT":   ("stock", "RTX", "RTX Corporation"),
-    "TJXUSDT":   ("stock", "TJX", "TJX Companies"),
-    "BKNGUSDT":  ("stock", "부킹홀딩스", "Booking Holdings"),
-    "DKNGUSDT":  ("stock", "드래프트킹스", "DraftKings"),
-    "CCLUSDT":   ("stock", "카니발", "Carnival"),
-    "CLSKUSDT":  ("stock", "클린스파크", "CleanSpark"),
-    "FCXUSDT":   ("stock", "프리포트맥모란", "Freeport-McMoRan"),
-    "FCXONUSDT": ("stock", "프리포트맥모란", "Freeport-McMoRan"),
-    "BABAUSDT":  ("stock", "알리바바", "Alibaba"),
-    "NIOUSDT":   ("stock", "니오", "NIO"),
-    "JDUSDT":    ("stock", "징둥닷컴", "JD.com"),
-    "PDDUSDT":   ("stock", "핀둬둬", "PDD Holdings"),
-    "PDDONUSDT": ("stock", "핀둬둬", "PDD Holdings"),
-    "CPNGONUSDT":("stock", "쿠팡", "Coupang"),
-    "SAMSUNGUSDT":  ("stock", "삼성전자", "Samsung Electronics"),
-    "SAMSUNGEMUSDT":("stock", "삼성전자", "Samsung Electronics"),
-    "SKHYNIXUSDT":  ("stock", "SK하이닉스", "SK Hynix"),
-    "SPCXUSDT":  ("stock", "스페이스X", "SpaceX (pre-IPO)"),
-    "SPACEXUSDT":("stock", "스페이스X", "SpaceX (pre-IPO)"),
-    "CGNXUSDT":  ("stock", "코그넥스", "Cognex"),
+# ══════════════════════════════════════════════════════════════════════════
+# BitMart TradFi 분류 (방식 C)
+# BitMart /contract/public/details 응답의 `tradfi_info.market_group` 을 1차 신호로
+# 사용한다(공식 필드). market_group 이 없는(null) 금속/원자재는 명시적 심볼셋으로
+# 보완한다. 최종 asset_class: crypto/stock/metal/forex/index/commodity/preipo.
+# ══════════════════════════════════════════════════════════════════════════
+
+# 실제 '지수' 상품(개별주가 아님). BitMart 는 국가 지수를 INDEX_XX 그룹에 개별주와
+# 섞어 넣으므로, 진짜 지수 티커만 별도로 지정한다.
+_BM_INDEX_SYMBOLS: dict[str, tuple[str, str]] = {
+    "SPX500USDT": ("S&P 500", "S&P 500 Index"),
+    "SPXUSDT":    ("S&P 500", "S&P 500"),
+    "NAS100USDT": ("나스닥 100", "Nasdaq 100"),
+    "US30USDT":   ("다우존스 30", "Dow Jones 30"),
+    "US2000USDT": ("러셀 2000", "Russell 2000"),
+    "US500USDT":  ("S&P 500", "US 500"),
+    "US100USDT":  ("나스닥 100", "US 100"),
+    "VIXUSDT":    ("변동성 지수(VIX)", "Volatility Index"),
+    "GER40USDT":  ("독일 DAX 40", "Germany DAX 40"),
+    "UK100USDT":  ("영국 FTSE 100", "UK 100"),
+    "HK50USDT":   ("홍콩 항셍 50", "Hong Kong 50"),
+    "JPN225USDT": ("일본 닛케이 225", "Japan 225"),
+    "AUS200USDT": ("호주 ASX 200", "Australia 200"),
+    "TW88USDT":   ("대만 가권 지수", "Taiwan Index"),
+    "KR200USDT":  ("한국 코스피 200", "Korea 200"),
+}
+
+# 귀금속/산업금속 (metal). null market_group 포함.
+_BM_METAL_SYMBOLS: dict[str, tuple[str, str]] = {
+    "XAUUSDT":  ("금", "Gold"),
+    "XAUTUSDT": ("금 (테더골드)", "Tether Gold"),
+    "XAGUSDT":  ("은", "Silver"),
+    "SLVONUSDT":("은 (iShares Silver Trust)", "iShares Silver Trust"),
+    "XPTUSDT":  ("백금", "Platinum"),
+    "XPDUSDT":  ("팔라듐", "Palladium"),
+    "XPBUSDT":  ("납", "Lead"),
+    "XNIUSDT":  ("니켈", "Nickel"),
+    "XCUUSDT":  ("구리", "Copper"),
+    "XALUSDT":  ("알루미늄", "Aluminum"),
+    "COPPERUSDT": ("구리", "Copper"),
+}
+
+# 에너지/원자재 (commodity). null market_group 포함.
+_BM_COMMODITY_SYMBOLS: dict[str, tuple[str, str]] = {
+    "CLUSDT":   ("WTI 원유", "WTI Crude Oil"),
+    "XTIUSDT":  ("WTI 원유", "WTI Crude Oil"),
+    "BZUSDT":   ("브렌트유", "Brent Oil"),
+    "XBRUSDT":  ("브렌트유", "Brent Oil"),
+    "NGASUSDT": ("천연가스", "Natural Gas (Henry Hub)"),
+}
+
+# 주요 종목 한글명(선택적 보강 — 없으면 base 코드 노출). 자동분류가 우선.
+_BM_STOCK_NAMES: dict[str, tuple[str, str]] = {
+    "AAPLUSDT": ("애플", "Apple"), "AAPLXUSDT": ("애플", "Apple"),
+    "TSLAUSDT": ("테슬라", "Tesla"), "TSLAXUSDT": ("테슬라", "Tesla"),
+    "NVDAUSDT": ("엔비디아", "NVIDIA"), "NVDAXUSDT": ("엔비디아", "NVIDIA"),
+    "MSFTUSDT": ("마이크로소프트", "Microsoft"),
+    "AMZNUSDT": ("아마존", "Amazon"), "AMZNXUSDT": ("아마존", "Amazon"),
+    "GOOGLUSDT": ("알파벳", "Alphabet"), "GOOGLXUSDT": ("알파벳", "Alphabet"),
+    "METAUSDT": ("메타", "Meta Platforms"), "METAXUSDT": ("메타", "Meta Platforms"),
+    "COINUSDT": ("코인베이스", "Coinbase"), "COINXUSDT": ("코인베이스", "Coinbase"),
+    "MSTRUSDT": ("스트래티지", "Strategy"), "MSTRXUSDT": ("스트래티지", "Strategy"),
+    "HOODUSDT": ("로빈후드", "Robinhood"), "HOODXUSDT": ("로빈후드", "Robinhood"),
+    "CRCLUSDT": ("서클", "Circle"), "CRCLXUSDT": ("서클", "Circle"),
+    "ORCLUSDT": ("오라클", "Oracle"), "ORCLXUSDT": ("오라클", "Oracle"),
+    "PLTRUSDT": ("팔란티어", "Palantir"), "PLTRXUSDT": ("팔란티어", "Palantir"),
+    "NFLXUSDT": ("넷플릭스", "Netflix"), "AMDUSDT": ("AMD", "Advanced Micro Devices"),
+    "INTCUSDT": ("인텔", "Intel"), "MUUSDT": ("마이크론", "Micron"),
+    "SNDKUSDT": ("샌디스크", "SanDisk"), "CRWVUSDT": ("코어위브", "CoreWeave"),
+    "BABAUSDT": ("알리바바", "Alibaba"), "NIOUSDT": ("니오", "NIO"),
+    "JDUSDT": ("징둥닷컴", "JD.com"), "PDDUSDT": ("핀둬둬", "PDD Holdings"),
+    "SAMSUNGUSDT": ("삼성전자", "Samsung Electronics"),
+    "SKHYNIXUSDT": ("SK하이닉스", "SK Hynix"),
+    "HYUNDAIUSDT": ("현대차", "Hyundai Motor"),
+    "TENCENTUSDT": ("텐센트", "Tencent"), "XIAOMIUSDT": ("샤오미", "Xiaomi"),
+    "MEITUANUSDT": ("메이퇀", "Meituan"), "SPCXUSDT": ("스페이스X", "SpaceX (Pre-IPO)"),
+    "SPACEXUSDT": ("스페이스X", "SpaceX (Pre-IPO)"), "OPENAIUSDT": ("오픈AI", "OpenAI (Pre-IPO)"),
+    "ANTHROPICUSDT": ("앤스로픽", "Anthropic (Pre-IPO)"), "SOFTBANKUSDT": ("소프트뱅크", "SoftBank"),
+    "GLDUSDT": ("금 ETF", "SPDR Gold Shares"), "GDXUSDT": ("금광업 ETF", "VanEck Gold Miners ETF"),
+    "SOXXUSDT": ("반도체 ETF", "iShares Semiconductor ETF"),
+    "TQQQUSDT": ("나스닥100 3배 ETF", "ProShares UltraPro QQQ"),
+    "QQQXUSDT": ("나스닥 100 ETF", "Invesco QQQ"), "SPYXUSDT": ("S&P 500 ETF", "SPDR S&P 500 ETF"),
+}
+
+# 외환 표시명
+_BM_FOREX_NAMES: dict[str, tuple[str, str]] = {
+    "EURUSDT": ("유로/달러", "EUR/USD"),
+    "GBPUSDT": ("파운드/달러", "GBP/USD"),
+    "JPYUSDT": ("엔/달러", "JPY/USD"),
+    "AUDUSDT": ("호주달러/달러", "AUD/USD"),
+    "CADUSDT": ("캐나다달러/달러", "CAD/USD"),
+    "CHFUSDT": ("스위스프랑/달러", "CHF/USD"),
+    "TRYUSDT": ("터키리라/달러", "TRY/USD"),
+    "BRLUSDT": ("브라질헤알/달러", "BRL/USD"),
+}
+
+# market_group → 상위 asset_class (지수/금속/원자재는 세부 심볼셋이 우선)
+_MARKET_GROUP_CLASS: dict[str, str] = {
+    "US_MARKET": "stock", "HK_STOCK": "stock",
+    "INDEX_KR": "stock", "INDEX_JP": "stock", "INDEX_HK": "stock",
+    "INDEX_UK": "stock", "INDEX_DE": "stock", "INDEX_TW": "stock", "INDEX_AU": "stock",
+    "FOREX": "forex",
+    "METAL_LME": "metal",
+    "COMMODITY_CME": "commodity", "COMMODITY_ICE": "commodity",
+    "PRE_LIST": "preipo",
 }
 
 
-def classify_bitmart_symbol(symbol_code: str) -> tuple[str, str | None, str | None]:
-    """BitMart 심볼 → (asset_class, 한글명, 영문명). 미등록이면 ('crypto', None, None)."""
-    info = BITMART_TRADFI.get((symbol_code or "").upper())
-    if info:
-        return info
+def classify_bitmart_symbol(symbol_code: str, market_group: str | None = None) -> tuple[str, str | None, str | None]:
+    """BitMart 심볼 → (asset_class, 한글명, 영문명).
+
+    우선순위:
+      1) 명시적 지수/금속/원자재 심볼셋 (정식 이름 포함)
+      2) tradfi_info.market_group 매핑
+      3) crypto (기본)
+    """
+    code = (symbol_code or "").upper()
+    if code in _BM_INDEX_SYMBOLS:
+        ko, en = _BM_INDEX_SYMBOLS[code]
+        return "index", ko, en
+    if code in _BM_METAL_SYMBOLS:
+        ko, en = _BM_METAL_SYMBOLS[code]
+        return "metal", ko, en
+    if code in _BM_COMMODITY_SYMBOLS:
+        ko, en = _BM_COMMODITY_SYMBOLS[code]
+        return "commodity", ko, en
+    if market_group:
+        ac = _MARKET_GROUP_CLASS.get(market_group)
+        if ac == "forex":
+            ko, en = _BM_FOREX_NAMES.get(code, (None, None))
+            return ac, ko, en
+        if ac:
+            ko, en = _BM_STOCK_NAMES.get(code, (None, None))
+            return ac, ko, en
+    # market_group 없이도 알려진 주식이면 stock
+    if code in _BM_STOCK_NAMES:
+        ko, en = _BM_STOCK_NAMES[code]
+        return "stock", ko, en
     return "crypto", None, None
+
+
 
 # 메모리 캐시 — load() 호출 후 채워짐
 SYMBOL_EXCHANGE: dict[str, int] = {}
