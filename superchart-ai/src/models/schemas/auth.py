@@ -11,6 +11,11 @@ class SignupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=72)
     nickname: str = Field(min_length=2, max_length=20, pattern=r"^[a-zA-Z0-9가-힣_-]+$")
     phone: str = Field(default="", max_length=20, pattern=r"^[0-9+\-]*$")
+    # 추가 수집 정보(선택 입력 허용 — 비어 있어도 가입 가능)
+    gender: str = Field(default="", max_length=10)          # M / F / U 등
+    birthday: str = Field(default="", max_length=10)        # MM-DD
+    birth_year: str = Field(default="", max_length=4, pattern=r"^[0-9]*$")   # YYYY
+    age_range: str = Field(default="", max_length=20)       # 예: 20-29
 
 
 class LoginRequest(BaseModel):

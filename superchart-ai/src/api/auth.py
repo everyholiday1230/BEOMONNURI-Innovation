@@ -34,7 +34,9 @@ async def signup(req: SignupRequest, request: Request, db: AsyncSession = Depend
     if existing.scalar():
         raise HTTPException(409, "이미 가입된 이메일입니다")
     user = User(email=req.email, password_hash=hash_password(req.password), nickname=req.nickname,
-                phone=req.phone or None)
+                phone=req.phone or None,
+                gender=(req.gender or None), birthday=(req.birthday or None),
+                birth_year=(req.birth_year or None), age_range=(req.age_range or None))
     db.add(user)
     await db.commit()
     await db.refresh(user)

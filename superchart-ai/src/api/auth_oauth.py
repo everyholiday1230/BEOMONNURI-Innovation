@@ -286,6 +286,13 @@ async def naver_callback(
     if not email:
         raise HTTPException(400, "이메일 정보 없음 (네이버 계정에서 이메일 제공 동의가 필요합니다)")
 
+    # 네이버가 제공하는 추가 정보(권한 승인 항목만 채워짐)
+    gender = (info.get("gender") or "")[:10] or None            # M / F / U
+    birthday = (info.get("birthday") or "")[:10] or None         # MM-DD
+    birth_year = (info.get("birthyear") or "")[:4] or None       # YYYY
+    age_range = (info.get("age") or "")[:20] or None             # 예: 20-29
+    phone = (info.get("mobile") or info.get("mobile_e164") or "")[:20] or None
+
     # 기존 사용자 확인 (이메일 기준) — 구글/네이버/일반가입 계정을 이메일로 통합
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar()
@@ -295,10 +302,21 @@ async def naver_callback(
             email=email,
             password_hash=hash_password(_sec.token_urlsafe(16)),
             nickname=name[:80],
+            gender=gender, birthday=birthday, birth_year=birth_year,
+            age_range=age_range, phone=phone,
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    else:
+        # 기존 계정: 비어 있는 프로필 정보만 네이버 값으로 보강(기존 값 덮어쓰지 않음)
+        changed = False
+        for attr, val in (("gender", gender), ("birthday", birthday), ("birth_year", birth_year),
+                          ("age_range", age_range), ("phone", phone)):
+            if val and not getattr(user, attr, None):
+                setattr(user, attr, val); changed = True
+        if changed:
+            await db.commit()
 
     # JWT 발급 — effective_tier 적용
     tier = effective_tier(user)

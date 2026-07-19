@@ -20,6 +20,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     nickname: Mapped[str] = mapped_column(String(80), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20))
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)        # M / F / U
+    birthday: Mapped[str | None] = mapped_column(String(10), nullable=True)      # MM-DD (네이버 제공 형식)
+    birth_year: Mapped[str | None] = mapped_column(String(4), nullable=True)     # YYYY
+    age_range: Mapped[str | None] = mapped_column(String(20), nullable=True)     # 예: 20-29
     referral_code: Mapped[str | None] = mapped_column(String(50))
     role: Mapped[str] = mapped_column(String(30), default="user")
     tier: Mapped[str] = mapped_column(String(10), default="free")  # free / pro / premium

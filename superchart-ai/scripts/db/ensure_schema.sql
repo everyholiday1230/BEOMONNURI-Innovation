@@ -199,3 +199,10 @@ CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 --   추가한다(이미 존재하면 아무 일도 하지 않음 — 기존 데이터/값 무손실).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_users_points ON users(points) WHERE points > 0;
+
+-- 회원 프로필 추가 정보(네이버 로그인/일반 가입에서 수집): 성별·생일·출생연도·연령대.
+-- 모두 nullable — 기존 회원/구글 로그인(이메일·이름만 제공)에 영향 없음.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_year TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS age_range TEXT;
