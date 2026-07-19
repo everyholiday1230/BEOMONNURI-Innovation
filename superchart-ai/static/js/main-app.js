@@ -8962,38 +8962,56 @@ function Fo() {
       (y.apiCode || y.code).toUpperCase().endsWith("USDT"),
   );
   if (!e.length) return;
-  const n = e
-      .map((y) => (y.apiCode || y.code).toLowerCase() + "@ticker")
-      .join("/"),
-    a = {};
+  // 방식 C: 관심종목 실시간 티커도 BitMart WebSocket 사용 (Binance 미사용).
+  // BitMart ticker 채널: futures/ticker:SYMBOL (대문자), data.range = 24h 변동률(부호 포함).
+  const _syms = e.map((y) => (y.apiCode || y.code).toUpperCase());
+  const a = {};
   ze.forEach((y) => {
-    y.apiCode && (a[y.apiCode] = y.code);
+    a[(y.apiCode || y.code).toUpperCase()] = y.code;
   });
+  const BM_WS = "wss://openapi-ws-v2.bitmart.com/api?protocol=1.1";
+  // args 총 길이 4096바이트 제한 → 60개씩 청크로 나눠 구독
+  const _chunks = [];
+  for (let _i = 0; _i < _syms.length; _i += 60) _chunks.push(_syms.slice(_i, _i + 60));
   let r;
   function i() {
-    ((r = new WebSocket("wss://fstream.binance.com/stream?streams=" + n)),
-      (r.onmessage = (y) => {
-        try {
-          const m = JSON.parse(y.data).data;
-          if (!m) return;
-          const b = a[m.s] || m.s,
-            v = document.getElementById("wp_" + b);
-          if (!v) return;
-          const s = parseFloat(m.c),
-            l = parseFloat(m.P),
-            d = l >= 0 ? "#C4384B" : "#3B82F6",
+    r = new WebSocket(BM_WS);
+    let _ka = null;
+    r.onopen = () => {
+      _chunks.forEach((ch) => {
+        try { r.send(JSON.stringify({ action: "subscribe", args: ch.map((s) => "futures/ticker:" + s) })); } catch (_) {}
+      });
+      // BitMart는 20초 무통신 시 끊음 → 15초마다 ping
+      _ka = setInterval(() => { try { r.send("ping"); } catch (_) {} }, 15000);
+    };
+    r.onmessage = (y) => {
+      try {
+        if (!y.data || y.data === "pong") return;
+        const raw = JSON.parse(y.data);
+        const m = raw && raw.data;
+        if (!m || m.last_price == null) return;
+        const sym = String(m.symbol || "").toUpperCase();
+        const b = a[sym] || sym,
+          v = document.getElementById("wp_" + b);
+        const s = parseFloat(m.last_price),
+          l = (parseFloat(m.range) || 0) * 100;
+        if (v) {
+          const d = l >= 0 ? "#C4384B" : "#3B82F6",
             p = l >= 0 ? "+" : "",
             c = String(s).replace(/0+$/, "").replace(/\.$/, "");
-          ((v.innerHTML = `<div style="font-weight:600">${c}</div><div style="color:${d};font-size:14px">${p}${l.toFixed(2)}%</div>`),
-            b === B &&
-              ((window._rt.lastPrice = s),
-              (window._rt.pct24h = l),
-              (window._rt.symbol = B),
-              (window._rt.source = "binance_ticker"),
-              Ge()));
-        } catch {}
-      }),
-      (r.onclose = () => setTimeout(i, 3e3)));
+          v.innerHTML = `<div style="font-weight:600">${c}</div><div style="color:${d};font-size:14px">${p}${l.toFixed(2)}%</div>`;
+        }
+        if (b === B) {
+          window._rt.lastPrice = s;
+          window._rt.pct24h = l;
+          window._rt.symbol = B;
+          window._rt.source = "bitmart_ticker";
+          Ge();
+        }
+      } catch {}
+    };
+    r.onclose = () => { if (_ka) clearInterval(_ka); setTimeout(i, 3e3); };
+    r.onerror = () => { try { r.close(); } catch (_) {} };
   }
   i();
 }
