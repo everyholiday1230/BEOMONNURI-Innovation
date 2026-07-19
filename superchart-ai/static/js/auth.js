@@ -194,3 +194,9 @@ window._showSupport=function(){let t=document.getElementById("supportModal");if(
           <span style="color:${g};font-weight:600">${x}</span>
         </div>
       </div>`}grid.innerHTML=i}catch{grid.innerHTML='<div style="color:var(--red);padding:8px">\uB85C\uB4DC \uC2E4\uD328</div>'}};
+
+/* 호환 별칭: 여러 모듈이 window.showAuthModal 을 호출하나 실제 정의는 window.showAuth 이다.
+   정의되지 않아 로그인 버튼이 무반응이던 문제를 해결한다. (범온 포인트 팝업 등) */
+if (typeof window.showAuthModal !== 'function' && typeof window.showAuth === 'function') {
+  window.showAuthModal = function (mode) { return window.showAuth(mode); };
+}

@@ -106,7 +106,7 @@
     });
     if (!isLoggedIn() && ['mine','ledger','invite'].includes(P.sec)) {
       el.innerHTML = `<div class="pt-state-msg">로그인하면 보유 포인트, 적립·사용 내역, 지인 초대 현황을 확인할 수 있습니다.
-        <div style="margin-top:10px"><button class="pt-btn pt-btn-primary pt-btn-xs" type="button" onclick="window.showAuthModal&&window.showAuthModal()">로그인</button></div></div>`;
+        <div style="margin-top:10px"><button class="pt-btn pt-btn-primary pt-btn-xs" type="button" onclick="(window.showAuth||window.showAuthModal||function(){})()">로그인</button></div></div>`;
       return;
     }
     if (P.error && ['mine','ledger'].includes(P.sec)) {
