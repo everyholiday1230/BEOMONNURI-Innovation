@@ -442,39 +442,30 @@ function uo() {
     o.overlayCanvas.addEventListener("mousemove", (e) => {}),
     vo(),
     (o.onSubClose = function (e) {
+      // 하단(서브차트) 지표 삭제: 토글(.click)이 아니라 '무조건 끄기'로 처리해
+      // 이미 subChart가 제거된 뒤 다시 켜지거나 삭제가 안 되는 문제를 방지한다.
       const n = {
-        rsi: "rsi",
-        macd: "macd",
-        stoch: "stoch",
-        adx: "adx",
-        atr: "atr",
-        cmf: "cmf",
-        roc: "roc",
-        imacd: "imacd",
-        wr: "wr",
-        cci: "cci",
-        mfi: "mfi",
-        _u: "_u",
-        udstoch: "udstoch",
-        rsimfi: "rsimfi",
-        stc: "stc",
-        pasrpvi: "pasrpvi",
+        rsi: "rsi", macd: "macd", stoch: "stoch", adx: "adx", atr: "atr",
+        cmf: "cmf", roc: "roc", imacd: "imacd", wr: "wr", cci: "cci",
+        mfi: "mfi", _u: "_u", udstoch: "udstoch", rsimfi: "rsimfi",
+        stc: "stc", pasrpvi: "pasrpvi",
       };
-      for (const [a, r] of Object.entries(n))
-        if (e === a || e === r) {
-          const i =
-            document.querySelector(`[data-ind="${r}"]`) ||
-            document.querySelector(`[data-sub="${a}"]`);
-          i && i.classList.contains("on") && i.click();
-          return;
-        }
-      (e.startsWith("csub_") &&
-        ((window._customSUB = (window._customSUB || []).filter(
-          (a) => a.id !== e,
-        )),
-        Le(),
-        Ne()),
-        o.removeSubChart(e));
+      var keys = [e];
+      for (const [a, r] of Object.entries(n)) { if (e === a || e === r) { keys = [a, r]; break; } }
+      keys.forEach(function (k) {
+        document.querySelectorAll(
+          `[data-ind="${k}"].on, [data-sub="${k}"].on, .sub-ind[data-sub="${k}"].on`
+        ).forEach(function (btn) { btn.classList.remove("on"); });
+      });
+      if (String(e).startsWith("csub_")) {
+        window._customSUB = (window._customSUB || []).filter((a) => a.id !== e);
+        try { Le(); } catch (_) {}
+      }
+      try { o.removeSubChart(e); } catch (_) {}
+      try { Ne(); } catch (_) {}
+      try { window._updateActiveIndList && window._updateActiveIndList(); } catch (_) {}
+      try { window._saveUserSettings && window._saveUserSettings(); } catch (_) {}
+      if (o) { o._dirty = true; }
     }),
     (o.onSubSettings = function (e, n) {
       const a = o.subCharts[e];
