@@ -21,7 +21,9 @@
     positions: safeJSON('paperPositions', []),
     history: safeJSON('paperHistory', []),
     settings: {
-      leverage: parseInt(localStorage.getItem('paperLeverage') || '3'),
+      // 프리셋(1/2/3/5/10)만 허용. 과거 직접입력 값이 저장돼 있으면 3x로 보정.
+      leverage: ([1,2,3,5,10].includes(parseInt(localStorage.getItem('paperLeverage') || '3'))
+                 ? parseInt(localStorage.getItem('paperLeverage') || '3') : 3),
       feeRate: parseFloat(localStorage.getItem('paperFeeRate') || DEFAULT_FEE_RATE),
     },
   };
@@ -360,7 +362,7 @@
     const tier = levTier(lev);
     const levChips = [1, 2, 3, 5, 10].map(L =>
       `<button class="mt-lev-chip ${L === lev ? 'active' : ''}" type="button" onclick="window.PaperTrading.setLeverage(${L})">${L}x</button>`
-    ).join('') + `<button class="mt-lev-chip ${![1,2,3,5,10].includes(lev) ? 'active' : ''}" type="button" onclick="window.PaperTrading.customLeverage()">직접입력</button>`;
+    ).join('');
 
     let levWarn = '';
     if (lev >= 20) levWarn = '<div class="mt-lev-warn extreme">매우 높은 위험: 작은 가격 변동에도 청산 위험이 큽니다. 연습 시 손실 가정을 반드시 함께 확인하세요.</div>';
