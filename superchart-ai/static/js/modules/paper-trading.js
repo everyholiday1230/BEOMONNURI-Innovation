@@ -684,7 +684,7 @@
   function renderRecords() {
     const el = document.getElementById('mtRecords');
     if (!el) return;
-    const filters = [['all','전체'],['long','매수'],['short','매도'],['win','수익'],['loss','손실'],['week','이번 주'],['month','이번 달']];
+    const filters = [['all','전체'],['long','매수'],['short','매도'],['win','수익'],['loss','손실']];
     const sorts = [['recent','최신순'],['pnl_high','손익 높은 순'],['loss_big','손실 큰 순'],['hold_long','보유 시간 긴 순'],['rr_high','손익비 높은 순']];
     const list = filteredRecords();
     let body;
