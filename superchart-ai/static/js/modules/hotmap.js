@@ -346,27 +346,9 @@ function htRenderDetail() {
 }
 
 function htRenderWatchTop(rows) {
+  // '내 관심 종목 TOP' 섹션 제거(사용자 요청). 컨테이너를 비워둔다.
   const el = document.getElementById('htWatchTop');
-  if (!el) return;
-  const favs = rows.filter(r => r.isFav);
-  if (!favs.length) { el.innerHTML = ''; return; }
-  const byAtt = favs.slice().sort((a, b) => b.attention - a.attention)[0];
-  const byTurn = favs.slice().sort((a, b) => b.turnover - a.turnover)[0];
-  const byVol = favs.slice().sort((a, b) => b.volatility - a.volatility)[0];
-  const byRank = favs.slice().sort((a, b) => ((typeof b._rankDelta==='number'?b._rankDelta:-999)) - ((typeof a._rankDelta==='number'?a._rankDelta:-999)))[0];
-  const nm = r => r ? esc(r.base) : '-';
-  el.innerHTML = `
-    <button type="button" class="ht-summary-toggle" onclick="window._htToggleWatch()" aria-expanded="${HT.watchOpen?'true':'false'}">
-      내 관심 종목 TOP <span class="ht-advanced-arrow">${HT.watchOpen?'▲':'▼'}</span>
-    </button>
-    <div class="ht-card" ${HT.watchOpen?'':'hidden'}>
-      <div class="ht-summary-grid">
-        <div class="row"><span class="k">관심도 상위</span><span class="v">${nm(byAtt)} (${byAtt?byAtt.attention:'-'})</span></div>
-        <div class="row"><span class="k">거래대금 상위</span><span class="v">${nm(byTurn)}</span></div>
-        <div class="row"><span class="k">변동성 확대</span><span class="v">${nm(byVol)}</span></div>
-        <div class="row"><span class="k">순위 상승</span><span class="v">${nm(byRank)}</span></div>
-      </div>
-    </div>`;
+  if (el) el.innerHTML = '';
 }
 window._htToggleWatch = function () {
   HT.watchOpen = !HT.watchOpen;
