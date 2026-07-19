@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from src.api.signal_board import (
     _popularity_sql,
+    _serialize_row,
     _validate_create_payload,
 )
 
@@ -117,3 +118,28 @@ def test_signal_board_frontend_exposes_all_server_sort_modes():
 
     for sort in ("popular", "newest", "likes", "favorites"):
         assert f'value="{sort}"' in index
+
+
+def test_conditions_hidden_from_non_owner():
+    """공개 신호의 조건은 소유자가 아닌 뷰어에게 노출되지 않아야 한다."""
+    row = {
+        "id": 1, "title": "비밀 전략", "symbol": "BTCUSDT", "timeframe": "1h",
+        "action": "buy", "conditions": [{"indicator": "rsi", "op": "below", "value": 30}],
+        "is_public": True, "is_mine": False,
+    }
+    data = _serialize_row(row, hide_conditions_for_others=True)
+    assert data["conditions"] == []
+    assert data["conditionsHidden"] is True
+    assert data["conditionCount"] == 1
+
+
+def test_conditions_visible_to_owner():
+    """소유자에게는 조건이 그대로 보여야 한다."""
+    row = {
+        "id": 1, "title": "내 전략", "symbol": "BTCUSDT", "timeframe": "1h",
+        "action": "buy", "conditions": [{"indicator": "rsi", "op": "below", "value": 30}],
+        "is_public": True, "is_mine": True,
+    }
+    data = _serialize_row(row, hide_conditions_for_others=True)
+    assert data["conditions"] and data["conditions"][0]["indicator"] == "rsi"
+    assert data.get("conditionsHidden") is not True

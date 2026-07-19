@@ -64,7 +64,13 @@
       ? '<span class="sg-badge public">공개</span>'
       : '<span class="sg-badge private">비공개</span>';
     const owner = item.nickname ? `<span>${esc(item.nickname)}</span>` : '';
-    const conditions = (item.conditions || []).slice(0, 3).map(c => `<li>${esc(conditionText(c))}</li>`).join('');
+    let conditions;
+    if (item.conditionsHidden) {
+      const cnt = item.conditionCount || 0;
+      conditions = `<li class="sg-cond-hidden">🔒 비공개 전략 · 조건 ${cnt}개 (제작자만 열람 가능)</li>`;
+    } else {
+      conditions = (item.conditions || []).slice(0, 3).map(c => `<li>${esc(conditionText(c))}</li>`).join('');
+    }
     let actions = '';
     if (mine) {
       actions = `
@@ -167,9 +173,20 @@
       const item = await request(`/v1/signals/${id}`);
       const root = $('sgModalRoot');
       if (!root) return;
-      const conditions = (item.conditions || []).map((condition, index) =>
-        `<li><b>조건 ${index + 1}</b><span>${esc(conditionText(condition))}</span></li>`
-      ).join('');
+      let conditions;
+      if (item.conditionsHidden) {
+        const cnt = item.conditionCount || 0;
+        conditions = `<li class="sg-cond-hidden"><b>🔒 비공개 전략</b><span>조건 ${cnt}개 — 제작자(${esc(item.nickname || '익명')})만 열람할 수 있습니다.</span></li>`;
+      } else {
+        conditions = (item.conditions || []).map((condition, index) =>
+          `<li><b>조건 ${index + 1}</b><span>${esc(conditionText(condition))}</span></li>`
+        ).join('');
+      }
+      // 조건이 비공개인 신호는 차트 적용 시 로직이 드러나므로 제작자에게만 '적용' 제공.
+      const canApply = item.isMine || !item.conditionsHidden;
+      const applyBtn = canApply
+        ? `<button type="button" class="sg-btn sg-btn-primary" data-sg-apply="${item.id}">현재 차트에 적용</button>`
+        : '';
       root.innerHTML = `<div class="sg-modal-overlay" data-sg-close>
         <section class="sg-modal" role="dialog" aria-modal="true" aria-label="공개 신호 상세">
           <button type="button" class="sg-modal-close" data-sg-close aria-label="닫기">×</button>
@@ -178,7 +195,7 @@
           <ol class="sg-detail-conditions">${conditions}</ol>
           <div class="sg-stats"><span>조회 ${item.viewCount || 0}</span><span>좋아요 ${item.likeCount || 0}</span><span>즐겨찾기 ${item.favoriteCount || 0}</span></div>
           <div class="sg-modal-actions">
-            <button type="button" class="sg-btn sg-btn-primary" data-sg-apply="${item.id}">현재 차트에 적용</button>
+            ${applyBtn}
             ${!item.isMine ? `<button type="button" class="sg-btn ${item.likedByMe ? 'active' : ''}" data-sg-like="${item.id}">좋아요</button><button type="button" class="sg-btn ${item.favoritedByMe ? 'active' : ''}" data-sg-favorite="${item.id}">즐겨찾기</button>` : ''}
           </div>
         </section>

@@ -139,7 +139,7 @@ def _validate_create_payload(payload: dict) -> dict:
     }
 
 
-def _serialize_row(row) -> dict:
+def _serialize_row(row, *, hide_conditions_for_others: bool = False) -> dict:
     data = dict(row)
     if "id" in data:
         data["id"] = int(data["id"])
@@ -172,6 +172,13 @@ def _serialize_row(row) -> dict:
             data["conditions"] = json.loads(data["conditions"])
         except (TypeError, ValueError):
             data["conditions"] = []
+    # 신호 조건은 영업비밀: 소유자가 아닌 뷰어에게는 조건 내용을 노출하지 않는다.
+    # 대신 조건 개수(conditionCount)만 참고용으로 제공한다.
+    if hide_conditions_for_others and not data.get("isMine"):
+        conds = data.get("conditions")
+        data["conditionCount"] = len(conds) if isinstance(conds, list) else 0
+        data["conditions"] = []
+        data["conditionsHidden"] = True
     return data
 
 
@@ -289,7 +296,7 @@ async def list_public_signals(
         LIMIT :lim OFFSET :off
     """), params)).mappings().all()
     return ApiResponse(data={
-        "items": [_serialize_row(row) for row in rows],
+        "items": [_serialize_row(row, hide_conditions_for_others=True) for row in rows],
         "page": page,
         "pageSize": page_size,
         "total": total,
@@ -323,7 +330,7 @@ async def list_favorite_signals(
         ORDER BY own.created_at DESC
         LIMIT :lim
     """), {"viewer": user_id, "lim": limit})).mappings().all()
-    return ApiResponse(data={"items": [_serialize_row(row) for row in rows]})
+    return ApiResponse(data={"items": [_serialize_row(row, hide_conditions_for_others=True) for row in rows]})
 
 
 @router.get("/{signal_id}", response_model=ApiResponse)
@@ -370,7 +377,7 @@ async def get_signal_detail(
             ), {"id": signal_id})
             item["view_count"] = int(item.get("view_count") or 0) + 1
         await db.commit()
-    return ApiResponse(data=_serialize_row(item))
+    return ApiResponse(data=_serialize_row(item, hide_conditions_for_others=True))
 
 
 async def _toggle_engagement(

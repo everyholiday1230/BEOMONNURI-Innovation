@@ -1382,6 +1382,7 @@
 .sg-action.zone,.sg-badge.private { background: var(--color-surface-sunken); color: var(--color-text-secondary); }
 .sg-description { margin-top: 7px; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 .sg-conditions { margin: 8px 0 0; padding-left: 17px; display: grid; gap: 3px; color: var(--color-text-secondary); font-size: 11px; line-height: 1.45; }
+.sg-cond-hidden { list-style: none; margin-left: -17px; color: var(--color-text-muted); font-style: italic; }
 .sg-card-foot { margin-top: 9px; display: grid; gap: 7px; }
 .sg-stats { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--color-text-muted); font-size: 10px; }
 .sg-actions { display: flex; flex-wrap: wrap; gap: 5px; }
