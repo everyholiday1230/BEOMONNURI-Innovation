@@ -87,7 +87,7 @@ function Oe(e) {
     (COS.features.realtimeBimaco = !1),
     (COS.features.bimacoDelay = !0));
   const n = document.getElementById("userBadge");
-  n && (n.textContent = t("\uB85C\uADF8\uC778"));
+  n && (n.textContent = t("\uB85C\uADF8\uC778"), n.style.display = "none");
   const _pc = document.getElementById("pointChip");
   _pc && _pc.classList.add("d-none");
   const a = document.getElementById("logoutBtn");
@@ -208,7 +208,7 @@ async function Dt(e) {
     (COS.features.bimacoDelay = !Z()));
   const r = $e === "premium" ? "VVIP" : Z() ? "VIP" : "",
     i = document.getElementById("userBadge");
-  i && (i.textContent = (Ve || "") + (r ? " " + r : ""));
+  i && (i.textContent = (Ve || "") + (r ? " " + r : ""), i.style.display = "");
   const y = document.getElementById("logoutBtn");
   y && (y.classList.remove("d-none"), (y.style.display = ""));
   const f = document.getElementById("settingsBtn");
