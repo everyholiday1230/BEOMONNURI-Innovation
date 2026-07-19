@@ -2108,27 +2108,55 @@ body.dark #_toastContainer .pro-toast-chip {
       if (b.dataset.nav === 'signals' || b.dataset.nav === 'points' || b.dataset.nav === 'notice') return;
       b.classList.toggle('active', b.dataset.nav === navKey);
     });
+    document.querySelectorAll('.home-topbar-item').forEach(function(b){
+      b.classList.toggle('active', b.dataset.nav === navKey);
+    });
+  }
+  function handleNav(nav){
+    if (nav === 'home') { openLanding(); }
+    else if (nav === 'chart') { closeLanding(); }
+    else if (nav === 'signals') { window._openSignalsPopup && window._openSignalsPopup(); }
+    else if (nav === 'points') { window._openPointsPopup && window._openPointsPopup(); }
+    else if (nav === 'notice') { window._openNoticePopup && window._openNoticePopup(); }
   }
   document.addEventListener('click', function(e){
-    var item = e.target.closest('.site-nav-item');
+    var item = e.target.closest('.site-nav-item, .home-topbar-item');
     if (!item) return;
-    var nav = item.dataset.nav;
-    if (nav === 'home') { e.preventDefault(); openLanding(); }
-    else if (nav === 'chart') { e.preventDefault(); closeLanding(); }
-    else if (nav === 'signals') { e.preventDefault(); window._openSignalsPopup && window._openSignalsPopup(); }
-    else if (nav === 'points') { e.preventDefault(); window._openPointsPopup && window._openPointsPopup(); }
-    else if (nav === 'notice') { e.preventDefault(); window._openNoticePopup && window._openNoticePopup(); }
+    e.preventDefault();
+    handleNav(item.dataset.nav);
   });
 })();
 </script>
 <style>
-/* 홈(랜딩) 화면 오버레이 — 네비 바 아래 전체 영역을 덮어 랜딩페이지 표시(동일 출처 iframe) */
-#landingView{position:fixed;left:0;right:0;bottom:0;top:50px;z-index:40;background:var(--color-bg,#fff);display:none}
-#landingView.open{display:block}
-#landingView iframe{width:100%;height:100%;border:0;display:block}
-@media (max-width:980px){ #landingView{top:44px} }
+/* 홈(랜딩) 화면 오버레이 — 화면 전체를 덮고, 상단에 하나의 통일된 네비 바를 둔다 */
+#landingView{position:fixed;inset:0;z-index:60;background:var(--color-bg,#fff);display:none;flex-direction:column}
+#landingView.open{display:flex}
+#landingView iframe{flex:1;width:100%;border:0;display:block;min-height:0}
+/* 통일 상단 바 (브랜드 + 메뉴 한 줄) */
+.home-topbar{display:flex;align-items:center;gap:14px;height:52px;flex-shrink:0;padding:0 16px;background:linear-gradient(90deg,var(--color-primary),var(--color-primary-hover));border-bottom:1px solid rgba(0,0,0,0.08);box-shadow:0 2px 8px rgba(106,30,51,0.15)}
+.home-topbar-brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;color:#fff;white-space:nowrap;text-decoration:none}
+.home-topbar-brand img{height:22px;width:auto}
+.home-topbar-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none}
+.home-topbar-nav::-webkit-scrollbar{display:none}
+.home-topbar-item{flex:0 0 auto;border:none;background:transparent;color:rgba(255,255,255,0.85);font-size:14px;font-weight:700;padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.home-topbar-item:hover{background:rgba(255,255,255,0.15);color:#fff}
+.home-topbar-item.active{background:rgba(255,255,255,0.22);color:#fff}
+@media (max-width:980px){ .home-topbar{height:48px;padding:0 10px;gap:8px} .home-topbar-brand span{display:none} .home-topbar-item{font-size:13px;padding:6px 9px} }
 </style>
 <div id="landingView" role="region" aria-label="홈">
+  <div class="home-topbar">
+    <span class="home-topbar-brand" title="범온 AI 슈퍼차트">
+      <img loading="lazy" src="/static/company-logo.png?v=2" alt="범온 AI 슈퍼차트" width="18" height="22">
+      <span>범온 AI 슈퍼차트</span>
+    </span>
+    <nav class="home-topbar-nav" aria-label="주요 메뉴">
+      <button type="button" class="home-topbar-item active" data-nav="home">홈</button>
+      <button type="button" class="home-topbar-item" data-nav="chart">차트</button>
+      <button type="button" class="home-topbar-item" data-nav="signals">신호 게시판</button>
+      <button type="button" class="home-topbar-item" data-nav="points">포인트</button>
+      <button type="button" class="home-topbar-item" data-nav="notice">공지사항</button>
+    </nav>
+  </div>
   <iframe id="landingFrame" title="범온 AI 슈퍼차트 홈" loading="lazy" data-src="/landing"></iframe>
 </div>
 <style>
