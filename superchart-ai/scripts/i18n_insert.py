@@ -14,11 +14,7 @@ I18N = Path(__file__).resolve().parent.parent / "static" / "i18n.js"
 
 # 여기에 번역을 채운다 (실행 시마다 새 배치로 교체 가능)
 EN = {
-    '범온 슈퍼차트 AI · AI 지표·AI 자동분석·AI 차트분석 — BEOMONNURI': 'BEOMON SuperChart AI · AI Indicators · AI Auto-analysis · AI Chart Analysis — BEOMONNURI',
-    '범온누리 이노베이션이 만든 AI 차트 분석 플랫폼. 자체 학습 Transformer + LLM으로 AI 지표, AI 자동분석, 실시간 AI 차트를 하나의 화면에. 신호 정확도·지연시간·자동화율·운영 안정성을 기준으로 설계된 퀀트 리서치 AI.': 'An AI chart-analysis platform built by Beomonnuri Innovation. In-house Transformer + LLM bring AI indicators, AI auto-analysis, and real-time AI charts to one screen. A quant research AI designed around signal accuracy, latency, automation rate, and operational stability.',
-    'AI 지표, AI 자동분석, AI 차트, AI 차트분석, 퀀트, 슈퍼차트 AI, 범온누리, BEOMONNURI, 실시간 차트, Transformer 예측, LLM 해설, 금융 리서치 AI, 트레이딩 자동화, 신호 정확도, 지연시간, RSI, MACD, 볼린저밴드, 범온 캔들': 'AI indicators, AI auto-analysis, AI chart, AI chart analysis, quant, SuperChart AI, Beomonnuri, BEOMONNURI, real-time chart, Transformer prediction, LLM commentary, financial research AI, trading automation, signal accuracy, latency, RSI, MACD, Bollinger Bands, Beomon Candle',
-    '자체 Canvas 차트 엔진 + Transformer 예측 + LLM 해설. AI 지표·AI 자동분석·AI 차트를 한 화면에. 성능 기준(지연시간·정확도·자동화율·안정성)으로 설계.': 'Proprietary Canvas chart engine + Transformer prediction + LLM commentary. AI indicators · AI auto-analysis · AI charts on one screen. Designed around performance criteria (latency, accuracy, automation rate, stability).',
-    'Transformer + LLM 기반 AI 차트 분석. 자체 Canvas 엔진. WebSocket 실시간. AI 지표·AI 자동분석 통합.': 'Transformer + LLM based AI chart analysis. Proprietary Canvas engine. Real-time WebSocket. Integrated AI indicators & AI auto-analysis.',
+    "요금제 표시/설명 카탈로그를 관리합니다(요금제명·가격·결제주기·AI 분석 횟수 표기·기능 설명·활성). 실제 기능 제한 강제값은 tier_guard가 단일 출처이며, 본 화면의 'AI 분석 횟수'는 표시용입니다.": "Manages the plan display/description catalog (plan name, price, billing cycle, AI-analysis count label, feature description, active). The actual enforced feature limits come solely from tier_guard; the 'AI analysis count' on this screen is for display only.",
 }
 JA = {
 }
