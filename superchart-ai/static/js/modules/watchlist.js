@@ -383,17 +383,13 @@ export async function loadWLPrices(opts = {}) {
       if (t.stale) staleCount++;
     }
     if (staleCount > 0) {
-      // 서버가 업스트림(Bitget/Binance) 전체 실패로 24시간 지난 캐시를 대신
-      // 반환한 상태(charts.py _mark_stale). 가격 자체는 그대로 표시하되,
-      // 콘솔에 남겨 실제 장애 발생 시 원인 파악이 쉽도록 한다.
+      // 서버(BitMart)가 업스트림 장애로 24시간 지난 캐시를 대신 반환한 상태
+      // (charts.py _mark_stale). 가격은 그대로 표시하되 콘솔에 남겨 원인 파악을 돕는다.
       console.warn(`[watchlist] ${staleCount}개 종목이 오래된(최대 24h) 가격 데이터입니다 — 업스트림 연동 확인 필요`);
     }
     window._wlPriceCache = window._wlPriceCache || {};
-    // 전체 ticker에 없는 종목은 개별 호출 (Bitget 미지원 → Binance fallback).
-    // 개별 호출은 서버에서 Bitget 실패 시 Binance fapi(현재 -1003 밴)까지 재시도해
-    // 요청당 최대 5초 지연 + 커넥션/메모리 폭주를 유발한다(Render OOM 원인).
-    // 따라서 개별 보강은 "현재 선택 종목" 중심의 소수(8개)로 강하게 제한한다.
-    // 나머지 미확인 종목은 캐시 fallback + 다음 주기 전체 ticker 갱신으로 채워진다.
+    // 전체 ticker에 없는 종목은 개별 호출(우리 백엔드 /v1/charts/ticker-24hr → BitMart).
+    // 개별 보강은 "현재 선택 종목" 중심의 소수(8개)로 제한해 부하를 줄인다.
     const MAX_FILL = 8;
     const curSym = window.curSymbol || '';
     const missingAll = symbols.filter(s => !map[s.apiCode || s.code] && !map[s.code]);
