@@ -2087,21 +2087,9 @@ body.dark #_toastContainer .pro-toast-chip {
 })();
 </script>
 <script>
-/* 상단 네비: 홈=랜딩 오버레이, 차트=닫기, 포인트/공지=팝업 */
+/* 상단 네비: 홈=랜딩 페이지 이동, 차트=현재 화면, 신호게시판/포인트/공지=팝업 */
 (function(){
   'use strict';
-  function openLanding(){
-    var view = document.getElementById('landingView');
-    var frame = document.getElementById('landingFrame');
-    if (!view || !frame) return;
-    if (!frame.src) { frame.src = frame.dataset.src || '/landing'; } // 최초 클릭 시에만 로드
-    view.classList.add('open');
-    setActive('home');
-  }
-  function closeLanding(){
-    document.getElementById('landingView')?.classList.remove('open');
-    setActive('chart');
-  }
   function setActive(navKey){
     document.querySelectorAll('.site-nav-item').forEach(function(b){
       // 팝업형 메뉴(신호게시판/포인트/공지)는 지속 활성표시 안 함
@@ -2113,40 +2101,14 @@ body.dark #_toastContainer .pro-toast-chip {
     var item = e.target.closest('.site-nav-item');
     if (!item) return;
     var nav = item.dataset.nav;
-    if (nav === 'home') { e.preventDefault(); openLanding(); }
-    else if (nav === 'chart') { e.preventDefault(); closeLanding(); }
+    if (nav === 'home') { e.preventDefault(); window.location.href = '/landing'; }
+    else if (nav === 'chart') { e.preventDefault(); setActive('chart'); }
     else if (nav === 'signals') { e.preventDefault(); window._openSignalsPopup && window._openSignalsPopup(); }
     else if (nav === 'points') { e.preventDefault(); window._openPointsPopup && window._openPointsPopup(); }
     else if (nav === 'notice') { e.preventDefault(); window._openNoticePopup && window._openNoticePopup(); }
   });
 })();
 </script>
-<style>
-/* 홈(랜딩) 화면 오버레이 — 네비 바 아래 전체 영역을 덮어 랜딩페이지 표시 */
-#landingView {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: 50px; /* 상단 네비(site-nav) 높이만큼 아래에서 시작 */
-  z-index: 40;
-  background: var(--color-bg, #fff);
-  display: none;
-}
-#landingView.open { display: block; }
-#landingView iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-@media (max-width: 980px) {
-  #landingView { top: 44px; }
-}
-</style>
-<div id="landingView" role="region" aria-label="홈">
-  <iframe id="landingFrame" title="범온 AI 슈퍼차트 홈" loading="lazy" data-src="/landing"></iframe>
-</div>
 <style>
 /* 네비 팝업(포인트/공지) 공통 */
 .nav-popup-overlay{position:fixed;inset:0;z-index:210;display:none;align-items:flex-start;justify-content:center;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:64px 16px 24px}
