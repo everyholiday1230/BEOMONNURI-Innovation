@@ -39,7 +39,7 @@
 <link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
 
-<script defer src="/static/i18n.js?v=20260719_i18n13"></script>
+<script defer src="/static/i18n.js?v=20260719_i18n14"></script>
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
@@ -1276,6 +1276,7 @@ body.dark #_toastContainer .pro-toast-chip {
       <button type="button" class="site-nav-item" data-nav="home" title="범온 AI 슈퍼차트 홈">홈</button>
       <button type="button" class="site-nav-item active" data-nav="chart" title="차트">차트</button>
       <button type="button" class="site-nav-item" data-nav="signals" title="공개 신호 게시판">신호 게시판</button>
+      <button type="button" class="site-nav-item" data-nav="leaderboard" title="모의투자 대회 순위">대회 순위</button>
       <button type="button" class="site-nav-item" data-nav="points" title="범온 포인트 · 지인 초대">포인트</button>
       <button type="button" class="site-nav-item" data-nav="notice" title="공지사항">공지사항</button>
     </nav>
@@ -1836,9 +1837,6 @@ body.dark #_toastContainer .pro-toast-chip {
       <!-- 2) 모의 계좌 요약 -->
       <div id="mtAccount"></div>
 
-      <!-- 대회 순위(리더보드) -->
-      <div id="mtLeaderboard" class="mt-section-block"></div>
-
       <!-- 비로그인 안내 (조건부) -->
       <div id="mtLoginHint"></div>
 
@@ -2097,8 +2095,8 @@ body.dark #_toastContainer .pro-toast-chip {
   }
   function setActive(navKey){
     document.querySelectorAll('.site-nav-item').forEach(function(b){
-      // 팝업형 메뉴(신호게시판/포인트/공지)는 지속 활성표시 안 함
-      if (b.dataset.nav === 'signals' || b.dataset.nav === 'points' || b.dataset.nav === 'notice') return;
+      // 팝업형 메뉴(신호게시판/대회순위/포인트/공지)는 지속 활성표시 안 함
+      if (b.dataset.nav === 'signals' || b.dataset.nav === 'leaderboard' || b.dataset.nav === 'points' || b.dataset.nav === 'notice') return;
       b.classList.toggle('active', b.dataset.nav === navKey);
     });
     document.querySelectorAll('.home-topbar-item').forEach(function(b){
@@ -2109,6 +2107,7 @@ body.dark #_toastContainer .pro-toast-chip {
     if (nav === 'home') { openLanding(); }
     else if (nav === 'chart') { closeLanding(); }
     else if (nav === 'signals') { window._openSignalsPopup && window._openSignalsPopup(); }
+    else if (nav === 'leaderboard') { window._openLeaderboardPopup && window._openLeaderboardPopup(); }
     else if (nav === 'points') { window._openPointsPopup && window._openPointsPopup(); }
     else if (nav === 'notice') { window._openNoticePopup && window._openNoticePopup(); }
   }
@@ -2146,6 +2145,7 @@ body.dark #_toastContainer .pro-toast-chip {
       <button type="button" class="home-topbar-item active" data-nav="home">홈</button>
       <button type="button" class="home-topbar-item" data-nav="chart">차트</button>
       <button type="button" class="home-topbar-item" data-nav="signals">신호 게시판</button>
+      <button type="button" class="home-topbar-item" data-nav="leaderboard">대회 순위</button>
       <button type="button" class="home-topbar-item" data-nav="points">포인트</button>
       <button type="button" class="home-topbar-item" data-nav="notice">공지사항</button>
     </nav>
@@ -2234,6 +2234,21 @@ body.dark #_toastContainer .pro-toast-chip {
     </div>
   </div>
 </div>
+<!-- 대회 순위 팝업 -->
+<div id="leaderboardPopup" class="nav-popup-overlay" role="dialog" aria-modal="true" aria-label="모의투자 대회 순위">
+  <div class="nav-popup">
+    <div class="nav-popup-head">
+      <span class="nav-popup-title">🏆 모의투자 대회 순위</span>
+      <button type="button" class="nav-popup-close" data-nav-close="leaderboardPopup" aria-label="닫기">✕</button>
+    </div>
+    <div class="nav-popup-body">
+      <div class="pane-desc">모의주문 누적 손익 기준 순위입니다. 진입가·종료가·수량·방향으로 서버가 재계산해 검증한 종료 거래만 불변 원장에 기록되어 순위에 반영됩니다.</div>
+      <div style="text-align:right;margin:8px 0"><button type="button" id="lbRefresh" class="sg-btn sg-btn-ghost">새로고침</button></div>
+      <div id="lbBody"><div class="mt-state-msg" style="text-align:center;color:#8E7D72;padding:24px">순위를 불러오는 중입니다...</div></div>
+      <p class="sg-disclaimer">상위 50명까지 표시됩니다. 계좌를 초기화하거나 화면 기록을 지워도 원장과 순위는 유지됩니다. 모의투자 결과는 참고용이며 실제 수익을 보장하지 않습니다.</p>
+    </div>
+  </div>
+</div>
 <script>
 /* 네비 팝업(포인트/공지) 열기·닫기 */
 (function(){
@@ -2258,6 +2273,48 @@ body.dark #_toastContainer .pro-toast-chip {
     openPopup('signalsPopup');
     try { window.SignalBoard && window.SignalBoard.load && window.SignalBoard.load(); } catch(e){}
   };
+  window._openLeaderboardPopup = function(){
+    openPopup('leaderboardPopup');
+    loadLeaderboard();
+  };
+  function _lbEsc(s){ var d=document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
+  function _lbUSD(v){ var n=Number(v)||0; return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:2}); }
+  function _lbRow(it){
+    var medal = it.rank===1?'🥇':it.rank===2?'🥈':it.rank===3?'🥉':it.rank;
+    var pos = (Number(it.pnl)||0)>=0;
+    return '<div class="mt-lb-row'+(it.isMe?' me':'')+'">'
+      + '<span class="mt-lb-rank">'+medal+'</span>'
+      + '<span class="mt-lb-name">'+_lbEsc(it.nickname)+(it.isMe?' (나)':'')+'</span>'
+      + '<span class="mt-lb-trades">'+(it.tradeCount||0)+'회 · 승률 '+((it.winRate||0).toFixed(0))+'%</span>'
+      + '<span class="mt-lb-pnl '+(pos?'mt-pnl-pos':'mt-pnl-neg')+'">'+(pos?'+':'')+_lbUSD(it.pnl)+' ('+((it.pnlPct||0)>=0?'+':'')+(Number(it.pnlPct)||0).toFixed(1)+'%)</span>'
+      + '</div>';
+  }
+  async function loadLeaderboard(){
+    var body = document.getElementById('lbBody');
+    if (!body) return;
+    body.innerHTML = '<div class="mt-state-msg" style="text-align:center;color:#8E7D72;padding:24px">순위를 불러오는 중입니다...</div>';
+    try {
+      var r = await fetch('/v1/paper/leaderboard?limit=50', { credentials:'include' });
+      var d = await r.json();
+      var data = (d && d.success) ? d.data : null;
+      if (!data || !data.items || !data.items.length){
+        body.innerHTML = '<div class="mt-state-msg" style="text-align:center;color:#8E7D72;padding:24px">아직 완료된 모의 거래가 없습니다. 모의주문 탭에서 매수·매도로 첫 거래를 남기면 순위에 반영됩니다.</div>';
+        return;
+      }
+      var rows = data.items.map(_lbRow).join('');
+      if (data.myRank && !data.items.some(function(it){return it.isMe;})){
+        rows += '<div class="mt-lb-sep">···</div>' + _lbRow(data.myRank);
+      }
+      body.innerHTML = '<div class="mt-lb-list">'
+        + '<div class="mt-lb-row mt-lb-head"><span class="mt-lb-rank">순위</span><span class="mt-lb-name">닉네임</span><span class="mt-lb-trades">거래 · 승률</span><span class="mt-lb-pnl">누적 손익</span></div>'
+        + rows + '</div>';
+    } catch(e) {
+      body.innerHTML = '<div class="mt-state-msg" style="text-align:center;color:#8E7D72;padding:24px">순위를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
+    }
+  }
+  document.addEventListener('click', function(e){
+    if (e.target && e.target.id === 'lbRefresh') { loadLeaderboard(); }
+  });
   var _BADGE = { notice:['badge-new','공지'], update:['badge-update','업데이트'], event:['badge-event','이벤트'] };
   function esc(s){ var d=document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
   var _BETA = '<div class="notice"><div class="notice-title">베타 테스트 안내</div>'
@@ -2289,7 +2346,7 @@ body.dark #_toastContainer .pro-toast-chip {
     }
   });
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') { closePopup('pointsPopup'); closePopup('noticePopupNav'); }
+    if (e.key === 'Escape') { closePopup('pointsPopup'); closePopup('noticePopupNav'); closePopup('leaderboardPopup'); }
   });
 })();
 </script>
