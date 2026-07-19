@@ -16,7 +16,6 @@ from src.models.schemas import ApiResponse, SymbolOut, PagedData
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
-BINANCE_FAPI = "https://fapi.binance.com"
 LIVE_SYMBOLS_CACHE_TTL = 60
 _live_symbols_cache_rows: list[dict] = []
 _live_symbols_cache_ts: float = 0.0
@@ -143,31 +142,20 @@ async def _fetch_live_crypto_rows() -> list[dict]:
         return _live_symbols_cache_rows
 
 
-def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asset_class: str | None = None, exchange: str | None = None):
-    """DB 장애 시에도 UI가 의미 있는 종목 목록을 보여주도록 중앙 fallback 사용."""
-    from src.services.symbol_resolver import DEFAULT_SYMBOLS, DELISTED_SYMBOLS, get_curated_catalog, load_fallback
+async def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asset_class: str | None = None, exchange: str | None = None):
+    """DB 장애 시에도 BitMart 종목만 노출한다(방식 C).
 
-    load_fallback("symbols-api-fallback")
+    비상 상황이라도 Binance/기타 거래소 종목은 절대 노출하지 않는다.
+    BitMart 라이브 계약을 그대로 사용하고, 그마저 실패하면 빈 목록을 반환한다.
+    """
     needle = (q or "").lower().strip()
+    try:
+        live_rows = await _fetch_live_crypto_rows()
+    except Exception:
+        live_rows = []
 
-    rows: list[dict] = []
-    for code, base, ko, en, _exchange_id in DEFAULT_SYMBOLS:
-        if code in DELISTED_SYMBOLS:
-            continue
-        rows.append({
-            "symbol_code": code,
-            "base_asset": base,
-            "display_name_ko": ko,
-            "display_name_en": en,
-            "exchange_code": "BINANCE",
-            "asset_class": "crypto",
-            "quote_asset": "USDT",
-            "api_code": code,
-        })
-
-    rows.extend(get_curated_catalog())
-
-    rows = [r for r in rows if _matches_symbol_filters(r, q=needle, asset_class=asset_class, exchange=exchange)]
+    rows = [r for r in live_rows
+            if _matches_symbol_filters(r, q=needle, asset_class=asset_class, exchange=exchange)]
 
     unique_rows: list[dict] = []
     seen: set[str] = set()
@@ -189,7 +177,7 @@ def _fallback_symbol_items(q: str = "", page: int = 1, page_size: int = 20, asse
             symbol_code=str(row.get("symbol_code", "")),
             display_name_ko=row.get("display_name_ko"),
             display_name_en=row.get("display_name_en"),
-            exchange_code=row.get("exchange_code") or "BINANCE",
+            exchange_code=row.get("exchange_code") or "BITMART",
             asset_class=str(row.get("asset_class") or "crypto"),
             base_asset=str(row.get("base_asset") or row.get("symbol_code") or ""),
             quote_asset=str(row.get("quote_asset") or "USDT"),
@@ -366,7 +354,7 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
         return ApiResponse(data=data)
     except Exception as e:
         logger.warning("symbols.fallback", error=str(e)[:200])
-        return ApiResponse(data=_fallback_symbol_items(q=q, page=page, page_size=page_size, asset_class=asset_class, exchange=exchange))
+        return ApiResponse(data=await _fallback_symbol_items(q=q, page=page, page_size=page_size, asset_class=asset_class, exchange=exchange))
 
 @router.post("/symbols/refresh-metadata")
 async def refresh_symbol_metadata(request: Request, only_missing: bool = True):
