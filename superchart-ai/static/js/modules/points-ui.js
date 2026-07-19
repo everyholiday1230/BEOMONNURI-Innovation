@@ -157,10 +157,19 @@
   // 2) 포인트 상점
   function secShop() {
     const catalog = P.shop && P.shop.length ? P.shop : SHOP.map(s => ({ ...s, code: '' }));
-    const list = catalog.filter(s => s.cat ? s.cat === P.shopCat : s.category === P.shopCat);
+    const catOf = s => s.cat || s.category;
+    // 실제 상품이 존재하는 카테고리만 노출 (버튼 과다 방지). 상품이 늘면 자동으로 탭이 생김.
+    const activeCats = SHOP_CATS.filter(([k]) => catalog.some(s => catOf(s) === k));
+    // 현재 선택된 카테고리에 상품이 없으면 첫 유효 카테고리로 보정
+    if (activeCats.length && !activeCats.some(([k]) => k === P.shopCat)) { P.shopCat = activeCats[0][0]; }
+    const list = catalog.filter(s => catOf(s) === P.shopCat);
     const liveNote = (P.shop && P.shop.length) ? '' : '<p class="pt-phase2">상품 카탈로그를 불러오지 못해 기본 구성을 표시합니다.</p>';
+    // 카테고리가 2개 이상일 때만 탭을 보여준다 (1개뿐이면 불필요).
+    const catsHtml = activeCats.length > 1
+      ? `<div class="pt-shop-cats">${activeCats.map(([k, l]) => `<button class="pt-cat-chip ${P.shopCat === k ? 'active' : ''}" type="button" data-shopcat="${k}">${l}</button>`).join('')}</div>`
+      : '';
     return `
-      <div class="pt-shop-cats">${SHOP_CATS.map(([k, l]) => `<button class="pt-cat-chip ${P.shopCat === k ? 'active' : ''}" type="button" data-shopcat="${k}">${l}</button>`).join('')}</div>
+      ${catsHtml}
       ${list.length ? list.map(prodCard).join('') : '<div class="pt-state-msg">해당 카테고리의 상품이 준비 중입니다.</div>'}
       ${liveNote}`;
   }
