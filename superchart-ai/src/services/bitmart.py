@@ -33,6 +33,10 @@ TF_MS = {
 }
 _KLINE_MAX = 500  # BitMart 단일 요청 최대 캔들 수
 
+# BitMart 공개 kline rate limit(IP당 12회/2초) 대비 동시 요청 제한.
+# 여러 지표가 동시에 캔들을 요청해도 429가 나지 않도록 동시성을 5로 제한한다.
+_RATE_LIMIT = asyncio.Semaphore(5)
+
 _http: httpx.AsyncClient | None = None
 
 
@@ -87,9 +91,10 @@ async def fetch_candles(symbol: str, timeframe: str, limit: int, end_time: int |
             "end_time": cur_end_sec,
         }
         rows = None
-        for attempt in range(2):
+        for attempt in range(4):
             try:
-                r = await c.get(f"{BITMART_BASE}/contract/public/kline", params=params, timeout=15)
+                async with _RATE_LIMIT:
+                    r = await c.get(f"{BITMART_BASE}/contract/public/kline", params=params, timeout=15)
                 if r.status_code == 200:
                     body = r.json()
                     if isinstance(body, dict) and body.get("code") == 1000:
@@ -99,13 +104,16 @@ async def fetch_candles(symbol: str, timeframe: str, limit: int, end_time: int |
                     log.debug("bitmart.kline_bad_code", symbol=symbol, body=str(body)[:160])
                     rows = []
                     break
+                # 429/418 = rate limit → 백오프 후 재시도 (빈 결과 금지)
+                if r.status_code in (429, 418, 500, 502, 503):
+                    await asyncio.sleep(0.6 * (attempt + 1))
+                    continue
                 if 400 <= r.status_code < 500:
                     rows = []
                     break
             except Exception as e:
                 log.debug("bitmart.kline_fail", symbol=symbol, err=str(e)[:120])
-            if attempt == 0:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.4 * (attempt + 1))
         if not rows:
             break
         # 정규화 후 앞에 붙임(과거 데이터가 앞)
