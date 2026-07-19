@@ -214,85 +214,78 @@ async def search_symbols(q: str = "", asset_class: str | None = None, exchange: 
     base = select(Symbol, Exchange.exchange_code).join(Exchange).where(Symbol.status == "active")
 
     try:
-        from src.services.symbol_resolver import DELISTED_SYMBOLS, get_curated_catalog
+        from src.services.symbol_resolver import DELISTED_SYMBOLS, classify_bitmart_symbol
 
-        # 1) DB 활성 심볼(전체)
-        query = base.order_by(Symbol.sort_order.asc().nullslast(), Symbol.symbol_code.asc())
-        result = await db.execute(query)
+        # ── 방식 C: 종목 유니버스는 BitMart 계약 목록이 유일한 정본이다. ──
+        # BitMart 에 실재하는 종목만 노출한다. DB/curated 는 로고·이름 보강에만 쓴다.
+        live_rows = await _fetch_live_crypto_rows()
+
+        # DB 를 보강용 인덱스로만 로드 (symbol_code -> {img_url, names, sort_order})
+        db_index: dict[str, dict] = {}
+        try:
+            query = base.order_by(Symbol.sort_order.asc().nullslast(), Symbol.symbol_code.asc())
+            result = await db.execute(query)
+            for s, ec in result.all():
+                db_index[s.symbol_code] = {
+                    "display_name_ko": s.display_name_ko,
+                    "display_name_en": s.display_name_en,
+                    "base_asset": s.base_asset,
+                    "sort_order": s.sort_order,
+                    "img_url": (s.metadata_ or {}).get("img_url"),
+                }
+        except Exception:
+            db_index = {}
 
         merged_rows: list[dict] = []
-        for s, ec in result.all():
-            if s.symbol_code in DELISTED_SYMBOLS:
-                continue
-            row = {
-                "id": s.id,
-                "symbol_code": s.symbol_code,
-                "display_name_ko": s.display_name_ko,
-                "display_name_en": s.display_name_en,
-                "exchange_code": ec,
-                "asset_class": s.asset_class,
-                # 시총 순 정렬용 랭크 (0/NULL = 미시드 → 맨 뒤). merge 단계에서 보존.
-                "sort_order": s.sort_order,
-                "base_asset": s.base_asset,
-                "quote_asset": s.quote_asset,
-                "img_url": (s.metadata_ or {}).get("img_url"),
-                "api_code": (s.metadata_ or {}).get("api_code") or s.symbol_code,
-                "source": "db",
-            }
-            # 방식 C: BitMart TradFi 분류로 asset_class/이름 보정 (DB 값이 오래되어
-            # 금/외환/지수/원자재/주식이 crypto 로 남아있어도 올바른 탭에 들어가도록).
-            from src.services.symbol_resolver import classify_bitmart_symbol
-            _ac, _ko, _en = classify_bitmart_symbol(str(s.symbol_code))
-            if _ac != "crypto":
-                row["asset_class"] = _ac
-                if _ko and (not row.get("display_name_ko") or row["display_name_ko"] == s.base_asset):
-                    row["display_name_ko"] = _ko
-                if _en and (not row.get("display_name_en") or row["display_name_en"] == s.base_asset):
-                    row["display_name_en"] = _en
-            if _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
-                merged_rows.append(row)
-
-        # 2) 고정 카탈로그 보강
-        for row in get_curated_catalog():
-            if not _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
-                continue
-            merged_rows.append({
-                "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"curated:{row.get('symbol_code')}") ,
-                "symbol_code": str(row.get("symbol_code", "")),
-                "display_name_ko": row.get("display_name_ko"),
-                "display_name_en": row.get("display_name_en"),
-                "exchange_code": row.get("exchange_code") or "TWELVE_DATA",
-                "asset_class": str(row.get("asset_class") or "crypto"),
-                "base_asset": str(row.get("base_asset") or row.get("symbol_code") or ""),
-                "quote_asset": str(row.get("quote_asset") or "USD"),
-                "img_url": row.get("img_url"),
-                "api_code": row.get("api_code") or row.get("symbol_code"),
-                "source": "curated",
-            })
-
-        # 3) BitMart 전체 계약(동적 확장) — 방식 C: 종목 유니버스의 정본
-        live_rows = await _fetch_live_crypto_rows()
-        live_codes = {str(r.get("symbol_code", "")) for r in live_rows}
-        for row in live_rows:
-            if str(row.get("symbol_code", "")) in DELISTED_SYMBOLS:
-                continue
-            if not _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
-                continue
-            merged_rows.append({
-                "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"live:{row.get('symbol_code')}") ,
-                **row,
-                "source": "live",
-            })
-
-        # 방식 C: 종목은 BitMart 에 실재하는 것만 노출한다. BitMart 계약 목록을
-        # 정상적으로 받아왔다면, 그 목록에 없는 (구)DB/curated 잔존 종목은 제외한다.
-        # (BitMart 목록을 못 받은 경우엔 필터하지 않아 기존 목록으로 폴백.)
-        if live_codes:
-            merged_rows = [r for r in merged_rows if str(r.get("symbol_code", "")) in live_codes]
+        if live_rows:
+            for row in live_rows:
+                code = str(row.get("symbol_code", ""))
+                if not code or code in DELISTED_SYMBOLS:
+                    continue
+                enrich = db_index.get(code, {})
+                merged = {
+                    "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"bm:{code}"),
+                    "symbol_code": code,
+                    # 이름: BitMart 분류 이름 우선, 없으면 DB, 최후 base
+                    "display_name_ko": row.get("display_name_ko") or enrich.get("display_name_ko") or row.get("base_asset"),
+                    "display_name_en": row.get("display_name_en") or enrich.get("display_name_en") or row.get("base_asset"),
+                    "exchange_code": "BITMART",
+                    "asset_class": row.get("asset_class") or "crypto",
+                    "base_asset": row.get("base_asset") or code,
+                    "quote_asset": row.get("quote_asset") or "USDT",
+                    "img_url": enrich.get("img_url"),
+                    "api_code": row.get("api_code") or code,
+                    "sort_order": enrich.get("sort_order"),
+                    "source": "live",
+                }
+                if _matches_symbol_filters(merged, q=q, asset_class=asset_class, exchange=exchange):
+                    merged_rows.append(merged)
+        else:
+            # BitMart 목록을 못 받은 예외 상황에서만 DB 로 폴백(서비스 중단 방지).
+            for code, enrich in db_index.items():
+                if code in DELISTED_SYMBOLS:
+                    continue
+                ac, ko, en = classify_bitmart_symbol(code)
+                row = {
+                    "id": _uuid.uuid5(_uuid.NAMESPACE_DNS, f"dbfb:{code}"),
+                    "symbol_code": code,
+                    "display_name_ko": ko or enrich.get("display_name_ko") or enrich.get("base_asset"),
+                    "display_name_en": en or enrich.get("display_name_en") or enrich.get("base_asset"),
+                    "exchange_code": "BITMART",
+                    "asset_class": ac,
+                    "base_asset": enrich.get("base_asset") or code,
+                    "quote_asset": "USDT",
+                    "img_url": enrich.get("img_url"),
+                    "api_code": code,
+                    "sort_order": enrich.get("sort_order"),
+                    "source": "db",
+                }
+                if _matches_symbol_filters(row, q=q, asset_class=asset_class, exchange=exchange):
+                    merged_rows.append(row)
 
         # 4) 중복 제거 + 정렬 + 페이징
         dedup: dict[str, dict] = {}
-        # 우선순위: live > db > curated (BitMart 실시간 분류/이름을 최우선)
+        # 단일 소스(BitMart)이므로 우선순위는 사실상 무의미하나 dedup 안전용으로 유지
         priority = {"live": 3, "db": 2, "curated": 1}
 
         def _dedup_key(row: dict) -> str:

@@ -10,8 +10,8 @@ const coinImgUrl = {};
 const _apiMap = {};
 const _apiToFront = {};
 
-const WL_SYMBOLS_CACHE_KEY = 'chartOS_wlSymbolsCache_v1';
-const WL_PRICE_CACHE_KEY = 'chartOS_wlPriceCache_v1';
+const WL_SYMBOLS_CACHE_KEY = 'chartOS_wlSymbolsCache_bm1';
+const WL_PRICE_CACHE_KEY = 'chartOS_wlPriceCache_bm1';
 const WL_PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function _safeParse(raw, fallback = null) {
