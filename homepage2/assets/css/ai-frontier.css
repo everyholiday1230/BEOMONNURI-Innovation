@@ -1526,6 +1526,13 @@ footer {
 .compare-table td.pname { font-weight: 800; letter-spacing: -0.02em; }
 .compare-table td.pname a { color: var(--paper); }
 .compare-table td.pname a:hover { color: var(--acid); }
+.compare-note {
+  margin-top: 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--mute);
+  letter-spacing: -0.005em;
+}
 
 /* Product prev/next navigation */
 .prod-nav { padding: 80px 0; border-top: 1px solid var(--mute-line); }
