@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>범온 프라이빗 AI — 정기결제(예시) | 범온누리</title>
+<meta name="description" content="범온 프라이빗 AI 정기결제 플랜 예시 페이지 (심사·테스트용).">
+<meta name="robots" content="noindex,nofollow">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/checkout.css?v=20260720a">
+
+<!-- 토스페이먼츠 SDK -->
+<script src="https://js.tosspayments.com/v2/standard"></script>
+</head>
+
+<body class="grain">
+<a href="#main-content" class="skip-link">본문으로 바로가기</a>
+<nav class="top" aria-label="주 내비게이션">
+  <div class="container row">
+    <a class="brand" href="index.html">
+      <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 로고" decoding="async" width="34" height="34"></span>
+      <span class="brand-copy">
+        <span class="brand-ko">범온누리 이노베이션</span>
+        <span class="brand-en">BEOMONNURI INNOVATION</span>
+      </span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="products.html">Products</a>
+      <a href="why.html">Why</a>
+      <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
+    </div>
+  </div>
+</nav>
+
+<main id="main-content">
+<section class="page-hero">
+  <div class="container">
+    <div class="crumb"><a href="index.html">HOME</a> · <a href="products-private.html">PRIVATE AI</a> · BILLING (예시)</div>
+    <h1>
+      <span class="ko">프라이빗 AI </span><span class="acid">정기결제</span><br>
+      <span class="stroke">플랜 선택</span> 예시.
+    </h1>
+    <p class="lead">본 페이지는 자동결제(빌링) 연동 심사·테스트를 위한 예시 페이지입니다. 카드 등록 후 실제 청구는 발생하지 않습니다.</p>
+  </div>
+</section>
+
+<section class="checkout-section reveal">
+  <div class="container checkout-wrap">
+    <div class="checkout-card">
+      <div class="sect-label">PRIVATE AI / 정기결제 플랜 예시</div>
+      <h2 class="co-title">월 구독 플랜<span class="co-sub">플랜을 선택하고 결제 수단을 등록하세요</span></h2>
+
+      <div class="co-plans" id="plan-select">
+        <label class="co-plan is-active">
+          <input type="radio" name="plan" value="basic" checked>
+          <span class="co-plan-name">베이직</span>
+          <span class="co-plan-desc">임직원 50명 이하 · 프라이빗 클라우드(KR)</span>
+          <span class="co-plan-price">1,500,000<span class="unit">원 / 월</span></span>
+        </label>
+        <label class="co-plan">
+          <input type="radio" name="plan" value="pro">
+          <span class="co-plan-name">프로</span>
+          <span class="co-plan-desc">임직원 50~300명 · 프라이빗 클라우드 / 온프레미스</span>
+          <span class="co-plan-price">3,500,000<span class="unit">원 / 월</span></span>
+        </label>
+      </div>
+
+      <div class="co-methods" id="billing-method">
+        <button type="button" class="co-method-btn is-active" data-method="CARD">카드 자동결제</button>
+        <button type="button" class="co-method-btn" data-method="TRANSFER">계좌 자동결제</button>
+      </div>
+
+      <button type="button" class="co-pay-btn" id="billing-btn">결제 수단 등록하기 →</button>
+      <p class="co-note">* 테스트 연동 키로 동작하는 예시입니다. 등록 후 실제 자동결제 승인·청구는 발생하지 않습니다. 엔터프라이즈 플랜은 별도 협의로 진행되며 본 페이지에서 제공하지 않습니다.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="ft-bottom-row">
+      <span>© 2026 BEOMONNURI INC. — 본 페이지는 결제 심사용 예시입니다.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/checkout-common.js?v=20260720a"></script>
+<script>
+  initBillingCheckout({
+    successPath: "/checkout-billing-success.html",
+    failPath: "/checkout-fail.html"
+  });
+</script>
+</body>
+</html>

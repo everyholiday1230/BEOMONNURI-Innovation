@@ -1,4 +1,11 @@
 User-agent: *
 Allow: /
+Disallow: /checkout-private.html
+Disallow: /checkout-agent.html
+Disallow: /checkout-private-billing.html
+Disallow: /checkout-agent-billing.html
+Disallow: /checkout-success.html
+Disallow: /checkout-billing-success.html
+Disallow: /checkout-fail.html
 
 Sitemap: https://www.beomonnuri.com/sitemap.xml

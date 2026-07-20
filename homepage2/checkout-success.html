@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>결제 요청 완료(예시) | 범온누리</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="shortcut icon" href="favicon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/checkout.css?v=20260720a">
+</head>
+<body class="grain">
+<main id="main-content">
+<section class="checkout-section reveal">
+  <div class="container">
+    <div class="co-result-card">
+      <div class="co-result-icon">✓</div>
+      <div class="co-result-title">결제 요청·인증이 완료됐어요</div>
+      <div class="co-result-desc">
+        토스페이먼츠 결제창에서 요청·인증 단계가 정상적으로 처리됐습니다.<br>
+        실제 서비스에서는 이 시점에 서버가 <b>결제 승인 API</b>를 호출해 결제를 최종 확정합니다.<br>
+        (본 페이지는 심사·테스트용 정적 예시로, 서버 승인 단계는 연결되어 있지 않습니다.)
+      </div>
+      <div class="co-result-data" id="query-data">쿼리 파라미터 확인 중...</div>
+      <a href="index.html" class="co-result-back">홈으로 돌아가기</a>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var el = document.getElementById('query-data');
+    if (!params.toString()) { el.textContent = '전달된 쿼리 파라미터가 없습니다.'; return; }
+    var lines = [];
+    params.forEach(function (value, key) { lines.push(key + ' = ' + value); });
+    el.innerHTML = lines.join('<br>');
+  })();
+</script>
+</body>
+</html>
