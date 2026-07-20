@@ -58,10 +58,11 @@ SLOW_REQUEST_MS = 2000
 #   inline style 다수 잔존. 디자인 토큰 전환 진행 중.
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline' https://js.tosspayments.com; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: https://coin-images.coingecko.com https://img.bitgetimg.com https://www.gstatic.com; "
-    "connect-src 'self' ws: wss:; "
+    "connect-src 'self' ws: wss: https://api.tosspayments.com https://event.tosspayments.com; "
+    "frame-src 'self' https://js.tosspayments.com; "
     "font-src 'self'; "
     "object-src 'none'; "
     "frame-ancestors 'self'; "

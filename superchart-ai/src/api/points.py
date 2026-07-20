@@ -35,6 +35,7 @@ EXPIRY_DAYS = {
     "event": 60,
     "admin_adjust": None,
     "purchase_refund": 90,
+    "charge": None,  # 유료 충전 포인트는 만료 없음
 }
 
 _ensured = False

@@ -5,7 +5,8 @@
  * - 묶음 할인: 3개 15% · 5개 25% · 전체 40%
  * - 구독: VIP/VVIP 월·연 (연간 = 2개월 무료)
  * - 포인트 충전: 패키지형 (많이 살수록 보너스)
- * - 실제 결제(토스)는 연동 전 → '결제 준비 중(사전 등록)' 안내
+ * - 결제: 토스페이먼츠 SDK v2 연동. 실제 결제 승인/금액 재계산은 서버(/v1/toss/*)에서 처리.
+ *   서버에 TOSS_CLIENT_KEY/TOSS_SECRET_KEY가 설정되지 않으면 결제창 호출 전 안내 토스트를 띄운다.
  * - 나만의 신호는 포인트 토큰 차감 방식이라 구독에 포함하지 않음
  */
 (function () {
@@ -111,7 +112,7 @@
         ${tabBtn('points', '포인트 충전')}
       </div>
       <div class="pr-tabbody">${inner}</div>
-      <p class="pr-disclaimer">표시 가격은 부가세 포함 예정가이며 정식 결제 오픈 시 확정됩니다. 결제 시스템 준비 중 — 사전 등록하시면 오픈 시 안내드립니다. 나만의 신호는 포인트(토큰) 차감 방식으로 별도 이용합니다.</p>`;
+      <p class="pr-disclaimer">표시 가격은 부가세 포함가입니다. 결제는 토스페이먼츠를 통해 안전하게 처리됩니다(테스트 환경에서는 실제 금액이 청구되지 않습니다). 나만의 신호는 포인트(토큰) 차감 방식으로 별도 이용합니다.</p>`;
   }
 
   function renderSub() {
@@ -190,14 +191,145 @@
     else if (typeof window.showToast === 'function') window.showToast('결제 시스템이 곧 오픈됩니다. 사전 등록하시면 오픈 시 안내드립니다.', '#D8B66A');
   }
 
+  // ───────── 토스페이먼츠 결제 플로우 ─────────
+  // 1) /v1/toss/prepare 로 서버가 금액을 계산 + order_id 발급
+  // 2) Toss SDK v2 결제창 호출(요청→인증) → successUrl 로 paymentKey/orderId/amount 리다이렉트
+  // 3) 페이지 로드시 쿼리에 paymentKey 가 있으면 /v1/toss/confirm 호출 → 승인+상품지급
+
+  let _tossSdkPromise = null;
+  function loadTossSdk() {
+    if (window.TossPayments) return Promise.resolve(window.TossPayments);
+    if (_tossSdkPromise) return _tossSdkPromise;
+    _tossSdkPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://js.tosspayments.com/v2/standard';
+      s.onload = () => resolve(window.TossPayments);
+      s.onerror = () => reject(new Error('토스페이먼츠 SDK 로드 실패'));
+      document.head.appendChild(s);
+    });
+    return _tossSdkPromise;
+  }
+
+  function _req(url, opts) {
+    const requester = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
+    return requester(url, Object.assign({ credentials: 'include' }, opts || {}));
+  }
+
+  async function _errMessage(r) {
+    try { const j = await r.json(); return (j && j.detail) || (j && j.message) || `요청 실패 (${r.status})`; }
+    catch (_) { return `요청 실패 (${r.status})`; }
+  }
+
+  function _customerKey() {
+    // 브랜드페이/빌링용 식별자가 아닌 결제위젯 표준 결제에는 필수 아님. 재사용 위해 보관.
+    try {
+      let k = localStorage.getItem('_toss_ck');
+      if (!k) { k = 'ck_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_toss_ck', k); }
+      return k;
+    } catch (_) { return 'ck_anon'; }
+  }
+
+  async function _startPayment(prepareBody, orderNameFallback) {
+    if (typeof window.requireLogin === 'function' && !window.requireLogin()) return;
+    try {
+      const pr = await _req(API + '/v1/toss/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prepareBody),
+      });
+      if (!pr.ok) { window.showToast && window.showToast(await _errMessage(pr), '#921230'); return; }
+      const prep = (await pr.json()).data;
+
+      const cfgRes = await _req(API + '/v1/toss/config');
+      if (!cfgRes.ok) {
+        window.showToast && window.showToast('결제 시스템 설정이 아직 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.', '#D8B66A');
+        return;
+      }
+      const { client_key } = (await cfgRes.json()).data;
+
+      const TossPayments = await loadTossSdk();
+      const toss = TossPayments(client_key);
+      const payment = toss.payment({ customerKey: _customerKey() });
+
+      const origin = window.location.origin + window.location.pathname;
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: prep.amount },
+        orderId: prep.order_id,
+        orderName: prep.order_name || orderNameFallback,
+        successUrl: `${origin}?toss_success=1`,
+        failUrl: `${origin}?toss_fail=1`,
+      });
+      // requestPayment 성공 시 브라우저가 successUrl로 리다이렉트되어 이 아래 코드는 보통 실행되지 않음.
+    } catch (e) {
+      if (e && (e.code === 'USER_CANCEL' || e.code === 'CANCEL')) return; // 사용자가 결제창을 닫음
+      window.showToast && window.showToast('결제를 시작하지 못했습니다: ' + ((e && e.message) || '알 수 없는 오류'), '#921230');
+    }
+  }
+
+  async function _confirmFromRedirect() {
+    const q = new URLSearchParams(window.location.search);
+    const isSuccess = q.get('toss_success') === '1';
+    const isFail = q.get('toss_fail') === '1';
+    if (!isSuccess && !isFail) return;
+
+    // 쿼리 정리(뒤로가기/새로고침 시 중복 처리 방지)
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+    open(); // 결과를 확인할 수 있도록 요금제 팝업을 열어둔다.
+
+    if (isFail) {
+      window.showToast && window.showToast('결제가 취소되었거나 실패했습니다.', '#921230');
+      return;
+    }
+
+    const paymentKey = q.get('paymentKey');
+    const orderId = q.get('orderId');
+    const amount = q.get('amount');
+    if (!paymentKey || !orderId || !amount) {
+      window.showToast && window.showToast('결제 정보가 올바르지 않습니다.', '#921230');
+      return;
+    }
+    try {
+      const r = await _req(API + '/v1/toss/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_key: paymentKey, order_id: orderId, amount: Number(amount) }),
+      });
+      if (!r.ok) { window.showToast && window.showToast(await _errMessage(r), '#921230'); return; }
+      const d = (await r.json()).data;
+      window.showToast && window.showToast('결제가 완료되었습니다. 이용해 주셔서 감사합니다!', '#16A34A');
+      // 등급/보유지표/포인트 등 변경 사항을 반영하기 위해 새로고침.
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      window.showToast && window.showToast('결제 승인 확인 중 오류가 발생했습니다. 고객센터로 문의해 주세요.', '#921230');
+    }
+  }
+  document.addEventListener('DOMContentLoaded', _confirmFromRedirect);
+  if (document.readyState !== 'loading') _confirmFromRedirect();
+
   document.addEventListener('click', function (e) {
     const t = e.target;
     if (t.closest('[data-pr-close]')) { close(); return; }
     const tab = t.closest('[data-pr-tab]'); if (tab) { state.tab = tab.dataset.prTab; render(); return; }
     const cyc = t.closest('[data-pr-cycle]'); if (cyc) { state.cycle = cyc.dataset.prCycle; render(); return; }
-    const plan = t.closest('[data-pr-plan]'); if (plan) { comingSoon(plan.dataset.prPlan.toUpperCase() + ' 구독'); return; }
-    const buyInd = t.closest('[data-pr-buy-ind]'); if (buyInd) { if (state.selected.size) comingSoon('지표 구매'); return; }
-    const pt = t.closest('[data-pr-point]'); if (pt) { comingSoon('포인트 충전'); return; }
+    const plan = t.closest('[data-pr-plan]');
+    if (plan) {
+      const code = plan.dataset.prPlan, cycle = plan.dataset.prCycleSel || state.cycle;
+      _startPayment({ kind: 'subscription', plan_code: code, cycle }, code.toUpperCase() + ' 구독');
+      return;
+    }
+    const buyInd = t.closest('[data-pr-buy-ind]');
+    if (buyInd) {
+      if (!state.selected.size) return;
+      _startPayment({ kind: 'indicator', indicator_codes: Array.from(state.selected) }, '범온 지표 구매');
+      return;
+    }
+    const pt = t.closest('[data-pr-point]');
+    if (pt) {
+      _startPayment({ kind: 'points', amount: Number(pt.dataset.prPoint) }, '포인트 충전');
+      return;
+    }
     // 오버레이 바깥 클릭 닫기
     if (t.classList && t.classList.contains('nav-popup-overlay') && t.id === 'pricingPopup') { close(); return; }
   });
