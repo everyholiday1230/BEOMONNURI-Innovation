@@ -40,7 +40,7 @@
 <link rel="preload" href="/static/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/fonts/pretendard/pretendard.css">
 
-<script defer src="/static/i18n.js?v=20260719_i18n15"></script>
+<script defer src="/static/i18n.js?v=20260720_i18n16"></script>
 <script defer src="/static/js/init.js"></script>
 <script defer src="/static/js/api.js"></script>
 <script defer src="/static/js/namespace.js"></script>
@@ -1277,6 +1277,7 @@ body.dark #_toastContainer .pro-toast-chip {
       <button type="button" class="site-nav-item active" data-nav="chart" title="차트">차트</button>
       <button type="button" class="site-nav-item" data-nav="signals" title="공개 신호 게시판">신호 게시판</button>
       <button type="button" class="site-nav-item" data-nav="leaderboard" title="모의투자 대회 순위">대회 순위</button>
+      <button type="button" class="site-nav-item" data-nav="pricing" title="요금제 · 구독 · 포인트 충전">요금제</button>
       <button type="button" class="site-nav-item" data-nav="points" title="범온 포인트 · 지인 초대">포인트</button>
       <button type="button" class="site-nav-item" data-nav="notice" title="공지사항">공지사항</button>
     </nav>
@@ -1879,6 +1880,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <script defer src="/static/js/modules/hotmap.js?v=20260719_htv7"></script>
 <script defer src="/static/js/modules/signal-builder.js?v=20260717_sb8"></script>
 <script defer src="/static/js/modules/signal-board.js?v=20260719_sghide"></script>
+<script defer src="/static/js/modules/pricing.js?v=20260720_pricing1"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>
 <script defer src="/static/js/modules/trend-insights.js"></script>
 <script defer src="/static/js/modules/guest-mode.js?v=20260710_g4"></script>
@@ -2116,6 +2118,7 @@ body.dark #_toastContainer .pro-toast-chip {
     else if (nav === 'chart') { closeLanding(); }
     else if (nav === 'signals') { if (_needLogin('신호 게시판')) return; window._openSignalsPopup && window._openSignalsPopup(); }
     else if (nav === 'leaderboard') { if (_needLogin('대회 순위')) return; window._openLeaderboardPopup && window._openLeaderboardPopup(); }
+    else if (nav === 'pricing') { window.openPricing && window.openPricing(); }
     else if (nav === 'points') { if (_needLogin('범온 포인트')) return; window._openPointsPopup && window._openPointsPopup(); }
     else if (nav === 'notice') { window._openNoticePopup && window._openNoticePopup(); }
   }
@@ -2227,6 +2230,65 @@ body.dark #_toastContainer .pro-toast-chip {
       <div style="text-align:right;margin:8px 0"><button type="button" id="lbRefresh" class="sg-btn sg-btn-ghost">새로고침</button></div>
       <div id="lbBody"><div class="mt-state-msg" style="text-align:center;color:#8E7D72;padding:24px">순위를 불러오는 중입니다...</div></div>
       <p class="sg-disclaimer">상위 50명까지 표시됩니다. 계좌를 초기화하거나 화면 기록을 지워도 원장과 순위는 유지됩니다. 모의투자 결과는 참고용이며 실제 수익을 보장하지 않습니다.</p>
+    </div>
+  </div>
+</div>
+<!-- 요금제 팝업 -->
+<style>
+#pricingPopup .nav-popup{width:560px;max-width:100%}
+.pr-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--color-border,rgba(216,182,106,0.25))}
+.pr-tab{flex:1;padding:9px 6px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--color-text-muted,#8E7D72);border-bottom:2px solid transparent}
+.pr-tab.active{color:var(--color-primary,#921230);border-bottom-color:var(--color-primary,#921230)}
+.pr-cycle{display:flex;justify-content:center;gap:6px;margin-bottom:14px}
+.pr-cycle-btn{padding:6px 16px;border:1px solid var(--color-border,rgba(216,182,106,0.4));background:var(--color-surface,#fff);border-radius:999px;cursor:pointer;font-size:13px;font-weight:700;color:var(--color-text-muted,#8E7D72)}
+.pr-cycle-btn.active{background:var(--color-primary,#921230);color:#fff;border-color:var(--color-primary,#921230)}
+.pr-save{font-size:10px;background:#16A34A;color:#fff;padding:1px 6px;border-radius:999px;margin-left:4px}
+.pr-plans{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pr-plan{border:1px solid var(--color-border,rgba(216,182,106,0.35));border-top:3px solid var(--accent,#921230);border-radius:12px;padding:16px 14px;display:flex;flex-direction:column;background:var(--color-surface,#fff)}
+.pr-plan-name{font-size:18px;font-weight:800;color:var(--accent,#921230)}
+.pr-plan-tag{font-size:11px;color:var(--color-text-muted,#8E7D72);margin:2px 0 10px}
+.pr-plan-price{font-size:22px;font-weight:800;color:var(--color-text-primary,#1f2937)}
+.pr-per{font-size:13px;font-weight:500;color:var(--color-text-muted,#8E7D72)}
+.pr-monthly-eq{font-size:11px;color:#16A34A;font-weight:600;margin-top:2px}
+.pr-feat{list-style:none;padding:0;margin:12px 0;display:flex;flex-direction:column;gap:7px;flex:1}
+.pr-feat li{font-size:12px;line-height:1.5;color:var(--color-text-secondary,#475569);padding-left:18px;position:relative}
+.pr-feat li::before{content:'✓';position:absolute;left:0;color:#16A34A;font-weight:800}
+.pr-buy{margin-top:auto;padding:10px;background:var(--color-primary,#921230);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700}
+.pr-buy:hover{background:var(--color-primary-hover,#7a0f28)}
+.pr-buy:disabled{background:#c9bfb5;cursor:not-allowed}
+.pr-buy-sm{padding:7px;font-size:12px;margin-top:8px}
+.pr-bundle-note{font-size:12px;background:rgba(146,18,48,0.06);border:1px solid rgba(146,18,48,0.15);border-radius:8px;padding:9px 12px;margin-bottom:12px;color:#4a2330}
+.pr-ind-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.pr-ind{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--color-border,rgba(216,182,106,0.3));border-radius:8px;cursor:pointer}
+.pr-ind.sel{border-color:var(--color-primary,#921230);background:rgba(146,18,48,0.04)}
+.pr-ind input{width:16px;height:16px;accent-color:var(--color-primary,#921230)}
+.pr-ind-info{flex:1;display:flex;flex-direction:column}
+.pr-ind-info b{font-size:13px}
+.pr-ind-desc{font-size:11px;color:var(--color-text-muted,#8E7D72)}
+.pr-ind-price{font-size:13px;font-weight:700;color:var(--color-text-primary,#1f2937);white-space:nowrap}
+.pr-summary{border-top:1px solid var(--color-border,rgba(216,182,106,0.25));padding-top:12px}
+.pr-sum-row{display:flex;justify-content:space-between;font-size:13px;color:var(--color-text-secondary,#475569);margin-bottom:5px}
+.pr-sum-row.on{color:#16A34A;font-weight:600}
+.pr-sum-total{display:flex;justify-content:space-between;font-size:16px;font-weight:800;color:var(--color-primary,#921230);margin:8px 0}
+.pr-next-tier{font-size:12px;color:#8B6914;background:rgba(216,182,106,0.14);border-radius:6px;padding:6px 10px;margin-bottom:10px}
+.pr-pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pr-pt-card{border:1px solid var(--color-border,rgba(216,182,106,0.3));border-radius:10px;padding:14px 12px;text-align:center;background:var(--color-surface,#fff)}
+.pr-pt-card.has-bonus{border-color:rgba(146,18,48,0.35)}
+.pr-pt-amount{font-size:17px;font-weight:800;color:var(--color-primary,#921230)}
+.pr-pt-bonus{font-size:11px;color:#16A34A;font-weight:700;margin:3px 0}
+.pr-pt-bonus.muted{color:var(--color-text-muted,#8E7D72);font-weight:500}
+.pr-pt-price{font-size:14px;font-weight:700;margin-top:4px}
+.pr-disclaimer{font-size:11px;color:var(--color-text-muted,#8E7D72);line-height:1.5;margin-top:14px}
+@media (max-width:560px){ .pr-plans,.pr-pt-grid{grid-template-columns:1fr} }
+</style>
+<div id="pricingPopup" class="nav-popup-overlay" role="dialog" aria-modal="true" aria-label="요금제">
+  <div class="nav-popup">
+    <div class="nav-popup-head">
+      <span class="nav-popup-title">💳 요금제</span>
+      <button type="button" class="nav-popup-close" data-pr-close aria-label="닫기">✕</button>
+    </div>
+    <div class="nav-popup-body" id="pricingBody">
+      <div style="color:#8E7D72;text-align:center;padding:24px">불러오는 중...</div>
     </div>
   </div>
 </div>
