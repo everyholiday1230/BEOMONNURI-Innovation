@@ -60,7 +60,7 @@ def _fallback_logo_url(row: dict) -> str | None:
         return None
     ac = str(row.get("asset_class") or "crypto").lower()
     inv = _logo_inventory()
-    if ac in ("stock", "etf", "commodity"):
+    if ac in ("stock", "etf", "commodity", "metal", "forex", "index", "preipo"):
         candidates = [
             ("stock", f"{token}.SVG"),
             ("stock", f"{token}.PNG"),
