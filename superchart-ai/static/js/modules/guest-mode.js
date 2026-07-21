@@ -8,10 +8,7 @@
   const LOCKED_PANES = [
     { id: 'llm', title: '나만의 신호', desc: '지표를 골라 나만의 매매 신호를 만들어 차트에 표시합니다' },
     { id: 'hot', title: '인기·트렌드', desc: '24시간 거래량·변동성 상위 종목을 확인합니다' },
-    { id: 'heatmap', title: '시장 히트맵', desc: '전 종목 등락률을 한눈에 확인합니다' },
-    { id: 'similar', title: '유사 패턴 검색', desc: '과거 유사한 차트 패턴을 자동으로 찾습니다' },
     { id: 'order', title: '모의 주문', desc: '가상 자금으로 매매 연습이 가능합니다' },
-    { id: 'points', title: '포인트·초대', desc: '포인트 적립·사용과 친구 초대 보상을 관리합니다' },
   ];
 
   function buildLockedHTML(title, desc) {

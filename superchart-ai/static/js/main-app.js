@@ -6142,6 +6142,11 @@ function Ne() {
 (document.querySelectorAll(".pro-ind,.member-ind").forEach(
   (e) =>
     (e.onclick = function () {
+      if (
+        !window.requireLogin ||
+        !window.requireLogin(this.textContent.replace("", "").trim())
+      )
+        return;
       vt();
       const a = {
         ob: window._toggleOB,
