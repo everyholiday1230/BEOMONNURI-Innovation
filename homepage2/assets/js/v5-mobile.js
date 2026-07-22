@@ -13,6 +13,7 @@
     // Detect current active link from existing nav (so we can mirror it in mobile menu)
     const existingActive = nav.querySelector('.nav-links a.active');
     const activeHref = existingActive ? existingActive.getAttribute('href') : null;
+    const isActive = (href) => activeHref === href ? ' class="active"' : '';
 
     // Build hamburger button
     const hamburger = document.createElement('button');
@@ -26,7 +27,9 @@
     const navRow = nav.querySelector('.row');
     navRow.appendChild(hamburger);
 
-    // Build fullscreen mobile menu
+    // Build fullscreen mobile menu — mirrors the desktop nav 1:1
+    // (Home / Products + its 4 sub-links / Why / Contact) so mobile users
+    // reach the exact same destinations as desktop users.
     const menu = document.createElement('aside');
     menu.className = 'mobile-menu';
     menu.setAttribute('aria-hidden', 'true');
@@ -34,14 +37,29 @@
       <div class="mobile-menu-inner">
         <div class="mobile-menu-label">BEOMONNURI · MENU</div>
         <nav aria-label="Mobile primary">
-          <a href="index.html"     ${activeHref === 'index.html' ? 'class="active"' : ''}>
+          <a href="index.html"${isActive('index.html')}>
             <span>HOME</span><span class="num">01</span>
           </a>
-          <a href="products.html"  ${activeHref === 'products.html' ? 'class="active"' : ''}>
+          <a href="products.html"${isActive('products.html')}>
             <span>PRODUCTS</span><span class="num">02</span>
           </a>
-          <a href="why.html"       ${activeHref === 'why.html' ? 'class="active"' : ''}>
+          <a href="products-private.html" class="sub"${isActive('products-private.html')}>
+            <span>· 범온 프라이빗 AI</span><span class="num">02-1</span>
+          </a>
+          <a href="products-agent.html" class="sub"${isActive('products-agent.html')}>
+            <span>· 범온 에이전트 AI</span><span class="num">02-2</span>
+          </a>
+          <a href="products-superchart.html" class="sub"${isActive('products-superchart.html')}>
+            <span>· 범온 슈퍼차트 AI</span><span class="num">02-3</span>
+          </a>
+          <a href="services-outsourcing.html" class="sub"${isActive('services-outsourcing.html')}>
+            <span>· 외주·MVP 제작</span><span class="num">02-4</span>
+          </a>
+          <a href="why.html"${isActive('why.html')}>
             <span>WHY</span><span class="num">03</span>
+          </a>
+          <a href="contact.html"${isActive('contact.html')}>
+            <span>CONTACT</span><span class="num">04</span>
           </a>
         </nav>
         <div class="cta-row">

@@ -33,7 +33,7 @@
 <link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708s">
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
 <link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708s">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260722a">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -82,8 +82,13 @@
     background: rgba(255,255,255,0.6);
     margin-bottom: 8px;
   }
+  .legal-doc .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 10px 0 6px;
+  }
   .legal-doc table {
-    width: 100%; border-collapse: collapse; margin: 10px 0 6px;
+    width: 100%; border-collapse: collapse; margin: 0;
     font-size: 14px;
   }
   .legal-doc th, .legal-doc td {
@@ -98,6 +103,9 @@
     padding: 0 3px; font-weight: 700; color: var(--acid);
   }
   .legal-doc .rev { font-family: var(--mono); font-size: 13px; color: rgba(13,13,13,0.6); margin-top: 28px; }
+  @media (max-width: 640px) {
+    .table-scroll table { min-width: 560px; }
+  }
 </style>
 </head>
 
@@ -150,6 +158,7 @@
 
     <h2>1. 수집하는 개인정보 항목</h2>
     <p>회사는 도입 진단·상담 문의 응대를 위해 아래 항목을 수집합니다.</p>
+    <div class="table-scroll">
     <table>
       <thead><tr><th>구분</th><th>수집 항목</th><th>수집 방법</th></tr></thead>
       <tbody>
@@ -157,6 +166,7 @@
         <tr><td>문의 시 (선택)</td><td>관심 제품, 보안 요건, 문의 내용(업무·데이터 활용 시나리오)</td><td>웹사이트 문의 폼</td></tr>
       </tbody>
     </table>
+    </div>
     <p>회사는 사상·신념, 건강, 정치적 성향 등 민감정보는 수집하지 않습니다. 이용자가 문의 내용에 민감정보 또는 제3자의 개인정보를 임의로 기재하지 않도록 권고합니다.</p>
 
     <h2>2. 개인정보의 이용 목적</h2>
@@ -276,6 +286,6 @@
 <script src="assets/js/v5-nextgen.js?v=20260708s"></script>
 <script src="assets/js/v5-webgpu.js?v=20260708s"></script>
 <script src="assets/js/v5-anchor.js?v=20260708s"></script>
-<script src="assets/js/v5-mobile.js?v=20260708s"></script>
+<script src="assets/js/v5-mobile.js?v=20260722a"></script>
 </body>
 </html>

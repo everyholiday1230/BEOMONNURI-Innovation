@@ -146,10 +146,12 @@ body.nav-open .mobile-menu nav a {
   transform: translateX(0);
 }
 body.nav-open .mobile-menu nav a:nth-child(1) { transition-delay: 0.08s; }
-body.nav-open .mobile-menu nav a:nth-child(2) { transition-delay: 0.14s; }
-body.nav-open .mobile-menu nav a:nth-child(3) { transition-delay: 0.20s; }
-body.nav-open .mobile-menu nav a:nth-child(4) { transition-delay: 0.26s; }
-body.nav-open .mobile-menu nav a:nth-child(5) { transition-delay: 0.32s; }
+body.nav-open .mobile-menu nav a:nth-child(2) { transition-delay: 0.12s; }
+body.nav-open .mobile-menu nav a:nth-child(3) { transition-delay: 0.16s; }
+body.nav-open .mobile-menu nav a:nth-child(4) { transition-delay: 0.20s; }
+body.nav-open .mobile-menu nav a:nth-child(5) { transition-delay: 0.24s; }
+body.nav-open .mobile-menu nav a:nth-child(6) { transition-delay: 0.28s; }
+body.nav-open .mobile-menu nav a:nth-child(7) { transition-delay: 0.32s; }
 
 .mobile-menu nav a:hover {
   padding-left: 12px;
@@ -164,6 +166,22 @@ body.nav-open .mobile-menu nav a:nth-child(5) { transition-delay: 0.32s; }
   font-weight: 500;
   letter-spacing: 0.12em;
   color: rgba(246,244,239,0.4);
+}
+
+/* Sub-links (Products children) — smaller, indented, lighter divider */
+.mobile-menu nav a.sub {
+  padding: 12px 0 12px 18px;
+  font-size: clamp(19px, 5.2vw, 26px);
+  letter-spacing: -0.02em;
+  text-transform: none;
+  border-bottom: 1px solid rgba(246,244,239,0.08);
+  color: rgba(246,244,239,0.82);
+}
+.mobile-menu nav a.sub:hover {
+  padding-left: 26px;
+}
+.mobile-menu nav a.sub .num {
+  font-size: 9.5px;
 }
 
 .mobile-menu .cta-row {

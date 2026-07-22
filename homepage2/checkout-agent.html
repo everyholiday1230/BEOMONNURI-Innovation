@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260708s">
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
 <link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708s">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260708s">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260722a">
 <link rel="stylesheet" href="assets/css/checkout.css?v=20260720a">
 
 <!-- 토스페이먼츠 SDK -->
@@ -36,7 +36,16 @@
     </a>
     <div class="nav-links">
       <a href="index.html">Home</a>
-      <a href="products.html">Products</a>
+      <div class="nav-dd">
+        <a href="products.html" aria-haspopup="true">Products</a>
+        <div class="nav-dd-menu" role="menu">
+          <a href="products.html" role="menuitem">전체 제품 보기</a>
+          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
+          <a href="products-agent.html" role="menuitem" class="active">범온 에이전트 AI</a>
+          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+          <a href="services-outsourcing.html" role="menuitem">외주·MVP 제작</a>
+        </div>
+      </div>
       <a href="why.html">Why</a>
       <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
     </div>
@@ -91,6 +100,7 @@
   </div>
 </footer>
 
+<script src="assets/js/v5-mobile.js?v=20260722a"></script>
 <script src="assets/js/checkout-common.js?v=20260720a"></script>
 <script>
   initSingleCheckout({
