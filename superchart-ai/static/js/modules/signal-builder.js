@@ -303,15 +303,23 @@
     return cond;
   }
 
+  function _lang() { try { return localStorage.getItem('chartOS_lang') || 'ko'; } catch (_) { return 'ko'; } }
   function _condText(c) {
     const meta = CAT_MAP[c.indicator] || { label: c.indicator };
     const name = meta.label.replace(/\s*\(.*\)/, '') + (c.period ? ` <b>${c.period}</b>` : '');
+    const lang = _lang();
     if (c.op === 'cross_up' || c.op === 'cross_down') {
       const tmeta = CAT_MAP[c.target.indicator] || { label: c.target.indicator };
       const tname = tmeta.label.replace(/\s*\(.*\)/, '') + (c.target.period ? ` <b>${c.target.period}</b>` : '');
-      return `${name} 이(가) ${tname} 을(를) <b>${c.op === 'cross_up' ? '상향 돌파' : '하향 돌파'}</b>`;
+      const crossLabel = { ko: c.op === 'cross_up' ? '상향 돌파' : '하향 돌파', en: c.op === 'cross_up' ? 'crosses above' : 'crosses below', ja: c.op === 'cross_up' ? '上抜け' : '下抜け', zh: c.op === 'cross_up' ? '上穿' : '下穿' }[lang] || (c.op === 'cross_up' ? '상향 돌파' : '하향 돌파');
+      if (lang === 'en') return `${name} <b>${crossLabel}</b> ${tname}`;
+      if (lang === 'ja' || lang === 'zh') return `${name} ${tname} <b>${crossLabel}</b>`;
+      return `${name} 이(가) ${tname} 을(를) <b>${crossLabel}</b>`;
     }
-    return `${name} 이(가) <b>${c.value}</b> ${c.op === 'above' ? '이상' : '이하'}`;
+    const cmpLabel = { ko: c.op === 'above' ? '이상' : '이하', en: c.op === 'above' ? 'is above' : 'is below', ja: c.op === 'above' ? '以上' : '以下', zh: c.op === 'above' ? '大于等于' : '小于等于' }[lang] || (c.op === 'above' ? '이상' : '이하');
+    if (lang === 'en') return `${name} <b>${cmpLabel}</b> <b>${c.value}</b>`;
+    if (lang === 'ja' || lang === 'zh') return `${name} <b>${c.value}</b> ${cmpLabel}`;
+    return `${name} 이(가) <b>${c.value}</b> ${cmpLabel}`;
   }
 
   function _updatePreview() {
@@ -426,7 +434,7 @@
         title: label || `${symbol.replace('USDT', '/USDT')} ${action === 'buy' ? '매수' : action === 'sell' ? '매도' : '관심'} 신호`,
       };
       const saveBtn = _el('sbSave'); if (saveBtn) saveBtn.disabled = false;
-      if (drawn > 0) { _setStatus('ok', `신호 ${drawn}개`); _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`); }
+      if (drawn > 0) { _setStatus('ok', `신호: ${drawn}`); _setResult('ok', payload.reply || `${drawn}개 표시했습니다.`); }
       else { _setStatus('ready', '표시할 신호 없음'); _setResult('warn', payload.reply || '최근 구간에 조건을 만족하는 지점이 없습니다. 값이나 기간을 조정해보세요.'); }
     } catch (e) {
       _setStatus('error', '오류'); _setResult('error', '네트워크 오류로 처리하지 못했습니다.');

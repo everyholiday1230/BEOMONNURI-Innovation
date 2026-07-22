@@ -16,6 +16,18 @@
   const fmtP = n => (Number(n) || 0).toLocaleString('en-US');
   const isLoggedIn = () => !!(window.isLoggedIn && window.isLoggedIn());
 
+  // 어순이 언어마다 다른 문장은 사전 치환으로 번역할 수 없어 언어별 템플릿으로 조립한다.
+  function _lang() { try { return localStorage.getItem('chartOS_lang') || 'ko'; } catch (_) { return 'ko'; } }
+  function _expireNote(amount, dateStr) {
+    const msgs = {
+      ko: `${amount} P가 ${dateStr}에 소멸 예정입니다.`,
+      en: `${amount} P will expire on ${dateStr}.`,
+      ja: `${amount} Pが${dateStr}に失効予定です。`,
+      zh: `${amount} P将于${dateStr}到期失效。`,
+    };
+    return msgs[_lang()] || msgs.ko;
+  }
+
   async function fetchJson(url, opts) {
     try {
       const req = (typeof window.dedupFetch === 'function') ? window.dedupFetch : fetch;
@@ -132,7 +144,7 @@
           <div class="row"><span class="k">이번 달 적립</span><span class="v">${fmtP(P.monthEarned)} P</span></div>
           <div class="row"><span class="k">이번 달 사용</span><span class="v">${fmtP(P.monthUsed)} P</span></div>
         </div>
-        ${P.expiring > 0 && P.soonest ? `<div class="pt-expire-note">${fmtP(P.expiring)} P가 ${esc((P.soonest || '').slice(0, 10))}에 소멸 예정입니다.</div>` : ''}
+        ${P.expiring > 0 && P.soonest ? `<div class="pt-expire-note">${_expireNote(fmtP(P.expiring), esc((P.soonest || '').slice(0, 10)))}</div>` : ''}
       </div>
       <div class="pt-card"><div class="pt-card-title">최근 적립 내역</div>${earn.length ? earn.map(row).join('') : '<div class="pt-state-msg">적립 내역이 없습니다.</div>'}</div>
       <div class="pt-card"><div class="pt-card-title">최근 사용 내역</div>${use.length ? use.map(row).join('') : '<div class="pt-state-msg">사용 내역이 없습니다.</div>'}</div>

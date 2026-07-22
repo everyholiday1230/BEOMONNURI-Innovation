@@ -496,7 +496,7 @@ export class ChartCore {
         s.setLineDash([]),
         (s.fillStyle = "#3B82F6"),
         (s.font = "bold 14px sans-serif"),
-        s.fillText("\uCD5C\uACE0 " + n(h), 4, a - 3));
+        s.fillText((window.t || ((x) => x))("최고 ") + n(h), 4, a - 3));
       const f = this.priceScale.priceToY(l);
       ((s.strokeStyle = "rgba(196,56,75,0.4)"),
         (s.lineWidth = 0.5),
@@ -508,7 +508,7 @@ export class ChartCore {
         s.setLineDash([]),
         (s.fillStyle = "#C4384B"),
         (s.font = "bold 14px sans-serif"),
-        s.fillText("\uCD5C\uC800 " + n(l), 4, f + 10));
+        s.fillText((window.t || ((x) => x))("최저 ") + n(l), 4, f + 10));
       if (t < this.buffer.length && Number.isFinite(this.buffer.open[t])) {
         const _op = this.buffer.open[t],
           _oy = this.priceScale.priceToY(_op);
@@ -522,7 +522,7 @@ export class ChartCore {
         s.setLineDash([]);
         s.fillStyle = "#D8B66A";
         s.font = "bold 14px sans-serif";
-        s.fillText("\uC2DC\uAC00 " + n(_op), 4, _oy - 3);
+        s.fillText((window.t || ((x) => x))("시가 ") + n(_op), 4, _oy - 3);
       }
     }
     if (this.buffer.length > 0) {

@@ -276,10 +276,11 @@ export class OverlayEngine {
       ((e.font = "bold 9px sans-serif"),
         (e.fillStyle = i.color || "#8E7D72"),
         (e.globalAlpha = 0.8));
-      const s = e.measureText(i.label).width + 8;
+      const _lbl = (window.t || ((s) => s))(i.label);
+      const s = e.measureText(_lbl).width + 8;
       (e.fillRect(x + 2, 4, s, 12),
         (e.fillStyle = "#fff"),
-        e.fillText(i.label, x + 6, 13),
+        e.fillText(_lbl, x + 6, 13),
         (e.globalAlpha = 1));
     }
   }
@@ -301,10 +302,11 @@ export class OverlayEngine {
       ((e.font = "bold 9px sans-serif"),
         (e.fillStyle = i.color || "#921230"),
         (e.globalAlpha = 0.8));
-      const s = e.measureText(i.label).width + 8;
+      const _lbl = (window.t || ((s) => s))(i.label);
+      const s = e.measureText(_lbl).width + 8;
       (e.fillRect(4, t - 8, s, 16),
         (e.fillStyle = "#fff"),
-        e.fillText(i.label, 8, t + 4),
+        e.fillText(_lbl, 8, t + 4),
         (e.globalAlpha = 1));
     }
     const l =
@@ -641,7 +643,7 @@ export class OverlayEngine {
       (e.textBaseline = o ? "top" : "bottom"));
     const r = o ? n + 6 : n - 6,
       h = i.confidence ? ` (${Math.round(i.confidence * 100)}%)` : "";
-    (e.fillText((o ? "\uB9E4\uC218" : "\uB9E4\uB3C4") + h, t, r), e.restore());
+    (e.fillText((window.t || ((s) => s))(o ? "매수" : "매도") + h, t, r), e.restore());
     const f = this.ts.barToX(i.bar_idx + 20);
     (i.stop &&
       this._renderAutobotLine(
@@ -858,8 +860,9 @@ export class OverlayEngine {
       (e.fillStyle = n),
       (e.globalAlpha = 0.9));
     const T = b ? a + 22 : a - 14;
+    const _pLabel = (window.t || ((s) => s))(p);
     if (
-      (e.fillText(p, t - e.measureText(p).width / 2, T),
+      (e.fillText(_pLabel, t - e.measureText(_pLabel).width / 2, T),
       (e.globalAlpha = 1),
       i.span)
     ) {

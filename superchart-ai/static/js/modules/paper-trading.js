@@ -763,6 +763,41 @@
   }
 
   // ───────── 17) AI 복기 요약 ─────────
+  // 언어별 어순이 다른 문장은 사전 치환(부분 문자열 교체) 방식으로 번역할 수 없으므로
+  // 언어별 전체 템플릿 함수로 조립한다. (i18n.js의 substring 치환은 어순을 바꿀 수 없음)
+  function _lang() { try { return localStorage.getItem('chartOS_lang') || 'ko'; } catch (_) { return 'ko'; } }
+  const _reviewMsgs = {
+    ko: {
+      noStop: (total, n) => `최근 ${total}건 중 ${n}건은 손절 기준가 없이 연습했습니다. 다음 연습에서는 손절 기준을 먼저 정해 보세요.`,
+      lowRR: (n) => `손익비가 1 미만인 연습이 ${n}건 있었습니다. 목표가·손절가 거리를 다시 점검해 보세요.`,
+      highLev: (n) => `10x 이상 레버리지 연습이 ${n}건 있었습니다. 청산가와의 거리를 함께 확인하는 습관을 들여 보세요.`,
+      planExit: (n) => `손절 기준 도달로 종료된 연습이 ${n}건 있었습니다. 진입 근거와 손절 위치가 적절했는지 복기해 보세요.`,
+    },
+    en: {
+      noStop: (total, n) => `${n} of your last ${total} trades had no stop-loss set. Set a stop-loss level before your next practice trade.`,
+      lowRR: (n) => `${n} trade${n > 1 ? 's' : ''} had a risk/reward ratio below 1. Review your target/stop distances.`,
+      highLev: (n) => `${n} trade${n > 1 ? 's' : ''} used 10x+ leverage. Get in the habit of checking the distance to liquidation.`,
+      planExit: (n) => `${n} trade${n > 1 ? 's' : ''} closed by hitting the stop-loss. Review whether your entry reasoning and stop placement were appropriate.`,
+    },
+    ja: {
+      noStop: (total, n) => `直近${total}件中${n}件はストップロスなしで練習しました。次回はまずストップロス基準を決めましょう。`,
+      lowRR: (n) => `リスクリワード比が1未満の練習が${n}件ありました。目標価格・ストップロス価格の距離を見直しましょう。`,
+      highLev: (n) => `10倍以上のレバレッジ練習が${n}件ありました。清算価格との距離も確認する習慣をつけましょう。`,
+      planExit: (n) => `ストップロスで終了した練習が${n}件ありました。エントリーの根拠とストップ位置が適切だったか振り返りましょう。`,
+    },
+    zh: {
+      noStop: (total, n) => `最近${total}笔中有${n}笔未设置止损进行练习。下次练习请先设定止损位。`,
+      lowRR: (n) => `有${n}笔练习的盈亏比低于1。请重新检查目标价与止损价的距离。`,
+      highLev: (n) => `有${n}笔练习使用了10倍以上杠杆。养成同时确认与清算价距离的习惯。`,
+      planExit: (n) => `有${n}笔练习因触及止损而结束。请复盘进场依据和止损位置是否合理。`,
+    },
+  };
+  function _reviewMsg(key, ...args) {
+    const lang = _lang();
+    const set = _reviewMsgs[lang] || _reviewMsgs.ko;
+    return (set[key] || _reviewMsgs.ko[key])(...args);
+  }
+
   function renderAiReview() {
     const el = document.getElementById('mtAiReview');
     if (!el) return;
@@ -775,10 +810,10 @@
     const losses = recent.filter(x => x.pnl < 0).length;
     const planExit = recent.filter(x => x.status === 'stop').length;
     const points = [];
-    if (noStop > 0) points.push(`최근 ${recent.length}건 중 ${noStop}건은 손절 기준가 없이 연습했습니다. 다음 연습에서는 손절 기준을 먼저 정해 보세요.`);
-    if (lowRR > 0) points.push(`손익비가 1 미만인 연습이 ${lowRR}건 있었습니다. 목표가·손절가 거리를 다시 점검해 보세요.`);
-    if (highLev > 0) points.push(`10x 이상 레버리지 연습이 ${highLev}건 있었습니다. 청산가와의 거리를 함께 확인하는 습관을 들여 보세요.`);
-    if (planExit > 0) points.push(`손절 기준 도달로 종료된 연습이 ${planExit}건 있었습니다. 진입 근거와 손절 위치가 적절했는지 복기해 보세요.`);
+    if (noStop > 0) points.push(_reviewMsg('noStop', recent.length, noStop));
+    if (lowRR > 0) points.push(_reviewMsg('lowRR', lowRR));
+    if (highLev > 0) points.push(_reviewMsg('highLev', highLev));
+    if (planExit > 0) points.push(_reviewMsg('planExit', planExit));
     if (!points.length) points.push('최근 연습에서 손절 설정과 손익비 관리가 비교적 잘 지켜졌습니다. 같은 기준을 꾸준히 유지해 보세요.');
     el.innerHTML = `
       <div class="mt-card-title">AI 복기 요약</div>
