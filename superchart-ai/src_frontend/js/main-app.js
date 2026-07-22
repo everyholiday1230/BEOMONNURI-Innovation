@@ -8554,6 +8554,19 @@ function Mo() {
     const b = Math.round(performance.now() - n);
     window.__bootTimings[m] = b;
   };
+  // 스플래시 화면 안전장치 — 느린 네트워크나 예상치 못한 예외로 정상 로딩 경로의
+  // et()가 늦게(또는 아예) 호출되지 않아도, 최대 8초 후에는 무조건 스플래시를
+  // 강제로 숨긴다. 스플래시 배경색이 페이지 배경과 비슷해 안 사라지면 마치
+  // "탭 위에 빈 공백이 있는 것"처럼 보이는 문제를 방지한다. 8초 이후에도
+  // 캔들 요청이 계속 진행 중이면 하단의 #chartLoading 인디케이터가 이어서
+  // 로딩 상태를 보여준다(스플래시보다 눈에 띄는 별도 표시).
+  setTimeout(() => {
+    const sp = document.getElementById("splashScreen");
+    if (sp && !sp.classList.contains("hide")) {
+      sp.classList.add("hide");
+      setTimeout(() => sp.remove(), 600);
+    }
+  }, 8000);
   ((window.onerror = function (m, b, v, s, l) {
     window.api
       .post(F + "/v1/analysis/track-click", {
