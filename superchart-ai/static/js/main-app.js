@@ -7512,17 +7512,10 @@ function kt() {
     const f =
       document.documentElement.classList.contains("dark") ||
       document.body.dataset.theme === "dark";
-    ((i.fillStyle = f ? "rgba(255,255,255,0.15)" : "rgba(61,43,31,0.15)"),
-      (i.font = "bold 24px sans-serif"),
+    ((i.fillStyle = f ? "rgba(255,255,255,0.3)" : "rgba(61,43,31,0.3)"),
+      (i.font = "12px sans-serif"),
       i.fillText(
-        "BitMart Korea",
-        n.width / window.devicePixelRatio / 2 - 80,
-        n.height / window.devicePixelRatio / 2,
-      ),
-      (i.fillStyle = f ? "rgba(255,255,255,0.4)" : "rgba(61,43,31,0.35)"),
-      (i.font = "11px sans-serif"),
-      i.fillText(
-        `${B} ${A} \u2014 ${new Date().toLocaleString("ko-KR")}`,
+        `\uBC94\uC628 AI \uC288\uD37C\uCC28\uD2B8 \u2014 ${B} ${A} \u2014 ${new Date().toLocaleString("ko-KR")}`,
         10,
         n.height / window.devicePixelRatio - 10,
       ),
