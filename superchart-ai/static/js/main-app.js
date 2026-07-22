@@ -241,8 +241,32 @@ function Mt(e) {
     n.classList.toggle("active", n.dataset.tf === e);
   });
 }
+// 주소창 URL을 현재 종목·타임프레임에 맞춰 자동 갱신한다.
+// 종목/타임프레임이 바뀔 때마다 호출 → 사용자가 브라우저 주소창을 그대로
+// 복사해서 공유해도(공유 버튼을 안 눌러도) 항상 지금 보고 있는 화면이
+// 그대로 전달된다. pushState가 아닌 replaceState를 써서 뒤로가기 히스토리를
+// 오염시키지 않는다. /chart, /landing 등 다른 정적 경로에서는 손대지 않는다.
+let _urlSyncTimer = null;
+function _syncAddressBar() {
+  try {
+    if (!window.history || !window.history.replaceState) return;
+    const path = location.pathname;
+    if (path !== "/" && !/^\/chart(\/[a-z0-9]{0,20})?\/?$/i.test(path)) return; // 다른 정적 페이지는 건드리지 않음
+    const sym = String(window.curSymbol || "").trim();
+    if (!sym) return;
+    const base = sym.replace(/^KRW-/, "").replace(/USDT$/, "").toLowerCase();
+    if (!base) return;
+    const tf = window.curTf || "5m";
+    const next = `/chart/${encodeURIComponent(base)}?tf=${encodeURIComponent(tf)}`;
+    if (location.pathname + location.search === next) return;
+    clearTimeout(_urlSyncTimer);
+    _urlSyncTimer = setTimeout(() => {
+      try { window.history.replaceState(null, "", next); } catch (_) {}
+    }, 250);
+  } catch (_) {}
+}
 function Ft(e, n) {
-  if (e && ((A = e), (window.curTf = e), Mt(e), !n?.skipLoad)) {
+  if (e && ((A = e), (window.curTf = e), Mt(e), _syncAddressBar(), !n?.skipLoad)) {
     const _manualBeforeTf =
       o && o.overlay && Array.isArray(o.overlay.drawings)
         ? o.overlay.drawings.filter((d) =>
@@ -4026,6 +4050,7 @@ function vo() {
   else {
     ((B = e),
       (window.curSymbol = e),
+      _syncAddressBar(),
       (window._rt = {
         symbol: e,
         timeframe: A,
@@ -8602,6 +8627,7 @@ function Mo() {
     (A = y || co),
     (window.curTf = A),
     Mt(A),
+    _syncAddressBar(),
     a("chart init start"),
     uo(),
     Eo(),
