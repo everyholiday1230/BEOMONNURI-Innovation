@@ -8564,6 +8564,15 @@ function Mo() {
   const r = new URLSearchParams(location.search);
   let i = r.get("sym") || null,
     y = r.get("tf") || null;
+  // /chart/{symbol} 경로(공유 링크)로 접속한 경우 경로에서 종목을 읽어온다.
+  // ?sym= 쿼리가 있으면 그게 우선(명시적 지정), 없을 때만 경로를 사용.
+  if (!i) {
+    const pm = location.pathname.match(/^\/chart\/([a-z0-9]{2,20})\/?$/i);
+    if (pm) {
+      const base = pm[1].toUpperCase();
+      i = base.endsWith("USDT") ? base : base + "USDT";
+    }
+  }
   if ((!i || !y) && G())
     try {
       a("settings start");

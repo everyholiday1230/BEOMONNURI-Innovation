@@ -10,11 +10,28 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- 배경 캔들스틱 패턴(은은하게, 차트 서비스임을 시각적으로 전달) -->
+  <g opacity="0.10" stroke="#921230" stroke-width="3" fill="none">
+    <line x1="80" y1="120" x2="80" y2="230"/>
+    <line x1="140" y1="90" x2="140" y2="260"/>
+    <line x1="200" y1="150" x2="200" y2="210"/>
+    <line x1="1040" y1="380" x2="1040" y2="520"/>
+    <line x1="1100" y1="350" x2="1100" y2="560"/>
+    <line x1="1000" y1="420" x2="1000" y2="470"/>
+  </g>
+  <g opacity="0.14">
+    <rect x="66" y="140" width="28" height="60" fill="#921230"/>
+    <rect x="126" y="110" width="28" height="90" fill="#3B82F6"/>
+    <rect x="186" y="165" width="28" height="30" fill="#921230"/>
+    <rect x="1026" y="400" width="28" height="80" fill="#3B82F6"/>
+    <rect x="1086" y="370" width="28" height="130" fill="#921230"/>
+    <rect x="986" y="435" width="28" height="20" fill="#3B82F6"/>
+  </g>
   <rect x="0" y="0" width="1200" height="8" fill="url(#accent)"/>
-  <text x="600" y="230" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="80" font-weight="900" fill="#921230" letter-spacing="-2">범온 AI 슈퍼차트</text>
-  <text x="600" y="290" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="28" fill="#7A6A5F">실시간 암호화폐 AI 차트 분석 플랫폼</text>
+  <text x="600" y="230" text-anchor="middle" font-family="Noto Sans CJK KR, -apple-system, BlinkMacSystemFont, sans-serif" font-size="80" font-weight="900" fill="#921230" letter-spacing="-2">범온 AI 슈퍼차트</text>
+  <text x="600" y="290" text-anchor="middle" font-family="Noto Sans CJK KR, -apple-system, BlinkMacSystemFont, sans-serif" font-size="28" fill="#7A6A5F">실시간 암호화폐 AI 차트 분석 플랫폼</text>
   <rect x="420" y="340" width="360" height="60" rx="30" fill="url(#accent)"/>
-  <text x="600" y="380" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="24" font-weight="700" fill="#fff">차트 · AI 분석 · 알림</text>
-  <text x="600" y="460" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="20" fill="#8B6914">BEOM AI 캔들 · 범온MA · 추세선 · 거래밀집구간</text>
-  <text x="600" y="560" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="18" fill="#8E7D72">www.beomonnuri.com</text>
+  <text x="600" y="380" text-anchor="middle" font-family="Noto Sans CJK KR, -apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="700" fill="#fff">차트 · AI 분석 · 알림</text>
+  <text x="600" y="460" text-anchor="middle" font-family="Noto Sans CJK KR, -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" fill="#8B6914">BEOM AI 캔들 · 범온MA · 추세선 · 거래밀집구간</text>
+  <text x="600" y="560" text-anchor="middle" font-family="Noto Sans CJK KR, -apple-system, BlinkMacSystemFont, sans-serif" font-size="18" fill="#8E7D72">chart.beomonnuri.com</text>
 </svg>

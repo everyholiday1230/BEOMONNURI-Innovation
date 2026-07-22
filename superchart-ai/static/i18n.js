@@ -11,6 +11,11 @@ const TRANSLATIONS = {
       
     } },
   en: { flag: '🇺🇸', name: 'English', texts: {
+      '현재 종목·타임프레임 링크 복사': 'Copy a link to the current symbol & timeframe',
+      '공유할 종목을 먼저 선택해 주세요': 'Please select a symbol to share first',
+      '차트 링크가 복사되었습니다': 'Chart link copied',
+      '링크 복사에 실패했습니다. 직접 복사해 주세요: ': 'Could not copy the link. Please copy it manually: ',
+      '공유 링크 생성 중 오류가 발생했습니다': 'An error occurred while creating the share link',
       '/년': '/yr',
       '전 지표 + AI 무제한': 'All indicators + Unlimited AI',
       'VIP 전체 + 우선 혜택': 'Everything in VIP + Priority perks',
@@ -2598,6 +2603,11 @@ const TRANSLATIONS = {
       '다이버전스': 'Divergence'
     }},
   ja: { flag: '🇯🇵', name: '日本語', texts: {
+      '현재 종목·타임프레임 링크 복사': '現在の銘柄・時間軸のリンクをコピー',
+      '공유할 종목을 먼저 선택해 주세요': '共有する銘柄を先に選択してください',
+      '차트 링크가 복사되었습니다': 'チャートのリンクをコピーしました',
+      '링크 복사에 실패했습니다. 직접 복사해 주세요: ': 'リンクのコピーに失敗しました。手動でコピーしてください: ',
+      '공유 링크 생성 중 오류가 발생했습니다': '共有リンクの作成中にエラーが発生しました',
       '/년': '/年',
       '전 지표 + AI 무제한': '全指標 + AI無制限',
       'VIP 전체 + 우선 혜택': 'VIP全機能 + 優先特典',
@@ -4867,6 +4877,11 @@ const TRANSLATIONS = {
       '다이버전스': 'ダイバージェンス'
     }},
   zh: { flag: '🇨🇳', name: '中文', texts: {
+      '현재 종목·타임프레임 링크 복사': '复制当前品种·时间周期链接',
+      '공유할 종목을 먼저 선택해 주세요': '请先选择要分享的品种',
+      '차트 링크가 복사되었습니다': '图表链接已复制',
+      '링크 복사에 실패했습니다. 직접 복사해 주세요: ': '链接复制失败，请手动复制：',
+      '공유 링크 생성 중 오류가 발생했습니다': '生成分享链接时发生错误',
       '/년': '/年',
       '전 지표 + AI 무제한': '全部指标 + AI无限',
       'VIP 전체 + 우선 혜택': 'VIP全部功能 + 优先权益',

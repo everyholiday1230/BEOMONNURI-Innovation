@@ -19,6 +19,7 @@ document.addEventListener('click', function(e) {
     loadHeatmap: ()=>window.loadHeatmap?.(),
     showAuth: ()=>window.showAuth?.(),
     captureChart: ()=>window.captureChart?.(),
+    shareChart: ()=>window._shareChart?.(),
     startForecast: ()=>window.startForecast?.(),
     startProjection: ()=>window.startProjection?.(),
     clearForecast: ()=>window.clearForecast?.(),
@@ -141,6 +142,49 @@ document.addEventListener('click', function(e) {
   const API = window.API || '';
   fetch(API+'/v1/analysis/track-click',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:el.dataset.track})}).catch(()=>{});
 });
+
+// ── 차트 공유 링크 생성 + 클립보드 복사 ──
+// 현재 종목·타임프레임 기준 /chart/{symbol} URL(서버가 종목별 og:title 등을 채워줌)에
+// 타임프레임 쿼리를 붙여 공유한다. 클립보드 API가 막힌 환경(권한 거부, 구형 브라우저,
+// 비보안 컨텍스트)에서는 임시 textarea + execCommand('copy')로 폴백한다.
+window._shareChart = function () {
+  try {
+    const sym = String(window.curSymbol || '').trim();
+    if (!sym) { window.showToast?.('공유할 종목을 먼저 선택해 주세요', '#D8B66A'); return; }
+    const base = sym.replace(/^KRW-/, '').replace(/USDT$/, '');
+    const tf = window.curTf || '5m';
+    const url = `${window.location.origin}/chart/${encodeURIComponent(base.toLowerCase())}?tf=${encodeURIComponent(tf)}`;
+
+    const onCopied = () => window.showToast?.('차트 링크가 복사되었습니다', '#C4384B');
+    const onFailed = () => window.showToast?.('링크 복사에 실패했습니다. 직접 복사해 주세요: ' + url, '#921230');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(onCopied).catch(() => _shareChartFallbackCopy(url, onCopied, onFailed));
+    } else {
+      _shareChartFallbackCopy(url, onCopied, onFailed);
+    }
+  } catch (e) {
+    window.showToast?.('공유 링크 생성 중 오류가 발생했습니다', '#921230');
+  }
+};
+
+function _shareChartFallbackCopy(text, onCopied, onFailed) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    ok ? onCopied() : onFailed();
+  } catch (e) {
+    onFailed();
+  }
+}
 
 // 지표 검색
 document.getElementById('indSearch')?.addEventListener('input',function(){

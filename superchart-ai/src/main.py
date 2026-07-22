@@ -676,36 +676,67 @@ async def admin_dashboard_page(request: _Req):
 
 @app.get("/chart/{symbol}")
 async def chart_page(symbol: str):
-    """종목별 전용 URL — SEO용 서버 렌더 메타태그 포함."""
+    """종목별 전용 URL — SEO/공유 미리보기(OG·Twitter 카드)용 서버 렌더 메타태그 포함.
+
+    보안: symbol은 반드시 화이트리스트 정규식(영문 대문자+숫자, 2~20자)을 통과해야
+    한다. HTML에 그대로 삽입되므로, 통과하지 못하면 기본 index.html로 폴백해
+    사용자 입력이 마크업에 섞여 들어가는 것(HTML/속성 인젝션)을 원천 차단한다.
+    """
     import re as _re
     import os as _os
-    _base_url = _os.environ.get("PUBLIC_BASE_URL", "https://chart.beomonnuri.com")
+    from starlette.responses import FileResponse, HTMLResponse
+
+    _base_url = _os.environ.get("PUBLIC_BASE_URL", "https://chart.beomonnuri.com").rstrip("/")
     if not _re.match(r'^[A-Z0-9]{2,20}$', symbol.upper()):
-        from starlette.responses import FileResponse
         return FileResponse("static/index.html")
-    # HTML 반환 (원본 index.html + SEO 메타 치환)
+
     with open("static/index.html", "r", encoding="utf-8") as f:
         html = f.read()
+
     sym = symbol.upper()
-    base = sym.replace("USDT", "")
-    new_title = f"{base}/USDT 실시간 차트 — 범온 AI 슈퍼차트"
-    new_desc = f"{base}/USDT 실시간 차트, AI 분석, BEOM 시그널. 기술적 분석과 함께 보세요."
-    # 기존 title/description 교체
+    base = sym[:-4] if sym.endswith("USDT") else sym
+    page_title = f"{base}/USDT 실시간 차트 — 범온 AI 슈퍼차트"
+    og_title = f"{base}/USDT 실시간 차트 — 범온 AI 슈퍼차트"
+    og_desc = f"{base}/USDT 실시간 차트와 AI 분석, 범온 독자 지표(범온캔들·거래밀집구간 등)를 한 화면에서 확인하세요."
+    canonical_url = f"{_base_url}/chart/{symbol.lower()}"
+
     html = html.replace(
-        "<title>범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석</title>",
-        f"<title>{new_title}</title>"
+        "<title>범온 AI 슈퍼차트 — 160+ 종목 실시간 AI 차트 분석 · 독자 지표 · 자동 시그널</title>",
+        f"<title>{page_title}</title>",
+        1,
     )
     html = html.replace(
-        '<meta name="description" content="실시간 암호화폐 차트 + AI 분석. RSI, MACD, 거래밀집구간, 패턴 분석을 한눈에.">',
-        f'<meta name="description" content="{new_desc}">'
+        '<meta property="og:title" content="범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석">',
+        f'<meta property="og:title" content="{og_title}">',
+        1,
+    )
+    html = html.replace(
+        '<meta property="og:description" content="실시간 암호화폐·주식 차트 + AI 분석. 50+ 보조지표와 올인원 트레이딩 플랫폼.">',
+        f'<meta property="og:description" content="{og_desc}">',
+        1,
+    )
+    html = html.replace(
+        '<meta property="og:url" content="https://chart.beomonnuri.com/">',
+        f'<meta property="og:url" content="{canonical_url}">',
+        1,
+    )
+    html = html.replace(
+        '<meta name="twitter:title" content="범온 AI 슈퍼차트">',
+        f'<meta name="twitter:title" content="{og_title}">',
+        1,
+    )
+    html = html.replace(
+        '<meta name="twitter:description" content="실시간 암호화폐 AI 차트 분석 플랫폼">',
+        f'<meta name="twitter:description" content="{og_desc}">',
+        1,
     )
     html = html.replace(
         f'<link rel="canonical" href="{_base_url}/">',
-        f'<link rel="canonical" href="{_base_url}/chart/{symbol.lower()}">'
+        f'<link rel="canonical" href="{canonical_url}">',
+        1,
     )
+
     # 정적 자산 캐시 버스팅
-    import os as _os
-    import re as _re
     import time as _time
     build_ver = _os.environ.get("BUILD_VER")
     if not build_ver:
@@ -728,7 +759,6 @@ async def chart_page(symbol: str):
         f'<script>window._buildVer="{build_ver}";</script></head>',
         1,
     )
-    from starlette.responses import HTMLResponse
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
