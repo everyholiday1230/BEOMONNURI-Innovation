@@ -106,6 +106,18 @@ asyncio.run(test())
 print('[PASS] websocket origin policy')
 PY
 
+# 자체 차트 엔진 순수 로직 회귀 테스트 (오프라인, 서버 불필요)
+if command -v node >/dev/null 2>&1; then
+  if node "$(dirname "$0")/../tests/chart_engine_verify.mjs" >/tmp/rc_chart.txt 2>&1; then
+    ok "chart engine logic ($(tail -1 /tmp/rc_chart.txt))"
+  else
+    ng "chart engine logic regression"
+    tail -6 /tmp/rc_chart.txt || true
+  fi
+else
+  echo "[SKIP] chart engine logic (node 미설치)"
+fi
+
 echo
 if [[ $FAIL -gt 0 ]]; then
   echo "RESULT: FAIL (pass=$PASS fail=$FAIL)"
