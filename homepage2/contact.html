@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260723b">
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
 <link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260723a">
 <link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
@@ -169,6 +169,7 @@
             <input type="checkbox" id="p1" name="interest" value="Private AI"><label for="p1">Private AI</label>
             <input type="checkbox" id="p2" name="interest" value="Agent AI"><label for="p2">Agent AI</label>
             <input type="checkbox" id="p3" name="interest" value="Superchart"><label for="p3">Superchart</label>
+            <input type="checkbox" id="p4" name="interest" value="외주·MVP 제작"><label for="p4">외주·MVP 제작</label>
           </div>
         </div>
 
@@ -202,12 +203,19 @@
 
         <div class="cf-row">
           <div class="cf-label">[ /08 · SUBMIT ]</div>
-          <button type="submit" class="cf-submit-btn">
-            도입 진단 신청 보내기 →
-          </button>
+          <div class="cf-submit-group">
+            <button type="submit" class="cf-submit-btn">
+              도입 진단 신청 보내기 →
+            </button>
+            <button type="button" id="copy-btn" class="cf-copy-btn">
+              내용 복사하기
+            </button>
+          </div>
           <p id="diagnose-hint" class="cf-hint">
-            버튼을 누르면 작성하신 내용이 정리되어 메일 작성 창이 열립니다. 그대로 전송하시면 접수됩니다. 메일 앱이 열리지 않으면 <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a> 으로 보내주세요.
+            <strong>보내기</strong>를 누르면 작성 내용이 정리되어 기본 메일 앱의 작성 창이 열립니다. 그대로 전송하시면 접수됩니다.<br>
+            메일 앱이 열리지 않거나 웹메일(Gmail 등)을 사용하시면 <strong>내용 복사하기</strong>를 눌러 복사한 뒤 <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a> 으로 붙여넣어 보내주세요.
           </p>
+          <p id="copy-status" class="cf-copy-status" role="status" aria-live="polite"></p>
         </div>
 
       </form>
@@ -215,24 +223,27 @@
         (function () {
           var form = document.getElementById('diagnose-form');
           if (!form) return;
-          form.addEventListener('submit', function (e) {
-            e.preventDefault();
+
+          // 폼 값을 검증하고, 통과 시 {subject, body} 반환. 실패 시 null 반환(알림 표시).
+          function collect(validateRequired) {
             var org = (form.org.value || '').trim();
             var contact = (form.contact.value || '').trim();
             var email = (form.email.value || '').trim();
             var priority = (form.priority.value || '').trim();
-            if (!org || !contact || !email) {
-              alert('회사·기관명, 담당자, 이메일은 필수 입력입니다.');
-              return;
-            }
-            var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailPattern.test(email)) {
-              alert('올바른 이메일 형식을 입력해 주세요.');
-              return;
-            }
-            if (!form.consent.checked) {
-              alert('개인정보 수집·이용 동의가 필요합니다.');
-              return;
+            if (validateRequired) {
+              if (!org || !contact || !email) {
+                alert('회사·기관명, 담당자, 이메일은 필수 입력입니다.');
+                return null;
+              }
+              var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              if (!emailPattern.test(email)) {
+                alert('올바른 이메일 형식을 입력해 주세요.');
+                return null;
+              }
+              if (!form.consent.checked) {
+                alert('개인정보 수집·이용 동의가 필요합니다.');
+                return null;
+              }
             }
             var interest = Array.prototype.slice
               .call(form.querySelectorAll('input[name="interest"]:checked'))
@@ -253,13 +264,65 @@
               '우선 과제 / 시나리오:',
               (priority || '(작성 안 함)')
             ];
-            var subject = '[도입 진단 신청] ' + org;
-            var body = lines.join('\n');
+            return { subject: '[도입 진단 신청] ' + org, body: lines.join('\n') };
+          }
+
+          // 보내기: 메일 앱 실행 (mailto)
+          form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var data = collect(true);
+            if (!data) return;
             var href = 'mailto:beomonnuri@gmail.com'
-              + '?subject=' + encodeURIComponent(subject)
-              + '&body=' + encodeURIComponent(body);
+              + '?subject=' + encodeURIComponent(data.subject)
+              + '&body=' + encodeURIComponent(data.body);
             window.location.href = href;
           });
+
+          // 내용 복사하기: 클립보드에 문의 내용 전문 복사 (수신 메일 주소 포함)
+          var copyBtn = document.getElementById('copy-btn');
+          var copyStatus = document.getElementById('copy-status');
+          function showStatus(msg, ok) {
+            if (!copyStatus) return;
+            copyStatus.textContent = msg;
+            copyStatus.className = 'cf-copy-status' + (ok ? ' is-ok' : ' is-err');
+          }
+          if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+              var data = collect(false);
+              if (!data) return;
+              var text = '받는 사람: beomonnuri@gmail.com\n제목: ' + data.subject + '\n\n' + data.body;
+
+              function fallbackCopy() {
+                try {
+                  var ta = document.createElement('textarea');
+                  ta.value = text;
+                  ta.setAttribute('readonly', '');
+                  ta.style.position = 'absolute';
+                  ta.style.left = '-9999px';
+                  document.body.appendChild(ta);
+                  ta.select();
+                  var ok = document.execCommand('copy');
+                  document.body.removeChild(ta);
+                  return ok;
+                } catch (err) { return false; }
+              }
+
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                  showStatus('✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.', true);
+                }, function () {
+                  showStatus(fallbackCopy()
+                    ? '✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.'
+                    : '복사에 실패했습니다. 내용을 직접 선택해 복사해주세요.', fallbackCopy());
+                });
+              } else {
+                var ok = fallbackCopy();
+                showStatus(ok
+                  ? '✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.'
+                  : '복사에 실패했습니다. 내용을 직접 선택해 복사해주세요.', ok);
+              }
+            });
+          }
         })();
       </script>
     </div>

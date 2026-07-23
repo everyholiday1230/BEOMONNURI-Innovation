@@ -2036,6 +2036,36 @@ footer {
   align-self: start;
 }
 .cf-submit-btn:hover { background: var(--paper); }
+.cf-submit-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cf-copy-btn {
+  padding: 18px 24px;
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border: 1.5px solid var(--mute-line);
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s;
+  align-self: start;
+}
+.cf-copy-btn:hover { border-color: var(--paper); background: rgba(13, 13, 13, 0.04); }
+.cf-copy-status {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: var(--sans);
+  min-height: 1em;
+}
+.cf-copy-status.is-ok { color: var(--acid); font-weight: 700; }
+.cf-copy-status.is-err { color: var(--mute); }
 .cf-hint {
   margin-top: 12px;
   font-size: 12.5px;
