@@ -1236,13 +1236,13 @@ body.dark #_toastContainer .pro-toast-chip {
   <div class="search-box"><label for="searchInput" class="sr-only">종목 검색</label><input id="searchInput" placeholder="심볼 검색..." autocomplete="off"></div>
   <!-- 자산 탭 -->
   <div id="assetTabs" style="display:flex;border-bottom:1px solid rgba(216,182,106,0.2);background:var(--color-surface);font-size:13px;overflow-x:auto;scrollbar-width:none">
-    <div class="asset-tab active" data-asset="crypto" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;font-weight:600;border-bottom:2px solid var(--color-primary);white-space:nowrap">암호화폐</div>
-    <div class="asset-tab" data-asset="stock" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">주식</div>
-    <div class="asset-tab" data-asset="metal" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">금속</div>
-    <div class="asset-tab" data-asset="forex" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">외환</div>
-    <div class="asset-tab" data-asset="index" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">지수</div>
-    <div class="asset-tab" data-asset="commodity" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">원자재</div>
-    <div class="asset-tab" data-asset="preipo" style="flex:0 0 auto;text-align:center;padding:5px 10px;cursor:pointer;color:var(--color-text-muted);border-bottom:2px solid transparent;white-space:nowrap">Pre-IPO</div>
+    <div class="asset-tab active" data-asset="crypto">암호화폐</div>
+    <div class="asset-tab" data-asset="stock">주식</div>
+    <div class="asset-tab" data-asset="metal">금속</div>
+    <div class="asset-tab" data-asset="forex">외환</div>
+    <div class="asset-tab" data-asset="index">지수</div>
+    <div class="asset-tab" data-asset="commodity">원자재</div>
+    <div class="asset-tab" data-asset="preipo">Pre-IPO</div>
   </div>
 
   <!-- 관심종목 정렬 옵션 -->
@@ -1627,15 +1627,15 @@ body.dark #_toastContainer .pro-toast-chip {
 <div id="langList"></div>
 </div>
 <!-- 설정 모달 -->
-<div id="settingsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
-<div class="pro-modal-card" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
-<div style="display:flex;justify-content:space-between;margin-bottom:16px"><b>설정</b><span style="cursor:pointer;color:var(--muted)" onclick="document.getElementById('settingsModal').style.display='none'">✕</span></div>
+<div id="settingsModal" class="pro-modal-shell">
+<div class="pro-modal-card">
+<div class="pro-modal-head"><b>설정</b><span class="pro-modal-close" onclick="document.getElementById('settingsModal').style.display='none'">✕</span></div>
 <div id="settingsContent"></div>
 </div>
 </div>
-<div id="helpPanel" class="pro-modal-shell" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(61,43,31,0.5);z-index:200;align-items:center;justify-content:center">
-<div class="pro-modal-card" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto">
-<div style="display:flex;justify-content:space-between;margin-bottom:16px"><b class="text-sm">범온 AI 슈퍼차트 도움말</b><span style="cursor:pointer;color:var(--muted)" data-action="closeHelp">✕</span></div>
+<div id="helpPanel" class="pro-modal-shell">
+<div class="pro-modal-card">
+<div class="pro-modal-head"><b class="text-sm">범온 AI 슈퍼차트 도움말</b><span class="pro-modal-close" data-action="closeHelp">✕</span></div>
 <div style="font-size:14px;line-height:1.8">
 <b class="text-accent">단축키</b>
 <table style="width:100%;font-size:14px;line-height:2;margin:6px 0 12px">

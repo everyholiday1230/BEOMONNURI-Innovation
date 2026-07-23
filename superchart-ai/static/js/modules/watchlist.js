@@ -139,9 +139,6 @@ function _setAssetTabActive(asset) {
   tabs.forEach(tab => {
     const active = tab.dataset.asset === asset;
     tab.classList.toggle('active', active);
-    tab.style.fontWeight = active ? '600' : '500';
-    tab.style.borderBottomColor = active ? '#921230' : 'transparent';
-    tab.style.color = active ? 'var(--color-primary)' : 'var(--color-text-muted)';
   });
 }
 
