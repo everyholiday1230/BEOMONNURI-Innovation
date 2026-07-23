@@ -317,7 +317,12 @@ export class ChartCore {
     if (
       !this._dirty ||
       ((this._dirty = !1),
-      this.onRenderSync && this.onRenderSync(),
+      this.onRenderSync &&
+        (() => {
+          try {
+            this.onRenderSync();
+          } catch (_) {}
+        })(),
       this.mainCtx.clearRect(0, 0, this.width, this.height),
       this.overlayCtx.clearRect(0, 0, this.width, this.height),
       (this.mainCtx.textAlign = "left"),
@@ -896,7 +901,22 @@ export class ChartCore {
   }
   _startRenderLoop() {
     const e = () => {
-      this._destroyed || (this._render(), requestAnimationFrame(e));
+      if (this._destroyed) return;
+      try {
+        this._render();
+      } catch (err) {
+        // 한 프레임의 렌더 오류가 RAF 루프를 영구 중단시키지 않도록 방어.
+        // (예: 과거 구간 탐색 중 범온캔들 색상 배열/지표 인덱스 불일치 등)
+        // 다음 프레임에서 다시 그리도록 dirty 유지 + 최초 1회만 로깅.
+        this._dirty = !0;
+        if (!this._renderErrLogged) {
+          this._renderErrLogged = !0;
+          try {
+            console.error("[chart-engine] render error (loop kept alive):", err);
+          } catch (_) {}
+        }
+      }
+      requestAnimationFrame(e);
     };
     requestAnimationFrame(e);
   }
