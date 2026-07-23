@@ -224,6 +224,9 @@
           var form = document.getElementById('diagnose-form');
           if (!form) return;
 
+          // Cloudflare 이메일 난독화가 인라인 스크립트를 훼손하지 않도록 주소를 조각내어 조립
+          var CONTACT_EMAIL = ['beomonnuri', '@', 'gmail', '.', 'com'].join('');
+
           // 폼 값을 검증하고, 통과 시 {subject, body} 반환. 실패 시 null 반환(알림 표시).
           function collect(validateRequired) {
             var org = (form.org.value || '').trim();
@@ -278,7 +281,7 @@
           }
 
           function mailtoFallback(data) {
-            var href = 'mailto:beomonnuri@gmail.com'
+            var href = 'mailto:' + CONTACT_EMAIL
               + '?subject=' + encodeURIComponent(data.subject)
               + '&body=' + encodeURIComponent(data.body);
             window.location.href = href;
@@ -331,7 +334,7 @@
             copyBtn.addEventListener('click', function () {
               var data = collect(false);
               if (!data) return;
-              var text = '받는 사람: beomonnuri@gmail.com\n제목: ' + data.subject + '\n\n' + data.body;
+              var text = '받는 사람: ' + CONTACT_EMAIL + '\n제목: ' + data.subject + '\n\n' + data.body;
 
               function fallbackCopy() {
                 try {
@@ -348,19 +351,19 @@
                 } catch (err) { return false; }
               }
 
+              var okMsg = '✓ 복사됐습니다. ' + CONTACT_EMAIL + ' 으로 붙여넣어 보내주세요.';
+              var errMsg = '복사에 실패했습니다. 내용을 직접 선택해 복사해주세요.';
+
               if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function () {
-                  showStatus('✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.', true);
+                  showStatus(okMsg, true);
                 }, function () {
-                  showStatus(fallbackCopy()
-                    ? '✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.'
-                    : '복사에 실패했습니다. 내용을 직접 선택해 복사해주세요.', fallbackCopy());
+                  var ok = fallbackCopy();
+                  showStatus(ok ? okMsg : errMsg, ok);
                 });
               } else {
                 var ok = fallbackCopy();
-                showStatus(ok
-                  ? '✓ 복사됐습니다. beomonnuri@gmail.com 으로 붙여넣어 보내주세요.'
-                  : '복사에 실패했습니다. 내용을 직접 선택해 복사해주세요.', ok);
+                showStatus(ok ? okMsg : errMsg, ok);
               }
             });
           }
