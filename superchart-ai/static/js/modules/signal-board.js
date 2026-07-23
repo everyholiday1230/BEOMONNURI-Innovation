@@ -152,8 +152,11 @@
       }
       const incoming = data?.items || [];
       if (append) {
-        state.items = incoming;
-        renderList(true);
+        // 페이지 추가: 기존 목록을 유지한 채 새 페이지만 DOM 끝에 덧붙이고
+        // state.items 도 누적해 상태/화면 불일치를 방지한다.
+        const list = $('sgList');
+        if (list) list.insertAdjacentHTML('beforeend', incoming.map(renderCard).join(''));
+        state.items = state.items.concat(incoming);
       } else {
         state.items = incoming;
         renderList(false);
