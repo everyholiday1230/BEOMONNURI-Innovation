@@ -85,6 +85,21 @@ console.log("[scales] 미래/과거 이동·줌 경계");
   ok("barToX/xToBar 왕복 오차 ≤ 1봉", rt);
 }
 
+console.log("[scales] 키보드 내비게이션 프리미티브 방향");
+{
+  const ts = new TimeScale(); ts.width = 800; ts._dataLength = 100; ts.fitContent(100);
+  const step = (ts.barWidth + ts.barSpacing) * 3;
+  const from0 = ts.visibleFrom;
+  ts.scroll(step); ok("ArrowLeft(step>0) → 과거로 이동(visibleFrom 감소)", ts.visibleFrom < from0);
+  const from1 = ts.visibleFrom;
+  ts.scroll(-step); ok("ArrowRight(-step) → 미래로 이동(visibleFrom 증가)", ts.visibleFrom > from1);
+  const r0 = ts.visibleTo - ts.visibleFrom;
+  ts.zoom(0.9, 400); ok("ArrowUp/+ (0.9) → 확대(범위 축소)", (ts.visibleTo - ts.visibleFrom) < r0);
+  const r1 = ts.visibleTo - ts.visibleFrom;
+  ts.zoom(1.1, 400); ok("ArrowDown/- (1.1) → 축소(범위 확대)", (ts.visibleTo - ts.visibleFrom) > r1);
+  ts.fitContent(100); ok("Home → 전체 보기", ts.visibleTo === 100);
+}
+
 console.log("[scales] 로그 스케일 좌표 왕복");
 {
   const ps = new PriceScale(); ps.height = 400; ps.setMode("log"); ps.setRange(10, 1000);
