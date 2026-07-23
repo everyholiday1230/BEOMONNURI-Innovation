@@ -35,93 +35,13 @@
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
 <link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260723a">
 <link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/pages.css?v=20260723a">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
     if (m.includes('Transition was skipped') || m.includes('view transition')) e.preventDefault();
   });
 </script>
-<style>
-  .home-transfer-why {
-    padding: 42px 0 54px;
-    border-bottom: 1px solid rgba(13,13,13,0.12);
-    background: linear-gradient(180deg, rgba(146,18,48,0.035), transparent 70%);
-  }
-  .home-transfer-why .hw-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 20px;
-  }
-  .home-transfer-why .hw-card {
-    border: 1px solid rgba(13,13,13,0.15);
-    background: rgba(255,255,255,0.72);
-    padding: 24px;
-  }
-  .home-transfer-why .hw-title {
-    font-family: 'Archivo Black', sans-serif;
-    font-size: clamp(24px, 2.2vw, 34px);
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    margin-bottom: 12px;
-  }
-  .home-transfer-why .hw-sub {
-    color: rgba(13,13,13,0.72);
-    font-size: 15px;
-    line-height: 1.6;
-    margin-bottom: 16px;
-  }
-  .home-transfer-why .hw-steps {
-    display: grid;
-    gap: 8px;
-  }
-  .home-transfer-why .hw-step {
-    border: 1px dashed rgba(13,13,13,0.2);
-    padding: 10px 12px;
-  }
-  .home-transfer-why .hw-step .k {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.07em;
-    color: rgba(13,13,13,0.56);
-    margin-bottom: 4px;
-  }
-  .home-transfer-why .hw-step .v {
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.35;
-  }
-  .home-transfer-why .hw-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .home-transfer-why .hw-metrics .m {
-    border: 1px solid rgba(13,13,13,0.16);
-    background: rgba(255,255,255,0.76);
-    padding: 12px;
-  }
-  .home-transfer-why .hw-metrics .mk {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: rgba(13,13,13,0.56);
-    margin-bottom: 4px;
-    letter-spacing: 0.07em;
-  }
-  .home-transfer-why .hw-metrics .mv {
-    font-size: 19px;
-    font-weight: 800;
-    color: #921230;
-    margin-bottom: 4px;
-  }
-  .home-transfer-why .hw-metrics .md {
-    font-size: 12px;
-    line-height: 1.45;
-    color: rgba(13,13,13,0.72);
-  }
-  @media (max-width: 960px) {
-    .home-transfer-why .hw-grid { grid-template-columns: 1fr; }
-  }
-</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
