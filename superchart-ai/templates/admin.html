@@ -1957,7 +1957,7 @@ async function loadUserLogs(){
   if(!uid.trim()){ tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">회원 ID를 입력하세요.</td></tr>'; return; }
   tb.innerHTML = '<tr><td colspan="3" style="color:var(--color-text-muted)">조회 중…</td></tr>';
   try{
-    const r = await fetch('/v1/ops/user-logs?user_id=' + encodeURIComponent(uid.trim()), {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const r = await fetch('/v1/ops/user-logs?user_id=' + encodeURIComponent(uid.trim()), {credentials:'include'});
     const j = await r.json();
     const logs = (j && j.data && j.data.logs) || [];
     tb.innerHTML = logs.length ? logs.map(l => `<tr>
@@ -1974,14 +1974,14 @@ async function loadErrorLog(){
   const pre = document.getElementById('errorLog');
   if(pre) pre.textContent = '불러오는 중…';
   try{
-    const r = await fetch('/v1/ops/error-log', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const r = await fetch('/v1/ops/error-log', {credentials:'include'});
     const j = await r.json();
     if(pre) pre.textContent = (j && j.data && j.data.log) ? j.data.log : '로드 실패';
   }catch(e){ if(pre) pre.textContent = '로드 실패'; }
 }
 async function loadDbStatus(){
   try{
-    const r = await fetch('/v1/ops/db-status', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+    const r = await fetch('/v1/ops/db-status', {credentials:'include'});
     const j = await r.json();
     const d = (j && j.data) ? j.data : j; // db-status는 래핑 없이 반환될 수 있음
     const set = (id,v)=>{const e=document.getElementById(id); if(e) e.textContent=(v==null?'-':v);};
@@ -3134,22 +3134,22 @@ async function deleteUser(uid, email) {
 }
 window.deleteUser = deleteUser;
 async function toggleSymbol(code) {
-  const r = await fetch('/v1/ops/toggle-symbol', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-Admin-Key':localStorage.getItem('adminToken')||''}, body:JSON.stringify({symbol_code:code})});
+  const r = await fetch('/v1/ops/toggle-symbol', {method:'POST', credentials:'include', headers:H(), body:JSON.stringify({symbol_code:code})});
   const d = await r.json();
   alert(d.success ? ' ' + d.data.symbol + ' → ' + d.data.status : ' 실패');
 }
 async function backupDB() {
-  const r = await fetch('/v1/ops/backup-db', {method:'POST', credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const r = await fetch('/v1/ops/backup-db', {method:'POST', credentials:'include', headers:H()});
   const d = await r.json();
   alert(d.success ? ' 백업 시작됨' : ' 실패');
 }
 async function viewServerLog() {
-  const r = await fetch('/v1/ops/server-log', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const r = await fetch('/v1/ops/server-log', {credentials:'include'});
   const d = await r.json();
   document.getElementById('errorLog').textContent = d.success ? d.data.log : '로드 실패';
 }
 async function viewSignupStats() {
-  const r = await fetch('/v1/ops/signup-stats', {credentials:'include', headers:{'X-Admin-Key':localStorage.getItem('adminToken')||''}});
+  const r = await fetch('/v1/ops/signup-stats', {credentials:'include'});
   const d = await r.json();
   if (!d.success) return;
   const el = document.getElementById('quickResult');
