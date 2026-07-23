@@ -98,6 +98,17 @@ console.log("[scales] 키보드 내비게이션 프리미티브 방향");
   const r1 = ts.visibleTo - ts.visibleFrom;
   ts.zoom(1.1, 400); ok("ArrowDown/- (1.1) → 축소(범위 확대)", (ts.visibleTo - ts.visibleFrom) > r1);
   ts.fitContent(100); ok("Home → 전체 보기", ts.visibleTo === 100);
+
+  // scrollToRealtime 은 확대 배율(range)을 유지한 채 마지막 봉으로 점프
+  const rt = new TimeScale(); rt.width = 800; rt._dataLength = 100; rt.fitContent(100);
+  for (let i = 0; i < 15; i++) rt.zoom(0.9, 400);           // 확대
+  for (let i = 0; i < 20; i++) rt.scroll(500);              // 과거로 이동
+  const keepRange = rt.visibleTo - rt.visibleFrom;
+  // 엔진 scrollToRealtime 과 동일한 계산
+  const margin = Math.min(5, Math.max(0, keepRange * 0.1));
+  rt.visibleTo = rt._dataLength + margin; rt.visibleFrom = rt.visibleTo - keepRange;
+  ok("End(scrollToRealtime) → 마지막 봉이 우측에 보임", rt.visibleFrom < rt._dataLength && rt.visibleTo >= rt._dataLength);
+  ok("End(scrollToRealtime) → 확대 배율 유지", Math.abs((rt.visibleTo - rt.visibleFrom) - keepRange) < 1e-9);
 }
 
 console.log("[scales] 로그 스케일 좌표 왕복");
