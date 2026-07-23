@@ -2259,6 +2259,26 @@ select:focus-visible,
   border: 1px solid rgba(13, 13, 13, 0.24);
   font-weight: 800;
   letter-spacing: 0.02em;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+.cta-inline:hover {
+  background: rgba(13, 13, 13, 0.06);
+  border-color: rgba(13, 13, 13, 0.45);
+}
+/* 강조형: 실제 SUPERCHART AI 사이트 바로가기 등 핵심 외부 CTA */
+.cta-inline--solid {
+  background: var(--acid);
+  border-color: var(--acid);
+  color: #fff;
+  padding: 13px 20px;
+  box-shadow: 0 4px 14px rgba(146, 18, 48, 0.28);
+}
+.cta-inline--solid:hover {
+  background: #7d0f29;
+  border-color: #7d0f29;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(146, 18, 48, 0.38);
 }
 .link-underline {
   font-weight: 700;
