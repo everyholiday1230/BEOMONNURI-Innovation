@@ -71,7 +71,10 @@ export class DataBuffer {
   priceRange(from, to) {
     const lo = Math.max(0, from);
     const hi = Math.min(this.length, to);
-    if (lo >= hi) return { min: 0, max: 1 };
+    // 표시할 봉이 없으면(빈 구간으로 스크롤 등) Infinity 센티넬을 반환한다.
+    // 호출부(_updatePriceRange)는 min<Infinity 일 때만 스케일을 갱신하므로,
+    // 이 경우 직전의 정상 스케일이 유지되어 차트가 빈 화면으로 붕괴되지 않는다.
+    if (lo >= hi) return { min: Infinity, max: -Infinity };
 
     const cache = this._priceRangeCache;
     // 캐시가 있고, 새 구간이 이전 캐시 구간을 완전히 포함(순수 확장)하는
@@ -103,8 +106,8 @@ export class DataBuffer {
       if (Number.isFinite(h) && h > max) max = h;
       if (Number.isFinite(l) && l < min) min = l;
     }
-    // 유효한 값이 없으면 0~1 반환 (setRange가 호출돼도 안전)
-    if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: 0, max: 1 };
+    // 유효한 값이 없으면 Infinity 센티넬 반환 → 직전 스케일 유지 (setRange 미호출)
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: Infinity, max: -Infinity };
     this._priceRangeCache = { lo, hi, min, max };
     return { min, max };
   }

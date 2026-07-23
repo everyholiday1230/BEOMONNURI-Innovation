@@ -601,7 +601,9 @@ function Y() {
       typeof se < "u" && (se = !1),
       typeof we < "u" && (we = !1)));
   for (const s of Object.keys(o.indicators))
-    s.startsWith("darak_ma") || o.removeIndicator(s);
+    s.startsWith("darak_ma") ||
+      s.startsWith("strat_ma_") ||
+      o.removeIndicator(s);
   ((o.showVolume = C("vol")),
     (o.overlay.drawings = o.overlay.drawings.filter(
       (s) => !(s._calcOwner === "pivot" || s._calcOwner === "vp"),
@@ -8531,7 +8533,14 @@ function Eo() {
 })(),
   (window.chart = null),
   (window.loadCandles = De),
-  (window.calcIndicators = Y),
+  (window.calcIndicators = function () {
+    Y();
+    // 지표 재계산 시 전략(전략 MA선·시그널)도 함께 재동기화한다.
+    // (지표 토글·설정 변경·타임프레임/종목 변경 어느 경로로 들어와도 전략선이 사라지지 않도록)
+    try {
+      window.calcStrategySignals && window.calcStrategySignals();
+    } catch (_) {}
+  }),
   (window._refreshOverlays = U),
   (window.loadUprsiStcOpt = bt));
 const $o = ["vol"],
@@ -9061,7 +9070,14 @@ function Fo() {
   (window.symbols = ze),
   (window.fmtPrice = Ye),
   (window.loadCandles = De),
-  (window.calcIndicators = Y),
+  (window.calcIndicators = function () {
+    Y();
+    // 지표 재계산 시 전략(전략 MA선·시그널)도 함께 재동기화한다.
+    // (지표 토글·설정 변경·타임프레임/종목 변경 어느 경로로 들어와도 전략선이 사라지지 않도록)
+    try {
+      window.calcStrategySignals && window.calcStrategySignals();
+    } catch (_) {}
+  }),
   window.calcStrategySignals && window.calcStrategySignals(),
   (window.setTimeframe = Ft),
   (window.isIndOn = C),

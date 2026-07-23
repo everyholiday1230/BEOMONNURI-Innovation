@@ -36,9 +36,12 @@ export class TimeScale {
     this.visibleTo -= bars;
     // 왼쪽 경계: 음수 최대 -50
     if(this.visibleFrom < -50) { this.visibleFrom = -50; this.visibleTo = this.visibleFrom + range; }
-    // 오른쪽 경계: visibleTo가 dataLength+20 이상 벗어나지 않도록
-    if(this._dataLength > 0 && this.visibleTo > this._dataLength + 20) {
-      this.visibleTo = this._dataLength + 20;
+    // 오른쪽 경계: 미래(빈 영역)로 과도하게 스크롤되지 않도록 제한.
+    // 여백은 고정 20봉이 아니라 화면 범위의 절반 이내로 제한해, 크게 확대(작은 range)한
+    // 상태에서 오른쪽으로 밀어도 캔들이 화면에서 완전히 사라지지 않게 한다.
+    const rightMargin = Math.min(20, range * 0.5);
+    if(this._dataLength > 0 && this.visibleTo > this._dataLength + rightMargin) {
+      this.visibleTo = this._dataLength + rightMargin;
       this.visibleFrom = this.visibleTo - range;
     }
   }
@@ -73,8 +76,10 @@ export class TimeScale {
 
     // 경계 클램프: 데이터 밖으로 패닝되지 않도록(축소가 패닝으로 변질되는 것 방지)
     if (from < -LEFT_MARGIN) { from = -LEFT_MARGIN; to = from + newRange; }
-    if (dataLen && to > dataLen + RIGHT_MARGIN) {
-      to = dataLen + RIGHT_MARGIN;
+    // 오른쪽 여백도 화면 범위의 절반 이내로 제한(크게 확대 시 캔들이 사라지지 않도록)
+    const effRightMargin = Math.min(RIGHT_MARGIN, newRange * 0.5);
+    if (dataLen && to > dataLen + effRightMargin) {
+      to = dataLen + effRightMargin;
       from = to - newRange;
       if (from < -LEFT_MARGIN) from = -LEFT_MARGIN;
     }

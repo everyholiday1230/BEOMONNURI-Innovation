@@ -20,7 +20,11 @@ document.querySelectorAll('[data-strategy]').forEach(btn => {
     if (_activeStrategies.has(id)) {
       _activeStrategies.delete(id); this.classList.remove('on');
       // 켤 때 자동으로 켰던 보조지표 끄기
+      // 단, 아직 켜져 있는 다른 전략이 같은 보조지표를 필요로 하면 끄지 않는다.
+      const stillNeeded = new Set();
+      for (const sid of _activeStrategies) for (const x of (indMap[sid] || [])) stillNeeded.add(x);
       for(const ind of (indMap[id]||[])){
+        if (stillNeeded.has(ind)) continue;
         const sb=document.querySelector(`.sub-ind[data-sub="${ind}"].on,.ind-tag[data-sub="${ind}"].on`)||document.querySelector(`.ind-tag[data-ind="${ind}"].on`);
         if(sb) sb.click();
       }
@@ -150,14 +154,34 @@ function calcStrategySignals() {
   }
   // 볼린저
   if (_activeStrategies.has('bb_lower')||_activeStrategies.has('bb_upper')||_activeStrategies.has('bb_squeeze')) {
-    const p=SS('bb_lower','period')||20,m=SS('bb_lower','mult')||2,ma=sma(closes,p);
+    const sqOn=_activeStrategies.has('bb_squeeze');
+    const p=SS('bb_lower','period')||SS('bb_squeeze','period')||20,
+          m=SS('bb_lower','mult')||SS('bb_squeeze','mult')||2,
+          ma=sma(closes,p);
+    const bw=new Array(n).fill(NaN),up=new Array(n).fill(NaN),lo=new Array(n).fill(NaN);
     for(let i=p;i<n;i++){
       let sum=0;for(let j=i-p+1;j<=i;j++)sum+=(closes[j]-ma[i])**2;
-      const std=Math.sqrt(sum/p),upper=ma[i]+m*std,lower=ma[i]-m*std;
-      if(_activeStrategies.has('bb_lower')&&lows[i]<=lower&&closes[i]>lower)
+      const std=Math.sqrt(sum/p);
+      up[i]=ma[i]+m*std;lo[i]=ma[i]-m*std;
+      bw[i]=ma[i]!==0?(up[i]-lo[i])/ma[i]:NaN;
+      if(_activeStrategies.has('bb_lower')&&lows[i]<=lo[i]&&closes[i]>lo[i])
         chart.addDrawing({type:'strategy_signal',bar_idx:i,direction:'long',label:'BB',price:lows[i]});
-      if(_activeStrategies.has('bb_upper')&&highs[i]>=upper&&closes[i]<upper)
+      if(_activeStrategies.has('bb_upper')&&highs[i]>=up[i]&&closes[i]<up[i])
         chart.addDrawing({type:'strategy_signal',bar_idx:i,direction:'short',label:'BB',price:highs[i]});
+    }
+    // 볼린저 스퀴즈: 밴드폭이 최근 구간에서 최소(변동성 수축)였다가 밴드를 이탈(돌파)하면 방향 신호
+    if(sqOn){
+      const lb=Math.max(6,Math.round(SS('bb_squeeze','lookback')||20));
+      for(let i=p+lb;i<n;i++){
+        if(!Number.isFinite(bw[i])||!Number.isFinite(bw[i-1]))continue;
+        let minBw=Infinity;
+        for(let j=i-lb;j<i;j++){if(Number.isFinite(bw[j])&&bw[j]<minBw)minBw=bw[j];}
+        if(!(bw[i-1]<=minBw*1.05))continue; // 직전 봉이 스퀴즈 상태
+        if(closes[i]>up[i]&&closes[i-1]<=up[i-1])
+          chart.addDrawing({type:'strategy_signal',bar_idx:i,direction:'long',label:'BB스퀴즈',price:lows[i]});
+        else if(closes[i]<lo[i]&&closes[i-1]>=lo[i-1])
+          chart.addDrawing({type:'strategy_signal',bar_idx:i,direction:'short',label:'BB스퀴즈',price:highs[i]});
+      }
     }
   }
   // 슈퍼트렌드 (매수/매도)
@@ -217,7 +241,7 @@ const _strategyDefaults = {
   stoch_cross_sell:{period:14,smooth:3,level:70},
   bb_lower:{period:20,mult:2},
   bb_upper:{period:20,mult:2},
-  bb_squeeze:{period:20,mult:2},
+  bb_squeeze:{period:20,mult:2,lookback:20},
   supertrend_buy:{period:10,mult:3},
   supertrend_sell:{period:10,mult:3},
   vol_break:{period:20,mult:2},
