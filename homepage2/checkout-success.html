@@ -6,11 +6,14 @@
 <title>결제 요청 완료(예시) | 범온누리</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="shortcut icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
 <link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260723a">
 <link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
-<link rel="stylesheet" href="assets/css/checkout.css?v=20260720a">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/checkout.css?v=20260723b">
 </head>
 <body class="grain">
 <main id="main-content">
@@ -35,9 +38,12 @@
     var params = new URLSearchParams(window.location.search);
     var el = document.getElementById('query-data');
     if (!params.toString()) { el.textContent = '전달된 쿼리 파라미터가 없습니다.'; return; }
-    var lines = [];
-    params.forEach(function (value, key) { lines.push(key + ' = ' + value); });
-    el.innerHTML = lines.join('<br>');
+    el.textContent = '';
+    params.forEach(function (value, key) {
+      var line = document.createElement('div');
+      line.textContent = key + ' = ' + value;
+      el.appendChild(line);
+    });
   })();
 </script>
 </body>

@@ -1999,6 +1999,51 @@ footer {
 }
 .cf-row .cf-chips input:checked + label { background: var(--acid); border-color: var(--acid); }
 
+.cf-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.cf-consent input[type="checkbox"] {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.cf-consent label { cursor: pointer; }
+.cf-consent-detail {
+  font-size: 12px;
+  color: var(--mute);
+}
+.cf-consent-detail a,
+.cf-hint a {
+  color: inherit;
+  text-decoration: underline;
+}
+.cf-submit-btn {
+  padding: 18px 28px;
+  background: var(--acid);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+  align-self: start;
+}
+.cf-submit-btn:hover { background: var(--paper); }
+.cf-hint {
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--mute);
+  font-family: var(--sans);
+}
+
 /* Contact info row */
 .contact-info {
   padding: 60px 0;
@@ -2023,6 +2068,11 @@ footer {
 }
 .ci-block .ci-value a { color: var(--bg); }
 .ci-block .ci-value a:hover { color: var(--acid-bright); }
+.ci-sub {
+  color: rgba(246, 244, 239, 0.5);
+  font-family: var(--mono);
+  font-size: 12px;
+}
 
 /* Responsive for sub-page components */
 @media (max-width: 1100px) {
@@ -2166,4 +2216,24 @@ select:focus-visible,
 .llm-terminal .lt-input input:focus-visible {
   outline: 2px solid var(--acid);
   outline-offset: -1px;
+}
+
+/* ============================================================
+   COMMON INLINE CTA (products.html, products-superchart.html)
+   ============================================================ */
+.cta-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(13, 13, 13, 0.24);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.link-underline {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.cta-inline-wrap {
+  margin-top: 14px;
 }
