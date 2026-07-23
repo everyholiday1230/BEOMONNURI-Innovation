@@ -141,7 +141,7 @@ const pausableInterval = (fn, ms) => {
 
   const itemHtml = (p) => `
     <div class="pm-item" data-cursor data-partner-id="${p.id}">
-      <img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+      <img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}" loading="eager" decoding="async" referrerpolicy="no-referrer" />
     </div>`;
 
   const track = $('#partner-marquee-track');

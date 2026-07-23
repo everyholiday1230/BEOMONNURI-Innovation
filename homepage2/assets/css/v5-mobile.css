@@ -337,6 +337,13 @@ body.nav-open {
   }
   .page-hero h1 {
     font-size: clamp(44px, 13vw, 84px);
+    /* 데스크톱 line-height(0.88)를 좁은 화면에 그대로 쓰면 이탤릭 아웃라인
+       (.stroke) 텍스트의 실제 glyph 높이가 줄 높이를 초과해 위/아래 줄과
+       겹쳐 보이는 문제가 있어 완화 (실측: line-height 1.08도 부족, 1.28 필요) */
+    line-height: 1.28;
+  }
+  .page-hero h1 .stroke {
+    display: inline-block;
   }
   .page-hero .lead { font-size: 15px; }
   .page-hero-meta {

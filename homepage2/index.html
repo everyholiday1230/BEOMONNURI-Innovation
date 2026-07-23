@@ -41,10 +41,10 @@
 <!-- Three.js for v4 hero neural network (lighter background layer) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260722c">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260708s">
-<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260708s">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260722a">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/v5-anchor.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -81,41 +81,29 @@
       height: clamp(128px, 21vh, 168px);
       margin-top: 30px;
     }
-    body.has-hero .hero-inline-partners .cylinder-face {
-      width: 154px;
-      height: 68px;
-      left: -77px;
-      top: -34px;
-      padding: 0 10px;
+    /* 3D 실린더는 좁은 화면에서 로고가 과도하게 확대/블러 처리되어(perspective
+       투영 특성) 가독성이 떨어짐. 모바일에서는 실린더를 숨기고 평면 마퀴로 전환. */
+    body.has-hero .hero-inline-partners.partner-cylinder {
+      display: none;
     }
-    body.has-hero .hero-inline-partners .cylinder-face .logo-mark {
-      width: 114px;
-      height: 32px;
-      transform-origin: center;
+    body.has-hero .hero-inline-partners + .partner-marquee {
+      display: flex !important;
+      align-items: center;
+      height: clamp(128px, 21vh, 168px);
+      margin-top: 30px;
+      overflow: hidden;
     }
-    body.has-hero .hero-inline-partners .cylinder-face .logo-mark.logo-youth-foundation {
-      transform: scale(1.2);
+    body.has-hero .hero-inline-partners + .partner-marquee .partner-marquee-track {
+      padding: 0;
     }
-    body.has-hero .hero-inline-partners .cylinder-face .logo-mark.logo-localmotive {
-      width: 112px;
-      height: 30px;
-      transform: none;
+    body.has-hero .hero-inline-partners + .partner-marquee .pm-item {
+      height: auto;
     }
   }
   @media (max-width: 400px) {
     body.has-hero .hero-inline-partners {
       margin-top: 26px;
       height: clamp(120px, 20vh, 154px);
-    }
-    body.has-hero .hero-inline-partners .cylinder-face {
-      width: 146px;
-      height: 64px;
-      left: -73px;
-      top: -32px;
-    }
-    body.has-hero .hero-inline-partners .cylinder-face .logo-mark {
-      width: 106px;
-      height: 30px;
     }
   }
 </style>
@@ -307,10 +295,10 @@
 </footer>
 
 <!-- ===== AI WIDGET ===== -->
-<script src="assets/js/ai-frontier.js?v=20260708s"></script>
-<script src="assets/js/v5-nextgen.js?v=20260708s"></script>
-<script src="assets/js/v5-webgpu.js?v=20260708s"></script>
-<script src="assets/js/v5-anchor.js?v=20260708s"></script>
-<script src="assets/js/v5-mobile.js?v=20260722a"></script>
+<script src="assets/js/ai-frontier.js?v=20260723a"></script>
+<script src="assets/js/v5-nextgen.js?v=20260723a"></script>
+<script src="assets/js/v5-webgpu.js?v=20260723a"></script>
+<script src="assets/js/v5-anchor.js?v=20260723a"></script>
+<script src="assets/js/v5-mobile.js?v=20260723a"></script>
 </body>
 </html>

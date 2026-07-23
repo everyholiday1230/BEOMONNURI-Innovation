@@ -369,6 +369,11 @@ body:not(.has-hero) #gpu-particles {
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+  /* 3D perspective 변환(translateZ)이 걸린 조상 요소 안에서 이미지가
+     서브픽셀 확대/블러로 렌더링되는 것을 완화 (모바일에서 두드러짐) */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 /* ---- Per-logo optical normalization (aspect ratio preserved) ----

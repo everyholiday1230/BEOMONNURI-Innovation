@@ -1001,12 +1001,23 @@ const reducedV5 = false;
   };
 
   const N = partnerOrder.length;
-  const radius = 480;
+  // 좁은 화면에서는 컨테이너 폭이 줄어드는데 radius가 고정이면 로고가
+  // 카메라(perspective)에 지나치게 가까워져 과도하게 확대/흐릿하게 보인다
+  // (모바일에서 실제 재현된 문제). 컨테이너 실측 폭 기준으로 radius를 낮춘다.
+  const getRadius = () => {
+    const w = stage.parentElement ? stage.parentElement.clientWidth : innerWidth;
+    if (w <= 340) return 140;
+    if (w <= 480) return 190;
+    if (w <= 700) return 260;
+    return 480;
+  };
+  let radius = getRadius();
   const angleStep = 360 / N;
 
   const render = () => {
     ensureFallbackLogos();
     if (!partnerOrder.every((id) => logoMap[id])) return false;
+    radius = getRadius();
     stage.innerHTML = partnerOrder.map((id, i) => {
       const angle = i * angleStep;
       return `<div class="cylinder-face" style="transform: rotateY(${angle}deg) translateZ(${radius}px);">
@@ -1018,15 +1029,25 @@ const reducedV5 = false;
 
   let tries = 0;
   const tryRender = () => {
-    collectLogos();
-    const hasAllFromMarquee = partnerOrder.every((id) => logoMap[id]);
-    if (!hasAllFromMarquee && tries < 12) {
-      tries += 1;
-      setTimeout(tryRender, 200);
-      return;
-    }
+    // `.partner-marquee`(숨김 소스) 안의 이미지는 loading="lazy" + display:none
+    // 조합 때문에 브라우저가 실제 다운로드를 시작하지 않는 경우가 있어(모바일에서
+    // 재현됨) img.src가 비어 있는 채로 남을 수 있다. 그 결과 3D 실린더가 최대
+    // 12번(2.4s) 재시도하는 동안 빈 화면으로 노출되는 문제가 있었다.
+    // → 폴백 경로(항상 유효한 정적 파일)를 먼저 렌더링해 즉시 로고를 보여주고,
+    //   숨김 마퀴에서 더 나은 소스(webp 등)를 구할 수 있으면 그때 교체한다.
+    ensureFallbackLogos();
     render();
     startRotation();
+
+    collectLogos();
+    const hasAllFromMarquee = partnerOrder.every((id) => logoMap[id] && !logoMap[id].includes(partnerLogos[id]?.src));
+    if (!hasAllFromMarquee && tries < 6) {
+      tries += 1;
+      setTimeout(() => {
+        collectLogos();
+        render();
+      }, 250);
+    }
   };
 
   // Drive rotation via requestAnimationFrame instead of a CSS animation.
@@ -1056,7 +1077,16 @@ const reducedV5 = false;
     requestAnimationFrame(spin);
   }
 
-  setTimeout(tryRender, 180);
+  setTimeout(tryRender, 30);
+
+  // 화면 회전/리사이즈 시 radius를 다시 계산해 확대/왜곡 방지
+  let resizeTimer;
+  addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (getRadius() !== radius) render();
+    }, 200);
+  });
 })();
 
 /* ============================================================
