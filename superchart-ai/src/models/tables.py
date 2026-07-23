@@ -21,7 +21,7 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(80), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20))
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)        # M / F / U
-    birthday: Mapped[str | None] = mapped_column(String(10), nullable=True)      # MM-DD (네이버 제공 형식)
+    birthday: Mapped[str | None] = mapped_column(String(10), nullable=True)      # MM-DD
     birth_year: Mapped[str | None] = mapped_column(String(4), nullable=True)     # YYYY
     referral_code: Mapped[str | None] = mapped_column(String(50))
     role: Mapped[str] = mapped_column(String(30), default="user")

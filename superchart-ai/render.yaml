@@ -64,13 +64,6 @@ services:
         sync: false
       - key: GOOGLE_REDIRECT_URI
         sync: false
-      # 선택 — Naver OAuth
-      - key: NAVER_CLIENT_ID
-        sync: false
-      - key: NAVER_CLIENT_SECRET
-        sync: false
-      - key: NAVER_REDIRECT_URI
-        sync: false
       # 선택 — SMTP
       - key: SMTP_HOST
         sync: false
