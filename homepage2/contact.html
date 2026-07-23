@@ -212,8 +212,8 @@
             </button>
           </div>
           <p id="diagnose-hint" class="cf-hint">
-            <strong>보내기</strong>를 누르면 작성 내용이 정리되어 기본 메일 앱의 작성 창이 열립니다. 그대로 전송하시면 접수됩니다.<br>
-            메일 앱이 열리지 않거나 웹메일(Gmail 등)을 사용하시면 <strong>내용 복사하기</strong>를 눌러 복사한 뒤 <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a> 으로 붙여넣어 보내주세요.
+            <strong>보내기</strong>를 누르면 작성 내용이 범온누리로 바로 접수됩니다. 별도의 메일 전송은 필요하지 않습니다.<br>
+            전송이 안 되는 환경이라면 <strong>내용 복사하기</strong>를 눌러 복사한 뒤 <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a> 으로 보내주셔도 됩니다.
           </p>
           <p id="copy-status" class="cf-copy-status" role="status" aria-live="polite"></p>
         </div>
@@ -267,25 +267,66 @@
             return { subject: '[도입 진단 신청] ' + org, body: lines.join('\n') };
           }
 
-          // 보내기: 메일 앱 실행 (mailto)
-          form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var data = collect(true);
-            if (!data) return;
-            var href = 'mailto:beomonnuri@gmail.com'
-              + '?subject=' + encodeURIComponent(data.subject)
-              + '&body=' + encodeURIComponent(data.body);
-            window.location.href = href;
-          });
-
-          // 내용 복사하기: 클립보드에 문의 내용 전문 복사 (수신 메일 주소 포함)
-          var copyBtn = document.getElementById('copy-btn');
+          // 보내기: Web3Forms API로 서버 전송(AJAX). 실패 시 메일 앱(mailto) 폴백.
+          var WEB3FORMS_KEY = '427331f6-0cac-42fe-b2fa-7a5a5df91e59';
+          var submitBtn = form.querySelector('.cf-submit-btn');
           var copyStatus = document.getElementById('copy-status');
           function showStatus(msg, ok) {
             if (!copyStatus) return;
             copyStatus.textContent = msg;
             copyStatus.className = 'cf-copy-status' + (ok ? ' is-ok' : ' is-err');
           }
+
+          function mailtoFallback(data) {
+            var href = 'mailto:beomonnuri@gmail.com'
+              + '?subject=' + encodeURIComponent(data.subject)
+              + '&body=' + encodeURIComponent(data.body);
+            window.location.href = href;
+          }
+
+          form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var data = collect(true);
+            if (!data) return;
+
+            var payload = {
+              access_key: WEB3FORMS_KEY,
+              subject: data.subject,
+              from_name: '범온누리 도입 진단 폼',
+              email: (form.email.value || '').trim(),
+              message: data.body
+            };
+
+            var origLabel = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '보내는 중...'; }
+            showStatus('', true);
+
+            fetch('https://api.web3forms.com/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify(payload)
+            })
+              .then(function (res) { return res.json(); })
+              .then(function (json) {
+                if (json && json.success) {
+                  form.reset();
+                  showStatus('✓ 도입 진단 신청이 정상 접수됐습니다. 영업일 기준 빠르게 회신드리겠습니다.', true);
+                } else {
+                  showStatus('전송에 실패했습니다. 메일 앱으로 다시 시도합니다. 열리지 않으면 아래 복사 기능을 이용해주세요.', false);
+                  mailtoFallback(data);
+                }
+              })
+              .catch(function () {
+                showStatus('네트워크 오류로 전송하지 못했습니다. 메일 앱으로 다시 시도합니다. 열리지 않으면 아래 복사 기능을 이용해주세요.', false);
+                mailtoFallback(data);
+              })
+              .then(function () {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origLabel; }
+              });
+          });
+
+          // 내용 복사하기: 클립보드에 문의 내용 전문 복사 (수신 메일 주소 포함)
+          var copyBtn = document.getElementById('copy-btn');
           if (copyBtn) {
             copyBtn.addEventListener('click', function () {
               var data = collect(false);
