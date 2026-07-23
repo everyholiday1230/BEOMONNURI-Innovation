@@ -706,7 +706,7 @@ async def chart_page(symbol: str):
         1,
     )
     html = html.replace(
-        '<meta property="og:title" content="범온 AI 슈퍼차트 — 실시간 암호화폐 AI 차트 분석">',
+        '<meta property="og:title" content="범온 AI 슈퍼차트 — 실시간 암호화폐·주식 AI 차트 분석">',
         f'<meta property="og:title" content="{og_title}">',
         1,
     )
@@ -726,7 +726,7 @@ async def chart_page(symbol: str):
         1,
     )
     html = html.replace(
-        '<meta name="twitter:description" content="실시간 암호화폐 AI 차트 분석 플랫폼">',
+        '<meta name="twitter:description" content="실시간 암호화폐·주식 AI 차트 분석 플랫폼">',
         f'<meta name="twitter:description" content="{og_desc}">',
         1,
     )

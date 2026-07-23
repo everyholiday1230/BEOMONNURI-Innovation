@@ -54,7 +54,7 @@ services:
         echo 'Pulling llama3.2:1b...' &&
         curl -sf http://ollama:11434/api/pull -d '{\"name\":\"llama3.2:1b\"}' &&
         echo 'Creating kanana-chart model...' &&
-        curl -sf http://ollama:11434/api/create -d '{\"name\":\"kanana-chart\",\"from\":\"llama3.2:1b\",\"system\":\"당신은 암호화폐 차트 분석 전문가입니다. 한국어로 간결하게 답변하세요.\",\"parameters\":{\"temperature\":0.7,\"num_ctx\":2048}}' &&
+        curl -sf http://ollama:11434/api/create -d '{\"name\":\"kanana-chart\",\"from\":\"llama3.2:1b\",\"system\":\"당신은 암호화폐·주식·ETF 등 다양한 자산의 차트 분석 전문가입니다. 한국어로 간결하게 답변하세요.\",\"parameters\":{\"temperature\":0.7,\"num_ctx\":2048}}' &&
         echo 'Done!'
       "
 

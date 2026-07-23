@@ -11,6 +11,11 @@ const TRANSLATIONS = {
       
     } },
   en: { flag: '🇺🇸', name: 'English', texts: {
+      '투자 자산(암호화폐, 주식, ETF 등)은 원금 손실 위험이 있으며, AI 분석은 투자 권유가 아님을 이해합니다.': 'Investment assets (crypto, stocks, ETFs, etc.) carry risk of principal loss, and I understand AI analysis is not investment advice.',
+      '본 서비스는 투자 조언이 아닙니다. 모든 투자 판단과 그에 따른 손익은 전적으로 이용자 본인의 책임입니다. \n과거 수익률이 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 위험을 수반하며, 특히 선물 거래는 원금 손실이 발생할 수 있습니다.': 'This service is not investment advice. All investment decisions and resulting gains or losses are solely the user’s responsibility. \nPast returns do not guarantee future returns. Trading in any asset (crypto, stocks, ETFs, etc.) carries high risk, and futures trading in particular may result in loss of principal.',
+      '실시간 암호화폐·주식 AI 차트 분석 플랫폼': 'Real-time Crypto & Stock AI Chart Analysis Platform',
+      '과거 데이터 기반 분석은 미래 수익을 보장하지 않으며, 암호화폐·주식·ETF 등 모든 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 특히 암호화폐·선물 거래는 변동성이 더 클 수 있습니다.': 'Analysis based on past data does not guarantee future returns, and trading in any asset (crypto, stocks, ETFs, etc.) carries high volatility and risk of principal loss. Crypto and futures trading in particular may carry even greater volatility.',
+      '과거 데이터 기반 통계·신호는 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 당사는 서비스 정보를 이용한 투자 결과에 대해 책임을 지지 않습니다(이용약관 제10조).': 'Statistics and signals based on past data do not guarantee future returns. Trading in any asset (crypto, stocks, ETFs, etc.) carries high volatility and risk of principal loss. The company is not liable for investment outcomes resulting from use of service information (Terms of Service Article 10).',
       '현재 종목·타임프레임 링크 복사': 'Copy a link to the current symbol & timeframe',
       '공유할 종목을 먼저 선택해 주세요': 'Please select a symbol to share first',
       '차트 링크가 복사되었습니다': 'Chart link copied',
@@ -2603,6 +2608,11 @@ const TRANSLATIONS = {
       '다이버전스': 'Divergence'
     }},
   ja: { flag: '🇯🇵', name: '日本語', texts: {
+      '투자 자산(암호화폐, 주식, ETF 등)은 원금 손실 위험이 있으며, AI 분석은 투자 권유가 아님을 이해합니다.': '投資資産（暗号資産、株式、ETFなど）は元本損失のリスクがあり、AI分析は投資勧誘ではないことを理解しています。',
+      '본 서비스는 투자 조언이 아닙니다. 모든 투자 판단과 그에 따른 손익은 전적으로 이용자 본인의 책임입니다. \n과거 수익률이 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 위험을 수반하며, 특히 선물 거래는 원금 손실이 발생할 수 있습니다.': '本サービスは投資アドバイスではありません。すべての投資判断とそれに伴う損益は、利用者ご本人の責任です。\n過去の実績は将来の収益を保証しません。暗号資産・株式・ETFなどすべての資産の取引には高いリスクが伴い、特に先物取引は元本損失が生じる可能性があります。',
+      '실시간 암호화폐·주식 AI 차트 분석 플랫폼': 'リアルタイム暗号資産・株式AIチャート分析プラットフォーム',
+      '과거 데이터 기반 분석은 미래 수익을 보장하지 않으며, 암호화폐·주식·ETF 등 모든 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 특히 암호화폐·선물 거래는 변동성이 더 클 수 있습니다.': '過去のデータに基づく分析は将来の収益を保証せず、暗号資産・株式・ETFなどすべての取引は高い変動性と元本損失のリスクを伴います。特に暗号資産・先物取引は変動性がさらに大きくなる可能性があります。',
+      '과거 데이터 기반 통계·신호는 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 당사는 서비스 정보를 이용한 투자 결과에 대해 책임을 지지 않습니다(이용약관 제10조).': '過去のデータに基づく統計・シグナルは将来の収益を保証しません。暗号資産・株式・ETFなどすべての資産の取引は高い変動性と元本損失のリスクを伴います。当社はサービス情報を利用した投資結果について責任を負いません（利用規約第10条）。',
       '현재 종목·타임프레임 링크 복사': '現在の銘柄・時間軸のリンクをコピー',
       '공유할 종목을 먼저 선택해 주세요': '共有する銘柄を先に選択してください',
       '차트 링크가 복사되었습니다': 'チャートのリンクをコピーしました',
@@ -4877,6 +4887,11 @@ const TRANSLATIONS = {
       '다이버전스': 'ダイバージェンス'
     }},
   zh: { flag: '🇨🇳', name: '中文', texts: {
+      '투자 자산(암호화폐, 주식, ETF 등)은 원금 손실 위험이 있으며, AI 분석은 투자 권유가 아님을 이해합니다.': '投资资产（加密货币、股票、ETF等）存在本金损失风险，且我理解AI分析并非投资建议。',
+      '본 서비스는 투자 조언이 아닙니다. 모든 투자 판단과 그에 따른 손익은 전적으로 이용자 본인의 책임입니다. \n과거 수익률이 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 위험을 수반하며, 특히 선물 거래는 원금 손실이 발생할 수 있습니다.': '本服务不构成投资建议。所有投资判断及由此产生的盈亏完全由用户本人负责。\n过往收益不保证未来收益。加密货币、股票、ETF等所有资产的交易均伴随高风险，尤其是期货交易可能导致本金损失。',
+      '실시간 암호화폐·주식 AI 차트 분석 플랫폼': '实时加密货币·股票AI图表分析平台',
+      '과거 데이터 기반 분석은 미래 수익을 보장하지 않으며, 암호화폐·주식·ETF 등 모든 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 특히 암호화폐·선물 거래는 변동성이 더 클 수 있습니다.': '基于过往数据的分析不保证未来收益，加密货币、股票、ETF等所有交易均伴随高波动性和本金损失风险。尤其加密货币和期货交易的波动性可能更大。',
+      '과거 데이터 기반 통계·신호는 미래 수익을 보장하지 않습니다. 암호화폐·주식·ETF 등 모든 자산의 거래는 높은 변동성과 원금 손실 위험을 수반합니다. 당사는 서비스 정보를 이용한 투자 결과에 대해 책임을 지지 않습니다(이용약관 제10조).': '基于过往数据的统计·信号不保证未来收益。加密货币、股票、ETF等所有资产的交易均伴随高波动性和本金损失风险。本公司对使用服务信息产生的投资结果不承担责任（服务条款第10条）。',
       '현재 종목·타임프레임 링크 복사': '复制当前品种·时间周期链接',
       '공유할 종목을 먼저 선택해 주세요': '请先选择要分享的品种',
       '차트 링크가 복사되었습니다': '图表链接已复制',

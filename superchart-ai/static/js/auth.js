@@ -145,7 +145,7 @@ window._showSupport=function(){let t=document.getElementById("supportModal");if(
           </label>
           <label style="display:flex;align-items:flex-start;gap:6px;font-size:14px;color:var(--muted);cursor:pointer">
             <input type="checkbox" id="authRisk" style="margin-top:2px">
-            <span>\uC554\uD638\uD654\uD3D0 \uD22C\uC790\uB294 \uC6D0\uAE08 \uC190\uC2E4 \uC704\uD5D8\uC774 \uC788\uC73C\uBA70, AI \uBD84\uC11D\uC740 \uD22C\uC790 \uAD8C\uC720\uAC00 \uC544\uB2D8\uC744 \uC774\uD574\uD569\uB2C8\uB2E4.</span>
+            <span>\uD22C\uC790 \uC790\uC0B0(\uC554\uD638\uD654\uD3D0, \uC8FC\uC2DD, ETF \uB4F1)\uC740 \uC6D0\uAE08 \uC190\uC2E4 \uC704\uD5D8\uC774 \uC788\uC73C\uBA70, AI \uBD84\uC11D\uC740 \uD22C\uC790 \uAD8C\uC720\uAC00 \uC544\uB2D8\uC744 \uC774\uD574\uD569\uB2C8\uB2E4.</span>
           </label>
         </div>
         <button id="authSubmit" type="submit" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">\uB85C\uADF8\uC778</button>
