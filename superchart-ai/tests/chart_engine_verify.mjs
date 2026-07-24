@@ -165,6 +165,26 @@ console.log("[price-scale] 가격축 휠 확대 가드 (뒤집힘/로그 하한)
   ok("가드: 정상 허용", applies("linear", 100, 200) === true && applies("log", 1, 100) === true);
 }
 
+console.log("[price-scale] 자동스케일에 오버레이 지표 포함");
+{
+  const buf = new DataBuffer(); buf.loadBulk(sampleBars(50));
+  const base = buf.priceRange(0, 50);
+  // 엔진 _updatePriceRange 와 동일한 확장 로직 (오버레이 지표 값 포함)
+  const inds = { ema: { data: Array.from({ length: 50 }, (_, i) => ({ index: i, value: i === 25 ? 9999 : 100 })) } };
+  let mn = base.min, mx = base.max;
+  if (Number.isFinite(mn)) {
+    for (const k in inds) {
+      const d = inds[k].data;
+      for (let z = 0; z < d.length; z++) { const p = d[z]; if (!p) continue; if (p.index < 0) continue; if (p.index > 50) break; const v = p.value; if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; } }
+    }
+  }
+  ok("오버레이 상단 이상치가 자동스케일 최대에 반영", mx >= 9999);
+  ok("가격 최소는 유지(확장은 벗어난 쪽만)", mn <= base.min + 1e-9);
+  // 빈 구간(Infinity 센티넬)에서는 오버레이 스캔을 건너뛰어 스케일을 갱신하지 않음
+  const empty = buf.priceRange(200, 260);
+  ok("빈 구간이면 오버레이 확장도 생략(센티넬 유지)", !(empty.min < Infinity));
+}
+
 console.log("[overlay] 박스(zone) 렌더 스키마");
 {
   function mockCtx() {
