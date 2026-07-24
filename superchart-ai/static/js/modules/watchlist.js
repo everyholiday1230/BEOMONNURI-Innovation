@@ -215,7 +215,9 @@ window._symbolLogoImg = function(code, base, px, extraStyle) {
   const badge = _symbolBadgeSvg(base, px, asset);
   const [p1, p2] = _localLogoPaths(code, base);
   // 우선순위: DB img → 로컬 로고 파일 → 테마 배지
-  const chain = [dbUrl, p1, p2].filter(Boolean);
+  // coinImgUrl(백엔드가 coin-logos/stock-logos 폴더를 직접 스캔해 채움)이 비어 있으면
+  // 로컬 파일도 없음이 확정이므로, png/svg 추측 요청(무조건 404) 대신 곧바로 글자 배지를 쓴다.
+  const chain = dbUrl ? [dbUrl, p1, p2].filter(Boolean) : [];
   const startSrc = chain.length ? chain[0] : badge;
   const rest = chain.slice(1);
   const style = `width:${px}px;height:${px}px;border-radius:50%;flex-shrink:0;${extraStyle || ''}`;
