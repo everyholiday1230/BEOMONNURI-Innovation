@@ -97,7 +97,10 @@ console.log("[scales] 키보드 내비게이션 프리미티브 방향");
   ts.zoom(0.9, 400); ok("ArrowUp/+ (0.9) → 확대(범위 축소)", (ts.visibleTo - ts.visibleFrom) < r0);
   const r1 = ts.visibleTo - ts.visibleFrom;
   ts.zoom(1.1, 400); ok("ArrowDown/- (1.1) → 축소(범위 확대)", (ts.visibleTo - ts.visibleFrom) > r1);
-  ts.fitContent(100); ok("Home → 전체 보기", ts.visibleTo === 100);
+  ts.fitContent(100);
+  ok("Home → 전체 보기(우측 여백 포함)", ts.visibleTo > 100 && ts.visibleTo <= 105);
+  ok("Home → 마지막 봉 화면 안", ts.visibleFrom < 100 && ts.visibleTo >= 100);
+  ok("Home → 표시 봉수 300 이내 유지", (ts.visibleTo - ts.visibleFrom) <= 300 + 1e-9);
 
   // scrollToRealtime 은 확대 배율(range)을 유지한 채 마지막 봉으로 점프
   const rt = new TimeScale(); rt.width = 800; rt._dataLength = 100; rt.fitContent(100);

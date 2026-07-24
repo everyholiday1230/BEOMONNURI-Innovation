@@ -99,8 +99,10 @@ export class TimeScale {
       return;
     }
     const visible = Math.min(dataLength, 300);
-    this.visibleFrom = dataLength - visible;
-    this.visibleTo = dataLength;
+    // 우측 여백: 최신 봉이 가격축에 딱 붙지 않도록 몇 봉의 빈 공간을 둔다(TradingView 유사).
+    const rightPad = Math.min(5, Math.max(0, Math.round(visible * 0.04)));
+    this.visibleTo = dataLength + rightPad;
+    this.visibleFrom = this.visibleTo - visible;
     this.barWidth = Math.max(1, (this.width / visible) * 0.7);
     this.barSpacing = this.barWidth * 0.3;
   }
