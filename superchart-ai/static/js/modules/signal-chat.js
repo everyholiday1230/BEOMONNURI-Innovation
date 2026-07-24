@@ -19,6 +19,45 @@
   };
   let busy = false;
 
+  // 대화가 만든 표준 신호(DSL)를 신호 빌더의 '조건' 형식으로 변환한다.
+  function toCond(s) {
+    const c = { indicator: s.indicator, op: s.op };
+    if (s.period != null) c.period = s.period;
+    if (s.op === 'cross_up' || s.op === 'cross_down') {
+      const t = s.target || {};
+      c.target = { indicator: t.indicator };
+      if (t.period != null) c.target.period = t.period;
+    } else {
+      c.value = s.value;
+    }
+    return c;
+  }
+
+  // 신호가 정확히 1개(단일 조건)이고 매매/관심이면 '편집·저장' 버튼을 붙인다.
+  // (여러 신호를 하나의 AND 그룹으로 합치면 의미가 달라지므로 단일 신호만 연결)
+  function maybeOfferEdit(row, payload, msg) {
+    if (!row) return;
+    const sigs = Array.isArray(payload.signals) ? payload.signals : [];
+    if (sigs.length !== 1) return;
+    const act = sigs[0].action;
+    if (!['buy', 'sell', 'zone'].includes(act)) return;
+    if (!(window.signalBuilder && typeof window.signalBuilder.applySharedSignal === 'function')) return;
+    const conds = sigs.map(toCond);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sb-btn sb-btn-secondary';
+    btn.style.cssText = 'margin-top:6px;font-size:12px;padding:4px 8px';
+    btn.textContent = '🖊 이 조건으로 편집·저장';
+    btn.addEventListener('click', () => {
+      try {
+        window.signalBuilder.applySharedSignal({ conditions: conds, action: act, title: (msg || '').slice(0, 30) });
+        (window.showToast || function () {})('조건을 빌더로 옮겼어요. "비공개 저장"으로 저장할 수 있습니다.', '#921230');
+      } catch (_) {}
+    });
+    row.appendChild(document.createElement('br'));
+    row.appendChild(btn);
+  }
+
   function appendMsg(role, html) {
     const box = $('scLog');
     if (!box) return null;
@@ -81,6 +120,7 @@
       let reply = esc(payload.reply || '');
       if (drawn > 0) reply += ` <b style="color:#921230">(${drawn}개 표시)</b>`;
       if (thinkRow) thinkRow.innerHTML = reply || '표시할 신호가 없습니다. 조건을 조금 더 구체적으로 말씀해주세요.';
+      maybeOfferEdit(thinkRow, payload, msg);
     } catch (_) {
       if (thinkRow) thinkRow.innerHTML = '네트워크 오류로 처리하지 못했습니다.';
     } finally {
