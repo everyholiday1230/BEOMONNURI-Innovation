@@ -79,7 +79,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // 드로어·레일 바깥을 클릭하면 닫기(설정 팝업 등 다른 UI와 충돌 없이 최소한만 처리)
   document.addEventListener('click', (e) => {
     if (!drawer.classList.contains('open')) return;
-    if (e.target.closest('.ind-bar,#toolRail')) return;
+    // .ind-bar/#toolRail 내부는 물론, 지표 클릭 시 별도로 뜨는 설정 패널·팝업
+    // (색상/굵기/기간 등 세부 설정 UI)도 예외 처리해 조작 중 드로어가 닫히지 않게 한다.
+    if (e.target.closest('.ind-bar,#toolRail,#indSettingsPanel,#indPopup,#maPopup,#subSettingsPop')) return;
     closeDrawer();
   });
 });

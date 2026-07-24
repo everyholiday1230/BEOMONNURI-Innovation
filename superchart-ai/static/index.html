@@ -2073,34 +2073,53 @@ body.dark #_toastContainer .pro-toast-chip {
 })();
 </script>
 <script>
-/* 공개 지표 그룹(추세/모멘텀/변동성/거래량/가격구조): 기본 접힘 + 제목 클릭 토글 */
+/* 공개 지표 그룹(추세/모멘텀/변동성/거래량/가격구조): 기본 펼침 + 제목 클릭 토글.
+   (이전엔 기본 접힘이라 큰 제목만 보이고 세부 지표가 안 보여 혼란을 줬음 — 개선) */
 (function(){
   'use strict';
-  function collapseAll(){
+  var LS_KEY = 'chartOS_indGroupCollapsed';
+  function loadCollapsedSet(){
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || '[]')); }
+    catch (_) { return new Set(); }
+  }
+  function saveCollapsedSet(set){
+    try { localStorage.setItem(LS_KEY, JSON.stringify(Array.from(set))); } catch (_) {}
+  }
+  function groupKey(g){
+    var label = g.querySelector('.ind-group-label');
+    var parent = g.closest('[data-drawer-group]');
+    return (parent ? parent.dataset.drawerGroup : '') + ':' + (label ? label.textContent.trim() : '');
+  }
+  function applyInitialState(){
+    var collapsed = loadCollapsedSet();
     document.querySelectorAll('.ind-collapsible-groups .ind-group').forEach(function(g){
-      // 사용자가 아직 손대지 않은 그룹만 초기 접힘 처리(중복 실행 안전)
+      // 사용자가 이전에 명시적으로 접어둔 그룹만 접힘, 그 외에는 기본 펼침으로 표시.
       if (!g.dataset.collapseInit) {
         g.dataset.collapseInit = '1';
-        g.classList.add('is-collapsed');
+        if (collapsed.has(groupKey(g))) g.classList.add('is-collapsed');
       }
     });
   }
-  // 제목(라벨) 클릭 시 해당 그룹만 토글 — 이벤트 위임
+  // 제목(라벨) 클릭 시 해당 그룹만 토글 — 이벤트 위임. 선택은 브라우저에 기억된다.
   document.addEventListener('click', function(e){
     var label = e.target.closest('.ind-collapsible-groups .ind-group > .ind-group-label');
     if (!label) return;
     var group = label.parentElement;
     if (!group) return;
     group.dataset.collapseInit = '1';
-    group.classList.toggle('is-collapsed');
+    var nowCollapsed = group.classList.toggle('is-collapsed');
+    var set = loadCollapsedSet();
+    var key = groupKey(group);
+    if (nowCollapsed) set.add(key); else set.delete(key);
+    saveCollapsedSet(set);
   });
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', collapseAll);
+    document.addEventListener('DOMContentLoaded', applyInitialState);
   } else {
-    collapseAll();
+    applyInitialState();
   }
   // 드로어가 처음 열릴 때도 보장
-  setTimeout(collapseAll, 800);
+  setTimeout(applyInitialState, 800);
 })();
 </script>
 <script>
