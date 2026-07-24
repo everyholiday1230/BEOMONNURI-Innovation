@@ -18,6 +18,7 @@
     catch (_) { return true; }
   };
   let busy = false;
+  let _lastMsg = null;
 
   // 대화가 만든 표준 신호(DSL)를 신호 빌더의 '조건' 형식으로 변환한다.
   function toCond(s) {
@@ -74,25 +75,30 @@
     return row;
   }
 
-  async function send(msg) {
+  async function send(msg, opts) {
+    opts = opts || {};
+    const silent = !!opts.silent;
     msg = (msg || '').trim();
     if (!msg || busy) return;
     if (!loggedIn()) {
-      (window.showMemberOnlyNotice || window.showAuth || window.showAuthModal || function () {})('대화형 신호');
+      if (!silent) (window.showMemberOnlyNotice || window.showAuth || window.showAuthModal || function () {})('대화형 신호');
       return;
     }
     const chart = window.chart;
     if (!chart || !chart.buffer || !chart.buffer.length) {
-      appendMsg('ai', '차트가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      if (!silent) appendMsg('ai', '차트가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
     busy = true;
     const sendBtn = $('scSend');
-    if (sendBtn) sendBtn.disabled = true;
-    appendMsg('user', esc(msg));
-    const inp = $('scInput');
-    if (inp) inp.value = '';
-    const thinkRow = appendMsg('ai', '…계산 중');
+    if (sendBtn && !silent) sendBtn.disabled = true;
+    let thinkRow = null;
+    if (!silent) {
+      appendMsg('user', esc(msg));
+      const inp = $('scInput');
+      if (inp) inp.value = '';
+      thinkRow = appendMsg('ai', '…계산 중');
+    }
 
     const symbol = window.curSymbol || 'BTCUSDT';
     const timeframe = window.curTf || '1h';
@@ -117,6 +123,8 @@
       if (payload.drawings && window.signalBuilder && typeof window.signalBuilder.renderDrawings === 'function') {
         try { drawn = window.signalBuilder.renderDrawings(payload.drawings) || 0; } catch (_) { drawn = 0; }
       }
+      // 성공적으로 처리됨 → 종목/타임프레임 변경·과거 스크롤 시 자동 재계산 대상으로 기억
+      _lastMsg = msg;
       let reply = esc(payload.reply || '');
       if (drawn > 0) reply += ` <b style="color:#921230">(${drawn}개 표시)</b>`;
       if (thinkRow) thinkRow.innerHTML = reply || '표시할 신호가 없습니다. 조건을 조금 더 구체적으로 말씀해주세요.';
@@ -129,6 +137,24 @@
     }
   }
 
+  // 종목/타임프레임 변경·과거 데이터 추가 시 마지막 대화 신호를 새 데이터로 자동 재계산.
+  // (signal-builder 의 워처와 동일 취지 — 대화로 만든 신호도 화면과 계속 정합)
+  let _wSym = null, _wTf = null, _wBuf = 0, _recalcT = null;
+  function _bufLen() { return (window.chart && window.chart.buffer && window.chart.buffer.length) || 0; }
+  function _scheduleRecalc(delay) {
+    if (_recalcT) clearTimeout(_recalcT);
+    _recalcT = setTimeout(() => { _recalcT = null; if (_lastMsg && !busy && loggedIn()) send(_lastMsg, { silent: true }); }, delay);
+  }
+  function _startWatcher() {
+    _wSym = window.curSymbol; _wTf = window.curTf; _wBuf = _bufLen();
+    setInterval(() => {
+      const s = window.curSymbol, t = window.curTf, b = _bufLen();
+      if (s !== _wSym || t !== _wTf) { _wSym = s; _wTf = t; _wBuf = b; if (_lastMsg) _scheduleRecalc(700); return; }
+      if (b > _wBuf) { _wBuf = b; if (_lastMsg) _scheduleRecalc(400); return; }
+      _wBuf = b;
+    }, 600);
+  }
+
   function init() {
     if (!$('scLog')) return;
     const sendBtn = $('scSend');
@@ -138,6 +164,7 @@
     document.querySelectorAll('#scExamples .sc-ex').forEach((b) => {
       b.addEventListener('click', () => { const i = $('scInput'); if (i) i.value = b.dataset.ex; send(b.dataset.ex); });
     });
+    _startWatcher();
   }
 
   window.signalChat = { send };
