@@ -106,6 +106,18 @@ export class TimeScale {
     this.barWidth = Math.max(1, (this.width / visible) * 0.7);
     this.barSpacing = this.barWidth * 0.3;
   }
+
+  // 데이터 재적재(종목/타임프레임 변경) 시 이전 확대 배율(보이는 봉 수)을 유지한다.
+  // 유효하지 않거나(첫 로드/범위 이상) 데이터보다 넓으면 기본 전체보기로 대체.
+  fitContentPreserve(dataLength, prevRange) {
+    if (!Number.isFinite(dataLength) || dataLength <= 0) { this.fitContent(dataLength); return; }
+    if (!Number.isFinite(prevRange) || prevRange < 5 || prevRange > dataLength) { this.fitContent(dataLength); return; }
+    const rightPad = Math.min(5, Math.max(0, Math.round(Math.min(prevRange, 300) * 0.04)));
+    this.visibleTo = dataLength + rightPad;
+    this.visibleFrom = this.visibleTo - prevRange;
+    this.barWidth = Math.max(1, (this.width / prevRange) * 0.7);
+    this.barSpacing = this.barWidth * 0.3;
+  }
 }
 
 export class PriceScale {

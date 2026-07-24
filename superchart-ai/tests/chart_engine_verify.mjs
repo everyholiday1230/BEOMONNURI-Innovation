@@ -125,6 +125,25 @@ console.log("[scales] 휠 줌 커서 앵커");
   ok("다른 커서 위치 축소 후에도 유지(±1)", Math.abs(ts.xToBar(cx2) - barB2) <= 1);
 }
 
+console.log("[scales] 재적재 시 확대 배율 유지 (fitContentPreserve)");
+{
+  // 종목/TF 변경 시 이전에 50봉만 보던 확대 상태를 유지
+  const ts = new TimeScale(); ts.width = 800; ts._dataLength = 300; ts.fitContent(300);
+  for (let i = 0; i < 15; i++) ts.zoom(0.9, 400);
+  const prev = ts.visibleTo - ts.visibleFrom;
+  ts.fitContentPreserve(500, prev); // 새 종목: 500봉
+  ok("배율 유지: 보이는 봉 수 보존", Math.abs((ts.visibleTo - ts.visibleFrom) - prev) < 1e-9);
+  ok("배율 유지: 마지막 봉 화면 안 + 우측 여백", ts.visibleFrom < 500 && ts.visibleTo >= 500 && ts.visibleFrom >= 0);
+  // 이전 범위가 새 데이터보다 넓으면 전체보기로 대체
+  const ts2 = new TimeScale(); ts2.width = 800;
+  ts2.fitContentPreserve(40, 300);
+  ok("범위>데이터 → 전체보기 대체", (ts2.visibleTo - ts2.visibleFrom) <= 40 + 5 + 1e-9 && ts2.visibleTo > 0);
+  // 첫 로드류(비정상 prevRange)도 전체보기
+  const ts3 = new TimeScale(); ts3.width = 800;
+  ts3.fitContentPreserve(200, NaN);
+  ok("prevRange 비정상 → 전체보기 대체", (ts3.visibleTo - ts3.visibleFrom) > 0 && Number.isFinite(ts3.visibleFrom));
+}
+
 console.log("[scales] 로그 스케일 좌표 왕복");
 {
   const ps = new PriceScale(); ps.height = 400; ps.setMode("log"); ps.setRange(10, 1000);
