@@ -111,6 +111,17 @@ console.log("[scales] 키보드 내비게이션 프리미티브 방향");
   ok("End(scrollToRealtime) → 확대 배율 유지", Math.abs((rt.visibleTo - rt.visibleFrom) - keepRange) < 1e-9);
 }
 
+console.log("[scales] 휠 줌 커서 앵커");
+{
+  const ts = new TimeScale(); ts.width = 800; ts._dataLength = 100; ts.fitContent(100);
+  const cx = 200; const barBefore = ts.xToBar(cx);
+  ts.zoom(0.9, cx);
+  ok("커서 위치 봉이 확대 후에도 유지(±1)", Math.abs(ts.xToBar(cx) - barBefore) <= 1);
+  const cx2 = 600; const barB2 = ts.xToBar(cx2);
+  ts.zoom(1.1, cx2);
+  ok("다른 커서 위치 축소 후에도 유지(±1)", Math.abs(ts.xToBar(cx2) - barB2) <= 1);
+}
+
 console.log("[scales] 로그 스케일 좌표 왕복");
 {
   const ps = new PriceScale(); ps.height = 400; ps.setMode("log"); ps.setRange(10, 1000);
