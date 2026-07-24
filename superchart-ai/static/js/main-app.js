@@ -5964,6 +5964,27 @@ function Le() {
     ),
     z());
 }
+// 같은 지표 타입의 여러 기간선을 구분하기 위한 명도 단계 조정.
+// rank=0은 기준색 그대로, 이후 단계마다 어둡게(짧은 기간→밝음, 긴 기간/추가 순서→어두움).
+// 6단계를 넘으면 순환해 너무 어두워/밝아지지 않게 한다.
+function _shadeColor(hex, rank) {
+  const step = ((rank % 6) + 6) % 6;
+  if (step === 0) return hex;
+  const amt = step * 0.12;
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255,
+    g = (n >> 8) & 255,
+    b = n & 255;
+  (r = Math.max(0, Math.round(r * (1 - amt))),
+    g = Math.max(0, Math.round(g * (1 - amt))),
+    b = Math.max(0, Math.round(b * (1 - amt))));
+  return (
+    "#" +
+    [r, g, b]
+      .map((x) => x.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
 const st = [
   "#E53935",
   "#FF6D00",
@@ -6027,9 +6048,18 @@ const st = [
         X(t("\uAE30\uAC04\uC744 \uC120\uD0DD\uD558\uC138\uC694"), "#3B82F6");
         return;
       }
+      // 같은 타입(예: WMA)을 여러 기간으로 한꺼번에 추가할 때, 전체 개수 기준으로
+      // 팔레트를 순환하면 같은 지표군의 선들이 서로 무관한 색을 받아 헷갈린다.
+      // → 타입별 기준색은 팔레트에서 고정 배정하고, 같은 타입 내 기간 순서에 따라
+      // 밝기(명도)를 단계적으로 낮춰 "같은 지표, 다른 기간"이 한눈에 보이도록 한다.
+      const _typeIdx = n.findIndex((x) => x.t === f);
+      const _baseColor = st[(_typeIdx >= 0 ? _typeIdx : 0) % st.length];
+      const _sameTypeExisting = _customMA.filter((x) => x.type === f).length;
+      const _sortedPeriods = m.slice().sort((a, b) => a - b);
       for (const v of m) {
         const s = "custom_ma_" + Date.now() + "_" + v,
-          l = st[_customMA.length % st.length];
+          _rank = _sameTypeExisting + _sortedPeriods.indexOf(v),
+          l = _shadeColor(_baseColor, _rank);
         _customMA.push({ id: s, type: f, period: v, color: l, width: 1 });
       }
       (Le(),
