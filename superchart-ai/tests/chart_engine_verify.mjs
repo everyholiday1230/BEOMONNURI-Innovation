@@ -118,6 +118,20 @@ console.log("[scales] 로그 스케일 좌표 왕복");
   ok("로그 모드 priceToY→yToPrice 왕복", Math.abs(back - 100) / 100 < 1e-6);
 }
 
+console.log("[price-scale] 가격축 휠 확대 가드 (뒤집힘/로그 하한)");
+{
+  const ps = new PriceScale(); ps.height = 400; ps.setRange(100, 200);
+  ok("정상 범위 priceToY 유한", Number.isFinite(ps.priceToY(150)));
+  ps.min = 150; ps.max = 150; // 가드 없이 동일 범위가 들어간 상황 시뮬레이션
+  ok("min==max 이면 priceToY 가 NaN → 가드 필요성 입증", !Number.isFinite(ps.priceToY(150)));
+  // 엔진 가드와 동일 조건
+  const applies = (mode, s, e) => Number.isFinite(s) && Number.isFinite(e) && e > s && (mode !== "log" || s > 0);
+  ok("가드: e<=s 거부", applies("linear", 100, 100) === false && applies("linear", 200, 100) === false);
+  ok("가드: 로그 s<=0 거부", applies("log", -1, 100) === false && applies("log", 0, 100) === false);
+  ok("가드: NaN 거부", applies("linear", NaN, 100) === false);
+  ok("가드: 정상 허용", applies("linear", 100, 200) === true && applies("log", 1, 100) === true);
+}
+
 console.log("[overlay] 박스(zone) 렌더 스키마");
 {
   function mockCtx() {
