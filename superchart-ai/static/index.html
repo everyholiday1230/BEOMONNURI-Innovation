@@ -1705,6 +1705,23 @@ body.dark #_toastContainer .pro-toast-chip {
         </div>
       </div>
 
+      <!-- AI 대화로 신호 만들기 -->
+      <div class="sb-section" id="sbChatSection">
+        <div class="sb-section-title"><span class="sb-step">AI</span> 대화로 신호 만들기</div>
+        <div class="pane-desc" style="margin:2px 0 8px">원하는 조건을 문장으로 적으면 <b>공개 표준 지표</b>(RSI·MACD·이동평균·볼린저·스토캐스틱·거래량 등)로만 계산해 차트에 신호를 표시합니다. 범온 고유 지표는 사용하지 않습니다.</div>
+        <div id="scLog" aria-live="polite" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:8px"></div>
+        <div id="scExamples" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <button type="button" class="sc-ex sb-btn sb-btn-ghost" data-ex="RSI가 30 아래로 내려가면 매수 표시해줘">RSI 30↓ 매수</button>
+          <button type="button" class="sc-ex sb-btn sb-btn-ghost" data-ex="20일선이 50일선을 위로 뚫으면 매수">골든크로스 매수</button>
+          <button type="button" class="sc-ex sb-btn sb-btn-ghost" data-ex="MACD가 0 아래로 내려가면 매도">MACD 0↓ 매도</button>
+          <button type="button" class="sc-ex sb-btn sb-btn-ghost" data-ex="가격이 20일선 위로 올라가면 매수">20일선 돌파</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <input id="scInput" class="sb-input" type="text" maxlength="200" placeholder="예: RSI가 30 아래로 가면 매수 표시해줘" style="flex:1">
+          <button type="button" id="scSend" class="sb-btn sb-btn-primary">보내기</button>
+        </div>
+      </div>
+
       <!-- 내 조건 목록 -->
       <div class="sb-section">
         <div class="sb-section-title">
@@ -1881,6 +1898,7 @@ body.dark #_toastContainer .pro-toast-chip {
 <script type="module" src="/static/js/main-app.js?v=20260722_uifix1"></script>
 <script defer src="/static/js/modules/hotmap.js?v=20260719_htv7"></script>
 <script defer src="/static/js/modules/signal-builder.js?v=20260722_sb9"></script>
+<script defer src="/static/js/modules/signal-chat.js?v=20260724_sc1"></script>
 <script defer src="/static/js/modules/signal-board.js?v=20260719_sghide"></script>
 <script defer src="/static/js/modules/pricing.js?v=20260720_toss1"></script>
 <script defer src="/static/js/modules/multi-chart.js"></script>

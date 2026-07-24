@@ -604,6 +604,10 @@
     clear: _clear,
     applyPreset: _applyPreset,
     applySharedSignal: _applySharedSignal,
+    // 대화형 신호 모듈(signal-chat.js) 등이 동일 경로로 차트에 신호를 그리도록 노출.
+    renderDrawings: _renderDrawings,
+    clearSignals: _clearChartSignals,
+    extractCandles: _extractCandles,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
