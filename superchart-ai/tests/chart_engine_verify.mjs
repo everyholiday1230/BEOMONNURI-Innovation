@@ -142,6 +142,14 @@ console.log("[scales] 재적재 시 확대 배율 유지 (fitContentPreserve)");
   const ts3 = new TimeScale(); ts3.width = 800;
   ts3.fitContentPreserve(200, NaN);
   ok("prevRange 비정상 → 전체보기 대체", (ts3.visibleTo - ts3.visibleFrom) > 0 && Number.isFinite(ts3.visibleFrom));
+
+  // 리사이즈(최신봉 근처)에서도 확대 배율 유지 — 폭이 바뀌어도 보이는 봉 수 보존
+  const rz = new TimeScale(); rz.width = 800; rz._dataLength = 400; rz.fitContent(400);
+  for (let i = 0; i < 18; i++) rz.zoom(0.9, 400);       // 확대
+  const rzRange = rz.visibleTo - rz.visibleFrom;
+  rz.width = 500;                                        // 창 축소
+  rz.fitContentPreserve(400, rzRange);                   // 리사이즈 else-분기와 동일
+  ok("리사이즈 후 보이는 봉 수 유지", Math.abs((rz.visibleTo - rz.visibleFrom) - rzRange) < 1e-9);
 }
 
 console.log("[scales] 로그 스케일 좌표 왕복");
