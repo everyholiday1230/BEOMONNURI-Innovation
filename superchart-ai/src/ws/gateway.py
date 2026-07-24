@@ -554,13 +554,13 @@ class ConnectionManager:
             self._ticker_flush_task.cancel()
             try:
                 await self._ticker_flush_task
-            except Exception:
+            except (asyncio.CancelledError, Exception):
                 pass
         if self._candle_flush_task and not self._candle_flush_task.done():
             self._candle_flush_task.cancel()
             try:
                 await self._candle_flush_task
-            except Exception:
+            except (asyncio.CancelledError, Exception):
                 pass
 
         for conn_id, ws in list(self._connections.items()):
