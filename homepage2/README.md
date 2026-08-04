@@ -137,8 +137,8 @@ grep -rn "TEMP-HIDDEN" homepage2/
 - `products.html`: 외주 카드 번호 `/03` → `/04`, 히어로 `TOTAL 02` → `03`,
   JSON-LD `ItemList`의 `numberOfItems` 및 3번 항목
 - 제품 수 표기 `2개의 AI 제품` → `3개의 AI 제품`
-  (`index.html`, `products.html`, 전 페이지 푸터 소개문, `manifest.webmanifest` description,
-   `assets/js/ai-frontier.js` · `assets/js/v5-nextgen.js` AI 프롬프트)
+  (`index.html`, `products.html`, 전 페이지 푸터 소개문, `manifest.webmanifest` description)
+  ※ AI 위젯/터미널 프롬프트는 9-2에서 코드째 제거되어 해당 없음
 - `products.html` 히어로 lead: `보안형 사내 AI부터 업무 자동화 AI까지`
   → `보안형 사내 AI부터 산업별 의사결정 AI까지`
 
@@ -154,3 +154,64 @@ grep -rn "TEMP-HIDDEN" homepage2/
 수정한 정적 파일의 쿼리 버전을 전 페이지에서 일괄 상향했습니다.
 - `ai-frontier.css` `20260723c` → `20260804a`
 - `ai-frontier.js`, `v5-nextgen.js`, `v5-mobile.js` `20260723a` → `20260804a`
+
+## 9) 코드 점검 후속 정리 (2026-08-04)
+
+전 페이지 자동 점검에서 확인된 항목 중 **코드 변경만으로 끝나는 것**들을 처리했습니다.
+(결제 서버 승인 연동·법정 표기·약관은 사업 정보가 필요해 별도 진행)
+
+### 9-1) 카메라 접근 코드 제거
+`v5-nextgen.js`의 `CAMERA FACE TRACKING` 모듈(`navigator.mediaDevices.getUserMedia`)을
+삭제했습니다. 가드 요소 `#camera-toggle`이 어떤 페이지에도 없어 실행되지 않는 상태였지만,
+방문자에게 전송되는 스크립트에 카메라 접근 코드가 포함될 이유가 없고 마크업이 추가되면
+즉시 활성화되므로 제거했습니다.
+
+### 9-2) 실행되지 않는 모듈 일괄 제거 (약 47KB)
+`4260f3c`(홈을 풀스크린 히어로 단일 페이지로 복원)에서 본문 섹션 마크업이 제거된 뒤
+JS/CSS만 남아 있던 코드입니다. 가드 셀렉터가 HTML·타 JS 어디에도 없음을 확인 후 삭제했습니다.
+
+| 파일 | 제거 모듈 | 변화 |
+|---|---|---|
+| `assets/js/ai-frontier.js` | CUSTOM CURSOR, LIVE HUD, DATA TICKER, PIPELINE CANVAS, INTEL BOARD CHARTS, LIVE LOG, AI WIDGET | 30.0KB → 14.0KB |
+| `assets/js/v5-nextgen.js` | MOUSE TRAIL, CAMERA, LLM TERMINAL, SOUND, STATUS ORB | 43.3KB → 30.4KB |
+| `assets/js/v5-anchor.js` | 파일 전체 (`[data-anchor]` 요소가 없어 전량 미실행) | 12.5KB → 삭제 |
+| `assets/css/v5-anchor.css` | 파일 전체 (`.info-popover`는 위 JS만 생성) | 6.2KB → 삭제 |
+
+- 미사용이 된 헬퍼 `pausableInterval`(ai-frontier)도 함께 제거했습니다.
+- 복구가 필요하면 삭제 직전 커밋(`1b75196`)에 원본이 그대로 있습니다.
+- **AI 위젯/히어로 터미널 프롬프트도 이때 함께 사라졌습니다.** 8-2에 적어둔 프롬프트 관련
+  복구 항목은 더 이상 해당되지 않습니다.
+
+### 9-3) 문의 폼 스팸 차단
+`contact.html`에 허니포트 필드(`name="botcheck"`)를 추가했습니다.
+- 화면·스크린리더·탭 이동에서 제외(`.cf-botcheck` 오프스크린 + `aria-hidden` + `tabindex="-1"`)
+- 값이 채워지면 전송을 조용히 중단하고, 전송 payload에도 값을 실어 Web3Forms 서버 측
+  스팸 필터가 함께 동작하도록 했습니다.
+- Web3Forms access key는 공개키(설계상 클라이언트 노출)라 그대로 두었습니다.
+
+### 9-4) 외부 스크립트 무결성(SRI)
+버전이 고정되어 내용이 바뀌지 않는 자산에만 적용했습니다.
+
+| 자산 | 처리 |
+|---|---|
+| three.js r128 (cdnjs) | `integrity` 추가. cdnjs가 공개한 SHA-512와 직접 계산한 값이 일치함을 확인 |
+| Pretendard v1.3.9 (jsDelivr) | jsDelivr이 실시간 생성하는 `.min.css`는 파일 주석에 *"Do NOT use SRI with dynamically generated files"* 경고가 있어, **저장소 원본 정적 파일**(`...subset.css`)로 URL을 바꾸고 SHA-384 적용 (+6KB) |
+| Google Fonts `css2` | **적용하지 않음.** User-Agent에 따라 응답 CSS가 달라져 SRI를 걸면 일부 브라우저에서 폰트가 깨짐 |
+| 토스페이먼츠 `v2/standard` | **적용하지 않음.** 버전 미고정 URL로 토스 측 업데이트 시 결제가 전면 중단됨 |
+
+### 9-5) 그 외
+- `console.log` 3건 제거(`v5-anchor.js` 파일째 삭제, `v5-webgpu.js` 2건). 예외 로깅용
+  `console.error`/`console.warn`은 유지.
+- `v5-webgpu.js`: `canvas.getContext('2d')` 결과 null 검사 추가(장식 레이어이므로 실패 시 조용히 종료).
+- **`404.html` 신설.** 404는 임의 경로(`/a/b/c`)에서 렌더되므로 모든 자원·링크를 루트
+  절대경로로 작성했습니다. 이에 맞춰 `v5-mobile.js`의 모바일 메뉴 링크도 루트 절대경로로
+  바꾸고, active 판정은 선행 슬래시를 정규화해 비교합니다.
+  (정적 호스팅은 `500.html`을 사용하지 않아 만들지 않았습니다.)
+- 미참조 자산 3개(`assets/favicon.svg`, `localmotive.jpg`, `youth-foundation.jpg`, 합계 약 31KB)는
+  **삭제하지 않았습니다.** 두 JPG는 4)에 적힌 "공식 CI 원본 확정 대기" 상태의 후보 이미지
+  원본이라 임의 삭제가 위험합니다. 공식 로고가 확정되면 함께 정리하세요.
+
+### 9-6) 캐시 무효화
+- `ai-frontier.css` `20260804a` → `20260804b`
+- `ai-frontier.js`, `v5-nextgen.js`, `v5-webgpu.js`, `v5-mobile.js` → `20260804b`
+

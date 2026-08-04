@@ -13,7 +13,11 @@
     // Detect current active link from existing nav (so we can mirror it in mobile menu)
     const existingActive = nav.querySelector('.nav-links a.active');
     const activeHref = existingActive ? existingActive.getAttribute('href') : null;
-    const isActive = (href) => activeHref === href ? ' class="active"' : '';
+    // 메뉴 링크는 루트 절대경로(/x.html)를 쓰고, 기존 nav는 상대경로(x.html)를 쓰므로
+    // 선행 슬래시를 제거해 비교한다. (404.html처럼 임의 경로에서 렌더될 때도
+    // 메뉴 링크가 깨지지 않도록 절대경로를 사용한다.)
+    const normHref = (h) => (h || '').replace(/^\//, '');
+    const isActive = (href) => normHref(activeHref) === normHref(href) ? ' class="active"' : '';
 
     // Build hamburger button
     const hamburger = document.createElement('button');
@@ -37,35 +41,35 @@
       <div class="mobile-menu-inner">
         <div class="mobile-menu-label">BEOMONNURI · MENU</div>
         <nav aria-label="Mobile primary">
-          <a href="index.html"${isActive('index.html')}>
+          <a href="/index.html"${isActive('/index.html')}>
             <span>HOME</span><span class="num">01</span>
           </a>
-          <a href="products.html"${isActive('products.html')}>
+          <a href="/products.html"${isActive('/products.html')}>
             <span>PRODUCTS</span><span class="num">02</span>
           </a>
-          <a href="products-private.html" class="sub"${isActive('products-private.html')}>
+          <a href="/products-private.html" class="sub"${isActive('/products-private.html')}>
             <span>· 범온 프라이빗 AI</span><span class="num">02-1</span>
           </a>
-          <a href="products-agent.html" class="sub"${isActive('products-agent.html')}>
+          <a href="/products-agent.html" class="sub"${isActive('/products-agent.html')}>
             <span>· 범온 에이전트 AI</span><span class="num">02-2</span>
           </a>
           <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 블록 주석 해제 + 외주·MVP 번호를 02-4로 되돌릴 것
-          <a href="products-superchart.html" class="sub"${isActive('products-superchart.html')}>
+          <a href="/products-superchart.html" class="sub"${isActive('/products-superchart.html')}>
             <span>· 범온 슈퍼차트 AI</span><span class="num">02-3</span>
           </a>
           -->
-          <a href="services-outsourcing.html" class="sub"${isActive('services-outsourcing.html')}>
+          <a href="/services-outsourcing.html" class="sub"${isActive('/services-outsourcing.html')}>
             <span>· 외주·MVP 제작</span><span class="num">02-3</span>
           </a>
-          <a href="why.html"${isActive('why.html')}>
+          <a href="/why.html"${isActive('/why.html')}>
             <span>WHY</span><span class="num">03</span>
           </a>
-          <a href="contact.html"${isActive('contact.html')}>
+          <a href="/contact.html"${isActive('/contact.html')}>
             <span>CONTACT</span><span class="num">04</span>
           </a>
         </nav>
         <div class="cta-row">
-          <a href="contact.html">
+          <a href="/contact.html">
             <span>도입 진단 신청</span>
             <span>→</span>
           </a>

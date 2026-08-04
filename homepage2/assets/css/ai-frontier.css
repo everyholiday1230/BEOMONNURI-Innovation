@@ -1951,6 +1951,17 @@ footer {
 .contact-left .ct-cta-v4:hover .arr { transform: translateX(4px) translateY(-4px); }
 
 .contact-form { display: flex; flex-direction: column; gap: 0; }
+/* 스팸 봇 차단용 허니포트 필드 — 화면/스크린리더/탭 이동에서 모두 제외하되
+   DOM에는 남겨 자동 입력 봇만 걸리게 한다. display:none 대신 오프스크린을 사용해
+   일부 봇의 'display:none 필드 건너뛰기' 회피 로직을 무력화한다. */
+.cf-botcheck {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
 .cf-row {
   display: grid;
   grid-template-columns: 200px 1fr;

@@ -330,6 +330,9 @@
      ========================================================== */
   const startFallback = () => {
     const ctx = canvas.getContext('2d');
+    // 2D 컨텍스트 확보 실패(컨텍스트 수 초과 등) 시 조용히 종료 — 장식 레이어이므로
+    // 페이지 기능에 영향이 없어야 한다.
+    if (!ctx) return;
     const particles = Array.from({length: NUM_PARTICLES}, () => ({
       x: Math.random(),
       y: Math.random(),
@@ -407,11 +410,9 @@
   tryWebGPU().then(success => {
     if (success) {
       if (labelButton) labelButton.textContent = 'WEBGPU · LIVE';
-      console.log('%c◉ WebGPU compute active', 'color:#921230;font-weight:bold');
     } else {
       startFallback();
       if (labelButton) labelButton.textContent = 'WEBGL2 · LIVE';
-      console.log('%c◉ WebGPU unavailable — using canvas2D fallback', 'color:#666');
     }
   });
 })();
