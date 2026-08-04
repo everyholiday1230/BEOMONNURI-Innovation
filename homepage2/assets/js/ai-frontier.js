@@ -37,25 +37,34 @@ const reduced = false;
    파트너 공식 로고 이미지 렌더링 (텍스트 라벨 제거: 로고만 노출). */
 (() => {
   const partners = [
-    { id: 'mss', alt: '중소벤처기업부 공식 로고', src: 'assets/img/logos/partners/mss.png' },
-    { id: 'moel', alt: '고용노동부 공식 로고', src: 'assets/img/logos/partners/moel.png' },
+    { id: 'mss', alt: '중소벤처기업부 공식 로고', src: 'assets/img/logos/partners/mss.png', webp: 'assets/img/logos/partners/mss.webp' },
+    { id: 'moel', alt: '고용노동부 공식 로고', src: 'assets/img/logos/partners/moel.png', webp: 'assets/img/logos/partners/moel.webp' },
     { id: 'gov-gg', alt: '경기도경제과학진흥원 공식 로고', src: 'assets/img/logos/partners/gbsa.png', webp: 'assets/img/logos/partners/gbsa.webp' },
     { id: 'korcham', alt: '대한상공회의소 공식 로고', src: 'assets/img/logos/partners/korcham.png' },
     { id: 'startup', alt: '모두의창업 공식 로고', src: 'assets/img/logos/partners/modoo-startup.png' },
     { id: 'inv-posco', alt: '포스코기술투자 공식 로고', src: 'assets/img/logos/partners/posco-technology-investment.png' },
-    { id: 'fin-nh', alt: '농협 공식 로고', src: 'assets/img/logos/partners/nonghyup.png' },
-    { id: 'youth-foundation', alt: '청년재단 공식 로고', src: 'assets/img/logos/partners/youth-foundation.png' },
-    { id: 'edu-dku', alt: '단국대학교 공식 로고', src: 'assets/img/logos/partners/dankook-university.png' },
+    { id: 'fin-nh', alt: '농협 공식 로고', src: 'assets/img/logos/partners/nonghyup.png', webp: 'assets/img/logos/partners/nonghyup.webp' },
+    { id: 'youth-foundation', alt: '청년재단 공식 로고', src: 'assets/img/logos/partners/youth-foundation.png', webp: 'assets/img/logos/partners/youth-foundation.webp' },
+    { id: 'edu-dku', alt: '단국대학교 공식 로고', src: 'assets/img/logos/partners/dankook-university.png', webp: 'assets/img/logos/partners/dankook-university.webp' },
     /* TEMP-HIDDEN(LOCALMOTIVE / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
-    { id: 'localmotive', alt: '(주)로컬모티브 공식 로고', src: 'assets/img/logos/partners/localmotive.png' },
+    { id: 'localmotive', alt: '(주)로컬모티브 공식 로고', src: 'assets/img/logos/partners/localmotive.png', webp: 'assets/img/logos/partners/localmotive.webp' },
     */
-    { id: 'lab-knl', alt: '한국나노분석랩 공식 로고', src: 'assets/img/logos/partners/knal-kor.png' },
+    { id: 'lab-knl', alt: '한국나노분석랩 공식 로고', src: 'assets/img/logos/partners/knal-kor.png', webp: 'assets/img/logos/partners/knal-kor.webp' },
     { id: 'kiss', alt: '강동 K-ISS 멘토링센터 공식 로고', src: 'assets/img/logos/partners/gangdong-kiss.png' },
   ];
 
+  // WebP를 우선 제공하고 PNG로 폴백한다. data-webp는 3D 실린더(v5-nextgen.js)가
+  // 같은 소스를 재사용할 때 읽는다.
+  const imgHtml = (p) =>
+    `<img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}"` +
+    (p.webp ? ` data-webp="${p.webp}"` : '') +
+    ` loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
+
   const itemHtml = (p) => `
     <div class="pm-item" data-cursor data-partner-id="${p.id}">
-      <img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}" loading="eager" decoding="async" referrerpolicy="no-referrer" />
+      ${p.webp
+        ? `<picture><source type="image/webp" srcset="${p.webp}">${imgHtml(p)}</picture>`
+        : imgHtml(p)}
     </div>`;
 
   const track = $('#partner-marquee-track');

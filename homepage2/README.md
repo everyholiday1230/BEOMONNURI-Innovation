@@ -215,3 +215,54 @@ JS/CSS만 남아 있던 코드입니다. 가드 셀렉터가 HTML·타 JS 어디
 - `ai-frontier.css` `20260804a` → `20260804b`
 - `ai-frontier.js`, `v5-nextgen.js`, `v5-webgpu.js`, `v5-mobile.js` → `20260804b`
 
+## 10) 이미지 최적화 · 홈 법적고지 링크 (2026-08-04)
+
+### 10-1) 파트너 로고 최적화 — 홈 첫 화면 이미지 전송량 60% 감소
+원본 로고가 실제 표시 크기보다 과도하게 컸습니다. CSS 기준 표시 크기는
+실린더 46px / 마퀴 40px(일부 `scale(1.2)` 보정 포함 약 55px)인데, 원본은 최대 1280×410이었습니다.
+
+- **리사이즈 기준**: 고해상도(DPR 2) 대응으로 height 120px, max-width 480px 상한
+- **포맷**: 알파 채널이 실제로 쓰이지 않으면 RGB로 저장, 무손실/q92 중 작은 쪽 선택
+- **원본 PNG는 삭제하지 않고 `<picture>` 폴백으로 유지**
+- WebP가 원본보다 커지는 로고 4개(korcham, modoo-startup, posco, gangdong-kiss)는
+  **PNG를 그대로 사용** (팔레트 PNG가 더 효율적인 경우)
+
+| | 이전 | 이후 |
+|---|---|---|
+| 홈 첫 화면 이미지 전송량 | 347.9KB | **140.2KB** (−207.8KB, 60%) |
+| gbsa (경기도경제과학진흥원) | 100.5KB (844×297) | 20.7KB (341×120) |
+| youth-foundation (청년재단) | 62.1KB (1200×360) | 6.3KB (400×120) |
+| dankook-university | 32.3KB (500×500) | 8.1KB (120×120) |
+| 회사 로고 | 40.9KB | 33.0KB (무손실 재인코딩, 픽셀 동일·해상도 유지) |
+
+구현 메모
+- `ai-frontier.js` / `v5-nextgen.js` 모두 `<picture><source type="image/webp">` + `<img>` PNG 폴백 구조
+- 3D 실린더는 평면 마퀴의 이미지를 재사용하므로 `<img data-webp="...">`로 경로를 전달
+- `.pm-item picture`, `.cylinder-face picture`에 `display: contents` 적용 →
+  `<picture>` 래퍼가 박스를 만들지 않아 기존 flex 레이아웃(img가 직접 자식) 그대로 유지
+- 기존에 선언만 되어 있고 실제로 쓰이지 않던 `gov-gg`의 `webp:` 항목을 정상 연결했습니다.
+  (이전 `gbsa.webp`는 741×261 RGB로 **알파 채널이 없어** 배경이 흰 사각형으로 보일 수
+  있었고, 그래서 연결되지 않았던 것으로 보입니다. 알파를 살려 다시 생성했습니다.)
+- 회사 로고는 구조화 데이터(`Organization.logo`)로도 쓰이므로 해상도를 줄이지 않고
+  무손실 재인코딩만 적용했습니다. `<picture>` 적용 시 추가로 약 15KB 더 줄일 수 있으나
+  nav·footer 34곳의 마크업을 바꿔야 해서 보류했습니다.
+
+### 10-2) 홈에 개인정보처리방침 링크 복구
+`4260f3c`에서 홈 footer가 제거되면서 홈에서 개인정보처리방침으로 가는 경로가 사라졌습니다.
+풀스크린 히어로 단일 화면 구성을 유지하기 위해 footer를 되살리는 대신,
+히어로 상단 메타 행(`.hero-top`, `justify-content: space-between`) 오른쪽에 배치했습니다.
+- `개인정보처리방침 · CONTACT · © 2026 BEOMONNURI INNOVATION`
+- 모바일에서는 `.hero-top`이 `flex-direction: column`으로 바뀌어 아래로 자연스럽게 쌓입니다
+- 스크롤 발생 없음(레이아웃 높이 변화 없음)
+
+### 10-3) 저대비 텍스트 수정
+10px 라벨 3곳의 대비가 4.31:1로 WCAG AA(4.5:1) 미달이었습니다.
+`rgba(13,13,13,0.56)` → `0.62`(본문 `--mute`와 동일)로 조정해 **5.31:1** 확보.
+- `assets/css/pages.css` 2곳(`.hw-step .k`, `.hw-metrics .mk`), `products.html` 1곳(`.ht-step .k`)
+- 전 CSS/인라인 스타일 재검사 결과 AA 미달 0건
+
+### 10-4) 캐시 무효화
+- `ai-frontier.css`, `ai-frontier.js`, `v5-nextgen.js` → `20260804c`
+- `pages.css` `20260723a` → `20260804c`
+
+

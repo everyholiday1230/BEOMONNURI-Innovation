@@ -365,6 +365,21 @@ nav.top .row {
   display: flex; align-items: center; gap: 8px;
   color: var(--acid);
 }
+/* 홈 상단 메타 행의 법적 고지 링크(개인정보처리방침 등) */
+.hero-top-legal {
+  display: flex; align-items: center; gap: 7px;
+  flex-wrap: wrap;
+}
+.hero-top-legal a {
+  color: var(--mute);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s ease;
+}
+.hero-top-legal a:hover,
+.hero-top-legal a:focus-visible {
+  color: var(--acid);
+}
 .hero-top .live-tag::before {
   content: ''; width: 7px; height: 7px;
   background: var(--acid); border-radius: 50%;
@@ -741,6 +756,12 @@ nav.top .row {
 .pm-item:hover {
   filter: grayscale(0%);
   opacity: 1;
+}
+/* <picture> 래퍼는 박스를 만들지 않게 해서 기존 flex 레이아웃(img가 직접 자식)을
+   그대로 유지한다. WebP 폴백을 넣어도 크기/정렬 계산이 달라지지 않는다. */
+.pm-item picture,
+.cylinder-face picture {
+  display: contents;
 }
 .pm-item .logo-mark {
   width: auto;

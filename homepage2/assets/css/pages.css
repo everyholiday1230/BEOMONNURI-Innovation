@@ -46,7 +46,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.07em;
-  color: rgba(13, 13, 13, 0.56);
+  color: rgba(13, 13, 13, 0.62);
   margin-bottom: 4px;
 }
 .home-transfer-why .hw-step .v {
@@ -67,7 +67,7 @@
 .home-transfer-why .hw-metrics .mk {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: rgba(13, 13, 13, 0.56);
+  color: rgba(13, 13, 13, 0.62);
   margin-bottom: 4px;
   letter-spacing: 0.07em;
 }
