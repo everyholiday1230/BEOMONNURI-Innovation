@@ -69,6 +69,40 @@
     height: clamp(136px, 19.2vh, 192px);
     flex: 0 0 auto;
   }
+  /* 히어로 한 줄 설명. 히어로가 100svh로 고정되어 있어 세로 공간이 빡빡하므로
+     h1 상단 여백과 마퀴 여백을 함께 줄여 자리를 만든다. */
+  body.has-hero .hero h1 {
+    margin-top: 28px;
+  }
+  body.has-hero .hero-sub {
+    flex: 0 0 auto;
+    margin: 14px 0 0;
+    font-size: clamp(13px, 1.05vw, 15.5px);
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+    color: var(--mute);
+    max-width: 60ch;
+  }
+  body.has-hero .hero-sub a {
+    color: var(--paper);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: rgba(13, 13, 13, 0.28);
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  }
+  body.has-hero .hero-sub a:hover,
+  body.has-hero .hero-sub a:focus-visible {
+    color: var(--acid);
+    text-decoration-color: var(--acid);
+  }
+  /* 세로가 짧은 노트북에서 마퀴가 잘리지 않도록 여백을 더 줄인다. */
+  @media (max-height: 820px) {
+    body.has-hero .hero h1 { margin-top: 16px; }
+    body.has-hero .hero-sub { margin-top: 10px; }
+    body.has-hero .hero-inline-partners { margin-top: 18px; }
+  }
   @media (max-width: 700px) {
     body.has-hero .hero {
       padding-top: 72px;
@@ -79,6 +113,11 @@
     body.has-hero .hero-inline-partners {
       height: clamp(128px, 21vh, 168px);
       margin-top: 30px;
+    }
+    body.has-hero .hero-sub {
+      font-size: 13px;
+      margin-top: 12px;
+      max-width: none;
     }
     /* 3D 실린더는 좁은 화면에서 로고가 과도하게 확대/블러 처리되어(perspective
        투영 특성) 가독성이 떨어짐. 모바일에서는 실린더를 숨기고 평면 마퀴로 전환. */
@@ -242,6 +281,14 @@
       <span class="row"><span class="stroke glitch" data-text="OPERATIONS">OPERATIONS</span></span>
       <span class="row"><span class="ko">성과로<span class="acid">.</span></span></span>
     </h1>
+
+    <!-- 홈은 히어로 한 화면으로만 구성되므로, 회사가 무엇을 하는지 한 줄로 알 수 있게 한다. -->
+    <p class="hero-sub">
+      보안 환경에서 운영하는 기업용 AI —
+      <a href="products-private.html">프라이빗 AI</a> ·
+      <a href="products-agent.html">에이전트 AI</a> ·
+      <a href="services-outsourcing.html">외주·MVP 제작</a>
+    </p>
 
     <!-- ===== 3D CYLINDER PARTNER MARQUEE ===== -->
     <div class="partner-cylinder hero-inline-partners">
