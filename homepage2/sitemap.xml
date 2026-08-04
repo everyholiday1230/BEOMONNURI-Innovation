@@ -24,12 +24,14 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 url 블록의 주석만 해제
   <url>
     <loc>https://www.beomonnuri.com/products-superchart.html</loc>
     <lastmod>2026-07-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  -->
   <url>
     <loc>https://www.beomonnuri.com/services-outsourcing.html</loc>
     <lastmod>2026-07-15</lastmod>

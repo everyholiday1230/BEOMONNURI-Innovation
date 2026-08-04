@@ -28,7 +28,7 @@
     navRow.appendChild(hamburger);
 
     // Build fullscreen mobile menu — mirrors the desktop nav 1:1
-    // (Home / Products + its 4 sub-links / Why / Contact) so mobile users
+    // (Home / Products + its 3 sub-links / Why / Contact) so mobile users
     // reach the exact same destinations as desktop users.
     const menu = document.createElement('aside');
     menu.className = 'mobile-menu';
@@ -49,11 +49,13 @@
           <a href="products-agent.html" class="sub"${isActive('products-agent.html')}>
             <span>· 범온 에이전트 AI</span><span class="num">02-2</span>
           </a>
+          <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 블록 주석 해제 + 외주·MVP 번호를 02-4로 되돌릴 것
           <a href="products-superchart.html" class="sub"${isActive('products-superchart.html')}>
             <span>· 범온 슈퍼차트 AI</span><span class="num">02-3</span>
           </a>
+          -->
           <a href="services-outsourcing.html" class="sub"${isActive('services-outsourcing.html')}>
-            <span>· 외주·MVP 제작</span><span class="num">02-4</span>
+            <span>· 외주·MVP 제작</span><span class="num">02-3</span>
           </a>
           <a href="why.html"${isActive('why.html')}>
             <span>WHY</span><span class="num">03</span>
@@ -70,7 +72,7 @@
         </div>
         <div class="meta-row">
           <span class="live">SYSTEM LIVE · KR-PRIVATE · STATUS</span>
-          <span>© 2026 BEOMONNURI INC. · v2.6</span>
+          <span>© 2026 BEOMONNURI INNOVATION · v2.6</span>
         </div>
       </div>
     `;

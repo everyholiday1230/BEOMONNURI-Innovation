@@ -7,5 +7,7 @@ Disallow: /checkout-agent-billing.html
 Disallow: /checkout-success.html
 Disallow: /checkout-billing-success.html
 Disallow: /checkout-fail.html
+# TEMP-HIDDEN(SUPERCHART / 2026-08-04): 페이지 임시 비노출. 재노출 시 아래 한 줄 삭제
+Disallow: /products-superchart.html
 
 Sitemap: https://www.beomonnuri.com/sitemap.xml

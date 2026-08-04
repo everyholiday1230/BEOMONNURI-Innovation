@@ -958,7 +958,9 @@ const reducedV5 = false;
     'kiss': { src: 'assets/img/logos/partners/gangdong-kiss.png', alt: '강동 K-ISS 멘토링센터 공식 로고' },
     'startup': { src: 'assets/img/logos/partners/modoo-startup.png', alt: '모두의창업 공식 로고' },
     'youth-foundation': { src: 'assets/img/logos/partners/youth-foundation.png', alt: '청년재단 공식 로고' },
+    /* TEMP-HIDDEN(LOCALMOTIVE / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
     'localmotive': { src: 'assets/img/logos/partners/localmotive.png', alt: '(주)로컬모티브 공식 로고' },
+    */
     'gov-gg': { src: 'assets/img/logos/partners/gbsa.png', alt: '경기도경제과학진흥원 공식 로고' },
     'moel': { src: 'assets/img/logos/partners/moel.png', alt: '고용노동부 공식 로고' },
     'korcham': { src: 'assets/img/logos/partners/korcham.png', alt: '대한상공회의소 공식 로고' },
@@ -973,7 +975,9 @@ const reducedV5 = false;
     'fin-nh',
     'youth-foundation',
     'edu-dku',
+    /* TEMP-HIDDEN(LOCALMOTIVE / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
     'localmotive',
+    */
     'lab-knl',
     'kiss',
   ];
@@ -1101,11 +1105,12 @@ const reducedV5 = false;
   const stream = $5('.stream', term);
   const meta = $5('.meta', term);
 
-  const SYSTEM = `당신은 범온누리(BEOMONNURI)의 엔터프라이즈 AI 도입 상담사입니다.
-범온누리는 다음 3개의 AI 제품을 KR-PRIVATE 보안 환경에서 운영합니다:
+  /* TEMP-HIDDEN(SUPERCHART / 2026-08-04): 슈퍼차트 재노출 시 '03) 슈퍼차트 AI - 금융·리서치 시장 데이터 분석' 항목 복원 */
+  const SYSTEM = `당신은 범온누리 이노베이션(BEOMONNURI INNOVATION)의 엔터프라이즈 AI 도입 상담사입니다.
+범온누리 이노베이션은 다음 2개의 AI 제품과 1개의 제작 서비스를 KR-PRIVATE 보안 환경에서 운영합니다:
 01) 프라이빗 AI — 사내 문서·지식 검색 (RAG, RBAC)
 02) 에이전트 AI — 반복 업무 자동화 + 사람 검토 흐름
-03) 슈퍼차트 AI — 금융·리서치 시장 데이터 분석
+03) 외주·MVP 제작 — 홈페이지/웹사이트, 광고 이미지, MVP 제작
 
 원칙: SECURE · OPERABLE · MEASURABLE. 목표 지표를 함께 정의하고 점검합니다.
 간결하고 신뢰감 있는 한국어로 2~3문장 답변.`;

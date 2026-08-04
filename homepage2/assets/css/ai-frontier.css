@@ -1576,12 +1576,19 @@ footer {
   .prod-nav .pn-cell.next { text-align: left; }
 }
 
-/* Products index — 4-card grid on the overview page */
+/* Products index — card grid on the overview page
+   TEMP-HIDDEN(SUPERCHART / 2026-08-04): 슈퍼차트 카드 임시 비노출로 현재 카드 3장. 2열 그리드에서
+   홀수 개일 때 마지막 카드가 반칸만 채워 빈 셀이 생기므로 전체 폭으로 확장한다.
+   (카드가 4장으로 복원되면 :last-child:nth-child(odd) 조건이 성립하지 않아
+    아래 규칙은 자동으로 비활성화된다 — 삭제 불필요) */
 .products-index { padding: 40px 0 100px; }
 .products-index .pi-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
   background: var(--mute-line);
   border: 1px solid var(--mute-line);
+}
+.products-index .pi-grid > .pi-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 .products-index .pi-card {
   display: flex; flex-direction: column;

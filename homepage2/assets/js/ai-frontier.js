@@ -134,7 +134,9 @@ const pausableInterval = (fn, ms) => {
     { id: 'fin-nh', alt: '농협 공식 로고', src: 'assets/img/logos/partners/nonghyup.png' },
     { id: 'youth-foundation', alt: '청년재단 공식 로고', src: 'assets/img/logos/partners/youth-foundation.png' },
     { id: 'edu-dku', alt: '단국대학교 공식 로고', src: 'assets/img/logos/partners/dankook-university.png' },
+    /* TEMP-HIDDEN(LOCALMOTIVE / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
     { id: 'localmotive', alt: '(주)로컬모티브 공식 로고', src: 'assets/img/logos/partners/localmotive.png' },
+    */
     { id: 'lab-knl', alt: '한국나노분석랩 공식 로고', src: 'assets/img/logos/partners/knal-kor.png' },
     { id: 'kiss', alt: '강동 K-ISS 멘토링센터 공식 로고', src: 'assets/img/logos/partners/gangdong-kiss.png' },
   ];
@@ -811,12 +813,12 @@ const pausableInterval = (fn, ms) => {
   // Initial greeting + suggestions
   const greet = document.createElement('div');
   greet.className = 'ai-msg bot';
-  greet.innerHTML = `<div class="meta">BEOMONNURI · AI</div>안녕하세요. 범온누리 AI입니다. 어떤 기업 AI 도입이 필요하신가요?`;
+  greet.innerHTML = `<div class="meta">BEOMONNURI · AI</div>안녕하세요. 범온누리 이노베이션 AI입니다. 어떤 기업 AI 도입이 필요하신가요?`;
   body.appendChild(greet);
 
   const suggest = document.createElement('div');
   suggest.className = 'ai-suggest';
-  ['도입 절차는?', '보안은?', '가격은?', '4개 제품 요약'].forEach(s => {
+  ['도입 절차는?', '보안은?', '가격은?', '3개 제품 요약'].forEach(s => {
     const b = document.createElement('button');
     b.textContent = s;
     b.addEventListener('click', () => { input.value = s; send(); });
@@ -831,11 +833,12 @@ const pausableInterval = (fn, ms) => {
     addMsg(text, 'user');
     const loader = addMsg('', 'bot', true);
     try {
-      const prompt = `당신은 범온누리(BEOMONNURI)의 기업 AI 도입 상담사입니다.
-범온누리는 다음 3개의 AI 제품을 운영합니다:
+      /* TEMP-HIDDEN(SUPERCHART / 2026-08-04): 슈퍼차트 재노출 시 프롬프트에 '3) 슈퍼차트 AI - 금융/리서치 시장 데이터 분석' 항목 복원 */
+      const prompt = `당신은 범온누리 이노베이션(BEOMONNURI INNOVATION)의 기업 AI 도입 상담사입니다.
+범온누리 이노베이션은 다음 2개의 AI 제품과 1개의 제작 서비스를 운영합니다:
 1) 프라이빗 AI — 보안 환경 사내 검색/지식 (RAG, RBAC)
 2) 에이전트 AI — 반복 업무 자동화 + 사람 검토 흐름
-3) 슈퍼차트 AI — 금융/리서치 시장 데이터 분석
+3) 외주·MVP 제작 — 홈페이지/웹사이트, 광고 이미지, MVP 제작
 모든 제품은 KR-PRIVATE 원칙 기반으로 설계되며, 보안 정책은 도입 범위에 맞춰 협의됩니다.
 간결하고 신뢰감 있는 한국어로 2~4문장으로 답하세요.
 

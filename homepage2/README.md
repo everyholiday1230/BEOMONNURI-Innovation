@@ -100,3 +100,57 @@
 ## 7) 운영 메모
 - 본 프로젝트는 정적 페이지 기반이며, 일부 데이터/HUD 영역은 데모 UI 성격입니다.
 - 사실 확정이 필요한 수치/문구는 반드시 내부 검증 후 고정 문구로 전환하세요.
+
+## 8) 임시 비노출 상태 (2026-08-04) — 복구 가이드
+
+현재 사이트에는 **임시로 감춘 항목 2건**이 있습니다. 관련 코드는 삭제하지 않고
+`TEMP-HIDDEN(...)` 마커 주석으로 남겨 두었으므로, 마커를 검색해 되돌리면 됩니다.
+
+```bash
+grep -rn "TEMP-HIDDEN" homepage2/
+```
+
+### 8-1) (주)로컬모티브 파트너 로고 — 마커 `TEMP-HIDDEN(LOCALMOTIVE / 2026-08-04)`
+- `assets/js/ai-frontier.js`: 평면 마퀴 파트너 배열 항목 1줄 주석
+- `assets/js/v5-nextgen.js`: 3D 실린더 `partnerLogos` 맵 1줄 + `partnerOrder` 1줄 주석
+- 이미지(`assets/img/logos/partners/localmotive.png|jpg`)와 전용 CSS 규칙
+  (`ai-frontier.css`, `v5-nextgen.css`의 `.logo-localmotive`)은 **그대로 보존**되어 있어
+  주석만 해제하면 원상 복구됩니다.
+
+### 8-2) 범온 슈퍼차트 AI — 마커 `TEMP-HIDDEN(SUPERCHART / 2026-08-04)`
+페이지 파일 `products-superchart.html` 자체는 **삭제하지 않고 보존**하되, 사이트의 모든
+진입 경로에서 제외하고 검색엔진 색인을 차단한 상태입니다.
+
+주석 해제만으로 복구되는 항목
+- 전 페이지 데스크톱 내비게이션 드롭다운 항목 (13곳)
+- 전 페이지 푸터 Products 링크 (8곳)
+- `assets/js/v5-mobile.js` 모바일 메뉴 항목
+- `products.html`: 제품 카드, 비교표 행, 제품 탐색 순서 링크, 성능 빠른 이동 링크
+- `contact.html`: 관심 제품 체크박스(`Superchart`)
+- `sitemap.xml`: 슈퍼차트 URL 블록
+
+수동 복구가 필요한 항목(주석에 원본 값 병기)
+- `products-superchart.html`: `robots` 메타를 `noindex,nofollow` → `index,follow,...`로 되돌리기
+- `robots.txt`: `Disallow: /products-superchart.html` 한 줄 삭제
+- `products-agent.html` NEXT / `services-outsourcing.html` PREV 링크를 슈퍼차트 기준 원본 블록으로 교체
+- `assets/js/v5-mobile.js`: 외주·MVP 번호를 `02-3` → `02-4`로 되돌리기
+- `products.html`: 외주 카드 번호 `/03` → `/04`, 히어로 `TOTAL 02` → `03`,
+  JSON-LD `ItemList`의 `numberOfItems` 및 3번 항목
+- 제품 수 표기 `2개의 AI 제품` → `3개의 AI 제품`
+  (`index.html`, `products.html`, 전 페이지 푸터 소개문, `manifest.webmanifest` description,
+   `assets/js/ai-frontier.js` · `assets/js/v5-nextgen.js` AI 프롬프트)
+- `products.html` 히어로 lead: `보안형 사내 AI부터 업무 자동화 AI까지`
+  → `보안형 사내 AI부터 산업별 의사결정 AI까지`
+
+### 8-3) 공식 사명 표기 통일
+- 표기 기준: 한글 **범온누리 이노베이션**, 영문 **BEOMONNURI INNOVATION**
+  (법인 상호는 `privacy.html`의 `(주)범온누리 이노베이션` 기준)
+- 적용 범위: 전 페이지 `<title>`, `og:site_name`/`og:title`, `author` 메타, 로고 `alt`,
+  푸터 저작권(`© 2026 BEOMONNURI INNOVATION.`), 모바일 메뉴 하단, `manifest.webmanifest`,
+  `why.html` 본문·서명, `contact.html` 폼 안내·발신자명, AI 위젯/터미널 프롬프트
+- 제품명(`범온 프라이빗 AI`, `범온 에이전트 AI`)과 서비스명(`외주·MVP 제작`)은 변경하지 않았습니다.
+
+### 8-4) 캐시 무효화
+수정한 정적 파일의 쿼리 버전을 전 페이지에서 일괄 상향했습니다.
+- `ai-frontier.css` `20260723c` → `20260804a`
+- `ai-frontier.js`, `v5-nextgen.js`, `v5-mobile.js` `20260723a` → `20260804a`
