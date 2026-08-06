@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  ============================================================
+  TEMPLATE — Dashboard Page
+  용도: KPI · 차트 · 테이블 종합 대시보드
+  ============================================================
+-->
+<html lang="ko" data-theme="dark" data-brand="institutional-cool">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>Dashboard Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+</head>
+<body>
+  <div id="root"><div style="padding:40px; color:var(--color-text-tertiary); font-family:'IBM Plex Mono';">Loading…</div></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../src/mock-data.js"></script>
+  <script src="../../src/mock-app-data.js"></script>
+  <script type="text/babel" src="../../src/icons.jsx"></script>
+  <script type="text/babel" src="../../src/widgets.jsx"></script>
+  <script type="text/babel" src="../../src/page-shell.jsx"></script>
+  <script type="text/babel">
+    function DashboardTemplatePage() {
+      const shellProps = { activePath: '/dashboard', role: 'user', onNavigate: (p) => window.location.hash = p };
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="Dashboard Template"
+          subtitle="KPI · 차트 · 테이블 · 알림 종합"
+          breadcrumb={['Home', 'Dashboard']}
+          actions={<><button className="btn btn--sm"><window.Icons.Refresh size={13}/></button><button className="btn btn--sm">Filter</button></>}
+        >
+          {/* 4 KPI cards */}
+          <div className="grid-4">
+            <window.KPICard label="Metric A" value="1,240" delta={+2.14} deltaLabel="vs prev" tone="brand"/>
+            <window.KPICard label="Metric B" value="$34.01B" delta={+8.40} tone="long"/>
+            <window.KPICard label="Metric C" value="12" tone="warning"/>
+            <window.KPICard label="Metric D" value="99.98%" tone="success"/>
+          </div>
+
+          {/* 2-column: main chart + side list */}
+          <div className="grid-2-1">
+            <window.SectionCard title="Trend · 30 days" actions={<div className="seg"><button className="seg__opt is-active">30D</button><button className="seg__opt">90D</button><button className="seg__opt">1Y</button></div>}>
+              <svg viewBox="0 0 600 200" width="100%" height="240" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-brand)" stopOpacity="0.35"/>
+                    <stop offset="100%" stopColor="var(--color-brand)" stopOpacity="0"/>
+                  </linearGradient>
+                </defs>
+                {[0.25,0.5,0.75].map(f => <line key={f} x1="0" x2="600" y1={200*f} y2={200*f} stroke="var(--chart-grid)" strokeDasharray="2 4"/>)}
+                <path d="M0 140 L60 130 L120 115 L180 105 L240 90 L300 110 L360 80 L420 95 L480 70 L540 55 L600 40 L600 200 L0 200 Z" fill="url(#g1)"/>
+                <path d="M0 140 L60 130 L120 115 L180 105 L240 90 L300 110 L360 80 L420 95 L480 70 L540 55 L600 40" fill="none" stroke="var(--color-brand)" strokeWidth="2"/>
+              </svg>
+            </window.SectionCard>
+
+            <window.SectionCard title="Recent Events" noPadding>
+              {[
+                { title: 'Event #1', time: '3m ago', tone: 'ok' },
+                { title: 'Event #2', time: '14m ago', tone: 'warn' },
+                { title: 'Event #3', time: '32m ago', tone: 'ok' },
+                { title: 'Event #4', time: '1h ago', tone: 'danger' },
+                { title: 'Event #5', time: '2h ago', tone: 'ok' },
+              ].map((e, i) => (
+                <div key={i} style={{padding:'10px 16px', borderBottom: i < 4 ? '1px solid var(--color-border-subtle)' : '', display:'flex', alignItems:'center', gap: 10}}>
+                  <span className={`status-pill status-pill--${e.tone}`}>·</span>
+                  <span style={{flex:1, fontSize:12}}>{e.title}</span>
+                  <span style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{e.time}</span>
+                </div>
+              ))}
+            </window.SectionCard>
+          </div>
+
+          {/* Table */}
+          <window.SectionCard title="Data" noPadding>
+            <window.DataTable
+              columns={[
+                { key:'name', label:'Name', render: r => <strong>{r.name}</strong> },
+                { key:'value', label:'Value', align:'right', render: r => r.value },
+                { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status}`}>{r.status.toUpperCase()}</span> },
+              ]}
+              rows={[
+                { id:1, name:'Alpha', value:'$1,240', status:'ok' },
+                { id:2, name:'Bravo', value:'$820',   status:'warn' },
+                { id:3, name:'Charlie', value:'$540', status:'ok' },
+              ]}
+            />
+          </window.SectionCard>
+        </window.PageShell>
+      );
+    }
+    (function mount(n=0){
+      if (window.PageShell && window.KPICard && window.SectionCard && window.DataTable && window.Icons) {
+        ReactDOM.createRoot(document.getElementById('root')).render(<DashboardTemplatePage/>);
+      } else if (n < 60) setTimeout(() => mount(n+1), 100);
+    })();
+  </script>
+</body>
+</html>

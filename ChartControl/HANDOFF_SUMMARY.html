@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>Engineering Handoff Summary · QuantumTrade AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="src/tokens.css"/>
+  <link rel="stylesheet" href="src/base.css"/>
+  <link rel="stylesheet" href="src/components.css"/>
+  <link rel="stylesheet" href="src/pages.css"/>
+  <style>
+    body { overflow: auto; }
+    .hs-shell { max-width: 1280px; margin: 0 auto; padding: 32px 48px 80px; }
+
+    .hs-hero {
+      padding: 48px 40px;
+      background: linear-gradient(135deg, var(--color-brand-subtle) 0%, transparent 60%),
+                  linear-gradient(180deg, oklch(20% 0.05 220 / 0.4), transparent 100%);
+      border: 1px solid var(--color-brand);
+      border-radius: 12px;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hs-hero::before {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(circle at 80% 20%, oklch(72% 0.15 285 / 0.15) 0%, transparent 50%);
+    }
+    .hs-hero__inner { position: relative; z-index: 1; }
+    .hs-hero__badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px;
+      background: var(--color-brand);
+      color: var(--color-text-inverse);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hs-hero h1 {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 12px;
+    }
+    .hs-hero p {
+      font-size: 15px;
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+      max-width: 720px;
+      margin: 0 0 24px;
+    }
+    .hs-hero__stats {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .hs-hero__stat {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .hs-hero__stat strong {
+      font-family: var(--font-num);
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--color-brand);
+    }
+    .hs-hero__stat span {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .hs-section-title {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      margin: 40px 0 20px;
+    }
+    .hs-section-title::before {
+      content: ''; width: 4px; height: 22px;
+      background: var(--color-brand);
+      border-radius: 2px;
+    }
+    .hs-section-title small {
+      font-size: 12px;
+      color: var(--color-text-tertiary);
+      font-family: var(--font-mono);
+      font-weight: 400;
+      letter-spacing: 0.03em;
+    }
+
+    /* Page grid */
+    .hs-page-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .hs-page-card {
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 12px 14px;
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color var(--dur-fast), transform var(--dur-fast);
+    }
+    .hs-page-card:hover {
+      border-color: var(--color-brand);
+      transform: translateY(-2px);
+    }
+    .hs-page-card__route {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-brand);
+      font-weight: 600;
+    }
+    .hs-page-card__name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .hs-page-card__desc {
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      line-height: 1.45;
+    }
+    .hs-page-card__badge {
+      align-self: flex-start;
+      padding: 1px 5px;
+      background: oklch(78% 0.14 145 / 0.14);
+      color: var(--color-success);
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+    .hs-page-card__badge--admin {
+      background: oklch(80% 0.14 75 / 0.14);
+      color: var(--color-warning);
+    }
+    .hs-page-card__badge--super {
+      background: var(--color-ai-bg);
+      color: var(--color-ai);
+    }
+
+    /* Backend To-Do */
+    .hs-todo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .hs-todo {
+      padding: 20px;
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      border-left: 4px solid var(--color-border-default);
+    }
+    .hs-todo--p0 { border-left-color: var(--color-danger); }
+    .hs-todo--p1 { border-left-color: var(--color-warning); }
+    .hs-todo--p2 { border-left-color: var(--color-success); }
+    .hs-todo__head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .hs-todo__title { font-size: 15px; font-weight: 600; }
+    .hs-todo__pri {
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .hs-todo--p0 .hs-todo__pri { background: oklch(64% 0.20 25 / 0.14); color: var(--color-danger); }
+    .hs-todo--p1 .hs-todo__pri { background: oklch(80% 0.14 75 / 0.14); color: var(--color-warning); }
+    .hs-todo--p2 .hs-todo__pri { background: oklch(78% 0.14 145 / 0.14); color: var(--color-success); }
+    .hs-todo ul { margin: 0; padding-left: 20px; font-size: 12.5px; color: var(--color-text-secondary); line-height: 1.75; }
+    .hs-todo ul li { margin-bottom: 3px; }
+
+    /* Checklist for delivered items */
+    .hs-checklist { display: flex; flex-direction: column; gap: 6px; }
+    .hs-check-row {
+      display: grid; grid-template-columns: 20px 1fr auto; gap: 12px;
+      padding: 8px 12px;
+      background: var(--color-bg-surface);
+      border-radius: 4px;
+      border: 1px solid var(--color-border-subtle);
+      align-items: center;
+    }
+    .hs-check-icon {
+      width: 20px; height: 20px;
+      background: var(--color-success);
+      color: var(--color-bg-app);
+      border-radius: 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .hs-check-name { font-size: 13px; font-weight: 500; }
+    .hs-check-desc { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+
+    /* File tree */
+    .hs-tree {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      padding: 20px 24px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.85;
+      color: var(--color-text-secondary);
+      overflow-x: auto;
+    }
+    .hs-tree .dir { color: var(--color-brand); }
+    .hs-tree .file { color: var(--color-text-primary); }
+    .hs-tree .star { color: var(--color-warning); }
+    .hs-tree .comment { color: var(--color-text-tertiary); }
+
+    /* Nav */
+    .hs-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 20px;
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+    .hs-nav__brand { display: flex; align-items: center; gap: 12px; }
+    .hs-nav__mark {
+      width: 32px; height: 32px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--color-brand), var(--brand-accent-500));
+      color: var(--color-text-inverse);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .hs-nav__title { font-size: 16px; font-weight: 700; }
+    .hs-nav__sub { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+    .hs-nav__links { display: inline-flex; gap: 8px; }
+    .hs-nav__links a {
+      padding: 6px 12px;
+      font-size: 12px;
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 4px;
+      color: var(--color-text-secondary);
+    }
+    .hs-nav__links a:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+    .hs-nav__links a.is-primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: var(--color-brand); }
+
+    /* Progress bar */
+    .hs-progress {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      margin-bottom: 24px;
+    }
+    .hs-progress__label { font-size: 12px; font-weight: 500; }
+    .hs-progress__bar {
+      flex: 1; height: 8px; background: var(--color-bg-input);
+      border-radius: 999px; overflow: hidden;
+    }
+    .hs-progress__fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-brand), var(--brand-accent-500));
+      border-radius: 999px;
+    }
+    .hs-progress__value { font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+
+    /* CTA card */
+    .hs-cta {
+      display: grid; grid-template-columns: 2fr 1fr; gap: 24px;
+      padding: 32px;
+      background: linear-gradient(135deg, oklch(20% 0.05 220), var(--color-bg-panel));
+      border: 1px solid var(--color-brand);
+      border-radius: 12px;
+      margin-top: 40px;
+    }
+    .hs-cta h3 { margin: 0 0 8px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    .hs-cta p { margin: 0 0 16px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; }
+    .hs-cta__actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; justify-content: center; }
+  </style>
+</head>
+<body>
+  <div class="hs-shell">
+    <!-- NAV -->
+    <div class="hs-nav">
+      <div class="hs-nav__brand">
+        <div class="hs-nav__mark">Q</div>
+        <div>
+          <div class="hs-nav__title">Engineering Handoff Summary</div>
+          <div class="hs-nav__sub">QuantumTrade AI · 2026-08-02 · 대표님 → 엔지니어링 팀</div>
+        </div>
+      </div>
+      <div class="hs-nav__links">
+        <a href="index.html">← Prototype</a>
+        <a href="design-system.html">Design System</a>
+        <a href="developer-handoff.html">Dev Handoff (12 sections)</a>
+        <a href="design-library/index.html">Design Library</a>
+        <a href="HANDOFF_TO_ENGINEERING.md" class="is-primary" target="_blank">📄 전체 문서 (MD)</a>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="hs-hero">
+      <div class="hs-hero__inner">
+        <div class="hs-hero__badge">✓ Frontend Complete · Backend To Do</div>
+        <h1>백엔드만 만들면 됩니다.</h1>
+        <p>
+          42개 라우트, 48개 React 컴포넌트, 30+ 재사용 UI 컴포넌트, 8개 거래소 연동 UI, Role 기반 관리자 시스템까지<br/>
+          <strong>모든 프론트엔드 화면과 상호작용이 완성</strong>되어 있습니다. 이제 개발팀은 이 화면들에 연결할 백엔드 서비스만 구축하면 됩니다.
+        </p>
+        <div class="hs-hero__stats">
+          <div class="hs-hero__stat"><strong>42</strong><span>Pages</span></div>
+          <div class="hs-hero__stat"><strong>48</strong><span>Components</span></div>
+          <div class="hs-hero__stat"><strong>30+</strong><span>UI Primitives</span></div>
+          <div class="hs-hero__stat"><strong>8</strong><span>Exchanges</span></div>
+          <div class="hs-hero__stat"><strong>4</strong><span>User Roles</span></div>
+          <div class="hs-hero__stat"><strong>0</strong><span>Placeholders</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="hs-progress">
+      <span class="hs-progress__label">Frontend 프로토타입 완성도</span>
+      <div class="hs-progress__bar"><div class="hs-progress__fill" style="width: 100%"/></div>
+      <span class="hs-progress__value" style="color: var(--color-success)">100% ✓</span>
+    </div>
+    <div class="hs-progress">
+      <span class="hs-progress__label">Backend / Infrastructure 완성도</span>
+      <div class="hs-progress__bar"><div class="hs-progress__fill" style="width: 0%; background: var(--color-danger)"/></div>
+      <span class="hs-progress__value" style="color: var(--color-danger)">0%</span>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 1 · 전체 페이지 지도 (42) -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">
+      🗺️ 전체 페이지 지도 <small>· 42 routes · 100% complete</small>
+    </div>
+
+    <div style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); margin: 24px 0 12px;">🔓 인증 · 공개 (7 pages)</div>
+    <div class="hs-page-grid">
+      <a class="hs-page-card" href="index.html#/" target="_blank"><div class="hs-page-card__route">/</div><div class="hs-page-card__name">Landing Page</div><div class="hs-page-card__desc">Public 마케팅 · Hero · Features · Pricing · Exchanges</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/login" target="_blank"><div class="hs-page-card__route">/login</div><div class="hs-page-card__name">Login</div><div class="hs-page-card__desc">Email/PW + 2FA + 소셜 (Google/Apple/GitHub)</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/signup" target="_blank"><div class="hs-page-card__route">/signup</div><div class="hs-page-card__name">Signup</div><div class="hs-page-card__desc">진행표시 + PW 강도 미터 + 약관 동의</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/verify-email" target="_blank"><div class="hs-page-card__route">/verify-email</div><div class="hs-page-card__name">Email Verify</div><div class="hs-page-card__desc">6자리 OTP · 재발송</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/kyc" target="_blank"><div class="hs-page-card__route">/kyc</div><div class="hs-page-card__name">KYC Onboarding</div><div class="hs-page-card__desc">4단계 · 본인 · 주소 · 신분증/셀피 · 자금출처</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/password-reset" target="_blank"><div class="hs-page-card__route">/password-reset</div><div class="hs-page-card__name">Password Reset</div><div class="hs-page-card__desc">이메일 링크 재설정</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/nonexistent-route" target="_blank"><div class="hs-page-card__route">* (404)</div><div class="hs-page-card__name">Not Found</div><div class="hs-page-card__desc">브랜드 오류 화면</div><span class="hs-page-card__badge">HI-FI</span></a>
+    </div>
+
+    <div style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); margin: 24px 0 12px;">💼 사용자 앱 (18 pages)</div>
+    <div class="hs-page-grid">
+      <a class="hs-page-card" href="index.html#/trade" target="_blank"><div class="hs-page-card__route">/trade</div><div class="hs-page-card__name">Main Trading</div><div class="hs-page-card__desc">24-col 위젯 그리드 · AI Copilot · 7 프리셋 · Layout Edit</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/markets" target="_blank"><div class="hs-page-card__route">/markets</div><div class="hs-page-card__name">Markets</div><div class="hs-page-card__desc">21심볼 · 히트맵 · 스파크라인 · 즐겨찾기</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/ai-strategies" target="_blank"><div class="hs-page-card__route">/ai-strategies</div><div class="hs-page-card__name">AI Strategies</div><div class="hs-page-card__desc">전략 갤러리 8개 · 팔로우 · 백테스트</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/ai-strategies/detail?id=strat-05" target="_blank"><div class="hs-page-card__route">/ai-strategies/detail</div><div class="hs-page-card__name">Strategy Detail</div><div class="hs-page-card__desc">5탭 · Overview · Backtest · Trades · Settings · Reviews</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/ai-strategies/my" target="_blank"><div class="hs-page-card__route">/ai-strategies/my</div><div class="hs-page-card__name">My Strategies</div><div class="hs-page-card__desc">팔로우 중인 전략 · Empty state</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/portfolio" target="_blank"><div class="hs-page-card__route">/portfolio</div><div class="hs-page-card__name">Portfolio</div><div class="hs-page-card__desc">Equity curve · 자산 배분 도넛 · 포지션 테이블</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/analytics" target="_blank"><div class="hs-page-card__route">/analytics</div><div class="hs-page-card__name">Analytics</div><div class="hs-page-card__desc">트레이드 저널 · Mood 태그 · AI 인사이트</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/multi-chart" target="_blank"><div class="hs-page-card__route">/multi-chart</div><div class="hs-page-card__name">Multi-Chart</div><div class="hs-page-card__desc">2×2 / 1×2 / 3×2 / 2×3 레이아웃 4종</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/wallet" target="_blank"><div class="hs-page-card__route">/wallet</div><div class="hs-page-card__name">Wallet</div><div class="hs-page-card__desc">8 거래소 연동 · 대표님 referral 링크 · Connect Wizard</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/wallet/deposit" target="_blank"><div class="hs-page-card__route">/wallet/deposit</div><div class="hs-page-card__name">Deposit</div><div class="hs-page-card__desc">자산 · 네트워크 · QR · 히스토리</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/wallet/withdraw" target="_blank"><div class="hs-page-card__route">/wallet/withdraw</div><div class="hs-page-card__name">Withdraw</div><div class="hs-page-card__desc">2FA 확인 · 주소록 · 일일 한도</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/wallet/transactions" target="_blank"><div class="hs-page-card__route">/wallet/transactions</div><div class="hs-page-card__name">Transactions</div><div class="hs-page-card__desc">입출금 · 이체 · 수수료 · 리베이트 통합</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/referral" target="_blank"><div class="hs-page-card__route">/referral</div><div class="hs-page-card__name">Referral</div><div class="hs-page-card__desc">친구초대 · 5단계 페이백 티어 · 코드 공유</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/fees" target="_blank"><div class="hs-page-card__route">/fees</div><div class="hs-page-card__name">Fees & Rebates</div><div class="hs-page-card__desc">내 티어 · 다음 티어 진행률 · 프로모션</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/help" target="_blank"><div class="hs-page-card__route">/help</div><div class="hs-page-card__name">Help Center</div><div class="hs-page-card__desc">FAQ · 카테고리 · 문의 채널</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/settings" target="_blank"><div class="hs-page-card__route">/settings</div><div class="hs-page-card__name">Settings</div><div class="hs-page-card__desc">7탭 · 프로필 · 보안 · 알림 · API · 환경 · 접근성 · 계정관리</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/notifications" target="_blank"><div class="hs-page-card__route">/notifications</div><div class="hs-page-card__name">Notifications</div><div class="hs-page-card__desc">인박스 · 5개 필터 · 6종 알림 kind</div><span class="hs-page-card__badge">HI-FI</span></a>
+      <a class="hs-page-card" href="index.html#/order-history" target="_blank"><div class="hs-page-card__route">/order-history</div><div class="hs-page-card__name">Order History</div><div class="hs-page-card__desc">전체 주문 이력 · Fill rate · Slippage · KPI</div><span class="hs-page-card__badge">HI-FI</span></a>
+    </div>
+
+    <div style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); margin: 24px 0 12px;">⚙️ 관리자 앱 (17 pages) — Role: Ops / Admin / Super</div>
+    <div class="hs-page-grid">
+      <a class="hs-page-card" href="index.html#/admin" target="_blank"><div class="hs-page-card__route">/admin</div><div class="hs-page-card__name">Admin Dashboard</div><div class="hs-page-card__desc">8 KPI · Live trades · Risk queue · System</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/users" target="_blank"><div class="hs-page-card__route">/admin/users</div><div class="hs-page-card__name">Users</div><div class="hs-page-card__desc">12명 · KYC · 정지 · 필터 · 검색</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/users/detail?id=usr_kuri001" target="_blank"><div class="hs-page-card__route">/admin/users/detail</div><div class="hs-page-card__name">User Detail</div><div class="hs-page-card__desc">7탭 · Profile · KYC · 활동 · Quick actions</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/kyc" target="_blank"><div class="hs-page-card__route">/admin/kyc</div><div class="hs-page-card__name">KYC Queue</div><div class="hs-page-card__desc">심사 대기 · Risk Score · Auto flags</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/trades" target="_blank"><div class="hs-page-card__route">/admin/trades</div><div class="hs-page-card__name">Trade Monitor</div><div class="hs-page-card__desc">실시간 거래 · 이상거래 감지 · Flag</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/risk" target="_blank"><div class="hs-page-card__route">/admin/risk</div><div class="hs-page-card__name">Risk Queue</div><div class="hs-page-card__desc">청산 임박 · Severity · Force close</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/deposits" target="_blank"><div class="hs-page-card__route">/admin/deposits</div><div class="hs-page-card__name">Deposits</div><div class="hs-page-card__desc">입금 승인 · Confirmations · AML review</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/withdrawals" target="_blank"><div class="hs-page-card__route">/admin/withdrawals</div><div class="hs-page-card__name">Withdrawals</div><div class="hs-page-card__desc">출금 승인 · Risk score · Approve/Reject</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/assets" target="_blank"><div class="hs-page-card__route">/admin/assets</div><div class="hs-page-card__name">Assets · Vault</div><div class="hs-page-card__desc">Hot/Cold Wallet · Reserve · Multi-sig</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/ai-ops" target="_blank"><div class="hs-page-card__route">/admin/ai-ops</div><div class="hs-page-card__name">AI Ops</div><div class="hs-page-card__desc">모델 성과 · Prompts · Deploy · Rollback</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/fees" target="_blank"><div class="hs-page-card__route">/admin/fees</div><div class="hs-page-card__name">Fees & Promo</div><div class="hs-page-card__desc">티어 관리 · 프로모션 · 페이백</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/notices" target="_blank"><div class="hs-page-card__route">/admin/notices</div><div class="hs-page-card__name">Notices & CS</div><div class="hs-page-card__desc">공지 · CS 티켓 관리</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/notices/new" target="_blank"><div class="hs-page-card__route">/admin/notices/new</div><div class="hs-page-card__name">Notice Editor</div><div class="hs-page-card__desc">Markdown 에디터 · 발행 옵션 · 예약</div><span class="hs-page-card__badge hs-page-card__badge--admin">OPS+</span></a>
+      <a class="hs-page-card" href="index.html#/admin/broadcast" target="_blank"><div class="hs-page-card__route">/admin/broadcast</div><div class="hs-page-card__name">Broadcast</div><div class="hs-page-card__desc">전체 알림 · 필터 · 채널 · 예약 발송</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/system" target="_blank"><div class="hs-page-card__route">/admin/system</div><div class="hs-page-card__name">System Health</div><div class="hs-page-card__desc">10 서비스 · Uptime · Latency</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/audit" target="_blank"><div class="hs-page-card__route">/admin/audit</div><div class="hs-page-card__name">Audit Log</div><div class="hs-page-card__desc">전체 관리자 액션 · Actor · IP · 결과</div><span class="hs-page-card__badge hs-page-card__badge--admin">ADMIN</span></a>
+      <a class="hs-page-card" href="index.html#/admin/design-ops" target="_blank"><div class="hs-page-card__route">/admin/design-ops</div><div class="hs-page-card__name">Design Ops</div><div class="hs-page-card__desc">UI 토큰 · 컴포넌트 관리 · Publish</div><span class="hs-page-card__badge hs-page-card__badge--super">SUPER</span></a>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2 · 대표님 요청 체크리스트 -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">
+      ✅ 대표님 요청 사항 완료 리스트
+    </div>
+
+    <div class="hs-checklist">
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">관리자 페이지 만들기</div>
+          <div class="hs-check-desc">17개 관리자 페이지 · Role별 접근 제어 · Dashboard부터 Design Ops까지</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">사이드바 버튼 · 상단 탭 실제 페이지 연결</div>
+          <div class="hs-check-desc">42개 라우트 전부 실 페이지로 연결됨 · 클릭하면 실제로 이동</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">Markets · AI Strategies · Portfolio · Analytics</div>
+          <div class="hs-check-desc">모두 Hi-fi로 · 실제 mock 데이터 · 필터 · 정렬 · 상세 이동 등 모두 작동</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">Multi-Chart 별도 페이지</div>
+          <div class="hs-check-desc">프리셋과 별개로 /multi-chart · 2×2 · 1×2 · 3×2 · 2×3 레이아웃 4종</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">재사용 디자인 라이브러리 폴더</div>
+          <div class="hs-check-desc">/design-library/ · index · components · snippets · templates · guide.md</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">Role 기반 사이드바 (User / Ops / Admin / Super)</div>
+          <div class="hs-check-desc">헤더 role switcher · 사이드바 아이템 자동 필터 · 42 라우트 role 매트릭스</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">거래소 회원가입 링크 (대표님 referral)</div>
+          <div class="hs-check-desc">8개 거래소 (Binance · Bitget · BitMart · OKX · Bybit · Gate · Kraken · Coinbase) 모두 referral 관리 · mock-app-data.js에서 한 곳에서 편집</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">거래소 API key 입력 UI</div>
+          <div class="hs-check-desc">ExchangeConnectWizard · 4단계 마법사 · 거래소 가입 → API 발급 → Key 입력 → 완료</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">회원가입 (우리 페이지)</div>
+          <div class="hs-check-desc">/signup · /verify-email · /kyc 3단계 완전 · PW 강도 미터 · 국가 선택 · 약관 동의</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">Login · 2FA · Password Reset</div>
+          <div class="hs-check-desc">/login (Email/PW + 2FA + 소셜) · /password-reset · 세션 관리 UI</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+
+      <div class="hs-check-row">
+        <span class="hs-check-icon">✓</span>
+        <div>
+          <div class="hs-check-name">모든 페이지 · 버튼 · 팝업 Hi-fi 완성 (Placeholder 없음)</div>
+          <div class="hs-check-desc">42/42 페이지 Hi-fi · Empty state · Loading · Error · Confirmation dialog · Toast 모두</div>
+        </div>
+        <span style="color: var(--color-success); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">DONE</span>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 3 · 추가로 만들어드린 것 -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">
+      🎁 대표님이 요청 안 하셨지만 추가로 만들어드린 것
+    </div>
+
+    <div class="hs-page-grid">
+      <div class="hs-page-card"><div class="hs-page-card__name">🏠 Landing Page</div><div class="hs-page-card__desc">로그인 전 마케팅 · Hero · Features 6개 · Pricing 3 tier · Exchanges 8개</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">❌ 404 Page</div><div class="hs-page-card__desc">브랜드 오류 화면 · Quick nav</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">🆘 Help Center</div><div class="hs-page-card__desc">FAQ 7개 · 카테고리 4개 · 문의 채널 3개 (Chat/Email/Priority)</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">💰 Fee & Rebate</div><div class="hs-page-card__desc">티어 진행률 · 다음 티어까지 volume · 활성 프로모션</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">💸 Transaction History</div><div class="hs-page-card__desc">6종 트랜잭션 (deposit/withdraw/transfer/trade/fee/rebate) 통합</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📊 Strategy Detail</div><div class="hs-page-card__desc">5탭 · Equity curve · Monthly returns · Historical signals · Reviews</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📊 My Strategies</div><div class="hs-page-card__desc">팔로우 중 전략 · Empty state</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">👤 Admin User Detail</div><div class="hs-page-card__desc">7탭 상세 · KYC 서류 · 활동로그 · Quick actions · 정지 다이얼로그</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📋 Admin KYC Queue</div><div class="hs-page-card__desc">심사 대기 · Risk Score · Auto flags · Review/Approve/Reject</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📥 Deposit/Withdraw Queue</div><div class="hs-page-card__desc">입출금 승인 · Confirmations · AML review · Risk score</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📣 Broadcast System</div><div class="hs-page-card__desc">전체 알림 발송 · 5 target · 4 채널 · 예약 · 비용 계산</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">📝 Notice Editor</div><div class="hs-page-card__desc">Markdown 에디터 · Preview · 발행 옵션 · 예약</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">💬 CS Ticket Detail</div><div class="hs-page-card__desc">대화형 티켓 · 관리자 답변 · Quick actions</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">🏦 Assets · Vault (Hi-fi)</div><div class="hs-page-card__desc">Hot/Cold Wallet · Reserve Ratio · Multi-sig 이동</div></div>
+      <div class="hs-page-card"><div class="hs-page-card__name">⚙️ Settings 7-tab 완성</div><div class="hs-page-card__desc">환경설정 · 접근성 (WCAG) · 계정 관리 (GDPR 삭제) 모두 Hi-fi</div></div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 4 · 백엔드 To-Do (개발팀 대상) -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">
+      🔧 백엔드 팀 To-Do <small>· 우선순위별</small>
+    </div>
+
+    <div class="hs-todo-grid">
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">1. 인증 · 세션</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>OAuth (Google · Apple · GitHub) + Email/PW</li>
+          <li>JWT 발급 · 갱신 · revoke</li>
+          <li>2FA (TOTP · SMS)</li>
+          <li>세션 관리 (다중 기기 · IP 추적)</li>
+          <li>비밀번호 재설정 이메일 발송</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">2. KYC · 규제 준수</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>서류 업로드 (S3 · 암호화)</li>
+          <li>ID 자동 인증 (Onfido · Jumio)</li>
+          <li>Face match · Liveness check</li>
+          <li>PEP · Sanctions 리스트 조회</li>
+          <li>AML/CTF 리포팅</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">3. WebSocket · 시세</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>WebSocket Gateway (Redis pub/sub)</li>
+          <li>캔들 · 오더북 · 체결 스트림</li>
+          <li>8 거래소 어댑터</li>
+          <li>재연결 · Backoff · Rate limit</li>
+          <li>REST fallback</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">4. 거래 엔진 · 리스크</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>Order matching (또는 거래소 프록시)</li>
+          <li>주문 유형 (Limit · Market · Stop · OCO · TWAP)</li>
+          <li>마진 · 청산 · Funding rate</li>
+          <li>실시간 리스크 스코어 · 자동 청산 큐</li>
+          <li>Position tracking · PnL</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">5. 지갑 · 자산</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>Hot Wallet (Fireblocks 등)</li>
+          <li>Cold Wallet (Multi-sig 3-of-5)</li>
+          <li>블록체인 노드 (BTC · ETH · TRC20 · BEP20 · SOL)</li>
+          <li>입금 감지 (블록 익스플로러 웹훅)</li>
+          <li>Reserve ratio 리컨실</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p0">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">6. AI 모델</span>
+          <span class="hs-todo__pri">P0</span>
+        </div>
+        <ul>
+          <li>LLM 백엔드 (GPT-4 · Claude · 자체)</li>
+          <li>SSE 스트리밍</li>
+          <li>Tool calling (chart command)</li>
+          <li>Rate limiting · 토큰 사용량</li>
+          <li>Prompt versioning · A/B</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p1">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">7. 관리자 백엔드</span>
+          <span class="hs-todo__pri">P1</span>
+        </div>
+        <ul>
+          <li>유저 검색 · 정지 · KYC 승인</li>
+          <li>거래 이상 감지 (ML)</li>
+          <li>리스크 알림 자동화</li>
+          <li>감사 로그 (모든 액션)</li>
+          <li>Broadcast 이메일/SMS/Push</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p1">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">8. Referral · 수수료 · 프로모션</span>
+          <span class="hs-todo__pri">P1</span>
+        </div>
+        <ul>
+          <li>티어 자동 계산 (30일 거래량)</li>
+          <li>프로모션 적용 로직</li>
+          <li><strong>Referral 커미션 (30%)</strong></li>
+          <li>매월 1일 자동 정산 (USDT)</li>
+          <li>친구 초대 → 웰컴 크레딧</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p1">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">9. 알림 · CS</span>
+          <span class="hs-todo__pri">P1</span>
+        </div>
+        <ul>
+          <li>Push (FCM · APNs)</li>
+          <li>이메일 (SendGrid · SES)</li>
+          <li>SMS (Twilio)</li>
+          <li>In-app WebSocket</li>
+          <li>CS 티켓 (Zendesk 또는 자체)</li>
+        </ul>
+      </div>
+
+      <div class="hs-todo hs-todo--p2">
+        <div class="hs-todo__head">
+          <span class="hs-todo__title">10. 향후 확장</span>
+          <span class="hs-todo__pri">P2</span>
+        </div>
+        <ul>
+          <li>모바일 앱 (React Native · Flutter)</li>
+          <li>전략 백테스트 엔진 (server-side)</li>
+          <li>Copy trading (자동 실행)</li>
+          <li>Developer API (3rd-party)</li>
+          <li>온-체인 지갑 자체 hosting</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5 · 파일 구조 -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">
+      📁 저장소 구조 <small>· 전달할 것</small>
+    </div>
+
+    <div class="hs-tree">
+<span class="comment"># project-root/</span>
+├── <span class="star">📄 HANDOFF_TO_ENGINEERING.md</span>    <span class="comment"># ⭐ 이 문서의 상세 버전 (개발팀 필수 참조)</span>
+├── <span class="file">🌐 HANDOFF_SUMMARY.html</span>         <span class="comment"># 시각적 요약 (지금 보시는 화면)</span>
+├── <span class="file">🌐 index.html</span>                    <span class="comment"># 메인 앱 진입점 (React SPA · 42 라우트)</span>
+├── <span class="file">🌐 design-system.html</span>            <span class="comment"># 디자인 시스템 카탈로그 (10 섹션)</span>
+├── <span class="file">🌐 developer-handoff.html</span>        <span class="comment"># 12-섹션 개발 명세서 (JSON schemas · State maps)</span>
+│
+├── <span class="dir">📁 src/</span>  <span class="comment"># 프론트엔드 소스 (React + Babel + CSS)</span>
+│   ├── <span class="file">tokens.css</span>                <span class="comment"># 디자인 토큰 (OKLCH · 4 브랜드 · Dark/Light)</span>
+│   ├── <span class="file">base.css</span>                  <span class="comment"># 리셋 · 타이포 · 유틸리티</span>
+│   ├── <span class="file">components.css</span>            <span class="comment"># 버튼 · 인풋 · 모달 · 토스트</span>
+│   ├── <span class="file">widgets.css</span>               <span class="comment"># 트레이딩 위젯</span>
+│   ├── <span class="file">pages.css</span>                 <span class="comment"># 페이지 셸 · KPI · Section · Table</span>
+│   ├── <span class="file">pages-auth.css</span>            <span class="comment"># 인증/랜딩 페이지</span>
+│   ├── <span class="file">icons.jsx</span>                 <span class="comment"># 62개 인라인 SVG 아이콘</span>
+│   ├── <span class="star">mock-data.js</span>              <span class="comment"># ⭐ 트레이딩 mock (심볼 · 캔들 · 오더북)</span>
+│   ├── <span class="star">mock-app-data.js</span>          <span class="comment"># ⭐ 앱 mock (거래소 · 유저 · 관리자 데이터) — API 스키마 참조</span>
+│   ├── <span class="file">mock-stream.js</span>            <span class="comment"># WebSocket mock stream</span>
+│   ├── <span class="file">chart-canvas.jsx</span>          <span class="comment"># Canvas 2D 차트 렌더러</span>
+│   ├── <span class="file">widgets.jsx</span>               <span class="comment"># MarketWatch · Chart · OrderBook 등</span>
+│   ├── <span class="file">ai-copilot.jsx</span>            <span class="comment"># AI Copilot (스크립트 기반 시뮬)</span>
+│   ├── <span class="file">layout-engine.jsx</span>         <span class="comment"># 24-col grid engine · Layout Edit</span>
+│   ├── <span class="file">tweaks.jsx</span>                <span class="comment"># Tweaks Panel</span>
+│   ├── <span class="star">page-shell.jsx</span>            <span class="comment"># ⭐ PageShell · Sidebar · KPI · Section · Table</span>
+│   ├── <span class="star">pages-user.jsx</span>            <span class="comment"># ⭐ 사용자 페이지</span>
+│   ├── <span class="star">pages-more.jsx</span>            <span class="comment"># ⭐ Deposit · Withdraw · Referral · Strategy Detail</span>
+│   ├── <span class="star">pages-auth.jsx</span>            <span class="comment"># ⭐ Landing · Login · Signup · KYC · 404</span>
+│   ├── <span class="star">pages-admin.jsx</span>           <span class="comment"># ⭐ 관리자 페이지</span>
+│   ├── <span class="star">pages-admin-more.jsx</span>      <span class="comment"># ⭐ Admin 추가 (KYC · Broadcast · Notice Editor)</span>
+│   └── <span class="star">app.jsx</span>                   <span class="comment"># ⭐ 최상위 앱 (라우팅 · 헤더 · 사이드바 · 토스트)</span>
+│
+└── <span class="dir">📁 design-library/</span>  <span class="comment"># 대표님 전용 재사용 라이브러리</span>
+    ├── <span class="file">🌐 index.html</span>              <span class="comment"># 라이브러리 홈 (5단계 워크플로우)</span>
+    ├── <span class="dir">📁 components/</span>              <span class="comment"># 컴포넌트 카탈로그 (라이브 프리뷰 + Copy)</span>
+    ├── <span class="dir">📁 snippets/</span>                <span class="comment"># 코드 스니펫 14개</span>
+    ├── <span class="dir">📁 templates/</span>               <span class="comment"># 페이지 템플릿 5종 (blank/list/detail/form/dashboard)</span>
+    └── <span class="star">📄 guide.md</span>                 <span class="comment"># ⭐ 작업 가이드 (새 페이지 만들 때 필독)</span>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 6 · 통계 -->
+    <!-- ============================================================ -->
+    <div class="hs-section-title">📊 최종 통계</div>
+
+    <div class="hs-page-grid" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="kpi-card kpi-card--brand"><div class="kpi-card__head"><span class="kpi-card__label">Total Routes</span></div><div class="kpi-card__value">42</div><div class="kpi-card__foot"><span class="kpi-card__sub">Hi-fi · 0 placeholder</span></div></div>
+      <div class="kpi-card kpi-card--ai"><div class="kpi-card__head"><span class="kpi-card__label">Components</span></div><div class="kpi-card__value">48</div><div class="kpi-card__foot"><span class="kpi-card__sub">React 컴포넌트</span></div></div>
+      <div class="kpi-card kpi-card--long"><div class="kpi-card__head"><span class="kpi-card__label">UI Primitives</span></div><div class="kpi-card__value">30+</div><div class="kpi-card__foot"><span class="kpi-card__sub">Button · Modal · Table · KPI · Card</span></div></div>
+      <div class="kpi-card kpi-card--warning"><div class="kpi-card__head"><span class="kpi-card__label">Design Tokens</span></div><div class="kpi-card__value">120+</div><div class="kpi-card__foot"><span class="kpi-card__sub">Color · Type · Spacing · Motion</span></div></div>
+      <div class="kpi-card"><div class="kpi-card__head"><span class="kpi-card__label">Source Files</span></div><div class="kpi-card__value">20</div><div class="kpi-card__foot"><span class="kpi-card__sub">JSX + CSS + JS</span></div></div>
+      <div class="kpi-card"><div class="kpi-card__head"><span class="kpi-card__label">Code Lines</span></div><div class="kpi-card__value">8,000+</div><div class="kpi-card__foot"><span class="kpi-card__sub">총 소스코드</span></div></div>
+      <div class="kpi-card"><div class="kpi-card__head"><span class="kpi-card__label">Exchanges</span></div><div class="kpi-card__value">8</div><div class="kpi-card__foot"><span class="kpi-card__sub">모두 referral 링크 관리</span></div></div>
+      <div class="kpi-card"><div class="kpi-card__head"><span class="kpi-card__label">User Roles</span></div><div class="kpi-card__value">4</div><div class="kpi-card__foot"><span class="kpi-card__sub">User · Ops · Admin · Super</span></div></div>
+    </div>
+
+    <!-- CTA -->
+    <div class="hs-cta">
+      <div>
+        <h3>🚀 이제 대표님 팀이 할 일</h3>
+        <p>
+          <strong>1.</strong> 이 저장소를 다운로드 (Design Handoff 카드 활용) →
+          <strong>2.</strong> <code>HANDOFF_TO_ENGINEERING.md</code>를 개발 리드에게 전달 →
+          <strong>3.</strong> P0 항목부터 백엔드 개발 착수 (인증 · KYC · WS · 매칭 · 지갑 · AI 순).<br/><br/>
+          이 프론트엔드는 그대로 사용하시거나, 팀이 <strong>React/Vue/Next.js 등으로 리팩터링</strong>하시면 됩니다.
+          디자인 토큰(<code>tokens.css</code>)은 그대로 재사용 가능하며, mock 데이터 구조를 그대로 <strong>API 스키마</strong>로 활용하세요.
+        </p>
+      </div>
+      <div class="hs-cta__actions">
+        <a href="HANDOFF_TO_ENGINEERING.md" target="_blank" class="btn btn--primary btn--lg">📄 전체 문서 (MD)</a>
+        <a href="index.html" class="btn btn--lg">🌐 프로토타입 보기</a>
+        <a href="design-library/index.html" class="btn btn--lg">📚 Design Library</a>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-tertiary);">
+      <div>QuantumTrade AI · Engineering Handoff v1.0 · 2026-08-02</div>
+      <div>대표님 (권누리 · 이혜원) → Engineering Team</div>
+    </div>
+  </div>
+</body>
+</html>

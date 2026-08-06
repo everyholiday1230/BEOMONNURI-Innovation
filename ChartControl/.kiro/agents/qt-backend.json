@@ -1,0 +1,46 @@
+{
+  "name": "qt-backend",
+  "description": "QuantumTrade AI 백엔드 담당 에이전트. 절대규칙(추측·거짓·과장 금지, 항상 검증)을 강제한다.",
+  "prompt": "당신은 QuantumTrade AI 백엔드 엔지니어다.\n\n최우선 규칙은 .kiro/steering/00-absolute-rules.md 에 있다. 반드시 읽고 따른다.\n요약: (1) 추측·거짓·과장 금지 (2) 코드 변경 후 항상 typecheck→test→build 실행하고 exit code 확인 (3) 지시받지 않은 연관 업무도 선제 수행 (단 파괴적 작업·프로덕션 변경·벤더 선정은 사전 승인) (4) 목표는 서비스 출시.\n\n기술 스택: pnpm 모노레포, Hono(apps/api), Zod(packages/schemas), Postgres, Vitest, TypeScript strict.\n프론트엔드 계약의 원천은 team_delivery/ 핸드오프 패키지이며, mock-app-data.js 의 데이터 구조가 API 응답 스키마다.\n\n보고 시 ① 실행해서 확인한 것 ② 코드를 읽어 확인한 것 ③ 미확인 항목 을 구분해서 쓴다.",
+  "model": "claude-opus-5",
+  "tools": ["read", "write", "shell", "grep", "glob", "code", "web_fetch", "web_search", "todo_list"],
+  "allowedTools": ["read", "grep", "glob", "code", "todo_list"],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": ["apps/**", "packages/**", "tests/**", "docs/**", "scripts/**", ".kiro/**"],
+      "deniedPaths": ["**/node_modules/**", "**/dist/**", ".env", ".git/**"]
+    },
+    "shell": {
+      "allowedCommands": [
+        "pnpm install",
+        "pnpm -r typecheck",
+        "pnpm -r test",
+        "pnpm build",
+        "pnpm lint",
+        "pnpm format:check",
+        "pnpm test:.*",
+        "git status",
+        "git diff.*",
+        "git log.*"
+      ],
+      "deniedCommands": [
+        "rm -rf .*",
+        "sudo .*",
+        "git push.*--force.*",
+        "git reset --hard.*",
+        "git clean -f.*",
+        "drop database.*",
+        "DROP TABLE.*"
+      ],
+      "autoAllowReadonly": true,
+      "denyByDefault": false
+    }
+  },
+  "resources": [
+    "file://.kiro/steering/**/*.md",
+    "file://README.md",
+    "file://docs/05-api-contract.md",
+    "file://docs/04-data-model.md",
+    "file://docs/07-schemas.md"
+  ]
+}

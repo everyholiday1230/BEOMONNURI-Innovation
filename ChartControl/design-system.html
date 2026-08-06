@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1280"/>
+  <title>Design System · QuantumTrade AI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+
+  <link rel="stylesheet" href="src/tokens.css"/>
+  <link rel="stylesheet" href="src/base.css"/>
+  <link rel="stylesheet" href="src/components.css"/>
+  <link rel="stylesheet" href="src/widgets.css"/>
+
+  <style>
+    body { overflow-y: auto; overflow-x: hidden; }
+    #root { height: auto; min-height: 100vh; display: block; overflow: visible; }
+
+    .ds-nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 56px;
+      display: flex; align-items: center; padding: 0 32px; gap: 24px;
+      background: var(--color-bg-surface);
+      border-bottom: 1px solid var(--color-border-subtle);
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+    .ds-nav__brand { display: inline-flex; align-items:center; gap: 10px; font-weight: 600; font-family: var(--font-en); }
+    .ds-nav__links { display: flex; gap: 4px; font-size: 13px; }
+    .ds-nav__link { padding: 6px 12px; border-radius: 6px; color: var(--color-text-secondary); }
+    .ds-nav__link:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+    .ds-hero {
+      margin-top: 56px;
+      padding: 80px 48px 60px;
+      max-width: 1280px;
+      margin-left: auto; margin-right: auto;
+    }
+    .ds-hero__eyebrow { color: var(--color-brand); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .ds-hero__title { font-family: var(--font-en); font-size: 56px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 16px; }
+    .ds-hero__lede { font-size: 18px; color: var(--color-text-secondary); max-width: 720px; line-height: 1.6; margin: 0; }
+    .ds-hero__meta { margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+    .ds-hero__meta strong { color: var(--color-text-primary); }
+
+    .ds-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 60px 48px;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .ds-section__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; gap: 24px; flex-wrap: wrap; }
+    .ds-section__num { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-tertiary); letter-spacing: 0.08em; }
+    .ds-section__title { font-family: var(--font-en); font-size: 32px; font-weight: 600; margin: 4px 0 8px; letter-spacing: -0.01em; }
+    .ds-section__desc { font-size: 15px; color: var(--color-text-secondary); max-width: 560px; line-height: 1.6; }
+
+    .ds-grid { display: grid; gap: 16px; }
+    .ds-grid--3 { grid-template-columns: repeat(3, 1fr); }
+    .ds-grid--4 { grid-template-columns: repeat(4, 1fr); }
+    .ds-grid--6 { grid-template-columns: repeat(6, 1fr); }
+    .ds-grid--2 { grid-template-columns: 1fr 1fr; }
+
+    .ds-card {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .ds-card__title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); margin-bottom: 12px; font-family: var(--font-en); }
+    .ds-card__body { display: flex; flex-direction: column; gap: 8px; }
+    .ds-card__row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 12px; }
+    .ds-card__row .k { color: var(--color-text-tertiary); }
+    .ds-card__row .v { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+
+    .color-swatch {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .color-swatch__preview { height: 72px; }
+    .color-swatch__meta { padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; }
+    .color-swatch__name { color: var(--color-text-primary); font-weight: 500; margin-bottom: 2px; }
+    .color-swatch__val { color: var(--color-text-tertiary); }
+
+    .type-sample {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .type-sample__label { font-family: var(--font-mono); font-size: 10px; color: var(--color-text-tertiary); letter-spacing: 0.06em; text-transform: uppercase; }
+    .type-sample__meta { font-family: var(--font-mono); font-size: 10px; color: var(--color-text-tertiary); }
+
+    .token-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .token-table th, .token-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--color-border-subtle);
+      font-family: var(--font-mono);
+    }
+    .token-table th {
+      background: var(--color-bg-panel);
+      font-family: var(--font-en);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-tertiary);
+      font-weight: 600;
+    }
+    .token-table td:last-child { color: var(--color-text-tertiary); }
+    .token-table code { color: var(--color-brand); background: transparent; }
+    .token-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 3px; vertical-align: -6px; margin-right: 8px; border: 1px solid var(--color-border-subtle); }
+
+    .comp-showcase {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .comp-showcase__row { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; align-items: center; }
+    .comp-showcase__row + .comp-showcase__row { border-top: 1px dashed var(--color-border-subtle); }
+    .comp-showcase__label { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-tertiary); min-width: 120px; }
+
+    .state-badge {
+      display: inline-flex; align-items:center; gap: 6px;
+      padding: 3px 10px;
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-secondary);
+    }
+    .state-badge .dot { width: 8px; height: 8px; }
+
+    .widget-spec {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 20px;
+    }
+    .widget-spec__preview {
+      background: var(--color-bg-surface);
+      border-radius: 6px;
+      padding: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-text-tertiary);
+      min-height: 120px;
+      position: relative;
+    }
+    .widget-spec__preview-inner {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-default);
+      border-radius: 4px;
+      padding: 16px 20px;
+      color: var(--color-text-primary);
+      text-align: center;
+      min-width: 100px;
+      position: relative;
+    }
+    .widget-spec__preview-dim {
+      position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+      color: var(--color-text-tertiary); font-size: 10px;
+    }
+    .widget-spec__props { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+    .widget-spec__prop { display: flex; gap: 12px; }
+    .widget-spec__prop-k { color: var(--color-text-tertiary); font-family: var(--font-mono); min-width: 90px; font-size: 11px; }
+    .widget-spec__prop-v { color: var(--color-text-primary); font-family: var(--font-mono); font-size: 12px; }
+    .widget-spec__title { font-family: var(--font-en); font-size: 16px; font-weight: 600; margin-bottom: 8px; grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+    .widget-spec__desc { grid-column: 1 / -1; font-size: 12px; color: var(--color-text-secondary); margin-top: -6px; }
+
+    pre.json-block {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      padding: 20px 24px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-text-primary);
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+    pre.json-block .k { color: var(--color-brand); }
+    pre.json-block .s { color: oklch(78% 0.14 145); }
+    pre.json-block .n { color: oklch(80% 0.14 75); }
+    pre.json-block .c { color: var(--color-text-tertiary); }
+
+    .research-card {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      padding: 24px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .research-card__head { display: flex; align-items: center; justify-content: space-between; }
+    .research-card__title { font-family: var(--font-en); font-size: 18px; font-weight: 600; }
+    .research-card__tag {
+      font-family: var(--font-mono); font-size: 10px;
+      padding: 3px 8px; border-radius: 3px;
+      background: var(--color-brand-subtle); color: var(--color-brand);
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .research-card ul { margin: 0; padding-left: 18px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.7; }
+    .research-card ul li strong { color: var(--color-text-primary); }
+    .research-card__reframe { padding-top: 12px; border-top: 1px dashed var(--color-border-subtle); font-size: 12px; color: var(--color-text-secondary); }
+    .research-card__reframe strong { color: var(--color-signal-approved); font-family: var(--font-en); }
+
+    .flow-diagram {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 8px;
+      padding: 32px;
+      overflow-x: auto;
+    }
+    .flow-row {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-mono); font-size: 12px;
+      margin-bottom: 20px;
+      min-width: max-content;
+    }
+    .flow-step {
+      padding: 8px 14px;
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .flow-step.is-ai { border-color: var(--color-ai); color: var(--color-ai); background: var(--color-ai-bg); }
+    .flow-step.is-critical { border-color: var(--color-warning); color: var(--color-warning); }
+    .flow-arrow { color: var(--color-text-tertiary); font-family: var(--font-mono); }
+
+    .foot { padding: 60px 48px; text-align: center; color: var(--color-text-tertiary); font-size: 12px; border-top: 1px solid var(--color-border-subtle); }
+    .foot a { color: var(--color-brand); }
+
+    @media (max-width: 1200px) {
+      .ds-grid--6 { grid-template-columns: repeat(4, 1fr); }
+      .ds-grid--4 { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div id="root">
+
+<nav class="ds-nav">
+  <div class="ds-nav__brand">
+    <span style="width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg, var(--color-brand), var(--brand-accent-500)); display:inline-flex; align-items:center; justify-content:center; color: white; font-family: 'IBM Plex Mono'; font-size: 12px; font-weight: 700;">Q</span>
+    QuantumTrade Design System
+    <span style="font-family: 'IBM Plex Mono'; font-size: 10px; color: var(--color-text-tertiary); padding: 2px 6px; border: 1px solid var(--color-border-subtle); border-radius: 3px; font-weight: 400;">v1.0 · Aug 2026</span>
+  </div>
+  <div class="ds-nav__links" style="margin-left: 40px;">
+    <a class="ds-nav__link" href="#research">1. Research</a>
+    <a class="ds-nav__link" href="#ia">2. IA</a>
+    <a class="ds-nav__link" href="#tokens">3. Tokens</a>
+    <a class="ds-nav__link" href="#colors">4. Colors</a>
+    <a class="ds-nav__link" href="#typography">5. Type</a>
+    <a class="ds-nav__link" href="#components">6. Components</a>
+    <a class="ds-nav__link" href="#states">7. States</a>
+    <a class="ds-nav__link" href="#widgets">8. Widget Spec</a>
+    <a class="ds-nav__link" href="#layout-schema">9. Layout JSON</a>
+    <a class="ds-nav__link" href="#handoff">10. Handoff</a>
+  </div>
+  <div style="margin-left:auto; display:inline-flex; gap: 6px;">
+    <a href="developer-handoff.html" class="btn btn--sm" style="border: 1px solid var(--color-brand); color: var(--color-brand);">Developer Handoff →</a>
+    <a href="index.html" class="btn btn--sm btn--primary">Open Trading App →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="ds-hero">
+  <div class="ds-hero__eyebrow">Institutional Cool · v1.0</div>
+  <h1 class="ds-hero__title">
+    Institutional-grade trading terminal,<br/>
+    reimagined for AI-native workflows.
+  </h1>
+  <p class="ds-hero__lede">
+    QuantumTrade AI의 Design System은 Bloomberg급 정보 밀도와 AI Copilot 워크플로우를 하나의 언어로 통합합니다.
+    모든 토큰은 Brand · Semantic · Component 3계층으로 분리되어, 브랜드 색상·팔레트·밀도·언어를 실시간으로 교체할 수 있습니다.
+  </p>
+  <div class="ds-hero__meta">
+    <span>Base grid · <strong>24 columns × 40px rows</strong></span>
+    <span>Typeface · <strong>IBM Plex Sans / Mono · Pretendard Variable</strong></span>
+    <span>Chart engine · <strong>KLineChart 10.x compatible</strong></span>
+    <span>Layout engine · <strong>GridStack.js compatible schema</strong></span>
+    <span>Accessibility · <strong>WCAG 2.2 AA</strong></span>
+  </div>
+</section>
+
+<!-- 1. RESEARCH -->
+<section class="ds-section" id="research">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">01 / RESEARCH</div>
+      <h2 class="ds-section__title">UX Research Summary</h2>
+    </div>
+    <p class="ds-section__desc">
+      Binance · Bitget · BitMart의 검증된 UX 패턴을 기능 관점에서만 참고했습니다. 로고 · 색상 · 아이콘 · 트레이드 드레스는 사용하지 않았고, 각 패턴을 QuantumTrade AI 관점으로 재해석했습니다.
+    </p>
+  </div>
+
+  <div class="ds-grid ds-grid--3">
+    <div class="research-card">
+      <div class="research-card__head">
+        <div class="research-card__title">Binance</div>
+        <span class="research-card__tag">Referenced</span>
+      </div>
+      <ul>
+        <li><strong>정보 밀도</strong> — Symbol Header 12개 통계 필드의 압축 배치</li>
+        <li><strong>모듈 리사이즈</strong> — 각 패널의 자유로운 크기 조절과 도크</li>
+        <li><strong>Multi-Chart</strong> — 여러 심볼 동시 비교 UX</li>
+        <li><strong>Advanced Modes</strong> — Fullscreen · Trader · Advanced 모드 전환</li>
+        <li><strong>주문장 정밀도</strong> — Precision 선택 및 Amount/Cumulative 토글</li>
+      </ul>
+      <div class="research-card__reframe">
+        <strong>Reframed →</strong> 24열 그리드 기반 자율 레이아웃 엔진으로 재구현. 위젯을 완전히 분리된 컴포넌트로 만들어 사용자·기기·워크스페이스별 프리셋을 서버 동기화 가능한 JSON으로 저장.
+      </div>
+    </div>
+
+    <div class="research-card">
+      <div class="research-card__head">
+        <div class="research-card__title">Bitget</div>
+        <span class="research-card__tag">Referenced</span>
+      </div>
+      <ul>
+        <li><strong>Long/Short 흐름</strong> — 방향 명확한 주문 UX와 CTA 분리</li>
+        <li><strong>Cross/Isolated</strong> — Margin Mode 즉시 전환</li>
+        <li><strong>Progressive Disclosure</strong> — Advanced Order 점진 노출</li>
+        <li><strong>Take Profit/Stop Loss</strong> — 주문 입력 단계 통합 TP/SL</li>
+        <li><strong>Trigger 조건</strong> — GTC · IOC · FOK 명시적 노출</li>
+      </ul>
+      <div class="research-card__reframe">
+        <strong>Reframed →</strong> Beginner Mode에서 Limit/Market/Trigger 3개만 노출하고, Pro Mode에서 Advanced(OCO · Scaled · Iceberg · TWAP · Trailing) 접근. 색상 없이도 방향을 인지할 수 있도록 ▲▼ · LONG/SHORT · +/− 병기.
+      </div>
+    </div>
+
+    <div class="research-card">
+      <div class="research-card__head">
+        <div class="research-card__title">BitMart</div>
+        <span class="research-card__tag">Referenced</span>
+      </div>
+      <ul>
+        <li><strong>맞춤형 레이아웃</strong> — 사용자별 자유로운 모듈 배치</li>
+        <li><strong>Mark Price 기준</strong> — 미실현 손익 계산 기준 선택</li>
+        <li><strong>정보 압축</strong> — 선물 화면에서 필요 정보의 밀도</li>
+        <li><strong>Quick Symbol Switch</strong> — 심볼 즉시 전환 UX</li>
+      </ul>
+      <div class="research-card__reframe">
+        <strong>Reframed →</strong> Density 3단계(Comfortable · Compact · Dense) 슬라이더로 밀도 자체를 사용자 선택으로. PnL Basis는 Mark/Last 세그먼트로 위젯 우측 하단에 상시 노출.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; padding: 20px 24px; background: var(--color-bg-panel); border-left: 3px solid var(--color-warning); border-radius: 4px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.7;">
+    <strong style="color: var(--color-warning); font-family: var(--font-en); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px;">Non-goals</strong><br/>
+    특정 거래소의 로고, 브랜드 컬러, 고유 아이콘 세트, 화면 배치의 픽셀 단위 복제, 트레이드 드레스는 사용하지 않습니다. 참고한 것은 <strong>기능적 UX 패턴</strong>뿐이며, 이를 Institutional Cool 디자인 언어로 완전히 재해석했습니다.
+  </div>
+</section>
+
+<!-- 2. IA -->
+<section class="ds-section" id="ia">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">02 / INFORMATION ARCHITECTURE</div>
+      <h2 class="ds-section__title">앱 구조 · 위젯 관계</h2>
+    </div>
+    <p class="ds-section__desc">
+      최상위 라우팅 · 트레이딩 화면의 위젯 관계 · 3개 주요 사용자 플로우.
+    </p>
+  </div>
+
+  <div class="flow-diagram">
+    <div style="font-family: var(--font-en); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); margin-bottom: 16px;">Top-level routing</div>
+    <div class="flow-row">
+      <span class="flow-step">/</span>
+      <span class="flow-arrow">├──</span>
+      <span class="flow-step">/markets</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step is-critical">/trade  ← default</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step is-ai">/trade?workspace=ai</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step">/trade?mode=layout-edit</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step">/portfolio</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step">/analytics</span>
+      <span class="flow-arrow">·</span>
+      <span class="flow-step">/design-system</span>
+    </div>
+
+    <div style="font-family: var(--font-en); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); margin: 24px 0 16px;">Flow 3 · AI 추세선 생성</div>
+    <div class="flow-row">
+      <span class="flow-step">User: "추세선 그려줘"</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-ai">AI Thinking (3 steps)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-ai">Streaming Reply</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-ai">Chart Overlay: AI Draft</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">User drags endpoint</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-ai">AI 대화창에 반영</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Save as User Drawing</span>
+    </div>
+
+    <div style="font-family: var(--font-en); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); margin: 24px 0 16px;">Flow 5 · AI Signal → Order</div>
+    <div class="flow-row">
+      <span class="flow-step is-ai">AI Analysis</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-ai">Draft Signal</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">User Review</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-critical">Approve Signal</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Create Order Draft</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-critical">Order Preview</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-critical">Risk Check</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step is-critical">Final Confirm</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Simulated Submit</span>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 12px; color: var(--color-text-tertiary); font-family: var(--font-mono);">
+      ⚠ AI 대화 한마디만으로 실제 주문이 실행되는 UX는 존재하지 않습니다. 반드시 <strong style="color: var(--color-warning);">User Review → Approve → Preview → Risk Check → Final Confirm</strong> 5단계를 거칩니다.
+    </div>
+  </div>
+</section>
+
+<!-- 3. TOKENS -->
+<section class="ds-section" id="tokens">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">03 / DESIGN TOKENS</div>
+      <h2 class="ds-section__title">토큰 3계층</h2>
+    </div>
+    <p class="ds-section__desc">
+      Brand → Semantic → Component 3계층. 상위 레이어만 교체하면 전체 UI가 즉시 변경됩니다.
+    </p>
+  </div>
+
+  <div class="ds-grid ds-grid--3">
+    <div class="ds-card">
+      <div class="ds-card__title">Layer 1 · Brand</div>
+      <div class="ds-card__body">
+        <div class="ds-card__row"><span class="k">--brand-primary-500</span><span class="v">oklch(56% .15 220)</span></div>
+        <div class="ds-card__row"><span class="k">--brand-accent-500</span><span class="v">oklch(78% .13 210)</span></div>
+        <div class="ds-card__row"><span class="k">--trade-long-500</span><span class="v">oklch(72% .14 175)</span></div>
+        <div class="ds-card__row"><span class="k">--trade-short-500</span><span class="v">oklch(68% .22 355)</span></div>
+        <div class="ds-card__row"><span class="k">--ai-500</span><span class="v">oklch(72% .15 285)</span></div>
+      </div>
+      <div style="margin-top: 12px; font-size: 11px; color: var(--color-text-tertiary); line-height: 1.6;">
+        Brand Token만 교체하여 4가지 팔레트(Institutional Cool · Quantum Violet · Onyx Emerald · Graphite Amber)를 지원합니다.
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Layer 2 · Semantic</div>
+      <div class="ds-card__body">
+        <div class="ds-card__row"><span class="k">--color-bg-app</span><span class="v">→ n-950</span></div>
+        <div class="ds-card__row"><span class="k">--color-bg-panel</span><span class="v">→ n-900</span></div>
+        <div class="ds-card__row"><span class="k">--color-text-primary</span><span class="v">→ n-050</span></div>
+        <div class="ds-card__row"><span class="k">--color-trade-long</span><span class="v">→ trade-long-500</span></div>
+        <div class="ds-card__row"><span class="k">--color-signal-draft</span><span class="v">→ ai-500</span></div>
+        <div class="ds-card__row"><span class="k">--color-order-pending</span><span class="v">→ oklch(80% .13 85)</span></div>
+      </div>
+      <div style="margin-top: 12px; font-size: 11px; color: var(--color-text-tertiary); line-height: 1.6;">
+        의미 기반 토큰. 컴포넌트는 반드시 이 계층만 참조합니다. Theme(Dark/Light) 교체 지점.
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Layer 3 · Component</div>
+      <div class="ds-card__body">
+        <div class="ds-card__row"><span class="k">--btn-h</span><span class="v">32 * density</span></div>
+        <div class="ds-card__row"><span class="k">--input-h</span><span class="v">32 * density</span></div>
+        <div class="ds-card__row"><span class="k">--row-h-md</span><span class="v">28 * density</span></div>
+        <div class="ds-card__row"><span class="k">--header-h</span><span class="v">48px</span></div>
+        <div class="ds-card__row"><span class="k">--grid-gap</span><span class="v">6px (5px @1440)</span></div>
+      </div>
+      <div style="margin-top: 12px; font-size: 11px; color: var(--color-text-tertiary); line-height: 1.6;">
+        Density(comfortable=1 · compact=0.88 · dense=0.78)에 따라 자동 스케일. 실시간 반영.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. COLORS -->
+<section class="ds-section" id="colors">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">04 / COLOR SYSTEM</div>
+      <h2 class="ds-section__title">Color</h2>
+    </div>
+    <p class="ds-section__desc">
+      oklch 색공간 기반. 모든 매수/매도는 색상만이 아니라 아이콘(▲▼)·기호(+/-)·텍스트(LONG/SHORT)를 병기해서 색맹 접근성 확보.
+    </p>
+  </div>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 32px 0 12px;">Trading Semantics</h3>
+  <div class="ds-grid ds-grid--4">
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-trade-long)"></div><div class="color-swatch__meta"><div class="color-swatch__name">▲ trade-long</div><div class="color-swatch__val">oklch(72% .14 175)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-trade-short)"></div><div class="color-swatch__meta"><div class="color-swatch__name">▼ trade-short</div><div class="color-swatch__val">oklch(68% .22 355)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-ai)"></div><div class="color-swatch__meta"><div class="color-swatch__name">✦ ai</div><div class="color-swatch__val">oklch(72% .15 285)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-signal-approved)"></div><div class="color-swatch__meta"><div class="color-swatch__name">✓ signal-approved</div><div class="color-swatch__val">oklch(78% .14 145)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-order-pending)"></div><div class="color-swatch__meta"><div class="color-swatch__name">◐ order-pending</div><div class="color-swatch__val">oklch(80% .13 85)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-order-filled)"></div><div class="color-swatch__meta"><div class="color-swatch__name">✓ order-filled</div><div class="color-swatch__val">oklch(75% .13 145)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-warning)"></div><div class="color-swatch__meta"><div class="color-swatch__name">⚠ warning</div><div class="color-swatch__val">oklch(80% .14 75)</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--color-danger)"></div><div class="color-swatch__meta"><div class="color-swatch__name">✕ danger</div><div class="color-swatch__val">oklch(64% .20 25)</div></div></div>
+  </div>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 32px 0 12px;">Neutral Scale (Dark)</h3>
+  <div class="ds-grid ds-grid--6">
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-950)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-950</div><div class="color-swatch__val">bg-app</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-900)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-900</div><div class="color-swatch__val">bg-panel</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-850)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-850</div><div class="color-swatch__val">bg-elevated</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-700)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-700</div><div class="color-swatch__val">border-default</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-300)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-300</div><div class="color-swatch__val">text-secondary</div></div></div>
+    <div class="color-swatch"><div class="color-swatch__preview" style="background: var(--n-050)"></div><div class="color-swatch__meta"><div class="color-swatch__name">n-050</div><div class="color-swatch__val">text-primary</div></div></div>
+  </div>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 32px 0 12px;">Brand Variants (교체 가능)</h3>
+  <div class="ds-grid ds-grid--4">
+    <div class="ds-card">
+      <div class="ds-card__title">Institutional Cool <span style="color: var(--color-brand);">● Default</span></div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(20% 0.014 240);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(56% 0.15 220);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(78% 0.13 210);"></div>
+      </div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-card__title">Quantum Violet</div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(18% 0.014 285);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(64% 0.20 300);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(78% 0.16 285);"></div>
+      </div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-card__title">Onyx Emerald</div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(16% 0.014 160);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(64% 0.15 160);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(78% 0.14 155);"></div>
+      </div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-card__title">Graphite Amber</div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(18% 0.014 60);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(72% 0.14 70);"></div>
+        <div style="width:36px; height:36px; border-radius:4px; background: oklch(80% 0.13 65);"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. TYPOGRAPHY -->
+<section class="ds-section" id="typography">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">05 / TYPOGRAPHY</div>
+      <h2 class="ds-section__title">Typography</h2>
+    </div>
+    <p class="ds-section__desc">
+      IBM Plex Sans (영문 UI) · IBM Plex Mono (숫자·가격) · Pretendard Variable (한국어). 모든 숫자에 <code style="color: var(--color-brand); font-family: var(--font-mono);">font-variant-numeric: tabular-nums</code>. 실시간 가격 변화 시 폭이 흔들리지 않습니다.
+    </p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div class="type-sample">
+      <div class="type-sample__label">Display · Hero</div>
+      <div style="font-family: 'IBM Plex Sans'; font-size: 48px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;">Institutional trading, reimagined.</div>
+      <div class="type-sample__meta">IBM Plex Sans · 48px / 600 / -0.02em</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-sample__label">Price · Live</div>
+      <div style="font-family: 'IBM Plex Mono'; font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1;">
+        <span style="color: var(--color-trade-long);">▲ 68,432.5</span>
+        <span style="color: var(--color-text-tertiary); font-size: 14px; margin-left: 12px;">USDT</span>
+      </div>
+      <div class="type-sample__meta">IBM Plex Mono · 32px / 600 / tabular-nums · flash-up 500ms</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-sample__label">Data Row · Trading table</div>
+      <div style="font-family: 'IBM Plex Mono'; font-size: 13px; font-variant-numeric: tabular-nums; display: flex; gap: 32px; color: var(--color-text-primary);">
+        <span>BTC/USDT</span>
+        <span style="color: var(--color-trade-long)">▲ LONG</span>
+        <span>0.185</span>
+        <span>67,285.4</span>
+        <span>68,432.5</span>
+        <span style="color: var(--color-trade-long);">+212.42 (+34.14%)</span>
+      </div>
+      <div class="type-sample__meta">IBM Plex Mono · 13px / 400 / tabular-nums</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-sample__label">Korean UI · Pretendard</div>
+      <div style="font-family: 'Pretendard Variable'; font-size: 15px; color: var(--color-text-primary);">
+        레이아웃을 수정하고 저장하면 서버에도 동기화됩니다. 저장되지 않은 변경사항은 상단 배지로 안내합니다.
+      </div>
+      <div class="type-sample__meta">Pretendard Variable · 15px / 400</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-sample__label">Micro · Label / Caption</div>
+      <div style="display: flex; gap: 20px; align-items: baseline;">
+        <span style="font-family: 'IBM Plex Sans'; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); font-weight: 500;">MARK PRICE</span>
+        <span style="font-family: 'IBM Plex Mono'; font-size: 13px; font-variant-numeric: tabular-nums;">68,475.5</span>
+      </div>
+      <div class="type-sample__meta">Label: IBM Plex Sans · 10px / 500 / uppercase / 0.06em · text-tertiary</div>
+    </div>
+  </div>
+
+  <table class="token-table" style="margin-top: 24px;">
+    <thead><tr><th>Token</th><th>Size</th><th>Weight</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><code>--fs-2xs</code></td><td>10px</td><td>500 · uppercase</td><td>Labels · Micro captions</td></tr>
+      <tr><td><code>--fs-xs</code></td><td>11px</td><td>400</td><td>Table meta · Secondary info</td></tr>
+      <tr><td><code>--fs-sm</code></td><td>12px</td><td>400</td><td>Table body · Dense data</td></tr>
+      <tr><td><code>--fs-md</code></td><td>13px</td><td>400</td><td>Body default</td></tr>
+      <tr><td><code>--fs-lg</code></td><td>14px</td><td>500</td><td>Section headers</td></tr>
+      <tr><td><code>--fs-xl</code></td><td>16px</td><td>500</td><td>Card titles</td></tr>
+      <tr><td><code>--fs-2xl</code></td><td>18px</td><td>600</td><td>Symbol name</td></tr>
+      <tr><td><code>--fs-3xl</code></td><td>22px</td><td>600</td><td>Price value</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 6. COMPONENTS -->
+<section class="ds-section" id="components">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">06 / COMPONENTS</div>
+      <h2 class="ds-section__title">Component Inventory</h2>
+    </div>
+    <p class="ds-section__desc">
+      실제 앱에서 사용되는 모든 컴포넌트. 각각 Default · Hover · Focus · Active · Selected · Disabled · Loading · Error · Success · Warning 상태를 지원합니다.
+    </p>
+  </div>
+
+  <div class="comp-showcase">
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Buttons</div>
+      <button class="btn btn--primary btn--sm">Primary</button>
+      <button class="btn btn--sm">Secondary</button>
+      <button class="btn btn--sm btn--ghost">Ghost</button>
+      <button class="btn btn--sm btn--outline">Outline</button>
+      <button class="btn btn--sm btn--danger">Danger</button>
+      <button class="btn btn--long btn--sm">▲ Long</button>
+      <button class="btn btn--short btn--sm">▼ Short</button>
+      <button class="btn btn--primary btn--sm" disabled>Disabled</button>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Sizes</div>
+      <button class="btn btn--primary btn--xs">XS</button>
+      <button class="btn btn--primary btn--sm">Small</button>
+      <button class="btn btn--primary">Default</button>
+      <button class="btn btn--primary btn--lg">Large</button>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Badges</div>
+      <span class="badge badge--long">▲ LONG</span>
+      <span class="badge badge--short">▼ SHORT</span>
+      <span class="badge badge--ai">✦ AI</span>
+      <span class="badge badge--draft">AI DRAFT</span>
+      <span class="badge badge--approved">APPROVED</span>
+      <span class="badge badge--perp">PERP</span>
+      <span class="badge badge--warning">WARN</span>
+      <span class="badge badge--danger">DANGER</span>
+      <span class="badge badge--success">FILLED</span>
+      <span class="badge badge--neutral">CROSS</span>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Inputs</div>
+      <input class="input" placeholder="Search..." style="max-width: 160px;"/>
+      <div class="input-group" style="width: 220px;">
+        <span class="input-group__label">Price</span>
+        <input value="68432.5"/>
+        <span class="input-group__suffix">USDT</span>
+      </div>
+      <input class="input is-error" value="0.001" style="max-width: 100px;"/>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Segmented</div>
+      <div class="seg">
+        <button class="seg__opt is-active">Limit</button>
+        <button class="seg__opt">Market</button>
+        <button class="seg__opt">Trigger</button>
+      </div>
+      <div class="seg">
+        <button class="seg__opt is-active">Cross</button>
+        <button class="seg__opt">Isolated</button>
+      </div>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Status dots</div>
+      <span class="state-badge"><span class="dot dot--live"></span> WebSocket · Live</span>
+      <span class="state-badge"><span class="dot dot--warn"></span> Reconnecting</span>
+      <span class="state-badge"><span class="dot dot--err"></span> Connection Lost</span>
+      <span class="state-badge"><span class="dot dot--ai"></span> AI Thinking</span>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Checkbox / Switch</div>
+      <label class="chk"><input type="checkbox" checked/><span class="chk__box">✓</span> Reduce Only</label>
+      <label class="chk"><input type="checkbox"/><span class="chk__box">✓</span> Post Only</label>
+      <label class="switch"><input type="checkbox" checked/><span class="switch__track"><span class="switch__thumb"></span></span></label>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Toasts</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; max-width: 400px;">
+        <div class="toast toast--success" style="animation: none;"><div class="toast__title">Order Submitted</div><div class="toast__desc">Long 0.05 BTC @ 68,432.5 (SIM-A3F72B)</div></div>
+        <div class="toast toast--ai" style="animation: none;"><div class="toast__title">AI Signal Approved</div><div class="toast__desc">Draft가 실선으로 전환되었습니다.</div></div>
+        <div class="toast toast--warning" style="animation: none;"><div class="toast__title">High Leverage</div><div class="toast__desc">50× 이상 · 청산 위험이 큽니다.</div></div>
+      </div>
+    </div>
+
+    <div class="comp-showcase__row">
+      <div class="comp-showcase__label">Signal Card</div>
+      <div class="signal-card" style="max-width: 620px; flex: 1;">
+        <div class="signal-card__head">
+          <div class="signal-card__title">
+            <span class="badge badge--draft">AI DRAFT</span>
+            BTC/USDT
+            <span class="badge badge--long">▲ LONG</span>
+            <span style="color:var(--color-text-tertiary); font-family:var(--font-mono); font-size:11px;">15m</span>
+          </div>
+          <div class="signal-card__conf">
+            <span>Confidence</span><strong>74%</strong>
+            <div style="width: 40px; height: 4px; background:var(--color-bg-input); border-radius: 999px;"><div style="width: 74%; height:100%; background: var(--color-ai); border-radius: 999px;"></div></div>
+          </div>
+        </div>
+        <div class="signal-card__grid">
+          <div class="signal-card__row"><span class="signal-card__k">Entry</span><span class="signal-card__v">68,120 – 68,360</span></div>
+          <div class="signal-card__row"><span class="signal-card__k">SL</span><span class="signal-card__v" style="color: var(--color-trade-short);">67,480</span></div>
+          <div class="signal-card__row"><span class="signal-card__k">R:R</span><span class="signal-card__v">1 : 2.8</span></div>
+        </div>
+        <div class="signal-card__actions">
+          <button class="btn btn--sm btn--primary">✓ Approve</button>
+          <button class="btn btn--sm">Edit</button>
+          <button class="btn btn--sm btn--danger">Reject</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. STATES -->
+<section class="ds-section" id="states">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">07 / STATES</div>
+      <h2 class="ds-section__title">시스템 상태</h2>
+    </div>
+    <p class="ds-section__desc">
+      정상 화면만 설계하지 않았습니다. Empty · Loading · Error · Reconnecting · AI Thinking · Signal Proposed 등 실제 운영에서 마주치는 상태를 컴포넌트 레벨로 정의합니다.
+    </p>
+  </div>
+
+  <div class="ds-grid ds-grid--3">
+    <div class="ds-card">
+      <div class="ds-card__title">Market Data</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+        <span class="state-badge"><span class="dot dot--live"></span> WebSocket Connected · 34ms</span>
+        <span class="state-badge"><span class="dot dot--warn"></span> Reconnecting… (retry 2/5)</span>
+        <span class="state-badge"><span class="dot dot--err"></span> Connection Lost · 주문 잠금</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-warning);"></span> Stale Data · 24s ago</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-text-tertiary);"></span> API Rate Limit · 30s</span>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Account & API</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+        <span class="state-badge"><span class="dot dot--live"></span> API Connected · Trading Enabled</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-warning);"></span> Read Only API (주문 불가)</span>
+        <span class="state-badge"><span class="dot dot--err"></span> API Not Connected</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-text-tertiary);"></span> Logged Out</span>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Order</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+        <span class="badge badge--warning">VALIDATION ERROR</span>
+        <span class="badge badge--danger">INSUFFICIENT BALANCE</span>
+        <span class="badge badge--warning">HIGH LEVERAGE</span>
+        <span class="badge badge--neutral">SUBMITTING…</span>
+        <span class="badge badge--warning">PARTIAL FILL</span>
+        <span class="badge badge--success">FILLED</span>
+        <span class="badge badge--danger">REJECTED</span>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">AI Copilot</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+        <span class="state-badge"><span class="dot dot--ai" style="animation:none;"></span> AI Idle</span>
+        <span class="state-badge"><span class="dot dot--ai"></span> Thinking (3 steps)</span>
+        <span class="state-badge"><span class="dot dot--ai"></span> Streaming</span>
+        <span class="badge badge--draft">SIGNAL PROPOSED</span>
+        <span class="badge badge--approved">USER APPROVED</span>
+        <span class="badge badge--warning">USER EDITED</span>
+        <span class="badge badge--danger">AI ERROR · INSUFFICIENT DATA</span>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Layout</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+        <span class="state-badge"><span class="dot" style="background: var(--color-brand);"></span> Editing</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-warning);"></span> Unsaved Changes</span>
+        <span class="state-badge"><span class="dot dot--live"></span> Saved · Synced</span>
+        <span class="state-badge"><span class="dot" style="background: var(--color-warning);"></span> Save Failed · Retry</span>
+        <span class="state-badge"><span class="dot dot--err"></span> Device Conflict · Choose</span>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Empty / Loading</div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="text-align:center; padding: 16px; color: var(--color-text-tertiary); font-size: 12px;">
+          <div style="font-size: 24px; opacity: 0.4; margin-bottom: 6px;">◇</div>
+          <div>No positions in range</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="skl" style="height: 12px; width: 100%;"></div>
+          <div class="skl" style="height: 12px; width: 76%;"></div>
+          <div class="skl" style="height: 12px; width: 88%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. WIDGET SPEC -->
+<section class="ds-section" id="widgets">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">08 / WIDGET SPECIFICATION</div>
+      <h2 class="ds-section__title">위젯 명세</h2>
+    </div>
+    <p class="ds-section__desc">
+      각 위젯의 최소/권장 크기, 리사이즈 방향, 입력 데이터, 이벤트, 반응형 동작. 실제 개발 시 참고할 컴포넌트 계약.
+    </p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+
+    <div class="widget-spec">
+      <div class="widget-spec__title">
+        <span style="width: 8px; height: 8px; background: var(--color-brand); border-radius: 2px;"></span>
+        Main Chart <span style="color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: 12px; font-weight: 400;">type: 'chart'</span>
+      </div>
+      <div class="widget-spec__desc">Canvas 기반 캔들 차트. AI 신호 오버레이 드래그 지원. KLineChart 10.x 어댑터 인터페이스 준수.</div>
+      <div class="widget-spec__preview">
+        <span class="widget-spec__preview-dim">12–17 × 8–14</span>
+        <div class="widget-spec__preview-inner" style="width: 220px; height: 100px;">Chart</div>
+      </div>
+      <div class="widget-spec__props">
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">size</span><span class="widget-spec__prop-v">default 12×11 · min 8×6</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">resize</span><span class="widget-spec__prop-v">e · s · se · sw · w · n · ne · nw</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">inputs</span><span class="widget-spec__prop-v">candles: Candle[] · overlays: Overlay[] · timeframe · symbol · lastPrice</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">events</span><span class="widget-spec__prop-v">onOverlayChange · onTimeframe · onSymbol · onTool</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">states</span><span class="widget-spec__prop-v">loading · error · empty (no data) · stale · replay</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">responsive</span><span class="widget-spec__prop-v">tablet: full width · mobile: dedicated screen</span></div>
+      </div>
+    </div>
+
+    <div class="widget-spec">
+      <div class="widget-spec__title">
+        <span style="width: 8px; height: 8px; background: var(--color-ai); border-radius: 2px;"></span>
+        AI Copilot <span style="color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: 12px; font-weight: 400;">type: 'aiCopilot'</span>
+      </div>
+      <div class="widget-spec__desc">Hybrid persona 대화 UI. Draft/Approved 신호 관리. 사용자 오버레이 편집을 대화창에 반영.</div>
+      <div class="widget-spec__preview">
+        <span class="widget-spec__preview-dim">6–24 × 10–24</span>
+        <div class="widget-spec__preview-inner" style="width: 150px; height: 130px; border-color: var(--color-ai);">AI Copilot</div>
+      </div>
+      <div class="widget-spec__props">
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">size</span><span class="widget-spec__prop-v">default 9×16 · min 5×10</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">docks</span><span class="widget-spec__prop-v">right · left · bottom · floating · fullscreen</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">inputs</span><span class="widget-spec__prop-v">context · isBeginner · overlays · currentSignal</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">outputs</span><span class="widget-spec__prop-v">addOverlay · updateOverlay · proposeSignal · approveSignal · createOrderDraft</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">states</span><span class="widget-spec__prop-v">idle · thinking · streaming · signal-proposed · error</span></div>
+      </div>
+    </div>
+
+    <div class="widget-spec">
+      <div class="widget-spec__title">
+        <span style="width: 8px; height: 8px; background: var(--color-text-primary); border-radius: 2px;"></span>
+        Order Book <span style="color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: 12px; font-weight: 400;">type: 'orderBook'</span>
+      </div>
+      <div class="widget-spec__desc">Ask/Bid 그리드. Depth 배경 막대. Precision 선택. Amount/Cumulative 토글. 클릭 시 주문 가격 자동 입력.</div>
+      <div class="widget-spec__preview">
+        <span class="widget-spec__preview-dim">3–5 × 6–16</span>
+        <div class="widget-spec__preview-inner" style="width: 130px; height: 130px;">Order Book</div>
+      </div>
+      <div class="widget-spec__props">
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">size</span><span class="widget-spec__prop-v">default 4×11 · min 3×6</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">inputs</span><span class="widget-spec__prop-v">book: {asks, bids, spread} · lastPrice · precision</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">events</span><span class="widget-spec__prop-v">onClickPrice(price) · onPrecisionChange · onDisplayMode</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">modes</span><span class="widget-spec__prop-v">both · buy-only · sell-only</span></div>
+      </div>
+    </div>
+
+    <div class="widget-spec">
+      <div class="widget-spec__title">
+        <span style="width: 8px; height: 8px; background: var(--color-trade-long); border-radius: 2px;"></span>
+        Order Entry <span style="color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: 12px; font-weight: 400;">type: 'orderEntry'</span>
+      </div>
+      <div class="widget-spec__desc">Limit/Market/Trigger + Advanced. Draft에서 prefill. 잔고·슬리피지·청산가·수수료 즉시 계산. 위험 시 경고.</div>
+      <div class="widget-spec__preview">
+        <span class="widget-spec__preview-dim">3–6 × 8–16</span>
+        <div class="widget-spec__preview-inner" style="width: 130px; height: 150px;">Order Entry</div>
+      </div>
+      <div class="widget-spec__props">
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">size</span><span class="widget-spec__prop-v">default 4×11 · min 3×8</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">inputs</span><span class="widget-spec__prop-v">lastPrice · assets · marginMode · leverage · prefill*</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">events</span><span class="widget-spec__prop-v">onPlaceOrder(draft) → triggers Order Preview modal</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">validation</span><span class="widget-spec__prop-v">balance · min order · price deviation · leverage · slippage</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">tips</span><span class="widget-spec__prop-v">Beginner: 개념 설명 툴팁 · Pro: TIF/Advanced 즉시 노출</span></div>
+      </div>
+    </div>
+
+    <div class="widget-spec">
+      <div class="widget-spec__title">
+        <span style="width: 8px; height: 8px; background: var(--color-brand); border-radius: 2px;"></span>
+        Positions · Open Orders · History <span style="color: var(--color-text-tertiary); font-family: var(--font-mono); font-size: 12px; font-weight: 400;">type: 'positions'</span>
+      </div>
+      <div class="widget-spec__desc">가상화 지원 데이터 테이블. 컬럼 표시/숨김·정렬·필터·검색·행 고정. AI Signals 탭 통합.</div>
+      <div class="widget-spec__preview">
+        <span class="widget-spec__preview-dim">8–24 × 3–8</span>
+        <div class="widget-spec__preview-inner" style="width: 250px; height: 80px;">Positions Table</div>
+      </div>
+      <div class="widget-spec__props">
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">size</span><span class="widget-spec__prop-v">default 12×5 · min 8×3</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">tabs</span><span class="widget-spec__prop-v">positions · orders · history · trades · tx · signals</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">columns</span><span class="widget-spec__prop-v">사용자 커스터마이즈 · localStorage 지속</span></div>
+        <div class="widget-spec__prop"><span class="widget-spec__prop-k">bulk</span><span class="widget-spec__prop-v">전체 취소 · 전체 종료 (별도 확인 다이얼로그)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. LAYOUT JSON SCHEMA -->
+<section class="ds-section" id="layout-schema">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">09 / LAYOUT JSON</div>
+      <h2 class="ds-section__title">Layout Schema · GridStack 호환</h2>
+    </div>
+    <p class="ds-section__desc">
+      12/24열 그리드 기반. 사용자·워크스페이스·기기·브레이크포인트별로 저장. 서버 동기화 가능한 JSON 구조.
+    </p>
+  </div>
+
+  <pre class="json-block">{
+  <span class="k">"layoutId"</span>: <span class="s">"ai-workspace"</span>,
+  <span class="k">"name"</span>: <span class="s">"AI Workspace"</span>,
+  <span class="k">"userId"</span>: <span class="s">"u_a3f72b"</span>,
+  <span class="k">"cols"</span>: <span class="n">24</span>,
+  <span class="k">"breakpoint"</span>: <span class="s">"desktop-xl"</span>,   <span class="c">// desktop-xl · desktop · tablet · mobile</span>
+  <span class="k">"createdAt"</span>: <span class="s">"2026-07-28T09:12:34Z"</span>,
+  <span class="k">"updatedAt"</span>: <span class="s">"2026-07-28T14:22:18Z"</span>,
+  <span class="k">"widgets"</span>: [
+    {
+      <span class="k">"id"</span>: <span class="s">"main-chart"</span>,
+      <span class="k">"type"</span>: <span class="s">"chart"</span>,
+      <span class="k">"x"</span>: <span class="n">3</span>, <span class="k">"y"</span>: <span class="n">0</span>,
+      <span class="k">"w"</span>: <span class="n">12</span>, <span class="k">"h"</span>: <span class="n">11</span>,
+      <span class="k">"minW"</span>: <span class="n">8</span>, <span class="k">"minH"</span>: <span class="n">6</span>,
+      <span class="k">"maxW"</span>: <span class="n">24</span>, <span class="k">"maxH"</span>: <span class="n">24</span>,
+      <span class="k">"locked"</span>: <span class="n">false</span>,
+      <span class="k">"hidden"</span>: <span class="n">false</span>,
+      <span class="k">"collapsed"</span>: <span class="n">false</span>,
+      <span class="k">"widgetSettings"</span>: {
+        <span class="k">"symbol"</span>: <span class="s">"BTCUSDT"</span>,
+        <span class="k">"timeframe"</span>: <span class="s">"15m"</span>,
+        <span class="k">"chartType"</span>: <span class="s">"candles"</span>,
+        <span class="k">"indicators"</span>: [<span class="s">"MA20"</span>, <span class="s">"MA60"</span>, <span class="s">"MA120"</span>],
+        <span class="k">"showVolume"</span>: <span class="n">true</span>,
+        <span class="k">"overlayLayers"</span>: {
+          <span class="k">"aiDraft"</span>: <span class="n">true</span>,
+          <span class="k">"aiApproved"</span>: <span class="n">true</span>,
+          <span class="k">"userDrawings"</span>: <span class="n">true</span>,
+          <span class="k">"orders"</span>: <span class="n">true</span>,
+          <span class="k">"positions"</span>: <span class="n">true</span>
+        }
+      }
+    },
+    {
+      <span class="k">"id"</span>: <span class="s">"ai-copilot"</span>,
+      <span class="k">"type"</span>: <span class="s">"aiCopilot"</span>,
+      <span class="k">"x"</span>: <span class="n">15</span>, <span class="k">"y"</span>: <span class="n">0</span>,
+      <span class="k">"w"</span>: <span class="n">9</span>,  <span class="k">"h"</span>: <span class="n">16</span>,
+      <span class="k">"minW"</span>: <span class="n">5</span>, <span class="k">"minH"</span>: <span class="n">10</span>,
+      <span class="k">"widgetSettings"</span>: {
+        <span class="k">"persona"</span>: <span class="s">"hybrid"</span>,       <span class="c">// analyst · mentor · quant · hybrid</span>
+        <span class="k">"beginnerMode"</span>: <span class="n">false</span>,
+        <span class="k">"autoSignals"</span>: <span class="n">false</span>,
+        <span class="k">"quickCommands"</span>: [<span class="s">"trendline"</span>, <span class="s">"signal"</span>, <span class="s">"sr"</span>, <span class="s">"fib"</span>, <span class="s">"rr"</span>]
+      }
+    }
+  ]
+}</pre>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 40px 0 12px;">Signal Object · KLineChart 호환</h3>
+  <pre class="json-block">{
+  <span class="k">"id"</span>: <span class="s">"sig-btc-01"</span>,
+  <span class="k">"symbol"</span>: <span class="s">"BTCUSDT"</span>,
+  <span class="k">"timeframe"</span>: <span class="s">"15m"</span>,
+  <span class="k">"direction"</span>: <span class="s">"long"</span>,
+  <span class="k">"entryZone"</span>: [<span class="n">68120</span>, <span class="n">68360</span>],
+  <span class="k">"stopLoss"</span>: <span class="n">67480</span>,
+  <span class="k">"takeProfits"</span>: [<span class="n">68980</span>, <span class="n">69640</span>, <span class="n">70420</span>],
+  <span class="k">"riskReward"</span>: <span class="n">2.8</span>,
+  <span class="k">"confidence"</span>: <span class="n">74</span>,
+  <span class="k">"timeHorizon"</span>: <span class="s">"4~12h"</span>,
+  <span class="k">"invalidation"</span>: <span class="s">"15m close &lt; 67480"</span>,
+  <span class="k">"reason"</span>: <span class="s">"MTF alignment + bid absorption at 68,150"</span>,
+  <span class="k">"status"</span>: <span class="s">"draft"</span>,                <span class="c">// draft · approved · expired · rejected</span>
+  <span class="k">"source"</span>: <span class="s">"ai"</span>,                     <span class="c">// ai · user · strategy · alert</span>
+  <span class="k">"createdAt"</span>: <span class="n">1722165154000</span>,
+  <span class="k">"expiresAt"</span>: <span class="n">1722208354000</span>,
+  <span class="k">"generatedBy"</span>: <span class="s">"QuantumTrade Analyst v1"</span>,
+  <span class="k">"disclaimer"</span>: <span class="s">"Analysis tool — not investment advice"</span>
+}</pre>
+</section>
+
+<!-- 10. HANDOFF -->
+<section class="ds-section" id="handoff">
+  <div class="ds-section__head">
+    <div>
+      <div class="ds-section__num">10 / DEVELOPER HANDOFF</div>
+      <h2 class="ds-section__title">개발 이관 노트</h2>
+    </div>
+    <p class="ds-section__desc">
+      Chart Domain Model · Overlay Adapter · Layout Engine · State Store 4개 축으로 분리. 어떤 실제 기술 스택에도 이식 가능.
+    </p>
+  </div>
+
+  <div class="ds-grid ds-grid--2">
+    <div class="ds-card">
+      <div class="ds-card__title">Chart Adapter</div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 12px;">
+        프로토타입에서는 Canvas로 자체 구현했지만, 실제 개발 시 <strong style="color: var(--color-text-primary);">KLineChart 10.x</strong>로 교체 가능. Domain Model이 이미 KLineChart의 <code style="color: var(--color-brand); font-family: var(--font-mono);">Overlay API</code>와 호환됩니다.
+      </p>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>Candle 데이터 형식 동일 (time · open · high · low · close · volume)</li>
+        <li>Overlay 타입: trend-line · horizontal · entry-zone · signal-marker · fib</li>
+        <li>KLineChart의 <code style="color: var(--color-brand);">registerOverlay()</code>에 커스텀 도형 등록 가능</li>
+      </ul>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Layout Engine</div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 12px;">
+        프로토타입에서는 자체 구현. 실제 개발 시 <strong style="color: var(--color-text-primary);">GridStack.js (MIT)</strong>로 교체 가능. Widget metadata 스키마가 이미 GridStack 호환.
+      </p>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>x · y · w · h · minW · minH · maxW · maxH 필드명 동일</li>
+        <li>Undo/Redo · Save/Save As · Reset 히스토리 스택 30개</li>
+        <li>Breakpoint별 별도 레이아웃 저장 지원</li>
+      </ul>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">State Management</div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 12px;">
+        위젯끼리는 Prop drilling 없이 하나의 Store에서 상태 공유. React Context + useReducer 또는 Zustand/Jotai 권장. Redux는 오버킬.
+      </p>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>Slice: market · orderBook · trades · positions · orders · assets · overlays · signals · layout · tweaks</li>
+        <li>WebSocket 이벤트는 개별 slice로 dispatch</li>
+        <li>Optimistic UI: 주문 제출 즉시 상태 반영, 서버 응답 시 rollback 가능</li>
+      </ul>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card__title">Backend Contract</div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin: 0 0 12px;">
+        거래소 API를 UI 컴포넌트에 직접 의존시키지 않습니다. Exchange Adapter Interface를 두어 여러 거래소 병렬 연동.
+      </p>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>Exchange Adapter: Binance · Bitget · BitMart · OKX · Bybit 각각 구현</li>
+        <li>Unified WebSocket schema로 UI는 하나의 스트림만 소비</li>
+        <li>주문 전송은 별도 <code style="color: var(--color-brand);">/orders/place</code> · <code style="color: var(--color-brand);">/orders/preview</code> 엔드포인트</li>
+        <li>AI 서비스는 서버측 게이트웨이 경유 (LLM 프롬프트/도구 실행 격리)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 40px 0 12px;">Responsive Breakpoints</h3>
+  <table class="token-table">
+    <thead><tr><th>Breakpoint</th><th>Width</th><th>Cols</th><th>Layout Strategy</th></tr></thead>
+    <tbody>
+      <tr><td>desktop-4xl</td><td>≥ 1920px</td><td>24</td><td>Multi-Chart / Multi-Panel 완전 자유 배치</td></tr>
+      <tr><td>desktop-xl</td><td>1440–1919</td><td>24</td><td>Standard 프리셋 최적화</td></tr>
+      <tr><td>desktop</td><td>1280–1439</td><td>24</td><td>사이드바 축소, 밀도 자동 compact</td></tr>
+      <tr><td>tablet-landscape</td><td>1024–1279</td><td>12</td><td>2열 프리셋 · AI는 Drawer</td></tr>
+      <tr><td>tablet-portrait</td><td>768–1023</td><td>8</td><td>1열 카드 스택 · 프리셋 강제 선택</td></tr>
+      <tr><td>mobile</td><td>&lt; 768</td><td>4</td><td>Bottom nav 5개 · 차트/주문/AI 개별 화면</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-family: var(--font-en); font-size: 14px; color: var(--color-text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin: 40px 0 12px;">Non-negotiables</h3>
+  <div class="ds-grid ds-grid--3">
+    <div class="ds-card" style="border-left: 2px solid var(--color-warning);">
+      <div class="ds-card__title" style="color: var(--color-warning);">Order Safety</div>
+      <ul style="margin: 8px 0 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>AI 대화 한마디로 주문 실행 금지</li>
+        <li>Order Preview → Risk Check → Final Confirm 최소 3단계</li>
+        <li>가격 이탈 · 잔고 부족 · 고레버리지 즉시 경고</li>
+      </ul>
+    </div>
+    <div class="ds-card" style="border-left: 2px solid var(--color-brand);">
+      <div class="ds-card__title" style="color: var(--color-brand);">Data Legibility</div>
+      <ul style="margin: 8px 0 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>모든 숫자에 tabular-nums 강제</li>
+        <li>실시간 갱신 시 레이아웃 흔들림 금지</li>
+        <li>과도한 애니메이션·flash 금지 · 짧고 절제된 피드백만</li>
+      </ul>
+    </div>
+    <div class="ds-card" style="border-left: 2px solid var(--color-ai);">
+      <div class="ds-card__title" style="color: var(--color-ai);">Accessibility</div>
+      <ul style="margin: 8px 0 0; padding-left: 16px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.7;">
+        <li>Long/Short은 색상 + 아이콘 + 텍스트 병기</li>
+        <li>키보드로 주요 기능 접근 · Focus ring 명확</li>
+        <li>prefers-reduced-motion 완전 지원</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  QuantumTrade AI · Design System v1.0 · Institutional Cool · Built with IBM Plex Sans/Mono + Pretendard Variable<br/>
+  <a href="index.html">← Open Trading App</a> · This is a prototype. All trading data is simulated.
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,455 @@
+/* ============================================================
+   English (en) — 기준 언어
+   ------------------------------------------------------------
+   해외 우선 출시이므로 이 파일이 기준이며 폴백 언어다.
+   새 키를 추가할 때는 반드시 여기에 먼저 넣는다. 다른 언어에서 키가 빠지면
+   자동으로 이 값으로 폴백한다.
+
+   새 언어 추가 방법
+   ------------------------------------------------------------
+   1) 이 파일을 복사해 src/locales/<code>.js 로 만든다
+   2) register('<code>', {...}, { label:'표시명', bcp47:'ko-KR' }) 로 바꾼다
+   3) index.html 의 locales 스크립트 목록에 한 줄 추가한다
+   코드 수정은 없다. 지원 언어 목록·언어 선택 UI는 레지스트리에서 자동 산출된다.
+   ============================================================ */
+
+(function () {
+  'use strict';
+  if (!window.QTI18n) return;
+
+  window.QTI18n.register(
+    'en',
+    {
+      // --- 공통 ---
+      dash: '—',
+      close: 'Close',
+      cancel: 'Cancel',
+      save: 'Save',
+      clear: 'Clear',
+      search: 'Search',
+      none: 'None',
+      loading: 'Loading…',
+      no_match: 'No match',
+      retry: 'Retry',
+
+      // --- 차트: 지표 패널 ---
+      indicators: 'Indicators',
+      indicators_search_placeholder: 'Search indicators…',
+      indicators_none_active: 'None active',
+      indicators_group_trend: 'Trend',
+      indicators_group_momentum: 'Momentum',
+      indicators_group_volatility: 'Volatility',
+      indicators_group_volume: 'Volume',
+      indicators_group_other: 'Other',
+      indicators_placement_overlay: 'overlay',
+      indicators_placement_pane: 'pane',
+      indicators_unavailable: 'Indicators require the KLineChart renderer',
+
+      // --- 차트: 지표 설명 ---
+      ind_MA: 'Moving Average',
+      ind_EMA: 'Exponential Moving Average',
+      ind_SMA: 'Smoothed Moving Average',
+      ind_BOLL: 'Bollinger Bands',
+      ind_BBI: 'Bull & Bear Index',
+      ind_SAR: 'Parabolic SAR',
+      ind_AVP: 'Average Price',
+      ind_VOL: 'Volume',
+      ind_MACD: 'MACD',
+      ind_RSI: 'Relative Strength Index',
+      ind_KDJ: 'Stochastic KDJ',
+      ind_OBV: 'On Balance Volume',
+      ind_CCI: 'Commodity Channel Index',
+      ind_DMI: 'Directional Movement Index',
+      ind_WR: 'Williams %R',
+      ind_BIAS: 'Bias Ratio',
+      ind_BRAR: 'BR & AR',
+      ind_CR: 'CR Energy',
+      ind_DMA: 'Difference of Moving Average',
+      ind_TRIX: 'Triple Exponential Average',
+      ind_VR: 'Volume Ratio',
+      ind_EMV: 'Ease of Movement',
+      ind_ROC: 'Rate of Change',
+      ind_MTM: 'Momentum',
+      ind_PVT: 'Price Volume Trend',
+      ind_AO: 'Awesome Oscillator',
+      ind_PSY: 'Psychological Line',
+
+      // --- 차트: KLineChart 내부 라벨 (툴팁/축) ---
+      chart_time: 'Time',
+      chart_open: 'Open',
+      chart_high: 'High',
+      chart_low: 'Low',
+      chart_close: 'Close',
+      chart_volume: 'Volume',
+      chart_change: 'Change',
+      chart_turnover: 'Turnover',
+      chart_second: 'second',
+      chart_minute: 'minute',
+      chart_hour: 'hour',
+      chart_day: 'day',
+      chart_week: 'week',
+      chart_month: 'month',
+      chart_year: 'year',
+
+      // --- 차트: 툴바 / 드로잉 액션 ---
+      chart_compare: 'Compare',
+      chart_templates: 'Templates',
+      chart_ai_analyze: 'AI Analyze',
+      chart_replay: 'Replay',
+      chart_screenshot: 'Screenshot',
+      chart_fullscreen: 'Fullscreen',
+      chart_settings: 'Settings',
+      chart_scroll_latest: 'Go to latest',
+      tool_cursor: 'Cursor',
+      tool_trend_line: 'Trend Line',
+      tool_horizontal: 'Horizontal Line',
+      tool_fib: 'Fibonacci',
+      tool_long: 'Long Position',
+      tool_short: 'Short Position',
+      tool_measure: 'Measure',
+      tool_text: 'Text',
+      tool_magnet: 'Magnet',
+      tool_lock: 'Lock drawings',
+      tool_hide: 'Hide drawings',
+      tool_remove_all: 'Remove all drawings',
+      draw_tool_unavailable: 'This drawing tool is not available in the current renderer',
+      drawings_removed: 'Drawings removed',
+      drawings_none: 'No drawings to remove',
+      drawings_locked: 'Drawings locked',
+      drawings_unlocked: 'Drawings unlocked',
+      drawings_shown: 'Drawings shown',
+      drawings_hidden: 'Drawings hidden',
+      magnet_normal: 'Magnet off',
+      magnet_weak_magnet: 'Magnet: weak',
+      magnet_strong_magnet: 'Magnet: strong',
+      screenshot_saved: 'Screenshot saved',
+      screenshot_failed: 'Screenshot failed',
+      fullscreen_failed: 'Fullscreen not available',
+
+      feature_pending: 'Coming soon — data wiring in progress',
+      ai_open_copilot: 'Open the AI Copilot widget to run analysis',
+
+      // --- 차트: 설정 / 템플릿 ---
+      settings_candle_type: 'Candle style',
+      settings_display: 'Display',
+      settings_show_ma: 'Moving averages',
+      settings_show_grid: 'Grid',
+      settings_last_price: 'Last price line',
+      candle_type_candle_solid: 'Candles (filled)',
+      candle_type_candle_stroke: 'Candles (hollow)',
+      candle_type_candle_up_stroke: 'Candles (hollow up)',
+      candle_type_candle_down_stroke: 'Candles (hollow down)',
+      candle_type_ohlc: 'OHLC bars',
+      candle_type_area: 'Area',
+      template_name_placeholder: 'Template name…',
+      template_untitled: 'Untitled',
+      template_none: 'No saved templates',
+      template_apply: 'Apply',
+      template_delete: 'Delete',
+      template_saved: 'Saved "{name}"',
+      template_applied: 'Applied "{name}"',
+      template_apply_failed: 'Could not apply template',
+      template_count: '{n} saved',
+
+      // --- 인증: 문장 조립 (어순이 다른 언어를 위해 분리) ---
+      login_2fa_hint_pre: 'Enter the ',
+      login_2fa_hint_em: '6-digit code',
+      login_2fa_hint_post: ' from your authenticator app.',
+      login_2fa_apps: 'Google Authenticator · Authy · 1Password and others',
+      verify_hint_pre: 'Enter the ',
+      verify_hint_em: '6-digit code',
+      verify_hint_post: ' we sent you.',
+      kyc_aml_pre: 'This information is required for ',
+      kyc_aml_em: 'AML/CTF compliance',
+      kyc_aml_post: ' and is stored encrypted.',
+
+      // --- 사용자 화면: 문장 조립 (어순이 다른 언어를 위해 분리) ---
+      sec_tip_label: 'Security tip:',
+      sec_tip_a: ' Grant your API key ',
+      sec_tip_perm_allow: 'Read + Trade',
+      sec_tip_b: ' permissions only. Never allow ',
+      sec_tip_perm_deny: 'Withdraw',
+      sec_tip_c: '. Setting an IP allowlist is strongly recommended.',
+      a11y_a: 'QuantumTrade AI targets ',
+      a11y_standard: 'WCAG 2.2 AA',
+      a11y_b: ' accessibility. Your system preference (',
+      a11y_c: ') is applied automatically.',
+      del_warn_a: 'Withdraw ',
+      del_warn_em: 'all assets',
+      del_warn_b: ' before deleting your account. Assets cannot be recovered afterwards.',
+
+      // --- 거래소 연결 마법사 / 입출금 / 추천 (어순 분리) ---
+      copy: 'Copy',
+      copied: 'Copied!',
+      wiz_signup_a: 'If you already have an account, continue to the next step. Otherwise sign up through the ',
+      wiz_signup_link: 'referral link',
+      wiz_signup_b: ' below to receive ',
+      wiz_signup_c: '.',
+      wiz_have_a: 'If you already have a ',
+      wiz_have_b: ' account you can continue as-is. Referral rewards apply to new sign-ups only.',
+      wiz_apikey_a: 'Create an API key in your {exchange} account. Grant ',
+      wiz_apikey_allow: 'Read + Trade',
+      wiz_apikey_b: ' permissions only and ',
+      wiz_apikey_deny: 'keep Withdraw disabled',
+      wiz_apikey_c: '.',
+      dep_net_a: '⚠ Deposit only on the ',
+      dep_net_b: ' network. Sending on another network risks permanent loss of funds.',
+      wd_2fa_a: 'Withdrawals enter the review queue after ',
+      wd_2fa_em: '2FA verification',
+      wd_2fa_b: '. Large amounts may require operator approval.',
+      ref_pay_a: 'When a friend trades, ',
+      ref_pay_em: '30% of their fees',
+      ref_pay_b: ' is paid to you automatically',
+      ref_bonus_a: 'Your friend also gets a ',
+      ref_bonus_em: '$50 sign-up credit',
+      ref_bonus_b: '',
+      ref_tier_a: 'When a friend upgrades to ',
+      ref_tier_em: 'Pro or VIP',
+      ref_tier_b: ', your commission rate increases automatically.',
+
+      // --- 마법사 / 입출금 / 전략 / 수수료 (변수 보간) ---
+      wiz_title: 'Connect {exchange}',
+      wiz_step1_q: '1️⃣ Do you have a {exchange} account?',
+      wiz_api_docs: 'Open {exchange} API docs →',
+      wiz_done: '{exchange} connected 🎉',
+      wiz_done_desc: 'You can now manage trades executed on your {exchange} account from QuantumTrade.',
+      dep_confirm_count: '{n} confirmations',
+      wd_address_placeholder: 'Enter {network} address',
+      strat_desc_1: '{name} is an AI-driven trend-following strategy that operates on the {tag} timeframe.',
+      strat_desc_2: 'The QuantumTrade Analyst v1 model combines multiple indicators (MA20/60/120, RSI, VOL) to generate entry, stop-loss and take-profit signals.',
+      fee_next_tier: 'Next tier · to {tier}',
+
+      // --- 관리자: 이상거래 플래그 (어순 분리) ---
+      flag_auto_detected: ' · auto-detected · ',
+      flag_investigate: 'investigate',
+
+      // --- 관리자 (변수 보간) ---
+      admin_user_tab_data: 'Showing {tab} data for this user',
+      admin_kyc_sla: '{pending} pending · SLA 24h',
+      admin_bc_recipients: 'recipients · {n} channels',
+      admin_users_subtitle: '{n} total users · KYC · permissions · suspension · audit',
+
+      // --- 사이드바 내비게이션 (라벨을 코드에 두지 않는다) ---
+      nav_trade: "Trade",
+      nav_ai_workspace: "AI Workspace",
+      nav_multi_chart: "Multi-Chart",
+      nav_markets: "Markets",
+      nav_ai_strategies: "AI Strategies",
+      nav_analytics: "Analytics",
+      nav_portfolio: "Portfolio",
+      nav_wallet: "Wallet",
+      nav_order_history: "Order History",
+      nav_notifications: "Notifications",
+      nav_referral: "Referral",
+      nav_fees_rebates: "Fees & Rebates",
+      nav_settings: "Settings",
+      nav_help: "Help",
+      nav_admin_home: "Admin Home",
+      nav_users: "Users",
+      nav_kyc_queue: "KYC Queue",
+      nav_trade_monitor: "Trade Monitor",
+      nav_risk_queue: "Risk Queue",
+      nav_deposits: "Deposits",
+      nav_withdrawals: "Withdrawals",
+      nav_assets_vault: "Assets / Vault",
+      nav_ai_ops: "AI Ops",
+      nav_fees_promo: "Fees & Promo",
+      nav_notices_cs: "Notices & CS",
+      nav_broadcast: "Broadcast",
+      nav_system_health: "System Health",
+      nav_audit_log: "Audit Log",
+      nav_design_ops: "Design Ops",
+      nav_section_trading: "Trading",
+      nav_section_market: "Markets",
+      nav_section_account: "Account",
+      nav_section_admin: "Admin",
+
+      // --- 주문 입력 검증 / 위젯 ---
+      oe_err_no_size: 'Enter an order size.',
+      oe_err_min_notional: 'Minimum order value is 5 USDT',
+      oe_err_insufficient: 'Insufficient balance: {amount} USDT short',
+      oe_err_price_dev: '{pct}% away from the last price',
+      oe_err_high_leverage: 'High leverage warning: {lev}× carries significant liquidation risk',
+      oe_more_types: 'More order types',
+      oe_limit_help_a: 'A ',
+      oe_limit_help_em: 'limit order',
+      oe_limit_help_b: ' fills when the price reaches your level. You choose the price, but it may not fill immediately.',
+      funding_countdown_tip: 'Time until next settlement',
+      close_all: 'Close all',
+      symbol_only: 'This symbol only',
+
+      // --- AI Copilot 의도 인식 키워드 (쉼표 구분) ---
+      // 모든 등록 언어의 키워드를 함께 검사하므로, 언어를 추가하면
+      // 그 언어 명령어가 자동으로 인식된다.
+      intent_kw_trendline: 'trendline, trend line, draw trend',
+      intent_kw_signal: 'entry, stop loss, stoploss, take profit, scenario, signal, proposal, r:r, rr, risk reward, risk-reward, buy signal, sell signal',
+      intent_kw_sr: 'support, resistance, s/r',
+      intent_kw_hide: 'hide, clear all',
+
+      // --- 토스트 / 확인 대화 ---
+      toast_price_filled: 'Price filled: {price}',
+      toast_price_filled_desc: 'The price was copied into the order entry panel.',
+      toast_signal_approved: 'Signal approved',
+      toast_signal_approved_desc: 'The AI signal was approved. The draft becomes a solid line.',
+      toast_signal_rejected: 'Signal rejected',
+      toast_signal_rejected_desc: 'The AI signal was discarded.',
+      toast_draft_created: 'Order draft created',
+      toast_draft_created_desc: 'Values were copied into the order entry panel.',
+      toast_order_invalid: 'Order validation failed',
+      toast_order_invalid_desc: 'Please check your inputs.',
+      toast_order_accepted: 'Order accepted · {side}',
+      toast_order_accepted_desc: '{size} {base} @ {price} (simulation)',
+      toast_layout_saved: '"{name}" saved',
+      toast_layout_saved_desc: 'Added to your custom layouts.',
+      confirm_unsaved_leave: 'You have unsaved changes. Leave anyway?',
+      prompt_layout_name: 'Enter a layout name:',
+      prompt_layout_default: 'My Layout',
+      notfound_path: 'Path · {path}',
+      side_long: 'LONG',
+      side_short: 'SHORT',
+      side_long_arrow: '▲ LONG',
+      side_short_arrow: '▼ SHORT',
+
+      // --- 리스크 체크 (주문 제출 전 9-gate) ---
+      risk_sl_direction: 'Stop-loss direction',
+      risk_sl_ok: 'Opposite side of entry (valid)',
+      risk_sl_fail: '⚠ Must be on the opposite side of entry',
+      risk_tp_direction: 'Take-profit direction',
+      risk_tp_ok: 'Same side as entry (valid)',
+      risk_tp_fail: '⚠ Must be on the same side as entry',
+      risk_leverage: 'Leverage',
+      risk_lev_high: '{lev}× · high liquidation risk',
+      risk_lev_normal: '{lev}× · standard range',
+      risk_liq_distance: 'Distance to liquidation',
+      risk_liq_danger: '⚠ Very risky',
+      risk_liq_warn: 'Caution',
+      risk_liq_safe: 'Safe range',
+      risk_price_dev: 'Deviation from last price',
+      risk_dev_far: '⚠ More than 3% away from the market price',
+      risk_dev_near: 'Near the market price',
+      risk_data_state: 'Data status',
+      risk_ai_conf_detail: '74% · standard confidence',
+
+      // --- 주문 미리보기 모달 ---
+      op_title: 'Order preview',
+      op_sim_notice: 'This is a simulation — no real funds are used. Prototype demo.',
+      op_ai_warn_label: 'AI-signal based order:',
+      op_ai_warn_body:
+        'This order comes from a draft generated by AI analysis and approved by you. '
+        + 'Losses can occur depending on market conditions, and the AI does not provide investment advice. '
+        + 'This screen is a simulation and no real funds move.',
+      op_risk_checking: 'Running risk checks… (margin, liquidation, position size)',
+      op_submitting: 'Submitting order…',
+      op_submitting_short: 'Submitting…',
+      op_accepted: 'Order accepted (simulation)',
+      op_final_confirm: 'Final confirm · place order',
+
+      // --- 레이아웃 프리셋 설명 ---
+      preset_desc_standard: 'Balanced default layout',
+      preset_desc_ai: 'AI analysis focused',
+      preset_desc_chart: 'Chart maximised',
+      preset_desc_scalper: 'Order book and entry focused',
+      preset_desc_multi: 'Multi-chart',
+      preset_desc_beginner: 'For beginners',
+      preset_desc_risk: 'Risk monitor',
+
+      // --- 샘플 AI 신호 (백엔드 연결 시 실데이터로 대체된다) ---
+      signal_invalidation_sample: '15m close below 67,480',
+      signal_reason_sample:
+        'The 4-hour ascending trendline remains valid; on a re-confirmation of 68,200 support, '
+        + 'another attempt at 68,900 resistance is more likely. No RSI divergence, '
+        + 'and a bid wall is observed at 68,150 in the order book.',
+
+      // --- 거래소 리베이트 안내 (숫자는 데이터, 문장은 사전) ---
+      rebate_fee_pct: '{pct}% fee rebate',
+      rebate_bonus_usd: '${usd} bonus',
+      rebate_credit_usd: '${usd} fee credit',
+      rebate_pending: 'Referral programme coming soon',
+      rebate_join: ' + ',
+      asset_other: 'Other',
+
+      market_not_listed: 'Not listed on the exchange',
+
+      role_switch_preview: 'Preview the app as a different tier (no backend connected)',
+      role_switch_disabled: 'Tier comes from your signed-in account ({role}). This preview switch is disabled.',
+      role_none: 'not signed in',
+
+      profile_sign_in: 'Sign in',
+      profile_signed_in_as: 'Signed in as {email} — click to sign out',
+
+      toast_order_rejected: 'Order rejected',
+      toast_order_status_desc: '{status} · {size} {base} @ {price}',
+
+      op_verifying: 'Verifying with server…',
+
+      cred_err_login_required: 'Sign in first to connect an exchange API key',
+
+      // --- 계정 데이터 상태 (실 잔고/포지션) ---
+      acct_live: 'Live',
+      acct_refresh: 'Refresh balances and positions',
+      acct_status_verified: 'Live exchange data',
+      acct_status_none: 'Demo data — connect an exchange API key',
+      acct_status_failed: 'Demo data — exchange rejected your API key',
+      acct_status_error: 'Demo data — could not reach the exchange',
+      acct_status_unauthenticated: 'Demo data — sign in to see your account',
+      acct_status_offline: 'Demo data',
+      acct_status_unverified: 'Demo data — verify your API key',
+
+      acct_not_available: 'Not provided by the exchange',
+
+      // --- 구현 상태 표시 (목업/실데이터 구분) ---
+      prov_status_live: 'LIVE',
+      prov_status_partial: 'PARTIAL',
+      prov_status_mock: 'MOCK',
+      prov_status_unknown: 'UNREGISTERED',
+      prov_hide: 'hide',
+      prov_show: 'show',
+      prov_toggle_hint: 'Show or hide the implementation-status overlay',
+
+      prov_note_auth_wired: 'Wired to the real auth API',
+      prov_note_market_live: 'Live KuCoin market data',
+      prov_note_chart_live: 'Live candles, order book and trades',
+      prov_note_conn_live: 'Real upstream connection state',
+      prov_note_role_from_server: 'Tier comes from the server session',
+      prov_note_trade_partial: 'Chart and order book are live; order execution is simulated',
+      prov_note_chart_live_only: 'Charts are live; layout controls are demo',
+      prov_note_needs_api_key: 'Live once an exchange API key is verified — demo data until then',
+      prov_note_settings_partial: 'Language, theme and layout work; the rest is demo',
+      prov_note_landing_static: 'Static marketing page',
+      prov_note_not_built: 'Not implemented yet — demo data only',
+      prov_note_ai_not_built: 'AI backend not connected — scripted responses',
+      prov_note_admin_not_built: 'Admin backend exists but this screen is not wired yet',
+      prov_note_kyc_not_built: 'KYC flow not implemented',
+      prov_note_referral_not_built: 'Referral link is a placeholder',
+      prov_note_unknown_route: 'Status not registered — treat as unverified',
+
+      prov_note_book_live: 'Live order book from KuCoin',
+      prov_note_trades_live: 'Live trades from KuCoin',
+      prov_note_order_sim: 'Server-validated, but execution is simulated (no real exchange order)',
+      prov_note_chart_tools_live: 'Timeframes, indicators and drawings work',
+      prov_note_cred_wired: 'Saves encrypted and verifies against the exchange',
+      prov_note_i18n_live: 'Language switching works',
+      prov_note_theme_live: 'Theme switching works',
+
+      // --- 인증 오류 ---
+      auth_err_invalid_credentials: 'Incorrect email or password',
+      auth_err_account_locked: 'Account temporarily locked. Try again later.',
+      auth_err_too_many_attempts: 'Too many attempts. Please wait and try again.',
+      auth_err_invalid_code: 'Invalid verification code',
+      auth_err_email_taken: 'That email is already registered',
+      auth_err_generic: 'Sign-in failed. Please try again.',
+
+      // --- 실시간 데이터 상태 ---
+      data_source_live: 'Live',
+      data_source_mock: 'Demo data',
+      conn_live: 'Connected',
+      conn_reconnecting: 'Reconnecting…',
+      conn_lost: 'Disconnected',
+      conn_offline: 'Offline preview',
+      symbol_unsupported: 'Not listed on this exchange: {symbol}',
+      timeframe_unsupported: 'Timeframe not supported: {timeframe}',
+      backend_absent: 'Backend not attached — running on demo data',
+    },
+    { label: 'English', bcp47: 'en-US' },
+  );
+})();

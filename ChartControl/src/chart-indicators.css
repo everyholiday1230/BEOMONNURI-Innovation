@@ -1,0 +1,149 @@
+/* ============================================================
+   Chart Indicators Panel — Indicators 버튼에 붙는 드롭다운
+   ------------------------------------------------------------
+   기존 버튼/마크업을 바꾸지 않는다. `.chart-tool` 버튼은 그대로 두고
+   그 아래에 패널만 띄운다. 스타일은 디자인 토큰만 사용한다.
+   ============================================================ */
+
+.chart-tool-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.chart-ind-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 320px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+
+.chart-ind-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.chart-ind-panel__head input {
+  flex: 1;
+  height: 26px;
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 3px;
+}
+.chart-ind-panel__head input::placeholder { color: var(--color-text-tertiary); }
+.chart-ind-panel__head input:focus {
+  outline: none;
+  border-color: var(--color-brand);
+}
+
+.chart-ind-panel__count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.chart-ind-panel__body {
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+
+.chart-ind-group {
+  padding: var(--sp-2) var(--sp-3) 2px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.chart-ind-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 5px var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--color-text-secondary);
+  text-align: left;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.chart-ind-row:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+.chart-ind-row.is-on {
+  color: var(--color-brand);
+}
+
+.chart-ind-row__check {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 2px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-text-inverse);
+}
+.chart-ind-row.is-on .chart-ind-row__check {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+.chart-ind-row__name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  min-width: 44px;
+}
+
+.chart-ind-row__desc {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-ind-row__pane {
+  margin-left: auto;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.chart-ind-panel__foot {
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.chart-ind-panel__empty {
+  padding: var(--sp-4);
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--color-text-tertiary);
+}

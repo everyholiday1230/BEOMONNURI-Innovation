@@ -1,0 +1,20 @@
+node_modules
+**/node_modules
+.git
+dist
+**/dist
+artifacts
+test-results
+**/results.json
+playwright-report
+*.zip
+*.log
+.data
+**/*.db
+.turbo
+
+# Terraform provider plugin cache (~700 MB) and state must never enter the build context.
+**/.terraform
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*

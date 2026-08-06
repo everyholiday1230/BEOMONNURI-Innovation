@@ -1,0 +1,1611 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>QuantumTrade AI — Developer Handoff</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+
+  <link rel="stylesheet" href="src/tokens.css"/>
+  <link rel="stylesheet" href="src/base.css"/>
+  <link rel="stylesheet" href="src/components.css"/>
+
+  <style>
+    :root { color-scheme: dark; }
+    body { overflow: auto; }
+
+    /* Handoff-specific layout */
+    .dh-shell { max-width: 1360px; margin: 0 auto; padding: 32px 40px 120px; }
+    .dh-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 24px; margin-bottom: 32px;
+      border-bottom: 1px solid var(--color-border-subtle);
+      position: sticky; top: 0; z-index: 10;
+      background: var(--color-bg-app);
+      backdrop-filter: blur(6px);
+      padding-top: 24px;
+      margin-top: -24px;
+    }
+    .dh-header__left { display: flex; align-items: center; gap: 14px; }
+    .dh-brand-mark {
+      width: 32px; height: 32px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--color-brand), var(--brand-accent-500));
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--color-text-inverse); font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+    }
+    .dh-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    .dh-title small { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); font-weight: 400; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 8px; }
+    .dh-header__right { display: inline-flex; gap: 8px; align-items: center; }
+    .dh-nav-link {
+      padding: 6px 12px; font-size: 12px; color: var(--color-text-secondary);
+      border-radius: 4px; border: 1px solid var(--color-border-subtle);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .dh-nav-link:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+    .dh-nav-link.is-active { background: var(--color-brand); color: var(--color-text-inverse); border-color: var(--color-brand); }
+
+    /* Table of contents */
+    .dh-toc {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 16px 20px;
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      margin-bottom: 40px;
+    }
+    .dh-toc__item {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .dh-toc__item:hover { background: var(--color-bg-hover); }
+    .dh-toc__num { font-family: var(--font-mono); color: var(--color-brand); font-size: 10px; font-weight: 600; }
+    .dh-toc__name { color: var(--color-text-primary); font-weight: 500; }
+
+    /* Section */
+    .dh-section { margin-bottom: 64px; scroll-margin-top: 100px; }
+    .dh-section__title {
+      display: flex; align-items: baseline; gap: 12px;
+      font-size: 22px; font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .dh-section__num {
+      font-family: var(--font-mono);
+      color: var(--color-brand);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+    }
+    .dh-section__desc { color: var(--color-text-secondary); font-size: 13px; max-width: 780px; margin-bottom: 24px; line-height: 1.6; }
+
+    /* Cards */
+    .dh-card {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+    .dh-card__title {
+      font-size: 13px; font-weight: 600; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dh-card__title small { font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); font-weight: 400; letter-spacing: 0.03em; }
+
+    /* Implementation-status legend */
+    .dh-impl {
+      padding: 2px 7px; border-radius: 3px;
+      font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 3px;
+      border: 1px solid transparent;
+    }
+    .dh-impl--proto     { background: oklch(72% 0.15 285 / 0.14); color: var(--color-ai); border-color: var(--color-ai); }
+    .dh-impl--visual    { background: oklch(56% 0.15 220 / 0.14); color: var(--color-brand); border-color: var(--color-brand); }
+    .dh-impl--spec      { background: oklch(48% 0.010 240 / 0.24); color: var(--color-text-secondary); border-color: var(--color-border-default); }
+    .dh-impl--mock      { background: oklch(80% 0.14 75 / 0.14); color: var(--color-warning); border-color: var(--color-warning); }
+    .dh-impl--future    { background: oklch(64% 0.20 25 / 0.10); color: var(--color-danger); border-color: var(--color-danger); }
+
+    /* Widget spec table */
+    .dh-tbl {
+      width: 100%; border-collapse: collapse; font-size: 11px;
+      font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    }
+    .dh-tbl th, .dh-tbl td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--color-border-subtle);
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+    .dh-tbl th {
+      background: var(--color-bg-panel);
+      color: var(--color-text-tertiary);
+      font-weight: 500;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      position: sticky; top: 72px;
+    }
+    .dh-tbl td { color: var(--color-text-primary); }
+    .dh-tbl td strong { color: var(--color-text-primary); font-weight: 600; }
+    .dh-tbl td .muted { color: var(--color-text-tertiary); }
+    .dh-tbl td .ok { color: var(--color-success); }
+    .dh-tbl td .no { color: var(--color-text-tertiary); }
+
+    /* Code block */
+    pre.dh-code {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-left: 3px solid var(--color-brand);
+      border-radius: 4px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-x: auto;
+      color: var(--color-text-primary);
+      margin: 0 0 12px;
+      white-space: pre;
+    }
+    pre.dh-code .k { color: var(--color-ai); }
+    pre.dh-code .s { color: var(--color-success); }
+    pre.dh-code .n { color: var(--color-warning); }
+    pre.dh-code .c { color: var(--color-text-tertiary); font-style: italic; }
+
+    /* Matrix grid */
+    .dh-matrix {
+      display: grid;
+      grid-template-columns: 160px repeat(9, 1fr);
+      gap: 1px;
+      background: var(--color-border-subtle);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 4px;
+      overflow: hidden;
+      font-size: 11px;
+    }
+    .dh-matrix > * {
+      background: var(--color-bg-panel);
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .dh-matrix > .hd {
+      background: var(--color-bg-elevated);
+      font-size: 9px;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      justify-content: center;
+    }
+    .dh-matrix > .row {
+      background: var(--color-bg-surface);
+      color: var(--color-text-primary);
+      font-weight: 500;
+      font-size: 11px;
+    }
+    .dh-matrix .chip {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+    }
+    .chip.ok  { background: var(--color-success); color: var(--color-bg-app); }
+    .chip.no  { background: var(--color-bg-elevated); color: var(--color-text-tertiary); }
+    .chip.opt { background: var(--color-warning); color: var(--color-bg-app); }
+
+    /* State chip */
+    .st-chip {
+      padding: 3px 8px; border-radius: 3px;
+      font-family: var(--font-mono); font-size: 10px;
+      display: inline-flex; align-items: center; gap: 5px;
+      border: 1px solid transparent;
+    }
+    .st-chip.idle       { background: var(--color-bg-elevated); color: var(--color-text-tertiary); border-color: var(--color-border-default); }
+    .st-chip.thinking   { background: var(--color-ai-bg); color: var(--color-ai); border-color: var(--color-ai); }
+    .st-chip.streaming  { background: var(--color-ai-bg); color: var(--color-ai); border-color: var(--color-ai); }
+    .st-chip.review     { background: oklch(80% 0.14 75 / 0.14); color: var(--color-warning); border-color: var(--color-warning); }
+    .st-chip.approved   { background: oklch(78% 0.14 145 / 0.14); color: var(--color-signal-approved); border-color: var(--color-signal-approved); }
+    .st-chip.rejected   { background: oklch(64% 0.20 25 / 0.10); color: var(--color-danger); border-color: var(--color-danger); }
+    .st-chip.error      { background: oklch(64% 0.20 25 / 0.14); color: var(--color-danger); border-color: var(--color-danger); }
+    .st-chip.stale      { background: repeating-linear-gradient(-45deg, oklch(48% 0.010 240 / 0.15) 0 3px, transparent 3px 6px); color: var(--color-text-secondary); border-color: var(--color-border-default); }
+    .st-chip.reconn     { background: oklch(80% 0.14 75 / 0.14); color: var(--color-warning); border-color: var(--color-warning); }
+    .st-chip.insuff     { background: oklch(48% 0.010 240 / 0.20); color: var(--color-text-tertiary); border-color: var(--color-border-default); }
+
+    /* Widget anatomy diagram */
+    .dh-anatomy {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .dh-anatomy__box {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      position: relative;
+      min-height: 260px;
+      padding: 12px 14px;
+    }
+    .dh-anatomy__region {
+      border: 1px dashed var(--color-brand);
+      border-radius: 3px;
+      padding: 8px 10px;
+      margin: 6px 0;
+      background: var(--color-brand-subtle);
+      position: relative;
+    }
+    .dh-anatomy__region .lbl {
+      position: absolute; top: -8px; left: 8px;
+      background: var(--color-bg-app);
+      padding: 0 6px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--color-brand);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* IA / Flow diagram — simple SVG-boxes */
+    .dh-flow {
+      display: flex; align-items: center; gap: 10px;
+      overflow-x: auto;
+      padding: 8px 4px;
+    }
+    .dh-flow__step {
+      min-width: 130px;
+      padding: 10px 12px;
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 5px;
+      font-size: 11px;
+      text-align: center;
+      position: relative;
+    }
+    .dh-flow__step .num {
+      font-family: var(--font-mono);
+      color: var(--color-brand);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .dh-flow__step.is-decision {
+      background: oklch(80% 0.14 75 / 0.08);
+      border-color: var(--color-warning);
+    }
+    .dh-flow__step.is-final {
+      background: oklch(78% 0.14 145 / 0.08);
+      border-color: var(--color-signal-approved);
+    }
+    .dh-flow__arrow {
+      color: var(--color-text-tertiary);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Responsive rules table specific */
+    .dh-responsive td { vertical-align: top; }
+    .dh-responsive .breakpoint {
+      display: inline-block; padding: 2px 6px;
+      background: var(--color-brand-subtle);
+      color: var(--color-brand);
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    /* Chart overlay reference */
+    .overlay-ref {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .overlay-ref__card {
+      padding: 12px;
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 5px;
+    }
+    .overlay-ref__card h5 { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+    .overlay-ref__card p { margin: 0 0 6px; font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); line-height: 1.5; }
+    .overlay-ref__preview {
+      height: 40px; background: var(--color-bg-app); border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="dh-shell">
+    <!-- HEADER -->
+    <div class="dh-header">
+      <div class="dh-header__left">
+        <div class="dh-brand-mark">Q</div>
+        <div>
+          <div class="dh-title">Developer Handoff <small>v1.0 · 2026-07</small></div>
+          <div style="font-size:11px; color:var(--color-text-tertiary); font-family: var(--font-mono);">
+            QuantumTrade AI · Design → Development Contract
+          </div>
+        </div>
+      </div>
+      <div class="dh-header__right">
+        <a class="dh-nav-link" href="index.html">← Prototype</a>
+        <a class="dh-nav-link" href="design-system.html">Design System</a>
+        <span class="dh-nav-link is-active">Handoff</span>
+      </div>
+    </div>
+
+    <!-- TOC -->
+    <div class="dh-toc">
+      <a class="dh-toc__item" href="#ia"><span class="dh-toc__num">01</span><span class="dh-toc__name">Information Architecture</span></a>
+      <a class="dh-toc__item" href="#flows"><span class="dh-toc__num">02</span><span class="dh-toc__name">User Flow Maps</span></a>
+      <a class="dh-toc__item" href="#widgets"><span class="dh-toc__num">03</span><span class="dh-toc__name">Widget Specifications</span></a>
+      <a class="dh-toc__item" href="#layout-json"><span class="dh-toc__num">04</span><span class="dh-toc__name">Layout JSON Schema</span></a>
+      <a class="dh-toc__item" href="#signal-json"><span class="dh-toc__num">05</span><span class="dh-toc__name">SignalObject JSON</span></a>
+      <a class="dh-toc__item" href="#chart-json"><span class="dh-toc__num">06</span><span class="dh-toc__name">ChartCommand JSON</span></a>
+      <a class="dh-toc__item" href="#ai-states"><span class="dh-toc__num">07</span><span class="dh-toc__name">AI State Map</span></a>
+      <a class="dh-toc__item" href="#order-states"><span class="dh-toc__num">08</span><span class="dh-toc__name">Order State Map</span></a>
+      <a class="dh-toc__item" href="#market-states"><span class="dh-toc__num">09</span><span class="dh-toc__name">Market-data States</span></a>
+      <a class="dh-toc__item" href="#responsive"><span class="dh-toc__num">10</span><span class="dh-toc__name">Responsive Rules</span></a>
+      <a class="dh-toc__item" href="#a11y"><span class="dh-toc__num">11</span><span class="dh-toc__name">Accessibility</span></a>
+      <a class="dh-toc__item" href="#impl"><span class="dh-toc__num">12</span><span class="dh-toc__name">Implementation Status</span></a>
+    </div>
+
+    <!-- Legend -->
+    <div class="dh-card" style="margin-bottom: 40px;">
+      <div class="dh-card__title">Implementation-Status Legend</div>
+      <div style="display:flex; flex-wrap: wrap; gap: 10px 20px; font-size: 12px; color: var(--color-text-secondary);">
+        <div style="display:inline-flex; align-items: center; gap: 8px;"><span class="dh-impl dh-impl--proto">PROTO</span> <span>Interactive prototype — 클릭·드래그·상태전환 실동작</span></div>
+        <div style="display:inline-flex; align-items: center; gap: 8px;"><span class="dh-impl dh-impl--visual">VISUAL</span> <span>Visual demonstration only — 스타일만 시연</span></div>
+        <div style="display:inline-flex; align-items: center; gap: 8px;"><span class="dh-impl dh-impl--spec">SPEC</span> <span>Design specification only — 문서·다이어그램</span></div>
+        <div style="display:inline-flex; align-items: center; gap: 8px;"><span class="dh-impl dh-impl--mock">MOCK</span> <span>Mock/Simulation data — 실제 데이터·API 아님</span></div>
+        <div style="display:inline-flex; align-items: center; gap: 8px;"><span class="dh-impl dh-impl--future">FUTURE</span> <span>Future production implementation required</span></div>
+      </div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- 01. INFORMATION ARCHITECTURE -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="ia">
+      <div class="dh-section__title">
+        <span class="dh-section__num">01</span>
+        Information Architecture
+      </div>
+      <p class="dh-section__desc">
+        QuantumTrade AI는 하나의 데스크톱 애플리케이션이지만, 라우팅은 hash 기반이며 각 화면은 독립적으로 개발·테스트 가능합니다.
+        Main Trading은 위젯 컴포지션이고, AI Workspace는 preset 전환일 뿐 별도 페이지가 아닙니다.
+      </p>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Route Map <span class="dh-impl dh-impl--proto">PROTO</span></div>
+        <pre class="dh-code"><span class="c">// Hash router — window.location.hash</span>
+/                        → Redirect to /trade
+/trade                   <span class="c">// Main Trading Terminal (default preset)</span>
+/trade?preset=&lt;id&gt;       <span class="c">// Apply layout preset</span>
+/trade?workspace=ai      <span class="c">// Shortcut → ai-workspace preset</span>
+/trade?mode=layout-edit  <span class="c">// Enter Layout Edit Mode</span>
+/markets                 <span class="c">// Market list (spec only)</span>
+/portfolio               <span class="c">// Portfolio dashboard (spec only)</span>
+/analytics               <span class="c">// Analytics / trade journal (spec only)</span>
+#/design-system          <span class="c">// External page: design-system.html</span>
+#/handoff                <span class="c">// External page: developer-handoff.html</span></pre>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Screen Map <span class="dh-impl dh-impl--spec">SPEC</span></div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-brand); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L0 · SHELL</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">Application Shell</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">Simulation stripe · App header · Sidebar nav · Main region · Toast region · Modals · Tweaks drawer</div>
+          </div>
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-brand); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L1 · TRADE</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">Main Trading</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">Symbol Header · 24-col widget grid · 7 presets (Standard / AI / Chart Focus / Scalper / Multi / Beginner / Risk)</div>
+          </div>
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-brand); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L1 · LAYOUT EDIT</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">Layout Edit Mode</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">Toolbar · Preset Ribbon · Hidden Widgets Library · Widget controls popover · Grid overlay</div>
+          </div>
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-ai); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L2 · AI</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">AI Copilot Widget</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">State bar · Context chips · Messages · Signal Card · Quick prompts · Layers · Composer</div>
+          </div>
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-warning); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L2 · ORDER FLOW</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">Order Preview Modal</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">Multi-step (Review → Approve → Draft → Preview → Risk Check → Confirm → Submitted) with Risk Checklist</div>
+          </div>
+          <div class="dh-card" style="margin:0; background: var(--color-bg-panel);">
+            <div style="font-size:11px; color: var(--color-text-secondary); font-family: var(--font-mono); font-weight: 600; margin-bottom: 4px;">L2 · TWEAKS</div>
+            <div style="font-size:13px; font-weight: 600; margin-bottom: 4px;">Tweaks Panel</div>
+            <div style="font-size:11px; color: var(--color-text-tertiary);">Preset · Density · Beginner/Pro · Theme · Long/Short · Brand · Language · Number format</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 02. USER FLOW MAPS -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="flows">
+      <div class="dh-section__title">
+        <span class="dh-section__num">02</span>
+        User Flow Maps
+      </div>
+      <p class="dh-section__desc">
+        3개의 핵심 사용자 플로우 — Layout Customization, AI-assisted Analysis, AI Signal → Simulated Order.
+        Approve Signal과 Submit Order는 <strong>절대 같은 액션이 아닙니다</strong>. 항상 별도의 확인 단계가 존재해야 합니다.
+      </p>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Flow A · Layout Customization <span class="dh-impl dh-impl--proto">PROTO</span></div>
+        <div class="dh-flow">
+          <div class="dh-flow__step"><span class="num">A1</span>Enter Edit Mode</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">A2</span>Select Widget</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">A3</span>Drag / Resize</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-decision"><span class="num">A4</span>Hide / Duplicate / Lock</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">A5</span>Re-add from Library</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">A6</span>Undo / Redo</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">A7</span>Switch Preset</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-final"><span class="num">A8</span>Save Layout</div>
+        </div>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Flow B · AI-assisted Chart Analysis <span class="dh-impl dh-impl--proto">PROTO</span> <span class="dh-impl dh-impl--mock">MOCK</span></div>
+        <div class="dh-flow">
+          <div class="dh-flow__step"><span class="num">B1</span>Enter AI Workspace</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">B2</span>NL Input / Quick Prompt</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">B3</span>AI Thinking</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">B4</span>AI Streaming</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">B5</span>Draw Overlays</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">B6</span>User Edits Overlay</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-decision"><span class="num">B7</span>Signal Proposal</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-final"><span class="num">B8</span>Approve / Reject</div>
+        </div>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Flow C · AI Signal → Simulated Order <span class="dh-impl dh-impl--proto">PROTO</span> <span class="dh-impl dh-impl--mock">MOCK</span></div>
+        <div class="dh-flow">
+          <div class="dh-flow__step"><span class="num">C1</span>AI Signal Draft</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">C2</span>User Review</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">C3</span>Approve Signal</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step"><span class="num">C4</span>Create Order Draft</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-decision"><span class="num">C5</span>Order Preview + Risk Check</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-decision"><span class="num">C6</span>Final Confirmation</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-final"><span class="num">C7</span>Simulated Submitted</div>
+          <span class="dh-flow__arrow">→</span>
+          <div class="dh-flow__step is-final"><span class="num">C8</span>Mock Position + Toast</div>
+        </div>
+        <div style="margin-top: 12px; padding: 10px 12px; background: oklch(64% 0.20 25 / 0.10); border-left: 3px solid var(--color-danger); border-radius: 4px; font-size: 12px;">
+          <strong style="color: var(--color-danger);">⚠ CRITICAL — Approve Signal ≠ Submit Order.</strong>
+          <span style="color: var(--color-text-secondary);">
+            신호 승인은 오버레이 확정과 주문 초안 생성만 트리거합니다. 실제(시뮬레이션) 주문 제출은 별도의 Risk Check → Final Confirmation 단계를 반드시 통과해야 합니다.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 03. WIDGET SPECIFICATIONS -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="widgets">
+      <div class="dh-section__title">
+        <span class="dh-section__num">03</span>
+        Widget Specifications
+      </div>
+      <p class="dh-section__desc">
+        17개 위젯의 개발자 명세. Default/Min/Max 크기는 24-column grid 기준(row = 40px). Resize/Duplicate/Hide/Maximize 컨트롤은 편집 모드에서 위젯을 hover 또는 select할 때만 노출됩니다.
+      </p>
+
+      <div class="dh-card" style="padding: 0; overflow: hidden;">
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th>Widget ID</th>
+              <th>Display Name</th>
+              <th>Purpose</th>
+              <th>Default</th>
+              <th>Min</th>
+              <th>Max</th>
+              <th>Resize</th>
+              <th>Duplicate</th>
+              <th>Hide</th>
+              <th>Maximize</th>
+              <th>Required Data</th>
+              <th>Empty / Loading / Error / Stale</th>
+              <th>Events</th>
+              <th>Relations</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>main-chart</strong><br/><span class="muted">type: chart</span></td>
+              <td>Main Chart</td>
+              <td>가격 캔들·지표·오버레이 표시</td>
+              <td>14×12</td>
+              <td>8×6</td>
+              <td>24×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td>candles[], indicators[], overlays[], activeTool</td>
+              <td>skeleton grid / spinner / retry banner / hatched overlay</td>
+              <td>tf.change · overlay.edit · price.click · zoom</td>
+              <td>Symbol Header · Order Book · AI Context</td>
+            </tr>
+            <tr>
+              <td><strong>chart-mini</strong><br/><span class="muted">type: miniChart</span></td>
+              <td>Secondary Chart</td>
+              <td>Multi-chart 및 비교 뷰의 축소 캔들</td>
+              <td>10×8</td>
+              <td>4×6</td>
+              <td>12×16</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>candles[], symbol, tf</td>
+              <td>skeleton bars / dot loader / '-' / gray</td>
+              <td>click → open in main-chart</td>
+              <td>Main Chart · Market Watch</td>
+            </tr>
+            <tr>
+              <td><strong>symbol-header</strong><br/><span class="muted">type: symbolHeader</span></td>
+              <td>Symbol Header</td>
+              <td>Symbol identity + price + market meta</td>
+              <td>full-width · 72px</td>
+              <td>fixed</td>
+              <td>fixed</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>market{price,chg,mark,index,funding,hi,lo,vol}</td>
+              <td>numbers → dashes · 'stale' pill</td>
+              <td>symbol.change · alert.click</td>
+              <td>ALL widgets subscribe on symbol.change</td>
+            </tr>
+            <tr>
+              <td><strong>market-watch</strong><br/><span class="muted">type: marketWatch</span></td>
+              <td>Market Watch</td>
+              <td>심볼 검색·즐겨찾기·필터·시세</td>
+              <td>4×16</td>
+              <td>3×6</td>
+              <td>6×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>MARKETS[], favorites[], searchQ, sort</td>
+              <td>empty result · spinner · error banner · '?' badges</td>
+              <td>symbol.select · fav.toggle</td>
+              <td>drives Main Chart · Order Book · Order Entry</td>
+            </tr>
+            <tr>
+              <td><strong>order-book</strong><br/><span class="muted">type: orderBook</span></td>
+              <td>Order Book</td>
+              <td>실시간 매수/매도 호가</td>
+              <td>4×11</td>
+              <td>3×6</td>
+              <td>6×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>book{asks,bids,mid,spread}, precision, mode</td>
+              <td>skeleton rows · spinner · '❌ WS down' · dimmed rows</td>
+              <td>price.click → prefill Order Entry</td>
+              <td>Symbol Header · Order Entry (bidirectional)</td>
+            </tr>
+            <tr>
+              <td><strong>recent-trades</strong><br/><span class="muted">type: recentTrades</span></td>
+              <td>Recent Trades</td>
+              <td>최근 체결 tape</td>
+              <td>4×5</td>
+              <td>3×3</td>
+              <td>6×16</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td>trades[]</td>
+              <td>'no recent trades' · spinner · '⚠ stale' · gray</td>
+              <td>row.hover (highlight on chart)</td>
+              <td>Symbol Header · Main Chart</td>
+            </tr>
+            <tr>
+              <td><strong>order-entry</strong><br/><span class="muted">type: orderEntry</span></td>
+              <td>Order Entry</td>
+              <td>Limit / Market / Trigger 주문 입력</td>
+              <td>4×11</td>
+              <td>3×8</td>
+              <td>8×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>marginMode, leverage, assets, tpsl, prefill{price,size,side}</td>
+              <td>inputs disabled + banner during 'stale' · 'reconnecting'</td>
+              <td>order.submit → open Order Preview modal</td>
+              <td>consumes Order Book price · Signal draft</td>
+            </tr>
+            <tr>
+              <td><strong>positions</strong><br/><span class="muted">type: positions</span></td>
+              <td>Positions &amp; Orders</td>
+              <td>포지션 · 미체결 · 주문/체결 내역 · AI 신호</td>
+              <td>12×5</td>
+              <td>8×3</td>
+              <td>24×12</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>positions[], orders[], history[], transactions[], aiSignals[]</td>
+              <td>empty per tab · skeleton rows · row-level '?'</td>
+              <td>position.close · order.cancel · signal.approve</td>
+              <td>Assets · Risk (margin ratio) · Main Chart (highlight)</td>
+            </tr>
+            <tr>
+              <td><strong>open-orders</strong><br/><span class="muted">(sub-tab of positions)</span></td>
+              <td>Open Orders</td>
+              <td>미체결 주문 관리</td>
+              <td>tab</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>orders[]</td>
+              <td>empty · spinner · retry</td>
+              <td>cancel · modify · replace</td>
+              <td>Main Chart (draw as horizontal marker)</td>
+            </tr>
+            <tr>
+              <td><strong>order-history</strong><br/><span class="muted">(sub-tab of positions)</span></td>
+              <td>Order History</td>
+              <td>과거 주문 조회</td>
+              <td>tab</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>history[], filter</td>
+              <td>empty · filtered-empty · spinner · date-range picker error</td>
+              <td>filter.change · export</td>
+              <td>Trade History · Transaction History</td>
+            </tr>
+            <tr>
+              <td><strong>assets-risk</strong><br/><span class="muted">type: assetsRisk</span></td>
+              <td>Assets · Risk</td>
+              <td>자산·마진비율·청산 관리</td>
+              <td>4×5</td>
+              <td>3×3</td>
+              <td>8×16</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td>assets{equity,available,used,maintenance}, marginRatio</td>
+              <td>skeleton bars · '?' when unknown · warning bar when &gt;60%</td>
+              <td>transfer · add-margin · calculator</td>
+              <td>Positions (source of margin data)</td>
+            </tr>
+            <tr>
+              <td><strong>ai-copilot</strong><br/><span class="muted">type: aiCopilot</span></td>
+              <td>AI Copilot</td>
+              <td>NL 분석·오버레이·신호 제안</td>
+              <td>9×16</td>
+              <td>5×10</td>
+              <td>12×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>context{symbol,tf,price,candles}, overlays[], currentSignal</td>
+              <td>full state map (§07) · empty history · reconnecting banner</td>
+              <td>propose · approve · reject · edit · createOrderDraft</td>
+              <td>Main Chart (overlays) · Order Entry (draft) · Positions (signals tab)</td>
+            </tr>
+            <tr>
+              <td><strong>signal-proposal</strong><br/><span class="muted">(inline in ai-copilot)</span></td>
+              <td>Signal Proposal Card</td>
+              <td>Draft signal preview + actions</td>
+              <td>inline</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>SignalObject (§05)</td>
+              <td>draft · approved · expired · invalidated · rejected</td>
+              <td>approve · reject · edit · save-draft · duplicate</td>
+              <td>Chart overlays · Order Draft</td>
+            </tr>
+            <tr>
+              <td><strong>alerts</strong><br/><span class="muted">type: alerts</span></td>
+              <td>Alerts</td>
+              <td>가격·지표·AI 알림 <span class="dh-impl dh-impl--future" style="margin-left:4px;">FUTURE</span></td>
+              <td>4×6</td>
+              <td>3×3</td>
+              <td>8×12</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td>alerts[], subscriptions</td>
+              <td>empty · spinner · retry · muted</td>
+              <td>alert.create/edit/mute · alert.snooze</td>
+              <td>Symbol Header (bell badge)</td>
+            </tr>
+            <tr>
+              <td><strong>news</strong><br/><span class="muted">type: news</span></td>
+              <td>News</td>
+              <td>심볼 관련 뉴스 <span class="dh-impl dh-impl--future" style="margin-left:4px;">FUTURE</span></td>
+              <td>6×6</td>
+              <td>4×4</td>
+              <td>12×24</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td>news[], sources[]</td>
+              <td>empty · spinner · rate-limited banner</td>
+              <td>item.click · filter · pin</td>
+              <td>AI Copilot (sentiment injection)</td>
+            </tr>
+            <tr>
+              <td><strong>risk-monitor</strong><br/><span class="muted">type: riskMonitor</span></td>
+              <td>Risk Monitor</td>
+              <td>포트폴리오 위험 종합 <span class="dh-impl dh-impl--visual" style="margin-left:4px;">VISUAL</span></td>
+              <td>10×6</td>
+              <td>6×4</td>
+              <td>16×12</td>
+              <td class="ok">✓</td>
+              <td class="no">—</td>
+              <td class="ok">✓</td>
+              <td class="ok">✓</td>
+              <td>allPositions, corr, VaR, exposureByAsset</td>
+              <td>calculating · '⚠ high correlation' banner</td>
+              <td>risk.snooze · drill-down</td>
+              <td>Positions · Assets</td>
+            </tr>
+            <tr>
+              <td><strong>trade-history</strong><br/><span class="muted">(sub-tab)</span></td>
+              <td>Trade History</td>
+              <td>체결된 개별 trades</td>
+              <td>tab</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td class="no">—</td>
+              <td>fills[]</td>
+              <td>empty · spinner · CSV export status</td>
+              <td>export · filter</td>
+              <td>Order History (parent)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Widget-to-Widget Relations <span class="dh-impl dh-impl--spec">SPEC</span></div>
+        <pre class="dh-code"><span class="c">// EVENT BUS — widgets never call each other directly.</span>
+
+on <span class="k">symbol.change</span> (sym)
+  <span class="c">→ Main Chart</span> reloads candles for sym
+  <span class="c">→ Order Book, Recent Trades</span> resubscribe
+  <span class="c">→ Order Entry</span> resets prefill + updates fee model
+  <span class="c">→ AI Copilot</span> updates context, invalidates in-flight signal
+  <span class="c">→ Symbol Header</span> updates identity block
+
+on <span class="k">timeframe.change</span> (tf)
+  <span class="c">→ Main Chart, Mini Chart</span> re-render
+  <span class="c">→ Indicators</span> recompute
+  <span class="c">→ AI Copilot</span> context.tf = tf (does NOT auto-invalidate signals unless attribute-locked)
+
+on <span class="k">signal.update</span> (signal)
+  <span class="c">→ Chart Overlays</span> synced (Entry / SL / TP1-3 / Marker / Invalidation line)
+  <span class="c">→ Signal Card</span> re-render
+  <span class="c">→ Order Draft</span> refresh only if user explicitly requested re-linking
+  <span class="c">→ Positions.signals tab</span> upsert row
+
+on <span class="k">preset.change</span> (id)
+  <span class="c">→ LayoutEngine.applyPreset(id)</span> — replaces geometry + visibility
+  <span class="c">→ dirty = true</span> until user saves
+  <span class="c">→ AI Copilot</span> retains conversation history
+  <span class="c">→ In-flight signal preserved</span> and re-rendered in new layout
+
+on <span class="k">connection.state</span> (state)
+  <span class="c">→ Symbol Header</span> connection cluster color/label
+  <span class="c">→ All widgets</span> may enter Stale / Reconnecting decoration
+  <span class="c">→ Order Entry</span> disables Submit; toast on reconnect
+
+on <span class="k">theme / brand / longshort.change</span>
+  <span class="c">→ CSS custom-props flip;</span> no widget-level re-render required.</pre>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 04. LAYOUT JSON SCHEMA -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="layout-json">
+      <div class="dh-section__title">
+        <span class="dh-section__num">04</span>
+        Layout JSON Schema
+      </div>
+      <p class="dh-section__desc">
+        Layout preset과 사용자 저장 레이아웃 모두 이 스키마를 사용합니다. 24-column grid, row = 40px 고정. minW/minH는 편집 모드에서 리사이즈 하한.
+      </p>
+
+      <div class="dh-card">
+        <div class="dh-card__title">LayoutObject <span class="dh-impl dh-impl--spec">SPEC</span></div>
+        <pre class="dh-code">{
+  <span class="k">"schemaVersion"</span>: <span class="n">1</span>,
+  <span class="k">"layoutId"</span>: <span class="s">"standard-trader"</span>,
+  <span class="k">"name"</span>: <span class="s">"Standard Trader"</span>,
+  <span class="k">"description"</span>: <span class="s">"기본 균형 잡힌 화면"</span>,
+  <span class="k">"viewport"</span>: <span class="s">"desktop"</span>,          <span class="c">// desktop | tablet | mobile</span>
+  <span class="k">"columns"</span>: <span class="n">24</span>,
+  <span class="k">"rowPx"</span>: <span class="n">40</span>,
+  <span class="k">"gap"</span>: <span class="n">6</span>,
+  <span class="k">"widgets"</span>: [
+    {
+      <span class="k">"id"</span>: <span class="s">"main-chart"</span>,
+      <span class="k">"type"</span>: <span class="s">"chart"</span>,
+      <span class="k">"x"</span>: <span class="n">4</span>,   <span class="k">"y"</span>: <span class="n">0</span>,
+      <span class="k">"w"</span>: <span class="n">14</span>,  <span class="k">"h"</span>: <span class="n">12</span>,
+      <span class="k">"minW"</span>: <span class="n">8</span>, <span class="k">"minH"</span>: <span class="n">6</span>,
+      <span class="k">"maxW"</span>: <span class="n">24</span>,<span class="k">"maxH"</span>: <span class="n">24</span>,
+      <span class="k">"locked"</span>: <span class="n">false</span>,
+      <span class="k">"visible"</span>: <span class="n">true</span>,
+      <span class="k">"collapsed"</span>: <span class="n">false</span>,
+      <span class="k">"props"</span>: {                    <span class="c">// widget-specific state</span>
+        <span class="k">"activeTool"</span>: <span class="s">"cursor"</span>,
+        <span class="k">"indicators"</span>: [<span class="s">"MA20"</span>, <span class="s">"MA60"</span>, <span class="s">"MA120"</span>],
+        <span class="k">"showVolume"</span>: <span class="n">true</span>
+      }
+    },
+    {
+      <span class="k">"id"</span>: <span class="s">"order-book"</span>,
+      <span class="k">"type"</span>: <span class="s">"orderBook"</span>,
+      <span class="k">"x"</span>: <span class="n">16</span>, <span class="k">"y"</span>: <span class="n">0</span>,
+      <span class="k">"w"</span>: <span class="n">4</span>,  <span class="k">"h"</span>: <span class="n">11</span>,
+      <span class="k">"minW"</span>: <span class="n">3</span>, <span class="k">"minH"</span>: <span class="n">6</span>,
+      <span class="k">"locked"</span>: <span class="n">false</span>,
+      <span class="k">"visible"</span>: <span class="n">true</span>,
+      <span class="k">"props"</span>: { <span class="k">"precision"</span>: <span class="n">0.1</span>, <span class="k">"mode"</span>: <span class="s">"both"</span> }
+    }
+    <span class="c">// … 5–7 more widgets typical per preset</span>
+  ],
+  <span class="k">"createdAt"</span>: <span class="s">"2026-07-28T09:32:11Z"</span>,
+  <span class="k">"updatedAt"</span>: <span class="s">"2026-07-28T09:32:11Z"</span>,
+  <span class="k">"origin"</span>: <span class="s">"preset"</span>              <span class="c">// preset | user | shared</span>
+}</pre>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Preset Registry — Built-in Layouts <span class="dh-impl dh-impl--proto">PROTO</span></div>
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th>Preset ID</th>
+              <th>Name</th>
+              <th>Composition</th>
+              <th>Chart Ratio</th>
+              <th>Order Entry</th>
+              <th>AI Panel</th>
+              <th>Use Case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>standard-trader</strong></td>
+              <td>Standard Trader</td>
+              <td>Market · Chart · OB · Trades · OE · Pos · Assets</td>
+              <td>12/24 (50%)</td>
+              <td>Right, 4×11</td>
+              <td>없음 (Tweaks로 활성화)</td>
+              <td>기본 · 균형</td>
+            </tr>
+            <tr>
+              <td><strong>chart-focus</strong></td>
+              <td>Chart Focus</td>
+              <td>Market · Chart · Pos · OE</td>
+              <td>17/24 (71%)</td>
+              <td>Right, 4×16</td>
+              <td>없음</td>
+              <td>테크니컬 분석 집중</td>
+            </tr>
+            <tr>
+              <td><strong>scalper</strong></td>
+              <td>Scalper</td>
+              <td>Chart(short) · Pos · OB(tall) · OE(tall) · Trades</td>
+              <td>12/24, 9행</td>
+              <td>Right, 5×12 (강조)</td>
+              <td>없음</td>
+              <td>초단타 · 오더북·주문 강조</td>
+            </tr>
+            <tr>
+              <td><strong>ai-workspace</strong></td>
+              <td>AI Workspace</td>
+              <td>Market · Chart · Pos · AI Copilot(9×16)</td>
+              <td>12/24</td>
+              <td>OE 미포함 (Positions 인라인)</td>
+              <td><strong>9×16 (37.5%)</strong></td>
+              <td>AI 대화형 분석</td>
+            </tr>
+            <tr>
+              <td><strong>multi-chart</strong></td>
+              <td>Multi-Chart</td>
+              <td>Market · Chart × 4 (2×2)</td>
+              <td>2×2 grid</td>
+              <td>없음</td>
+              <td>없음</td>
+              <td>여러 심볼 동시 관찰</td>
+            </tr>
+            <tr>
+              <td><strong>beginner</strong></td>
+              <td>Beginner</td>
+              <td>Chart(large) · OE · Positions(wide)</td>
+              <td>16/24 (67%)</td>
+              <td>Right, 8×12 (크게)</td>
+              <td>없음 (Tweaks로 mentor mode)</td>
+              <td>입문자 · 인지 부담 감소</td>
+            </tr>
+            <tr>
+              <td><strong>risk</strong></td>
+              <td>Risk Monitor</td>
+              <td>Positions · Assets · Chart · OB · Trades</td>
+              <td>10/24 (small)</td>
+              <td>없음</td>
+              <td>없음</td>
+              <td>포지션 리스크 모니터링</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 05. SIGNAL OBJECT -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="signal-json">
+      <div class="dh-section__title">
+        <span class="dh-section__num">05</span>
+        SignalObject JSON
+      </div>
+      <p class="dh-section__desc">
+        AI 신호는 이 스키마로 표현되며, 차트 오버레이·Signal Card·Order Draft 모두 이 객체 하나에서 파생됩니다. 시뮬레이션에서만 <code>simulated: true</code>를 포함합니다.
+      </p>
+
+      <div class="dh-card">
+        <pre class="dh-code">{
+  <span class="k">"id"</span>: <span class="s">"sig-btc-2026-0728-01"</span>,
+  <span class="k">"schemaVersion"</span>: <span class="n">1</span>,
+  <span class="k">"symbol"</span>: <span class="s">"BTCUSDT"</span>,
+  <span class="k">"marketType"</span>: <span class="s">"PERP"</span>,
+  <span class="k">"timeframe"</span>: <span class="s">"15m"</span>,
+  <span class="k">"direction"</span>: <span class="s">"long"</span>,               <span class="c">// long | short</span>
+  <span class="k">"status"</span>: <span class="s">"draft"</span>,                 <span class="c">// draft | approved | rejected | expired | invalidated</span>
+
+  <span class="k">"entryZone"</span>: [<span class="n">68120</span>, <span class="n">68360</span>],
+  <span class="k">"stopLoss"</span>: <span class="n">67480</span>,
+  <span class="k">"takeProfits"</span>: [<span class="n">68980</span>, <span class="n">69640</span>, <span class="n">70420</span>],
+  <span class="k">"riskReward"</span>: <span class="n">2.8</span>,
+  <span class="k">"confidence"</span>: <span class="n">0.74</span>,               <span class="c">// 0..1</span>
+  <span class="k">"timeHorizon"</span>: <span class="s">"4~12h"</span>,
+
+  <span class="k">"invalidation"</span>: {
+    <span class="k">"rule"</span>: <span class="s">"close_below_level_on_tf"</span>,
+    <span class="k">"level"</span>: <span class="n">67480</span>,
+    <span class="k">"tf"</span>: <span class="s">"15m"</span>,
+    <span class="k">"humanReadable"</span>: <span class="s">"15m 종가 기준 67,480 이탈"</span>
+  },
+
+  <span class="k">"basis"</span>: {
+    <span class="k">"reasons"</span>: [
+      <span class="s">"MTF alignment (15m/1H/4H)"</span>,
+      <span class="s">"Bid absorption at 68,150"</span>,
+      <span class="s">"No RSI divergence"</span>
+    ],
+    <span class="k">"indicators"</span>: [<span class="s">"MA20"</span>, <span class="s">"MA60"</span>, <span class="s">"RSI14"</span>, <span class="s">"VOL"</span>],
+    <span class="k">"dataAsOf"</span>: <span class="s">"2026-07-28T09:31:58Z"</span>,
+    <span class="k">"marketDataFreshness"</span>: <span class="s">"live"</span>       <span class="c">// live | stale | insufficient</span>
+  },
+
+  <span class="k">"overlays"</span>: [                                <span class="c">// generated for chart</span>
+    { <span class="k">"type"</span>: <span class="s">"entry-zone"</span>, <span class="k">"lo"</span>: <span class="n">68120</span>, <span class="k">"hi"</span>: <span class="n">68360</span>, <span class="k">"source"</span>: <span class="s">"ai-draft"</span> },
+    { <span class="k">"type"</span>: <span class="s">"horizontal"</span>, <span class="k">"price"</span>: <span class="n">67480</span>, <span class="k">"label"</span>: <span class="s">"SL"</span>, <span class="k">"source"</span>: <span class="s">"ai-draft"</span> },
+    { <span class="k">"type"</span>: <span class="s">"horizontal"</span>, <span class="k">"price"</span>: <span class="n">68980</span>, <span class="k">"label"</span>: <span class="s">"TP1"</span>, <span class="k">"source"</span>: <span class="s">"ai-draft"</span> },
+    { <span class="k">"type"</span>: <span class="s">"signal-marker"</span>, <span class="k">"direction"</span>: <span class="s">"long"</span>, <span class="k">"source"</span>: <span class="s">"ai-draft"</span> }
+  ],
+
+  <span class="k">"model"</span>: <span class="s">"QuantumTrade Analyst v1"</span>,
+  <span class="k">"createdAt"</span>: <span class="s">"2026-07-28T09:32:03Z"</span>,
+  <span class="k">"expiresAt"</span>: <span class="s">"2026-07-28T21:32:03Z"</span>,
+  <span class="k">"simulated"</span>: <span class="n">true</span>,
+  <span class="k">"disclaimer"</span>: <span class="s">"Analysis tool · Not financial advice"</span>
+}</pre>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 06. CHART COMMAND -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="chart-json">
+      <div class="dh-section__title">
+        <span class="dh-section__num">06</span>
+        ChartCommand JSON
+      </div>
+      <p class="dh-section__desc">
+        AI가 차트에 그리는 모든 오브젝트는 이 명령 시퀀스로 표현됩니다. Overlay 하나는 하나의 command에 대응.
+      </p>
+
+      <div class="dh-card">
+        <pre class="dh-code">{
+  <span class="k">"commandId"</span>: <span class="s">"cmd-01H8..."</span>,
+  <span class="k">"sourceSignalId"</span>: <span class="s">"sig-btc-2026-0728-01"</span>,
+  <span class="k">"target"</span>: <span class="s">"main-chart"</span>,
+  <span class="k">"ops"</span>: [
+    { <span class="k">"op"</span>: <span class="s">"add"</span>, <span class="k">"overlay"</span>: {
+        <span class="k">"id"</span>: <span class="s">"sig-entry"</span>,
+        <span class="k">"type"</span>: <span class="s">"entry-zone"</span>,
+        <span class="k">"source"</span>: <span class="s">"ai-draft"</span>,
+        <span class="k">"lo"</span>: <span class="n">68120</span>, <span class="k">"hi"</span>: <span class="n">68360</span>,
+        <span class="k">"label"</span>: <span class="s">"Entry Zone (AI)"</span>,
+        <span class="k">"style"</span>: { <span class="k">"dashed"</span>: <span class="n">true</span>, <span class="k">"fill"</span>: <span class="s">"ai-bg"</span> },
+        <span class="k">"editable"</span>: <span class="n">true</span>
+    }},
+    { <span class="k">"op"</span>: <span class="s">"add"</span>, <span class="k">"overlay"</span>: {
+        <span class="k">"id"</span>: <span class="s">"sig-sl"</span>, <span class="k">"type"</span>: <span class="s">"horizontal"</span>, <span class="k">"source"</span>: <span class="s">"ai-draft"</span>,
+        <span class="k">"price"</span>: <span class="n">67480</span>, <span class="k">"label"</span>: <span class="s">"SL · 67,480"</span>,
+        <span class="k">"style"</span>: { <span class="k">"color"</span>: <span class="s">"trade-short"</span>, <span class="k">"dashed"</span>: <span class="n">true</span> }
+    }},
+    { <span class="k">"op"</span>: <span class="s">"add"</span>, <span class="k">"overlay"</span>: {
+        <span class="k">"id"</span>: <span class="s">"sig-marker"</span>, <span class="k">"type"</span>: <span class="s">"signal-marker"</span>,
+        <span class="k">"direction"</span>: <span class="s">"long"</span>, <span class="k">"anchor"</span>: { <span class="k">"time"</span>: <span class="n">1753692000000</span>, <span class="k">"price"</span>: <span class="n">68240</span> }
+    }},
+    { <span class="k">"op"</span>: <span class="s">"decorate"</span>, <span class="k">"target"</span>: <span class="s">"axis-y"</span>, <span class="k">"tag"</span>: {
+        <span class="k">"price"</span>: <span class="n">68240</span>, <span class="k">"label"</span>: <span class="s">"AI Entry"</span>, <span class="k">"badge"</span>: <span class="s">"AI"</span>
+    }}
+  ],
+  <span class="k">"animation"</span>: { <span class="k">"stagger"</span>: <span class="s">"120ms"</span>, <span class="k">"easing"</span>: <span class="s">"ease-out"</span> }
+}
+
+<span class="c">// Overlay types accepted:</span>
+<span class="c">// trend-line | horizontal | entry-zone | signal-marker | fib |</span>
+<span class="c">// price-channel | invalidation-level | annotation | measure</span>
+
+<span class="c">// Source enum:</span>
+<span class="c">// ai-draft | ai-approved | user | order | position</span></pre>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Chart Overlay Object Library <span class="dh-impl dh-impl--visual">VISUAL</span></div>
+        <div class="overlay-ref">
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="25" x2="116" y2="6" stroke="var(--color-ai)" stroke-width="1.5" stroke-dasharray="5 3"/></svg></div>
+            <h5>Trend Line</h5>
+            <p>2 anchors · dashed if AI · solid if approved</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="15" x2="116" y2="15" stroke="var(--color-warning)" stroke-width="1.5"/></svg></div>
+            <h5>Horizontal (S/R)</h5>
+            <p>Price line · label at right axis</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><rect x="4" y="10" width="112" height="12" fill="var(--color-ai)" fill-opacity="0.2" stroke="var(--color-ai)" stroke-dasharray="3 2"/></svg></div>
+            <h5>Entry Zone</h5>
+            <p>Filled rect between lo/hi · dashed border</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="10" x2="116" y2="10" stroke="var(--color-trade-short)" stroke-width="1.5" stroke-dasharray="3 2"/><text x="60" y="24" font-family="IBM Plex Mono" font-size="9" fill="var(--color-trade-short)" text-anchor="middle">SL</text></svg></div>
+            <h5>Stop Loss</h5>
+            <p>Red · dashed until approved</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="10" x2="116" y2="10" stroke="var(--color-trade-long)" stroke-width="1.5"/><text x="60" y="24" font-family="IBM Plex Mono" font-size="9" fill="var(--color-trade-long)" text-anchor="middle">TP1 · TP2 · TP3</text></svg></div>
+            <h5>Take Profit (×3)</h5>
+            <p>Teal · ladder-labeled TP1/2/3</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><polygon points="60,4 66,14 62,14 62,26 58,26 58,14 54,14" fill="var(--color-trade-long)"/></svg></div>
+            <h5>Long / Short Marker</h5>
+            <p>Directional glyph at time anchor</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><rect x="4" y="8" width="112" height="4" fill="var(--brand-accent-500)" fill-opacity="0.3"/><rect x="4" y="18" width="112" height="4" fill="var(--brand-accent-500)" fill-opacity="0.3"/></svg></div>
+            <h5>Price Channel</h5>
+            <p>Parallel band · slope propagates</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="5"  x2="116" y2="5"  stroke="var(--color-warning)" stroke-width="0.8"/><line x1="4" y1="12" x2="116" y2="12" stroke="var(--color-warning)" stroke-width="0.8"/><line x1="4" y1="19" x2="116" y2="19" stroke="var(--color-warning)" stroke-width="0.8"/><line x1="4" y1="26" x2="116" y2="26" stroke="var(--color-warning)" stroke-width="0.8"/></svg></div>
+            <h5>Fibonacci</h5>
+            <p>Retracement levels 0/23.6/38.2/50/61.8/100</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><rect x="4" y="10" width="112" height="12" fill="url(#hatch)" stroke="var(--color-danger)" stroke-dasharray="3 2"/><defs><pattern id="hatch" patternUnits="userSpaceOnUse" width="4" height="4"><path d="M0,4 l4,-4" stroke="var(--color-danger)" stroke-width="0.5" opacity="0.4"/></pattern></defs></svg></div>
+            <h5>Invalidation Level</h5>
+            <p>Hatched zone · red border · auto-triggers signal invalidation</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><span style="font-family: var(--font-mono); font-size:11px; color: var(--color-ai); background: var(--color-ai-bg); padding: 3px 8px; border-radius:3px; border: 1px solid var(--color-ai);">✦ AI Note</span></div>
+            <h5>AI Annotation</h5>
+            <p>Free-text callout · always tagged AI</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><span style="font-family: var(--font-mono); font-size:10px; color: var(--color-ai); background: var(--color-ai); color: var(--color-bg-app); padding: 2px 6px; border-radius:2px; font-weight: 700;">AI 74%</span></div>
+            <h5>Confidence Badge</h5>
+            <p>Attached to signal marker · % confidence</p>
+          </div>
+          <div class="overlay-ref__card">
+            <div class="overlay-ref__preview"><svg width="120" height="30"><line x1="4" y1="15" x2="116" y2="15" stroke="var(--color-text-primary)" stroke-width="1"/></svg></div>
+            <h5>User Drawing</h5>
+            <p>Neutral color · solid · never tagged AI</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 07. AI STATE MAP -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="ai-states">
+      <div class="dh-section__title">
+        <span class="dh-section__num">07</span>
+        AI State Map
+      </div>
+      <p class="dh-section__desc">
+        AI Copilot이 취할 수 있는 모든 상태와 UI 표현. 각 상태는 State Bar pill로 표시되고, 사용자에게 다음 행동을 안내합니다.
+      </p>
+
+      <div class="dh-card" style="padding: 0; overflow: hidden;">
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th>State</th>
+              <th>UI Pill</th>
+              <th>Trigger</th>
+              <th>Visible affordances</th>
+              <th>Blocked actions</th>
+              <th>Auto-transitions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Idle</strong></td><td><span class="st-chip idle">● READY</span></td><td>App load / signal resolved</td><td>quick prompts · composer</td><td>—</td><td>on user input → Thinking</td></tr>
+            <tr><td><strong>User typing</strong></td><td><span class="st-chip idle">● TYPING</span></td><td>focus + keystroke</td><td>send button enables at ≥1 char</td><td>—</td><td>on submit → Thinking</td></tr>
+            <tr><td><strong>Thinking</strong></td><td><span class="st-chip thinking">◐ THINKING</span></td><td>submit</td><td>step list · cancel</td><td>submit</td><td>after steps → Streaming</td></tr>
+            <tr><td><strong>Streaming</strong></td><td><span class="st-chip streaming">≡ STREAMING</span></td><td>after thinking</td><td>cursor · partial text · cancel</td><td>submit</td><td>on end-of-stream → Idle or Waiting Review</td></tr>
+            <tr><td><strong>Tool execution</strong></td><td><span class="st-chip thinking">⚙ TOOL</span></td><td>AI calls chart command</td><td>tool result chip</td><td>submit</td><td>→ Streaming continuation</td></tr>
+            <tr><td><strong>Signal draft generated</strong></td><td><span class="st-chip thinking">◐ DRAFT</span></td><td>signal proposed</td><td>Signal Card · overlays draft</td><td>—</td><td>→ Waiting Review</td></tr>
+            <tr><td><strong>Waiting for user review</strong></td><td><span class="st-chip review">◑ WAITING REVIEW</span></td><td>signal shown</td><td>Approve · Edit · Reject</td><td>—</td><td>on approve → Approved; on reject → Idle</td></tr>
+            <tr><td><strong>User editing signal</strong></td><td><span class="st-chip review">✎ EDITING</span></td><td>overlay dragged</td><td>live R:R recompute · save/cancel</td><td>—</td><td>on save → Waiting Review</td></tr>
+            <tr><td><strong>Approved</strong></td><td><span class="st-chip approved">✓ APPROVED</span></td><td>approve click</td><td>Create Order Draft · Duplicate · Alert</td><td>—</td><td>on order-draft → Idle (signal stays approved)</td></tr>
+            <tr><td><strong>Rejected</strong></td><td><span class="st-chip rejected">✗ REJECTED</span></td><td>reject click</td><td>—</td><td>—</td><td>overlays cleared → Idle</td></tr>
+            <tr><td><strong>Error</strong></td><td><span class="st-chip error">⚠ ERROR</span></td><td>tool error · timeout</td><td>Retry · Report · Fallback text</td><td>submit</td><td>on retry → Thinking</td></tr>
+            <tr><td><strong>Insufficient data</strong></td><td><span class="st-chip insuff">◌ INSUFF DATA</span></td><td>&lt; N candles or missing indicator</td><td>Load more · Change TF</td><td>signal generation</td><td>on data-arrived → Idle</td></tr>
+            <tr><td><strong>Stale market data</strong></td><td><span class="st-chip stale">◷ STALE</span></td><td>last tick &gt; threshold</td><td>Refresh · warn banner</td><td>signal generation</td><td>on fresh tick → Idle</td></tr>
+            <tr><td><strong>Reconnecting</strong></td><td><span class="st-chip reconn">↻ RECONNECT</span></td><td>connection.state = reconnecting</td><td>spinner · retry-count</td><td>everything</td><td>on live → previous state</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 08. ORDER STATE MAP -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="order-states">
+      <div class="dh-section__title">
+        <span class="dh-section__num">08</span>
+        Order State Map
+      </div>
+      <p class="dh-section__desc">
+        주문의 lifecycle. Approve Signal은 이 그래프의 <strong>시작</strong>일 뿐이며, Submit Order와 절대 병합해서는 안 됩니다.
+      </p>
+
+      <div class="dh-card">
+        <pre class="dh-code"><span class="c">// Order lifecycle — enum + transitions</span>
+
+signal.approved
+    <span class="c">→ Approve Signal ("approve")</span>
+order-draft.created
+    <span class="c">→ Prefill Order Entry with signal values</span>
+    <span class="c">→ user may modify price/size/leverage</span>
+order-draft.previewing
+    <span class="c">→ Open Order Preview modal (multi-step)</span>
+order-draft.risk-checking
+    <span class="c">→ Run Risk Checklist (7 signals: SL dir, TP dir, leverage, liq dist, price dev, data freshness, AI conf)</span>
+    <span class="c">→ Any FAIL → user must fix before proceeding</span>
+order-draft.awaiting-final-confirmation
+    <span class="c">→ Show final summary + AI-generated label + Simulation label</span>
+order.submitting
+    <span class="c">→ (async) send to (mock) engine</span>
+order.submitted           <span class="c">// terminal — SIMULATION</span>
+    <span class="c">→ Toast + Position updated + SignalObject.linkedOrderId set</span>
+order.canceled            <span class="c">// terminal</span>
+    <span class="c">→ Draft discarded · signal remains approved</span>
+order.rejected            <span class="c">// terminal — from mock engine</span>
+    <span class="c">→ Show reason, allow retry</span></pre>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Risk Checklist — Pre-Submission Gates <span class="dh-impl dh-impl--proto">PROTO</span></div>
+        <table class="dh-tbl">
+          <thead><tr><th>Check</th><th>Rule</th><th>OK</th><th>Warn</th><th>Fail (blocks submit)</th></tr></thead>
+          <tbody>
+            <tr><td>SL direction</td><td>long: SL &lt; entry / short: SL &gt; entry</td><td class="ok">방향 일치</td><td>—</td><td>방향 반대 (block)</td></tr>
+            <tr><td>TP direction</td><td>long: TP &gt; entry / short: TP &lt; entry</td><td class="ok">방향 일치</td><td>—</td><td>방향 반대 (block)</td></tr>
+            <tr><td>Leverage</td><td>value ≤ symbol.maxLeverage</td><td class="ok">≤ 20×</td><td>21–50×</td><td>&gt; symbol.maxLev</td></tr>
+            <tr><td>Liquidation distance</td><td>|liq - entry| / entry × 100</td><td class="ok">≥ 6%</td><td>3–6%</td><td>&lt; 3%</td></tr>
+            <tr><td>Price deviation</td><td>|price - last| / last × 100</td><td class="ok">≤ 3%</td><td>3–7%</td><td>&gt; 7%</td></tr>
+            <tr><td>Data freshness</td><td>ticks within 5s window</td><td class="ok">live</td><td>reconnecting</td><td>stale &gt; 30s</td></tr>
+            <tr><td>Available margin</td><td>required ≤ available</td><td class="ok">잔고 충분</td><td>90–100%</td><td>부족</td></tr>
+            <tr><td>Order size</td><td>notional ≥ minNotional</td><td class="ok">≥ 5 USDT</td><td>—</td><td>&lt; 5 USDT</td></tr>
+            <tr><td>AI confidence (optional)</td><td>&lt; 40% → user prompt</td><td class="ok">≥ 60%</td><td>40–60%</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 09. MARKET DATA STATES -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="market-states">
+      <div class="dh-section__title">
+        <span class="dh-section__num">09</span>
+        Market-data State Map
+      </div>
+      <p class="dh-section__desc">
+        WebSocket과 REST 데이터의 상태 표현. 모든 위젯이 반드시 이 8가지 상태를 시각적으로 구현해야 합니다.
+      </p>
+
+      <div class="dh-card" style="padding: 0; overflow:hidden;">
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th>State</th>
+              <th>Trigger</th>
+              <th>Connection Cluster</th>
+              <th>Widget decoration</th>
+              <th>Blocked</th>
+              <th>Fallback</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Live</strong></td>
+              <td>WS open, ticks &lt; 5s</td>
+              <td><span style="color: var(--color-success);">● WS · 34ms · 0s</span></td>
+              <td>Normal · flash on price change</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Slow</strong></td>
+              <td>Latency 100–200ms</td>
+              <td><span style="color: var(--color-success);">● WS</span> <span style="color: var(--color-warning);">↔ 156ms</span></td>
+              <td>latency chip highlighted</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Stale</strong></td>
+              <td>no tick 5–30s</td>
+              <td><span style="color: var(--color-warning);">◷ STALE</span></td>
+              <td>hatched overlay on prices · '⏱ stale' pill</td>
+              <td>order submit · signal gen</td>
+              <td>last-known price shown grayed</td>
+            </tr>
+            <tr>
+              <td><strong>Very stale</strong></td>
+              <td>no tick 30s–2m</td>
+              <td><span style="color: var(--color-danger);">◷ VERY STALE</span></td>
+              <td>full grayscale on widget · banner</td>
+              <td>all writes</td>
+              <td>modal offering refresh</td>
+            </tr>
+            <tr>
+              <td><strong>Reconnecting</strong></td>
+              <td>WS drop → retry</td>
+              <td><span style="color: var(--color-warning);">↻ RECON · try #3</span></td>
+              <td>spinner overlay · pulsing border</td>
+              <td>all writes</td>
+              <td>REST fallback for orderbook snapshot</td>
+            </tr>
+            <tr>
+              <td><strong>Disconnected</strong></td>
+              <td>WS closed &gt; 10s + backoff exhausted</td>
+              <td><span style="color: var(--color-danger);">✗ DOWN</span></td>
+              <td>widget-wide '❌ disconnected' state</td>
+              <td>everything</td>
+              <td>manual reconnect button</td>
+            </tr>
+            <tr>
+              <td><strong>Rate-limited</strong></td>
+              <td>REST 429 or WS throttle</td>
+              <td><span style="color: var(--color-warning);">⚠ THROTTLE</span></td>
+              <td>banner with cooldown countdown</td>
+              <td>REST-backed features</td>
+              <td>reduce update rate</td>
+            </tr>
+            <tr>
+              <td><strong>Insufficient data</strong></td>
+              <td>&lt; N candles / missing feed</td>
+              <td><span style="color: var(--color-text-tertiary);">◌ INSUFF</span></td>
+              <td>empty state with 'need N more bars'</td>
+              <td>indicators · AI signal gen</td>
+              <td>historical REST backfill</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 10. RESPONSIVE RULES -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="responsive">
+      <div class="dh-section__title">
+        <span class="dh-section__num">10</span>
+        Responsive Rules — Desktop Sizes
+      </div>
+      <p class="dh-section__desc">
+        데스크톱 4가지 크기에서의 위젯 동작 규칙. 단순 축소가 아니라, 어느 위젯이 <strong>어떻게 접히고 · 탭이 되고 · 이동되고 · 우선 유지되는지</strong> 정의합니다.
+        Tablet/Mobile은 향후 별도 스펙(§12).
+      </p>
+
+      <div class="dh-card" style="padding:0; overflow:hidden;">
+        <table class="dh-tbl dh-responsive">
+          <thead>
+            <tr>
+              <th>Widget</th>
+              <th><span class="breakpoint">1920×1080 (XL)</span></th>
+              <th><span class="breakpoint">1440×900 (L)</span></th>
+              <th><span class="breakpoint">1366×768 (M)</span></th>
+              <th><span class="breakpoint">1024×768 (S · min)</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Symbol Header</strong></td>
+              <td>All 4 groups visible (Identity · Price · Meta · Range · Actions)</td>
+              <td>All 4 groups; Range group condensed</td>
+              <td>Range group hidden</td>
+              <td>Range group hidden; Meta shows only Mark + Funding</td>
+            </tr>
+            <tr>
+              <td><strong>Sidebar</strong></td>
+              <td>56px width · all icons</td>
+              <td>56px width · all icons</td>
+              <td>48px width · condensed</td>
+              <td>48px width · optional collapse</td>
+            </tr>
+            <tr>
+              <td><strong>Market Watch</strong></td>
+              <td>4 cols visible · Full symbol name</td>
+              <td>4 cols · abbreviated volume</td>
+              <td>Reduced to 3 cols · fewer tabs</td>
+              <td>Collapse into left drawer (icon toggle)</td>
+            </tr>
+            <tr>
+              <td><strong>Main Chart</strong></td>
+              <td>Full toolbar · draw tools sidebar visible</td>
+              <td>Full toolbar · draw tools icons only</td>
+              <td>Toolbar overflow to menu · legend condensed</td>
+              <td>Toolbar in overflow menu · MA labels tooltip only</td>
+            </tr>
+            <tr>
+              <td><strong>Order Book</strong></td>
+              <td>18 rows each side · size + total</td>
+              <td>14 rows · size + total</td>
+              <td>12 rows · size only (Total in tooltip)</td>
+              <td>10 rows · precision selector hidden by default</td>
+            </tr>
+            <tr>
+              <td><strong>Recent Trades</strong></td>
+              <td>60 rows · price/size/time</td>
+              <td>40 rows</td>
+              <td>Combined tab with Order Book</td>
+              <td>Combined tab with Order Book</td>
+            </tr>
+            <tr>
+              <td><strong>Order Entry</strong></td>
+              <td>Full form · advanced order types inline</td>
+              <td>Advanced types in menu</td>
+              <td>Compact form · TP/SL in modal</td>
+              <td>Compact form · advanced hidden</td>
+            </tr>
+            <tr>
+              <td><strong>Positions &amp; Orders</strong></td>
+              <td>Full table · all columns</td>
+              <td>Hide 'Trigger' and 'ADL' columns</td>
+              <td>Bottom scroll · sticky Symbol/Side</td>
+              <td>Card layout (each position = card)</td>
+            </tr>
+            <tr>
+              <td><strong>Assets · Risk</strong></td>
+              <td>Full block · calculator button</td>
+              <td>Full block</td>
+              <td>Collapse under Positions tab</td>
+              <td>Collapse into Positions header</td>
+            </tr>
+            <tr>
+              <td><strong>AI Copilot</strong></td>
+              <td>Docked right · 9 cols · state bar visible</td>
+              <td>Docked right · 8 cols</td>
+              <td>Docked right or Floating · 7 cols · collapse quick prompts</td>
+              <td>Collapsed to floating button · expands to overlay drawer</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dh-card">
+        <div class="dh-card__title">Priority Preservation Rules <span class="dh-impl dh-impl--spec">SPEC</span></div>
+        <ol style="font-size: 12px; line-height: 1.8; color: var(--color-text-secondary); padding-left: 20px;">
+          <li>가격·포지션·리스크 정보는 <strong>어떤 화면 크기에서도 항상 표시</strong>.</li>
+          <li>차트는 최소 40% 폭 확보 (밑으로 접힘 금지).</li>
+          <li>Order Entry는 화면 폭 &lt; 1200px에서 <strong>Right → Bottom drawer</strong> 전환 옵션 (사용자 설정).</li>
+          <li>AI Copilot 상태 (Docked · Floating · Collapsed)는 사용자가 명시적으로 토글하지 않는 한 preset이 결정.</li>
+          <li>Positions 테이블은 폭 &lt; 1024px에서 card layout으로 자동 전환.</li>
+          <li>Tooltip은 hover 시에만 표시되므로, 정보를 tooltip에만 넣지 말 것 (touch 미지원).</li>
+          <li>Layout Edit Mode는 최소 1280px 이상에서만 활성 (그 이하에서는 preset 선택만 허용).</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 11. ACCESSIBILITY -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="a11y">
+      <div class="dh-section__title">
+        <span class="dh-section__num">11</span>
+        Accessibility Annotations
+      </div>
+      <p class="dh-section__desc">
+        WCAG 2.2 AA 준수. 색상만으로 상태를 전달하지 않고, 아이콘·텍스트·방향 표시를 함께 사용합니다.
+      </p>
+
+      <div class="dh-card" style="padding: 0; overflow: hidden;">
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th>Requirement</th>
+              <th>Rule</th>
+              <th>Verified in</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Text contrast (AA)</td><td>≥ 4.5:1 normal · ≥ 3:1 large text</td><td>Dark + Light themes</td><td>Muted text ≥ 4.5:1 against panel bg</td></tr>
+            <tr><td>Non-text contrast</td><td>≥ 3:1 for icons, borders, focus rings</td><td>All interactive elements</td><td>Focus ring uses <code>--color-border-focus</code></td></tr>
+            <tr><td>Color independence</td><td>Long/Short use ▲/▼ + color + text label</td><td>Order rows, position rows, price ticks</td><td>Never rely on red/green alone</td></tr>
+            <tr><td>Focus-visible</td><td>2px outline · 1px offset · rounded</td><td>base.css :focus-visible</td><td>All buttons/links/inputs</td></tr>
+            <tr><td>Keyboard tab order</td><td>Header → Sidebar → Main widgets left-to-right, top-to-bottom → Toasts</td><td>Manual test</td><td>Widget grid respects DOM order</td></tr>
+            <tr><td>Modal focus trap</td><td>Order Preview traps focus; ESC to close</td><td>Order Preview modal</td><td>Return focus to Submit button on close</td></tr>
+            <tr><td>Escape closes</td><td>ESC closes modal, drawer, popover, edit-mode with unsaved-guard</td><td>App-wide keydown</td><td>Modal &gt; Popover &gt; Drawer priority</td></tr>
+            <tr><td>Tooltips as supplement</td><td>Every tooltip has an accessible label on the trigger</td><td>Symbol header, connection cluster</td><td>aria-label required on icon-only buttons</td></tr>
+            <tr><td>Reduced motion</td><td>Disable pulse, toast slide, layout-toolbar anim on <code>prefers-reduced-motion</code></td><td>tokens.css @media</td><td>Animations reduce to 0.01ms, opacity retained</td></tr>
+            <tr><td>Hit targets</td><td>Icon buttons ≥ 32×32; touch ≥ 44×44</td><td>All .btn--icon</td><td>Order Book row is 24px (mouse) — enlarge on touch</td></tr>
+            <tr><td>Table row/col identity</td><td>&lt;th&gt; with scope="col"; sticky column for Symbol</td><td>Positions table</td><td>Row header for symbol at smaller widths</td></tr>
+            <tr><td>Number legibility</td><td>tabular-nums globally · min 11px price/qty</td><td>base.css font-variant-numeric</td><td>Never scale below 11px for prices</td></tr>
+            <tr><td>Live region announcements</td><td>Toast region = <code>aria-live="polite"</code>; connection changes = <code>aria-live="assertive"</code> when critical</td><td>Global regions</td><td>Order submit success — polite; disconnect — assertive</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== -->
+    <!-- 12. IMPLEMENTATION STATUS -->
+    <!-- ================================================== -->
+    <section class="dh-section" id="impl">
+      <div class="dh-section__title">
+        <span class="dh-section__num">12</span>
+        Implementation Status & Production Roadmap
+      </div>
+      <p class="dh-section__desc">
+        각 기능이 현재 프로토타입에서 어떤 수준으로 표현되어 있는지, 그리고 프로덕션에서 무엇을 추가로 구현해야 하는지 명확히 구분합니다.
+      </p>
+
+      <div class="dh-card" style="padding: 0; overflow: hidden;">
+        <table class="dh-tbl">
+          <thead>
+            <tr>
+              <th style="width: 24%;">Feature</th>
+              <th style="width: 14%;">Status</th>
+              <th>Prototype scope</th>
+              <th>Production requirement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Desktop Main Trading UI</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>All 7 preset layouts rendered · drag/resize/hide/duplicate 동작</td><td>None (UX-only)</td></tr>
+            <tr><td>Symbol / Price / Meta hierarchy</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>4-group layout · Simulation stripe · connection cluster · latency chip</td><td>Wire to real market snapshot API</td></tr>
+            <tr><td>Candle chart + indicators</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Deterministic mock candles · MA20/60/120 rendered · zoom · pan</td><td>Adapt <code>KLineChart 10.x</code> · real WebSocket klines · custom indicators</td></tr>
+            <tr><td>Order Book / Recent Trades</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Randomized rows · click-to-fill · precision toggle · side filter</td><td>Real WS delta stream · L2/L3 depth</td></tr>
+            <tr><td>Order Entry</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Limit/Market/Trigger · TP/SL · leverage · post-only · reduce-only</td><td>Advanced types (OCO, Stop-Limit, Iceberg, TWAP) · min-notional validation server-side</td></tr>
+            <tr><td>Positions / Orders / History</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Seeded positions & orders · PnL/ROE recomputes on tick · tabbed table</td><td>Real positions stream · fills · history pagination · CSV export</td></tr>
+            <tr><td>Assets · Risk block</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Equity, margin ratio bar, PnL basis toggle</td><td>Wallet balance API · maintenance-margin formula per symbol</td></tr>
+            <tr><td>AI Copilot conversation</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Scripted flows · thinking steps · streaming reply · state bar (13 states)</td><td>Real LLM w/ tool calls · streaming SSE · rate limiting · content filter</td></tr>
+            <tr><td>AI Signal generation</td><td><span class="dh-impl dh-impl--mock">MOCK</span></td><td>Hardcoded BTC long setup · confidence ring · invalidation banner</td><td>Model backend · multi-symbol · dynamic invalidation monitoring</td></tr>
+            <tr><td>Chart overlays (AI-drawn)</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Entry Zone / SL / TPs / Signal Marker · draggable · edit reflects in chat</td><td>ChartCommand engine · versioned overlays · shareable snapshot IDs</td></tr>
+            <tr><td>Order preview flow</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>7-step visual pipeline · Risk Checklist w/ 7-9 gates</td><td>Server-side risk engine · liq. price calc per margin mode</td></tr>
+            <tr><td>Layout Edit Mode</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Drag · Resize · Hide · Duplicate · Lock · Undo/Redo · Presets · Library</td><td>Server-persisted layouts · shared/team layouts · versioning</td></tr>
+            <tr><td>Layout JSON (§04)</td><td><span class="dh-impl dh-impl--spec">SPEC</span></td><td>Full schema documented · deserialization from localStorage</td><td>API endpoints (GET/POST/PUT/DELETE) · migration for schemaVersion bumps</td></tr>
+            <tr><td>Design tokens</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>3-layer tokens · dark/light · 4 brands · 3 long/short pairs · 3 densities</td><td>Export to Style Dictionary or Tokens Studio for cross-platform sync</td></tr>
+            <tr><td>Tweaks Panel</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Live-swap for all 8 axes · localStorage persistence</td><td>Move from Tweaks to Settings screen · per-user preferences API</td></tr>
+            <tr><td>Alerts / Notifications</td><td><span class="dh-impl dh-impl--spec">SPEC</span></td><td>Widget spec only · toast delivery working</td><td>Alert rule engine · push · email · in-app · silence rules</td></tr>
+            <tr><td>News feed</td><td><span class="dh-impl dh-impl--spec">SPEC</span></td><td>Widget spec only</td><td>Aggregator integration · sentiment tagging</td></tr>
+            <tr><td>Risk Monitor</td><td><span class="dh-impl dh-impl--visual">VISUAL</span></td><td>Preset available; widget itself is placeholder</td><td>Portfolio VaR · exposure aggregation · correlation matrix</td></tr>
+            <tr><td>Multi-chart</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Preset with 4 mini charts · symbol from mock data</td><td>Symbol picker per pane · sync crosshair</td></tr>
+            <tr><td>Accessibility (WCAG 2.2 AA)</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>Focus rings · reduced motion · tabular numerals · directional glyphs</td><td>Screen reader audit · aria-live for connection changes · JAWS/NVDA testing</td></tr>
+            <tr><td>i18n (ko/en)</td><td><span class="dh-impl dh-impl--proto">PROTO</span></td><td>UI strings toggle · Pretendard + Plex Sans</td><td>Full string extraction · number/date locale · RTL scan</td></tr>
+            <tr><td>Tablet / Mobile</td><td><span class="dh-impl dh-impl--future">FUTURE</span></td><td>Not designed in this phase · principles documented in §10</td><td>Full mobile app spec · gesture-driven Order Entry · reduced feature set</td></tr>
+            <tr><td>Real WebSocket layer</td><td><span class="dh-impl dh-impl--future">FUTURE</span></td><td>Mock stream with tick interval only</td><td>Multiplexed WS · backoff · REST fallback · rate limiting</td></tr>
+            <tr><td>Auth / Session / KYC</td><td><span class="dh-impl dh-impl--future">FUTURE</span></td><td>Static "K" avatar only</td><td>OAuth · session mgmt · KYC/AML flow · 2FA</td></tr>
+            <tr><td>Deposit / Withdraw</td><td><span class="dh-impl dh-impl--future">FUTURE</span></td><td>Deposit button visible only</td><td>Wallet integration · on-chain confirmations</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dh-card" style="border-left: 3px solid var(--color-warning); background: oklch(80% 0.14 75 / 0.06);">
+        <div class="dh-card__title" style="color: var(--color-warning);">Important — What "Complete" means here</div>
+        <div style="font-size: 12.5px; line-height: 1.65; color: var(--color-text-secondary);">
+          이 프로토타입은 실제 상용 거래 시스템이 아닙니다. 모든 가격·주문·AI 응답은 결정적 mock 데이터입니다.
+          실제 자금은 이동하지 않으며, 모든 화면 상단에 SIMULATION stripe가 상시 표시됩니다. 개발 팀은 위의 <strong>Production requirement</strong> 컬럼을 참조하여
+          실 배포를 위한 서버·인증·데이터·거래 엔진을 별도로 구현해야 합니다.
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono);">
+      <div>QuantumTrade AI · Developer Handoff v1.0 · 2026-07</div>
+      <div>Schema version 1 · 24-column · rowH=40 · gap=6</div>
+    </div>
+  </div>
+</body>
+</html>

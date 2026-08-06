@@ -1,0 +1,30 @@
+{
+  "name": "@quantumtrade/market-gateway-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup src/index.ts --format esm --platform node --target node24 --no-splitting --clean",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@quantumtrade/market-gateway": "workspace:*",
+    "@quantumtrade/cluster": "workspace:*",
+    "@quantumtrade/observability": "workspace:*",
+    "@quantumtrade/security": "workspace:*",
+    "ws": "8.21.0",
+    "@quantumtrade/exchange-bitmart": "workspace:*",
+    "@quantumtrade/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.15",
+    "@types/ws": "8.5.12",
+    "tsup": "8.2.4",
+    "tsx": "4.19.1",
+    "typescript": "5.5.4",
+    "vitest": "2.1.9"
+  }
+}

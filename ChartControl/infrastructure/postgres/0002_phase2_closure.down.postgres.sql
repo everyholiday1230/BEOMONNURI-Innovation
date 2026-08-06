@@ -1,0 +1,23 @@
+-- Phase 2 Closure · 0002 (PostgreSQL DOWN). Drops all 0002 objects. Data-destructive.
+DROP TABLE IF EXISTS usage_records;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS alerts;
+DROP TABLE IF EXISTS simulation_order_events;
+DROP TABLE IF EXISTS simulation_orders;
+DROP TABLE IF EXISTS order_drafts;
+DROP TABLE IF EXISTS chart_overlays;
+DROP TABLE IF EXISTS signal_versions;
+DROP TABLE IF EXISTS ai_signals;
+DROP TABLE IF EXISTS ai_messages;
+DROP TABLE IF EXISTS ai_conversations;
+DROP TABLE IF EXISTS layout_versions;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS role_permissions;
+DROP TABLE IF EXISTS permissions;
+DROP TABLE IF EXISTS password_reset_tokens;
+DROP TABLE IF EXISTS email_verification_tokens;
+ALTER TABLE audit_logs DROP COLUMN IF EXISTS result;
+ALTER TABLE audit_logs DROP COLUMN IF EXISTS trace_id;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_secret;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_type;
+ALTER TABLE users DROP COLUMN IF EXISTS email_verified;

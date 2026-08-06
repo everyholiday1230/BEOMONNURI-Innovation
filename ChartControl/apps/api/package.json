@@ -1,0 +1,46 @@
+{
+  "name": "@quantumtrade/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup && cp -r src/db/migrations dist/migrations",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "seed:dev": "tsx src/dev/seed-cli.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "3.1097.0",
+    "@hono/node-server": "2.0.12",
+    "@quantumtrade/admin-domain": "workspace:*",
+    "@quantumtrade/admin-schemas": "workspace:*",
+    "@quantumtrade/ai": "workspace:*",
+    "@quantumtrade/auth": "workspace:*",
+    "@quantumtrade/config": "workspace:*",
+    "@quantumtrade/domain": "workspace:*",
+    "@quantumtrade/mfa": "workspace:*",
+    "@quantumtrade/exchange-adapters": "workspace:*",
+    "@quantumtrade/exchange-bitmart": "workspace:*",
+    "@quantumtrade/schemas": "workspace:*",
+    "better-sqlite3": "11.10.0",
+    "hono": "4.12.32",
+    "openai": "7.1.0",
+    "pg": "8.12.0",
+    "zod": "3.23.8",
+    "@quantumtrade/cluster": "workspace:*",
+    "@quantumtrade/strategy": "workspace:*",
+    "@quantumtrade/exchange-kucoin": "workspace:*",
+    "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.11",
+    "@types/pg": "8.11.6",
+    "tsup": "8.2.4",
+    "tsx": "4.19.1",
+    "typescript": "5.5.4",
+    "vitest": "2.1.9",
+    "@types/ws": "8.5.12"
+  }
+}

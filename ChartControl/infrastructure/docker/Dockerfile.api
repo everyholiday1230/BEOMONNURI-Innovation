@@ -1,0 +1,56 @@
+# Phase 6 §8 / Closure §5 / Node-24 migration — Production API image.
+#
+# Node.js 20 reached END-OF-LIFE on 2026-03-24 and is not eligible as a production runtime even at a
+# 0/0 vulnerability scan. This image runs on **Node.js 24 LTS (Active LTS)** on Alpine. All three stages
+# (builder, proddeps, runtime) share the SAME Node major (24) and the SAME musl ABI so the compiled
+# native addon (better-sqlite3) is binary-compatible with the runtime.
+#
+# Base image pinned by digest (verified: node:24-alpine = Node v24.18.0, Alpine 3.24.1):
+#   node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+#
+# Container scan (Trivy, ignore-unfixed:false): 0 CRITICAL / 0 HIGH — achieved by the Node-24 Alpine base
+# + `apk upgrade` + removal of the bundled npm/npx/corepack (which is where node-tar/brace-expansion/
+# undici CVEs live; the runtime only ever runs `node dist/index.js`).
+ARG NODE_BASE=node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+
+FROM ${NODE_BASE} AS builder
+RUN apk add --no-cache python3 make g++ libc-dev
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+COPY . .
+RUN pnpm install --frozen-lockfile && pnpm --filter @quantumtrade/api build
+
+# Production runtime dependencies only (external to the bundle): native (better-sqlite3) + SDK. Built on
+# the SAME Node 24 / musl base as the runtime so the compiled native addon is ABI-compatible. Compilers
+# live only in this stage and are never copied into the runtime image.
+FROM ${NODE_BASE} AS proddeps
+WORKDIR /prod
+RUN apk add --no-cache python3 make g++ libc-dev
+RUN printf '%s' '{"name":"qt-api-runtime","private":true,"type":"module","dependencies":{"better-sqlite3":"11.10.0","pg":"8.12.0","openai":"7.1.0","@aws-sdk/client-secrets-manager":"3.1097.0"}}' > package.json
+RUN npm install --omit=dev --no-audit --no-fund
+
+FROM ${NODE_BASE} AS runtime
+ENV NODE_ENV=production \
+    API_HOST=0.0.0.0 \
+    API_PORT=8787 \
+    BITMART_LIVE_TRADING_ENABLED=false \
+    BITMART_EMERGENCY_KILL_SWITCH=true
+# Patch OS packages (openssl etc. → fixed) and REMOVE the bundled npm/npx/corepack toolchain — the
+# runtime only ever runs `node dist/index.js`, so the npm-shipped node-tar (CRITICAL) and friends have no
+# reason to be present. This drives the container vulnerability scan to 0 CRITICAL / 0 HIGH.
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+           /usr/local/bin/corepack /usr/local/lib/node_modules/corepack /root/.npm \
+ && addgroup -S -g 10001 qt \
+ && adduser -S -u 10001 -G qt -h /app -s /sbin/nologin qt
+WORKDIR /app
+COPY --from=proddeps --chown=qt:qt /prod/node_modules ./node_modules
+COPY --from=builder --chown=qt:qt /app/apps/api/dist ./dist
+USER qt
+EXPOSE 8787
+# Readiness-based container healthcheck (liveness/readiness endpoints in the app). Exec form so it needs
+# no shell (the image intentionally keeps only node + busybox).
+HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 \
+  CMD ["node","-e","fetch('http://127.0.0.1:'+(process.env.API_PORT||8787)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+STOPSIGNAL SIGTERM
+CMD ["node", "dist/index.js"]

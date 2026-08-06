@@ -1,0 +1,20 @@
+{
+  "name": "quantumtrade-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "QuantumTrade AI backend — exchange adapter layer + market data gateway",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "ws": "8.18.0"
+  }
+}

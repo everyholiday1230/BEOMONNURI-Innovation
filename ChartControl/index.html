@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1280"/>
+  <title>QuantumTrade AI — Trading Terminal</title>
+
+  <!-- Google Fonts: IBM Plex Sans, IBM Plex Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Pretendard Variable via CDN -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+
+  <link rel="stylesheet" href="src/tokens.css"/>
+  <link rel="stylesheet" href="src/base.css"/>
+  <link rel="stylesheet" href="src/components.css"/>
+  <link rel="stylesheet" href="src/widgets.css"/>
+  <link rel="stylesheet" href="src/pages.css"/>
+  <link rel="stylesheet" href="src/pages-auth.css"/>
+  <link rel="stylesheet" href="src/chart-kline.css"/>
+  <link rel="stylesheet" href="src/chart-indicators.css"/>
+  <!-- 구현 상태 표시. 겉면 전용이며 끄면 원래 화면과 같다. -->
+  <link rel="stylesheet" href="src/provenance.css"/>
+</head>
+<body>
+  <div id="root">
+    <!-- Initial loading skeleton -->
+    <div style="display:flex; align-items:center; justify-content:center; height:100vh; flex-direction:column; gap:16px; font-family: 'IBM Plex Sans', sans-serif;">
+      <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, oklch(56% 0.15 220), oklch(78% 0.13 210)); display:inline-flex; align-items:center; justify-content:center; color: white; font-family: 'IBM Plex Mono'; font-size: 22px; font-weight: 700;">Q</div>
+      <div style="color: var(--color-text-tertiary); font-size: 12px; font-family: 'IBM Plex Mono';">QuantumTrade · 초기 데이터 로딩 중…</div>
+      <div style="display:flex; gap:6px;">
+        <span class="dot dot--live"></span>
+        <span style="font-size: 11px; color: var(--color-text-tertiary); font-family: 'IBM Plex Mono';">WebSocket 연결 중</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- i18n. 사전보다 먼저 로드되어야 register 가 동작한다.
+       언어 추가: src/locales/<code>.js 를 만들고 아래에 한 줄 추가.
+       지원 언어 목록·언어 선택 UI는 등록된 것에서 자동 산출되므로 코드 수정 불필요. -->
+  <script src="src/i18n.js"></script>
+  <script src="src/locales/en.js"></script>
+  <script src="src/locales/ko.js"></script>
+  <script src="src/locales/auth.en.js"></script>
+  <script src="src/locales/auth.ko.js"></script>
+  <script src="src/locales/user.en.js"></script>
+  <script src="src/locales/user.ko.js"></script>
+  <script src="src/locales/more.en.js"></script>
+  <script src="src/locales/more.ko.js"></script>
+  <script src="src/locales/admin.en.js"></script>
+  <script src="src/locales/admin.ko.js"></script>
+  <script src="src/locales/copilot.en.js"></script>
+  <script src="src/locales/copilot.ko.js"></script>
+  <script src="src/locales/shell.en.js"></script>
+  <script src="src/locales/shell.ko.js"></script>
+
+  <!-- Data + engine (plain JS) -->
+  <script src="src/mock-data.js"></script>
+  <script src="src/mock-stream.js"></script>
+  <script src="src/mock-app-data.js"></script>
+
+  <!-- 디자이너의 QT.I18N 을 i18n 레지스트리로 흡수하고 초기 언어를 정한다.
+       mock-data.js 뒤에 와야 한다. -->
+  <script src="src/i18n-bootstrap.js"></script>
+
+  <!-- Live data bridge (plain JS). mock-*.js 뒤에 와야 QT.* 를 덮어쓸 수 있다.
+       백엔드가 없으면 자동으로 목업으로 폴백하므로 정적 서버로도 그대로 동작한다. -->
+  <script src="src/api-client.js"></script>
+  <!-- 세션·등급 상태. api-client 뒤, 화면 코드 앞이어야 한다 (등급을 먼저 알아야 메뉴가 번쩍이지 않는다). -->
+  <script src="src/auth-state.js"></script>
+  <!-- 실 잔고·포지션. auth-state 뒤여야 한다 (로그인 여부를 먼저 알아야 요청하지 않는다). -->
+  <script src="src/account-data.js"></script>
+  <!-- 목업/실데이터 구분 표시 -->
+  <script src="src/provenance.js"></script>
+  <script src="src/live-market.js"></script>
+
+  <!-- KLineChart 10.0.1 (UMD). Apache-2.0 — 라이선스는 vendor/klinecharts/LICENSE 참조.
+       빌드 도구가 없는 구조라 UMD 번들을 직접 로드한다. JSX 파일보다 먼저 와야
+       chart-kline.jsx 가 window.klinecharts 를 찾을 수 있다. -->
+  <script src="vendor/klinecharts/klinecharts.min.js"></script>
+
+  <!-- JSX components -->
+  <script type="text/babel" src="src/icons.jsx"></script>
+  <script type="text/babel" src="src/chart-canvas.jsx"></script>
+  <script type="text/babel" src="src/chart-kline.jsx"></script>
+  <script src="src/chart-actions.js"></script>
+  <script type="text/babel" src="src/chart-indicators.jsx"></script>
+  <script type="text/babel" src="src/chart-settings.jsx"></script>
+  <script type="text/babel" src="src/widgets.jsx"></script>
+  <script type="text/babel" src="src/ai-copilot.jsx"></script>
+  <script type="text/babel" src="src/layout-engine.jsx"></script>
+  <script type="text/babel" src="src/tweaks.jsx"></script>
+  <script type="text/babel" src="src/page-shell.jsx"></script>
+  <script type="text/babel" src="src/pages-user.jsx"></script>
+  <script type="text/babel" src="src/pages-admin.jsx"></script>
+  <script type="text/babel" src="src/pages-auth.jsx"></script>
+  <script type="text/babel" src="src/pages-more.jsx"></script>
+  <script type="text/babel" src="src/pages-admin-more.jsx"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+
+  <!-- Mount -->
+  <script type="text/babel" data-presets="react">
+    function tryMount(retries = 0) {
+      if (window.App && window.MarketWatch && window.SymbolHeader && window.ChartCanvas && window.AICopilot && window.useLayoutEngine && window.WidgetHost && window.TweaksPanel && window.Icons && window.PresetRibbon && window.WidgetLibrary && window.LayoutEditToolbar && window.PageShell && window.MarketsPage && window.AdminDashboardPage && window.LoginPage && window.SignupPage && window.LandingPage && window.KYCOnboardingPage && window.NotFoundPage && window.DepositPage && window.WithdrawPage && window.TransactionHistoryPage && window.StrategyDetailPage && window.ReferralPage && window.FeeRebatePage && window.HelpCenterPage && window.AdminUserDetailPage && window.AdminKYCQueuePage && window.AdminBroadcastPage && window.AdminNoticeEditorPage && window.AdminAssetsHiFiPage) {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<window.App/>);
+      } else if (retries < 60) {
+        setTimeout(() => tryMount(retries + 1), 100);
+      } else {
+        document.getElementById('root').innerHTML = '<div style="color:red;padding:40px;font-family:monospace">Failed to load required scripts. Check console.</div>';
+        console.error('Mount failed. Missing globals:', {
+          App: !!window.App, MarketWatch: !!window.MarketWatch, ChartCanvas: !!window.ChartCanvas,
+          AICopilot: !!window.AICopilot, useLayoutEngine: !!window.useLayoutEngine,
+          WidgetHost: !!window.WidgetHost, TweaksPanel: !!window.TweaksPanel, Icons: !!window.Icons,
+        });
+      }
+    }
+    tryMount();
+  </script>
+</body>
+</html>

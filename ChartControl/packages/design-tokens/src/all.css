@@ -1,0 +1,15 @@
+/* Aggregate stylesheet: import once to apply the full design system.
+   Layer order matters: tokens (variables) -> base (resets/typography) -> components -> widgets
+   -> pages (page shell / KPI / section / table) -> pages-auth (landing + auth screens).
+
+   `pages.css` and `pages-auth.css` arrived with the 2026-08-02 handoff (`team_delivery/`) and are
+   copied verbatim. `tokens.css`, `base.css`, `components.css` and `widgets.css` predate it:
+   components/widgets are byte-identical to the new handoff, and tokens/base here are strict
+   supersets (added Korean font fallbacks and a prefers-reduced-motion block), so the older files
+   are kept deliberately rather than overwritten. */
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './widgets.css';
+@import './pages.css';
+@import './pages-auth.css';

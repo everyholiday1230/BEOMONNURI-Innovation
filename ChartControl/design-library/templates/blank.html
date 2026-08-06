@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  ============================================================
+  TEMPLATE — Blank
+  ------------------------------------------------------------
+  용도: 완전히 빈 페이지 · 사이드바 + 헤더만 잡혀있음
+  복사 방법: 이 파일 전체를 복사하고 XXX 부분을 채워주세요.
+  ============================================================
+-->
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>XXX Page — QuantumTrade AI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+
+  <!-- IMPORTANT: paths are ../../src — adjust if you move this file -->
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+</head>
+<body>
+  <div id="root">
+    <!-- Loading placeholder -->
+    <div style="display:flex; align-items:center; justify-content:center; height:100vh; font-family:'IBM Plex Mono'; color:var(--color-text-tertiary);">Loading…</div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="../../src/mock-data.js"></script>
+  <script src="../../src/mock-app-data.js"></script>
+
+  <script type="text/babel" src="../../src/icons.jsx"></script>
+  <script type="text/babel" src="../../src/widgets.jsx"></script>
+  <script type="text/babel" src="../../src/page-shell.jsx"></script>
+
+  <script type="text/babel">
+    // ============================================================
+    // Blank Page Template
+    // 편집: title / subtitle / breadcrumb / actions / body 만 수정
+    // ============================================================
+    function XXXPage() {
+      const shellProps = {
+        activePath: '/xxx-new-page',
+        role: 'user',
+        onNavigate: (path) => { window.location.hash = path; },
+      };
+
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="XXX Page Title"
+          subtitle="XXX Short description of this page"
+          breadcrumb={['Home', 'XXX']}
+          actions={
+            <>
+              <button className="btn btn--sm">Secondary</button>
+              <button className="btn btn--sm btn--primary">Primary Action</button>
+            </>
+          }
+        >
+          {/* ================================================
+              여기부터 본문을 채워주세요.
+              사용 가능한 컴포넌트:
+                - <window.KPICard/>
+                - <window.SectionCard/>
+                - <window.DataTable/>
+                - <window.PagePlaceholder/>
+              className="grid-2 | grid-3 | grid-4" 로 반응형 그리드
+              ================================================ */}
+          <window.PagePlaceholder
+            title="이 페이지의 본문을 채워주세요"
+            todo={[
+              '컴포넌트 카탈로그에서 필요한 조각 복사',
+              '/design-library/snippets/ 참조',
+            ]}
+          />
+        </window.PageShell>
+      );
+    }
+
+    function tryMount(retries = 0) {
+      if (window.PageShell && window.PagePlaceholder && window.KPICard && window.SectionCard) {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<XXXPage/>);
+      } else if (retries < 60) {
+        setTimeout(() => tryMount(retries + 1), 100);
+      }
+    }
+    tryMount();
+  </script>
+</body>
+</html>

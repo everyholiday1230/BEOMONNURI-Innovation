@@ -1,0 +1,57 @@
+# Phase 7 Terraform inputs — copy to terraform.tfvars and adjust.
+# NEVER put a credential in this file. Secret VALUES are written directly to Secrets Manager by the
+# owner (see README.md §"Populating secret values"); Terraform only creates the containers.
+
+region      = "ap-northeast-2"
+environment = "prod"
+name_prefix = "quantumtrade"
+
+# ---- Network -------------------------------------------------------------
+# Create a dedicated VPC (true) or attach to an existing one (false + the two ids below).
+create_network              = true
+vpc_cidr                    = "10.20.0.0/16"
+availability_zones          = ["ap-northeast-2a", "ap-northeast-2c"]
+# existing_vpc_id             = "vpc-xxxxxxxx"
+# existing_private_subnet_ids = ["subnet-xxxxxxxx", "subnet-yyyyyyyy"]
+
+# The NAT Elastic IP becomes the single egress address registered in the BitMart allowlist.
+# Recorded from the Stage 0 preflight for review; the created EIP is authoritative.
+fixed_egress_ip = "15.164.47.4"
+
+# ---- Data layer ----------------------------------------------------------
+postgres_engine_version           = "16.4"
+postgres_instance_class           = "db.m7g.large"
+postgres_multi_az                 = true
+postgres_allocated_storage_gb     = 100
+postgres_max_allocated_storage_gb = 500
+backup_retention_days             = 14
+
+redis_engine_version = "7.1"
+redis_node_type      = "cache.m7g.large"
+redis_replica_count  = 1
+
+# ---- Observability / alerting -------------------------------------------
+log_retention_days = 90
+
+# Endpoint addresses only. Slack/PagerDuty integration keys belong in Secrets Manager.
+alert_email_subscriptions = []
+# alert_https_subscriptions = ["https://events.pagerduty.com/integration/<ROUTING_KEY>/enqueue"]
+
+# ---- Optional DNS / TLS --------------------------------------------------
+enable_dns = false
+# domain_name     = "app.example.com"
+# route53_zone_id = "Zxxxxxxxxxxxxx"
+
+# ---- Deployment ----------------------------------------------------------
+# "external" = provision IAM/registry/data/observability only (Stage 0 runtime is a plain EC2 host).
+# "ecs_fargate" = also provision the ECS cluster/task/service.
+deployment_target        = "external"
+api_container_port       = 8787
+ecr_image_tag_mutability = "IMMUTABLE"
+
+enable_ssm_session_manager = true
+
+# ---- CI/CD trust ---------------------------------------------------------
+# Empty provider ARN => the deployment role trusts the account root with MFA required.
+# deployment_oidc_provider_arn = "arn:aws:iam::<ACCOUNT>:oidc-provider/token.actions.githubusercontent.com"
+# deployment_oidc_subject      = "repo:<ORG>/quantumtrade-ai:ref:refs/heads/main"

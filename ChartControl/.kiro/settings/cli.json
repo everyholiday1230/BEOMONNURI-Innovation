@@ -1,0 +1,10 @@
+{
+  "chat.defaultModel": "claude-opus-5",
+  "chat.modelDefaults": {
+    "claude-opus-5": {
+      "output_config": {
+        "effort": "high"
+      }
+    }
+  }
+}

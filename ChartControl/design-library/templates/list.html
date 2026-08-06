@@ -1,0 +1,110 @@
+<!doctype html>
+<!--
+  ============================================================
+  TEMPLATE — List Page
+  ------------------------------------------------------------
+  용도: 리소스 목록 조회 (사용자, 주문, 심볼, 공지 등)
+  구성: KPI 4개 + Section Card (검색·필터·테이블)
+  ============================================================
+-->
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>List Page Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+</head>
+<body>
+  <div id="root"><div style="padding:40px; color:var(--color-text-tertiary); font-family:'IBM Plex Mono';">Loading…</div></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../src/mock-data.js"></script>
+  <script src="../../src/mock-app-data.js"></script>
+  <script type="text/babel" src="../../src/icons.jsx"></script>
+  <script type="text/babel" src="../../src/widgets.jsx"></script>
+  <script type="text/babel" src="../../src/page-shell.jsx"></script>
+  <script type="text/babel">
+    const { useState } = React;
+    // ============================================================
+    // List Page Template
+    // ============================================================
+    function ListTemplatePage() {
+      const [q, setQ] = useState('');
+      const [filter, setFilter] = useState('all');
+      const shellProps = { activePath: '/list', role: 'user', onNavigate: (p) => window.location.hash = p };
+
+      // TODO: replace with real data
+      const rows = window.QTApp.ADMIN_USERS;
+      const filtered = rows
+        .filter(r => filter === 'all' || r.status === filter)
+        .filter(r => !q || r.name.includes(q) || r.email.includes(q));
+
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="List Page Template"
+          subtitle="Resource list · Search · Filter · Sort · Pagination"
+          breadcrumb={['Home', 'List']}
+          actions={
+            <>
+              <button className="btn btn--sm"><window.Icons.Camera size={13}/> Export</button>
+              <button className="btn btn--sm btn--primary"><window.Icons.Plus size={13}/> New</button>
+            </>
+          }
+        >
+          {/* KPI summary */}
+          <div className="grid-4">
+            <window.KPICard label="Total" value={rows.length}/>
+            <window.KPICard label="Active" value={rows.filter(r => r.status === 'active').length} tone="long"/>
+            <window.KPICard label="Pending" value={rows.filter(r => r.status === 'pending').length} tone="warning"/>
+            <window.KPICard label="Suspended" value={rows.filter(r => r.status === 'suspended').length} tone="danger"/>
+          </div>
+
+          {/* Search + Filter + Table */}
+          <window.SectionCard
+            title="Items"
+            actions={
+              <>
+                <div className="input-group" style={{width: 240, height: 30}}>
+                  <window.Icons.Search size={12}/>
+                  <input placeholder="검색…" value={q} onChange={e => setQ(e.target.value)}/>
+                </div>
+                <div className="seg">
+                  {['all','active','pending','suspended'].map(f => (
+                    <button key={f} className={`seg__opt ${filter===f?'is-active':''}`} onClick={() => setFilter(f)}>{f}</button>
+                  ))}
+                </div>
+              </>
+            }
+            noPadding
+          >
+            <window.DataTable
+              columns={[
+                { key:'id',     label:'ID',     render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.id}</span> },
+                { key:'name',   label:'Name',   render: r => <strong>{r.name}</strong> },
+                { key:'email',  label:'Email',  render: r => <span style={{color:'var(--color-text-tertiary)'}}>{r.email}</span> },
+                { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status}`}>{r.status.toUpperCase()}</span> },
+                { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">Edit</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>Delete</button></> },
+              ]}
+              rows={filtered}
+            />
+          </window.SectionCard>
+        </window.PageShell>
+      );
+    }
+
+    (function mount(n=0){
+      if (window.PageShell && window.KPICard && window.SectionCard && window.DataTable && window.Icons && window.QTApp) {
+        ReactDOM.createRoot(document.getElementById('root')).render(<ListTemplatePage/>);
+      } else if (n < 60) setTimeout(() => mount(n+1), 100);
+    })();
+  </script>
+</body>
+</html>

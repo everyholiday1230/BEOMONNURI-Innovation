@@ -1,0 +1,68 @@
+{
+  "name": "quantumtrade-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QuantumTrade AI \u2014 Institutional AI-native crypto derivatives trading terminal (Phase 1 MVP).",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* build && pnpm -r --filter=./apps/* build",
+    "build:packages": "pnpm -r --filter=./packages/* build",
+    "test": "pnpm -r test",
+    "test:run": "pnpm -r --workspace-concurrency=1 test:run",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "e2e:admin": "playwright test -c tests/e2e-admin/playwright.config.ts",
+    "e2e:all": "PW_ALL_BROWSERS=1 playwright test -c tests/e2e/playwright.config.ts",
+    "test:postgres": "pnpm --filter @quantumtrade/api exec vitest run src/__tests__/postgres.integration.test.ts",
+    "test:integration": "pnpm --filter @quantumtrade/api exec vitest run src/__tests__/trading-integration.test.ts src/__tests__/trading-routes.test.ts src/__tests__/auth-api.test.ts",
+    "test:ai": "pnpm --filter @quantumtrade/ai exec vitest run && pnpm --filter @quantumtrade/api exec vitest run src/__tests__/ai-api.test.ts src/__tests__/production-ai.test.ts",
+    "test:admin": "pnpm --filter @quantumtrade/admin-domain exec vitest run && pnpm --filter @quantumtrade/api exec vitest run src/__tests__/admin-api.test.ts",
+    "test:mfa": "pnpm --filter @quantumtrade/mfa exec vitest run && pnpm --filter @quantumtrade/api exec vitest run src/__tests__/mfa-api.test.ts",
+    "test:gateway": "pnpm --filter @quantumtrade/market-gateway exec vitest run",
+    "e2e:gateway": "pnpm --filter @quantumtrade/market-gateway-server exec vitest run",
+    "e2e:mfa": "playwright test -c tests/e2e-mfa/playwright.config.ts",
+    "test:cluster": "pnpm --filter @quantumtrade/cluster exec vitest run",
+    "test:observability": "pnpm --filter @quantumtrade/observability exec vitest run",
+    "test:security": "pnpm --filter @quantumtrade/security exec vitest run && pnpm --filter @quantumtrade/api exec vitest run src/__tests__/admin-api.test.ts",
+    "test:chaos": "pnpm --filter @quantumtrade/chaos exec vitest run",
+    "test:load": "bash scripts/phase6-load.sh",
+    "eval:ai": "tsx scripts/eval-ai.ts",
+    "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,css,json,md}\"",
+    "dev:web": "pnpm --filter @quantumtrade/web dev",
+    "dev:api": "pnpm --filter @quantumtrade/api dev",
+    "clean": "pnpm -r exec rm -rf dist node_modules .turbo && rm -rf node_modules",
+    "test:artifact": "bash scripts/phase7-artifact-scan.sh",
+    "seed:dev": "pnpm --filter @quantumtrade/api seed:dev",
+    "e2e:isolated": "bash scripts/phase7-e2e-isolated.sh",
+    "test:security-scan": "bash scripts/phase7-security-scan.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.9.0",
+    "@quantumtrade/ai": "workspace:*",
+    "@playwright/test": "1.46.1",
+    "@types/node": "20.14.15",
+    "autocannon": "7.15.0",
+    "eslint": "9.9.0",
+    "eslint-plugin-react-hooks": "5.0.0",
+    "globals": "15.9.0",
+    "prettier": "3.3.3",
+    "tsx": "4.19.1",
+    "typescript": "5.5.4",
+    "typescript-eslint": "8.0.1",
+    "vitest": "2.1.9",
+    "ws": "8.18.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "ws": ">=8.21.0",
+      "use-sync-external-store": ">=1.6.0"
+    }
+  }
+}

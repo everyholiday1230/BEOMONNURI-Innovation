@@ -1,0 +1,54 @@
+/* ============================================================
+   KLineChart Renderer 전용 스타일
+   ------------------------------------------------------------
+   디자이너의 widgets.css 를 수정하지 않기 위해 별도 파일로 분리한다.
+
+   왜 별도 래퍼 클래스인가:
+   widgets.css 의 `.chart-canvas-wrap canvas { position:absolute; inset:0;
+   width:100%; height:100% }` 규칙은 자체 엔진의 캔버스 2장을 겹치기 위한
+   것이다. KLineChart 는 페인마다 캔버스를 만들고 위치를 자체 계산하므로,
+   저 규칙이 적용되면 모든 페인이 전체 영역에 겹쳐 그려져 화면이 깨진다.
+   그래서 래퍼 클래스를 분리하고, 방어적으로 리셋도 걸어둔다.
+
+   레이아웃 수치는 .chart-canvas-wrap 과 동일하게 맞춰 시각 차이를 없앤다.
+   ============================================================ */
+
+.chart-kline-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-bg-panel);
+}
+
+.chart-kline-host {
+  position: absolute;
+  inset: 0;
+}
+
+/* KLineChart 내부 캔버스는 스스로 배치한다. 전역 규칙이 새어들어와도 무력화. */
+.chart-kline-wrap .chart-kline-host canvas {
+  position: static;
+  inset: auto;
+  width: auto;
+  height: auto;
+}
+
+/* KLineChart 기본 배경을 패널 색으로 맞춘다 (테마 전환 시에도 따라가도록). */
+.chart-kline-host,
+.chart-kline-host > div {
+  background: transparent;
+}
+
+/* HUD / 레전드가 차트 위에 오도록 (widgets.css 의 z-index 3 과 동일 맥락) */
+.chart-kline-wrap .chart-hud,
+.chart-kline-wrap .chart-legend {
+  z-index: 3;
+}
+
+/* 자체 엔진은 padding.right=68 로 오른쪽을 비워뒀지만 KLineChart 는 Y축을
+   실제 폭만큼만 쓴다. 그래서 우측 상단 레전드가 가격 라벨과 겹쳤다.
+   레전드를 Y축 폭만큼 왼쪽으로 밀어 겹침을 없앤다. */
+.chart-kline-wrap .chart-legend {
+  right: 68px;
+}

@@ -1,0 +1,344 @@
+/* ============================================================
+   QuantumTrade AI — Design Tokens
+   ------------------------------------------------------------
+   Layer 1: BRAND TOKENS  (팔레트 · 브랜드 색상 · 프로덕트 정체성)
+   Layer 2: SEMANTIC TOKENS (의미 기반 — bg/text/trade/signal/order/ai)
+   Layer 3: COMPONENT TOKENS (컴포넌트별 세부 값)
+
+   교체 가능: [data-brand="quantum-violet" | "onyx-emerald" | "graphite-amber"]
+   교체 가능: [data-theme="dark" | "light"]
+   교체 가능: [data-density="comfortable" | "compact" | "dense"]
+   교체 가능: [data-longshort="teal-magenta" | "green-red" | "cyan-orange"]
+   ============================================================ */
+
+:root {
+  /* ---------- BRAND TOKENS (기본: Institutional Cool) ---------- */
+  --brand-primary-50:  oklch(96% 0.02 220);
+  --brand-primary-100: oklch(90% 0.04 220);
+  --brand-primary-200: oklch(80% 0.08 220);
+  --brand-primary-300: oklch(70% 0.11 220);
+  --brand-primary-400: oklch(62% 0.13 220);
+  --brand-primary-500: oklch(56% 0.15 220);   /* signature cyan */
+  --brand-primary-600: oklch(48% 0.14 220);
+  --brand-primary-700: oklch(38% 0.11 220);
+  --brand-primary-800: oklch(28% 0.08 220);
+  --brand-primary-900: oklch(20% 0.05 220);
+
+  --brand-accent-500: oklch(78% 0.13 210);    /* light cyan (highlight) */
+  --brand-neutral-hue: 240;                    /* cool blue-gray */
+
+  /* ---------- LONG / SHORT (기본: Teal / Magenta) ---------- */
+  --trade-long-500:  oklch(72% 0.14 175);
+  --trade-long-400:  oklch(78% 0.12 175);
+  --trade-long-600:  oklch(64% 0.15 175);
+  --trade-long-bg:   oklch(72% 0.14 175 / 0.12);
+  --trade-long-bg-2: oklch(72% 0.14 175 / 0.25);
+
+  --trade-short-500: oklch(68% 0.22 355);
+  --trade-short-400: oklch(74% 0.20 355);
+  --trade-short-600: oklch(60% 0.24 355);
+  --trade-short-bg:  oklch(68% 0.22 355 / 0.12);
+  --trade-short-bg-2:oklch(68% 0.22 355 / 0.25);
+
+  /* ---------- AI / SIGNAL (팔레트 독립) ---------- */
+  --ai-500: oklch(72% 0.15 285);
+  --ai-400: oklch(78% 0.13 285);
+  --ai-600: oklch(64% 0.16 285);
+  --ai-bg:  oklch(72% 0.15 285 / 0.10);
+  --ai-bg-2: oklch(72% 0.15 285 / 0.22);
+
+  --signal-draft:    var(--ai-500);
+  --signal-approved: oklch(78% 0.14 145);
+  --order-pending:   oklch(80% 0.13 85);
+  --order-filled:    oklch(75% 0.13 145);
+  --order-canceled:  oklch(60% 0.02 240);
+  --order-rejected:  var(--trade-short-500);
+
+  --warning-500: oklch(80% 0.14 75);
+  --danger-500:  oklch(64% 0.20 25);
+  --success-500: oklch(74% 0.14 150);
+  --info-500:    var(--brand-primary-500);
+
+  /* ---------- NEUTRALS (Dark 기본) ---------- */
+  --n-950: oklch(14% 0.012 240);
+  --n-925: oklch(17% 0.013 240);
+  --n-900: oklch(20% 0.014 240);
+  --n-850: oklch(24% 0.014 240);
+  --n-800: oklch(28% 0.013 240);
+  --n-700: oklch(38% 0.012 240);
+  --n-600: oklch(48% 0.010 240);
+  --n-500: oklch(58% 0.008 240);
+  --n-400: oklch(68% 0.006 240);
+  --n-300: oklch(78% 0.005 240);
+  --n-200: oklch(86% 0.004 240);
+  --n-100: oklch(92% 0.003 240);
+  --n-050: oklch(97% 0.002 240);
+  --n-000: oklch(100% 0 0);
+
+  /* ---------- SEMANTIC — Dark theme (default) ---------- */
+  --color-bg-app:       var(--n-950);
+  --color-bg-surface:   var(--n-925);
+  --color-bg-panel:     var(--n-900);
+  --color-bg-elevated:  var(--n-850);
+  --color-bg-hover:     oklch(28% 0.014 240 / 0.6);
+  --color-bg-active:    oklch(32% 0.016 240 / 0.7);
+  --color-bg-input:     var(--n-925);
+
+  --color-text-primary:   var(--n-050);
+  --color-text-secondary: var(--n-300);
+  --color-text-tertiary:  var(--n-500);
+  --color-text-disabled:  var(--n-700);
+  --color-text-inverse:   var(--n-950);
+
+  --color-border-subtle:  oklch(28% 0.014 240 / 0.6);
+  --color-border-default: oklch(38% 0.014 240 / 0.7);
+  --color-border-strong:  oklch(48% 0.014 240 / 0.9);
+  --color-border-focus:   var(--brand-primary-500);
+
+  --color-brand:          var(--brand-primary-500);
+  --color-brand-hover:    var(--brand-primary-400);
+  --color-brand-subtle:   oklch(56% 0.15 220 / 0.14);
+
+  --color-trade-long:     var(--trade-long-500);
+  --color-trade-short:    var(--trade-short-500);
+  --color-trade-long-bg:  var(--trade-long-bg);
+  --color-trade-short-bg: var(--trade-short-bg);
+
+  --color-ai:             var(--ai-500);
+  --color-ai-bg:          var(--ai-bg);
+  --color-signal-draft:   var(--signal-draft);
+  --color-signal-approved:var(--signal-approved);
+  --color-order-pending:  var(--order-pending);
+  --color-order-filled:   var(--order-filled);
+  --color-order-canceled: var(--order-canceled);
+  --color-order-rejected: var(--order-rejected);
+
+  --color-warning: var(--warning-500);
+  --color-danger:  var(--danger-500);
+  --color-success: var(--success-500);
+  --color-info:    var(--info-500);
+
+  /* ---------- CHART COLORS ---------- */
+  --chart-grid:       oklch(28% 0.014 240 / 0.5);
+  --chart-axis-text:  var(--n-500);
+  --chart-crosshair:  oklch(70% 0.03 240 / 0.6);
+  --chart-candle-up:  var(--color-trade-long);
+  --chart-candle-dn:  var(--color-trade-short);
+  --chart-ma-1:       oklch(80% 0.13 85);   /* MA20 amber */
+  --chart-ma-2:       oklch(78% 0.13 285);  /* MA60 violet */
+  --chart-ma-3:       oklch(76% 0.13 210);  /* MA120 cyan */
+  --chart-volume-up:  oklch(72% 0.14 175 / 0.35);
+  --chart-volume-dn:  oklch(68% 0.22 355 / 0.35);
+
+  /* ---------- TYPOGRAPHY ----------
+     No web font is downloaded (see apps/web/index.html): the preferred faces are used when the OS
+     has them, otherwise the stack falls through to the platform Korean/Latin UI faces so Hangul
+     never renders in a fallback serif. */
+  --font-sans: 'Pretendard Variable', 'IBM Plex Sans', 'Apple SD Gothic Neo', 'Noto Sans KR',
+               'Noto Sans CJK KR', 'Malgun Gothic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, 'DejaVu Sans Mono', monospace;
+  --font-num:  'IBM Plex Mono', 'Pretendard Variable', ui-monospace, 'DejaVu Sans Mono', monospace;
+  --font-en:   'IBM Plex Sans', 'Pretendard Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --fs-2xs: 10px;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-md:  13px;
+  --fs-lg:  14px;
+  --fs-xl:  16px;
+  --fs-2xl: 18px;
+  --fs-3xl: 22px;
+  --fs-4xl: 28px;
+  --fs-5xl: 36px;
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.45;
+  --lh-loose: 1.6;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ---------- SPACING (density: Comfortable 기본) ---------- */
+  --sp-0: 0;
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 10px;
+  --sp-6: 12px;
+  --sp-7: 14px;
+  --sp-8: 16px;
+  --sp-10: 20px;
+  --sp-12: 24px;
+  --sp-16: 32px;
+  --sp-20: 40px;
+
+  --density-scale: 1;
+  --row-h-xs: calc(20px * var(--density-scale));
+  --row-h-sm: calc(24px * var(--density-scale));
+  --row-h-md: calc(28px * var(--density-scale));
+  --row-h-lg: calc(32px * var(--density-scale));
+  --input-h:  calc(32px * var(--density-scale));
+  --btn-h:    calc(32px * var(--density-scale));
+  --header-h: 48px;
+  --sub-header-h: 56px;
+
+  /* ---------- RADII ---------- */
+  --r-none: 0;
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-full: 999px;
+
+  /* ---------- BORDER / SHADOW / OPACITY ---------- */
+  --bw-1: 1px;
+  --bw-2: 2px;
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-2: 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-3: 0 12px 32px rgba(0,0,0,0.45);
+  --shadow-glow-ai: 0 0 0 1px var(--color-ai), 0 8px 24px oklch(72% 0.15 285 / 0.25);
+
+  --opacity-disabled: 0.4;
+  --opacity-hover: 0.85;
+
+  /* ---------- MOTION ---------- */
+  --dur-instant: 60ms;
+  --dur-fast: 120ms;
+  --dur-normal: 180ms;
+  --dur-slow: 280ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.4, 0, 1, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---------- Z-INDEX ---------- */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-drawer: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+  --z-tooltip: 500;
+  --z-max: 9999;
+
+  /* ---------- BREAKPOINTS (values only) ---------- */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1440px;
+  --bp-3xl: 1680px;
+  --bp-4xl: 1920px;
+
+  /* ---------- WIDGET GRID ---------- */
+  --grid-cols: 24;
+  --grid-gap: 6px;
+  --grid-row: 40px;
+}
+
+/* ============ BRAND VARIANTS ============ */
+[data-brand="quantum-violet"] {
+  --brand-primary-500: oklch(64% 0.20 300);
+  --brand-primary-400: oklch(70% 0.18 300);
+  --brand-primary-600: oklch(56% 0.22 300);
+  --brand-accent-500:  oklch(78% 0.16 285);
+  --color-brand: var(--brand-primary-500);
+  --color-brand-hover: var(--brand-primary-400);
+  --color-brand-subtle: oklch(64% 0.20 300 / 0.14);
+}
+[data-brand="onyx-emerald"] {
+  --brand-primary-500: oklch(64% 0.15 160);
+  --brand-primary-400: oklch(72% 0.13 160);
+  --brand-primary-600: oklch(56% 0.16 160);
+  --brand-accent-500:  oklch(78% 0.14 155);
+  --color-brand: var(--brand-primary-500);
+  --color-brand-hover: var(--brand-primary-400);
+  --color-brand-subtle: oklch(64% 0.15 160 / 0.14);
+}
+[data-brand="graphite-amber"] {
+  --brand-primary-500: oklch(72% 0.14 70);
+  --brand-primary-400: oklch(78% 0.12 70);
+  --brand-primary-600: oklch(64% 0.16 70);
+  --brand-accent-500:  oklch(80% 0.13 65);
+  --color-brand: var(--brand-primary-500);
+  --color-brand-hover: var(--brand-primary-400);
+  --color-brand-subtle: oklch(72% 0.14 70 / 0.14);
+}
+
+/* ============ LONG/SHORT VARIANTS ============ */
+[data-longshort="green-red"] {
+  --trade-long-500: oklch(70% 0.17 145);
+  --trade-long-bg:  oklch(70% 0.17 145 / 0.12);
+  --trade-short-500: oklch(64% 0.22 25);
+  --trade-short-bg:  oklch(64% 0.22 25 / 0.12);
+  --color-trade-long: var(--trade-long-500);
+  --color-trade-short: var(--trade-short-500);
+  --color-trade-long-bg: var(--trade-long-bg);
+  --color-trade-short-bg: var(--trade-short-bg);
+  --chart-candle-up: var(--trade-long-500);
+  --chart-candle-dn: var(--trade-short-500);
+  --chart-volume-up: oklch(70% 0.17 145 / 0.35);
+  --chart-volume-dn: oklch(64% 0.22 25 / 0.35);
+}
+[data-longshort="cyan-orange"] {
+  --trade-long-500: oklch(72% 0.15 220);
+  --trade-long-bg:  oklch(72% 0.15 220 / 0.12);
+  --trade-short-500: oklch(72% 0.17 55);
+  --trade-short-bg:  oklch(72% 0.17 55 / 0.12);
+  --color-trade-long: var(--trade-long-500);
+  --color-trade-short: var(--trade-short-500);
+  --color-trade-long-bg: var(--trade-long-bg);
+  --color-trade-short-bg: var(--trade-short-bg);
+  --chart-candle-up: var(--trade-long-500);
+  --chart-candle-dn: var(--trade-short-500);
+  --chart-volume-up: oklch(72% 0.15 220 / 0.35);
+  --chart-volume-dn: oklch(72% 0.17 55 / 0.35);
+}
+
+/* ============ LIGHT THEME ============ */
+[data-theme="light"] {
+  --color-bg-app:       oklch(98% 0.003 240);
+  --color-bg-surface:   oklch(100% 0 0);
+  --color-bg-panel:     oklch(99% 0.002 240);
+  --color-bg-elevated:  oklch(100% 0 0);
+  --color-bg-hover:     oklch(94% 0.006 240);
+  --color-bg-active:    oklch(90% 0.008 240);
+  --color-bg-input:     oklch(100% 0 0);
+
+  --color-text-primary:   oklch(20% 0.014 240);
+  --color-text-secondary: oklch(38% 0.014 240);
+  --color-text-tertiary:  oklch(52% 0.012 240);
+  --color-text-disabled:  oklch(72% 0.008 240);
+  --color-text-inverse:   oklch(98% 0.003 240);
+
+  --color-border-subtle:  oklch(90% 0.006 240);
+  --color-border-default: oklch(82% 0.008 240);
+  --color-border-strong:  oklch(68% 0.010 240);
+
+  --chart-grid: oklch(88% 0.006 240 / 0.7);
+  --chart-axis-text: oklch(48% 0.012 240);
+  --chart-crosshair: oklch(38% 0.014 240 / 0.5);
+
+  --shadow-1: 0 1px 2px rgba(15,20,28,0.06);
+  --shadow-2: 0 4px 12px rgba(15,20,28,0.08);
+  --shadow-3: 0 12px 32px rgba(15,20,28,0.14);
+}
+
+/* ============ DENSITY ============ */
+[data-density="comfortable"] { --density-scale: 1; }
+[data-density="compact"]     { --density-scale: 0.88; }
+[data-density="dense"]       { --density-scale: 0.78; }
+
+/* ============ REDUCED MOTION ============ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-fast: 0.01ms;
+    --dur-normal: 0.01ms;
+    --dur-slow: 0.01ms;
+  }
+}

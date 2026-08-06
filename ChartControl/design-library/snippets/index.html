@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>Snippets · Design Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+  <style>
+    body { overflow: auto; }
+    .sn-shell { max-width: 1200px; margin: 0 auto; padding: 40px; }
+    .sn-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; margin-bottom: 32px; border-bottom: 1px solid var(--color-border-subtle); }
+    .sn-header h1 { margin: 0; font-size: 22px; }
+    .sn-header p { margin: 4px 0 0; font-size: 12px; color: var(--color-text-tertiary); }
+    .sn-list { display: flex; flex-direction: column; gap: 20px; }
+    .sn-item {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .sn-item__head {
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+    .sn-item__title { font-size: 14px; font-weight: 600; }
+    .sn-item__desc { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+    .sn-item__copy {
+      padding: 6px 12px;
+      background: var(--color-brand-subtle);
+      border: 1px solid var(--color-brand);
+      border-radius: 4px;
+      color: var(--color-brand);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .sn-item__copy:hover { background: var(--color-brand); color: var(--color-text-inverse); }
+    .sn-code {
+      padding: 14px 16px;
+      background: var(--color-bg-app);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--color-text-primary);
+      margin: 0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .sn-code .k { color: var(--color-ai); }
+    .sn-code .s { color: var(--color-success); }
+    .sn-code .c { color: var(--color-text-tertiary); font-style: italic; }
+    .sn-links a { padding: 6px 12px; border: 1px solid var(--color-border-subtle); border-radius: 4px; font-size: 11px; color: var(--color-text-secondary); text-decoration:none; margin-left:6px; }
+    .sn-links a:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+  </style>
+</head>
+<body>
+  <div class="sn-shell">
+    <div class="sn-header">
+      <div>
+        <h1>📋 Code Snippets</h1>
+        <p>클릭 → 클립보드로 복사 → 새 페이지 또는 컴포넌트에 붙여넣기</p>
+      </div>
+      <div class="sn-links">
+        <a href="../index.html">← Library</a>
+        <a href="../components/index.html">Components</a>
+        <a href="../templates/blank.html">Templates</a>
+      </div>
+    </div>
+
+    <div class="sn-list">
+
+      <!-- 1. Basic Page Skeleton (JSX) -->
+      <div class="sn-item" data-snippet="page-skel">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">1. Basic Page Skeleton</div>
+            <div class="sn-item__desc">PageShell 감싸기 · title / subtitle / breadcrumb / actions</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">window.MyNewPage = <span class="k">function</span> MyNewPage({ shellProps }) {
+  <span class="k">return</span> (
+    &lt;window.PageShell
+      {...shellProps}
+      title=<span class="s">"My New Page"</span>
+      subtitle=<span class="s">"Short description of what this page does"</span>
+      breadcrumb={[<span class="s">'Home'</span>, <span class="s">'My New Page'</span>]}
+      actions={&lt;button className=<span class="s">"btn btn--sm btn--primary"</span>&gt;Action&lt;/button&gt;}
+    &gt;
+      {<span class="c">/* your content here */</span>}
+    &lt;/window.PageShell&gt;
+  );
+};</pre>
+      </div>
+
+      <!-- 2. KPI Grid -->
+      <div class="sn-item" data-snippet="kpi-grid">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">2. KPI Grid (4 cards)</div>
+            <div class="sn-item__desc">대시보드 상단에 자주 씀</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;div className=<span class="s">"grid-4"</span>&gt;
+  &lt;window.KPICard label=<span class="s">"Total Users"</span> value={<span class="s">"1,240"</span>} delta={<span class="k">+2.14</span>} deltaLabel=<span class="s">"vs yday"</span> tone=<span class="s">"brand"</span>/&gt;
+  &lt;window.KPICard label=<span class="s">"24h Volume"</span> value={<span class="s">"$34.01B"</span>} delta={<span class="k">+8.4</span>} tone=<span class="s">"long"</span>/&gt;
+  &lt;window.KPICard label=<span class="s">"Alerts"</span> value={<span class="k">3</span>} tone=<span class="s">"warning"</span>/&gt;
+  &lt;window.KPICard label=<span class="s">"Errors"</span> value={<span class="k">0</span>} tone=<span class="s">"success"</span>/&gt;
+&lt;/div&gt;</pre>
+      </div>
+
+      <!-- 3. Section Card + Actions -->
+      <div class="sn-item" data-snippet="section">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">3. Section Card with actions</div>
+            <div class="sn-item__desc">본문 콘텐츠 감싸기</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;window.SectionCard
+  title=<span class="s">"Recent Trades"</span>
+  subtitle=<span class="s">"Last 24 hours · click row to inspect"</span>
+  actions={
+    &lt;&gt;
+      &lt;button className=<span class="s">"btn btn--sm"</span>&gt;Filter&lt;/button&gt;
+      &lt;button className=<span class="s">"btn btn--sm btn--primary"</span>&gt;+ New&lt;/button&gt;
+    &lt;/&gt;
+  }
+&gt;
+  {<span class="c">/* body */</span>}
+&lt;/window.SectionCard&gt;</pre>
+      </div>
+
+      <!-- 4. Data Table -->
+      <div class="sn-item" data-snippet="table">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">4. Data Table with custom render</div>
+            <div class="sn-item__desc">Sort · row click · badge · pill</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;window.DataTable
+  columns={[
+    { key: <span class="s">'sym'</span>,    label: <span class="s">'Symbol'</span>, render: r =&gt; &lt;strong&gt;{r.sym}&lt;/strong&gt; },
+    { key: <span class="s">'side'</span>,   label: <span class="s">'Side'</span>, render: r =&gt; &lt;span className={r.side===<span class="s">'long'</span>?<span class="s">'t-long'</span>:<span class="s">'t-short'</span>}&gt;{r.side}&lt;/span&gt; },
+    { key: <span class="s">'price'</span>,  label: <span class="s">'Price'</span>, align: <span class="s">'right'</span>, render: r =&gt; fmt(r.price, 1) },
+    { key: <span class="s">'status'</span>, label: <span class="s">'Status'</span>, render: r =&gt; &lt;span className=<span class="s">"status-pill status-pill--ok"</span>&gt;OK&lt;/span&gt; },
+    { key: <span class="s">'act'</span>,    label: <span class="s">''</span>, align: <span class="s">'right'</span>, render: r =&gt; &lt;button className=<span class="s">"tbl-action"</span>&gt;Edit&lt;/button&gt; },
+  ]}
+  rows={dataRows}
+  onRowClick={(r) =&gt; console.log(r)}
+/&gt;</pre>
+      </div>
+
+      <!-- 5. Confirmation Modal -->
+      <div class="sn-item" data-snippet="modal-confirm">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">5. Confirmation Modal</div>
+            <div class="sn-item__desc">위험한 액션 확인용</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">{modalOpen &amp;&amp; (
+  &lt;div className=<span class="s">"overlay"</span> onClick={() =&gt; setModalOpen(<span class="k">false</span>)}&gt;
+    &lt;div className=<span class="s">"modal"</span> style={{width: 420}} onClick={e =&gt; e.stopPropagation()}&gt;
+      &lt;div className=<span class="s">"modal__header"</span>&gt;
+        &lt;div className=<span class="s">"modal__title"</span>&gt;⚠ 사용자 정지&lt;/div&gt;
+        &lt;button className=<span class="s">"btn btn--icon"</span> onClick={() =&gt; setModalOpen(<span class="k">false</span>)}&gt;✕&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;div className=<span class="s">"modal__body"</span>&gt;
+        &lt;p&gt;정말로 이 사용자를 정지하시겠습니까?&lt;/p&gt;
+        &lt;p style={{fontSize: 11, color: <span class="s">'var(--color-text-tertiary)'</span>}}&gt;이 작업은 감사 로그에 기록됩니다.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div className=<span class="s">"modal__footer"</span>&gt;
+        &lt;button className=<span class="s">"btn btn--sm"</span> onClick={() =&gt; setModalOpen(<span class="k">false</span>)}&gt;취소&lt;/button&gt;
+        &lt;button className=<span class="s">"btn btn--sm btn--danger"</span> onClick={handleConfirm}&gt;정지&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+)}</pre>
+      </div>
+
+      <!-- 6. Loading Skeleton -->
+      <div class="sn-item" data-snippet="skl">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">6. Loading Skeleton</div>
+            <div class="sn-item__desc">데이터 로딩 중 표시</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;div style={{display: <span class="s">'flex'</span>, flexDirection: <span class="s">'column'</span>, gap: 8}}&gt;
+  &lt;div className=<span class="s">"skl"</span> style={{height: 20, width: <span class="s">'60%'</span>}}/&gt;
+  &lt;div className=<span class="s">"skl"</span> style={{height: 20, width: <span class="s">'90%'</span>}}/&gt;
+  &lt;div className=<span class="s">"skl"</span> style={{height: 20, width: <span class="s">'80%'</span>}}/&gt;
+&lt;/div&gt;</pre>
+      </div>
+
+      <!-- 7. Empty State -->
+      <div class="sn-item" data-snippet="empty">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">7. Empty State</div>
+            <div class="sn-item__desc">데이터 없을 때</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;div className=<span class="s">"empty"</span>&gt;
+  &lt;span className=<span class="s">"empty__icon"</span>&gt;◇&lt;/span&gt;
+  &lt;span&gt;해당 조건의 데이터가 없습니다&lt;/span&gt;
+  &lt;button className=<span class="s">"btn btn--sm btn--ghost"</span>&gt;필터 재설정&lt;/button&gt;
+&lt;/div&gt;</pre>
+      </div>
+
+      <!-- 8. Alert Banner -->
+      <div class="sn-item" data-snippet="alert">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">8. Alert Banner (3 tones)</div>
+            <div class="sn-item__desc">Info · Warn · Danger</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code"><span class="c">// info</span>
+&lt;div style={{padding: <span class="s">'10px 12px'</span>, background: <span class="s">'var(--color-brand-subtle)'</span>, borderLeft: <span class="s">'3px solid var(--color-brand)'</span>, borderRadius: 4, fontSize: 12}}&gt;
+  &lt;strong&gt;💡 팁:&lt;/strong&gt; 자세한 설명은 여기에.
+&lt;/div&gt;
+
+<span class="c">// warn</span>
+&lt;div style={{padding: <span class="s">'10px 12px'</span>, background: <span class="s">'oklch(80% 0.14 75 / 0.10)'</span>, borderLeft: <span class="s">'3px solid var(--color-warning)'</span>, borderRadius: 4, fontSize: 12}}&gt;
+  &lt;strong&gt;⚠ 주의:&lt;/strong&gt; 경고 메시지.
+&lt;/div&gt;
+
+<span class="c">// danger</span>
+&lt;div style={{padding: <span class="s">'10px 12px'</span>, background: <span class="s">'oklch(64% 0.20 25 / 0.10)'</span>, borderLeft: <span class="s">'3px solid var(--color-danger)'</span>, borderRadius: 4, fontSize: 12}}&gt;
+  &lt;strong&gt;❌ 오류:&lt;/strong&gt; 심각한 오류.
+&lt;/div&gt;</pre>
+      </div>
+
+      <!-- 9. Form Section -->
+      <div class="sn-item" data-snippet="form">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">9. Form Section</div>
+            <div class="sn-item__desc">2-column input grid + submit</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;window.SectionCard title=<span class="s">"프로필 정보"</span>&gt;
+  &lt;div style={{display: <span class="s">'grid'</span>, gridTemplateColumns: <span class="s">'1fr 1fr'</span>, gap: 12}}&gt;
+    &lt;div className=<span class="s">"input-group"</span>&gt;
+      &lt;span className=<span class="s">"input-group__label"</span>&gt;이름&lt;/span&gt;
+      &lt;input type=<span class="s">"text"</span> defaultValue=<span class="s">"권누리"</span>/&gt;
+    &lt;/div&gt;
+    &lt;div className=<span class="s">"input-group"</span>&gt;
+      &lt;span className=<span class="s">"input-group__label"</span>&gt;이메일&lt;/span&gt;
+      &lt;input type=<span class="s">"email"</span> defaultValue=<span class="s">"kuri@quantumtrade.ai"</span>/&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div style={{display: <span class="s">'flex'</span>, gap: 8, justifyContent: <span class="s">'flex-end'</span>, marginTop: 16}}&gt;
+    &lt;button className=<span class="s">"btn btn--sm"</span>&gt;취소&lt;/button&gt;
+    &lt;button className=<span class="s">"btn btn--sm btn--primary"</span>&gt;저장&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/window.SectionCard&gt;</pre>
+      </div>
+
+      <!-- 10. Tabs -->
+      <div class="sn-item" data-snippet="tabs">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">10. Tab bar with content</div>
+            <div class="sn-item__desc">const [tab, setTab] = useState('positions')</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;div className=<span class="s">"tabs"</span>&gt;
+  {[
+    { id: <span class="s">'positions'</span>, label: <span class="s">'Positions'</span>, count: 3 },
+    { id: <span class="s">'orders'</span>,    label: <span class="s">'Orders'</span>, count: 2 },
+    { id: <span class="s">'history'</span>,   label: <span class="s">'History'</span> },
+  ].map(t =&gt; (
+    &lt;button
+      key={t.id}
+      className={<span class="s">`tab ${tab===t.id?'is-active':''}`</span>}
+      onClick={() =&gt; setTab(t.id)}
+    &gt;
+      {t.label}
+      {t.count &amp;&amp; &lt;span className=<span class="s">"tab__count"</span>&gt;{t.count}&lt;/span&gt;}
+    &lt;/button&gt;
+  ))}
+&lt;/div&gt;
+{tab === <span class="s">'positions'</span> &amp;&amp; &lt;PositionsList/&gt;}
+{tab === <span class="s">'orders'</span> &amp;&amp; &lt;OrdersList/&gt;}</pre>
+      </div>
+
+      <!-- 11. Toast trigger -->
+      <div class="sn-item" data-snippet="toast">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">11. Toast trigger</div>
+            <div class="sn-item__desc">app.jsx의 pushToast 활용</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">pushToast({
+  title: <span class="s">'주문 접수됨'</span>,
+  desc: <span class="s">'0.05 BTC @ $68,432.5 · Order ID SIM-A1B2C3'</span>,
+  variant: <span class="s">'success'</span>,     <span class="c">// info | success | warning | error | ai</span>
+  duration: <span class="k">4200</span>,          <span class="c">// ms · default 4200</span>
+});</pre>
+      </div>
+
+      <!-- 12. Registering new sidebar item -->
+      <div class="sn-item" data-snippet="sidebar-add">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">12. 새 사이드바 아이템 등록</div>
+            <div class="sn-item__desc">src/page-shell.jsx의 SIDEBAR_ITEMS 배열에 추가</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code"><span class="c">// src/page-shell.jsx</span>
+<span class="k">const</span> SIDEBAR_ITEMS = [
+  <span class="c">// ... existing items</span>
+  {
+    section: <span class="s">'account'</span>,             <span class="c">// trading | market | account | admin</span>
+    label: <span class="s">'My New Page'</span>,
+    icon: <span class="s">'Sparkles'</span>,               <span class="c">// window.Icons key</span>
+    route: <span class="s">'/my-new-page'</span>,
+    roles: [<span class="s">'user'</span>,<span class="s">'ops'</span>,<span class="s">'admin'</span>,<span class="s">'super'</span>],
+  },
+];</pre>
+      </div>
+
+      <!-- 13. Registering new route -->
+      <div class="sn-item" data-snippet="route-add">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">13. 새 라우트 등록</div>
+            <div class="sn-item__desc">src/app.jsx의 route dispatch에 한 줄 추가</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code"><span class="c">// src/app.jsx — inside "ROUTE DISPATCH" block</span>
+{route.path === <span class="s">'/my-new-page'</span>  &amp;&amp; &lt;window.MyNewPage shellProps={shellProps}/&gt;}
+
+<span class="c">// Also, add /my-new-page to the fallback check array so it's not shown as "not found":</span>
+{![
+  <span class="c">// ... existing routes</span>
+  <span class="s">'/my-new-page'</span>,
+].includes(route.path) &amp;&amp; ... }</pre>
+      </div>
+
+      <!-- 14. Exchange Card -->
+      <div class="sn-item" data-snippet="exchange-card">
+        <div class="sn-item__head">
+          <div>
+            <div class="sn-item__title">14. Exchange Card with Referral</div>
+            <div class="sn-item__desc">Wallet · Settings에서 사용 · 대표님 referral link 필수</div>
+          </div>
+          <button class="sn-item__copy">Copy</button>
+        </div>
+        <pre class="sn-code">&lt;div className={<span class="s">`exchange-card ${isConnected ? 'is-connected' : ''} ${ex.recommended ? 'is-recommended' : ''}`</span>}&gt;
+  &lt;div className=<span class="s">"exchange-card__head"</span>&gt;
+    &lt;div className=<span class="s">"exchange-card__logo"</span> style={{background: ex.logoBg, color: ex.logoColor}}&gt;{ex.logoText}&lt;/div&gt;
+    &lt;div style={{flex:1}}&gt;
+      &lt;div className=<span class="s">"exchange-card__name"</span>&gt;{ex.name}&lt;/div&gt;
+      &lt;div className=<span class="s">"exchange-card__market"</span>&gt;{ex.market}&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;span className={<span class="s">`exchange-card__status ${ex.status}`</span>}&gt;{ex.status.toUpperCase()}&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div className=<span class="s">"exchange-card__referral"</span>&gt;
+    &lt;span style={{color: <span class="s">'var(--color-brand)'</span>}}&gt;✦&lt;/span&gt;
+    &lt;span className=<span class="s">"exchange-card__referral__note"</span>&gt;{ex.referralNote}&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div className=<span class="s">"exchange-card__actions"</span>&gt;
+    &lt;a href={ex.referral} target=<span class="s">"_blank"</span> className=<span class="s">"btn btn--sm"</span>&gt;회원가입&lt;/a&gt;
+    &lt;button className=<span class="s">"btn btn--sm btn--primary"</span>&gt;Connect API&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.sn-item').forEach(item => {
+      const codeBlock = item.querySelector('.sn-code');
+      const btn = item.querySelector('.sn-item__copy');
+      btn.addEventListener('click', async () => {
+        const text = codeBlock.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 1600);
+        } catch (e) {
+          btn.textContent = '❌ Failed';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

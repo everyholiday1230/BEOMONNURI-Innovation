@@ -1,0 +1,120 @@
+/* ============================================================
+   Base — Reset · Typography · Utilities
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { color-scheme: dark; }
+[data-theme="light"] html, html[data-theme="light"] { color-scheme: light; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  color: var(--color-text-primary);
+  background: var(--color-bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+  /* Tabular numerals globally, digits align vertically */
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+/* Tabular numerals — enforced everywhere, especially critical for prices */
+.num, .mono, code, kbd, samp, pre,
+[data-numeric], .price, .amount, .qty {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  letter-spacing: 0;
+}
+
+/* Korean UI */
+[lang="ko"], .lang-ko { font-family: var(--font-sans); }
+/* English UI keeps Plex Sans first */
+[lang="en"], .lang-en { font-family: var(--font-en); }
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+  border-radius: var(--r-xs);
+}
+
+a { color: inherit; text-decoration: none; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--r-full);
+  border: 2px solid var(--color-bg-app);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
+
+/* Text utilities */
+.t-primary { color: var(--color-text-primary); }
+.t-secondary { color: var(--color-text-secondary); }
+.t-tertiary { color: var(--color-text-tertiary); }
+.t-long { color: var(--color-trade-long); }
+.t-short { color: var(--color-trade-short); }
+.t-ai { color: var(--color-ai); }
+.t-warning { color: var(--color-warning); }
+.t-danger { color: var(--color-danger); }
+
+.fs-2xs { font-size: var(--fs-2xs); }
+.fs-xs { font-size: var(--fs-xs); }
+.fs-sm { font-size: var(--fs-sm); }
+.fs-md { font-size: var(--fs-md); }
+.fs-lg { font-size: var(--fs-lg); }
+.fs-xl { font-size: var(--fs-xl); }
+.fs-2xl { font-size: var(--fs-2xl); }
+.fs-3xl { font-size: var(--fs-3xl); }
+.fs-4xl { font-size: var(--fs-4xl); }
+
+.fw-med { font-weight: var(--fw-medium); }
+.fw-semi { font-weight: var(--fw-semibold); }
+.fw-bold { font-weight: var(--fw-bold); }
+
+.uppercase { text-transform: uppercase; letter-spacing: 0.06em; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Root app */
+#root { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* App shell layout — 3 rows: sim stripe · header · body */
+.app-shell {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: 22px var(--header-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+.app-shell > .sim-stripe { grid-column: 1 / -1; grid-row: 1 / 2; }
+.app-shell > .app-header { grid-column: 1 / -1; grid-row: 2 / 3; }
+.app-shell > .app-sidebar { grid-row: 3 / 4; }
+.app-shell > .app-main { grid-row: 3 / 4; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }
+
+/* Directional indicators — never rely on color alone */
+.dir-up::before { content: "▲ "; }
+.dir-dn::before { content: "▼ "; }
+.dir-long::before { content: "↑ "; }
+.dir-short::before { content: "↓ "; }

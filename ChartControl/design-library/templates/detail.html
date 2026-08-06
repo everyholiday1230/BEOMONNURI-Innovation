@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  ============================================================
+  TEMPLATE — Detail Page
+  ------------------------------------------------------------
+  용도: 단일 리소스 상세 (사용자, 주문, 전략, 공지 등)
+  구성: Header + 2-column (main info + side actions/meta)
+  ============================================================
+-->
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>Detail Page Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+</head>
+<body>
+  <div id="root"><div style="padding:40px; color:var(--color-text-tertiary); font-family:'IBM Plex Mono';">Loading…</div></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../src/mock-data.js"></script>
+  <script src="../../src/mock-app-data.js"></script>
+  <script type="text/babel" src="../../src/icons.jsx"></script>
+  <script type="text/babel" src="../../src/widgets.jsx"></script>
+  <script type="text/babel" src="../../src/page-shell.jsx"></script>
+  <script type="text/babel">
+    function DetailTemplatePage() {
+      const shellProps = { activePath: '/detail', role: 'user', onNavigate: (p) => window.location.hash = p };
+      const item = window.QTApp.ADMIN_USERS[0];
+
+      return (
+        <window.PageShell
+          {...shellProps}
+          title={item.name}
+          subtitle={item.email + ' · ' + item.id}
+          breadcrumb={['Home', 'Users', item.name]}
+          badge={<span className={`status-pill status-pill--${item.status}`}>{item.status.toUpperCase()}</span>}
+          actions={
+            <>
+              <button className="btn btn--sm"><window.Icons.Camera size={13}/> Export</button>
+              <button className="btn btn--sm">Edit</button>
+              <button className="btn btn--sm btn--danger">Suspend</button>
+            </>
+          }
+        >
+          <div className="grid-3-1">
+            {/* MAIN COLUMN */}
+            <div style={{display:'flex', flexDirection:'column', gap: 16}}>
+              <window.SectionCard title="Overview">
+                <div style={{display:'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16}}>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>Tier</div><div style={{fontWeight:500}}>{item.tier}</div></div>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>Country</div><div style={{fontWeight:500}}>{item.country}</div></div>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>KYC Level</div><div style={{fontWeight:500}}>L{item.kyc}</div></div>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>Joined</div><div style={{fontFamily:'var(--font-mono)'}}>{item.joined}</div></div>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>30d Volume</div><div style={{fontFamily:'var(--font-num)'}}>${item.vol30.toLocaleString()}</div></div>
+                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 4}}>Flags</div><div>{item.flags.length || 'None'}</div></div>
+                </div>
+              </window.SectionCard>
+
+              <window.SectionCard title="Recent Activity">
+                <window.PagePlaceholder
+                  title="활동 히스토리"
+                  todo={['로그인 기록', '거래 요약', 'API 사용', '보안 이벤트']}
+                />
+              </window.SectionCard>
+            </div>
+
+            {/* SIDE COLUMN */}
+            <div style={{display:'flex', flexDirection:'column', gap: 16}}>
+              <window.SectionCard title="Quick Actions">
+                <div style={{display:'flex', flexDirection:'column', gap: 6}}>
+                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><window.Icons.Send size={12}/> 메시지 보내기</button>
+                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><window.Icons.Wallet size={12}/> 자산 조회</button>
+                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><window.Icons.Lock size={12}/> 2FA 재설정</button>
+                  <button className="btn btn--sm btn--danger" style={{justifyContent:'flex-start'}}><window.Icons.Alert size={12}/> 계정 정지</button>
+                </div>
+              </window.SectionCard>
+
+              <window.SectionCard title="Metadata">
+                <div style={{fontSize:11, fontFamily:'var(--font-mono)', lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+                  <div><strong style={{color:'var(--color-text-primary)'}}>ID:</strong> {item.id}</div>
+                  <div><strong style={{color:'var(--color-text-primary)'}}>Created:</strong> {item.joined}</div>
+                  <div><strong style={{color:'var(--color-text-primary)'}}>Country:</strong> {item.country}</div>
+                </div>
+              </window.SectionCard>
+            </div>
+          </div>
+        </window.PageShell>
+      );
+    }
+
+    (function mount(n=0){
+      if (window.PageShell && window.KPICard && window.SectionCard && window.Icons && window.QTApp) {
+        ReactDOM.createRoot(document.getElementById('root')).render(<DetailTemplatePage/>);
+      } else if (n < 60) setTimeout(() => mount(n+1), 100);
+    })();
+  </script>
+</body>
+</html>

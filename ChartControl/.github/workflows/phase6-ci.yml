@@ -1,0 +1,48 @@
+name: phase6-ci
+# Phase 6 CI — production dependency gate + build + container build. New production critical/high
+# vulnerabilities fail the pipeline. Container vulnerability scan (trivy) runs where available.
+on:
+  push:
+    branches: [phase-6-production-hardening]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with: { version: 9.15.0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Production dependency gate (0 critical / 0 high)
+        run: bash scripts/ci-audit-gate.sh
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-test-audit
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build API image
+        run: docker build -f infrastructure/docker/Dockerfile.api -t quantumtrade-api:ci .
+      - name: SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
+        with:
+          scan-type: image
+          image-ref: quantumtrade-api:ci
+          format: cyclonedx
+          output: phase6-container-sbom.cdx.json
+      - name: Container vulnerability scan (Trivy) — Critical/High gate
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
+        with:
+          image-ref: quantumtrade-api:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: false

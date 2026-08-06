@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-brand="institutional-cool" data-longshort="teal-magenta" data-density="comfortable">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1440"/>
+  <title>Components · Design Library</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+
+  <link rel="stylesheet" href="../../src/tokens.css"/>
+  <link rel="stylesheet" href="../../src/base.css"/>
+  <link rel="stylesheet" href="../../src/components.css"/>
+  <link rel="stylesheet" href="../../src/pages.css"/>
+
+  <style>
+    body { overflow: auto; }
+    .cat-shell { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+    .cat-nav {
+      background: var(--color-bg-surface);
+      border-right: 1px solid var(--color-border-subtle);
+      padding: 20px 16px;
+      overflow-y: auto;
+    }
+    .cat-nav__brand { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .cat-nav__brand-mark { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg, var(--color-brand), var(--brand-accent-500)); display: inline-flex; align-items: center; justify-content: center; color: var(--color-text-inverse); font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
+    .cat-nav__title { font-size: 14px; font-weight: 700; }
+    .cat-nav a {
+      display: block; padding: 6px 10px; border-radius: 4px;
+      font-size: 12px; color: var(--color-text-secondary);
+      margin-bottom: 2px;
+    }
+    .cat-nav a:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+    .cat-nav a.is-active { background: var(--color-brand-subtle); color: var(--color-brand); font-weight: 500; }
+    .cat-nav__section {
+      font-size: 9px; color: var(--color-text-tertiary); text-transform: uppercase;
+      letter-spacing: 0.06em; font-weight: 600; padding: 12px 10px 6px;
+    }
+
+    .cat-main { overflow-y: auto; padding: 32px 40px 80px; }
+    .cat-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 20px; margin-bottom: 32px;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+    .cat-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+    .cat-header p { margin: 4px 0 0; font-size: 12px; color: var(--color-text-tertiary); }
+    .cat-header a { padding: 6px 12px; border: 1px solid var(--color-border-subtle); border-radius: 4px; font-size: 11px; color: var(--color-text-secondary); }
+    .cat-header a:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+
+    .cat-section { margin-bottom: 40px; scroll-margin-top: 20px; }
+    .cat-section h2 { margin: 0 0 6px; font-size: 16px; font-weight: 700; letter-spacing: -0.005em; display: flex; align-items: center; gap: 8px; }
+    .cat-section h2::before {
+      content: ''; width: 3px; height: 16px; background: var(--color-brand); border-radius: 2px;
+    }
+    .cat-section p.lead { margin: 0 0 16px; font-size: 12px; color: var(--color-text-tertiary); max-width: 640px; line-height: 1.6; }
+
+    .cat-example {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .cat-example__preview {
+      padding: 24px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+      background: var(--color-bg-app);
+      border-bottom: 1px solid var(--color-border-subtle);
+      min-height: 60px;
+    }
+    .cat-example__label {
+      padding: 8px 14px;
+      font-size: 10px; color: var(--color-text-tertiary);
+      font-family: var(--font-mono);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      background: var(--color-bg-surface);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .cat-code {
+      padding: 12px 14px;
+      background: var(--color-bg-app);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-text-primary);
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .cat-code .k { color: var(--color-ai); }
+    .cat-code .s { color: var(--color-success); }
+    .cat-copy-btn {
+      padding: 3px 8px;
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 3px;
+      color: var(--color-brand);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .cat-copy-btn:hover { background: var(--color-brand-subtle); }
+  </style>
+</head>
+<body>
+  <div class="cat-shell">
+    <!-- SIDEBAR -->
+    <nav class="cat-nav">
+      <div class="cat-nav__brand">
+        <span class="cat-nav__brand-mark">Q</span>
+        <span class="cat-nav__title">Components</span>
+      </div>
+      <a href="../index.html">← Library home</a>
+
+      <div class="cat-nav__section">Basics</div>
+      <a href="#buttons">Buttons</a>
+      <a href="#badge">Badges</a>
+      <a href="#status">Status Pills</a>
+      <a href="#tabs">Tabs & Segmented</a>
+      <a href="#form">Form Inputs</a>
+
+      <div class="cat-nav__section">Layout</div>
+      <a href="#section">Section Card</a>
+      <a href="#kpi">KPI Card</a>
+      <a href="#panel">Panel</a>
+
+      <div class="cat-nav__section">Data</div>
+      <a href="#table">Data Table</a>
+      <a href="#empty">Empty State</a>
+      <a href="#sparkline">Sparkline</a>
+
+      <div class="cat-nav__section">Feedback</div>
+      <a href="#modal">Modal</a>
+      <a href="#toast">Toast</a>
+      <a href="#alert">Alert Banner</a>
+
+      <div class="cat-nav__section">Trading-specific</div>
+      <a href="#trade-btn">Long / Short Button</a>
+      <a href="#exchange">Exchange Card</a>
+      <a href="#strategy">Strategy Card</a>
+      <a href="#notif">Notification Item</a>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="cat-main">
+      <div class="cat-header">
+        <div>
+          <h1>Components</h1>
+          <p>클릭하여 코드 복사 · 모든 예시는 실제 앱과 동일한 토큰 사용</p>
+        </div>
+        <a href="../index.html">← Library</a>
+      </div>
+
+      <!-- BUTTONS -->
+      <section class="cat-section" id="buttons">
+        <h2>Buttons</h2>
+        <p class="lead">5개 variant × 4개 size. Long/Short는 별도 섹션.</p>
+
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <button class="btn btn--primary">Primary</button>
+            <button class="btn">Default</button>
+            <button class="btn btn--ghost">Ghost</button>
+            <button class="btn btn--danger">Danger</button>
+            <button class="btn" disabled>Disabled</button>
+          </div>
+          <div class="cat-example__label">
+            <span>Variants</span>
+            <button class="cat-copy-btn" data-copy='<button class="btn btn--primary">Primary</button>'>Copy</button>
+          </div>
+          <pre class="cat-code"><span class="k">&lt;button</span> class=<span class="s">"btn btn--primary"</span><span class="k">&gt;</span>Primary<span class="k">&lt;/button&gt;</span>
+<span class="k">&lt;button</span> class=<span class="s">"btn"</span><span class="k">&gt;</span>Default<span class="k">&lt;/button&gt;</span>
+<span class="k">&lt;button</span> class=<span class="s">"btn btn--ghost"</span><span class="k">&gt;</span>Ghost<span class="k">&lt;/button&gt;</span>
+<span class="k">&lt;button</span> class=<span class="s">"btn btn--danger"</span><span class="k">&gt;</span>Danger<span class="k">&lt;/button&gt;</span>
+<span class="k">&lt;button</span> class=<span class="s">"btn"</span> disabled<span class="k">&gt;</span>Disabled<span class="k">&lt;/button&gt;</span></pre>
+        </div>
+
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <button class="btn btn--primary btn--lg">Large</button>
+            <button class="btn btn--primary">Default</button>
+            <button class="btn btn--primary btn--sm">Small</button>
+            <button class="btn btn--primary btn--xs">XSmall</button>
+          </div>
+          <div class="cat-example__label">
+            <span>Sizes</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- LONG / SHORT BUTTONS -->
+      <section class="cat-section" id="trade-btn">
+        <h2>Long / Short Buttons</h2>
+        <p class="lead">거래 방향 버튼. 색상은 <code>[data-longshort]</code>에 따라 자동 변경.</p>
+
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <button class="btn btn--long btn--lg">▲ Buy · Long</button>
+            <button class="btn btn--short btn--lg">▼ Sell · Short</button>
+          </div>
+          <div class="cat-example__label">
+            <span>Trade CTAs · always with directional glyph</span>
+            <button class="cat-copy-btn" data-copy='<button class="btn btn--long btn--lg">▲ Buy · Long</button>'>Copy</button>
+          </div>
+          <pre class="cat-code"><span class="k">&lt;button</span> class=<span class="s">"btn btn--long btn--lg"</span><span class="k">&gt;</span>▲ Buy · Long<span class="k">&lt;/button&gt;</span>
+<span class="k">&lt;button</span> class=<span class="s">"btn btn--short btn--lg"</span><span class="k">&gt;</span>▼ Sell · Short<span class="k">&lt;/button&gt;</span></pre>
+        </div>
+      </section>
+
+      <!-- BADGES -->
+      <section class="cat-section" id="badge">
+        <h2>Badges</h2>
+        <p class="lead">인라인 라벨. 항상 uppercase + IBM Plex Sans.</p>
+
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <span class="badge badge--perp">PERP</span>
+            <span class="badge badge--long">LONG</span>
+            <span class="badge badge--short">SHORT</span>
+            <span class="badge badge--ai">AI</span>
+            <span class="badge badge--draft">DRAFT</span>
+            <span class="badge badge--approved">APPROVED</span>
+            <span class="badge badge--warning">WARN</span>
+            <span class="badge badge--danger">DANGER</span>
+            <span class="badge badge--success">SUCCESS</span>
+            <span class="badge badge--neutral">NEUTRAL</span>
+          </div>
+          <div class="cat-example__label">
+            <span>All variants</span>
+            <button class="cat-copy-btn" data-copy='<span class="badge badge--ai">AI</span>'>Copy</button>
+          </div>
+          <pre class="cat-code"><span class="k">&lt;span</span> class=<span class="s">"badge badge--perp"</span><span class="k">&gt;</span>PERP<span class="k">&lt;/span&gt;</span>
+<span class="k">&lt;span</span> class=<span class="s">"badge badge--long"</span><span class="k">&gt;</span>LONG<span class="k">&lt;/span&gt;</span>
+<span class="k">&lt;span</span> class=<span class="s">"badge badge--ai"</span><span class="k">&gt;</span>AI<span class="k">&lt;/span&gt;</span></pre>
+        </div>
+      </section>
+
+      <!-- STATUS PILLS -->
+      <section class="cat-section" id="status">
+        <h2>Status Pills</h2>
+        <p class="lead">시스템 상태 표시. 항상 색 + 텍스트 (색상 단독 금지).</p>
+
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <span class="status-pill status-pill--ok">● OK</span>
+            <span class="status-pill status-pill--warn">◐ WARN</span>
+            <span class="status-pill status-pill--danger">✗ DANGER</span>
+            <span class="status-pill status-pill--neutral">— IDLE</span>
+            <span class="severity-pill severity-pill--critical">CRITICAL</span>
+            <span class="severity-pill severity-pill--high">HIGH</span>
+            <span class="severity-pill severity-pill--medium">MEDIUM</span>
+            <span class="severity-pill severity-pill--low">LOW</span>
+          </div>
+          <div class="cat-example__label">
+            <span>Status + Severity</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABS & SEGMENTED -->
+      <section class="cat-section" id="tabs">
+        <h2>Tabs & Segmented</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="flex-direction: column; align-items: stretch; gap: 20px;">
+            <div>
+              <div class="tabs" style="max-width: 400px;">
+                <button class="tab is-active">Positions <span class="tab__count">3</span></button>
+                <button class="tab">Orders <span class="tab__count">2</span></button>
+                <button class="tab">History</button>
+              </div>
+            </div>
+            <div>
+              <div class="seg">
+                <button class="seg__opt is-active">Limit</button>
+                <button class="seg__opt">Market</button>
+                <button class="seg__opt">Trigger</button>
+              </div>
+            </div>
+          </div>
+          <div class="cat-example__label">Tabs (with counts) · Segmented control</div>
+        </div>
+      </section>
+
+      <!-- FORM -->
+      <section class="cat-section" id="form">
+        <h2>Form Inputs</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="flex-direction: column; align-items: stretch; gap: 12px; max-width: 400px;">
+            <div class="input-group">
+              <span class="input-group__label">Price</span>
+              <input type="text" defaultValue="68432.5" style="background:transparent; border:0; color:inherit; outline:none; width:100%; font-family: var(--font-num); font-variant-numeric: tabular-nums;"/>
+              <span class="input-group__suffix">USDT</span>
+            </div>
+            <label class="chk"><input type="checkbox" checked/><span class="chk__box">✓</span> Reduce Only</label>
+            <label class="switch" style="align-self: start;">
+              <input type="checkbox" checked/>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+            </label>
+          </div>
+          <div class="cat-example__label">Input group · Checkbox · Switch</div>
+        </div>
+      </section>
+
+      <!-- KPI -->
+      <section class="cat-section" id="kpi">
+        <h2>KPI Card</h2>
+        <p class="lead">대시보드 최상단에 핵심 지표. label + value + delta + optional sub.</p>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="align-items: stretch; display: grid; grid-template-columns: repeat(3, 1fr); width:100%;">
+            <div class="kpi-card kpi-card--brand">
+              <div class="kpi-card__head"><span class="kpi-card__label">Total Volume</span></div>
+              <div class="kpi-card__value">$34.01B</div>
+              <div class="kpi-card__foot"><span class="kpi-card__delta is-up">▲ 2.14%</span></div>
+            </div>
+            <div class="kpi-card kpi-card--long">
+              <div class="kpi-card__head"><span class="kpi-card__label">Win Rate</span></div>
+              <div class="kpi-card__value">72%</div>
+              <div class="kpi-card__foot"><span class="kpi-card__delta is-up">▲ 4.2%</span><span class="kpi-card__sub">10 trades</span></div>
+            </div>
+            <div class="kpi-card kpi-card--warning">
+              <div class="kpi-card__head"><span class="kpi-card__label">Critical Risk</span></div>
+              <div class="kpi-card__value">3</div>
+              <div class="kpi-card__foot"><span class="kpi-card__sub">5 in queue</span></div>
+            </div>
+          </div>
+          <div class="cat-example__label">
+            <span>KPI Card variants — brand · long · warning</span>
+            <button class="cat-copy-btn" data-copy='<div class="kpi-card kpi-card--brand"><div class="kpi-card__head"><span class="kpi-card__label">Label</span></div><div class="kpi-card__value">Value</div></div>'>Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION CARD -->
+      <section class="cat-section" id="section">
+        <h2>Section Card</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <div class="section-card" style="width: 100%;">
+              <div class="section-card__head">
+                <div>
+                  <div class="section-card__title">Recent Activity</div>
+                  <div class="section-card__subtitle">Last 24 hours</div>
+                </div>
+                <button class="btn btn--sm">View all →</button>
+              </div>
+              <div class="section-card__body">Body content here.</div>
+            </div>
+          </div>
+          <div class="cat-example__label">Section Card · title + subtitle + actions + body</div>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section class="cat-section" id="table">
+        <h2>Data Table</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="padding: 0;">
+            <table class="data-table" style="width:100%;">
+              <thead>
+                <tr><th>Symbol</th><th style="text-align:right;">Price</th><th style="text-align:right;">24h</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>BTC/USDT</strong></td><td style="text-align:right;">68,432.5</td><td style="text-align:right;"><span class="t-long">▲ 2.34%</span></td></tr>
+                <tr><td><strong>ETH/USDT</strong></td><td style="text-align:right;">3,512.82</td><td style="text-align:right;"><span class="t-long">▲ 1.12%</span></td></tr>
+                <tr><td><strong>XRP/USDT</strong></td><td style="text-align:right;">0.5842</td><td style="text-align:right;"><span class="t-short">▼ 1.24%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="cat-example__label">Data Table · sticky header · row hover</div>
+        </div>
+      </section>
+
+      <!-- MODAL -->
+      <section class="cat-section" id="modal">
+        <h2>Modal</h2>
+        <p class="lead">확인 · 미리보기 · 마법사. Backdrop blur.</p>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="min-height:280px; padding: 0; position: relative; overflow: hidden;">
+            <div style="position:relative; height:100%; background: var(--color-bg-app); display:flex; align-items:center; justify-content:center;">
+              <div style="position:absolute; inset:0; background: oklch(10% 0.01 240 / 0.6);"/>
+              <div class="modal" style="width: 400px; position: relative;">
+                <div class="modal__header">
+                  <div class="modal__title">주문 확인</div>
+                  <button class="btn btn--icon">✕</button>
+                </div>
+                <div class="modal__body" style="padding: 16px 20px;">
+                  <p style="margin:0 0 8px; font-size:12px;">Long 0.05 BTC @ $68,432.5</p>
+                  <p style="margin:0; font-size:11px; color:var(--color-text-tertiary);">시뮬레이션 모드 · 실제 자금 이동 없음</p>
+                </div>
+                <div class="modal__footer">
+                  <button class="btn btn--sm">Cancel</button>
+                  <button class="btn btn--sm btn--primary">Confirm</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cat-example__label">Confirmation modal · header + body + footer</div>
+        </div>
+      </section>
+
+      <!-- TOAST -->
+      <section class="cat-section" id="toast">
+        <h2>Toast</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="toast toast--success" style="animation:none;">
+              <div class="toast__title">주문 접수됨</div>
+              <div class="toast__desc">0.05 BTC @ $68,432.5 · Order ID SIM-A1B2C3</div>
+            </div>
+            <div class="toast toast--warning" style="animation:none;">
+              <div class="toast__title">⚠ 마진 비율 62%</div>
+              <div class="toast__desc">ETH/USDT · 주의 필요</div>
+            </div>
+            <div class="toast toast--error" style="animation:none;">
+              <div class="toast__title">주문 실패</div>
+              <div class="toast__desc">잔고 부족: 240 USDT 필요</div>
+            </div>
+            <div class="toast toast--ai" style="animation:none;">
+              <div class="toast__title">✦ AI Signal 발생</div>
+              <div class="toast__desc">BTC/USDT Long · Confidence 74%</div>
+            </div>
+          </div>
+          <div class="cat-example__label">Toast variants — success · warning · error · ai</div>
+        </div>
+      </section>
+
+      <!-- EXCHANGE CARD -->
+      <section class="cat-section" id="exchange">
+        <h2>Exchange Card</h2>
+        <p class="lead">Wallet · Settings에서 사용. 회원가입 링크 (referral) + API 연결 상태.</p>
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <div class="exchange-card is-connected is-recommended" style="width: 340px;">
+              <div class="exchange-card__head">
+                <div class="exchange-card__logo" style="background:#F0B90B; color:#0A0E14;">B</div>
+                <div style="flex:1;">
+                  <div class="exchange-card__name">Binance</div>
+                  <div class="exchange-card__market">Global · #1 by volume</div>
+                </div>
+                <span class="exchange-card__status available">AVAILABLE</span>
+              </div>
+              <div class="exchange-card__products">
+                <span class="exchange-card__product-chip">Spot</span>
+                <span class="exchange-card__product-chip">Perp</span>
+                <span class="exchange-card__product-chip">Futures</span>
+              </div>
+              <div class="exchange-card__referral">
+                <span style="color:var(--color-brand);">✦</span>
+                <span class="exchange-card__referral__note">수수료 20% 페이백</span>
+              </div>
+              <div class="exchange-card__actions">
+                <button class="btn btn--sm" style="flex:1;">회원가입</button>
+                <button class="btn btn--sm btn--primary" style="flex:1;">✓ Connected</button>
+              </div>
+            </div>
+          </div>
+          <div class="cat-example__label">Exchange Card · with referral + connected state</div>
+        </div>
+      </section>
+
+      <!-- NOTIFICATION ITEM -->
+      <section class="cat-section" id="notif">
+        <h2>Notification Item</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="flex-direction: column; align-items: stretch; padding: 0; width: 100%; gap: 0;">
+            <div class="notif-item is-unread">
+              <div class="notif-item__icon signal">✦</div>
+              <div class="notif-item__body notif-item__dot">
+                <div class="notif-item__title">AI Signal · BTC/USDT Long</div>
+                <div class="notif-item__desc">Confidence 74% · Entry 68,120–68,360</div>
+              </div>
+              <div class="notif-item__time">3m ago</div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-item__icon order">✓</div>
+              <div class="notif-item__body">
+                <div class="notif-item__title">주문 체결 · SOL/USDT Long</div>
+                <div class="notif-item__desc">0.5 SOL @ 178.42</div>
+              </div>
+              <div class="notif-item__time">14m ago</div>
+            </div>
+          </div>
+          <div class="cat-example__label">Notification Item · unread + read states</div>
+        </div>
+      </section>
+
+      <!-- STRATEGY CARD -->
+      <section class="cat-section" id="strategy">
+        <h2>Strategy Card</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview">
+            <div class="strategy-card is-featured" style="width: 280px;">
+              <div class="strategy-card__featured">✦ FEATURED</div>
+              <div class="strategy-card__head">
+                <div>
+                  <div class="strategy-card__name">BTC Trend + Copilot</div>
+                  <div class="strategy-card__author">QuantumTrade Lab</div>
+                </div>
+                <span class="strategy-card__tag">Trend · 4H</span>
+              </div>
+              <div class="strategy-card__stats">
+                <div class="strategy-card__stat"><span class="strategy-card__stat__k">30d PnL</span><span class="strategy-card__stat__v t-long">+54.2%</span></div>
+                <div class="strategy-card__stat"><span class="strategy-card__stat__k">Win Rate</span><span class="strategy-card__stat__v">58%</span></div>
+                <div class="strategy-card__stat"><span class="strategy-card__stat__k">Sharpe</span><span class="strategy-card__stat__v">2.4</span></div>
+                <div class="strategy-card__stat"><span class="strategy-card__stat__k">Max DD</span><span class="strategy-card__stat__v t-short">-9.8%</span></div>
+              </div>
+              <div class="strategy-card__foot">
+                <span class="followers">2,140 followers</span>
+                <span class="sub Pro">Pro</span>
+              </div>
+            </div>
+          </div>
+          <div class="cat-example__label">Strategy Card · featured variant</div>
+        </div>
+      </section>
+
+      <!-- EMPTY STATE -->
+      <section class="cat-section" id="empty">
+        <h2>Empty State</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="justify-content: center; min-height: 180px;">
+            <div class="empty" style="padding: 20px;">
+              <span class="empty__icon">◇</span>
+              <span>No data in the selected range</span>
+              <button class="btn btn--sm btn--ghost">Change filter</button>
+            </div>
+          </div>
+          <div class="cat-example__label">Empty state · icon + message + action</div>
+        </div>
+      </section>
+
+      <!-- ALERT BANNER -->
+      <section class="cat-section" id="alert">
+        <h2>Alert Banner</h2>
+        <div class="cat-example">
+          <div class="cat-example__preview" style="flex-direction: column; align-items: stretch; gap: 8px; width: 100%;">
+            <div style="padding: 10px 12px; background: var(--color-brand-subtle); border-left: 3px solid var(--color-brand); border-radius: 4px; font-size: 12px; color: var(--color-text-primary);">
+              <strong>💡 Tip:</strong> Ctrl+S로 언제든 레이아웃을 저장할 수 있어요.
+            </div>
+            <div style="padding: 10px 12px; background: oklch(80% 0.14 75 / 0.10); border-left: 3px solid var(--color-warning); border-radius: 4px; font-size: 12px;">
+              <strong>⚠ 주의:</strong> AI 신뢰도가 60% 미만인 신호입니다.
+            </div>
+            <div style="padding: 10px 12px; background: oklch(64% 0.20 25 / 0.10); border-left: 3px solid var(--color-danger); border-radius: 4px; font-size: 12px;">
+              <strong>❌ 오류:</strong> 잔고 부족으로 주문을 제출할 수 없습니다.
+            </div>
+          </div>
+          <div class="cat-example__label">Alert banner · info · warning · danger</div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    document.querySelectorAll('.cat-copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const text = btn.dataset.copy;
+        try {
+          await navigator.clipboard.writeText(text);
+          const orig = btn.textContent;
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => btn.textContent = orig, 1400);
+        } catch (e) {
+          btn.textContent = '❌ Failed';
+        }
+      });
+    });
+    // Highlight active section on scroll
+    const sections = document.querySelectorAll('.cat-section');
+    const links = document.querySelectorAll('.cat-nav a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(s => {
+        const rect = s.getBoundingClientRect();
+        if (rect.top < 100) current = s.id;
+      });
+      links.forEach(l => {
+        l.classList.toggle('is-active', l.getAttribute('href') === '#' + current);
+      });
+    }, {passive: true, capture: true});
+  </script>
+</body>
+</html>

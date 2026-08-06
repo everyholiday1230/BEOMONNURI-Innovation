@@ -1,0 +1,175 @@
+/* ============================================================
+   English — 관리자 화면 (pages-admin.jsx / pages-admin-more.jsx) 사전
+   ------------------------------------------------------------
+   기준 언어. 다른 언어에서 키가 빠지면 이 값으로 폴백한다.
+   키는 tools/i18n-extract.py 가 생성한 것이며 바꾸지 않는다.
+   ============================================================ */
+
+(function () {
+  'use strict';
+  if (!window.QTI18n) return;
+
+  window.QTI18n.register(
+    'en',
+    {
+      // --- 대시보드 / 목록 부제 ---
+      admin_dashboard_0ccafd: 'Live platform status · anomalies · risk · AI · system',
+      admin_users_3fefdf: 'Search name · email · ID',
+      admin_trades_bc077b: 'Live orders · fills · anomaly detection',
+      admin_risk_a1edf2: 'Position exposure · liquidation queue · market risk',
+      admin_fees_65feac: 'Fee tiers · rebates · promotions · payback',
+      admin_notices_15d236: 'Announcements',
+      admin_notices_11300f: 'Publish announcements · manage customer enquiries',
+
+      // --- 사용자 상세 ---
+      admin_user_detail_106e43: 'Search · filter · CSV export',
+      admin_user_detail_170f7b: 'Joined',
+      admin_user_detail_22d6d2: '30-day volume',
+      admin_user_detail_33103c: 'Cumulative fees',
+      admin_user_detail_3f4319: 'ID document',
+      admin_user_detail_0057bd: 'KYC documents',
+      admin_user_detail_43a4e1: 'Activity log',
+      admin_user_detail_8f5d10: 'Activity log · last 20 entries',
+      admin_user_detail_8797eb: 'Trade history',
+      admin_user_detail_80a094: 'Trading history',
+      admin_user_detail_81922a: 'Positions',
+      admin_user_detail_40ce13: 'Assets',
+      admin_user_detail_e4ec3e: 'View assets',
+      admin_user_detail_a5e5da: 'Security',
+      admin_user_detail_8dd7e4: 'Security events',
+      admin_user_detail_915cf6: 'Operator notes',
+      admin_user_detail_f35682: 'Operator note (recorded in the audit log)',
+      admin_user_detail_12614e: 'Timeline · aggregation view',
+      admin_user_detail_d65b24: 'Auto-calculated',
+      admin_user_detail_44650a: 'Other',
+      admin_user_detail_a43b70: 'KYC review result',
+      admin_user_detail_a74a3f: 'KYC re-verification required',
+      admin_user_detail_851473: 'Request KYC again',
+      admin_user_detail_219da4: 'Promote to L3',
+      admin_user_detail_afc528: 'Request re-review',
+      admin_user_detail_a1d12d: 'Anomalous trading detected',
+      admin_user_detail_2d003e: 'AML/CTF issue',
+      admin_user_detail_ca5360: 'User request',
+      admin_user_detail_63c279: 'Reason',
+      admin_user_detail_96330a: 'Message',
+      admin_user_detail_941ad1: 'Send email',
+      admin_user_detail_04f2aa: 'Reset password',
+      admin_user_detail_e03d2f: 'Reset 2FA',
+      admin_user_detail_82d3e7: 'Suspend account',
+      admin_user_detail_94cd06: '⚠ Suspend account',
+      admin_user_detail_1d441e: 'Suspend',
+      admin_user_detail_f63bf7: 'Unsuspend',
+      admin_user_detail_ebe503: 'Are you sure you want to suspend this user?',
+      admin_user_detail_bd464c: 'On suspension the user is notified by email automatically and the action is recorded in the audit log.',
+      admin_user_detail_ff8aa0: 'Confirm suspension',
+      admin_user_detail_19b2d1: 'Cancel',
+      admin_user_detail_4def42: 'User suspended (simulation)',
+      admin_user_tab_data: 'Showing {tab} data for this user',
+      admin_users_subtitle: '{n} total users · KYC · permissions · suspension · audit',
+
+      // --- KYC 심사 ---
+      admin_k_y_c_queue_46072a: 'KYC review',
+      admin_k_y_c_queue_d167fe: 'Dohyun Kim',
+      admin_kyc_sla: '{pending} pending · SLA 24h',
+      flag_auto_detected: ' · auto-detected · ',
+      flag_investigate: 'investigate',
+
+      // --- 입출금 승인 ---
+      admin_deposits_e9e567: 'Deposit approval',
+      admin_deposits_48f252: 'Deposit queue',
+      admin_deposits_df0901: 'On-chain deposits · confirmations · AML review',
+      admin_withdrawals_372dac: 'Withdrawal approval',
+      admin_withdrawals_d336c8: 'Withdrawal queue',
+      admin_withdrawals_4af6f5: '2FA complete · pending withdrawal requests',
+
+      // --- 지갑 / 자산 ---
+      admin_assets_7c2e10: 'Wallets · deposit and withdrawal approval · asset movement',
+      admin_assets_16f852: 'Total wallet balance (hot / cold)',
+      admin_assets_d52d75: 'Deposit and withdrawal approval queue',
+      admin_assets_293d08: 'Asset movement · reconciliation (nightly batch)',
+      admin_assets_657644: 'AML alert filter',
+      admin_assets_hi_fi_60cb06: 'Wallets · asset movement · reconciliation',
+      admin_assets_hi_fi_dc00b9: 'Hot wallet · by asset',
+      admin_assets_hi_fi_24e2e8: 'Cold wallet · by asset',
+      admin_assets_hi_fi_503c9d: 'Instantly withdrawable',
+      admin_assets_hi_fi_4b4b97: 'Against user balances',
+      admin_assets_hi_fi_48aeb1: 'Asset movement request (hot → cold, cold → hot)',
+
+      // --- AI Ops ---
+      admin_a_i_ops_50ede2: '💡 v1.4.2 improves hit rate by 7pp over v1.3.9. Recommend migrating all traffic this weekend.',
+      admin_a_i_ops_ed2648: '3d ago · Kuri Kwon',
+
+      // --- 공지 에디터 ---
+      admin_notice_editor_db8cc8: 'Compose announcement',
+      admin_notice_editor_3d991a: 'New announcement · Markdown supported',
+      admin_notice_editor_a2ee94: 'Announcement title',
+      admin_notice_editor_c3d57e: 'Body (Markdown supported)&#10;&#10;e.g.&#10;## Subheading&#10;Write your content…&#10;- Item 1&#10;- Item 2&#10;&#10;**bold** · [link](url)',
+      admin_notice_editor_a8e5c8: '(no title)',
+      admin_notice_editor_c4c626: '(no body)',
+      admin_notice_editor_0a94de: 'Publish options',
+      admin_notice_editor_189dd9: '📌 Pin to top',
+      admin_notice_editor_a2fa30: 'In-app banner for all users',
+      admin_notice_editor_41c60b: 'Show on landing page',
+      admin_notice_editor_492974: 'Push notification',
+      admin_notice_editor_61187b: 'Send email',
+      admin_notice_editor_11a5df: '(set automatically on publish)',
+      admin_notice_editor_102c1f: 'Kuri Kwon',
+      admin_notice_editor_7148d7: 'Publish',
+
+      // --- 전체 발송 (Broadcast) ---
+      admin_broadcast_b7f563: 'Broadcast in-app · email · push',
+      admin_broadcast_f724cc: 'Compose message',
+      admin_broadcast_078b3a: 'Subject',
+      admin_broadcast_a7bc1f: 'e.g. August rebate promotion',
+      admin_broadcast_c67b87: 'Body',
+      admin_broadcast_1a8f0f: 'Write the body. Markdown supported (**bold** · `code` · [link](url)).',
+      admin_broadcast_90bbad: 'Audience',
+      admin_broadcast_95066f: 'Everyone (1,242)',
+      admin_broadcast_be1a1a: 'Pro/VIP only (642)',
+      admin_broadcast_1395f0: 'KYC L3 (312)',
+      admin_broadcast_050529: 'Active in 7 days (820)',
+      admin_broadcast_9c1758: 'Custom filter',
+      admin_broadcast_7aeb7e: 'Channels',
+      admin_broadcast_4c0460: 'Estimated reach',
+      admin_broadcast_140c08: 'Estimated cost:',
+      admin_broadcast_626099: 'Send now',
+      admin_broadcast_1a911b: 'Schedule',
+      admin_broadcast_265106: 'Schedule it',
+      admin_broadcast_e6f9c4: 'Save draft',
+      admin_broadcast_f1f368: 'Recently sent',
+      admin_broadcast_743fe1: '📢 Scheduled maintenance notice (1,242)',
+      admin_broadcast_63c075: '🎉 August promotion (1,242)',
+      admin_broadcast_bc4cc1: '📄 Terms of service update (1,242)',
+      admin_bc_recipients: 'recipients · {n} channels',
+
+      // --- CS 티켓 ---
+      admin_c_s_ticket_5c8747: 'Ticket details',
+      admin_c_s_ticket_5c50d9: 'User',
+      admin_c_s_ticket_65b9cf: 'User profile',
+      admin_c_s_ticket_00ecd1: 'Recent trades',
+      admin_c_s_ticket_c65f61: 'Conversation',
+      admin_c_s_ticket_a6c22d: 'Type a reply…',
+      admin_c_s_ticket_95bf7b: 'Send reply',
+      admin_c_s_ticket_3f0669: 'Save (internal)',
+      admin_c_s_ticket_15e878: 'Quick actions',
+      admin_c_s_ticket_efefae: 'Macro replies',
+      admin_c_s_ticket_291781: 'Hello. We will check and get back to you shortly. Thank you for waiting.',
+      admin_c_s_ticket_5be08a: 'Some of your KYC documents were scanned too blurry and need to be re-reviewed. Please resubmit here: /kyc/resubmit',
+      admin_c_s_ticket_165627: 'Yes, please confirm.',
+      admin_c_s_ticket_e31e52: ' — I have a question about this. It has been several days with no progress and I am frustrated.',
+
+      // --- Design Ops ---
+      admin_design_ops_247f98: 'UI tokens · components · page management · register new pages and components',
+      admin_design_ops_127e5c: 'Create and register new pages, components and dialogs',
+      admin_design_ops_631818: 'New page',
+      admin_design_ops_ad367e: 'Start from a template',
+      admin_design_ops_b31be6: 'New component',
+      admin_design_ops_376325: 'Add to component catalogue',
+      admin_design_ops_b1169b: 'New dialog / modal',
+      admin_design_ops_23188a: 'Copy modal snippet',
+      admin_design_ops_454af0: 'Workflow · conventions',
+      admin_design_ops_341930: 'Guide document',
+    },
+    { label: 'English', bcp47: 'en-US' },
+  );
+})();
