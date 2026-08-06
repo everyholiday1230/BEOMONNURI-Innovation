@@ -1,5 +1,10 @@
+# TEMP-HIDDEN(SUPERCHART / 2026-08-06): 홈페이지에서 슈퍼차트 노출을 막은 것과 맞춰
+# 이 서브도메인 자체도 검색엔진 색인을 전체 차단. 재노출 시 아래 3줄을 원래 설정으로 되돌릴 것
+# 원본:
+# User-agent: *
+# Allow: /
+# Disallow: /admin
+# Disallow: /v1/
+# Sitemap: https://chart.beomonnuri.com/sitemap.xml
 User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /v1/
-Sitemap: https://chart.beomonnuri.com/sitemap.xml
+Disallow: /
