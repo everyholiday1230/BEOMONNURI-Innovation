@@ -25,7 +25,7 @@
       // --- 시스템 / 환영 ---
       ai_ctx_loaded: '컨텍스트 로드 완료. BTC/USDT Perp · 15m · 220 candles · 5개 지표 활성.',
       ai_welcome_beginner:
-        '안녕하세요, QuantumTrade AI Copilot입니다. **{symbol}** 차트를 분석하고 있어요. '
+        '안녕하세요, {brand} Copilot입니다. **{symbol}** 차트를 분석하고 있어요. '
         + '궁금하신 걸 자연어로 물어보시면 차트에 직접 추세선·지지·저항선을 그려드리고, 진입·손절·익절도 제안해드릴 수 있어요. '
         + '저는 도구이며, 실제 주문은 항상 최종 승인 후에만 실행됩니다.',
       ai_welcome_pro:

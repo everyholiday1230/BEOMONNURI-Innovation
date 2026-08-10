@@ -134,11 +134,28 @@ describe('production start-up fails closed on a seeded database', () => {
   });
 
   it('passes on a clean production database', () => {
+    /*
+       ★ The sample addresses used to be `ops@example.com` and `trader@corp.example`.
+
+         Those are RFC 2606 / 6761 reserved names — mail is never delivered there, so an account
+         using one can never verify its e-mail or reset its password. The guard now rejects them,
+         which means this "clean" database was never clean. Real domains are used instead.
+    */
     const r = assertNoDevFixtures(
-      { listIdentifiers: () => ['ops@example.com', 'trader@corp.example'], hasFixtureMarker: () => false },
+      { listIdentifiers: () => ['ops@chartcontrol.io', 'trader@gmail.com'], hasFixtureMarker: () => false },
       true,
     );
-    expect(r).toEqual({ matches: 0, markerFound: false, inspected: 2 });
+    expect(r).toEqual({ matches: 0, unreachable: 0, markerFound: false, inspected: 2 });
+  });
+
+  it('blocks reserved domains that cannot receive mail', () => {
+    /*
+       Why this matters: a SUPER_ADMIN account was created by hand in a `.local` domain during
+       development, and the digest list did not catch it. Shipping it would hand over full
+       administrative access.
+    */
+    expect(() => assertNoDevFixtures({ listIdentifiers: () => ['someone@test.local'] }, true))
+      .toThrow(DevSeedAccountDetectedError);
   });
 
   it('never blocks a non-production runtime', () => {
@@ -147,8 +164,17 @@ describe('production start-up fails closed on a seeded database', () => {
   });
 
   it('reports counts without exposing any identifier', () => {
-    const r = scanForDevFixtures({ listIdentifiers: () => DEV_SEED_USERS.map((u) => u.email) });
-    expect(r).toEqual({ matches: DEV_SEED_USERS.length, markerFound: false, inspected: DEV_SEED_USERS.length });
+    const emails = DEV_SEED_USERS.map((u) => u.email);
+    const r = scanForDevFixtures({ listIdentifiers: () => emails });
+    expect(r.matches).toBe(DEV_SEED_USERS.length);
+    expect(r.inspected).toBe(DEV_SEED_USERS.length);
+    expect(r.markerFound).toBe(false);
+    /*
+       The seed fixtures also live in reserved domains, so they are counted twice — once by digest,
+       once by pattern. That is intentional: the two counts answer different questions ("did the seed
+       script run?" vs "did someone create an account by hand?").
+    */
+    expect(r.unreachable).toBeGreaterThan(0);
   });
 
   it('the failure message leaks no e-mail, no password and no user id', () => {

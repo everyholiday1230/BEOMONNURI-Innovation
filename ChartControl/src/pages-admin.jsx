@@ -37,11 +37,53 @@
   // ADMIN DASHBOARD
   // ============================================================
   window.AdminDashboardPage = function AdminDashboardPage({ shellProps }) {
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
     const users = window.QTApp.ADMIN_USERS;
     const trades = window.QTApp.ADMIN_LIVE_TRADES;
     const system = window.QTApp.ADMIN_SYSTEM;
     const risk = window.QTApp.ADMIN_RISK_QUEUE;
     const ai = window.QTApp.ADMIN_AI_METRICS;
+
+    /*
+       관리자 홈 (실데이터).
+
+       ★ 목업이었던 것들:
+           '$142,820 수수료 매출 · +12.4%'  — 우리는 수수료를 받지 않는다
+           '99.984% 가동률'                  — 측정하지 않는다
+           '24h 거래량 = 목업합계 × 24'      — 24를 곱한 추정치였다
+           'Auto-review active'              — 자동 심사 기능이 없다
+           'AI 신호 486건 · 승인율 62%'      — 집계하지 않는다
+           'Last refresh · just now'         — 실제 시각과 무관한 고정 문구
+
+       이 화면은 운영자가 가장 먼저 보는 곳이다. 여기 숫자가 거짓이면
+       나머지를 확인할 이유가 없어진다.
+    */
+    const [sec, setSec] = useState(null);
+    const [tickets, setTickets] = useState(null);
+    const [orders, setOrders] = useState(null);
+
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api) return undefined;
+      let cancelled = false;
+      const guard = (fn) => (fn ? fn().catch(() => null) : Promise.resolve(null));
+      Promise.all([
+        guard(api.securitySummary),
+        guard(api.tickets ? () => api.tickets({ limit: 1 }) : null),
+        guard(api.orders ? () => api.orders({ limit: 100 }) : null),
+      ]).then(([s, tk, od]) => {
+        if (cancelled) return;
+        if (s) setSec(s.data || null);
+        if (tk) setTickets(tk);
+        if (od) setOrders(od);
+      });
+      return () => { cancelled = true; };
+    }, [adm.version]);
+
+    const liveUsers = window.QTAdmin ? window.QTAdmin.getUsers() : [];
+    const isLive = adm.isLive && liveUsers.length >= 0 && Boolean(sec || tickets || orders);
+    const health = window.QTAdmin ? window.QTAdmin.getHealth() : null;
+    const switches = window.QTAdmin ? window.QTAdmin.getKillSwitches() : null;
 
     const active = users.filter(u => u.status === 'active').length;
     const suspended = users.filter(u => u.status === 'suspended').length;
@@ -49,6 +91,25 @@
     const totalVol24h = trades.reduce((a,t) => a + t.notional, 0);
     const flaggedTrades = trades.filter(t => t.tag === 'suspicious' || t.tag === 'flagged').length;
     const criticalRisk = risk.filter(r => r.severity === 'critical' || r.severity === 'high').length;
+
+    // 실 주문에서 명목가치 합계. 가격·수량이 없는 주문은 제외한다(0 으로 세지 않는다).
+    const liveNotional = (() => {
+      if (!orders || !Array.isArray(orders.data)) return null;
+      const withBoth = orders.data.filter((o) => Number.isFinite(Number(o.price)) && Number.isFinite(Number(o.quantity)));
+      if (!withBoth.length) return { sum: 0, counted: 0, total: orders.data.length };
+      return {
+        sum: withBoth.reduce((a, o) => a + Number(o.price) * Number(o.quantity), 0),
+        counted: withBoth.length,
+        total: orders.data.length,
+      };
+    })();
+
+    const okCount = health
+      ? Object.keys(health).filter((k) => /^(ok|Connected|Configured|Enabled)/i.test(String(health[k]))).length
+      : null;
+    const checkedCount = health
+      ? Object.keys(health).filter((k) => !/^(latency|cpu|memory|node|build|git|uptime|wsC|wsCandle|marketDataSource|aiProvider|tradingMode)/i.test(k)).length
+      : null;
 
     const badge = <span style={{padding:'2px 8px', background:'oklch(80% 0.14 75 / 0.14)', color:'var(--color-warning)', border:'1px solid var(--color-warning)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700, letterSpacing:'0.06em'}}>ADMIN</span>;
 
@@ -61,32 +122,128 @@
         badge={badge}
         actions={
           <>
-            <span style={{fontSize:11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>Last refresh · just now</span>
-            <button className="btn btn--sm"><I.Refresh size={13}/> Refresh</button>
+            {/* 실제 갱신 시각. 'just now' 는 언제 봐도 방금이라 쓸모가 없다. */}
+            <span style={{fontSize:11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
+              {isLive && window.QTAdmin && window.QTAdmin.getAsOf()
+                ? t('admin_last_refresh', { time: new Date(window.QTAdmin.getAsOf()).toLocaleTimeString() })
+                : 'Last refresh · just now'}
+            </span>
+            <button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }}><I.Refresh size={13}/> Refresh</button>
           </>
         }
       >
         {/* Top KPI grid */}
         <div className="grid-4">
-          <window.KPICard label="Total Users"   value={users.length.toLocaleString()} sub={`${active} active · ${pending} pending · ${suspended} suspended`} icon="User" tone="brand"/>
-          <window.KPICard label="24h Volume"    value={'$' + fmtCompact(totalVol24h * 24)} delta={+8.4} deltaLabel="vs yesterday" icon="Chart" tone="long"/>
-          <window.KPICard label="Flagged Trades" value={flaggedTrades} sub={`${trades.length} tracked · Auto-review active`} icon="Alert" tone={flaggedTrades > 0 ? 'warning' : 'success'}/>
-          <window.KPICard label="Critical Risk" value={criticalRisk} sub={`${risk.length} positions in queue`} icon="Alert" tone={criticalRisk > 0 ? 'danger' : 'success'}/>
+          {isLive ? (
+            <>
+              <window.KPICard
+                label={t('adm_users')}
+                value={sec && sec.users ? sec.users.total : (window.QTAdmin ? window.QTAdmin.getUserTotal() : '—')}
+                sub={sec && sec.users ? t('adm_users_sub', { active: sec.users.active, disabled: sec.users.disabled, admins: sec.users.adminRoles }) : undefined}
+                icon="User" tone="brand"
+              />
+              {/*
+                 주문 금액. '24h Volume' 이 아니다 — 24시간 창으로 집계하지 않고,
+                 조회한 최근 주문의 합계다. 라벨이 범위를 정확히 말해야 한다.
+              */}
+              <window.KPICard
+                label={t('adm_notional')}
+                value={liveNotional === null ? '—' : '$' + fmtCompact(liveNotional.sum)}
+                sub={liveNotional ? t('adm_notional_sub', { n: liveNotional.counted, total: liveNotional.total }) : undefined}
+                icon="Chart" tone="long"
+              />
+              {/* 활성 세션 — 실제로 아는 값. */}
+              <window.KPICard
+                label={t('adm_sessions')}
+                value={sec && sec.sessions ? sec.sessions.active : '—'}
+                sub={sec && sec.sessions ? t('adm_sessions_sub', { n: sec.sessions.distinctUsers }) : undefined}
+                icon="Wifi" tone="brand"
+              />
+              {/* 킬스위치 — 위험 대응 상태. '자동 심사' 같은 없는 기능을 말하지 않는다. */}
+              <window.KPICard
+                label={t('admin_risk_killswitch')}
+                value={Array.isArray(switches) ? switches.filter(k => k.enabled || k.active || k.engaged).length : '—'}
+                sub={Array.isArray(switches) ? t('admin_risk_killswitch_sub', { total: switches.length }) : undefined}
+                icon="Alert"
+                tone={Array.isArray(switches) && switches.some(k => k.enabled || k.active || k.engaged) ? 'danger' : 'success'}
+              />
+            </>
+          ) : (
+            <>
+              <window.KPICard label="Total Users"   value={users.length.toLocaleString()} sub={`${active} active · ${pending} pending · ${suspended} suspended`} icon="User" tone="brand"/>
+              <window.KPICard label="24h Volume"    value={'$' + fmtCompact(totalVol24h * 24)} delta={+8.4} deltaLabel="vs yesterday" icon="Chart" tone="long"/>
+              <window.KPICard label="Flagged Trades" value={flaggedTrades} sub={`${trades.length} tracked · Auto-review active`} icon="Alert" tone={flaggedTrades > 0 ? 'warning' : 'success'}/>
+              <window.KPICard label="Critical Risk" value={criticalRisk} sub={`${risk.length} positions in queue`} icon="Alert" tone={criticalRisk > 0 ? 'danger' : 'success'}/>
+            </>
+          )}
         </div>
 
         {/* Second row */}
         <div className="grid-4">
-          <window.KPICard label="AI Signals · Today" value={ai.signalsToday.toLocaleString()} sub={`Approve ${(ai.approveRate*100).toFixed(0)}% · Hit 7d ${(ai.hitRate7d*100).toFixed(0)}%`} icon="Sparkles" tone="ai"/>
-          <window.KPICard label="System Health" value={system.filter(s => s.status === 'ok').length + '/' + system.length + ' OK'} sub={system.find(s => s.status !== 'ok')?.name || 'All systems nominal'} icon="Wifi" tone={system.some(s => s.status !== 'ok') ? 'warning' : 'success'}/>
-          <window.KPICard label="Open CS Tickets" value={window.QTApp.CS_TICKETS.filter(c => c.status !== 'resolved').length} sub={`${window.QTApp.CS_TICKETS.filter(c => c.priority === 'high').length} high priority`} icon="Bell" tone="brand"/>
-          <window.KPICard label="Fee Revenue · 30d" value="$142,820" delta={+12.4} deltaLabel="vs prev 30d" icon="Wallet" tone="brand"/>
+          {isLive ? (
+            <>
+              {/* MFA 채택률 — 보안 상태로 실제 의미가 있다. */}
+              <window.KPICard
+                label={t('adm_mfa')}
+                value={sec && sec.mfa && sec.mfa.adoptionPct !== null ? sec.mfa.adoptionPct + '%' : '—'}
+                sub={sec && sec.mfa ? t('adm_mfa_sub', { n: sec.mfa.usersFlagged }) : undefined}
+                icon="Lock"
+                tone={sec && sec.mfa && sec.mfa.usersFlagged > 0 ? 'success' : 'warning'}
+              />
+              <window.KPICard
+                label={t('adm_health')}
+                value={okCount === null ? '—' : `${okCount}/${checkedCount} OK`}
+                sub={health ? t('adm_health_sub', { src: health.marketDataSource || '—' }) : undefined}
+                icon="Wifi"
+                tone={okCount !== null && checkedCount !== null && okCount >= checkedCount ? 'success' : 'warning'}
+              />
+              {/* 실제 티켓 건수. */}
+              <window.KPICard
+                label={t('adm_tickets')}
+                value={tickets && tickets.counts ? (tickets.counts.open + tickets.counts.pending) : '—'}
+                sub={tickets && tickets.counts ? t('adm_tickets_sub', { open: tickets.counts.open, pending: tickets.counts.pending, resolved: tickets.counts.resolved }) : undefined}
+                icon="Bell" tone="brand"
+              />
+              {/*
+                 수수료 매출.
+
+                 우리는 거래 수수료를 받지 않는다 — 거래소가 받는다.
+                 '$142,820' 은 존재하지 않는 매출이었다. 실제 수익원은 브로커
+                 리베이트와 추천 가입이며, 리베이트는 아직 설정되지 않았다.
+              */}
+              <window.KPICard
+                label={t('adm_revenue')}
+                value={t('admin_fees_zero')}
+                sub={t('adm_revenue_sub')}
+                icon="Wallet"
+              />
+            </>
+          ) : (
+            <>
+              <window.KPICard label="AI Signals · Today" value={ai.signalsToday.toLocaleString()} sub={`Approve ${(ai.approveRate*100).toFixed(0)}% · Hit 7d ${(ai.hitRate7d*100).toFixed(0)}%`} icon="Sparkles" tone="ai"/>
+              <window.KPICard label="System Health" value={system.filter(s => s.status === 'ok').length + '/' + system.length + ' OK'} sub={system.find(s => s.status !== 'ok')?.name || 'All systems nominal'} icon="Wifi" tone={system.some(s => s.status !== 'ok') ? 'warning' : 'success'}/>
+              <window.KPICard label="Open CS Tickets" value={window.QTApp.CS_TICKETS.filter(c => c.status !== 'resolved').length} sub={`${window.QTApp.CS_TICKETS.filter(c => c.priority === 'high').length} high priority`} icon="Bell" tone="brand"/>
+              <window.KPICard label="Fee Revenue · 30d" value="$142,820" delta={+12.4} deltaLabel="vs prev 30d" icon="Wallet" tone="brand"/>
+            </>
+          )}
         </div>
 
         {/* Live streams */}
         <div className="grid-2-1">
+          {/*
+             실시간 거래 · 위험 대기열.
+
+             둘 다 목업 배열이었다. 실데이터로 바꾸면 대개 비어 있다 —
+             비수탁이라 우리를 통해 나간 주문만 보이기 때문이다.
+             빈 표에는 이유를 함께 적는다(설명 없는 빈 표는 조회 장애로 읽힌다).
+             자세한 화면은 /admin/trades · /admin/risk 에 있으므로 여기서는
+             요약만 보여주고 그쪽으로 보낸다.
+          */}
           <window.SectionCard
-            title="🔴 Live Trades"
-            subtitle={`${trades.length} events in last minute · click row to inspect`}
+            title={isLive ? t('adm_recent_orders') : '🔴 Live Trades'}
+            subtitle={isLive
+              ? t('adm_recent_orders_sub', { n: (orders && orders.data ? orders.data.length : 0) })
+              : `${trades.length} events in last minute · click row to inspect`}
             actions={<button className="btn btn--sm">View all →</button>}
             noPadding
           >
@@ -105,16 +262,58 @@
                   return <span className={`status-pill status-pill--${cls}`}>{r.tag.toUpperCase()}</span>;
                 }},
               ]}
-              rows={trades.slice(0, 10)}
+              rows={isLive
+                ? (orders && Array.isArray(orders.data)
+                    ? orders.data.slice(0, 10).map((o) => {
+                        const price = Number(o.price);
+                        const size = Number(o.quantity);
+                        return {
+                          time: Number(o.createdAt || o.ts) || undefined,
+                          userId: o.userId || '—',
+                          sym: o.symbol ? String(o.symbol).replace(/USDT$/, '/USDT') : '—',
+                          side: o.side ? String(o.side).toLowerCase() : '—',
+                          size: Number.isFinite(size) ? size : undefined,
+                          price: Number.isFinite(price) ? price : undefined,
+                          notional: Number.isFinite(price) && Number.isFinite(size) ? price * size : undefined,
+                          tag: o.status ? String(o.status).toLowerCase() : 'ok',
+                        };
+                      })
+                    : [])
+                : trades.slice(0, 10)}
               onRowClick={(r) => alert('Trade inspector: ' + r.userId + ' · ' + r.sym)}
             />
           </window.SectionCard>
 
           <window.SectionCard
-            title="⚠ Risk Queue"
-            subtitle={`${risk.length} positions require attention`}
+            title={isLive ? t('adm_risk_summary') : '⚠ Risk Queue'}
+            subtitle={isLive ? t('adm_risk_summary_sub') : `${risk.length} positions require attention`}
             actions={<a className="btn btn--sm" href="#/admin/risk">View all →</a>}
           >
+            {/*
+               실데이터에서는 위험 요약을 보여준다.
+
+               포지션 위험 계산은 /admin/risk 가 이미 한다. 여기서 같은 계산을
+               다시 구현하면 두 화면의 기준이 갈라진다 — 한쪽은 5%, 다른 쪽은
+               3% 로 위험을 판정하는 상태가 된다.
+            */}
+            {isLive ? (
+              <div style={{display:'flex', flexDirection:'column', gap:10, fontSize:12.5, lineHeight:1.8}}>
+                <div style={{color:'var(--color-text-secondary)'}}>{t('adm_risk_scope')}</div>
+                <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                  <a className="btn btn--sm" href="#/admin/risk" style={{textDecoration:'none'}}>{t('adm_open_risk')}</a>
+                  <a className="btn btn--sm" href="#/admin/trades" style={{textDecoration:'none'}}>{t('adm_open_trades')}</a>
+                </div>
+                {Array.isArray(switches) && switches.some(k => k.enabled || k.active || k.engaged) && (
+                  <div style={{
+                    padding:'9px 11px', borderRadius:6, fontSize:11.5,
+                    background:'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+                    border:'1px solid var(--color-danger)', color:'var(--color-danger)',
+                  }}>
+                    {t('adm_killswitch_on', { n: switches.filter(k => k.enabled || k.active || k.engaged).length })}
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={{display:'flex', flexDirection:'column', gap: 6}}>
               {risk.map(r => (
                 <div key={r.id} style={{padding:'10px 12px', background:'var(--color-bg-surface)', border:'1px solid var(--color-border-subtle)', borderLeft: `3px solid ${r.severity === 'critical' ? 'var(--color-danger)' : r.severity === 'high' ? 'var(--color-danger)' : r.severity === 'medium' ? 'var(--color-warning)' : 'var(--color-border-default)'}`, borderRadius:4, fontSize:12}}>
@@ -134,11 +333,53 @@
                 </div>
               ))}
             </div>
+            )}
           </window.SectionCard>
         </div>
 
         {/* System status */}
-        <window.SectionCard title="System Health" subtitle="Real-time service status · Click for detail" noPadding>
+        {/*
+           시스템 상태.
+
+           목업 표는 서비스 9개마다 '지연 2ms · 가동률 99.998%' 를 보여줬다.
+           우리는 서비스별 지연도 가동률도 측정하지 않는다 — 전부 만들어낸
+           값이었고, 소수점 세 자리까지 있어 더 정밀해 보였다.
+
+           실데이터에서는 /admin/system 과 **같은 출처**를 쓴다. 두 화면이
+           다른 값을 보여주면 어느 쪽을 믿어야 하는지 알 수 없다.
+        */}
+        <window.SectionCard
+          title={t('adm_health')}
+          subtitle={isLive ? t('admin_system_components_sub') : 'Real-time service status · Click for detail'}
+          actions={isLive ? <a className="btn btn--sm" href="#/admin/system" style={{textDecoration:'none'}}>{t('adm_open_system')}</a> : undefined}
+          noPadding
+        >
+          {isLive ? (
+            <window.DataTable
+              columns={[
+                { key:'name', label:t('admin_system_component'), render: r => <strong style={{fontFamily:'var(--font-mono)', fontSize:12}}>{r.name}</strong> },
+                { key:'state', label:t('admin_system_state'), render: r => (
+                  r.grade === 'info'
+                    ? <span style={{color:'var(--color-text-tertiary)', fontSize:11}}>{t('admin_system_info')}</span>
+                    : <span className={`status-pill status-pill--${r.grade === 'ok' ? 'ok' : r.grade === 'warn' ? 'warn' : 'neutral'}`}>
+                        {r.grade === 'unknown' ? t('admin_system_unmeasured') : r.grade.toUpperCase()}
+                      </span>
+                ) },
+                { key:'value', label:t('admin_system_reported'), render: r => (
+                  <span style={{fontFamily:'var(--font-mono)', fontSize:11, color: r.grade === 'unknown' ? 'var(--color-text-tertiary)' : undefined}}>{r.value}</span>
+                ) },
+              ]}
+              rows={health ? Object.keys(health).map((k) => {
+                const v = String(health[k]);
+                const INFO = /^(buildVersion|gitSha|nodeVersion|aiProvider|tradingMode|marketDataSource|uptimeSeconds|memory|wsC|latency|cpu)/i;
+                const grade = INFO.test(k) ? 'info'
+                  : /^(ok|Connected|Configured|Enabled)/i.test(v) ? 'ok'
+                  : /^(Idle|Locked|Mock|Not Implemented)/i.test(v) ? 'warn'
+                  : /^(Unavailable|Not Connected|unavailable)/i.test(v) ? 'unknown' : 'info';
+                return { name: k, value: v, grade };
+              }) : []}
+            />
+          ) : (
           <window.DataTable
             columns={[
               { key: 'name',   label: 'Service', render: r => <strong>{r.name}</strong> },
@@ -149,7 +390,359 @@
             ]}
             rows={system}
           />
+          )}
         </window.SectionCard>
+      </window.PageShell>
+    );
+  };
+
+  // ============================================================
+  // ADMIN REFERRAL — 친구 초대 제도 운영
+  // ============================================================
+  /**
+   * 리퍼럴 운영 화면.
+   *
+   * 디자이너 화면이 없어 기존 컴포넌트(KPICard·SectionCard·DataTable)로
+   * 조립한다. 새 CSS 를 만들지 않는다 — 디자인 시스템 밖의 스타일이 늘면
+   * 나중에 테마·밀도 전환에서 어긋난다.
+   *
+   * ★ 이 화면이 지키는 것
+   *   · 적립액을 계산해 보여주지 않는다. 지급액은 운영자가 거래소 어필리에이트
+   *     보고서에서 실수령액을 확인한 뒤 산정해 입력한다.
+   *   · 지급 기록에 '방법' 을 필수로 받는다. 근거 없는 기록은 검증할 수 없다.
+   *   · 제도를 켤 때 지급 방법 설명을 요구한다(서버도 검증한다).
+   */
+  window.AdminReferralPage = function AdminReferralPage({ shellProps }) {
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+
+    const [data, setData] = useState(null);
+    const [err, setErr] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState(null);
+
+    // 조건 편집 폼. 서버 값이 오면 채운다.
+    const [form, setForm] = useState(null);
+    // 지급 입력 폼. 대상이 정해지면 열린다.
+    const [payTo, setPayTo] = useState(null);
+    const [pay, setPay] = useState({ amount: '', method: '', reference: '', note: '' });
+
+    const api = window.QTApi && window.QTApi.admin;
+    const canWrite = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.referral.write'));
+
+    const load = React.useCallback(() => {
+      if (!api || !api.referral) return;
+      api.referral(200)
+        .then((r) => {
+          setData(r);
+          if (r.settings) {
+            setForm({
+              enabled: Boolean(r.settings.enabled),
+              sharePct: String(r.settings.sharePct ?? 0),
+              minPayout: String(r.settings.minPayout ?? 0),
+              payoutCurrency: r.settings.payoutCurrency || 'USDT',
+              payoutNote: r.settings.payoutNote || '',
+            });
+          }
+          setErr(null);
+        })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+    }, [api]);
+    useEffect(() => { load(); }, [load]);
+
+    const isLive = Boolean(data && data.supported);
+    const settings = (data && data.settings) || null;
+    const referrers = (data && data.referrers) || [];
+
+    const saveSettings = async () => {
+      if (!api || !api.setReferralSettings || !form) return;
+      setBusy(true); setMsg(null);
+      try {
+        const r = await api.setReferralSettings({
+          enabled: form.enabled,
+          sharePct: Number(form.sharePct),
+          minPayout: Number(form.minPayout),
+          payoutCurrency: form.payoutCurrency,
+          payoutNote: form.payoutNote,
+        });
+        if (r && r.ok === false) {
+          // 서버 검증 메시지를 그대로 보여준다 — 왜 거부됐는지가 중요하다.
+          setMsg({ ok: false, text: r.message || t('adm_ref_save_failed') });
+        } else {
+          setMsg({ ok: true, text: form.enabled ? t('adm_ref_enabled') : t('adm_ref_disabled') });
+          load();
+        }
+      } catch (e) {
+        setMsg({ ok: false, text: (e && e.message) || t('adm_ref_save_failed') });
+      }
+      setBusy(false);
+    };
+
+    const submitPayout = async () => {
+      if (!api || !api.recordReferralPayout || !payTo) return;
+      const amount = Number(pay.amount);
+      if (!Number.isFinite(amount) || amount <= 0 || !pay.method.trim()) return;
+      setBusy(true); setMsg(null);
+      try {
+        const r = await api.recordReferralPayout({
+          referrerUserId: payTo.userId,
+          amount,
+          currency: settings ? settings.payoutCurrency : 'USDT',
+          method: pay.method.trim(),
+          reference: pay.reference.trim() || null,
+          note: pay.note.trim() || null,
+        });
+        if (r && r.ok === false) {
+          setMsg({ ok: false, text: r.message || t('adm_ref_pay_failed') });
+        } else {
+          setMsg({ ok: true, text: t('adm_ref_paid', { amount: amount, cur: settings ? settings.payoutCurrency : '' }) });
+          setPayTo(null);
+          setPay({ amount: '', method: '', reference: '', note: '' });
+          load();
+        }
+      } catch (e) {
+        setMsg({ ok: false, text: (e && e.message) || t('adm_ref_pay_failed') });
+      }
+      setBusy(false);
+    };
+
+    return (
+      <window.PageShell
+        {...shellProps}
+        title={t('adm_ref_title')}
+        subtitle={t('adm_ref_subtitle')}
+        breadcrumb={['Home','Admin','Referral']}
+        actions={<button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>}
+      >
+        {!isLive ? (
+          <window.NotApplicablePanel
+            title={t('adm_ref_unavailable')}
+            reason={t('adm_ref_unavailable_why')}
+            points={[]}
+          />
+        ) : (
+          <>
+            {/*
+               제도 상태를 가장 먼저 보여준다.
+
+               꺼져 있으면 코드가 발급되지 않고 귀속도 일어나지 않는다.
+               그 사실을 운영자가 즉시 알아야 한다 — 모르고 있으면 "왜 초대가
+               집계되지 않나" 를 다른 곳에서 찾는다.
+            */}
+            <div className="grid-4">
+              <window.KPICard
+                label={t('adm_ref_status')}
+                value={settings && settings.enabled ? t('adm_ref_on') : t('adm_ref_off')}
+                sub={settings ? t('adm_ref_version', { n: settings.version }) : undefined}
+                tone={settings && settings.enabled ? 'success' : 'warning'}
+              />
+              <window.KPICard
+                label={t('adm_ref_referrers')}
+                value={referrers.length}
+                sub={t('adm_ref_referrers_sub')}
+              />
+              <window.KPICard
+                label={t('adm_ref_signups')}
+                value={referrers.reduce((a, x) => a + (Number(x.signups) || 0), 0)}
+                sub={t('adm_ref_signups_sub', { n: referrers.reduce((a, x) => a + (Number(x.traded) || 0), 0) })}
+              />
+              <window.KPICard
+                label={t('adm_ref_paid_total')}
+                value={fmt(referrers.reduce((a, x) => a + (Number(x.paidTotal) || 0), 0), 2)}
+                sub={settings ? settings.payoutCurrency : undefined}
+              />
+            </div>
+
+            {/*
+               ★ 운영자가 알아야 하는 사실.
+
+               적립액을 시스템이 계산하지 않는다. 지급액은 거래소 어필리에이트
+               보고서의 실수령액에서 산정해야 한다. 이 문구가 없으면 운영자가
+               화면에 있는 숫자를 근거로 지급액을 정한다.
+            */}
+            <div style={{
+              padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.85,
+              background:'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+              border:'1px solid var(--color-warning)',
+            }}>
+              <div style={{fontWeight:600, marginBottom:5}}>{t('adm_ref_how_title')}</div>
+              <ul style={{margin:0, paddingLeft:20}}>
+                <li>{t('adm_ref_how_1')}</li>
+                <li>{t('adm_ref_how_2')}</li>
+                <li>{t('adm_ref_how_3')}</li>
+              </ul>
+            </div>
+
+            {msg && (
+              <div style={{
+                padding:'10px 12px', borderRadius:6, fontSize:12,
+                background: msg.ok ? 'color-mix(in srgb, var(--color-success) 12%, transparent)' : 'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+                border: '1px solid ' + (msg.ok ? 'var(--color-success)' : 'var(--color-danger)'),
+                color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)',
+              }}>{msg.text}</div>
+            )}
+
+            {/* 제도 조건 */}
+            <window.SectionCard title={t('adm_ref_terms')} subtitle={t('adm_ref_terms_sub')}>
+              {form ? (
+                <div style={{display:'flex', flexDirection:'column', gap:12, maxWidth:640}}>
+                  <label className="chk">
+                    <input
+                      type="checkbox"
+                      checked={form.enabled}
+                      disabled={!canWrite}
+                      onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                    />
+                    <span className="chk__box"><I.Check size={10}/></span>
+                    {t('adm_ref_enable')}
+                  </label>
+
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10}}>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('adm_ref_share')}</span>
+                      <input
+                        type="number" min="0" max="100" step="0.5"
+                        value={form.sharePct} disabled={!canWrite}
+                        onChange={(e) => setForm({ ...form, sharePct: e.target.value })}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('adm_ref_min')}</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={form.minPayout} disabled={!canWrite}
+                        onChange={(e) => setForm({ ...form, minPayout: e.target.value })}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('adm_ref_currency')}</span>
+                      <input
+                        value={form.payoutCurrency} disabled={!canWrite} maxLength={10}
+                        onChange={(e) => setForm({ ...form, payoutCurrency: e.target.value.toUpperCase() })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5}}>
+                      {t('adm_ref_note')}
+                    </div>
+                    <textarea
+                      value={form.payoutNote} disabled={!canWrite} maxLength={1000}
+                      placeholder={t('adm_ref_note_ph')}
+                      onChange={(e) => setForm({ ...form, payoutNote: e.target.value })}
+                      style={{width:'100%', minHeight:80, padding:9, background:'var(--color-bg-input)', border:'1px solid var(--color-border-default)', borderRadius:6, color:'var(--color-text-primary)', fontSize:12.5, fontFamily:'var(--font-sans)', resize:'vertical', outline:'none', lineHeight:1.7}}
+                    />
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>{t('adm_ref_note_why')}</div>
+                  </div>
+
+                  <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+                    <button
+                      className="btn btn--sm btn--primary"
+                      disabled={busy || !canWrite}
+                      onClick={saveSettings}
+                    >{busy ? '…' : t('adm_ref_save')}</button>
+                  </div>
+                  {!canWrite && (
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textAlign:'right'}}>{t('admin_read_only_notice')}</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{fontSize:12, color:'var(--color-text-tertiary)'}}>{t('help_loading')}</div>
+              )}
+            </window.SectionCard>
+
+            {/* 초대자 목록 */}
+            <window.SectionCard
+              title={t('adm_ref_list')}
+              subtitle={t('adm_ref_list_sub')}
+              noPadding={referrers.length > 0}
+            >
+              {referrers.length > 0 ? (
+                <window.DataTable
+                  columns={[
+                    { key:'email', label:t('adm_ref_col_user'), render: r => (
+                      <span style={{fontFamily:'var(--font-mono)', fontSize:11.5}}>{r.email || r.userId.slice(0, 8)}</span>
+                    ) },
+                    { key:'code', label:t('adm_ref_col_code'), render: r => (
+                      <strong style={{fontFamily:'var(--font-mono)'}}>{r.code || '—'}</strong>
+                    ) },
+                    { key:'signups', label:t('adm_ref_col_signups'), align:'right', render: r => r.signups },
+                    /* 실제 수익이 발생하는 단계. 지급 판단의 근거다. */
+                    { key:'keys', label:t('adm_ref_col_keys'), align:'right', render: r => r.keysConnected },
+                    { key:'traded', label:t('adm_ref_col_traded'), align:'right', render: r => (
+                      <strong style={{color: r.traded > 0 ? 'var(--color-success)' : undefined}}>{r.traded}</strong>
+                    ) },
+                    { key:'paid', label:t('adm_ref_col_paid'), align:'right', render: r => (
+                      r.paidTotal > 0 ? `${fmt(r.paidTotal, 2)} ${r.currency || ''}` : '—'
+                    ) },
+                    { key:'act', label:'', align:'right', render: r => (
+                      canWrite
+                        ? <button className="tbl-action" onClick={() => { setPayTo(r); setPay({ amount: '', method: '', reference: '', note: '' }); }}>
+                            {t('adm_ref_record')}
+                          </button>
+                        : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
+                    ) },
+                  ]}
+                  rows={referrers}
+                />
+              ) : (
+                <div style={{fontSize:12, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+                  {settings && settings.enabled ? t('adm_ref_none_yet') : t('adm_ref_none_off')}
+                </div>
+              )}
+            </window.SectionCard>
+
+            {/* 지급 입력 */}
+            {payTo && (
+              <window.SectionCard
+                title={t('adm_ref_pay_title', { who: payTo.email || payTo.userId.slice(0, 8) })}
+                subtitle={t('adm_ref_pay_sub')}
+                actions={<button className="btn btn--sm" onClick={() => setPayTo(null)}>{t('close')}</button>}
+              >
+                <div style={{display:'flex', flexDirection:'column', gap:10, maxWidth:640}}>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:10}}>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('ref_col_amount')} ({settings ? settings.payoutCurrency : ''})</span>
+                      <input
+                        type="number" min="0" step="0.00000001"
+                        value={pay.amount}
+                        onChange={(e) => setPay({ ...pay, amount: e.target.value })}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('ref_col_method')}</span>
+                      <input
+                        value={pay.method}
+                        placeholder={t('adm_ref_method_ph')}
+                        onChange={(e) => setPay({ ...pay, method: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <span className="input-group__label">{t('ref_col_reference')}</span>
+                    <input
+                      value={pay.reference}
+                      placeholder={t('adm_ref_ref_ph')}
+                      onChange={(e) => setPay({ ...pay, reference: e.target.value })}
+                    />
+                  </div>
+                  <div style={{fontSize:11.5, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
+                    {t('adm_ref_pay_warn')}
+                  </div>
+                  <div style={{display:'flex', justifyContent:'flex-end'}}>
+                    <button
+                      className="btn btn--sm btn--primary"
+                      disabled={busy || !Number(pay.amount) || !pay.method.trim()}
+                      onClick={submitPayout}
+                    >{busy ? '…' : t('adm_ref_record')}</button>
+                  </div>
+                </div>
+              </window.SectionCard>
+            )}
+
+            {err && <div style={{fontSize:11.5, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>}
+          </>
+        )}
       </window.PageShell>
     );
   };
@@ -158,12 +751,78 @@
   // ADMIN USERS PAGE
   // ============================================================
   window.AdminUsersPage = function AdminUsersPage({ shellProps }) {
+    /*
+       관리자 데이터가 도착하면 재렌더한다. 이 훅이 없으면 QTAdmin 이
+       ADMIN_USERS 를 바꿔치기해도 React 는 모른다.
+    */
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
     const users = window.QTApp.ADMIN_USERS;
     const [q, setQ] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+
+    /*
+       변경 권한.
+
+       서버가 준 실제 권한 목록으로 판단한다. 등급 이름(`role === 'ADMIN'`)으로
+       켜면 서버가 권한을 조정한 순간 화면이 따라오지 않아 "버튼은 보이는데
+       누르면 403" 이 된다. ops 등급이 정지 권한을 잃은 변경이 실제로 있었다.
+    */
+    const canChangeStatus = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.user.status.write'));
+
+    const [busyId, setBusyId] = useState(null);
+    const [actionMsg, setActionMsg] = useState(null);
+
+    /*
+       정지 / 해제.
+
+       사유를 반드시 받는다 — 서버가 요구하고(400), 감사 로그에 남는 값이다.
+       "누가 왜 정지시켰는지" 없이 남은 기록은 나중에 쓸모가 없다.
+    */
+    const changeStatus = async (user, disable) => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api) return;
+
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(disable ? t('admin_suspend_reason') : t('admin_reactivate_reason'), '');
+      // 취소하면 아무 일도 하지 않는다. 빈 문자열도 사유가 아니다.
+      if (reason === null || !String(reason).trim()) return;
+
+      setBusyId(user.id);
+      setActionMsg(null);
+      try {
+        const r = disable
+          ? await api.disableUser(user.id, String(reason).trim())
+          : await api.enableUser(user.id, String(reason).trim());
+        if (r && r.ok === false) {
+          setActionMsg({ ok: false, msg: (r.message) || t('admin_action_failed') });
+        } else {
+          setActionMsg({
+            ok: true,
+            msg: disable
+              ? t('admin_suspended_ok', { n: (r && r.sessionsRevoked) || 0 })
+              : t('admin_reactivated_ok'),
+          });
+          // 서버 상태를 다시 읽어 화면과 일치시킨다.
+          if (window.QTAdmin && window.QTAdmin.refresh) window.QTAdmin.refresh();
+        }
+      } catch (e) {
+        setActionMsg({ ok: false, msg: (e && e.message) || t('admin_action_failed') });
+      }
+      setBusyId(null);
+    };
     const filtered = users
       .filter(u => statusFilter === 'all' || u.status === statusFilter)
-      .filter(u => !q || u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()) || u.id.includes(q));
+      /*
+         실 사용자에는 name 이 없을 수 있다(우리 DB 는 이메일만 가진다).
+         u.name.toLowerCase() 를 그대로 부르면 화면 전체가 렌더 실패한다.
+      */
+      .filter(u => {
+        if (!q) return true;
+        const needle = q.toLowerCase();
+        return [u.name, u.email, u.id, u.role]
+          .filter(Boolean)
+          .some(v => String(v).toLowerCase().includes(needle));
+      });
 
     return (
       <window.PageShell
@@ -184,6 +843,28 @@
           <window.KPICard label="Pending KYC" value={users.filter(u => u.status === 'pending').length} tone="warning"/>
           <window.KPICard label="Suspended / Restricted" value={users.filter(u => u.status === 'suspended' || u.status === 'restricted').length} tone="danger"/>
         </div>
+
+        {actionMsg && (
+          <div style={{
+            padding:'10px 12px', borderRadius:6, fontSize:12,
+            background: actionMsg.ok ? 'color-mix(in srgb, var(--color-success) 12%, transparent)'
+                                     : 'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+            border: '1px solid ' + (actionMsg.ok ? 'var(--color-success)' : 'var(--color-danger)'),
+            color: actionMsg.ok ? 'var(--color-success)' : 'var(--color-danger)',
+          }}>{actionMsg.msg}</div>
+        )}
+
+        {/*
+           열람 전용 안내.
+
+           권한을 아는 상태에서 변경 권한이 없을 때만 보여준다. 로딩 중에 띄우면
+           권한이 있는 관리자에게도 잠깐 "열람 전용" 이 보여 혼란스럽다.
+        */}
+        {window.QTAdmin && window.QTAdmin.permissionsKnown && window.QTAdmin.permissionsKnown() && !canChangeStatus && (
+          <div style={{padding:'8px 12px', borderRadius:6, fontSize:11, color:'var(--color-text-tertiary)', border:'1px solid var(--color-border-subtle)'}}>
+            {t('admin_read_only_notice')}
+          </div>
+        )}
 
         <window.SectionCard
           title="Users"
@@ -227,10 +908,31 @@
               { key:'joined', label:'Joined', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.joined}</span> },
               { key:'act', label:'', align:'right', render: r => (
                 <>
-                  <button className="tbl-action">View</button>
+                  <button className="tbl-action" onClick={() => { window.location.hash = '#/admin/users/detail?id=' + encodeURIComponent(r.id); }}>View</button>
                   <button className="tbl-action" style={{marginLeft:3}}>KYC</button>
-                  {r.status === 'active' && <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>Suspend</button>}
-                  {r.status === 'suspended' && <button className="tbl-action" style={{marginLeft:3}}>Reactivate</button>}
+                  {/*
+                     변경 버튼은 권한이 있을 때만 보인다.
+
+                     숨기는 것은 UX 이고 실제 차단은 서버가 한다(403 실측 확인).
+                     권한 없는 사람에게 버튼을 보여주면 누르고 실패해서
+                     "고장났다" 고 오해한다.
+                  */}
+                  {canChangeStatus && r.status === 'active' && (
+                    <button
+                      className="tbl-action tbl-action--danger"
+                      style={{marginLeft:3}}
+                      disabled={busyId === r.id}
+                      onClick={() => changeStatus(r, true)}
+                    >{busyId === r.id ? '…' : 'Suspend'}</button>
+                  )}
+                  {canChangeStatus && (r.status === 'suspended' || r.status === 'disabled') && (
+                    <button
+                      className="tbl-action"
+                      style={{marginLeft:3}}
+                      disabled={busyId === r.id}
+                      onClick={() => changeStatus(r, false)}
+                    >{busyId === r.id ? '…' : 'Reactivate'}</button>
+                  )}
                 </>
               )},
             ]}
@@ -245,12 +947,65 @@
   // ADMIN TRADES MONITORING PAGE
   // ============================================================
   window.AdminTradesPage = function AdminTradesPage({ shellProps }) {
-    const trades = window.QTApp.ADMIN_LIVE_TRADES;
     const [filter, setFilter] = useState('all');
+
+    /*
+       전체 주문 감시 (실데이터).
+
+       서버가 읽기 전용임을 명시한다: 관리자는 주문을 제출·수정·취소할 수 없다.
+       그 사실을 화면에 표시한다 — 없으면 관리자가 취소 버튼을 찾다가
+       "기능이 빠졌다" 고 오해한다. 의도된 제약이다.
+
+       ★ 왜 대개 비어 있는가
+       우리는 비수탁이고 주문은 고객의 거래소 계정에서 집행된다. 우리 DB 에는
+       우리를 통해 나간 주문만 남는다. 거래소에서 직접 한 거래는 보이지 않는다.
+       "거래가 없다" 와 "우리를 통한 거래가 없다" 는 다르다 — 화면이 구분해야 한다.
+    */
+    const [live, setLive] = useState(null);
+    const [meta, setMeta] = useState({ readOnly: false, note: '' });
+    const [err, setErr] = useState(null);
+
+    const load = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.orders) return;
+      api.orders({ limit: 100 })
+        .then((r) => { setLive(r.data || []); setMeta({ readOnly: r.readOnly, note: r.note }); setErr(null); })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    const isLive = Array.isArray(live);
+
+    /*
+       실 주문을 화면 모양으로 바꾼다.
+
+       없는 값은 '—' 가 되도록 undefined 로 둔다. 0 으로 채우면 "0달러 거래" 로
+       읽히고, 합계가 틀어진다.
+    */
+    const toRow = (o) => {
+      const price = Number(o.price);
+      const size = Number(o.quantity !== undefined ? o.quantity : o.size);
+      const notional = Number.isFinite(price) && Number.isFinite(size) ? price * size : undefined;
+      return {
+        time: Number(o.createdAt || o.ts || o.time) || undefined,
+        userId: o.userId || o.accountId || '—',
+        sym: o.symbol ? String(o.symbol).replace(/USDT$/, '/USDT') : '—',
+        side: o.side ? String(o.side).toLowerCase() : '—',
+        size: Number.isFinite(size) ? size : undefined,
+        price: Number.isFinite(price) ? price : undefined,
+        notional: notional,
+        // 우리는 위험 태깅을 하지 않는다. 태그를 만들어 붙이면 근거 없는 판단이 된다.
+        tag: o.status ? String(o.status).toLowerCase() : 'ok',
+      };
+    };
+
+    const trades = isLive ? live.map(toRow) : window.QTApp.ADMIN_LIVE_TRADES;
     const filtered = filter === 'all' ? trades : trades.filter(t => t.tag === filter);
 
-    const totalVol = trades.reduce((a,t) => a+t.notional, 0);
-    const largest = Math.max(...trades.map(t => t.notional));
+    const withNotional = trades.filter(t => typeof t.notional === 'number');
+    const totalVol = withNotional.reduce((a, t) => a + t.notional, 0);
+    // 빈 배열에 Math.max 를 쓰면 -Infinity 가 나와 화면에 그대로 찍힌다.
+    const largest = withNotional.length ? Math.max(...withNotional.map(t => t.notional)) : 0;
     const flagged = trades.filter(t => t.tag === 'suspicious' || t.tag === 'flagged').length;
 
     return (
@@ -261,16 +1016,45 @@
         breadcrumb={['Home','Admin','Trade Monitor']}
         actions={
           <>
-            <span style={{padding:'2px 8px', background:'oklch(78% 0.14 145 / 0.14)', color:'var(--color-success)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700, letterSpacing:'0.06em'}}>● LIVE</span>
-            <button className="btn btn--sm"><I.Refresh size={13}/></button>
+            {/* LIVE 배지는 실제로 실데이터일 때만 켠다. 목업에 LIVE 를 붙이면 거짓이다. */}
+            <span style={{padding:'2px 8px', background: isLive ? 'oklch(78% 0.14 145 / 0.14)' : 'var(--color-bg-input)', color: isLive ? 'var(--color-success)' : 'var(--color-text-tertiary)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700, letterSpacing:'0.06em'}}>
+              {isLive ? '● LIVE' : '○ MOCK'}
+            </span>
+            <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>
           </>
         }
       >
         <div className="grid-4">
-          <window.KPICard label="Trades · Last 1m" value={trades.length} sub="Rolling window" tone="brand"/>
-          <window.KPICard label="Volume · Last 1m" value={'$' + fmtCompact(totalVol)} tone="long"/>
-          <window.KPICard label="Largest Trade" value={'$' + fmtCompact(largest)} sub="Auto-review triggered"/>
-          <window.KPICard label="Flagged" value={flagged} tone={flagged > 0 ? 'danger' : 'success'}/>
+          {/*
+             KPI 라벨을 사실에 맞춘다.
+
+             'Last 1m' 은 우리가 1분 창으로 집계하지 않으므로 거짓이다 —
+             조회한 최근 주문 전체다. 'Auto-review triggered' 는 자동 심사
+             기능이 없으므로 약속이 된다. 'Flagged' 도 우리가 태깅하지 않는다.
+             라벨을 조회 범위에 맞게 바꾸고, 없는 기능은 말하지 않는다.
+          */}
+          <window.KPICard
+            label={isLive ? t('admin_trades_kpi_orders') : 'Trades · Last 1m'}
+            value={trades.length}
+            sub={isLive ? t('admin_trades_kpi_orders_sub') : 'Rolling window'}
+            tone="brand"
+          />
+          <window.KPICard
+            label={isLive ? t('admin_trades_kpi_notional') : 'Volume · Last 1m'}
+            value={withNotional.length ? '$' + fmtCompact(totalVol) : '—'}
+            sub={isLive && withNotional.length !== trades.length ? t('admin_trades_kpi_partial', { n: withNotional.length, total: trades.length }) : undefined}
+            tone="long"
+          />
+          <window.KPICard
+            label="Largest Trade"
+            value={withNotional.length ? '$' + fmtCompact(largest) : '—'}
+            sub={isLive ? undefined : 'Auto-review triggered'}
+          />
+          <window.KPICard
+            label={isLive ? t('admin_trades_kpi_rejected') : 'Flagged'}
+            value={isLive ? trades.filter(x => x.tag === 'rejected').length : flagged}
+            tone={(isLive ? trades.filter(x => x.tag === 'rejected').length : flagged) > 0 ? 'danger' : 'success'}
+          />
         </div>
 
         <window.SectionCard
@@ -292,22 +1076,64 @@
         >
           <window.DataTable
             columns={[
-              { key: 'time', label: 'Time', width:80, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{new Date(r.time).toLocaleTimeString('en-GB', {hour12:false})}</span> },
+              /* 없는 값은 '—'. 0 이나 1970-01-01 로 채우면 값으로 오인된다. */
+              { key: 'time', label: 'Time', width:80, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.time ? new Date(r.time).toLocaleTimeString('en-GB', {hour12:false}) : '—'}</span> },
               { key: 'user', label: 'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.userId}</span> },
               { key: 'sym',  label: 'Symbol', render: r => <strong>{r.sym}</strong> },
-              { key: 'side', label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-              { key: 'size', label: 'Size', align:'right', render: r => fmt(r.size, 3) },
-              { key: 'price', label: 'Price', align:'right', render: r => fmt(r.price, 1) },
-              { key: 'not',  label: 'Notional', align:'right', render: r => '$' + fmtCompact(r.notional) },
+              { key: 'side', label: 'Side', render: r => (
+                r.side === 'long' || r.side === 'buy' ? <span className="t-long" style={{fontWeight:500}}>▲ LONG</span>
+                : r.side === 'short' || r.side === 'sell' ? <span className="t-short" style={{fontWeight:500}}>▼ SHORT</span>
+                : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
+              ) },
+              { key: 'size', label: 'Size', align:'right', render: r => (typeof r.size === 'number' ? fmt(r.size, 3) : '—') },
+              { key: 'price', label: 'Price', align:'right', render: r => (typeof r.price === 'number' ? fmt(r.price, 1) : '—') },
+              { key: 'not',  label: 'Notional', align:'right', render: r => (typeof r.notional === 'number' ? '$' + fmtCompact(r.notional) : '—') },
               { key: 'tag',  label: 'Flag', render: r => {
                 if (r.tag === 'ok') return <span style={{color:'var(--color-text-tertiary)'}}>ok</span>;
-                const cls = { large: 'warn', suspicious: 'danger', flagged: 'danger', vip: 'ok' }[r.tag] || 'neutral';
-                return <span className={`status-pill status-pill--${cls}`}>{r.tag.toUpperCase()}</span>;
+                const cls = { large: 'warn', suspicious: 'danger', flagged: 'danger', vip: 'ok', filled: 'ok', canceled: 'neutral', rejected: 'danger' }[r.tag] || 'neutral';
+                return <span className={`status-pill status-pill--${cls}`}>{String(r.tag).toUpperCase()}</span>;
               }},
-              { key: 'act', label: '', render: () => <><button className="tbl-action">Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>User</button></> },
+              /*
+                 동작 버튼.
+
+                 Inspect 는 배선할 대상이 없다(주문 상세 API 없음). User 는
+                 사용자 상세로 보낼 수 있다. 배선할 수 없는 버튼은 실데이터일 때
+                 감춘다 — 눌러도 아무 일 없으면 고장으로 보인다.
+              */
+              { key: 'act', label: '', render: r => (
+                isLive
+                  ? (r.userId && r.userId !== '—'
+                      ? <button className="tbl-action" onClick={() => { window.location.hash = '#/admin/users/detail?id=' + encodeURIComponent(r.userId); }}>User</button>
+                      : <span style={{color:'var(--color-text-tertiary)'}}>—</span>)
+                  : <><button className="tbl-action">Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>User</button></>
+              ) },
             ]}
             rows={filtered}
           />
+
+          {/*
+             왜 비어 있는지 설명한다.
+
+             비수탁이라 우리 DB 에는 우리를 통해 나간 주문만 남는다. 고객이
+             거래소에서 직접 한 거래는 보이지 않는다. 설명 없이 빈 표를 보여주면
+             운영자가 "감시가 안 되고 있다" 고 판단하거나 조회 장애로 오해한다.
+          */}
+          {isLive && filtered.length === 0 && (
+            <div style={{padding:'18px 16px', fontSize:12, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+              <div>{t('admin_trades_empty')}</div>
+              <div style={{marginTop:4}}>{t('admin_trades_scope')}</div>
+            </div>
+          )}
+
+          {/* 읽기 전용임을 서버가 알려준다. 관리자가 취소 버튼을 찾지 않게 표시한다. */}
+          {isLive && meta.readOnly && (
+            <div style={{padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
+              {t('admin_trades_readonly')}{meta.note ? ` · ${meta.note}` : ''}
+            </div>
+          )}
+          {err && (
+            <div style={{padding:'10px 16px', fontSize:11, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>
+          )}
         </window.SectionCard>
       </window.PageShell>
     );
@@ -318,6 +1144,180 @@
   // ============================================================
   window.AdminAIOpsPage = function AdminAIOpsPage({ shellProps }) {
     const ai = window.QTApp.ADMIN_AI_METRICS;
+
+    /*
+       AI 운영.
+
+       ★ 목업 지표 전체가 근거 없는 값이었다:
+         '오늘 신호 486건 · 승인율 62% · 적중률 58% · 비용 $68.42 ·
+          지연 1,240ms · 오류율 · 모델 트래픽 86%/14% · 롤백 준비 v1.3.9'
+
+         우리는 AI 신호를 집계하지 않고, 모델을 두 버전으로 나눠 트래픽을
+         쪼개지도, 롤백 장치를 두지도 않았다. 운영 지표가 거짓이면 장애를
+         알아채지 못하고, 없는 롤백을 믿고 위험한 배포를 한다.
+
+       ★ 서버가 사실을 알려준다:
+         provider='unavailable' — AI 제공자가 연결되지 않았다.
+         liveExecution='Not Executed' — 실제 실행이 없었다.
+         summary 의 null 은 0 이 아니라 "미실행" 이다.
+         prompt 원문과 자격증명은 서버가 절대 반환하지 않는다(digest 만).
+    */
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    const [policy, setPolicy] = useState(null);
+    const [usage, setUsage] = useState(null);
+    const [err, setErr] = useState(null);
+
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.aiPolicy) return undefined;
+      let cancelled = false;
+      Promise.all([
+        api.aiPolicy().catch((e) => ({ __err: e })),
+        api.aiUsage ? api.aiUsage().catch((e) => ({ __err: e })) : Promise.resolve(null),
+      ]).then(([p, u]) => {
+        if (cancelled) return;
+        if (p && !p.__err) setPolicy(p.data); else if (p && p.__err) setErr((p.__err.message) || 'policy failed');
+        if (u && !u.__err) setUsage(u.data);
+      });
+      return () => { cancelled = true; };
+    }, [adm.version]);
+
+    const isLive = Boolean(policy || usage);
+    const provider = usage ? usage.provider : null;
+    const executed = provider && provider !== 'unavailable';
+    const sum = (usage && usage.summary) || null;
+
+    // null 은 미실행이다. 0 으로 바꾸면 실행했는데 결과가 0 인 것과 구분되지 않는다.
+    const numOr = (v) => {
+      if (v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const micros = numOr(sum && sum.actual_cost_micros) ?? numOr(sum && sum.estimated_cost_micros);
+    const costUsd = micros === null ? null : micros / 1e6;
+    const inTok = numOr(sum && sum.input_tokens);
+    const outTok = numOr(sum && sum.output_tokens);
+    const totalTok = (inTok === null && outTok === null) ? null : (inTok || 0) + (outTok || 0);
+
+    if (isLive) {
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="AI Ops"
+          subtitle={t('aiops_subtitle', { provider: provider || '—' })}
+          breadcrumb={['Home','Admin','AI Ops']}
+          actions={<button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
+        >
+          {/* 실행 여부를 먼저 명확히 한다. */}
+          <div style={{
+            padding:'12px 14px', borderRadius:6, fontSize:12.5, lineHeight:1.8,
+            background: executed ? 'color-mix(in srgb, var(--color-success) 10%, transparent)' : 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
+            border: '1px solid ' + (executed ? 'var(--color-success)' : 'var(--color-warning)'),
+          }}>
+            <div style={{fontWeight:600, marginBottom:4}}>
+              {executed ? t('aiops_active', { provider: provider }) : t('aiops_inactive')}
+            </div>
+            <div>{executed ? t('aiops_active_note') : t('aiops_inactive_note')}</div>
+          </div>
+
+          <div className="grid-4">
+            {/*
+               실행 기록 수. '오늘 신호 486건' 은 집계하지 않는 값이었다.
+               우리가 아는 것은 저장된 실행 레코드 수다.
+            */}
+            <window.KPICard
+              label={t('aiops_runs')}
+              value={usage ? usage.total : '—'}
+              sub={sum ? t('aiops_records', { n: sum.records }) : undefined}
+              tone="ai"
+            />
+            <window.KPICard
+              label={t('aiops_tokens')}
+              value={totalTok === null ? '—' : totalTok.toLocaleString()}
+              sub={inTok !== null || outTok !== null ? t('aiops_tokens_split', { i: inTok ?? 0, o: outTok ?? 0 }) : t('aiops_not_executed')}
+            />
+            <window.KPICard
+              label={t('aiops_cost')}
+              value={costUsd === null ? '—' : '$' + costUsd.toFixed(4)}
+              sub={costUsd === null ? t('aiops_not_executed') : undefined}
+            />
+            {/* 일일 한도는 정책에 실제로 있는 값이다. */}
+            <window.KPICard
+              label={t('aiops_limit')}
+              value={policy && Number(policy.dailyCostLimitMicros) > 0
+                ? '$' + (Number(policy.dailyCostLimitMicros) / 1e6).toFixed(2)
+                : t('aiops_no_limit')}
+              sub={policy ? t('aiops_max_tokens', { n: policy.maxOutputTokens }) : undefined}
+              tone={policy && Number(policy.dailyCostLimitMicros) > 0 ? 'success' : 'warning'}
+            />
+          </div>
+
+          <window.SectionCard title={t('aiops_policy')} subtitle={t('aiops_policy_sub')} noPadding>
+            <window.DataTable
+              columns={[
+                { key:'k', label:t('aiops_setting'), render: r => <strong style={{fontFamily:'var(--font-mono)', fontSize:12}}>{r.k}</strong> },
+                { key:'v', label:t('aiops_value'), render: r => (
+                  <span style={{fontFamily:'var(--font-mono)', fontSize:11.5, color: r.muted ? 'var(--color-text-tertiary)' : undefined}}>{r.v}</span>
+                ) },
+              ]}
+              rows={policy ? [
+                { k: 'provider', v: provider || '—', muted: !provider },
+                { k: 'liveExecution', v: policy.liveExecution || '—', muted: !policy.liveExecutionEnabled },
+                { k: 'maxOutputTokens', v: String(policy.maxOutputTokens) },
+                { k: 'dailyCostLimit', v: Number(policy.dailyCostLimitMicros) > 0 ? '$' + (Number(policy.dailyCostLimitMicros) / 1e6).toFixed(2) : t('aiops_no_limit'), muted: !(Number(policy.dailyCostLimitMicros) > 0) },
+                { k: 'allowedTools', v: (policy.allowedTools && policy.allowedTools.length) ? policy.allowedTools.join(', ') : t('aiops_none'), muted: !(policy.allowedTools && policy.allowedTools.length) },
+                /*
+                   시스템 프롬프트는 원문이 오지 않는다 — digest 만 온다.
+                   프롬프트에는 사업 논리가 들어가므로 관리 화면에 노출하지 않는 설계다.
+                */
+                { k: 'systemPrompt', v: policy.systemPrompt && policy.systemPrompt.digest
+                    ? `${policy.systemPrompt.algorithm}:${String(policy.systemPrompt.digest).slice(0, 16)}… (${policy.systemPrompt.length} chars)`
+                    : t('aiops_no_prompt'), muted: !(policy.systemPrompt && policy.systemPrompt.digest) },
+                { k: 'promptVersion', v: policy.promptVersion || '—', muted: !policy.promptVersion },
+                { k: 'policyVersion', v: String(policy.version) },
+                { k: 'historyEntries', v: String(policy.historyEntries) },
+                { k: 'updatedBy', v: policy.updatedBy || '—', muted: !policy.updatedBy },
+              ] : []}
+            />
+            <div style={{padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
+              {t('aiops_redacted')}
+            </div>
+          </window.SectionCard>
+
+          {/* 실행 기록. 프롬프트·응답 본문은 서버가 반환하지 않는다. */}
+          <window.SectionCard
+            title={t('aiops_runs_title')}
+            subtitle={usage && usage.note ? usage.note : undefined}
+            noPadding={Boolean(usage && usage.runs && usage.runs.length)}
+          >
+            {usage && Array.isArray(usage.runs) && usage.runs.length > 0 ? (
+              <window.DataTable
+                columns={[
+                  { key:'at', label:t('aiops_time'), render: r => (
+                    <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.created_at ? new Date(Number(r.created_at)).toLocaleString() : '—'}</span>
+                  ) },
+                  { key:'model', label:t('aiops_model'), render: r => r.model || '—' },
+                  { key:'tok', label:t('aiops_tokens'), align:'right', render: r => {
+                    const i = Number(r.input_tokens), o = Number(r.output_tokens);
+                    return (Number.isFinite(i) || Number.isFinite(o)) ? `${i || 0} / ${o || 0}` : '—';
+                  } },
+                  { key:'cost', label:t('aiops_cost'), align:'right', render: r => {
+                    const c = Number(r.actual_cost_micros ?? r.estimated_cost_micros);
+                    return Number.isFinite(c) ? '$' + (c / 1e6).toFixed(4) : '—';
+                  } },
+                ]}
+                rows={usage.runs}
+              />
+            ) : (
+              <div style={{fontSize:12, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+                {t('aiops_no_runs')}
+              </div>
+            )}
+          </window.SectionCard>
+          {err && <div style={{fontSize:11, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>}
+        </window.PageShell>
+      );
+    }
 
     return (
       <window.PageShell
@@ -405,6 +1405,122 @@
   // ============================================================
   window.AdminDesignOpsPage = function AdminDesignOpsPage({ shellProps }) {
     const d = window.QTApp.DESIGN_OPS;
+
+    /*
+       디자인 운영.
+
+       ★ '미게시 변경 3건' 과 'Publish to sync to codebase' 는 근거가 없다.
+         디자인 토큰을 코드로 내보내는 파이프라인이 없다 — 버튼을 누를 대상이
+         없고, 운영자는 게시를 기다린다.
+
+       ★ 반대로 셀 수 있는 것은 실제로 센다. 런타임에 등록된 컴포넌트 수,
+         라우트 수, 사용 가능한 테마·밀도는 모두 조회 가능하다.
+         하드코딩한 '27 / 24' 는 코드가 바뀌면 즉시 거짓이 된다.
+    */
+    if (window.QTLive && window.QTLive.useLiveVersion) window.QTLive.useLiveVersion();
+    const __backend = window.QTLive && window.QTLive.isBackendPresent
+      ? window.QTLive.isBackendPresent() : null;
+    const isLive = __backend !== false;
+
+    const counts = React.useMemo(() => {
+      // window 에 등록된 컴포넌트를 센다. 대문자로 시작하는 함수만.
+      let components = 0;
+      let pages = 0;
+      try {
+        for (const k of Object.keys(window)) {
+          if (!/^[A-Z][A-Za-z0-9]*$/.test(k)) continue;
+          if (typeof window[k] !== 'function') continue;
+          components += 1;
+          if (/Page$/.test(k)) pages += 1;
+        }
+      } catch (e) { /* 접근 불가 속성은 무시 */ }
+
+      // 라우트는 접근 규칙이 유일한 출처다.
+      const routes = (window.QTAccess && window.QTAccess.allRoutes) ? window.QTAccess.allRoutes().length : null;
+
+      // 실제로 적용되는 테마·밀도·언어.
+      const themes = ['dark', 'light'];
+      const densities = ['comfortable', 'compact', 'dense'];
+      const locales = (window.QTI18n && window.QTI18n.available)
+        ? window.QTI18n.available().length : null;
+
+      return { components, pages, routes, themes: themes.length, densities: densities.length, locales };
+    }, []);
+
+    if (isLive) {
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="Design Ops"
+          subtitle={t('dops_subtitle')}
+          breadcrumb={['Home','Admin','Design Ops']}
+          badge={<span className="badge badge--ai">SUPER ADMIN</span>}
+          actions={
+            <>
+              <a className="btn btn--sm" href="design-system.html" target="_blank" rel="noopener noreferrer"><I.Book size={13}/> Design System</a>
+              <a className="btn btn--sm" href="design-library/index.html" target="_blank" rel="noopener noreferrer"><I.Layers size={13}/> Library</a>
+              <a className="btn btn--sm" href="developer-handoff.html" target="_blank" rel="noopener noreferrer"><I.LayoutIcon size={13}/> Handoff</a>
+            </>
+          }
+        >
+          <div className="grid-4">
+            <window.KPICard
+              label={t('dops_components')}
+              value={counts.components}
+              sub={t('dops_components_sub')}
+              icon="Layers" tone="brand"
+            />
+            <window.KPICard label={t('dops_pages')} value={counts.pages} sub={t('dops_pages_sub')} tone="ai"/>
+            <window.KPICard
+              label={t('dops_routes')}
+              value={counts.routes === null ? '—' : counts.routes}
+              sub={t('dops_routes_sub')}
+            />
+            <window.KPICard
+              label={t('dops_variants')}
+              value={counts.themes * counts.densities}
+              sub={t('dops_variants_sub', { themes: counts.themes, densities: counts.densities, locales: counts.locales === null ? '—' : counts.locales })}
+            />
+          </div>
+
+          {/*
+             게시 파이프라인이 없다는 사실.
+
+             '미게시 3건 · Publish' 를 지우기만 하면 운영자는 어디서 게시하는지
+             찾는다. 그런 단계가 없다는 것을 밝힌다.
+          */}
+          <window.NotApplicablePanel
+            title={t('dops_no_pipeline_title')}
+            reason={t('dops_no_pipeline')}
+            points={[t('dops_p1'), t('dops_p2'), t('dops_p3')]}
+            whereInstead={t('dops_instead')}
+          />
+
+          {/* 실제로 적용되는 디자인 설정 — Tweaks 패널이 쓰는 것과 같다. */}
+          <window.SectionCard title={t('dops_applied')} subtitle={t('dops_applied_sub')} noPadding>
+            <window.DataTable
+              columns={[
+                { key:'k', label:t('aiops_setting'), render: r => <strong style={{fontSize:12}}>{r.k}</strong> },
+                { key:'v', label:t('aiops_value'), render: r => (
+                  <span style={{fontFamily:'var(--font-mono)', fontSize:11.5}}>{r.v}</span>
+                ) },
+                { key:'where', label:t('dops_where'), render: r => (
+                  <span style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{r.where}</span>
+                ) },
+              ]}
+              rows={[
+                { k: t('dops_theme'), v: 'dark · light', where: t('dops_via_tweaks') },
+                { k: t('dops_density'), v: 'comfortable · compact · dense', where: t('dops_via_tweaks') },
+                { k: t('dops_locale'), v: (window.QTI18n && window.QTI18n.available)
+                    ? window.QTI18n.available().map((x) => (typeof x === 'string' ? x : x.code)).join(' · ') : '—',
+                  where: t('dops_via_settings') },
+                { k: t('dops_tokens_file'), v: 'src/tokens.css', where: t('dops_via_code') },
+              ]}
+            />
+          </window.SectionCard>
+        </window.PageShell>
+      );
+    }
 
     return (
       <window.PageShell
@@ -500,24 +1616,140 @@
   // ADMIN SYSTEM PAGE
   // ============================================================
   window.AdminSystemPage = function AdminSystemPage({ shellProps }) {
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+
+    /*
+       시스템 상태 (실데이터).
+
+       서버가 항목별 문자열을 준다(api='ok', postgres='Connected', …).
+       상태 화면이 거짓이면 없는 것보다 나쁘다 — 운영자가 죽은 곳을 살았다고
+       보고 엉뚱한 데를 고친다. 그래서 서버 문자열을 해석만 하고 꾸미지 않는다.
+    */
+    const health = window.QTAdmin ? window.QTAdmin.getHealth() : null;
+
+    /*
+       문자열 → 상태 등급.
+
+       'ok'/'Connected'/'Configured' → 정상
+       'Idle'/'Locked'/'Mock…'       → 주의 (동작하지만 완전하지 않음)
+       'Unavailable'/'Not Connected' → 알 수 없음. **오류로 표시하지 않는다** —
+         측정하지 않는 항목(cpu 등)까지 빨갛게 되면 진짜 장애를 못 찾는다.
+    */
+    const gradeOf = (v) => {
+      const t = String(v);
+      if (/^(ok|Connected|Configured|Enabled)/i.test(t)) return 'ok';
+      if (/^(Idle|Locked|Mock|Not Implemented)/i.test(t)) return 'warn';
+      if (/^(Unavailable|Not Connected|unavailable)/i.test(t)) return 'unknown';
+      return 'info';
+    };
+
+    // 숫자·버전 같은 정보성 항목은 상태 판정 대상이 아니다.
+    const INFO_KEYS = new Set([
+      'buildVersion', 'gitSha', 'nodeVersion', 'aiProvider', 'tradingMode',
+      'marketDataSource', 'uptimeSeconds', 'memoryHeapUsed', 'memoryRss',
+      'wsClients', 'wsCandleSeries', 'latencyP50', 'latencyP95', 'latencyP99', 'cpu',
+    ]);
+
+    const liveRows = health
+      ? Object.keys(health).map((k) => ({
+          name: k,
+          value: String(health[k]),
+          grade: INFO_KEYS.has(k) ? 'info' : gradeOf(health[k]),
+          isInfo: INFO_KEYS.has(k),
+        }))
+      : null;
+
+    const isLive = Array.isArray(liveRows);
     const system = window.QTApp.ADMIN_SYSTEM;
-    const okCount = system.filter(s => s.status === 'ok').length;
+    const okCount = isLive
+      ? liveRows.filter((r) => r.grade === 'ok').length
+      : system.filter(s => s.status === 'ok').length;
+    const checked = isLive ? liveRows.filter((r) => !r.isInfo).length : system.length;
+
+    // 업타임은 초로 온다. 사람이 읽는 단위로 바꾼다.
+    const uptime = (() => {
+      const sec = Number(health && health.uptimeSeconds);
+      if (!Number.isFinite(sec) || sec < 0) return null;
+      if (sec < 60) return sec + 's';
+      if (sec < 3600) return Math.floor(sec / 60) + 'm';
+      if (sec < 86400) return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
+      return Math.floor(sec / 86400) + 'd ' + Math.floor((sec % 86400) / 3600) + 'h';
+    })();
 
     return (
       <window.PageShell
         {...shellProps}
         title="System Health"
-        subtitle={`${okCount}/${system.length} services healthy · WebSocket · DB · API · Batch`}
+        subtitle={isLive
+          ? t('admin_system_subtitle', { ok: okCount, total: checked })
+          : `${okCount}/${system.length} services healthy · WebSocket · DB · API · Batch`}
         breadcrumb={['Home','Admin','System']}
-        actions={<button className="btn btn--sm"><I.Refresh size={13}/></button>}
+        actions={<button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
       >
+        {/*
+           KPI.
+
+           원래 네 값 모두 고정이었다(99.984% · 1,242명 · 8,412 · 2건).
+           운영 지표가 거짓이면 장애를 알아채지 못한다.
+           30일 가동률은 우리가 측정하지 않는다 — 그 자리에 프로세스 가동시간을
+           넣는다. 없는 지표를 만들지 않고, 가진 지표를 정확히 보여준다.
+        */}
         <div className="grid-4">
-          <window.KPICard label="Overall Uptime · 30d" value="99.984%" sub="4.6m downtime" tone="success"/>
-          <window.KPICard label="Active Users" value="1,242" sub="Real-time"/>
-          <window.KPICard label="WS Connections" value="8,412" sub="Peak today 12,340"/>
-          <window.KPICard label="Alerts · Last 24h" value="2" sub="1 warn · 0 critical" tone="warning"/>
+          {isLive ? (
+            <>
+              <window.KPICard
+                label={t('admin_system_uptime')}
+                value={uptime || '—'}
+                sub={t('admin_system_uptime_sub')}
+                tone={uptime ? 'success' : undefined}
+              />
+              <window.KPICard
+                label={t('admin_system_ws_clients')}
+                value={health && health.wsClients !== undefined ? health.wsClients : '—'}
+                sub={health && health.wsCandleSeries !== undefined ? t('admin_system_series', { n: health.wsCandleSeries }) : undefined}
+              />
+              <window.KPICard
+                label={t('admin_system_memory')}
+                value={(health && health.memoryHeapUsed) || '—'}
+                sub={health && health.memoryRss ? t('admin_system_rss', { v: health.memoryRss }) : undefined}
+              />
+              <window.KPICard
+                label={t('admin_system_market')}
+                value={(health && health.marketDataSource) || '—'}
+                sub={(health && health.tradingMode) ? t('admin_system_mode', { mode: health.tradingMode, orders: health.liveOrders }) : undefined}
+                tone={health && health.marketDataSource && health.marketDataSource !== 'mock_replay' ? 'success' : 'warning'}
+              />
+            </>
+          ) : (
+            <>
+              <window.KPICard label="Overall Uptime · 30d" value="99.984%" sub="4.6m downtime" tone="success"/>
+              <window.KPICard label="Active Users" value="1,242" sub="Real-time"/>
+              <window.KPICard label="WS Connections" value="8,412" sub="Peak today 12,340"/>
+              <window.KPICard label="Alerts · Last 24h" value="2" sub="1 warn · 0 critical" tone="warning"/>
+            </>
+          )}
         </div>
 
+        {isLive ? (
+          <window.SectionCard title={t('admin_system_components')} subtitle={t('admin_system_components_sub')} noPadding>
+            <window.DataTable
+              columns={[
+                { key:'name', label:t('admin_system_component'), render: r => <strong style={{fontFamily:'var(--font-mono)', fontSize:12}}>{r.name}</strong> },
+                { key:'grade', label:t('admin_system_state'), render: r => (
+                  r.isInfo
+                    ? <span style={{color:'var(--color-text-tertiary)', fontSize:11}}>{t('admin_system_info')}</span>
+                    : <span className={`status-pill status-pill--${r.grade === 'ok' ? 'ok' : r.grade === 'warn' ? 'warn' : 'neutral'}`}>
+                        {r.grade === 'unknown' ? t('admin_system_unmeasured') : r.grade.toUpperCase()}
+                      </span>
+                ) },
+                { key:'value', label:t('admin_system_reported'), render: r => (
+                  <span style={{fontFamily:'var(--font-mono)', fontSize:11, color: r.grade === 'unknown' ? 'var(--color-text-tertiary)' : undefined}}>{r.value}</span>
+                ) },
+              ]}
+              rows={liveRows}
+            />
+          </window.SectionCard>
+        ) : (
         <window.SectionCard title="Services" noPadding>
           <window.DataTable
             columns={[
@@ -531,6 +1763,7 @@
             rows={system}
           />
         </window.SectionCard>
+        )}
       </window.PageShell>
     );
   };
@@ -539,7 +1772,16 @@
   // ADMIN AUDIT LOG PAGE
   // ============================================================
   window.AdminAuditPage = function AdminAuditPage({ shellProps }) {
-    const audit = window.QTApp.ADMIN_AUDIT;
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    // 실 감사 로그. 서버가 추가만 허용한다(수정·삭제 없음).
+    const liveAudit = window.QTAdmin ? window.QTAdmin.getAudit() : [];
+    /*
+       실 감사 로그가 있으면 그것을 쓴다.
+
+       감사 로그는 "누가 무엇을 했는지" 의 근거다. 목업을 실기록처럼 보여주면
+       운영자가 없는 행위를 있다고 판단한다. 실데이터가 없을 때만 목업을 쓴다.
+    */
+    const audit = (adm.isLive && liveAudit.length > 0) ? liveAudit : window.QTApp.ADMIN_AUDIT;
 
     return (
       <window.PageShell
@@ -578,6 +1820,262 @@
   window.AdminFeesPage = function AdminFeesPage({ shellProps }) {
     const tiers = window.QTApp.FEE_TIERS;
     const promos = window.QTApp.PROMOTIONS;
+
+    /*
+       수수료 · 프로모션 (관리자).
+
+       원래 화면은 우리가 수수료를 정하는 거래소를 전제로 했다:
+         · 자체 등급표(Maker 0.015% …) — 우리가 정하는 값이 아니다.
+         · 'Token Hold Req. … QT' — 우리 토큰이 없다.
+         · 프로모션 지급액 — 지급 수단이 없다.
+
+       실제 구조
+       --------
+       수수료는 **거래소가** 고객 계정 등급에 따라 매긴다. 우리는 주문을
+       전달할 뿐이고 별도 수수료를 받지 않는다. 우리 수익은 브로커 리베이트와
+       추천 가입이며, 둘 다 거래소가 정산한다.
+
+       그래서 여기서 보여줄 것은 '우리가 정한 등급표' 가 아니라
+       '거래소 실제 수수료율' 과 '리베이트 설정 상태' 다.
+    */
+    if (window.QTLive && window.QTLive.useLiveVersion) window.QTLive.useLiveVersion();
+    const backend = window.QTLive && window.QTLive.isBackendPresent
+      ? window.QTLive.isBackendPresent() : null;
+    const isLive = backend !== false;
+
+    // 거래소 실제 수수료율.
+    const [specs, setSpecs] = useState(null);
+    // 브로커 리베이트 설정 상태. configured=false 는 장애가 아니라 사실이다.
+    const [rebate, setRebate] = useState(null);
+    /** KuCoin 브로커 정산 (커미션). 실제 수익 값이다. */
+    const [kcBroker, setKcBroker] = useState(null);
+    const cfg = (window.QTApi && window.QTApi.useConfig) ? window.QTApi.useConfig() : null;
+
+    useEffect(() => {
+      if (!isLive || !window.QTApi) return undefined;
+      let cancelled = false;
+      if (window.QTApi.rest && window.QTApi.rest.contractSpecs) {
+        window.QTApi.rest.contractSpecs(['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'])
+          .then((r) => { if (!cancelled) setSpecs(r.data || []); })
+          .catch(() => { /* 조회 실패 시 표를 숨긴다 */ });
+      }
+      if (window.QTApi.admin && window.QTApi.admin.brokerRebates) {
+        window.QTApi.admin.brokerRebates()
+          .then((r) => { if (!cancelled) setRebate(r); })
+          .catch(() => { if (!cancelled) setRebate({ configured: false, data: [] }); });
+      }
+      /*
+         KuCoin 브로커 정산.
+
+         ★★ 이것이 **우리 수익의 실제 값**이다. 앞의 `brokerRebates` 는 BitMart
+           시절 경로이고, 이 배포는 KuCoin 을 쓴다.
+
+         ★ 세 상태를 구분해 보여준다:
+             configured:false     운영자 키 미설정 — 수익 0원이 아니라 '모른다'
+             approved:false       키는 있으나 브로커 승인 전
+             brokerAttached:false 승인됐지만 서명 헤더가 없어 앞으로도 집계 안 됨
+      */
+      if (window.QTApi.admin && window.QTApi.admin.brokerCommission) {
+        window.QTApi.admin.brokerCommission({ pageSize: 12 })
+          .then((r) => { if (!cancelled) setKcBroker(r); })
+          .catch(() => { /* 조회 실패를 '수익 0' 으로 위장하지 않는다 (null 유지) */ });
+      }
+      return () => { cancelled = true; };
+    }, [isLive]);
+
+    const pct = (v) => (v == null ? null : (v * 100).toFixed(3).replace(/0+$/, '').replace(/\.$/, '') + '%');
+    const referrals = (cfg && cfg.exchangeReferralUrls) || {};
+    const referralCount = Object.keys(referrals).length;
+
+    if (isLive) {
+      return (
+        <window.PageShell
+          {...shellProps}
+          title="Fees & Promotions"
+          subtitle={t('admin_fees_subtitle')}
+          breadcrumb={['Home','Admin','Fees']}
+        >
+          {/*
+             ★★ 우리 수익을 가장 먼저 보여준다.
+
+               브로커 커미션이 이 서비스의 수익이다. 그 값이 화면 아래쪽에
+               묻혀 있으면 운영자가 "리베이트가 0원" 인 상태를 몇 주 동안
+               모른 채 지날 수 있다.
+          */}
+          {(() => {
+            if (!kcBroker) return null;
+
+            // ① 운영자 키가 없다 — 수익이 0 인 것이 아니라 조회할 수 없는 것이다.
+            if (!kcBroker.configured) {
+              return (
+                <div style={{padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.85,
+                  background:'var(--color-bg-surface)', border:'1px solid var(--color-border-subtle)'}}>
+                  <div style={{fontWeight:600, marginBottom:4}}>{t('kcb_not_configured')}</div>
+                  <div style={{color:'var(--color-text-secondary)'}}>{t('kcb_not_configured_why')}</div>
+                </div>
+              );
+            }
+
+            // ② 키는 있으나 브로커로 승인되지 않았다.
+            if (!kcBroker.approved) {
+              return (
+                <div style={{padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.85,
+                  background:'color-mix(in srgb, var(--color-warning, #d97706) 10%, transparent)',
+                  border:'1px solid var(--color-warning, #d97706)'}}>
+                  <div style={{fontWeight:600, marginBottom:4}}>{t('kcb_not_approved')}</div>
+                  <div style={{color:'var(--color-text-secondary)'}}>{t('kcb_not_approved_why')}</div>
+                  {kcBroker.error && kcBroker.error.message && (
+                    <div style={{marginTop:8, fontSize:11.5, fontFamily:'var(--font-mono)', color:'var(--color-text-tertiary)'}}>
+                      {String(kcBroker.error.code || '')} {String(kcBroker.error.message).slice(0, 140)}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            /*
+               ③ 승인됐다. 합계를 낸다.
+
+               ★ 태그 있음(우리 실적)과 없음을 따로 합산한다. 합쳐서 하나로
+                 보여주면 "서명이 새고 있다" 는 사실이 가려진다.
+            */
+            const sum = (key) => kcBroker.items.reduce((acc, x) => {
+              const n = Number(x[key]);
+              return Number.isFinite(n) ? acc + n : acc;
+            }, 0);
+            const tagged = sum('tagCommission');
+            const untagged = sum('noTagCommission');
+            const cur = (kcBroker.items[0] && kcBroker.items[0].currency) || 'USDT';
+
+            return (
+              <>
+                {/* 서명 헤더가 없으면 앞으로의 거래도 집계되지 않는다 — 가장 시급한 경고다. */}
+                {!kcBroker.brokerAttached && (
+                  <div style={{padding:'12px 14px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                    background:'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+                    border:'1px solid var(--color-danger)', color:'var(--color-danger)'}}>
+                    <strong>{t('kcb_no_headers')}</strong>
+                    <div>{t('kcb_no_headers_why')}</div>
+                  </div>
+                )}
+                <div className="grid-4">
+                  <window.KPICard
+                    label={t('kcb_tag_commission')}
+                    value={fmt(tagged, 4) + ' ' + cur}
+                    sub={t('kcb_tag_commission_sub')}
+                    tone="long" icon="Wallet"
+                  />
+                  <window.KPICard
+                    label={t('kcb_notag_commission')}
+                    value={fmt(untagged, 4) + ' ' + cur}
+                    sub={t('kcb_notag_commission_sub')}
+                    tone={untagged > 0 ? 'short' : undefined}
+                  />
+                  <window.KPICard
+                    label={t('kcb_periods')}
+                    value={fmt(kcBroker.totalNum, 0)}
+                    sub={t('kcb_periods_sub')}
+                  />
+                  <window.KPICard
+                    label={t('kcb_headers')}
+                    value={kcBroker.brokerAttached ? t('admin_on') : t('admin_off')}
+                    sub={t('kcb_headers_sub')}
+                    tone={kcBroker.brokerAttached ? 'long' : 'short'}
+                  />
+                </div>
+
+                {kcBroker.items.length > 0 && (
+                  <window.SectionCard title={t('kcb_settlements')} subtitle={t('kcb_settlements_sub')} noPadding>
+                    <window.DataTable columns={[
+                      { key:'period', label:t('kcb_period'), render: r => (
+                        <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>
+                          {r.periodStartTime ? new Date(r.periodStartTime).toISOString().slice(0,10) : '\u2014'}
+                        </span>
+                      ) },
+                      { key:'site', label:t('kcb_site'), render: r => r.siteType || '\u2014' },
+                      { key:'users', label:t('kcb_traders'), align:'right', render: r => r.totalTradeUser || '\u2014' },
+                      { key:'tagVol', label:t('kcb_tag_volume'), align:'right', render: r => r.tagTradeVolume || '\u2014' },
+                      { key:'tagCom', label:t('kcb_tag_com'), align:'right', render: r => (
+                        <strong style={{fontFamily:'var(--font-num)', color:'var(--color-success)'}}>{r.tagCommission || '\u2014'}</strong>
+                      ) },
+                      { key:'noTagCom', label:t('kcb_notag_com'), align:'right', render: r => (
+                        <span style={{fontFamily:'var(--font-num)', color:'var(--color-text-tertiary)'}}>{r.noTagCommission || '\u2014'}</span>
+                      ) },
+                      { key:'paid', label:t('kcb_paid'), render: r => (
+                        r.payoutTime ? new Date(r.payoutTime).toLocaleDateString() : t('kcb_not_paid')
+                      ) },
+                    ]} rows={kcBroker.items}/>
+                  </window.SectionCard>
+                )}
+              </>
+            );
+          })()}
+
+          {/* 구조적 사실을 먼저 놓는다. */}
+          <div style={{
+            padding:'14px 16px', borderRadius:6, fontSize:12.5, lineHeight:1.8,
+            background:'color-mix(in srgb, var(--color-brand) 8%, transparent)',
+            border:'1px solid var(--color-brand)',
+          }}>
+            <div style={{fontWeight:600, marginBottom:6}}>{t('admin_fees_who_title')}</div>
+            <div>{t('admin_fees_who_1')}</div>
+            <div style={{marginTop:6}}>{t('admin_fees_who_2')}</div>
+          </div>
+
+          <div className="grid-3">
+            {/* 브로커 리베이트 — 설정되지 않았으면 그대로 말한다. */}
+            <window.KPICard
+              label={t('admin_fees_broker')}
+              value={rebate === null ? '—' : (rebate.configured ? t('admin_fees_configured') : t('admin_fees_not_configured'))}
+              sub={rebate && !rebate.configured ? t('admin_fees_broker_sub') : undefined}
+              tone={rebate && rebate.configured ? 'success' : 'warning'}
+            />
+            <window.KPICard
+              label={t('admin_fees_referral')}
+              value={referralCount || '—'}
+              sub={referralCount ? Object.keys(referrals).join(', ') : t('admin_fees_referral_none')}
+              tone={referralCount ? 'success' : 'warning'}
+            />
+            <window.KPICard
+              label={t('admin_fees_our_cut')}
+              value={t('admin_fees_zero')}
+              sub={t('admin_fees_our_cut_sub')}
+            />
+          </div>
+
+          {/* 거래소 실제 수수료율 */}
+          {specs && specs.length > 0 && (
+            <window.SectionCard title={t('admin_fees_exchange_rates')} subtitle={t('admin_fees_exchange_rates_sub')} noPadding>
+              <window.DataTable
+                columns={[
+                  { key:'symbol', label:'Symbol', render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
+                  { key:'maker', label:'Maker', align:'right', render: r => pct(r.makerFeeRate) || '—' },
+                  { key:'taker', label:'Taker', align:'right', render: r => pct(r.takerFeeRate) || '—' },
+                  { key:'funding', label:t('fee_funding_8h'), align:'right', render: r => pct(r.fundingFeeRate) || '—' },
+                  { key:'mm', label:t('fee_maint_margin'), align:'right', render: r => pct(r.maintenanceMarginRate) || '—' },
+                  { key:'lev', label:'Max Lev', align:'right', render: r => (r.maxLeverage ? r.maxLeverage + '×' : '—') },
+                ]}
+                rows={specs}
+              />
+            </window.SectionCard>
+          )}
+
+          {/*
+             프로모션.
+
+             지급 수단이 없다 — 우리는 자금을 보관하지 않으므로 사용자에게
+             직접 지급할 경로가 없다. 프로모션 표를 목업으로 보여주면 운영자가
+             "이미 지급되고 있다" 고 오해한다.
+          */}
+          <window.SectionCard title={t('admin_fees_promos')} subtitle={t('admin_fees_promos_sub')}>
+            <div style={{fontSize:12, lineHeight:1.8, color:'var(--color-text-secondary)'}}>
+              <div>{t('admin_fees_promos_1')}</div>
+              <div style={{marginTop:6, color:'var(--color-text-tertiary)'}}>{t('admin_fees_promos_2')}</div>
+            </div>
+          </window.SectionCard>
+        </window.PageShell>
+      );
+    }
 
     return (
       <window.PageShell
@@ -622,8 +2120,91 @@
   // ADMIN NOTICES & CS PAGE
   // ============================================================
   window.AdminNoticesPage = function AdminNoticesPage({ shellProps }) {
-    const notices = window.QTApp.NOTICES;
-    const cs = window.QTApp.CS_TICKETS;
+    /*
+       CS 티켓 요약.
+
+       목업 배열(usr_00005 등)이었다. 실제 티켓 시스템이 있으므로 그것을 쓴다 —
+       목업을 남겨두면 운영자가 존재하지 않는 문의를 처리하려 한다.
+    */
+    const [liveCs, setLiveCs] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.tickets) return undefined;
+      let cancelled = false;
+      api.tickets({ limit: 20 })
+        .then((r) => { if (!cancelled) setLiveCs(r.data || []); })
+        .catch(() => { /* 실패 시 목업 유지 */ });
+      return () => { cancelled = true; };
+    }, []);
+
+    const csIsLive = Array.isArray(liveCs);
+    const cs = csIsLive
+      ? liveCs.map((x) => ({
+          id: x.id,
+          // 이메일이 사용자 식별자다. 목업의 usr_00005 같은 ID 는 우리에게 없다.
+          user: x.userEmail || x.userId || '—',
+          subject: x.subject,
+          status: x.status,
+          priority: x.priority,
+          updated: x.updatedAt,
+        }))
+      : window.QTApp.CS_TICKETS;
+
+    /*
+       공지 목록 (실데이터).
+
+       초안·게시·보관 전부 가져온다. 관리자는 아직 안 나간 초안도 봐야 한다.
+       실패하면 목업으로 되돌리지 않는다 — 조회 실패를 빈 목록으로 위장하면
+       "공지가 없다" 로 읽히고 관리자가 같은 공지를 또 쓴다.
+    */
+    const [live, setLive] = useState(null);
+    const [err, setErr] = useState(null);
+    const [busyId, setBusyId] = useState(null);
+
+    /*
+       공지 쓰기 권한. ops 는 목록을 읽을 수 있지만 게시·내림은 못 한다
+       (실측: ops 로 POST /api/admin/notices = 403).
+       버튼을 보여주고 403 을 받게 하면 "고장" 으로 오해한다.
+    */
+    const canWriteNotice = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.notice.write'));
+
+    const load = React.useCallback(() => {
+      if (!window.QTApi || !window.QTApi.admin || !window.QTApi.admin.notices) return;
+      window.QTApi.admin.notices(100)
+        .then((r) => { setLive(r.data || []); setErr(null); })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    // 게시 / 내림 / 보관. 끝나면 목록을 다시 읽어 화면과 서버를 일치시킨다.
+    const act = async (id, kind) => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api) return;
+      setBusyId(id);
+      try {
+        if (kind === 'publish') await api.publishNotice(id);
+        else if (kind === 'unpublish') await api.unpublishNotice(id);
+        else await api.archiveNotice(id);
+        load();
+      } catch (e) {
+        setErr((e && e.message) || 'action failed');
+      }
+      setBusyId(null);
+    };
+
+    const isLive = Array.isArray(live);
+    const notices = isLive
+      ? live.map((n) => ({
+          id: n.id,
+          title: n.title,
+          status: n.status,
+          pinned: n.pinned,
+          // 게시 안 된 공지는 게시 시각이 없다. 0 이나 '-' 로 채우지 않는다.
+          published: n.publishedAt ? new Date(n.publishedAt).toLocaleString() : '—',
+          locale: n.locale,
+          expiresAt: n.expiresAt,
+        }))
+      : window.QTApp.NOTICES;
 
     return (
       <window.PageShell
@@ -631,10 +2212,19 @@
         title="Notices & CS"
         subtitle={t('admin_notices_11300f')}
         breadcrumb={['Home','Admin','Notices & CS']}
-        actions={<button className="btn btn--sm btn--primary"><I.Plus size={13}/> New Notice</button>}
+        actions={canWriteNotice
+          ? <button className="btn btn--sm btn--primary" onClick={() => { window.location.hash = '#/admin/notices/new'; }}><I.Plus size={13}/> New Notice</button>
+          : null}
       >
         <div className="grid-2">
-          <window.SectionCard title={t('admin_notices_15d236')} subtitle={`${notices.filter(n => n.pinned).length} pinned · ${notices.length} total`} noPadding>
+          <window.SectionCard
+            title={t('admin_notices_15d236')}
+            subtitle={err ? t('notice_load_failed') : `${notices.filter(n => n.pinned).length} pinned · ${notices.length} total`}
+            noPadding
+          >
+            {isLive && notices.length === 0 && (
+              <div style={{padding:'20px 16px', fontSize:12, color:'var(--color-text-tertiary)'}}>{t('notice_empty')}</div>
+            )}
             {notices.map(n => (
               <div key={n.id} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid var(--color-border-subtle)'}}>
                 {n.pinned && <I.Star size={12} style={{color:'var(--color-warning)'}}/>}
@@ -642,13 +2232,45 @@
                   <div style={{fontSize:13, fontWeight:500}}>{n.title}</div>
                   <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginTop:2}}>{n.id} · {n.published}</div>
                 </div>
-                <span className={`status-pill status-pill--${n.status === 'published' ? 'ok' : 'neutral'}`}>{n.status.toUpperCase()}</span>
-                <button className="tbl-action">Edit</button>
+                <span className={`status-pill status-pill--${n.status === 'published' ? 'ok' : n.status === 'archived' ? 'neutral' : 'warn'}`}>{n.status.toUpperCase()}</span>
+                {/*
+                  실데이터일 때만 동작 버튼을 준다. 목업 행에 버튼을 달면
+                  눌렀을 때 아무 일도 안 일어나 관리자가 고장으로 오해한다.
+                */}
+                {isLive && canWriteNotice ? (
+                  <div style={{display:'flex', gap:6}}>
+                    {n.status !== 'published' && (
+                      <button className="tbl-action" disabled={busyId === n.id} onClick={() => act(n.id, 'publish')}>
+                        {busyId === n.id ? '…' : t('notice_action_publish')}
+                      </button>
+                    )}
+                    {n.status === 'published' && (
+                      <button className="tbl-action" disabled={busyId === n.id} onClick={() => act(n.id, 'unpublish')}>
+                        {busyId === n.id ? '…' : t('notice_action_unpublish')}
+                      </button>
+                    )}
+                    {n.status !== 'archived' && (
+                      <button className="tbl-action" disabled={busyId === n.id} onClick={() => act(n.id, 'archive')}>
+                        {t('notice_action_archive')}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button className="tbl-action">Edit</button>
+                )}
               </div>
             ))}
           </window.SectionCard>
 
-          <window.SectionCard title="CS Tickets" subtitle={`${cs.filter(t => t.status !== 'resolved').length} open`} noPadding>
+          <window.SectionCard
+            title="CS Tickets"
+            subtitle={`${cs.filter(x => x.status !== 'resolved').length} open`}
+            actions={csIsLive ? <a className="btn btn--sm" href="#/admin/cs" style={{textDecoration:'none'}}>{t('help_col_open')}</a> : undefined}
+            noPadding
+          >
+            {csIsLive && cs.length === 0 && (
+              <div style={{padding:'18px 16px', fontSize:12, color:'var(--color-text-tertiary)'}}>{t('adm_no_tickets')}</div>
+            )}
             {cs.map(t => (
               <div key={t.id} style={{padding:'12px 16px', borderBottom:'1px solid var(--color-border-subtle)'}}>
                 <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4}}>
@@ -671,7 +2293,106 @@
   // Scaffolded admin pages — Risk / Assets
   // ============================================================
   window.AdminRiskPage = function AdminRiskPage({ shellProps }) {
-    const risk = window.QTApp.ADMIN_RISK_QUEUE;
+    /*
+       위험 관리 (실데이터).
+
+       출처: /api/admin/positions — 전체 포지션(읽기 전용).
+       마진율·청산거리를 포지션에서 계산한다. 서버가 그 값을 주지 않으므로
+       우리가 계산해야 하는데, **계산할 수 없으면 '—' 로 둔다**. 임의 공식으로
+       채우면 운영자가 근거 없는 숫자로 강제청산을 판단한다.
+
+       ★ 서버는 포지션 변경을 허용하지 않는다(note: 'no close, leverage or
+         margin-mode change'). 'Force Close' 버튼은 배선할 대상이 없다.
+         비수탁이므로 우리가 고객 포지션을 닫는 것은 설계상 불가능하다 —
+         할 수 있는 것은 사용자에게 알리는 것뿐이다.
+    */
+    /*
+       관리자 데이터 구독.
+
+       킬스위치는 QTAdmin 이 폴링해서 채운다. 이 훅이 없으면 데이터가 도착해도
+       재렌더되지 않아 '0개' 로 고정된다(실제로 겪음).
+    */
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+
+    const [live, setLive] = useState(null);
+    const [meta, setMeta] = useState({ readOnly: false, note: '' });
+    const [err, setErr] = useState(null);
+
+    const load = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.positions) return;
+      api.positions({ limit: 200 })
+        .then((r) => { setLive(r.data || []); setMeta({ readOnly: r.readOnly, note: r.note }); setErr(null); })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    // 킬스위치는 폴링 결과에서 직접 읽는다 — adm.version 이 바뀌면 재렌더된다.
+    const switches = window.QTAdmin ? window.QTAdmin.getKillSwitches() : null;
+
+    const isLive = Array.isArray(live);
+
+    const toRow = (pos) => {
+      const size = Number(pos.quantity !== undefined ? pos.quantity : pos.size);
+      const entry = Number(pos.entryPrice);
+      const mark = Number(pos.markPrice);
+      const liq = Number(pos.liquidationPrice);
+      const margin = Number(pos.margin !== undefined ? pos.margin : pos.initialMargin);
+      const notional = Number.isFinite(mark) && Number.isFinite(size) ? Math.abs(mark * size) : undefined;
+
+      /*
+         마진율 = 증거금 / 명목가치. 둘 중 하나라도 없으면 계산하지 않는다.
+         청산거리 = |청산가 - 마크가| / 마크가. 청산가가 없으면 계산하지 않는다.
+      */
+      const marginRatio = (Number.isFinite(margin) && notional && notional > 0) ? margin / notional : undefined;
+      const liqDist = (Number.isFinite(liq) && liq > 0 && Number.isFinite(mark) && mark > 0)
+        ? Math.abs(liq - mark) / mark * 100 : undefined;
+
+      /*
+         심각도는 청산거리로만 판정한다. 청산거리를 모르면 심각도도 모른다 —
+         'low' 로 채우면 위험한 포지션이 안전해 보인다.
+         기준은 QTRisk 와 같게 유지한다(5% 위험 / 12% 주의). 두 곳에서 다른
+         기준을 쓰면 사용자 경고와 운영자 화면이 어긋난다.
+      */
+      const severity = liqDist === undefined ? 'unknown'
+        : liqDist < 3 ? 'critical'
+        : liqDist < 5 ? 'high'
+        : liqDist < 12 ? 'medium' : 'low';
+
+      return {
+        severity: severity,
+        userId: pos.userId || pos.accountId || '—',
+        sym: pos.symbol ? String(pos.symbol).replace(/USDT$/, '/USDT') : '—',
+        side: pos.side ? String(pos.side).toLowerCase() : '—',
+        size: Number.isFinite(size) ? Math.abs(size) : undefined,
+        marginRatio: marginRatio,
+        liqDist: liqDist,
+        notional: notional,
+      };
+    };
+
+    const risk = isLive ? live.map(toRow) : window.QTApp.ADMIN_RISK_QUEUE;
+
+    /*
+       롱/숏 노출.
+
+       명목가치를 아는 포지션만으로 계산한다. 하나도 없으면 '—' 다.
+       '58% / 42% · Balanced' 처럼 고정값을 보여주면 운영자가 실제로 한쪽으로
+       쏠린 상태를 알아채지 못한다.
+    */
+    const exposure = (() => {
+      if (!isLive) return null;
+      const withN = risk.filter((r) => typeof r.notional === 'number' && r.notional > 0);
+      if (!withN.length) return { known: false };
+      const long = withN.filter((r) => r.side === 'long' || r.side === 'buy').reduce((a, r) => a + r.notional, 0);
+      const short = withN.filter((r) => r.side === 'short' || r.side === 'sell').reduce((a, r) => a + r.notional, 0);
+      const total = long + short;
+      if (total <= 0) return { known: false };
+      return { known: true, longPct: long / total * 100, shortPct: short / total * 100 };
+    })();
+
+    const activeSwitches = Array.isArray(switches) ? switches.filter((k) => k.enabled || k.active || k.engaged).length : null;
+
     return (
       <window.PageShell
         {...shellProps}
@@ -681,9 +2402,28 @@
       >
         <div className="grid-4">
           <window.KPICard label="Critical / High" value={risk.filter(r => r.severity === 'critical' || r.severity === 'high').length} tone="danger"/>
-          <window.KPICard label="Total in Queue" value={risk.length}/>
-          <window.KPICard label="Auto-liquidations · 24h" value="12"/>
-          <window.KPICard label="Exposure · Long / Short" value="58% / 42%" sub="Balanced"/>
+          <window.KPICard
+            label={isLive ? t('admin_risk_positions') : 'Total in Queue'}
+            value={risk.length}
+            sub={isLive ? t('admin_risk_positions_sub') : undefined}
+          />
+          {/*
+             자동청산 건수는 우리가 집계하지 않는다. 청산은 거래소가 하고
+             우리에게 통지되지 않는다 — 12 라는 숫자는 근거가 없었다.
+             그 자리에 우리가 실제로 아는 것(활성 킬스위치)을 넣는다.
+          */}
+          <window.KPICard
+            label={isLive ? t('admin_risk_killswitch') : 'Auto-liquidations · 24h'}
+            value={isLive ? (activeSwitches === null ? '—' : activeSwitches) : '12'}
+            sub={isLive && Array.isArray(switches) ? t('admin_risk_killswitch_sub', { total: switches.length }) : undefined}
+            tone={isLive && activeSwitches ? 'danger' : undefined}
+          />
+          <window.KPICard
+            label="Exposure · Long / Short"
+            value={!isLive ? '58% / 42%'
+              : (exposure && exposure.known ? `${exposure.longPct.toFixed(0)}% / ${exposure.shortPct.toFixed(0)}%` : '—')}
+            sub={!isLive ? 'Balanced' : (exposure && exposure.known ? undefined : t('admin_risk_no_exposure'))}
+          />
         </div>
         <window.SectionCard title="Risk Queue" noPadding>
           <window.DataTable
@@ -693,31 +2433,497 @@
               { key:'sym', label:'Symbol', render: r => <strong>{r.sym}</strong> },
               { key:'side', label:'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
               { key:'size', label:'Size', align:'right', render: r => fmt(r.size, 3) },
-              { key:'mr', label:'Margin Ratio', align:'right', render: r => (r.marginRatio*100).toFixed(0) + '%' },
-              { key:'liq', label:'Liq. Distance', align:'right', render: r => <span className={r.liqDist < 3 ? 't-short' : ''}>{r.liqDist}%</span> },
-              { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">Notify</button> <button className="tbl-action" style={{marginLeft:3}}>Force Close</button></> },
+              { key:'mr', label:'Margin Ratio', align:'right', render: r => (typeof r.marginRatio === 'number' ? (r.marginRatio*100).toFixed(0) + '%' : '—') },
+              { key:'liq', label:'Liq. Distance', align:'right', render: r => (
+                typeof r.liqDist === 'number'
+                  ? <span className={r.liqDist < 5 ? 't-short' : ''}>{r.liqDist.toFixed(1)}%</span>
+                  : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
+              ) },
+              /*
+                 동작 버튼.
+
+                 'Force Close' 는 배선할 대상이 없다 — 서버가 포지션 변경을
+                 허용하지 않고(read-only), 비수탁이므로 우리가 고객 포지션을
+                 닫는 것은 설계상 불가능하다. 실데이터에서는 감춘다.
+                 사용자에게 알리는 것은 가능하지만 서버 알림 생성 API 가 아직
+                 없다 — 있는 척하지 않고 사용자 상세로 보낸다.
+              */
+              { key:'act', label:'', align:'right', render: r => (
+                isLive
+                  ? (r.userId && r.userId !== '—'
+                      ? <button className="tbl-action" onClick={() => { window.location.hash = '#/admin/users/detail?id=' + encodeURIComponent(r.userId); }}>{t('admin_risk_view_user')}</button>
+                      : <span style={{color:'var(--color-text-tertiary)'}}>—</span>)
+                  : <><button className="tbl-action">Notify</button> <button className="tbl-action" style={{marginLeft:3}}>Force Close</button></>
+              ) },
             ]}
             rows={risk}
           />
+
+          {isLive && risk.length === 0 && (
+            <div style={{padding:'18px 16px', fontSize:12, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+              <div>{t('admin_risk_empty')}</div>
+              <div style={{marginTop:4}}>{t('admin_trades_scope')}</div>
+            </div>
+          )}
+          {isLive && meta.readOnly && (
+            <div style={{padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
+              {t('admin_risk_readonly')}{meta.note ? ` · ${meta.note}` : ''}
+            </div>
+          )}
+          {err && <div style={{padding:'10px 16px', fontSize:11, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>}
         </window.SectionCard>
       </window.PageShell>
     );
   };
 
   window.AdminAssetsPage = function AdminAssetsPage({ shellProps }) {
+    /*
+       자산 · 출금 (관리자).
+
+       원래 이 화면은 "핫/콜드 지갑 잔고", "온체인 확인 상태", "출금 승인 큐"
+       를 만들 예정(TODO)으로 적어두고 있었다. 그것은 **수탁 거래소의 구조**다.
+
+       우리 구조에서는 그 기능이 생기지 않는다:
+         · 고객 자금은 고객의 거래소 계정에 있다. 우리 지갑이 없다.
+         · 우리는 온체인 전송을 하지 않는다. 확인할 트랜잭션이 없다.
+         · 출금은 거래소에서 일어난다. 우리가 승인할 대상이 없다.
+         · 우리가 요구하는 API 키에는 출금 권한이 없다(일부러).
+
+       "곧 만들 예정" 으로 남겨두면 운영자가 출금 승인 화면을 기다리고,
+       고객 문의에 "승인 대기 중" 이라고 잘못 답한다. 사실을 적는다.
+
+       대신 우리가 **실제로 아는 것**을 보여준다: 사용자·세션 집계.
+    */
+    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    const [sec, setSec] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.securitySummary) return undefined;
+      let cancelled = false;
+      api.securitySummary()
+        .then((r) => { if (!cancelled) setSec(r.data || null); })
+        .catch(() => { /* 조회 실패 시 집계를 숨긴다 — 0 으로 위장하지 않는다 */ });
+      return () => { cancelled = true; };
+    }, [adm.version]);
+
+    const users = sec && sec.users;
+    const sessions = sec && sec.sessions;
+
     return (
-      <window.PageShell {...shellProps} title="Assets & Withdrawals" subtitle={t('admin_assets_7c2e10')} breadcrumb={['Home','Admin','Assets']}>
-        <window.PagePlaceholder
-          title="Assets & Withdrawals"
-          todo={[
-            t('admin_assets_d52d75'),
-            t('admin_assets_16f852'),
-            t('admin_assets_293d08'),
-            'On-chain confirmation status',
-            t('admin_assets_657644'),
-          ]}
-        />
+      <window.PageShell {...shellProps} title="Assets & Withdrawals" subtitle={t('admin_assets_subtitle')} breadcrumb={['Home','Admin','Assets']}>
+        {/* 구조적 사실. 미구현이 아니라 설계상 존재하지 않는다. */}
+        <div style={{
+          padding:'14px 16px', borderRadius:6, fontSize:12.5, lineHeight:1.8,
+          background:'color-mix(in srgb, var(--color-brand) 8%, transparent)',
+          border:'1px solid var(--color-brand)',
+        }}>
+          <div style={{fontWeight:600, marginBottom:6, display:'flex', alignItems:'center', gap:6}}>
+            <I.Lock size={13}/> {t('admin_assets_noncustodial_title')}
+          </div>
+          <div>{t('admin_assets_noncustodial_1')}</div>
+          <ul style={{margin:'8px 0 0', paddingLeft:20}}>
+            <li>{t('admin_assets_point_1')}</li>
+            <li>{t('admin_assets_point_2')}</li>
+            <li>{t('admin_assets_point_3')}</li>
+            <li>{t('admin_assets_point_4')}</li>
+          </ul>
+        </div>
+
+        {/* 우리가 실제로 집계할 수 있는 것 */}
+        <div className="grid-4">
+          <window.KPICard label={t('admin_assets_custody')} value={t('admin_assets_none')} sub={t('admin_assets_custody_sub')} tone="brand"/>
+          <window.KPICard label={t('admin_assets_users')} value={users ? users.total : '—'} sub={users ? t('admin_assets_users_sub', { active: users.active, disabled: users.disabled }) : undefined}/>
+          <window.KPICard label={t('admin_assets_sessions')} value={sessions ? sessions.active : '—'} sub={sessions ? t('admin_assets_sessions_sub', { n: sessions.distinctUsers }) : undefined}/>
+          <window.KPICard label={t('admin_assets_withdrawal_queue')} value={t('admin_assets_na')} sub={t('admin_assets_withdrawal_sub')}/>
+        </div>
       </window.PageShell>
     );
   };
+  /* 서버 열거값 → 사전 키. 코드에 문구를 박으면 번역되지 않는다. */
+  const REASON_KEY_ADMIN = {
+    referral_signup: 'pt_reason_referral', event_reward: 'pt_reason_event',
+    competition_prize: 'pt_reason_prize', admin_grant: 'pt_reason_grant',
+    admin_revoke: 'pt_reason_revoke', purchase: 'pt_reason_purchase',
+    redeem: 'pt_reason_redeem', refund: 'pt_reason_refund', expiry: 'pt_reason_expiry',
+  };
+
+  // ============================================================
+  // 포인트 (운영)
+  //
+  // ★★ 이 화면의 첫 숫자는 '미사용 포인트' 다 — 그것이 **부채**다.
+  //
+  //   사용자가 가진 포인트만큼 우리가 가치를 제공할 의무가 있다. 적립만
+  //   늘리고 이 값을 보지 않으면 감당할 수 없는 의무가 쌓인다. 그래서
+  //   '총 적립' 이 아니라 '미사용' 을 먼저 보여준다.
+  //
+  // ★ 원장 정합성을 함께 보여준다. 위반이 0 이 아니면 동시성 결함이 있다는
+  //   뜻이고, 그때는 적립·사용을 멈추고 원인을 찾아야 한다.
+  // ============================================================
+  window.AdminPointsPage = function AdminPointsPage({ shellProps }) {
+    const [d, setD] = useState(null);
+    const [err, setErr] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState(null);
+    const [adj, setAdj] = useState({ userId: '', amount: '', direction: 'grant', memo: '' });
+
+    const load = React.useCallback(() => {
+      const A = window.QTApi && window.QTApi.admin;
+      if (!A || !A.points) return;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return;
+      A.points().then(r => { setD(r); setErr(null); }).catch(e => setErr((e && e.message) || 'load failed'));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    /*
+       버튼 표시는 **서버가 준 실제 권한 목록**으로 판단한다 (등급 이름 아님).
+       QTAdmin 이 /api/admin/me 결과를 들고 있는 단일 출처다 — 다른 관리자
+       화면과 같은 방식을 쓴다.
+    */
+    const canWrite = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.points.write'));
+    const live = Boolean(d && d.supported);
+    const st = d && d.settings;
+    const unit = (st && st.unitName) || t('pt_unit_default');
+
+    const call = async (fn, okText) => {
+      setBusy(true); setMsg(null);
+      try {
+        const r = await fn();
+        if (r && r.ok === false) setMsg({ ok: false, text: r.message || t('admin_save_failed') });
+        else { setMsg({ ok: true, text: okText }); load(); }
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('admin_save_failed') }); }
+      setBusy(false);
+    };
+
+    const toggle = () => call(() => window.QTApi.admin.setPointSettings({
+      enabled: !(st && st.enabled),
+      unitName: unit,
+      expiryDays: (st && st.expiryDays) || 0,
+      referralAsPoints: Boolean(st && st.referralAsPoints),
+      referralPoints: (st && st.referralPoints) || 0,
+    }), t('admin_pt_saved'));
+
+    return (
+      <window.PageShell {...shellProps} title={t('admin_pt_title')} subtitle={t('admin_pt_sub')}
+        breadcrumb={['Admin', t('admin_pt_title')]}
+        actions={<button className="btn btn--sm" onClick={load}><I.Refresh size={13}/></button>}>
+        {!live ? (
+          <window.NotApplicablePanel title={t('pt_unavailable')} reason={t('pt_unavailable_why')} points={[]}/>
+        ) : (
+          <React.Fragment>
+            <div className="grid-4">
+              {/* 부채가 첫 숫자다. */}
+              <window.KPICard label={t('admin_pt_outstanding')} value={fmt(d.totals.outstanding, 0)}
+                sub={t('admin_pt_outstanding_sub')} tone="short" icon="Alert"/>
+              <window.KPICard label={t('admin_pt_holders')} value={fmt(d.totals.holders, 0)} sub={t('admin_pt_holders_sub')}/>
+              <window.KPICard label={t('admin_pt_granted')} value={fmt(d.totals.grantedTotal, 0)} sub={t('admin_pt_granted_sub')} tone="long"/>
+              <window.KPICard label={t('admin_pt_integrity')}
+                value={d.integrity ? (d.integrity.mismatches === 0 ? 'OK' : String(d.integrity.mismatches)) : '\u2014'}
+                sub={t('admin_pt_integrity_sub')}
+                tone={d.integrity && d.integrity.mismatches > 0 ? 'short' : 'long'}/>
+            </div>
+
+            {d.integrity && d.integrity.mismatches > 0 && (
+              <div style={{padding:'12px 14px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                background:'color-mix(in srgb, var(--color-danger) 12%, transparent)',
+                border:'1px solid var(--color-danger)', color:'var(--color-danger)'}}>
+                <strong>{t('admin_pt_integrity_bad')}</strong>
+                <div>{t('admin_pt_integrity_bad_why')}</div>
+              </div>
+            )}
+
+            <window.SectionCard title={t('admin_pt_programme')} subtitle={t('admin_pt_programme_sub')}>
+              {/*
+                 제도 조건.
+
+                 ★ 현금 구매 줄을 반드시 넣는다. 결제 대행사가 없으면 서버가
+                   켜기를 거부하는데, 그 사실을 화면에 적지 않으면 운영자가
+                   설정에서 켜려 시도하고 400 을 받는다.
+              */}
+              <div style={{display:'grid', gap:0}}>
+                {[
+                  [t('admin_pt_state'), st.enabled ? t('admin_on') : t('admin_off')],
+                  [t('admin_pt_unit'), st.unitName],
+                  [t('admin_pt_expiry'), st.expiryDays > 0 ? t('pt_expiry_sub', { n: st.expiryDays }) : t('pt_no_expiry')],
+                  [t('admin_pt_ref'), st.referralAsPoints ? fmt(st.referralPoints, 0) + ' ' + unit : t('admin_off')],
+                  [t('admin_pt_purchase'), t('admin_pt_purchase_blocked')],
+                ].map(function (row) {
+                  return (
+                    <div key={row[0]} style={{
+                      display:'flex', gap:12, padding:'8px 0', fontSize:12.5,
+                      borderBottom:'1px solid var(--color-border-subtle)',
+                    }}>
+                      <span style={{minWidth:130, color:'var(--color-text-tertiary)'}}>{row[0]}</span>
+                      <span style={{flex:1}}>{row[1]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {canWrite ? (
+                <div style={{display:'flex', gap:8, marginTop:12, flexWrap:'wrap'}}>
+                  <button className={'btn btn--sm ' + (st.enabled ? '' : 'btn--primary')} disabled={busy} onClick={toggle}>
+                    {st.enabled ? t('admin_pt_stop') : t('admin_pt_start')}
+                  </button>
+                </div>
+              ) : (
+                <div style={{marginTop:10, fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('admin_read_only')}</div>
+              )}
+            </window.SectionCard>
+
+            {/* 이유별 집계 — 어디서 부채가 생기는지 본다. */}
+            {d.totals.byReason.length > 0 && (
+              <window.SectionCard title={t('admin_pt_by_reason')} subtitle={t('admin_pt_by_reason_sub')} noPadding>
+                <window.DataTable columns={[
+                  { key:'reason', label:t('pt_col_reason'), render: r => t(REASON_KEY_ADMIN[r.reason] || 'pt_reason_other') },
+                  { key:'entries', label:t('admin_pt_entries'), align:'right', render: r => fmt(r.entries, 0) },
+                  { key:'total', label:t('admin_pt_net'), align:'right', render: r => (
+                    <strong style={{fontFamily:'var(--font-num)', color: r.total > 0 ? 'var(--color-success)' : 'var(--color-danger)'}}>
+                      {r.total > 0 ? '+' : ''}{fmt(r.total, 0)}
+                    </strong>
+                  ) },
+                ]} rows={d.totals.byReason}/>
+              </window.SectionCard>
+            )}
+
+            <window.SectionCard title={t('admin_pt_catalog')} subtitle={t('admin_pt_catalog_sub')} noPadding>
+              <window.DataTable columns={[
+                { key:'id', label:'ID', render: r => <code style={{fontSize:11}}>{r.id}</code> },
+                { key:'name', label:t('admin_pt_item'), render: r => t(r.nameKey) },
+                { key:'kind', label:t('admin_pt_kind'), render: r => t('pt_kind_' + r.kind) },
+                { key:'cost', label:t('admin_pt_cost'), align:'right', render: r => fmt(r.cost, 0) },
+                { key:'grants', label:t('admin_pt_grants'), align:'right', render: r => fmt(r.grants, 0) },
+                { key:'enabled', label:t('admin_pt_shown'), render: r => (
+                  <span className={'badge ' + (r.enabled ? 'badge--success' : 'badge--neutral')}>
+                    {r.enabled ? t('admin_on') : t('admin_off')}
+                  </span>
+                ) },
+              ]} rows={d.catalog} emptyText={t('admin_pt_no_items')}/>
+            </window.SectionCard>
+
+            {/*
+               수동 지급·회수.
+
+               ★ 이유(memo)를 필수로 받는다. 서버도 없으면 400 이다 —
+                 이유 없는 지급·회수는 나중에 검증할 수 없다.
+               ★ 회수는 삭제가 아니다. 반대 항목을 추가해 상쇄한다.
+            */}
+            {canWrite && (
+              <window.SectionCard title={t('admin_pt_adjust')} subtitle={t('admin_pt_adjust_sub')}>
+                <div style={{display:'grid', gap:10, maxWidth:560}}>
+                  <label style={{fontSize:11.5}}>{t('admin_pt_user_id')}
+                    <input className="input" style={{marginTop:4}} value={adj.userId}
+                      onChange={e => setAdj({...adj, userId: e.target.value})} placeholder="usr_..."/>
+                  </label>
+                  <div style={{display:'flex', gap:8}}>
+                    <label style={{fontSize:11.5, flex:1}}>{t('admin_pt_amount')}
+                      <input className="input" style={{marginTop:4}} type="number" min="1" step="1" value={adj.amount}
+                        onChange={e => setAdj({...adj, amount: e.target.value})}/>
+                    </label>
+                    <label style={{fontSize:11.5, flex:1}}>{t('admin_pt_direction')}
+                      <select className="input" style={{marginTop:4}} value={adj.direction}
+                        onChange={e => setAdj({...adj, direction: e.target.value})}>
+                        <option value="grant">{t('admin_pt_grant')}</option>
+                        <option value="revoke">{t('admin_pt_revoke')}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label style={{fontSize:11.5}}>{t('admin_pt_memo')}
+                    <input className="input" style={{marginTop:4}} value={adj.memo}
+                      onChange={e => setAdj({...adj, memo: e.target.value})} placeholder={t('admin_pt_memo_ph')}/>
+                  </label>
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', lineHeight:1.7}}>{t('admin_pt_adjust_note')}</div>
+                  <button className="btn btn--sm btn--primary" style={{justifySelf:'start'}}
+                    disabled={busy || !adj.userId.trim() || !adj.memo.trim() || !(Number(adj.amount) > 0)}
+                    onClick={() => call(() => window.QTApi.admin.adjustPoints({
+                      userId: adj.userId.trim(), amount: Number(adj.amount),
+                      direction: adj.direction, memo: adj.memo.trim(),
+                    }), t('admin_pt_adjusted'))}>
+                    {busy ? '\u2026' : t('admin_pt_apply')}
+                  </button>
+                </div>
+              </window.SectionCard>
+            )}
+
+            {msg && (
+              <div style={{padding:'10px 12px', borderRadius:6, fontSize:12,
+                color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)',
+                border:'1px solid ' + (msg.ok ? 'var(--color-success)' : 'var(--color-danger)')}}>{msg.text}</div>
+            )}
+            {err && <div style={{fontSize:11.5, color:'var(--color-danger)'}}>{t('admin_load_failed')} \u00b7 {err}</div>}
+          </React.Fragment>
+        )}
+      </window.PageShell>
+    );
+  };
+
+  // ============================================================
+  // 법적 문서 (운영)
+  //
+  // ★★ 게시는 되돌릴 수 없다.
+  //
+  //   약관을 게시하면 그것이 회사의 법적 약속이 되고, 이미 본 사람이 있으므로
+  //   "안 본 것으로" 만들 수 없다. 그래서 초안과 게시를 분리하고, 게시된 문서의
+  //   수정은 서버가 거부한다(새 버전을 만들어야 한다).
+  //
+  // ★ 이 화면의 첫 정보는 **런칭 가능 여부**다.
+  //   약관과 개인정보처리방침이 게시되지 않으면 회원가입에서 받는 동의가
+  //   아무것도 가리키지 않는다.
+  // ============================================================
+  window.AdminLegalPage = function AdminLegalPage({ shellProps }) {
+    const [d, setD] = useState(null);
+    const [err, setErr] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState(null);
+    const [draft, setDraft] = useState({ kind: 'terms', locale: 'en', version: '', title: '', body: '' });
+
+    const load = React.useCallback(() => {
+      const A = window.QTApi && window.QTApi.admin;
+      if (!A || !A.legal) return;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return;
+      A.legal().then(r => { setD(r); setErr(null); }).catch(e => setErr((e && e.message) || 'load failed'));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    /* 쓰기 권한은 SUPER 만 갖는다 (법무 검토 우회 방지). 서버 권한 목록으로 판단. */
+    const canWrite = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.legal.write'));
+    const live = Boolean(d && d.supported);
+
+    const call = async (fn, okText) => {
+      setBusy(true); setMsg(null);
+      try {
+        const r = await fn();
+        if (r && r.ok === false) setMsg({ ok: false, text: r.message || t('admin_save_failed') });
+        else { setMsg({ ok: true, text: okText }); load(); }
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('admin_save_failed') }); }
+      setBusy(false);
+    };
+
+    return (
+      <window.PageShell {...shellProps} title={t('admin_legal_title')} subtitle={t('admin_legal_sub')}
+        breadcrumb={['Admin', t('admin_legal_title')]}
+        actions={<button className="btn btn--sm" onClick={load}><I.Refresh size={13}/></button>}>
+        {!live ? (
+          <window.NotApplicablePanel title={t('admin_legal_unavailable')} reason={t('admin_legal_unavailable_why')} points={[]}/>
+        ) : (
+          <React.Fragment>
+            {/*
+               런칭 가능 여부가 첫 정보다.
+
+               ★ canLaunch 가 false 면 회원가입 동의가 무의미한 상태다.
+            */}
+            <div style={{
+              padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.85,
+              background: d.readiness && d.readiness.canLaunch
+                ? 'color-mix(in srgb, var(--color-success) 10%, transparent)'
+                : 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+              border: '1px solid ' + (d.readiness && d.readiness.canLaunch ? 'var(--color-success)' : 'var(--color-danger)'),
+            }}>
+              <div style={{fontWeight:600, marginBottom:4}}>
+                {d.readiness && d.readiness.canLaunch ? t('admin_legal_ready') : t('admin_legal_not_ready')}
+              </div>
+              <div style={{color:'var(--color-text-secondary)'}}>
+                {d.readiness && d.readiness.canLaunch ? t('admin_legal_ready_body') : t('admin_legal_not_ready_body')}
+              </div>
+            </div>
+
+            <window.SectionCard title={t('admin_legal_docs')} subtitle={t('admin_legal_docs_sub')} noPadding>
+              <window.DataTable columns={[
+                { key:'kind', label:t('admin_legal_kind'), render: r => t(
+                  r.kind === 'terms' ? 'legal_terms' : r.kind === 'privacy' ? 'legal_privacy'
+                  : r.kind === 'risk' ? 'legal_risk' : 'legal_security') },
+                { key:'locale', label:t('admin_legal_locale'), render: r => <code style={{fontSize:11}}>{r.locale}</code> },
+                { key:'version', label:t('admin_legal_version'), render: r => r.version },
+                { key:'title', label:t('admin_legal_doc_title'), render: r => r.title },
+                { key:'state', label:t('admin_legal_state'), render: r => (
+                  <span className={'badge ' + (r.publishedAt ? 'badge--success' : 'badge--neutral')}>
+                    {r.publishedAt ? t('admin_legal_published') : t('admin_legal_draft')}
+                  </span>
+                ) },
+                { key:'effective', label:t('admin_legal_effective'), render: r => (
+                  r.effectiveAt ? new Date(r.effectiveAt).toLocaleDateString() : '\u2014'
+                ) },
+                { key:'act', label:'', render: r => (
+                  /*
+                     게시 버튼은 초안에만 나온다.
+
+                     ★ 게시된 문서에 버튼을 남겨두면 운영자가 누르고 409 를 받는다.
+                       할 수 없는 일은 보여주지 않는다.
+                  */
+                  (canWrite && !r.publishedAt) ? (
+                    <button className="btn btn--sm btn--primary" disabled={busy}
+                      onClick={() => {
+                        // 되돌릴 수 없는 동작이므로 한 번 더 묻는다.
+                        if (!window.confirm(t('admin_legal_confirm', { v: r.version }))) return;
+                        call(() => window.QTApi.admin.publishLegal(r.id), t('admin_legal_published_ok'));
+                      }}>{t('admin_legal_publish')}</button>
+                  ) : null
+                ) },
+              ]} rows={d.documents} emptyText={t('admin_legal_none')}/>
+            </window.SectionCard>
+
+            {canWrite ? (
+              <window.SectionCard title={t('admin_legal_new')} subtitle={t('admin_legal_new_sub')}>
+                <div style={{display:'grid', gap:10, maxWidth:760}}>
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                    <label style={{fontSize:11.5, flex:'1 1 140px'}}>{t('admin_legal_kind')}
+                      <select className="input" style={{marginTop:4}} value={draft.kind}
+                        onChange={e => setDraft({...draft, kind: e.target.value})}>
+                        <option value="terms">{t('legal_terms')}</option>
+                        <option value="privacy">{t('legal_privacy')}</option>
+                        <option value="risk">{t('legal_risk')}</option>
+                        <option value="security">{t('legal_security')}</option>
+                      </select>
+                    </label>
+                    <label style={{fontSize:11.5, flex:'1 1 100px'}}>{t('admin_legal_locale')}
+                      <input className="input" style={{marginTop:4}} value={draft.locale} maxLength={10}
+                        onChange={e => setDraft({...draft, locale: e.target.value})} placeholder="en"/>
+                    </label>
+                    <label style={{fontSize:11.5, flex:'1 1 100px'}}>{t('admin_legal_version')}
+                      <input className="input" style={{marginTop:4}} value={draft.version} maxLength={40}
+                        onChange={e => setDraft({...draft, version: e.target.value})} placeholder="1.0"/>
+                    </label>
+                  </div>
+                  <label style={{fontSize:11.5}}>{t('admin_legal_doc_title')}
+                    <input className="input" style={{marginTop:4}} value={draft.title} maxLength={200}
+                      onChange={e => setDraft({...draft, title: e.target.value})}/>
+                  </label>
+                  <label style={{fontSize:11.5}}>{t('admin_legal_body')}
+                    <textarea className="input" style={{marginTop:4, minHeight:220, fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.7}}
+                      value={draft.body} onChange={e => setDraft({...draft, body: e.target.value})}
+                      placeholder={t('admin_legal_body_ph')}/>
+                  </label>
+                  {/*
+                     HTML 금지를 미리 알린다.
+
+                     서버가 거부하지만, 붙여넣고 저장을 누른 뒤에 알게 되면
+                     작성한 내용을 잃을 수 있다.
+                  */}
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', lineHeight:1.7}}>
+                    {t('admin_legal_md_note')}
+                  </div>
+                  <button className="btn btn--sm" style={{justifySelf:'start'}}
+                    disabled={busy || !draft.version.trim() || !draft.title.trim() || !draft.body.trim()}
+                    onClick={() => call(() => window.QTApi.admin.createLegalDraft({
+                      kind: draft.kind, locale: draft.locale.trim(), version: draft.version.trim(),
+                      title: draft.title.trim(), body: draft.body,
+                    }), t('admin_legal_draft_ok'))}>
+                    {busy ? '\u2026' : t('admin_legal_save_draft')}
+                  </button>
+                </div>
+              </window.SectionCard>
+            ) : (
+              <div style={{fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('admin_legal_super_only')}</div>
+            )}
+
+            {msg && (
+              <div style={{padding:'10px 12px', borderRadius:6, fontSize:12,
+                color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)',
+                border:'1px solid ' + (msg.ok ? 'var(--color-success)' : 'var(--color-danger)')}}>{msg.text}</div>
+            )}
+            {err && <div style={{fontSize:11.5, color:'var(--color-danger)'}}>{t('admin_load_failed')} \u00b7 {err}</div>}
+          </React.Fragment>
+        )}
+      </window.PageShell>
+    );
+  };
+
 })();

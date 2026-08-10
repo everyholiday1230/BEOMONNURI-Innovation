@@ -96,6 +96,28 @@
     const [input, setInput] = useState('');
     const [thinking, setThinking] = useState(null); // { steps, currentIdx, msg }
     const [streaming, setStreaming] = useState(null);
+    /*
+       접기 상태.
+
+       ★★ 헤더의 두 버튼(Layout/More)은 **onClick 이 없는 껍데기**였다. 눌러도
+         아무 일이 없어서, 코파일럿이 화면을 차지하는데 치울 방법이 없었다.
+
+       ★ 접으면 본문만 숨기고 헤더는 남긴다. 완전히 없애면 다시 펼 수단이
+         사라진다(레이아웃 편집으로 들어가야 한다).
+
+       ★ 선택을 기억한다 — 접어 놓고 새로고침했는데 다시 펼쳐져 있으면
+         매번 접어야 한다.
+    */
+    const [collapsed, setCollapsed] = useState(() => {
+      try { return localStorage.getItem('qt.ai.collapsed') === '1'; } catch (e) { return false; }
+    });
+    const toggleCollapsed = useCallback(() => {
+      setCollapsed((prev) => {
+        const next = !prev;
+        try { localStorage.setItem('qt.ai.collapsed', next ? '1' : '0'); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
+        return next;
+      });
+    }, []);
     const inputRef = useRef(null);
     const scrollRef = useRef(null);
 
@@ -233,11 +255,43 @@
       await streamReply(reply);
     }, [context, addOverlay, onProposeSignal, isBeginner, runThinking, streamReply]);
 
+    /*
+       AI 분석 사용 가능 여부.
+
+       ★★ 이것을 확인하지 않아서, AI 가 **연결되지 않은 상태에서도** 사전에 박힌
+         예시 문구를 분석 결과처럼 답했다. 실측한 응답:
+           "저항: 69,120 (07-16 이후 미검증). 지지: 67,200 (2회 터치, 거래량 많음)"
+         당시 BTC 실제가는 65,000 대였다. 근거 없는 숫자이고, 진입·손절 제안까지
+         (손절 67,480 · 목표 68,980/69,640/70,420) 함께 나왔다.
+         게다가 그 값으로 **차트에 실제 선을 그렸다**(addOverlay).
+
+       ★ 사용자는 이 숫자로 진입과 손절을 정한다. 근거 없는 가격을 분석으로
+         내보내는 것은 이 서비스에서 가장 위험한 거짓이다. 베타로 열더라도
+         "아직 분석할 수 없다" 고 말해야 하고, 창 조작·대화 기록 같은 UI 는
+         그대로 쓸 수 있게 둔다.
+    */
+    const aiCfg = window.QTApi && window.QTApi.useConfig ? window.QTApi.useConfig() : null;
+    /* 판정 전(null)에는 분석을 시작하지 않는다 — 잠깐 열렸다 막히면 사용자가
+       그 사이에 본 숫자를 기억한다. */
+    const aiReady = Boolean(aiCfg && aiCfg.aiAvailable === true);
+
     const handleSubmit = useCallback(async (raw) => {
       const text = (raw ?? input).trim();
       if (!text) return;
       setMsgs(m => [...m, makeMsg('user', text)]);
       setInput('');
+
+      /*
+         ★★ AI 가 준비되지 않았으면 여기서 멈춘다.
+
+           분석 문구를 만들지 않고, 차트에 선도 그리지 않는다. 무엇이 준비되면
+           되는지 알려 주는 것까지가 지금 할 수 있는 정직한 응답이다.
+      */
+      if (!aiReady) {
+        setMsgs(m => [...m, makeMsg('ai', t('ai_unavailable_reply'), { icon: 'warn' })]);
+        return;
+      }
+
       const kind = classify(text);
       if (kind === 'trendline') return submitTrendline();
       if (kind === 'signal') return submitSignal();
@@ -254,7 +308,93 @@
       // General reply
       await runThinking([{ key: 'ai_think_context', dur: 500 }]);
       await streamReply(t('ai_reply_general', { text }));
-    }, [input, submitTrendline, submitSignal, addOverlay, runThinking, streamReply, isBeginner]);
+    }, [input, aiReady, submitTrendline, submitSignal, addOverlay, runThinking, streamReply, isBeginner]);
+
+    /*
+       차트 툴바의 'AI 분석' 버튼과 연결하는 창구.
+
+       그 버튼은 window.QTAiBridge.requestAnalysis 를 호출하는데, 그 객체가
+       **어디에도 정의돼 있지 않았다.** 그래서 항상 폴백 토스트("코파일럿을
+       열어주세요")만 떴고, 실제 분석은 시작되지 않았다.
+
+       여기서 노출한다 — 코파일럿이 마운트돼 있을 때만 존재하므로, 버튼은
+       코파일럿이 화면에 없으면 기존 토스트로 안내한다(그 폴백은 옳다).
+
+       ★ 분석 요청을 큐에 쌓지 않는다. 사용자가 버튼을 여러 번 누르면 같은
+         분석이 겹쳐 실행돼 대화가 중복된다. 진행 중이면 무시한다.
+    */
+    const busyRef = useRef(false);
+    useEffect(() => {
+      window.QTAiBridge = {
+        requestAnalysis: async (info) => {
+          if (busyRef.current) return false;
+
+          /*
+             ★★ AI 가 준비되지 않았으면 실행하지 않는다.
+
+               이 경로는 차트 툴바의 'AI 분석' 버튼이 부른다. 아래 분석 흐름은
+               사전에 박힌 예시 가격(69,120 / 67,200 / 손절 67,480 …)을 쓰고
+               차트에 선까지 그리므로, AI 미연결 상태로 실행되면 근거 없는
+               숫자를 분석 결과로 내보내게 된다.
+
+             ★ 이용권 차감보다 **먼저** 막는다. 실행하지 못할 것에 이용권을
+               쓰면 사용자가 대가를 내고 아무것도 받지 못한다.
+          */
+          if (!aiReady) {
+            setMsgs((m) => [...m, makeMsg('ai', t('ai_unavailable_reply'), { icon: 'warn' })]);
+            return false;
+          }
+
+          busyRef.current = true;
+
+          /*
+             AI 분석 이용권 소비.
+
+             ★ AI 실행은 우리에게 실제 비용이 든다(토큰). 그래서 포인트로
+               구매한 이용권을 차감한다. 이용권이 없으면 실행하지 않는다 —
+               실행해 버리면 비용은 우리가 내고 사용자는 무료로 쓴다.
+
+             ★ 제도가 꺼져 있으면 서버가 consumed:true 를 준다.
+               그때는 무료로 동작하는 것이 의도다(제도를 끄면 기능이 열린다).
+
+             ★ 소비에 실패(네트워크 등)하면 실행하지 않는다.
+               "소비 못 했으니 무료로 해주자" 는 잘못된 관대함이다 — 그 경로가
+               열려 있으면 네트워크를 끊어 무료로 쓸 수 있다.
+          */
+          const api = window.QTApi && window.QTApi.rest;
+          if (api && api.consumeEntitlement) {
+            try {
+              const r = await api.consumeEntitlement('ai_10');
+              if (!r.consumed) {
+                busyRef.current = false;
+                setMsgs((m) => [...m, makeMsg('system', t('ai_need_credit'), { icon: 'warn' })]);
+                return false;
+              }
+            } catch (e) {
+              busyRef.current = false;
+              setMsgs((m) => [...m, makeMsg('system', t('ai_credit_check_failed'), { icon: 'warn' })]);
+              return false;
+            }
+          }
+          /*
+             자연어 요청으로 바꿔 기존 흐름을 그대로 탄다.
+
+             별도 분석 경로를 만들지 않는 이유: 의도 분류·사고 단계·스트리밍
+             응답이 이미 handleSubmit 에 있다. 새 경로를 만들면 두 곳이 갈라진다.
+             문구는 사전에서 가져온다 — 코드에 한국어를 박으면 영어 UI 에서
+             한국어 요청이 나간다.
+          */
+          const text = t('ai_bridge_analyze_request', {
+            symbol: (info && info.symbol) || context.symbol,
+            tf: (info && info.timeframe) || context.tf,
+          });
+          Promise.resolve(handleSubmit(text)).finally(() => { busyRef.current = false; });
+          return true;
+        },
+        isBusy: () => busyRef.current,
+      };
+      return () => { delete window.QTAiBridge; };
+    }, [handleSubmit, context.symbol, context.tf, t]);
 
     // Watch for user edits on AI-draft overlays → inject an AI message
     const overlayVersions = useRef({});
@@ -285,7 +425,13 @@
     else if (streaming)    { aiState = 'streaming';  aiStateLabel = 'STREAMING';       aiStateNote = 'Generating response…';          aiStateClass = ''; }
     else if (currentSignal && currentSignal.status === 'approved') { aiState = 'approved'; aiStateLabel = 'SIGNAL APPROVED'; aiStateNote = `${currentSignal.symbol.replace('USDT','/USDT')} · ${currentSignal.timeframe}`; aiStateClass = 'is-approved'; }
     else if (currentSignal){ aiState = 'review';     aiStateLabel = 'WAITING REVIEW';  aiStateNote = 'Signal draft ready · approve or edit'; aiStateClass = ''; }
-    else                   { aiState = 'idle';       aiStateLabel = 'READY';           aiStateNote = 'Ask about trends, S/R, entry';  aiStateClass = 'is-idle'; }
+    /*
+       ★★ 'READY' 가 하드코딩돼 있었다. AI 가 연결되지 않은 상태에서도 "준비됨"
+         이라고 표시하면, 사용자는 뒤이어 나오는 예시 문구를 실제 분석으로 믿는다.
+         연결 상태를 그대로 말한다.
+    */
+    else if (!aiReady)     { aiState = 'idle';       aiStateLabel = t('ai_state_beta');  aiStateNote = t('ai_state_beta_note'); aiStateClass = 'is-pending'; }
+    else                   { aiState = 'idle';       aiStateLabel = 'READY';           aiStateNote = 'Ask about trends, S/R, entry'; aiStateClass = 'is-idle'; }
 
     // ---- UI ----
     return (
@@ -300,11 +446,42 @@
             </span>
           </div>
           <div className="panel__actions">
-            <button className="btn btn--icon" title="Layout"><I.LayoutIcon size={14}/></button>
-            <button className="btn btn--icon" title="More"><I.More size={14}/></button>
+            {/*
+               ★ 원래 이 두 버튼은 onClick 이 없어 눌러도 아무 일이 없었다.
+                 마크업·클래스는 그대로 두고 동작만 붙였다.
+            */}
+            <button
+              className="btn btn--icon"
+              title={collapsed ? t('ai_expand') : t('ai_collapse')}
+              aria-expanded={!collapsed}
+              onClick={toggleCollapsed}
+            >
+              {collapsed ? <I.Down size={14}/> : <I.Up size={14}/>}
+            </button>
+            <button
+              className="btn btn--icon"
+              title={t('ai_clear_chat')}
+              onClick={() => {
+                /* 대화만 비운다. 컨텍스트(심볼·타임프레임) 안내는 남겨야
+                   지금 무엇을 보고 있는지 알 수 있다. */
+                setMsgs([makeMsg('system', t('ai_ctx_loaded'), { icon: 'ok' })]);
+                setThinking(null);
+                setStreaming(null);
+              }}
+            >
+              <I.More size={14}/>
+            </button>
           </div>
         </div>
 
+        {/*
+           ★ 접으면 본문을 숨기고 헤더만 남긴다.
+
+             완전히 없애면 다시 펼 수단이 사라진다(레이아웃 편집으로 들어가야
+             한다). 헤더가 남아 있으면 같은 버튼으로 다시 펼 수 있다.
+        */}
+        {!collapsed && (
+          <>
         {/* AI STATE BAR — describes what the AI is doing right now */}
         <div className="ai-state-bar">
           <span className={`ai-state-bar__pill ${aiStateClass}`}>
@@ -429,6 +606,8 @@
             </div>
           ))}
         </div>
+          </>
+        )}
       </div>
     );
   };
@@ -543,7 +722,7 @@
           <div style={{fontSize: 10, color:'var(--color-text-tertiary)', display:'flex', gap: 10}}>
             <span>Generated {new Date(signal.createdAt).toLocaleTimeString('en-GB',{hour12:false})}</span>
             <span>·</span>
-            <span>Model: QuantumTrade Analyst v1</span>
+            <span>{t('copilot_model_label')}</span>
             <span>·</span>
             <span>ID: {signal.id}</span>
           </div>

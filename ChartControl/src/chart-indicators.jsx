@@ -72,6 +72,37 @@
   }
 
   /**
+   * 관리자 데이터가 갱신되면 재렌더하는 공용 훅.
+   *
+   * 상태를 함께 돌려준다 — 권한 없음(403)과 조회 실패를 화면이 구분해
+   * 보여줘야 한다. 둘을 같은 문구로 표시하면 운영자가 원인을 못 찾는다.
+   */
+  if (!window.useAdminData) {
+    window.useAdminData = function useAdminData() {
+      const A = window.QTAdmin;
+      const [snap, setSnap] = useState(() => ({
+        status: A ? A.getStatus() : 'OFFLINE',
+        version: 0,
+      }));
+
+      useEffect(() => {
+        if (!A) return undefined;
+        setSnap({ status: A.getStatus(), version: 0 });
+        return A.subscribe((st) => setSnap({ status: st.status, version: st.version }));
+      }, []);
+
+      return {
+        status: snap.status,
+        version: snap.version,
+        isLive: snap.status === 'READY',
+        error: A ? A.getError() : null,
+        asOf: A ? A.getAsOf() : null,
+        refresh: A ? A.refresh : function () {},
+      };
+    };
+  }
+
+  /**
    * 지표 메타데이터.
    *
    * overlay=true  -> 캔들 페인에 겹쳐 그린다 (가격과 같은 축을 쓰는 지표)

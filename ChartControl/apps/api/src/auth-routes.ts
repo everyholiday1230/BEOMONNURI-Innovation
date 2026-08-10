@@ -13,6 +13,10 @@ import {
 } from '@quantumtrade/auth';
 import type { ResourceRepo } from './db/resource-repo';
 import type { IFavoritesRepo } from './db/favorites-repo';
+import {
+  MAX_CHART_TEMPLATES,
+  type PgChartTemplateRepo,
+} from './db/chart-template-repo';
 import type { IPreferencesRepo } from './db/preferences-repo';
 import type { RateLimiter } from './security/rate-limiter';
 import { createHash } from 'node:crypto';
@@ -33,10 +37,26 @@ interface RouterDeps {
    *  SQLite in dev/test), selected by the server. The legacy `resource` endpoints (layouts/signals/etc.)
    *  are unchanged; only these two required domains are cut over. */
   favorites: IFavoritesRepo;
+  /*
+     차트 템플릿 저장소 (선택).
+
+     ★ 선택으로 둔 이유: SQLite 개발 환경에는 이 테이블이 없다. 없으면 라우트를
+       등록하지 않고, 화면은 서버 동기화 없이 기기 저장만 쓴다(기존 동작).
+       필수로 만들면 개발 환경에서 서버가 뜨지 않는다.
+  */
+  chartTemplates?: PgChartTemplateRepo;
   preferences: IPreferencesRepo;
   csrfKey: string;
   secureCookies: boolean;
   corsOrigins: string[];
+  /**
+   * 리퍼럴 귀속 훅 (선택).
+   *
+   * 회원가입이 성공한 **뒤에** 호출한다. 실패해도 회원가입은 성공으로
+   * 처리한다 — 초대 코드 문제로 가입이 막히면 사용자를 잃는다.
+   * 귀속은 가입 시점에만 가능하므로(소급 불가) 여기가 유일한 자리다.
+   */
+  onRegistered?: (userId: string, referralCode: string | null) => Promise<void> | void;
   cookieName?: string;
   cookieDomain?: string;
   /** Optional MFA gate (Phase 6). When a user has MFA enabled, login returns a pending challenge
@@ -110,7 +130,7 @@ const FavoritesUpdateSchema = z
   .strict();
 
 export function createAuthRouter(deps: RouterDeps): Hono {
-  const { service, audit, resource, favorites, preferences, csrfKey, secureCookies, corsOrigins } = deps;
+  const { service, audit, resource, favorites, preferences, chartTemplates, csrfKey, secureCookies, corsOrigins } = deps;
   const app = new Hono();
   const sessionCookie = deps.cookieName ?? SESSION;
   const base = { secure: secureCookies, sameSite: 'Lax' as const, path: '/', ...(deps.cookieDomain ? { domain: deps.cookieDomain } : {}) };
@@ -148,6 +168,31 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid or oversized body'), 400);
     const r = await service.register(parsed.body, ctxOf(c));
     if (!r.ok) return c.json(err(r.code, r.error), r.code === 'EMAIL_TAKEN' ? 409 : 400);
+
+    /*
+       초대 코드 귀속.
+
+       ★ 가입 시점에만 가능하다. 나중에 "이 사람은 내가 초대했다" 고 주장해도
+         검증할 근거가 없으므로 소급 귀속을 허용하지 않는다.
+
+       ★ 실패를 삼킨다. 코드가 잘못됐거나 저장소가 죽었어도 가입은 성공이다.
+         리퍼럴은 부가 기능이고, 이것 때문에 가입이 막히면 사용자를 잃는다.
+         (귀속되지 않았다는 사실은 사용자에게 알릴 방법이 없다 — 초대자가
+          자기 화면에서 인원이 안 늘어난 것으로 알게 된다.)
+
+       코드는 body 에서 읽는다. 스키마가 strict 라면 register 가 이미 거부했을
+       것이므로, 여기서는 파싱된 원본에서 꺼낸다.
+    */
+    if (deps.onRegistered) {
+      const raw = parsed.body as Record<string, unknown> | undefined;
+      const code = raw && typeof raw.referralCode === 'string' ? raw.referralCode : null;
+      try {
+        await deps.onRegistered(r.user.id, code);
+      } catch (e) {
+        console.warn('[auth] 리퍼럴 귀속 실패 — 가입은 유지한다:', (e as Error).message);
+      }
+    }
+
     return c.json({ user: r.user }, 201);
   });
 
@@ -407,6 +452,70 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   app.get('/me/layouts/:id', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); const row = resource.getLayout(a.user.id, c.req.param('id')); return row ? c.json(row) : c.json(err('NOT_FOUND', 'not found'), 404); });
   app.put('/me/layouts/:id', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); if (!(await csrfGuard(c, a.csrfSecret))) return c.json(err('CSRF_FAILED', ''), 403); const p = await readJson(c); if (!p.ok) return c.json(err('BAD_REQUEST', ''), 400); const r = resource.updateLayout(a.user.id, c.req.param('id'), (p.body as { layout?: unknown }).layout ?? {}); return r ? c.json(r) : c.json(err('NOT_FOUND', 'not found'), 404); });
   app.get('/me/layouts/:id/versions', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); return c.json({ versions: resource.listLayoutVersions(a.user.id, c.req.param('id')) }); });
+
+  /*
+     차트 템플릿 (기기 간 동기화).
+
+     ★★ 원래 `localStorage` 에만 저장했다. 집 PC 에서 만든 지표 조합이 사무실
+       PC·휴대폰에서는 없었다 — 같은 계정으로 로그인했으면 따라오는 것이 사용자
+       기대다. 즐겨찾기는 이미 서버에 저장하는데 템플릿만 빠져 있었다.
+
+     ★ 소유권은 **세션의 userId** 로만 정한다. 본문이나 쿼리로 받은 사용자 id 를
+       믿으면 남의 템플릿을 읽고 지울 수 있다.
+  */
+  if (chartTemplates) {
+    app.get('/me/chart-templates', async (c) => {
+      const a = await needAuth(c);
+      if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+      const items = await chartTemplates.list(a.user.id);
+      return c.json({ items, max: MAX_CHART_TEMPLATES });
+    });
+
+    app.put('/me/chart-templates', async (c) => {
+      const a = await needAuth(c);
+      if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+      if (!(await csrfGuard(c, a.csrfSecret))) return c.json(err('CSRF_FAILED', 'csrf'), 403);
+      if (!requirePerm(a.user, 'account.update.self')) return c.json(err('FORBIDDEN', 'permission'), 403);
+      const parsed = await readJson(c);
+      if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid body'), 400);
+      const body = (parsed.body ?? {}) as {
+        name?: unknown; symbol?: unknown; timeframe?: unknown; payload?: unknown; schemaVersion?: unknown;
+      };
+      if (typeof body.name !== 'string') return c.json(err('BAD_REQUEST', 'name required'), 400);
+      if (body.payload === undefined) return c.json(err('BAD_REQUEST', 'payload required'), 400);
+
+      const out = await chartTemplates.save(a.user.id, {
+        name: body.name,
+        symbol: typeof body.symbol === 'string' ? body.symbol : null,
+        timeframe: typeof body.timeframe === 'string' ? body.timeframe : null,
+        payload: body.payload,
+        schemaVersion: typeof body.schemaVersion === 'number' ? body.schemaVersion : 1,
+      });
+      if (!out.ok) {
+        /* ★ 왜 거부됐는지 구분해서 알린다. "저장 실패" 만 보내면 사용자가
+             이름을 고쳐야 할지 정리를 해야 할지 알 수 없다. */
+        if (out.reason === 'tooMany') {
+          return c.json({ ...err('UNPROCESSABLE', `at most ${out.max} templates`), max: out.max }, 422);
+        }
+        if (out.reason === 'tooLarge') {
+          return c.json({ ...err('UNPROCESSABLE', 'template too large'), maxChars: out.maxChars }, 422);
+        }
+        return c.json(err('BAD_REQUEST', 'invalid template name'), 400);
+      }
+      return c.json({ ok: true, template: out.template });
+    });
+
+    app.delete('/me/chart-templates/:id', async (c) => {
+      const a = await needAuth(c);
+      if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+      if (!(await csrfGuard(c, a.csrfSecret))) return c.json(err('CSRF_FAILED', 'csrf'), 403);
+      const removed = await chartTemplates.remove(a.user.id, c.req.param('id'));
+      /* ★ 없는 것과 남의 것을 구분해 알리지 않는다 — 구분하면 어떤 id 가
+           존재하는지 알아낼 수 있다. 둘 다 404 로 답한다. */
+      if (!removed) return c.json(err('NOT_FOUND', 'template not found'), 404);
+      return c.json({ ok: true });
+    });
+  }
 
   // signals
   app.get('/me/signals', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); if (!requirePerm(a.user, 'signal.read.self')) return c.json(err('FORBIDDEN', ''), 403); return c.json({ items: resource.listSignals(a.user.id) }); });

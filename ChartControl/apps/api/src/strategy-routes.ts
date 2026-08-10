@@ -11,8 +11,9 @@ import {
   runBacktest,
   type BacktestBar,
   type BacktestConfig,
+  type BacktestResult,
 } from '@quantumtrade/strategy';
-import { hashConfig, type SqliteStrategyRepo } from './db/strategy-repo';
+import { hashConfig, type BacktestRow, type FollowRow } from './db/strategy-repo';
 
 /**
  * G6 — strategy gallery.
@@ -48,7 +49,17 @@ export interface CandleSource {
 
 export interface StrategyRouterDeps {
   service: AuthService;
-  repo: SqliteStrategyRepo;
+  /**
+   * 전략 저장소.
+   *
+   * SQLite 와 Postgres 두 구현을 모두 받는다. 메서드 모양은 같지만 Postgres
+   * 구현은 Promise 를 돌려주므로, 호출부에서 전부 await 한다 — 동기 구현을
+   * await 하는 것은 무해하다(값이 그대로 온다).
+   *
+   * 왜 두 구현이 필요한가: 사용자 테이블이 Postgres 에 있는 배포에서 팔로우를
+   * SQLite 에 쓰면 외래키가 깨진다(실제로 500 이 났다).
+   */
+  repo: StrategyRepoLike;
   candles: CandleSource;
   csrfKey: string;
   corsOrigins: string[];
@@ -68,6 +79,23 @@ const BacktestRequestSchema = z
     slippage: z.string().regex(/^\d*\.?\d+$/u).optional(),
   })
   .strict();
+
+/**
+ * 저장소 계약. 동기(SQLite) 구현과 비동기(Postgres) 구현을 함께 받기 위해
+ * 반환 타입을 `T | Promise<T>` 로 둔다.
+ */
+export interface StrategyRepoLike {
+  findBacktest(q: {
+    strategyId: string; symbol: string; timeframe: string;
+    fromTime: number; toTime: number; inputHash: string;
+  }): BacktestRow | null | Promise<BacktestRow | null>;
+  saveBacktest(result: BacktestResult, inputHash: string): BacktestRow | Promise<BacktestRow>;
+  latestPerStrategy(symbol: string, timeframe: string): BacktestRow[] | Promise<BacktestRow[]>;
+  listFollows(userId: string): FollowRow[] | Promise<FollowRow[]>;
+  follow(userId: string, input: { strategyId: string; symbol: string; timeframe: string; note?: string }): FollowRow | Promise<FollowRow>;
+  unfollow(userId: string, id: string): boolean | Promise<boolean>;
+  countFollowers(strategyId: string): number | Promise<number>;
+}
 
 const FollowSchema = z
   .object({
@@ -98,17 +126,29 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
    * symbol/timeframe, and carries the window that produced it. A card cannot show a Sharpe that nobody
    * computed.
    */
-  app.get('/strategies', (c) => {
+  app.get('/strategies', async (c) => {
     const symbol = c.req.query('symbol') ?? 'BTCUSDT';
     const timeframe = c.req.query('timeframe') ?? '1h';
-    const cached = new Map(d.repo.latestPerStrategy(symbol, timeframe).map((r) => [r.strategy_id, r]));
+    const cached = new Map((await d.repo.latestPerStrategy(symbol, timeframe)).map((r) => [r.strategy_id, r]));
+
+    /*
+       팔로워 수를 먼저 모아둔다.
+
+       map 콜백 안에서 await 할 수 없고, 전략마다 순차로 기다리면 카탈로그가
+       커질 때 응답이 선형으로 느려진다. 병렬로 한 번에 센다.
+    */
+    const followerCounts = new Map(
+      await Promise.all(
+        STRATEGY_CATALOG.map(async (e) => [e.id, await d.repo.countFollowers(e.id)] as const),
+      ),
+    );
 
     const items = STRATEGY_CATALOG.map((e) => {
       const row = cached.get(e.id);
       return {
         ...e,
         // Real count, starting at 0. The design showed 1,240 / 2,140 followers for strategies nobody follows.
-        followers: d.repo.countFollowers(e.id),
+        followers: followerCounts.get(e.id) ?? 0,
         metrics:
           row === undefined
             ? null
@@ -144,7 +184,7 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
   app.get('/strategies/mine', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
-    const rows = d.repo.listFollows(a.user.id);
+    const rows = await d.repo.listFollows(a.user.id);
     return c.json({
       items: rows.map((r) => ({
         id: r.id,
@@ -169,16 +209,16 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
 
 
   /** GET /strategies/:id — one entry plus its cached backtest, if any. */
-  app.get('/strategies/:id', (c) => {
+  app.get('/strategies/:id', async (c) => {
     const id = c.req.param('id');
     const entry = STRATEGY_CATALOG.find((e) => e.id === id);
     if (!entry) return c.json(err('NOT_FOUND', 'strategy not found'), 404);
     const symbol = c.req.query('symbol') ?? 'BTCUSDT';
     const timeframe = c.req.query('timeframe') ?? '1h';
-    const row = d.repo.latestPerStrategy(symbol, timeframe).find((r) => r.strategy_id === id);
+    const row = (await d.repo.latestPerStrategy(symbol, timeframe)).find((r) => r.strategy_id === id);
     return c.json({
       ...entry,
-      followers: d.repo.countFollowers(id),
+      followers: await d.repo.countFollowers(id),
       symbol,
       timeframe,
       // The full result, including trades and the equity curve, so the detail page never has to infer.
@@ -235,7 +275,7 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
         ? []
         : [`이 백테스트는 실시장 데이터가 아닌 '${dataSource}' 소스로 계산되었습니다. 수치를 시장 성과로 읽으면 안 됩니다.`];
 
-    const hit = d.repo.findBacktest({ strategyId: rules.id, symbol, timeframe, fromTime, toTime, inputHash });
+    const hit = await d.repo.findBacktest({ strategyId: rules.id, symbol, timeframe, fromTime, toTime, inputHash });
     if (hit) {
       const cachedResult = JSON.parse(hit.result_json) as { caveats?: string[] };
       return c.json({
@@ -254,7 +294,7 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
       // Too few bars for the warmup, etc. Refused rather than returned as a flat, loss-free curve.
       return c.json(err('INSUFFICIENT_DATA', (e as Error).message), 422);
     }
-    const saved = d.repo.saveBacktest(result, inputHash);
+    const saved = await d.repo.saveBacktest(result, inputHash);
     return c.json({
       ...result,
       caveats: [...sourceCaveats, ...result.caveats],
@@ -273,7 +313,7 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
     const parsed = FollowSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json(err('BAD_REQUEST', parsed.error.issues[0]?.message ?? 'invalid request'), 400);
     if (!findStrategy(parsed.data.strategyId)) return c.json(err('NOT_FOUND', 'strategy not found'), 404);
-    const row = d.repo.follow(a.user.id, parsed.data);
+    const row = await d.repo.follow(a.user.id, parsed.data);
     return c.json({ id: row.id, strategyId: row.strategy_id, symbol: row.symbol, timeframe: row.timeframe, createdAt: row.created_at, autoExecution: false }, 201);
   });
 
@@ -281,7 +321,7 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
-    return d.repo.unfollow(a.user.id, c.req.param('id'))
+    return (await d.repo.unfollow(a.user.id, c.req.param('id')))
       ? c.json({ ok: true })
       : c.json(err('NOT_FOUND', 'follow not found'), 404);
   });

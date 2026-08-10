@@ -251,7 +251,14 @@ describe('RBA-03 failure modes', () => {
 
   it('[1] no operator credential is NOT_CONFIGURED, not an empty statement', async () => {
     const res = await adminGet('/api/admin/broker/rebates', {});
-    expect(res.status).toBe(503);
+    /*
+       설정 없음은 장애가 아니므로 200 이다.
+
+       503 을 쓰면 관리자 화면을 열 때마다 브라우저 콘솔에 오류가 쌓이고,
+       그 잡음 때문에 진짜 장애를 놓친다. 구분은 `configured` 플래그가 한다 —
+       아래에서 그 플래그와 오류 코드를 함께 확인한다.
+    */
+    expect(res.status).toBe(200);
     const body = (await res.json()) as { error: { code: string }; configured: boolean };
     expect(body.error.code).toBe('NOT_CONFIGURED');
     expect(body.configured).toBe(false);

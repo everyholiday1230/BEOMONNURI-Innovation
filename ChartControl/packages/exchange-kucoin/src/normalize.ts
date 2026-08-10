@@ -62,6 +62,10 @@ export interface KucoinContract {
   maxLeverage?: number;
   makerFeeRate?: number;
   takerFeeRate?: number;
+  /** 개시증거금률 (레버리지 한도의 역수에 가깝다). */
+  initialMargin?: number;
+  /** 유지증거금률. 이 아래로 떨어지면 청산된다. */
+  maintainMargin?: number;
   status?: string;
   lastTradePrice?: number;
   markPrice?: number;
@@ -112,6 +116,19 @@ export interface KucoinInstrument {
   exchangeSymbol: string;
   /** 계약 1개당 기초자산 수량 */
   multiplier: number;
+  /**
+   * 거래소 기본 수수료율 (소수, 예: 0.0006 = 0.06%).
+   *
+   * 사용자별 할인(VIP 등급·리베이트)은 반영되지 않은 **기본값**이다.
+   * 이 값을 "고객이 실제로 내는 수수료" 로 표시하면 안 된다 — 등급에 따라 다르다.
+   */
+  takerFeeRate?: number;
+  makerFeeRate?: number;
+  /** 펀딩비율 (8시간마다 정산). 무기한 선물에만 있다. */
+  fundingFeeRate?: number;
+  /** 개시증거금률·유지증거금률. 청산가 계산과 레버리지 한도에 쓰인다. */
+  initialMarginRate?: number;
+  maintenanceMarginRate?: number;
   info: SymbolInfo;
   tradable: boolean;
 }
@@ -135,6 +152,17 @@ export function normalizeInstrument(raw: KucoinContract): KucoinInstrument | nul
   const stepSize = toDecimalString(lotSize * multiplier);
   if (tickSize === null || stepSize === null) return null;
 
+  /**
+   * 수수료·증거금률.
+   *
+   * 없거나 숫자가 아니면 undefined 로 둔다. 0 으로 채우면 "수수료 무료" 라는
+   * 거짓이 되고, 사용자가 비용을 잘못 계산한다.
+   */
+  const rate = (v: unknown): number | undefined => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
+
   const candidate = {
     id: symbol,
     base: symbol.slice(0, -4),
@@ -155,6 +183,12 @@ export function normalizeInstrument(raw: KucoinContract): KucoinInstrument | nul
     symbol,
     exchangeSymbol: raw.symbol,
     multiplier,
+    // 거래소 기본 수수료율. 사용자별 할인은 반영되지 않는다.
+    takerFeeRate: rate(raw.takerFeeRate),
+    makerFeeRate: rate(raw.makerFeeRate),
+    fundingFeeRate: rate(raw.fundingFeeRate),
+    initialMarginRate: rate(raw.initialMargin),
+    maintenanceMarginRate: rate(raw.maintainMargin),
     info: parsed.data,
     tradable: raw.status === 'Open',
   };

@@ -131,16 +131,57 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
   /**
    * 미체결 주문.
    *
-   * 아직 구현하지 않았다. 빈 배열을 돌려주면 "미체결 주문이 없다"는 **거짓**을
-   * 말하게 되고, 그 값이 리스크 게이트에 들어가면 주문 한도를 잘못 통과시킨다.
-   * 그래서 명시적으로 실패한다.
+   * 실패 시 예외를 던진다. 빈 배열을 돌려주면 "미체결 주문이 없다"는 거짓이 되고,
+   * 그 값이 리스크 게이트(미결제 한도)에 들어가면 한도를 잘못 통과시킨다.
    */
-  async getOpenOrders(): Promise<NormalizedOrder[]> {
-    throw new Error('KuCoin 미체결 주문 조회는 아직 구현되지 않았다 (주문 집행 단계에서 추가)');
+  async getOpenOrders(ctx: ExchangeContext, symbol?: string): Promise<NormalizedOrder[]> {
+    const rows = await this.client.getOrders(toKucoinCredential(ctx.credential), {
+      status: 'active',
+      symbol,
+      multiplierOf: this.multiplierOf,
+    });
+    return rows.map(toNormalizedOrder);
   }
 
-  async getOrderByClientId(): Promise<NormalizedOrder | null> {
-    throw new Error('KuCoin 주문 조회는 아직 구현되지 않았다 (주문 집행 단계에서 추가)');
+  /**
+   * 완료·취소된 주문 목록. 주문 내역 화면이 쓴다.
+   *
+   * 표준 인터페이스에 없는 확장 메서드다 — 라우터가 존재를 확인한 뒤 호출한다.
+   */
+  async getOrderHistory(ctx: ExchangeContext, symbol?: string): Promise<NormalizedOrder[]> {
+    const rows = await this.client.getOrders(toKucoinCredential(ctx.credential), {
+      status: 'done',
+      symbol,
+      multiplierOf: this.multiplierOf,
+    });
+    return rows.map(toNormalizedOrder);
+  }
+
+  /**
+   * 체결 내역. 한 주문이 여러 번 체결되면 여러 행이 된다.
+   * 실제 수수료가 얼마 나갔는지는 이쪽에만 있다.
+   */
+  getFills(ctx: ExchangeContext, symbol?: string) {
+    return this.client.getFills(toKucoinCredential(ctx.credential), {
+      symbol,
+      multiplierOf: this.multiplierOf,
+    });
+  }
+
+  /**
+   * clientOrderId 로 주문 조회 — 멱등성 확인에 쓴다.
+   *
+   * KuCoin 에 clientOid 단건 조회가 있으나, 목록에서 찾는 편이 취소·완료 상태를
+   * 함께 확인할 수 있어 안전하다. 미체결과 완료를 모두 본다.
+   */
+  async getOrderByClientId(ctx: ExchangeContext, clientOrderId: string): Promise<NormalizedOrder | null> {
+    const cred = toKucoinCredential(ctx.credential);
+    for (const status of ['active', 'done'] as const) {
+      const rows = await this.client.getOrders(cred, { status, multiplierOf: this.multiplierOf });
+      const hit = rows.find((r) => r.clientOid === clientOrderId);
+      if (hit) return toNormalizedOrder(hit);
+    }
+    return null;
   }
 
 /**
@@ -185,6 +226,36 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
   verifyCredentials(ctx: ExchangeContext) {
     return this.client.verifyCredentials(toKucoinCredential(ctx.credential));
   }
+}
+
+/**
+ * KuCoin 주문 → 정규 주문.
+ *
+ * 수량은 **기초자산 단위**를 쓴다. 계약 수를 넘기면 화면 수량과 주문 수량이
+ * 어긋난다. 승수를 몰라 빈 문자열이면 그대로 둔다 — 0 으로 채우면
+ * "수량 0 인 주문" 이라는 거짓이 된다.
+ */
+function toNormalizedOrder(o: {
+  id: string; clientOid: string; symbol: string; side: 'long' | 'short'; type: string;
+  price: string | null; quantity: string; contracts: string;
+  filledQuantity: string; filledContracts: string; status: string;
+  reduceOnly: boolean; createdAt: number; updatedAt: number;
+}): NormalizedOrder {
+  return {
+    clientOrderId: o.clientOid,
+    exchangeOrderId: o.id,
+    symbol: o.symbol,
+    side: o.side,
+    // 정규 타입은 market|limit 뿐이다. 그 외(stop 등)는 limit 으로 좁힌다.
+    type: o.type === 'market' ? 'market' : 'limit',
+    price: o.price ?? undefined,
+    quantity: o.quantity || o.contracts,
+    filledQuantity: o.filledQuantity || o.filledContracts,
+    status: o.status,
+    reduceOnly: o.reduceOnly,
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+  };
 }
 
 /**

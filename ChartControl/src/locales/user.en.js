@@ -30,7 +30,7 @@
       // --- Wallet ---
       wallet_ed546c: 'Exchange connections',
       wallet_95195c: 'Supported exchanges · API key management · assets · deposits and withdrawals',
-      wallet_ea90da: '🎁 QuantumTrade AI partner exchanges',
+      wallet_ea90da: '🎁 {brand} partner exchanges',
       wallet_ceef92: 'The exchanges below are our partners and offer ',
       wallet_cbe9e9: 'fee rebates and a welcome bonus',
       wallet_fc0c97: '. Sign up through the referral link, create an API key, and connect it on this page.',

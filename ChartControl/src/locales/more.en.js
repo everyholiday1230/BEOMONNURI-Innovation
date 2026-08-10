@@ -18,7 +18,7 @@
       exchange_connect_wizard_4511bd: 'Enter key',
       exchange_connect_wizard_8d8680: 'Done',
       exchange_connect_wizard_acfc61: '🎁 New sign-up bonus',
-      exchange_connect_wizard_ca4b74: 'QuantumTrade AI partner link',
+      exchange_connect_wizard_ca4b74: '{brand} partner link',
       exchange_connect_wizard_806a50: 'I already have an account →',
       exchange_connect_wizard_0506be: '2️⃣ Create an API key',
       exchange_connect_wizard_aad4f8: 'Checklist when creating the key',
@@ -42,7 +42,7 @@
 
       // --- 입금 ---
       deposit_b9ca11: 'Deposit',
-      deposit_65292b: 'Deposit assets into your QuantumTrade AI wallet',
+      deposit_65292b: 'Deposit assets into your {brand} wallet',
       deposit_1bcffc: '1. Select asset and network',
       deposit_d4cde2: 'Current balance',
       deposit_eba168: '2. Deposit address',

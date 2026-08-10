@@ -177,13 +177,28 @@
           {/* 7. Language */}
           <div className="tw-section">
             <div className="tw-section__title">7. Language</div>
-            <div className="seg" style={{width:'100%'}}>
-              <button className={`seg__opt ${tweaks.lang==='ko' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ lang: 'ko' })}>
-                {t('tweaks_6e081b')}
-              </button>
-              <button className={`seg__opt ${tweaks.lang==='en' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ lang: 'en' })}>
-                English
-              </button>
+            {/*
+               ★★ 원래 한국어·English **두 개만** 하드코딩돼 있었다. 일본어
+                 사전을 등록해도 이 패널에서는 고를 수 없었다.
+               ★ i18n 레지스트리를 단일 출처로 렌더한다. `src/locales/<code>.js`
+                 를 추가하면 여기에 자동으로 나타난다 — 언어를 늘릴 때 이 파일을
+                 고칠 필요가 없다.
+               ★ 라벨은 각 사전이 등록한 `label`(한국어/English/日本語)을 쓴다.
+                 코드(ko/en/ja)만 보여주면 어떤 언어인지 알기 어렵다.
+            */}
+            <div className="seg" style={{width:'100%', flexWrap:'wrap'}}>
+              {(window.QTI18n && window.QTI18n.available ? window.QTI18n.available() : [])
+                .map((L) => (
+                  <button
+                    key={L.code}
+                    className={`seg__opt ${tweaks.lang === L.code ? 'is-active' : ''}`}
+                    style={{flex:'1 1 auto', minWidth: 72}}
+                    onClick={() => setTweaks({ lang: L.code })}
+                    title={`${L.label} (${L.code})`}
+                  >
+                    {L.label}
+                  </button>
+                ))}
             </div>
           </div>
 

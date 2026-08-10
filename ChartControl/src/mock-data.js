@@ -204,11 +204,21 @@
       name: 'AI Workspace',
       descKey: 'preset_desc_ai',
       cols: 24,
+      /*
+         ★★ 원래 위젯이 4개뿐이었고 **주문 패널(orderEntry)이 없었다.**
+           코파일럿이 24칸 중 9칸을 차지해서, 이 워크스페이스에서는 분석은
+           볼 수 있는데 주문을 넣을 수가 없었다. 분석을 보고 바로 주문하는
+           것이 이 화면의 목적이므로, 주문 패널이 없으면 화면을 벗어나야 한다.
+
+         ★ 코파일럿을 9 → 6 칸으로 줄이고 주문 패널 4칸을 넣었다(minW 3).
+           합계 3 + 11 + 6 + 4 = 24.
+      */
       widgets: [
         { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 8 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 12, h: 11, minW: 8, minH: 6 },
-        { id: 'positions', type: 'positions',   x: 3,  y: 11, w: 12, h: 5,  minW: 8, minH: 3 },
-        { id: 'ai',        type: 'aiCopilot',   x: 15, y: 0,  w: 9,  h: 16, minW: 5, minH: 10 },
+        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 11, h: 11, minW: 8, minH: 6 },
+        { id: 'positions', type: 'positions',   x: 3,  y: 11, w: 11, h: 5,  minW: 8, minH: 3 },
+        { id: 'ai',        type: 'aiCopilot',   x: 14, y: 0,  w: 6,  h: 16, minW: 5, minH: 10 },
+        { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },
       ]
     },
     'chart-focus': {
@@ -277,6 +287,17 @@
   };
 
   // -------- i18n --------
+  /*
+     ★ 이 상수는 **사용되지 않는다**.
+
+     QTI18n.register() 로 등록되지 않아 t() 가 여기서 값을 찾지 못하고,
+     화면에 키 문자열이 그대로 나왔다(실측: 헤더의 mode_spot / mode_futures /
+     mode_paper, 그리고 layout_manager · deposit).
+
+     실제 사전은 src/locales/*.js 다. 여기 있던 항목은 그쪽으로 옮겼다.
+     이 상수는 QT.I18N 으로 노출돼 있어 참조하는 코드가 있을 수 있으므로
+     지우지 않고 남긴다 — 다만 **여기에 문구를 추가해도 화면에 반영되지 않는다.**
+  */
   const I18N = {
     ko: {
       nav_markets: '시장', nav_trade: '트레이드', nav_ai: 'AI 전략', nav_portfolio: '포트폴리오', nav_analytics: '분석',

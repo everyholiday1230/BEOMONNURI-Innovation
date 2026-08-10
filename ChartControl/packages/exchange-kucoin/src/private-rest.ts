@@ -81,6 +81,76 @@ export interface KucoinLedgerEntry {
   remark: string;
 }
 
+/** 주문 1건 (미체결·완료 공통). */
+export interface KucoinOrder {
+  id: string;
+  clientOid: string;
+  symbol: string;
+  side: 'long' | 'short';
+  type: string;
+  /** 지정가. 시장가 주문은 null. */
+  price: string | null;
+  /** 계약 수 */
+  contracts: string;
+  /** 기초자산 수량 (승수 적용). 승수를 모르면 빈 문자열. */
+  quantity: string;
+  filledContracts: string;
+  filledQuantity: string;
+  status: 'open' | 'done' | 'canceled';
+  reduceOnly: boolean;
+  leverage: number;
+  timeInForce: string;
+  createdAt: number;
+  updatedAt: number;
+  /** 브로커 귀속 확인용. 파트너 헤더가 붙었으면 값이 들어온다. */
+  tags: string | null;
+}
+
+/** 체결 1건. */
+export interface KucoinFill {
+  id: string;
+  orderId: string;
+  symbol: string;
+  side: 'long' | 'short';
+  price: string;
+  contracts: string;
+  quantity: string;
+  /** 수수료. 음수면 리베이트(메이커 보상). */
+  fee: string;
+  feeCurrency: string;
+  /** 'taker' | 'maker' */
+  liquidity: string;
+  ts: number;
+}
+
+/** 주문 제출 요청. 수량은 **기초자산 단위**로 받고 내부에서 계약수로 바꾼다. */
+export interface KucoinSubmitRequest {
+  /** 멱등성 키. 같은 값으로 두 번 보내도 주문은 하나만 생긴다. */
+  clientOid: string;
+  symbol: string;
+  side: 'long' | 'short';
+  type: 'market' | 'limit';
+  /** 기초자산 수량 (예: BTC 0.01). 계약수가 아니다. */
+  quantity: string;
+  /** 지정가. 시장가면 생략한다. */
+  price?: string;
+  leverage: number;
+  reduceOnly?: boolean;
+  postOnly?: boolean;
+  /** GTC | IOC | FOK */
+  timeInForce?: string;
+  marginMode?: 'isolated' | 'cross';
+}
+
+export interface KucoinSubmitResult {
+  orderId: string;
+  clientOid: string;
+  /** 실제로 보낸 계약 수. 수량 변환이 맞는지 확인하는 근거다. */
+  contractsSent: string;
+  /** 브로커 파트너 헤더가 붙었는지. 리베이트 집계 여부다. */
+  brokerAttached: boolean;
+}
+
 interface KucoinEnvelope<T> {
   code?: string;
   msg?: string;
@@ -345,6 +415,250 @@ export class KucoinFuturesPrivate {
     }
 
     return out;
+  }
+
+/**
+   * 주문 목록.
+   *
+   * KuCoin 은 `status=active`(미체결)와 `status=done`(완료)을 같은 엔드포인트로 준다.
+   * 완료 주문은 취소된 것도 포함하므로 status 로 구분해 돌려준다.
+   *
+   * ★ 수량은 계약 수다. 승수를 곱하지 않으면 BTC 1계약(0.001 BTC)을 1 BTC 로 표시한다.
+   *   승수를 모르면 quantity 를 빈 문자열로 둔다 — 틀린 수량보다 빈 값이 안전하다.
+   */
+  async getOrders(
+    user: UserCredentials,
+    opts: {
+      status?: 'active' | 'done';
+      symbol?: string;
+      pageSize?: number;
+      multiplierOf?: (canonicalSymbol: string) => number | undefined;
+    } = {},
+  ): Promise<KucoinOrder[]> {
+    const d = await this.request<{
+      items?: Array<Record<string, unknown>>;
+      currentPage?: number;
+      totalPage?: number;
+    }>(user, 'GET', '/api/v1/orders', {
+      query: {
+        status: opts.status,
+        symbol: opts.symbol ? toKucoinSymbol(opts.symbol) ?? undefined : undefined,
+        pageSize: Math.min(opts.pageSize ?? 50, 200),
+      },
+    });
+
+    const out: KucoinOrder[] = [];
+    for (const r of d?.items ?? []) {
+      const exSymbol = String(r.symbol ?? '');
+      const canonical = toInternalSymbol(exSymbol);
+      if (!canonical) continue;
+
+      const contracts = Number(r.size ?? 0);
+      const filled = Number(r.dealSize ?? 0);
+      const mult = opts.multiplierOf?.(canonical);
+
+      // KuCoin 은 매수/매도를 'buy'/'sell' 로 준다. 우리 표기로 바꾼다.
+      const side = String(r.side ?? '').toLowerCase() === 'sell' ? 'short' : 'long';
+      // isActive=true 면 미체결, cancelExist=true 면 취소, 그 외 완료.
+      const status: KucoinOrder['status'] =
+        r.isActive === true ? 'open' : r.cancelExist === true ? 'canceled' : 'done';
+
+      out.push({
+        id: String(r.id ?? ''),
+        clientOid: String(r.clientOid ?? ''),
+        symbol: canonical,
+        side,
+        type: String(r.type ?? ''),
+        // 시장가 주문의 price 는 0 으로 온다. 0 을 가격으로 표시하면 오해를 만든다.
+        price: Number(r.price) > 0 ? toDecimalString(r.price as number) ?? null : null,
+        contracts: toDecimalString(contracts) ?? '0',
+        quantity: mult === undefined ? '' : toDecimalString(contracts * mult) ?? '',
+        filledContracts: toDecimalString(filled) ?? '0',
+        filledQuantity: mult === undefined ? '' : toDecimalString(filled * mult) ?? '',
+        status,
+        reduceOnly: r.reduceOnly === true,
+        leverage: Number(r.leverage ?? 0),
+        timeInForce: String(r.timeInForce ?? ''),
+        createdAt: Number(r.createdAt ?? 0),
+        updatedAt: Number(r.updatedAt ?? r.createdAt ?? 0),
+        // 브로커 귀속 태그. 리베이트가 집계되는지 확인하는 근거다.
+        tags: r.tags ? String(r.tags) : null,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * 체결 내역.
+   *
+   * 주문 목록과 다르다: 한 주문이 여러 번에 나눠 체결되면 여기에 여러 행이 생긴다.
+   * 수수료가 실제로 얼마 나갔는지는 이쪽에만 있다.
+   */
+  async getFills(
+    user: UserCredentials,
+    opts: {
+      symbol?: string;
+      orderId?: string;
+      pageSize?: number;
+      multiplierOf?: (canonicalSymbol: string) => number | undefined;
+    } = {},
+  ): Promise<KucoinFill[]> {
+    const d = await this.request<{ items?: Array<Record<string, unknown>> }>(
+      user,
+      'GET',
+      '/api/v1/fills',
+      {
+        query: {
+          symbol: opts.symbol ? toKucoinSymbol(opts.symbol) ?? undefined : undefined,
+          orderId: opts.orderId,
+          pageSize: Math.min(opts.pageSize ?? 50, 200),
+        },
+      },
+    );
+
+    const out: KucoinFill[] = [];
+    for (const r of d?.items ?? []) {
+      const canonical = toInternalSymbol(String(r.symbol ?? ''));
+      if (!canonical) continue;
+      const contracts = Number(r.size ?? 0);
+      const mult = opts.multiplierOf?.(canonical);
+
+      out.push({
+        id: String(r.tradeId ?? r.id ?? ''),
+        orderId: String(r.orderId ?? ''),
+        symbol: canonical,
+        side: String(r.side ?? '').toLowerCase() === 'sell' ? 'short' : 'long',
+        price: toDecimalString(r.price as number) ?? '0',
+        contracts: toDecimalString(contracts) ?? '0',
+        quantity: mult === undefined ? '' : toDecimalString(contracts * mult) ?? '',
+        // 부호를 보존한다. 메이커 리베이트는 음수로 온다.
+        fee: toDecimalString(r.fee as number) ?? '0',
+        feeCurrency: String(r.feeCurrency ?? 'USDT'),
+        liquidity: String(r.liquidity ?? ''),
+        // 체결 시각은 나노초로 온다 (tradeTime). createdAt 은 밀리초다.
+        ts: r.tradeTime ? Math.round(Number(r.tradeTime) / 1e6) : Number(r.createdAt ?? 0),
+      });
+    }
+    return out;
+  }
+
+/**
+   * 주문 제출 — 실제로 돈이 나가는 경로다.
+   *
+   * 수량 변환
+   * --------
+   * KuCoin 선물은 **계약 수**로 주문한다. 기초자산 수량을 그대로 보내면
+   * multiplier 배만큼 큰 주문이 나간다 (BTC 1계약 = 0.001 BTC → 1000배 사고).
+   * 그래서 승수를 반드시 받고, 없으면 **주문을 보내지 않는다.**
+   *
+   * 계약 수는 정수여야 한다. 0.5계약은 존재하지 않는다. 내림하면 의도보다 적게,
+   * 올림하면 많게 나간다. 소수가 나오면 내림하고 결과를 돌려줘 호출자가
+   * 실제 체결 수량을 알 수 있게 한다 — 많이 나가는 쪽이 더 위험하기 때문이다.
+   *
+   * 멱등성
+   * -----
+   * clientOid 를 KuCoin 이 중복 검사한다. 재시도로 주문이 두 번 나가는 것을
+   * 막는 유일한 장치이므로 호출자가 **같은 요청에 같은 clientOid** 를 써야 한다.
+   */
+  async submitOrder(
+    user: UserCredentials,
+    req: KucoinSubmitRequest,
+    multiplier: number | undefined,
+  ): Promise<KucoinSubmitResult> {
+    const exSymbol = toKucoinSymbol(req.symbol);
+    if (!exSymbol) {
+      throw new KucoinApiError(`지원하지 않는 심볼: ${req.symbol}`, { code: 'SYMBOL_UNSUPPORTED' });
+    }
+    if (!Number.isFinite(multiplier) || (multiplier as number) <= 0) {
+      // 승수를 모르면 수량을 계산할 수 없다. 추측해서 주문하면 안 된다.
+      throw new KucoinApiError(
+        `계약 승수를 알 수 없어 주문을 보내지 않는다: ${req.symbol}`,
+        { code: 'MULTIPLIER_UNKNOWN' },
+      );
+    }
+
+    const qty = Number(req.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      throw new KucoinApiError(`수량이 올바르지 않다: ${req.quantity}`, { code: 'INVALID_QUANTITY' });
+    }
+
+    const rawContracts = qty / (multiplier as number);
+    const contracts = Math.floor(rawContracts);
+    if (contracts < 1) {
+      throw new KucoinApiError(
+        `최소 주문 수량 미달: ${req.quantity} < 1계약(${multiplier})`,
+        { code: 'BELOW_MIN_QUANTITY' },
+      );
+    }
+
+    const body: Record<string, unknown> = {
+      clientOid: req.clientOid,
+      symbol: exSymbol,
+      // KuCoin 은 buy/sell 로 받는다. 우리 표기를 변환한다.
+      side: req.side === 'short' ? 'sell' : 'buy',
+      type: req.type,
+      size: contracts,
+      leverage: String(req.leverage),
+    };
+    if (req.type === 'limit') {
+      if (!req.price) {
+        throw new KucoinApiError('지정가 주문에 가격이 없다', { code: 'PRICE_REQUIRED' });
+      }
+      body.price = req.price;
+    }
+    if (req.reduceOnly) body.reduceOnly = true;
+    if (req.postOnly) body.postOnly = true;
+    if (req.timeInForce) body.timeInForce = req.timeInForce.toUpperCase();
+    if (req.marginMode === 'cross') body.marginMode = 'CROSS';
+
+    const d = await this.request<{ orderId?: string; clientOid?: string }>(
+      user,
+      'POST',
+      '/api/v1/orders',
+      { body },
+    );
+
+    return {
+      orderId: String(d?.orderId ?? ''),
+      clientOid: String(d?.clientOid ?? req.clientOid),
+      contractsSent: String(contracts),
+      brokerAttached: this.brokerAttached,
+    };
+  }
+
+  /**
+   * 주문 취소.
+   *
+   * 이미 체결·취소된 주문에 대한 취소는 실패한다. 그건 오류가 아니라 정상 상태이므로
+   * 호출자가 구분할 수 있게 코드를 그대로 넘긴다.
+   */
+  async cancelOrder(user: UserCredentials, orderId: string): Promise<{ canceled: string[] }> {
+    const d = await this.request<{ cancelledOrderIds?: string[] }>(
+      user,
+      'DELETE',
+      `/api/v1/orders/${encodeURIComponent(orderId)}`,
+    );
+    return { canceled: d?.cancelledOrderIds ?? [orderId] };
+  }
+
+  /**
+   * 심볼의 미체결 주문 전체 취소.
+   *
+   * symbol 을 생략하면 **모든 심볼**이 취소된다. 사고를 막기 위해 생략을 허용하지 않는다 —
+   * 전체 취소가 필요하면 호출자가 심볼별로 돌려야 한다.
+   */
+  async cancelAllForSymbol(user: UserCredentials, symbol: string): Promise<{ canceled: string[] }> {
+    const exSymbol = toKucoinSymbol(symbol);
+    if (!exSymbol) {
+      throw new KucoinApiError(`지원하지 않는 심볼: ${symbol}`, { code: 'SYMBOL_UNSUPPORTED' });
+    }
+    const d = await this.request<{ cancelledOrderIds?: string[] }>(
+      user,
+      'DELETE',
+      '/api/v1/orders',
+      { query: { symbol: exSymbol } },
+    );
+    return { canceled: d?.cancelledOrderIds ?? [] };
   }
 
   /**

@@ -23,12 +23,38 @@ import { createCoreIdentityRepositories, BATCH_1_REPOSITORY_IDS, createUserDataR
 import { ResourceRepo } from './db/resource-repo';
 import { CredentialVault, LocalKekProvider } from './trading/credential-vault';
 import { KucoinAccountAdapter } from './trading/kucoin-account-adapter';
+import { KucoinTradingAdapter } from './trading/kucoin-trading-adapter';
+import { PgNoticeRepo } from './db/notice-repo';
+import { PgSupportRepo } from './db/support-repo';
+import { createSupportRouter } from './support/support-routes';
+import { PgReferralRepo } from './db/referral-repo';
+import { createReferralRouter } from './referral/referral-routes';
+import { PgPointsRepo } from './db/points-repo';
+import { createPointsRouter } from './points/points-routes';
+import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
+import { PgLegalRepo } from './db/legal-repo';
+import { createLegalRouter } from './legal/legal-routes';
+import { PgSimOrderProjection } from './portfolio/pg-sim-projection';
+import { PgPortfolioRepo } from './db/pg-portfolio-repo';
+import { PgEquitySnapshotRepo } from './db/equity-snapshot-repo';
+import { PgChartTemplateRepo } from './db/chart-template-repo';
+import { RiskWatchLoop } from './trading/risk-watch-loop';
+
+/*
+   청산 위험 감시 루프.
+
+   ★ 모듈 스코프에 둔다. `health()` 가 이 값을 읽어 운영자에게 감시 상태를
+     보여주는데, health 는 감시 루프보다 먼저 정의되기 때문이다.
+     클로저이므로 호출 시점에 값이 있으면 된다.
+*/
+let riskWatch: RiskWatchLoop | null = null;
 import { assertProductionCredentialReadiness } from './trading/credential-source';
 import { createBrokerRebateReader } from './trading/broker-rebate-source';
 import { assertNoDevFixtures } from './security/dev-fixture-guard';
 import { SqliteCredentialRepo } from './db/trading-repos';
 import { SqliteOrderDraftRepo } from './db/order-draft-repo';
 import { SqliteStrategyRepo } from './db/strategy-repo';
+import { PgStrategyRepo } from './db/pg-strategy-repo';
 import { createStrategyRouter } from './strategy-routes';
 import { createTradingRouter } from './trading-routes';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
@@ -99,7 +125,67 @@ const aiResolution = await resolveAiProvider({
 const app = new Hono();
 
 // ---- security middleware ----
-app.use('*', secureHeaders());
+
+/*
+   Content-Security-Policy.
+
+   ★ 없었다. HSTS·X-Frame-Options·nosniff 는 붙어 있었지만 CSP 헤더는 아예
+     생성되지 않았다(secureHeaders() 를 인자 없이 호출하면 CSP 를 만들지 않는다).
+
+   왜 'unsafe-eval' 과 'unsafe-inline' 이 들어가는가
+   ----------------------------------------------
+   프론트엔드가 브라우저에서 Babel 로 JSX 를 변환한다(빌드 단계가 없다).
+   그래서 script-src 에 'unsafe-eval' 이 필요하고, 인라인 babel 블록 때문에
+   'unsafe-inline' 도 필요하다.
+
+   ★ 이 두 값이 들어가면 CSP 의 XSS 차단 효과는 크게 줄어든다. 과장하지 않고
+     적어둔다 — CSP 가 있다고 XSS 가 막히는 것이 아니다.
+
+   그래도 남는 실질적 방어:
+     · frame-ancestors 'none'  — 클릭재킹. 우리 화면을 남의 사이트에 끼워
+       주문 버튼을 누르게 만드는 공격을 막는다.
+     · object-src 'none'       — 플러그인 실행 경로 제거.
+     · base-uri 'self'         — <base> 주입으로 모든 상대 경로를 공격자
+       서버로 돌리는 것을 막는다.
+     · connect-src 제한        — 침해된 스크립트가 데이터를 외부로 보내기
+       어렵게 한다.
+     · form-action 'self'      — 입력값을 외부로 제출하지 못하게 한다.
+
+   ★ 나중에 빌드 단계를 도입하면 'unsafe-eval' 과 'unsafe-inline' 을 지워야
+     한다. 그때가 CSP 가 실제로 XSS 를 막기 시작하는 시점이다.
+*/
+const CDN = ['https://unpkg.com', 'https://cdn.jsdelivr.net'];
+
+app.use('*', secureHeaders({
+  contentSecurityPolicy: {
+    defaultSrc: ["'self'"],
+    // 브라우저 Babel 변환 때문에 eval 과 인라인이 필요하다 (위 주석 참고).
+    scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", ...CDN],
+    scriptSrcElem: ["'self'", "'unsafe-inline'", ...CDN],
+    // 인라인 style 속성(React style={{...}})과 웹폰트 CSS.
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...CDN],
+    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', ...CDN],
+    // 차트가 canvas 를 이미지로 내보낼 때 blob: 를 쓴다.
+    imgSrc: ["'self'", 'data:', 'blob:'],
+    /*
+       API 와 WebSocket 은 같은 오리진이다 (단일 오리진 서빙).
+
+       ★ 거래소를 브라우저에서 직접 부르지 않는다 — 키가 브라우저에 있으면
+         안 되기 때문이다. 그래서 외부 API 도메인을 허용하지 않는다.
+    */
+    connectSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'none'"],
+    // 상위 문서를 다른 곳으로 돌리는 것을 막는다.
+    frameSrc: ["'none'"],
+    workerSrc: ["'self'", 'blob:'],
+  },
+  // X-Frame-Options 와 함께 둔다 — 오래된 브라우저는 CSP frame-ancestors 를 모른다.
+  xFrameOptions: 'DENY',
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(
   '/api/*',
   cors({
@@ -155,9 +241,47 @@ app.get('/api/config', (c) =>
     // The client MUST be able to block the order CTA on the emergency kill switch rather than
     // guessing a value; this is a read-only mirror of BITMART_EMERGENCY_KILL_SWITCH.
     killSwitchActive: env.bitmartKillSwitch,
+    /*
+       AI 분석 사용 가능 여부.
+
+       ★★ 이 값이 없어서 클라이언트가 AI 연결 상태를 알 수 없었다. 그 결과
+         코파일럿이 **AI 가 연결되지 않았는데도** 사전에 박힌 예시 문구
+         ("저항: 69,120 · 지지: 67,200 · 손절 67,480")를 분석 결과처럼 답하고,
+         그 값으로 차트에 선까지 그렸다.
+
+       ★ 사용자는 그 숫자로 진입·손절을 정한다. 근거 없는 가격을 분석으로
+         내보내는 것은 이 서비스에서 가장 위험한 거짓이다. 화면이 이 값을 보고
+         "아직 분석할 수 없다" 고 말해야 한다.
+    */
+    aiAvailable: aiResolution.kind !== 'unavailable' && aiResolution.available === true,
+    aiProvider: aiResolution.kind,
     defaultSymbol: env.defaultSymbol,
     timeframes: SUPPORTED_TIMEFRAMES,
     marketDataSource: providers.source,
+    /*
+       KuCoin 가입 링크 (레퍼럴).
+
+       여기로 내보내는 이유: 우리는 비수탁이라 사용자가 **자기 KuCoin 계정**을
+       만들어 API 키를 연결해야 한다. 계정이 없는 사람에게 가입 경로를 주는 것은
+       기능이고, 그 링크에 추천 코드가 붙어 있으면 수익이 된다.
+
+       ★ 브로커 리베이트와 다른 수익원이다. 브로커는 주문 헤더로 집계되고,
+         레퍼럴은 가입 귀속으로 집계된다. 화면에서 둘을 섞어 표시하면 안 된다.
+       설정이 없으면 빈 문자열 → 화면이 가입 유도를 감춘다.
+    */
+    // 화면이 브랜드 이름을 여기서 받는다 (i18n 의 {brand} 치환에 쓰인다).
+    brandName: env.brandName,
+    // 비어 있으면 화면이 이메일 문의 경로를 감춘다.
+    supportEmail: env.supportEmail,
+    exchangeSignupUrl: env.kucoinReferralUrl,
+    /*
+       거래소별 추천 가입 링크.
+
+       ★ 설정에 없는 거래소는 여기 없다. 화면은 링크가 없으면 유도 카드를
+         감춰야 한다. 예시 코드가 박힌 링크를 보여주면 사용자는 가입하는데
+         귀속이 안 돼 수익이 0 이 된다 — 조용히 새기 때문에 알아채기 어렵다.
+    */
+    exchangeReferralUrls: env.exchangeReferralUrls,
   }),
 );
 
@@ -179,6 +303,143 @@ app.get('/api/market/symbols', async (c) => {
   try {
     const symbols = await providers.market.getSymbols();
     return c.json({ symbols, source: providers.source });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+/**
+ * GET /api/market/contract-specs — 계약 사양 (수수료·증거금률·승수).
+ *
+ * 왜 /symbols 에 섞지 않는가
+ * ------------------------
+ * /symbols 는 정규 SymbolInfo 스키마를 그대로 내보낸다. 거래소별로 다른
+ * 부가 정보를 그 안에 넣으면 스키마가 거래소에 종속되고, 다른 거래소로
+ * 갈아탈 때 소비자가 전부 깨진다. 부가 정보는 별도 표면에 둔다.
+ *
+ * ★ 여기 수수료율은 거래소 **기본값**이다. 사용자별 VIP 할인은 반영되지 않는다.
+ *   "고객이 실제로 내는 수수료" 로 표시하면 안 된다.
+ */
+/**
+ * GET /api/notices — 사용자용 공지 목록.
+ *
+ * 인증을 요구하지 않는다. 점검 공지는 로그인하지 못하는 상황에서도 보여야 한다 —
+ * "로그인이 안 되는데 왜인지 모르는" 상태가 가장 나쁘다.
+ *
+ * 게시된 것 중 게시 기간 안에 있는 것만 나간다. 그 판단은 저장소가 SQL 에서
+ * 하므로, 이 라우트가 조건을 다시 쓰지 않는다 (규칙이 두 곳에 있으면 어긋난다).
+ */
+/*
+   공지 저장소.
+
+   라우트는 파일 앞쪽에서 정의되고 Postgres 풀은 뒤쪽(부팅 절차)에서 만들어진다.
+   그래서 여기서 선언만 하고 풀이 준비되면 채운다. 채워지기 전 요청은
+   supported:false 를 받는다 — 빈 목록으로 위장하지 않는다.
+*/
+let noticeRepo: PgNoticeRepo | null = null;
+
+/*
+   고객 지원 티켓 저장소.
+
+   사용자용 라우트(/api/support/*)와 관리자 라우트가 같은 인스턴스를 쓴다.
+   준비되기 전 요청은 supported:false 를 받는다 — 빈 배열로 위장하면
+   "문의가 없다" 로 읽히고, 티켓 생성이 조용히 성공한 것처럼 보인다.
+*/
+let supportRepo: PgSupportRepo | null = null;
+
+/*
+   리퍼럴 저장소.
+
+   사용자 라우터·관리자 라우터·회원가입 귀속 훅이 같은 인스턴스를 쓴다.
+   없으면 제도를 사용할 수 없다고 알린다(supported:false) — 빈 응답으로
+   위장하면 "초대가 0명" 으로 읽힌다.
+*/
+let referralRepo: PgReferralRepo | null = null;
+
+/*
+   포인트 저장소.
+
+   ★ 포인트는 부채다. 원장이 유일한 기록이므로 Postgres 가 없으면 제도를
+     운영하지 않는다 — 휘발성 저장소에 부채를 기록하면 재시작 때 사라진다.
+*/
+let pointsRepo: PgPointsRepo | null = null;
+
+/*
+   법적 문서 저장소.
+
+   ★ 파일이나 코드에 약관을 넣지 않는다. 어느 버전에 동의했는지 기록해야 하고,
+     그 기록은 분쟁 시 유일한 증거다. 그래서 DB 가 없으면 제공하지 않는다.
+*/
+let legalRepo: PgLegalRepo | null = null;
+
+app.get('/api/notices', async (c) => {
+  if (!noticeRepo) {
+    // 공지 기능이 없는 배포. 빈 목록이 아니라 미지원임을 알린다.
+    return c.json({ notices: [], supported: false });
+  }
+  try {
+    const locale = c.req.query('locale') || undefined;
+    const notices = await noticeRepo.listVisible(locale, Number(c.req.query('limit') ?? 20));
+    return c.json({
+      notices: notices.map((n) => ({
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        category: n.category,
+        pinned: n.pinned,
+        publishedAt: n.publishedAt ?? n.publishAt,
+        expiresAt: n.expiresAt,
+        locale: n.locale,
+      })),
+      supported: true,
+      asOf: Date.now(),
+    });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+app.get('/api/market/contract-specs', async (c) => {
+  const cache = providers.market as unknown as {
+    getCachedSymbol?: (s: string) => {
+      multiplier?: number;
+      takerFeeRate?: number;
+      makerFeeRate?: number;
+      fundingFeeRate?: number;
+      initialMarginRate?: number;
+      maintenanceMarginRate?: number;
+    } | undefined;
+  };
+
+  if (typeof cache.getCachedSymbol !== 'function') {
+    // 어댑터가 지원하지 않으면 빈 배열이 아니라 미지원을 알린다.
+    return c.json({ specs: [], source: providers.source, supported: false });
+  }
+
+  try {
+    // 사양 캐시를 채우기 위해 심볼 목록을 먼저 확보한다(이미 캐시돼 있으면 즉시 반환).
+    const symbols = await providers.market.getSymbols();
+    const wanted = c.req.query('symbols');
+    const filter = wanted ? new Set(wanted.split(',').map((x) => x.trim().toUpperCase())) : null;
+
+    const specs = symbols
+      .filter((s) => !filter || filter.has(s.id))
+      .map((s) => {
+        const raw = cache.getCachedSymbol!(s.id);
+        return {
+          symbol: s.id,
+          multiplier: raw?.multiplier ?? null,
+          // 값이 없으면 null 이다. 0 으로 채우면 "수수료 무료" 라는 거짓이 된다.
+          takerFeeRate: raw?.takerFeeRate ?? null,
+          makerFeeRate: raw?.makerFeeRate ?? null,
+          fundingFeeRate: raw?.fundingFeeRate ?? null,
+          initialMarginRate: raw?.initialMarginRate ?? null,
+          maintenanceMarginRate: raw?.maintenanceMarginRate ?? null,
+          maxLeverage: s.maxLeverage,
+        };
+      });
+
+    return c.json({ specs, total: specs.length, source: providers.source, supported: true, asOf: Date.now() });
   } catch (e) {
     return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
   }
@@ -436,10 +697,18 @@ if (env.authEnabled) {
   try {
     const db = openDb(env.sqlitePath);
 
-    // Phase 7 §4 — production fail-closed: refuse to start if this database still holds known
-    // development / E2E fixture accounts. Matching is by SHA-256 digest of the normalized identifier
-    // (see src/security/dev-fixture-guard.ts), so no development e-mail or password is present in
-    // the production bundle, and nothing identifying is written to the log on failure.
+    /*
+       Phase 7 §4 — production fail-closed: refuse to start when the database still holds accounts
+       that cannot belong to real users.
+
+       ★★ This block only inspects SQLite. When the deployment runs on PostgreSQL (which production
+         does), `users` lives in PostgreSQL and this scan sees nothing — it passed while 16 accounts,
+         one of them a hand-made SUPER_ADMIN in a `.local` domain, sat in the real database.
+
+         The PostgreSQL scan is below, right after the repositories are wired (the pool does not
+         exist yet at this point). Both run; neither replaces the other, because a SQLite deployment
+         is still possible.
+    */
     if (process.env.NODE_ENV === 'production') {
       try {
         const result = assertNoDevFixtures(
@@ -485,6 +754,13 @@ if (env.authEnabled) {
         db,
         isProduction: process.env.NODE_ENV === 'production',
         databaseUrl: env.databaseUrl,
+        /*
+           개발에서 Postgres 를 쓰려면 USE_POSTGRES=true 를 함께 준다.
+           DATABASE_URL 만으로 전환하지 않는 이유: 테스트가 환경변수를 물려받아
+           개발 DB 를 오염시키는 것을 막기 위함이다 (repository-factory.test.ts 가
+           이 동작을 고정해 두었다).
+        */
+        usePostgres: process.env.USE_POSTGRES,
       });
     } catch (e) {
       // In production this is a hard stop: an identity layer that cannot be built on PostgreSQL must not
@@ -529,6 +805,36 @@ if (env.authEnabled) {
        
       console.log(`[api] mail provider: ${resendProvider.name} (from=${process.env.MAIL_FROM ?? '?'})`);
     }
+
+    /*
+       PostgreSQL 사용자 계정 검사 (프로덕션 전용).
+
+       ★ 위쪽 SQLite 검사만 있던 시절 이 경로가 비어 있었다. 프로덕션이 PostgreSQL 을
+         쓰므로 실제 사용자 계정은 전부 여기에 있고, 검사하지 않으면 개발 중 손으로
+         만든 관리자 계정이 그대로 배포된다.
+
+       ★ 조회에 실패하면 **기동을 막는다.**
+         "확인할 수 없으니 통과" 는 가장 나쁜 선택이다 — 확인이 안 되는 상태와
+         안전한 상태를 구분할 수 없다.
+    */
+    if (process.env.NODE_ENV === 'production' && core.pool) {
+      try {
+        const rows = await core.pool.query<{ email: string }>('SELECT email FROM users');
+        const emails = rows.rows
+          .map((r) => r.email)
+          .filter((e): e is string => typeof e === 'string');
+
+        const result = assertNoDevFixtures({ listIdentifiers: () => emails }, true);
+        // 개수만 남긴다 — 어떤 주소였는지는 로그에 쓰지 않는다.
+        console.log(
+          `[api] production fixture scan (postgres): OK (identifiers inspected=${result.inspected})`,
+        );
+      } catch (e) {
+        console.error('[api] FAIL-CLOSED startup (postgres):', (e as Error).message);
+        process.exit(1);
+      }
+    }
+
     const authService = new AuthService(core.users, core.sessions, auditRepo, {
       emailTokens: core.emailTokens,
       resetTokens: core.resetTokens,
@@ -576,21 +882,119 @@ if (env.authEnabled) {
       ];
       for (const [key, phase, desc, prod] of gates) await adminRepo.seedGate({ key, phase, description: desc, status: 'NOT_EXECUTED', productionRequired: prod });
 
-      const health = (): Record<string, string> => ({
-        api: 'ok',
-        postgres: 'Unavailable (dev store is SQLite)',
-        secretsManager: env.awsRegion ? 'Configured' : 'Not Connected',
-        bitmartRest: 'Not Connected (not probed at runtime)',
-        bitmartWs: 'Not Connected',
-        openai: aiResolution.kind === 'openai' && aiResolution.available ? 'Configured' : 'Not Connected',
-        aiProvider: aiResolution.kind,
-        redisQueue: 'Not Connected',
-        buildVersion: '0.5.0-rc',
-        gitSha: process.env.GIT_SHA ?? 'Unavailable',
-        mfa: 'Not Implemented / Release Gate',
-        latencyP50: 'Unavailable', latencyP95: 'Unavailable', latencyP99: 'Unavailable',
-        cpu: 'Unavailable', memory: 'Unavailable',
-      });
+      /*
+         시스템 상태.
+
+         이전에는 전부 고정 문자열이었다. 특히 postgres 가 항상
+         'Unavailable (dev store is SQLite)' 였는데 이 배포는 실제로 Postgres 로
+         돌고 있었다 — 운영자가 상태 화면을 보고 "DB 가 죽었다" 고 판단하면
+         엉뚱한 곳을 고친다. 상태 화면이 거짓이면 없는 것보다 나쁘다.
+
+         이제 실제로 측정한다. 측정할 수 없는 항목은 'Unavailable' 로 남긴다 —
+         'ok' 로 채우면 죽은 것을 살았다고 보고한다.
+      */
+      const health = (): Record<string, string> => {
+        // 실제 시세 출처. 설정 문자열이 아니라 지금 붙어 있는 어댑터를 본다.
+        const marketSource = providers.source;
+        const ws = wsGateway ? wsGateway.status() : null;
+
+        const mem = process.memoryUsage();
+        const mb = (n: number) => `${Math.round(n / 1024 / 1024)}MB`;
+
+        return {
+          api: 'ok',
+          // core.pool 이 있으면 Postgres 로 붙어 있다는 뜻이다(부팅 시 연결 확인됨).
+          postgres: core.pool ? 'Connected' : 'Unavailable (dev store is SQLite)',
+          secretsManager: env.awsRegion ? 'Configured' : 'Not Connected',
+          // 시세 어댑터. KuCoin 으로 전환했으므로 BitMart 고정 표기는 사실과 다르다.
+          marketDataSource: marketSource,
+          marketDataRest: marketSource === 'mock_replay' ? 'Mock replay' : 'Connected',
+          marketDataWs: ws && ws.symbols > 0 ? `Connected (${ws.symbols} symbols)` : 'Idle',
+          wsClients: ws ? String(ws.clients) : 'Unavailable',
+          wsCandleSeries: ws ? String(ws.candles) : 'Unavailable',
+          /*
+             청산 위험 감시.
+
+             ★★ 꺼져 있으면 **화면이 열려 있을 때만** 경고가 계산된다. 사용자가
+               자는 동안에는 알림이 없다 — 운영자가 그 사실을 알아야 한다.
+
+             ★ 연속 실패가 쌓이면 감시가 사실상 죽은 것이다. 개수를 함께 보여준다.
+          */
+          riskWatch: (() => {
+            if (!riskWatch) return 'Off — alerts only while a screen is open';
+            const st = riskWatch.status();
+            if (!st.running) return 'Stopped';
+            if (st.consecutiveFailures >= 3) return `FAILING (${st.consecutiveFailures} in a row)`;
+            const last = st.lastRun;
+            if (!last) return `Running (every ${Math.round(st.intervalMs / 1000)}s, no run yet)`;
+            return `Running (every ${Math.round(st.intervalMs / 1000)}s, ${last.targets} watched)`;
+          })(),
+          openai: aiResolution.kind === 'openai' && aiResolution.available ? 'Configured' : 'Not Connected',
+          aiProvider: aiResolution.kind,
+          redisQueue: env.redisUrl ? 'Configured' : 'Not Connected',
+          /*
+             메일 발송 준비 상태.
+
+             ★★ 설정되지 않으면 메일이 **메모리에만 쌓이고 아무에게도 도달하지
+               않는다.** 서버는 경고 로그만 남기고 정상 동작하므로, 배포한 뒤
+               "비밀번호를 잊었다" 는 문의가 올 때까지 모를 수 있다.
+               그래서 상태 화면에서 바로 보이게 한다.
+
+             ★ 발송 성공을 뜻하지 않는다. 설정 여부만 본다 — 실제 도달은
+               회원가입 메일을 직접 받아 확인해야 한다.
+          */
+          mail: (() => {
+            const missing: string[] = [];
+            if (!process.env.RESEND_API_KEY) missing.push('RESEND_API_KEY');
+            if (!process.env.MAIL_FROM) missing.push('MAIL_FROM');
+            if (!process.env.APP_BASE_URL) missing.push('APP_BASE_URL');
+            if (missing.length === 0) return 'Configured';
+            return `NOT SENDING — password reset impossible (missing ${missing.join(', ')})`;
+          })(),
+          /*
+             브로커 자격증명 — 우리 수익이 붙는지.
+
+             ★★ 3종이 다 있어야 주문에 브로커 서명이 붙는다. 하나라도 없으면
+               거래는 정상 동작하지만 **리베이트가 0원**이다. 거래가 잘 되는 것을
+               보고 수익도 들어온다고 오해하기 쉬우므로 명시한다.
+          */
+          brokerRebate: (() => {
+            const missing: string[] = [];
+            if (!env.kucoinBrokerPartner) missing.push('PARTNER');
+            if (!env.kucoinBrokerKey) missing.push('KEY');
+            if (!env.kucoinBrokerName) missing.push('NAME');
+            if (missing.length === 0) return 'Configured — orders carry broker attribution';
+            if (missing.length === 3) return 'Not Connected — rebate is 0 (no broker credential)';
+            return `INCOMPLETE — rebate is 0 (missing ${missing.join(', ')})`;
+          })(),
+          /*
+             운영자 조회 키 — 리베이트가 실제로 들어오는지 확인하는 수단.
+
+             ★ 브로커 자격증명과 다르다. 이것이 없으면 정산 조회를 할 수 없어
+               "수익이 들어오는지 아닌지 알 방법이 없다".
+          */
+          brokerSettlementRead: (() => {
+            const missing: string[] = [];
+            if (!env.kucoinOperatorKey) missing.push('KUCOIN_API_KEY');
+            if (!env.kucoinOperatorSecret) missing.push('KUCOIN_API_SECRET');
+            if (!env.kucoinOperatorPassphrase) missing.push('KUCOIN_API_PASSPHRASE');
+            if (missing.length === 0) return 'Configured';
+            return `Not Connected — cannot verify revenue (missing ${missing.join(', ')})`;
+          })(),
+          tradingMode: env.tradingMode,
+          liveOrders: env.liveOrdersEnabled ? 'Enabled' : 'Locked',
+          buildVersion: process.env.BUILD_VERSION ?? '0.5.0-rc',
+          gitSha: process.env.GIT_SHA ?? 'Unavailable',
+          mfa: 'Not Implemented / Release Gate',
+          // 프로세스 지표는 실제로 읽을 수 있다.
+          uptimeSeconds: String(Math.floor(process.uptime())),
+          memoryHeapUsed: mb(mem.heapUsed),
+          memoryRss: mb(mem.rss),
+          nodeVersion: process.version,
+          latencyP50: 'Unavailable', latencyP95: 'Unavailable', latencyP99: 'Unavailable',
+          cpu: 'Unavailable',
+        };
+      };
 
       // G10 — operator rebate statement reader. Constructed once at mount time; `undefined` when this
       // deployment has no operator BitMart credential. Never throws: a missing broker key must not stop
@@ -615,6 +1019,77 @@ if (env.authEnabled) {
         // actually running in MOCK trading mode. Any other mode reports DISABLED_BY_POLICY rather than
         // mutating state and calling it a reconnect. Decided here, at mount time, from the environment.
         gatewayControl: { controllable: env.tradingMode === 'MOCK', target: 'LOCAL_MOCK' },
+        /*
+           공지 저장소. Postgres 풀이 있을 때만 주입한다.
+
+           sqlite 구현을 만들지 않은 이유: 공지는 관리자가 작성하고 전체 사용자에게
+           나가는 게시물이다. 단일 사용자 개발 환경(sqlite)에서는 쓸 일이 없다.
+           주입하지 않으면 라우트가 503 을 낸다 — 빈 목록을 주면 "공지가 없다" 는
+           거짓이 되고, 작성 시도가 조용히 성공한 것처럼 보인다.
+        */
+        notices: (() => {
+          if (!core.pool) return undefined;
+          // 사용자용 라우트(/api/notices)도 같은 인스턴스를 쓴다.
+          noticeRepo = new PgNoticeRepo(core.pool);
+          return noticeRepo;
+        })(),
+        support: (() => {
+          if (!core.pool) return undefined;
+          supportRepo = new PgSupportRepo(core.pool);
+          return supportRepo;
+        })(),
+        referral: (() => {
+          if (!core.pool) return undefined;
+          referralRepo = new PgReferralRepo(core.pool);
+          return referralRepo;
+        })(),
+        points: (() => {
+          if (!core.pool) return undefined;
+          pointsRepo = new PgPointsRepo(core.pool);
+          return pointsRepo;
+        })(),
+        legal: (() => {
+          if (!core.pool) return undefined;
+          legalRepo = new PgLegalRepo(core.pool);
+          return legalRepo;
+        })(),
+        /*
+           알림 저장소.
+
+           ★ 운영자 행동(답변·포인트 조정)이 고객에게 전달되게 한다.
+             전에는 서버가 만드는 알림이 주문 체결 하나뿐이었다.
+
+           ★ `userData.notifications` 를 직접 쓴다. 아래에서 선언되는
+             `notificationRepo` 를 참조하면 초기화 전 접근이 된다.
+        */
+        notifications: userData.notifications,
+
+        /*
+           KuCoin 브로커 정산 조회.
+
+           ★★ 운영자 키가 셋 다 있어야 주입한다. 하나라도 없으면 조회가 인증
+             오류로 실패하고, 화면은 그것을 "수익 0원" 으로 오해할 수 있다.
+             주입하지 않으면 라우트가 `configured: false` 를 명시해 준다.
+
+           ★ 스팟 도메인을 쓴다 — 브로커 정산 경로는 선물 도메인에 없다.
+
+           ★ 브로커 자격증명(partner/key/name)은 없어도 조회는 시도한다.
+             그래야 "아직 브로커 승인 전" 인지 확인할 수 있다.
+        */
+        kucoinBroker: (() => {
+          const k = env.kucoinOperatorKey;
+          const sec = env.kucoinOperatorSecret;
+          const pass = env.kucoinOperatorPassphrase;
+          if (!k || !sec || !pass) return undefined;
+          const brokerReady = Boolean(env.kucoinBrokerPartner && env.kucoinBrokerKey && env.kucoinBrokerName);
+          return {
+            client: new KucoinBrokerClient({ restBase: env.kucoinSpotRest }),
+            operator: { apiKey: k, apiSecret: sec, passphrase: pass },
+            broker: brokerReady
+              ? { partner: env.kucoinBrokerPartner, key: env.kucoinBrokerKey, name: env.kucoinBrokerName }
+              : null,
+          };
+        })(),
         // The real posture, so /admin/overview reports what this deployment actually does rather than a
         // hardcoded READ_ONLY/killSwitch-on triple.
         posture: {
@@ -691,6 +1166,17 @@ if (env.authEnabled) {
       ttlMs: MFA_TTL,
     };
 
+    /*
+       차트 템플릿 저장소 (기기 간 동기화).
+
+       ★ Postgres 가 있을 때만 만든다. SQLite 개발 환경에는 이 테이블이 없으므로
+         undefined 로 두고, 라우트도 등록되지 않는다. 그때 화면은 기존처럼 기기
+         저장만 쓴다 — 기능이 깨지는 대신 동기화만 빠진다.
+
+       ★ createAuthRouter 호출보다 **먼저** 선언해야 한다(블록 스코프).
+    */
+    const chartTemplates = core.pool ? new PgChartTemplateRepo(core.pool) : undefined;
+
     app.route(
       '/api',
       createAuthRouter({
@@ -699,11 +1185,62 @@ if (env.authEnabled) {
         resource,
         favorites: userData.favorites,
         preferences: userData.preferences,
+        chartTemplates,
         csrfKey: env.csrfKey,
         secureCookies: env.secureCookies,
         corsOrigins: env.corsOrigins,
         cookieName: env.cookieName,
         cookieDomain: env.cookieDomain,
+        /*
+           리퍼럴 귀속.
+
+           가입 시점에만 가능하다 — 나중에 "내가 초대했다" 는 주장을 검증할
+           근거가 없으므로 소급 귀속을 허용하지 않는다.
+           저장소가 없거나 제도가 꺼져 있으면 아무 일도 하지 않는다.
+        */
+        onRegistered: async (userId, referralCode) => {
+          if (!referralRepo || !referralCode) return;
+          const attributed = await referralRepo.attribute(referralCode, userId);
+          if (!attributed) return;
+
+          /*
+             초대 보상을 포인트로 적립한다.
+
+             ★ 이것이 우리가 **실제로 할 수 있는 지급**이다. 포인트는 사이트
+               내부 재화이므로 원장에 적립하면 그것으로 끝난다. 현금 송금은
+               운영자가 손으로 해야 하고, 비수탁이라 사용자 계정에 넣을 수도 없다.
+
+             ★ 적립 시점을 가입으로 잡는다.
+               "거래를 시작해야 우리 수익이 생긴다" 는 것은 사실이지만, 그
+               시점을 기다리면 초대자가 보상을 언제 받는지 알 수 없다.
+               가입 자체에 정해진 포인트를 주는 편이 약속이 명확하다.
+               (그래서 금액이 크면 안 된다 — 가짜 가입으로 남용될 수 있다.)
+
+             ★ 같은 초대 건에 두 번 적립하지 않는다.
+               ref 로 초대받은 사용자 ID 를 넣으면 DB UNIQUE 가 막는다.
+
+             실패를 삼킨다 — 포인트 적립 때문에 회원가입이 실패하면 안 된다.
+          */
+          if (!pointsRepo) return;
+          try {
+            const ps = await pointsRepo.getSettings();
+            if (!ps.enabled || !ps.referralAsPoints || ps.referralPoints <= 0) return;
+
+            const code = await referralRepo.findCode(referralCode);
+            if (!code) return;
+
+            await pointsRepo.grant({
+              userId: code.userId,
+              amount: ps.referralPoints,
+              reason: 'referral_signup',
+              refType: 'referred_user',
+              refId: userId,
+              memo: `referral signup`,
+            });
+          } catch (e) {
+            console.warn('[points] 초대 보상 적립 실패 — 가입은 유지한다:', (e as Error).message);
+          }
+        },
         mfa: mfaGate,
         // R6/BL-11 — the SAME distributed limiter instance every other rate-limited path uses. In
         // production this is Redis/Valkey and fail-closed, so the login budget is shared across instances.
@@ -736,9 +1273,158 @@ if (env.authEnabled) {
       liveTradingEnabled: env.liveOrdersEnabled && env.bitmartLiveTradingEnabled,
       killSwitchActive: env.bitmartKillSwitch,
     };
+    /*
+       고객 지원 티켓 (사용자용).
+
+       Postgres 저장소가 없으면 repo 를 넘기지 않는다 → 라우터가
+       supported:false 로 답한다. 빈 배열로 위장하지 않는다.
+    */
+    /*
+       리퍼럴 (사용자용).
+
+       publicBaseUrl 이 없으면 초대 링크를 만들지 않고 코드만 준다 —
+       열리지 않는 주소를 주면 사용자가 그것을 공유한다.
+    */
+    /*
+       포인트 (사용자용).
+
+       현금 출금·환전 경로가 없다 — 있으면 자금 이동업이 된다.
+       구매도 없다 — 결제 대행사가 연결되지 않았다.
+    */
+    /*
+       법적 문서 (약관·개인정보·위험고지).
+
+       ★ 인증 없이 열린다 — 회원가입 전에 읽어야 하기 때문이다.
+    */
+    app.route('/api', createLegalRouter({
+      service: authService,
+      ...(legalRepo ? { repo: legalRepo } : {}),
+      cookieName: env.cookieName,
+      supportEmail: env.supportEmail,
+    }));
+
+    app.route('/api', createPointsRouter({
+      service: authService,
+      ...(pointsRepo ? { repo: pointsRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+    }));
+
+    app.route('/api', createReferralRouter({
+      service: authService,
+      ...(referralRepo ? { repo: referralRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+      ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
+    }));
+
+    app.route('/api', createSupportRouter({
+      service: authService,
+      ...(supportRepo ? { repo: supportRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+    }));
+
+    /*
+       거래 읽기 저장소.
+
+       ★★ 쓰기와 읽기가 같은 저장소를 가리켜야 한다.
+
+         모의 주문 기록은 PostgreSQL 에 쓰는데 조회는 SQLite 를 보고 있었다.
+         그래서 `/api/positions` 가 DB 에 포지션이 1건 있는데도 빈 배열을 줬고,
+         화면은 그 빈 응답을 받자 목업으로 폴백했다 — 화면만 보면 정상처럼
+         보이므로 아무도 알아채지 못한다.
+    */
+    const portfolioRepo = core.pool ? new PgPortfolioRepo(core.pool) : new PortfolioRepo(db);
+
+    /*
+       청산 위험 감시 (서버).
+
+       ★★ 지금은 **화면이 열려 있을 때만** 경고가 계산된다. 사용자가 자는 동안
+         가격이 청산가에 접근하면 알릴 방법이 없다.
+
+       ★ 기본은 꺼짐이다(`RISK_WATCH_ENABLED=true` 로 켠다). 실주문이 없는
+         배포에서 사용자 키로 거래소를 주기 호출할 이유가 없고, 그 호출은
+         사용자 본인의 rate limit 을 갉아먹는다.
+
+       ★ 감시 대상은 **거래소 키가 검증된 사용자**뿐이다. 실주문이 닫혀 있으면
+         대상이 0명이므로 부하도 0이다.
+    */
+    if (env.riskWatchEnabled) {
+      riskWatch = new RiskWatchLoop({
+        notifications: userData.notifications,
+        intervalMs: env.riskWatchIntervalMs,
+        listWatchTargets: async () => {
+          /*
+             감시 대상 수집.
+
+             ★ 우리 DB 의 포지션을 쓴다. 거래소를 직접 호출하려면 사용자별로
+               키를 복호화해 요청해야 하고, 그것은 rate limit 과 키 취급 위험을
+               크게 늘린다. 우리 DB 포지션은 잔고·포지션 조회 시 갱신된다.
+
+             ★★ **이 방식의 한계를 명확히 한다:** 사용자가 한 번도 접속하지
+               않았다면 우리 DB 에 포지션이 없고, 그러면 감시하지 못한다.
+               거래소를 직접 폴링하는 방식으로 바꾸려면 rate limit 예산을 먼저
+               정해야 한다. 지금은 "접속한 적 있는 사용자" 만 감시한다.
+          */
+          if (!core.pool) return [];
+          const { rows } = await core.pool.query<{
+            user_id: string; symbol: string; side: string;
+            liquidation_price: string | null; mark_price: string | null;
+          }>(
+            `SELECT user_id, symbol, side, liquidation_price, mark_price
+               FROM positions
+              WHERE size <> 0
+                AND liquidation_price IS NOT NULL
+                AND mark_price IS NOT NULL`,
+          );
+          const byUser = new Map<string, { userId: string; positions: {
+            symbol: string; side: string; liquidationPrice: number | null; markPrice: number | null;
+          }[] }>();
+          for (const r of rows) {
+            const uid = String(r.user_id);
+            if (!byUser.has(uid)) byUser.set(uid, { userId: uid, positions: [] });
+            const num = (v: string | null) => {
+              if (v === null) return null;
+              const n = Number(v);
+              return Number.isFinite(n) ? n : null;
+            };
+            byUser.get(uid)!.positions.push({
+              symbol: String(r.symbol),
+              side: String(r.side),
+              liquidationPrice: num(r.liquidation_price),
+              markPrice: num(r.mark_price),
+            });
+          }
+          return [...byUser.values()];
+        },
+      });
+      riskWatch.start();
+    } else {
+      console.log('[api] 청산 위험 감시: 꺼짐 (RISK_WATCH_ENABLED=true 로 켠다). 화면이 열려 있을 때만 경고가 계산됩니다.');
+    }
+
+    /*
+       일별 자산 스냅샷.
+
+       ★ PostgreSQL 에만 있다. 자산 이력은 과거를 소급할 수 없으므로(거래소가
+         지난 잔고를 주지 않는다) 휘발성 저장소에 두면 의미가 없다.
+    */
+    const equitySnapshots = core.pool ? new PgEquitySnapshotRepo(core.pool) : undefined;
+
     app.route('/api', createPortfolioRouter({
       service: authService,
-      repo: new PortfolioRepo(db),
+      repo: portfolioRepo,
+      ...(equitySnapshots ? { equitySnapshots } : {}),
       posture: tradingPosture,
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
@@ -756,7 +1442,7 @@ if (env.authEnabled) {
       service: authService,
       audit: auditRepo,
       drafts: userData.orderDrafts,
-      portfolio: new PortfolioRepo(db),
+      portfolio: portfolioRepo,
       symbolInfo: DEFAULT_SYMBOL_INFO,
       policy: { allowedSymbols: ['BTCUSDT', 'ETHUSDT'], maxOrderNotional: '100000', maxLeverage: 20, maxOpenPositions: 5, dailyOrderLimit: 50, dailyLossLimit: '1000', priceDeviationLimitPct: 5 },
       posture: tradingPosture,
@@ -819,7 +1505,14 @@ if (env.authEnabled) {
         '/api',
         createStrategyRouter({
           service: authService,
-          repo: new SqliteStrategyRepo(db),
+          /*
+             전략 저장소.
+
+             Postgres 배포에서는 반드시 Postgres 구현을 써야 한다. 사용자
+             테이블이 Postgres 에 있으므로 팔로우를 SQLite 에 쓰면 외래키가
+             깨져 500 이 난다(실제로 겪었다 — 화면에서 Follow 가 조용히 실패).
+          */
+          repo: core.pool ? new PgStrategyRepo(core.pool) : new SqliteStrategyRepo(db),
           candles: {
             // Provenance travels with every result: a backtest over MOCK fixtures is not a market result,
             // and a response without the source would be read as if it were.
@@ -865,14 +1558,27 @@ if (env.authEnabled) {
 
     // Durable projection for confirmed SIMULATED orders. Ownership is taken from the validated session
     // cookie only — never from the request body — so a caller cannot write rows into another account.
-    const simProjection = new SimOrderProjection(db);
+    /*
+       모의 주문 투영.
+
+       ★★ 배포에 맞는 저장소를 골라야 한다.
+
+         전에는 SQLite 판만 있었다. 이 배포는 사용자를 PostgreSQL 에 두므로
+         `orders.user_id` 외래키가 깨져 `FOREIGN KEY constraint failed` 가 났고,
+         그 예외는 아래 호출 지점에서 로그만 남기고 삼켜졌다. 주문은 성공으로
+         응답했으므로 화면은 정상이었고 **기록만 사라졌다** — 8개 거래 테이블이
+         전부 0행이었다.
+    */
+    const simProjection = core.pool
+      ? new PgSimOrderProjection(core.pool)
+      : new SimOrderProjection(db);
     projectSimOrder = async (c, order) => {
       const raw = getCookie(c, env.cookieName);
       if (!raw) return; // anonymous simulation stays in memory (previous behaviour, unchanged)
       const v = await authService.validateSession(raw);
       if (!v) return;
       const o = order as Record<string, unknown>;
-      const projected = simProjection.project(v.user.id, {
+      const projected = await simProjection.project(v.user.id, {
         id: String(o.id),
         clientOrderId: String(o.clientOrderId),
         symbol: String(o.symbol),
@@ -888,6 +1594,39 @@ if (env.authEnabled) {
         updatedAt: Number(o.updatedAt ?? Date.now()),
         events: (o.events as { fromState: string | null; toState: string; actor: string; at: number }[] | undefined) ?? [],
       });
+
+      /*
+         모의 거래의 자산 이력.
+
+         ★★ 출처를 `mock` 으로 분리해 기록한다. 거래소 실값과 같은 곡선에 섞으면
+           사용자가 모의 성과를 실제 성과로 읽는다. 조회할 때도 하나만 읽는다.
+
+         ★ 모의 주문에는 잔고 개념이 없다. 대신 **누적 포지션 가치**를 남긴다 —
+           이것이 자산은 아니지만, 곡선 기능이 실제로 동작하는지 실주문 전에
+           확인할 수 있는 유일한 값이다. 화면이 출처를 표시하므로 오해가 없다.
+      */
+      if (equitySnapshots && projected.ok) {
+        try {
+          const pos = await portfolioRepo.listPositions(v.user.id, {});
+          const value = pos.items.reduce((acc, p) => {
+            const size = Number(p.size);
+            const entry = p.entryPrice === null ? NaN : Number(p.entryPrice);
+            // 진입가를 모르면 그 포지션은 값을 계산할 수 없다 — 0 으로 세지 않는다.
+            return Number.isFinite(size) && Number.isFinite(entry) ? acc + size * entry : acc;
+          }, 0);
+          await equitySnapshots.record({
+            userId: v.user.id,
+            equity: value,
+            available: null,
+            used: null,
+            unrealizedPnl: null,
+            currency: 'USDT',
+            source: 'mock',
+          });
+        } catch {
+          /* 이력 기록 실패가 주문 기록을 되돌리지 않는다 */
+        }
+      }
 
       // A real, server-side notification for a real, server-side event. Only on a first projection: a
       // replayed confirm must not produce a second notification for one fill.
@@ -961,6 +1700,43 @@ if (env.authEnabled) {
           accountAdapter,
           // 저장되는 자격증명에 기록될 거래소. 어댑터 선택과 같은 조건을 쓴다.
           exchangeId: useKucoinAccounts ? 'kucoin' : 'bitmart',
+          /*
+             자산 이력. 잔고 조회가 성공할 때 하루 한 번 기록한다 —
+             자산곡선의 유일한 근거다.
+          */
+          ...(equitySnapshots ? { equitySnapshots } : {}),
+          /*
+             실주문 어댑터.
+
+             주입하지 않으면 실주문 경로가 존재하지 않는다. 기본 배포는 잠겨
+             있으므로 이것이 정상 상태다 — 실수로 열리는 것보다 실수로 닫히는
+             편이 안전하다.
+
+             어댑터를 만들어도 canPlaceRealOrders 가 매 호출마다 킬스위치와
+             플래그를 다시 확인한다. 즉 잠금이 두 겹이다.
+          */
+          tradingAdapter: useKucoinAccounts
+            ? new KucoinTradingAdapter({
+                restBase: env.kucoinFuturesRest,
+                broker: {
+                  partner: env.kucoinBrokerPartner,
+                  key: env.kucoinBrokerKey,
+                  name: env.kucoinBrokerName,
+                },
+                multiplierOf: (symbol) =>
+                  (providers.market as unknown as {
+                    getCachedSymbol?: (s: string) => { multiplier?: number } | undefined;
+                  }).getCachedSymbol?.(symbol)?.multiplier,
+                // 함수로 넘긴다 — 부팅 시점 값을 캡처하면 킬스위치가 무력해진다.
+                liveEnabled: () =>
+                  env.liveOrdersEnabled && env.bitmartLiveTradingEnabled && !env.bitmartKillSwitch,
+                onAudit: (event, detail) => {
+                  // 실주문은 반드시 기록을 남긴다. 나중에 "누가 언제 무엇을" 확인해야 한다.
+                   
+                  console.log(`[order-audit] ${event} ${JSON.stringify(detail)}`);
+                },
+              })
+            : undefined,
           policy: { allowedSymbols: ['BTCUSDT'], maxOrderNotional: '100000', maxLeverage: 20, maxOpenPositions: 5, dailyOrderLimit: 50, dailyLossLimit: '1000', priceDeviationLimitPct: 5 },
           symbolInfo: DEFAULT_SYMBOL_INFO,
           csrfKey: env.csrfKey,

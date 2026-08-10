@@ -2,7 +2,9 @@ import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, hasPermission, type PublicUser } from '@quantumtrade/auth';
 import { D } from '@quantumtrade/domain';
-import type { PortfolioRepo } from '../db/portfolio-repo';
+import type {
+  BalanceRow, OrderRow, Page, PositionRow, TradeRow,
+} from '../db/portfolio-repo';
 import {
   OPEN_ORDER_STATES,
   OrderQuerySchema,
@@ -10,6 +12,9 @@ import {
   TERMINAL_ORDER_STATES,
   TradeQuerySchema,
   resolveStatusFilter,
+  type OrderQuery,
+  type PositionQuery,
+  type TradeQuery,
 } from './query';
 import {
   MARK_PRICE_FRESHNESS_MS,
@@ -31,9 +36,38 @@ const CSRF_COOKIE = 'qt_csrf';
 const corr = () => Math.random().toString(36).slice(2, 10);
 const err = (code: string, message: string) => ({ error: { code, message, correlationId: corr() } });
 
+/**
+ * 거래 읽기 저장소 계약.
+ *
+ * ★ SQLite 판은 동기, PostgreSQL 판은 비동기다. 라우터가 둘 다 받을 수 있어야
+ *   배포에 따라 갈리지 않는다 — 한쪽만 지원하면 "저장은 됐는데 안 보인다" 가
+ *   되고, 화면은 목업으로 그 자리를 채워 아무도 알아채지 못한다.
+ *
+ * 반환값을 `T | Promise<T>` 로 두고 호출부에서 await 한다. 동기 값에 await 를
+ * 붙이는 것은 무해하다.
+ */
+export interface PortfolioReadRepo {
+  listOrders(
+    userId: string, states: readonly string[], q: OrderQuery,
+  ): Page<OrderRow> | Promise<Page<OrderRow>>;
+  listTrades(userId: string, q: TradeQuery): Page<TradeRow> | Promise<Page<TradeRow>>;
+  listPositions(userId: string, q: PositionQuery): Page<PositionRow> | Promise<Page<PositionRow>>;
+  getPosition(userId: string, id: string): (PositionRow | null) | Promise<PositionRow | null>;
+  listBalances(
+    userId: string,
+  ): { items: BalanceRow[]; asOf: number | null } | Promise<{ items: BalanceRow[]; asOf: number | null }>;
+}
+
 export interface PortfolioRouterDeps {
   service: AuthService;
-  repo: PortfolioRepo;
+  repo: PortfolioReadRepo;
+  /**
+   * 일별 자산 스냅샷.
+   *
+   * ★ 없으면 자산곡선 API 가 "이력 없음" 을 명시한다. 빈 배열만 주면 화면이
+   *   "자산이 0" 으로 오해할 수 있다.
+   */
+  equitySnapshots?: import('../db/equity-snapshot-repo').PgEquitySnapshotRepo;
   posture: TradingPosture;
   csrfKey: string;
   corsOrigins: string[];
@@ -102,7 +136,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!parsed.success) return badQuery(c, issuesOf(parsed.error));
     const states = resolveStatusFilter(parsed.data.status, OPEN_ORDER_STATES);
     if (!states.ok) return badQuery(c, [{ path: 'status', code: 'not_open_state' }]);
-    const out = d.repo.listOrders(a.user.id, states.states, parsed.data);
+    const out = await d.repo.listOrders(a.user.id, states.states, parsed.data);
     return c.json(
       envelope(
         out.items,
@@ -125,7 +159,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!parsed.success) return badQuery(c, issuesOf(parsed.error));
     const states = resolveStatusFilter(parsed.data.status, TERMINAL_ORDER_STATES);
     if (!states.ok) return badQuery(c, [{ path: 'status', code: 'not_terminal_state' }]);
-    const out = d.repo.listOrders(a.user.id, states.states, parsed.data);
+    const out = await d.repo.listOrders(a.user.id, states.states, parsed.data);
     return c.json(
       envelope(
         out.items,
@@ -145,7 +179,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     noStore(c);
     const parsed = TradeQuerySchema.safeParse(searchParams(c));
     if (!parsed.success) return badQuery(c, issuesOf(parsed.error));
-    const out = d.repo.listTrades(a.user.id, parsed.data);
+    const out = await d.repo.listTrades(a.user.id, parsed.data);
     return c.json(
       envelope(
         out.items,
@@ -165,7 +199,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     noStore(c);
     const parsed = PositionQuerySchema.safeParse(searchParams(c));
     if (!parsed.success) return badQuery(c, issuesOf(parsed.error));
-    const out = d.repo.listPositions(a.user.id, parsed.data);
+    const out = await d.repo.listPositions(a.user.id, parsed.data);
     return c.json(
       envelope(
         out.items,
@@ -198,8 +232,11 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
     if (!hasPermission(a.user.role, 'account.read.self')) return c.json(err('FORBIDDEN', 'permission'), 403);
     noStore(c);
-    const balances = d.repo.listBalances(a.user.id);
-    const positions = d.repo.listPositions(a.user.id, {});
+    // 두 조회는 서로 독립이므로 병렬로 보낸다.
+    const [balances, positions] = await Promise.all([
+      d.repo.listBalances(a.user.id),
+      d.repo.listPositions(a.user.id, {}),
+    ]);
 
     const unavailable: string[] = [];
     let available: string | null = null;
@@ -268,7 +305,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
     if (!hasPermission(a.user.role, 'account.read.self')) return c.json(err('FORBIDDEN', 'permission'), 403);
     noStore(c);
-    const out = d.repo.listBalances(a.user.id);
+    const out = await d.repo.listBalances(a.user.id);
     const items = out.items.map((b) => ({
       asset: b.asset,
       available: b.available,
@@ -305,7 +342,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', 'csrf validation failed'), 403);
     if (!hasPermission(a.user.role, 'order-draft.write.self')) return c.json(err('FORBIDDEN', 'permission'), 403);
     noStore(c);
-    const pos = d.repo.getPosition(a.user.id, c.req.param('id'));
+    const pos = await d.repo.getPosition(a.user.id, c.req.param('id'));
     // Ownership: a position belonging to another user is a 404, not a 403 — a 403 would confirm the id exists.
     if (!pos) return c.json(err('NOT_FOUND', 'position not found'), 404);
 
@@ -352,7 +389,7 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', 'csrf validation failed'), 403);
     if (!hasPermission(a.user.role, 'order-draft.write.self')) return c.json(err('FORBIDDEN', 'permission'), 403);
     noStore(c);
-    const pos = d.repo.getPosition(a.user.id, c.req.param('id'));
+    const pos = await d.repo.getPosition(a.user.id, c.req.param('id'));
     if (!pos) return c.json(err('NOT_FOUND', 'position not found'), 404);
 
     const raw = await c.req.text();
@@ -393,6 +430,59 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
         now: now(),
         freshnessMs: MARK_PRICE_FRESHNESS_MS,
       }),
+    });
+  });
+
+  /**
+   * 자산곡선 (기간별).
+   *
+   * ★★ **보간하지 않는다.** 접속하지 않은 날은 점이 없다. 앞뒤를 이어 그리면
+   *   없었던 자산 변화를 만들고, 사용자는 그 곡선으로 성과를 판단한다.
+   *
+   * ★ `points` 가 2 미만이면 곡선을 그릴 수 없다. 화면이 그 사실로 기간 선택
+   *   버튼을 켤지 판단한다 — 서버가 "그릴 수 있다" 를 판정해 주는 편이,
+   *   화면마다 다른 기준을 쓰는 것보다 안전하다.
+   */
+  app.get('/portfolio/equity-curve', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json({ error: { code: 'UNAUTHENTICATED', message: '' } }, 401);
+
+    if (!d.equitySnapshots) {
+      /*
+         저장소가 없다 (PostgreSQL 미사용 배포).
+
+         ★ 200 으로 준다. 이력이 없는 것은 장애가 아니고, 503 을 주면 화면을
+           열 때마다 콘솔에 오류가 쌓인다.
+      */
+      return c.json({
+        supported: false,
+        points: [],
+        canPlot: false,
+        reason: 'not_configured',
+      });
+    }
+
+    const days = Math.min(Math.max(1, Number(c.req.query('days') ?? 30) || 30), 1825);
+    const source = c.req.query('source') === 'mock' ? 'mock' : 'exchange';
+
+    const [points, summary] = await Promise.all([
+      d.equitySnapshots.range(a.user.id, { days, source }),
+      d.equitySnapshots.summary(a.user.id, source),
+    ]);
+
+    return c.json({
+      supported: true,
+      source,
+      days,
+      points,
+      // 점이 하나면 선을 만들 수 없다. 그 판정을 서버가 한 곳에서 한다.
+      canPlot: points.length >= 2,
+      history: summary,
+      /*
+         ★ 빈 구간을 채우지 않았다는 사실을 명시한다. 화면이 점 사이를 직선으로
+           이을지, 끊어 그릴지 결정할 근거다.
+      */
+      interpolated: false,
     });
   });
 

@@ -91,7 +91,7 @@
       wallet_cbe9e9: "수수료 페이백 · 웰컴 보너스",
       wallet_ceef92: "아래 거래소들은 저희와 파트너십을 맺어",
       wallet_d3cdff: "출금 페이지로 이동 →",
-      wallet_ea90da: "🎁 QuantumTrade AI 파트너 거래소",
+      wallet_ea90da: "🎁 {brand} 파트너 거래소",
       wallet_ecb4cc: "회원가입",
       wallet_ed546c: "거래소 연동",
       wallet_f23807: "자산 잔고",

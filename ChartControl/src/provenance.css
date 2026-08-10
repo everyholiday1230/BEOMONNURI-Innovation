@@ -9,10 +9,22 @@
    ============================================================ */
 
 :root {
-  /* 상태 색. 토큰이 없으면 안전한 기본값으로 떨어진다. */
+  /*
+     상태 색. 토큰이 없으면 안전한 기본값으로 떨어진다.
+
+     ★★ `mock` 이 회색(text-tertiary)이었다. 회색은 "비활성 · 중요하지 않음" 으로
+       읽히는데, 실제로는 **아직 확정되지 않은 부분**이라는 가장 중요한 경고다.
+       확정 안 된 것은 관리자 등급 뱃지(ADMIN)와 같은 노란색으로 통일한다 —
+       화면 어디서 보든 노란색이면 "아직 확정 아님" 으로 읽히게 하는 것이 목적이다.
+
+     ★ partial 과 mock 을 같은 노란색 계열로 두되 진하기를 달리한다.
+       둘 다 "확정 아님" 이지만 partial 은 일부가 실제로 동작한다.
+  */
   --qt-prov-live: var(--color-trade-long, #16a34a);
+  /* 일부만 실제 — 옅은 노랑 */
   --qt-prov-partial: var(--color-warning, #d97706);
-  --qt-prov-mock: var(--color-text-tertiary, #8b95a5);
+  /* 아직 목업 — 같은 노랑을 진하게 (회색이 아니다) */
+  --qt-prov-mock: var(--color-warning, #d97706);
   --qt-prov-unknown: var(--color-trade-short, #dc2626);
 }
 
@@ -63,6 +75,9 @@
 .qt-prov-badge__label { font-weight: 600; letter-spacing: 0.02em; }
 .qt-prov-badge--live .qt-prov-badge__label { color: var(--qt-prov-live); }
 .qt-prov-badge--partial .qt-prov-badge__label { color: var(--qt-prov-partial); }
+/* ★ mock 규칙이 빠져 있어 라벨이 기본 글자색으로 나왔다 — 점만 색이 있고
+     글자는 평범해서 "아직 목업" 이 눈에 띄지 않았다. */
+.qt-prov-badge--mock .qt-prov-badge__label { color: var(--qt-prov-mock); }
 .qt-prov-badge--unknown .qt-prov-badge__label { color: var(--qt-prov-unknown); }
 
 .qt-prov-badge__note {

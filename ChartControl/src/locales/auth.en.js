@@ -23,7 +23,7 @@
       auth_77edb5: 'Analyze by conversation,',
       auth_9ab22f: 'execute with one approval.',
       auth_7e2510:
-        'QuantumTrade AI brings Bloomberg-grade information density and an AI Copilot into a single language. '
+        '{brand} brings Bloomberg-grade information density and an AI Copilot into a single language. '
         + 'Ask for analysis in plain words as if drawing on the chart, then move through signal → draft → risk check → execution on a safe pipeline.',
       auth_833f52: 'Natural language → chart overlay → signal proposal',
       auth_66cdd9: 'Drag, resize and preset your own layout',
@@ -32,7 +32,7 @@
 
       // --- 로그인 ---
       login_e225a6: 'Sign in',
-      login_3f05db: 'Sign in to your QuantumTrade AI account',
+      login_3f05db: 'Sign in to your {brand} account',
       login_92c6f3: 'Forgot password',
       login_a89650: 'Remember this device (30 days)',
       login_33c1f7: 'Verifying…',

@@ -46,7 +46,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw', 'Futures'],
     required: ['apiKey', 'apiSecret', 'passphrase'],
     referral: 'https://www.kucoin.com/r/rf/QUANTUM-KURI',
-    referralNote: '수수료 페이백 (브로커 승인 후 확정)',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: true,
     requiredPermissions: REQUIRED,
@@ -65,7 +65,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw', 'Futures'],
     required: ['apiKey', 'apiSecret'],
     referral: 'https://accounts.binance.com/register?ref=QUANTUM-KURI',
-    referralNote: '수수료 20% 페이백',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: true,
     requiredPermissions: REQUIRED,
@@ -84,7 +84,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret', 'passphrase'],
     referral: 'https://partner.bitget.com/bg/QUANTUMKURI',
-    referralNote: '수수료 50% 페이백 + $100 보너스',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: true,
     requiredPermissions: REQUIRED,
@@ -103,7 +103,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret', 'memo'],
     referral: 'https://www.bitmart.com/register?r=QUANTUM',
-    referralNote: '수수료 25% 페이백',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: false,
     requiredPermissions: REQUIRED,
@@ -122,7 +122,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret', 'passphrase'],
     referral: 'https://www.okx.com/join/QUANTUMKURI',
-    referralNote: '수수료 20% 페이백 + $50 웰컴',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: true,
     requiredPermissions: REQUIRED,
@@ -141,7 +141,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret'],
     referral: 'https://www.bybit.com/invite?ref=QUANTUM',
-    referralNote: '수수료 40% 페이백',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: true,
     requiredPermissions: REQUIRED,
@@ -160,7 +160,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret'],
     referral: 'https://www.gate.io/signup/QUANTUMKURI',
-    referralNote: '수수료 30% 페이백',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'available',
     recommended: false,
     requiredPermissions: REQUIRED,
@@ -200,7 +200,7 @@ const CATALOGUE: readonly Exchange[] = [
     permissions: ['Read', 'Trade'],
     required: ['apiKey', 'apiSecret'],
     referral: 'https://coinbase.com/join/QUANTUM',
-    referralNote: '수수료 크레딧 $30',
+    referralNote: '수수료 페이백 (조건 확정 전)',
     status: 'coming-soon',
     recommended: false,
     requiredPermissions: REQUIRED,
@@ -230,6 +230,47 @@ if (dupes.length > 0) {
 
 /** The validated catalogue. Frozen: a request handler must not be able to mutate shared state. */
 export const EXCHANGES: readonly Exchange[] = Object.freeze(parsed);
+
+/*
+   실제로 연결할 수 있는 거래소.
+
+   ★★ 카탈로그에는 9개가 있지만 **어댑터가 있는 것은 2개**다
+     (`packages/exchange-kucoin`, `packages/exchange-bitmart`).
+     나머지 7개는 사용자가 키를 등록해도 잔고 조회·주문이 동작하지 않는다.
+     그런데 카탈로그에서 `status: 'available'` 로 나가고 있었다 — 사용자는
+     연결된다고 믿고 거래소에서 키를 만들어 넣는다.
+
+   ★ 목록에서 지우지 않는다. 나중에 협약이 늘어날 것이고, 운영자는 어떤
+     거래소가 준비 중인지 봐야 한다. 대신 **일반 사용자에게는 감추고**
+     관리자에게는 "미협약" 으로 보여준다(노출 판정은 라우터에서).
+
+   ★ 이 목록은 어댑터 존재와 브로커 협약을 함께 뜻한다. 어댑터만 있고 협약이
+     없으면 리베이트가 없으므로 여기 넣지 않는다.
+     환경변수로 열지 않는다 — 어댑터 없는 거래소를 env 로 켜면 사용자가
+     동작하지 않는 키를 등록하게 된다. 코드에 어댑터가 추가될 때 함께 고친다.
+*/
+export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin', 'bitmart']);
+
+/** 어댑터가 있고 협약된 거래소인가. */
+export function isConnectable(id: string): boolean {
+  return CONNECTABLE_EXCHANGE_IDS.includes(id);
+}
+
+/*
+   카탈로그와 어댑터 목록이 어긋나지 않게 기동 시 확인한다.
+
+   ★ 오타로 'kucoin' 을 'kukoin' 이라 쓰면 조용히 0개가 노출되고, 아무도
+     거래소를 연결할 수 없게 된다. 그 상태로 배포되면 원인을 찾기 어렵다.
+*/
+{
+  const unknown = CONNECTABLE_EXCHANGE_IDS.filter((id) => !parsed.some((e) => e.id === id));
+  if (unknown.length > 0) {
+    throw new Error(
+      `CONNECTABLE_EXCHANGE_IDS references unknown exchange id(s): ${unknown.join(', ')} — ` +
+        'fix the id or add it to the catalogue',
+    );
+  }
+}
 
 /** Provenance string reported on the response, matching the market routes' convention. */
 export const EXCHANGE_CATALOGUE_SOURCE = 'static-catalogue';

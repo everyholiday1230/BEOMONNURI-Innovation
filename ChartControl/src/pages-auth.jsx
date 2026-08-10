@@ -34,7 +34,7 @@
         <div className="auth-shell__form">
           <a className="auth-shell__brand" href="#/">
             <span className="auth-shell__brand-mark">Q</span>
-            <span>QuantumTrade</span>
+            <span>{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
             <span className="auth-shell__brand-ver">v1.0</span>
           </a>
 
@@ -70,7 +70,7 @@
               <a href="#/security">{t('auth_a5e5da')}</a>
               <a href="#/help">{t('auth_e2654a')}</a>
             </div>
-            <div className="auth-foot-copy">© 2026 QuantumTrade AI · SIMULATION</div>
+            <div className="auth-foot-copy">© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · SIMULATION</div>
           </div>
         </div>
 
@@ -91,7 +91,20 @@
                 { icon: 'Sparkles', title: 'AI-Native Workflow', desc: t('auth_833f52') },
                 { icon: 'Chart',    title: '24-col Layout',       desc: t('auth_66cdd9') },
                 { icon: 'Alert',    title: 'Safety by Design',    desc: t('auth_2d0495') },
-                { icon: 'Wallet',   title: t('auth_38d152'),       desc: 'Binance · Bitget · OKX · Bybit · …' },
+                {
+                  icon: 'Wallet',
+                  /*
+                     ★★ "8+ 거래소 지원 · Binance · Bitget · OKX · Bybit …" 가
+                       하드코딩돼 있었다. 실제로 연결되는 거래소는 2개
+                       (KuCoin·BitMart)이고, Binance·OKX·Bybit 는 어댑터가 없다.
+                       로그인 화면은 가입 직후 보는 화면이라, 여기서 못 지키는
+                       약속을 하면 바로 드러난다.
+                     ★ 이름을 나열하지 않는다 — 협약이 늘거나 줄 때마다 문구를
+                       고쳐야 하고, 빠뜨리면 또 거짓이 된다. 개수만 말한다.
+                  */
+                  title: t('auth_exchanges_title'),
+                  desc: t('auth_exchanges_desc'),
+                },
               ].map((f, i) => {
                 const Ic = I[f.icon] || I.Grid;
                 return (
@@ -300,6 +313,73 @@
   // ============================================================
   window.SignupPage = function SignupPage({ shellProps }) {
     const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: 'KR', agree: false, marketing: true });
+
+    /*
+       초대 코드.
+
+       ★ 가입 시점에만 귀속된다. 나중에 "이 사람은 내가 초대했다" 고 주장해도
+         검증할 근거가 없으므로 소급 적용을 허용하지 않는다. 그래서 이 화면이
+         코드를 받는 유일한 자리다.
+
+       주소(?ref=CODE)에서 먼저 읽는다 — 초대 링크로 들어온 사용자가 코드를
+       직접 입력하게 만들면 대부분 그냥 넘어가고 귀속이 실패한다.
+    */
+    const [refCode, setRefCode] = useState('');
+    const [refState, setRefState] = useState(null);   // null=미확인 | {valid, sharePct}
+
+    /*
+       동의 대상이 게시되어 있는가.
+
+       ★ 게시되지 않은 약관에 동의를 받으면 그 동의는 아무것도 가리키지 않는다.
+         화면이 그 사실을 사용자에게 알린다 (가입을 막지는 않는다 — 정책 결정).
+    */
+    const [legalMissing, setLegalMissing] = useState([]);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.legalIndex) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      api.legalIndex().then((r) => {
+        if (cancelled || !r.available) return;
+        const kinds = new Set((r.documents || []).map((x) => x.kind));
+        setLegalMissing(['terms', 'privacy'].filter((k) => !kinds.has(k)));
+      }).catch(() => { /* 확인 실패를 경고로 바꾸지 않는다 — 잘못된 경고가 더 나쁘다 */ });
+      return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+      // 해시 쿼리에서 코드를 꺼낸다. 라우터가 파싱한 값을 쓸 수 없는 화면이다.
+      const hash = String(window.location.hash || '');
+      const q = hash.indexOf('?');
+      if (q === -1) return;
+      const params = new URLSearchParams(hash.slice(q + 1));
+      const code = params.get('ref');
+      if (code) setRefCode(code.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+    }, []);
+
+    /*
+       코드 유효성 확인.
+
+       입력이 멈춘 뒤에 한 번만 확인한다 — 글자마다 요청하면 서버에 부담이고,
+       사용자는 타이핑 중에 '무효' 를 보게 된다.
+       ★ 서버는 초대자가 누구인지 알려주지 않는다(코드를 넣어보며 다른 사용자의
+         존재를 알아내는 것을 막는다). 유효 여부만 온다.
+    */
+    useEffect(() => {
+      const code = refCode.trim();
+      if (!code) { setRefState(null); return undefined; }
+      if (!window.QTApi || !window.QTApi.rest || !window.QTApi.rest.referralCheck) return undefined;
+      let cancelled = false;
+      const id = setTimeout(() => {
+        window.QTApi.rest.referralCheck(code)
+          .then((r) => { if (!cancelled) setRefState(r); })
+          // 확인 실패를 '무효' 로 표시하지 않는다 — 유효한 코드가 버려질 수 있다.
+          .catch(() => { if (!cancelled) setRefState(null); });
+      }, 450);
+      return () => { cancelled = true; clearTimeout(id); };
+    }, [refCode]);
     const [loading, setLoading] = useState(false);
     const errors = [];
     if (form.pw && form.pw.length < 8) errors.push(t('signup_5ca401'));
@@ -328,7 +408,17 @@
       }
       setServerError('');
       setLoading(true);
-      window.QTApi.auth.register(form.email, form.pw, { country: form.country, marketingOptIn: form.marketing })
+      window.QTApi.auth.register(form.email, form.pw, {
+        country: form.country,
+        marketingOptIn: form.marketing,
+        /*
+           코드가 유효할 때만 보낸다.
+
+           무효한 코드를 보내도 서버가 무시하지만, 보내지 않으면 서버 로그가
+           깨끗해지고 "왜 귀속이 안 됐나" 를 추적할 때 혼선이 없다.
+        */
+        ...(refCode.trim() && refState && refState.valid ? { referralCode: refCode.trim() } : {}),
+      })
         .then(() => {
           setLoading(false);
           window.location.hash = '/verify-email';
@@ -401,13 +491,75 @@
             </div>
           )}
 
+          {/*
+             초대 코드 (선택).
+
+             제도가 켜져 있을 때만 보여준다 — 꺼져 있으면 입력해도 귀속되지
+             않으므로, 칸을 두면 사용자가 코드를 넣고 보상을 기대한다.
+             서버가 enabled 로 알려준다.
+          */}
+          {(refCode || (refState && refState.enabled)) && (
+            <div>
+              <div className="input-group">
+                <span className="input-group__label">{t('signup_ref_label')}</span>
+                <input
+                  value={refCode}
+                  maxLength={16}
+                  placeholder={t('signup_ref_ph')}
+                  onChange={(e) => setRefCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                />
+              </div>
+              {/*
+                 확인 결과.
+
+                 유효할 때만 초대자 몫을 알려준다. 초대자가 누구인지는 표시하지
+                 않는다 — 서버가 주지 않고, 주면 코드를 넣어보며 다른 사용자를
+                 알아낼 수 있다.
+              */}
+              {refCode && refState && (
+                <div style={{
+                  marginTop:5, fontSize:11.5,
+                  color: refState.valid ? 'var(--color-success)' : 'var(--color-warning)',
+                }}>
+                  {refState.valid
+                    ? t('signup_ref_ok', { pct: refState.sharePct })
+                    : t('signup_ref_bad')}
+                </div>
+              )}
+            </div>
+          )}
+
           <label className="chk">
             <input type="checkbox" checked={form.agree} onChange={e => setForm({...form, agree: e.target.checked})} required/>
             <span className="chk__box"><I.Check size={10}/></span>
             <span style={{fontSize: 12}}>
-              <a href="#/terms" style={{color:'var(--color-brand)'}}>{t('auth_3b9e30')}</a> · <a href="#/privacy" style={{color:'var(--color-brand)'}}>{t('signup_532136')}</a> {t('signup_75a112')}
+              <a href="#/terms" target="_blank" rel="noopener" style={{color:'var(--color-brand)'}}>{t('auth_3b9e30')}</a> · <a href="#/privacy" target="_blank" rel="noopener" style={{color:'var(--color-brand)'}}>{t('signup_532136')}</a> {t('signup_75a112')}
             </span>
           </label>
+
+          {/*
+             ★★ 동의 대상이 실제로 게시되어 있는지 확인한다 ★★
+
+               "약관에 동의합니다" 를 받는데 그 약관이 게시되지 않았으면 그
+               동의는 아무것도 가리키지 않는다. 전에는 링크 자체가 404 였고,
+               그래도 가입은 진행됐다.
+
+               게시되지 않았으면 그 사실을 적는다. 가입을 막지는 않는다 —
+               막을지 여부는 우리가 정할 정책 문제이고, 화면이 임의로 막으면
+               런칭 당일에 아무도 가입하지 못한다. 대신 운영자가 볼 수 있게
+               /admin/legal 의 readiness 가 canLaunch:false 를 보고한다.
+          */}
+          {legalMissing.length > 0 && (
+            <div style={{
+              padding:'9px 11px', borderRadius:6, fontSize:11.5, lineHeight:1.7,
+              background:'color-mix(in srgb, var(--color-warning, #d97706) 12%, transparent)',
+              border:'1px solid var(--color-warning, #d97706)',
+            }}>
+              {t('signup_legal_missing', {
+                what: legalMissing.map((k) => t(k === 'terms' ? 'legal_terms' : 'legal_privacy')).join(' · '),
+              })}
+            </div>
+          )}
 
           <label className="chk">
             <input type="checkbox" checked={form.marketing} onChange={e => setForm({...form, marketing: e.target.checked})}/>
@@ -535,6 +687,81 @@
   // KYC ONBOARDING
   // ============================================================
   window.KYCOnboardingPage = function KYCOnboardingPage({ shellProps }) {
+    /*
+       본인 인증 온보딩.
+
+       ★★ 이 화면은 신분 서류를 수집하고 있었다 ★★
+
+       이름·생년월일·주소·여권 앞뒤면·셀피·자금 출처를 받아서, 제출하면
+       성공 화면을 보여주고 /trade 로 보냈다. 그런데 받는 백엔드가 없다 —
+       입력한 개인정보와 신분증 사진은 그냥 버려진다.
+
+       왜 폼을 살려두면 안 되는가
+       ------------------------
+       1. 고객은 신분증 사진을 올렸다고 믿는다. 심사가 진행되는 줄 알고 기다린다.
+       2. 실제로 저장하도록 만들어도 안 된다. 우리는 자금을 보관하지 않으므로
+          신분 확인 의무가 없고, 보관할 법적 근거 없이 신분증을 모으면
+          위험이 줄지 않고 늘어난다(유출 시 책임).
+       3. 본인 확인은 이미 거래소가 했다. API 키를 발급하기 전에 거래소가
+          검증했고, 자금을 보관하는 주체가 그 의무를 진다.
+
+       그래서 실서비스에서는 사실을 알리고 다음 단계로 보낸다.
+       백엔드가 없는 디자인 미리보기에서는 원래 폼을 유지한다(디자이너 불가침).
+    */
+    if (window.QTLive && window.QTLive.useLiveVersion) window.QTLive.useLiveVersion();
+    const backendKnownAbsent = Boolean(
+      window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false,
+    );
+
+    const cfg = (window.QTApi && window.QTApi.useConfig) ? window.QTApi.useConfig() : null;
+    const signupUrl = (cfg && cfg.exchangeSignupUrl) || '';
+
+    if (!backendKnownAbsent) {
+      return (
+        <window.AuthShell
+          title={t('kyc_na_title')}
+          subtitle={t('kyc_na_subtitle')}
+          progress={[
+            { label: t('signup_1ff941'), done: true },
+            { label: t('signup_32b217'), done: true },
+            { label: t('kyc_na_step'), active: true },
+          ]}
+        >
+          <div className="auth-form">
+            <div className="auth-alert auth-alert--info" style={{alignItems:'flex-start'}}>
+              <I.Info size={13}/>
+              <div style={{lineHeight:1.8}}>
+                <div style={{fontWeight:600, marginBottom:4}}>{t('kyc_na_panel_title')}</div>
+                <div>{t('kyc_na_reason')}</div>
+              </div>
+            </div>
+
+            <ul style={{margin:'4px 0 0', paddingLeft:20, fontSize:12.5, lineHeight:2, color:'var(--color-text-secondary)'}}>
+              <li>{t('kyc_na_p1')}</li>
+              <li>{t('kyc_na_p2')}</li>
+              <li>{t('kyc_na_p3')}</li>
+            </ul>
+
+            {/* 다음에 실제로 해야 하는 일 — 거래소 계정과 API 키 연결. */}
+            <div style={{marginTop:8, display:'flex', flexDirection:'column', gap:8}}>
+              <a className="btn btn--primary btn--lg" href="#/wallet" style={{textDecoration:'none', justifyContent:'center'}}>
+                {t('kyc_na_connect')}
+              </a>
+              {/* 거래소 계정이 없는 사용자에게만 가입 경로를 준다. */}
+              {signupUrl && (
+                <a className="btn btn--lg" href={signupUrl} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none', justifyContent:'center'}}>
+                  {t('deposit_create_account')} <I.ArrowRight size={12}/>
+                </a>
+              )}
+              <a className="btn" href="#/trade" style={{textDecoration:'none', justifyContent:'center'}}>
+                {t('kyc_na_skip')}
+              </a>
+            </div>
+          </div>
+        </window.AuthShell>
+      );
+    }
+
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({
       firstName: '', lastName: '', birth: '', nationality: 'KR',
@@ -759,22 +986,83 @@
   // LANDING PAGE (public marketing) - 로그인 전
   // ============================================================
   window.LandingPage = function LandingPage({ shellProps }) {
+    /*
+       거래쌍 수 — 실제로 조회한다.
+
+       '21+' 가 박혀 있었는데 KuCoin 은 660개 넘는 USDT 무기한을 상장한다.
+       실제보다 훨씬 적게 말하는 것도 부정확한 정보다.
+       조회 실패 시 '—' 로 둔다 — 숫자를 만들지 않는다.
+
+       랜딩은 비로그인 화면이므로 공개 엔드포인트만 쓴다.
+    */
+    const [landingPairs, setLandingPairs] = useState(null);
+    useEffect(() => {
+      if (!window.QTApi || !window.QTApi.rest || !window.QTApi.rest.instruments) return undefined;
+      // 백엔드가 없는 디자인 미리보기에서는 요청하지 않는다 (콘솔 404 방지).
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return undefined;
+      let cancelled = false;
+      window.QTApi.rest.instruments()
+        .then((r) => {
+          if (cancelled) return;
+          const n = Array.isArray(r && r.data) ? r.data.length : null;
+          setLandingPairs(Number.isFinite(n) && n > 0 ? n : null);
+        })
+        .catch(() => { /* 실패하면 '—' 로 남는다 */ });
+      return () => { cancelled = true; };
+    }, []);
+
+    /*
+       지원 거래소 — 서버 판정을 쓴다.
+
+       ★★ 원래 `window.QTApp.EXCHANGES`(예시 9개)를 그대로 "Supported Exchanges"
+         로 보여줬다. 실제로 연결되는 것은 2개뿐이므로, 방문자는 우리가 9개를
+         지원한다고 믿고 가입한다. 가장 먼저 보는 화면에서 사실과 다른 약속을
+         하면 신뢰를 회복할 기회가 없다.
+
+       ★ 랜딩은 비로그인 화면이므로 항상 연결 가능한 것만 보여준다.
+       ★ 백엔드 없는 미리보기에서는 예시 목록을 쓴다 — 디자이너 화면 보존.
+    */
+    const exPreviewOnly = window.QTLive && window.QTLive.isBackendPresent
+      && window.QTLive.isBackendPresent() === false;
+    const exData = window.QTApi && window.QTApi.useExchanges
+      ? window.QTApi.useExchanges(false)
+      : null;
+    const landingExchanges = exPreviewOnly
+      ? (window.QTApp.EXCHANGES || [])
+      : (exData ? exData.items : []);
+
     return (
       <div className="landing-shell">
+        {/*
+           랜딩 상단 띠.
+
+           ★★ "MOCK DATA · NO REAL FUNDS · PROTOTYPE DEMO · SESSION PUBLIC-DEMO"
+             가 하드코딩돼 있었다. 이건 **처음 오는 방문자가 보는 첫 문장**이다.
+             실서비스인데 "프로토타입 데모" 라고 적혀 있으면 가입하지 않는다.
+             (앱 헤더의 같은 띠는 이미 서버 상태로 고쳤다 — 여기만 남아 있었다)
+
+           ★ 랜딩은 비로그인 화면이므로 거래 모드를 단정하지 않는다. 대신 사실만
+             말한다: 시세는 실제이고, 주문은 거래소에서 고객 키로 이뤄진다는 것.
+             백엔드가 없는 디자인 미리보기에서는 예시 데이터임을 밝힌다.
+        */}
         <div className="sim-stripe" style={{position:'relative'}}>
           <div className="sim-stripe__left">
-            <span className="sim-stripe__badge">SIMULATION</span>
-            <span>MOCK DATA · NO REAL FUNDS · PROTOTYPE DEMO</span>
+            <span className="sim-stripe__badge">
+              {exPreviewOnly ? t('stripe_preview') : t('landing_stripe_badge')}
+            </span>
+            <span>{exPreviewOnly ? t('stripe_preview_note') : t('landing_stripe_note')}</span>
           </div>
           <div className="sim-stripe__right">
-            <span>SESSION · PUBLIC-DEMO</span>
+            <span>{t('stripe_data', {
+              src: t(exPreviewOnly ? 'stripe_data_mock' : 'stripe_data_live'),
+            })}</span>
           </div>
         </div>
 
         <header className="landing-header">
           <a className="app-brand" href="#/">
             <span className="app-brand__mark">Q</span>
-            <span className="app-brand__name">QuantumTrade</span>
+            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
             <span className="app-brand__ver">v1.0</span>
           </a>
           <nav className="landing-nav">
@@ -798,29 +1086,78 @@
             <span style={{color: 'var(--color-brand)'}}>{t('landing_4c1fc3')}</span>{t('landing_af3947')}
           </h1>
           <p className="landing-hero__body">
-            {t('landing_1ad875')}<br/>
+            {/*
+               ★★ "8개 거래소" 가 문구에 박혀 있었다. 실제로 연결되는 거래소는
+                 2개(KuCoin·BitMart)이고, 지금 노출되는 것은 그 중 협약이 끝난
+                 것뿐이다. 첫 화면에서 지원 범위를 부풀리면 가입 후에 바로
+                 드러난다 — 히어로 통계에는 이미 실제 개수가 나오고 있어서
+                 같은 화면 안에서 숫자가 어긋나 보였다.
+               ★ 조회 중(0개)에는 개수를 말하지 않는다.
+            */}
+            {t(landingExchanges.length > 0 ? 'landing_sub_counted' : 'landing_sub_plain',
+               { n: landingExchanges.length })}<br/>
             {t('landing_66a662')}
           </p>
           <div style={{display: 'inline-flex', gap: 10, marginTop: 24}}>
             <a className="btn btn--primary btn--lg" href="#/signup">
               <I.Sparkles size={14}/> {t('landing_7bbd5b')}
             </a>
-            <a className="btn btn--lg" href="#/trade">
-              <I.Chart size={14}/> {t('landing_1ea899')}
-            </a>
+            {/*
+               '데모 둘러보기' 버튼 — 지금은 숨긴다.
+
+               ★★ 이 버튼은 `#/trade` 로 보냈다. 그런데 거래 화면은 로그인이
+                 필요하므로, 비로그인 방문자가 누르면 **404("이 페이지를 보려면
+                 로그인이 필요합니다")** 를 만난다. 처음 오는 사람에게 보여줄
+                 화면이 아니다.
+
+               ★ 지우지 않고 주석으로 남긴다. 나중에 로그인 없이 볼 수 있는
+                 읽기 전용 데모를 만들면 그때 이 버튼을 되살린다.
+                 (그때는 `#/trade` 가 아니라 데모 전용 경로로 보내야 한다)
+
+               <a className="btn btn--lg" href="#/trade">
+                 <I.Chart size={14}/> {t('landing_1ea899')}
+               </a>
+            */}
           </div>
 
+          {/*
+             히어로 통계.
+
+             ★ 다섯 값 중 셋이 근거 없는 주장이었다:
+                 '62% Signal Hit Rate'  — AI 신호 적중률을 집계하지 않는다
+                 '2.6× Avg R:R'         — 평균 손익비를 집계하지 않는다
+                 '99.98% Uptime'        — 가동률을 측정하지 않는다
+               랜딩 페이지의 숫자는 가입 판단에 직접 쓰인다. 특히 적중률은
+               "이 서비스를 쓰면 62% 맞는다" 로 읽히므로 가장 위험하다.
+
+             '8 Exchanges' 도 사실이 아니다 — 거래는 KuCoin 하나만 지원한다.
+
+             그래서 **실제로 셀 수 있는 것만** 남긴다. 거래쌍 수는 서버가 준다.
+             비수탁·출금권한 미요구는 검증 가능한 사실이므로 그대로 쓴다.
+          */}
           <div className="landing-hero-stats">
-            <div><strong>21+</strong><span>Trading Pairs</span></div>
-            <div><strong>8</strong><span>Exchanges</span></div>
-            <div><strong>62%</strong><span>Signal Hit Rate</span></div>
-            <div><strong>2.6×</strong><span>Avg R:R</span></div>
-            <div><strong>99.98%</strong><span>Uptime</span></div>
+            <div>
+              <strong>{landingPairs === null ? '—' : landingPairs.toLocaleString() + '+'}</strong>
+              <span>{t('landing_stat_pairs')}</span>
+            </div>
+            {/*
+               ★★ 거래소 수가 `1` 로 하드코딩돼 있었다. 바로 위 부제는 서버에서
+                 받은 실제 개수(2곳)를 쓰는데 통계는 1 이어서, **같은 화면 안에서
+                 숫자가 어긋났다.** 방문자가 어느 쪽을 믿어야 할지 알 수 없다.
+               ★ 조회 중(0개)에는 '—' 로 둔다 — 0 이라고 쓰면 "지원 거래소가
+                 없다" 로 읽힌다.
+            */}
+            <div>
+              <strong>{landingExchanges.length > 0 ? landingExchanges.length : '—'}</strong>
+              <span>{t('landing_stat_exchange')}</span>
+            </div>
+            <div><strong>0</strong><span>{t('landing_stat_custody')}</span></div>
+            <div><strong>0</strong><span>{t('landing_stat_withdraw')}</span></div>
           </div>
         </section>
 
         <section id="features" className="landing-section">
-          <div className="landing-section-title">Why QuantumTrade AI</div>
+          <div className="landing-section-title">{t('landing_why_brand')}</div>
           <div className="landing-feat-grid">
             {[
               { icon: 'Sparkles', title: 'AI-Native Workflow', body: t('landing_5f6b64') },
@@ -865,9 +1202,9 @@
         <section id="exchanges" className="landing-section">
           <div className="landing-section-title">Supported Exchanges</div>
           <div className="landing-exchanges">
-            {window.QTApp.EXCHANGES.map(ex => (
+            {landingExchanges.map(ex => (
               <div key={ex.id} className="landing-ex">
-                <div className="landing-ex__logo" style={{background: ex.logoBg, color: ex.logoColor}}>{ex.logoText}</div>
+                <div className="landing-ex__logo" style={{background: ex.logoBg, color: ex.logoColor}}>{(window.exchangeLogo && window.exchangeLogo(ex.id, { size: 20 })) || ex.logoText}</div>
                 <div className="landing-ex__name">{ex.name}</div>
                 <div className="landing-ex__market">{ex.market}</div>
               </div>
@@ -876,7 +1213,7 @@
         </section>
 
         <footer className="landing-foot">
-          <div>© 2026 QuantumTrade AI · Institutional Cool · v1.0</div>
+          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · Institutional Cool · v1.0</div>
           <div>SIMULATION · No real funds · Prototype demo</div>
         </footer>
       </div>

@@ -33,8 +33,11 @@
     'trend-line': 'segment',
     horizontal: 'horizontalStraightLine',
     fib: 'fibonacciLine',
-    long: 'priceChannelLine',
-    short: 'priceChannelLine',
+    // 롱·숏은 자체 오버레이다. KLineChart 에 포지션 도구가 없어서,
+    // 예전에는 priceChannelLine(가격채널)에 연결해 두었다 — 버튼 이름과
+    // 그려지는 도형이 달라 오해를 만들었다. 진입/목표/손절 3점 + 손익비를 그린다.
+    long: 'qtLongPosition',
+    short: 'qtShortPosition',
     measure: 'priceLine',
     text: 'simpleAnnotation',
   };
@@ -66,7 +69,24 @@
    * @param {(msg: {title:string, desc?:string, variant?:string}) => void} [opts.notify]
    */
   function createChartActions(getChart, opts = {}) {
-    const { getContainer, notify } = opts;
+    const { getContainer, notify, getSymbol } = opts;
+
+    /**
+     * 현재 심볼의 가격 소수점 자리수.
+     *
+     * widgets.jsx 의 tickSize 계산을 재사용한다. 자리수 계산을 두 곳에서 따로 하면
+     * 화면의 호가와 도형의 가격 라벨이 다른 자리수로 표시된다.
+     */
+    function priceDecimals() {
+      try {
+        const fmt = window.QTFmt;
+        const symbol = typeof getSymbol === 'function' ? getSymbol() : null;
+        if (fmt && symbol && typeof fmt.tickSizeFor === 'function' && typeof fmt.decimalsForTick === 'function') {
+          return fmt.decimalsForTick(fmt.tickSizeFor(symbol));
+        }
+      } catch (e) { /* 알 수 없으면 아래 기본값 */ }
+      return 2;
+    }
 
     const toast = (titleKey, descKey, variant) => {
       if (!notify) return;
@@ -78,9 +98,30 @@
     };
 
     /** 사용자가 그린 오버레이만 대상으로 한다 (AI 신호는 제외). */
+    /**
+     * 사용자가 직접 그린 도형만 고른다. AI 신호·주문선·포지션선은 제외한다.
+     *
+     * 판단 근거를 두 번 바꿨다. 그 이유를 남긴다.
+     *   1차: 이름이 'qt' 로 시작하면 시스템 것으로 봤다.
+     *        → 자체 오버레이를 사용자 도구로 추가한 순간 깨졌다
+     *          (롱·숏 포지션 도구가 숨김·삭제에서 조용히 빠졌다).
+     *   2차: source 가 알려진 시스템 값이면 제외했다.
+     *        → 실제 source 값은 'order', 'position-long', 'ai-approved', 'ai-draft' 등
+     *          여러 개였고, 목록에서 빠진 값이 사용자 도형으로 오인돼 삭제됐다.
+     *   현재: **우리가 그리기 도구로 만든 것만** 표시해 두고 그것만 대상으로 한다.
+     *        추측하지 않는다. 목록을 관리하지 않아도 새 도구가 자동으로 포함된다.
+     */
+    const USER_DRAW_SOURCE = 'user-draw';
+
     const userOverlays = (chart) => {
       try {
-        return chart.getOverlays().filter((o) => !String(o.name || '').startsWith('qt'));
+        return chart.getOverlays().filter((o) => {
+          const src = o && o.extendData && o.extendData.source;
+          if (src === USER_DRAW_SOURCE) return true;
+          // 표시가 없는 도형: KLineChart 내장 이름이면 사용자가 그린 것으로 본다.
+          // (이 변경 전에 그려진 도형이 지워지지 않는 상태로 남는 것을 막는다)
+          return !src && !String(o.name || '').startsWith('qt');
+        });
       } catch (e) {
         return [];
       }
@@ -110,6 +151,14 @@
             name,
             // 자석 모드를 그리기에 반영한다. 캔들 고저가에 정확히 붙는다.
             mode: magnetMode && MAGNET_MODES.includes(magnetMode) ? magnetMode : 'normal',
+            /*
+               가격 표시 자리수를 넘긴다. 없으면 오버레이가 부동소수를 그대로 그려서
+               '64283.04431256001' 처럼 보인다(실제로 확인했다).
+               심볼별 tickSize 에서 계산한다 — BTC(0.1)와 DOGE(0.00001)가 다르다.
+            */
+            // 우리가 그리기 도구로 만든 도형임을 표시한다. 숨김·잠금·삭제가
+            // 이 표시를 근거로 대상을 고른다 (AI 신호·주문선은 건드리지 않는다).
+            extendData: { decimals: priceDecimals(), source: USER_DRAW_SOURCE },
           });
           return true;
         } catch (e) {

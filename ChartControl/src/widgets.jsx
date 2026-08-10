@@ -194,12 +194,92 @@
     const changeAbs = market.price * market.chg24h / 100;
     const isUp = price >= prev;
     const isUp24 = market.chg24h >= 0;
+
+    /*
+       마크가·지수가·펀딩·레버리지는 거래소가 주는 실제 값이다.
+
+       원래 이 자리에 계산식과 고정값이 있었다:
+         마크가  = price + 3.7      지수가 = price - 1.7
+         펀딩    = '+0.0084%' / '54m'   레버리지 = '20× LEV'
+
+       왜 위험한가
+       ----------
+       · 마크가는 **청산 판정 기준**이다. 거래소가 쓰는 값과 다르면 사용자가
+         "아직 여유 있다" 고 읽는데 실제로는 청산된다. +3.7 은 근거 없는 숫자다.
+       · 펀딩은 부호가 중요하다. 지금 실제 값은 **음수**(-0.005%)인데 화면은
+         +0.0084% 를 보여줬다. 음수면 숏이 롱에게 지불한다 — 방향이 반대다.
+       · 레버리지 20× 는 심볼과 무관하게 고정이었다. BTC 는 125× 까지 된다.
+
+       값이 없으면 '—' 로 둔다. 계산해서 채우면 그게 진짜인 줄 안다.
+    */
+    const num = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+    const markPrice = num(market.mark);
+    const indexPrice = num(market.index);
+
+    // 펀딩비율. 0 은 유효한 값이다(0 과 '없음' 을 구분해야 한다).
+    const fundingRate = (typeof market.fundingRate === 'number' && Number.isFinite(market.fundingRate))
+      ? market.fundingRate : null;
+    const maxLev = num(market.maxLeverage);
+
+    /*
+       다음 정산까지 남은 시간.
+
+       1초마다 다시 그린다 — 고정 문자열('54m')이면 시간이 지나도 그대로여서
+       사용자가 곧 정산될 것을 모른다.
+    */
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+      const id = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(id);
+    }, []);
+
+    const fundingCountdown = (() => {
+      const at = Number(market.nextFundingTime);
+      if (!Number.isFinite(at) || at <= 0) return null;
+      const ms = at - now;
+      if (ms <= 0) return '00:00';
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const sec = Math.floor((ms % 60000) / 1000);
+      // 1시간 넘으면 초까지 볼 필요 없다. 임박했을 때만 초를 보여준다.
+      return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    })();
+
+    /*
+       즐겨찾기(★).
+
+       원래 장식이었다. 실제로 토글되고 저장되어야 워치리스트로 쓸 수 있다.
+       저장은 QTFavorites 가 담당한다(localStorage) — 서버 계정 동기화는
+       아직 없으므로 기기별로 유지된다는 점을 제목에 밝힌다.
+    */
+    const favSym = market.symbol || (market.base && market.quote ? market.base + market.quote : '');
+    const favOn = Boolean(window.QTFavorites && window.QTFavorites.has(favSym));
+    const [, bumpFav] = useState(0);
+    useEffect(() => {
+      if (!window.QTFavorites) return undefined;
+      return window.QTFavorites.subscribe(() => bumpFav((n) => n + 1));
+    }, []);
     return (
       <div className="symbol-header--v2">
         {/* GROUP 1: Identity — what am I looking at? */}
         <div className="sh-group sh-group--identity">
           <div className="sh-identity">
-            <span className="sh-identity__star" title="Favorite">★</span>
+            <span
+              className={`sh-identity__star ${favOn ? 'is-on' : 'is-off'}`}
+              role="button"
+              tabIndex={0}
+              aria-pressed={favOn}
+              title={favOn ? t('fav_remove') : t('fav_add')}
+              style={{cursor:'pointer', opacity: favOn ? 1 : 0.35}}
+              onClick={() => { if (window.QTFavorites && favSym) window.QTFavorites.toggle(favSym); }}
+              onKeyDown={(e) => {
+                // 키보드로도 토글되어야 한다 (접근성).
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (window.QTFavorites && favSym) window.QTFavorites.toggle(favSym);
+                }
+              }}
+            >★</span>
             <div className="sh-identity__block">
               <div className="sh-identity__row1">
                 <span className="sh-identity__sym">{market.base}<span className="quote">/</span>{market.quote}</span>
@@ -209,7 +289,10 @@
               <div className="sh-identity__sub">
                 <span>Perpetual · USDT-Margined</span>
                 <span>·</span>
-                <span className="badge badge--warning" style={{padding: '0 4px', fontSize: 9}}>20× LEV</span>
+                {/* 거래소가 주는 실제 최대 레버리지. 심볼마다 다르다. */}
+                <span className="badge badge--warning" style={{padding: '0 4px', fontSize: 9}}>
+                  {maxLev ? `${maxLev}× MAX` : '—'}
+                </span>
               </div>
             </div>
           </div>
@@ -230,18 +313,33 @@
         <div className="sh-group sh-group--meta">
           <div className="sh-meta-cell">
             <span className="sh-meta-cell__k">{t('mark_price')}</span>
-            <span className="sh-meta-cell__v sh-meta-cell__v--muted">{fmtAuto(price + 3.7)}</span>
+            <span className="sh-meta-cell__v sh-meta-cell__v--muted" title={t('mark_price_tip')}>
+              {markPrice ? fmtAuto(markPrice) : '—'}
+            </span>
           </div>
           <div className="sh-meta-cell">
             <span className="sh-meta-cell__k">{t('index_price')}</span>
-            <span className="sh-meta-cell__v sh-meta-cell__v--muted">{fmtAuto(price - 1.7)}</span>
+            <span className="sh-meta-cell__v sh-meta-cell__v--muted">
+              {indexPrice ? fmtAuto(indexPrice) : '—'}
+            </span>
           </div>
           <div className="sh-meta-cell">
             <span className="sh-meta-cell__k">
               {t('funding')} <span className="tt-wrap"><I.Info size={9}/><span className="tt">{t('funding_countdown_tip')}</span></span>
             </span>
             <span className="sh-meta-cell__v">
-              <span className="t-long">+0.0084%</span><span className="cd">54m</span>
+              {/*
+                 부호가 의미를 바꾼다: 양수면 롱이 숏에게, 음수면 숏이 롱에게 낸다.
+                 색도 부호에 맞춘다 — 항상 초록이면 비용을 수익으로 오해한다.
+              */}
+              {fundingRate === null ? (
+                <span className="sh-meta-cell__v--muted">—</span>
+              ) : (
+                <span className={fundingRate >= 0 ? 't-long' : 't-short'}>
+                  {(fundingRate >= 0 ? '+' : '') + (fundingRate * 100).toFixed(4) + '%'}
+                </span>
+              )}
+              <span className="cd">{fundingCountdown || '—'}</span>
             </span>
           </div>
           <div className="sh-meta-cell sh-group--range" style={{borderLeft:'1px solid var(--color-border-subtle)', paddingLeft: 12, marginLeft: 4}}>
@@ -454,6 +552,25 @@
     const priceDev = ((px - lastPrice) / lastPrice) * 100;
 
     const errors = [];
+    /*
+       ★★ 거래소 미상장 심볼.
+
+         실시세가 덮어쓰지 못하는 심볼은 목업 가격이 그대로 남는다. 그 상태로
+         주문 패널을 열면 사용자는 존재하지 않는 종목에 가짜 가격으로 주문을
+         낸다. 서버가 거부하더라도(승수를 모르면 주문을 보내지 않는다) 사용자가
+         거기까지 가서 알게 되는 것은 나쁘다 — 여기서 먼저 막는다.
+
+       ★ 버튼을 삭제하지 않는다(디자이너 UI 계약). 비활성으로 두고 이유를 쓴다.
+    */
+    const symbolUnlisted = (() => {
+      if (!window.QTMockPolicy || !window.QTMockPolicy.isRealService()) return false;
+      /* market.dataSource 는 live-market.js 가 상장 여부를 판정해 넣는다.
+         QTLive.isLive() 와 둘 다 본다 — 한쪽만 보면 아직 판정 전 상태를 놓친다. */
+      if (market && market.dataSource === 'mock') return true;
+      if (!window.QTLive || typeof window.QTLive.isLive !== 'function') return false;
+      return Boolean(symbolKey) && !window.QTLive.isLive(symbolKey);
+    })();
+    if (symbolUnlisted) errors.push({ level: 'danger', text: t('oe_err_not_listed') });
     if (sz <= 0) errors.push({ level: 'warn', text: t('oe_err_no_size') });
     if (totalUSDT < 5) errors.push({ level: 'warn', text: t('oe_err_min_notional') });
     if (requiredMargin > assets.availableBalance) errors.push({ level: 'danger', text: t('oe_err_insufficient', { amount: fmt(requiredMargin - assets.availableBalance) }) });
@@ -601,6 +718,8 @@
 
             <div className="oe-buttons">
               <button
+                disabled={symbolUnlisted}
+                title={symbolUnlisted ? t('oe_err_not_listed') : undefined}
                 className={`btn btn--long btn--lg ${side!=='long' ? 'btn--outline' : ''}`}
                 style={side !== 'long' ? { background: 'var(--color-trade-long-bg)', color:'var(--color-trade-long)', border:'1px solid var(--color-trade-long)'} : undefined}
                 onClick={() => {
@@ -611,6 +730,8 @@
                 ▲ {t('buy_long')}
               </button>
               <button
+                disabled={symbolUnlisted}
+                title={symbolUnlisted ? t('oe_err_not_listed') : undefined}
                 className={`btn btn--short btn--lg ${side!=='short' ? 'btn--outline' : ''}`}
                 style={side !== 'short' ? { background: 'var(--color-trade-short-bg)', color:'var(--color-trade-short)', border:'1px solid var(--color-trade-short)'} : undefined}
                 onClick={() => {
@@ -637,20 +758,162 @@
   // ============================================================
   // POSITIONS & ORDERS
   // ============================================================
-  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, onClose, t }) {
+  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, t }) {
     const [tab, setTab] = useState('positions');
+
+    /*
+       계정 데이터. 실 잔고·주문이 도착하면 재렌더되고, 없으면 목업이 유지된다.
+       QTAccount 가 없는 환경(정적 프리뷰)에서도 화면이 깨지지 않도록 기본값을 둔다.
+    */
+    /** 진행 중인 취소 요청. 같은 주문을 두 번 누르는 것을 막는다. */
+    const [canceling, setCanceling] = useState(null);
+
+    /**
+     * 'Symbol만' 필터. 현재 차트 심볼의 행만 보여준다.
+     *
+     * 심볼이 여러 개일 때 내역에서 원하는 것을 찾기 어렵다. 특히 청산 위험이
+     * 있는 심볼을 확인하려면 그 심볼만 보는 편이 빠르다.
+     */
+    const [symbolOnly, setSymbolOnly] = useState(false);
+
+    /**
+     * 필터 적용.
+     *
+     * 서버에도 symbol 파라미터가 있지만 클라이언트에서 거른다 —
+     * 이미 받아둔 데이터를 다시 요청하면 체감이 느려지고 레이트리밋을 쓴다.
+     * 데이터 양이 페이지 단위(수십~수백 행)라 클라이언트 필터로 충분하다.
+     */
+    const applyFilter = (rows) => {
+      if (!symbolOnly || !currentSymbol) return rows;
+      return rows.filter((r) => r.symbol === currentSymbol);
+    };
+
+    /*
+       필터를 한 곳에서 적용해 파생 목록을 만든다.
+
+       탭 배지의 개수와 표의 행 수가 같은 목록에서 나와야 한다. 따로 계산하면
+       "배지는 3인데 표에는 1행" 같은 어긋남이 생기고, 사용자는 데이터가
+       사라졌다고 생각한다.
+    */
+    const acctHook = window.useAccountData ? window.useAccountData() : null;
+    const Acct = window.QTAccount;
+    const acct = {
+      status: acctHook ? acctHook.status : 'OFFLINE',
+      isLive: acctHook ? acctHook.isLive : false,
+      orderHistory: Acct ? Acct.getOrderHistory() : [],
+      fills: Acct ? Acct.getFills() : [],
+      transactions: Acct ? Acct.getTransactions() : [],
+    };
+
+/**
+     * 빈 화면 문구를 정한다.
+     *
+     * 세 가지가 다른 사실이다:
+     *   · 키를 연결하지 않았다      → 예시 데이터 안내
+     *   · 내역이 정말 없다          → "내역이 없습니다"
+     *   · 필터 때문에 0건이다        → "이 심볼에는 없습니다" (필터를 끄면 보인다)
+     * 마지막을 두 번째로 표시하면 사용자가 데이터가 사라진 줄 안다.
+     */
+    const emptyReason = (allRows, emptyKey) => {
+      if (!acct.isLive) return t('acct_status_' + String(acct.status).toLowerCase());
+      if (symbolOnly && currentSymbol && allRows.length > 0) {
+        return t('filter_no_match_symbol', { symbol: currentSymbol });
+      }
+      return t(emptyKey);
+    };
+
+    const view = {
+      positions: applyFilter(positions || []),
+      orders: applyFilter(orders || []),
+      orderHistory: applyFilter(acct.orderHistory),
+      fills: applyFilter(acct.fills),
+      // 자금 이동은 심볼이 없는 행(이체 등)이 있다. 필터를 걸면 그 행이 사라지는데,
+      // 그건 의도된 동작이다 — 심볼별로 보려는 것이므로.
+      transactions: applyFilter(acct.transactions),
+    };
+
+
+    /**
+     * 주문 취소.
+     *
+     * 실패를 성공으로 보여주지 않는다 — 이미 체결된 주문을 "취소됨" 으로
+     * 표시하면 사용자가 포지션을 방치한다. 서버 응답을 그대로 알린다.
+     */
+    const cancelOrder = (o) => {
+      if (!window.QTApi || !window.QTApi.orders || !window.QTApi.orders.cancel) return;
+      setCanceling(o.id);
+      window.QTApi.orders
+        .cancel(o.symbol, o.clientOrderId || o.id)
+        .then((r) => {
+          if (window.QTAccount) window.QTAccount.refresh();
+          if (window.QTToast) {
+            window.QTToast(r.ok
+              ? { title: t('order_canceled', { symbol: o.symbol }), variant: 'success' }
+              : { title: t('order_cancel_failed'), desc: r.reason || undefined, variant: 'error' });
+          }
+        })
+        .catch((err) => {
+          if (window.QTToast) window.QTToast({ title: t('order_cancel_failed'), desc: err && err.message, variant: 'error' });
+        })
+        .finally(() => setCanceling(null));
+    };
+
+    /**
+     * 전량 청산 — 현재 심볼의 미체결 전체 취소.
+     *
+     * 되돌릴 수 없으므로 확인을 받는다. 확인 없이 실행하면 실수 한 번에
+     * 걸어둔 주문이 전부 사라진다.
+     */
+    const cancelAll = () => {
+      if (!window.QTApi || !window.QTApi.orders || !window.QTApi.orders.cancelAll) return;
+      const symbols = [...new Set(view.orders.map((o) => o.symbol))];
+      if (symbols.length === 0) return;
+      const label = symbols.length === 1 ? symbols[0] : t('close_all_symbols', { count: symbols.length });
+      // eslint-disable-next-line no-alert
+      if (!window.confirm(t('close_all_confirm', { target: label }))) return;
+
+      setCanceling('__all__');
+      Promise.all(symbols.map((sym) => window.QTApi.orders.cancelAll(sym).catch((e) => ({ ok: false, error: e }))))
+        .then((results) => {
+          const total = results.reduce((n, r) => n + (r.count || 0), 0);
+          if (window.QTAccount) window.QTAccount.refresh();
+          if (window.QTToast) window.QTToast({ title: t('close_all_done', { count: total }), variant: 'success' });
+        })
+        .finally(() => setCanceling(null));
+    };
     return (
       <div className="panel" style={{height:'100%'}}>
         <div className="pos-tabs">
-          <button className={`tab ${tab==='positions'?'is-active':''}`} onClick={() => setTab('positions')}>{t('positions')} <span className="tab__count">{positions.length}</span></button>
-          <button className={`tab ${tab==='orders'?'is-active':''}`} onClick={() => setTab('orders')}>{t('open_orders')} <span className="tab__count">{orders.length}</span></button>
+          <button className={`tab ${tab==='positions'?'is-active':''}`} onClick={() => setTab('positions')}>{t('positions')} <span className="tab__count">{view.positions.length}</span></button>
+          <button className={`tab ${tab==='orders'?'is-active':''}`} onClick={() => setTab('orders')}>{t('open_orders')} <span className="tab__count">{view.orders.length}</span></button>
           <button className={`tab ${tab==='history'?'is-active':''}`} onClick={() => setTab('history')}>{t('order_history')}</button>
           <button className={`tab ${tab==='trades'?'is-active':''}`} onClick={() => setTab('trades')}>{t('trade_history')}</button>
           <button className={`tab ${tab==='tx'?'is-active':''}`} onClick={() => setTab('tx')}>{t('transaction_history')}</button>
           <button className={`tab ${tab==='signals'?'is-active':''}`} onClick={() => setTab('signals')}><span style={{color:'var(--color-ai)'}}>✦</span> {t('ai_signals')} <span className="tab__count">2</span></button>
           <div className="pos-tabs__right">
-            <label className="chk" style={{whiteSpace:'nowrap'}}><input type="checkbox"/><span className="chk__box"><I.Check size={10}/></span>{t('symbol_only')}</label>
-            <button className="btn btn--xs btn--danger" style={{whiteSpace:'nowrap'}}>{t('close_all')}</button>
+            <label
+              className="chk"
+              style={{whiteSpace:'nowrap'}}
+              title={currentSymbol ? t('symbol_only_hint', { symbol: currentSymbol }) : t('symbol_only')}
+            >
+              <input
+                type="checkbox"
+                checked={symbolOnly}
+                onChange={(e) => setSymbolOnly(e.target.checked)}
+                disabled={!currentSymbol}
+              />
+              <span className="chk__box"><I.Check size={10}/></span>
+              {t('symbol_only')}
+            </label>
+            <button
+              className="btn btn--xs btn--danger"
+              style={{whiteSpace:'nowrap'}}
+              onClick={cancelAll}
+              disabled={canceling === '__all__' || !acct.isLive || view.orders.length === 0}
+              title={acct.isLive ? t('close_all_hint') : t('cancel_needs_live')}
+            >
+              {canceling === '__all__' ? t('canceling') : t('close_all')}
+            </button>
           </div>
         </div>
 
@@ -672,7 +935,7 @@
                 </tr>
               </thead>
               <tbody>
-                {positions.map(p => {
+                {view.positions.map(p => {
                   // 화면의 lastPrice 는 "현재 보고 있는 심볼"의 가격이다.
                   // 포지션 손익은 해당 포지션 심볼의 가격으로 계산해야 한다.
                   const mark = markPriceFor(p.symbol, lastPrice);
@@ -737,7 +1000,7 @@
                 </tr>
               </thead>
               <tbody>
-                {orders.map(o => (
+                {view.orders.map(o => (
                   <tr key={o.id}>
                     <td><strong>{o.symbol.replace('USDT', '/USDT')}</strong></td>
                     <td>
@@ -752,7 +1015,16 @@
                     <td>
                       <span className={`badge ${o.status==='partial'?'badge--warning':'badge--neutral'}`}>{o.status}</span>
                     </td>
-                    <td><button className="btn btn--xs btn--danger">Cancel</button></td>
+                    <td>
+                      <button
+                        className="btn btn--xs btn--danger"
+                        onClick={() => cancelOrder(o)}
+                        disabled={canceling === o.id || !o.isLive}
+                        title={o.isLive ? t('cancel_order') : t('cancel_needs_live')}
+                      >
+                        {canceling === o.id ? t('canceling') : t('cancel')}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -780,12 +1052,106 @@
             </div>
           )}
 
-          {(tab === 'history' || tab === 'trades' || tab === 'tx') && (
-            <div className="empty">
-              <span className="empty__icon">◇</span>
-              <span>No {tab === 'history' ? 'order history' : tab === 'trades' ? 'trades' : 'transactions'} in the selected range</span>
-              <button className="btn btn--sm btn--ghost">Change filter</button>
-            </div>
+          {/*
+            주문내역 · 체결내역 · 입출금내역.
+
+            실데이터가 있으면 표를 그리고, 없으면 기존 빈 화면을 그대로 보여준다.
+            빈 화면 마크업을 지우지 않는다 — 검증된 키가 없거나 정말 내역이 0건인
+            경우가 있고, 그때 표 머리글만 남으면 오히려 혼란스럽다.
+          */}
+          {tab === 'history' && (
+            view.orderHistory.length > 0 ? (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>{t('time')}</th><th>Symbol</th><th>Side</th><th>{t('order_type')}</th>
+                    <th>{t('price')}</th><th>{t('size')}</th><th>{t('filled')}</th><th>{t('status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.orderHistory.map(o => (
+                    <tr key={o.id}>
+                      <td>{new Date(o.time).toLocaleString()}</td>
+                      <td><strong>{o.symbol.replace('USDT', '/USDT')}</strong></td>
+                      <td><span className={o.side === 'long' ? 't-long' : 't-short'}>{o.side === 'long' ? '▲ LONG' : '▼ SHORT'}</span></td>
+                      <td>{o.type}</td>
+                      {/* 시장가 주문은 지정가가 없다. 0 을 쓰지 않고 '—' 로 둔다. */}
+                      <td>{o.price === null ? '—' : fmtPrice(o.price, o.symbol)}</td>
+                      <td>{fmtQty(o.amount, 4)}</td>
+                      <td>{fmtQty(o.filled, 4)}</td>
+                      <td><span className="badge badge--neutral">{o.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">
+                <span className="empty__icon">◇</span>
+                <span>{emptyReason(acct.orderHistory, 'no_order_history')}</span>
+              </div>
+            )
+          )}
+
+          {tab === 'trades' && (
+            view.fills.length > 0 ? (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>{t('time')}</th><th>Symbol</th><th>Side</th>
+                    <th>{t('price')}</th><th>{t('size')}</th><th>{t('fee')}</th><th>{t('role')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.fills.map(f => (
+                    <tr key={f.id}>
+                      <td>{new Date(f.time).toLocaleString()}</td>
+                      <td><strong>{f.symbol.replace('USDT', '/USDT')}</strong></td>
+                      <td><span className={f.side === 'long' ? 't-long' : 't-short'}>{f.side === 'long' ? '▲ LONG' : '▼ SHORT'}</span></td>
+                      <td>{fmtPrice(f.price, f.symbol)}</td>
+                      <td>{fmtQty(f.amount, 4)}</td>
+                      {/* 수수료 부호를 보존한다. 음수는 메이커 리베이트(받은 돈)다. */}
+                      <td className={f.fee < 0 ? 't-long' : undefined}>{fmt(f.fee, 6)} {f.feeCurrency}</td>
+                      <td><span className="badge badge--neutral">{f.liquidity || '—'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">
+                <span className="empty__icon">◇</span>
+                <span>{emptyReason(acct.fills, 'no_trades')}</span>
+              </div>
+            )
+          )}
+
+          {tab === 'tx' && (
+            view.transactions.length > 0 ? (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>{t('time')}</th><th>{t('tx_kind')}</th><th>Symbol</th><th>{t('amount')}</th><th>{t('asset')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.transactions.map(x => (
+                    <tr key={x.id}>
+                      <td>{new Date(x.time).toLocaleString()}</td>
+                      {/* 분류되지 않은 종류는 거래소 원본 표기를 그대로 보여준다.
+                          임의로 가까운 항목에 끼워넣으면 손익 집계가 조용히 틀어진다. */}
+                      <td>{x.kind === 'UNKNOWN' ? (x.rawType || '—') : t('tx_kind_' + x.kind.toLowerCase())}</td>
+                      <td>{x.symbol ? x.symbol.replace('USDT', '/USDT') : '—'}</td>
+                      <td className={x.amount < 0 ? 't-short' : 't-long'}>{x.amount > 0 ? '+' : ''}{fmt(x.amount, 6)}</td>
+                      <td>{x.asset}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">
+                <span className="empty__icon">◇</span>
+                <span>{emptyReason(acct.transactions, 'no_transactions')}</span>
+              </div>
+            )
           )}
         </div>
       </div>

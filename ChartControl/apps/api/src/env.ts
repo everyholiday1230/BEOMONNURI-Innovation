@@ -44,13 +44,97 @@ export interface ApiEnv {
   // --- KuCoin (현재 운영 거래소) ---
   kucoinFuturesRest: string;
   kucoinSpotRest: string;
-  /** Exchange Broker(ND) 전용 호스트. API Broker 는 일반 호스트를 쓴다. */
+  /**
+   * Exchange Broker(ND) 전용 호스트. API Broker 는 일반 호스트를 쓴다.
+   *
+   * ★ 브로커 **정산 조회**(리베이트·커미션·사용자 목록)는 이 호스트가 아니라
+   *   `kucoinSpotRest`(api.kucoin.com)를 쓴다. 문서에서 확인한 경로가 전부
+   *   그쪽에 있다 — 선물 호스트에도, 이 호스트에도 없다.
+   */
   kucoinBrokerRest: string;
+
+  /**
+   * 운영자 자신의 KuCoin 키.
+   *
+   * ★★ 사용자 키와 다르다. 브로커 정산은 **우리 실적**이므로 우리 키로 조회한다.
+   *   사용자 키로 부르면 그 사용자의 브로커 실적(없음)을 조회하게 된다.
+   *
+   * ★ 없으면 정산 조회를 제공하지 않는다. 지어내지 않고 "설정되지 않음" 을
+   *   화면에 표시한다.
+   */
+  /**
+   * 청산 위험 감시를 켤지.
+   *
+   * ★★ 기본은 **꺼짐**이다. 실주문이 없는 배포에서 사용자 키로 거래소를 주기
+   *   호출할 이유가 없다. 실주문을 여는 시점에 함께 켠다.
+   *
+   * ★ 켜지 않으면 화면이 열려 있을 때만 경고가 계산된다(클라이언트 계산).
+   *   사용자가 자는 동안에는 경고가 없다 — 그 사실을 운영자가 알아야 한다.
+   */
+  riskWatchEnabled: boolean;
+  /** 감시 주기(ms). 최소 30초. 너무 짧으면 거래소 rate limit 에 걸린다. */
+  riskWatchIntervalMs: number;
+
+  kucoinOperatorKey: string;
+  kucoinOperatorSecret: string;
+  kucoinOperatorPassphrase: string;
   /**
    * 브로커 리베이트 자격증명. KuCoin 이 승인 후 발급하는 3종.
    * 셋 다 있어야 KC-API-PARTNER-* 헤더를 붙인다. 부분 설정은 400201 을 유발하므로
    * 하나라도 비면 헤더를 생략한다 (packages/exchange-kucoin/src/signature.ts).
    */
+  /**
+   * KuCoin 레퍼럴(추천) 가입 링크.
+   *
+   * ★ 브로커 프로그램과 완전히 다른 것이다. 혼동하면 수익 계산이 틀린다.
+   *   - 레퍼럴: 이 링크로 **신규 가입**한 사람의 수수료 일부를 받는다.
+   *     API 키·서명·헤더가 필요 없다. 지금 당장 동작한다.
+   *   - 브로커: 주문에 KC-API-PARTNER-* 헤더를 붙여 리베이트를 받는다.
+   *     파트너 자격증명 3종이 있어야 하고 계약이 선행된다.
+   *   둘은 별개 수익원이고 동시에 가질 수 있다.
+   *
+   * 이미 KuCoin 계정이 있는 사람은 이 링크로 소급 귀속되지 않는다.
+   * 신규 가입자에게만 의미가 있다.
+   *
+   * 비어 있으면 화면이 가입 유도를 표시하지 않는다 (빈 링크로 보내지 않는다).
+   */
+  /**
+   * 서비스 표시 이름.
+   *
+   * 설정으로 두는 이유: 이름은 바뀐다(QuantumTrade → ChartControl 로 실제로
+   * 바뀌었다). 코드 34곳에 박아두면 다음에 바뀔 때 또 34곳을 고치고,
+   * 한 곳을 빠뜨려 옛 이름이 남는다. 화이트라벨 배포도 가능해진다.
+   */
+  brandName: string;
+  /**
+   * 고객 지원 이메일.
+   *
+   * 설정하지 않으면 화면이 이메일 문의 경로를 **표시하지 않는다**. 존재하지
+   * 않는 주소를 보여주면 고객이 메일을 보내고 답을 기다리는데 아무도 받지
+   * 않는다 — 조용히 신뢰를 잃는 방식이다.
+   */
+  supportEmail: string;
+  /**
+   * 공개 접속 주소 (초대 링크 생성용).
+   *
+   * 예: https://chartcontrol.app
+   *
+   * 설정하지 않으면 초대 링크를 **만들지 않는다**. 서버가 자기 주소를 추측해
+   * 링크를 만들면(예: 요청 Host 헤더) 프록시·개발 서버 주소가 그대로 들어가
+   * 사용자가 열리지 않는 링크를 공유한다. 링크 없이 코드만 주는 편이 낫다.
+   */
+  publicBaseUrl: string;
+  kucoinReferralUrl: string;
+  /**
+   * 거래소별 추천 가입 링크. `EXCHANGE_REFERRAL_URL_<거래소ID>` 로 설정한다.
+   *
+   * 예: `EXCHANGE_REFERRAL_URL_KUCOIN=https://www.kucoin.com/r/rf/XXXX`
+   *
+   * 접두어 방식을 쓰는 이유: 거래소를 추가할 때마다 코드를 고치지 않아도 된다.
+   * 설정에 없는 거래소는 링크가 없다 — 없는 코드로 링크를 만들면 가입은
+   * 일어나지만 귀속이 안 돼 수익이 0 이 된다. 조용히 새는 종류의 손실이다.
+   */
+  exchangeReferralUrls: Readonly<Record<string, string>>;
   kucoinBrokerPartner: string;
   kucoinBrokerKey: string;
   kucoinBrokerName: string;
@@ -212,9 +296,19 @@ export function assertProductionDatabaseReadiness(
 
 export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const tradingMode = pickEnum(env.TRADING_MODE, TRADING_MODES, 'MOCK');
-  // Live orders require BOTH the flag AND a non-production trading mode. Production is disabled.
+  /*
+     실주문 허용 조건: 플래그 + 실주문을 지원하는 거래 모드.
+
+     모드를 화이트리스트로 둔다. 'MOCK' 이나 알 수 없는 값이 실주문을 열지
+     못하게 하려면, 부정 조건(!== 'MOCK')이 아니라 긍정 목록이어야 한다 —
+     새 모드를 추가할 때 실주문이 자동으로 열리면 안 된다.
+
+     KUCOIN_LIVE 는 사용자 자기 키로 실주문을 낸다. 이것만으로 주문이 나가지
+     않는다: 킬스위치·리스크 게이트·자격증명 검증을 모두 통과해야 한다.
+  */
+  const LIVE_ORDER_MODES: readonly string[] = ['BITMART_DEMO', 'KUCOIN_LIVE'];
   const liveOrdersEnabled =
-    env.FEATURE_LIVE_ORDERS_ENABLED === 'true' && tradingMode === 'BITMART_DEMO';
+    env.FEATURE_LIVE_ORDERS_ENABLED === 'true' && LIVE_ORDER_MODES.includes(tradingMode);
   return {
     port: Number(env.API_PORT ?? 8787),
     host: env.API_HOST ?? '127.0.0.1',
@@ -264,7 +358,130 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
 
     kucoinFuturesRest: env.KUCOIN_FUTURES_REST ?? 'https://api-futures.kucoin.com',
     kucoinSpotRest: env.KUCOIN_SPOT_REST ?? 'https://api.kucoin.com',
-    kucoinBrokerRest: env.KUCOIN_BROKER_REST ?? 'https://api-broker.kucoin.com',
+    /*
+       브로커 정산 조회 도메인.
+
+       ★★ 기본값이 `api-broker.kucoin.com` 이었는데, **우리가 쓰는 경로는 그
+         도메인에 없다.** 두 도메인에 직접 요청해 확인했다(2026-08-10):
+           /api/v2/broker/queryMyCommission → api.kucoin.com 400(있음) / api-broker 404
+           /api/v1/broker/nd/info           → api.kucoin.com 404 / api-broker 400(있음)
+         (400001 은 "인증 헤더 없음" 이므로 경로가 존재한다는 뜻)
+
+       ★ KuCoin 브로커는 두 종류이고 도메인이 갈린다:
+           · Broker Pro (API Broker) — 사용자가 자기 키로 거래. **우리 형태.**
+             경로 `/broker/api/*`, `/broker/query*` → api.kucoin.com
+           · Exchange Broker — 브로커가 하위계정을 발급. `/broker/nd/*`
+             → api-broker.kucoin.com
+
+       ★ 잘못된 기본값을 두면, 나중에 이 값을 실제로 연결하는 순간 모든 정산
+         조회가 404 가 되고 "리베이트가 0원" 으로 보인다.
+    */
+    kucoinBrokerRest: env.KUCOIN_BROKER_REST ?? 'https://api.kucoin.com',
+
+    /*
+       운영자 키. 브로커 정산 조회 전용이다.
+
+       ★ 기본값을 두지 않는다. 빈 값이면 정산 조회 기능이 꺼지고, 화면이
+         "설정되지 않음" 을 표시한다 — 없는 수익을 0 으로 보여주는 것보다
+         설정이 빠졌다고 말하는 편이 정확하다.
+    */
+    /*
+       청산 감시.
+
+       ★ 명시적으로 'true' 여야 켠다. 실수로 켜지면 사용자 키로 거래소를 주기
+         호출하게 되고, rate limit 을 사용자 본인의 거래에서 빼앗는다.
+    */
+    riskWatchEnabled: env.RISK_WATCH_ENABLED === 'true',
+    riskWatchIntervalMs: (() => {
+      const n = Number(env.RISK_WATCH_INTERVAL_MS ?? 120_000);
+      return Number.isFinite(n) ? Math.max(30_000, n) : 120_000;
+    })(),
+
+    kucoinOperatorKey: env.KUCOIN_API_KEY?.trim() ?? '',
+    kucoinOperatorSecret: env.KUCOIN_API_SECRET?.trim() ?? '',
+    kucoinOperatorPassphrase: env.KUCOIN_API_PASSPHRASE?.trim() ?? '',
+    /*
+       레퍼럴 링크. http(s) 만 허용한다.
+
+       검증하는 이유: 잘못된 스킴(javascript: 등)이 그대로 화면의 링크가 되면
+       클릭 한 번에 스크립트가 실행된다. 설정 파일은 신뢰 경계 밖일 수 있다.
+    */
+    // 비어 있으면 화면 기본값(ChartControl)이 쓰인다.
+    brandName: env.BRAND_NAME?.trim() || 'ChartControl',
+    /*
+       기본값을 두지 않는다.
+
+       'support@example.com' 같은 그럴듯한 기본값이 있으면 설정을 잊은 채
+       배포되고, 고객 문의가 아무도 없는 주소로 간다. 비어 있으면 화면이
+       그 경로를 감추므로, 설정을 잊었다는 사실이 화면에서 드러난다.
+    */
+    /*
+       http(s) 만 허용하고 끝의 슬래시를 없앤다.
+       잘못된 값은 없는 것으로 본다 — 깨진 링크를 만드는 것보다 안 만드는 게 낫다.
+    */
+    publicBaseUrl: (() => {
+      const raw = env.PUBLIC_BASE_URL?.trim() ?? '';
+      if (!raw) return '';
+      try {
+        const u = new URL(raw);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+        return u.origin;
+      } catch {
+        return '';
+      }
+    })(),
+    supportEmail: (() => {
+      const v = env.SUPPORT_EMAIL?.trim() ?? '';
+      // 최소한의 형식 검증. 잘못된 값은 없는 것으로 본다.
+      return /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v) ? v : '';
+    })(),
+    kucoinReferralUrl: (() => {
+      const raw = env.KUCOIN_REFERRAL_URL?.trim() ?? '';
+      if (!raw) return '';
+      try {
+        const u = new URL(raw);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+        return u.toString();
+      } catch {
+        // 형식이 잘못되면 없는 것으로 본다. 부팅을 막지는 않는다 —
+        // 레퍼럴은 부가 기능이고, 이것 때문에 서비스가 안 뜨면 안 된다.
+        return '';
+      }
+    })(),
+    /*
+       거래소별 추천 링크 수집.
+
+       KUCOIN_REFERRAL_URL 도 kucoin 항목으로 합친다 — 같은 정보를 두 곳에
+       따로 두면 한쪽만 고쳐서 어긋난다.
+    */
+    exchangeReferralUrls: (() => {
+      const out: Record<string, string> = {};
+      const safe = (raw: string | undefined): string => {
+        const v = raw?.trim();
+        if (!v) return '';
+        try {
+          const u = new URL(v);
+          // http(s) 만 허용. javascript: 등이 화면의 링크가 되면 클릭 한 번에 실행된다.
+          return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : '';
+        } catch {
+          return '';
+        }
+      };
+
+      const PREFIX = 'EXCHANGE_REFERRAL_URL_';
+      for (const [k, v] of Object.entries(env)) {
+        if (!k.startsWith(PREFIX)) continue;
+        const id = k.slice(PREFIX.length).toLowerCase();
+        const url = safe(v as string | undefined);
+        if (id && url) out[id] = url;
+      }
+
+      // 전용 변수는 접두어 설정보다 우선한다 (더 구체적인 설정이 이긴다).
+      const kucoin = safe(env.KUCOIN_REFERRAL_URL);
+      if (kucoin) out.kucoin = kucoin;
+
+      return Object.freeze(out);
+    })(),
     kucoinBrokerPartner: env.KUCOIN_BROKER_PARTNER?.trim() ?? '',
     kucoinBrokerKey: env.KUCOIN_BROKER_KEY?.trim() ?? '',
     kucoinBrokerName: env.KUCOIN_BROKER_NAME?.trim() ?? '',

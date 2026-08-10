@@ -31,7 +31,18 @@
       permissions: ['Read', 'Trade', 'Withdraw', 'Futures'],
       // KuCoin 은 passphrase 필수 — 세 필드를 다 받아야 서명이 만들어진다.
       required: ['apiKey', 'apiSecret', 'passphrase'],
-      referral: 'https://www.kucoin.com/r/rf/QUANTUM-KURI',
+      /*
+         추천 가입 링크.
+
+         원래 예시 코드('QUANTUM-KURI' 등)가 9개 거래소에 박혀 있었다. 디자인
+         시연용 값이었지만 그대로 런칭하면 사용자는 그 링크로 가입하고,
+         존재하지 않는 코드라 **귀속이 안 돼 수익이 0** 이 된다. 가입은
+         정상으로 보이므로 새는 것을 알아채기 어렵다.
+
+         실제 값은 서버 설정(EXCHANGE_REFERRAL_URL_<ID>)에서 온다.
+         null 이면 화면이 유도 카드를 감춘다 — 링크 없는 카드를 보여주지 않는다.
+      */
+      referral: null,
       referralRebate: { pending: true },
       status: 'available',
       recommended: true,
@@ -48,7 +59,7 @@
       apiDocs: 'https://binance-docs.github.io/apidocs/',
       permissions: ['Read', 'Trade', 'Withdraw', 'Futures'],
       required: ['apiKey', 'apiSecret'],
-      referral: 'https://accounts.binance.com/register?ref=QUANTUM-KURI',
+      referral: null,
       referralRebate: { rebatePct: 20 },
       status: 'available',
       recommended: true,
@@ -65,7 +76,7 @@
       apiDocs: 'https://bitgetlimited.github.io/apidoc/en/',
       permissions: ['Read', 'Trade', 'Withdraw'],
       required: ['apiKey', 'apiSecret', 'passphrase'],
-      referral: 'https://partner.bitget.com/bg/QUANTUMKURI',
+      referral: null,
       referralRebate: { rebatePct: 50, bonusUsd: 100 },
       status: 'available',
       recommended: true,
@@ -82,7 +93,7 @@
       apiDocs: 'https://developer-pro.bitmart.com/',
       permissions: ['Read', 'Trade', 'Withdraw'],
       required: ['apiKey', 'apiSecret', 'memo'],
-      referral: 'https://www.bitmart.com/register?r=QUANTUM',
+      referral: null,
       referralRebate: { rebatePct: 25 },
       status: 'available',
       recommended: false,
@@ -99,7 +110,7 @@
       apiDocs: 'https://www.okx.com/docs-v5/',
       permissions: ['Read', 'Trade', 'Withdraw'],
       required: ['apiKey', 'apiSecret', 'passphrase'],
-      referral: 'https://www.okx.com/join/QUANTUMKURI',
+      referral: null,
       referralRebate: { rebatePct: 20, bonusUsd: 50 },
       status: 'available',
       recommended: true,
@@ -116,7 +127,7 @@
       apiDocs: 'https://bybit-exchange.github.io/docs/v5/intro',
       permissions: ['Read', 'Trade', 'Withdraw'],
       required: ['apiKey', 'apiSecret'],
-      referral: 'https://www.bybit.com/invite?ref=QUANTUM',
+      referral: null,
       referralRebate: { rebatePct: 40 },
       status: 'available',
       recommended: true,
@@ -133,7 +144,7 @@
       apiDocs: 'https://www.gate.io/docs/apiv4/',
       permissions: ['Read', 'Trade', 'Withdraw'],
       required: ['apiKey', 'apiSecret'],
-      referral: 'https://www.gate.io/signup/QUANTUMKURI',
+      referral: null,
       referralRebate: { rebatePct: 30 },
       status: 'available',
       recommended: false,
@@ -150,7 +161,7 @@
       apiDocs: 'https://docs.kraken.com/rest/',
       permissions: ['Read', 'Trade'],
       required: ['apiKey', 'privateKey'],
-      referral: 'https://kraken.com/sign-up?ref=QUANTUM',
+      referral: null,
       referralRebate: { pending: true },
       status: 'beta',
       recommended: false,
@@ -167,7 +178,7 @@
       apiDocs: 'https://docs.cloud.coinbase.com/',
       permissions: ['Read', 'Trade'],
       required: ['apiKey', 'apiSecret'],
-      referral: 'https://coinbase.com/join/QUANTUM',
+      referral: null,
       referralRebate: { creditUsd: 30 },
       status: 'coming-soon',
       recommended: false,
@@ -217,14 +228,14 @@
   // AI STRATEGIES (팔로우/백테스트 가능한 목록)
   // ============================================================
   const STRATEGIES = [
-    { id:'strat-01', name:'BTC Momentum Rider',        author:'QuantumTrade Lab', tag:'Momentum · 4H',   pnl30:  38.4, winRate: 62, sharpe: 2.1, maxDD:  8.4, followers: 1240, subscription:'Free',   backtestRange:'2024-01 → 2026-07' },
+    { id:'strat-01', name:'BTC Momentum Rider',        authorKey:'author_house_lab', tag:'Momentum · 4H',   pnl30:  38.4, winRate: 62, sharpe: 2.1, maxDD:  8.4, followers: 1240, subscription:'Free',   backtestRange:'2024-01 → 2026-07' },
     { id:'strat-02', name:'ETH Mean Reversion',        author:'@byrne',           tag:'Mean-Rev · 1H',    pnl30:  22.1, winRate: 71, sharpe: 2.9, maxDD:  5.2, followers:  842, subscription:'Free',   backtestRange:'2024-06 → 2026-07' },
     { id:'strat-03', name:'Alt Rotation Alpha',        author:'@nova',            tag:'Rotation · 1D',    pnl30:  84.6, winRate: 54, sharpe: 1.6, maxDD: 18.2, followers:  612, subscription:'Pro',    backtestRange:'2023-01 → 2026-07' },
-    { id:'strat-04', name:'Volatility Fade (SOL)',     author:'QuantumTrade Lab', tag:'Vol · 15m',        pnl30:  12.8, winRate: 74, sharpe: 3.4, maxDD:  3.9, followers:  428, subscription:'Free',   backtestRange:'2025-01 → 2026-07' },
-    { id:'strat-05', name:'BTC Trend + Copilot',       author:'QuantumTrade Lab', tag:'Trend + AI · 4H',  pnl30:  54.2, winRate: 58, sharpe: 2.4, maxDD:  9.8, followers: 2140, subscription:'Pro',    backtestRange:'2024-01 → 2026-07', featured: true },
+    { id:'strat-04', name:'Volatility Fade (SOL)',     authorKey:'author_house_lab', tag:'Vol · 15m',        pnl30:  12.8, winRate: 74, sharpe: 3.4, maxDD:  3.9, followers:  428, subscription:'Free',   backtestRange:'2025-01 → 2026-07' },
+    { id:'strat-05', name:'BTC Trend + Copilot',       authorKey:'author_house_lab', tag:'Trend + AI · 4H',  pnl30:  54.2, winRate: 58, sharpe: 2.4, maxDD:  9.8, followers: 2140, subscription:'Pro',    backtestRange:'2024-01 → 2026-07', featured: true },
     { id:'strat-06', name:'Funding Rate Arbitrage',    author:'@perpfarmer',      tag:'Delta-Neutral',    pnl30:   4.6, winRate: 92, sharpe: 4.8, maxDD:  1.1, followers:  318, subscription:'VIP',    backtestRange:'2024-06 → 2026-07' },
     { id:'strat-07', name:'Breakout Scalper (BTC/ETH)',author:'@atlas',           tag:'Scalp · 5m',       pnl30:  28.4, winRate: 48, sharpe: 1.8, maxDD:  6.4, followers:  524, subscription:'Pro',    backtestRange:'2025-06 → 2026-07' },
-    { id:'strat-08', name:'AI News Sentiment Long',    author:'QuantumTrade Lab', tag:'Sentiment · 1H',   pnl30:  16.2, winRate: 66, sharpe: 2.2, maxDD:  4.8, followers:  892, subscription:'Pro',    backtestRange:'2025-09 → 2026-07' },
+    { id:'strat-08', name:'AI News Sentiment Long',    authorKey:'author_house_lab', tag:'Sentiment · 1H',   pnl30:  16.2, winRate: 66, sharpe: 2.2, maxDD:  4.8, followers:  892, subscription:'Pro',    backtestRange:'2025-09 → 2026-07' },
   ];
 
   // ============================================================
@@ -324,7 +335,7 @@
   // ADMIN — AI Ops (signal quality)
   // ============================================================
   const ADMIN_AI_METRICS = {
-    modelVersion: 'QuantumTrade Analyst v1.4.2',
+    modelVersionKey: 'model_analyst_v142',
     lastDeploy: '2026-07-24T09:00:00Z',
     signalsToday: 486,
     approveRate: 0.62,        // 62% of signals approved by users

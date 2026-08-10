@@ -123,14 +123,38 @@
         if (c.low < lo) lo = c.low;
         if (c.volume > volMax) volMax = c.volume;
       }
-      // Include overlay-price-points in y-range so they never clip
+      /*
+         오버레이를 Y축 범위에 넣는다 — 다만 **한계를 둔다**.
+
+         ★★ 왜 한계가 필요한가
+
+           전에는 오버레이 가격을 무조건 포함시켰다("선이 잘리지 않게").
+           그 결과 진입가가 현재가와 멀면 **캔들이 화면 한쪽에 납작하게 눌려
+           차트를 읽을 수 없었다.** 실제로 재현했다: 현재가 64,892 · 진입가
+           62,404 → Y범위가 2.5배로 늘어나 캔들 움직임이 한 줄로 보였다.
+
+           차트의 목적은 가격 움직임을 읽는 것이다. 선 하나를 다 보여주려고
+           그 목적을 잃으면 안 된다.
+
+         ★ 그래서 캔들 범위의 일정 배수까지만 늘린다. 그보다 먼 오버레이는
+           범위에 넣지 않고 화면 가장자리에 붙여 그린다(아래 clampY).
+           실제 트레이딩 앱들이 쓰는 방식이다 — 멀리 있는 주문은 가장자리에
+           표시하고 축을 늘리지 않는다.
+      */
+      const candleRange = hi - lo || 1;
+      // 캔들 범위의 60% 까지만 추가로 늘린다. 이 값을 넘는 오버레이는 가장자리 표시.
+      const OVERLAY_RANGE_LIMIT = 0.6;
+      const maxHi = hi + candleRange * OVERLAY_RANGE_LIMIT;
+      const minLo = lo - candleRange * OVERLAY_RANGE_LIMIT;
+
       for (const ov of overlays) {
         for (const p of (ov.points || [])) {
-          if (p.price > hi) hi = p.price;
-          if (p.price < lo) lo = p.price;
+          if (typeof p.price !== 'number' || !Number.isFinite(p.price)) continue;
+          if (p.price > hi && p.price <= maxHi) hi = p.price;
+          if (p.price < lo && p.price >= minLo) lo = p.price;
         }
-        if (typeof ov.priceHi === 'number' && ov.priceHi > hi) hi = ov.priceHi;
-        if (typeof ov.priceLo === 'number' && ov.priceLo < lo) lo = ov.priceLo;
+        if (typeof ov.priceHi === 'number' && ov.priceHi > hi && ov.priceHi <= maxHi) hi = ov.priceHi;
+        if (typeof ov.priceLo === 'number' && ov.priceLo < lo && ov.priceLo >= minLo) lo = ov.priceLo;
       }
       const pad = (hi - lo) * 0.08;
       hi += pad; lo -= pad;
@@ -360,14 +384,39 @@
           if (ov.label) drawTag(ctx, ov.label, x1 + 6, y1 - 14, colors, color, ov.source);
         }
         else if (ov.type === 'horizontal' && ov.points?.[0]) {
-          const y = scales.yForPrice(ov.points[0].price);
+          /*
+             수평선 (주문·포지션 진입가).
+
+             ★ 가격이 현재 Y축 범위를 벗어날 수 있다. Y축을 무한정 늘리지 않기로
+               했으므로(위 derived 주석 참고), 벗어난 선은 **화면 가장자리에
+               붙여** 그린다.
+
+             ★ 가장자리에 붙일 때는 점선으로 바꿔 "실제 위치는 화면 밖" 임을
+               알린다. 실선으로 두면 그 가격이 화면 안에 있다고 오해한다 —
+               진입가를 잘못 읽으면 손익 판단이 어긋난다.
+          */
+          const rawY = scales.yForPrice(ov.points[0].price);
+          const top = scales.plotY;
+          const bottom = scales.plotY + scales.plotH;
+          const outside = rawY < top || rawY > bottom;
+          const y = Math.max(top, Math.min(bottom, rawY));
+
+          const prevDash = ctx.getLineDash();
+          if (outside) ctx.setLineDash([3, 4]);
           ctx.beginPath();
           ctx.moveTo(scales.plotX, y);
           ctx.lineTo(scales.plotX + scales.plotW, y);
           ctx.stroke();
-          drawHandle(ctx, scales.plotX + scales.plotW - 24, y, color);
+          ctx.setLineDash(prevDash);
+
+          // 화면 밖 선은 끌어서 옮길 수 없다 — 손잡이를 그리지 않는다.
+          if (!outside) drawHandle(ctx, scales.plotX + scales.plotW - 24, y, color);
           drawPriceLabel(ctx, ov.points[0].price, y, scales, color);
-          if (ov.label) drawTag(ctx, ov.label, scales.plotX + 8, y - 14, colors, color, ov.source);
+          if (ov.label) {
+            // 위쪽 밖이면 라벨이 잘리므로 선 아래에 붙인다.
+            const labelY = rawY < top ? y + 4 : y - 14;
+            drawTag(ctx, ov.label, scales.plotX + 8, labelY, colors, color, ov.source);
+          }
         }
         else if (ov.type === 'entry-zone' && ov.priceHi != null && ov.priceLo != null) {
           const yHi = scales.yForPrice(ov.priceHi);

@@ -216,6 +216,27 @@
       return function () { listeners.delete(fn); };
     },
 
+    /**
+     * React 훅 — 세션이 바뀌면 컴포넌트를 재렌더한다.
+     *
+     * 훅을 여기 두는 이유: 세션을 쓰는 화면이 여럿인데(설정·헤더·가드) 각자
+     * 구독 코드를 쓰면 해제를 빠뜨려 누수가 나고, 구독을 잊은 화면은 로그인
+     * 직후에도 비로그인 상태를 계속 보여준다.
+     */
+    useAuth: function () {
+      var R = window.React;
+      var pair = R.useState(function () { return window.QTAuth.get(); });
+      var snap = pair[0], setSnap = pair[1];
+      R.useEffect(function () {
+        // 마운트 시점의 값이 이미 바뀌었을 수 있으므로 한 번 맞춘다.
+        setSnap(window.QTAuth.get());
+        return window.QTAuth.subscribe(function (st) {
+          setSnap({ user: st.user, tier: st.tier, loading: st.loading, offline: st.offline });
+        });
+      }, []);
+      return snap;
+    },
+
     /** 진단용. 콘솔에서 QTAuth.debug() */
     debug: function () {
       return {

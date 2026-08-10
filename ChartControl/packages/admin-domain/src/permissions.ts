@@ -41,13 +41,80 @@ export const ADMIN_PERMISSIONS = [
    * healthy must not imply seeing what the business earns.
    */
   'admin.broker.rebate.read',
+
+  /**
+   * 공지 읽기 / 쓰기.
+   *
+   * 별도 권한으로 둔 이유: 공지는 **전체 사용자에게** 나간다. 사용자 상태를
+   * 바꾸는 권한(admin.user.status.write)과 성격이 다르고, 한쪽을 가진 사람이
+   * 다른 쪽까지 할 수 있으면 안 된다.
+   *
+   * 읽기는 운영자(SUPPORT/ANALYST)에게도 준다 — 고객 문의에 답하려면 어떤
+   * 공지가 나갔는지 알아야 한다. 쓰기는 관리자 이상만 갖는다.
+   */
+  'admin.notice.read',
+  'admin.notice.write',
+
+  /**
+   * 고객 지원 티켓 읽기 / 쓰기.
+   *
+   * 운영자(SUPPORT/ANALYST)에게 **쓰기까지** 준다. 승인된 업무 범위가
+   * "티켓 대응" 이고, 답장을 못 하면 대응이 성립하지 않는다.
+   *
+   * 사용자 상태 변경(admin.user.status.write)과는 다른 권한이다 — 티켓에
+   * 답장할 수 있는 사람이 계정을 정지시킬 수 있어서는 안 된다.
+   */
+  'admin.support.read',
+  'admin.support.write',
+
+  /**
+   * 리퍼럴 제도 읽기 / 쓰기.
+   *
+   * ★ 쓰기를 ADMIN 이상에만 준다. 이 권한으로 할 수 있는 일:
+   *     · 제도를 켜고 끄기 (모든 사용자에게 코드가 발급된다)
+   *     · 환급 비율 변경 (돈이 나가는 조건)
+   *     · **지급 기록 입력** — 실제로 보냈다는 주장을 남긴다
+   *   운영자(SUPPORT/ANALYST)가 지급 기록을 만들 수 있으면 회계 통제가 없다.
+   *
+   * 읽기는 운영자에게도 준다 — 고객이 "얼마 받았나요" 물으면 답해야 한다.
+   */
+  'admin.referral.read',
+  'admin.referral.write',
+
+  /**
+   * 포인트 제도 읽기 / 쓰기.
+   *
+   * ★ 쓰기를 ADMIN 이상에만 준다. 이 권한으로 할 수 있는 일:
+   *     · 제도를 켜고 끄기
+   *     · 상품 가격 변경
+   *     · **포인트 직접 지급·회수** — 부채를 만들거나 없애는 행위다
+   *   포인트는 부채다. 운영자가 임의로 지급할 수 있으면 통제가 없다.
+   *
+   * 읽기는 운영자에게도 준다 — 고객이 "포인트가 왜 줄었나요" 물으면
+   * 원장을 보고 답해야 한다.
+   */
+  'admin.points.read',
+  'admin.points.write',
+
+  /**
+   * 법적 문서 (이용약관·개인정보처리방침·위험고지).
+   *
+   * ★ 쓰기를 SUPER 에만 준다.
+   *   약관을 게시하면 그것이 회사의 법적 약속이 된다. 게시는 되돌릴 수 없고
+   *   (이미 본 사람이 있다), 문구 하나가 분쟁의 결론을 바꾼다. ADMIN 이 혼자
+   *   게시할 수 있게 두면 법무 검토를 건너뛸 경로가 생긴다.
+   *
+   * 읽기는 운영자에게도 준다 — 고객이 약관 내용을 물으면 답해야 한다.
+   */
+  'admin.legal.read',
+  'admin.legal.write',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 /** Roles that may access the admin dashboard at all. */
 export const ADMIN_ROLES: readonly RoleName[] = ['SUPPORT', 'ANALYST', 'ADMIN', 'SUPER_ADMIN'];
 
-const READ_ONLY: AdminPermission[] = ['admin.dashboard.read', 'admin.user.read', 'admin.role.read', 'admin.exchange.read', 'admin.order.read', 'admin.position.read', 'admin.ai.read', 'admin.incident.read', 'admin.feature_flag.read', 'admin.kill_switch.read', 'admin.release_gate.read'];
+const READ_ONLY: AdminPermission[] = ['admin.notice.read', 'admin.support.read', 'admin.referral.read', 'admin.points.read', 'admin.legal.read', 'admin.dashboard.read', 'admin.user.read', 'admin.role.read', 'admin.exchange.read', 'admin.order.read', 'admin.position.read', 'admin.ai.read', 'admin.incident.read', 'admin.feature_flag.read', 'admin.kill_switch.read', 'admin.release_gate.read'];
 
 /**
  * Role → admin permissions. USER/PRO_USER intentionally absent (no admin access).
@@ -68,9 +135,21 @@ const READ_ONLY: AdminPermission[] = ['admin.dashboard.read', 'admin.user.read',
 export const ADMIN_ROLE_PERMISSIONS: Record<RoleName, ReadonlySet<AdminPermission>> = {
   USER: new Set<AdminPermission>(),
   PRO_USER: new Set<AdminPermission>(),
-  SUPPORT: new Set<AdminPermission>([...READ_ONLY, 'admin.user.status.write']),
-  ANALYST: new Set<AdminPermission>([...READ_ONLY, 'admin.audit.read', 'admin.audit.export']),
-  ADMIN: new Set<AdminPermission>([...READ_ONLY, 'admin.user.status.write', 'admin.audit.read', 'admin.audit.export', 'admin.role.write', 'admin.incident.write', 'admin.feature_flag.write', 'admin.kill_switch.write', 'admin.release_gate.write', 'admin.ai.policy.write', 'admin.gateway.write', 'admin.broker.rebate.read']),
+  /*
+     SUPPORT (화면 등급 'ops') — 열람 전용.
+
+     원래 admin.user.status.write 를 갖고 있었다(지원 담당이 침해된 계정을 즉시
+     정지할 수 있게 한 설계로 보인다). 운영 방침을 "ops 는 열람만, 변경 없음" 으로
+     확정해 제거했다.
+
+     ★ 운영상 결과: 계정 침해 신고가 들어와도 지원 담당은 정지시킬 수 없다.
+       ADMIN 이상에게 에스컬레이션해야 한다. 야간·주말에 ADMIN 이 없으면
+       대응이 늦어진다 — 당직 ADMIN 을 두거나, 침해 대응 전용 권한을 따로
+       만드는 편이 낫다. 지금은 방침대로 열람 전용으로 둔다.
+  */
+  SUPPORT: new Set<AdminPermission>([...READ_ONLY, 'admin.support.write']),
+  ANALYST: new Set<AdminPermission>([...READ_ONLY, 'admin.audit.read', 'admin.audit.export', 'admin.support.write']),
+  ADMIN: new Set<AdminPermission>([...READ_ONLY, 'admin.user.status.write', 'admin.audit.read', 'admin.audit.export', 'admin.role.write', 'admin.incident.write', 'admin.feature_flag.write', 'admin.kill_switch.write', 'admin.release_gate.write', 'admin.ai.policy.write', 'admin.gateway.write', 'admin.broker.rebate.read', 'admin.notice.write', 'admin.support.write', 'admin.referral.write', 'admin.points.write']),
   SUPER_ADMIN: new Set<AdminPermission>([...ADMIN_PERMISSIONS]),
 };
 

@@ -226,11 +226,20 @@ describe('Phase 5 Admin API security', () => {
     // SUPPORT and ANALYST differ from each other, so navigation cannot be role-blind.
     expect(subset(support, analyst) && subset(analyst, support)).toBe(false);
 
-    // NOTE: ADMIN and SUPER_ADMIN hold the SAME admin permission set. Their separation is enforced by
-    // the invariant layer (canAssignRole blocks ADMIN from granting ADMIN/SUPER_ADMIN), NOT by
-    // permissions — so a UI that gates only on permissions cannot distinguish them. Asserted here so
-    // the fact is visible rather than assumed.
-    expect(admin.size).toBe(superAdmin.size);
+    /*
+       ADMIN is now a STRICT subset of SUPER_ADMIN.
+
+       This changed when legal documents were added: publishing terms of service creates a binding
+       commitment that cannot be undone, so `admin.legal.write` is SUPER_ADMIN-only. Before that
+       change the two roles held identical permission sets and were separated only by the invariant
+       layer (canAssignRole, release-gate waiver).
+
+       Both mechanisms now exist, which is the safer arrangement — a UI that gates on permissions
+       alone can at least tell that ADMIN cannot publish legal text.
+    */
+    expect(admin.size).toBeLessThan(superAdmin.size);
+    expect(admin.has('admin.legal.write')).toBe(false);
+    expect(superAdmin.has('admin.legal.write')).toBe(true);
   });
 
   it('[33] a non-admin role gets 403 from /admin/me (default deny)', async () => {
@@ -454,8 +463,18 @@ describe('Phase 5 Admin API security', () => {
     expect(a.capabilities).not.toContain('admin.roles.assignPrivileged');
     expect(a.capabilities).not.toContain('admin.release.waive');
 
-    // …while the permission sets remain identical, which is exactly why capabilities are needed.
-    expect(new Set(a.permissions)).toEqual(new Set(s.permissions));
+    /*
+       Permission sets are no longer identical — SUPER_ADMIN additionally holds `admin.legal.write`.
+
+       Capabilities are still needed: assigning privileged roles and waiving a release gate are not
+       expressible as permissions, and those remain the reason this endpoint reports capabilities
+       separately.
+    */
+    expect(new Set(a.permissions)).not.toEqual(new Set(s.permissions));
+    expect(a.permissions).not.toContain('admin.legal.write');
+    expect(s.permissions).toContain('admin.legal.write');
+    // Everything ADMIN holds is still held by SUPER_ADMIN.
+    expect(a.permissions.every((p) => s.permissions.includes(p))).toBe(true);
   });
 
   it('[42] the capabilities match what the server actually enforces, not just what it advertises', async () => {

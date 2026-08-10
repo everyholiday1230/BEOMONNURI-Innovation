@@ -397,6 +397,130 @@
       },
     });
 
+    /*
+       --- 5/6. 롱·숏 포지션 도구 ---
+
+       왜 자체 구현인가
+       KLineChart 10 에는 포지션 도구가 없다(지원 오버레이 20종에 없음).
+       예전에는 롱·숏 버튼을 priceChannelLine(3점 가격채널)에 연결해 두었는데,
+       버튼 이름과 그려지는 도형이 달라 사용자를 오해시킨다. 트레이더가 이 도구에
+       기대하는 것은 "진입가에서 목표까지 이익 구간, 손절까지 손실 구간, 그리고
+       손익비" 다. 그래서 직접 만든다.
+
+       점 3개: 1) 진입 2) 목표(TP) 3) 손절(SL)
+       이익 구간은 초록, 손실 구간은 빨강. 손익비(R:R)를 함께 표시한다.
+
+       long/short 는 색 배치가 아니라 **검증 규칙**이 다르다:
+         롱  목표 > 진입 > 손절
+         숏  목표 < 진입 < 손절
+       거꾸로 찍으면 경고색으로 표시한다 — 조용히 반대로 그리면 손익 판단이 뒤집힌다.
+    */
+    function positionOverlay(name, side) {
+      return {
+        name,
+        totalStep: 4, // 시작 + 점 3개
+        needDefaultPointFigure: true,
+        needDefaultXAxisFigure: false,
+        needDefaultYAxisFigure: true,
+        createPointFigures: ({ overlay, coordinates, bounding }) => {
+          if (coordinates.length < 2) return [];
+          const { colors, ext } = renderInfo(overlay);
+          /*
+             가격 자리수. 심볼의 tickSize 에서 온다.
+             이걸 쓰지 않으면 '64283.04431256001' 처럼 부동소수 오차가 그대로 보인다
+             (실제로 확인했다). 자리수를 모르면 2자리로 둔다.
+          */
+          const decimals = ext.decimals ?? 2;
+          const px = (v) => (v === null || v === undefined ? null : Number(v).toFixed(decimals));
+          const long = colors.long || '#16a34a';
+          const short = colors.short || '#dc2626';
+          const profitColor = side === 'long' ? long : short;
+          const lossColor = side === 'long' ? short : long;
+
+          const pts = overlay.points || [];
+          const entryY = coordinates[0].y;
+          const entryPrice = pts[0] ? pts[0].value : null;
+          const x0 = coordinates[0].x;
+          // 오른쪽 끝까지 채운다. 진입 시점 이후 구간을 표현하기 때문이다.
+          const xEnd = bounding.width;
+
+          const figures = [];
+
+          /** 구간 사각형 + 경계선. */
+          const zone = (y, color, priceVal, tag) => {
+            const top = Math.min(entryY, y);
+            const h = Math.max(1, Math.abs(y - entryY));
+            figures.push({
+              type: 'rect',
+              attrs: { x: x0, y: top, width: Math.max(1, xEnd - x0), height: h },
+              styles: { style: 'fill', color: withAlpha(color, 0.13) },
+              ignoreEvent: true,
+            });
+            figures.push({
+              type: 'line',
+              attrs: { coordinates: [{ x: x0, y }, { x: xEnd, y }] },
+              styles: { color, size: 1.5, style: 'dashed', dashedValue: [4, 3] },
+            });
+            const shown = px(priceVal);
+            if (shown !== null) {
+              figures.push(...tagFigures(`${tag} ${shown}`, x0 + 6, y - 8, color, colors));
+            }
+          };
+
+          // 목표(2번째 점)
+          if (coordinates[1]) {
+            zone(coordinates[1].y, profitColor, pts[1] ? pts[1].value : null, 'TP');
+          }
+          // 손절(3번째 점)
+          if (coordinates[2]) {
+            zone(coordinates[2].y, lossColor, pts[2] ? pts[2].value : null, 'SL');
+          }
+
+          // 진입선
+          figures.push({
+            type: 'line',
+            attrs: { coordinates: [{ x: x0, y: entryY }, { x: xEnd, y: entryY }] },
+            styles: { color: colors.textPri || '#e6ebf2', size: 1.5, style: 'solid' },
+          });
+
+          // 손익비 + 방향 유효성
+          if (pts.length >= 3 && entryPrice !== null) {
+            const tp = pts[1].value;
+            const sl = pts[2].value;
+            const reward = Math.abs(tp - entryPrice);
+            const risk = Math.abs(entryPrice - sl);
+            // 위험이 0 이면 손익비를 계산할 수 없다. 무한대를 표시하지 않는다.
+            const rr = risk > 0 ? (reward / risk) : null;
+
+            const validDirection =
+              side === 'long' ? tp > entryPrice && sl < entryPrice
+                              : tp < entryPrice && sl > entryPrice;
+
+            // 방향이 거꾸로면 '대기' 색을 쓴다. readColors 에 warning 이 없으므로
+            // 존재하는 토큰(pending)을 재사용한다 — 없는 필드를 참조하면 undefined 가
+            // 그대로 캔버스에 들어가 색이 사라진다.
+            const badgeColor = validDirection ? profitColor : (colors.pending || '#d97706');
+            const rrText = rr === null ? 'R:R —' : `R:R ${rr.toFixed(2)}`;
+            const dirText = validDirection ? '' : ' ⚠';
+            figures.push(
+              ...tagFigures(
+                `${side === 'long' ? 'LONG' : 'SHORT'} ${rrText}${dirText}`,
+                x0 + 6,
+                entryY - 8,
+                badgeColor,
+                colors,
+              ),
+            );
+          }
+
+          return figures;
+        },
+      };
+    }
+
+    ensureOverlayRegistered('qtLongPosition', positionOverlay('qtLongPosition', 'long'));
+    ensureOverlayRegistered('qtShortPosition', positionOverlay('qtShortPosition', 'short'));
+
     // --- 4. 신호 마커 (방향 삼각형) ---
     ensureOverlayRegistered('qtSignalMarker', {
       name: 'qtSignalMarker',

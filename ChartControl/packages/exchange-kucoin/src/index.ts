@@ -120,4 +120,26 @@ export {
   type KucoinBalance,
   type KucoinPosition,
   type KucoinLedgerEntry,
+  type KucoinOrder,
+  type KucoinFill,
+  type KucoinSubmitRequest,
+  type KucoinSubmitResult,
 } from './private-rest.js';
+
+/*
+   브로커 정산 조회 (API Broker / Broker Pro).
+
+   ★ 스팟 도메인(api.kucoin.com)을 쓴다 — 선물 도메인에는 이 경로가 없다.
+     그래서 KucoinFuturesPrivate 와 별도 클라이언트다.
+*/
+export {
+  KucoinBrokerClient,
+  KucoinBrokerError,
+  DEFAULT_KUCOIN_SPOT_REST,
+  type KucoinBrokerConfig,
+  type BrokerTradeType,
+  type BrokerCommissionRow,
+  type BrokerUserRow,
+  type BrokerUserTransactionRow,
+  type BrokerPage,
+} from './broker-rest.js';

@@ -3,7 +3,7 @@ import { getCookie } from 'hono/cookie';
 import { AuthService, hasPermission, type IAuditRepository, type PublicUser } from '@quantumtrade/auth';
 import type { SymbolInfo } from '@quantumtrade/schemas';
 import type { IOrderDraftRepo } from '../db/order-draft-repo';
-import type { PortfolioRepo } from '../db/portfolio-repo';
+import type { PortfolioReadRepo } from './portfolio-routes';
 import type { TradingPolicy } from '../trading/risk-engine';
 import { OrderIntentSchema, validateOrderIntent, type ValidationContext } from './order-validation';
 import { buildProvenance, MARK_PRICE_FRESHNESS_MS, type TradingPosture } from './provenance';
@@ -29,7 +29,13 @@ export interface OrderRouterDeps {
   service: AuthService;
   audit: IAuditRepository;
   drafts: IOrderDraftRepo;
-  portfolio: PortfolioRepo;
+  /*
+     거래 읽기 저장소.
+
+     ★ 동기(SQLite)·비동기(PostgreSQL) 양쪽을 받는 계약을 쓴다. 한쪽만 지원하면
+       배포가 갈릴 때 조회가 조용히 빈 결과를 준다.
+  */
+  portfolio: PortfolioReadRepo;
   symbolInfo: Record<string, SymbolInfo>;
   policy: TradingPolicy;
   posture: TradingPosture;
@@ -117,11 +123,14 @@ export function createOrderRouter(d: OrderRouterDeps): Hono {
       referenceStale = true;
     }
 
-    const balances = d.portfolio.listBalances(userId);
+    // 두 조회는 서로 독립이므로 병렬로 보낸다.
+    const [balances, positions] = await Promise.all([
+      d.portfolio.listBalances(userId),
+      d.portfolio.listPositions(userId, {}),
+    ]);
     // Quote-currency balance only. Summing every asset would overstate the margin available for a
     // USDT-margined order.
     const quote = balances.items.find((b) => b.asset === 'USDT');
-    const positions = d.portfolio.listPositions(userId, {});
     const dayStart = new Date(now()).setUTCHours(0, 0, 0, 0);
 
     return {

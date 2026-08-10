@@ -128,10 +128,41 @@
     return false;
   }
 
+  /*
+     브랜드 이름.
+
+     한 곳에서만 정한다. 이름은 바뀐다(실제로 QuantumTrade → ChartControl 로
+     바뀌었다). 사전과 JSX 34곳에 흩어져 있으면 다음에 바뀔 때 또 34곳을
+     고치고, 한 곳을 빠뜨려 옛 이름이 남는다.
+
+     서버 설정(brandName)이 있으면 그 값을 쓴다 — 배포마다 다른 이름을
+     달 수 있어야 한다(화이트라벨). 없으면 기본값.
+  */
+  var DEFAULT_BRAND = 'ChartControl';
+
+  function brandName() {
+    try {
+      var cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+      if (cfg && typeof cfg.brandName === 'string' && cfg.brandName.trim()) return cfg.brandName.trim();
+    } catch (e) { /* 설정을 못 읽어도 이름은 나와야 한다 */ }
+    return DEFAULT_BRAND;
+  }
+
+  /**
+   * 사전 문자열 치환.
+   *
+   * `{brand}` 는 호출자가 넘기지 않아도 항상 채워진다. 브랜드 이름을 쓰는
+   * 문장이 수십 개인데 매번 `{ brand: ... }` 를 넘기게 하면 빠뜨린 곳에
+   * `{brand}` 라는 글자가 그대로 화면에 나온다.
+   * 호출자가 명시로 넘기면 그 값이 이긴다.
+   */
   function interpolate(template, vars) {
-    if (!vars) return template;
+    var merged = vars || {};
+    if (!Object.prototype.hasOwnProperty.call(merged, 'brand')) {
+      merged = Object.assign({ brand: brandName() }, merged);
+    }
     return String(template).replace(/\{(\w+)\}/g, (m, name) =>
-      Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : m,
+      Object.prototype.hasOwnProperty.call(merged, name) ? String(merged[name]) : m,
     );
   }
 
@@ -241,7 +272,7 @@
    * 이미 locales/*.js 로 등록된 값이 있으면 그것을 덮어쓰지 않는다.
    */
   function absorbLegacy() {
-    const legacy = window.QT && window.QT.I18N;
+    const legacy = window.QTI18n;
     if (!legacy) return 0;
     let n = 0;
     for (const [code, dict] of Object.entries(legacy)) {
@@ -279,6 +310,9 @@
   }
 
   window.QTI18n = {
+    /** 브랜드 이름 — 화면이 직접 쓸 때. 사전 문장 안에서는 {brand} 를 쓴다. */
+    brand: brandName,
+
     formatRebate,
     register,
     available,

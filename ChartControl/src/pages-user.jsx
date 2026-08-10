@@ -59,6 +59,23 @@
     const markets = window.QT.MARKETS;
     // 실시세가 QT.MARKETS 를 제자리 갱신하므로, 재계산 트리거가 필요하다.
     const liveVersion = window.QTLive ? window.QTLive.useLiveVersion() : 0;
+
+    /*
+       미상장 심볼 판정.
+
+       ★★ 거래소에 없는 심볼(예: TON)은 실시세가 덮어쓰지 못해 **목업 값이
+         그대로 남는다.** live-market.js 는 `dataSource='mock'` 으로 표시해
+         두지만, 화면이 그 플래그를 무시하면 사용자는 6.42 를 실제 가격으로
+         읽고 'Trade' 를 누른다 — 거래할 수 없는 종목이다.
+
+       ★ 행이나 버튼을 지우지 않는다(디자이너 UI 계약). 값만 `—` 로 바꾸고
+         왜 없는지 뱃지로 알린다.
+
+       ★ 미리보기(백엔드 없음)에서는 목업 값을 그대로 보여준다 —
+         디자이너가 자기 화면을 확인할 수 있어야 한다.
+    */
+    const realService = window.QTMockPolicy ? window.QTMockPolicy.isRealService() : false;
+    const unlisted = (r) => realService && r && r.dataSource === 'mock';
     const filtered = useMemo(() => {
       let list = [...markets];
       if (tab === 'Favorites') list = list.filter(m => m.fav);
@@ -86,7 +103,17 @@
       <window.PageShell
         {...shellProps}
         title="Markets"
-        subtitle="21 pairs · Perpetual · USDT-margined · Live mock stream"
+        subtitle={(() => {
+          /* ★ "21 pairs · Live mock stream" 이 하드코딩돼 있었다. 심볼 수가
+               바뀌어도 21 로 남고, 실서비스에서도 "mock stream" 이라고 적혀
+               있었다. 실제 상태를 센다. */
+          const total = markets.length;
+          const notListed = markets.filter(m => unlisted(m)).length;
+          if (!realService) return t('mk_sub_preview', { n: total });
+          return notListed > 0
+            ? t('mk_sub_partial', { live: total - notListed, total, n: notListed })
+            : t('mk_sub_live', { n: total });
+        })()}
         breadcrumb={['Home','Markets']}
         actions={
           <>
@@ -104,10 +131,62 @@
       >
         {/* KPI row */}
         <div className="grid-4">
-          <window.KPICard label="24h Volume" value={fmtCompact(markets.reduce((a,m) => a + m.vol24h, 0))} delta={+2.14} deltaLabel="vs yesterday" icon="Chart" tone="brand"/>
-          <window.KPICard label="Gainers" value={markets.filter(m => m.chg24h > 0).length + ' / ' + markets.length} sub="Bull dominance 62%" icon="Zap" tone="long"/>
-          <window.KPICard label="Top Mover" value="OP · +6.32%" sub="OP/USDT · $1.84" icon="Sparkles" tone="ai"/>
-          <window.KPICard label="Fear & Greed" value="72 · Greed" sub="30d avg 58" icon="Info" tone="warning"/>
+          {/*
+             마켓 KPI.
+
+             ★ 목업이었던 것:
+                 '+2.14% vs yesterday'  — 전일 거래량을 보관하지 않아 비교 불가
+                 'Bull dominance 62%'   — 정의한 적 없는 지표
+                 'Top Mover OP +6.32%'  — 실제 상승률 1위와 무관한 고정값
+                 'Fear & Greed 72'      — 외부 지수를 조회하지 않는다
+
+             전일 대비와 공포탐욕지수는 우리가 가진 데이터로 만들 수 없다.
+             대신 **지금 시세로 계산할 수 있는 것**을 보여준다: 거래량 합계,
+             상승 종목 수, 실제 상승률 1위, 실제 하락률 1위.
+          */}
+          {(() => {
+            /*
+               ★★ 미상장 심볼을 집계에서 제외한다. 목업 거래량 88.00M 을 합계에
+                 더하면 "시장 전체 거래량" 이 부풀고, 목업 변동률이 상승률 1위로
+                 뽑히면 사용자가 그 종목을 사려고 한다 — 거래할 수 없는 종목이다.
+            */
+            const live = markets.filter(m => !unlisted(m));
+            const withChg = live.filter(m => Number.isFinite(Number(m.chg24h)));
+            const sorted = withChg.slice().sort((a, b) => Number(b.chg24h) - Number(a.chg24h));
+            const top = sorted[0] || null;
+            const bottom = sorted[sorted.length - 1] || null;
+            const pct = (v) => (Number(v) >= 0 ? '+' : '') + Number(v).toFixed(2) + '%';
+            const label = (m) => `${m.base || m.symbol}${m.quote ? '/' + m.quote : ''}`;
+            return (
+              <>
+                <window.KPICard
+                  label={t('mk_volume')}
+                  value={live.length ? fmtCompact(live.reduce((a, m) => a + (Number(m.vol24h) || 0), 0)) : '—'}
+                  sub={t('mk_volume_sub', { n: live.length })}
+                  icon="Chart" tone="brand"
+                />
+                <window.KPICard
+                  label={t('mk_gainers')}
+                  value={withChg.filter(m => Number(m.chg24h) > 0).length + ' / ' + withChg.length}
+                  sub={t('mk_gainers_sub')}
+                  icon="Zap" tone="long"
+                />
+                {/* 실제 1위. 값이 없으면 '—' 로 둔다. */}
+                <window.KPICard
+                  label={t('mk_top')}
+                  value={top ? `${label(top)} · ${pct(top.chg24h)}` : '—'}
+                  sub={top && Number.isFinite(Number(top.price)) ? '$' + fmt(top.price) : undefined}
+                  icon="Sparkles" tone="long"
+                />
+                <window.KPICard
+                  label={t('mk_bottom')}
+                  value={bottom && bottom !== top ? `${label(bottom)} · ${pct(bottom.chg24h)}` : '—'}
+                  sub={bottom && bottom !== top && Number.isFinite(Number(bottom.price)) ? '$' + fmt(bottom.price) : undefined}
+                  icon="Alert" tone="short"
+                />
+              </>
+            );
+          })()}
         </div>
 
         <window.SectionCard
@@ -131,22 +210,42 @@
             <window.DataTable
               columns={[
                 { key: 'fav',   label: '', width: 32, render: r => <span style={{color:r.fav?'var(--color-warning)':'var(--color-text-tertiary)', cursor:'pointer'}}>{r.fav ? '★' : '☆'}</span> },
-                { key: 'sym',   label: 'Pair', render: r => <span><strong>{r.base}</strong><span style={{color:'var(--color-text-tertiary)'}}>/{r.quote}</span><span className="badge badge--perp" style={{marginLeft:6}}>{r.type}</span></span> },
-                { key: 'price', label: 'Price', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{r.price.toLocaleString('en-US', {maximumFractionDigits: r.price >= 100 ? 2 : 4})}</span> },
-                { key: 'chg',   label: '24h Change', align: 'right', render: r => (
+                { key: 'sym',   label: 'Pair', render: r => (
+                  <span>
+                    <strong>{r.base}</strong><span style={{color:'var(--color-text-tertiary)'}}>/{r.quote}</span>
+                    <span className="badge badge--perp" style={{marginLeft:6}}>{r.type}</span>
+                    {unlisted(r) && (
+                      <span className="badge" style={{marginLeft:6, background:'var(--color-surface-3)', color:'var(--color-text-tertiary)'}}>
+                        {t(r.unavailableReasonKey || 'market_not_listed')}
+                      </span>
+                    )}
+                  </span>
+                ) },
+                { key: 'price', label: 'Price', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : r.price.toLocaleString('en-US', {maximumFractionDigits: r.price >= 100 ? 2 : 4})}</span> },
+                { key: 'chg',   label: '24h Change', align: 'right', render: r => unlisted(r) ? (
+                  <span style={{color:'var(--color-text-tertiary)'}}>—</span>
+                ) : (
                   <span className={r.chg24h >= 0 ? 't-long' : 't-short'} style={{fontFamily:'var(--font-mono)', fontWeight:500}}>
                     {r.chg24h >= 0 ? '▲' : '▼'} {Math.abs(r.chg24h).toFixed(2)}%
                   </span>
                 ) },
                 { key: 'range', label: '24h Range', align: 'right', render: r => (
-                  <span style={{fontFamily:'var(--font-num)', color:'var(--color-text-secondary)', fontSize:11}}>{fmt(r.lo, r.lo >= 100 ? 1 : 4)} – {fmt(r.hi, r.hi >= 100 ? 1 : 4)}</span>
+                  <span style={{fontFamily:'var(--font-num)', color:'var(--color-text-secondary)', fontSize:11}}>{unlisted(r) ? '—' : `${fmt(r.lo, r.lo >= 100 ? 1 : 4)} – ${fmt(r.hi, r.hi >= 100 ? 1 : 4)}`}</span>
                 ) },
-                { key: 'vol',   label: '24h Volume', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{fmtCompact(r.vol24h)}</span> },
+                { key: 'vol',   label: '24h Volume', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : fmtCompact(r.vol24h)}</span> },
                 { key: 'spark', label: 'Trend', align: 'right', width: 100, render: r => {
+                  /* ★ 미상장 심볼에는 추세선을 그리지 않는다. 목업 가격으로 그린
+                       선은 실제 움직임이 아니고, 작은 그림이라 근거가 없다는 것이
+                       드러나지 않는다. */
+                  if (unlisted(r)) return <span style={{color:'var(--color-text-tertiary)'}}>—</span>;
                   const pts = Array.from({length: 24}, (_, i) => r.price * (1 + Math.sin(i / 3 + r.base.charCodeAt(0)) * 0.02 + (Math.random()-0.5) * 0.006));
                   return <Sparkline points={pts} up={r.chg24h >= 0}/>;
                 }},
-                { key: 'act',   label: '', align: 'right', width: 100, render: r => (
+                { key: 'act',   label: '', align: 'right', width: 100, render: r => unlisted(r) ? (
+                  /* ★ 버튼을 지우지 않는다(UI 계약). 비활성으로 두고 이유를 알린다.
+                       누르게 두면 주문 패널까지 가서야 거래할 수 없음을 알게 된다. */
+                  <button className="btn btn--xs" disabled title={t(r.unavailableReasonKey || 'market_not_listed')}>Trade</button>
+                ) : (
                   <a className="btn btn--xs btn--primary" href={`#/trade?symbol=${r.base}${r.quote}`}>Trade</a>
                 ) },
               ]}
@@ -158,13 +257,18 @@
             <div style={{padding: 12}}>
               <div className="markets-heatmap">
                 {filtered.map(m => (
-                  <div key={m.base} className="heat-cell" style={{background: heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
+                  <div key={m.base} className="heat-cell" style={{background: unlisted(m) ? 'var(--color-surface-2)' : heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
                     <div className="heat-cell__sym">{m.base}</div>
                     <div>
-                      <div className="heat-cell__chg" style={{color: m.chg24h >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)'}}>
-                        {m.chg24h >= 0 ? '+' : ''}{m.chg24h.toFixed(2)}%
-                      </div>
-                      <div className="heat-cell__price">{fmt(m.price, m.price >= 100 ? 1 : 4)}</div>
+                      {/* ★ 미상장은 색으로 상승·하락을 말하지 않는다 — 색이 가장 먼저 읽힌다. */}
+                      {unlisted(m) ? (
+                        <div className="heat-cell__chg" style={{color:'var(--color-text-tertiary)'}}>—</div>
+                      ) : (
+                        <div className="heat-cell__chg" style={{color: m.chg24h >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)'}}>
+                          {m.chg24h >= 0 ? '+' : ''}{m.chg24h.toFixed(2)}%
+                        </div>
+                      )}
+                      <div className="heat-cell__price">{unlisted(m) ? t(m.unavailableReasonKey || 'market_not_listed') : fmt(m.price, m.price >= 100 ? 1 : 4)}</div>
                     </div>
                   </div>
                 ))}
@@ -180,17 +284,159 @@
   // AI STRATEGIES PAGE
   // ============================================================
   window.AIStrategiesPage = function AIStrategiesPage({ shellProps }) {
-    const strategies = window.QTApp.STRATEGIES;
     const [filter, setFilter] = useState('all');   // all | free | pro | vip
     const [sort, setSort] = useState('pnl');
+
+    /*
+       전략 목록 (실데이터).
+
+       백엔드에 내장 전략 4개와 실제 백테스트 엔진이 있다. 목업은
+       '+38.4% · 승률 62% · 팔로워 1,240명' 같은 수치를 보여줬는데 전부
+       근거가 없었다 — 투자 판단에 쓰이는 숫자를 만들어내는 것은
+       가장 위험한 종류의 목업이다.
+
+       ★ metrics 의 null 은 0 이 아니라 **미실행**이다. 0 으로 바꾸면
+         "수익률 0%" 로 읽히고, 안 돌린 것과 돌렸는데 성과가 없는 것이
+         구분되지 않는다.
+
+       ★ 서버가 unavailable 로 없는 기능을 알려준다:
+         subscriptionTiers(구독 등급) · userAuthoredStrategies(사용자 작성)
+         · liveTrackRecord(실거래 실적). 그 UI 는 감춘다.
+    */
+    const [live, setLive] = useState(null);
+    const [meta, setMeta] = useState(null);
+    const [err, setErr] = useState(null);
+    const [busyId, setBusyId] = useState(null);
+    // { 전략ID: 팔로우레코드ID }. null = 아직 모른다.
+    const [following, setFollowing] = useState(null);
+    // 서버가 알려주는 팔로우의 의미(자동 실행 여부).
+    const [followNote, setFollowNote] = useState(null);
+
+    const load = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.strategies) return;
+      api.strategies()
+        .then((r) => {
+          setLive(r.data || []);
+          setMeta({
+            symbol: r.symbol, timeframe: r.timeframe, dataSource: r.dataSource,
+            metricsNote: r.metricsNote, caveats: r.caveats || [], unavailable: r.unavailable || [],
+          });
+          setErr(null);
+        })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+      if (api.myStrategies) {
+        api.myStrategies()
+          /*
+             팔로우 레코드를 전략 ID 로 색인한다.
+
+             해제할 때는 레코드 ID 가 필요하므로 둘을 함께 보관한다 —
+             전략 ID 만 저장하면 해제할 수 없다.
+          */
+          .then((r) => {
+            const map = {};
+            (r.data || []).forEach((x) => { map[x.strategyId] = x.id; });
+            setFollowing(map);
+            setFollowNote({ autoExecution: r.autoExecution, note: r.note });
+          })
+          .catch(() => setFollowing({}));
+      }
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    const isLive = Array.isArray(live);
+    const unavailable = new Set((meta && meta.unavailable) || []);
+    // 구독 등급이 없으면 Free/Pro/VIP 필터는 의미가 없다.
+    const hasTiers = isLive ? !unavailable.has('subscriptionTiers') : true;
+
+    /*
+       실 전략을 카드 모양으로 맞춘다.
+
+       숫자가 없으면 null 로 둔다 — 카드가 '—' 를 그린다. 0 으로 채우면
+       사용자가 "성과 0" 으로 읽고 전략을 잘못 비교한다.
+       Sharpe 는 백엔드가 계산하지 않는다. 없는 지표를 만들지 않는다.
+    */
+    const toCard = (x) => {
+      const m = x.metrics || {};
+      const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+      return {
+        id: x.id,
+        name: x.name,
+        author: x.author === 'built-in' ? null : x.author,
+        authorKey: x.author === 'built-in' ? 'strategy_builtin' : null,
+        tag: x.category || '—',
+        description: x.description || '',
+        pnl30: num(m.totalReturnPct),
+        winRate: num(m.winRatePct),
+        sharpe: num(m.sharpe),
+        maxDD: num(m.maxDrawdownPct),
+        // 서버 필드명은 tradeCount 다. trades 로 읽으면 항상 '—' 가 된다(실제로 겪음).
+        trades: num(m.tradeCount),
+        followers: num(x.followers),
+        subscription: null,
+        featured: false,
+      };
+    };
+
+    const strategies = isLive ? live.map(toCard) : window.QTApp.STRATEGIES;
+
+    const cmp = (a, b, key) => {
+      // null 은 항상 뒤로 보낸다. 0 으로 취급하면 미실행 전략이 중간에 끼어든다.
+      const av = a[key], bv = b[key];
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return bv - av;
+    };
+
     const filtered = strategies
-      .filter(s => filter === 'all' || s.subscription.toLowerCase() === filter)
-      .sort((a,b) => {
-        if (sort === 'pnl') return b.pnl30 - a.pnl30;
-        if (sort === 'sharpe') return b.sharpe - a.sharpe;
-        if (sort === 'winRate') return b.winRate - a.winRate;
-        return b.followers - a.followers;
+      .filter(s => !hasTiers || filter === 'all' || (s.subscription || '').toLowerCase() === filter)
+      .slice()
+      .sort((a, b) => {
+        if (sort === 'pnl') return cmp(a, b, 'pnl30');
+        if (sort === 'sharpe') return cmp(a, b, 'sharpe');
+        if (sort === 'winRate') return cmp(a, b, 'winRate');
+        return cmp(a, b, 'followers');
       });
+
+    /* 백테스트 실행. 서버가 계산하므로 시간이 걸린다. */
+    const runBacktest = async (id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.backtest) return;
+      setBusyId(id);
+      try {
+        await api.backtest(id, {});
+        load();
+      } catch (e) {
+        setErr((e && e.message) || 'backtest failed');
+      }
+      setBusyId(null);
+    };
+
+    const isFollowing = (id) => Boolean(following && following[id]);
+
+    const toggleFollow = async (id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.followStrategy) return;
+      setBusyId(id);
+      try {
+        if (isFollowing(id)) {
+          // 해제는 팔로우 레코드 ID 로 한다.
+          await api.unfollowStrategy(following[id]);
+        } else {
+          /*
+             팔로우는 심볼·주기 조합으로 기록된다. 백테스트가 돌아간 기준과
+             같은 값을 쓴다 — 다른 값을 넣으면 목록의 성과와 팔로우 대상이
+             어긋나 사용자가 다른 조합의 성과를 보고 판단한다.
+          */
+          await api.followStrategy(id, (meta && meta.symbol) || 'BTCUSDT', (meta && meta.timeframe) || '1h');
+        }
+        load();
+      } catch (e) {
+        setErr((e && e.message) || 'follow failed');
+      }
+      setBusyId(null);
+    };
 
     return (
       <window.PageShell
@@ -200,33 +446,95 @@
         breadcrumb={['Home','AI Strategies']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Plus size={12}/> Create Strategy</button>
-            <button className="btn btn--sm btn--primary"><I.Sparkles size={12}/> AI Generate</button>
+            {/*
+               전략 작성·AI 생성.
+
+               서버가 userAuthoredStrategies 를 unavailable 로 알려준다 —
+               사용자가 전략을 만들 수 있는 기능이 없다. 버튼을 두면 눌러보고
+               아무 일도 없어 고장으로 오해한다.
+            */}
+            {!isLive || !unavailable.has('userAuthoredStrategies') ? (
+              <>
+                <button className="btn btn--sm"><I.Plus size={12}/> Create Strategy</button>
+                <button className="btn btn--sm btn--primary"><I.Sparkles size={12}/> AI Generate</button>
+              </>
+            ) : (
+              <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
+            )}
           </>
         }
       >
         <div className="grid-4">
-          <window.KPICard label="Total Strategies" value={strategies.length} sub="Free 4 · Pro 3 · VIP 1" icon="Sparkles" tone="ai"/>
-          <window.KPICard label="Avg 30d PnL" value={'+' + (strategies.reduce((a,s) => a+s.pnl30, 0)/strategies.length).toFixed(1) + '%'} delta={+8.4} deltaLabel="vs prev 30d" tone="long"/>
-          <window.KPICard label="Following" value="0" sub="Follow strategies to auto-copy signals" icon="Zap" tone="brand"/>
-          <window.KPICard label="AI Signals · Today" value={window.QTApp.ADMIN_AI_METRICS.signalsToday} sub={`Approve rate ${(window.QTApp.ADMIN_AI_METRICS.approveRate * 100).toFixed(0)}%`} tone="ai"/>
+          {isLive ? (() => {
+            const withRet = strategies.filter(x => x.pnl30 !== null);
+            const avg = withRet.length ? withRet.reduce((a, x) => a + x.pnl30, 0) / withRet.length : null;
+            return (
+              <>
+                <window.KPICard
+                  label={t('strat_total')}
+                  value={strategies.length}
+                  sub={t('strat_builtin_only')}
+                  icon="Sparkles" tone="ai"
+                />
+                {/*
+                   평균 수익률.
+
+                   백테스트를 돌린 전략만으로 계산한다. 미실행을 0 으로 넣으면
+                   평균이 실제보다 낮게 나와 전략 전체가 나빠 보인다.
+                   '+8.4% vs prev 30d' 라는 델타는 이전 기간을 비교하지 않으므로
+                   표시하지 않는다.
+                */}
+                <window.KPICard
+                  label={t('strat_avg_backtest')}
+                  value={avg === null ? '—' : (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%'}
+                  sub={t('strat_avg_sub', { n: withRet.length, total: strategies.length })}
+                  tone={avg !== null && avg >= 0 ? 'long' : 'short'}
+                />
+                <window.KPICard
+                  label={t('strat_following')}
+                  value={following === null ? '—' : Object.keys(following).length}
+                  sub={followNote && followNote.autoExecution === false ? t('strat_following_sub') : undefined}
+                  icon="Zap" tone="brand"
+                />
+                {/*
+                   시세 기준. 백테스트가 어느 심볼·주기로 돌아갔는지 밝힌다 —
+                   밝히지 않으면 사용자가 자기가 보는 심볼의 성과로 오해한다.
+                */}
+                <window.KPICard
+                  label={t('strat_basis')}
+                  value={meta ? `${meta.symbol} · ${meta.timeframe}` : '—'}
+                  sub={meta ? t('strat_basis_sub', { src: meta.dataSource }) : undefined}
+                />
+              </>
+            );
+          })() : (
+            <>
+              <window.KPICard label="Total Strategies" value={strategies.length} sub="Free 4 · Pro 3 · VIP 1" icon="Sparkles" tone="ai"/>
+              <window.KPICard label="Avg 30d PnL" value={'+' + (strategies.reduce((a,s) => a+s.pnl30, 0)/strategies.length).toFixed(1) + '%'} delta={+8.4} deltaLabel="vs prev 30d" tone="long"/>
+              <window.KPICard label="Following" value="0" sub="Follow strategies to auto-copy signals" icon="Zap" tone="brand"/>
+              <window.KPICard label="AI Signals · Today" value={window.QTApp.ADMIN_AI_METRICS.signalsToday} sub={`Approve rate ${(window.QTApp.ADMIN_AI_METRICS.approveRate * 100).toFixed(0)}%`} tone="ai"/>
+            </>
+          )}
         </div>
 
         <window.SectionCard
           title="Strategy Gallery"
-          subtitle="Simulated performance based on backtest + paper live. Not investment advice."
+          subtitle={isLive ? t('strat_gallery_sub') : "Simulated performance based on backtest + paper live. Not investment advice."}
           actions={
             <>
-              <div className="seg">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'free', label: 'Free' },
-                  { id: 'pro', label: 'Pro' },
-                  { id: 'vip', label: 'VIP' },
-                ].map(f => (
-                  <button key={f.id} className={`seg__opt ${filter===f.id?'is-active':''}`} onClick={() => setFilter(f.id)}>{f.label}</button>
-                ))}
-              </div>
+              {/* 구독 등급 제도가 없으면 이 필터는 아무것도 걸러내지 못한다. */}
+              {hasTiers && (
+                <div className="seg">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'free', label: 'Free' },
+                    { id: 'pro', label: 'Pro' },
+                    { id: 'vip', label: 'VIP' },
+                  ].map(f => (
+                    <button key={f.id} className={`seg__opt ${filter===f.id?'is-active':''}`} onClick={() => setFilter(f.id)}>{f.label}</button>
+                  ))}
+                </div>
+              )}
               <select className="input" style={{height:28, fontSize:11, width: 130}} value={sort} onChange={e => setSort(e.target.value)}>
                 <option value="pnl">Sort · 30d PnL</option>
                 <option value="sharpe">Sort · Sharpe</option>
@@ -243,42 +551,126 @@
                 <div className="strategy-card__head">
                   <div>
                     <div className="strategy-card__name">{s.name}</div>
-                    <div className="strategy-card__author">{s.author}</div>
+                    <div className="strategy-card__author">{s.authorKey ? t(s.authorKey) : (s.author || '—')}</div>
                   </div>
                   <span className="strategy-card__tag">{s.tag}</span>
                 </div>
 
+                {/*
+                   지표.
+
+                   null 은 '—' 로 그린다. 0% 로 쓰면 백테스트를 돌리지 않은
+                   전략이 "수익 0" 으로 보이고, 사용자가 전략을 잘못 비교한다.
+                   Sharpe 는 백엔드가 계산하지 않으므로 실데이터에서는
+                   그 자리에 거래 횟수를 보여준다 — 표본 크기가 승률을
+                   해석하는 데 더 중요하다(3거래 승률 67% 는 의미가 없다).
+                */}
                 <div className="strategy-card__stats">
                   <div className="strategy-card__stat">
-                    <span className="strategy-card__stat__k">30d PnL</span>
-                    <span className="strategy-card__stat__v" style={{color: s.pnl30 >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)'}}>{s.pnl30 >= 0 ? '+' : ''}{s.pnl30}%</span>
+                    <span className="strategy-card__stat__k">{isLive ? t('strat_backtest_ret') : '30d PnL'}</span>
+                    <span className="strategy-card__stat__v" style={{color: s.pnl30 === null ? 'var(--color-text-tertiary)' : (s.pnl30 >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)')}}>
+                      {s.pnl30 === null ? '—' : (s.pnl30 >= 0 ? '+' : '') + s.pnl30.toFixed(2) + '%'}
+                    </span>
                   </div>
                   <div className="strategy-card__stat">
+                    {/*
+                       승률 옆에 거래 횟수를 붙인다.
+
+                       표본을 모르면 승률을 해석할 수 없다 — 3거래 승률 67% 와
+                       200거래 승률 55% 는 완전히 다른 이야기다. 승률만 크게
+                       보여주면 사용자가 표본이 적은 전략을 더 좋다고 오해한다.
+                    */}
                     <span className="strategy-card__stat__k">Win Rate</span>
-                    <span className="strategy-card__stat__v">{s.winRate}%</span>
+                    <span className="strategy-card__stat__v" style={s.winRate === null ? {color:'var(--color-text-tertiary)'} : undefined}>
+                      {s.winRate === null ? '—' : s.winRate.toFixed(1) + '%'}
+                      {isLive && s.trades !== null && (
+                        <span style={{fontSize:9.5, color:'var(--color-text-tertiary)', marginLeft:3, fontWeight:400}}>
+                          /{s.trades}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="strategy-card__stat">
                     <span className="strategy-card__stat__k">Sharpe</span>
-                    <span className="strategy-card__stat__v">{s.sharpe}</span>
+                    <span className="strategy-card__stat__v" style={{color: s.sharpe === null ? 'var(--color-text-tertiary)' : undefined}}>
+                      {s.sharpe === null ? '—' : (isLive ? s.sharpe.toFixed(2) : s.sharpe)}
+                    </span>
                   </div>
                   <div className="strategy-card__stat">
                     <span className="strategy-card__stat__k">Max DD</span>
-                    <span className="strategy-card__stat__v" style={{color:'var(--color-trade-short)'}}>-{s.maxDD}%</span>
+                    <span className="strategy-card__stat__v" style={{color: s.maxDD === null ? 'var(--color-text-tertiary)' : 'var(--color-trade-short)'}}>
+                      {s.maxDD === null ? '—' : '-' + s.maxDD.toFixed(2) + '%'}
+                    </span>
                   </div>
                 </div>
 
                 <div className="strategy-card__foot">
-                  <span className="followers"><I.User size={9} style={{verticalAlign:'-1px'}}/> {s.followers.toLocaleString()} followers</span>
-                  <span className={`sub ${s.subscription}`}>{s.subscription}</span>
+                  {/* 팔로워 수가 없으면 표시하지 않는다. 0 명을 강조할 이유가 없다. */}
+                  <span className="followers">
+                    <I.User size={9} style={{verticalAlign:'-1px'}}/>{' '}
+                    {s.followers === null ? '—' : s.followers.toLocaleString() + ' followers'}
+                  </span>
+                  {/* 구독 등급 제도가 없으면 배지를 비운다 — 'null' 이라는 글자가 나오면 안 된다. */}
+                  {s.subscription ? <span className={`sub ${s.subscription}`}>{s.subscription}</span> : <span/>}
                 </div>
 
                 <div style={{display:'flex', gap:6}}>
-                  <button className="btn btn--xs" style={{flex:1}}><I.Chart size={11}/> Backtest</button>
-                  <button className="btn btn--xs btn--primary" style={{flex:1}}><I.Plus size={11}/> Follow</button>
+                  {isLive ? (
+                    <>
+                      <button
+                        className="btn btn--xs" style={{flex:1}}
+                        disabled={busyId === s.id}
+                        onClick={() => runBacktest(s.id)}
+                        title={t('strat_backtest_hint')}
+                      ><I.Chart size={11}/> {busyId === s.id ? '…' : 'Backtest'}</button>
+                      <button
+                        className={`btn btn--xs ${isFollowing(s.id) ? '' : 'btn--primary'}`}
+                        style={{flex:1}}
+                        disabled={busyId === s.id}
+                        onClick={() => toggleFollow(s.id)}
+                      >
+                        {isFollowing(s.id)
+                          ? <><I.Check size={11}/> {t('strat_following_on')}</>
+                          : <><I.Plus size={11}/> Follow</>}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn btn--xs" style={{flex:1}}><I.Chart size={11}/> Backtest</button>
+                      <button className="btn btn--xs btn--primary" style={{flex:1}}><I.Plus size={11}/> Follow</button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+
+          {/*
+             주의사항.
+
+             서버가 caveats 로 백테스트의 한계를 보내준다(lookahead 처리,
+             수수료·슬리피지 차감, 펀딩비 미반영 등). 이걸 감추면 사용자가
+             과거 수익률을 미래 수익으로 읽는다 — 가장 큰 오해다.
+          */}
+          {isLive && meta && meta.caveats.length > 0 && (
+            <div style={{
+              margin:'4px 16px 16px', padding:'12px 14px', borderRadius:6,
+              background:'var(--color-bg-surface)', border:'1px solid var(--color-border-subtle)',
+            }}>
+              <div style={{fontSize:11.5, fontWeight:600, marginBottom:6, color:'var(--color-text-secondary)'}}>
+                {t('strat_caveats_title')}
+              </div>
+              <ul style={{margin:0, paddingLeft:18, fontSize:11.5, lineHeight:1.9, color:'var(--color-text-tertiary)'}}>
+                {meta.caveats.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
+              {meta.metricsNote && (
+                <div style={{marginTop:8, paddingTop:8, borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
+                  {meta.metricsNote}
+                </div>
+              )}
+            </div>
+          )}
+          {err && <div style={{padding:'10px 16px', fontSize:11, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>}
         </window.SectionCard>
       </window.PageShell>
     );
@@ -292,10 +684,163 @@
     // 화면은 최초 렌더의 목업을 계속 보여준다.
     const account = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
 
-    const A = window.QTApp.ALLOCATION;
-    const eq = window.QTApp.EQUITY_CURVE;
-    const totalValue = A.reduce((a,x) => a + x.value, 0);
-    const positions = window.QT.POSITIONS;
+    /*
+       자산 배분·자산곡선.
+
+       ★★ 둘 다 목업이었고 실서비스에서도 그대로 나왔다($20,000.14 총자산,
+         7개 자산 배분). 거래소 잔고를 조회하지 못하면 우리는 자산을 모른다.
+
+       ★ 실계정 잔고가 있으면 그것을 쓴다(QTAccount.getAllocation). 없으면
+         미리보기에서만 예시를 쓰고, 실서비스에서는 빈 배열이다 —
+         화면이 "자산 정보를 불러올 수 없습니다" 를 보여준다.
+    */
+    const liveAllocation = (account.isLive && window.QTAccount && window.QTAccount.getAllocation)
+      ? window.QTAccount.getAllocation()
+      : null;
+    const A = window.QTMockPolicy
+      ? (window.QTMockPolicy.pick(liveAllocation, window.QTApp.ALLOCATION) || [])
+      : (liveAllocation || window.QTApp.ALLOCATION);
+    /*
+       자산곡선.
+
+       ★★ 이제 일별 스냅샷을 기록한다(equity_snapshots). 잔고 조회가 성공할 때
+         하루 한 번, 모의 주문 확인 시에도 출처를 나눠 남긴다.
+
+       ★ `canPlot` 은 **서버 판정**을 쓴다. 점이 1개면 선을 만들 수 없고, 그
+         기준을 화면마다 따로 두면 어느 한 곳이 빈 곡선을 그린다.
+
+       ★ 출처를 섞지 않는다. 거래소 키가 검증됐으면 실잔고 곡선을, 아니면
+         모의 곡선을 본다 — 한 그래프에 두 성격을 겹치면 무엇의 성과인지 알 수 없다.
+
+       ★ 빈 날을 채우지 않는다(`interpolated:false`). 접속하지 않은 날은 점이 없다.
+    */
+    const [curve, setCurve] = useState(null);
+    const [curveDays, setCurveDays] = useState(30);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.equityCurve) return undefined;
+      if (window.QTMockPolicy && window.QTMockPolicy.allowMockData()) return undefined;
+      let cancelled = false;
+      const load = () => {
+        const auth = window.QTAuth;
+        if (!auth || !auth.isLoggedIn || !auth.isLoggedIn()) return;
+        const src = (account.isLive) ? 'exchange' : 'mock';
+        api.equityCurve({ days: curveDays, source: src })
+          .then((r) => { if (!cancelled) setCurve(r); })
+          .catch(() => { /* 조회 실패를 빈 곡선으로 위장하지 않는다 (null 유지) */ });
+      };
+      load();
+      const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
+      return () => { cancelled = true; if (off) off(); };
+    }, [curveDays, account.isLive, account.version]);
+
+    /*
+       화면이 쓰는 곡선 배열.
+
+       ★ 서버 점을 `{v}` 형태로 바꾼다 — 기존 SVG 코드가 그 모양을 기대한다.
+         목업 형태를 바꾸지 않는 편이 디자이너 화면을 건드리지 않는다.
+    */
+    const eq = (window.QTMockPolicy && window.QTMockPolicy.allowMockData())
+      ? window.QTApp.EQUITY_CURVE
+      : ((curve && curve.canPlot)
+          ? curve.points.map((p) => ({ t: p.date, v: Number(p.equity) })).filter((x) => Number.isFinite(x.v))
+          : []);
+    /*
+       총자산.
+
+       ★★ 자산 목록이 비어 있으면 **모르는 것**이다. 0 으로 표시하면 "자산이
+         없다" 로 읽히고, 사용자는 잔고가 사라졌다고 생각한다. 거래소 키가
+         연결되지 않아 조회하지 못한 상태와 실제로 0 인 상태는 다르다.
+    */
+    const totalValue = A.length > 0
+      ? A.reduce((a, x) => a + (Number(x.value) || 0), 0)
+      : null;
+
+    /*
+       우리 DB 에 남은 포지션 (모의 포함).
+
+       ★★ `account.isLive` 는 거래소 API 키 검증 상태다. 모의 주문으로 생긴
+         포지션은 거래소에 없고 우리 DB 에만 있으므로, 키가 없어도 보여야 한다.
+         전에는 읽는 경로가 없어서 모의 주문 후에도 목업 포지션 3개가 보였다 —
+         사용자는 자기가 낸 주문이 어디 갔는지 알 수 없다.
+
+       ★ 표시가·미실현손익은 실시간 시세가 있어야 채워진다. null 을 0 으로
+         바꾸지 않는다 — "손익 0" 은 본전이라는 뜻으로 읽힌다.
+    */
+    const [localPos, setLocalPos] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.localPositions) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      api.localPositions().then((r) => {
+        if (cancelled || !r.items.length) return;
+        /*
+           ★ 표가 기대하는 필드명을 정확히 맞춘다 (QT.POSITIONS 와 동일).
+
+             `sym` 처럼 이름을 바꿔 넘기면 렌더 중 undefined.replace 로 터진다 —
+             실제로 겪었다. 표는 symbol · type · unPnlPct 를 읽는다.
+
+           ★ 모르는 값은 null 로 둔다. 0 으로 채우면 화면이 "손익 0" 을
+             보여주고 사용자는 본전이라고 읽는다.
+        */
+        setLocalPos(r.items.map((x) => ({
+          id: x.id,
+          symbol: x.symbol,
+          type: 'PERP',
+          side: x.side,
+          size: Number(x.size),
+          entry: x.entryPrice === null ? null : Number(x.entryPrice),
+          mark: x.markPrice === null ? null : Number(x.markPrice),
+          liq: x.liquidationPrice === null ? null : Number(x.liquidationPrice),
+          margin: null,
+          marginRatio: null,
+          leverage: x.leverage,
+          unPnl: x.unrealizedPnl === null ? null : Number(x.unrealizedPnl),
+          unPnlPct: null,
+          // 실현손익은 포지션 행에 없다. 0 으로 만들면 "이익도 손실도 없었다" 가 된다.
+          rlzPnl: null,
+          tp: null,
+          sl: null,
+          adl: null,
+          mode: String(x.marginMode || '').toUpperCase() || null,
+          // 우리 DB 기록임을 표시할 수 있게 남긴다 (MOCK = 모의 체결).
+          source: r.source,
+        })));
+      }).catch(() => { /* 조회 실패를 빈 목록으로 위장하지 않는다 */ });
+      return () => { cancelled = true; };
+    }, []);
+
+    /*
+       포지션: 거래소 실포지션 → 우리 DB 기록 → (미리보기에서만) 목업.
+
+       ★★ 전에는 실데이터가 없으면 무조건 목업을 보여줬다. 그래서 거래 기록이
+         없는 계정(신규 가입자·관리자)이 목업 포지션 3개(0.185 BTC @ 67,285)를
+         **자기 포지션으로** 봤다. 실측으로 확인했다.
+
+       ★ 이제 백엔드가 있으면(=실서비스) 목업을 쓰지 않는다. 빈 상태가
+         고장처럼 보이는 것보다, 남의 거래를 자기 것으로 착각하는 편이 훨씬 나쁘다.
+    */
+    const positions = (account.isLive && window.QTAccount)
+      ? window.QTAccount.getPositions()
+      : (window.QTMockPolicy
+          ? window.QTMockPolicy.pick(localPos, window.QT.POSITIONS)
+          : (localPos || window.QT.POSITIONS));
+
+    /*
+       실데이터 화면인가.
+
+       ★★ **백엔드가 있으면 실서비스다.** 거래 기록이 없어도 목업 값을 붙이지
+         않는다. 전에는 `account.isLive || Boolean(localPos)` 였고, 그래서 거래
+         기록이 없는 계정에 목업 KPI(+$396.77 · 18.4% · +3.42%)가 그대로 나왔다.
+
+       ★ 미리보기(백엔드 없음)에서는 목업을 유지한다 — 디자이너가 화면을 확인해야 한다.
+    */
+    const isReal = window.QTMockPolicy
+      ? !window.QTMockPolicy.allowMockData()
+      : (account.isLive || Boolean(localPos));
 
     /*
        실데이터 기반 KPI.
@@ -305,14 +850,56 @@
        이라는 거짓이 된다.
     */
     const live = (() => {
-      if (!account.isLive) {
+      /*
+         실데이터 판정.
+
+         ★ 거래소 키가 검증됐거나(account.isLive) **우리 DB 기록이 있으면**
+           실데이터다. 전에는 앞의 조건만 봐서, 모의 주문으로 포지션이 생겨도
+           목업 KPI(396.77 / 1240.42 / 18.4)를 계속 보여줬다.
+      */
+      /*
+         ★ 미리보기에서만 예시 값을 쓴다.
+
+           실서비스에서 이 값이 나오면 사용자가 자기 손익으로 읽는다. 계산할
+           근거가 없으면 null 을 주고 화면이 '—' 를 표시하게 한다.
+      */
+      if (!isReal) {
         return { unrealized: 396.77, realized: 1240.42, marginRatio: 18.4 };
       }
-      const sum = (key) =>
-        positions.reduce((acc, p) => (Number.isFinite(Number(p[key])) ? acc + Number(p[key]) : acc), 0);
 
-      const unrealized = positions.length > 0 ? sum('unPnl') : 0;
-      const realized = positions.length > 0 ? sum('rlzPnl') : 0;
+      /*
+         합계.
+
+         ★★ 모르는 값이 하나라도 섞이면 **합계도 모르는 것**이다.
+
+           전에는 `Number.isFinite(Number(p[key]))` 로 걸렀는데 `Number(null)` 은
+           0 이고 isFinite(0) 은 true 다. 그래서 값이 없는 포지션이 0 으로
+           합산되어 "미실현손익 $0" 이 표시됐다 — 사용자는 본전이라고 읽는다.
+
+           null 을 반환하면 KPI 가 '—' 를 보여준다. 그것이 사실이다.
+      */
+      const sum = (key) => {
+        /*
+           ★ 포지션이 없으면 **모르는 것**이다.
+
+             포지션이 정말 0개인지, 조회하지 못한 것인지 이 함수는 알 수 없다.
+             0 을 주면 화면이 '+$0.00' 을 보여주고 사용자는 본전이라고 읽는다.
+             '—' 가 정직하다.
+        */
+        if (!positions.length) return null;
+        let acc = 0;
+        for (const p of positions) {
+          const raw = p[key];
+          if (raw === null || raw === undefined) return null;
+          const n = Number(raw);
+          if (!Number.isFinite(n)) return null;
+          acc += n;
+        }
+        return acc;
+      };
+
+      const unrealized = sum('unPnl');
+      const realized = sum('rlzPnl');
 
       // 증거금률 = 사용 중 증거금 / 총자산. 거래소가 직접 주지 않아 잔고에서 구한다.
       const used = A.reduce((acc, x) => (Number.isFinite(x.used) ? acc + x.used : acc), 0);
@@ -329,11 +916,17 @@
     const donutColors = ['#0EA5C4','#5EEAD4','#F0B90B','#7DD3FC','#F472B6','#A78BFA','#94A3B8'];
 
     // Equity path
-    const eqLo = Math.min(...eq.map(p => p.v));
-    const eqHi = Math.max(...eq.map(p => p.v));
+    /*
+       ★ 빈 배열이면 `Math.min(...[])` 가 Infinity 다 → 좌표가 NaN 이 되고
+         SVG 가 깨진다. 이력을 기록하지 않으므로 실서비스에서는 빈 배열이
+         정상 상태다.
+    */
+    const hasEquityCurve = Array.isArray(eq) && eq.length > 1;
+    const eqLo = hasEquityCurve ? Math.min(...eq.map(p => p.v)) : 0;
+    const eqHi = hasEquityCurve ? Math.max(...eq.map(p => p.v)) : 0;
     const eqRange = eqHi - eqLo || 1;
     const eqW = 800, eqH = 200;
-    const eqPath = eq.map((p, i) => `${i === 0 ? 'M' : 'L'}${(i * eqW / (eq.length - 1)).toFixed(1)} ${(eqH - ((p.v - eqLo) / eqRange) * (eqH - 20) - 10).toFixed(1)}`).join(' ');
+    const eqPath = !hasEquityCurve ? '' : eq.map((p, i) => `${i === 0 ? 'M' : 'L'}${(i * eqW / (eq.length - 1)).toFixed(1)} ${(eqH - ((p.v - eqLo) / eqRange) * (eqH - 20) - 10).toFixed(1)}`).join(' ');
     const eqArea = eqPath + ` L ${eqW} ${eqH} L 0 ${eqH} Z`;
 
     return (
@@ -373,41 +966,111 @@
           계산할 수 없는 값은 '—' 로 두고 delta 를 생략한다 — 모르는 것을
           숫자로 채우지 않는다.
         */}
-        <div className="grid-4">
-          <window.KPICard label="Total Equity" value={'$' + fmt(totalValue)} delta={account.isLive ? undefined : +3.42} deltaLabel="24h" icon="Wallet" tone="brand"/>
-          <window.KPICard
-            label="Unrealized PnL"
-            value={live.unrealized === null ? '—' : (live.unrealized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.unrealized))}
-            delta={account.isLive ? undefined : +3.18}
-            deltaLabel="vs entry"
-            tone={live.unrealized === null ? undefined : live.unrealized >= 0 ? 'long' : 'short'}
-          />
-          <window.KPICard
-            label="Realized 30d"
-            value={live.realized === null ? '—' : (live.realized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.realized))}
-            delta={account.isLive ? undefined : +9.7}
-            deltaLabel="vs prev 30d"
-            tone={live.realized === null ? undefined : live.realized >= 0 ? 'long' : 'short'}
-          />
-          <window.KPICard
-            label="Margin Ratio"
-            value={live.marginRatio === null ? '—' : fmt(live.marginRatio, 1) + '%'}
-            sub={live.marginRatio === null ? (account.isLive ? t('acct_not_available') : 'Healthy · Liq. at 82%') : undefined}
-            icon="Alert"
-            tone="warning"
-          />
-        </div>
+        {(() => {
+          /*
+             증감률·부제.
+
+             ★★ 실데이터일 때는 목업 증감률을 붙이지 않는다.
+
+               전에는 `account.isLive` 만 봤다. 거래소 키가 없고 우리 DB 기록만
+               있는 상태(모의 주문 직후)에서는 그 조건이 false 라서, 실제
+               포지션 옆에 하드코딩된 '+3.18% vs entry' 와
+               'Healthy · Liq. at 82%' 가 붙었다. 사용자는 그 숫자를 자기 성과로
+               읽는다.
+
+             ★ 증감률을 계산할 근거가 없으면 아예 표시하지 않는다. 24시간 전
+               자산이나 지난 30일 실적을 우리가 보관하지 않기 때문이다.
+          */
+          const mockDelta = (v) => (isReal ? undefined : v);
+          return (
+            <div className="grid-4">
+              <window.KPICard
+                label="Total Equity"
+                value={totalValue === null ? '—' : '$' + fmt(totalValue)}
+                sub={totalValue === null ? t('pf_equity_unknown') : undefined}
+                delta={mockDelta(+3.42)} deltaLabel="24h" icon="Wallet" tone="brand"/>
+              <window.KPICard
+                label="Unrealized PnL"
+                value={live.unrealized === null ? '—' : (live.unrealized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.unrealized))}
+                delta={mockDelta(+3.18)}
+                deltaLabel="vs entry"
+                sub={live.unrealized === null && isReal ? t('pos_pnl_unknown_short') : undefined}
+                tone={live.unrealized === null ? undefined : live.unrealized >= 0 ? 'long' : 'short'}
+              />
+              <window.KPICard
+                label="Realized 30d"
+                value={live.realized === null ? '—' : (live.realized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.realized))}
+                delta={mockDelta(+9.7)}
+                deltaLabel="vs prev 30d"
+                sub={live.realized === null && isReal ? t('acct_not_available') : undefined}
+                tone={live.realized === null ? undefined : live.realized >= 0 ? 'long' : 'short'}
+              />
+              <window.KPICard
+                label="Margin Ratio"
+                value={live.marginRatio === null ? '—' : fmt(live.marginRatio, 1) + '%'}
+                sub={live.marginRatio === null ? (isReal ? t('acct_not_available') : 'Healthy · Liq. at 82%') : undefined}
+                icon="Alert"
+                tone="warning"
+              />
+            </div>
+          );
+        })()}
 
         {/* Equity curve + Allocation */}
         <div className="grid-2-1">
           <window.SectionCard
             title="Equity Curve · 30 days"
+            subtitle={(() => {
+              if (window.QTMockPolicy && window.QTMockPolicy.allowMockData()) return undefined;
+              if (!curve) return undefined;
+              if (!curve.canPlot) return t('pf_equity_need_more', { n: curve.history.points });
+              // 출처를 밝힌다. 모의 곡선을 실제 성과로 읽으면 안 된다.
+              return curve.source === 'mock'
+                ? t('pf_equity_src_mock', { n: curve.points.length })
+                : t('pf_equity_src_exchange', { n: curve.points.length });
+            })()}
+            /*
+               기간 선택.
+
+               ★ 전에는 이 버튼들에 `onClick` 이 없어 눌러도 아무 일도 일어나지
+                 않았고, '30D' 가 활성으로 보여 사용자는 30일 곡선을 본다고 믿었다.
+                 자산 이력을 기록하기 시작해 이제 실제로 동작한다.
+            */
             actions={
-              <div className="seg">
-                {['1D','7D','30D','90D','1Y','All'].map(r => (
-                  <button key={r} className={`seg__opt ${r==='30D'?'is-active':''}`}>{r}</button>
-                ))}
-              </div>
+              (() => {
+                /*
+                   기간 선택.
+
+                   ★★ 이제 실제로 동작한다 — 일별 스냅샷을 기록하기 시작했다.
+                     다만 **이력이 있는 범위만** 누를 수 있게 한다. 하루치만
+                     쌓였는데 1Y 를 누르면 같은 점 하나가 나오고, 사용자는
+                     "1년 동안 변화가 없었다" 로 읽는다.
+
+                   ★ 판정 근거는 서버가 준 `history.points` 다. 화면이 추정하지 않는다.
+                */
+                const RANGES = [
+                  ['1D', 1], ['7D', 7], ['30D', 30], ['90D', 90], ['1Y', 365], ['All', 1825],
+                ];
+                const known = curve && curve.history ? curve.history.points : 0;
+                const preview = window.QTMockPolicy ? window.QTMockPolicy.allowMockData() : false;
+                return (
+                  <div className="seg" title={(!preview && known < 2) ? t('pf_equity_range_why') : undefined}>
+                    {RANGES.map(([label, days]) => {
+                      // 미리보기에서는 원본처럼 30D 가 활성이고 전부 눌린다.
+                      const disabled = !preview && known < 2;
+                      return (
+                        <button
+                          key={label}
+                          className={`seg__opt ${(preview ? label === '30D' : curveDays === days) ? 'is-active' : ''}`}
+                          disabled={disabled}
+                          aria-disabled={disabled}
+                          onClick={preview ? undefined : () => setCurveDays(days)}
+                        >{label}</button>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             }
           >
             <svg viewBox={`0 0 ${eqW} ${eqH}`} width="100%" height="240" preserveAspectRatio="none">
@@ -421,15 +1084,33 @@
               {[0.25, 0.5, 0.75].map(f => (
                 <line key={f} x1="0" x2={eqW} y1={eqH*f} y2={eqH*f} stroke="var(--chart-grid)" strokeDasharray="2 4"/>
               ))}
-              <path d={eqArea} fill="url(#eqGrad)"/>
-              <path d={eqPath} fill="none" stroke="var(--color-brand)" strokeWidth="2"/>
-              {/* labels */}
-              <text x="4" y="14" fill="var(--color-text-tertiary)" fontFamily="var(--font-mono)" fontSize="10">${fmt(eqHi)}</text>
-              <text x="4" y={eqH-4} fill="var(--color-text-tertiary)" fontFamily="var(--font-mono)" fontSize="10">${fmt(eqLo)}</text>
+              {/*
+                 ★ 이력이 없으면 곡선을 그리지 않는다. 평평한 선은 "자산이 변하지
+                   않았다" 로 읽히지만, 실제로는 기록이 없는 것이다.
+              */}
+              {hasEquityCurve ? (
+                <>
+                  <path d={eqArea} fill="url(#eqGrad)"/>
+                  <path d={eqPath} fill="none" stroke="var(--color-brand)" strokeWidth="2"/>
+                  <text x="4" y="14" fill="var(--color-text-tertiary)" fontFamily="var(--font-mono)" fontSize="10">${fmt(eqHi)}</text>
+                  <text x="4" y={eqH-4} fill="var(--color-text-tertiary)" fontFamily="var(--font-mono)" fontSize="10">${fmt(eqLo)}</text>
+                </>
+              ) : (
+                <text x={eqW/2} y={eqH/2} textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="12">
+                  {t('pf_no_equity_history')}
+                </text>
+              )}
             </svg>
           </window.SectionCard>
 
-          <window.SectionCard title="Allocation" subtitle={`${A.length} assets · Rebalance suggested`}>
+          {/*
+             ★ 'Rebalance suggested' 를 붙이지 않는다. 우리는 재조정을 제안하는
+               로직이 없다 — 그 문구를 보고 사용자가 조언을 받았다고 믿는다.
+          */}
+          <window.SectionCard
+            title="Allocation"
+            subtitle={A.length > 0 ? t('pf_alloc_sub', { n: A.length }) : t('pf_alloc_none')}
+          >
             <div style={{display:'flex', justifyContent:'center', marginBottom: 12}}>
               <svg width={donutSize} height={donutSize} viewBox={`0 0 ${donutSize} ${donutSize}`}>
                 {A.map((a, i) => {
@@ -449,7 +1130,10 @@
                     />
                   );
                 })}
-                <text x={donutSize/2} y={donutSize/2 - 4} textAnchor="middle" fontFamily="var(--font-num)" fontSize="18" fontWeight="600" fill="var(--color-text-primary)">${fmtCompact(totalValue)}</text>
+                {/* 총자산을 모르면 '—' 다. $0 은 "자산이 없다" 로 읽힌다. */}
+                <text x={donutSize/2} y={donutSize/2 - 4} textAnchor="middle" fontFamily="var(--font-num)" fontSize="18" fontWeight="600" fill="var(--color-text-primary)">
+                  {totalValue === null ? '—' : `$${fmtCompact(totalValue)}`}
+                </text>
                 <text x={donutSize/2} y={donutSize/2 + 14} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="var(--color-text-tertiary)">TOTAL</text>
               </svg>
             </div>
@@ -476,7 +1160,40 @@
               { key: 'entry', label: 'Entry', align:'right', render: r => fmt(r.entry, 1) },
               { key: 'mark',  label: 'Mark',  align:'right', render: r => fmt(r.mark, 1) },
               { key: 'liq',   label: 'Liq. Price', align:'right', render: r => <span className="t-warning">{fmt(r.liq, 1)}</span> },
-              { key: 'pnl',   label: 'PnL', align:'right', render: r => <span className={r.unPnl >= 0 ? 't-long':'t-short'}>{r.unPnl >= 0 ? '+' : ''}${fmt(r.unPnl)}<span style={{color:'var(--color-text-tertiary)', marginLeft:4}}>({r.unPnlPct.toFixed(1)}%)</span></span> },
+              /*
+                 손익.
+
+                 ★★ 값이 없을 수 있다. 표시가를 모르면 미실현손익도 모른다 —
+                   모의 주문으로 생긴 포지션이 그렇다.
+
+                   전에는 `r.unPnlPct.toFixed(1)` 이 null 을 만나 터졌고, 표
+                   전체가 렌더되지 않아 **포지션이 하나도 보이지 않았다.**
+                   목업에는 항상 값이 있어서 드러나지 않던 결함이다.
+
+                 ★ 0 으로 채우지 않는다. '손익 0' 은 본전이라는 뜻으로 읽힌다.
+              */
+              { key: 'pnl',   label: 'PnL', align:'right', render: r => {
+                /*
+                   ★ null 을 먼저 걸러야 한다.
+
+                     `Number(null)` 은 0 이고 `Number.isFinite(0)` 은 true 다.
+                     그래서 Number() 로 감싸 검사하면 모르는 값이 '+$0.00' 으로
+                     표시된다 — 사용자는 본전이라고 읽는다. 실제로 그렇게 나왔다.
+                */
+                const v = (r.unPnl === null || r.unPnl === undefined) ? NaN : Number(r.unPnl);
+                if (!Number.isFinite(v)) {
+                  return <span style={{color:'var(--color-text-tertiary)'}} title={t('pos_pnl_unknown')}>—</span>;
+                }
+                const pct = (r.unPnlPct === null || r.unPnlPct === undefined) ? NaN : Number(r.unPnlPct);
+                return (
+                  <span className={v >= 0 ? 't-long':'t-short'}>
+                    {v >= 0 ? '+' : ''}${fmt(v)}
+                    {Number.isFinite(pct) && (
+                      <span style={{color:'var(--color-text-tertiary)', marginLeft:4}}>({pct.toFixed(1)}%)</span>
+                    )}
+                  </span>
+                );
+              } },
               { key: 'act', label: '', align:'right', render: r => (
                 <>
                   <button className="tbl-action">TP/SL</button>
@@ -495,20 +1212,172 @@
   // ANALYTICS PAGE — Trade Journal + Performance
   // ============================================================
   window.AnalyticsPage = function AnalyticsPage({ shellProps }) {
-    const tj = window.QTApp.TRADE_JOURNAL;
+    const acct = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
+
+    /*
+       거래 기록.
+
+       실데이터는 거래소 원장의 REALIZED_PNL 항목이다 — 거래소가 확정한 금액이므로
+       우리가 다시 계산하지 않는다. 체결(fills)로 손익을 직접 구하려면 진입·청산을
+       짝지어야 하고, 그 결과가 거래소 값과 어긋나면 사용자는 어느 쪽을 믿어야
+       할지 알 수 없다.
+
+       실데이터가 없으면 목업을 유지한다. 빈 표를 보여주면 "거래 기록이 없다" 는
+       거짓이 되고, 계산 결과도 전부 0 이 되어 화면이 고장처럼 보인다.
+    */
+    const liveJournal = (acct.isLive && window.QTAccount) ? window.QTAccount.getJournal() : [];
+
+    /*
+       우리 DB 의 체결 기록 (모의 포함).
+
+       ★★ 전에는 `acct.isLive`(거래소 API 키 검증)만 봤다. 키가 없으면 우리 DB 에
+         실제 체결이 있어도 목업 통계를 보여줬다:
+             'TOTAL PNL · 10 TRADES +$661.87' · 'WIN RATE 80% 8W · 2L'
+             'BEST TRADE +$212 · BTC/USDT'
+         사용자는 이 숫자를 자기 성과로 읽는다. 전략을 그 숫자로 판단한다.
+
+       ★ 손익을 지어내지 않는다. 우리 체결 기록에는 종료 가격이 없어(모의 주문은
+         청산 흐름이 없다) 손익을 계산할 수 없다. `pnl: null` 로 두고, 아래
+         집계가 null 을 만나면 통계를 '—' 로 표시한다.
+    */
+    const [localTrades, setLocalTrades] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.localTrades) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      const load = () => {
+        const auth = window.QTAuth;
+        if (!auth || !auth.isLoggedIn || !auth.isLoggedIn()) return;
+        api.localTrades({ limit: 200 }).then((r) => {
+          if (cancelled || !r.items.length) return;
+          /*
+             ★ 표가 기대하는 필드명을 정확히 맞춘다 (QT.TRADE_JOURNAL 과 동일).
+
+               `sym` 을 `symbol` 로 넘기거나 `tag` 를 빠뜨리면 렌더 중
+               `undefined.map` 으로 터져 **표 전체가 사라진다.** 실제로 겪었다 —
+               목업에는 모든 필드가 있어서 드러나지 않던 문제다.
+          */
+          setLocalTrades(r.items.map((x) => ({
+            id: x.id,
+            // 표는 'BTC/USDT' 형태를 기대한다. 서버는 'BTCUSDT' 를 준다.
+            sym: String(x.symbol || '').replace(/USDT$/, '/USDT'),
+            date: x.at ? new Date(x.at).toISOString().slice(0, 10) : null,
+            side: x.side,
+            entry: x.price === null ? null : Number(x.price),
+            // 종료 가격이 없다. 모의 주문에는 청산 흐름이 없기 때문이다.
+            exit: null,
+            size: x.quantity === null ? null : Number(x.quantity),
+            // 수익률도 종료 가격이 있어야 계산된다.
+            roi: null,
+            // 감정 기록·태그는 사용자가 직접 남기는 것이고, 아직 입력 경로가 없다.
+            mood: null,
+            tag: [],
+            /*
+               손익을 계산하지 않는다.
+
+               ★ 진입가만으로는 손익을 알 수 없다. 0 으로 두면 '손익 없음' 이
+                 되고, 현재가로 계산하면 아직 청산하지 않은 것을 실현 손익으로
+                 표시하는 셈이다. 둘 다 거짓이다.
+            */
+            pnl: null,
+            fee: x.fee === null ? null : Number(x.fee),
+            time: x.at,
+          })));
+        }).catch(() => { /* 조회 실패를 빈 목록으로 위장하지 않는다 */ });
+      };
+      load();
+      const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
+      return () => { cancelled = true; if (off) off(); };
+    }, []);
+
+    /* 거래소 실체결 → 우리 DB 기록 → 목업 순서로 고른다. */
+    const isLive = liveJournal.length > 0 || Boolean(localTrades);
+    /*
+       거래 기록: 거래소 → 우리 DB → (미리보기에서만) 목업.
+
+       ★ 실서비스에서 기록이 없으면 빈 배열이다. 목업 10건(승률 80% · +$661.87)을
+         보여주면 신규 사용자가 자기 성과로 읽는다.
+    */
+    const tj = liveJournal.length > 0
+      ? liveJournal
+      : (window.QTMockPolicy
+          ? window.QTMockPolicy.pick(localTrades, window.QTApp.TRADE_JOURNAL)
+          : (localTrades || window.QTApp.TRADE_JOURNAL));
+
+    /*
+       손익을 알 수 없는 거래가 섞였는가.
+
+       ★ 하나라도 모르면 합계·승률·평균을 만들 수 없다. 일부만 세면 그 값이
+         전체처럼 보인다 — 10건 중 3건만 계산한 승률을 '승률' 이라고 하면 거짓이다.
+    */
+    const pnlUnknown = tj.some((x) => x.pnl === null || x.pnl === undefined);
+
     const wins = tj.filter(t => t.pnl > 0);
     const losses = tj.filter(t => t.pnl < 0);
-    const totalPnl = tj.reduce((a,t) => a+t.pnl, 0);
-    const winRate = (wins.length / tj.length) * 100;
-    const avgWin = wins.reduce((a,t) => a+t.pnl, 0) / (wins.length || 1);
-    const avgLoss = losses.reduce((a,t) => a+t.pnl, 0) / (losses.length || 1);
+    // 손익을 모르는 거래가 있으면 합계도 모르는 것이다 (위 pnlUnknown 참고).
+    const totalPnl = pnlUnknown ? null : tj.reduce((a,t) => a+t.pnl, 0);
+    // 거래가 0건이거나 손익을 모르면 승률을 만들 수 없다.
+    const winRate = (tj.length > 0 && !pnlUnknown) ? (wins.length / tj.length) * 100 : null;
+    const avgWin = pnlUnknown ? null : wins.reduce((a,t) => a+t.pnl, 0) / (wins.length || 1);
+    const avgLoss = pnlUnknown ? null : losses.reduce((a,t) => a+t.pnl, 0) / (losses.length || 1);
+
+    /*
+       수수료·펀딩비.
+
+       실현손익과 별개 항목이다. 순손익을 보려면 이것까지 빼야 한다 —
+       손익만 보고 "이익이 났다" 고 판단하면 수수료로 잃은 부분을 놓친다.
+    */
+    const costs = React.useMemo(() => {
+      if (!acct.isLive || !window.QTAccount) return null;
+      const tx = window.QTAccount.getTransactions();
+      const sum = (kind) => tx.filter(x => x.kind === kind).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+      return {
+        fees: sum('COMMISSION_FEE'),
+        funding: sum('FUNDING_FEE'),
+        liquidation: sum('LIQUIDATION_CLEARANCE'),
+      };
+    }, [acct.version, acct.isLive]);
 
     // Bar heights (win/loss distribution)
     const daysBack = 30;
-    const dailyPnl = Array.from({length: daysBack}, (_, i) => {
-      const day = tj.filter((_, idx) => idx % daysBack === i);
-      return day.reduce((a,t) => a+t.pnl, 0);
-    });
+    /*
+       일별 손익.
+
+       예전에는 `idx % daysBack === i` 로 나눴다 — 배열 순서를 날짜처럼 쓴 것이고,
+       실제 거래일과 아무 관계가 없다. 거래가 하루에 몰려도 30일에 흩어져 보인다.
+
+       실제 날짜로 묶는다. 거래가 없는 날은 0 이다(빈 값이 아니라 0 이 사실이다).
+    */
+    const dailyPnl = React.useMemo(() => {
+      const dayMs = 24 * 60 * 60 * 1000;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const startOfWindow = todayStart.getTime() - (daysBack - 1) * dayMs;
+
+      const buckets = new Array(daysBack).fill(0);
+      for (const t of tj) {
+        // 목업은 date 문자열, 실데이터는 time(ms) 을 갖는다. 둘 다 처리한다.
+        const ms = Number.isFinite(t.time) && t.time > 0
+          ? t.time
+          : (t.date ? new Date(t.date + 'T00:00:00').getTime() : NaN);
+        if (!Number.isFinite(ms)) continue;
+        const idx = Math.floor((ms - startOfWindow) / dayMs);
+        // 30일 창 밖의 거래는 버린다 — 억지로 끝 칸에 몰면 그 날 손익이 왜곡된다.
+        /*
+           ★ 손익을 모르는 체결은 더하지 않는다.
+
+             `buckets[idx] += null` 은 0 을 더하는 것과 같아서, 막대가 없는
+             날처럼 보인다. 실제로는 "그 날 거래는 있었지만 손익을 모른다" 는
+             뜻이므로, 그래프를 아예 그리지 않는 편이 정직하다(아래 pnlUnknown).
+        */
+        if (typeof t.pnl !== 'number' || !Number.isFinite(t.pnl)) continue;
+        if (idx >= 0 && idx < daysBack) buckets[idx] += t.pnl;
+      }
+      return buckets;
+    }, [tj]);
 
     return (
       <window.PageShell
@@ -524,14 +1393,96 @@
         }
       >
         <div className="grid-4">
-          <window.KPICard label="Total PnL · 10 trades" value={(totalPnl >= 0 ? '+' : '') + '$' + fmt(totalPnl)} delta={+12.4} deltaLabel="vs prev 10" tone={totalPnl >= 0 ? 'long' : 'short'}/>
-          <window.KPICard label="Win Rate" value={winRate.toFixed(0) + '%'} sub={`${wins.length}W · ${losses.length}L`} tone="brand"/>
-          <window.KPICard label="Avg Win / Loss" value={`$${fmt(avgWin,0)} / $${fmt(Math.abs(avgLoss),0)}`} sub={`R:R ${(avgWin / Math.abs(avgLoss)).toFixed(2)} : 1`} tone="ai"/>
-          <window.KPICard label="Best Trade" value="+$212 · BTC/USDT" sub="2026-08-02 · Long · AI signal" tone="long"/>
+          {/*
+            실데이터일 때는 delta(전기간 대비)를 넣지 않는다. 이전 구간과 비교하려면
+            기간을 나눠 두 번 집계해야 하고, 지금은 그 근거가 없다.
+            가짜 증감률을 붙이면 사용자가 추세를 잘못 읽는다.
+          */}
+          {/*
+             총 손익.
+
+             ★ null 이면 '—' 다. 우리 DB 의 체결 기록에는 종료 가격이 없어
+               손익을 계산할 수 없다(모의 주문에 청산 흐름이 없다).
+               0 으로 표시하면 "본전" 으로 읽히고, 현재가로 계산하면 청산하지
+               않은 것을 실현 손익이라고 말하는 셈이다.
+          */}
+          <window.KPICard
+            label={isLive ? t('an_total_pnl', { count: tj.length }) : 'Total PnL · 10 trades'}
+            value={totalPnl === null ? '—' : (totalPnl >= 0 ? '+' : '') + '$' + fmt(totalPnl)}
+            delta={isLive ? undefined : +12.4}
+            deltaLabel="vs prev 10"
+            sub={totalPnl === null ? t('an_pnl_unknown') : (isLive ? t('an_from_exchange') : undefined)}
+            tone={totalPnl === null ? undefined : totalPnl >= 0 ? 'long' : 'short'}
+          />
+          {/* 거래가 0건이면 승률을 만들 수 없다. NaN 을 화면에 띄우지 않는다. */}
+          <window.KPICard
+            label="Win Rate"
+            value={winRate === null ? '—' : winRate.toFixed(0) + '%'}
+            sub={`${wins.length}W · ${losses.length}L`}
+            tone="brand"
+          />
+          <window.KPICard
+            label="Avg Win / Loss"
+            value={(tj.length === 0 || avgWin === null || avgLoss === null)
+              ? '—'
+              : `$${fmt(avgWin,0)} / $${fmt(Math.abs(avgLoss),0)}`}
+            sub={(avgWin !== null && avgLoss !== null && losses.length > 0 && avgLoss !== 0)
+              ? `R:R ${(avgWin / Math.abs(avgLoss)).toFixed(2)} : 1`
+              : t('an_rr_na')}
+            tone="ai"
+          />
+          {/* 최고 수익 거래를 실제 기록에서 찾는다. 예전에는 값이 박혀 있었다. */}
+          {(() => {
+            /*
+               최고 수익 거래.
+
+               ★ 손익을 모르면 '가장 좋은 거래' 를 정할 수 없다. 진입가가 높은
+                 것을 최고라고 하면 그것은 손익과 무관한 값이다.
+            */
+            const scored = tj.filter((x) => typeof x.pnl === 'number' && Number.isFinite(x.pnl));
+            const best = scored.length > 0 ? scored.reduce((a, b) => (b.pnl > a.pnl ? b : a)) : null;
+            return (
+              <window.KPICard
+                label="Best Trade"
+                value={best ? `${best.pnl >= 0 ? '+' : ''}$${fmt(best.pnl, 0)} · ${best.sym}` : '—'}
+                sub={best ? [best.date, best.side ? (best.side === 'long' ? 'Long' : 'Short') : null].filter(Boolean).join(' · ') : undefined}
+                tone={best && best.pnl >= 0 ? 'long' : 'short'}
+              />
+            );
+          })()}
         </div>
 
+        {/*
+          비용 요약. 실현손익만 보면 수수료·펀딩비로 잃은 부분을 놓친다.
+          실데이터가 있을 때만 보여준다 — 목업에는 이 값이 없다.
+        */}
+        {isLive && costs && (
+          <div className="grid-4">
+            <window.KPICard label={t('an_fees')} value={'$' + fmt(Math.abs(costs.fees), 4)} sub={t('an_cost_note')} tone="short"/>
+            <window.KPICard label={t('an_funding')} value={(costs.funding >= 0 ? '+' : '-') + '$' + fmt(Math.abs(costs.funding), 4)} tone={costs.funding >= 0 ? 'long' : 'short'}/>
+            {/* 손익을 모르면 순손익도 만들 수 없다. 수수료만 빼서 보여주면 그것이 순손익처럼 읽힌다. */}
+            <window.KPICard label={t('an_net')}
+              value={totalPnl === null ? '—' : ((totalPnl + costs.fees + costs.funding) >= 0 ? '+' : '') + '$' + fmt(totalPnl + costs.fees + costs.funding)}
+              sub={totalPnl === null ? t('an_pnl_unknown') : t('an_net_note')}
+              tone={totalPnl === null ? undefined : (totalPnl + costs.fees + costs.funding) >= 0 ? 'long' : 'short'}/>
+            <window.KPICard label={t('an_liquidations')} value={costs.liquidation !== 0 ? '$' + fmt(Math.abs(costs.liquidation), 2) : '—'} tone={costs.liquidation !== 0 ? 'short' : undefined}/>
+          </div>
+        )}
+
         <div className="grid-2-1">
-          <window.SectionCard title="Daily PnL · 30 days" subtitle="Simulated distribution">
+          <window.SectionCard title="Daily PnL · 30 days" subtitle={isLive ? t('an_daily_real') : 'Simulated distribution'}>
+            {/*
+               ★ 손익을 모르면 그래프를 그리지 않는다.
+
+                 전부 0 인 막대 그래프는 "매일 본전이었다" 로 읽힌다. 실제로는
+                 계산할 근거가 없는 것이다.
+            */}
+            {pnlUnknown ? (
+              <div style={{padding:'28px 12px', textAlign:'center', fontSize:12.5, lineHeight:1.8,
+                           color:'var(--color-text-tertiary)'}}>
+                {t('an_pnl_unknown')}
+              </div>
+            ) : (
             <svg viewBox="0 0 600 160" width="100%" height="180">
               {[0.25, 0.5, 0.75].map(f => (
                 <line key={f} x1="0" x2="600" y1={160*f} y2={160*f} stroke="var(--chart-grid)" strokeDasharray="2 4"/>
@@ -549,6 +1500,7 @@
               <text x="4" y="14" fontFamily="var(--font-mono)" fontSize="9" fill="var(--color-text-tertiary)">+PnL</text>
               <text x="4" y="156" fontFamily="var(--font-mono)" fontSize="9" fill="var(--color-text-tertiary)">-PnL</text>
             </svg>
+            )}
           </window.SectionCard>
 
           <window.SectionCard title="AI Insights" subtitle="Detected patterns">
@@ -579,13 +1531,39 @@
             columns={[
               { key: 'date',  label: 'Date', width: 100 },
               { key: 'sym',   label: 'Symbol', render: r => <strong>{r.sym}</strong> },
-              { key: 'side',  label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-              { key: 'entry', label: 'Entry', align:'right', render: r => fmt(r.entry, 2) },
-              { key: 'exit',  label: 'Exit',  align:'right', render: r => fmt(r.exit, 2) },
-              { key: 'size',  label: 'Size',  align:'right', render: r => fmt(r.size, 3) },
-              { key: 'pnl',   label: 'PnL', align:'right', render: r => (
-                <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}<span style={{color:'var(--color-text-tertiary)', marginLeft:4, fontSize:10}}>({r.roi >= 0 ? '+' : ''}{r.roi.toFixed(2)}%)</span></span>
+              /*
+                 거래소 원장에는 방향·진입가·청산가·수량이 없다(실현손익만 준다).
+                 없는 값을 만들지 않고 '—' 로 둔다 — 손익 부호로 방향을 추측하면
+                 틀린다(숏도 이익이 날 수 있다).
+              */
+              { key: 'side',  label: 'Side', render: r => (
+                r.side ? <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span>
+                       : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
               ) },
+              { key: 'entry', label: 'Entry', align:'right', render: r => (r.entry == null ? '—' : fmt(r.entry, 2)) },
+              { key: 'exit',  label: 'Exit',  align:'right', render: r => (r.exit == null ? '—' : fmt(r.exit, 2)) },
+              { key: 'size',  label: 'Size',  align:'right', render: r => (r.size == null ? '—' : fmt(r.size, 3)) },
+              { key: 'pnl',   label: 'PnL', align:'right', render: r => {
+                /*
+                   ★ 손익을 모르면 '—' 만 쓴다.
+
+                     전에는 `{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}` 이라 null 일 때
+                     '+$—' 처럼 부호와 통화기호가 남았다. 부호가 붙으면 이익이
+                     있었던 것처럼 읽힌다.
+                */
+                if (r.pnl === null || r.pnl === undefined || !Number.isFinite(Number(r.pnl))) {
+                  return <span style={{color:'var(--color-text-tertiary)'}} title={t('an_pnl_unknown')}>—</span>;
+                }
+                return (
+                  <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>
+                    {r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}
+                    {/* 수익률은 투입 자본을 알아야 구한다. 원장에 없으면 표시하지 않는다. */}
+                    {r.roi != null && (
+                      <span style={{color:'var(--color-text-tertiary)', marginLeft:4, fontSize:10}}>({r.roi >= 0 ? '+' : ''}{r.roi.toFixed(2)}%)</span>
+                    )}
+                  </span>
+                );
+              } },
               { key: 'mood',  label: 'Mood', render: r => {
                 const m = { confident: '😎', neutral: '😐', nervous: '😬' };
                 return <span title={r.mood} style={{fontSize:14}}>{m[r.mood] || '·'}</span>;
@@ -610,6 +1588,27 @@
     const [layout, setLayout] = useState('2x2');   // 2x2 | 1x2 | 3x2 | 2x3
     const symbols = ['BTC/USDT','ETH/USDT','SOL/USDT','BNB/USDT','XRP/USDT','DOGE/USDT'];
     const [selectedSymbols, setSelectedSymbols] = useState(symbols.slice(0, 4));
+
+    /*
+       차트별 시간축.
+
+       ★★ 전에는 시간축 버튼이 **아무 일도 하지 않았다.**
+         `className={tf==='15m'?'is-active':''}` 로 15분봉이 항상 활성으로 보이고,
+         `onClick` 이 없어 눌러도 반응이 없었다. MiniChart 에도
+         `timeframe="15m"` 이 박혀 있어 바꿀 방법이 없었다.
+
+         화면 부제가 "Independent timeframes" 라고 말하는데 실제로는 전부
+         15분봉이었다 — 사용자는 1분봉을 본다고 믿고 판단한다.
+
+       ★ 차트마다 따로 둔다. 부제의 약속대로 독립이어야 하고, 하나로 묶으면
+         여러 시간대를 나란히 보는 이 화면의 목적이 사라진다.
+    */
+    const [timeframes, setTimeframes] = useState(() => symbols.map(() => '15m'));
+    const setTf = (idx, tf) => setTimeframes((prev) => {
+      const next = [...prev];
+      next[idx] = tf;
+      return next;
+    });
 
     const layoutGrids = {
       '2x2': { cols: 2, rows: 2, count: 4 },
@@ -664,12 +1663,18 @@
                   </div>
                   <div className="seg" style={{fontSize:10}}>
                     {['1m','5m','15m','1H','4H'].map(tf => (
-                      <button key={tf} className={`seg__opt ${tf==='15m'?'is-active':''}`} style={{height:20, padding:'0 5px', fontSize:10}}>{tf}</button>
+                      <button
+                        key={tf}
+                        className={`seg__opt ${(timeframes[i] || '15m') === tf ? 'is-active' : ''}`}
+                        style={{height:20, padding:'0 5px', fontSize:10}}
+                        aria-pressed={(timeframes[i] || '15m') === tf}
+                        onClick={() => setTf(i, tf)}
+                      >{tf}</button>
                     ))}
                   </div>
                 </div>
                 <div style={{flex:1, minHeight:0, position:'relative'}}>
-                  <window.MiniChart symbol={sym} timeframe="15m" hideHeader={true}/>
+                  <window.MiniChart symbol={sym} timeframe={timeframes[i] || '15m'} hideHeader={true}/>
                 </div>
               </div>
             );
@@ -683,8 +1688,47 @@
   // WALLET PAGE — Exchange Connect + Referrals + Balances
   // ============================================================
   window.WalletPage = function WalletPage({ shellProps }) {
-    const EX = window.QTApp.EXCHANGES;
     const USER = window.QTApp.USER;
+    /*
+       ★ 훅은 조건 없이 호출한다. 원래 `if (window.QTApi && window.QTApi.useConfig)
+         window.QTApi.useConfig();` 였다 — QTApi 가 첫 렌더보다 늦게 준비되면
+         훅 개수가 바뀌어 화면이 비어 버린다(실제로 겪었다).
+    */
+    const cfg = window.QTApi && window.QTApi.useConfig ? window.QTApi.useConfig() : null;
+
+    /*
+       거래소 목록 — 서버 판정을 쓴다.
+
+       ★★ 원래 `window.QTApp.EXCHANGES`(예시 9개)를 직접 읽었다. 그 중 실제로
+         연결되는 것은 2개(KuCoin·BitMart)뿐인데 9개 모두 "연결" 버튼이
+         있었다. 사용자가 거래소에서 키를 만들어 넣고, 아무것도 조회되지 않는
+         이유를 알 수 없다.
+
+       ★ 관리자에게는 미협약까지 보여준다 — 어떤 거래소가 준비 중인지 운영자는
+         알아야 한다. 일반 사용자에게는 감춘다.
+    */
+    const isStaff = window.QTAccess
+      ? window.QTAccess.RANK[shellProps && shellProps.role] >= window.QTAccess.RANK.admin
+      : false;
+    /*
+       ★★ 백엔드가 없는 디자인 미리보기에서는 예시 목록을 쓴다.
+
+         이 분기가 없어서 미리보기에서 "거래소를 불러오는 중…" 에 영원히 멈췄다
+         (API 가 없으므로 응답이 오지 않는다). 디자이너가 자기 화면을 볼 수 없게
+         되는 것은 불가침 위반이다 — 랜딩에는 넣었는데 이 화면을 빠뜨렸다.
+    */
+    const exPreviewOnly = window.QTLive && window.QTLive.isBackendPresent
+      && window.QTLive.isBackendPresent() === false;
+    const exData = window.QTApi && window.QTApi.useExchanges
+      ? window.QTApi.useExchanges(isStaff)
+      : null;
+    /* 조회 중(null)에는 예시 목록으로 채우지 않는다 — 잠깐 보였다 사라지면
+       사용자가 그 거래소를 기억한다. 단 미리보기는 예외(위 참조). */
+    const EX = exPreviewOnly
+      ? (window.QTApp.EXCHANGES || [])
+      : (exData ? exData.items : []);
+    const exLoading = !exPreviewOnly && exData === null;
+    const exHidden = exPreviewOnly ? 0 : (exData ? exData.hiddenNotConnectable : 0);
     const [tab, setTab] = useState('exchanges');   // exchanges | balances | deposit | withdraw
     const [connectingEx, setConnectingEx] = useState(null); // exchange 객체
 
@@ -737,19 +1781,80 @@
               </div>
             </div>
 
+            {/*
+               목록 상태 안내.
+
+               ★ 조회 중과 0개를 구분한다. 둘 다 카드가 없는 화면이지만,
+                 "불러오는 중" 과 "연결할 수 있는 거래소가 없다" 는 다른 사실이다.
+               ★ 감춘 개수를 일반 사용자에게도 알린다 — 목록이 짧은 이유를
+                 모르면 "왜 내가 쓰는 거래소가 없나" 로 문의가 온다.
+            */}
+            {exLoading && (
+              <div style={{padding:'18px 0', textAlign:'center', color:'var(--color-text-tertiary)', fontSize:12}}>
+                {t('ex_loading')}
+              </div>
+            )}
+            {!exLoading && EX.length === 0 && (
+              <div style={{padding:'18px 0', textAlign:'center', color:'var(--color-text-tertiary)', fontSize:12}}>
+                {t('ex_none')}
+              </div>
+            )}
+            {!exLoading && exHidden > 0 && (
+              <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginBottom:10}}>
+                {t('ex_hidden_note', { n: exHidden })}
+              </div>
+            )}
+
             <div className="grid-3">
               {EX.map(ex => {
                 const isConnected = USER.connectedExchanges.includes(ex.id);
+                /* 미협약 = 어댑터가 없어 실제로 연결되지 않는 거래소.
+                   관리자에게만 보이며, 노란색으로 아직 확정이 아님을 알린다. */
+                const notReady = ex.connectable === false;
                 return (
-                  <div key={ex.id} className={`exchange-card ${isConnected ? 'is-connected' : ''} ${ex.recommended ? 'is-recommended' : ''}`}>
+                  <div key={ex.id} className={`exchange-card ${isConnected ? 'is-connected' : ''} ${ex.recommended && !notReady ? 'is-recommended' : ''}`} style={notReady ? {borderColor:'color-mix(in srgb, var(--color-warning) 40%, transparent)'} : undefined}>
                     <div className="exchange-card__head">
-                      <div className="exchange-card__logo" style={{background: ex.logoBg, color: ex.logoColor}}>{ex.logoText}</div>
+                      <div className="exchange-card__logo" style={{background: ex.logoBg, color: ex.logoColor, ...(notReady ? {opacity:0.55} : {})}}>
+                        {/* ★ 실제 브랜드 로고가 있으면 SVG, 없으면 디자이너 원본
+                            글자 배지로 폴백한다(마크업 구조는 그대로).
+
+                            ★ BitMart 처럼 로고가 자체 브랜드 색을 가진 경우,
+                              배지 배경색과 비슷해 묻힌다. 그럴 때만 흰 라운드
+                              패드를 깔아 어느 배경에서도 선명하게 한다. KuCoin
+                              심볼은 단색이라 배지의 logoColor 를 물려받으면 된다. */}
+                        {(() => {
+                          const logo = window.exchangeLogo && window.exchangeLogo(ex.id, { size: 22 });
+                          if (!logo) return ex.logoText;
+                          const needsPad = String(ex.id).toLowerCase() === 'bitmart';
+                          return needsPad
+                            ? <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:'82%', height:'82%', background:'#fff', borderRadius:6}}>{logo}</span>
+                            : logo;
+                        })()}
+                      </div>
                       <div style={{flex:1, minWidth:0}}>
                         <div className="exchange-card__name">{ex.name}</div>
                         <div className="exchange-card__market">{ex.market}</div>
                       </div>
-                      <span className={`exchange-card__status ${ex.status}`}>{ex.status === 'coming-soon' ? 'SOON' : ex.status.toUpperCase()}</span>
+                      {notReady ? (
+                        <span
+                          className="exchange-card__status"
+                          style={{background:'color-mix(in srgb, var(--color-warning) 18%, transparent)', color:'var(--color-warning)'}}
+                          title={t('ex_not_partnered_hint')}
+                        >
+                          {t('ex_not_partnered')}
+                        </span>
+                      ) : (
+                        <span className={`exchange-card__status ${ex.status}`}>{ex.status === 'coming-soon' ? 'SOON' : ex.status.toUpperCase()}</span>
+                      )}
                     </div>
+
+                    {/* ★ 왜 연결할 수 없는지 카드 안에서 밝힌다. 뱃지만 있으면
+                        운영자가 "곧 되나" 하고 기다린다. */}
+                    {notReady && (
+                      <div style={{fontSize:10.5, lineHeight:1.5, color:'var(--color-warning)', background:'color-mix(in srgb, var(--color-warning) 10%, transparent)', padding:'6px 8px', borderRadius:4}}>
+                        {t('ex_not_partnered_note')}
+                      </div>
+                    )}
 
                     <div className="exchange-card__products">
                       {ex.supportedProducts.map(p => <span key={p} className="exchange-card__product-chip">{p}</span>)}
@@ -757,7 +1862,11 @@
 
                     <div className="exchange-card__referral">
                       <I.Sparkles size={13} style={{color:'var(--color-brand)', flexShrink:0}}/>
-                      <span className="exchange-card__referral__note">{window.QTI18n ? window.QTI18n.formatRebate(ex.referralRebate) : ''}</span>
+                      {/* ★ 서버의 referralNote(문자열)를 쓴다. 예전에는 예시
+                          데이터의 referralRebate(객체)를 formatRebate 에 넘겼는데,
+                          서버 응답에는 그 필드가 없어 **항상 빈 칸**이었다.
+                          referralNote 가 없으면 이 줄을 그리지 않는다. */}
+                      <span className="exchange-card__referral__note">{ex.referralNote || t('ex_referral_tbd')}</span>
                     </div>
 
                     <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
@@ -766,20 +1875,42 @@
                     </div>
 
                     <div className="exchange-card__actions">
-                      <a
-                        href={ex.referral}
-                        target="_blank"
-                        className="btn btn--sm"
-                        style={{flex: isConnected ? 1 : 1.4}}
-                      >
-                        <I.User size={11}/> {t('wallet_ecb4cc')}
-                      </a>
+                      {/*
+                         가입 버튼.
+
+                         링크는 서버 설정에서 온다(거래소 ID 기준). 없으면 이 버튼을
+                         렌더하지 않는다 — 예시 코드가 박힌 링크로 보내면 사용자는
+                         가입하지만 귀속이 안 돼 수익이 0 이 된다.
+
+                         rel="noopener noreferrer": target=_blank 만 두면 열린 쪽이
+                         window.opener 로 우리 탭을 조작할 수 있다.
+                      */}
+                      {/* ★ 미협약이면 가입 링크도 내보내지 않는다. 우리가 귀속받지
+                          못하는 거래소로 사용자를 보내면 그 사람은 우리 수익이
+                          되지 않고, 우리가 지원하지 않는 곳에서 거래하게 된다. */}
+                      {!notReady && (window.QTApi && window.QTApi.getReferralUrl ? window.QTApi.getReferralUrl(ex.id) : '') && (
+                        <a
+                          href={window.QTApi.getReferralUrl(ex.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn--sm"
+                          style={{flex: isConnected ? 1 : 1.4}}
+                        >
+                          <I.User size={11}/> {t('wallet_ecb4cc')}
+                        </a>
+                      )}
                       {isConnected ? (
                         <button className="btn btn--sm btn--primary" style={{flex:1}} onClick={() => setConnectingEx(ex)}>
                           <I.Check size={11}/> Connected
                         </button>
                       ) : (
-                        <button className="btn btn--sm btn--primary" style={{flex:1}} disabled={ex.status === 'coming-soon'} onClick={() => setConnectingEx(ex)}>
+                        <button
+                          className="btn btn--sm btn--primary"
+                          style={{flex:1}}
+                          disabled={ex.status === 'coming-soon' || notReady}
+                          title={notReady ? t('ex_not_partnered_hint') : undefined}
+                          onClick={() => setConnectingEx(ex)}
+                        >
                           <I.Plus size={11}/> Connect API
                         </button>
                       )}
@@ -836,8 +1967,84 @@
   // SETTINGS PAGE
   // ============================================================
   window.SettingsPage = function SettingsPage({ shellProps }) {
+    /*
+       화면 설정. 값과 변경 함수를 shellProps 로 받는다.
+       기능은 useTweaks 가 이미 구현해 두었다 — 버튼만 연결되지 않았다.
+    */
+    const tw = shellProps.tweaks || {};
+    const setTw = shellProps.setTweaks || (() => {});
+
     const [tab, setTab] = useState('profile');
-    const USER = window.QTApp.USER;
+
+    /*
+       프로필 — 실 세션.
+
+       목업 USER 는 '권누리 / usr_kuri001 / kuri@quantumtrade.ai / KYC Level 2 /
+       Pro 등급' 이었다. 로그인한 사람과 무관한 값이라, 자기 설정 화면에서
+       남의 이름과 이메일을 본다. 특히 'KYC Level 2' 는 우리가 인증하지 않으므로
+       거짓이고, 'Pro' 등급은 제도 자체가 없다.
+
+       서버 세션은 이메일·역할·상태·이메일인증여부·MFA 여부만 준다.
+       그 이상은 우리가 갖고 있지 않으므로 만들지 않는다.
+    */
+    const auth = window.QTAuth && window.QTAuth.useAuth ? window.QTAuth.useAuth() : null;
+    const live = auth && auth.user;
+
+    /*
+       실제로 등록된 거래소 키.
+
+       ★★ 전에는 'API Keys' 탭이 `USER.apiKeys`(목업 배열)를 읽었다. 실계정으로
+         바꾼 뒤 그 필드가 없어져 `undefined.map` 으로 **설정 화면 전체가 죽었다.**
+         탭을 누르면 화면이 통째로 하얗게 됐다.
+
+       ★ 서버에 목록 조회 경로도 없었다(저장·검증·삭제만 있었다). 함께 만들었다.
+    */
+    const [exKeys, setExKeys] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.exchangeKeys) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      const load = () => {
+        const a = window.QTAuth;
+        if (!a || !a.isLoggedIn || !a.isLoggedIn()) return;
+        api.exchangeKeys()
+          .then((r) => { if (!cancelled) setExKeys(r.items); })
+          .catch(() => { /* 조회 실패를 빈 목록으로 위장하지 않는다 (null 유지) */ });
+      };
+      load();
+      const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
+      return () => { cancelled = true; if (off) off(); };
+    }, []);
+
+    const MOCK_USER = window.QTApp.USER;
+    const USER = live
+      ? {
+          id: live.id,
+          // 이름을 받지 않는다. 이메일 앞부분을 이름처럼 쓰면 실제 이름으로 오인된다.
+          name: null,
+          email: live.email,
+          avatarInitial: String(live.email || '?').charAt(0).toUpperCase(),
+          role: live.role,
+          // 우리가 KYC 를 하지 않으므로 등급이 없다. 0 이 아니라 '없음' 이다.
+          kycLevel: null,
+          kycStatus: null,
+          twofa: Boolean(live.mfaEnabled),
+          emailVerified: Boolean(live.emailVerified),
+          status: live.status,
+          tier: null,
+          /*
+             등록된 거래소 키.
+
+             ★ 조회 전(null)에는 빈 배열을 준다 — `undefined.map` 으로 화면이
+               죽지 않게. 조회 결과가 비어 있으면 아래 표가 안내를 보여준다.
+          */
+          apiKeys: exKeys || [],
+        }
+      : MOCK_USER;
+    const isLive = Boolean(live);
 
     return (
       <window.PageShell
@@ -878,26 +2085,79 @@
                 <div style={{display:'flex', alignItems:'center', gap: 16, marginBottom: 16}}>
                   <div style={{width:64, height:64, borderRadius: '50%', background:'var(--color-brand)', color:'var(--color-text-inverse)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize: 22, fontWeight: 600}}>{USER.avatarInitial}</div>
                   <div>
-                    <div style={{fontSize:16, fontWeight:600}}>{USER.name}</div>
+                    {/* 이름이 없으면 이메일을 크게 보여준다 — 빈 줄을 두면 계정이 잘못된 것처럼 보인다. */}
+                    <div style={{fontSize:16, fontWeight:600}}>{USER.name || USER.email}</div>
                     <div style={{fontSize:12, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{USER.id}</div>
-                    <div style={{marginTop:6, display:'flex', gap:6}}>
-                      <span className="badge badge--success"><I.Check size={9}/> KYC Level {USER.kycLevel}</span>
-                      <span className="badge badge--neutral">{USER.tier}</span>
+                    <div style={{marginTop:6, display:'flex', gap:6, flexWrap:'wrap'}}>
+                      {isLive ? (
+                        <>
+                          {/*
+                             실제로 아는 사실만 배지로 만든다.
+                             'KYC Level 2' 는 우리가 인증하지 않으므로 쓸 수 없다.
+                          */}
+                          <span className={`badge badge--${USER.emailVerified ? 'success' : 'warning'}`}>
+                            {USER.emailVerified ? <I.Check size={9}/> : <I.Alert size={9}/>} {t(USER.emailVerified ? 'set_email_verified' : 'set_email_unverified')}
+                          </span>
+                          <span className={`badge badge--${USER.twofa ? 'success' : 'neutral'}`}>
+                            {t(USER.twofa ? 'set_mfa_on' : 'set_mfa_off')}
+                          </span>
+                          <span className="badge badge--neutral">{t('set_role', { role: String(USER.role || '').toUpperCase() })}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="badge badge--success"><I.Check size={9}/> KYC Level {USER.kycLevel}</span>
+                          <span className="badge badge--neutral">{USER.tier}</span>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>
+                  {/* 아바타 변경 기능이 없다 — 업로드 경로도 저장소도 없다. */}
+                  {!isLive && <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>}
                 </div>
 
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12, marginTop: 16}}>
-                  <div className="input-group"><span className="input-group__label">{t('settings_9aa18e')}</span><input defaultValue={USER.name}/></div>
-                  <div className="input-group"><span className="input-group__label">{t('settings_3c3776')}</span><input defaultValue={USER.email}/></div>
-                  <div className="input-group"><span className="input-group__label">{t('settings_84b6d0')}</span><input defaultValue="Republic of Korea"/></div>
-                  <div className="input-group"><span className="input-group__label">{t('settings_76245e')}</span><input defaultValue="Asia/Seoul (UTC+9)"/></div>
-                </div>
-                <div style={{marginTop:16, display:'flex', gap:8, justifyContent:'flex-end'}}>
-                  <button className="btn btn--sm">{t('settings_19b2d1')}</button>
-                  <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>
-                </div>
+                {isLive ? (
+                  /*
+                     편집 가능한 항목만 남긴다.
+
+                     이름·국가·시간대를 저장할 API 가 없다. 입력칸을 두면
+                     사용자가 고쳐서 저장을 누르고, 아무 일도 일어나지 않는다.
+                     이메일은 인증에 쓰이므로 임의로 바꿀 수 없다 — 변경하려면
+                     재인증이 필요하고 그 흐름이 없다.
+                  */
+                  <div style={{display:'flex', flexDirection:'column', gap:10, marginTop:16}}>
+                    <div className="input-group">
+                      <span className="input-group__label">{t('settings_3c3776')}</span>
+                      <input value={USER.email} readOnly disabled/>
+                    </div>
+                    <div style={{fontSize:11.5, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
+                      <div>{t('set_email_locked')}</div>
+                      <div style={{marginTop:4}}>{t('set_profile_minimal')}</div>
+                    </div>
+                    <div style={{display:'flex', gap:8, marginTop:4}}>
+                      {/* 비밀번호 변경은 실제 API 가 있다. */}
+                      <a className="btn btn--sm" href="#/password-reset" style={{textDecoration:'none'}}>
+                        {t('set_change_password')}
+                      </a>
+                      <button
+                        className="btn btn--sm"
+                        onClick={() => { if (window.QTAuth) window.QTAuth.logout().then(() => { window.location.hash = '/login'; }); }}
+                      >{t('set_sign_out')}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12, marginTop: 16}}>
+                      <div className="input-group"><span className="input-group__label">{t('settings_9aa18e')}</span><input defaultValue={USER.name}/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_3c3776')}</span><input defaultValue={USER.email}/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_84b6d0')}</span><input defaultValue="Republic of Korea"/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_76245e')}</span><input defaultValue="Asia/Seoul (UTC+9)"/></div>
+                    </div>
+                    <div style={{marginTop:16, display:'flex', gap:8, justifyContent:'flex-end'}}>
+                      <button className="btn btn--sm">{t('settings_19b2d1')}</button>
+                      <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>
+                    </div>
+                  </>
+                )}
               </window.SectionCard>
             )}
 
@@ -957,20 +2217,61 @@
                 <div className="api-key-row" style={{background:'var(--color-bg-panel)', color:'var(--color-text-tertiary)', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:500}}>
                   <span/><span>Label / Exchange</span><span>Key</span><span>Perms</span><span>Last used</span><span/>
                 </div>
+                {/*
+                   등록된 키가 없을 때.
+
+                   ★ 빈 표를 그대로 두면 화면이 고장난 것처럼 보인다. 무엇을
+                     해야 하는지 알려준다 — 이 화면의 목적은 키를 연결하게 만드는 것이다.
+                */}
+                {USER.apiKeys.length === 0 && (
+                  <div style={{padding:'18px 16px', fontSize:12.5, lineHeight:1.8, color:'var(--color-text-secondary)'}}>
+                    {isLive ? t('settings_no_keys') : t('settings_keys_preview')}
+                  </div>
+                )}
                 {USER.apiKeys.map(k => {
-                  const ex = window.QTApp.EXCHANGES.find(e => e.id === k.exchange);
+                  /*
+                     거래소 정보.
+
+                     ★ 목록에 없는 거래소일 수 있다(설정이 바뀌었거나 새 거래소).
+                       `ex.logoBg` 를 그냥 읽으면 undefined 접근으로 화면이 죽는다.
+                       기본값을 둔다.
+                  */
+                  const ex = window.QTApp.EXCHANGES.find(e => e.id === k.exchange) || {
+                    name: String(k.exchange || '').toUpperCase() || '—',
+                    logoBg: 'var(--color-bg-elevated)',
+                    logoColor: 'var(--color-text-secondary)',
+                    logoText: String(k.exchange || '?').slice(0, 2).toUpperCase(),
+                  };
+                  /* 실계정 키는 마스킹된 접근키를 서버가 준다. 목업은 id 뒷자리를 썼다. */
+                  const masked = k.accessKeyMasked || ('••••••' + String(k.id || '').slice(-4));
                   return (
                     <div key={k.id} className="api-key-row">
-                      <div className="exchange-card__logo" style={{width:26, height:26, borderRadius:5, fontSize:10, background:ex.logoBg, color:ex.logoColor}}>{ex.logoText}</div>
+                      <div className="exchange-card__logo" style={{width:26, height:26, borderRadius:5, fontSize:10, background:ex.logoBg, color:ex.logoColor}}>{(window.exchangeLogo && window.exchangeLogo(ex.id, { size: 16 })) || ex.logoText}</div>
                       <div>
-                        <div style={{fontWeight:500}}>{k.label}</div>
+                        <div style={{fontWeight:500}}>{k.label || ex.name}</div>
                         <div style={{fontSize:10, color:'var(--color-text-tertiary)'}}>{ex.name}</div>
                       </div>
-                      <div className="api-key-row__mask">••••••{k.id.slice(-4)}</div>
+                      <div className="api-key-row__mask">{masked}</div>
                       <div className="api-key-row__perms">
-                        {k.permissions.map(p => <span key={p} className="api-key-row__perm-chip">{p}</span>)}
+                        {/*
+                           권한.
+
+                           ★ 거래소가 어떤 권한을 줬는지 우리는 알 수 없다.
+                             아는 것은 "잔고 조회가 성공했는가" 뿐이므로 그것만 말한다.
+                             권한 이름을 지어내면 사용자가 그것을 믿고 주문을 시도한다.
+                        */}
+                        {Array.isArray(k.permissions) && k.permissions.length > 0
+                          ? k.permissions.map(p => <span key={p} className="api-key-row__perm-chip">{p}</span>)
+                          : (
+                            <span className="api-key-row__perm-chip" title={t('settings_perm_unknown_why')}>
+                              {k.permissionsVerified ? t('settings_perm_read_ok') : t('settings_perm_unknown')}
+                            </span>
+                          )}
                       </div>
-                      <div style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{timeAgo(new Date(k.lastUsed).getTime())}</div>
+                      <div style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>
+                        {/* 마지막 사용 시각을 기록하지 않는다. 모르는 것을 '방금' 으로 쓰지 않는다. */}
+                        {k.lastUsed ? timeAgo(new Date(k.lastUsed).getTime()) : '—'}
+                      </div>
                       <div style={{display:'inline-flex', gap:4}}>
                         <button className="tbl-action">Edit</button>
                         <button className="tbl-action tbl-action--danger">Revoke</button>
@@ -1010,34 +2311,64 @@
                   <div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Theme</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className="seg__opt is-active" style={{flex:1}}><I.Moon size={11}/> Dark</button>
-                      <button className="seg__opt" style={{flex:1}}><I.Sun size={11}/> Light</button>
+                      <button className={`seg__opt ${tw.theme === 'dark' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'dark' })}><I.Moon size={11}/> Dark</button>
+                      <button className={`seg__opt ${tw.theme === 'light' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'light' })}><I.Sun size={11}/> Light</button>
                     </div>
                   </div>
 
                   <div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Density</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className="seg__opt is-active" style={{flex:1}}>Comfortable</button>
-                      <button className="seg__opt" style={{flex:1}}>Compact</button>
-                      <button className="seg__opt" style={{flex:1}}>Dense</button>
+                      {['comfortable','compact','dense'].map(d => (
+                        <button
+                          key={d}
+                          className={`seg__opt ${tw.density === d ? 'is-active' : ''}`}
+                          style={{flex:1}}
+                          onClick={() => setTw({ density: d })}
+                        >
+                          {d === 'comfortable' ? 'Comfortable' : d === 'compact' ? 'Compact' : 'Dense'}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   <div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Language</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className="seg__opt is-active" style={{flex:1}}>{t('settings_6e081b')}</button>
-                      <button className="seg__opt" style={{flex:1}}>English</button>
-                      <button className="seg__opt" style={{flex:1}}>日本語</button>
+                      {/*
+                        등록된 언어만 활성화한다. 사전이 없는 언어를 고르면 화면에
+                        번역 키가 그대로 노출된다 — 없는 것을 있는 것처럼 두지 않는다.
+                      */}
+                      {[['ko','한국어'],['en','English'],['ja','日本語']].map(([code, label]) => {
+                        /*
+                           available() 는 { code, label, bcp47, keys } 객체 배열을 돌려준다.
+                           문자열 배열로 가정하면 항상 false 가 되어 모든 언어가 비활성된다
+                           (실제로 겪었다 — 버튼 3개가 다 눌리지 않았다).
+                        */
+                        const available = window.QTI18n
+                          ? window.QTI18n.available().some((l) => l.code === code)
+                          : code === 'en';
+                        return (
+                          <button
+                            key={code}
+                            className={`seg__opt ${tw.lang === code ? 'is-active' : ''}`}
+                            style={{flex:1}}
+                            disabled={!available}
+                            title={available ? undefined : t('lang_not_available', { lang: label })}
+                            onClick={() => setTw({ lang: code })}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Number Format</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className="seg__opt is-active" style={{flex:1}}>Standard (18,240,000)</button>
-                      <button className="seg__opt" style={{flex:1}}>Compact (18.24M)</button>
+                      <button className={`seg__opt ${tw.numFmt === 'standard' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'standard' })}>Standard (18,240,000)</button>
+                      <button className={`seg__opt ${tw.numFmt === 'compact' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'compact' })}>Compact (18.24M)</button>
                     </div>
                   </div>
 
@@ -1160,8 +2491,137 @@
   // NOTIFICATIONS PAGE
   // ============================================================
   window.NotificationsPage = function NotificationsPage({ shellProps }) {
-    const N = window.QTApp.NOTIFICATIONS;
+    const acct = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
     const [filter, setFilter] = useState('all');
+
+    /*
+       서버 알림.
+
+       ★★ 전에는 이 경로를 읽지 않았다. 서버가 알림을 만들어 저장하는데
+         화면이 부르지 않아 사용자는 볼 수 없었다 — 문의에 답변을 달아도
+         문의한 사람이 모르는 상태였다.
+
+       ★ 지금 서버가 만드는 알림: 주문 체결 · 문의 답변 · 포인트 변동.
+         청산 경고는 클라이언트가 계산한다(아래 liveAlerts) — 서버가 포지션별
+         실시간 시세를 감시하지 않기 때문이다. 두 출처를 합쳐 보여준다.
+    */
+    const [serverAlerts, setServerAlerts] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.notifications) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      const load = () => {
+        // 로그인 전에는 부르지 않는다 — 401 이 콘솔에 쌓인다.
+        const auth = window.QTAuth;
+        if (!auth || !auth.isLoggedIn || !auth.isLoggedIn()) return;
+        api.notifications({ limit: 60 }).then((r) => {
+          if (cancelled) return;
+          setServerAlerts(r.items.map((n) => ({
+            id: 'srv-' + n.id,
+            kind: n.type === 'risk_alert' ? 'risk' : n.type === 'order_filled' ? 'order' : 'system',
+            // 서버 메시지를 그대로 쓴다. 화면이 다시 쓰면 두 문구가 갈린다.
+            title: n.message,
+            body: '',
+            time: n.createdAt,
+            unread: !n.read,
+            isLive: true,
+            severity: n.severity,
+          })));
+        }).catch(() => { /* 조회 실패를 빈 목록으로 위장하지 않는다 */ });
+      };
+      load();
+      const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
+      return () => { cancelled = true; if (off) off(); };
+    }, []);
+
+    /*
+       청산 위험 경고 (클라이언트 계산).
+
+       서버가 포지션별 실시간 시세를 감시하지 않으므로 화면에서 계산한다.
+       실 경고를 목업 목록 **앞에** 놓는다 — 실제 위험이 예시 알림에 묻히면
+       사용자가 놓친다.
+    */
+    const liveAlerts = React.useMemo(() => {
+      if (!acct.isLive || !window.QTRisk) return [];
+      return window.QTRisk.getAlerts().map((a) => ({
+        id: 'risk-' + a.key,
+        kind: 'risk',
+        // 목업과 같은 필드를 쓴다. 화면 코드를 고치지 않기 위해서다.
+        title: t('risk_liq_' + a.level, { symbol: a.symbol }),
+        body: t('risk_liq_desc', {
+          distance: a.distancePct.toFixed(1),
+          liq: window.QTFmt ? window.QTFmt.fmtPrice(a.liq, a.symbol) : a.liq,
+        }),
+        time: Date.now(),
+        unread: true,
+        isLive: true,
+      }));
+    }, [acct.version, acct.isLive]);
+
+    /*
+       서버 공지를 알림으로 합친다.
+
+       관리자가 게시한 공지는 사용자가 반드시 봐야 하는 정보(점검·정책 변경)다.
+       공지 화면이 따로 없으므로 알림 목록에 넣는다 — 게시했는데 아무도 볼 수
+       없으면 게시 기능이 무의미하다.
+    */
+    const [notices, setNotices] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.notices) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return undefined;
+      let cancelled = false;
+      api.notices()
+        .then((r) => { if (!cancelled) setNotices(r.data || []); })
+        .catch(() => { /* 실패 시 공지를 넣지 않는다 */ });
+      return () => { cancelled = true; };
+    }, []);
+
+    const noticeItems = React.useMemo(() => {
+      if (!Array.isArray(notices)) return [];
+      return notices.map((n) => ({
+        id: 'notice-' + n.id,
+        kind: 'system',
+        title: n.title,
+        body: n.body || '',
+        time: Number(n.publishedAt) || Date.now(),
+        // 공지를 읽음으로 표시하는 기능이 없다. 항상 unread 로 두면 배지가
+        // 사라지지 않아 배지 자체가 무의미해진다 — 읽음 표시 없이 목록에만 둔다.
+        unread: false,
+        isLive: true,
+        pinned: Boolean(n.pinned),
+      }));
+    }, [notices]);
+
+    /*
+       목업 알림은 실계정에서 제외한다.
+
+       'AI Signal · Confidence 74% · Entry 68,120–68,360' 같은 항목이 실제
+       알림과 섞여 있었다. 사용자는 구분할 수 없고, 그 진입가로 주문을 낸다.
+       실데이터가 있을 때는 목업을 섞지 않는다.
+    */
+    /*
+       실데이터 판정.
+
+       ★ 서버 알림(serverAlerts)도 실데이터다. 전에는 `acct.isLive`(거래소 키
+         검증)와 공지만 봐서, 문의 답변 알림이 도착해도 목업이 섞여 있었다.
+    */
+    const hasLiveSource = acct.isLive || Array.isArray(notices) || Array.isArray(serverAlerts);
+    const N = hasLiveSource
+      ? [...liveAlerts, ...(serverAlerts || []), ...noticeItems].sort((a, b) => {
+          // 고정 공지를 맨 위로, 그다음 최신순.
+          if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
+          return (b.time || 0) - (a.time || 0);
+        })
+      /*
+         ★ 실서비스에서는 목업 알림을 섞지 않는다. 'AI Signal · Entry 68,120' 같은
+           예시가 실제 알림과 나란히 보이면 사용자가 그 가격으로 주문을 낸다.
+      */
+      : [...liveAlerts, ...((window.QTMockPolicy && !window.QTMockPolicy.allowMockData())
+          ? [] : window.QTApp.NOTIFICATIONS)];
     const filtered = filter === 'all' ? N : filter === 'unread' ? N.filter(x => x.unread) : N.filter(x => x.kind === filter);
 
     return (
@@ -1221,14 +2681,197 @@
   // ORDER HISTORY PAGE
   // ============================================================
   window.OrderHistoryPage = function OrderHistoryPage({ shellProps }) {
-    const orders = [
-      ...window.QT.OPEN_ORDERS.map(o => ({...o, status: o.status || 'pending'})),
-      ...window.QTApp.TRADE_JOURNAL.map(t => ({
-        id: 'fill-' + t.id, symbol: t.sym.replace('/','') , side: t.side, type: 'LIMIT',
-        price: t.entry, amount: t.size, filled: t.size, time: new Date(t.date).getTime(),
-        status: 'filled', pnl: t.pnl,
-      })),
-    ].sort((a,b) => b.time - a.time);
+    // 계정 데이터가 도착하면 재렌더한다.
+    const acct = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
+    const Acct = window.QTAccount;
+
+    /** 심볼 필터. 서버에도 파라미터가 있지만 받아둔 데이터로 거른다. */
+    const [symbolFilter, setSymbolFilter] = useState('all');
+
+    /*
+       실 주문·체결이 있으면 그것을 쓴다.
+
+       미체결과 완료 주문을 합쳐 시간 역순으로 보여준다 — 사용자는 "내가 낸 주문"
+       을 한 곳에서 보려 한다. 상태(open/done/canceled)로 구분한다.
+
+       실데이터가 없으면 목업을 유지한다. 빈 표를 보여주면 "주문 기록이 없다" 는
+       거짓이 되고, 사용자가 주문이 사라진 줄 안다.
+    */
+    /*
+       우리 DB 에 남은 주문 기록 (모의 포함).
+
+       ★★ 왜 별도로 읽는가
+
+         `acct.isLive` 는 **거래소 API 키가 검증됐는지**를 뜻한다. 모의 주문은
+         거래소로 나가지 않고 우리 DB 에만 남으므로, 키가 없어도 보여야 한다.
+
+         전에는 이 경로가 없었다. 모의 주문이 DB 에 정확히 저장되는데도 화면은
+         목업을 보여줬다 — 사용자는 자기 주문이 실패했다고 판단한다.
+
+       ★ mode 가 'MOCK' 인 행은 화면이 그렇게 표시한다. 실제 체결로 오인되면
+         전략 판단이 어긋난다.
+    */
+    const [localRows, setLocalRows] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.localOrders) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      let cancelled = false;
+      Promise.all([
+        api.localOrders({ limit: 100 }).catch(() => null),
+        api.localOpenOrders({ limit: 100 }).catch(() => null),
+        api.localTrades({ limit: 200 }).catch(() => null),
+      ]).then(([hist, open, trades]) => {
+        if (cancelled) return;
+        const items = [...((open && open.items) || []), ...((hist && hist.items) || [])];
+        if (!items.length) { setLocalRows(null); return; }
+
+        // 체결 수수료를 주문에 붙인다. 실제로 얼마 나갔는지는 체결 쪽에만 있다.
+        const feeByOrder = new Map();
+        ((trades && trades.items) || []).forEach((f) => {
+          if (!f.orderId) return;
+          const prev = feeByOrder.get(f.orderId);
+          const v = f.fee === null || f.fee === undefined ? null : Number(f.fee);
+          // 수수료를 모르는 체결이 섞이면 합계도 모르는 것이다 — 0 으로 세지 않는다.
+          feeByOrder.set(f.orderId, v === null || prev === null ? null : (prev || 0) + v);
+        });
+
+        setLocalRows(items.map((o) => ({
+          id: o.id,
+          symbol: o.symbol,
+          side: o.side,
+          type: o.type,
+          price: o.price === null ? null : Number(o.price),
+          avgPrice: null,
+          amount: Number(o.quantity),
+          filled: Number(o.filledQuantity),
+          remaining: Number(o.quantity) - Number(o.filledQuantity),
+          trigger: null,
+          time: o.updatedAt || o.createdAt,
+          status: String(o.status || '').toLowerCase(),
+          fee: feeByOrder.has(o.id) ? feeByOrder.get(o.id) : null,
+          // 모의 체결임을 화면이 밝힐 수 있게 그대로 넘긴다.
+          mode: o.mode,
+        })).sort((a, b) => b.time - a.time));
+      });
+      return () => { cancelled = true; };
+    }, []);
+
+    const live = React.useMemo(() => {
+      if (!acct.isLive || !Acct) return null;
+      const open = Acct.getOpenOrders();
+      const done = Acct.getOrderHistory();
+      const fills = Acct.getFills();
+
+      // 체결 수수료를 주문에 붙인다. 실제로 얼마 나갔는지는 체결 쪽에만 있다.
+      const feeByOrder = new Map();
+      fills.forEach((f) => {
+        if (!f.orderId) return;
+        feeByOrder.set(f.orderId, (feeByOrder.get(f.orderId) || 0) + (Number(f.fee) || 0));
+      });
+
+      const rows = [...open, ...done]
+        .map((o) => ({
+          ...o,
+          fee: feeByOrder.get(o.exchangeOrderId) ?? feeByOrder.get(o.id) ?? null,
+        }))
+        .sort((a, b) => b.time - a.time);
+
+      return { rows, fills };
+    }, [acct.version, acct.isLive]);
+
+    /*
+       표시 우선순위: 거래소 실주문 → 우리 DB 기록 → 목업.
+
+       ★ 거래소 데이터가 있으면 그것이 사실이다. 없고 우리 기록이 있으면 그것을
+         보여준다. 둘 다 없을 때만 디자이너 예시가 남는다.
+    */
+    /*
+       주문 목록: 거래소 → 우리 DB → (미리보기에서만) 목업.
+
+       ★ 실서비스에서 기록이 없으면 빈 배열이다. 아래 표가 "주문이 없습니다" 를
+         보여준다 — 목업 주문을 자기 것으로 오해하는 것보다 정확하다.
+    */
+    const allOrders = live
+      ? live.rows
+      : localRows
+      ? localRows
+      : (window.QTMockPolicy && !window.QTMockPolicy.allowMockData())
+      ? []
+      : [
+          /*
+             ★ 이 배열은 미리보기에서만 쓰인다 — 위 조건이 실서비스면 여기까지
+               오지 않는다(아래 allOrders 정의 참고).
+          */
+          ...window.QT.OPEN_ORDERS.map(o => ({...o, status: o.status || 'pending'})),
+          ...window.QTApp.TRADE_JOURNAL.map(t => ({
+            id: 'fill-' + t.id, symbol: t.sym.replace('/','') , side: t.side, type: 'LIMIT',
+            price: t.entry, amount: t.size, filled: t.size, time: new Date(t.date).getTime(),
+            status: 'filled', pnl: t.pnl,
+          })),
+        ].sort((a,b) => b.time - a.time);
+
+    const symbols = [...new Set(allOrders.map(o => o.symbol))].sort();
+    const orders = symbolFilter === 'all' ? allOrders : allOrders.filter(o => o.symbol === symbolFilter);
+
+    /*
+       KPI 를 실데이터로 계산한다.
+
+       예전에는 체결률 87% · 슬리피지 0.023% · 수수료 $18.42 가 하드코딩이었다.
+       실 주문 목록 옆에 가짜 통계를 두면 사용자가 그 값을 믿는다.
+       계산할 수 없으면 '—' 로 둔다 — 슬리피지는 주문가와 체결가를 함께
+       비교해야 하고, 거래소가 주문별 체결가를 주지 않으면 구할 수 없다.
+    */
+    const kpi = React.useMemo(() => {
+      if (!live) {
+        /*
+           ★★ 실서비스에서는 예시 통계를 쓰지 않는다.
+
+             전에는 `!live` 이면 무조건 87% · 0.023% · $18.42 를 보여줬다.
+             거래소 키가 없고 우리 DB 기록만 있는 상태(또는 기록도 없는 상태)가
+             그 경로였고, 실제 주문 목록 옆에 가짜 통계가 나란히 놓였다.
+
+           ★ 우리 DB 기록이 있으면 그것으로 셀 수 있는 것만 센다. 슬리피지는
+             주문가와 체결가를 함께 비교해야 하므로 계산하지 않는다.
+        */
+        if (window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) {
+          const filledLocal = orders.filter((o) => Number(o.filled) > 0).length;
+          const feeSum = orders.reduce((a, o) => {
+            const f = Number(o.fee);
+            return Number.isFinite(f) ? a + f : a;
+          }, 0);
+          const anyFeeUnknown = orders.some((o) => o.fee === null || o.fee === undefined);
+          return {
+            total: orders.length,
+            fillRate: orders.length > 0 ? `${Math.round((filledLocal / orders.length) * 100)}%` : '—',
+            // 슬리피지는 근거가 없다. 0 으로 두면 "완벽하게 체결됐다" 로 읽힌다.
+            slippage: '—',
+            // 수수료를 모르는 체결이 섞이면 합계도 모르는 것이다.
+            fees: (orders.length === 0 || anyFeeUnknown) ? '—' : `$${feeSum.toFixed(4)}`,
+            isLive: true,
+          };
+        }
+        return { total: orders.length, fillRate: '87%', slippage: '0.023%', fees: '$18.42', isLive: false };
+      }
+      const filled = orders.filter(o => Number(o.filled) > 0).length;
+      const totalFee = live.fills.reduce((a, f) => a + (Number(f.fee) || 0), 0);
+      const makerCount = live.fills.filter(f => /maker/i.test(f.liquidity || '')).length;
+      const takerCount = live.fills.filter(f => /taker/i.test(f.liquidity || '')).length;
+      const mix = (makerCount + takerCount) > 0
+        ? `Maker ${Math.round(makerCount / (makerCount + takerCount) * 100)}% · Taker ${Math.round(takerCount / (makerCount + takerCount) * 100)}%`
+        : undefined;
+      return {
+        total: orders.length,
+        fillRate: orders.length > 0 ? Math.round(filled / orders.length * 100) + '%' : '—',
+        // 슬리피지는 계산 근거가 없다. 만들어내지 않는다.
+        slippage: '—',
+        fees: live.fills.length > 0 ? '$' + fmt(totalFee, 4) : '—',
+        feeMix: mix,
+        isLive: true,
+      };
+    }, [live, orders.length]);
 
     return (
       <window.PageShell
@@ -1238,20 +2881,28 @@
         breadcrumb={['Home','Order History']}
         actions={
           <>
-            <select className="input" style={{height:28, fontSize:11, width:120}}>
-              <option>All symbols</option>
-              <option>BTC/USDT</option>
-              <option>ETH/USDT</option>
+            {/* 심볼 목록을 실제 주문에서 만든다. 없는 심볼을 고르면 빈 표가 된다. */}
+            <select
+              className="input"
+              style={{height:28, fontSize:11, width:140}}
+              value={symbolFilter}
+              onChange={(e) => setSymbolFilter(e.target.value)}
+            >
+              <option value="all">{t('oh_all_symbols')}</option>
+              {symbols.map(sym => (
+                <option key={sym} value={sym}>{sym.replace('USDT','/USDT')}</option>
+              ))}
             </select>
             <button className="btn btn--sm"><I.Camera size={13}/> Export CSV</button>
           </>
         }
       >
         <div className="grid-4">
-          <window.KPICard label="Total Orders" value={orders.length} sub="Last 30 days"/>
-          <window.KPICard label="Fill Rate" value="87%" sub="↑ 2.4% vs prev" tone="brand"/>
-          <window.KPICard label="Avg Slippage" value="0.023%" sub="Excellent" tone="long"/>
-          <window.KPICard label="Total Fees" value="$18.42" sub="Maker: 62% · Taker: 38%"/>
+          <window.KPICard label="Total Orders" value={kpi.total} sub={kpi.isLive ? t('oh_from_exchange') : 'Last 30 days'}/>
+          <window.KPICard label="Fill Rate" value={kpi.fillRate} sub={kpi.isLive ? undefined : '↑ 2.4% vs prev'} tone="brand"/>
+          {/* 슬리피지는 주문가·체결가를 함께 비교해야 구할 수 있다. 근거가 없으면 '—'. */}
+          <window.KPICard label="Avg Slippage" value={kpi.slippage} sub={kpi.isLive ? t('oh_not_available') : 'Excellent'} tone={kpi.isLive ? undefined : 'long'}/>
+          <window.KPICard label="Total Fees" value={kpi.fees} sub={kpi.feeMix || (kpi.isLive ? undefined : 'Maker: 62% · Taker: 38%')}/>
         </div>
 
         <window.SectionCard title="Orders" noPadding>
@@ -1261,10 +2912,24 @@
               { key: 'sym',    label: 'Symbol', render: r => <strong>{(r.symbol || '').replace('USDT','/USDT')}</strong> },
               { key: 'side',   label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
               { key: 'type',   label: 'Type' },
-              { key: 'price',  label: 'Price', align:'right', render: r => fmt(r.price, r.price >= 100 ? 1 : 4) },
+              // 시장가 주문은 지정가가 없다(null). fmt(null) 은 0 이 되어 '0원 주문' 으로 읽힌다.
+              { key: 'price',  label: 'Price', align:'right', render: r => (r.price == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : fmt(r.price, r.price >= 100 ? 1 : 4)) },
               { key: 'amount', label: 'Amount', align:'right', render: r => fmt(r.amount, 3) },
               { key: 'filled', label: 'Filled', align:'right', render: r => fmt(r.filled, 3) + '/' + fmt(r.amount, 3) },
-              { key: 'status', label: 'Status', render: r => <span className={`status-pill status-pill--${r.status === 'filled' ? 'ok' : r.status === 'partial' ? 'warn' : 'neutral'}`}>{r.status.toUpperCase()}</span> },
+              /*
+                 상태 표기가 두 갈래다: 목업은 filled/partial/pending, 거래소는 done/open/canceled.
+                 양쪽을 모두 처리하고, r.status 가 없을 때 toUpperCase() 로 터지지 않게 한다.
+              */
+              { key: 'status', label: 'Status', render: r => {
+                const st = String(r.status || 'unknown');
+                const tone = /filled|done/i.test(st) ? 'ok'
+                  : /partial/i.test(st) ? 'warn'
+                  : /cancel/i.test(st) ? 'danger'
+                  : 'neutral';
+                return <span className={`status-pill status-pill--${tone}`}>{st.toUpperCase()}</span>;
+              } },
+              // 실제 나간 수수료. 체결에서 가져온다 — 주문 응답에는 없다.
+              { key: 'fee', label: 'Fee', align:'right', render: r => (r.fee == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : <span className={r.fee < 0 ? 't-long' : undefined}>{fmt(r.fee, 4)}</span>) },
               { key: 'pnl',    label: 'PnL', align:'right', render: r => r.pnl != null ? <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}</span> : <span style={{color:'var(--color-text-tertiary)'}}>—</span> },
             ]}
             rows={orders}

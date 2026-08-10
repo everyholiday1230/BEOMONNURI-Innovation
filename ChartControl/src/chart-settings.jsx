@@ -167,6 +167,47 @@
     }
   }
 
+  /*
+     서버 동기화.
+
+     ★★ 원래 이 패널은 `localStorage` 만 썼다. 집 PC 에서 만든 지표 조합이
+       사무실 PC·휴대폰에서는 없었다 — 같은 계정으로 로그인했으면 따라오는 것이
+       사용자 기대다.
+
+     ★ 기기 저장을 **없애지 않는다.** 서버가 이 기능을 아직 지원하지 않는
+       환경(SQLite 개발), 비로그인, 네트워크 장애에서도 템플릿을 쓸 수 있어야
+       한다. 서버가 되면 서버가 정본이고, 안 되면 기기 저장으로 동작한다.
+
+     ★ 서버 형식과 로컬 형식을 서로 변환한다. 로컬은 지표 필드를 펼쳐 저장하고
+       (`{name, savedAt, symbol, timeframe, indicators, candleType, gridShow}`),
+       서버는 지표 구성을 `payload` 안에 담는다. 서버가 화면 형식을 알면
+       지표가 추가될 때마다 서버를 고쳐야 한다.
+  */
+  function toServerPayload(item) {
+    return {
+      indicators: item.indicators,
+      candleType: item.candleType,
+      gridShow: item.gridShow,
+    };
+  }
+
+  function fromServerTemplate(row) {
+    const p = (row && row.payload) || {};
+    return {
+      id: row.id,
+      name: row.name,
+      symbol: row.symbol,
+      timeframe: row.timeframe,
+      savedAt: row.updatedAt,
+      indicators: Array.isArray(p.indicators) ? p.indicators : [],
+      candleType: p.candleType,
+      gridShow: p.gridShow,
+      /* 서버에서 온 것임을 표시한다 — 삭제할 때 서버에도 지워야 하는지
+         구분해야 하고, 사용자에게 동기화 여부를 알릴 수 있다. */
+      synced: true,
+    };
+  }
+
   window.ChartTemplatePanel = function ChartTemplatePanel({
     getChart, version, symbol, timeframe, notify, onClose,
   }) {
@@ -174,6 +215,41 @@
     const ref = useRef(null);
     const [store, setStore] = useState(loadStore);
     const [name, setName] = useState('');
+    /*
+       서버 동기화 상태.
+
+       null   = 아직 확인 중
+       true   = 서버에 저장된다(기기 간 공유)
+       false  = 이 기기에만 저장된다(비로그인·미지원·장애)
+
+       ★ 사용자에게 이 상태를 보여준다. "저장됨" 만 표시하면 다른 기기에서
+         안 보일 때 사라진 줄로 오해한다.
+    */
+    const [synced, setSynced] = useState(null);
+
+    /*
+       서버 목록을 불러와 화면 목록으로 삼는다.
+
+       ★ 서버가 정본이다. 기기 저장은 폴백일 뿐이므로, 서버가 응답하면 그것으로
+         덮어쓴다. 두 목록을 합치면 기기에서 지운 것이 되살아난다.
+    */
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.chartTemplates) { setSynced(false); return undefined; }
+      let alive = true;
+      api.chartTemplates()
+        .then((r) => {
+          if (!alive) return;
+          if (r.supported && r.ok) {
+            setStore({ version: STORE.version, items: r.items.map(fromServerTemplate) });
+            setSynced(true);
+          } else {
+            setSynced(false);
+          }
+        })
+        .catch(() => { if (alive) setSynced(false); });
+      return () => { alive = false; };
+    }, []);
 
     useEffect(() => {
       const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
@@ -210,19 +286,65 @@
       const snapshot = capture();
       if (!snapshot) return;
       const label = name.trim() || t('template_untitled');
+      const item = { name: label, savedAt: Date.now(), symbol, timeframe, ...snapshot };
       const next = {
         version: STORE.version,
-        items: [
-          ...store.items.filter((i) => i.name !== label),
-          { name: label, savedAt: Date.now(), symbol, timeframe, ...snapshot },
-        ],
+        items: [...store.items.filter((i) => i.name !== label), item],
       };
-      if (saveStore(next)) {
+
+      /*
+         ★ 기기 저장을 먼저 한다. 서버가 느리거나 실패해도 방금 만든 설정이
+           사라지지 않아야 한다 — 사용자는 저장을 눌렀고, 그 기대를 깨면 안 된다.
+      */
+      const localOk = saveStore(next);
+      if (localOk) {
         setStore(next);
         setName('');
-        if (notify) notify({ title: t('template_saved', { name: label }), variant: 'success' });
       }
-    }, [capture, name, notify, store.items, symbol, timeframe]);
+
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.saveChartTemplate || synced === false) {
+        if (localOk && notify) notify({ title: t('template_saved', { name: label }), variant: 'success' });
+        return;
+      }
+
+      api.saveChartTemplate({
+        name: label,
+        symbol,
+        timeframe,
+        payload: toServerPayload(item),
+        schemaVersion: 1,
+      })
+        .then((r) => {
+          if (r && r.template) {
+            /* 서버가 돌려준 것으로 그 항목만 갱신한다 — id 가 있어야 삭제할 수 있다. */
+            setStore((prev) => ({
+              version: STORE.version,
+              items: [...prev.items.filter((i) => i.name !== label), fromServerTemplate(r.template)],
+            }));
+            setSynced(true);
+          }
+          if (notify) notify({ title: t('template_saved', { name: label }), variant: 'success' });
+        })
+        .catch((e) => {
+          /*
+             ★★ 서버 저장 실패를 조용히 넘기지 않는다. 기기에는 저장됐지만
+               다른 기기에서는 보이지 않는데, 사용자가 그것을 모르면 나중에
+               "사라졌다" 고 여긴다.
+             ★ 개수·크기 상한은 서버가 이유를 준다. 그 이유를 그대로 보여준다 —
+               "저장 실패" 만 보면 무엇을 고쳐야 할지 알 수 없다.
+          */
+          const reason = (e && e.payload && e.payload.error && e.payload.error.message) || '';
+          setSynced(false);
+          if (notify) {
+            notify({
+              title: t('template_saved_local_only', { name: label }),
+              desc: reason || t('template_sync_failed'),
+              variant: 'info',
+            });
+          }
+        });
+    }, [capture, name, notify, store.items, symbol, timeframe, synced]);
 
     const doApply = useCallback((item) => {
       const chart = getChart && getChart();
@@ -257,7 +379,23 @@
     const doDelete = useCallback((item) => {
       const next = { version: STORE.version, items: store.items.filter((i) => i.name !== item.name) };
       if (saveStore(next)) setStore(next);
-    }, [store.items]);
+
+      /*
+         ★★ 서버에도 지운다. 화면에서만 지우면 다음 접속에서 서버 목록을
+           불러올 때 되살아난다 — 사용자는 지웠는데 다시 나타나는 것을 보고
+           고장이라고 생각한다.
+
+         ★ 서버 id 가 없으면(기기에만 있던 항목) 서버 요청을 하지 않는다.
+         ★ 실패하면 알린다. 조용히 넘기면 되살아나는 이유를 알 수 없다.
+      */
+      const api = window.QTApi && window.QTApi.rest;
+      if (!item.id || !api || !api.deleteChartTemplate) return;
+      api.deleteChartTemplate(item.id).catch(() => {
+        if (notify) {
+          notify({ title: t('template_delete_sync_failed', { name: item.name }), variant: 'info' });
+        }
+      });
+    }, [store.items, notify]);
 
     return (
       <div className="chart-ind-panel" ref={ref} style={{ width: 300 }}>
@@ -273,6 +411,20 @@
         </div>
 
         <div className="chart-ind-panel__body">
+          {/*
+             동기화 상태 안내.
+
+             ★ "저장됨" 만 표시하면, 다른 기기에서 안 보일 때 사용자가 사라진
+               줄로 오해한다. 어디에 저장되는지 밝힌다.
+             ★ 확인 중(null)에는 표시하지 않는다 — 잠깐 "이 기기에만" 이라고
+               떴다가 바뀌면 그 문구를 기억한다.
+          */}
+          {synced === true && (
+            <div className="chart-ind-group">{t('template_synced_note')}</div>
+          )}
+          {synced === false && (
+            <div className="chart-ind-group" style={{color:'var(--color-warning)'}}>{t('template_local_only_note')}</div>
+          )}
           {store.items.length === 0 && (
             <div className="chart-ind-panel__empty">{t('template_none')}</div>
           )}

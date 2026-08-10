@@ -7,6 +7,30 @@
   const I = window.Icons;
   const { fmt, fmtPct, fmtCompact, fmtPrice } = window.QTFmt;
 
+  /**
+   * 번역 조회 — 파일 단위 헬퍼.
+   *
+   * ★★ 왜 필요했나 (실제로 주문을 막고 있던 결함)
+   *
+   *   `t` 가 App 컴포넌트 **안에서** useCallback 으로만 정의돼 있었다. 그런데
+   *   ChartWidget · RiskChecklist · OrderPreviewModal 은 App 밖에 정의된 별도
+   *   컴포넌트다. 그 셋이 t() 를 52번 호출하고 있었고, 전부
+   *   `ReferenceError: t is not defined` 로 터졌다.
+   *
+   *   결과가 나빴다: **매수 버튼을 눌러도 아무 일도 일어나지 않았다.**
+   *   주문 확인창(OrderPreviewModal)이 렌더 도중 예외로 죽어서, 사용자는
+   *   버튼이 고장난 줄 알고 다시 누르게 된다. 콘솔을 열지 않으면 원인을
+   *   알 수 없다.
+   *
+   *   실주문을 켠 뒤에 발견했다면 "주문이 안 나간다" 는 신고를 받고 원인을
+   *   찾는 동안 거래를 못 했을 것이다.
+   *
+   * ★ App 안의 t 는 그대로 둔다. 그것은 tweaks.lang 변경에 반응해야 하므로
+   *   useCallback 이어야 한다. 이 헬퍼는 App 밖 컴포넌트용이고, 호출 시점에
+   *   현재 언어를 조회하므로 결과는 같다.
+   */
+  const t = (k, vars) => (window.QTI18n ? window.QTI18n.t(k, vars) : k);
+
   // ---- Persist / read tweaks state ----
   /**
    * 기본 언어를 브라우저 설정에서 결정한다.
@@ -93,16 +117,36 @@
   }
 
   // ---- Router hash ----
+  /*
+     해시가 없을 때 어디로 보낼지.
+
+     ★★ 원래 무조건 `/trade` 로 보냈다. 그래서 주소창에 도메인만 입력해
+       들어온 **비로그인 방문자에게 404("이 페이지를 보려면 로그인이 필요합니다")**
+       가 떴다. 처음 오는 사람이 보는 첫 화면이 404 면 그대로 떠난다.
+
+     ★ 로그인 상태를 확인할 수 없는 시점(스크립트 로드 직후)에도 판단해야 한다.
+       `QTAuth` 가 아직 없으면 **랜딩으로 둔다** — 비로그인에게 404 를 보여주는
+       것이 로그인 사용자에게 랜딩을 한 번 보여주는 것보다 나쁘다.
+       (로그인 사용자는 랜딩에서 바로 거래로 갈 수 있다)
+  */
+  function defaultRoute() {
+    try {
+      const auth = window.QTAuth;
+      if (auth && typeof auth.isLoggedIn === 'function' && auth.isLoggedIn()) return '/trade';
+    } catch (e) { /* 판단 불가 → 랜딩 */ }
+    return '/';
+  }
+
   function useRoute() {
     const [route, setRoute] = useState(() => {
-      const hash = window.location.hash.replace(/^#/, '') || '/trade';
+      const hash = window.location.hash.replace(/^#/, '') || defaultRoute();
       const [path, qs] = hash.split('?');
       const query = Object.fromEntries(new URLSearchParams(qs || ''));
       return { path, query };
     });
     useEffect(() => {
       const onHash = () => {
-        const hash = window.location.hash.replace(/^#/, '') || '/trade';
+        const hash = window.location.hash.replace(/^#/, '') || defaultRoute();
         const [path, qs] = hash.split('?');
         setRoute({ path, query: Object.fromEntries(new URLSearchParams(qs || '')) });
       };
@@ -132,17 +176,119 @@
   // ============================================================
   window.App = function App() {
     const [tweaks, setTweaks] = useTweaks();
+
+    /*
+       거래 모드. 주문 경로를 결정하므로 화면 상태와 따로 두지 않는다 —
+       어긋나면 "모의인데 실주문" 이라는 사고가 된다.
+    */
+    /*
+       청산 위험 경고. 실 포지션이 있을 때만 값이 채워진다.
+       목업 포지션으로 경고를 내면 사용자가 실제 위험으로 오해한다.
+    */
+    const [riskAlerts, setRiskAlerts] = useState(() => (window.QTRisk ? window.QTRisk.getAlerts() : []));
+    useEffect(() => {
+      if (!window.QTRisk) return undefined;
+      setRiskAlerts(window.QTRisk.getAlerts());
+      return window.QTRisk.subscribe((list) => setRiskAlerts(list.slice()));
+    }, []);
+
+
+    const [tradeMode, setTradeMode] = useState(() => (window.QTMode ? window.QTMode.get() : 'futures'));
+    useEffect(() => {
+      if (!window.QTMode) return undefined;
+      setTradeMode(window.QTMode.get());
+      return window.QTMode.subscribe((m) => setTradeMode(m));
+    }, []);
     // 화면 권한의 단일 출처. 백엔드가 붙으면 서버 등급이 스위치를 덮어쓴다.
     const auth = useEffectiveRole(tweaks.role);
     const [route, pushRoute] = useRoute();
+
+    /*
+       서랍 닫기.
+
+       메뉴를 눌러 이동했는데 서랍이 그대로 열려 있으면 본문이 가려진다.
+       라우트가 바뀌면 닫는다. 바깥을 눌렀을 때도 닫아야 하는데, 그 막(::after)은
+       CSS 로 만든 가상 요소라 클릭을 받을 수 없어서 문서 클릭으로 처리한다.
+    */
+    useEffect(() => {
+      document.documentElement.setAttribute('data-qt-drawer', 'closed');
+    }, [route.path]);
+
+    useEffect(() => {
+      const onDocClick = (e) => {
+        const el = document.documentElement;
+        if (el.getAttribute('data-qt-drawer') !== 'open') return;
+        // 사이드바 안이나 토글 버튼을 누른 것이면 유지한다.
+        if (e.target.closest && (e.target.closest('.app-sidebar') || e.target.closest('.qt-drawer-toggle'))) return;
+        el.setAttribute('data-qt-drawer', 'closed');
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') document.documentElement.setAttribute('data-qt-drawer', 'closed');
+      };
+      document.addEventListener('click', onDocClick);
+      document.addEventListener('keydown', onKey);
+      return () => {
+        document.removeEventListener('click', onDocClick);
+        document.removeEventListener('keydown', onKey);
+      };
+    }, []);
     const [tweaksOpen, setTweaksOpen] = useState(false);
+
+    /*
+       사이드바 접기·고정 상태.
+
+       QTNav 가 유일한 출처다. 거래 화면과 일반 페이지가 같은 값을 봐야
+       한쪽에서 접었을 때 다른 쪽도 접힌다.
+    */
+    const navPrefs = window.QTNav && window.QTNav.useNav
+      ? window.QTNav.useNav()
+      : { collapsed: true, pinned: [], isPinned: () => false, toggleCollapsed: () => {}, togglePin: () => {} };
     const [toasts, pushToast] = useToasts();
+
+    /*
+       토스트를 전역에 노출한다.
+
+       위젯(widgets.jsx)은 props 로 pushToast 를 받지 않는 경로가 있어서
+       주문 취소 결과를 알릴 방법이 없었다. props 사슬을 여러 단계 고치는
+       대신 여기서 한 번 노출한다 — 알림이 없으면 사용자는 취소가 됐는지
+       실패했는지 알 수 없다.
+    */
+    useEffect(() => {
+      window.QTToast = pushToast;
+      return () => { if (window.QTToast === pushToast) delete window.QTToast; };
+    }, [pushToast]);
     // 번역 조회를 i18n 레지스트리에 위임한다. 디자이너가 만든 QT.I18N 60키는
     // QTI18n.absorbLegacy() 가 흡수하므로 기존 키가 그대로 동작한다.
     const t = useCallback(
       (k, vars) => (window.QTI18n ? window.QTI18n.t(k, vars) : ((QT.I18N[tweaks.lang] && QT.I18N[tweaks.lang][k]) || k)),
       [tweaks.lang],
     );
+
+    /*
+       URL 쿼리 → 레이아웃 프리셋.
+
+       무엇이 잘못됐나
+       -------------
+       프리셋 전환이 **링크의 onClick 에만** 있었다. 헤더 메뉴에는 있었고
+       사이드바 메뉴에는 없었다. 그래서 사이드바로 'AI 워크스페이스' 에
+       들어가면 URL 은 ?workspace=ai 인데 화면은 기본 프리셋 그대로였고,
+       AI 코파일럿 위젯이 아예 마운트되지 않았다. 그 결과 차트 툴바의
+       'AI 분석' 버튼도 동작할 수 없었다(코파일럿이 없으므로).
+
+       왜 URL 을 근거로 하는가
+       ---------------------
+       링크마다 onClick 을 붙이는 방식은 링크를 추가할 때마다 잊는다 —
+       실제로 잊었다. 주소가 상태를 결정하게 하면 어느 경로로 들어와도
+       같은 화면이 나온다(주소 복사·새로고침·뒤로가기 포함).
+    */
+    const QUERY_PRESET = { ai: 'ai-workspace', 'multi-chart': 'multi-chart', chart: 'chart-focus' };
+    useEffect(() => {
+      const wanted = QUERY_PRESET[route.query.workspace] || QUERY_PRESET[route.query.preset];
+      if (!wanted) return;
+      // 이미 그 프리셋이면 아무것도 하지 않는다 — 무한 갱신을 막는다.
+      if (tweaks.presetId === wanted) return;
+      setTweaks({ presetId: wanted });
+    }, [route.query.workspace, route.query.preset, tweaks.presetId]);
 
     // Layout engine
     const engine = window.useLayoutEngine(tweaks.presetId);
@@ -156,8 +302,52 @@
     }, [engine.presetId]);
 
     // Market state / candles / stream
-    const [market, setMarket] = useState(() => QT.MARKETS.find(m => m.base === 'BTC'));
+    /*
+       ★★ URL 의 `?symbol=` 을 존중한다.
+
+         이것이 없어서 `#/trade?symbol=ETHUSDT` 로 들어와도 BTC 화면이 열렸다.
+         Markets 목록의 'Trade' 버튼이 이 형식으로 링크하므로, 사용자가 SUI 를
+         누르고 BTC 주문 패널을 보게 된다 — 잘못된 종목에 주문할 수 있다.
+
+       ★ 없거나 모르는 심볼이면 BTC 로 둔다(기존 동작). 조용히 빈 화면을
+         보여주는 것보다 낫다.
+    */
+    const marketFromQuery = useCallback((raw) => {
+      if (!raw) return null;
+      const want = String(raw).toUpperCase().replace(/[^A-Z]/g, '');
+      if (!want) return null;
+      return QT.MARKETS.find((m) => (m.base + m.quote).toUpperCase() === want)
+        || QT.MARKETS.find((m) => m.base.toUpperCase() === want)
+        || null;
+    }, []);
+    const [market, setMarket] = useState(
+      () => marketFromQuery(route.query.symbol) || QT.MARKETS.find(m => m.base === 'BTC'),
+    );
+    // 라우트의 심볼이 바뀌면 따라간다(목록에서 다른 종목을 누른 경우).
+    useEffect(() => {
+      const next = marketFromQuery(route.query.symbol);
+      if (next && next !== market) setMarket(next);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route.query.symbol]);
     const [timeframe, setTimeframe] = useState('15m');
+
+    /*
+       서버 설정(거래 모드·실주문 여부).
+
+       ★★ 훅은 **조건 없이** 같은 순서로 호출해야 한다. 처음에 상단 띠 안에서
+         `window.QTApi && window.QTApi.useConfig ? useConfig() : null` 로
+         호출했다가 "Rendered more hooks than during the previous render" 로
+         **화면 전체가 렌더되지 않았다**(버튼 1개만 남았다). QTApi 스크립트가
+         첫 렌더보다 늦게 준비되면 훅 개수가 바뀐다.
+         그래서 useState + useEffect 로 고정 개수만 쓴다.
+    */
+    const [serverCfg, setServerCfg] = useState(
+      () => (window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null),
+    );
+    useEffect(() => {
+      if (!window.QTApi || !window.QTApi.subscribeConfig) return undefined;
+      return window.QTApi.subscribeConfig((next) => setServerCfg(next));
+    }, []);
 
     // 실데이터 브릿지: 실캔들/실시세가 도착하면 liveVersion 이 올라가고
     // 아래 useMemo 가 다시 계산된다. 백엔드가 없으면 항상 0 이며 목업이 쓰인다.
@@ -213,6 +403,32 @@
     const [conn, setConn] = useState('live');
     const [latency, setLatency] = useState(34);
 
+    /*
+       데이터 신선도.
+
+       1초마다 다시 계산한다. 고정 표시('0s')면 스트림이 죽어도 사용자는
+       실시간이라고 믿고, 그 가격으로 주문하면 옛 값에 체결된다.
+       null = 아직 데이터를 받은 적 없다 → '—'. 0s 로 채우지 않는다.
+    */
+    const [dataAgeMs, setDataAgeMs] = useState(null);
+    useEffect(() => {
+      const read = () => setDataAgeMs(
+        window.QTLive && window.QTLive.getDataAgeMs ? window.QTLive.getDataAgeMs() : null,
+      );
+      read();
+      const id = setInterval(read, 1000);
+      return () => clearInterval(id);
+    }, []);
+
+    const dataAgeLabel = (() => {
+      if (dataAgeMs === null) return '—';
+      const sec = Math.floor(dataAgeMs / 1000);
+      if (sec < 60) return sec + 's';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + 'm';
+      return Math.floor(min / 60) + 'h';
+    })();
+
     useEffect(() => {
       const offTick = QT.stream.on('tick', (s) => {
         setPrevPrice(lp => (lp !== s.price ? lp : lp));
@@ -234,24 +450,125 @@
     // 예: BTC 오버레이 67,285 가 남은 상태에서 ETH(1,871) 를 보면
     //     Y범위가 [-3457, 73000] 이 되어 차트가 직선이 된다. (실제로 재현했다)
     // 그래서 각 오버레이에 symbol 을 달고, 현재 심볼 것만 차트에 넘긴다.
-    const [overlays, setOverlays] = useState([
-      // Seed a couple of orders/positions as overlays
-      {
-        id: 'ord-1', type: 'horizontal', source: 'order', symbol: 'BTCUSDT',
-        points: [{ price: 67800, time: Date.now() }],
-        label: 'Open Order · Long 0.05 @ 67,800'
-      },
-      {
-        id: 'pos-1', type: 'horizontal', source: 'position-long', symbol: 'BTCUSDT',
-        points: [{ price: 67285.4, time: Date.now() }],
-        label: 'Position Entry · Long 0.185'
-      },
-    ]);
+    /*
+       오버레이 초기값.
+
+       ★★ 전에는 목업 주문·포지션 두 개가 박혀 있었다:
+             'Open Order · Long 0.05 @ 67,800'
+             'Position Entry · Long 0.185'
+
+         차트에 그려진 글자는 innerText 로 읽히지 않아 목업 탐지에 걸리지
+         않았고, 실제 포지션(0.05 @ 64,809)이 있는데도 화면에는 존재하지 않는
+         0.185 @ 67,285 선이 보였다. 사용자는 그 가격을 자기 진입가로 읽는다.
+
+         더 나쁜 것: ChartCanvas 는 오버레이 가격을 Y축 범위에 포함시킨다
+         (선이 잘리지 않게). 그래서 현재가 64,889 와 3,000 차이 나는 목업 선
+         때문에 **캔들이 화면 아래에 납작하게 눌렸다.** 차트를 읽을 수 없는
+         상태였다.
+
+       ★ 빈 배열로 시작하고, 실제 주문·포지션이 도착하면 아래 effect 가 채운다.
+    */
+    const [overlays, setOverlays] = useState([]);
     const activeSymbolKey = market.base + market.quote;
     const addOverlay = useCallback((ov) => setOverlays(prev => [...prev.filter(x => x.id !== ov.id), { symbol: activeSymbolKey, ...ov }]), [activeSymbolKey]);
     const updateOverlay = useCallback((id, patch) => setOverlays(prev => prev.map(o => o.id === id ? { symbol: o.symbol, ...patch } : o)), []);
     const removeOverlay = useCallback((id) => setOverlays(prev => prev.filter(o => o.id !== id)), []);
     const clearAIOverlays = useCallback(() => setOverlays(prev => prev.filter(o => o.source !== 'ai-draft' && o.source !== 'ai-approved')), []);
+
+    /*
+       실제 주문·포지션을 차트 선으로 그린다.
+
+       ★ 목업 오버레이를 지운 자리다. 사용자가 차트에서 자기 진입가와 미체결
+         주문 가격을 봐야 하고, 그 값은 실제여야 한다.
+
+       ★ 우선순위: 거래소 실주문(키 검증 필요) → 우리 DB 기록(모의 포함).
+         `/order-history` 와 같은 규칙을 쓴다 — 화면마다 다르면 한쪽이 거짓이 된다.
+
+       ★ 심볼을 반드시 달아둔다. ChartCanvas 가 오버레이 가격을 Y축 범위에
+         포함시키므로, 다른 심볼의 선이 남으면 캔들이 납작해진다(위 주석 참고).
+
+       ★ 사용자가 그린 도형(source: 'user-draw')과 AI 오버레이는 건드리지 않는다.
+         주문·포지션 선만 교체한다.
+    */
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      /*
+         ★ 로그인 완료 전에는 부르지 않는다.
+
+           이 effect 가 마운트 시 한 번만 돌면 세션이 아직 확립되지 않아 401 을
+           받는다(실제로 그랬다). 그러면 오버레이가 비어 있고, 사용자는 자기
+           포지션 선이 차트에 없는 것을 본다.
+
+           QTAuth 구독으로 로그인 상태가 확정된 뒤 다시 부른다.
+      */
+      let cancelled = false;
+
+      const num = (v) => {
+        if (v === null || v === undefined) return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+
+      const load = () => {
+        // 로그인하지 않았으면 요청하지 않는다 — 401 이 콘솔에 쌓인다.
+        const auth = window.QTAuth;
+        if (!auth || !auth.isLoggedIn || !auth.isLoggedIn()) return;
+
+      Promise.all([
+        api.localOpenOrders ? api.localOpenOrders({ limit: 50 }).catch(() => null) : Promise.resolve(null),
+        api.localPositions ? api.localPositions().catch(() => null) : Promise.resolve(null),
+      ]).then(([openOrders, positions]) => {
+        if (cancelled) return;
+        const next = [];
+
+        ((openOrders && openOrders.items) || []).forEach((o) => {
+          const px = num(o.price);
+          // 시장가 주문은 가격이 없다. 선을 그릴 수 없으므로 건너뛴다.
+          if (!px) return;
+          next.push({
+            id: `ord-${o.id}`,
+            type: 'horizontal',
+            source: 'order',
+            symbol: String(o.symbol || '').toUpperCase(),
+            points: [{ price: px, time: Date.now() }],
+            label: `${t('chart_ov_order')} · ${o.side === 'long' ? t('side_long') : t('side_short')} ${o.quantity} @ ${px}`,
+          });
+        });
+
+        ((positions && positions.items) || []).forEach((p) => {
+          const px = num(p.entryPrice);
+          // 진입가를 모르면 선을 그리지 않는다. 0 으로 그리면 Y축이 망가진다.
+          if (!px) return;
+          next.push({
+            id: `pos-${p.id}`,
+            type: 'horizontal',
+            source: p.side === 'short' ? 'position-short' : 'position-long',
+            symbol: String(p.symbol || '').toUpperCase(),
+            points: [{ price: px, time: Date.now() }],
+            label: `${t('chart_ov_entry')} · ${p.side === 'long' ? t('side_long') : t('side_short')} ${p.size}`,
+          });
+        });
+
+        // 주문·포지션 선만 교체한다. 사용자 도형과 AI 오버레이는 유지.
+        setOverlays((prev) => [
+          ...prev.filter((o) => o.source !== 'order' && o.source !== 'position-long' && o.source !== 'position-short'),
+          ...next,
+        ]);
+      });
+      };
+
+      load();
+      // 로그인 상태가 바뀌면 다시 읽는다 (로그인 직후·로그아웃 후 재로그인).
+      const off = (window.QTAuth && window.QTAuth.subscribe)
+        ? window.QTAuth.subscribe(() => load())
+        : null;
+
+      return () => { cancelled = true; if (off) off(); };
+    }, []);
 
     // 차트/위젯에 넘길 오버레이. 심볼이 지정되지 않은 것(구버전 저장분)은
     // 어느 심볼에서도 가격축을 망치지 않도록 현재 심볼에서만 보여준다.
@@ -382,6 +699,67 @@
 
       setFlowStep('risk-check');
       try {
+        /*
+           주문 경로는 거래 모드가 정한다.
+
+             paper   → 시뮬레이션. 거래소로 나가지 않는다.
+             futures → 실주문. 킬스위치·리스크 게이트를 모두 통과해야 나간다.
+
+           경로를 화면 상태로 추측하지 않고 QTMode.getOrderPath() 한 곳에서만
+           판단한다. 두 곳에서 판단하면 어긋나고, 그 어긋남이 "모의인데 실주문"
+           이라는 사고가 된다.
+        */
+        const path = window.QTMode ? window.QTMode.getOrderPath() : 'sim';
+
+        if (path === 'live' && window.QTApi.orders.submitLive) {
+          const live = await window.QTApi.orders.submitLive({
+            symbol: market.symbol || (market.base + market.quote),
+            side: orderPreview.side,
+            orderType: orderPreview.type,
+            price: orderPreview.price,
+            quantity: orderPreview.size,
+            leverage: orderPreview.leverage || market.leverage || 10,
+            reduceOnly: orderPreview.reduceOnly,
+            // 서버 확인 게이트. 사용자가 확인을 누른 이 시점에만 보낸다.
+            confirmationToken: draft.confirmationToken,
+            idempotencyKey: draft.clientOrderId,
+          });
+
+          setFlowStep(live.ok ? 'submitted' : 'idle');
+
+          if (live.ok) {
+            pushToast({
+              title: t('toast_order_accepted', { side: t(orderPreview.side === 'long' ? 'side_long' : 'side_short') }),
+              desc: t('toast_order_live_desc', {
+                size: fmt(orderPreview.size, 4), base: market.base, price: fmt(orderPreview.price, 1),
+              }),
+              variant: 'success',
+            });
+          } else if (live.outcome === 'SUBMIT_UNKNOWN') {
+            /*
+               가장 위험한 상태. 주문이 나갔는지 알 수 없다.
+               "다시 시도" 를 권하면 중복 주문이 된다 — 조회로 확인하라고 알린다.
+            */
+            pushToast({
+              title: t('toast_order_unknown'),
+              desc: t('toast_order_unknown_desc'),
+              variant: 'warning',
+              duration: 12000,
+            });
+          } else {
+            // 차단 사유를 그대로 보여준다. "실패" 만 알리면 무엇을 고쳐야 할지 모른다.
+            pushToast({
+              title: t('toast_order_blocked'),
+              desc: (live.reasons || []).slice(0, 2).join(' · ') || t('toast_order_invalid_desc'),
+              variant: 'error',
+              duration: 9000,
+            });
+          }
+          setTimeout(() => { setOrderPreview(null); setFlowStep('idle'); }, live.ok ? 1200 : 400);
+          return;
+        }
+
+        // --- 모의 주문 (거래소로 나가지 않는다) ---
         const res = await window.QTApi.orders.confirm(draft);
         setFlowStep('confirm');
         const order = res && res.order;
@@ -389,7 +767,8 @@
         pushToast({
           title: t('toast_order_accepted', { side: t(orderPreview.side === 'long' ? 'side_long' : 'side_short') }),
           // 서버가 알려준 실제 상태를 보여준다. '접수됨'과 '체결됨'은 다른 사실이다.
-          desc: t('toast_order_status_desc', {
+          // 모의 주문임을 문구에 넣는다. 실제로 체결된 줄 알면 안 된다.
+          desc: t('toast_order_paper_desc', {
             status: (order && order.status) || 'ACCEPTED',
             size: fmt(Number((order && order.quantity) || orderPreview.size), 4),
             base: market.base,
@@ -452,6 +831,12 @@
       // 등급을 아직 확인 중인지. 화면이 권한 판단을 미룰 수 있게 넘긴다.
       roleLoading: auth.loading,
       user: auth.user,
+      /*
+         화면 설정(테마·밀도·언어·숫자형식). 설정 페이지의 버튼들이 죽어 있었는데,
+         기능은 이미 동작하고 있었고 값을 넘겨주지 않아 배선을 못 했던 것이다.
+      */
+      tweaks,
+      setTweaks,
       onNavigate: (fullPath) => {
         // fullPath like "/markets" or "/trade?symbol=BTCUSDT"
         const [path, qs] = fullPath.split('?');
@@ -463,19 +848,30 @@
     // ---- Route dispatch — return early for non-trade routes ----
     const isTradeRoute = route.path === '/trade' || !route.path;
     // Auth/Landing routes have no sim-stripe, no header, no sidebar (fully custom shell)
-    const isAuthRoute = ['/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset'].includes(route.path);
+    /*
+       자체 레이아웃을 쓰는 라우트 (헤더·사이드바·시뮬레이션 띠 없음).
+
+       법적 문서를 여기 넣는 이유: 로그인 전에 열려야 하므로 로그인 상태를
+       전제하는 PageShell 을 쓸 수 없다.
+    */
+    const isAuthRoute = [
+      '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
+      '/terms', '/privacy', '/risk', '/security',
+    ].includes(route.path);
 
     // All known routes — anything not in this list is 404
     const ALL_KNOWN_ROUTES = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
+      // 법적 문서 — 로그인 없이 열린다.
+      '/terms', '/privacy', '/risk', '/security',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics', '/multi-chart',
       '/wallet', '/wallet/deposit', '/wallet/withdraw', '/wallet/transactions',
-      '/referral', '/fees', '/help', '/settings', '/notifications', '/order-history',
+      '/referral', '/points', '/fees', '/help', '/settings', '/notifications', '/order-history',
       '/admin', '/admin/users', '/admin/users/detail', '/admin/trades', '/admin/ai-ops',
       '/admin/design-ops', '/admin/risk', '/admin/assets', '/admin/kyc',
-      '/admin/deposits', '/admin/withdrawals', '/admin/fees', '/admin/notices',
+      '/admin/deposits', '/admin/withdrawals', '/admin/referral', '/admin/points', '/admin/legal', '/admin/fees', '/admin/notices',
       '/admin/notices/new', '/admin/system', '/admin/audit', '/admin/broadcast', '/admin/cs',
     ];
 
@@ -483,7 +879,33 @@
     // 목록을 노출한다. 라우트를 추가하고 상태 등록을 잊으면 audit() 이 잡아낸다.
     window.QT_ALL_ROUTES = ALL_KNOWN_ROUTES;
     const isKnownRoute = ALL_KNOWN_ROUTES.includes(route.path);
-    const isNotFound = !isKnownRoute;
+
+    /*
+       라우팅 가드 — 등급이 없으면 화면을 열지 않는다.
+
+       예전에는 사이드바에서 메뉴만 숨겼다. 그건 숨김일 뿐이라 주소창에
+       #/admin 을 직접 치면 일반 사용자도 관리자 화면이 열렸다.
+
+       ★ 이건 1겹(화면)이다. 실제 차단은 서버가 401/403 으로 한다.
+         화면을 막아도 그 화면이 부르던 API 는 그대로 열려 있기 때문이다.
+
+       등급 확인 중에는 막지 않는다(roleLoading). 확인 전에 차단하면 새로고침할
+       때마다 권한 있는 사용자에게 "권한 없음" 이 한 번 번쩍인다.
+    */
+    const access = (window.QTAccess && isKnownRoute && !auth.loading)
+      ? window.QTAccess.canAccess(route.path, auth.role)
+      : { allowed: true, reason: 'checking', required: 'user' };
+
+    // 알 수 없는 라우트와 권한 없는 라우트를 같은 화면으로 처리한다.
+    // 다만 사유는 구분해 보여준다 — "없는 페이지" 와 "권한 없음" 은 다른 사실이다.
+    const isNotFound = !isKnownRoute || !access.allowed;
+    const blockedMessage = !isKnownRoute
+      ? undefined
+      : access.reason === 'login_required' ? t('access_login_required')
+      : access.reason === 'under_development' ? t('access_under_development')
+      : access.reason === 'insufficient_tier' ? t('access_insufficient_tier', { required: t('tier_' + access.required) })
+      : access.reason === 'unknown_tier' ? t('access_unknown_tier')
+      : undefined;
 
     // ============================================================
     // RENDER
@@ -493,12 +915,14 @@
       return (
         <>
           {route.path === '/'               && <window.LandingPage        shellProps={shellProps}/>}
+          {/* 법적 문서 — route 를 넘겨 어느 문서인지 판단한다. */}
+          {['/terms','/privacy','/risk','/security'].includes(route.path) && <window.LegalPage route={route}/>}
           {route.path === '/login'          && <window.LoginPage          shellProps={shellProps}/>}
           {route.path === '/signup'         && <window.SignupPage         shellProps={shellProps}/>}
           {route.path === '/verify-email'   && <window.EmailVerifyPage    shellProps={shellProps}/>}
           {route.path === '/kyc'            && <window.KYCOnboardingPage  shellProps={shellProps}/>}
           {route.path === '/password-reset' && <window.PasswordResetPage  shellProps={shellProps}/>}
-          {isNotFound && <window.NotFoundPage shellProps={shellProps} message={t('notfound_path', { path: route.path })}/>}
+          {isNotFound && <window.NotFoundPage shellProps={shellProps} message={blockedMessage || t('notfound_path', { path: route.path })}/>}
 
           {/* Toasts still render even in auth mode */}
           <div className="toast-region">
@@ -514,32 +938,132 @@
     }
 
     return (
-      <div className="app-shell app-shell--v2">
-        {/* SIMULATION STRIPE — persistent global affordance */}
-        <div className="sim-stripe" style={{gridColumn:'1 / -1'}}>
-          <div className="sim-stripe__left">
-            <span className="sim-stripe__badge">SIMULATION</span>
-            <span>Mock data · No real funds at risk · Prototype demo</span>
-          </div>
-          <div className="sim-stripe__right">
-            <span>Session · SIM-{new Date().getUTCFullYear()}-{String(new Date().getUTCMonth()+1).padStart(2,'0')}-KURI</span>
-            <span>·</span>
-            <span>Data seed · deterministic</span>
-          </div>
-        </div>
+      <div className={`app-shell app-shell--v2 ${isTradeRoute && !navPrefs.collapsed ? 'has-expanded-nav' : ''}`}>
+        {/*
+           최상단 상태 띠.
+
+           ★★ 원래 "SIMULATION · Mock data · No real funds at risk · Prototype demo ·
+             Session SIM-2026-08-KURI · Data seed deterministic" 가 **하드코딩**돼
+             있었다. 네 가지가 사실과 다르다:
+               · 시세는 거래소 실시간이다 — "Mock data" 가 아니다
+               · 실서비스에서 "Prototype demo" 는 거짓이고, 사용자가 신뢰하지 않는다
+               · 세션 ID 가 가짜다
+               · 실시세는 결정적이지 않다 — "Data seed deterministic" 은 거짓
+             ★ 무엇보다 **실주문을 열면 "No real funds at risk" 가 위험한 거짓**이
+               된다. 실제 돈이 걸린 화면에 위험이 없다고 적혀 있으면, 그 표시를
+               믿은 사용자가 손실을 본다.
+
+           ★ 띠를 지우지 않는다(디자이너 UI 계약). 문구만 실제 상태로 만든다.
+        */}
+        {(() => {
+          /*
+             ★★ 실제 주문 경로는 **서버**가 정한다. `QTMode` 는 사용자가 화면에서
+               고른 모드일 뿐이고 기본값이 `futures`(orderPath='live') 이므로,
+               그것으로 판단하면 서버가 MOCK 인데도 "실거래" 라고 띄운다.
+               반대 방향(실주문인데 모의라고 표시)이 훨씬 위험하지만, 둘 다 거짓이다.
+               서버 설정(`liveOrdersEnabled` + `tradingMode`)을 쓴다.
+          */
+          const cfg = serverCfg;
+          const realService = window.QTMockPolicy ? window.QTMockPolicy.isRealService() : false;
+          const dataSrc = window.QTLive && window.QTLive.getSource ? window.QTLive.getSource() : 'mock';
+
+          // 서버 설정을 아직 못 받았으면 단정하지 않는다 — 판정 중에 잘못 말하면
+          // 사용자가 그 문구를 기억한다.
+          const liveOrders = cfg ? Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || '')) : null;
+
+          let badge, note, isLive = false;
+          if (!realService) {
+            badge = t('stripe_preview'); note = t('stripe_preview_note');
+          } else if (liveOrders === null) {
+            badge = t('stripe_checking'); note = t('stripe_checking_note');
+          } else if (liveOrders) {
+            badge = t('stripe_live'); note = t('stripe_live_note'); isLive = true;
+          } else {
+            badge = t('stripe_sim'); note = t('stripe_sim_note');
+          }
+
+          return (
+            <div className={`sim-stripe ${isLive ? 'sim-stripe--live' : ''}`} style={{gridColumn:'1 / -1', ...(isLive ? {background:'var(--color-trade-short-bg)'} : {})}}>
+              <div className="sim-stripe__left">
+                <span className="sim-stripe__badge" style={isLive ? {background:'var(--color-trade-short)', color:'#fff'} : undefined}>{badge}</span>
+                <span>{note}</span>
+              </div>
+              <div className="sim-stripe__right">
+                <span>{t('stripe_data', { src: t(dataSrc === 'live' ? 'stripe_data_live' : 'stripe_data_mock') })}</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* HEADER */}
         <header className="app-header" style={{gridColumn:'1 / -1'}}>
+          {/*
+            사이드바 서랍 열기 (좁은 화면 전용).
+
+            휴대폰에서 사이드바가 56px 을 상시 점유하면 본문이 너무 좁아진다.
+            CSS 로 서랍으로 바꾸고, 이 버튼이 html[data-qt-drawer] 를 토글한다.
+            데스크톱에서는 CSS 가 이 버튼을 숨긴다 — 마크업은 하나만 유지한다.
+          */}
+          <button
+            className="qt-drawer-toggle"
+            type="button"
+            aria-label={t('nav_open_menu')}
+            title={t('nav_open_menu')}
+            onClick={() => {
+              const el = document.documentElement;
+              el.setAttribute('data-qt-drawer', el.getAttribute('data-qt-drawer') === 'open' ? 'closed' : 'open');
+            }}
+          >
+            {/* 햄버거 모양. icons.jsx 에 Menu 가 없어 CSS 로 만든다 —
+                아이콘 파일(디자이너 산출물)을 수정하지 않기 위한 선택이다. */}
+            <span className="qt-drawer-toggle__bars" aria-hidden="true"/>
+          </button>
           <a className="app-brand" href="#/trade">
             <span className="app-brand__mark">Q</span>
-            <span className="app-brand__name">QuantumTrade</span>
+            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
             <span className="app-brand__ver">v1.0</span>
           </a>
 
           <div className="seg" style={{marginRight: 8}}>
-            <button className="seg__opt">{t('mode_spot')}</button>
-            <button className="seg__opt is-active">{t('mode_futures')}</button>
-            <button className="seg__opt">{t('mode_paper')}</button>
+            {/*
+              거래 모드. 마크업·클래스는 그대로 두고 동작만 붙였다.
+              지원하지 않는 모드(현물)는 버튼을 지우지 않고, 눌렀을 때 이유를 알린다 —
+              눌러도 아무 일 없으면 사용자는 고장이라고 생각한다.
+            */}
+            {['spot','futures','paper'].map(m => {
+              const avail = window.QTMode ? window.QTMode.isAvailable(m) : m === 'futures';
+              return (
+                <button
+                  key={m}
+                  className={`seg__opt ${tradeMode === m ? 'is-active' : ''} ${!avail ? 'seg__opt--pending' : ''}`}
+                  onClick={() => {
+                    if (!window.QTMode) return;
+                    const r = window.QTMode.setMode(m);
+                    if (!r.ok) {
+                      pushToast({ title: t('mode_' + m), desc: t(r.reasonKey), variant: 'info' });
+                    }
+                  }}
+                  title={avail ? t('mode_switch_to', { mode: t('mode_' + m) }) : t(window.QTMode ? window.QTMode.reasonKeyFor(m) : 'feature_pending')}
+                  aria-pressed={tradeMode === m}
+                  aria-disabled={!avail}
+                >
+                  {t('mode_' + m)}
+                  {/*
+                     ★ 미지원 모드임을 눌러보기 전에 알 수 있게 한다.
+
+                       원래는 눌러야 토스트로 알았다. 현물은 어댑터가 없어 한동안
+                       안 되는데, 모르면 "왜 안 되지" 하고 반복해서 누른다.
+
+                     ★ 버튼을 지우지 않는다(디자이너 UI 계약). 표시만 덧붙이고,
+                       준비되면 MODES 의 available 을 true 로 바꾸는 것만으로
+                       이 표시가 사라진다.
+                  */}
+                  {!avail && (
+                    <span className="seg__opt-pending" aria-hidden="true">{t('mode_pending_mark')}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <nav className="app-nav">
@@ -556,6 +1080,28 @@
               백엔드가 붙으면 서버 등급이 우선하므로 이 스위치는 효력이 없다.
               그 사실을 title 로 알려준다 (눌러도 아무 일 없으면 버그로 보인다).
             */}
+            {/*
+              등급 스위치는 개발·디자인 미리보기 도구다.
+
+              백엔드가 붙으면 서버 등급이 우선하므로 효력이 없는데, 일반
+              사용자에게 비활성 버튼 4개가 보이면 "권한을 바꿀 수 있나" 하고
+              오해한다. 승인된 방침(개발용은 super·admin 만)에 맞춰 감춘다.
+              백엔드가 없는 디자인 미리보기에서는 그대로 보인다 — 그때는
+              실제로 화면을 바꾸는 도구이기 때문이다.
+            */}
+            {/*
+              ★ 실서비스에서는 아예 렌더하지 않는다.
+
+              백엔드가 붙으면 서버 등급이 우선하므로 이 스위치는 **효력이 없다**
+              (disabled 상태로 남는다). 그런데 폭을 180px 차지해서, 1440px
+              노트북에서 오른쪽 끝의 프로필·알림 버튼을 화면 밖으로 밀어냈다
+              (실측: 1621px 내용 / 1440px 화면).
+
+              아무 일도 하지 않는 컨트롤이 실제로 쓰는 버튼을 가리는 것은
+              분명한 손해다. 스위치가 실제로 동작하는 경우(=백엔드 없는
+              디자인 미리보기)에만 보여준다.
+            */}
+            {!auth.switchActive ? null : (
             <div
               className="role-switcher"
               title={auth.switchActive
@@ -573,7 +1119,18 @@
                 </button>
               ))}
             </div>
-            <div className="conn-cluster" title={`WebSocket ${conn} · Latency ${latency}ms · Mock stream`}>
+            )}
+            {/*
+              연결 표시.
+
+              title 이 항상 'Mock stream' 이었다 — 실데이터일 때도 목업이라고
+              말하니 운영 중에 출처를 판단할 수 없다. 실제 출처를 넣는다.
+            */}
+            <div className="conn-cluster" title={t('conn_title', {
+              state: conn,
+              latency: latency,
+              source: (window.QTLive && window.QTLive.getSource) ? window.QTLive.getSource() : 'unknown',
+            })}>
               <span className={`conn-cluster__seg ${conn === 'live' ? 'is-live' : conn === 'reconnecting' ? 'is-warn' : 'is-err'}`}>
                 <span className={`dot ${conn === 'live' ? 'dot--live' : conn === 'reconnecting' ? 'dot--warn' : 'dot--err'}`}/>
                 {conn === 'live' ? 'WS' : conn === 'reconnecting' ? 'RECON' : 'DOWN'}
@@ -581,34 +1138,130 @@
               <span className={`conn-cluster__seg conn-cluster__latency ${latency > 200 ? 'is-err' : latency > 100 ? 'is-warn' : ''}`}>
                 <span className="k">↔</span>{latency}ms
               </span>
-              <span className="conn-cluster__seg" title="Data freshness">
-                <span className="k">◷</span>0s
+              {/*
+                 데이터 신선도.
+
+                 원래 '0s' 고정이었다 — 스트림이 죽어 5분째 값이 안 와도 0s 라
+                 사용자는 실시간이라고 믿는다. 그 상태로 주문하면 옛 가격에
+                 체결된다. 실제 경과 시간을 보여주고, 오래되면 색으로 경고한다.
+              */}
+              <span
+                className={`conn-cluster__seg ${dataAgeMs !== null && dataAgeMs > 30000 ? 'is-err' : dataAgeMs !== null && dataAgeMs > 10000 ? 'is-warn' : ''}`}
+                title={t('data_freshness_tip')}
+              >
+                <span className="k">◷</span>{dataAgeLabel}
               </span>
             </div>
-            <button className="header-tool header-tool--icon" title="Alerts">
+            {/*
+              알림 벨. 마크업·스타일은 그대로 두고 동작만 붙였다.
+
+              빨간 점을 항상 켜두면 의미가 없다 — 실제 위험이 있을 때만 켠다.
+              위험이 없으면 점을 숨겨서, 점이 보일 때 사용자가 반응하게 만든다.
+            */}
+            <button
+              className="header-tool header-tool--icon"
+              title={riskAlerts.length
+                ? t('risk_bell_active', { count: riskAlerts.length })
+                : t('risk_bell_idle')}
+              onClick={() => {
+                if (riskAlerts.length === 0) {
+                  pushToast({ title: t('risk_bell_idle'), variant: 'info', duration: 3000 });
+                  return;
+                }
+                // 가장 위험한 포지션의 심볼로 차트를 옮긴다. 사용자가 바로 조치할 수 있게.
+                const worst = riskAlerts[0];
+                riskAlerts.forEach((a) => { if (a.level === 'danger') { /* danger 우선 */ } });
+                const target = riskAlerts.find((a) => a.level === 'danger') || worst;
+                pushToast({
+                  title: t('risk_liq_' + target.level, { symbol: target.symbol }),
+                  desc: t('risk_liq_desc', { distance: target.distancePct.toFixed(1), liq: fmt(target.liq, 1) }),
+                  variant: target.level === 'danger' ? 'error' : 'warning',
+                  duration: 12000,
+                });
+                pushRoute('/trade', { symbol: target.symbol });
+              }}
+            >
               <I.Bell size={14}/>
-              <span style={{position:'absolute', top:4, right:4, width:6, height:6, borderRadius:999, background:'var(--color-danger)'}}/>
+              {riskAlerts.length > 0 && (
+                <span style={{position:'absolute', top:4, right:4, width:6, height:6, borderRadius:999, background: riskAlerts.some(a=>a.level==='danger') ? 'var(--color-danger)' : 'var(--color-warning)'}}/>
+              )}
             </button>
             <button className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title="Toggle theme">
               {tweaks.theme === 'dark' ? <I.Moon size={14}/> : <I.Sun size={14}/>}
             </button>
-            <button className="header-tool" title="Language" onClick={() => setTweaks({ lang: tweaks.lang === 'ko' ? 'en' : 'ko' })}>
+            <button
+              className="header-tool"
+              title={t('lang_switch_title')}
+              onClick={() => {
+                /*
+                   ★★ 원래 `lang === 'ko' ? 'en' : 'ko'` 로 **두 언어만** 토글했다.
+                     그래서 일본어 사전을 등록해도 이 버튼으로는 갈 수 없었다.
+                     언어를 추가할 때마다 이 줄을 고쳐야 하는 구조였다.
+
+                   ★ i18n 레지스트리(`available()`)를 단일 출처로 순환한다.
+                     `src/locales/<code>.js` 를 추가하고 index.html 에 한 줄
+                     넣으면 이 버튼에 자동으로 포함된다.
+                */
+                const list = window.QTI18n && window.QTI18n.available
+                  ? window.QTI18n.available().map((x) => x.code)
+                  : ['en', 'ko'];
+                if (list.length === 0) return;
+                const cur = list.indexOf(tweaks.lang);
+                setTweaks({ lang: list[(cur + 1) % list.length] });
+              }}
+            >
               <I.Globe size={13}/>
               <span style={{fontFamily:'var(--font-mono)', fontSize: 11}}>{tweaks.lang.toUpperCase()}</span>
             </button>
-            <a className="header-tool" href="design-system.html" target="_blank" title="Design System">
-              <I.Book size={13}/><span>Design</span>
-            </a>
-            <a className="header-tool" href="developer-handoff.html" target="_blank" title="Developer Handoff">
-              <I.LayoutIcon size={13}/><span>Handoff</span>
-            </a>
-            <a className="header-tool" href="design-library/index.html" target="_blank" title="Design Library">
-              <I.Layers size={13}/><span>Library</span>
-            </a>
+            {/*
+              디자인 시스템·핸드오프·라이브러리 — 개발/디자인 문서다.
+
+              일반 사용자에게 보일 이유가 없다. 내부 컴포넌트 명세와 미구현
+              상태가 그대로 적혀 있어 무엇이 안 됐는지 외부에 드러난다.
+              승인된 방침(개발용은 super·admin 만)에 맞춰 게이팅한다.
+              백엔드 없는 디자인 미리보기에서는 그대로 보인다 — 디자이너가
+              쓰는 도구이기 때문이다.
+            */}
+            {(auth.offline || auth.role === 'super' || auth.role === 'admin') && (
+              <>
+                <a className="header-tool" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System">
+                  <I.Book size={13}/><span>Design</span>
+                </a>
+                <a className="header-tool" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff">
+                  <I.LayoutIcon size={13}/><span>Handoff</span>
+                </a>
+                <a className="header-tool" href="design-library/index.html" target="_blank" rel="noopener noreferrer" title="Design Library">
+                  <I.Layers size={13}/><span>Library</span>
+                </a>
+              </>
+            )}
             <button className="header-tool" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })}>
               <I.LayoutIcon size={13}/> {t('layout_manager')}
             </button>
-            <button className="btn btn--sm btn--primary">
+            {/*
+              입금 버튼.
+
+              우리는 자금을 보관하지 않는다(비수탁). 고객은 자기 거래소 계정에
+              입금하고, 우리는 그 계정을 API 로 조작한다. 그래서 이 버튼은
+              "우리에게 돈을 보내는" 버튼이 아니라 거래소 입금으로 안내하는 버튼이다.
+
+              키를 연결하지 않았으면 먼저 연결 화면으로 보낸다 — 입금해도 우리가
+              그 자금을 볼 수 없기 때문이다.
+            */}
+            <button
+              className="btn btn--sm btn--primary"
+              title={t('deposit_hint')}
+              onClick={() => {
+                const linked = window.QTAccount && window.QTAccount.isLive();
+                if (!linked) {
+                  pushToast({ title: t('deposit'), desc: t('deposit_needs_key'), variant: 'info', duration: 7000 });
+                  pushRoute('/wallet');
+                  return;
+                }
+                pushToast({ title: t('deposit'), desc: t('deposit_at_exchange'), variant: 'info', duration: 7000 });
+                pushRoute('/wallet');
+              }}
+            >
               <I.Plus size={12}/> {t('deposit')}
             </button>
             {/*
@@ -633,24 +1286,51 @@
           </div>
         </header>
 
-        {/* SIDEBAR — legacy sidebar shown only on /trade */}
+        {/*
+          사이드바 — 일반 페이지와 **같은** 컴포넌트를 쓴다.
+
+          이전에는 거래 화면만 별도 아이콘 레일(.app-sidebar)을 썼다.
+          그래서 두 가지가 어긋났다:
+            · 접기 상태가 공유되지 않았다 — 한쪽에서 접어도 다른 쪽은 펼쳐짐
+            · 메뉴 구성이 달랐다 — 거래 화면 레일에는 5개, 일반 화면엔 30개
+          사용자가 "포트폴리오 누르면 메뉴가 쭉 나온다" 고 한 것이 이 차이다.
+
+          거래 화면 고유 도구(레이아웃 편집·Tweaks·디자인 문서)는 삭제하지 않고
+          extraTools 로 넘긴다 — 사이드바 안 '도구' 구역에 그대로 남는다.
+        */}
         {isTradeRoute && (
-        <aside className="app-sidebar">
-          <a className="sb-item is-active" href="#/trade" title="Trade"><I.Chart size={16}/></a>
-          <a className="sb-item" href="#/trade?workspace=ai" onClick={() => setTweaks({ presetId: 'ai-workspace' })} title="AI Workspace"><I.Sparkles size={16}/></a>
-          <a className="sb-item" href="#/trade?preset=multi-chart" onClick={() => setTweaks({ presetId: 'multi-chart' })} title="Multi-Chart"><I.Grid size={16}/></a>
-          <a className="sb-item" href="#/portfolio" title="Portfolio"><I.Wallet size={16}/></a>
-          <a className="sb-item" href="#/analytics" title="Analytics"><I.Book size={16}/></a>
-          <div className="sb-sep"/>
-          <button className="sb-item" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })} title="Layout Edit"><I.LayoutIcon size={16}/></button>
-          <button className="sb-item" onClick={() => setTweaksOpen(v => !v)} title="Tweaks">
-            <I.Cog size={16}/>
-          </button>
-          <div style={{marginTop:'auto'}}/>
-          <a className="sb-item" href="design-system.html" target="_blank" title="Design System"><I.Book size={16}/></a>
-          <a className="sb-item" href="developer-handoff.html" target="_blank" title="Developer Handoff"><I.LayoutIcon size={16}/></a>
-          <a className="sb-item" title="Profile"><I.User size={16}/></a>
-        </aside>
+          <window.AppSidebar
+            activePath={route.path}
+            role={auth.role || 'user'}
+            collapsed={navPrefs.collapsed}
+            onToggleCollapsed={navPrefs.toggleCollapsed}
+            onNavigate={(r, e) => { if (e) e.preventDefault(); pushRoute(r); }}
+            extraTools={
+              <>
+                <button className="sb-item-v2" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })} title={t('layout_edit')}>
+                  <span className="sb-item-v2__icon"><I.LayoutIcon size={15}/></span>
+                  {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('layout_edit')}</span>}
+                </button>
+                <button className="sb-item-v2" onClick={() => setTweaksOpen(v => !v)} title={t('tweaks')}>
+                  <span className="sb-item-v2__icon"><I.Cog size={15}/></span>
+                  {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('tweaks')}</span>}
+                </button>
+                {/* 디자인 문서는 내부용 — super·admin 과 디자인 미리보기에서만. */}
+                {(auth.offline || auth.role === 'super' || auth.role === 'admin') && (
+                  <>
+                    <a className="sb-item-v2" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System">
+                      <span className="sb-item-v2__icon"><I.Book size={15}/></span>
+                      {!navPrefs.collapsed && <span className="sb-item-v2__label">Design System</span>}
+                    </a>
+                    <a className="sb-item-v2" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff">
+                      <span className="sb-item-v2__icon"><I.LayoutIcon size={15}/></span>
+                      {!navPrefs.collapsed && <span className="sb-item-v2__label">Developer Handoff</span>}
+                    </a>
+                  </>
+                )}
+              </>
+            }
+          />
         )}
 
         {/* ============================================================
@@ -672,6 +1352,7 @@
             {route.path === '/wallet/withdraw'&& <window.WithdrawPage       shellProps={shellProps}/>}
             {route.path === '/wallet/transactions' && <window.TransactionHistoryPage shellProps={shellProps}/>}
             {route.path === '/referral'       && <window.ReferralPage       shellProps={shellProps}/>}
+            {route.path === '/points'         && <window.PointsPage         shellProps={shellProps}/>}
             {route.path === '/fees'           && <window.FeeRebatePage      shellProps={shellProps}/>}
             {route.path === '/help'           && <window.HelpCenterPage     shellProps={shellProps}/>}
             {route.path === '/settings'       && <window.SettingsPage       shellProps={shellProps}/>}
@@ -696,6 +1377,9 @@
             {route.path === '/admin/system'       && <window.AdminSystemPage     shellProps={shellProps}/>}
             {route.path === '/admin/audit'        && <window.AdminAuditPage      shellProps={shellProps}/>}
             {route.path === '/admin/broadcast'    && <window.AdminBroadcastPage  shellProps={shellProps}/>}
+            {route.path === '/admin/referral'     && <window.AdminReferralPage   shellProps={shellProps}/>}
+            {route.path === '/admin/points'       && <window.AdminPointsPage    shellProps={shellProps}/>}
+            {route.path === '/admin/legal'        && <window.AdminLegalPage     shellProps={shellProps}/>}
             {route.path === '/admin/cs'           && <window.AdminCSTicketPage   shellProps={shellProps} ticketId={route.query.id}/>}
 
             {/* NotFound is handled in the isAuthRoute block above */}
@@ -867,6 +1551,64 @@
   }
 
   function WidgetContent(props) {
+    /*
+       자산 요약 — 실계정이 있으면 그 값을 쓴다.
+
+       QT.ASSETS 는 고정 목업이다(가용 9,840.22 · 유지증거금 218.42 …).
+       주문 패널의 '가용 자산' 과 수량 % 버튼이 이 값을 쓰므로, 목업이면
+       실제로 넣을 수 없는 수량을 계산해 보여준다 — 거래소가 주문을 거절하고
+       사용자는 이유를 모른다.
+
+       값이 없으면 0 으로 둔다. % 버튼이 0 을 만들고 '잔고 부족' 이 뜬다 —
+       목업 잔고로 주문 가능한 것처럼 보이는 쪽이 더 나쁘다.
+    */
+    const liveAssets = (() => {
+      const acct = window.QTAccount;
+      if (!acct || !acct.isLive || !acct.isLive()) {
+        /*
+           ★★ 실서비스에서는 목업 잔고를 쓰지 않는다.
+
+             전에는 거래소 키가 없으면 무조건 QT.ASSETS(가용 9,840.22 ·
+             미실현 396.77 · 자산 12,820.14)를 썼다. 주문 패널의 '가용 자산' 과
+             수량 % 버튼이 이 값을 읽으므로, 사용자는 **넣을 수 없는 수량**을
+             계산해 주문을 시도하고 거래소가 거절한다. 이유는 화면에 없다.
+
+           ★ 0 으로 둔다. % 버튼이 0 을 만들고 "잔고 부족" 이 뜬다 — 목업
+             잔고로 주문 가능한 것처럼 보이는 쪽이 훨씬 나쁘다.
+
+           ★ 미리보기(백엔드 없음)에서는 목업을 유지한다 — 디자이너가 주문
+             패널의 숫자 배치를 확인해야 한다.
+        */
+        if (window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) {
+          return {
+            walletBalance: 0, availableBalance: 0, marginBalance: 0,
+            usedMargin: 0, maintenanceMargin: 0, unrealizedPnl: 0,
+            marginRatio: 0, riskLevel: 'safe', equity: 0,
+          };
+        }
+        return QT.ASSETS;
+      }
+      const rows = acct.getBalances() || [];
+      const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+      const total = rows.reduce((a, x) => a + num(x.equity), 0);
+      const avail = rows.reduce((a, x) => a + num(x.available), 0);
+      const used = rows.reduce((a, x) => a + num(x.used), 0);
+      const pos = acct.getPositions() || [];
+      const unreal = pos.reduce((a, x) => a + num(x.unPnl), 0);
+      return {
+        walletBalance: total,
+        availableBalance: avail,
+        marginBalance: total,
+        usedMargin: used,
+        // 유지증거금은 거래소가 계정 단위로 주지 않는다. 만들지 않고 0 으로 둔다.
+        maintenanceMargin: 0,
+        unrealizedPnl: unreal,
+        marginRatio: total > 0 ? used / total : 0,
+        riskLevel: total > 0 && used / total > 0.8 ? 'danger' : (total > 0 && used / total > 0.5 ? 'warning' : 'safe'),
+        equity: total,
+      };
+    })();
+
     const { widget } = props;
     // 실 잔고·포지션이 도착하면 재렌더한다. 이 훅이 없으면 위젯이 최초 렌더의
     // 목업을 계속 보여준다 (QT.POSITIONS 를 바꿔치기해도 React 는 모른다).
@@ -884,7 +1626,7 @@
         return <window.RecentTrades trades={props.trades} t={props.t}/>;
       case 'orderEntry':
         return <window.OrderEntry
-          lastPrice={props.lastPrice} market={props.market} assets={QT.ASSETS}
+          lastPrice={props.lastPrice} market={props.market} assets={liveAssets}
           marginMode="CROSS" leverage={20}
           prefillPrice={props.orderDraft?.price}
           prefillSize={props.orderDraft?.size}
@@ -895,9 +1637,37 @@
           t={props.t}
         />;
       case 'positions':
-        return <window.PositionsPanel lastPrice={props.lastPrice} positions={QT.POSITIONS} orders={QT.OPEN_ORDERS} t={props.t}/>;
+        /*
+           포지션·미체결 패널.
+
+           ★★ 전에는 `QT.POSITIONS` / `QT.OPEN_ORDERS`(목업)를 그대로 넘겼다.
+             거래 화면 하단에 목업 포지션 3개(0.185 BTC @ 67,285 · ETH 1.5 @ 3,568)가
+             항상 떠 있었고, 사용자는 자기 포지션으로 읽는다. '전량 청산' 버튼도
+             그 옆에 있다.
+
+           ★ 거래소 실포지션이 있으면 그것을, 없으면 실서비스에서는 빈 목록을
+             넘긴다. 미리보기에서는 목업을 유지한다.
+        */
+        return <window.PositionsPanel
+          lastPrice={props.lastPrice}
+          positions={(() => {
+            const acct = window.QTAccount;
+            if (acct && acct.isLive && acct.isLive()) return acct.getPositions() || [];
+            if (window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) return [];
+            return QT.POSITIONS;
+          })()}
+          orders={(() => {
+            const acct = window.QTAccount;
+            if (acct && acct.isLive && acct.isLive()) return acct.getOpenOrders() || [];
+            if (window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) return [];
+            return QT.OPEN_ORDERS;
+          })()}
+          /* 'Symbol만' 필터가 기준으로 쓸 현재 심볼. */
+          currentSymbol={props.market ? `${props.market.base}${props.market.quote}` : null}
+          t={props.t}
+        />;
       case 'assetsRisk':
-        return <window.AssetsRisk assets={QT.ASSETS} t={props.t}/>;
+        return <window.AssetsRisk assets={liveAssets} t={props.t}/>;
       case 'aiCopilot':
         return <window.AICopilot
           context={props.chartContext}
@@ -926,16 +1696,54 @@
     const [showMA, setShowMA] = useState(true);
     // 지표 패널. 버튼 마크업은 그대로 두고 패널만 아래에 띄운다.
     const [indicatorsOpen, setIndicatorsOpen] = useState(false);
+    const [compareOpen, setCompareOpen] = useState(false);
     // KLineChart 인스턴스. 지표 패널이 이걸 통해 지표를 켜고 끈다.
     const chartInstRef = useRef(null);
     const [chartGen, setChartGen] = useState(0);
     const handleChartReady = useCallback((chart) => {
       chartInstRef.current = chart;
+      /*
+         차트 상태를 콘솔에서 확인할 수 있게 노출한다.
+
+         지표·드로잉이 실제로 적용됐는지 화면만 보고는 확인이 어렵다
+         (선이 겹쳐 있거나 화면 밖에 그려질 수 있다). 검증 스크립트와
+         운영 중 문제 추적에 쓴다. 읽기 전용 진단이며 렌더링에 영향이 없다.
+      */
+      window.QTChartDebug = {
+        instance: () => chartInstRef.current,
+        indicators: () => {
+          const c = chartInstRef.current;
+          if (!c || !c.getIndicators) return null;
+          const got = c.getIndicators();
+          // KLineChart 10 은 Map 또는 객체를 돌려준다. 둘 다 처리한다.
+          if (got instanceof Map) return [...got.values()].flat().map((i) => i.name);
+          if (Array.isArray(got)) return got.map((i) => i.name);
+          return Object.values(got || {}).flat().map((i) => i && i.name);
+        },
+        overlays: () => {
+          const c = chartInstRef.current;
+          if (!c || !c.getOverlays) return null;
+          const got = c.getOverlays();
+          const list =
+            got instanceof Map ? [...got.values()].flat()
+            : Array.isArray(got) ? got
+            : Object.values(got || {}).flat();
+          // points 를 함께 돌려준다. 점이 없으면 "그리는 중(미완성)" 이고,
+          // 그 상태에서 다른 도구를 고르면 KLineChart 가 지운다.
+          return list.filter(Boolean).map((o) => ({
+            name: o.name,
+            points: Array.isArray(o.points) ? o.points.filter((pt) => pt && (pt.timestamp || pt.dataIndex !== undefined)).length : 0,
+            paneId: o.paneId,
+          }));
+        },
+      };
       // 인스턴스가 바뀌면 패널이 상태를 다시 읽어야 한다.
       setChartGen(g => g + 1);
     }, []);
     const getChart = useCallback(() => chartInstRef.current, []);
     const supportsIndicators = Boolean(window.ChartIndicatorPanel && window.klinecharts);
+    // 비교는 KLineChart 지표 등록이 필요하다. 자체 Canvas 엔진에서는 쓸 수 없다.
+    const supportsCompare = Boolean(window.ChartComparePanel && window.klinecharts);
 
     // 차트 액션 (스크린샷·전체화면·드로잉 등). KLineChart API 는 chart-actions.js 가 감싼다.
     const bodyElRef = useRef(null);
@@ -944,10 +1752,81 @@
         ? window.ChartActions.create(getChart, {
             getContainer: () => bodyElRef.current,
             notify: (msg) => pushToast && pushToast(msg),
+            // 도형의 가격 라벨 자리수를 심볼 tickSize 에서 구하기 위해 넘긴다.
+            getSymbol: () => `${market.base}${market.quote}`,
           })
         : null),
-      [getChart, pushToast],
+      [getChart, pushToast, market.base, market.quote],
     );
+
+    /*
+       진단 창구.
+
+       드로잉·지표가 실제로 만들어졌는지 밖에서 확인할 방법이 없었다.
+       화면 안 상태라 콘솔에서도, 자동 검증에서도 볼 수 없었다 — "버튼은
+       눌리는데 도형이 생겼는지 모르는" 상태였다.
+
+       읽기 전용으로만 노출한다. 조작 함수를 내보내면 콘솔에서 주문 화면의
+       상태를 바꿀 수 있게 되고, 그건 진단이 아니라 우회로가 된다.
+    */
+    useEffect(() => {
+      window.QTChartDiag = {
+        /** 사용자가 그린 도형 목록. name 과 source 만 준다. */
+        drawings: () => {
+          const c = getChart();
+          if (!c || !c.getOverlays) return null;
+          try {
+            return c.getOverlays().map((o) => ({
+              id: o.id,
+              name: o.name,
+              source: (o.extendData && o.extendData.source) || null,
+              points: Array.isArray(o.points) ? o.points.length : 0,
+              locked: Boolean(o.lock),
+              visible: o.visible !== false,
+            }));
+          } catch (e) { return null; }
+        },
+        /** 적용된 지표 목록. */
+        indicators: () => {
+          const c = getChart();
+          if (!c || !c.getIndicators) return null;
+          try {
+            const out = [];
+            const got = c.getIndicators();
+            // KLineChart 버전에 따라 Map 또는 배열을 준다.
+            if (got && typeof got.forEach === 'function') {
+              got.forEach((v, k) => {
+                if (Array.isArray(v)) v.forEach((x) => out.push({ pane: String(k), name: x.name }));
+                else out.push({ pane: String(k), name: v && v.name });
+              });
+            }
+            return out;
+          } catch (e) { return null; }
+        },
+        /** 이 배포에서 그릴 수 있는 도형 이름. */
+        supported: () => (window.ChartActions ? window.ChartActions.supportedOverlays() : null),
+        /** 도구 ID → 오버레이 이름 대응. */
+        toolMap: () => (window.ChartActions ? window.ChartActions.DRAW_TOOL_OVERLAY : null),
+        chartReady: () => Boolean(getChart()),
+        /*
+           진단용 도형 생성.
+
+           클릭 시뮬레이션 없이 오버레이 생성만 확인한다. 자동 검증에서
+           "그려지는가" 와 "클릭이 전달되는가" 를 분리해야 원인을 특정할 수 있다.
+           읽기 전용 원칙에서 예외를 두는 이유: 이것 없이는 2점 도구가 왜
+           하나만 남는지 알 수 없었다.
+        */
+        probeCreate: (overlayName) => {
+          const c = getChart();
+          if (!c || !c.createOverlay) return null;
+          try {
+            const id = c.createOverlay({ name: overlayName, extendData: { source: 'diag-probe' } });
+            return { id: String(id), total: c.getOverlays().length };
+          } catch (e) { return { error: String(e && e.message) }; }
+        },
+      };
+      return () => { delete window.QTChartDiag; };
+    }, [getChart]);
 
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -998,16 +1877,33 @@
               />
             )}
           </div>
-          {/* Compare(다중 심볼 비교) 와 Replay(과거 재생)는 데이터 배선 설계가
-              필요해 아직 미구현이다. 버튼을 없애지 않고, 눌렀을 때 "준비 중"임을
-              분명히 알린다 — 눌러도 아무 일 없는 상태로 두지 않는다. */}
-          <button
-            className="chart-tool"
-            title={t('chart_compare')}
-            onClick={() => pushToast && pushToast({ title: t('chart_compare'), desc: t('feature_pending'), variant: 'info' })}
-          >
-            {t('chart_compare')}
-          </button>
+          {/* 심볼 비교. 비교선은 상대 변화로 정규화해 그린다 (chart-compare.jsx). */}
+          <div className="chart-tool-wrap">
+            <button
+              className={`chart-tool ${compareOpen ? 'is-active' : ''}`}
+              title={supportsCompare ? t('chart_compare') : t('feature_pending')}
+              aria-expanded={compareOpen}
+              onClick={() => {
+                if (!supportsCompare) {
+                  pushToast && pushToast({ title: t('chart_compare'), desc: t('feature_pending'), variant: 'info' });
+                  return;
+                }
+                setCompareOpen(o => !o);
+              }}
+            >
+              {t('chart_compare')}
+            </button>
+            {compareOpen && supportsCompare && (
+              <window.ChartComparePanel
+                getChart={getChart}
+                version={chartGen}
+                baseSymbol={`${market.base}${market.quote}`}
+                timeframe={timeframe}
+                notify={pushToast}
+                onClose={() => setCompareOpen(false)}
+              />
+            )}
+          </div>
           <div className="chart-tool-wrap">
             <button
               className={`chart-tool ${templatesOpen ? 'is-active' : ''}`}
@@ -1318,9 +2214,31 @@
                 {t('op_title')} · {order.side === 'long' ? t('side_long_arrow') : t('side_short_arrow')}
                 <span className={`badge ${order.side==='long'?'badge--long':'badge--short'}`} style={{marginLeft: 8}}>{order.type}</span>
               </div>
-              <div style={{fontSize: 12, color:'var(--color-text-tertiary)', marginTop: 2}}>
-                {t('op_sim_notice')}
-              </div>
+              {/*
+                 ★★ 실제 주문 경로를 그대로 말한다 ★★
+
+                   전에는 모드와 무관하게 항상 'op_sim_notice'
+                   ("실제 자금은 사용되지 않는 시뮬레이션입니다. 프로토타입 데모.")
+                   를 보여줬다. 실주문 모드에서 이 문장은 **거짓**이고, 사용자가
+                   연습이라고 믿고 큰 수량을 넣게 만든다. 잃는 것은 실제 돈이다.
+
+                 ★ 경로 판단은 QTMode.getOrderPath() 한 곳만 쓴다 — 화면이
+                   따로 추측하면 두 판단이 갈린다.
+              */}
+              {(() => {
+                const path = (window.QTMode && window.QTMode.getOrderPath)
+                  ? window.QTMode.getOrderPath()
+                  : null;
+                const isLive = path === 'live';
+                return (
+                  <div style={{
+                    fontSize: 12, marginTop: 3, fontWeight: isLive ? 600 : 400,
+                    color: isLive ? 'var(--color-danger)' : 'var(--color-text-tertiary)',
+                  }}>
+                    {isLive ? t('op_live_notice') : t('op_paper_notice')}
+                  </div>
+                );
+              })()}
             </div>
             <button className="btn btn--icon" onClick={onCancel}><I.X size={14}/></button>
           </div>

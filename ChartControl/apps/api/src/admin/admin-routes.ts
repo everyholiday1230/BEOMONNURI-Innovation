@@ -41,6 +41,39 @@ const AI_ERROR_STATUSES = ['error', 'failed', 'timeout', 'aborted'] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface AdminRouterDeps {
+  /**
+   * 공지 저장소. Postgres 배포에만 주입된다.
+   *
+   * 없으면 공지 라우트가 503 을 낸다 — 빈 목록을 주면 "공지가 없다" 는
+   * 거짓이 되고, 작성 시도가 조용히 성공한 것처럼 보인다.
+   */
+  notices?: import('../db/notice-repo').PgNoticeRepo;
+  /** 고객 지원 티켓 저장소. Postgres 배포에만 주입된다. */
+  support?: import('../db/support-repo').PgSupportRepo;
+  /** 리퍼럴 저장소. Postgres 배포에만 주입된다. */
+  referral?: import('../db/referral-repo').PgReferralRepo;
+  /** 포인트 저장소. Postgres 배포에만 주입된다. */
+  points?: import('../db/points-repo').PgPointsRepo;
+  /** 법적 문서 저장소. */
+  legal?: import('../db/legal-repo').PgLegalRepo;
+  /**
+   * KuCoin 브로커 정산 조회.
+   *
+   * ★ 운영자 키가 없으면 주입되지 않는다. 그때 화면은 "설정되지 않음" 을 보여준다 —
+   *   수익 0 원과 설정 누락은 다른 상태다.
+   */
+  kucoinBroker?: {
+    client: import('@quantumtrade/exchange-kucoin').KucoinBrokerClient;
+    operator: { apiKey: string; apiSecret: string; passphrase: string };
+    broker: { partner: string; key: string; name: string } | null;
+  };
+  /**
+   * 알림 저장소.
+   *
+   * ★ 운영자의 행동이 고객에게 전달돼야 할 때 쓴다. 답변을 달아도 고객이 모르면
+   *   화면을 다시 열 때까지 기다리게 된다 — 문의한 사람은 답을 기다린다.
+   */
+  notifications?: import('../db/notification-repo').INotificationRepo;
   service: AuthService;
   repo: IAdminRepo;
   csrfKey: string;
@@ -869,13 +902,25 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     }
 
     if (!d.brokerRebates) {
-      // Distinguishable from "earned nothing": no operator BitMart key is wired in this deployment.
+      /*
+         브로커 자격증명이 설정되지 않았다.
+
+         이전에는 503 을 냈다. "earned nothing" 과 구분하려는 의도는 맞지만,
+         503 은 **장애** 를 뜻한다. 설정을 아직 안 한 것은 장애가 아니고,
+         관리자 화면을 열 때마다 브라우저 콘솔에 오류가 쌓인다. 콘솔이 잡음으로
+         차면 진짜 장애를 놓친다 — 이 코드베이스에서 이미 겪은 실패 방식이다.
+         (같은 이유로 키 문제는 200 + credentialStatus 로 통일했다.)
+
+         구분은 상태 코드가 아니라 `configured: false` 로 한다. 소비자는
+         그 플래그를 봐야 하고, 빈 배열만 보고 "리베이트 0원" 이라고
+         판단해서는 안 된다 — 그래서 rebates 를 아예 넣지 않는다.
+      */
       return c.json(
         {
-          ...err('NOT_CONFIGURED', 'no operator BitMart credential is configured for rebate queries'),
+          ...err('NOT_CONFIGURED', 'no operator broker credential is configured for rebate queries'),
           configured: false,
         },
-        503,
+        200,
       );
     }
 
@@ -908,6 +953,884 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       defaultWindow: q.from === undefined && q.to === undefined ? 'last-180-days' : 'explicit',
       note: 'company rebate revenue as reported by BitMart; not per-user payback',
     });
+  });
+
+
+  // ---- 공지 (전체 사용자에게 나가는 게시물) ----
+
+  /**
+   * 공지 목록 (관리자). 초안·게시·보관 전부 보여준다.
+   *
+   * 운영자(SUPPORT/ANALYST)도 읽을 수 있다 — 고객 문의에 답하려면 어떤 공지가
+   * 나갔는지 알아야 한다. 쓰기는 관리자 이상만 가능하다.
+   */
+  app.get('/admin/notices', async (c) => {
+    const g = await guard(c, 'admin.notice.read'); if ('err' in g) return g.err;
+    if (!d.notices) {
+      return c.json({ ...err('NOT_CONFIGURED', 'notices require the PostgreSQL backend'), notices: [] }, 503);
+    }
+    const notices = await d.notices.listAll(Number(c.req.query('limit') ?? 100));
+    return c.json({ notices, total: notices.length });
+  });
+
+  /** 공지 작성. 항상 초안으로 만들어진다 — 실수로 즉시 공개되는 것을 막는다. */
+  app.post('/admin/notices', async (c) => {
+    const g = await mutateGuard(c, 'admin.notice.write'); if ('err' in g) return g.err;
+    if (!d.notices) return c.json(err('NOT_CONFIGURED', 'notices require the PostgreSQL backend'), 503);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const title = String(body.title ?? '').trim();
+    // 제목 없는 공지는 목록에서 식별할 수 없다.
+    if (!title) return c.json(err('BAD_REQUEST', 'title is required'), 400);
+    if (title.length > 200) return c.json(err('BAD_REQUEST', 'title too long (max 200)'), 400);
+
+    const notice = await d.notices.create(
+      {
+        title,
+        body: String(body.body ?? ''),
+        category: body.category ? String(body.category) : undefined,
+        pinned: body.pinned === true,
+        publishAt: body.publishAt == null ? null : Number(body.publishAt),
+        expiresAt: body.expiresAt == null ? null : Number(body.expiresAt),
+        locale: body.locale ? String(body.locale) : undefined,
+      },
+      g.a.user.id,
+    );
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'notice.create',
+      resource: 'notice', resourceId: notice.id, result: 'success', riskLevel: 'medium',
+      ip: ip(c), reason: title.slice(0, 120),
+    });
+    return c.json({ notice }, 201);
+  });
+
+  /** 내용 수정. 상태(초안/게시)는 바꾸지 않는다 — 별도 동작이다. */
+  app.patch('/admin/notices/:id', async (c) => {
+    const g = await mutateGuard(c, 'admin.notice.write'); if ('err' in g) return g.err;
+    if (!d.notices) return c.json(err('NOT_CONFIGURED', 'notices require the PostgreSQL backend'), 503);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const title = String(body.title ?? '').trim();
+    if (!title) return c.json(err('BAD_REQUEST', 'title is required'), 400);
+
+    const notice = await d.notices.update(
+      c.req.param('id'),
+      {
+        title,
+        body: String(body.body ?? ''),
+        category: body.category ? String(body.category) : undefined,
+        pinned: body.pinned === true,
+        publishAt: body.publishAt == null ? null : Number(body.publishAt),
+        expiresAt: body.expiresAt == null ? null : Number(body.expiresAt),
+        locale: body.locale ? String(body.locale) : undefined,
+      },
+      g.a.user.id,
+    );
+    if (!notice) return c.json(err('NOT_FOUND', 'notice not found'), 404);
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'notice.update',
+      resource: 'notice', resourceId: notice.id, result: 'success', riskLevel: 'low',
+      ip: ip(c),
+    });
+    return c.json({ notice });
+  });
+
+  /*
+     상태 변경 — 게시 / 내림 / 보관.
+
+     작성·수정과 분리한 이유: 공지는 전체 사용자에게 나간다. 제목만 고치려다
+     실수로 게시되는 일이 있어서는 안 된다. 게시는 별도 동작으로 명시한다.
+  */
+  for (const [action, verb, risk] of [
+    ['publish', 'notice.publish', 'high'],
+    ['unpublish', 'notice.unpublish', 'medium'],
+    ['archive', 'notice.archive', 'low'],
+  ] as const) {
+    app.post(`/admin/notices/:id/${action}`, async (c) => {
+      const g = await mutateGuard(c, 'admin.notice.write'); if ('err' in g) return g.err;
+      if (!d.notices) return c.json(err('NOT_CONFIGURED', 'notices require the PostgreSQL backend'), 503);
+
+      const id = c.req.param('id');
+      const notice = action === 'publish' ? await d.notices.publish(id, g.a.user.id)
+        : action === 'unpublish' ? await d.notices.unpublish(id, g.a.user.id)
+        : await d.notices.archive(id, g.a.user.id);
+      if (!notice) return c.json(err('NOT_FOUND', 'notice not found'), 404);
+
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: verb,
+        resource: 'notice', resourceId: id, result: 'success', riskLevel: risk,
+        ip: ip(c), reason: notice.title.slice(0, 120),
+      });
+      return c.json({ notice });
+    });
+  }
+
+  // ---- 고객 지원 티켓 ----
+
+  /*
+     운영자(SUPPORT/ANALYST)도 읽고 답할 수 있다 — 승인된 업무 범위가
+     "티켓 대응" 이고, 답장을 못 하면 대응이 성립하지 않는다.
+     계정 정지 권한과는 분리되어 있다(다른 권한 플래그).
+  */
+  app.get('/admin/support/tickets', async (c) => {
+    const g = await guard(c, 'admin.support.read'); if ('err' in g) return g.err;
+    if (!d.support) {
+      return c.json({ ...err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), tickets: [], supported: false }, 200);
+    }
+    const statusRaw = c.req.query('status');
+    const status = statusRaw === 'open' || statusRaw === 'pending' || statusRaw === 'resolved' ? statusRaw : undefined;
+    const [tickets, counts] = await Promise.all([
+      d.support.listAll({ ...(status ? { status } : {}), limit: Number(c.req.query('limit') ?? 100) }),
+      d.support.counts(),
+    ]);
+    return c.json({ tickets, counts, total: tickets.length, supported: true });
+  });
+
+  /** 티켓 상세 — 운영자용이므로 내부 메모까지 포함된다. */
+  app.get('/admin/support/tickets/:id', async (c) => {
+    const g = await guard(c, 'admin.support.read'); if ('err' in g) return g.err;
+    if (!d.support) return c.json(err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), 200);
+    const found = await d.support.getForStaff(c.req.param('id'));
+    if (!found) return c.json(err('NOT_FOUND', 'ticket not found'), 404);
+    return c.json(found);
+  });
+
+  /**
+   * 답장 또는 내부 메모.
+   *
+   * internal=true 는 고객에게 보이지 않는다. 저장소가 고객용 조회에서
+   * SQL 로 걸러내므로, 이 플래그를 잘못 쓰면 노출되는 것이 아니라 반대로
+   * 고객이 답을 못 받는다 — 그쪽이 안전한 실패다.
+   */
+  app.post('/admin/support/tickets/:id/reply', async (c) => {
+    const g = await mutateGuard(c, 'admin.support.write'); if ('err' in g) return g.err;
+    if (!d.support) return c.json(err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const text = String(body.body ?? '').trim();
+    if (!text) return c.json(err('BAD_REQUEST', 'body is required'), 400);
+    if (text.length > 10_000) return c.json(err('BAD_REQUEST', 'body too long (max 10000)'), 400);
+
+    const msg = await d.support.addMessage({
+      ticketId: c.req.param('id'),
+      authorUserId: g.a.user.id,
+      authorSide: 'staff',
+      body: text,
+      internal: body.internal === true,
+    });
+    if (!msg) return c.json(err('NOT_FOUND', 'ticket not found'), 404);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role,
+      action: body.internal === true ? 'support.note' : 'support.reply',
+      resource: 'ticket', resourceId: c.req.param('id'), result: 'success', riskLevel: 'low', ip: ip(c),
+    });
+
+    /*
+       고객에게 답변이 왔다고 알린다.
+
+       ★★ 내부 메모에는 알리지 않는다. 메모는 고객에게 보이지 않는 내용이므로,
+         알림을 보내면 고객이 열어보고 아무것도 없다고 느낀다.
+
+       ★ 알림 생성 실패가 답변 저장을 되돌리면 안 된다. 답변은 이미 기록됐고
+         고객은 화면에서 볼 수 있다 — 알림은 편의 기능이다.
+    */
+    if (d.notifications && body.internal !== true) {
+      const ticket = await d.support.getForStaff(c.req.param('id')).catch(() => null);
+      const customerId = ticket?.ticket?.userId ?? null;
+      if (customerId && ticket) {
+        await d.notifications.create({
+          userId: customerId,
+          type: 'system',
+          severity: 'info',
+          // 본문을 넣지 않는다. 알림 목록은 요약이고, 내용은 티켓 화면에서 본다.
+          message: `문의에 답변이 등록되었습니다: ${String(ticket.ticket.subject).slice(0, 80)}`,
+          correlationId: c.req.param('id'),
+        }).catch(() => { /* 알림 실패가 답변을 되돌리지 않는다 */ });
+      }
+    }
+    return c.json({ message: msg }, 201);
+  });
+
+  /** 상태 변경 (열림 / 고객대기 / 종료). */
+  app.post('/admin/support/tickets/:id/status', async (c) => {
+    const g = await mutateGuard(c, 'admin.support.write'); if ('err' in g) return g.err;
+    if (!d.support) return c.json(err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const status = String(body.status ?? '');
+    if (status !== 'open' && status !== 'pending' && status !== 'resolved') {
+      return c.json(err('BAD_REQUEST', 'status must be open, pending or resolved'), 400);
+    }
+    const ticket = await d.support.setStatus(c.req.param('id'), status);
+    if (!ticket) return c.json(err('NOT_FOUND', 'ticket not found'), 404);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'support.status',
+      resource: 'ticket', resourceId: ticket.id, result: 'success', riskLevel: 'low', ip: ip(c),
+      reason: status,
+    });
+    return c.json({ ticket });
+  });
+
+  /** 우선순위 변경. */
+  app.post('/admin/support/tickets/:id/priority', async (c) => {
+    const g = await mutateGuard(c, 'admin.support.write'); if ('err' in g) return g.err;
+    if (!d.support) return c.json(err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const priority = String(body.priority ?? '');
+    if (priority !== 'low' && priority !== 'medium' && priority !== 'high') {
+      return c.json(err('BAD_REQUEST', 'priority must be low, medium or high'), 400);
+    }
+    const ticket = await d.support.setPriority(c.req.param('id'), priority);
+    if (!ticket) return c.json(err('NOT_FOUND', 'ticket not found'), 404);
+    return c.json({ ticket });
+  });
+
+  /** 담당자 지정 — 본인에게 배정하거나 해제한다. */
+  app.post('/admin/support/tickets/:id/assign', async (c) => {
+    const g = await mutateGuard(c, 'admin.support.write'); if ('err' in g) return g.err;
+    if (!d.support) return c.json(err('NOT_CONFIGURED', 'support tickets require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    // 남을 배정하려면 그 사람의 ID 를 알아야 한다. 지금은 본인 배정/해제만 허용한다 —
+    // 임의 ID 를 받으면 존재하지 않는 사용자에 배정돼 목록이 깨진다.
+    const target = body.unassign === true ? null : g.a.user.id;
+    const ticket = await d.support.assign(c.req.param('id'), target);
+    if (!ticket) return c.json(err('NOT_FOUND', 'ticket not found'), 404);
+    return c.json({ ticket });
+  });
+
+  // ---- 리퍼럴 제도 ----
+
+  /*
+     제도 조건 + 초대자 목록.
+
+     운영자도 읽을 수 있다 — 고객이 "얼마 받았나요" 라고 물으면 답해야 한다.
+     쓰기는 ADMIN 이상만: 제도를 켜면 전원에게 코드가 발급되고, 비율 변경은
+     돈이 나가는 조건이며, 지급 기록은 "실제로 보냈다" 는 주장이다.
+  */
+  app.get('/admin/referral', async (c) => {
+    const g = await guard(c, 'admin.referral.read'); if ('err' in g) return g.err;
+    if (!d.referral) {
+      return c.json({ ...err('NOT_CONFIGURED', 'referral requires the PostgreSQL backend'), supported: false, referrers: [] }, 200);
+    }
+    const [settings, referrers] = await Promise.all([
+      d.referral.getSettings(),
+      d.referral.listReferrers(Number(c.req.query('limit') ?? 100)),
+    ]);
+    return c.json({
+      supported: true,
+      settings,
+      referrers,
+      /*
+         ★ 운영자가 알아야 하는 사실.
+
+         우리는 적립액을 계산하지 않는다. 지급액은 거래소 어필리에이트
+         대시보드에서 실제 수령액을 확인한 뒤 운영자가 산정해 입력한다.
+      */
+      disclosures: { accrualComputed: false, autoPayout: false },
+    });
+  });
+
+  /**
+   * 제도 조건 변경.
+   *
+   * ★ 제도를 켤 때 payoutNote 를 요구한다.
+   *   자동 지급이 아니므로 "어떻게 받는지" 를 밝히지 않고 켜면 사용자는
+   *   자동 입금을 기대한다. 그 기대를 만들지 않는 것이 이 검증의 목적이다.
+   */
+  app.post('/admin/referral/settings', async (c) => {
+    const g = await mutateGuard(c, 'admin.referral.write'); if ('err' in g) return g.err;
+    if (!d.referral) return c.json(err('NOT_CONFIGURED', 'referral requires the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const enabled = body.enabled === true;
+    const sharePct = Number(body.sharePct);
+    const minPayout = Number(body.minPayout ?? 0);
+    const currency = String(body.payoutCurrency ?? 'USDT').trim().toUpperCase();
+    const payoutNote = typeof body.payoutNote === 'string' ? body.payoutNote.trim() : '';
+
+    if (!Number.isFinite(sharePct) || sharePct < 0 || sharePct > 100) {
+      return c.json(err('BAD_REQUEST', 'sharePct must be between 0 and 100'), 400);
+    }
+    if (!Number.isFinite(minPayout) || minPayout < 0) {
+      return c.json(err('BAD_REQUEST', 'minPayout must be zero or positive'), 400);
+    }
+    if (!/^[A-Z0-9]{2,10}$/.test(currency)) {
+      return c.json(err('BAD_REQUEST', 'payoutCurrency looks invalid'), 400);
+    }
+    if (enabled && !payoutNote) {
+      // 지급 방법을 밝히지 않고 제도를 켤 수 없다.
+      return c.json(err('BAD_REQUEST', 'payoutNote is required to enable the programme — users must know how they get paid'), 400);
+    }
+    if (enabled && sharePct <= 0) {
+      // 0% 로 켜면 "보상이 있다" 고 말하면서 0 을 준다.
+      return c.json(err('BAD_REQUEST', 'sharePct must be greater than 0 to enable the programme'), 400);
+    }
+
+    const settings = await d.referral.updateSettings(
+      { enabled, sharePct, minPayout, payoutCurrency: currency, payoutNote: payoutNote || null },
+      g.a.user.id,
+    );
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role,
+      action: enabled ? 'referral.enable' : 'referral.disable',
+      resource: 'referral', resourceId: 'default', result: 'success',
+      // 돈이 나가는 조건이다. 높은 위험으로 기록한다.
+      riskLevel: 'high', ip: ip(c),
+      reason: `share=${sharePct}% min=${minPayout}${currency}`,
+    });
+    return c.json({ settings });
+  });
+
+  /**
+   * 지급 기록.
+   *
+   * 시스템이 자동으로 만들지 않는다 — 자동 생성하면 "지급됐다고 기록됐는데
+   * 실제로는 안 보냈다" 가 가능해진다. 운영자가 보낸 뒤 근거와 함께 입력한다.
+   */
+  app.post('/admin/referral/payouts', async (c) => {
+    const g = await mutateGuard(c, 'admin.referral.write'); if ('err' in g) return g.err;
+    if (!d.referral) return c.json(err('NOT_CONFIGURED', 'referral requires the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const userId = String(body.referrerUserId ?? '').trim();
+    const amount = Number(body.amount);
+    const currency = String(body.currency ?? 'USDT').trim().toUpperCase();
+    const method = String(body.method ?? '').trim();
+
+    if (!userId) return c.json(err('BAD_REQUEST', 'referrerUserId is required'), 400);
+    if (!Number.isFinite(amount) || amount <= 0) return c.json(err('BAD_REQUEST', 'amount must be positive'), 400);
+    if (!/^[A-Z0-9]{2,10}$/.test(currency)) return c.json(err('BAD_REQUEST', 'currency looks invalid'), 400);
+    // 근거 없는 지급 기록은 나중에 검증할 수 없다.
+    if (!method) return c.json(err('BAD_REQUEST', 'method is required — how the payment was actually sent'), 400);
+
+    try {
+      const payout = await d.referral.recordPayout({
+        referrerUserId: userId,
+        amount,
+        currency,
+        method,
+        reference: typeof body.reference === 'string' ? body.reference.trim() || null : null,
+        periodStart: body.periodStart == null ? null : Number(body.periodStart),
+        periodEnd: body.periodEnd == null ? null : Number(body.periodEnd),
+        note: typeof body.note === 'string' ? body.note.trim() || null : null,
+      }, g.a.user.id);
+
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'referral.payout',
+        resource: 'referral_payout', resourceId: payout.id, targetUserId: userId,
+        result: 'success', riskLevel: 'high', ip: ip(c),
+        reason: `${amount} ${currency} via ${method}`,
+      });
+      return c.json({ payout }, 201);
+    } catch (e) {
+      // 존재하지 않는 사용자에 대한 지급은 외래키가 막는다.
+      return c.json(err('BAD_REQUEST', (e as Error).message), 400);
+    }
+  });
+
+  /** 특정 초대자의 상세 (초대 목록 + 지급 이력). */
+  app.get('/admin/referral/:userId', async (c) => {
+    const g = await guard(c, 'admin.referral.read'); if ('err' in g) return g.err;
+    if (!d.referral) return c.json(err('NOT_CONFIGURED', 'referral requires the PostgreSQL backend'), 200);
+
+    const userId = c.req.param('userId');
+    const [summary, signups, payouts] = await Promise.all([
+      d.referral.summaryFor(userId),
+      d.referral.listByReferrer(userId, 200),
+      d.referral.listPayouts(userId, 100),
+    ]);
+    return c.json({ userId, summary, signups, payouts });
+  });
+
+  // ---- 포인트 제도 ----
+
+  /*
+     ★ 포인트는 **부채**다.
+
+     사용자가 가진 포인트만큼 우리가 가치를 제공할 의무가 있다. 그래서 이
+     화면의 첫 숫자는 '미사용 포인트 총액' 이어야 한다 — 적립만 늘리고 그
+     값을 보지 않으면 감당할 수 없는 의무가 쌓인다.
+  */
+  app.get('/admin/points', async (c) => {
+    const g = await guard(c, 'admin.points.read'); if ('err' in g) return g.err;
+    if (!d.points) {
+      return c.json({ ...err('NOT_CONFIGURED', 'points require the PostgreSQL backend'), supported: false }, 200);
+    }
+    const [settings, totals, catalog, audit] = await Promise.all([
+      d.points.getSettings(),
+      d.points.totals(),
+      d.points.listCatalog(true),
+      // 정합성 검사. 항목이 나오면 동시성 결함이 있다는 뜻이다.
+      d.points.audit(10),
+    ]);
+    return c.json({
+      supported: true, settings, totals, catalog,
+      integrity: { mismatches: audit.length, samples: audit },
+      disclosures: { cashConvertible: false, withdrawable: false },
+    });
+  });
+
+  /**
+   * 제도 조건 변경.
+   *
+   * ★ 현금 구매를 켜려면 결제 대행사가 있어야 한다. 지금은 없으므로 서버가
+   *   거부한다. 설정만 켜두면 화면이 구매 버튼을 띄우고 사용자가 돈을 보낼
+   *   방법을 찾는다.
+   */
+  app.post('/admin/points/settings', async (c) => {
+    const g = await mutateGuard(c, 'admin.points.write'); if ('err' in g) return g.err;
+    if (!d.points) return c.json(err('NOT_CONFIGURED', 'points require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const enabled = body.enabled === true;
+    const unitName = String(body.unitName ?? 'Points').trim();
+    const purchaseEnabled = body.purchaseEnabled === true;
+    const expiryDays = Number(body.expiryDays ?? 0);
+    const referralAsPoints = body.referralAsPoints === true;
+    const referralPoints = Number(body.referralPoints ?? 0);
+
+    if (!unitName || unitName.length > 24) return c.json(err('BAD_REQUEST', 'unitName must be 1-24 characters'), 400);
+    if (!Number.isInteger(expiryDays) || expiryDays < 0 || expiryDays > 3650) {
+      return c.json(err('BAD_REQUEST', 'expiryDays must be 0-3650 (0 = never expires)'), 400);
+    }
+    if (!Number.isInteger(referralPoints) || referralPoints < 0 || referralPoints > 1_000_000) {
+      return c.json(err('BAD_REQUEST', 'referralPoints must be 0-1000000'), 400);
+    }
+    if (referralAsPoints && referralPoints <= 0) {
+      // 0 포인트를 보상이라고 말할 수 없다.
+      return c.json(err('BAD_REQUEST', 'referralPoints must be greater than 0 when referral rewards are paid in points'), 400);
+    }
+    if (purchaseEnabled) {
+      /*
+         결제 대행사가 연결되지 않았다.
+
+         구매를 허용하면 사용자가 결제를 시도하고 포인트를 받지 못한다.
+         결제 라우트를 만든 뒤에 이 검사를 그 조건으로 바꿔야 한다.
+      */
+      return c.json(err('NOT_CONFIGURED', 'no payment provider is connected — points cannot be sold yet'), 400);
+    }
+
+    const settings = await d.points.updateSettings(
+      { enabled, unitName, purchaseEnabled: false, expiryDays, referralAsPoints, referralPoints },
+      g.a.user.id,
+    );
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role,
+      action: enabled ? 'points.enable' : 'points.disable',
+      resource: 'points', resourceId: 'default', result: 'success',
+      // 부채를 만드는 제도다. 높은 위험으로 기록한다.
+      riskLevel: 'high', ip: ip(c),
+      reason: `expiry=${expiryDays}d referralPoints=${referralAsPoints ? referralPoints : 0}`,
+    });
+    return c.json({ settings });
+  });
+
+  /** 상품 등록·수정. */
+  app.post('/admin/points/catalog', async (c) => {
+    const g = await mutateGuard(c, 'admin.points.write'); if ('err' in g) return g.err;
+    if (!d.points) return c.json(err('NOT_CONFIGURED', 'points require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const id = String(body.id ?? '').trim();
+    const nameKey = String(body.nameKey ?? '').trim();
+    const kind = String(body.kind ?? '');
+    const cost = Number(body.cost);
+    const grants = Number(body.grants ?? 1);
+
+    if (!/^[a-z0-9_-]{2,40}$/.test(id)) return c.json(err('BAD_REQUEST', 'id must be lowercase letters, digits, - or _'), 400);
+    // 상품명을 DB 에 넣으면 번역할 수 없다. 사전 키를 받는다.
+    if (!/^[a-z0-9_]{2,60}$/.test(nameKey)) return c.json(err('BAD_REQUEST', 'nameKey must be a dictionary key'), 400);
+    if (kind !== 'ai_run' && kind !== 'competition' && kind !== 'feature') {
+      return c.json(err('BAD_REQUEST', 'kind must be ai_run, competition or feature'), 400);
+    }
+    if (!Number.isInteger(cost) || cost <= 0) return c.json(err('BAD_REQUEST', 'cost must be a positive integer'), 400);
+    if (!Number.isInteger(grants) || grants <= 0) return c.json(err('BAD_REQUEST', 'grants must be a positive integer'), 400);
+
+    const item = await d.points.upsertCatalog({
+      id, nameKey,
+      descKey: typeof body.descKey === 'string' && body.descKey ? body.descKey : null,
+      kind, cost, grants,
+      enabled: body.enabled === true,
+      sortOrder: Number.isInteger(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
+    });
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'points.catalog',
+      resource: 'point_catalog', resourceId: id, result: 'success', riskLevel: 'medium', ip: ip(c),
+      reason: `${kind} cost=${cost} grants=${grants} enabled=${body.enabled === true}`,
+    });
+    return c.json({ item });
+  });
+
+  /**
+   * 수동 지급 · 회수.
+   *
+   * ★ 회수는 삭제가 아니다. 반대 부호 항목을 넣어 상쇄한다 — 잘못이 있었다는
+   *   사실과 고쳤다는 사실이 모두 남아야 한다.
+   *
+   * memo 를 필수로 받는다. 이유 없는 지급·회수는 나중에 검증할 수 없다.
+   */
+  app.post('/admin/points/adjust', async (c) => {
+    const g = await mutateGuard(c, 'admin.points.write'); if ('err' in g) return g.err;
+    if (!d.points) return c.json(err('NOT_CONFIGURED', 'points require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const userId = String(body.userId ?? '').trim();
+    const amount = Number(body.amount);
+    const direction = String(body.direction ?? '');
+    const memo = String(body.memo ?? '').trim();
+
+    if (!userId) return c.json(err('BAD_REQUEST', 'userId is required'), 400);
+    if (!Number.isInteger(amount) || amount <= 0) return c.json(err('BAD_REQUEST', 'amount must be a positive integer'), 400);
+    if (direction !== 'grant' && direction !== 'revoke') {
+      return c.json(err('BAD_REQUEST', 'direction must be grant or revoke'), 400);
+    }
+    if (!memo) return c.json(err('BAD_REQUEST', 'memo is required — an adjustment without a reason cannot be audited'), 400);
+
+    try {
+      const entry = direction === 'grant'
+        ? await d.points.grant({ userId, amount, reason: 'admin_grant', memo, actorId: g.a.user.id })
+        : await d.points.revoke({ userId, amount, memo, actorId: g.a.user.id });
+
+      /*
+         포인트가 바뀐 것을 사용자에게 알린다.
+
+         ★ 회수도 알린다. 잔액이 줄었는데 이유를 모르면 "포인트가 사라졌다" 는
+           문의가 온다 — 그 문의를 처리하는 비용이 알림 한 줄보다 크다.
+      */
+      if (d.notifications) {
+        await d.notifications.create({
+          userId,
+          type: 'system',
+          severity: 'info',
+          message: direction === 'grant'
+            ? `포인트 ${amount}이(가) 지급되었습니다: ${memo.slice(0, 60)}`
+            : `포인트 ${amount}이(가) 회수되었습니다: ${memo.slice(0, 60)}`,
+          correlationId: entry ? entry.id : null,
+        }).catch(() => { /* 알림 실패가 원장을 되돌리지 않는다 */ });
+      }
+
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role,
+        action: direction === 'grant' ? 'points.grant' : 'points.revoke',
+        resource: 'point_ledger', resourceId: entry ? entry.id : 'duplicate',
+        targetUserId: userId, result: 'success', riskLevel: 'high', ip: ip(c),
+        reason: `${direction} ${amount} · ${memo.slice(0, 100)}`,
+      });
+      const balance = await d.points.balanceOf(userId);
+      return c.json({ entry, balance }, 201);
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m === 'INSUFFICIENT_POINTS') {
+        // 잔액보다 많이 회수할 수 없다 — 음수 잔액은 사용자에게 빚을 지우는 셈이다.
+        return c.json(err('INSUFFICIENT_POINTS', 'the user does not have that many points'), 409);
+      }
+      if (m === 'USER_NOT_FOUND') return c.json(err('NOT_FOUND', 'user not found'), 404);
+      return c.json(err('UPSTREAM_ERROR', m), 502);
+    }
+  });
+
+  /** 특정 사용자의 원장 (고객 문의 응대용). */
+  app.get('/admin/points/:userId', async (c) => {
+    const g = await guard(c, 'admin.points.read'); if ('err' in g) return g.err;
+    if (!d.points) return c.json(err('NOT_CONFIGURED', 'points require the PostgreSQL backend'), 200);
+
+    const userId = c.req.param('userId');
+    const [balance, history, entitlements] = await Promise.all([
+      d.points.balanceOf(userId),
+      d.points.history(userId, 200),
+      d.points.entitlementsOf(userId),
+    ]);
+    return c.json({ userId, balance, history, entitlements });
+  });
+
+  // ---- 법적 문서 (약관 · 개인정보 · 위험고지) ----
+
+  /*
+     ★★ 게시는 되돌릴 수 없다.
+
+       약관을 게시하면 그것이 회사의 법적 약속이 되고, 이미 본 사람이 있으므로
+       "안 본 것으로" 만들 수 없다. 그래서:
+         · 초안과 게시를 분리한다
+         · 게시된 문서는 수정을 거부한다 (새 버전을 만들어야 한다)
+         · 쓰기 권한은 SUPER 만 갖는다 (법무 검토 우회 방지)
+  */
+  app.get('/admin/legal', async (c) => {
+    const g = await guard(c, 'admin.legal.read'); if ('err' in g) return g.err;
+    if (!d.legal) {
+      return c.json({ ...err('NOT_CONFIGURED', 'legal documents require the PostgreSQL backend'), supported: false }, 200);
+    }
+    const docs = await d.legal.list(200);
+    /*
+       런칭 준비 상태.
+
+       ★ 약관과 개인정보처리방침이 게시되지 않았으면 런칭할 수 없다.
+         회원가입에서 동의를 받는데 동의 대상이 없는 상태다.
+    */
+    const published = await d.legal.publishedKinds();
+    const has = (k: string) => published.some((p) => p.kind === k);
+    return c.json({
+      supported: true,
+      documents: docs,
+      published,
+      readiness: {
+        termsPublished: has('terms'),
+        privacyPublished: has('privacy'),
+        riskPublished: has('risk'),
+        // 이 둘이 없으면 런칭 차단이다.
+        canLaunch: has('terms') && has('privacy'),
+      },
+    });
+  });
+
+  app.post('/admin/legal/draft', async (c) => {
+    const g = await mutateGuard(c, 'admin.legal.write'); if ('err' in g) return g.err;
+    if (!d.legal) return c.json(err('NOT_CONFIGURED', 'legal documents require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const kind = String(body.kind ?? '');
+    const locale = String(body.locale ?? '').trim();
+    const version = String(body.version ?? '').trim();
+    const title = String(body.title ?? '').trim();
+    const text = String(body.body ?? '');
+
+    if (!['terms', 'privacy', 'risk', 'security'].includes(kind)) {
+      return c.json(err('BAD_REQUEST', 'kind must be terms, privacy, risk or security'), 400);
+    }
+    if (!/^[a-zA-Z]{2}(-[a-zA-Z0-9]{2,8})?$/.test(locale)) {
+      return c.json(err('BAD_REQUEST', 'locale must be a language tag such as en or ko-KR'), 400);
+    }
+    if (!version || version.length > 40) return c.json(err('BAD_REQUEST', 'version is required (max 40 chars)'), 400);
+    if (!title || title.length > 200) return c.json(err('BAD_REQUEST', 'title is required (max 200 chars)'), 400);
+    if (!text.trim()) return c.json(err('BAD_REQUEST', 'body is required'), 400);
+    /*
+       HTML 을 거부한다.
+
+       화면은 마크다운 부분집합만 렌더한다. HTML 을 저장할 수 있게 두면 관리자
+       계정이 침해될 때 모든 방문자에게 스크립트를 실어 보낼 수 있다 — 약관
+       페이지는 로그인 전에도 열리므로 특히 위험하다.
+    */
+    if (/<\s*(script|iframe|object|embed|style|link|meta)\b/i.test(text)) {
+      return c.json(err('BAD_REQUEST', 'HTML tags are not allowed — the body is rendered as markdown'), 400);
+    }
+
+    const effectiveAt = Number(body.effectiveAt);
+    try {
+      const doc = await d.legal.createDraft({
+        kind: kind as 'terms' | 'privacy' | 'risk' | 'security',
+        locale, version, title, body: text,
+        effectiveAt: Number.isFinite(effectiveAt) && effectiveAt > 0 ? effectiveAt : null,
+        actorId: g.a.user.id,
+      });
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'legal.draft',
+        resource: 'legal_document', resourceId: doc.id, result: 'success',
+        riskLevel: 'medium', ip: ip(c), reason: `${kind}/${locale} v${version}`,
+      });
+      return c.json({ document: doc }, 201);
+    } catch (e) {
+      const m = (e as Error).message;
+      // 같은 종류·언어에 같은 버전이 두 개면 어느 것에 동의했는지 알 수 없다.
+      if (/duplicate key|unique/i.test(m)) {
+        return c.json(err('CONFLICT', 'that version already exists for this kind and locale'), 409);
+      }
+      return c.json(err('UPSTREAM_ERROR', m), 502);
+    }
+  });
+
+  app.post('/admin/legal/:id/publish', async (c) => {
+    const g = await mutateGuard(c, 'admin.legal.write'); if ('err' in g) return g.err;
+    if (!d.legal) return c.json(err('NOT_CONFIGURED', 'legal documents require the PostgreSQL backend'), 200);
+
+    try {
+      const doc = await d.legal.publish(c.req.param('id'));
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'legal.publish',
+        resource: 'legal_document', resourceId: doc.id, result: 'success',
+        // 게시는 되돌릴 수 없고 회사의 법적 약속이 된다.
+        riskLevel: 'high', ip: ip(c), reason: `${doc.kind}/${doc.locale} v${doc.version}`,
+      });
+      return c.json({ document: doc });
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m === 'DOC_NOT_FOUND') return c.json(err('NOT_FOUND', 'document not found'), 404);
+      if (m === 'ALREADY_PUBLISHED') {
+        return c.json(err('ALREADY_PUBLISHED', 'this document is already published — create a new version instead'), 409);
+      }
+      if (m === 'EMPTY_BODY') return c.json(err('BAD_REQUEST', 'cannot publish an empty document'), 400);
+      return c.json(err('UPSTREAM_ERROR', m), 502);
+    }
+  });
+
+  app.post('/admin/legal/:id', async (c) => {
+    const g = await mutateGuard(c, 'admin.legal.write'); if ('err' in g) return g.err;
+    if (!d.legal) return c.json(err('NOT_CONFIGURED', 'legal documents require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const text = body.body === undefined ? undefined : String(body.body);
+    if (text !== undefined && /<\s*(script|iframe|object|embed|style|link|meta)\b/i.test(text)) {
+      return c.json(err('BAD_REQUEST', 'HTML tags are not allowed — the body is rendered as markdown'), 400);
+    }
+    try {
+      const doc = await d.legal.updateDraft(c.req.param('id'), {
+        ...(body.title === undefined ? {} : { title: String(body.title).trim() }),
+        ...(text === undefined ? {} : { body: text }),
+        ...(Number.isFinite(Number(body.effectiveAt)) && Number(body.effectiveAt) > 0
+          ? { effectiveAt: Number(body.effectiveAt) } : {}),
+      });
+      return c.json({ document: doc });
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m === 'DOC_NOT_FOUND') return c.json(err('NOT_FOUND', 'document not found'), 404);
+      if (m === 'ALREADY_PUBLISHED') {
+        // 게시된 문구를 덮어쓰면 누가 무엇에 동의했는지의 증거가 사라진다.
+        return c.json(err('ALREADY_PUBLISHED', 'published documents cannot be edited — create a new version'), 409);
+      }
+      return c.json(err('UPSTREAM_ERROR', m), 502);
+    }
+  });
+
+  // ---- KuCoin 브로커 정산 (API Broker) ----
+
+  /*
+     ★★ 이것이 **우리 수익을 확인하는 유일한 경로**다.
+
+       주문에 브로커 서명을 붙이는 것(`brokerAttached`)은 우리 쪽 주장이고,
+       실제로 집계됐는지는 거래소만 안다. 아래 조회의 `...WithTag` 값이 그
+       판정이다 — 서명이 새고 있으면 `WithoutTag` 만 늘어난다.
+
+     ★ 자격증명이 없으면 지어내지 않는다. `configured: false` 로 알린다.
+       빈 배열만 주면 화면이 "수익 0원" 이라고 표시하고, 운영자는 설정이
+       빠진 것을 모른 채 넘어간다.
+  */
+  app.get('/admin/broker/kucoin/commission', async (c) => {
+    const g = await guard(c, 'admin.broker.rebate.read'); if ('err' in g) return g.err;
+    if (!d.kucoinBroker) {
+      return c.json({
+        ...err('NOT_CONFIGURED', 'operator KuCoin credentials are not configured'),
+        configured: false,
+      }, 200);
+    }
+
+    const q = parseQuery(c);
+    try {
+      const out = await d.kucoinBroker.client.getCommission(
+        d.kucoinBroker.operator,
+        d.kucoinBroker.broker,
+        {
+          page: Math.max(1, Number(q.page ?? 1) || 1),
+          pageSize: Math.min(Math.max(1, Number(q.pageSize ?? 50) || 50), 500),
+          tradeType: 'all',
+        },
+      );
+      return c.json({
+        configured: true,
+        approved: true,
+        // 브로커 헤더 3종이 다 있는지. 없으면 앞으로의 거래도 집계되지 않는다.
+        brokerAttached: Boolean(d.kucoinBroker.broker),
+        ...out,
+      });
+    } catch (e) {
+      const m = e as { message?: string; code?: string };
+      /*
+         브로커로 승인되지 않은 키면 권한 오류가 온다.
+
+         ★ 그것은 장애가 아니라 "아직 브로커가 아니다" 는 사실이다. 502 로
+           주면 관리자 화면이 장애처럼 보이고 콘솔이 오염된다.
+      */
+      return c.json({
+        configured: true,
+        approved: false,
+        brokerAttached: Boolean(d.kucoinBroker.broker),
+        items: [],
+        error: { code: m.code ?? 'UPSTREAM_ERROR', message: m.message ?? 'query failed' },
+      }, 200);
+    }
+  });
+
+  /** 우리를 통해 거래하는 사용자와 각자의 기여. */
+  app.get('/admin/broker/kucoin/users', async (c) => {
+    const g = await guard(c, 'admin.broker.rebate.read'); if ('err' in g) return g.err;
+    if (!d.kucoinBroker) {
+      return c.json({ ...err('NOT_CONFIGURED', 'operator KuCoin credentials are not configured'), configured: false }, 200);
+    }
+
+    const q = parseQuery(c);
+    try {
+      const out = await d.kucoinBroker.client.getUserList(
+        d.kucoinBroker.operator,
+        d.kucoinBroker.broker,
+        {
+          page: Math.max(1, Number(q.page ?? 1) || 1),
+          pageSize: Math.min(Math.max(1, Number(q.pageSize ?? 50) || 50), 500),
+          tradeType: 'all',
+          ...(typeof q.uid === 'string' && q.uid ? { uid: q.uid } : {}),
+        },
+      );
+      return c.json({ configured: true, approved: true, brokerAttached: Boolean(d.kucoinBroker.broker), ...out });
+    } catch (e) {
+      const m = e as { message?: string; code?: string };
+      return c.json({
+        configured: true, approved: false, items: [],
+        error: { code: m.code ?? 'UPSTREAM_ERROR', message: m.message ?? 'query failed' },
+      }, 200);
+    }
+  });
+
+  /**
+   * 리베이트 원장 CSV 링크.
+   *
+   * ★★ 링크만 돌려주고 **우리가 내려받지 않는다.** 이 CSV 에는 거래자 UID 와
+   *   거래량이 들어 있다. 서버가 사본을 만들면 그 파일을 지키는 책임이 생긴다.
+   *   운영자가 필요할 때 직접 받게 한다.
+   *
+   * ★ 링크는 유효기간이 있으므로 화면이 즉시 열어야 한다.
+   */
+  app.get('/admin/broker/kucoin/rebate-csv', async (c) => {
+    const g = await guard(c, 'admin.broker.rebate.read'); if ('err' in g) return g.err;
+    /*
+       ★ 입력 검증을 설정 확인보다 **먼저** 한다.
+
+         전에는 순서가 반대여서, 키가 없는 동안 잘못된 날짜를 보내도 200 이
+         돌아왔다. 키를 설정한 뒤에야 400 이 나타나면 그때 처음 발견하게 된다 —
+         검증은 설정 상태와 무관하게 같은 답을 줘야 한다.
+    */
+    const q = parseQuery(c);
+    const begin = String(q.begin ?? '');
+    const end = String(q.end ?? '');
+    // YYYYMMDD 만 받는다. ISO 를 보내면 KuCoin 이 조용히 빈 결과를 준다.
+    if (!/^\d{8}$/.test(begin) || !/^\d{8}$/.test(end)) {
+      return c.json(err('BAD_REQUEST', 'begin and end must be YYYYMMDD'), 400);
+    }
+
+    if (!d.kucoinBroker) {
+      return c.json({ ...err('NOT_CONFIGURED', 'operator KuCoin credentials are not configured'), configured: false }, 200);
+    }
+
+    try {
+      const out = await d.kucoinBroker.client.getRebateCsvUrl(
+        d.kucoinBroker.operator,
+        d.kucoinBroker.broker,
+        { begin, end, tradeType: q.tradeType === 'SPOT' ? 'SPOT' : 'FUTURES' },
+      );
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'broker.rebate.export',
+        resource: 'broker_rebate', resourceId: `${begin}-${end}`, result: 'success',
+        // 거래자 UID 가 담긴 파일을 내보내는 행위다.
+        riskLevel: 'medium', ip: ip(c),
+      });
+      return c.json({ configured: true, approved: true, ...out });
+    } catch (e) {
+      const m = e as { message?: string; code?: string };
+      return c.json({
+        configured: true, approved: false, url: null,
+        error: { code: m.code ?? 'UPSTREAM_ERROR', message: m.message ?? 'query failed' },
+      }, 200);
+    }
   });
 
   return app;

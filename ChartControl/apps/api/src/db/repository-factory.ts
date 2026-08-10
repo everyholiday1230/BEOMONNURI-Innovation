@@ -67,6 +67,13 @@ export interface CoreIdentityFactoryOptions {
   /** SQLite handle used by the dev/test backend. Required because dev/E2E must stay on SQLite. */
   db: DB;
   isProduction: boolean;
+  /**
+   * 개발에서 Postgres 를 쓰겠다는 명시적 동의 (USE_POSTGRES=true).
+   *
+   * DATABASE_URL 존재만으로 전환하지 않는다 — 테스트가 환경변수를 물려받아
+   * 개발 DB 를 오염시키는 것을 막기 위함이다.
+   */
+  usePostgres?: string | boolean;
   databaseUrl?: string;
   /** Injected in tests so a contract/guard test can exercise the postgres branch without a real dial. */
   poolFactory?: (connectionString: string) => Pool;
@@ -84,9 +91,29 @@ function descriptorsFor(backend: RepositoryBackend): RepositoryDescriptor[] {
 }
 
 export function createCoreIdentityRepositories(opts: CoreIdentityFactoryOptions): CoreIdentityRepositories {
-  if (opts.isProduction) {
-    const url = opts.databaseUrl?.trim();
-    if (!url || !/^postgres(ql)?:\/\//i.test(url)) {
+  const url = opts.databaseUrl?.trim();
+  const looksPostgres = Boolean(url && /^postgres(ql)?:\/\//i.test(url));
+
+  /*
+     Postgres 를 쓰는 조건.
+
+     운영은 무조건 Postgres 다(없으면 기동 거부). 개발은 기본이 sqlite 이고,
+     **명시적으로 요청할 때만** Postgres 를 쓴다.
+
+     왜 DATABASE_URL 만으로는 안 되는가
+     --------------------------------
+     E2E·단위 테스트가 환경변수를 물려받는다. DATABASE_URL 이 있으면 자동으로
+     Postgres 에 붙게 만들면, 테스트가 개발용 DB 를 오염시키고 결과가 환경에
+     따라 달라진다. 원 개발자가 그것을 테스트로 고정해 뒀다
+     (repository-factory.test.ts: 'dev/test stays on SQLite EVEN IF ...').
+     그 방어를 유지한다.
+
+     그래서 개발에서 Postgres 를 쓰려면 USE_POSTGRES=true 를 함께 준다.
+     실수로 켜지지 않고, 켜려면 의도를 밝혀야 한다.
+  */
+  const explicitOptIn = String(opts.usePostgres ?? '').toLowerCase() === 'true';
+  if (opts.isProduction || (explicitOptIn && looksPostgres)) {
+    if (!looksPostgres) {
       // Fail-closed, NOT a fallback: production identity persistence has exactly one supported backend.
       throw new Error(
         'fail-closed startup: production core identity repositories require a postgres:// DATABASE_URL ' +
@@ -94,7 +121,7 @@ export function createCoreIdentityRepositories(opts: CoreIdentityFactoryOptions)
           'Batch 1 cutover.',
       );
     }
-    const pool = (opts.poolFactory ?? createPool)(url);
+    const pool = (opts.poolFactory ?? createPool)(url as string);
     return {
       backend: 'postgres',
       users: new PgUserRepository(pool),
@@ -163,7 +190,12 @@ function descriptorsFor2(backend: RepositoryBackend): RepositoryDescriptor[] {
  * answer is derived from the wiring that actually happened.
  */
 export function createUserDataRepositories(opts: UserDataFactoryOptions): UserDataRepositories {
-  if (opts.isProduction) {
+  /*
+     풀이 주어졌다는 것은 정체성 계층이 이미 Postgres 로 선택됐다는 뜻이다
+     (index.ts 가 core.pool 을 넘긴다). 그때만 함께 Postgres 를 쓴다 —
+     한쪽은 Postgres, 다른 쪽은 sqlite 인 혼합 상태를 만들지 않는다.
+  */
+  if (opts.isProduction || opts.pool) {
     if (!opts.pool) {
       throw new Error(
         'fail-closed startup: production user/trading repositories (favorites/preferences/notifications/' +
@@ -217,7 +249,8 @@ function descriptorsFor3(backend: RepositoryBackend): RepositoryDescriptor[] {
  * the wiring that actually happened.
  */
 export function createAdminRepositories(opts: { db: DB; isProduction: boolean; pool?: Pool }): AdminRepositories {
-  if (opts.isProduction) {
+  // 위와 같은 이유로 풀이 있으면 개발에서도 Postgres 를 쓴다.
+  if (opts.isProduction || opts.pool) {
     if (!opts.pool) {
       throw new Error(
         'fail-closed startup: production admin/gateway/ai-policy repositories (admin_operations/gateway_state/' +

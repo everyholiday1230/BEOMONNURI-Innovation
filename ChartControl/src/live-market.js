@@ -78,6 +78,8 @@
      * false 면 네트워크 요청을 일절 하지 않고 목업으로만 동작한다.
      */
     backendPresent: null,
+    /** 마지막 시세 프레임 도착 시각 (ms). null = 아직 없음. */
+    lastDataAt: null,
     version: 0,
   };
 
@@ -248,6 +250,48 @@
 
   function candleKey(symbol, tf) { return symbol + '|' + tf; }
 
+  /**
+   * 캔들 값을 숫자로 맞춘다.
+   *
+   * ★★ 서버는 가격을 **문자열**로 준다 ("65048.5").
+   *
+   *   거래소가 문자열로 주고 서버가 정밀도를 보존하려고 그대로 전달한다.
+   *   그 자체는 합리적인 선택이지만, 화면이 문자열로 산술을 하면 조용히 깨진다:
+   *
+   *     hi = "65048.5";  hi += 6.4        →  "65048.56.4"   (연결!)
+   *     그 다음 계산이 모두 NaN 이 된다.
+   *
+   *   실제로 겪었다: /multi-chart 의 MiniChart 가 SVG 좌표에 NaN 을 넣어
+   *   콘솔 오류 5,284건을 냈다. 차트는 KLineChart 가 내부에서 Number 로
+   *   바꿔주기 때문에 살아 있었고, 그래서 눈에 띄지 않았다.
+   *
+   * ★ 그래서 **경계에서 한 번만** 바꾼다. 소비하는 쪽마다 Number() 를 부르게
+   *   하면 언젠가 한 곳을 빠뜨린다 — 그 한 곳이 조용히 NaN 을 만든다.
+   *
+   * ★ 숫자로 바꿀 수 없는 값은 그 캔들을 버린다. 0 으로 채우면 차트에
+   *   존재하지 않는 급락이 그려진다.
+   */
+  function toNumericCandles(rows) {
+    if (!Array.isArray(rows)) return [];
+    var out = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var c = rows[i];
+      if (!c) continue;
+      var o = Number(c.open), h = Number(c.high), l = Number(c.low), cl = Number(c.close);
+      var t = Number(c.time);
+      if (!isFinite(o) || !isFinite(h) || !isFinite(l) || !isFinite(cl) || !isFinite(t)) continue;
+      var v = Number(c.volume);
+      out.push({
+        time: t, open: o, high: h, low: l, close: cl,
+        // 거래량은 없을 수 있다. 없으면 0 이 아니라 그대로 둔다 — 0 은 "거래가
+        // 없었다" 는 뜻이고, 모르는 것과 다르다.
+        volume: isFinite(v) ? v : null,
+        closed: c.closed !== false,
+      });
+    }
+    return out;
+  }
+
   /** 실캔들을 확보한다. 이미 있거나 요청 중이면 아무 것도 하지 않는다. */
   function ensureCandles(symbol, tf) {
     if (!canCallApi() || !isSupported(symbol)) return;
@@ -258,7 +302,8 @@
       .candles(symbol, tf, 300)
       .then(function (res) {
         if (res && res.ok && Array.isArray(res.data) && res.data.length) {
-          live.candles.set(key, res.data);
+          // 문자열 가격을 여기서 숫자로 바꾼다 (경계에서 한 번만).
+          live.candles.set(key, toNumericCandles(res.data));
           scheduleBump();
         }
       })
@@ -273,6 +318,16 @@
     var key = candleKey(symbol, tf);
     var list = live.candles.get(key);
     if (!list || !list.length) return;
+
+    /*
+       WS 캔들도 같은 경계를 지난다.
+
+       ★ 여기를 빠뜨리면 REST 로 받은 캔들은 숫자인데 WS 로 갱신된 마지막
+         캔들만 문자열이 된다 — 가장 찾기 어려운 형태의 결함이다.
+    */
+    var fixed = toNumericCandles([candle]);
+    if (!fixed.length) return;
+    candle = fixed[0];
 
     var last = list[list.length - 1];
     if (last.time === candle.time) {
@@ -378,11 +433,77 @@
   var pendingBook = null;
   var bookTimer = null;
 
+  /**
+   * 지정한 키들을 숫자로 맞춘다.
+   *
+   * ★ 캔들과 같은 이유다 — 서버가 가격을 문자열로 준다. 티커·호가·체결도
+   *   마찬가지이고, 화면이 그것으로 산술을 하면 조용히 NaN 이 된다.
+   *
+   * ★ 값이 없는 키는 건드리지 않는다. undefined 를 0 으로 만들면 "모른다" 가
+   *   "0 이다" 로 바뀐다 — 가격이 0 이면 청산 계산이 엉뚱해진다.
+   */
+  function numify(obj, keys) {
+    if (!obj || typeof obj !== 'object') return obj;
+    var out = Object.assign({}, obj);
+    for (var i = 0; i < keys.length; i += 1) {
+      var k = keys[i];
+      if (out[k] === undefined || out[k] === null) continue;
+      var n = Number(out[k]);
+      // 숫자로 못 바꾸면 원래 값을 남긴다. 0 으로 덮으면 없는 값이 실제 값처럼 보인다.
+      if (isFinite(n)) out[k] = n;
+    }
+    return out;
+  }
+
+  /** 티커에서 숫자로 다뤄야 하는 필드. */
+  var TICKER_NUM = [
+    'last', 'markPrice', 'indexPrice', 'high24h', 'low24h', 'vol24h',
+    'turnover24h', 'change24h', 'changePct24h', 'fundingRate', 'openInterest',
+    'bestBid', 'bestAsk', 'bestBidSize', 'bestAskSize', 'nextFundingTime',
+  ];
+
+  /** 체결에서 숫자로 다뤄야 하는 필드. id 는 문자열로 둔다 — 식별자다. */
+  var TRADE_NUM = ['price', 'size', 'time', 'ts'];
+
+  /**
+   * 호가 정규화.
+   *
+   * bids/asks 는 [가격, 수량] 배열의 배열이다. 문자열이면 가격 비교가
+   * 사전순이 되어 호가창 정렬이 뒤집힌다 — "9" 가 "10" 보다 크게 나온다.
+   */
+  function numifyBook(book) {
+    if (!book) return book;
+    var side = function (rows) {
+      if (!Array.isArray(rows)) return rows;
+      var out = [];
+      for (var i = 0; i < rows.length; i += 1) {
+        var r = rows[i];
+        if (!Array.isArray(r)) { out.push(r); continue; }
+        var px = Number(r[0]), sz = Number(r[1]);
+        if (!isFinite(px) || !isFinite(sz)) continue;
+        out.push([px, sz]);
+      }
+      return out;
+    };
+    return Object.assign({}, book, { bids: side(book.bids), asks: side(book.asks) });
+  }
+
   function applyTicker(t) {
     var symbol = normalizeSymbol(t.symbol);
     if (!symbol) return;
+    // 문자열 가격을 여기서 숫자로 바꾼다 (경계에서 한 번만).
+    t = numify(t, TICKER_NUM);
     live.tickers.set(symbol, t);
     live.liveSymbols.add(symbol);
+
+    /*
+       마지막으로 **데이터**를 받은 시각.
+
+       ping/pong 이 아니라 시세 프레임만 기록한다. 연결은 살아 있는데 구독이
+       조용히 죽는 경우가 있고(백엔드에서 실제로 겪었다), pong 으로 갱신하면
+       그 상태를 "신선함" 으로 오인한다.
+    */
+    live.lastDataAt = Date.now();
 
     // MARKETS 행도 함께 갱신해 마켓 목록이 실시간으로 움직이게 한다.
     if (Array.isArray(QT.MARKETS)) {
@@ -421,6 +542,7 @@
   function applyBook(book) {
     var symbol = normalizeSymbol(book.symbol);
     if (!symbol) return;
+    book = numifyBook(book);
     live.books.set(symbol, book);
     if (symbol !== live.activeSymbol) return;
 
@@ -442,6 +564,7 @@
   function applyTrade(trade) {
     var symbol = normalizeSymbol(trade.symbol);
     if (!symbol) return;
+    trade = numify(trade, TRADE_NUM);
 
     var list = live.trades.get(symbol);
     if (!list) { list = []; live.trades.set(symbol, list); }
@@ -456,7 +579,9 @@
   function applyTradesSnapshot(payload) {
     var symbol = normalizeSymbol(payload.symbol);
     if (!symbol || !Array.isArray(payload.trades)) return;
-    live.trades.set(symbol, payload.trades.slice(0, 100));
+    live.trades.set(symbol, payload.trades.slice(0, 100).map(function (x) {
+      return numify(x, TRADE_NUM);
+    }));
     scheduleBump();
   }
 
@@ -661,15 +786,77 @@
     pollMarkets();
     marketsTimer = setInterval(pollMarkets, MARKETS_POLL_MS);
 
-    // Server-Timing 을 못 읽는 환경에서만, 백엔드 유무를 1회 확인한다.
+    /*
+       서버 설정을 1회 확보한다.
+
+       /api/config 에는 모드·기본심볼 외에 거래소 가입 링크가 들어 있고,
+       화면 여러 곳이 그 값으로 요소를 켜고 끈다. 부팅 때 받아두지 않으면
+       설정이 있어도 화면에 영구히 반영되지 않는다(실제로 겪음).
+       실패는 조용히 무시한다 — 정적 폴백에서 콘솔 오류를 내지 않는다.
+    */
+    if (Api && Api.ensureConfig) Api.ensureConfig();
+
+    /*
+       Server-Timing 을 못 읽는 환경에서만, 백엔드 유무를 확인한다.
+
+       ★★ 이전에는 **한 번 실패하면 곧바로 목업으로 되돌렸다.** 그래서 서버가
+         재시작 중이거나 네트워크가 잠깐 끊기면, 그 순간 접속한 사용자가 목업
+         데이터를 **자기 잔고·자기 포지션으로** 본다. 그리고 backendPresent 가
+         false 로 굳어 새로고침 전까지 계속 목업이다.
+         (실측으로 확인했다 — 서버 재시작 직후 목업 값 2건이 노출됐다.)
+
+       ★ 두 경우를 구분한다:
+           · HTTP 응답을 받았고 404/501 → 정적 프리뷰다(파일 서버는 있고 API 가
+             없다). 목업이 맞다.
+           · 네트워크 실패·타임아웃·5xx → 백엔드는 있으나 지금 문제다.
+             **목업으로 가지 않는다.** 재시도한다.
+
+       ★ 목업을 보여주는 것보다 "연결 중" 이 낫다. 빈 화면은 사용자가 다시
+         시도하게 하지만, 남의 숫자는 자기 것으로 기억한다.
+    */
     if (allowProbe) {
-      Api.rest.status().catch(function () {
-        console.info('[QTLive] 백엔드 응답 없음 — 목업으로 되돌린다');
-        stop();
-        started = true;
-        live.backendPresent = false;
-        startMockFallback();
-      });
+      var probeAttempt = 0;
+      var PROBE_MAX = 3;
+
+      var probe = function () {
+        probeAttempt += 1;
+        Api.rest.status().catch(function (err) {
+          var status = err && err.status;
+          var isMissingApi = status === 404 || status === 501;
+
+          if (isMissingApi) {
+            console.info('[QTLive] API 없음 (HTTP ' + status + ') — 정적 프리뷰로 동작한다');
+            stop();
+            started = true;
+            live.backendPresent = false;
+            startMockFallback();
+            return;
+          }
+
+          if (probeAttempt < PROBE_MAX) {
+            // 지수적으로 늘린다. 서버 재시작은 보통 몇 초 안에 끝난다.
+            var wait = 1500 * probeAttempt;
+            console.info(
+              '[QTLive] 백엔드 확인 실패 (' + (status || '네트워크') + ') — ' +
+                wait + 'ms 후 재시도 ' + probeAttempt + '/' + (PROBE_MAX - 1),
+            );
+            setTimeout(probe, wait);
+            return;
+          }
+
+          /*
+             재시도까지 실패했다. 여기서도 목업으로 바꾸지 않는다 —
+             화면은 "데이터를 불러올 수 없음" 으로 남는다.
+             ★ backendPresent 를 null 로 유지하면 QTMockPolicy 가 목업을 쓰지
+               않는다(판정 불가 = 목업 금지).
+          */
+          console.warn('[QTLive] 백엔드에 연결할 수 없습니다. 목업으로 대체하지 않습니다.');
+          live.socketState = 'offline';
+          live.upstreamState = 'offline';
+        });
+      };
+
+      probe();
     }
   }
 
@@ -819,9 +1006,28 @@
       return live.socketState === 'live' && live.liveSymbols.size > 0 ? 'live' : 'mock';
     },
 
+    /**
+     * 백엔드가 붙어 있는가.
+     *
+     * null = 아직 판정 못 함. true/false = 확정.
+     * 세 값을 구분하는 이유: "아직 모름" 을 false 로 다루면 부팅 직후 한순간
+     * 목업 화면이 보이고, true 로 다루면 백엔드 없는 환경에서 실데이터인 척한다.
+     */
+    isBackendPresent: function () { return live.backendPresent; },
+
     getUnsupported: function () { return Array.from(live.unsupported); },
     getConnectionState: function () { return tickState.connectionState; },
     getLatency: function () { return socket ? socket.getLatency() : 0; },
+
+    /**
+     * 마지막 시세 데이터가 도착한 뒤 흐른 시간(ms).
+     *
+     * null = 아직 한 번도 받지 못했다. 0 으로 주면 "방금 받았다" 는 거짓이
+     * 되고, 죽은 화면을 신선하다고 표시한다.
+     */
+    getDataAgeMs: function () {
+      return live.lastDataAt ? Date.now() - live.lastDataAt : null;
+    },
     getActiveSymbol: function () { return live.activeSymbol; },
     getTicker: function (symbol) { return live.tickers.get(normalizeSymbol(symbol)) || null; },
 

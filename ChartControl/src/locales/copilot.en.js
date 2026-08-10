@@ -28,7 +28,7 @@
       // --- 시스템 / 환영 ---
       ai_ctx_loaded: 'Context loaded. BTC/USDT Perp · 15m · 220 candles · 5 indicators active.',
       ai_welcome_beginner:
-        "Hello, this is the QuantumTrade AI Copilot. I'm analysing the **{symbol}** chart. "
+        "Hello, this is the {brand} Copilot. I'm analysing the **{symbol}** chart. "
         + 'Ask me anything in plain words and I can draw trendlines, support and resistance directly on the chart, '
         + 'and suggest entry, stop-loss and take-profit levels. I am a tool — real orders are only ever placed after your final approval.',
       ai_welcome_pro:

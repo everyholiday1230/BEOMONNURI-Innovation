@@ -44,6 +44,67 @@ export function isDevFixtureIdentifier(identifier: string): boolean {
   return HASH_SET.has(hashIdentifier(identifier));
 }
 
+
+/*
+ * ---------------------------------------------------------------------------
+ * Pattern-based detection (added after the hash list was found insufficient)
+ * ---------------------------------------------------------------------------
+ *
+ * The digest list above only catches the six fixtures declared in `dev/seed.ts`. Any account created
+ * by hand during development escapes it. That is not hypothetical: a SUPER_ADMIN account was created
+ * directly with psql while building this service, and the guard did not see it. Shipping that account
+ * to production would hand over full administrative access.
+ *
+ * A whitelist of known-bad values cannot solve this — it is always one step behind whoever creates
+ * the next account. So we also reject addresses in domains that **cannot receive mail**, which means
+ * they cannot belong to a real customer:
+ *
+ *   · `.local`      — mDNS, reserved (RFC 6762 §3)
+ *   · `.localhost`  — reserved (RFC 6761 §6.3)
+ *   · `.test`       — reserved for testing (RFC 6761 §6.2)
+ *   · `.invalid`    — reserved, guaranteed invalid (RFC 6761 §6.4)
+ *   · `.example` and `example.com|net|org` — reserved for documentation (RFC 6761 §6.5, RFC 2606)
+ *
+ * These are not judgement calls: the standards guarantee no real mail is delivered there. An account
+ * in one of these domains can never verify an e-mail, reset a password, or be contacted — so it is
+ * either a fixture or a mistake, and neither belongs in production.
+ *
+ * ★ We deliberately do NOT guess at things like "test@" or "admin@" local parts. Those are real
+ *   addresses at real companies, and refusing to start over a legitimate account would be worse
+ *   than the risk it avoids.
+ */
+
+/** Reserved suffixes that cannot receive mail. Compared against the normalized address. */
+const UNREACHABLE_SUFFIXES: readonly string[] = [
+  '.local',
+  '.localhost',
+  '.test',
+  '.invalid',
+  '.example',
+  '@example.com',
+  '@example.net',
+  '@example.org',
+];
+
+/**
+ * True when the address is in a domain that provably cannot receive mail, so it cannot belong to a
+ * real user. Case- and whitespace-insensitive.
+ */
+export function isUnreachableIdentifier(identifier: string): boolean {
+  if (typeof identifier !== 'string') return false;
+  const v = normalizeIdentifier(identifier);
+  if (!v.includes('@')) return false;
+  return UNREACHABLE_SUFFIXES.some((suffix) => v.endsWith(suffix));
+}
+
+/**
+ * True when the identifier should not exist in a production database — either a known fixture digest
+ * or an address that cannot receive mail.
+ */
+export function isNonProductionIdentifier(identifier: string): boolean {
+  return isDevFixtureIdentifier(identifier) || isUnreachableIdentifier(identifier);
+}
+
 export class DevSeedAccountDetectedError extends Error {
   readonly code = 'DEV_SEED_ACCOUNT_DETECTED';
   /** How many stored identifiers matched a known fixture digest. No identifier is exposed. */
@@ -51,16 +112,24 @@ export class DevSeedAccountDetectedError extends Error {
   /** Whether an explicit seed/test-fixture metadata marker was found. */
   readonly markerFound: boolean;
 
-  constructor(matches: number, markerFound: boolean) {
+  /** Addresses in domains that cannot receive mail. No identifier is exposed. */
+  readonly unreachable: number;
+
+  constructor(matches: number, markerFound: boolean, unreachable = 0) {
     super(
-      'DEV_SEED_ACCOUNT_DETECTED: the production database contains development/E2E fixture data ' +
-        `(identifier matches=${matches}, fixture marker=${markerFound}). ` +
-        'Refusing to start. Remove the fixture data from the production database, or point the ' +
-        'service at a clean production database.',
+      'DEV_SEED_ACCOUNT_DETECTED: the production database contains accounts that cannot belong to ' +
+        'real users ' +
+        `(fixture digest matches=${matches}, unreachable domains=${unreachable}, ` +
+        `fixture marker=${markerFound}). ` +
+        'Refusing to start. Remove those accounts from the production database, or point the ' +
+        'service at a clean production database. Unreachable domains are addresses in .local, ' +
+        '.test, .invalid, .localhost or example.com — mail can never be delivered there, so such ' +
+        'an account can never verify its e-mail or reset its password.',
     );
     this.name = 'DevSeedAccountDetectedError';
     this.matches = matches;
     this.markerFound = markerFound;
+    this.unreachable = unreachable;
   }
 }
 
@@ -75,7 +144,16 @@ export interface DevFixtureScanSource {
 }
 
 export interface DevFixtureScanResult {
+  /** Identifiers matching a known fixture digest. */
   matches: number;
+  /**
+   * Identifiers in domains that cannot receive mail (`.local`, `example.com`, …).
+   *
+   * Counted separately from `matches` so an operator can tell the two causes apart: a digest match
+   * means the seed script ran, an unreachable address usually means someone created an account by
+   * hand. The fix differs.
+   */
+  unreachable: number;
   markerFound: boolean;
   /** Total identifiers inspected — useful for operators, reveals nothing about any individual. */
   inspected: number;
@@ -84,13 +162,17 @@ export interface DevFixtureScanResult {
 /** Count fixture matches without revealing which identifiers matched. */
 export function scanForDevFixtures(source: DevFixtureScanSource): DevFixtureScanResult {
   let matches = 0;
+  let unreachable = 0;
   let inspected = 0;
   for (const identifier of source.listIdentifiers()) {
     inspected += 1;
-    if (typeof identifier === 'string' && isDevFixtureIdentifier(identifier)) matches += 1;
+    if (typeof identifier !== 'string') continue;
+    if (isDevFixtureIdentifier(identifier)) matches += 1;
+    // Counted independently — an address can be both a known fixture and unreachable.
+    if (isUnreachableIdentifier(identifier)) unreachable += 1;
   }
   const markerFound = source.hasFixtureMarker?.() ?? false;
-  return { matches, markerFound, inspected };
+  return { matches, unreachable, markerFound, inspected };
 }
 
 /**
@@ -102,8 +184,14 @@ export function assertNoDevFixtures(
   isProduction: boolean,
 ): DevFixtureScanResult {
   const result = scanForDevFixtures(source);
-  if (isProduction && (result.matches > 0 || result.markerFound)) {
-    throw new DevSeedAccountDetectedError(result.matches, result.markerFound);
+  /*
+     Unreachable addresses block startup too.
+
+     Without this, an account created by hand during development ships to production. That is exactly
+     what happened here: a SUPER_ADMIN in a `.local` domain existed and the digest list did not see it.
+  */
+  if (isProduction && (result.matches > 0 || result.unreachable > 0 || result.markerFound)) {
+    throw new DevSeedAccountDetectedError(result.matches, result.markerFound, result.unreachable);
   }
   return result;
 }

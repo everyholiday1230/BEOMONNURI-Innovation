@@ -36,6 +36,14 @@
     status: 'OFFLINE',
     balances: [],
     positions: [],
+    /** 미체결 주문 */
+    openOrders: [],
+    /** 완료·취소된 주문 */
+    orderHistory: [],
+    /** 체결 내역 */
+    fills: [],
+    /** 자금 이동 내역 */
+    transactions: [],
     /** 마지막 성공 조회 시각. 오래되면 화면이 그 사실을 보여줄 수 있다. */
     asOf: null,
     /** 조회 실패 이유. 사용자에게 보여줄 문구를 만들 근거. */
@@ -149,6 +157,158 @@
       .filter(Boolean);
   }
 
+/**
+   * 거래소 주문 → 화면 주문.
+   *
+   * 목업(QT.OPEN_ORDERS)이 쓰는 필드를 그대로 채운다:
+   *   { id, symbol, side, type, price, avgPrice, amount, filled, remaining, trigger, time, status }
+   *
+   * 수량이 빈 값이면 행을 만들지 않는다 — 어댑터가 계약 승수를 모를 때 발생하고,
+   * 수량 없는 주문 행은 화면 계산이 전부 어긋난다.
+   */
+  function toUiOrders(rows) {
+    if (!Array.isArray(rows)) return [];
+    var out = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var o = rows[i];
+      var amount = Number(o.quantity);
+      var filled = Number(o.filledQuantity);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      if (!Number.isFinite(filled)) filled = 0;
+
+      out.push({
+        id: o.exchangeOrderId || o.clientOrderId || (o.symbol + '-' + i),
+        /*
+           취소는 clientOrderId 로 한다. 거래소 내부 id 는 거래소를 바꾸면
+           의미가 없어지고, 우리가 발급한 키만 우리 쪽에서 재현할 수 있다.
+           이 값이 없으면 취소 버튼이 동작하지 않는다.
+        */
+        clientOrderId: o.clientOrderId || null,
+        exchangeOrderId: o.exchangeOrderId || null,
+        symbol: o.symbol,
+        side: o.side === 'short' ? 'short' : 'long',
+        type: String(o.type || '').toUpperCase(),
+        /*
+           시장가 주문은 지정가가 없다.
+
+           null/undefined/빈문자열/0 을 모두 "가격 없음" 으로 본다.
+           Number(null) 은 0 이고 Number.isFinite(0) 은 true 이므로, 앞선 검사만으로는
+           시장가 주문이 '0.000' 으로 표시됐다(실제로 확인했다).
+           선물 가격이 0 인 주문은 존재하지 않으므로 0 도 없음으로 취급한다.
+        */
+        price: (function () {
+          if (o.price === null || o.price === undefined || o.price === '') return null;
+          var n = Number(o.price);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
+        avgPrice: null,
+        amount: amount,
+        filled: filled,
+        remaining: Math.max(0, amount - filled),
+        trigger: null,
+        time: Number(o.createdAt) || Date.now(),
+        status: String(o.status || 'open'),
+        isLive: true,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * 체결 → 화면 체결.
+   * 수수료 부호를 보존한다. 메이커 리베이트는 음수이고, 절대값으로 바꾸면
+   * 받은 돈이 나간 돈으로 보인다.
+   */
+  function toUiFills(rows) {
+    if (!Array.isArray(rows)) return [];
+    var out = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var f = rows[i];
+      var qty = Number(f.quantity);
+      var price = Number(f.price);
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price)) continue;
+      out.push({
+        id: f.id || (f.orderId + '-' + i),
+        orderId: f.orderId,
+        symbol: f.symbol,
+        side: f.side === 'short' ? 'short' : 'long',
+        price: price,
+        amount: qty,
+        fee: Number(f.fee) || 0,
+        feeCurrency: f.feeCurrency || 'USDT',
+        liquidity: f.liquidity || '',
+        time: Number(f.ts) || 0,
+        isLive: true,
+      });
+    }
+    return out;
+  }
+
+  /** 자금 이동 → 화면 내역. */
+  function toUiTransactions(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map(function (r) {
+        var amount = Number(r.amount);
+        if (!Number.isFinite(amount)) return null;
+        return {
+          id: r.id,
+          kind: r.kind || 'UNKNOWN',
+          rawType: r.rawType || '',
+          symbol: r.symbol || null,
+          amount: amount,
+          asset: r.asset || 'USDT',
+          time: Number(r.time) || 0,
+          isLive: true,
+        };
+      })
+      .filter(Boolean);
+  }
+
+/**
+   * 실현손익 기록 → 거래 분석용 목록.
+   *
+   * 왜 체결(fills)로 손익을 계산하지 않는가
+   * -------------------------------------
+   * 체결만으로 손익을 구하려면 진입·청산을 짝지어야 하고, 부분 체결·평균단가·
+   * 수수료·펀딩비를 우리가 다시 계산해야 한다. 거래소가 이미 계산해 둔 값과
+   * 어긋나면 사용자는 어느 쪽을 믿어야 할지 알 수 없다.
+   *
+   * 그래서 원장의 REALIZED_PNL 항목을 권위 있는 출처로 쓴다. 거래소가 확정한
+   * 금액이고, 우리가 다시 계산하지 않는다.
+   *
+   * ★ 진입가·청산가는 원장에 없다. 만들어 넣지 않는다 — 화면이 '—' 를 표시한다.
+   */
+  function toUiJournal(transactions) {
+    if (!Array.isArray(transactions)) return [];
+    return transactions
+      .filter(function (x) { return x.kind === 'REALIZED_PNL'; })
+      .map(function (x) {
+        var pnl = Number(x.amount);
+        if (!Number.isFinite(pnl)) return null;
+        return {
+          id: x.id,
+          // 화면 표가 쓰는 필드 이름에 맞춘다.
+          date: x.time ? new Date(x.time).toISOString().slice(0, 10) : null,
+          time: x.time || 0,
+          sym: x.symbol ? String(x.symbol).replace('USDT', '/USDT') : '—',
+          // 방향은 원장에 없다. 손익 부호로 추측하면 틀린다(숏도 이익이 날 수 있다).
+          side: null,
+          entry: null,
+          exit: null,
+          size: null,
+          pnl: pnl,
+          // 수익률도 투입 자본을 알아야 구할 수 있다. 원장에는 없다.
+          roi: null,
+          mood: null,
+          tag: [],
+          isLive: true,
+        };
+      })
+      .filter(Boolean)
+      .sort(function (a, b) { return b.time - a.time; });
+  }
+
   function applyToMockGlobals() {
     // 화면 코드는 window.QT.POSITIONS / window.QTApp.ALLOCATION 을 읽는다.
     // 실데이터가 있으면 그 자리를 바꿔치기한다 — 화면 코드를 고치지 않기 위해서다.
@@ -161,6 +321,15 @@
       if (!window.QT.__mockPositions) window.QT.__mockPositions = window.QT.POSITIONS;
       window.QT.POSITIONS = state.positions;
     }
+    /*
+       미체결 주문은 **0건도 사실**이다. 포지션과 다르게 처리한다.
+       검증된 키가 있는데 미체결이 0건이면 "주문 없음" 이 맞고, 그때 목업을
+       남겨두면 없는 주문이 화면에 보인다.
+    */
+    if (window.QT) {
+      if (!window.QT.__mockOpenOrders) window.QT.__mockOpenOrders = window.QT.OPEN_ORDERS;
+      window.QT.OPEN_ORDERS = state.openOrders;
+    }
     if (window.QTApp && state.balances.length > 0) {
       if (!window.QTApp.__mockAllocation) window.QTApp.__mockAllocation = window.QTApp.ALLOCATION;
       window.QTApp.ALLOCATION = toAllocation(state.balances);
@@ -170,12 +339,23 @@
   /** 목업으로 되돌린다. 로그아웃·키 삭제 시 이전 사용자의 값이 남지 않게. */
   function restoreMocks() {
     if (window.QT && window.QT.__mockPositions) window.QT.POSITIONS = window.QT.__mockPositions;
+    if (window.QT && window.QT.__mockOpenOrders) window.QT.OPEN_ORDERS = window.QT.__mockOpenOrders;
     if (window.QTApp && window.QTApp.__mockAllocation) window.QTApp.ALLOCATION = window.QTApp.__mockAllocation;
   }
 
   function poll() {
     if (!backendReady()) {
-      var next = window.QTAuth && !window.QTAuth.isLoggedIn() ? 'UNAUTHENTICATED' : 'OFFLINE';
+      /*
+         백엔드 없음과 비로그인은 다른 사실이다.
+
+         정적 프리뷰(백엔드 없음)에서 "로그인하면 내 계정이 표시됩니다" 를 보여주면
+         사용자가 로그인을 시도하고, 로그인할 곳이 없어 혼란스럽다.
+         백엔드 유무를 먼저 본다.
+      */
+      var offline = window.QTAuth ? window.QTAuth.get().offline : true;
+      var next = offline
+        ? 'OFFLINE'
+        : (window.QTAuth && !window.QTAuth.isLoggedIn() ? 'UNAUTHENTICATED' : 'OFFLINE');
       if (state.status !== next) {
         state.status = next;
         state.balances = [];
@@ -186,12 +366,29 @@
       return Promise.resolve();
     }
 
+    var C = window.QTApi.credentials;
+    /*
+       6개 조회를 병렬로 보낸다.
+
+       순차로 보내면 8초 주기 안에 끝나지 않을 수 있고, 화면 일부만 갱신된
+       어긋난 상태가 보인다. 개별 실패는 각자 잡아 다른 조회를 막지 않는다 —
+       주문 조회가 실패해도 잔고는 보여야 한다.
+    */
     return Promise.all([
-      window.QTApi.credentials.balances().catch(function (e) { return { __err: e }; }),
-      window.QTApi.credentials.positions().catch(function (e) { return { __err: e }; }),
+      C.balances().catch(function (e) { return { __err: e }; }),
+      C.positions().catch(function (e) { return { __err: e }; }),
+      C.openOrders().catch(function (e) { return { __err: e }; }),
+      C.orderHistory().catch(function (e) { return { __err: e }; }),
+      C.fills().catch(function (e) { return { __err: e }; }),
+      C.transactions().catch(function (e) { return { __err: e }; }),
     ]).then(function (res) {
       var bRes = res[0];
       var pRes = res[1];
+      var oRes = res[2];
+      var hRes = res[3];
+      var fRes = res[4];
+      var tRes = res[5];
+      // 잔고·포지션 실패만 전체 상태를 좌우한다. 나머지는 부가 정보다.
       var firstErr = (bRes && bRes.__err) || (pRes && pRes.__err) || null;
 
       if (firstErr) {
@@ -218,6 +415,10 @@
         state.status = credStatus;
         state.balances = [];
         state.positions = [];
+        state.openOrders = [];
+        state.orderHistory = [];
+        state.fills = [];
+        state.transactions = [];
         state.error = (bRes && bRes.reason) || (pRes && pRes.reason) || null;
         restoreMocks();
         bump();
@@ -238,6 +439,12 @@
       state.error = null;
       state.balances = balances;
       state.positions = toUiPositions(positions);
+      // 개별 실패는 빈 배열이 아니라 이전 값을 유지한다 — 한 번의 네트워크
+      // 오류로 화면의 주문 목록이 사라지면 사용자가 주문이 취소된 줄 안다.
+      if (oRes && !oRes.__err) state.openOrders = toUiOrders(oRes.data);
+      if (hRes && !hRes.__err) state.orderHistory = toUiOrders(hRes.data);
+      if (fRes && !fRes.__err) state.fills = toUiFills(fRes.data);
+      if (tRes && !tRes.__err) state.transactions = toUiTransactions(tRes.data);
       state.asOf = Date.now();
       applyToMockGlobals();
       bump();
@@ -271,6 +478,12 @@
     getStatus: function () { return state.status; },
     getBalances: function () { return state.balances.slice(); },
     getPositions: function () { return state.positions.slice(); },
+    getOpenOrders: function () { return state.openOrders.slice(); },
+    getOrderHistory: function () { return state.orderHistory.slice(); },
+    getFills: function () { return state.fills.slice(); },
+    getTransactions: function () { return state.transactions.slice(); },
+    /** 실현손익 기록. 거래 분석 화면이 쓴다. */
+    getJournal: function () { return toUiJournal(state.transactions); },
     getAllocation: function () { return toAllocation(state.balances); },
     getError: function () { return state.error; },
     getAsOf: function () { return state.asOf; },
@@ -282,7 +495,7 @@
     },
 
     /** 변환기를 노출한다. 테스트와 화면에서 재사용한다. */
-    convert: { allocation: toAllocation, positions: toUiPositions },
+    convert: { allocation: toAllocation, positions: toUiPositions, orders: toUiOrders, fills: toUiFills, transactions: toUiTransactions, journal: toUiJournal },
 
     /** 진단용. 콘솔에서 QTAccount.debug() */
     debug: function () {
@@ -291,6 +504,10 @@
         error: state.error,
         balances: state.balances.length,
         positions: state.positions.length,
+        openOrders: state.openOrders.length,
+        orderHistory: state.orderHistory.length,
+        fills: state.fills.length,
+        transactions: state.transactions.length,
         asOf: state.asOf ? new Date(state.asOf).toISOString() : null,
         version: state.version,
       };

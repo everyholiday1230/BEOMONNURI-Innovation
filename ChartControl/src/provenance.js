@@ -47,38 +47,177 @@
     '/signup': { status: 'live', note: 'auth_wired' },
     '/verify-email': { status: 'live', note: 'auth_wired' },
     '/password-reset': { status: 'live', note: 'auth_wired' },
-    '/kyc': { status: 'mock', note: 'kyc_not_built' },
+    '/kyc': { status: 'live', note: 'kyc_by_exchange' },
     '/': { status: 'partial', note: 'landing_static' },
 
     // ---- 거래 ----
-    '/trade': { status: 'partial', note: 'trade_partial' },
+    '/trade': { status: 'partial', note: 'trade_partial' },  // 차트·지표·비교·드로잉 실제 / 주문집행 시뮬레이션
     '/multi-chart': { status: 'partial', note: 'chart_live_only' },
     '/markets': { status: 'live', note: 'market_live' },
 
     // ---- 계정 ----
     '/portfolio': { status: 'partial', note: 'needs_api_key' },
     '/wallet': { status: 'partial', note: 'needs_api_key' },
-    '/wallet/deposit': { status: 'mock', note: 'not_built' },
-    '/wallet/withdraw': { status: 'mock', note: 'not_built' },
+    '/wallet/deposit': { status: 'live', note: 'non_custodial' },
+    '/wallet/withdraw': { status: 'live', note: 'non_custodial' },
     '/wallet/transactions': { status: 'partial', note: 'needs_api_key' },
-    '/order-history': { status: 'mock', note: 'not_built' },
-    '/analytics': { status: 'mock', note: 'not_built' },
+    '/order-history': { status: 'dynamic:account', note: 'needs_api_key' },
+    '/analytics': { status: 'dynamic:account', note: 'needs_api_key' },
     '/settings': { status: 'partial', note: 'settings_partial' },
 
     // ---- 미구현 ----
-    '/ai-strategies': { status: 'mock', note: 'ai_not_built' },
-    '/ai-strategies/detail': { status: 'mock', note: 'ai_not_built' },
-    '/ai-strategies/my': { status: 'mock', note: 'ai_not_built' },
-    '/referral': { status: 'mock', note: 'referral_not_built' },
-    '/fees': { status: 'mock', note: 'not_built' },
-    '/help': { status: 'mock', note: 'not_built' },
-    '/notifications': { status: 'mock', note: 'not_built' },
+    '/ai-strategies': { status: 'partial', note: 'ai_provider_off' },
+    '/ai-strategies/detail': { status: 'partial', note: 'ai_provider_off' },
+    '/ai-strategies/my': { status: 'partial', note: 'ai_provider_off' },
+    '/referral': { status: 'partial', note: 'referral_manual_payout' },
+    '/fees': { status: 'partial', note: 'fees_partial' },
+    '/help': { status: 'live', note: 'support_wired' },
+    '/notifications': { status: 'partial', note: 'notif_partial' },
   };
 
   /** 관리자 라우트는 전부 미구현이다. 개별로 적지 않고 접두사로 처리한다. */
+  /*
+     배선이 끝난 관리자 화면은 개별로 등록한다.
+     접두사 규칙(/admin → mock)보다 개별 등록이 우선한다(routeStatus 참고).
+  */
+  ROUTES['/admin'] = { status: 'partial', note: 'admin_partial' };
+  ROUTES['/admin/users'] = { status: 'dynamic:admin', note: 'admin_users_live' };
+  ROUTES['/admin/users/detail'] = { status: 'dynamic:admin', note: 'admin_users_live' };
+  ROUTES['/admin/audit'] = { status: 'dynamic:admin', note: 'admin_audit_live' };
+  // 공지 — 실 저장·게시. Postgres 백엔드가 없으면 화면이 미지원을 알린다.
+  ROUTES['/admin/notices'] = { status: 'dynamic:admin', note: 'admin_notices_live' };
+  ROUTES['/admin/notices/new'] = { status: 'dynamic:admin', note: 'admin_notices_live' };
+  /*
+     입금·출금 — 비수탁 안내로 배선됨.
+
+     '실데이터' 가 아니라 'partial' 이다. 거래소 잔고는 실제지만 입금 주소·출금
+     실행은 우리에게 없다(있는 척하면 자금 사고가 난다). 그 사실을 화면이 알린다.
+  */
+  ROUTES['/wallet/deposit'] = { status: 'partial', note: 'noncustodial_guide' };
+  ROUTES['/wallet/withdraw'] = { status: 'partial', note: 'noncustodial_guide' };
+
+  /*
+     이번 배선으로 실데이터가 된 화면들.
+
+     ★ 이 목록을 갱신하지 않으면 완성된 기능이 계속 'MOCK' 배지를 달고,
+       사용자와 운영자가 실제 값을 목업으로 오해한다. 반대로 목업이 실데이터
+       배지를 달면 더 나쁘다 — 배선이 끝난 것만 여기 올린다.
+  */
+  // 본인 인증 — 신분서류를 받지 않는다는 사실을 알리는 화면 (구조적 결론)
+  ROUTES['/kyc'] = { status: 'partial', note: 'kyc_not_required' };
+
+  /*
+     AI 전략 — 내장전략 4개 + 실 백테스트(수수료·슬리피지 차감).
+
+     ★★ `dynamic:account` 였다. 그 판정은 **거래소 키 연결 여부**를 보는데,
+       이 화면은 키와 무관하게 동작한다(전략 목록·백테스트는 공개 시세로 돈다).
+       그래서 키가 없는 계정에는 'MOCK' 으로 표시됐다 — 실제로 동작하는 화면을
+       목업이라고 말하는 거짓 표시다.
+
+     ★ `partial` 인 이유: 전략·백테스트는 실제지만 **AI 분석 provider 가
+       연결되지 않았다**(`aiProvider: unavailable`). 아직 확정이 아닌 부분이
+       남아 있으므로 노란색으로 표시한다.
+  */
+  ROUTES['/ai-strategies'] = { status: 'partial', note: 'ai_provider_off' };
+  ROUTES['/ai-strategies/detail'] = { status: 'partial', note: 'ai_provider_off' };
+  ROUTES['/ai-strategies/my'] = { status: 'partial', note: 'ai_provider_off' };
+
+  /*
+     도움말 — FAQ + 실제 티켓 접수·답변.
+
+     ★ 거래소 키와 무관하다(로그인만 필요). `dynamic:account` 로 두면 키가 없는
+       사용자에게 목업으로 보인다.
+  */
+  ROUTES['/help'] = { status: 'live', note: 'support_wired' };
+
+  // 관리자 — 실 API 배선 완료
+  ROUTES['/admin/system'] = { status: 'dynamic:admin', note: 'admin_system_live' };
+  ROUTES['/admin/trades'] = { status: 'dynamic:admin', note: 'admin_readonly_live' };
+  ROUTES['/admin/risk'] = { status: 'dynamic:admin', note: 'admin_readonly_live' };
+  ROUTES['/admin/fees'] = { status: 'dynamic:admin', note: 'admin_fees_live' };
+  ROUTES['/admin/cs'] = { status: 'dynamic:admin', note: 'admin_cs_live' };
+  ROUTES['/admin/broadcast'] = { status: 'dynamic:admin', note: 'admin_broadcast_live' };
+  ROUTES['/admin/referral'] = { status: 'dynamic:admin', note: 'admin_referral_live' };
+  ROUTES['/admin/ai-ops'] = { status: 'dynamic:admin', note: 'admin_aiops_live' };
+  ROUTES['/admin/design-ops'] = { status: 'dynamic:admin', note: 'admin_dops_live' };
+
+  /*
+     구조상 해당 없는 화면 — 'partial' 로 둔다.
+
+     'live' 가 아니다: 보여줄 실데이터가 있는 게 아니라 "그 기능이 없다" 는
+     사실을 보여준다. 'mock' 도 아니다: 만들어낸 값이 하나도 없다.
+  */
+  ROUTES['/admin/kyc'] = { status: 'partial', note: 'na_by_design' };
+  ROUTES['/admin/deposits'] = { status: 'partial', note: 'na_by_design' };
+  ROUTES['/admin/withdrawals'] = { status: 'partial', note: 'na_by_design' };
+  ROUTES['/admin/assets'] = { status: 'partial', note: 'na_by_design' };
+
+  /*
+     친구 초대 — 실제 제도.
+
+     ★★ `dynamic:account` 였다. 그 판정은 **거래소 키 연결 여부**를 보는데,
+       추천 제도는 키와 무관하다(로그인만 필요). 그래서 키가 없는 계정에는
+       'MOCK' 으로 표시됐다.
+
+     ★ `partial` 인 이유: 코드 발급·초대 현황은 실제지만 **적립 예정액을
+       계산하지 않고 지급이 운영자 수동**이다. 자동화가 확정되지 않았으므로
+       노란색으로 남긴다.
+  */
+  ROUTES['/referral'] = { status: 'partial', note: 'referral_manual_payout' };
+  /*
+     포인트 — 실제 원장(append-only, 행 잠금).
+
+     ★ 거래소 키와 무관하다. `dynamic:account` 를 쓰면 키가 없는 계정에
+       목업으로 보인다.
+
+     ★ `partial` 인 이유: 적립·차감·잔액은 실제지만 **판매(결제)가 열려 있지
+       않다**(결제 대행사 미연결). 그 부분이 확정되지 않았다.
+  */
+  ROUTES['/points'] = { status: 'partial', note: 'points_no_payment' };
+  /*
+     법적 문서 — 게시 여부에 따라 내용이 달라진다.
+
+     'live' 로 두지 않는 이유: 게시되지 않았으면 문서가 없다고 표시한다.
+     그 상태도 정직한 실제 상태다.
+  */
+  ROUTES['/terms'] = { status: 'dynamic:admin', note: 'legal_live' };
+  ROUTES['/privacy'] = { status: 'dynamic:admin', note: 'legal_live' };
+  ROUTES['/risk'] = { status: 'dynamic:admin', note: 'legal_live' };
+  ROUTES['/security'] = { status: 'dynamic:admin', note: 'legal_live' };
+  ROUTES['/admin/legal'] = { status: 'dynamic:admin', note: 'admin_legal_live' };
+  ROUTES['/admin/points'] = { status: 'dynamic:admin', note: 'admin_points_live' };
+
+  /*
+     접두사 규칙.
+
+     ★★ `/admin` 전체를 `mock` 으로 두고 있었다. 그런데 `access.js` 의
+       `BUILT_ADMIN_ROUTES` 에는 배선 완료된 관리자 화면 22개가 등록돼 있다 —
+       두 파일이 어긋난 채로 남아, 실제로 동작하는 화면에 "아직 목업" 이
+       표시됐다. 운영자는 그 표시를 보고 실제 값을 의심한다.
+
+     ★ 접근 판정(access.js)과 상태 표시(여기)가 같은 목록을 봐야 어긋나지
+       않는다. 목록을 복제하지 않고 `access.js` 를 직접 조회한다.
+  */
   var ROUTE_PREFIXES = [
     { prefix: '/admin', status: 'mock', note: 'admin_not_built' },
   ];
+
+  /**
+   * 관리자 화면의 상태를 `access.js` 기준으로 판정한다.
+   *
+   * ★ 배선 완료로 등록된 화면은 `live`. 아직 아닌 것만 `mock`.
+   *   `access.js` 한 곳만 갱신하면 접근과 표시가 함께 맞는다.
+   */
+  function adminRouteStatus(path) {
+    var A = window.QTAccess;
+    if (!A || typeof A.isUndeveloped !== 'function') {
+      // 판정할 수 없으면 안전한 쪽(아직 목업)으로 둔다.
+      return { status: 'mock', note: 'admin_not_built' };
+    }
+    return A.isUndeveloped(path)
+      ? { status: 'mock', note: 'admin_not_built' }
+      : { status: 'live', note: 'admin_wired' };
+  }
 
   /**
    * 화면 요소별 상태.
@@ -109,6 +248,30 @@
     { selector: '[data-widget-type="assetsRisk"]', status: 'dynamic:account', note: 'needs_api_key' },
     { selector: '[data-widget-type="aiCopilot"]', status: 'mock', note: 'ai_not_built' },
 
+    /*
+       포지션 위젯의 탭은 상태가 서로 다르다.
+       위젯 하나로 뭉쳐 표시하면 "포지션은 배선됐는데 주문내역은 미구현" 인 사실이
+       가려진다. 탭 버튼을 개별로 표시한다.
+
+       DOM 순서에 의존한다(nth-of-type). 디자이너가 탭 순서를 바꾸면 함께 고쳐야 한다 —
+       그래서 여기 한 곳에만 둔다.
+    */
+    { selector: '.pos-tabs .tab:nth-of-type(1)', status: 'dynamic:account', note: 'needs_api_key' },
+    // 미체결·주문내역·체결내역·입출금내역 모두 배선 완료.
+    // 키가 검증되면 실데이터, 아니면 예시가 표시된다 (dynamic 판정).
+    { selector: '.pos-tabs .tab:nth-of-type(2)', status: 'dynamic:account', note: 'needs_api_key' },
+    { selector: '.pos-tabs .tab:nth-of-type(3)', status: 'dynamic:account', note: 'needs_api_key' },
+    { selector: '.pos-tabs .tab:nth-of-type(4)', status: 'dynamic:account', note: 'needs_api_key' },
+    { selector: '.pos-tabs .tab:nth-of-type(5)', status: 'dynamic:account', note: 'needs_api_key' },
+    { selector: '.pos-tabs .tab:nth-of-type(6)', status: 'mock', note: 'ai_not_built' },
+    // 전량 청산·개별 취소 배선 완료. 키가 검증되면 실제로 취소된다.
+    { selector: '.pos-tabs__right .btn--danger', status: 'dynamic:account', note: 'needs_api_key' },
+    // 거래 모드: 선물·모의는 동작, 현물은 미지원(누르면 이유 안내).
+    { selector: '.seg', status: 'partial', note: 'mode_partial' },
+
+    // 차트 도구: 비교 기능이 배선됐다.
+    { selector: '.chart-drawtools', status: 'live', note: 'draw_tools_live' },
+
     // ================= 실제 동작하는 것 =================
     { selector: '.chart-kline-wrap', status: 'live', note: 'chart_live' },
     { selector: '.conn-cluster', status: 'live', note: 'conn_live' },
@@ -124,7 +287,8 @@
     { selector: '.header-tool[title="Toggle theme"]', status: 'live', note: 'theme_live' },
 
     // ================= 미구현 버튼 =================
-    { selector: '.header-tool[title="Alerts"]', status: 'mock', note: 'not_built' },
+    // 알림 벨: 청산 위험 경고가 실 포지션에서 계산된다.
+    { selector: '.header-tool--icon[title*="alert"], .header-tool--icon[title*="위험"], .header-tool--icon[title*="청산"]', status: 'dynamic:account', note: 'risk_alerts_live' },
     { selector: '.ai-copilot, [class*="copilot"]', status: 'mock', note: 'ai_not_built' },
 
     // ================= 목업 데이터 화면 =================
@@ -164,6 +328,37 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
   }
 
+  /*
+     이 표시를 볼 수 있는 사람.
+
+     ★★ 개발 상태 표시는 **관리자에게만** 보여야 한다. 원래 등급 제한이 없어서
+       일반 고객에게도 "일부실제 · 주문 집행은 시뮬레이션" 같은 문구가 보였다.
+       고객은 이 화면을 완성된 서비스로 보러 왔는데, 내부 개발 용어를 읽으면
+       미완성 제품을 쓰고 있다고 느낀다.
+       (발주자 방침: 미개발 표시는 super·admin 에게만)
+
+     ★ 백엔드가 없는 디자인 미리보기에서는 보여준다 — 디자이너가 자기 화면의
+       어느 부분이 목업인지 확인하는 것이 이 도구의 원래 목적이다.
+
+     ★ 판정을 못 하는 동안(로그인 확인 전)에는 보여주지 않는다. 잠깐 보였다
+       사라지면 고객이 그 문구를 기억한다.
+  */
+  function isVisibleToViewer() {
+    // 미리보기(백엔드 없음) — 디자이너 확인용으로 항상 보인다.
+    if (window.QTLive && typeof window.QTLive.isBackendPresent === 'function'
+        && window.QTLive.isBackendPresent() === false) {
+      return true;
+    }
+    var A = window.QTAccess;
+    var auth = window.QTAuth;
+    if (!A || !A.RANK || !auth || typeof auth.getTier !== 'function') return false;
+    /* ★ 서버 role 이 아니라 화면 등급(tier)을 쓴다. auth-state.js 가 서버 role 을
+         화면 등급으로 변환해 두었고, 사이드바·접근 판정이 모두 이 값을 쓴다.
+         두 체계를 섞으면 어느 한쪽이 어긋난다. */
+    var rank = A.RANK[auth.getTier()];
+    return typeof rank === 'number' && rank >= A.RANK.admin;
+  }
+
   function t(key, vars) {
     return window.QTI18n ? window.QTI18n.t(key, vars) : key;
   }
@@ -186,6 +381,9 @@
     for (var i = 0; i < ROUTE_PREFIXES.length; i += 1) {
       var p = ROUTE_PREFIXES[i];
       if (path === p.prefix || path.indexOf(p.prefix + '/') === 0) {
+        /* ★ 관리자 화면은 access.js 의 배선 목록으로 판정한다 —
+             접두사 하나로 전부 목업 처리하면 완성된 화면에 거짓 표시가 남는다. */
+        if (p.prefix === '/admin') return adminRouteStatus(path);
         return { status: p.status, note: p.note };
       }
     }
@@ -194,9 +392,16 @@
 
   /** 계정 데이터 상태에 따라 실제/목업을 런타임 판정한다. */
   function resolveDynamic(spec) {
-    if (spec !== 'dynamic:account') return spec;
-    if (!window.QTAccount) return 'mock';
-    return window.QTAccount.isLive() ? 'live' : 'mock';
+    if (spec === 'dynamic:account') {
+      if (!window.QTAccount) return 'mock';
+      return window.QTAccount.isLive() ? 'live' : 'mock';
+    }
+    if (spec === 'dynamic:admin') {
+      // 관리자 실데이터가 도착했는지. 권한이 없으면 목업이 보인다.
+      if (!window.QTAdmin) return 'mock';
+      return window.QTAdmin.isLive() ? 'live' : 'mock';
+    }
+    return spec;
   }
 
   // ---------------------------------------------------------------
@@ -220,6 +425,8 @@
     for (var i = 0; i < prev.length; i += 1) prev[i].removeAttribute('data-qt-prov');
 
     if (!state.enabled) return;
+    // 요소 테두리도 관리자에게만 (고객 화면에 개발용 표시가 남으면 안 된다)
+    if (!isVisibleToViewer()) return;
 
     for (var j = 0; j < ELEMENTS.length; j += 1) {
       var spec = ELEMENTS[j];
@@ -255,8 +462,23 @@
     var h = ensureHost();
     h.innerHTML = '';
 
+    /* ★ 관리자가 아니면 표시하지 않는다. host 는 비워 둔 채로 남긴다 —
+         지우면 등급이 확인된 뒤 다시 만들어야 한다. */
+    if (!isVisibleToViewer()) {
+      document.documentElement.setAttribute('data-qt-prov-mode', 'off');
+      return;
+    }
+
     var info = routeStatus(currentRoute());
-    var status = info.status;
+    /*
+       ★★ `resolveDynamic` 을 반드시 거친다.
+
+         이것이 빠져 있어서 `status` 가 `'dynamic:account'` 문자열 그대로
+         클래스명에 들어갔다(`qt-prov-badge--dynamic:account`). CSS 에 없는
+         이름이므로 **색이 붙지 않아** /order-history · /analytics · /referral 의
+         상태를 눈으로 구분할 수 없었다. 라벨도 사전에 없는 키로 조회됐다.
+    */
+    var status = resolveDynamic(info.status);
 
     // 계정 데이터가 실제이면 partial 을 live 로 승격한다.
     // '키를 연결하면 실데이터' 인 화면에서, 실제로 연결된 뒤에도 계속
@@ -328,6 +550,11 @@
   window.addEventListener('hashchange', refresh);
   if (window.QTI18n && window.QTI18n.subscribe) window.QTI18n.subscribe(refresh);
   if (window.QTAccount && window.QTAccount.subscribe) window.QTAccount.subscribe(refresh);
+  /*
+     ★ 로그인 상태가 바뀌면 다시 판정한다. 이 구독이 없으면 관리자가 로그인해도
+       표시가 나타나지 않고(첫 렌더에 등급이 없었으므로), 로그아웃해도 남는다.
+  */
+  if (window.QTAuth && window.QTAuth.subscribe) window.QTAuth.subscribe(refresh);
 
   // React 가 화면을 다시 그리면 심어둔 속성이 사라진다. 주기적으로 다시 심는다.
   // MutationObserver 는 리렌더마다 수백 번 호출되어 오히려 무겁다.
