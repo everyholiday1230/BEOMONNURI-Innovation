@@ -114,10 +114,24 @@ describe('Phase 2 closure — auth security & isolation (sqlite :memory:)', () =
     expect(res.status).toBe(403);
   });
 
-  it('vertical privilege escalation: normal user → admin audit 403', async () => {
+  it('vertical privilege escalation: the auth router exposes no admin surface at all', async () => {
+    /*
+       ★★ 전에는 이 라우터에 `/admin/audit` 껍데기가 있어서 403 을 확인했다.
+
+         그 껍데기는 `{ ok: true }` 만 돌려주면서, 등록 순서에 따라 **실제 관리자
+         API 를 가로챌 수 있었다**(실측으로 /admin/users/export 가 그것에 잡혔다).
+         그래서 제거했다 — 관리자 기능은 admin/admin-routes.ts 한 곳에만 둔다.
+
+       ★ 이제 이 라우터에는 관리자 경로가 없으므로 404 가 맞다. 그리고 그것이
+         더 나은 상태다: 관리자 표면이 여기 없다는 사실 자체가 방어다.
+
+       ★ "일반 사용자는 관리자 감사 로그를 볼 수 없다" 는 실제 경로에서 확인한다
+         (admin-security-api.test.ts 의 ADM-AUDIT-GUARD).
+    */
     const { app } = build();
     const jar = await registerAndLogin(app, 'v@ex.com');
-    expect((await req(app, 'GET', '/admin/audit', { jar })).status).toBe(403);
+    const res = await req(app, 'GET', '/admin/audit', { jar });
+    expect(res.status).toBe(404);
   });
 
   it('horizontal privilege escalation: user A cannot read B layout/signal/order-draft (404)', async () => {

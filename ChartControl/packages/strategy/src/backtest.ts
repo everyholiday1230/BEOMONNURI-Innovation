@@ -61,6 +61,22 @@ export interface StrategyRules {
   name: string;
   /** Human description of the entry/exit logic. Shown to users verbatim. */
   description: string;
+  /*
+     ★★ Translation keys for the two fields above.
+
+       `name` and `description` hold Korean prose. The API does not know the
+       caller's language, so that Korean reached the English and Japanese
+       screens verbatim (confirmed on /ai-strategies).
+
+       The client renders `t(nameKey)` / `t(descriptionKey)` and only falls back
+       to the raw strings when a key is absent. Keeping both means a strategy
+       added without translations still shows something rather than a bare key.
+
+     ★ These are optional so third-party or user-authored rule sets (which have
+       no dictionary entry) remain valid.
+  */
+  nameKey?: string;
+  descriptionKey?: string;
   /** Minimum bars needed before the first signal can be produced. */
   warmup: number;
   /** Called for each bar index >= warmup with the history up to that bar inclusive. */
@@ -169,15 +185,31 @@ export function barsPerYear(timeframe: string): number {
   return Math.round((365 * 24 * 60) / m);
 }
 
+/*
+   백테스트 주의문.
+
+   ★★ 문장이 아니라 **번역 키**를 둔다.
+
+     전에는 한국어 문장 배열이었다. 이 목록은 API 응답에 그대로 실려 화면에
+     표시되는데, 서버는 요청 언어를 모른다. 그래서 영어·일본어 화면에도
+     한국어가 나왔다(실측으로 /ai-strategies 에서 확인).
+
+     이 문구들은 "과거 시뮬레이션이며 미래 성과가 아니다" 를 알리는 위험
+     안내다. 읽지 못하는 언어로 나오면 안내를 하지 않은 것과 같다.
+
+   ★ 키 이름은 순서를 담지 않는다(bt_caveat_1 같은 형태를 쓰지 않는다).
+     중간에 하나를 지우면 나머지 번호가 밀려 다른 문장이 표시된다.
+*/
 export const BACKTEST_CAVEATS: readonly string[] = [
-  '과거 데이터에 대한 시뮬레이션입니다. 실제 체결·미래 성과를 보장하지 않습니다.',
-  '신호는 봉 종가로 계산하고 체결은 다음 봉 시가로 처리합니다 (lookahead 제거).',
-  '수수료와 슬리피지를 양방향으로 차감합니다. 0으로 두면 결과가 과대평가됩니다.',
-  '한 봉의 범위가 손절과 익절을 모두 포함하면 손절을 먼저 맞은 것으로 처리합니다 (봉 데이터에 순서 정보가 없음).',
-  '자금 조달 수수료(funding)와 부분 체결, 호가 깊이는 모델에 없습니다.',
-  '마지막 봉에서 포지션을 강제 청산해 미실현 손실을 숨기지 않습니다.',
-  '동일 구간·동일 파라미터에서만 결과가 재현됩니다. 구간을 바꾸면 모든 수치가 달라집니다.',
+  'bt_caveat_simulation',
+  'bt_caveat_next_open',
+  'bt_caveat_fees',
+  'bt_caveat_stop_first',
+  'bt_caveat_no_funding',
+  'bt_caveat_force_close',
+  'bt_caveat_window_bound',
 ];
+
 
 /**
  * Runs a strategy over bars.

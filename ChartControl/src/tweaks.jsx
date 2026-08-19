@@ -57,10 +57,10 @@
         >
           <div className="tweaks__title">
             <I.Cog size={14}/>
-            <span>Tweaks</span>
+            <span>{t('tweaks')}</span>
             <span style={{fontSize: 10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontWeight: 400, letterSpacing:'0.03em'}}>LIVE</span>
           </div>
-          <button className="btn btn--icon" onClick={onClose} title="Close">
+          <button className="btn btn--icon" onClick={onClose} title={t('close')}>
             <I.X size={14}/>
           </button>
         </div>
@@ -68,7 +68,7 @@
         <div className="tweaks__body">
           {/* 1. LAYOUT PRESET */}
           <div className="tw-section">
-            <div className="tw-section__title">1. Layout Preset</div>
+            <div className="tw-section__title">{t('tw_1_preset')}</div>
             <div className="tw-preset-grid">
               {Object.values(QT.LAYOUT_PRESETS).map(p => (
                 <button
@@ -85,7 +85,7 @@
 
           {/* 2. DENSITY */}
           <div className="tw-section">
-            <div className="tw-section__title">2. Density</div>
+            <div className="tw-section__title">{t('tw_2_density')}</div>
             <div className="seg" style={{width:'100%'}}>
               {['comfortable', 'compact', 'dense'].map(d => (
                 <button
@@ -102,7 +102,7 @@
 
           {/* 3. Beginner / Pro */}
           <div className="tw-section">
-            <div className="tw-section__title">3. Mode</div>
+            <div className="tw-section__title">{t('tw_3_mode')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${!tweaks.pro ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ pro: false })}>
                 <I.Info size={11}/> Beginner
@@ -120,7 +120,7 @@
 
           {/* 4. Theme */}
           <div className="tw-section">
-            <div className="tw-section__title">4. Theme</div>
+            <div className="tw-section__title">{t('tw_4_theme')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${tweaks.theme==='dark' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ theme: 'dark' })}>
                 <I.Moon size={11}/> Dark
@@ -133,7 +133,7 @@
 
           {/* 5. Long/Short colors */}
           <div className="tw-section">
-            <div className="tw-section__title">5. Long / Short</div>
+            <div className="tw-section__title">{t('tw_5_longshort')}</div>
             <div style={{display:'flex', flexDirection:'column', gap: 6}}>
               {LONGSHORT_COLORS.map(c => (
                 <button
@@ -155,7 +155,7 @@
 
           {/* 6. Brand palette */}
           <div className="tw-section">
-            <div className="tw-section__title">6. Brand Palette</div>
+            <div className="tw-section__title">{t('tw_6_brand')}</div>
             <div style={{display:'flex', flexDirection:'column', gap: 6}}>
               {BRAND_PALETTES.map(p => (
                 <button
@@ -176,7 +176,7 @@
 
           {/* 7. Language */}
           <div className="tw-section">
-            <div className="tw-section__title">7. Language</div>
+            <div className="tw-section__title">{t('tw_7_language')}</div>
             {/*
                ★★ 원래 한국어·English **두 개만** 하드코딩돼 있었다. 일본어
                  사전을 등록해도 이 패널에서는 고를 수 없었다.
@@ -204,7 +204,7 @@
 
           {/* 8. Number format */}
           <div className="tw-section">
-            <div className="tw-section__title">8. Number Format</div>
+            <div className="tw-section__title">{t('tw_8_numfmt')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${tweaks.numFmt==='standard' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ numFmt: 'standard' })}>
                 Standard <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 4}}>18,240,000</span>

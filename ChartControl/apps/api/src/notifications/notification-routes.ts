@@ -38,6 +38,16 @@ export interface NotificationRouterDeps {
   service: AuthService;
   audit: IAuditRepository;
   repo: INotificationRepo;
+  /*
+     공지 저장소 (선택).
+
+     ★★ 공지 팝업이 여기 붙는 이유: 알림과 공지는 이용자에게 같은 성격이고
+       (읽음 처리·인증 필요), 두 라우터로 나누면 읽음 규칙이 갈린다.
+
+     ★ 없으면 팝업 라우트가 `supported:false` 를 준다 — 빈 목록을 주면 화면이
+       "띄울 공지가 없다" 로 읽고, 공지 기능이 없는 배포와 구분되지 않는다.
+  */
+  notices?: import('../db/notice-repo').PgNoticeRepo;
   posture: TradingPosture;
   csrfKey: string;
   corsOrigins: string[];
@@ -103,6 +113,58 @@ export function createNotificationRouter(d: NotificationRouterDeps): Hono {
   });
 
   /** NTF-02 — mark one read. Idempotent. */
+  /**
+   * GET /notices/popups — 아직 읽지 않은 팝업 공지.
+   *
+   * ★★ 읽음을 서버가 판정한다. 로컬 저장이면 기기를 바꿀 때마다 같은 팝업이
+   *   다시 뜨고, 그러면 이용자는 내용을 보지 않고 닫는 습관이 든다.
+   *
+   * ★ 언어를 쿼리로 받는다. 공지는 언어별로 따로 작성되므로(locale 칸),
+   *   화면 언어와 다른 공지를 띄우면 읽을 수 없는 글이 나온다.
+   */
+  app.get('/notices/popups', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
+    noStore(c);
+    if (!d.notices) return c.json({ notices: [], supported: false });
+    try {
+      const locale = c.req.query('locale') || undefined;
+      const rows = await d.notices.listUnreadPopups(a.user.id, locale, 3);
+      return c.json({
+        supported: true,
+        notices: rows.map((n) => ({
+          id: n.id,
+          title: n.title,
+          body: n.body,
+          category: n.category,
+          severity: n.severity,
+          publishedAt: n.publishedAt ?? n.publishAt,
+        })),
+        asOf: now(),
+      });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  /**
+   * POST /notices/:id/read — 공지를 읽음으로 표시한다.
+   *
+   * ★ 실패를 성공으로 위장하지 않는다. 화면이 팝업을 닫았는데 서버에 기록되지
+   *   않으면 다음 로그인에 또 뜬다 — 이용자는 우리 화면이 고장났다고 여긴다.
+   */
+  app.post('/notices/:id/read', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
+    if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', 'csrf validation failed'), 403);
+    noStore(c);
+    if (!d.notices) return c.json(err('NOTICES_UNAVAILABLE', 'notices are not configured'), 503);
+    const ok = await d.notices.markRead(a.user.id, c.req.param('id'));
+    // 없는 공지는 404 다. 200 을 주면 화면이 닫고 다음에 또 뜬다.
+    if (!ok) return c.json(err('NOT_FOUND', 'notice not found'), 404);
+    return c.json({ ok: true });
+  });
+
   app.post('/notifications/:id/read', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);

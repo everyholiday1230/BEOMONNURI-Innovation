@@ -13,8 +13,24 @@ export interface CredentialRow extends EncryptedCredential {
   connectionStatus: string;
 }
 
+/**
+ * 자격증명 저장소 계약.
+ *
+ * ★★ **비동기다.** SQLite 판은 동기로 끝나지만 PostgreSQL 판은 그럴 수 없다.
+ *   두 판이 같은 모양이어야 라우트가 어느 배포에서든 같은 코드로 동작한다.
+ *   동기 판을 그대로 두고 한쪽만 비동기로 만들면, 배포에 따라 `await` 유무가
+ *   달라져 "개발에서는 되는데 실서비스에서 안 되는" 상태가 된다.
+ */
+export interface CredentialStore {
+  create(userId: string, enc: EncryptedCredential, label?: string, exchange?: string): Promise<CredentialRow>;
+  getOwned(userId: string, id: string): Promise<CredentialRow | null>;
+  listOwned(userId: string): Promise<CredentialRow[]>;
+  setVerified(userId: string, id: string, status: string, permissionsVerified: boolean): Promise<void>;
+  revoke(userId: string, id: string): Promise<boolean>;
+}
+
 /** User-scoped exchange-credential store. Never returns secret/memo plaintext (only ciphertext). */
-export class SqliteCredentialRepo {
+export class SqliteCredentialRepo implements CredentialStore {
   constructor(private readonly db: DB) {}
   /**
    * 자격증명 저장.
@@ -23,7 +39,7 @@ export class SqliteCredentialRepo {
    * 저장해도 화면에 "bitmart" 로 표시됐다. 사용자가 어느 거래소 키인지 알 수
    * 없으면 잘못된 키를 지우게 된다.
    */
-  create(userId: string, enc: EncryptedCredential, label?: string, exchange = 'bitmart'): CredentialRow {
+  async create(userId: string, enc: EncryptedCredential, label?: string, exchange = 'bitmart'): Promise<CredentialRow> {
     const id = randomUUID();
     const now = Date.now();
     this.db
@@ -32,20 +48,20 @@ export class SqliteCredentialRepo {
          VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,'UNVERIFIED',?,?)`,
       )
       .run(id, userId, exchange, label ?? null, enc.accessKeyMasked, enc.encryptedAccessKey, enc.encryptedSecretKey, enc.encryptedMemo, enc.wrappedDek, enc.encryptionKeyVersion, enc.algo, now, now);
-    return this.getOwned(userId, id)!;
+    return (await this.getOwned(userId, id))!;
   }
-  getOwned(userId: string, id: string): CredentialRow | null {
+  async getOwned(userId: string, id: string): Promise<CredentialRow | null> {
     const r = this.db.prepare('SELECT * FROM exchange_credentials WHERE id=? AND user_id=? AND revoked_at IS NULL').get(id, userId) as Record<string, unknown> | undefined;
     return r ? map(r) : null;
   }
-  listOwned(userId: string): CredentialRow[] {
+  async listOwned(userId: string): Promise<CredentialRow[]> {
     return (this.db.prepare('SELECT * FROM exchange_credentials WHERE user_id=? AND revoked_at IS NULL').all(userId) as Record<string, unknown>[]).map(map);
   }
-  setVerified(userId: string, id: string, status: string, permissionsVerified: boolean): void {
+  async setVerified(userId: string, id: string, status: string, permissionsVerified: boolean): Promise<void> {
     this.db.prepare('UPDATE exchange_credentials SET connection_status=?, permissions_verified=?, last_verified_at=?, updated_at=? WHERE id=? AND user_id=?')
       .run(status, permissionsVerified ? 1 : 0, Date.now(), Date.now(), id, userId);
   }
-  revoke(userId: string, id: string): boolean {
+  async revoke(userId: string, id: string): Promise<boolean> {
     const info = this.db.prepare('UPDATE exchange_credentials SET revoked_at=? WHERE id=? AND user_id=? AND revoked_at IS NULL').run(Date.now(), id, userId);
     return info.changes > 0;
   }

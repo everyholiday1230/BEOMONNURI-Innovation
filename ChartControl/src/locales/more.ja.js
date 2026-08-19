@@ -1,0 +1,175 @@
+/* ============================================================
+   日本語 — その他の画面（入出金案内・取引所連携・手数料・ヘルプ・招待）辞書
+   ------------------------------------------------------------
+   キーは tools/i18n-extract.py が生成したものであり変更しない。
+
+   ★★ 入出金画面について
+     当社は資金を預からず、入金先の口座やウォレットアドレスを持たない
+     （利用規約 第2条）。これらの画面は**取引所での操作へ案内する画面**であり、
+     当社への送金を促すものではない。訳文でも当社宛の送金を示唆しないこと。
+
+   ★ 「清算」ではなく「ロスカット」を用いる（日本の取引所表記）。
+   ============================================================ */
+
+(function () {
+  'use strict';
+  if (!window.QTI18n) return;
+
+  window.QTI18n.register(
+    'ja',
+    {
+      /* 入金案内（当社の入金先ではなく、取引所での入金手順の案内） */
+      deposit_13c35d: "3〜5分",
+      deposit_1bcffc: "1. 資産 · ネットワークの選択",
+      deposit_2f858e: "必要な承認数:",
+      deposit_53bb7f: "入金完了までの目安:",
+      deposit_65292b: "資産を取引所口座へ入金",
+      deposit_7fb69f: "最近の入金履歴",
+      deposit_9360c7: "1〜3分",
+      deposit_adb488: "3. 入金のご案内",
+      deposit_b5d053: "10〜30分",
+      deposit_b9ca11: "入金",
+      deposit_d4cde2: "現在の残高",
+      deposit_eba168: "2. 入金アドレス",
+      deposit_eca2cd: "最小入金額:",
+
+      /* 取引所連携ウィザード */
+      exchange_connect_wizard_0506be: "2️⃣ API キーの発行",
+      exchange_connect_wizard_267402: "例: abcd1234…",
+      exchange_connect_wizard_344324: "例: secret1234…",
+      exchange_connect_wizard_4511bd: "キーを入力",
+      exchange_connect_wizard_46d3df: "3️⃣ API キーの入力",
+      exchange_connect_wizard_4b268e: "Trade 権限（注文の実行）",
+      exchange_connect_wizard_5953fd: "接続を保存",
+      exchange_connect_wizard_64bc70: "IP ホワイトリストの設定（推奨）",
+      exchange_connect_wizard_718595: "テスト中…",
+      exchange_connect_wizard_7e3fbe: "API キーの形式が正しくありません",
+      exchange_connect_wizard_806a50: "すでに口座をお持ちの方 →",
+      exchange_connect_wizard_810016: "← 戻る",
+      exchange_connect_wizard_8d8680: "完了",
+      exchange_connect_wizard_938e35: "Read 権限（必須）",
+      exchange_connect_wizard_a17369: "取引所に登録",
+      exchange_connect_wizard_a9672e: "接続に成功しました",
+      exchange_connect_wizard_aad4f8: "発行時のチェックリスト",
+      exchange_connect_wizard_acfc61: "🎁 新規登録の特典",
+      exchange_connect_wizard_ad0627: "OKX · Bitget などで必要です",
+      exchange_connect_wizard_c0269d: "有効期限の設定 · 90日を推奨",
+      exchange_connect_wizard_ca4b74: "{brand} 提携リンク",
+      exchange_connect_wizard_cea2a6: "API キーの検証に成功",
+      /* ★★ 出金権限は絶対に有効化しない。当社は必要としない。 */
+      exchange_connect_wizard_d39a64: "Withdraw 権限（❌ 絶対に有効化しないでください）",
+      exchange_connect_wizard_ec2bc7: "IP 制限（推奨）· 現在の IP のみ許可",
+      exchange_connect_wizard_f4b9a9: "API の発行が完了 →",
+      exchange_connect_wizard_fa18a0: "API の発行",
+
+      fee_rebate_2f76f9: "紹介キャッシュバック",
+      fee_rebate_350a9e: "取引手数料",
+      fee_rebate_4f1ad0: "自分の手数料ティア · 次のティアまで · プロモーション",
+      fee_rebate_597833: "純手数料",
+      fee_rebate_6d03c2: "🎁 実施中のプロモーション",
+      fee_rebate_a3530c: "今月の手数料明細",
+      fee_rebate_e7fe5e: "プロモーションのキャッシュバック",
+
+      help_center_0330b1: "チャットを開始",
+      help_center_044ef4: "お知りになりたい内容を検索…",
+      help_center_23dfeb: "平均応答 3分",
+      help_center_3910ce: "入出金",
+      help_center_42b43b: "よくある質問 · ガイド · お問い合わせ",
+      help_center_45bbd7: "出金にはどれくらいかかりますか？",
+      help_center_5052f8: "チケットを作成",
+      help_center_51472d: "登録はどうすればよいですか？",
+      help_center_531f6a: "お問い合わせ",
+      help_center_62cd9d: "手数料はどのように計算されますか？",
+      help_center_667475: "API キーはどう連携しますか？",
+      help_center_72f72a: "モデル v1.4.2 時点でヒット率58%、平均リスクリワード2.6倍。承認するかどうかは常に利用者の判断です。",
+      help_center_7901e1: "アドレス · ネットワーク · 上限",
+      help_center_7b944c: "アカウントが停止されたらどうなりますか？",
+      help_center_87ad98: "シグナル · オーバーレイ · 精度",
+      help_center_8c548e: "1対1の専任マネージャー",
+      help_center_8f8fe0: "出金は取引所で行います。当社は出金を取り扱わず、出金権限も保有しません。",
+      help_center_aa37a6: "ウォレットページで対応取引所を選び、API 発行ウィザードに従って進めてください。Read と Trade の権限のみ付与し",
+      help_center_ae2ce9: "よくある質問",
+      help_center_b92aff: "登録 · 認証 · 停止の解除",
+      help_center_b9a588: "取引金額 × Maker/Taker レート。30日間の取引量に応じてティアが自動で上下します。",
+      help_center_c1c49c: "登録 → メール認証の2段階で進みます。当社は本人確認書類を収集せず、本人確認は取引所が行います。",
+      help_center_c46850: "AI の自動売買を有効にできますか？",
+      help_center_c5eed0: "いいえ。当社は自動売買を提供しません。シグナルの承認は発注ではなく、すべての注文は利用者が実行します。",
+      help_center_d67afc: "AI シグナルはどのくらい正確ですか？",
+      help_center_dc20f4: "取引",
+      help_center_dda31f: "メールを送る",
+      help_center_ddc217: "法令上の懸念を検知した場合は一時停止し、理由をメールでご案内します。",
+      help_center_df04a4: "アカウント · 本人確認",
+      /* ★ ロスカット表記 */
+      help_center_eafac1: "注文タイプ · レバレッジ · ロスカット",
+
+      my_strategies_2247f0: "フォロー中の戦略 · 成績 · 自動コピー設定",
+      my_strategies_308c9f: "フォロー中の戦略はまだありません",
+      my_strategies_7dbef2: "AI 戦略ページで気になる戦略をフォローしてみてください。",
+      my_strategies_bc178b: "+ 戦略を見る",
+      my_strategies_c93fb6: "戦略ギャラリー →",
+      my_strategies_eb1536: "フォロー中の戦略なし",
+
+      referral_047382: "上の招待リンクまたはコードを友だちに共有",
+      referral_0f2024: "共有",
+      referral_1a8dfd: "累計キャッシュバック",
+      referral_1c41fb: "100名以上を招待",
+      referral_36c994: "友だちを招待して手数料キャッシュバックを受け取る",
+      referral_3be144: "500名以上を招待",
+      referral_4aa57d: "7日以内に取引",
+      referral_4e6dd0: "招待コード",
+      referral_556648: "招待した人数",
+      referral_5c777f: "友だち招待（リファラル）",
+      referral_5f1706: "支払条件は制度の案内に従います。当社が自動で送金することはありません。",
+      referral_7932cf: "🎯 仕組み",
+      referral_8580a8: "招待した友だち",
+      referral_944615: "自分のティアのコミッション",
+      referral_967128: "招待リンク",
+      referral_a0193f: "💰 キャッシュバックの仕組み",
+      referral_c0d797: "即時",
+      referral_c398ae: "招待した友だちはまだいません",
+      referral_c57b53: "友だちがリンクから登録",
+      referral_cc6354: "アクティブな利用者",
+      referral_ccc2b8: "20名以上を招待",
+      referral_d23449: "5名以上を招待",
+      referral_d7f3c2: "今月のキャッシュバック",
+      referral_e31ce0: "🎁 自分の招待リンク",
+      referral_fa91e4: "上のリンクを共有して最初の招待を始めましょう",
+
+      strategy_detail_0a17fe: "向いている利用者:",
+      strategy_detail_20ef84: "バックテストどおりに実戦でも結果が出るのが印象的。",
+      strategy_detail_40a912: "中〜長期のトレンドフォロワー",
+      strategy_detail_411128: "安定した成績。通知も正確に届く。",
+      strategy_detail_704ee2: "短期売買 · スキャルパー",
+      strategy_detail_73a075: "フォロー · 月額 $0",
+      strategy_detail_c84624: "良い戦略だが、横ばいのときに入らない条件も明確だとよい。",
+
+      transaction_history_1de8f9: "入金 · 出金 · 振替 · 手数料 · リベートの全記録",
+      transaction_history_99af2b: "今月の出金",
+      transaction_history_adb142: "TX ハッシュ · 資産で検索",
+      transaction_history_ec0ce9: "今月の入金",
+      transaction_history_ef5fd4: "リベート",
+
+      /* 出金案内（当社は出金を処理しない。取引所での操作を案内する） */
+      withdraw_100747: "上限の引き上げ",
+      withdraw_19b2d1: "キャンセル",
+      withdraw_34f036: "手数料",
+      withdraw_3f13b3: "出金情報",
+      withdraw_403732: "6桁のコード",
+      withdraw_5f9394: "受取額",
+      withdraw_605c61: "アドレス帳",
+      withdraw_690b48: "資産を外部ウォレットへ出金",
+      withdraw_708758: "保存済みの出金アドレス",
+      withdraw_757555: "残りの上限",
+      withdraw_83b14a: "出金の申請を受け付けました（シミュレーション）",
+      withdraw_972169: "出金",
+      withdraw_a426f8: "次の内容で出金を進めますか？",
+      withdraw_d4bbb3: "利用可能",
+      withdraw_e01e9b: "⚠ 出金の最終確認",
+      withdraw_e6f846: "出金の確認",
+      withdraw_e88174: "出金を申請 →",
+      withdraw_ecf928: "アドレスを追加",
+      withdraw_fe7cae: "1日の上限",
+    },
+    { label: "日本語", bcp47: 'ja-JP' },
+  );
+})();

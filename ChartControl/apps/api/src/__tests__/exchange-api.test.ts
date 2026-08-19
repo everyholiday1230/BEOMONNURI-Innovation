@@ -10,6 +10,7 @@ import {
   CONNECTABLE_EXCHANGE_IDS,
   EXCHANGES,
   findForbiddenGrants,
+  getConfirmedReferrals,
   getExchange,
 } from '../exchanges/exchange-catalog';
 
@@ -94,7 +95,57 @@ describe('EXG-01 catalogue integrity', () => {
   it('[5] referral URL is present and https for every exchange', () => {
     for (const e of EXCHANGES) {
       expect(e.referral.startsWith('https://')).toBe(true);
-      expect(e.referralNote.length).toBeGreaterThan(0);
+      /*
+         ★ 문장이 아니라 번역 키를 검사한다. 서버가 한국어 문장을 담으면
+           다국어 화면에 그대로 새어 나온다(그래서 키로 바꿨다).
+      */
+      expect(e.referralNoteKey.length).toBeGreaterThan(0);
+      expect(e.referralNoteKey).toMatch(/^[a-z0-9_]+$/);
+      expect(e).not.toHaveProperty('referralNote');
+    }
+  });
+
+  it('[5b] ★★ the confirmed KuCoin referral uses the broker path and matches its code', () => {
+    /*
+       왜 이것을 검사로 묶는가
+
+       ★★ `/r/rf/` 와 `/r/broker/` 는 둘 다 같은 코드를 받고, 브라우저에서
+          똑같이 정상 동작한다. 그런데 `/r/rf/` 는 일반 개인 추천이라
+          **브로커 계정에 귀속되지 않는다.** 경로를 잘못 쓰면 가입은 계속
+          일어나고 리베이트만 0 이 된다 — 화면에 오류가 없으니 아무도
+          알아채지 못한다. 실제로 이 카탈로그에 `/r/rf/QUANTUM-KURI` 라는
+          자리표시자가 들어 있었다.
+
+       ★ 링크와 코드가 어긋나면 가입 경로에 따라 귀속이 갈린다. 링크로 들어온
+         사람과 앱에서 코드를 입력한 사람이 서로 다른 계정에 붙는다.
+    */
+    const kucoin = getExchange('kucoin');
+    expect(kucoin).toBeDefined();
+    expect(kucoin?.referralConfirmed).toBe(true);
+    expect(kucoin?.referral).toMatch(/^https:\/\/www\.kucoin\.com\/r\/broker\//u);
+    expect(kucoin?.referral).not.toMatch(/\/r\/rf\//u);
+    // 자리표시자가 다시 들어오는 것을 막는다.
+    expect(kucoin?.referral).not.toMatch(/QUANTUM/iu);
+    expect(kucoin?.referralCode).not.toMatch(/QUANTUM/iu);
+    // 링크 끝의 코드와 referralCode 가 같아야 한다.
+    expect(kucoin?.referral.endsWith(String(kucoin?.referralCode))).toBe(true);
+  });
+
+  it('[5c] only confirmed referrals become UI defaults', () => {
+    /*
+       확인되지 않은 거래소의 자리표시자 링크가 화면 기본값으로 새어 나가면,
+       그쪽으로 가입한 사람은 정상 가입되고 수익만 0 이 된다. 그래서 기본값은
+       referralConfirmed 인 항목만이어야 한다.
+    */
+    const { urls, codes } = getConfirmedReferrals();
+    const confirmed = EXCHANGES.filter((e) => e.referralConfirmed === true).map((e) => e.id);
+    expect(Object.keys(urls).sort()).toEqual([...confirmed].sort());
+    for (const id of Object.keys(urls)) {
+      expect(urls[id]).toMatch(/^https:\/\//u);
+      expect(urls[id]).not.toMatch(/QUANTUM/iu);
+    }
+    for (const id of Object.keys(codes)) {
+      expect(codes[id]).toMatch(/^[A-Za-z0-9_-]{2,32}$/u);
     }
   });
 

@@ -39,7 +39,17 @@
 }
 
 /* 'soon' / '준비중' 꼬리표 */
-.seg__opt-pending {
+/*
+   꼬리표 — "준비 중" · "미리보기" · "데이터 없음" 같은 짧은 상태 표시.
+
+   `.seg__opt-pending` 은 헤더 모드 버튼용, `.qt-pending-mark` 는 그 밖의
+   자리(차트 머리 등)용이다. 모양을 공유하되 선택자를 나눠 둔 이유는 헤더
+   전용으로 좁은 화면에서 숨기는 규칙이 아래에 따로 있기 때문이다 —
+   차트 머리의 표시는 좁은 화면에서도 남아야 한다(실데이터가 아니라는 사실은
+   화면 폭과 무관하게 중요하다).
+*/
+.seg__opt-pending,
+.qt-pending-mark {
   margin-left: 4px;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 8px;
@@ -52,6 +62,7 @@
   vertical-align: 1px;
   /* 꼬리표가 클릭을 가로채면 버튼이 안 눌린다 — 이유 토스트를 못 본다. */
   pointer-events: none;
+  white-space: nowrap;
 }
 
 /*
@@ -81,4 +92,373 @@
   border-color: var(--color-warning, #d97706);
   background: color-mix(in srgb, var(--color-warning, #d97706) 14%, transparent);
   color: var(--color-warning, #d97706);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   언어 선택 드롭다운
+
+   ★ 디자이너 CSS 는 건드리지 않는다. 이 파일에만 추가한다.
+
+   전에는 헤더의 언어 버튼이 누를 때마다 다음 언어로 **한 칸씩 순환**했다.
+   언어가 3개면 원하는 언어까지 최대 2번 눌러야 하고, 지나치면 한 바퀴를
+   더 돌아야 한다. 목록을 펼쳐 바로 고르게 한다.
+   ────────────────────────────────────────────────────────────── */
+.qt-langwrap { position: relative; display: inline-flex; }
+
+.qt-langmenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-dropdown, 100);
+  min-width: 148px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default, rgba(255,255,255,.12));
+  background: var(--bg-elevated, #16181d);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+
+.qt-langmenu__opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  /* 손가락으로 누를 수 있는 높이. 32px 기준을 지킨다. */
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary, #e8eaed);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qt-langmenu__opt:hover,
+.qt-langmenu__opt:focus-visible {
+  background: var(--bg-hover, rgba(255,255,255,.07));
+}
+
+.qt-langmenu__opt[aria-checked='true'] {
+  color: var(--accent-primary, #4da3ff);
+}
+
+.qt-langmenu__code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  opacity: .65;
+}
+
+/* 좁은 화면에서는 화면 밖으로 나가지 않게 오른쪽에 붙인다. */
+@media (max-width: 480px) {
+  .qt-langmenu { right: -4px; min-width: 132px; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   추천 코드 줄 (Wallet 파트너 거래소 카드)
+
+   ★ 디자이너 CSS 는 건드리지 않는다. 이 파일에만 추가한다.
+
+   링크를 누르지 않고 거래소에서 직접 가입하는 사람이 코드를 입력할 수 있게
+   보여준다. 코드가 안 보이면 빈칸으로 가입해 귀속이 안 되고, 화면에 아무
+   오류가 없어 알아챌 수 없다.
+   ────────────────────────────────────────────────────────────── */
+.qt-refcode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-default, rgba(255,255,255,.14));
+  background: var(--bg-subtle, rgba(255,255,255,.03));
+}
+
+.qt-refcode__label {
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, rgba(255,255,255,.5));
+}
+
+.qt-refcode__value {
+  /* 코드는 사람이 손으로 옮겨 적는다 — 0/O, 1/l 이 구별되는 글꼴이어야 한다. */
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--color-brand, #4da3ff);
+  /* 길게 눌러 선택하는 모바일에서도 잡히도록 여백을 준다. */
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--color-brand, #4da3ff) 12%, transparent);
+  user-select: all;
+}
+
+.qt-refcode__copy { min-height: 26px; padding: 3px 8px; font-size: 11px; }
+
+.qt-refcode__hint {
+  /* 안내는 줄 전체를 차지한다 — 코드 옆에 붙으면 읽히지 않는다. */
+  flex: 1 0 100%;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary, rgba(255,255,255,.5));
+}
+
+/* ──────────────────────────────────────────────────────────────
+   차트 격자 (트레이드 화면 안 멀티차트)
+
+   ★ 디자이너 CSS 는 건드리지 않는다. 이 파일에만 추가한다.
+   ────────────────────────────────────────────────────────────── */
+.qt-cgrid { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+.qt-cgrid__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border-subtle, rgba(255,255,255,.08));
+  background: var(--color-bg-panel, #12141a);
+}
+
+.qt-cgrid__barlabel {
+  font-size: 10px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary, rgba(255,255,255,.5));
+}
+
+/* 주문이 어느 종목으로 나가는지 — 눈에 띄어야 한다. */
+.qt-cgrid__warn {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-warning, #f5a524);
+}
+
+.qt-cgrid__grid { flex: 1; min-height: 0; display: grid; gap: 4px; padding: 4px; }
+
+.qt-cgrid__pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle, rgba(255,255,255,.08));
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-bg-panel, #12141a);
+}
+
+/*
+   포커스된 칸 = 주문 대상. 테두리로 구분한다 — 글자만으로는 급할 때 놓친다.
+
+   ★ 두 겹으로 표시한다(테두리 + 그림자). 어두운 테마에서 1px 테두리 색만으로는
+     구분이 잘 안 되고, 주문이 어느 차트로 나가는지 착각하면 돈이 걸린다.
+*/
+.qt-cgrid__pane.is-focused {
+  border-color: var(--color-brand, #4da3ff);
+  box-shadow: inset 0 0 0 1px var(--color-brand, #4da3ff);
+}
+
+.qt-cgrid__focustag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-brand, #4da3ff);
+  background: color-mix(in srgb, var(--color-brand, #4da3ff) 14%, transparent);
+}
+
+.qt-cgrid__head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--color-border-subtle, rgba(255,255,255,.08));
+}
+
+.qt-cgrid__sym {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-primary, #e8eaed);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  /* 좁은 칸에서도 잘리지 않게 최소 폭을 준다. */
+  min-width: 88px;
+  min-height: 24px;
+}
+
+.qt-cgrid__tfs { font-size: 10px; margin-left: auto; }
+.qt-cgrid__tfs .seg__opt { height: 20px; padding: 0 5px; font-size: 10px; }
+.qt-cgrid__make { height: 22px; padding: 0 6px; font-size: 10px; white-space: nowrap; }
+
+.qt-cgrid__body { flex: 1; min-height: 0; position: relative; }
+
+.qt-cgrid__tag {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary, rgba(255,255,255,.5));
+  background: color-mix(in srgb, var(--color-bg-app, #0a0e14) 70%, transparent);
+  pointer-events: none;
+}
+
+.qt-cgrid__tag--primary {
+  position: static;
+  align-self: flex-start;
+  margin: 3px 0 0 6px;
+  color: var(--color-brand, #4da3ff);
+  background: color-mix(in srgb, var(--color-brand, #4da3ff) 14%, transparent);
+}
+
+.qt-cgrid__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 11px;
+  color: var(--color-text-tertiary, rgba(255,255,255,.5));
+}
+
+/*
+   좁은 화면에서는 열을 1개로 접는다.
+
+   ★ 6칸을 430px 폭에 그리면 한 칸이 140px 이 되고, 그 안의 캔들은 읽을 수
+     없다. 읽을 수 없는 차트는 없는 차트보다 나쁘다 — 있다고 믿고 판단한다.
+*/
+@media (max-width: 768px) {
+  .qt-cgrid__grid { grid-template-columns: 1fr !important; grid-template-rows: none !important; }
+  .qt-cgrid__pane { min-height: 220px; }
+  .qt-cgrid__warn { margin-left: 0; flex: 1 0 100%; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   공지 팝업
+
+   ★ 디자이너 CSS 는 건드리지 않는다. 이 파일에만 추가한다.
+   ────────────────────────────────────────────────────────────── */
+
+/* info — 상단 배너. 화면을 막지 않는다. */
+.qt-noticebar {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(720px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-brand, #4da3ff);
+  background: var(--color-bg-panel, #12141a);
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+
+.qt-noticebar__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.qt-noticebar__title { font-size: 12.5px; }
+.qt-noticebar__text {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, rgba(255,255,255,.7));
+  /* 긴 공지가 배너를 화면 밖으로 밀지 않게 3줄로 자른다. 전문은 알림 탭에 있다. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.qt-noticebar__close { flex-shrink: 0; }
+
+/* warning / critical — 모달 */
+.qt-noticeback {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.55);
+}
+
+.qt-noticemodal {
+  width: min(560px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default, rgba(255,255,255,.14));
+  background: var(--color-bg-panel, #12141a);
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+
+/* 긴급도를 테두리로도 구분한다 — 글자만으로는 급할 때 놓친다. */
+.qt-noticemodal--warning { border-color: var(--color-warning, #f5a524); }
+.qt-noticemodal--critical { border-color: var(--color-short, #f5455c); }
+
+.qt-noticemodal__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.qt-noticemodal__sev {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.qt-noticemodal__sev--warning {
+  color: var(--color-warning, #f5a524);
+  background: color-mix(in srgb, var(--color-warning, #f5a524) 16%, transparent);
+}
+.qt-noticemodal__sev--critical {
+  color: var(--color-short, #f5455c);
+  background: color-mix(in srgb, var(--color-short, #f5455c) 16%, transparent);
+}
+
+.qt-noticemodal__title { font-size: 15px; line-height: 1.4; }
+
+.qt-noticemodal__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--color-text-secondary, rgba(255,255,255,.75));
+  /* 운영자가 줄바꿈으로 쓴 글이 한 줄로 붙지 않게 한다. */
+  white-space: pre-wrap;
+}
+
+.qt-noticemodal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.qt-noticemodal__count {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--color-text-tertiary, rgba(255,255,255,.5));
+}
+
+@media (max-width: 480px) {
+  .qt-noticebar { flex-wrap: wrap; top: 4px; }
+  .qt-noticebar__close { margin-left: auto; }
 }

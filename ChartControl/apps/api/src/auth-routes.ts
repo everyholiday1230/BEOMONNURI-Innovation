@@ -121,11 +121,30 @@ const MAX_FAVORITES = 64;
 
 const FavoritesUpdateSchema = z
   .object({
-    // Symbol ids only: uppercase alphanumerics. Validated here so a bad id never reaches the table, and
-    // so the error names the offending index rather than failing on a constraint.
-    // Trimmed BEFORE the pattern check: surrounding whitespace is a client formatting artefact, not a
-    // malformed symbol. The pattern itself stays strict (alphanumeric ids only).
-    symbols: z.array(z.string().trim().regex(/^[A-Z0-9]{2,20}$/i)).max(MAX_FAVORITES),
+    /*
+       Symbol ids, optionally prefixed with the market they belong to.
+
+       Validated here so a bad id never reaches the table, and so the error names the offending
+       index rather than failing on a constraint. Trimmed BEFORE the pattern check: surrounding
+       whitespace is a client formatting artefact, not a malformed symbol.
+
+       ★★ Why a `spot:` prefix is allowed.
+
+         The same id means two different instruments: `BTCUSDT` on futures is a perpetual contract,
+         on spot it is the asset itself. Storing one shared set made a star set on the spot list
+         appear on the futures list too, which is simply wrong — they are different products with
+         different risk.
+
+         Futures ids stay unprefixed so favourites saved before this change keep working. Silently
+         dropping someone's watchlist reads as us having deleted it.
+
+       ★ Only `spot:` is accepted, not an arbitrary prefix. An open-ended `<word>:` pattern would let
+         the client invent namespaces we never render, and those rows would sit in the table forever
+         with nothing able to show or remove them.
+    */
+    symbols: z
+      .array(z.string().trim().regex(/^(spot:)?[A-Z0-9]{2,20}$/i))
+      .max(MAX_FAVORITES),
   })
   .strict();
 
@@ -396,6 +415,92 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     return c.json({ ok: true, version: out.version });
   });
 
+  /*
+     ---- 내 데이터 내보내기 (개인정보처리방침 7절 · 이전권) ----
+
+     ★★ 방침 7절이 "개인정보를 구조화된 형식으로 받기(이전 요구)" 를 이용자
+       권리로 약속했는데 그 수단이 없었다. 권리를 적어 놓고 행사할 방법을
+       주지 않으면 약속을 지키지 않는 것이다(GDPR 20조 이전권도 같은 취지).
+
+     ★ 이 라우터가 접근할 수 있는 것만 담는다.
+
+       계정 정보 · 화면 설정 · 즐겨찾기 · 차트 템플릿. 주문·체결 기록과 약관
+       동의 기록은 이 라우터의 저장소로 읽을 수 없어서 담지 못한다. **담지 못한
+       것을 담은 척하지 않고, 무엇이 빠졌는지 응답에 적는다** — 이용자가 그것을
+       보고 별도로 요청할 수 있어야 한다.
+
+     ★ 비밀번호 해시와 거래소 API 키는 담지 않는다.
+       해시는 이용자에게 쓸모가 없고(원문을 복원할 수 없다), 키는 우리도
+       복호화해 보여주지 않는다는 것이 방침이다. 내보내기 파일이 유출되면
+       그 자체가 사고가 되므로 넣을 이유가 없는 것은 넣지 않는다.
+
+     ★ 감사 기록을 남긴다. 본인 요청이지만 개인정보가 파일로 나가는 사건이다.
+  */
+  app.get('/me/export', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
+
+    const [prefs, favs] = await Promise.all([
+      preferences.get(a.user.id).catch(() => null),
+      favorites.list(a.user.id).catch(() => null),
+    ]);
+
+    let templates: unknown[] = [];
+    if (chartTemplates) {
+      templates = await chartTemplates.list(a.user.id).catch(() => []);
+    }
+
+    await audit.record({
+      id: corr(),
+      actorUserId: a.user.id,
+      action: 'account.data.export',
+      target: a.user.id,
+      ip: ipOf(c) ?? null,
+      at: Date.now(),
+      // ★ AuditEntry 에는 result 필드가 없다. 부가 정보는 meta 로 넣는다.
+      meta: { what: 'account · preferences · favorites · chart templates', format: 'json' },
+    }).catch((e: unknown) => {
+      // 기록 실패가 이용자의 권리 행사를 막지 않는다. 다만 조용히 넘기지 않는다.
+      console.warn('[account] 데이터 내보내기 감사 기록 실패', e);
+    });
+
+    return c.json({
+      /*
+         무엇을 담았고 무엇을 담지 못했는지 밝힌다.
+         "전부 받았다" 고 오해하면 빠진 자료를 따로 요청하지 못한다.
+      */
+      exportedAt: new Date().toISOString(),
+      format: 'json',
+      account: {
+        id: a.user.id,
+        email: a.user.email,
+        role: a.user.role,
+        status: a.user.status,
+        mfaEnabled: a.user.mfaEnabled ?? null,
+        emailVerified: a.user.emailVerified ?? null,
+        createdAt: a.user.createdAt ?? null,
+      },
+      preferences: prefs ?? null,
+      favorites: favs ? favs.symbols : null,
+      chartTemplates: templates,
+      excluded: [
+        {
+          what: 'password hash',
+          why: 'stored one-way only; it cannot be turned back into your password and is of no use to you',
+        },
+        {
+          what: 'exchange API keys',
+          why: 'kept encrypted and never shown to anyone, including us — see the privacy policy',
+        },
+        {
+          what: 'orders, fills and consent records',
+          why: 'not reachable from this endpoint yet. Contact support to receive them; they are retained per the privacy policy (5 years)',
+        },
+      ],
+      note: 'This file contains your personal data. Store it somewhere safe — anyone who reads it sees your account details.',
+    });
+  });
+
   // ---- favourites (FAV-01 / FAV-02) ----
   // Previously localStorage only. Ownership comes from the session, never from the body, so one user
   // can never read or write another's set.
@@ -536,9 +641,27 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   app.get('/me/conversations/:id/messages', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); const rows = resource.listMessages(a.user.id, c.req.param('id')); return rows ? c.json({ items: rows }) : c.json(err('NOT_FOUND', 'not found'), 404); });
   app.get('/me/sim-orders', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); return c.json({ items: resource.listSimOrders(a.user.id) }); });
 
-  // ---------------- admin / support ----------------
-  app.get('/admin/audit', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); if (!requirePerm(a.user, 'audit.read')) return c.json(err('FORBIDDEN', 'audit.read'), 403); await audit.record({ id: corr(), actorUserId: a.user.id, action: 'admin.audit.access', target: null, ip: ipOf(c) ?? null, at: Date.now(), meta: { result: 'success' } }); return c.json({ entries: await audit.list(50) }); });
-  app.get('/admin/users/:id', async (c) => { const a = await needAuth(c); if (!a) return c.json(err('UNAUTHENTICATED', ''), 401); if (!requirePerm(a.user, 'support.user.read')) return c.json(err('FORBIDDEN', 'support.user.read'), 403); return c.json({ ok: true }); });
+  /*
+     ---------------- admin / support ----------------
+
+     ★★ 여기에 있던 `/admin/audit` 와 `/admin/users/:id` 두 라우트를 제거했다.
+
+       둘 다 `{ ok: true }` 만 돌려주는 껍데기였는데, 이 라우터가 관리자
+       라우터보다 먼저 등록되면 **실제 관리자 API 를 가로챈다.**
+
+       실제로 그런 일이 있었다. 검증 테스트에서 auth 라우터를 먼저 등록하자
+       `/admin/users/export` 가 여기의 `/admin/users/:id` 에 잡혀
+       `{ ok: true }` 를 반환했다(CSV 대신 JSON, 권한 검사도 다른 것이 걸렸다).
+       운영에서는 등록 순서가 반대라 드러나지 않았을 뿐이고, 순서를 바꾸는
+       변경 한 번으로 관리자 기능 전체가 껍데기로 대체될 수 있었다.
+
+       관리자 기능은 admin/admin-routes.ts 한 곳에만 둔다. 같은 경로를 두 곳에
+       두면 어느 쪽이 실행되는지가 등록 순서에 달리고, 그것은 코드를 읽어서는
+       알 수 없다.
+
+     ★ 권한 정의(support.user.read · audit.read)는 packages/auth 에 그대로 있고
+       관리자 라우터가 자기 권한 체계로 검사한다.
+  */
 
   return app;
 }

@@ -246,7 +246,85 @@ if (missingBroker.length === brokerKeys.length) {
     '세 값이 모두 있어야 브로커 서명이 붙는다. 하나라도 없으면 리베이트가 0원이다.',
   );
 } else {
-  pass('브로커 자격증명 3종 설정됨');
+  pass('브로커 자격증명 3종 설정됨 (선물)');
+}
+
+/*
+   현물 브로커 자격증명.
+
+   ★★ KuCoin 은 **현물과 선물에 서로 다른 자격증명**을 발급한다.
+     (실제 승인 통보에 Spot / Futures 두 세트가 함께 온다)
+
+     선물 값으로 현물 주문에 서명하면 서명은 만들어지지만 그 거래가 우리에게
+     귀속되지 않는다. 오류도 나지 않고 화면도 정상이라 "리베이트가 0원" 으로만
+     나타난다.
+
+   ★ 지금은 현물 어댑터가 없으므로 **차단이 아니라 경고**다. 현물 거래를 열
+     때 이 항목이 통과인지 먼저 확인해야 한다.
+*/
+const spotBrokerKeys = ['KUCOIN_BROKER_SPOT_PARTNER', 'KUCOIN_BROKER_SPOT_KEY', 'KUCOIN_BROKER_SPOT_NAME'];
+const missingSpotBroker = spotBrokerKeys.filter((k) => !has(k));
+if (missingSpotBroker.length === spotBrokerKeys.length) {
+  warn(
+    '현물 브로커 자격증명이 없다 (현물 거래를 열면 리베이트가 0원)',
+    '현물은 선물과 다른 자격증명을 쓴다. 지금은 현물 어댑터가 없어 문제가 되지 않지만, ' +
+      '현물을 열기 전에 KUCOIN_BROKER_SPOT_PARTNER / _KEY / _NAME 을 넣어야 한다. ' +
+      '선물 값을 그대로 쓰면 거래가 귀속되지 않으면서 오류도 나지 않는다.',
+  );
+} else if (missingSpotBroker.length) {
+  block(
+    `현물 브로커 자격증명 일부 누락 (${missingSpotBroker.join(', ')})`,
+    '일부만 있으면 서명이 붙지 않는다. 세 값을 모두 넣거나, 현물을 열지 않을 것이면 셋 다 비워 둘 것.',
+  );
+} else {
+  pass('브로커 자격증명 3종 설정됨 (현물)');
+}
+
+/*
+   KuCoin Fast API (OAuth) — 이용자 키 자동 연결.
+
+   ★ 차단이 아니라 경고다. 없어도 서비스는 동작하고 리베이트도 정상이다.
+     다만 이용자가 KuCoin 에서 키를 손으로 만들어야 하므로 가입 단계에서
+     이탈이 생기고, 실수로 출금 권한을 켤 위험도 있다.
+
+   ★ client_id 는 브로커 승인과 **별개 신청**이다(IP 목록 + Redirect URL 제출).
+     도메인이 정해진 뒤에만 신청할 수 있으므로 런칭을 막지는 않는다.
+*/
+const oauthKeys = ['KUCOIN_OAUTH_CLIENT_ID', 'KUCOIN_OAUTH_REDIRECT_URI'];
+const missingOauth = oauthKeys.filter((k) => !has(k));
+if (missingOauth.length === oauthKeys.length) {
+  warn(
+    'KuCoin Fast API 가 꺼져 있다 (이용자가 API 키를 손으로 만들어야 한다)',
+    '켜면 "KuCoin 으로 연결" 한 번으로 키가 자동 발급된다. client_id 는 브로커 승인과 별개 신청이며, ' +
+      'KuCoin 폼에 (1) Fast API 요청용 서버 IP (2) 거래용 서버 IP (3) OAuth Redirect URL 을 제출해야 발급된다. ' +
+      '도메인이 정해진 뒤에 신청할 것.',
+  );
+} else if (missingOauth.length) {
+  block(
+    `KuCoin Fast API 설정 일부 누락 (${missingOauth.join(', ')})`,
+    '둘 다 있어야 기능이 등록된다. 반쯤 설정하면 이용자가 KuCoin 승인 화면까지 갔다가 콜백에서 실패하고, ' +
+      '그 사이 KuCoin 계정에는 우리 이름의 키가 만들어져 남는다. 쓰지 않을 것이면 둘 다 비워 둘 것.',
+  );
+} else {
+  pass('KuCoin Fast API 설정됨 (이용자 한 번 클릭으로 키 연결)');
+
+  /*
+     ★ Redirect URI 는 KuCoin 에 제출한 값과 정확히 같아야 한다. 흔한 실수를
+       두 가지만 잡는다: http(로컬) 그대로 배포 / 경로 오타.
+  */
+  const uri = String(val('KUCOIN_OAUTH_REDIRECT_URI') || '');
+  if (!uri.startsWith('https://')) {
+    block(
+      'KUCOIN_OAUTH_REDIRECT_URI 가 https 가 아니다',
+      'OAuth 콜백에는 인증 코드가 담긴다. 평문으로 오가면 그 코드를 가로채 이용자 계정에 키를 붙일 수 있다.',
+    );
+  }
+  if (!uri.includes('/api/exchanges/kucoin/oauth/callback')) {
+    warn(
+      'KUCOIN_OAUTH_REDIRECT_URI 경로가 예상과 다르다',
+      `서버가 처리하는 경로는 /api/exchanges/kucoin/oauth/callback 이다. 현재 값: ${uri}`,
+    );
+  }
 }
 
 // ---- 8. 거래소 계정 ----
@@ -281,13 +359,47 @@ if (missingKucoin.length) {
      조용히 새기 때문에 알아채기 어렵다.
 */
 const refKeys = Object.keys(env).filter((k) => k.startsWith('EXCHANGE_REFERRAL_URL_'));
-if (!refKeys.length && !has('KUCOIN_REFERRAL_URL')) {
+const envRefCount = refKeys.length + (has('KUCOIN_REFERRAL_URL') ? 1 : 0);
+
+/*
+   ★ 환경설정이 비어 있어도 **코드에 확인된 기본값**이 있으면 링크는 동작한다.
+
+     전에는 환경설정만 보고 "설정되지 않았다" 고 경고했다. 카탈로그
+     (apps/api/src/exchanges/exchange-catalog.ts) 의 referralConfirmed 항목이
+     기본값으로 쓰이도록 바뀐 뒤에는 그 경고가 거짓이 된다. 거짓 경고가 쌓이면
+     진짜 경고를 무시하게 되므로, 실제 출처를 함께 읽는다.
+
+   ★ 확인되지 않은 항목(자리표시자)은 세지 않는다. 그것으로 가입이 일어나면
+     정상 가입되고 리베이트만 0 이 된다.
+*/
+let catalogRefs = [];
+try {
+  /*
+     도구는 저장소 루트에서 실행하는 것을 전제로 한다(다른 검사들과 같은 규칙).
+     경로를 찾지 못하면 조용히 환경설정만으로 판단한다 — 이 검사 하나 때문에
+     런칭 점검 전체가 멈추면 안 된다.
+  */
+  const src = readFileSync(new URL('../apps/api/src/exchanges/exchange-catalog.ts', import.meta.url), 'utf8');
+  // id 와 referralConfirmed 가 같은 항목 블록에 있는지 본다.
+  for (const block of src.split(/\n\s*\{\s*\n/)) {
+    if (!/referralConfirmed:\s*true/.test(block)) continue;
+    const id = block.match(/\bid:\s*'([a-z0-9_-]+)'/);
+    const url = block.match(/\breferral:\s*'(https:\/\/[^']+)'/);
+    if (id && url && !/QUANTUM/i.test(url[1])) catalogRefs.push(`${id[1]} → ${url[1]}`);
+  }
+} catch {
+  // 카탈로그를 읽을 수 없으면 환경설정만으로 판단한다.
+}
+
+if (!envRefCount && !catalogRefs.length) {
   warn(
     '거래소 추천 링크가 설정되지 않았다',
     '사용자가 거래소에 가입해도 우리에게 귀속되지 않아 리베이트가 발생하지 않는다.',
   );
+} else if (envRefCount) {
+  pass(`추천 링크 ${envRefCount}개 설정됨 (환경설정)`);
 } else {
-  pass(`추천 링크 ${refKeys.length + (has('KUCOIN_REFERRAL_URL') ? 1 : 0)}개 설정됨`);
+  pass(`추천 링크 ${catalogRefs.length}개 (코드의 확인된 기본값): ${catalogRefs.join(', ')}`);
 }
 
 // ---- 10. 브랜드 ----

@@ -86,7 +86,8 @@
       */
       if (v === null) {
         var path = String(window.location.hash || '').replace(/^#/, '').split('?')[0];
-        collapsed = path === '/trade' || path === '/multi-chart';
+        // 멀티차트 탭이 없어졌다. 거래 화면만 기본 접힘이다.
+        collapsed = path === '/trade';
       } else {
         collapsed = v === '1';
       }

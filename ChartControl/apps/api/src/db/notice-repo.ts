@@ -30,6 +30,15 @@ export interface NoticeRow {
   createdAt: number;
   updatedAt: number;
   publishedAt: number | null;
+  /*
+     팝업으로 띄울지. 기본 false.
+
+     ★ 전부 띄우면 이용자가 닫는 데 익숙해져 중요한 공지도 읽지 않는다.
+       그래서 공지마다 운영자가 정한다.
+  */
+  popup: boolean;
+  /** 'info'(배너) | 'warning'(팝업) | 'critical'(명시적으로 닫아야 사라짐) */
+  severity: 'info' | 'warning' | 'critical';
 }
 
 export interface NoticeInput {
@@ -41,6 +50,8 @@ export interface NoticeInput {
   publishAt?: number | null;
   expiresAt?: number | null;
   locale?: string;
+  popup?: boolean;
+  severity?: 'info' | 'warning' | 'critical';
 }
 
 type DbRow = {
@@ -58,6 +69,8 @@ type DbRow = {
   created_at: Date;
   updated_at: Date;
   published_at: Date | null;
+  popup: boolean;
+  severity: 'info' | 'warning' | 'critical';
 };
 
 function toMs(v: Date | null): number | null {
@@ -80,6 +93,12 @@ function map(r: DbRow): NoticeRow {
     createdAt: r.created_at.getTime(),
     updatedAt: r.updated_at.getTime(),
     publishedAt: toMs(r.published_at),
+    popup: r.popup === true,
+    /*
+       ★ 알 수 없는 값은 'info'(가장 약한 표시)로 떨어진다. DB 제약이 세 값만
+         허용하므로 여기 오지 않지만, 제약이 없는 배포에서도 화면이 깨지지 않게 한다.
+    */
+    severity: r.severity === 'critical' ? 'critical' : r.severity === 'warning' ? 'warning' : 'info',
   };
 }
 
@@ -92,7 +111,19 @@ function toDate(ms: number | null | undefined): Date | null {
 }
 
 const COLS = `id, title, body, category, status, pinned, publish_at, expires_at, locale,
-              created_by, updated_by, created_at, updated_at, published_at`;
+              created_by, updated_by, created_at, updated_at, published_at, popup, severity`;
+
+/**
+ * 긴급도 정규화.
+ *
+ * ★★ 모르는 값을 'critical' 로 올리지 않는다 — 운영자가 의도하지 않은 공지가
+ *   닫을 수 없는 팝업이 되면 이용자가 화면을 쓸 수 없다.
+ * ★ 반대로 오타를 조용히 'info' 로 떨어뜨리면 긴급 공지가 배너로 지나간다.
+ *   그래서 DB 에 CHECK 제약을 함께 두었다(0028) — 여기서 걸러지기 전에 저장이 실패한다.
+ */
+function normalizeSeverity(v: unknown): 'info' | 'warning' | 'critical' {
+  return v === 'critical' ? 'critical' : v === 'warning' ? 'warning' : 'info';
+}
 
 export class PgNoticeRepo {
   constructor(private readonly pool: Pool) {}
@@ -132,6 +163,69 @@ export class PgNoticeRepo {
     return r.rows.map(map);
   }
 
+  /**
+   * 이 이용자가 **아직 읽지 않은** 팝업 공지.
+   *
+   * ★★ 읽음을 서버에서 판정한다. 로컬 저장이면 기기를 바꿀 때마다 같은 팝업이
+   *   다시 뜬다 — 이미 읽은 이용자에게 반복해서 보여주면 그 다음부터는 내용을
+   *   보지 않고 닫는다.
+   *
+   * ★ 상한을 둔다. 오래 쌓인 팝업 공지 20개가 한꺼번에 뜨면 화면을 쓸 수 없다.
+   *   가장 긴급하고 최신인 것부터 준다.
+   */
+  async listUnreadPopups(userId: string, locale?: string, limit = 3): Promise<NoticeRow[]> {
+    const params: unknown[] = [userId, Math.min(Math.max(limit, 1), 10)];
+    let localeClause = '';
+    if (locale) {
+      params.push(locale);
+      localeClause = ` AND n.locale = $${params.length}`;
+    }
+    const r = await this.pool.query<DbRow>(
+      `SELECT ${COLS.split(', ').map((x) => `n.${x.trim()}`).join(', ')}
+         FROM notices n
+         LEFT JOIN notice_reads nr ON nr.notice_id = n.id AND nr.user_id = $1
+        WHERE n.popup
+          AND n.status = 'published'
+          AND (n.publish_at IS NULL OR n.publish_at <= now())
+          AND (n.expires_at IS NULL OR n.expires_at > now())
+          AND nr.notice_id IS NULL
+          ${localeClause}
+        /*
+           ★ 긴급한 것부터. critical 이 info 뒤에 밀리면 상한(limit)에 잘려
+             가장 중요한 공지가 표시되지 않는다.
+        */
+        ORDER BY CASE n.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+                 COALESCE(n.published_at, n.publish_at, n.created_at) DESC
+        LIMIT $2`,
+      params,
+    );
+    return r.rows.map(map);
+  }
+
+  /**
+   * 읽음으로 표시한다.
+   *
+   * ★ 같은 공지를 두 번 닫아도 오류가 아니다(ON CONFLICT). 이용자가 두 기기에서
+   *   동시에 닫을 수 있다.
+   * ★ 존재하지 않는 공지 id 면 외래키가 막는다 — 조용히 성공하지 않는다.
+   */
+  async markRead(userId: string, noticeId: string): Promise<boolean> {
+    try {
+      await this.pool.query(
+        `INSERT INTO notice_reads (user_id, notice_id) VALUES ($1, $2)
+         ON CONFLICT (user_id, notice_id) DO NOTHING`,
+        [userId, noticeId],
+      );
+      return true;
+    } catch {
+      /*
+         ★ 없는 공지를 읽음 처리하려 한 경우다(외래키 위반). false 를 준다 —
+           성공으로 위장하면 화면이 팝업을 닫고, 다음 로그인에 또 뜬다.
+      */
+      return false;
+    }
+  }
+
   async get(id: string): Promise<NoticeRow | null> {
     const r = await this.pool.query<DbRow>(`SELECT ${COLS} FROM notices WHERE id = $1`, [id]);
     return r.rowCount ? map(r.rows[0]!) : null;
@@ -142,8 +236,8 @@ export class PgNoticeRepo {
     const id = randomUUID();
     await this.pool.query(
       `INSERT INTO notices (id, title, body, category, status, pinned, publish_at, expires_at, locale,
-                            created_by, updated_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,$9, now(), now())`,
+                            created_by, updated_by, created_at, updated_at, popup, severity)
+       VALUES ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9,$9, now(), now(), $10, $11)`,
       [
         id,
         input.title,
@@ -154,6 +248,12 @@ export class PgNoticeRepo {
         toDate(input.expiresAt),
         input.locale ?? 'en',
         actorId,
+        /*
+           ★ 기본값은 팝업 아님 / info 다. 운영자가 명시해야 팝업이 된다 —
+             실수로 모든 공지가 튀어나오면 이용자가 닫는 데 익숙해진다.
+        */
+        Boolean(input.popup),
+        normalizeSeverity(input.severity),
       ],
     );
     return (await this.get(id))!;
@@ -169,7 +269,8 @@ export class PgNoticeRepo {
       `UPDATE notices
           SET title = $2, body = $3, category = $4, pinned = $5,
               publish_at = $6, expires_at = $7, locale = $8,
-              updated_by = $9, updated_at = now()
+              updated_by = $9, updated_at = now(),
+              popup = $10, severity = $11
         WHERE id = $1`,
       [
         id,
@@ -181,6 +282,8 @@ export class PgNoticeRepo {
         toDate(input.expiresAt),
         input.locale ?? 'en',
         actorId,
+        Boolean(input.popup),
+        normalizeSeverity(input.severity),
       ],
     );
     if (!r.rowCount) return null;

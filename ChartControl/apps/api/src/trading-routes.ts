@@ -3,9 +3,12 @@ import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
 import type { BitMartMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
 import { CredentialVault } from './trading/credential-vault';
+// 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
+import { buildOrderOutcomes } from './learning/outcome-collector';
+import { evaluateTier } from './tiers/tier-engine';
 import { runRiskEngine, type TradingPolicy } from './trading/risk-engine';
 import { IdempotencyService, MemoryIdempotencyStore } from './trading/idempotency';
-import type { SqliteCredentialRepo } from './db/trading-repos';
+import type { CredentialStore } from './db/trading-repos';
 import { ExchangeTransactionQuerySchema, type SymbolInfo } from '@quantumtrade/schemas';
 import {
   TRANSACTION_HISTORY_LIMITS,
@@ -21,7 +24,11 @@ const err = (code: string, message: string) => ({ error: { code, message, correl
 export interface TradingRouterDeps {
   service: AuthService;
   vault: CredentialVault;
-  credRepo: SqliteCredentialRepo;
+  /*
+     ★ 구현이 아니라 계약(CredentialStore)에 의존한다. 배포에 따라 SQLite 판과
+       PostgreSQL 판이 바뀌어도 라우트 코드는 같아야 한다.
+  */
+  credRepo: CredentialStore;
   accountAdapter: IExchangeAccountAdapter;
   /**
    * 이 배포가 연결하는 거래소 식별자. 저장되는 자격증명에 기록된다.
@@ -35,6 +42,35 @@ export interface TradingRouterDeps {
    *   남기면 곡선에 없던 급락이 그려진다.
    */
   equitySnapshots?: import('./db/equity-snapshot-repo').PgEquitySnapshotRepo;
+  /*
+     거래 학습 데이터 수집기.
+
+     ★★ 선택 항목이다(`?`). 없으면 수집하지 않고 주문은 그대로 나간다.
+
+       필수로 만들면 Postgres 가 없는 배포(개발·테스트)에서 **주문 경로 전체가
+       죽는다.** 학습 데이터는 부수 목적이고 주문은 본래 목적이다.
+
+     ★ 반대 위험: 없으면 조용히 안 모인다. 그래서 `/api/admin/learning/stats`
+       에서 수집 여부를 볼 수 있게 하고, 미설정이면 그 사실을 밝힌다.
+  */
+  learning?: import('./db/learning-repo').PgLearningRepo;
+  /*
+     고객 등급 저장소 (선택).
+
+     ★ 없으면 등급 라우트가 `configured:false` 를 준다 — 기본 등급을 만들어
+       주지 않는다. 없는 제도를 있는 것처럼 보여주면 이용자가 혜택을 기대한다.
+  */
+  tiers?: import('./db/pg-tier-repo').PgTierRepo;
+  /*
+     학습 기록에 넣을 시장 스냅샷을 읽는다.
+
+     ★★ 화면이 보낸 가격을 쓰지 않기 위해 존재한다. 조작된 요청이 학습
+       데이터를 오염시키면, 나중에 그 데이터로 학습한 모델이 실제로 없었던
+       시장 상황을 배운다.
+
+     ★ 없으면 스냅샷 없이 기록한다 — 판단 문맥(지표·주문 조건)은 그래도 남는다.
+  */
+  marketSnapshot?: (symbol: string, market: 'futures' | 'spot') => Promise<Record<string, unknown> | null>;
   /**
    * 실주문 어댑터. **주지 않으면 실주문 경로가 존재하지 않는다.**
    *
@@ -43,6 +79,16 @@ export interface TradingRouterDeps {
    * 닫히는 편이 낫다.
    */
   tradingAdapter?: IExchangeTradingAdapter;
+  /**
+   * 현물 거래 어댑터.
+   *
+   * ★★ 선물과 별도로 받는다. 수량 의미(계약수 vs 기초자산)와 레버리지 유무가
+   *   달라서 하나로 합치면 주문 크기가 1000배 틀린다. 어느 어댑터가 쓰였는지
+   *   코드에서 분명해야 한다.
+   *
+   * ★ 주입하지 않으면 현물 주문 경로가 존재하지 않는다(가장 안전한 기본값).
+   */
+  spotTradingAdapter?: IExchangeTradingAdapter;
   policy: TradingPolicy;
   symbolInfo: Record<string, SymbolInfo>;
   csrfKey: string;
@@ -50,6 +96,29 @@ export interface TradingRouterDeps {
   cookieName: string;
   mode: BitMartMode; // deployment mode (default READ_ONLY)
   liveTradingEnabled: boolean; // BITMART_LIVE_TRADING_ENABLED (default false)
+  /*
+     실주문을 열기 위해 실제로 필요한 환경변수들.
+
+     ★★ 안내 문구가 **틀린 변수**를 말하고 있었다.
+
+       화면은 `TRADING_MODE must be KUCOIN_LIVE` 와
+       `FEATURE_LIVE_ORDERS_ENABLED is false` 를 알려줬다. 그런데 이 라우터가
+       실제로 보는 값은 `BITMART_MODE` 와 `BITMART_LIVE_TRADING_ENABLED` 다.
+       운영자가 안내대로 두 변수를 켜도 **주문은 계속 막힌다** — 실측으로
+       확인했다. 그 상태에서 운영자는 아무 변수나 켜보게 되고, 무엇이 열렸는지
+       알 수 없게 된다.
+
+     ★ 그래서 어떤 조건이 실제로 막고 있는지 그대로 알려준다. 두 겹 플래그는
+       유지한다(하나만 실수로 켜져도 실주문이 열리면 안 된다).
+  */
+  liveGateEnv?: {
+    /** 이 배포의 거래 모드 변수 이름과 요구값. */
+    modeVar: string;
+    modeRequired: string;
+    modeActual: string;
+    /** 실주문 플래그들 — 모두 true 여야 한다. */
+    flags: Array<{ name: string; value: boolean }>;
+  };
   killSwitch: boolean; // BITMART_EMERGENCY_KILL_SWITCH (default true)
   /**
    * Futures transaction history reader (gap G5).
@@ -81,6 +150,36 @@ export interface TradingRouterDeps {
     /** Market data freshness for the symbol. */
     marketDataStatus?(symbol: string): 'LIVE' | 'STALE' | 'UNAVAILABLE';
   };
+}
+
+/**
+ * 요청한 시장에 맞는 거래 어댑터를 고른다.
+ *
+ * ★★ 이 선택을 틀리면 오류가 나지 않고 **주문 수량이 틀린다.**
+ *
+ *   선물은 수량을 계약수로 바꿔 보낸다(BTC 1계약 = 0.001 BTC). 현물은 기초자산
+ *   수량 그대로다. 그래서 현물 요청을 선물 어댑터로 보내면 1000배 큰 주문이,
+ *   반대면 1000배 작은 주문이 나간다. 거래소도 화면도 정상으로 보인다.
+ *
+ * ★ 요청한 시장의 어댑터가 없으면 **다른 시장으로 대신 보내지 않는다.**
+ *   그것은 이용자가 요청하지 않은 상품에 주문을 내는 것이다. undefined 를
+ *   돌려주면 호출자가 전송을 막는다.
+ *
+ * ★ 판정을 한 곳에 모아 둔 이유: 라우트 안에 인라인으로 두었을 때는 이 규칙을
+ *   검사로 고정할 수 없었다(주문 경로에 게이트가 여러 겹 있어 단위 검사가
+ *   어렵다). 순수 함수로 빼면 규칙 자체를 직접 검사할 수 있다.
+ */
+export function selectTradingAdapter(
+  market: unknown,
+  adapters: { futures?: IExchangeTradingAdapter; spot?: IExchangeTradingAdapter },
+): IExchangeTradingAdapter | undefined {
+  const wanted = String(market ?? '').trim().toLowerCase();
+  if (wanted === 'spot') return adapters.spot;
+  /*
+     'futures'·'paper'·빈 값은 모두 선물 어댑터다. 모의(paper)는 애초에 이 경로로
+     오지 않지만, 온다면 선물 규칙으로 검증되는 것이 맞다.
+  */
+  return adapters.futures;
 }
 
 /**
@@ -131,15 +230,31 @@ function describeCredentialFailure(e: Error): { message: string; isCredentialPro
  * ★ 게이트 로직 자체는 건드리지 않는다. BitMart 패키지의 테스트 123개가 그
  *   문구를 고정하고 있고, 로직은 옳다 — 잘못된 것은 **표시**뿐이다.
  */
-function localizeGateReasons(reasons: readonly string[], exchangeId: string): string[] {
+function localizeGateReasons(
+  reasons: readonly string[],
+  exchangeId: string,
+  env?: TradingRouterDeps['liveGateEnv'],
+): string[] {
   const ex = exchangeId.toUpperCase();
   return reasons.map((r) => {
-    // 모드 이름: 이 배포가 쓰는 거래소를 밝히고, 실제 조건 변수를 알려준다.
+    /*
+       모드 조건. **실제로 검사하는 변수 이름**을 말한다.
+
+       ★ 주입되지 않았으면 변수 이름을 추측하지 않는다 — 틀린 이름을 알려주는
+         것이 이 자리에서 겪은 실수였다. 조건만 밝히고 이름은 생략한다.
+    */
     if (/does not permit live orders/.test(r)) {
-      return `live orders are not enabled for this deployment (${ex}) — TRADING_MODE must be ${ex}_LIVE`;
+      if (!env) return `live orders are not enabled for this deployment (${ex})`;
+      return `live orders are not enabled for this deployment (${ex}) — `
+        + `${env.modeVar} must be ${env.modeRequired} (currently ${env.modeActual})`;
     }
     if (/BITMART_LIVE_TRADING_ENABLED is false/.test(r)) {
-      return 'FEATURE_LIVE_ORDERS_ENABLED is false';
+      if (!env) return 'the live-order flag is off';
+      // 실제로 꺼져 있는 플래그만 나열한다. 켜져 있는 것을 켜라고 말하지 않는다.
+      const off = env.flags.filter((f) => !f.value).map((f) => f.name);
+      return off.length > 0
+        ? `these must be true: ${off.join(', ')}`
+        : 'the live-order flag is off';
     }
     // 'Future-Trade' 는 BitMart 의 권한 이름이다. 거래소 중립 표현으로 바꾼다.
     if (/Future-Trade permission not verified/.test(r)) {
@@ -183,7 +298,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const unknown: string[] = [];
 
     // Credential status from the store, not assumed. A user with no key must not pass the credential gate.
-    const creds = d.credRepo.listOwned(userId);
+    const creds = await d.credRepo.listOwned(userId);
     const verified = creds.find((r) => r.connectionStatus === 'VERIFIED');
     const credentialStatus = verified ? 'VERIFIED' : creds.length > 0 ? 'FAILED' : 'NONE';
     // The store records that a read-only probe succeeded; it does NOT prove Future-Trade permission.
@@ -202,7 +317,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     let openPositions = 0;
     if (d.riskState?.openPositions && verified) {
       try {
-        const cred = await d.vault.decrypt(d.credRepo.getOwned(userId, verified.id)!);
+        const cred = await d.vault.decrypt((await d.credRepo.getOwned(userId, verified.id))!);
         const n = await d.riskState.openPositions({ mode: 'BITMART_LIVE_READ_ONLY', credential: cred });
         if (n === null) unknown.push('openPositions');
         else openPositions = n;
@@ -327,7 +442,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
 
-    const rows = d.credRepo.listOwned(a.user.id);
+    const rows = await d.credRepo.listOwned(a.user.id);
     return c.json({
       items: rows.map((r) => ({
         id: r.id,
@@ -367,7 +482,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!body.accessKey || !body.secretKey || !body.memo) return c.json(err('BAD_REQUEST', 'accessKey, secretKey, memo required'), 400);
     const enc = await d.vault.encrypt({ accessKey: body.accessKey, secretKey: body.secretKey, memo: body.memo });
     // 어느 거래소 키인지 기록한다. 화면이 그 값을 그대로 보여준다.
-    const row = d.credRepo.create(a.user.id, enc, body.label, d.exchangeId);
+    const row = await d.credRepo.create(a.user.id, enc, body.label, d.exchangeId);
     // Response NEVER includes secret/memo — only the masked access key + status.
     return c.json({ id: row.id, accessKeyMasked: row.accessKeyMasked, connectionStatus: row.connectionStatus }, 201);
   });
@@ -376,16 +491,16 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
-    const row = d.credRepo.getOwned(a.user.id, c.req.param('id'));
+    const row = await d.credRepo.getOwned(a.user.id, c.req.param('id'));
     if (!row) return c.json(err('NOT_FOUND', 'credential not found'), 404); // ownership
     try {
       const cred = await d.vault.decrypt(row); // server-side only
       const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential: cred };
       await d.accountAdapter.getBalances(ctx); // Read-Only probe (no order permission needed)
-      d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
+      await d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
       return c.json({ id: row.id, connectionStatus: 'VERIFIED', permissionsVerified: true });
     } catch (e) {
-      d.credRepo.setVerified(a.user.id, row.id, 'FAILED', false);
+      await d.credRepo.setVerified(a.user.id, row.id, 'FAILED', false);
       return c.json({ id: row.id, connectionStatus: 'FAILED', reason: (e as Error).message });
     }
   });
@@ -394,7 +509,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
-    return d.credRepo.revoke(a.user.id, c.req.param('id')) ? c.json({ ok: true }) : c.json(err('NOT_FOUND', ''), 404);
+    return (await d.credRepo.revoke(a.user.id, c.req.param('id'))) ? c.json({ ok: true }) : c.json(err('NOT_FOUND', ''), 404);
   });
 
   /**
@@ -418,7 +533,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     }
 
     // The first VERIFIED credential. An unverified key would fail upstream with an opaque 401.
-    const owned = d.credRepo.listOwned(a.user.id);
+    const owned = await d.credRepo.listOwned(a.user.id);
     const verified = owned.find((r) => r.connectionStatus === 'VERIFIED');
     if (!verified) {
       /*
@@ -432,7 +547,13 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
          200 + credentialStatus 를 돌려준다.
       */
       return c.json({
-        transactions: [],
+        /*
+           ★★ 성공 분기는 `items` 를 준다. 여기서 `transactions` 를 주면 화면이
+             읽는 칸이 달라서, 키가 없을 때 **표가 아예 렌더되지 않는다.**
+             같은 라우트가 두 이름을 쓰면 어느 쪽이 맞는지 알 수 없다.
+        */
+        items: [],
+        totals: [],
         credentialStatus: owned.length > 0 ? (owned[0]!.connectionStatus ?? 'UNVERIFIED') : 'NONE',
         hasCredential: owned.length > 0,
         source: 'exchange',
@@ -441,7 +562,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     }
 
     try {
-      const row = d.credRepo.getOwned(a.user.id, verified.id);
+      const row = await d.credRepo.getOwned(a.user.id, verified.id);
       if (!row) return c.json(err('NOT_FOUND', 'credential not found'), 404);
       const credential = await d.vault.decrypt(row); // server-side only; never leaves this process
       const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential };
@@ -457,9 +578,118 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           pageSize: parsed.data.pageSize ?? TRANSACTION_HISTORY_LIMITS.defaultPageSize,
           truncated: items.length >= (parsed.data.pageSize ?? TRANSACTION_HISTORY_LIMITS.defaultPageSize),
         },
-        source: 'BITMART_EXCHANGE',
+        /*
+           ★★ 'BITMART_EXCHANGE' 가 박혀 있었다.
+
+             KuCoin 키로 조회해도 응답이 `source: "BITMART_EXCHANGE"` 였다. 우리는
+             KuCoin 브로커인데 응답이 다른 거래소를 말한다 — 화면이나 로그를 보고
+             원인을 찾을 때 잘못된 곳을 뒤지게 된다.
+
+           ★ 같은 라우트의 다른 분기는 `source: 'exchange'` 를 쓴다. 같은 값으로
+             통일한다(거래소 이름은 `exchange` 칸이 이미 말한다).
+        */
+        source: 'exchange',
         exchange: verified.exchange,
+        /*
+           ★★ credentialStatus 가 빠져 있었다.
+
+             다른 조회 라우트는 모두 이 값을 준다. 화면은 이것으로 "키가 없다" 와
+             "거래가 없다" 를 구분해 안내를 고른다. 없으면 키를 연결한 이용자에게도
+             "거래소 키를 연결하세요" 가 뜨거나, 반대로 키가 없는 사람에게 빈 표만
+             보여준다.
+        */
+        credentialStatus: verified.connectionStatus ?? 'VERIFIED',
+        hasCredential: true,
         servedAt: Date.now(),
+      });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  /**
+   * GET /me/tier — 내 등급.
+   *
+   * ★★ 계산 근거를 함께 준다. 등급만 주면 이용자는 무엇을 해야 올라가는지
+   *   알 수 없고, 우리가 임의로 정한다고 느낀다.
+   *
+   * ★ 숫자는 **실거래만** 센다. 모의 거래는 등급에 넣지 않는다 — 우리 서버가
+   *   즉시 체결시키므로 버튼 몇 번으로 최고 등급이 된다.
+   *
+   * ★ 문구는 번역 키로 준다(nameKey). 서버는 이용자의 언어를 모른다.
+   */
+  app.get('/me/tier', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!d.tiers) return c.json({ configured: false }, 200);
+
+    try {
+      /*
+         거래소 키가 검증됐는가 — 측정 가능 여부를 정한다.
+
+         ★★ 키가 없으면 거래 금액을 **알 수 없다**(조회 자체가 불가능하다).
+           0 으로 계산하면 실제로 많이 거래한 고객이 키 재연결 중에 강등된다.
+      */
+      const owned = await d.credRepo.listOwned(a.user.id);
+      const verified = owned.some((x) => x.connectionStatus === 'VERIFIED');
+
+      const [defs, metrics] = await Promise.all([
+        d.tiers.definitions(),
+        d.tiers.metrics(a.user.id, verified),
+      ]);
+      const result = evaluateTier(metrics, defs);
+
+      // 계산 결과를 남긴다 — 운영자가 분포를 보고 기준을 조정한다.
+      await d.tiers.saveState({
+        userId: a.user.id,
+        tierCode: result.tier ? result.tier.code : null,
+        metrics,
+        criteria: defs,
+      });
+
+      return c.json({
+        configured: true,
+        /*
+           ★ 측정 불가면 등급이 null 이고 unknown 이 true 다. 화면은 이 값으로
+             '—' 와 "키를 연결하세요" 를 고른다.
+        */
+        unknown: result.unknown,
+        tier: result.tier
+          ? { code: result.tier.code, nameKey: result.tier.nameKey, rank: result.tier.rank,
+              benefitKey: result.tier.benefitKey }
+          : null,
+        next: result.next
+          ? {
+            code: result.next.tier.code,
+            nameKey: result.next.tier.nameKey,
+            missing: result.next.missing,
+            /*
+               ★★ 추천 가입은 **소급되지 않는다.** 이미 거래소 계정이 있던 고객은
+                 이 조건을 채울 방법이 없다. 화면이 그 사실을 말해야 한다 —
+                 채울 수 없는 조건을 목표로 보여주면 거짓 기대를 만든다.
+            */
+            referralUnreachable: result.next.missing.some((m) => m.key === 'referral'),
+          }
+          : null,
+        metrics: {
+          measurable: metrics.measurable,
+          volume30d: metrics.volume30d,
+          trades30d: metrics.trades30d,
+          activeDays30d: metrics.activeDays30d,
+          referred: metrics.referred,
+          /*
+             ★ 금액을 모르는 체결이 몇 건 섞였는지 밝힌다. 합계가 실제보다
+               작다는 사실을 숨기면 이용자가 우리 계산을 틀렸다고 여긴다.
+          */
+          volumeUnknownRows: metrics.volumeUnknownRows,
+        },
+        /* 기준을 그대로 준다 — 화면이 "다음 등급까지 얼마" 를 계산한다. */
+        criteria: defs.map((x) => ({
+          code: x.code, nameKey: x.nameKey, rank: x.rank,
+          minVolume30d: x.minVolume30d, minTrades30d: x.minTrades30d,
+          minActiveDays30d: x.minActiveDays30d, requiresReferral: x.requiresReferral,
+        })),
+        computedAt: Date.now(),
       });
     } catch (e) {
       return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
@@ -483,7 +713,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       // `exchange` is projected because the row carries it and the wallet UI cannot otherwise say which
       // exchange a stored key belongs to. Today the store only ever writes 'bitmart' (see
       // SqliteCredentialRepo.create), so this is a factual label, not a promise of multi-exchange support.
-      credentials: d.credRepo.listOwned(a.user.id).map((r) => ({ id: r.id, exchange: r.exchange, label: r.label, accessKeyMasked: r.accessKeyMasked, connectionStatus: r.connectionStatus })),
+      credentials: (await d.credRepo.listOwned(a.user.id)).map((r) => ({ id: r.id, exchange: r.exchange, label: r.label, accessKeyMasked: r.accessKeyMasked, connectionStatus: r.connectionStatus })),
     });
   });
 
@@ -500,14 +730,14 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
 
-    const rows = d.credRepo.listOwned(a.user.id);
+    const rows = await d.credRepo.listOwned(a.user.id);
     const usable = rows.find((r) => r.connectionStatus === 'VERIFIED') ?? rows[0];
     if (!usable) {
       return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange' });
     }
 
     try {
-      const full = d.credRepo.getOwned(a.user.id, usable.id);
+      const full = await d.credRepo.getOwned(a.user.id, usable.id);
       if (!full) return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange' });
       const credential = await d.vault.decrypt(full);
       const balances = await d.accountAdapter.getBalances({ mode: d.mode, credential });
@@ -606,10 +836,10 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     | { ok: true; ctx: ExchangeContext; credentialId: string; status: string }
     | { ok: false; reason: 'NONE' }
   > {
-    const rows = d.credRepo.listOwned(userId);
+    const rows = await d.credRepo.listOwned(userId);
     const usable = rows.find((r) => r.connectionStatus === 'VERIFIED') ?? rows[0];
     if (!usable) return { ok: false, reason: 'NONE' };
-    const full = d.credRepo.getOwned(userId, usable.id);
+    const full = await d.credRepo.getOwned(userId, usable.id);
     if (!full) return { ok: false, reason: 'NONE' };
     const credential = await d.vault.decrypt(full);
     return {
@@ -627,6 +857,76 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
    * 키 문제에 502 를 주면 정상 사용 중에도 브라우저 콘솔에 오류가 계속 찍혀
    * 진짜 장애를 놓치게 된다.
    */
+  /**
+   * 조회 결과에서 학습 결과를 모은다.
+   *
+   * ★ 던지지 않는다. 여기서 예외가 나가면 이용자의 조회가 실패한다.
+   */
+  async function collectOutcomes(userId: string, key: string, data: unknown): Promise<void> {
+    if (!d.learning) return;
+    // 주문·체결만 결과의 근거가 된다. 잔고·포지션 조회로는 결과를 만들 수 없다.
+    if (key !== 'orders' && key !== 'fills') return;
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    try {
+      /*
+         최근 30일치 판단만 본다.
+
+         ★ 전체를 읽으면 화면을 열 때마다 표를 훑는다. 30일보다 오래된 주문이
+           지금 체결되는 일은 없다(미체결 주문도 거래소가 그 전에 만료시킨다).
+      */
+      const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const decisions = await d.learning.recentDecisionsForOutcome(userId, since);
+      if (decisions.length === 0) return;
+
+      const already = await d.learning.existingOutcomeKeys(decisions.map((x) => x.id));
+
+      /*
+         ★ 주문 조회에서는 주문 상태를, 체결 조회에서는 수수료·평균가를 얻는다.
+           한 번의 조회로는 둘 중 하나만 있으므로, 있는 것으로 만들 수 있는
+           결과만 만든다 — 없는 값을 채우지 않는다.
+      */
+      const rows = data as Array<Record<string, unknown>>;
+      const orders = key === 'orders'
+        ? rows
+          .filter((o) => typeof o.clientOrderId === 'string' && o.clientOrderId !== '')
+          .map((o) => ({
+            clientOrderId: String(o.clientOrderId),
+            exchangeOrderId: typeof o.exchangeOrderId === 'string' ? o.exchangeOrderId : undefined,
+            symbol: String(o.symbol ?? ''),
+            side: (o.side === 'short' ? 'short' : 'long') as 'long' | 'short',
+            price: o.price === null || o.price === undefined ? undefined : String(o.price),
+            quantity: String(o.quantity ?? '0'),
+            filledQuantity: String(o.filledQuantity ?? '0'),
+            status: String(o.status ?? ''),
+            createdAt: Number(o.createdAt ?? 0),
+            updatedAt: Number(o.updatedAt ?? o.createdAt ?? 0),
+          }))
+        : [];
+
+      const fills = key === 'fills'
+        ? rows.map((f) => ({
+          orderId: typeof f.orderId === 'string' ? f.orderId : undefined,
+          clientOrderId: typeof f.clientOrderId === 'string' ? f.clientOrderId : undefined,
+          symbol: String(f.symbol ?? ''),
+          price: String(f.price ?? '0'),
+          quantity: String(f.quantity ?? '0'),
+          fee: f.fee === null || f.fee === undefined ? null : String(f.fee),
+          at: Number(f.at ?? f.time ?? 0),
+        }))
+        : [];
+
+      if (orders.length === 0) return;   // 체결만으로는 주문의 최종 상태를 모른다
+
+      const outcomes = buildOrderOutcomes({ decisions, orders, fills, already, userId });
+      for (const o of outcomes) {
+        await d.learning.recordOutcome(o);
+      }
+    } catch {
+      /* 학습 수집 실패가 조회를 막지 않는다. 레포가 실패 횟수를 센다. */
+    }
+  }
+
   async function exchangeRead<T>(
     c: Context,
     userId: string,
@@ -639,6 +939,19 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     }
     try {
       const data = await read(resolved.ctx);
+      /*
+         ★★ 학습 결과를 여기서 모은다.
+
+           거래소가 방금 돌려준 주문·체결이 이미 서버 손에 있다. 이 순간에
+           판단(trade_decisions)과 이어 붙이면 **추가 왕복도, 배경 작업도, 상시
+           키 복호화도 필요 없다.**
+
+         ★ 실패해도 조회 응답에 영향을 주지 않는다. 학습 데이터는 부수 목적이고
+           이용자가 요청한 것은 조회다.
+
+         ★ 정직한 한계: 접속하지 않는 이용자의 결과는 모이지 않는다.
+      */
+      void collectOutcomes(userId, key, data);
       return c.json({
         [key]: data,
         credentialStatus: resolved.status,
@@ -802,6 +1115,117 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     }
   });
 
+  /**
+   * 판단 문맥을 모아 학습 기록으로 남긴다.
+   *
+   * ★★ 여기서 예외가 나가면 주문이 실패한다. 레포지토리가 실패를 삼키지만,
+   *     스냅샷을 만드는 과정에서도 던지지 않도록 전체를 감싼다.
+   *
+   * ★ 시세는 **서버 값**만 쓴다. 화면이 보낸 가격을 저장하면 조작된 요청으로
+   *   학습 데이터를 오염시킬 수 있다(규칙: 데이터를 쓰는 쪽이 출처를 밝힌다).
+   */
+  async function recordDecision(args: {
+    userId: string;
+    body: Record<string, unknown>;
+    symbol: string;
+    market: 'futures' | 'spot';
+    executionMode: 'live' | 'paper';
+    risk?: { pass: boolean; failCount: number; gates: unknown; liveGate: { allowed: boolean } };
+    riskState?: { unknown: string[] };
+    submitStatus: 'ACCEPTED' | 'REJECTED' | 'SUBMIT_UNKNOWN' | 'BLOCKED';
+    submitReason?: string | null;
+    clientOrderId?: string | null;
+    exchangeOrderId?: string | null;
+  }): Promise<string | null> {
+    if (!d.learning) return null;
+    try {
+      const b = args.body;
+      /*
+         화면이 보낸 판단 문맥.
+
+         ★ 검증해서 담는다. 화면이 보낸 것을 그대로 JSONB 에 넣으면 크기 제한이
+           없는 값을 계속 받게 되고(메모·도형 좌표 전체 등), 표가 부풀며 개인정보가
+           섞여 들어온다. 알고 있는 항목만, 길이를 제한해 담는다.
+      */
+      const rawCtx = (b.uiContext ?? null) as Record<string, unknown> | null;
+      let uiContext: import('./db/learning-repo').UiContext | null = null;
+      if (rawCtx && typeof rawCtx === 'object') {
+        const inds = Array.isArray(rawCtx.indicators) ? rawCtx.indicators : null;
+        uiContext = {
+          ...(typeof rawCtx.timeframe === 'string' ? { timeframe: rawCtx.timeframe.slice(0, 12) } : {}),
+          ...(inds
+            ? {
+              // 상한 40개. 그보다 많으면 화면이 아니라 조작된 요청이다.
+              indicators: inds.slice(0, 40).map((x) => {
+                const o = (x ?? {}) as Record<string, unknown>;
+                return {
+                  id: String(o.id ?? '').slice(0, 40),
+                  ...(o.params && typeof o.params === 'object'
+                    ? { params: o.params as Record<string, unknown> }
+                    : {}),
+                };
+              }).filter((x) => x.id !== ''),
+            }
+            : {}),
+          ...(typeof rawCtx.drawings === 'number' ? { drawings: Math.trunc(rawCtx.drawings) } : {}),
+          ...(typeof rawCtx.preset === 'string' ? { preset: rawCtx.preset.slice(0, 60) } : {}),
+          ...(typeof rawCtx.chartType === 'string' ? { chartType: rawCtx.chartType.slice(0, 30) } : {}),
+          ...(typeof rawCtx.source === 'string' ? { source: rawCtx.source.slice(0, 40) } : {}),
+        };
+      }
+
+      /*
+         시장 스냅샷. 우리 시세 원천에서 읽는다.
+
+         ★ 얻지 못하면 null 이다. 0 으로 채우면 "그때 가격이 0 이었다" 가 된다.
+      */
+      let marketSnapshot: Record<string, unknown> | null = null;
+      try {
+        const tick = d.marketSnapshot ? await d.marketSnapshot(args.symbol, args.market) : null;
+        if (tick) marketSnapshot = tick;
+      } catch { /* 시세를 못 읽는 것이 주문을 막지 않는다 */ }
+
+      return await d.learning.recordDecision({
+        userId: args.userId,
+        market: args.market,
+        executionMode: args.executionMode,
+        symbol: args.symbol,
+        side: String(b.side ?? ''),
+        orderType: String(b.orderType ?? b.type ?? ''),
+        price: (b.price as string | number | undefined) ?? null,
+        quantity: (b.quantity ?? b.size ?? 0) as string | number,
+        leverage: (b.leverage as string | number | undefined) ?? null,
+        marginMode: typeof b.marginMode === 'string' ? b.marginMode : null,
+        reduceOnly: b.reduceOnly === true,
+        stopPrice: (b.stopPrice as string | number | undefined) ?? null,
+        takeProfitPrice: (b.takeProfitPrice as string | number | undefined) ?? null,
+        uiContext,
+        marketSnapshot,
+        accountSnapshot: args.riskState
+          // 위험 엔진이 이미 모아 둔 실제 상태를 재사용한다(중복 조회를 만들지 않는다).
+          ? { unknownInputs: args.riskState.unknown }
+          : null,
+        riskSnapshot: args.risk
+          ? {
+            pass: args.risk.pass,
+            failCount: args.risk.failCount,
+            liveGateAllowed: args.risk.liveGate.allowed,
+            gates: args.risk.gates,
+          }
+          : null,
+        submitStatus: args.submitStatus,
+        submitReason: args.submitReason ?? null,
+        clientOrderId: args.clientOrderId ?? null,
+        exchangeOrderId: args.exchangeOrderId ?? null,
+      });
+    } catch {
+      /*
+         ★ 학습 기록 실패가 주문을 막지 않는다. 레포지토리가 감사기록을 남긴다.
+      */
+      return null;
+    }
+  }
+
   // ---- order submit (SHADOW by default; live is blocked unless every gate passes) ----
   app.post('/trading/orders/submit', async (c) => {
     const a = await authed(c);
@@ -835,9 +1259,52 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
          이 경로는 열리지 않는다 — 잠금을 푸는 것은 명시적 설정 변경이다.
       */
       const gatesOpen = risk.pass && risk.liveGate.allowed;
-      const adapterReady = Boolean(d.tradingAdapter && d.tradingAdapter.canPlaceRealOrders);
+      /*
+         ★★ 시장에 맞는 어댑터를 고른다.
+
+           요청이 현물이면 현물 어댑터를, 아니면 선물 어댑터를 쓴다. 어댑터를
+           잘못 고르면 오류가 나지 않고 **주문 수량이 승수 배(BTC 는 1000배)
+           틀린다.** 그래서 고르는 지점을 한 곳으로 모으고, 고르지 못하면
+           전송하지 않는다.
+
+         ★ 현물 요청인데 현물 어댑터가 없으면 선물로 대신 보내지 않는다.
+           그것은 이용자가 요청하지 않은 상품에 주문을 내는 것이다.
+      */
+      /*
+         요청한 시장. 학습 기록에도 이 값을 쓴다.
+
+         ★ 시장을 섞으면 승수·수수료·청산 규칙이 달라 학습이 오염된다.
+           어댑터를 고르는 판정과 **같은 값**을 쓴다 — 따로 계산하면 어느 날
+           둘이 어긋나고, 기록은 선물인데 실제로는 현물 주문이 된다.
+      */
+      const reqMarket: 'futures' | 'spot' =
+        String((body as { market?: unknown }).market ?? '').toLowerCase() === 'spot' ? 'spot' : 'futures';
+      const activeAdapter = selectTradingAdapter(reqMarket, {
+        futures: d.tradingAdapter,
+        spot: d.spotTradingAdapter,
+      });
+      const adapterReady = Boolean(activeAdapter && activeAdapter.canPlaceRealOrders);
 
       if (!gatesOpen || !adapterReady) {
+        /*
+           ★★ 차단된 주문도 학습 기록에 남긴다.
+
+             "이 상황에서 이런 주문은 한도에 걸린다" 는 학습 대상이다. 통과한
+             주문만 남기면 모델은 위험한 주문이 존재했다는 사실 자체를 모른다.
+             이용자가 명시한 요구이기도 하다 — 손실·실패도 학습한다.
+        */
+        await recordDecision({
+          userId: a.user.id,
+          body,
+          symbol,
+          market: reqMarket,
+          executionMode: 'live',
+          risk,
+          riskState: st,
+          submitStatus: 'BLOCKED',
+          submitReason: !adapterReady ? 'ADAPTER_NOT_READY' : 'RISK_GATE',
+          clientOrderId: idemKey,
+        });
         return {
           transmitted: false,
           /*
@@ -854,6 +1321,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           reasons: localizeGateReasons(
             risk.pass ? risk.liveGate.reasons : risk.reasons,
             d.exchangeId,
+            d.liveGateEnv,
           ),
           gates: risk.gates,
           failCount: risk.failCount,
@@ -867,6 +1335,19 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       // --- 여기서부터 실제로 거래소에 주문이 나간다 ---
       const resolved = await resolveExchangeContext(a.user.id);
       if (!resolved.ok) {
+        // 키가 없어 보내지 못한 것도 사실이다 — 남긴다.
+        await recordDecision({
+          userId: a.user.id,
+          body,
+          symbol,
+          market: reqMarket,
+          executionMode: 'live',
+          risk,
+          riskState: st,
+          submitStatus: 'BLOCKED',
+          submitReason: 'NO_VERIFIED_CREDENTIAL',
+          clientOrderId: idemKey,
+        });
         return {
           transmitted: false,
           mode: d.mode,
@@ -880,7 +1361,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         };
       }
 
-      const outcome = await d.tradingAdapter!.submitOrder(resolved.ctx, {
+      const outcome = await activeAdapter!.submitOrder(resolved.ctx, {
         // 멱등성 키를 주문 식별자로 쓴다. 같은 키로 재시도해도 주문은 하나다.
         clientOrderId: idemKey,
         symbol,
@@ -891,6 +1372,48 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         leverage: Number(body.leverage ?? 1),
         marginMode: body.marginMode === 'cross' ? 'cross' : 'isolated',
         reduceOnly: body.reduceOnly === true,
+        /*
+           ★★ 발동 가격을 어댑터로 전달한다.
+
+             값이 있으면 어댑터가 **발동 주문 경로**로 보낸다. 전달하지 않으면
+             일반 주문이 되어 즉시 체결되고, 손절을 걸었다고 믿는 이용자가 그
+             자리에서 체결된다. 그래서 값을 조용히 버리지 않는다.
+
+           ★ 형식 검증은 어댑터가 한다(0 이하·숫자 아님이면 주문하지 않는다).
+             여기서 기본값을 넣지 않는다 — 기본 발동가라는 것은 존재하지 않는다.
+        */
+        ...(body.stopPrice !== undefined && body.stopPrice !== null && String(body.stopPrice) !== ''
+          ? { stopPrice: String(body.stopPrice) }
+          : {}),
+        /*
+           OCO 의 손절 지정가. stopPrice·price 와 함께 있을 때만 OCO 가 된다.
+           일부만 오면 어댑터가 OCO 로 보지 않는다 — 반쪽 OCO 는 한쪽이 무방비다.
+        */
+        ...(body.limitPrice !== undefined && body.limitPrice !== null && String(body.limitPrice) !== ''
+          ? { limitPrice: String(body.limitPrice) }
+          : {}),
+      } as never);
+
+      /*
+         ★★ 전송 결과를 남긴다 — ACCEPTED·REJECTED·SUBMIT_UNKNOWN 전부.
+
+           SUBMIT_UNKNOWN 을 빼면 "주문이 나갔는지 모르는" 사례가 데이터에서
+           사라진다. 실제로 가장 위험한 상태이고, 학습에서도 그 상황을 알아야 한다.
+      */
+      await recordDecision({
+        userId: a.user.id,
+        body,
+        symbol,
+        market: reqMarket,
+        executionMode: 'live',
+        risk,
+        riskState: st,
+        submitStatus: outcome.status,
+        submitReason: outcome.status === 'ACCEPTED' ? null : String((outcome as { reason?: unknown }).reason ?? ''),
+        clientOrderId: idemKey,
+        exchangeOrderId: outcome.status === 'ACCEPTED'
+          ? (outcome.order as { exchangeOrderId?: string } | undefined)?.exchangeOrderId ?? null
+          : null,
       });
 
       return {
@@ -914,7 +1437,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         failCount: risk.failCount,
         unknownInputs: st.unknown,
         brokerAttached: Boolean(
-          (d.tradingAdapter as { brokerAttached?: boolean } | undefined)?.brokerAttached,
+          (activeAdapter as { brokerAttached?: boolean } | undefined)?.brokerAttached,
         ),
       };
     });

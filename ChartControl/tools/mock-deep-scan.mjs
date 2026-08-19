@@ -71,7 +71,7 @@ const ACCOUNTS = {
 };
 
 const ROUTES = [
-  '/', '/trade', '/markets', '/portfolio', '/analytics', '/multi-chart',
+  '/', '/trade', '/markets', '/portfolio', '/analytics',
   '/wallet', '/wallet/deposit', '/wallet/withdraw', '/wallet/transactions',
   '/referral', '/points', '/fees', '/help', '/settings', '/notifications',
   '/order-history', '/ai-strategies', '/ai-strategies/my', '/ai-strategies/detail',
@@ -149,7 +149,7 @@ const texts = new Map();
 
 for (const route of ROUTES) {
   await page.goto(`${BASE}/index.html#${route}`, { waitUntil: 'networkidle', timeout: 60000 });
-  await page.waitForTimeout(/trade|multi-chart/.test(route) ? 9000 : 3500);
+  await page.waitForTimeout(/trade/.test(route) ? 9000 : 3500);
 
   const t = await page.evaluate(() => {
     const body = document.body.innerText || '';

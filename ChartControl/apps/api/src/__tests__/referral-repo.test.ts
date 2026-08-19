@@ -47,7 +47,7 @@ d('PgReferralRepo', () => {
   /** 제도를 켠다. 대부분의 검사가 켜진 상태를 전제한다. */
   const enable = (sharePct = 20) =>
     repo.updateSettings(
-      { enabled: true, sharePct, minPayout: 10, payoutCurrency: 'USDT', payoutNote: '수동 송금' },
+      { enabled: true, sharePct, minPayout: 10, payoutCurrency: 'USDT', payoutNote: 'Paid manually each month' },
       admin,
     );
 
@@ -236,7 +236,7 @@ d('PgReferralRepo', () => {
 
     // 비율을 내린다.
     await repo.updateSettings(
-      { enabled: true, sharePct: 5, minPayout: 10, payoutCurrency: 'USDT', payoutNote: '수동' },
+      { enabled: true, sharePct: 5, minPayout: 10, payoutCurrency: 'USDT', payoutNote: 'Manual payout' },
       admin,
     );
 

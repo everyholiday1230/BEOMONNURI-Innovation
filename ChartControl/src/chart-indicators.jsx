@@ -179,7 +179,7 @@
    * @param {number} p.version              차트 재생성 감지용 (인스턴스 교체 시 재조회)
    * @param {() => void} p.onClose
    */
-  window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose }) {
+  window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose, publish = true }) {
     const [q, setQ] = useState('');
     const [active, setActive] = useState(() => new Map()); // name -> paneId
     const panelRef = useRef(null);
@@ -195,10 +195,49 @@
       if (!chart) return;
       try {
         const map = new Map();
-        for (const ind of chart.getIndicators()) map.set(ind.name, ind.paneId);
+        /*
+           ★★ 설정값(calcParams)도 함께 모은다.
+
+             학습 데이터가 "어떤 지표를 켜고 매매했는가" 를 담는다. 그런데
+             `MA` 만으로는 20일선인지 120일선인지 알 수 없고, 그 둘은 완전히
+             다른 판단이다. 이름만 남기면 학습에서 두 경우가 한 덩어리가 된다.
+        */
+        const detail = [];
+        for (const ind of chart.getIndicators()) {
+          map.set(ind.name, ind.paneId);
+          detail.push({
+            id: ind.name,
+            // 값이 없으면 넣지 않는다 — 기본값을 적으면 없던 설정이 생긴다.
+            ...(Array.isArray(ind.calcParams) && ind.calcParams.length
+              ? { params: { calcParams: ind.calcParams } }
+              : {}),
+          });
+        }
         setActive(map);
+        /*
+           ★ 활성 지표를 공유 저장소에 알린다.
+
+             AI 코파일럿의 맥락 칩이 이 값을 읽는다. 전에는 그 칩에 지표 이름이
+             박혀 있어서, 사용자가 켠 것과 다른 지표를 보고 있다고 말했다.
+             차트를 소유한 이곳에서 알려야 어긋나지 않는다.
+        */
+        /*
+           ★★ 포커스된 칸만 게시한다.
+
+             격자에서 칸이 6개면 6개가 모두 게시하고, 마지막에 렌더된 칸의
+             지표가 남는다. AI 코파일럿이 그 값을 읽으므로, 이용자가 보고 있지
+             않은 차트의 지표를 말하게 된다. 학습 기록에도 같은 값이 들어간다 —
+             "어떤 지표를 보고 주문했는가" 가 틀리면 데이터가 조용히 오염된다.
+        */
+        if (window.QTChartState && publish) {
+          window.QTChartState.publishIndicators([...map.keys()]);
+          // 설정값까지 담은 형태. 학습 문맥 수집이 이것을 읽는다.
+          if (window.QTChartState.publishIndicatorDetail) {
+            window.QTChartState.publishIndicatorDetail(detail);
+          }
+        }
       } catch (e) { /* noop */ }
-    }, [getChart]);
+    }, [getChart, publish]);
 
     useEffect(() => {
       syncFromChart();
@@ -335,4 +374,64 @@
   };
 
   window.ChartIndicatorsMeta = { PLACEMENT, GROUP_ORDER, supportedIndicators };
+})();
+
+/* ============================================================
+   활성 지표 공유 저장소
+   ------------------------------------------------------------
+   왜 필요한가
+
+     AI 코파일럿의 맥락 칩은 "지금 어떤 지표가 켜져 있는지" 를 보여준다. 그런데
+     차트 인스턴스는 ChartWidget 안에만 있어서, 코파일럿에 맥락을 넘겨주는 쪽
+     (App)에서는 접근할 수 없다. 그래서 전에는 `MA20 · MA60 · MA120` 이 그냥
+     적혀 있었다 — 사용자가 무엇을 켰는지와 아무 상관이 없는 글자다.
+
+   ★ 차트를 소유한 쪽이 값을 적고, 필요한 쪽이 읽는다. 반대 방향(코파일럿이
+     차트를 찾아가는 것)으로 만들면 차트가 없는 화면에서 깨진다.
+
+   ★ 읽지 못하면 null 이다. 빈 배열로 두면 "지표를 하나도 켜지 않았다" 는
+     사실 주장이 되어버린다 — 우리가 확인한 것이 아니다.
+   ============================================================ */
+(function () {
+  'use strict';
+  const { useState, useEffect } = React;
+
+  let current = null;                 // string[] | null
+  const listeners = new Set();
+
+  function publish(names) {
+    const next = Array.isArray(names) && names.length ? [...new Set(names)] : null;
+    // 같은 내용이면 알리지 않는다 (불필요한 재렌더를 만들지 않는다).
+    const same = (a, b) => (a === b) || (Array.isArray(a) && Array.isArray(b)
+      && a.length === b.length && a.every((x, i) => x === b[i]));
+    if (same(current, next)) return;
+    current = next;
+    listeners.forEach((fn) => { try { fn(current); } catch (e) { /* 한 구독자의 오류가 나머지를 막지 않는다 */ } });
+  }
+
+  /*
+     설정값까지 담은 지표 목록.
+
+     ★ 이름 목록(current)과 따로 둔다. 이름 목록은 화면 칩이 쓰고, 이쪽은
+       학습 기록이 쓴다. 한 값으로 합치면 칩이 `MA{"calcParams":[20]}` 같은
+       글자를 표시하게 된다.
+  */
+  let currentDetail = null;           // Array<{id, params?}> | null
+
+  window.QTChartState = {
+    publishIndicators: publish,
+    getIndicators: () => current,
+    publishIndicatorDetail(list) {
+      currentDetail = Array.isArray(list) && list.length ? list : null;
+    },
+    /** 설정값까지 담은 활성 지표. 모르면 null (빈 배열이 아니다). */
+    getIndicatorDetail: () => currentDetail,
+    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    /** React 훅 — 값이 바뀌면 다시 렌더된다. */
+    useIndicators() {
+      const [v, setV] = useState(current);
+      useEffect(() => window.QTChartState.subscribe(setV), []);
+      return v;
+    },
+  };
 })();

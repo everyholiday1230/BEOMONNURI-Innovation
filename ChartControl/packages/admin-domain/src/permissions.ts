@@ -43,6 +43,25 @@ export const ADMIN_PERMISSIONS = [
   'admin.broker.rebate.read',
 
   /**
+   * 거래 학습 데이터셋 — 현황 조회 / 내보내기.
+   *
+   * ★★ 별도 권한으로 둔 이유
+   *
+   *   이 데이터는 **개인의 거래 행동 전체**다. 언제 무엇을 얼마에 샀고 얼마를
+   *   잃었는지가 사람 단위로 들어 있다. 회원 목록을 볼 수 있는 권한
+   *   (`admin.user.read`)과 성격이 완전히 다르다 — 회원 목록은 "누가 있는가"
+   *   이고, 이것은 "그 사람이 어떻게 돈을 잃었는가" 다.
+   *
+   * ★ 조회(stats)와 내보내기(export)를 나눈다.
+   *
+   *   현황은 "모이고 있는가" 를 확인하는 운영 정보라서 관리자에게 필요하다.
+   *   내보내기는 **데이터가 우리 시스템 밖으로 나가는 행위**다. 파일이 한 번
+   *   나가면 회수할 수 없으므로 더 좁은 권한으로 둔다.
+   */
+  'admin.learning.read',
+  'admin.learning.export',
+
+  /**
    * 공지 읽기 / 쓰기.
    *
    * 별도 권한으로 둔 이유: 공지는 **전체 사용자에게** 나간다. 사용자 상태를
@@ -108,6 +127,23 @@ export const ADMIN_PERMISSIONS = [
    */
   'admin.legal.read',
   'admin.legal.write',
+
+  /**
+   * 회원 삭제 (법정 보관분은 분리 보관).
+   *
+   * ★★ SUPER 에만 준다.
+   *
+   *   되돌릴 수 없다. 계정과 그에 딸린 설정·거래소 연동·AI 기록이 사라지고,
+   *   약관 동의와 주문 기록은 분리 보관 테이블로 옮겨진 뒤 원본이 지워진다.
+   *   잘못된 대상을 지우면 그 사람의 계정을 되살릴 방법이 없다.
+   *
+   *   ADMIN 에게 주지 않는 이유는 admin.legal.write 와 같다 — 되돌릴 수 없는
+   *   작업은 한 사람이 혼자 실행할 수 있게 두지 않는다.
+   *
+   * ★ 이 권한이 있어도 서버는 재인증과 이메일 확인 입력을 함께 요구한다.
+   *   권한만으로 실행되면 실수 한 번이 그대로 삭제가 된다.
+   */
+  'admin.user.delete',
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
@@ -149,7 +185,15 @@ export const ADMIN_ROLE_PERMISSIONS: Record<RoleName, ReadonlySet<AdminPermissio
   */
   SUPPORT: new Set<AdminPermission>([...READ_ONLY, 'admin.support.write']),
   ANALYST: new Set<AdminPermission>([...READ_ONLY, 'admin.audit.read', 'admin.audit.export', 'admin.support.write']),
-  ADMIN: new Set<AdminPermission>([...READ_ONLY, 'admin.user.status.write', 'admin.audit.read', 'admin.audit.export', 'admin.role.write', 'admin.incident.write', 'admin.feature_flag.write', 'admin.kill_switch.write', 'admin.release_gate.write', 'admin.ai.policy.write', 'admin.gateway.write', 'admin.broker.rebate.read', 'admin.notice.write', 'admin.support.write', 'admin.referral.write', 'admin.points.write']),
+  ADMIN: new Set<AdminPermission>([...READ_ONLY, 'admin.user.status.write', 'admin.audit.read', 'admin.audit.export', 'admin.role.write', 'admin.incident.write', 'admin.feature_flag.write', 'admin.kill_switch.write', 'admin.release_gate.write', 'admin.ai.policy.write', 'admin.gateway.write', 'admin.broker.rebate.read',
+    /*
+       학습 데이터 현황은 ADMIN 도 본다 — "모이고 있는가" 는 운영 정보다.
+
+       ★ 내보내기(admin.learning.export)는 주지 않는다. 파일이 한 번 나가면
+         회수할 수 없고, 그 파일에는 개인의 거래 행동 전체가 들어 있다.
+         SUPER_ADMIN 만 갖는다.
+    */
+    'admin.learning.read', 'admin.notice.write', 'admin.support.write', 'admin.referral.write', 'admin.points.write']),
   SUPER_ADMIN: new Set<AdminPermission>([...ADMIN_PERMISSIONS]),
 };
 

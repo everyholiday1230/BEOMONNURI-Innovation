@@ -34,10 +34,37 @@
   var MODES = {
     spot: {
       id: 'spot',
-      available: false,
-      reasonKey: 'mode_spot_unavailable',
-      /** 주문 경로. 지원하지 않으므로 없다. */
-      orderPath: null,
+      /*
+         ★ 현물은 **시세만** 지원한다.
+
+           KuCoin 현물 공개 API(api.kucoin.com)로 심볼·캔들·티커를 받는다.
+           그래서 차트는 정상적으로 그려진다. 하지만 주문을 내는 어댑터는 아직
+           없으므로 orderPath 는 null 이다.
+
+         ★★ available 을 켜면서 orderPath 를 null 로 두는 이유
+
+           모드를 고를 수는 있어야 한다(차트를 보려면). 그러나 주문 경로가
+           null 이면 주문 제출은 반드시 막힌다 — getOrderPath() 한 곳만 보고
+           판단하기 때문에, 화면이 실수로 주문 버튼을 열어도 나가지 않는다.
+           "볼 수는 있지만 낼 수는 없다" 를 코드 구조로 보장한다.
+
+           반대로 available:false 로 두면 차트조차 볼 수 없다. 그래서 두 가지를
+           분리했다: 시세 지원(available)과 주문 지원(orderPath).
+      */
+      available: true,
+      reasonKey: null,
+      /*
+         주문 경로.
+
+         ★ 현물 주문 어댑터가 붙었다(KucoinSpotTradingAdapter). 경로는 선물과
+           같은 'live' 다 — 주문이 거래소로 실제로 나간다는 뜻이고, 어느 시장으로
+           나가는지는 요청의 `market` 필드가 정한다.
+
+         ★★ 그래도 실제 전송은 여러 겹의 잠금을 통과해야 한다:
+             FEATURE_LIVE_ORDERS_ENABLED · 킬스위치 해제 · 리스크 게이트 통과 ·
+             자격증명 검증. 기본 배포는 전부 잠겨 있다.
+      */
+      orderPath: 'live',
     },
     futures: {
       id: 'futures',
@@ -106,6 +133,25 @@
   window.QTMode = {
     MODES: MODES,
     DEFAULT_MODE: DEFAULT_MODE,
+
+    /**
+     * 지금 모드에서 **주문을 낼 수 있는가**.
+     *
+     * ★ 모드를 고를 수 있는 것과 주문을 낼 수 있는 것은 다르다. 현물은 시세만
+     *   지원하므로 차트는 보이지만 주문은 나가지 않는다. 화면이 이 값을 보고
+     *   주문 영역에 이유를 표시해야 한다 — 버튼만 안 먹으면 고장으로 보인다.
+     */
+    canOrder: function () {
+      var m = MODES[current];
+      return Boolean(m && m.available && m.orderPath);
+    },
+    /** 주문이 안 되는 이유(번역 키). 가능하면 null. */
+    orderBlockedReasonKey: function () {
+      var m = MODES[current];
+      if (!m) return 'mode_unknown';
+      if (m.available && m.orderPath) return null;
+      return m.marketDataOnlyReasonKey || m.reasonKey || 'mode_unknown';
+    },
 
     get: function () { return current; },
     getOrderPath: getOrderPath,

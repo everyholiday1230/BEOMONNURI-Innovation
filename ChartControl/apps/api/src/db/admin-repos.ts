@@ -315,6 +315,159 @@ export class SqliteAdminRepo {
     return this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(id).changes;
   }
 
+  /**
+   * 2단계 인증 자격 삭제 (SQLite 개발 백엔드).
+   *
+   * ★ 운영은 Postgres 를 강제하므로(repository-factory) 이 구현은 개발·테스트용이다.
+   *   그래도 인터페이스를 만족해야 하고, 개발 중에도 같은 동작이어야 한다 —
+   *   두 백엔드가 다르게 동작하면 개발에서 통과한 것이 운영에서 깨진다.
+   *
+   * ★ credential 과 users.mfa_enabled 를 함께 바꾼다. 하나만 바꾸면
+   *   "MFA 필요한데 검증할 secret 이 없는" 상태가 되어 로그인이 영구히 막힌다.
+   */
+  /**
+   * 회원 삭제 + 법정 보관분 분리 보관 (SQLite 개발 백엔드).
+   *
+   * ★ 운영은 Postgres 를 강제한다(repository-factory 가 fail-closed). 이 구현은
+   *   개발·테스트용이지만 **동작이 같아야** 한다 — 두 백엔드가 다르면 개발에서
+   *   통과한 삭제가 운영에서 다르게 끝난다.
+   *
+   * ★ 분리 보관 테이블이 없는 개발 DB 가 있을 수 있다(SQLite 마이그레이션은
+   *   0011 까지만 있다). 그 경우 **삭제를 진행하지 않고 null 을 돌려준다.**
+   *   보관하지 못하는 상태에서 지우면 방침이 보관하겠다고 한 자료가 사라진다.
+   */
+  deleteUserWithRetention(input: {
+    userId: string;
+    requestedBy: 'self' | 'admin';
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    reason: string;
+  }): { deleted: boolean; retainedConsents: number; retainedOrders: number } | null {
+    const hasTable = (name: string): boolean => {
+      const r = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name);
+      return Boolean(r);
+    };
+    // 보관할 곳이 없으면 지우지 않는다(위 주석).
+    if (!hasTable('retained_legal_consents') || !hasTable('retained_orders') || !hasTable('user_deletion_records')) {
+      return null;
+    }
+
+    const tx = this.db.transaction((arg: typeof input) => {
+      const row = this.db.prepare('SELECT id, email FROM users WHERE id=?').get(arg.userId) as { id: string; email: string } | undefined;
+      if (!row) return null;
+
+      const fiveYears = this.now() + 5 * 365 * 24 * 60 * 60 * 1000;
+
+      let consents = 0;
+      if (hasTable('user_legal_consents')) {
+        const rows = this.db.prepare('SELECT user_id, kind, version, agreed_at FROM user_legal_consents WHERE user_id=?').all(arg.userId) as Array<Record<string, unknown>>;
+        const ins = this.db.prepare(
+          `INSERT INTO retained_legal_consents (id, former_user_id, former_email, kind, version, agreed_at, retained_at, retention_reason, purge_after)
+           VALUES (?,?,?,?,?,?,?,?,?)`,
+        );
+        for (const r of rows) {
+          ins.run(randomUUID(), arg.userId, row.email, r.kind, r.version, r.agreed_at, this.now(), 'privacy policy 1 - consent proof - 5 years', fiveYears);
+          consents += 1;
+        }
+      }
+
+      let orders = 0;
+      if (hasTable('orders')) {
+        const rows = this.db.prepare(
+          `SELECT internal_order_id, exchange_order_id, symbol, side, type, price, quantity,
+                  filled_quantity, status, mode, created_at FROM orders WHERE user_id=?`,
+        ).all(arg.userId) as Array<Record<string, unknown>>;
+        const ins = this.db.prepare(
+          `INSERT INTO retained_orders (id, former_user_id, former_email, internal_order_id, exchange_order_id,
+             symbol, side, type, price, quantity, filled_quantity, status, mode, ordered_at,
+             retained_at, retention_reason, purge_after)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        );
+        for (const r of rows) {
+          ins.run(randomUUID(), arg.userId, row.email, r.internal_order_id, r.exchange_order_id,
+            r.symbol, r.side, r.type, r.price, r.quantity, r.filled_quantity, r.status, r.mode, r.created_at,
+            this.now(), 'privacy policy 1 - trade history - 5 years', fiveYears);
+          orders += 1;
+        }
+      }
+
+      // ★ 계정을 지우기 전에 처리 기록을 남긴다.
+      this.db.prepare(
+        `INSERT INTO user_deletion_records (id, former_user_id, former_email, requested_by,
+           actor_user_id, actor_email, reason, retained_consents, retained_orders, deleted_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      ).run(randomUUID(), arg.userId, row.email, arg.requestedBy, arg.actorUserId ?? null,
+        arg.actorEmail ?? null, arg.reason, consents, orders, this.now());
+
+      const changes = this.db.prepare('DELETE FROM users WHERE id=?').run(arg.userId).changes;
+      return { deleted: changes > 0, retainedConsents: consents, retainedOrders: orders };
+    });
+
+    return tx(input) as { deleted: boolean; retainedConsents: number; retainedOrders: number } | null;
+  }
+
+  /*
+     ---- 관리자 노트 (SQLite 개발 백엔드) ----
+
+     ★ 운영은 Postgres 를 강제하지만(repository-factory) 인터페이스를 만족해야
+       하고 개발에서도 같은 동작이어야 한다.
+     ★ 테이블이 없으면(SQLite 마이그레이션은 0011 까지) 빈 결과·실패를 돌려준다.
+       조용히 성공으로 답하면 저장된 줄 알고 넘어간다.
+  */
+  private hasNotesTable(): boolean {
+    return Boolean(this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_user_notes'").get());
+  }
+
+  listUserNotes(userId: string): Array<{ id: string; body: string; author_email: string | null; created_at: string | number; updated_at: string | number }> {
+    if (!this.hasNotesTable()) return [];
+    return this.db.prepare(
+      'SELECT id, body, author_email, created_at, updated_at FROM admin_user_notes WHERE user_id=? ORDER BY created_at DESC LIMIT 200',
+    ).all(userId) as Array<{ id: string; body: string; author_email: string | null; created_at: string | number; updated_at: string | number }>;
+  }
+
+  addUserNote(input: { userId: string; authorUserId: string; authorEmail: string; body: string }): { id: string } | null {
+    if (!this.hasNotesTable()) return null;
+    const body = String(input.body ?? '').trim();
+    if (!body || body.length > 4000) return null;
+    const id = randomUUID();
+    this.db.prepare(
+      `INSERT INTO admin_user_notes (id, user_id, author_user_id, author_email, body, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?)`,
+    ).run(id, input.userId, input.authorUserId, input.authorEmail, body, this.now(), this.now());
+    return { id };
+  }
+
+  deleteUserNote(input: { noteId: string; userId: string }): boolean {
+    if (!this.hasNotesTable()) return false;
+    // ★ user_id 를 조건에 넣는다 — id 만으로 지우면 남의 노트를 지울 수 있다.
+    return this.db.prepare('DELETE FROM admin_user_notes WHERE id=? AND user_id=?')
+      .run(input.noteId, input.userId).changes > 0;
+  }
+
+  /** 이메일 변경 (SQLite 개발 백엔드). 동작은 Postgres 쪽과 같아야 한다. */
+  setUserEmail(input: { userId: string; email: string }): 'ok' | 'taken' | 'not_found' {
+    const email = String(input.email ?? '').trim().toLowerCase();
+    if (!email) return 'not_found';
+    // 중복은 결과로 다룬다(오류로 흘리면 500 이 되고 원인을 알 수 없다).
+    const dup = this.db.prepare('SELECT id FROM users WHERE lower(email)=? AND id<>?').get(email, input.userId);
+    if (dup) return 'taken';
+    // ★ email_verified 를 되돌린다 — 새 주소는 아직 증명되지 않았다.
+    const changes = this.db.prepare('UPDATE users SET email=?, email_verified=0 WHERE id=?')
+      .run(email, input.userId).changes;
+    return changes > 0 ? 'ok' : 'not_found';
+  }
+
+  clearUserMfa(id: string): boolean {
+    const tx = this.db.transaction((uid: string) => {
+      const changes = this.db.prepare('DELETE FROM mfa_credentials WHERE user_id=?').run(uid).changes;
+      // 진행 중 챌린지도 지운다(남기면 예전 시도가 유효한 채로 남는다).
+      try { this.db.prepare('DELETE FROM mfa_challenges WHERE user_id=?').run(uid); } catch { /* 테이블 없을 수 있다 */ }
+      this.db.prepare('UPDATE users SET mfa_enabled=0 WHERE id=?').run(uid);
+      return changes > 0;
+    });
+    return tx(id) as boolean;
+  }
+
   // ---- feature flags (optimistic lock + history) ----
   seedFlag(key: string, enabled: boolean, description: string): void {
     this.db.prepare('INSERT OR IGNORE INTO feature_flags (id,key,enabled,description,version,updated_at) VALUES (?,?,?,?,0,?)').run(randomUUID(), key, enabled ? 1 : 0, description, this.now());

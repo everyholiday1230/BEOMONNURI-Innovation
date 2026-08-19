@@ -96,6 +96,8 @@ export const smaCross: StrategyRules = {
   description:
     '20봉 단순이동평균이 50봉을 상향 돌파하면 롱, 하향 돌파하면 숏. 손절은 ATR(14)의 2배, 익절은 3배 거리에 둡니다. ' +
     '추세 추종 전략이므로 횡보장에서 연속 손실이 발생합니다.',
+  nameKey: 'strat_sma_cross_20_50_name',
+  descriptionKey: 'strat_sma_cross_20_50_desc',
   warmup: 50,
   evaluate(bars, i) {
     const fastNow = sma(bars, i, 20);
@@ -127,6 +129,8 @@ export const rsiReversion: StrategyRules = {
   description:
     'RSI(14)가 30 아래로 내려가면 롱, 70 위로 올라가면 숏. 손절 ATR(14)×1.5, 익절 ATR×1.5. ' +
     '승률은 높지만 추세장에서 큰 손실이 나는 구조이므로 최대낙폭과 함께 보아야 합니다.',
+  nameKey: 'strat_rsi_reversion_14_name',
+  descriptionKey: 'strat_rsi_reversion_14_desc',
   warmup: 20,
   evaluate(bars, i) {
     const r = rsi(bars, i, 14);
@@ -152,6 +156,8 @@ export const donchianBreakout: StrategyRules = {
   description:
     '직전 20봉의 최고가를 종가가 돌파하면 롱, 최저가를 하향 돌파하면 숏. 손절 ATR(14)×2, 익절 ATR×4. ' +
     '돌파 실패(가짜 돌파)가 잦아 승률은 낮고, 소수의 큰 추세에서 수익이 나는 구조입니다.',
+  nameKey: 'strat_donchian_breakout_20_name',
+  descriptionKey: 'strat_donchian_breakout_20_desc',
   warmup: 25,
   evaluate(bars, i) {
     const range = priorRange(bars, i, 20);
@@ -177,6 +183,8 @@ export const buyAndHold: StrategyRules = {
   description:
     '첫 봉에 롱 진입 후 청산하지 않습니다. 전략이 아니라 비교 기준입니다. ' +
     '다른 전략의 수익률은 이 값과 비교해야 의미가 있습니다.',
+  nameKey: 'strat_buy_and_hold_name',
+  descriptionKey: 'strat_buy_and_hold_desc',
   warmup: 1,
   evaluate(_bars, i) {
     // Only the first eligible bar produces a signal; there is no exit rule, so the runner closes it at the
@@ -206,6 +214,18 @@ export interface StrategyCatalogEntry {
   id: string;
   name: string;
   description: string;
+  /*
+     ★ Translation keys for `name` / `description`.
+
+       The catalogue is returned by the API verbatim, and the API does not know
+       the caller's language. Without keys the Korean names reached the English
+       and Japanese screens (confirmed on /ai-strategies).
+
+       Optional so a rule set without dictionary entries stays valid — the
+       client falls back to the raw strings in that case.
+  */
+  nameKey?: string;
+  descriptionKey?: string;
   warmup: number;
   /** `trend` | `mean-reversion` | `breakout` | `benchmark` */
   category: string;
@@ -214,8 +234,8 @@ export interface StrategyCatalogEntry {
 }
 
 export const STRATEGY_CATALOG: readonly StrategyCatalogEntry[] = [
-  { id: smaCross.id, name: smaCross.name, description: smaCross.description, warmup: smaCross.warmup, category: 'trend', author: 'built-in' },
-  { id: rsiReversion.id, name: rsiReversion.name, description: rsiReversion.description, warmup: rsiReversion.warmup, category: 'mean-reversion', author: 'built-in' },
-  { id: donchianBreakout.id, name: donchianBreakout.name, description: donchianBreakout.description, warmup: donchianBreakout.warmup, category: 'breakout', author: 'built-in' },
-  { id: buyAndHold.id, name: buyAndHold.name, description: buyAndHold.description, warmup: buyAndHold.warmup, category: 'benchmark', author: 'built-in' },
+  { id: smaCross.id, name: smaCross.name, description: smaCross.description, nameKey: smaCross.nameKey, descriptionKey: smaCross.descriptionKey, warmup: smaCross.warmup, category: 'trend', author: 'built-in' },
+  { id: rsiReversion.id, name: rsiReversion.name, description: rsiReversion.description, nameKey: rsiReversion.nameKey, descriptionKey: rsiReversion.descriptionKey, warmup: rsiReversion.warmup, category: 'mean-reversion', author: 'built-in' },
+  { id: donchianBreakout.id, name: donchianBreakout.name, description: donchianBreakout.description, nameKey: donchianBreakout.nameKey, descriptionKey: donchianBreakout.descriptionKey, warmup: donchianBreakout.warmup, category: 'breakout', author: 'built-in' },
+  { id: buyAndHold.id, name: buyAndHold.name, description: buyAndHold.description, nameKey: buyAndHold.nameKey, descriptionKey: buyAndHold.descriptionKey, warmup: buyAndHold.warmup, category: 'benchmark', author: 'built-in' },
 ];

@@ -55,7 +55,17 @@ async function rq(app: App, method: string, path: string, o: { jar?: Record<stri
   if (o.jar) h['cookie'] = cj(o.jar);
   if (o.csrf && o.jar?.['qt_csrf']) h['x-csrf-token'] = o.jar['qt_csrf'];
   const init: RequestInit = { method, headers: h };
-  if (method !== 'GET' && method !== 'DELETE') init.body = JSON.stringify(o.body ?? {});
+  /*
+     ★ DELETE 에도 본문을 보낸다.
+
+       전에는 GET 과 함께 제외했다. 회원 삭제(DELETE /admin/users/:id)는 사유·
+       재인증·확인 이메일을 본문으로 받으므로, 보내지 않으면 스키마 검증에서
+       422 로 걸려 **그 뒤의 권한·확인 검사를 전혀 확인하지 못한다.**
+       (실제로 이 헬퍼 때문에 403 을 기대한 검사가 422 로 실패했다.)
+
+       GET 은 그대로 제외한다 — 본문 있는 GET 은 우리가 쓰지 않는다.
+  */
+  if (method !== 'GET') init.body = JSON.stringify(o.body ?? {});
   return app.request(path, init);
 }
 async function mkUser(app: App, db: ReturnType<typeof build>['db'], email: string, role: string) {
@@ -507,5 +517,543 @@ describe('ADM-API-15 GET /admin/backup/status', () => {
       if ((await rq(app, 'GET', '/api/admin/backup/status', { jar: sa.jar })).status === 429) { got429 = true; break; }
     }
     expect(got429).toBe(true);
+  });
+});
+
+// ===========================================================================
+// 2단계 인증 초기화 — POST /admin/users/:id/reset-mfa
+//
+// 왜 이 검사가 필요한가
+//   이 기능은 **보안 요소를 제거한다.** 기기를 잃은 이용자를 되살리는 유일한
+//   수단이지만, 동시에 관리자 계정이 탈취되면 임의 사용자의 2단계 인증을 끄고
+//   비밀번호만으로 들어가는 경로가 된다. 그래서 아래 조건이 하나라도 느슨해지면
+//   그 자체가 취약점이다 — 검사로 고정한다.
+// ===========================================================================
+describe('ADM-MFA-RESET POST /admin/users/:id/reset-mfa', () => {
+  const body = (extra: Record<string, unknown> = {}) => ({
+    reason: 'user lost their phone and has no recovery codes',
+    reauth: true,
+    ...extra,
+  });
+
+  it('[M1] 401 미인증 · 403 일반 사용자 · 403 권한 없는 관리자 등급', async () => {
+    const { app, db } = build();
+    const target = await mkUser(app, db, 'm1-target@ex.com', 'user');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, { body: body() })).status).toBe(401);
+
+    const plain = await mkUser(app, db, 'm1-user@ex.com', 'user');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, { jar: plain.jar, csrf: true, body: body() })).status).toBe(403);
+
+    // ANALYST 는 관리 등급이지만 읽기 전용이다(admin.user.status.write 없음).
+    const analyst = await mkUser(app, db, 'm1-analyst@ex.com', 'ANALYST');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, { jar: analyst.jar, csrf: true, body: body() })).status).toBe(403);
+  });
+
+  it('[M2] CSRF 토큰 없으면 403', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm2-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'm2-target@ex.com', 'user');
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, { jar: admin.jar, body: body() });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('CSRF_FAILED');
+  });
+
+  it('[M3] reauth 없으면 403 STEP_UP_REQUIRED — 요소 제거에는 본인 확인이 필요하다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm3-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'm3-target@ex.com', 'user');
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, {
+      jar: admin.jar, csrf: true, body: body({ reauth: false }),
+    });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('STEP_UP_REQUIRED');
+  });
+
+  it('[M4] 사유가 짧으면 422 · 거부된 입력을 응답에 되돌려주지 않는다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm4-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'm4-target@ex.com', 'user');
+    const marker = 'REJECTED_MFA_INPUT_MARKER';
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, {
+      jar: admin.jar, csrf: true, body: { reason: 'x', reauth: true, injected: marker },
+    });
+    expect(res.status).toBe(422);
+    expect(await res.text()).not.toContain(marker);
+  });
+
+  it('[M5] ★ 운영자 계정은 대상이 아니다 — 다른 운영자의 요소를 벗길 수 없다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm5-admin@ex.com', 'ADMIN');
+    for (const role of ['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'ANALYST']) {
+      const op = await mkUser(app, db, `m5-${role.toLowerCase()}@ex.com`, role);
+      const res = await rq(app, 'POST', `/api/admin/users/${op.id}/reset-mfa`, {
+        jar: admin.jar, csrf: true, body: body(),
+      });
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('[M6] 자기 자신도 대상이 아니다 — 본인 보안 설정에서 처리해야 한다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm6-admin@ex.com', 'ADMIN');
+    const res = await rq(app, 'POST', `/api/admin/users/${admin.id}/reset-mfa`, {
+      jar: admin.jar, csrf: true, body: body(),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('[M7] 없는 사용자는 404 (UUID 가 아닌 id 도 500 이 아니라 404)', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm7-admin@ex.com', 'ADMIN');
+    for (const id of ['00000000-0000-0000-0000-000000000000', 'not-a-uuid']) {
+      const res = await rq(app, 'POST', `/api/admin/users/${id}/reset-mfa`, {
+        jar: admin.jar, csrf: true, body: body(),
+      });
+      expect(res.status).toBe(404);
+    }
+  });
+
+  it('[M8] 성공하면 세션도 끊고, 통지 여부를 사실대로 보고한다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'm8-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'm8-target@ex.com', 'user');
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/reset-mfa`, {
+      jar: admin.jar, csrf: true, body: body(),
+    });
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as { ok: boolean; sessionsRevoked: number; notified: boolean; note: string };
+    expect(b.ok).toBe(true);
+    // 요소를 제거했으므로 기존 세션을 남기지 않는다(공격자가 세션을 이어 쓰는 것을 막는다).
+    expect(b.sessionsRevoked).toBeGreaterThanOrEqual(1);
+    /*
+       ★ 메일이 설정되지 않은 환경에서 "통지했다" 고 보고하면 담당자가 이용자에게
+         알렸다고 믿는다. 사실대로 false 를 주고 이유를 함께 밝힌다.
+    */
+    expect(b.notified).toBe(false);
+    expect(b.note).toMatch(/NOT notified/u);
+  });
+});
+
+// ===========================================================================
+// 비밀번호 재설정 링크 발송 — POST /admin/users/:id/send-password-reset
+//
+// ★ 임시 비밀번호를 만들지 않는다는 것이 이 기능의 핵심이다. 만들면 관리자가
+//   이용자 비밀번호를 아는 상태가 되고, 우리가 게시한 방침 8절("비밀번호 원문을
+//   보관하지 않습니다")과 어긋난다.
+// ===========================================================================
+describe('ADM-PWRESET POST /admin/users/:id/send-password-reset', () => {
+  const body = (extra: Record<string, unknown> = {}) => ({ reason: 'user cannot sign in and asked support', ...extra });
+
+  it('[P1] 401 미인증 · 403 일반 사용자 · 403 읽기 전용 관리 등급', async () => {
+    const { app, db } = build();
+    const target = await mkUser(app, db, 'p1-target@ex.com', 'user');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/send-password-reset`, { body: body() })).status).toBe(401);
+    const plain = await mkUser(app, db, 'p1-user@ex.com', 'user');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/send-password-reset`, { jar: plain.jar, csrf: true, body: body() })).status).toBe(403);
+    const analyst = await mkUser(app, db, 'p1-analyst@ex.com', 'ANALYST');
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/send-password-reset`, { jar: analyst.jar, csrf: true, body: body() })).status).toBe(403);
+  });
+
+  it('[P2] 사유가 없으면 422', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'p2-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'p2-target@ex.com', 'user');
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/send-password-reset`, {
+      jar: admin.jar, csrf: true, body: {},
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it('[P3] ★ 응답에 비밀번호나 토큰이 절대 담기지 않는다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'p3-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'p3-target@ex.com', 'user');
+    const res = await rq(app, 'POST', `/api/admin/users/${target.id}/send-password-reset`, {
+      jar: admin.jar, csrf: true, body: body(),
+    });
+    const text = await res.text();
+    /*
+       메일 미설정 환경에서는 MAIL_NOT_CONFIGURED 가 오고, 설정된 환경에서는
+       발송 성공이 온다. 어느 쪽이든 **토큰·임시 비밀번호가 응답에 있으면 안 된다.**
+       관리자가 그 값을 알면 이용자를 대신해 로그인할 수 있다.
+    */
+    expect(text).not.toMatch(/temporaryPassword|tempPassword|"token"|resetToken/u);
+  });
+
+  it('[P4] 없는 사용자는 404', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'p4-admin@ex.com', 'ADMIN');
+    const res = await rq(app, 'POST', '/api/admin/users/00000000-0000-0000-0000-000000000000/send-password-reset', {
+      jar: admin.jar, csrf: true, body: body(),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ===========================================================================
+// 회원 삭제 (법정 보관분 분리 보관) — DELETE /admin/users/:id
+//
+// 왜 이 검사가 필요한가
+//   되돌릴 수 없는 작업이다. 잘못된 대상을 지우면 그 계정을 되살릴 방법이 없다.
+//   그리고 우리 방침(§6)이 "지체 없이 파기" 와 "법정 보관분은 분리 보관" 을
+//   **동시에** 약속했으므로, 보관하지 못하는 상태에서 지우는 것도 위반이다.
+//   아래 조건이 하나라도 느슨해지면 그 자체가 사고 경로다.
+// ===========================================================================
+describe('ADM-USER-DELETE DELETE /admin/users/:id', () => {
+  const body = (email: string, extra: Record<string, unknown> = {}) => ({
+    reason: 'user requested account deletion',
+    reauth: true,
+    confirmEmail: email,
+    ...extra,
+  });
+
+  it('[D1] 401 미인증 · 403 일반 사용자 · ★ ADMIN 도 안 된다(SUPER 전용)', async () => {
+    const { app, db } = build();
+    const target = await mkUser(app, db, 'd1-target@ex.com', 'user');
+    expect((await rq(app, 'DELETE', `/api/admin/users/${target.id}`, { body: body('d1-target@ex.com') })).status).toBe(401);
+
+    const plain = await mkUser(app, db, 'd1-user@ex.com', 'user');
+    expect((await rq(app, 'DELETE', `/api/admin/users/${target.id}`, { jar: plain.jar, csrf: true, body: body('d1-target@ex.com') })).status).toBe(403);
+
+    /*
+       ★ ADMIN 에게 주지 않는다.
+
+         되돌릴 수 없는 작업은 한 사람이 혼자 실행할 수 있게 두지 않는다
+         (admin.legal.write 와 같은 판단). 이 기대가 깨지면 권한 설계가 무너진 것이다.
+    */
+    const admin = await mkUser(app, db, 'd1-admin@ex.com', 'ADMIN');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, { jar: admin.jar, csrf: true, body: body('d1-target@ex.com') });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain('admin.user.delete');
+  });
+
+  it('[D2] CSRF 토큰 없으면 403', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd2-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd2-target@ex.com', 'user');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, { jar: su.jar, body: body('d2-target@ex.com') });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('CSRF_FAILED');
+  });
+
+  it('[D3] reauth 없으면 403 · 사유가 짧으면 422', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd3-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd3-target@ex.com', 'user');
+
+    const noReauth = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true, body: body('d3-target@ex.com', { reauth: false }),
+    });
+    expect(noReauth.status).toBe(403);
+    expect(((await noReauth.json()) as { error: { code: string } }).error.code).toBe('STEP_UP_REQUIRED');
+
+    const shortReason = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true, body: body('d3-target@ex.com', { reason: 'x' }),
+    });
+    expect(shortReason.status).toBe(422);
+  });
+
+  it('[D4] ★ 이메일이 대상과 다르면 지우지 않는다 — 잘못된 행을 누른 실수를 막는다', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd4-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd4-target@ex.com', 'user');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true, body: body('someone-else@ex.com'),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('CONFIRMATION_MISMATCH');
+    // 대상이 그대로 살아 있어야 한다.
+    const still = await rq(app, 'GET', `/api/admin/users/${target.id}`, { jar: su.jar });
+    expect(still.status).toBe(200);
+  });
+
+  it('[D5] ★ 운영자 계정과 자기 자신은 이 경로로 지우지 않는다', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd5-super@ex.com', 'SUPER_ADMIN');
+
+    // 자기 자신
+    const self = await rq(app, 'DELETE', `/api/admin/users/${su.id}`, {
+      jar: su.jar, csrf: true, body: body('d5-super@ex.com'),
+    });
+    expect(self.status).toBe(403);
+
+    // 다른 운영자 등급
+    for (const role of ['ADMIN', 'SUPPORT', 'ANALYST']) {
+      const email = `d5-${role.toLowerCase()}@ex.com`;
+      const op = await mkUser(app, db, email, role);
+      const res = await rq(app, 'DELETE', `/api/admin/users/${op.id}`, {
+        jar: su.jar, csrf: true, body: body(email),
+      });
+      expect(res.status).toBe(403);
+    }
+  });
+
+  it('[D6] 없는 사용자는 404 (UUID 가 아닌 id 도 500 이 아니라 404)', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd6-super@ex.com', 'SUPER_ADMIN');
+    for (const id of ['00000000-0000-0000-0000-000000000000', 'not-a-uuid']) {
+      const res = await rq(app, 'DELETE', `/api/admin/users/${id}`, {
+        jar: su.jar, csrf: true, body: body('whatever@ex.com'),
+      });
+      expect(res.status).toBe(404);
+    }
+  });
+
+  it('[D7] ★★ 분리 보관을 할 수 없으면 삭제하지 않는다', async () => {
+    /*
+       이 테스트는 SQLite 백엔드로 돈다. 0022 는 Postgres 마이그레이션이므로
+       `retained_*` 테이블이 없고, 구현은 그 경우 null 을 돌려주도록 되어 있다.
+
+       ★ 그때 삭제를 진행하면 방침이 5년 보관하겠다고 한 동의·주문 기록이
+         그대로 사라진다. "보관할 곳이 없으면 지우지 않는다" 가 이 기능의
+         가장 중요한 성질이고, 그래서 성공으로 보고하지 않는지 확인한다.
+    */
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd7-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd7-target@ex.com', 'user');
+
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true, body: body('d7-target@ex.com'),
+    });
+    const b = (await res.json()) as { ok?: boolean; error?: { code: string } };
+
+    if (b.error) {
+      // 보관 저장소가 없는 환경 — 지우지 않았어야 한다.
+      expect(b.error.code).toBe('RETENTION_UNAVAILABLE');
+      const still = await rq(app, 'GET', `/api/admin/users/${target.id}`, { jar: su.jar });
+      expect(still.status).toBe(200);
+    } else {
+      // 보관 저장소가 있는 환경 — 지워졌고 보관 개수를 보고해야 한다.
+      expect(b.ok).toBe(true);
+      const gone = await rq(app, 'GET', `/api/admin/users/${target.id}`, { jar: su.jar });
+      expect(gone.status).toBe(404);
+    }
+  });
+});
+
+// ===========================================================================
+// 관리자 노트 · 이메일 변경 · 회원 목록 반출
+// ===========================================================================
+describe('ADM-NOTES 관리자 노트', () => {
+  it('[N1] 조회는 읽기 권한 · 작성·삭제는 변경 권한', async () => {
+    const { app, db } = build();
+    const target = await mkUser(app, db, 'n1-target@ex.com', 'user');
+
+    // 미인증
+    expect((await rq(app, 'GET', `/api/admin/users/${target.id}/notes`)).status).toBe(401);
+
+    // 일반 사용자는 읽기도 안 된다
+    const plain = await mkUser(app, db, 'n1-user@ex.com', 'user');
+    expect((await rq(app, 'GET', `/api/admin/users/${target.id}/notes`, { jar: plain.jar })).status).toBe(403);
+
+    /*
+       ★ ANALYST 는 읽을 수 있지만 쓸 수 없다.
+         지원·분석 담당은 맥락을 봐야 업무가 되고, 기록을 바꾸는 것은 변경
+         권한이 있는 등급의 일이다.
+    */
+    const analyst = await mkUser(app, db, 'n1-analyst@ex.com', 'ANALYST');
+    expect((await rq(app, 'GET', `/api/admin/users/${target.id}/notes`, { jar: analyst.jar })).status).toBe(200);
+    expect((await rq(app, 'POST', `/api/admin/users/${target.id}/notes`, {
+      jar: analyst.jar, csrf: true, body: { body: 'analyst should not be able to write this' },
+    })).status).toBe(403);
+  });
+
+  it('[N2] 빈 본문·과도한 길이는 400', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'n2-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'n2-target@ex.com', 'user');
+    for (const bad of ['', '   ', 'x'.repeat(4001)]) {
+      const res = await rq(app, 'POST', `/api/admin/users/${target.id}/notes`, {
+        jar: admin.jar, csrf: true, body: { body: bad },
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it('[N3] ★ 다른 회원의 노트를 지울 수 없다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'n3-admin@ex.com', 'ADMIN');
+    const a = await mkUser(app, db, 'n3-a@ex.com', 'user');
+    const bUser = await mkUser(app, db, 'n3-b@ex.com', 'user');
+
+    const created = await rq(app, 'POST', `/api/admin/users/${a.id}/notes`, {
+      jar: admin.jar, csrf: true, body: { body: 'a note that belongs to user A' },
+    });
+    const cb = (await created.json()) as { ok?: boolean; id?: string; error?: { code: string } };
+    // 저장할 수 없는 환경(개발 DB 에 표 없음)이면 이 검사는 의미가 없다.
+    if (!cb.id) { expect(cb.error?.code).toBe('NOTES_UNAVAILABLE'); return; }
+
+    /*
+       ★ B 의 경로로 A 의 노트 id 를 지우려 하면 404 여야 한다.
+         노트 id 만으로 지울 수 있으면 id 를 알아낸 사람이 남의 기록을 지운다.
+         "없는 것" 과 "남의 것" 을 구분해 알리지도 않는다(존재 여부 누출).
+    */
+    const cross = await rq(app, 'DELETE', `/api/admin/users/${bUser.id}/notes/${cb.id}`, {
+      jar: admin.jar, csrf: true,
+    });
+    expect(cross.status).toBe(404);
+
+    // 올바른 조합은 지워진다.
+    const own = await rq(app, 'DELETE', `/api/admin/users/${a.id}/notes/${cb.id}`, { jar: admin.jar, csrf: true });
+    expect(own.status).toBe(200);
+  });
+});
+
+describe('ADM-EMAIL 이메일 변경', () => {
+  const body = (email: string, extra: Record<string, unknown> = {}) => ({
+    email, reason: 'user reported a typo in their address', reauth: true, ...extra,
+  });
+
+  it('[E1] 권한·CSRF·reauth·형식을 모두 요구한다', async () => {
+    const { app, db } = build();
+    const target = await mkUser(app, db, 'e1-target@ex.com', 'user');
+
+    expect((await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, { body: body('e1-new@ex.com') })).status).toBe(401);
+
+    const analyst = await mkUser(app, db, 'e1-analyst@ex.com', 'ANALYST');
+    expect((await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, {
+      jar: analyst.jar, csrf: true, body: body('e1-new@ex.com'),
+    })).status).toBe(403);
+
+    const admin = await mkUser(app, db, 'e1-admin@ex.com', 'ADMIN');
+    // CSRF 없음
+    expect((await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, {
+      jar: admin.jar, body: body('e1-new@ex.com'),
+    })).status).toBe(403);
+    // reauth 없음
+    const noReauth = await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, {
+      jar: admin.jar, csrf: true, body: body('e1-new@ex.com', { reauth: false }),
+    });
+    expect(noReauth.status).toBe(403);
+    expect(((await noReauth.json()) as { error: { code: string } }).error.code).toBe('STEP_UP_REQUIRED');
+    // 형식 오류
+    expect((await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, {
+      jar: admin.jar, csrf: true, body: body('not-an-email'),
+    })).status).toBe(422);
+  });
+
+  it('[E2] ★ 이미 쓰는 주소면 409, 그리고 원래 주소는 그대로다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'e2-admin@ex.com', 'ADMIN');
+    const a = await mkUser(app, db, 'e2-a@ex.com', 'user');
+    await mkUser(app, db, 'e2-b@ex.com', 'user');
+
+    const res = await rq(app, 'PATCH', `/api/admin/users/${a.id}/email`, {
+      jar: admin.jar, csrf: true, body: body('e2-b@ex.com'),
+    });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('EMAIL_TAKEN');
+
+    const still = db.prepare('SELECT email FROM users WHERE id=?').get(a.id) as { email: string };
+    expect(still.email).toBe('e2-a@ex.com');
+  });
+
+  it('[E3] ★★ 변경하면 email_verified 가 false 로 돌아간다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'e3-admin@ex.com', 'ADMIN');
+    const target = await mkUser(app, db, 'e3-target@ex.com', 'user');
+    db.prepare('UPDATE users SET email_verified=1 WHERE id=?').run(target.id);
+
+    const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/email`, {
+      jar: admin.jar, csrf: true, body: body('e3-fixed@ex.com'),
+    });
+    expect(res.status).toBe(200);
+
+    const row = db.prepare('SELECT email, email_verified FROM users WHERE id=?').get(target.id) as { email: string; email_verified: number };
+    expect(row.email).toBe('e3-fixed@ex.com');
+    /*
+       ★ 새 주소는 그 사람의 것이라는 증거가 없다. 확인된 상태로 남기면
+         잘못 입력된 주소가 확인된 것처럼 보이고, 그 뒤 비밀번호 재설정
+         링크가 남의 메일함으로 간다.
+    */
+    expect(Number(row.email_verified)).toBe(0);
+  });
+
+  it('[E4] 운영자 계정은 이 경로로 바꾸지 않는다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'e4-admin@ex.com', 'ADMIN');
+    const op = await mkUser(app, db, 'e4-op@ex.com', 'SUPPORT');
+    const res = await rq(app, 'PATCH', `/api/admin/users/${op.id}/email`, {
+      jar: admin.jar, csrf: true, body: body('e4-op-new@ex.com'),
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('ADM-EXPORT 회원 목록 반출', () => {
+  it('[X1] ★ 목록 읽기 권한만으로는 반출할 수 없다', async () => {
+    const { app, db } = build();
+    expect((await rq(app, 'GET', '/api/admin/users/export')).status).toBe(401);
+
+    /*
+       ★ SUPPORT 는 회원 목록을 읽을 수 있지만(admin.user.read) 반출 권한
+         (admin.audit.export)은 없다. 파일로 나가는 것은 화면에서 보는 것과
+         성질이 다르므로 권한을 분리한다.
+    */
+    const support = await mkUser(app, db, 'x1-support@ex.com', 'SUPPORT');
+    expect((await rq(app, 'GET', '/api/admin/users', { jar: support.jar })).status).toBe(200);
+    const res = await rq(app, 'GET', '/api/admin/users/export', { jar: support.jar });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain('admin.audit.export');
+  });
+
+  it('[X2] CSV 로 나가고, 내보내는 항목이 최소로 유지된다', async () => {
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'x2-admin@ex.com', 'ADMIN');
+    const res = await rq(app, 'GET', '/api/admin/users/export', { jar: admin.jar });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/csv');
+    expect(res.headers.get('content-disposition')).toContain('attachment');
+
+    const text = await res.text();
+    expect(text.split('\n')[0]).toBe('id,email,role,status,created_at');
+    /*
+       ★ 여기 없는 것은 파일에 나가지 않는다. 특히 비밀번호 해시와 MFA 관련
+         값은 내보낼 이유가 없다(있으면 유출 시 피해가 그만큼 커진다).
+    */
+    expect(text).not.toMatch(/password|mfa_secret|secret/i);
+  });
+
+  it('[X3] format=json 이 검색 조건 검증을 깨뜨리지 않는다', async () => {
+    /*
+       UserSearchSchema 는 .strict() 이므로 모르는 키가 있으면 전체를 400 으로
+       거부한다. format 을 스키마에 넣으면 **요청 전체가 실패**한다(실측으로 겪었다).
+    */
+    const { app, db } = build();
+    const admin = await mkUser(app, db, 'x3-admin@ex.com', 'ADMIN');
+    const res = await rq(app, 'GET', '/api/admin/users/export?format=json&limit=2', { jar: admin.jar });
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as { users: unknown[]; cappedAt: number };
+    expect(Array.isArray(b.users)).toBe(true);
+    expect(b.cappedAt).toBe(5000);
+  });
+});
+
+// ===========================================================================
+// 감사 로그 접근 통제
+//
+// auth 라우터에 있던 `/admin/audit` 껍데기를 제거했으므로(등록 순서에 따라
+// 실제 관리자 API 를 가로챌 수 있었다) 그 검사를 실제 경로로 옮긴다.
+// ===========================================================================
+describe('ADM-AUDIT-GUARD GET /admin/audit', () => {
+  it('[A1] 미인증 401 · 일반 사용자 403 · SUPPORT 도 403(감사 열람 권한 없음)', async () => {
+    const { app, db } = build();
+    expect((await rq(app, 'GET', '/api/admin/audit')).status).toBe(401);
+
+    const plain = await mkUser(app, db, 'a1-user@ex.com', 'user');
+    expect((await rq(app, 'GET', '/api/admin/audit', { jar: plain.jar })).status).toBe(403);
+
+    /*
+       ★ SUPPORT 는 관리 등급이지만 감사 로그를 볼 수 없다(admin.audit.read 없음).
+         고객 응대에 필요한 것은 회원 정보이고, 감사 로그는 "누가 무엇을 했나" 를
+         조사하는 자료다. 권한을 넓히지 않는다.
+    */
+    const support = await mkUser(app, db, 'a1-support@ex.com', 'SUPPORT');
+    expect((await rq(app, 'GET', '/api/admin/audit', { jar: support.jar })).status).toBe(403);
+
+    // ANALYST 는 볼 수 있다.
+    const analyst = await mkUser(app, db, 'a1-analyst@ex.com', 'ANALYST');
+    expect((await rq(app, 'GET', '/api/admin/audit', { jar: analyst.jar })).status).toBe(200);
   });
 });

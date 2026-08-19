@@ -13,10 +13,12 @@ import {
   FeatureFlagUpdateSchema, KillSwitchUpdateSchema, ReleaseGateUpdateSchema, AuditQuerySchema, ExportRequestSchema,
   AdminOrderQuerySchema, AdminPositionQuerySchema, AdminAiQuerySchema,
   NoQuerySchema, AdminUnlockSchema, LockoutQuerySchema, ADMIN_REPORT_TYPES, ReportGenerateSchema,
+  UserDeleteSchema, UserEmailChangeSchema,
   ReportQuerySchema, GatewayActionSchema, IncidentAckSchema, AiPolicyUpdateSchema,
   BrokerRebateQuerySchema,
 } from '@quantumtrade/admin-schemas';
 import { summarizeRebates, type RebateRecord } from '@quantumtrade/exchange-bitmart';
+import { toJsonl } from '../learning/training-format';
 import type { IAdminRepo } from '../db/admin-repo-contract';
 
 const CSRF = 'qt_csrf';
@@ -48,6 +50,16 @@ export interface AdminRouterDeps {
    * 거짓이 되고, 작성 시도가 조용히 성공한 것처럼 보인다.
    */
   notices?: import('../db/notice-repo').PgNoticeRepo;
+  /*
+     거래 학습 데이터셋 저장소. Postgres 배포에만 주입된다.
+
+     ★ 없으면 라우트가 `configured:false` 를 준다 — 빈 통계(0건)를 주면
+       "수집 중인데 아직 없다" 와 "수집 자체를 안 한다" 를 구분할 수 없고,
+       운영자가 데이터가 모이고 있다고 믿는 동안 아무 것도 안 쌓인다.
+  */
+  learning?: import('../db/learning-repo').PgLearningRepo;
+  /** 고객 등급 저장소. 없으면 등급 라우트가 configured:false 를 준다. */
+  tiers?: import('../db/pg-tier-repo').PgTierRepo;
   /** 고객 지원 티켓 저장소. Postgres 배포에만 주입된다. */
   support?: import('../db/support-repo').PgSupportRepo;
   /** 리퍼럴 저장소. Postgres 배포에만 주입된다. */
@@ -257,6 +269,49 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       d.repo.searchUsers(parsed.data),
       d.repo.countUsers({ ...(parsed.data.q ? { q: parsed.data.q } : {}), ...(parsed.data.status ? { status: parsed.data.status } : {}), ...(parsed.data.role ? { role: parsed.data.role } : {}) }),
     ]);
+    /*
+       ★★ 조회도 감사 기록을 남긴다.
+
+         우리가 게시한 개인정보처리방침 8절은 "관리자 화면의 조회·변경은
+         담당자와 시각이 기록됩니다" 라고 약속한다. 그런데 변경(disable ·
+         enable · role · unlock)만 기록했고 **조회는 아무 기록이 없었다.**
+         즉 방침을 지키지 못하는 상태였다. 이용자 목록을 누가 언제 열어
+         보았는지 확인할 방법이 없었다.
+
+       ★ 검색 조건(q · status · role)을 함께 남긴다. "누가 무엇을 찾았는지"
+         까지 있어야 목적 외 조회를 확인할 수 있다. 조건 없는 전체 조회와
+         특정인을 찾은 조회는 성질이 다르다.
+
+       ★ 결과 행의 내용은 남기지 않는다(개수만). 감사 로그에 개인정보를
+         복사해 두면 그 로그가 또 다른 유출 경로가 된다.
+
+       ★ 기록 실패가 조회를 막지 않는다. 다만 조용히 넘기지 않고 서버 로그에
+         남긴다 — 감사 기록이 빠지는 것은 그 자체로 확인해야 할 사건이다.
+    */
+    try {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id,
+        actorRole: g.a.user.role,
+        action: 'user.list.read',
+        resource: 'user',
+        result: 'success',
+        riskLevel: 'low',
+        ip: ip(c),
+        after: {
+          query: {
+            q: parsed.data.q ?? null,
+            status: parsed.data.status ?? null,
+            role: parsed.data.role ?? null,
+            limit: parsed.data.limit,
+            offset: parsed.data.offset,
+          },
+          returned: rows.length,
+        },
+      });
+    } catch (e) {
+      console.warn('[admin] 조회 감사 기록 실패 (user.list.read)', e);
+    }
+
     return c.json({
       users: redact(rows),
       total: counts.total,
@@ -265,10 +320,124 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       page: { limit: parsed.data.limit, offset: parsed.data.offset, hasMore: parsed.data.offset + rows.length < counts.total },
     });
   });
+  /*
+     회원 목록 내보내기 (CSV / JSON).
+
+     ★★ 이것은 **개인정보 대량 반출**이다. 화면에서 한 명씩 보는 것과 성질이
+       다르다 — 파일로 나가면 우리 통제 밖으로 복사된다.
+
+       그래서 감사 권한과 같은 무게로 다룬다.
+         · admin.audit.export 권한을 함께 요구한다(목록 읽기만으로는 부족)
+         · 조회 조건과 **행 수**를 감사에 남긴다
+         · 상한을 둔다(5,000행) — 전체 회원을 한 번에 뽑는 것이 기본이 되면
+           습관적으로 반출하게 된다
+
+     ★ 내보내는 항목을 최소로 유지한다: id · email · role · status · 가입일.
+       비밀번호 해시는 애초에 조회되지 않고, mfa 여부·최종수정 같은 것은
+       내보낼 이유가 없다(있으면 그만큼 유출 시 피해가 커진다).
+
+     ★ csvSafe 로 감싼다. 엑셀은 `=`·`+`·`-`·`@` 로 시작하는 값을 수식으로
+       실행하므로, 이메일에 그런 문자가 있으면 여는 사람 컴퓨터에서 수식이
+       돈다(CSV 주입). 그 함수가 앞에 따옴표를 붙여 무력화한다.
+  */
+  app.get('/admin/users/export', async (c) => {
+    // ★ 두 권한을 모두 요구한다 — 읽기만 있는 등급은 반출할 수 없다.
+    const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
+    if (!hasAdminPermission(g.a.user.role, 'admin.audit.export')) {
+      return c.json(err('FORBIDDEN', 'exporting personal data requires admin.audit.export'), 403);
+    }
+
+    /*
+       ★ `format` 을 스키마에 넣기 전에 빼낸다.
+
+         UserSearchSchema 는 `.strict()` 이므로 모르는 키가 하나라도 있으면
+         전체를 400 으로 거부한다. format=json 을 붙였더니 검색 조건이 아니라
+         **요청 전체가 실패**했다(실측). 검색 조건과 출력 형식은 다른 성질의
+         값이므로 분리해서 다룬다.
+    */
+    const params = Object.fromEntries(new URL(c.req.url).searchParams);
+    const format = params.format === 'json' ? 'json' : 'csv';
+    delete params.format;
+
+    const parsed = UserSearchSchema.safeParse(params);
+    if (!parsed.success) return c.json(err('BAD_REQUEST', 'invalid query'), 400);
+
+    /*
+       ★ 상한. 쿼리의 limit 이 아니라 여기서 정한다 — 호출자가 limit=100000 을
+         보내도 그만큼 나가지 않는다.
+    */
+    const MAX_EXPORT_ROWS = 5000;
+    const rows = await d.repo.searchUsers({
+      ...parsed.data,
+      limit: Math.min(parsed.data.limit ?? MAX_EXPORT_ROWS, MAX_EXPORT_ROWS),
+      offset: 0,
+    }) as Array<Record<string, unknown>>;
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.list.export',
+      resource: 'user', result: 'success',
+      // ★ high — 개인정보가 파일로 나간다. 목록 조회(low)와 구분한다.
+      riskLevel: 'high', ip: ip(c),
+      after: {
+        format,
+        query: { q: parsed.data.q ?? null, status: parsed.data.status ?? null, role: parsed.data.role ?? null },
+        exported: rows.length,
+        cappedAt: MAX_EXPORT_ROWS,
+      },
+    });
+
+    // 내보내는 항목은 최소로. 여기 없는 것은 파일에 나가지 않는다.
+    const cols = ['id', 'email', 'role', 'status', 'created_at'];
+
+    if (format === 'json') {
+      return c.json({
+        users: rows.map((r) => Object.fromEntries(cols.map((k) => [k, r[k] ?? null]))),
+        exported: rows.length,
+        cappedAt: MAX_EXPORT_ROWS,
+        note: 'personal data — handle per the privacy policy; this export is recorded in the audit log',
+      });
+    }
+
+    const csv = [
+      cols.join(','),
+      ...rows.map((r) => cols.map((k) => csvSafe(r[k])).join(',')),
+    ].join('\n');
+
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    // 파일 이름에 날짜를 넣어 어느 시점의 반출인지 파일만 보고 알 수 있게 한다.
+    const stamp = new Date().toISOString().slice(0, 10);
+    c.header('Content-Disposition', `attachment; filename="users-${stamp}.csv"`);
+    return c.body(csv);
+  });
+
   app.get('/admin/users/:id', async (c) => {
     const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
     const u = await d.repo.getUser(c.req.param('id'));
     if (!u) return c.json(err('NOT_FOUND', 'user not found'), 404); // IDOR-safe: admin scope, but redacted
+
+    /*
+       ★ 개별 회원 조회도 기록한다(방침 8절).
+
+         특정인의 상세를 열어 본 사실은 목록 조회보다 더 중요하다 — 목적 외
+         조회(지인 계정 열람 등)가 실제로 일어나는 지점이다. 대상을
+         targetUserId 로 남겨 "누가 누구를 보았나" 를 조회할 수 있게 한다.
+    */
+    try {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id,
+        actorRole: g.a.user.role,
+        action: 'user.detail.read',
+        resource: 'user',
+        resourceId: u.id,
+        targetUserId: u.id,
+        result: 'success',
+        riskLevel: 'low',
+        ip: ip(c),
+      });
+    } catch (e) {
+      console.warn('[admin] 조회 감사 기록 실패 (user.detail.read)', e);
+    }
+
     return c.json(redact({ user: u, stats: await d.repo.userStats(u.id) })); // password_hash never selected; redact any sensitive
   });
   app.post('/admin/users/:id/disable', async (c) => {
@@ -302,6 +471,445 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.revoke_sessions', resource: 'user', resourceId: target.id, targetUserId: target.id, result: 'success', riskLevel: 'medium', ip: ip(c), after: { revoked: n } });
     return c.json({ ok: true, revoked: n });
   });
+  /*
+     2단계 인증 초기화 (기기 분실 대응).
+
+     ★★ 왜 필요한가
+       복구 코드는 한 번만 보여준다. 저장하지 않은 사용자가 휴대폰을 바꾸면
+       **계정에 영구히 들어갈 수 없다.** 지원 담당자가 해줄 수 있는 일이
+       아무것도 없는 상태였다(관리자용 해제 수단이 없었다).
+
+     ★★ 동시에 이것은 **보안 요소를 제거하는 기능**이다. 관리자 계정이 탈취되면
+       임의 사용자의 2단계 인증을 끄고 비밀번호만으로 들어갈 수 있는 경로가 된다.
+       그래서 다음을 모두 요구한다.
+
+         · admin.user.status.write 권한 (지원 담당자에게는 없다)
+         · reauth 확인 — 방금 본인 확인을 했다는 표시
+         · 4~500자 사유 — 감사 로그에 남는다
+         · high 위험도로 기록
+         · **대상의 모든 세션 종료** — 공격자가 이 기능을 유발해 놓고 기존
+           세션으로 계속 활동하는 것을 막는다. 정당한 사용자는 다시 로그인하면
+           되고, 그 과정에서 2단계 인증을 새로 등록하게 된다.
+
+     ★ 관리자·최고관리자의 2단계 인증은 끄지 않는다. 운영자 계정에서 요소를
+       제거하는 것은 권한 상승 경로이고, 그 계정은 다른 절차로 복구해야 한다.
+  */
+  app.post('/admin/users/:id/reset-mfa', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+
+    const b = AdminUnlockSchema.safeParse(await c.req.json().catch(() => ({})));
+    // 거부된 입력을 응답에 되돌려주지 않는다(잘못된 값이 로그·화면에 번지지 않게).
+    if (!b.success) return c.json(err('VALIDATION_FAILED', 'a reason (4-500 chars) and a reauth acknowledgement are required'), 422);
+    if (!b.data.reauth) return c.json(err('STEP_UP_REQUIRED', 'removing a second factor requires re-authentication'), 403);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    /*
+       ★ 운영자 계정은 대상에서 제외한다.
+
+         관리자의 2단계 인증을 다른 관리자가 끌 수 있으면, 관리자 계정 하나가
+         탈취되면 나머지 운영자 계정의 방어도 벗겨낼 수 있다.
+    */
+    const targetRole = String(target.role || '').toUpperCase();
+    if (targetRole === 'ADMIN' || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPPORT' || targetRole === 'ANALYST') {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.reset_mfa',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+        after: { refused: 'target is an operator account' },
+      });
+      return c.json(err('FORBIDDEN', 'an operator account cannot have its second factor cleared here'), 403);
+    }
+
+    // 자기 자신도 대상이 아니다 — 본인 화면(설정 > 보안)에서 처리해야 한다.
+    if (target.id === g.a.user.id) {
+      return c.json(err('FORBIDDEN', 'use your own security settings to change your second factor'), 403);
+    }
+
+    const cleared = await d.repo.clearUserMfa(target.id);
+    // 요소를 제거했으므로 기존 세션을 남겨 두지 않는다(위 주석 참고).
+    const revoked = await d.repo.revokeUserSessions(target.id);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.reset_mfa',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+      before: { mfaEnabled: Boolean(target.mfa_enabled) },
+      after: { mfaEnabled: false, credentialExisted: cleared, sessionsRevoked: revoked },
+    });
+
+    /*
+       ★ 대상에게 알려야 한다.
+
+         본인이 요청하지 않은 초기화라면 그 사실을 알아야 대응할 수 있다.
+         메일 발송이 아직 설정되지 않았으므로(launch-check 차단 항목) 지금은
+         응답에 그 사실을 밝힌다 — "통지했다" 고 거짓으로 보고하지 않는다.
+    */
+    const notified = false;
+
+    return c.json({
+      ok: true,
+      cleared,
+      sessionsRevoked: revoked,
+      notified,
+      note: notified
+        ? 'the user was notified by email'
+        : 'email notification is not configured, so the user was NOT notified — tell them through another channel',
+    });
+  });
+
+  /*
+     비밀번호 재설정 링크 발송 (관리자가 대신 요청).
+
+     ★★ 임시 비밀번호를 만들어 주지 않는다.
+
+       그렇게 하면 관리자가 이용자의 비밀번호를 아는 상태가 되고, 그것을
+       채팅·메일로 전달하는 순간 평문이 남는다. 우리가 게시한 개인정보처리방침
+       8절은 "비밀번호는 단방향 해시로만 저장하며 원문을 보관하지 않습니다"
+       라고 약속했다. 임시 비밀번호 발급은 그 약속과 어긋난다.
+
+     ★ 대신 이용자 본인이 쓰는 것과 **같은 재설정 흐름**을 촉발한다. 토큰은
+       이용자 메일로만 가고, 관리자는 그 값을 알 수 없다.
+
+     ★★ 메일이 설정되지 않으면 이용자는 링크를 받지 못한다. 그 경우 성공으로
+       보고하지 않는다 — 담당자가 "재설정 메일 보냈습니다" 라고 답변한 뒤
+       이용자는 아무것도 받지 못하는 상황이 가장 나쁘다.
+
+     ★ 사용자 존재 여부를 응답으로 구분하지 않는 공개 엔드포인트와 달리,
+       여기서는 404 를 준다. 관리자는 이미 목록을 볼 수 있으므로 숨길 것이 없고,
+       "없는 id 에 보냈다" 를 성공으로 보고하면 담당자가 잘못 판단한다.
+  */
+  app.post('/admin/users/:id/send-password-reset', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+
+    // 사유만 받는 기존 스키마를 재사용한다(4~500자, Reason 규칙).
+    const b = UserStatusActionSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!b.success) return c.json(err('VALIDATION_FAILED', 'a reason (4-500 chars) is required'), 422);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    /*
+       메일 설정 여부를 먼저 본다.
+
+       ★ 발송할 수 없으면 토큰을 만들지 않는다. 아무도 받지 못하는 재설정
+         토큰을 DB 에 쌓아 두면 유효한 토큰이 늘어나는 것뿐이다(공격 표면).
+    */
+    const mailReady = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM && process.env.APP_BASE_URL);
+    if (!mailReady) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.password_reset_send',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'medium', ip: ip(c), reason: b.data.reason,
+        after: { refused: 'mail is not configured' },
+      });
+      return c.json(err('MAIL_NOT_CONFIGURED', 'email is not configured, so no reset link can be sent'), 200);
+    }
+
+    await d.service.requestPasswordReset(target.email, { ip: ip(c) ?? undefined });
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.password_reset_send',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'medium', ip: ip(c), reason: b.data.reason,
+    });
+
+    return c.json({ ok: true, sent: true, note: 'a reset link was emailed to the user; the token is not visible to admins' });
+  });
+
+  /*
+     회원 삭제 (법정 보관분 분리 보관).
+
+     ★★ 우리 개인정보처리방침(§6)이 두 가지를 동시에 약속했다.
+          "회원 탈퇴 시 계정 정보와 거래소 연동 정보를 지체 없이 파기합니다."
+          "법령이 보관을 요구하는 정보는 그 기간 동안 분리 보관한 뒤 파기합니다."
+        그리고 §1 표가 기간을 정한다: 주문·체결 5년 · 약관 동의 5년.
+
+        전에는 스키마가 CASCADE 라서 계정을 지우면 그 기록까지 함께 사라졌다.
+        즉 파기 약속을 지키면 보관 약속을 깨고, 보관하려고 삭제를 막으면 파기
+        약속을 깬다. 어느 쪽이든 방침 위반이었다.
+
+        이제 약관 동의와 주문 기록을 `retained_*` 테이블(users 를 참조하지 않는다)
+        로 옮긴 뒤 계정을 지운다. 두 약속이 함께 지켜진다.
+
+     ★★ 되돌릴 수 없으므로 확인을 겹쳐 둔다.
+          · admin.user.delete 권한 — **SUPER 에만 있다**
+          · reauth — 방금 본인 확인을 했다는 표시
+          · confirmEmail — 대상의 이메일을 직접 입력해야 한다(서버가 대조)
+          · 4~500자 사유 — 감사 기록과 삭제 처리 기록에 남는다
+
+        권한과 사유만 요구하면 목록에서 잘못된 행을 누른 실수가 그대로 삭제가
+        된다. 이메일을 입력하게 하면 "지금 누구를 지우는지" 를 다시 확인한다.
+
+     ★ 운영자 계정과 자기 자신은 대상이 아니다. 운영자 계정 삭제는 인수인계·
+       권한 회수가 함께 필요한 별개 절차이고, 자기 자신을 지우면 그 순간
+       세션이 끊겨 나머지 처리를 확인할 수 없다.
+  */
+  app.delete('/admin/users/:id', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.delete'); if ('err' in g) return g.err;
+
+    const b = UserDeleteSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!b.success) {
+      return c.json(err('VALIDATION_FAILED', 'a reason (4-500 chars), a reauth acknowledgement and the target email are required'), 422);
+    }
+    if (!b.data.reauth) return c.json(err('STEP_UP_REQUIRED', 'deleting an account requires re-authentication'), 403);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    // ★ 자기 자신은 지우지 않는다(지우는 순간 세션이 끊겨 결과를 확인할 수 없다).
+    if (target.id === g.a.user.id) {
+      return c.json(err('FORBIDDEN', 'you cannot delete your own account here'), 403);
+    }
+
+    /*
+       ★ 운영자 계정은 이 경로로 지우지 않는다.
+
+         인수인계·권한 회수·감사 확인이 함께 필요한 별개 절차다. 여기서
+         지울 수 있게 두면 관리자 한 명이 다른 운영자를 조용히 없앨 수 있다.
+    */
+    const targetRole = String(target.role || '').toUpperCase();
+    if (['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'ANALYST'].includes(targetRole)) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.delete',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+        after: { refused: 'target is an operator account' },
+      });
+      return c.json(err('FORBIDDEN', 'operator accounts are not deleted here'), 403);
+    }
+
+    /*
+       ★ 이메일 대조. 대소문자만 무시하고 그 밖은 정확히 같아야 한다.
+         틀리면 실패로 기록한다 — 잘못된 대상을 지우려 한 시도 자체가 기록될
+         가치가 있다.
+    */
+    if (String(b.data.confirmEmail).trim().toLowerCase() !== String(target.email).trim().toLowerCase()) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.delete',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+        after: { refused: 'confirmation email did not match the target' },
+      });
+      return c.json(err('CONFIRMATION_MISMATCH', 'the email you typed does not match this account'), 400);
+    }
+
+    const result = await d.repo.deleteUserWithRetention({
+      userId: target.id,
+      requestedBy: 'admin',
+      actorUserId: g.a.user.id,
+      actorEmail: g.a.user.email,
+      reason: b.data.reason,
+    });
+
+    /*
+       ★ null 은 "보관할 곳이 없어서 지우지 않았다" 는 뜻이다(SQLite 개발 DB 등).
+         보관하지 못하는 상태에서 지우면 방침이 보관하겠다고 한 자료가 사라진다.
+         성공으로 보고하지 않는다.
+    */
+    if (!result) {
+      return c.json(err('RETENTION_UNAVAILABLE', 'separate retention storage is not available, so nothing was deleted'), 200);
+    }
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.delete',
+      resource: 'user', resourceId: target.id, targetUserId: null, // 대상이 더 이상 없다 — FK 는 SET NULL 이다
+      result: 'success', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+      before: { email: target.email, role: target.role, status: target.status },
+      after: {
+        retainedConsents: result.retainedConsents,
+        retainedOrders: result.retainedOrders,
+        retentionNote: 'consent and order records moved to separate retention (5 years per privacy policy 1)',
+      },
+    });
+
+    return c.json({
+      ok: true,
+      deleted: result.deleted,
+      retained: { consents: result.retainedConsents, orders: result.retainedOrders },
+      note: 'account deleted; consent and order records are kept in separate retention for 5 years, then destroyed',
+    });
+  });
+
+  /*
+     ---- 관리자 노트 (회원별 운영 메모) ----
+
+     화면에 '관리자 노트' 탭이 있었지만 저장할 곳이 없었다. 지원 업무에서
+     맥락이 남지 않으면 담당자가 바뀔 때마다 회원에게 같은 것을 다시 묻는다.
+
+     ★★ 이 글에는 무엇이든 적힐 수 있다(자유 서식). 그래서 개인정보와 같은
+       규칙을 적용한다.
+         · 조회 권한은 admin.user.read (지원 담당도 읽어야 업무가 된다)
+         · 작성·삭제는 admin.user.status.write (변경 권한이 있는 등급만)
+         · 조회·작성·삭제를 **모두 감사에 남긴다** — 방침 8절이 조회까지 기록
+           하겠다고 했고, 자유 서식 글은 특히 목적 외 열람이 문제가 된다.
+         · 회원 삭제 시 함께 사라진다(CASCADE) — 법정 보관 대상이 아니다.
+  */
+  app.get('/admin/users/:id/notes', async (c) => {
+    const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    const notes = await d.repo.listUserNotes(target.id);
+
+    try {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.notes.read',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'success', riskLevel: 'low', ip: ip(c),
+        // ★ 노트 내용은 감사에 복사하지 않는다(감사 로그가 또 다른 사본이 된다). 개수만.
+        after: { returned: notes.length },
+      });
+    } catch (e) {
+      console.warn('[admin] 노트 조회 감사 기록 실패', e);
+    }
+
+    return c.json({ notes, appendOnly: false, max: 200 });
+  });
+
+  app.post('/admin/users/:id/notes', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+
+    const body = (await c.req.json().catch(() => ({}))) as { body?: unknown };
+    const text = typeof body.body === 'string' ? body.body.trim() : '';
+    if (!text) return c.json(err('BAD_REQUEST', 'a note body is required'), 400);
+    if (text.length > 4000) return c.json(err('BAD_REQUEST', 'a note may be at most 4000 characters'), 400);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    const created = await d.repo.addUserNote({
+      userId: target.id,
+      authorUserId: g.a.user.id,
+      authorEmail: g.a.user.email,
+      body: text,
+    });
+    /*
+       ★ null 은 저장하지 못했다는 뜻이다(개발 DB 에 표가 없는 경우 등).
+         성공으로 답하면 담당자가 기록을 남겼다고 믿는다.
+    */
+    if (!created) return c.json(err('NOTES_UNAVAILABLE', 'notes cannot be stored on this deployment'), 200);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.notes.write',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'low', ip: ip(c),
+      // 본문은 남기지 않는다 — 노트 자체가 원본이다. 길이만 남겨 대조할 수 있게.
+      after: { noteId: created.id, length: text.length },
+    });
+
+    return c.json({ ok: true, id: created.id });
+  });
+
+  app.delete('/admin/users/:id/notes/:noteId', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    const removed = await d.repo.deleteUserNote({ noteId: c.req.param('noteId'), userId: target.id });
+    /*
+       ★ 없는 노트와 남의 노트를 구분해 알리지 않는다(둘 다 404).
+         구분하면 노트 id 의 존재 여부가 새어 나간다.
+    */
+    if (!removed) return c.json(err('NOT_FOUND', 'note not found for this user'), 404);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.notes.delete',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'low', ip: ip(c),
+      after: { noteId: c.req.param('noteId') },
+    });
+
+    return c.json({ ok: true });
+  });
+
+  /*
+     회원 이메일 변경.
+
+     ★★ 이메일은 **로그인 식별자**다. 바꾸면 이용자는 이전 주소로 로그인할 수
+       없다. 잘못 입력하면 그 사람이 자기 계정에서 잠기고, 우리는 그 사실을
+       문의가 올 때까지 모른다.
+
+     왜 이 기능이 필요한가
+       오타로 가입한 이용자(예: gmial.com)는 인증 메일도 비밀번호 재설정도
+       받을 수 없다. 본인 확인이 된 문의에 대해 담당자가 고쳐 줄 수단이 없으면
+       그 계정은 버려야 한다.
+
+     ★ email_verified 를 false 로 되돌린다(repo 에서). 새 주소가 그 사람의
+       것이라는 증거가 없다. 확인된 상태로 두면 잘못된 주소가 확인된 것처럼
+       보이고, 그 뒤 재설정 링크가 남의 메일함으로 간다.
+
+     ★ 운영자 계정은 이 경로로 바꾸지 않는다. 운영자 이메일 변경은 권한 이전과
+       같은 무게이므로 별도 절차가 필요하다.
+
+     ★ 세션은 끊지 않는다. 이용자가 지금 쓰고 있는 화면을 갑자기 끊을 이유가
+       없고(식별자만 바뀌었다), 필요하면 담당자가 세션 종료를 따로 실행한다.
+  */
+  app.patch('/admin/users/:id/email', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+
+    const b = UserEmailChangeSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!b.success) return c.json(err('VALIDATION_FAILED', 'a valid email, a reason (4-500 chars) and a reauth acknowledgement are required'), 422);
+    if (!b.data.reauth) return c.json(err('STEP_UP_REQUIRED', 'changing a login identifier requires re-authentication'), 403);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    const targetRole = String(target.role || '').toUpperCase();
+    if (['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'ANALYST'].includes(targetRole)) {
+      return c.json(err('FORBIDDEN', 'operator account emails are not changed here'), 403);
+    }
+
+    const next = String(b.data.email).trim().toLowerCase();
+    if (next === String(target.email).trim().toLowerCase()) {
+      // 같은 값이면 아무것도 하지 않는다. 감사에 의미 없는 변경 기록을 남기지 않는다.
+      return c.json({ ok: true, changed: false, note: 'the address is unchanged' });
+    }
+
+    const r = await d.repo.setUserEmail({ userId: target.id, email: next });
+
+    if (r === 'taken') {
+      /*
+         ★ 실패도 기록한다. 다른 계정의 주소로 바꾸려는 시도는 계정 탈취
+           시나리오에서 나타날 수 있다.
+      */
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.email.change',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+        after: { refused: 'another account already uses that address' },
+      });
+      return c.json(err('EMAIL_TAKEN', 'another account already uses that address'), 409);
+    }
+    if (r === 'not_found') return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.email.change',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
+      before: { email: target.email },
+      after: { email: next, emailVerified: false },
+    });
+
+    /*
+       ★ 새 주소로 확인 메일을 보내야 하지만 메일이 설정되지 않았다.
+         "확인 메일을 보냈다" 고 답하지 않는다 — 담당자가 그렇게 안내하면
+         이용자는 오지 않는 메일을 기다린다.
+    */
+    const mailReady = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM && process.env.APP_BASE_URL);
+
+    return c.json({
+      ok: true,
+      changed: true,
+      emailVerified: false,
+      verificationSent: mailReady,
+      note: mailReady
+        ? 'the address was changed and marked unverified; a verification email can be requested by the user'
+        : 'the address was changed and marked unverified. Email is NOT configured, so no verification message was sent — tell the user through another channel',
+    });
+  });
+
   app.patch('/admin/users/:id/role', async (c) => {
     const g = await mutateGuard(c, 'admin.role.write'); if ('err' in g) return g.err;
     const body = RoleChangeSchema.safeParse(await c.req.json().catch(() => ({})));
@@ -993,6 +1601,19 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
         publishAt: body.publishAt == null ? null : Number(body.publishAt),
         expiresAt: body.expiresAt == null ? null : Number(body.expiresAt),
         locale: body.locale ? String(body.locale) : undefined,
+        /*
+           팝업 여부와 긴급도.
+
+           ★★ 기본값은 팝업 아님이다. 운영자가 명시적으로 켜야 한다 — 모든
+             공지가 튀어나오면 이용자가 닫는 데 익숙해져 정작 중요한 공지도
+             읽지 않는다.
+
+           ★ 긴급도는 세 값만 허용한다(DB CHECK 제약). 오타를 조용히 'info' 로
+             떨어뜨리면 긴급 공지가 배너로 지나간다.
+        */
+        popup: body.popup === true,
+        severity: body.severity === 'critical' ? 'critical'
+          : body.severity === 'warning' ? 'warning' : 'info',
       },
       g.a.user.id,
     );
@@ -1023,6 +1644,19 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
         publishAt: body.publishAt == null ? null : Number(body.publishAt),
         expiresAt: body.expiresAt == null ? null : Number(body.expiresAt),
         locale: body.locale ? String(body.locale) : undefined,
+        /*
+           팝업 여부와 긴급도.
+
+           ★★ 기본값은 팝업 아님이다. 운영자가 명시적으로 켜야 한다 — 모든
+             공지가 튀어나오면 이용자가 닫는 데 익숙해져 정작 중요한 공지도
+             읽지 않는다.
+
+           ★ 긴급도는 세 값만 허용한다(DB CHECK 제약). 오타를 조용히 'info' 로
+             떨어뜨리면 긴급 공지가 배너로 지나간다.
+        */
+        popup: body.popup === true,
+        severity: body.severity === 'critical' ? 'critical'
+          : body.severity === 'warning' ? 'warning' : 'info',
       },
       g.a.user.id,
     );
@@ -1388,13 +2022,31 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
 
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const enabled = body.enabled === true;
-    const unitName = String(body.unitName ?? 'Points').trim();
+    /*
+       ★★ 빈 unitName 은 잘못된 값이 아니라 **의미 있는 값**이다.
+
+         빈 문자열은 "이름을 따로 정하지 않았다 = 각 언어가 자기 기본값을 쓴다"
+         를 뜻한다(화면의 admin_pt_unit_default_note 가 그렇게 안내한다). 이렇게
+         두는 이유는, 관리자 화면이 표시용 문구를 그대로 저장해서 **그때의 화면
+         언어를 DB 에 박아버린 사고**가 있었기 때문이다. 그래서 저장값과 표시값을
+         분리하고, 저장값은 비워 둘 수 있게 했다.
+
+         그런데 이 검사는 빈 값을 거부하고 있었다. 결과: unit_name 이 ''인 상태에서
+         **포인트 제도를 켜거나 끌 수 없었다**(제도 중단 버튼이 400). 데이터 모델이
+         허용하는 값을 API 가 거부하면, 그 상태에 빠진 운영자는 화면에서 빠져나올
+         방법이 없다. (button-probe 가 실제로 이 400 을 잡아냈다)
+
+       ★ 기본값을 'Points' 로 두지 않는다. 그러면 필드를 보내지 않은 요청이
+         영어 단어를 DB 에 써 넣어 같은 문제가 되돌아온다.
+    */
+    const unitName = String(body.unitName ?? '').trim();
     const purchaseEnabled = body.purchaseEnabled === true;
     const expiryDays = Number(body.expiryDays ?? 0);
     const referralAsPoints = body.referralAsPoints === true;
     const referralPoints = Number(body.referralPoints ?? 0);
 
-    if (!unitName || unitName.length > 24) return c.json(err('BAD_REQUEST', 'unitName must be 1-24 characters'), 400);
+    // 길이만 제한한다. 빈 값은 "미설정" 으로 허용한다(위 주석 참고).
+    if (unitName.length > 24) return c.json(err('BAD_REQUEST', 'unitName must be 24 characters or fewer'), 400);
     if (!Number.isInteger(expiryDays) || expiryDays < 0 || expiryDays > 3650) {
       return c.json(err('BAD_REQUEST', 'expiryDays must be 0-3650 (0 = never expires)'), 400);
     }
@@ -1830,6 +2482,150 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
         configured: true, approved: false, url: null,
         error: { code: m.code ?? 'UPSTREAM_ERROR', message: m.message ?? 'query failed' },
       }, 200);
+    }
+  });
+
+  /* ============================================================
+     거래 학습 데이터셋
+
+     ★★ 이 데이터는 개인의 거래 행동 전체다. 그래서 전용 권한을 쓴다
+       (`admin.learning.read` / `admin.learning.export`). 회원 목록 권한으로
+       열리면 "누가 있는가" 를 볼 수 있는 사람이 "그 사람이 어떻게 돈을
+       잃었는가" 까지 보게 된다.
+     ============================================================ */
+
+  /**
+   * GET /admin/tiers — 등급 기준 + 분포.
+   *
+   * ★ 기준을 조정하려면 지금 사람들이 어디에 몰려 있는지 봐야 한다. 기준만
+   *   보여주면 임계값이 현실적인지 알 수 없다.
+   *
+   * ★★ 측정 불가 인원을 따로 센다. 최저 등급에 섞으면 "저등급이 많다" 는 잘못된
+   *   판단을 하게 된다 — 그 사람들은 거래를 안 한 것이 아니라 **키를 연결하지
+   *   않아 우리가 볼 수 없는** 것이다.
+   */
+  app.get('/admin/tiers', async (c) => {
+    const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
+    if (!d.tiers) return c.json({ configured: false }, 200);
+    try {
+      const [defs, dist] = await Promise.all([d.tiers.definitions(), d.tiers.distribution()]);
+      return c.json({
+        configured: true,
+        criteria: defs,
+        distribution: dist,
+        /*
+           ★ 임계값이 추측이라는 사실을 밝힌다. 실거래 표본이 없어 분포를 근거로
+             정하지 못했다 — 운영자가 조정할 것을 전제로 넣은 값이다.
+        */
+        note: 'thresholds_are_provisional',
+      });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  /** 수집 현황. 운영자가 "모이고 있는가" 를 확인하는 유일한 창구다. */
+  app.get('/admin/learning/stats', async (c) => {
+    const g = await guard(c, 'admin.learning.read'); if ('err' in g) return g.err;
+    if (!d.learning) {
+      /*
+         ★ 0 건을 주지 않는다. 미설정과 "아직 없음" 은 완전히 다른 상태이고,
+           섞으면 운영자가 데이터가 쌓이는 중이라고 믿는다.
+      */
+      return c.json({ configured: false }, 200);
+    }
+    try {
+      const stats = await d.learning.stats();
+      return c.json({ configured: true, ...stats });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  /**
+   * 학습용 내보내기 (JSONL).
+   *
+   * ★★ 파일이 우리 시스템 밖으로 나가는 행위다. 감사기록을 남긴다.
+   * ★ 개인 식별자는 나가지 않는다 — 표본에 user_id·이메일이 애초에 없다.
+   */
+  app.get('/admin/learning/export', async (c) => {
+    const g = await guard(c, 'admin.learning.export'); if ('err' in g) return g.err;
+
+    /*
+       ★ 입력 검증을 설정 확인보다 **먼저** 한다. 설정 상태와 무관하게 같은
+         답을 줘야 한다(리베이트 라우트에서 겪은 것과 같은 실수).
+    */
+    const q = parseQuery(c);
+    const fromRaw = String(q.from ?? '');
+    const toRaw = String(q.to ?? '');
+    const from = new Date(fromRaw);
+    const to = new Date(toRaw);
+    if (!fromRaw || !toRaw || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      return c.json(err('BAD_REQUEST', 'from and to must be ISO timestamps'), 400);
+    }
+    if (to.getTime() <= from.getTime()) {
+      return c.json(err('BAD_REQUEST', 'to must be after from'), 400);
+    }
+
+    const fmtRaw = String(q.format ?? 'jsonl_prompt');
+    const format = (['jsonl_prompt', 'jsonl_messages', 'jsonl_raw'] as const)
+      .find((x) => x === fmtRaw);
+    if (!format) {
+      return c.json(err('BAD_REQUEST', 'format must be jsonl_prompt, jsonl_messages or jsonl_raw'), 400);
+    }
+
+    /*
+       실주문만 / 모의만 / 둘 다.
+
+       ★ 기본은 **둘 다**가 아니라 지정하도록 두지 않았다 — 기본을 'live' 로 두면
+         모의 표본이 조용히 빠지고, 초기에는 모의 데이터가 대부분이다. 섞이는
+         것이 문제이므로 표본마다 executionMode 가 함께 나간다.
+    */
+    const modeRaw = String(q.executionMode ?? '');
+    const executionMode = modeRaw === 'live' || modeRaw === 'paper' ? modeRaw : undefined;
+
+    if (!d.learning) return c.json({ configured: false }, 200);
+
+    try {
+      const samples = await d.learning.exportSamples({
+        from, to,
+        limit: Math.max(1, Math.min(Number(q.limit ?? 5000) || 5000, 50_000)),
+        ...(executionMode ? { executionMode } : {}),
+      });
+      const out = toJsonl(samples, format);
+      const sha = createHash('sha256').update(out.body).digest('hex');
+
+      await d.learning.recordExport({
+        actorUserId: g.a.user.id,
+        from, to,
+        sampleCount: out.included,
+        format,
+        contentSha256: sha,
+      });
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'learning.export',
+        resource: 'learning_dataset', resourceId: `${fromRaw}-${toRaw}`, result: 'success',
+        // 개인의 거래 행동이 담긴 파일을 내보내는 행위다.
+        riskLevel: 'high', ip: ip(c),
+      });
+
+      /*
+         ★ 제외된 표본 수를 숨기지 않는다. "왜 표본이 줄었는가" 를 운영자가
+           알아야 한다 — 결과가 아직 관측되지 않은 주문은 학습 정답이 없어
+           이번 파일에서 빠지고, 다음 내보내기에 포함된다.
+      */
+      return new Response(out.body, {
+        status: 200,
+        headers: {
+          'content-type': 'application/x-ndjson; charset=utf-8',
+          'content-disposition': `attachment; filename="learning-${fromRaw.slice(0, 10)}-${toRaw.slice(0, 10)}.jsonl"`,
+          'x-sample-count': String(out.included),
+          'x-skipped-no-outcome': String(out.skippedNoOutcome),
+          'x-content-sha256': sha,
+        },
+      });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
     }
   });
 

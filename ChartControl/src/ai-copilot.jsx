@@ -85,14 +85,63 @@
   window.AICopilot = function AICopilot({
     context, isBeginner, overlays, addOverlay, updateOverlay, removeOverlay,
     onProposeSignal, currentSignal, onApproveSignal, onCreateOrderDraft, onEditSignal, onRejectSignal,
-    t
+    t,
+    /*
+       ★ 이 위젯의 격자 id. 접힘을 레이아웃에 알릴 때 쓴다.
+
+         기본값 'ai' — 프리셋에서 코파일럿 위젯 id 가 'ai' 다. 다른 id 로
+         복제하면 그 id 를 넘겨야 한다(안 넘기면 원본 칸이 접힌다).
+    */
+    widgetId = 'ai',
   }) {
-    const [msgs, setMsgs] = useState(() => [
-      makeMsg('system', t('ai_ctx_loaded'), { icon: 'ok' }),
-      makeMsg('ai', isBeginner
+    /*
+       ★★ 첫 인사말에 **마운트 시점의 가격**을 박아 두면 안 된다.
+
+         전에는 useState 초기화에서 `context.price` 를 문장에 넣었다. 실시세는
+         비동기로 도착하므로 그 시점의 값은 목업 초기값이고, 그대로 대화 기록에
+         남는다. 실제로 칩에는 62,836.4 가 보이는데 인사말은 68,432.5 를
+         말하고 있었다 — 같은 화면에서 두 가격이 어긋났고, 사용자는 어느 쪽을
+         믿어야 할지 알 수 없다.
+
+       ★ 그래서 **실시세가 도착한 뒤에** 인사말을 넣는다. 대화 기록은 나중에
+         고쳐 쓰지 않는다(고쳐 쓰면 사용자가 본 내용과 달라진다).
+
+       ★ 맥락 문장도 사전에 숫자가 박혀 있었다
+         ('BTC/USDT Perp · 15m · 220 candles · 5 indicators active').
+         지금 보고 있는 심볼·주기·봉 수·지표 수를 넣는다.
+    */
+    const ctxText = () => {
+      const bars = Array.isArray(context.candles) ? context.candles.length : 0;
+      const inds = Array.isArray(context.indicators) ? context.indicators.length : 0;
+      const vars = { symbol: context.symbol, tf: context.tf, bars, n: inds };
+      return inds > 0 ? t('ai_ctx_loaded_ind', vars) : t('ai_ctx_loaded', vars);
+    };
+
+    const [msgs, setMsgs] = useState(() => [makeMsg('system', ctxText(), { icon: 'ok' })]);
+    const greetedRef = useRef(false);
+    useEffect(() => {
+      if (greetedRef.current) return;
+      /*
+         가격이 실시세인지 확인한다. 목업 소스일 때는 가격을 말하지 않는다 —
+         디자인 미리보기에서 실제 시세처럼 보이면 그것이 또 다른 가짜 정보다.
+      */
+      const src = window.QTLive && window.QTLive.getSource ? window.QTLive.getSource() : 'mock';
+      const isLive = src && src !== 'mock';
+      const price = Number(context.price);
+      if (!isLive || !Number.isFinite(price) || price <= 0) return;
+      greetedRef.current = true;
+      /*
+         ★ 언어 태그는 `bcp47Of()` 다 — `bcp47` 이라는 함수는 없다.
+           없는 함수를 부르면 렌더 전체가 죽는다(실측: 화면이 빈 채로 남았다).
+      */
+      const time = new Date().toLocaleTimeString(
+        window.QTI18n && window.QTI18n.bcp47Of ? window.QTI18n.bcp47Of() : undefined,
+      );
+      setMsgs((prev) => [...prev, makeMsg('ai', isBeginner
         ? t('ai_welcome_beginner', { symbol: context.symbol })
-        : t('ai_welcome_pro', { symbol: context.symbol, tf: context.tf, price: fmt(context.price, 1), time: new Date().toLocaleTimeString(window.QTI18n ? window.QTI18n.bcp47Of() : 'en-GB', { hour12: false }) }))
-    ]);
+        : t('ai_welcome_pro', { symbol: context.symbol, tf: context.tf, price: fmt(price, 1), time }))]);
+    }, [context.price, context.symbol, context.tf, isBeginner]);
+
     const [input, setInput] = useState('');
     const [thinking, setThinking] = useState(null); // { steps, currentIdx, msg }
     const [streaming, setStreaming] = useState(null);
@@ -115,9 +164,34 @@
       setCollapsed((prev) => {
         const next = !prev;
         try { localStorage.setItem('qt.ai.collapsed', next ? '1' : '0'); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
+        /*
+           ★★ 레이아웃에도 알린다.
+
+             전에는 본문만 숨겼다. 그래서 접으면 **368×730 짜리 빈 상자**가
+             남고 차트는 그대로였다 — 접는 목적이 차트를 넓게 보는 것인데
+             그 목적이 달성되지 않았다.
+
+           ★ 저장된 배치를 고치지 않는다. QTPanelState 는 표시 상태만 들고
+             있고, 그릴 때 그 공간을 왼쪽 이웃(차트)에게 넘긴다.
+        */
+        if (window.QTPanelState) window.QTPanelState.setCollapsed(widgetId, next);
         return next;
       });
-    }, []);
+    }, [widgetId]);
+
+    /*
+       ★ 처음 마운트될 때도 알린다. 접힌 상태가 저장돼 있으면(localStorage)
+         새로고침 후에도 공간이 넘어가 있어야 한다 — 안 하면 접힌 채로 빈
+         상자만 남는다.
+    */
+    useEffect(() => {
+      if (window.QTPanelState) window.QTPanelState.setCollapsed(widgetId, collapsed);
+      return () => {
+        // 위젯이 사라지면 접힘 기록도 지운다(없는 위젯 때문에 배치가 틀어지지 않게).
+        if (window.QTPanelState) window.QTPanelState.setCollapsed(widgetId, false);
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [widgetId, collapsed]);
     const inputRef = useRef(null);
     const scrollRef = useRef(null);
 
@@ -188,6 +262,18 @@
       setMsgs(m => [...m, makeMsg('ai', fullText)]);
     }, []);
 
+    /*
+       ★ 아래 두 함수(submitTrendline · submitSignal)는 **호출되지 않는다.**
+
+         사전에 박힌 좌표로 차트에 선을 그리기 때문에 handleSubmit 에서
+         호출을 끊었다(그 자리의 주석 참고). 함수를 지우지 않은 이유는
+         서버가 구조화된 신호를 주게 되면 여기에 응답을 넣어 되살리는 것이
+         가장 짧은 경로이기 때문이다. 그때 QT.AI_SIGNAL 참조를 서버 응답으로
+         바꾸면 된다.
+
+         지금 지워 버리면 오버레이 만드는 방법(타입·앵커·라벨 형식)을 다시
+         알아내야 한다.
+    */
     const submitTrendline = useCallback(async () => {
       await runThinking(FLOW_TRENDLINE.thinking);
       // Create the overlay — points span last 90 → last 20 candles
@@ -293,22 +379,33 @@
       }
 
       const kind = classify(text);
-      if (kind === 'trendline') return submitTrendline();
-      if (kind === 'signal') return submitSignal();
-      if (kind === 'sr') {
-        await runThinking([{ key: 'ai_think_swings', dur: 700 }, { key: 'ai_think_volnodes', dur: 700 }]);
-        addOverlay({ id: 'sr-res', type: 'horizontal', source: 'ai-draft', points: [{ price: 69120, time: Date.now() }], label: 'Resistance · 69,120' });
-        addOverlay({ id: 'sr-sup', type: 'horizontal', source: 'ai-draft', points: [{ price: 67200, time: Date.now() }], label: 'Support · 67,200' });
-        setMsgs(m => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_sr') })]);
-        await streamReply(isBeginner
-          ? t('ai_reply_sr_beginner')
-          : t('ai_reply_sr_pro'));
+      /*
+         ★★ 좌표를 만드는 도구(추세선·진입 시나리오·지지저항)는 막는다.
+
+           이 세 경로는 사전에 박힌 값을 쓴다 —
+             · 진입 시나리오: QT.AI_SIGNAL (진입 68,120 / 손절 67,480 / 익절 68,980…)
+             · 지지·저항: 69,120 · 67,200
+             · 추세선: 목업 캔들 기준 두 점
+           그리고 그 값으로 **차트에 선을 그린다.** 화면에 그려진 선은 분석
+           결과로 읽히고, 사용자는 그 가격에 주문을 넣는다.
+
+           AI 를 연결하면 괜찮아지는 문제가 아니다. 서버의 /ai/copilot 은
+           **텍스트만** 돌려주고(응답에 좌표가 없다), 구조화된 신호를 주는
+           엔드포인트가 없다. 즉 AI 가 붙어도 이 좌표는 여전히 사전 값이다.
+           지금은 AI 미연결로 위쪽 가드에 막혀 보이지 않을 뿐이고, 연결하는
+           순간 가짜 신호가 차트에 나가는 상태였다.
+
+         ★ 서버가 좌표를 주게 되면 이 상수를 지우고 응답을 그리면 된다.
+           그때까지는 무엇이 없어서 못 하는지 말한다.
+      */
+      if (kind === 'trendline' || kind === 'signal' || kind === 'sr') {
+        setMsgs((m) => [...m, makeMsg('ai', t('ai_tools_absent'), { icon: 'warn' })]);
         return;
       }
       // General reply
       await runThinking([{ key: 'ai_think_context', dur: 500 }]);
       await streamReply(t('ai_reply_general', { text }));
-    }, [input, aiReady, submitTrendline, submitSignal, addOverlay, runThinking, streamReply, isBeginner]);
+    }, [input, aiReady, runThinking, streamReply]);
 
     /*
        차트 툴바의 'AI 분석' 버튼과 연결하는 창구.
@@ -490,18 +587,28 @@
           </span>
           <span className="ai-state-bar__note">{aiStateNote}</span>
           <span className="ai-state-bar__spacer"/>
-          <span className="ai-state-bar__note" title="Data freshness">◷ {new Date().toLocaleTimeString('en-GB',{hour12:false})}</span>
+          <span className="ai-state-bar__note" title={t('data_freshness')}>◷ {new Date().toLocaleTimeString('en-GB',{hour12:false})}</span>
           <span className="ai-state-bar__note">·</span>
           <span className="ai-state-bar__note">SIM</span>
         </div>
 
         <div className="ai-context">
-          <span className="ai-ctx-chip">Symbol · <strong>{context.symbol}</strong></span>
+          <span className="ai-ctx-chip">{t('fld_symbol')} · <strong>{context.symbol}</strong></span>
           <span className="ai-ctx-chip">TF · <strong>{context.tf}</strong></span>
-          <span className="ai-ctx-chip">Last · <strong>{fmt(context.price, 1)}</strong></span>
-          <span className="ai-ctx-chip">Indicators · <strong>MA20 · MA60 · MA120</strong></span>
-          <span className="ai-ctx-chip">Range · <strong>{context.candles.length} bars</strong></span>
-          <span className="ai-ctx-chip" style={{color:'var(--color-warning)'}}>⚠ Analysis tool · Not financial advice</span>
+          <span className="ai-ctx-chip">{t('ai_ctx_last')} · <strong>{fmt(context.price, 1)}</strong></span>
+          {/*
+             ★ 지표 목록을 코드에 박지 않는다.
+
+               전에는 `MA20 · MA60 · MA120` 이 그대로 적혀 있었다. 사용자가 무엇을
+               켜 두었는지와 무관한 글자이고, 사용자는 이 칩을 보고 "AI 가 이
+               지표들을 본다" 고 이해한다. 차트가 알려준 값이 없으면 칩을 그리지
+               않는다 — 빈 값을 '없음' 으로 적으면 사실 주장이 되어버린다.
+          */}
+          {Array.isArray(context.indicators) && context.indicators.length > 0 && (
+            <span className="ai-ctx-chip">{t('indicators')} · <strong>{context.indicators.join(' · ')}</strong></span>
+          )}
+          <span className="ai-ctx-chip">{t('ai_ctx_range')} · <strong>{t('ai_ctx_bars', { n: context.candles.length })}</strong></span>
+          <span className="ai-ctx-chip" style={{color:'var(--color-warning)'}}>{t('ai_not_advice')}</span>
         </div>
 
         <div className="ai-messages" ref={scrollRef}>
@@ -519,9 +626,9 @@
               <div className="ai-msg__avatar">AI</div>
               <div className="ai-msg__body">
                 <div className="ai-msg__meta">
-                  <span>Analyst</span>
+                  <span>{t('ai_analyst')}</span>
                   <span>·</span>
-                  <span>Thinking</span>
+                  <span>{t('ai_thinking')}</span>
                   <span className="dot dot--ai" style={{animation:'pulse 1.2s infinite'}}/>
                 </div>
                 <div className="ai-msg__bubble" style={{borderStyle:'dashed', borderColor:'var(--color-ai)'}}>
@@ -545,9 +652,9 @@
               <div className="ai-msg__avatar">AI</div>
               <div className="ai-msg__body">
                 <div className="ai-msg__meta">
-                  <span>Analyst</span>
+                  <span>{t('ai_analyst')}</span>
                   <span>·</span>
-                  <span>Streaming</span>
+                  <span>{t('col_streaming')}</span>
                 </div>
                 <div className="ai-msg__bubble">
                   {renderContent(streaming)}
@@ -602,7 +709,7 @@
               <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined, borderTopColor: l.dashed ? l.color : undefined}}/>
               <span className="ai-layer__name">{l.name}</span>
               <span className="ai-layer__count">{l.count}</span>
-              <button className="ai-layer__eye" title="Toggle"><I.Eye size={12}/></button>
+              <button className="ai-layer__eye" title={t('ai_toggle')}><I.Eye size={12}/></button>
             </div>
           ))}
         </div>
@@ -671,8 +778,20 @@
             </div>
             <div style={{display:'inline-flex', alignItems:'center', gap: 10}}>
               <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end'}}>
-                <span style={{fontSize:9, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)'}}>Confidence</span>
-                <span style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>Model v1</span>
+                <span style={{fontSize:9, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)'}}>{t('ai_confidence')}</span>
+                <span style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{(() => {
+                  /*
+                     ★ 모델 이름을 코드에 박지 않는다.
+
+                       'Model v1' 이라고 적혀 있었다. 실제로 어떤 모델이 돌고
+                       있는지와 무관한 글자다. 이용자가 신호의 근거를 판단할 때
+                       모델 버전을 보는데, 그것이 사실이 아니면 판단 근거가 없다.
+                       서버가 알려주지 않으면 '—' 로 둔다.
+                  */
+                  const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+                  const model = cfg && cfg.aiModel ? String(cfg.aiModel) : '';
+                  return model || t('dash');
+                })()}</span>
               </div>
               <div className={`conf-ring ${isApproved ? 'conf-ring--approved' : ''}`} style={{'--pct': signal.confidence}}>
                 <span className="conf-ring__label">{signal.confidence}%</span>
@@ -681,12 +800,12 @@
           </div>
 
           <div className="signal-card__grid">
-            <div className="signal-card__row"><span className="signal-card__k">Entry Zone</span><span className="signal-card__v">{fmt(signal.entryZone[0], 0)} – {fmt(signal.entryZone[1], 0)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">Stop Loss</span><span className="signal-card__v t-short">{fmt(signal.stopLoss, 0)}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">{t('ai_entry_zone')}</span><span className="signal-card__v">{fmt(signal.entryZone[0], 0)} – {fmt(signal.entryZone[1], 0)}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">{t('op_stop_loss')}</span><span className="signal-card__v t-short">{fmt(signal.stopLoss, 0)}</span></div>
             <div className="signal-card__row"><span className="signal-card__k">R : R</span><span className="signal-card__v">1 : {signal.riskReward.toFixed(1)}</span></div>
             <div className="signal-card__row"><span className="signal-card__k">TP1 / TP2 / TP3</span><span className="signal-card__v t-long">{fmt(signal.takeProfits[0], 0)} / {fmt(signal.takeProfits[1], 0)} / {fmt(signal.takeProfits[2], 0)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">Time Horizon</span><span className="signal-card__v">{signal.timeHorizon}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">Invalidation</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">{t('ai_time_horizon')}</span><span className="signal-card__v">{signal.timeHorizon}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">{t('ai_invalidation_word')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}</span></div>
           </div>
 
           <div className="signal-card__reason">
@@ -697,7 +816,7 @@
           <div className="invalidation-banner">
             <I.Alert size={14} className="invalidation-banner__icon"/>
             <div>
-              <strong>Invalidation:</strong> {signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}
+              <strong>{t('ai_invalidation')}</strong> {signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}
               <span style={{color:'var(--color-text-tertiary)', marginLeft: 6, fontFamily:'var(--font-mono)', fontSize: 10}}>{t('ai_invalidation_note')}</span>
             </div>
           </div>
@@ -705,16 +824,16 @@
           <div className="signal-card__actions">
             {!isApproved ? (
               <>
-                <button className="btn btn--sm btn--primary" onClick={onApprove}><I.Check size={12}/> Approve Signal</button>
-                <button className="btn btn--sm" onClick={onEdit}>Edit</button>
-                <button className="btn btn--sm">Save as Draft</button>
-                <button className="btn btn--sm btn--danger" onClick={onReject}>Reject</button>
+                <button className="btn btn--sm btn--primary" onClick={onApprove}><I.Check size={12}/> {t('ai_approve_signal')}</button>
+                <button className="btn btn--sm" onClick={onEdit}>{t('col_edit')}</button>
+                <button className="btn btn--sm">{t('ai_save_draft')}</button>
+                <button className="btn btn--sm btn--danger" onClick={onReject}>{t('col_reject')}</button>
               </>
             ) : (
               <>
-                <button className="btn btn--sm btn--primary" onClick={onCreateOrder}><I.ArrowRight size={12}/> Create Order Draft</button>
-                <button className="btn btn--sm">Set Alert</button>
-                <button className="btn btn--sm">Duplicate</button>
+                <button className="btn btn--sm btn--primary" onClick={onCreateOrder}><I.ArrowRight size={12}/> {t('ai_create_order_draft')}</button>
+                <button className="btn btn--sm">{t('ai_set_alert')}</button>
+                <button className="btn btn--sm">{t('lay_duplicate')}</button>
               </>
             )}
           </div>

@@ -169,7 +169,32 @@
     }
   }
 
+  /*
+     목업 사용자 목록 복원.
+
+     ★★ 전에는 조건 없이 되돌렸다.
+
+       주석에는 "목업으로 되돌려 '실데이터 아님' 을 유지한다" 고 적혀 있었지만,
+       화면에는 그것이 목업이라는 표시가 없었다. 그래서 권한이 없거나(403)
+       세션이 끊겼을 때(401) **목업 회원 12명**(이혜원 · 자산 $112.4M 같은)이
+       실제 회원 목록처럼 그대로 떴다. 운영자는 그 목록을 보고 정지·등급
+       변경을 누르려 한다. 없는 사람을 상대로.
+
+     ★ 지금은 미리보기(백엔드 없는 디자인 확인)에서만 되돌린다.
+       실서비스에서 조회에 실패하면 목록은 **비어 있고**, 화면이 실패 사유를
+       배너로 알린다(pages-admin.jsx 의 상태 배너). 빈 목록과 "못 불러옴" 을
+       구분해 알리는 것이 이 화면의 최소 조건이다.
+  */
   function restoreMocks() {
+    var allowMock = window.QTMockPolicy && window.QTMockPolicy.allowMockData
+      ? window.QTMockPolicy.allowMockData()
+      : false;
+
+    if (!allowMock) {
+      // 실서비스: 목업으로 되돌리지 않는다. 이전 목업이 남아 있으면 지운다.
+      if (window.QTApp) window.QTApp.ADMIN_USERS = [];
+      return;
+    }
     if (window.QTApp && window.QTApp.__mockAdminUsers) {
       window.QTApp.ADMIN_USERS = window.QTApp.__mockAdminUsers;
     }

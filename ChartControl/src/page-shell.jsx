@@ -32,8 +32,36 @@
   const SIDEBAR_ITEMS = [
     // ---------- USER ITEMS ----------
     { section: 'trading', labelKey: 'nav_trade',       icon: 'Chart',       route: '/trade',          roles: ['user','ops','admin','super'] },
-    { section: 'trading', labelKey: 'nav_ai_workspace',   icon: 'Sparkles',    route: '/trade?workspace=ai', roles: ['user','ops','admin','super'] },
-    { section: 'trading', labelKey: 'nav_multi_chart',    icon: 'Grid',        route: '/multi-chart',    roles: ['user','ops','admin','super'] },
+    /*
+       AI Workspace 항목을 사이드바에서 내렸다 (2026-08, 사장님 지시).
+
+       ★★ 별도 화면이 아니었다 — `/trade` 의 **레이아웃 프리셋**이다.
+
+         위젯 배치만 바꾸는 것이라(코파일럿을 6칸으로 크게) 사이드바에 두면
+         "다른 페이지" 처럼 보인다. 실제로 눌러도 주소만 바뀌고 화면은 거래
+         화면이라, 이용자가 고장으로 여겼다.
+
+       ★ 프리셋 자체는 남아 있다. 헤더 `Layout` 에서 고를 수 있고, 코파일럿은
+         이제 접고 펼 수 있어서 굳이 전용 배치로 갈 이유가 줄었다.
+
+       ★ 라우트(`/trade?workspace=ai`)도 그대로 동작한다 — 공유된 링크가
+         깨지지 않아야 한다. 다만 그 배치는 일시적이고, `Trade` 로 돌아가면
+         원래 배치로 복귀한다.
+    */
+    /*
+       멀티차트 탭을 제거했다 (2026-08, 사장님 지시).
+
+       ★★ 기능이 사라진 것이 아니다 — **거래 화면 안으로 들어갔다.**
+
+         `/trade` 차트 위의 `Charts: Single / 2 / 2x2 / 3x2` 로 같은 일을 하고,
+         그쪽은 칸마다 완전한 차트(지표·드로잉)이며 포커스된 칸이 주문 대상이
+         된다. 별도 탭에서는 **주문을 낼 수 없었다** — 여러 종목을 비교하는
+         목적이 그중 하나에 진입하는 것인데, 탭을 옮기는 동안 호가가 바뀐다.
+
+       ★ 라우트 자체도 지웠다. 남겨 두면 옛 즐겨찾기·공유 링크가 빈 화면을
+         띄운다(라우트는 있고 컴포넌트는 없는 상태). 지금은 알 수 없는 주소로
+         처리되어 라우터가 정상적으로 404 를 보여준다.
+    */
 
     { section: 'market',  labelKey: 'nav_markets',        icon: 'Grid',        route: '/markets',        roles: ['user','ops','admin','super'] },
     { section: 'market',  labelKey: 'nav_ai_strategies',  icon: 'Sparkles',    route: '/ai-strategies',  roles: ['user','ops','admin','super'] },
@@ -535,7 +563,7 @@
         <div className="page-placeholder__body">{t('page_placeholder_63aff4')} <strong>{t('page_placeholder_ed5dd4')}</strong> {t('page_placeholder_be3553')}</div>
         {todo && (
           <div className="page-placeholder__todo">
-            <div className="page-placeholder__todo-title">To do</div>
+            <div className="page-placeholder__todo-title">{t('todo_title')}</div>
             <ul>{todo.map((t, i) => <li key={i}>{t}</li>)}</ul>
           </div>
         )}

@@ -3,6 +3,16 @@ import type { Pool } from 'pg';
 import type { AdminActionInput, SqliteAdminRepo } from './admin-repos';
 
 /**
+ * UUID 형식 검사.
+ *
+ * Postgres 의 uuid 컬럼에 형식이 다른 문자열을 넘기면 드라이버가 예외를
+ * 던지고 그것이 500 이 된다. 조회 전에 걸러서 "그런 사용자는 없다"(404)로
+ * 응답하게 한다. 버전 비트까지 엄격히 보지 않는 이유는, 우리가 생성하지 않은
+ * UUID(외부 시스템 값)도 조회 대상이 될 수 있기 때문이다.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * BATCH_3 / BL-10 — admin/gateway/ai-policy repository CONTRACT.
  *
  * `SqliteAdminRepo` (in ./admin-repos.ts) is the synchronous better-sqlite3 engine and is left unchanged
@@ -61,6 +71,83 @@ export interface IAdminRepo {
   setUserStatus(id: string, status: 'active' | 'disabled'): Promise<boolean>;
   setUserRole(id: string, role: string): Promise<boolean>;
   revokeUserSessions(id: string): Promise<number>;
+  /**
+   * Clear a user's two-factor credential so they can sign in with the password
+   * again and enrol a new device.
+   *
+   * ★★ This exists because losing the phone otherwise means losing the account.
+   *   Recovery codes are shown once; a user who did not save them and then
+   *   replaced their phone has no way back in, and support has nothing to offer.
+   *
+   * ★★ It is also a security bypass by design — it removes a factor. The route
+   *   therefore requires re-authentication, records a high-risk audit entry, and
+   *   revokes the user's sessions so an attacker who triggered it cannot ride an
+   *   existing session.
+   *
+   * @returns true if a credential existed and was cleared.
+   */
+  clearUserMfa(id: string): Promise<boolean>;
+
+  /**
+   * Change a user's email address.
+   *
+   * ★★ The email IS the login identifier. After this the user cannot sign in
+   *   with the old address, so getting it wrong locks them out of their own
+   *   account. The route therefore requires re-authentication and a reason.
+   *
+   * ★ `email_verified` is reset to false. The new address has not been proven to
+   *   belong to them, and leaving it verified would let a wrong address look
+   *   confirmed — password resets would then go to someone else's inbox.
+   *
+   * @returns 'ok' | 'taken' (another account has that address) | 'not_found'
+   */
+  setUserEmail(input: { userId: string; email: string }): Promise<'ok' | 'taken' | 'not_found'>;
+
+  /*
+     ---- 관리자 노트 (회원별 운영 메모) ----
+
+     ★ 개인정보가 담길 수 있는 자유 서식 글이다. 그래서 회원 삭제 시 함께
+       사라지고(CASCADE), 조회·작성·수정·삭제를 모두 감사에 남긴다(라우트에서).
+     ★ 분리 보관 대상이 아니다 — 법령이 보관을 요구하는 자료가 아니다.
+  */
+  listUserNotes(userId: string): Promise<Array<{
+    id: string; body: string; author_email: string | null;
+    created_at: string | number; updated_at: string | number;
+  }>>;
+  addUserNote(input: { userId: string; authorUserId: string; authorEmail: string; body: string }): Promise<{ id: string } | null>;
+  /** @returns true if a note with that id belonged to that user and was removed. */
+  deleteUserNote(input: { noteId: string; userId: string }): Promise<boolean>;
+  /**
+   * Delete a user, moving legally-required records to separate retention tables.
+   *
+   * ★★ Our published privacy policy (§6) promises BOTH of these:
+   *      "account and exchange-link data are destroyed without delay on withdrawal"
+   *      "data the law requires us to keep is stored separately for that period,
+   *       then destroyed"
+   *   and §1 sets the periods: orders 5 years, consent records 5 years.
+   *
+   *   The schema used to CASCADE those records away with the account, so
+   *   honouring the deletion promise broke the retention promise and vice versa.
+   *   This method copies them into `retained_*` tables (which do NOT reference
+   *   `users`) and then deletes the account, so both promises hold.
+   *
+   * ★ Everything not legally required goes away: password hash, sessions,
+   *   exchange credentials, preferences, favourites, chart templates, equity
+   *   snapshots, AI history. Those are covered by the CASCADE rules already.
+   *
+   * ★ The operation is one transaction. A partial run is the worst outcome —
+   *   the account gone but the retention copy missing means we destroyed data we
+   *   promised to keep, with no way to notice.
+   *
+   * @returns counts of what was retained, for the deletion record.
+   */
+  deleteUserWithRetention(input: {
+    userId: string;
+    requestedBy: 'self' | 'admin';
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    reason: string;
+  }): Promise<{ deleted: boolean; retainedConsents: number; retainedOrders: number } | null>;
   // feature flags
   seedFlag(key: string, enabled: boolean, description: string): Promise<void>;
   listFlags(): Promise<unknown[]>;
@@ -137,6 +224,14 @@ export class SqliteAdminRepoAdapter implements IAdminRepo {
   async setUserStatus(id: string, status: 'active' | 'disabled') { return this.inner.setUserStatus(id, status); }
   async setUserRole(id: string, role: string) { return this.inner.setUserRole(id, role); }
   async revokeUserSessions(id: string) { return this.inner.revokeUserSessions(id); }
+  async clearUserMfa(id: string) { return this.inner.clearUserMfa(id); }
+  async setUserEmail(input: Parameters<IAdminRepo['setUserEmail']>[0]) { return this.inner.setUserEmail(input); }
+  async listUserNotes(userId: string) { return this.inner.listUserNotes(userId); }
+  async addUserNote(input: Parameters<IAdminRepo['addUserNote']>[0]) { return this.inner.addUserNote(input); }
+  async deleteUserNote(input: Parameters<IAdminRepo['deleteUserNote']>[0]) { return this.inner.deleteUserNote(input); }
+  async deleteUserWithRetention(input: Parameters<IAdminRepo['deleteUserWithRetention']>[0]) {
+    return this.inner.deleteUserWithRetention(input);
+  }
   async seedFlag(key: string, enabled: boolean, description: string) { this.inner.seedFlag(key, enabled, description); }
   async listFlags() { return this.inner.listFlags(); }
   async updateFlag(id: string, enabled: boolean, reason: string, version: number, by: string, corr?: string) { return this.inner.updateFlag(id, enabled, reason, version, by, corr); }
@@ -407,6 +502,23 @@ export class PgAdminRepo implements IAdminRepo {
     return { total, byStatus, byRole };
   }
   async getUser(id: string) {
+    /*
+       ★★ id 형식을 먼저 확인한다.
+
+         `users.id` 는 UUID 다. UUID 가 아닌 문자열을 그대로 넘기면 Postgres 가
+         `invalid input syntax for type uuid` 를 던지고, 그 예외가 핸들러 밖으로
+         나가 **500 Internal Server Error** 가 된다. 실제로 관리자 화면에서
+         `?id=usr_kuri001`(옛 목업 id)로 들어가면 500 이 났다.
+
+         500 은 두 가지로 해롭다. 잘못된 입력인데 서버 잘못처럼 보이고, 오류
+         로그가 실제 장애와 섞인다. 형식이 UUID 가 아니면 그런 사용자는
+         존재할 수 없으므로 `undefined` 를 돌려준다 — 호출하는 라우트가 404 로
+         응답한다(이미 그렇게 되어 있다).
+
+       ★ 이 한 곳을 고치면 이 repo 를 쓰는 모든 라우트가 함께 해결된다
+         (users/:id · disable · enable · revoke-sessions · unlock · role).
+    */
+    if (!UUID_RE.test(id)) return undefined;
     const r = await this.pool.query(
       `SELECT id,email,role,status,mfa_enabled::int AS mfa_enabled,
               (EXTRACT(EPOCH FROM created_at)*1000)::bigint AS created_at,
@@ -440,6 +552,212 @@ export class PgAdminRepo implements IAdminRepo {
   async revokeUserSessions(id: string) {
     const r = await this.pool.query('DELETE FROM sessions WHERE user_id=$1', [id]);
     return r.rowCount ?? 0;
+  }
+
+  async deleteUserWithRetention(input: {
+    userId: string;
+    requestedBy: 'self' | 'admin';
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    reason: string;
+  }) {
+    if (!UUID_RE.test(input.userId)) return null;
+
+    /*
+       보유 기간은 방침 1절 표에 적힌 값이다.
+
+       ★ 코드에 상수로 두되, **옮기는 시점의 값을 행에 적어** 둔다(purge_after).
+         나중에 이 상수를 바꾸면 이미 보관 중인 행의 기준이 함께 움직여
+         "그때 약속한 기간" 을 알 수 없게 된다.
+    */
+    const FIVE_YEARS = "5 years";
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 대상 확인. 트랜잭션 안에서 다시 읽는다 — 바깥에서 읽은 값은 그 사이 바뀔 수 있다.
+      const u = await client.query('SELECT id, email FROM users WHERE id=$1 FOR UPDATE', [input.userId]);
+      if (!u.rows[0]) { await client.query('ROLLBACK'); return null; }
+      const email = String((u.rows[0] as { email: string }).email);
+
+      /*
+         1) 약관 동의 기록 → 분리 보관 (5년)
+
+         ★ document_id 는 옮기지 않는다. 증명에 필요한 것은 종류·버전·시각이다
+           (문서 자체는 legal_documents 에 그대로 남는다).
+      */
+      const consents = await client.query(
+        `INSERT INTO retained_legal_consents
+           (former_user_id, former_email, kind, version, agreed_at, retention_reason, purge_after)
+         SELECT user_id, $2, kind, version, agreed_at, $3, now() + INTERVAL '${FIVE_YEARS}'
+         FROM user_legal_consents WHERE user_id = $1`,
+        [input.userId, email, 'privacy policy 1 - consent proof - 5 years'],
+      );
+
+      /*
+         2) 주문 기록 → 분리 보관 (5년)
+
+         ★ credential_id 는 옮기지 않는다(어느 키로 냈는지는 보관 목적에 필요
+           하지 않고, 남기면 삭제된 키를 가리키는 값이 남는다).
+         ★ mode 는 반드시 옮긴다 — 모의 거래를 실거래로 읽으면 분쟁 판단이
+           처음부터 틀어진다.
+      */
+      const orders = await client.query(
+        `INSERT INTO retained_orders
+           (former_user_id, former_email, internal_order_id, exchange_order_id, symbol, side, type,
+            price, quantity, filled_quantity, status, mode, ordered_at, retention_reason, purge_after)
+         SELECT user_id, $2, internal_order_id, exchange_order_id, symbol, side, type,
+                price, quantity, filled_quantity, status, mode, created_at, $3,
+                now() + INTERVAL '${FIVE_YEARS}'
+         FROM orders WHERE user_id = $1`,
+        [input.userId, email, 'privacy policy 1 - trade history - 5 years'],
+      );
+
+      /*
+         3) 삭제 처리 기록 (영구)
+
+         ★ 계정을 지우기 **전에** 남긴다. 지운 뒤에 남기려다 실패하면 무엇을
+           지웠는지 모르는 상태가 된다.
+      */
+      await client.query(
+        `INSERT INTO user_deletion_records
+           (former_user_id, former_email, requested_by, actor_user_id, actor_email, reason,
+            retained_consents, retained_orders)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          input.userId, email, input.requestedBy,
+          input.actorUserId && UUID_RE.test(input.actorUserId) ? input.actorUserId : null,
+          input.actorEmail ?? null,
+          input.reason,
+          consents.rowCount ?? 0,
+          orders.rowCount ?? 0,
+        ],
+      );
+
+      /*
+         4) 계정 삭제.
+
+         나머지는 FK 의 ON DELETE 규칙이 처리한다 — 세션·거래소 자격증명·설정·
+         즐겨찾기·차트 템플릿·자산 스냅샷·AI 기록은 CASCADE 로 사라지고,
+         감사 로그는 0021 에서 SET NULL 로 바꿨으므로 **남는다.**
+      */
+      const del = await client.query('DELETE FROM users WHERE id=$1', [input.userId]);
+
+      await client.query('COMMIT');
+      return {
+        deleted: (del.rowCount ?? 0) > 0,
+        retainedConsents: consents.rowCount ?? 0,
+        retainedOrders: orders.rowCount ?? 0,
+      };
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listUserNotes(userId: string) {
+    if (!UUID_RE.test(userId)) return [];
+    const r = await this.pool.query(
+      `SELECT id, body, author_email,
+              (EXTRACT(EPOCH FROM created_at)*1000)::bigint AS created_at,
+              (EXTRACT(EPOCH FROM updated_at)*1000)::bigint AS updated_at
+       FROM admin_user_notes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200`,
+      [userId],
+    );
+    return r.rows as Array<{ id: string; body: string; author_email: string | null; created_at: string | number; updated_at: string | number }>;
+  }
+
+  async addUserNote(input: { userId: string; authorUserId: string; authorEmail: string; body: string }) {
+    if (!UUID_RE.test(input.userId)) return null;
+    /*
+       ★ 본문 길이는 DB 의 CHECK 로도 막지만 여기서 먼저 자른다.
+         DB 오류로 500 이 나가는 것보다, 라우트가 400 으로 답하게 하는 편이
+         호출자에게 유용하다.
+    */
+    const body = String(input.body ?? '').trim();
+    if (!body || body.length > 4000) return null;
+    const r = await this.pool.query(
+      `INSERT INTO admin_user_notes (user_id, author_user_id, author_email, body)
+       VALUES ($1,$2,$3,$4) RETURNING id`,
+      [input.userId, UUID_RE.test(input.authorUserId) ? input.authorUserId : null, input.authorEmail, body],
+    );
+    return r.rows[0] as { id: string };
+  }
+
+  async deleteUserNote(input: { noteId: string; userId: string }) {
+    if (!UUID_RE.test(input.noteId) || !UUID_RE.test(input.userId)) return false;
+    /*
+       ★ user_id 를 조건에 반드시 넣는다.
+
+         노트 id 만으로 지우면 다른 회원의 노트를 지울 수 있다(id 를 알아내면).
+         화면이 올바른 조합을 보낸다고 가정하지 않는다.
+    */
+    const r = await this.pool.query(
+      'DELETE FROM admin_user_notes WHERE id=$1 AND user_id=$2',
+      [input.noteId, input.userId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async setUserEmail(input: { userId: string; email: string }): Promise<'ok' | 'taken' | 'not_found'> {
+    if (!UUID_RE.test(input.userId)) return 'not_found';
+    const email = String(input.email ?? '').trim().toLowerCase();
+    if (!email) return 'not_found';
+
+    /*
+       ★ email_verified 를 false 로 되돌린다.
+
+         새 주소가 그 사람의 것이라는 증거가 없다. 확인된 상태로 두면 잘못
+         입력된 주소가 확인된 것처럼 보이고, 그 뒤 비밀번호 재설정 링크가
+         남의 메일함으로 간다.
+    */
+    try {
+      const r = await this.pool.query(
+        'UPDATE users SET email=$2, email_verified=false, updated_at=now() WHERE id=$1',
+        [input.userId, email],
+      );
+      return (r.rowCount ?? 0) > 0 ? 'ok' : 'not_found';
+    } catch (e) {
+      /*
+         ★ 중복은 오류가 아니라 결과다.
+
+           users.email 에 UNIQUE 제약이 있으므로 이미 쓰는 주소면 23505 가 온다.
+           그것을 500 으로 흘리면 "서버 문제" 로 보이고, 담당자는 무엇이
+           잘못됐는지 알 수 없다.
+      */
+      const code = (e as { code?: string } | null)?.code;
+      if (code === '23505') return 'taken';
+      throw e;
+    }
+  }
+
+  async clearUserMfa(id: string) {
+    if (!UUID_RE.test(id)) return false;
+    /*
+       한 트랜잭션으로 처리한다.
+
+       ★ credential 만 지우고 users.mfa_enabled 를 남기면 로그인 흐름이
+         "MFA 필요" 로 판단하는데 검증할 secret 이 없어 **아무도 로그인할 수
+         없는 상태**가 된다. 그 반대도 마찬가지다. 둘은 함께 바뀌어야 한다.
+       ★ 진행 중인 챌린지도 지운다 — 남겨 두면 예전 시도가 유효한 채로 남는다.
+    */
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const del = await client.query('DELETE FROM mfa_credentials WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM mfa_challenges WHERE user_id=$1', [id]);
+      await client.query('UPDATE users SET mfa_enabled=false, updated_at=now() WHERE id=$1', [id]);
+      await client.query('COMMIT');
+      return (del.rowCount ?? 0) > 0;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   // ---- feature flags (BOOLEAN enabled; BIGINT ms) ----

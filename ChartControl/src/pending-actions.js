@@ -116,6 +116,23 @@
     if (el.closest('a')) return true;
     // 명시적으로 배선됐다고 표시한 것.
     if (el.hasAttribute('data-qt-wired')) return true;
+
+    /*
+       ★ 이미 선택된 상태인 버튼은 배선된 것이다.
+
+         탭이나 세그먼트를 **이미 열려 있는 상태에서 다시 누르면 아무것도
+         바뀌지 않는다.** 그게 정상 동작인데, 화면 변화를 보고 판단하는 이
+         파일의 방식은 그것을 "반응 없음" 으로 읽는다. 실제로 /wallet 의
+         'Exchange connections' 탭이 그렇게 오탐됐다 — 지갑 화면의 기본 탭이라
+         처음 들어와서 한 번 누르면 "아직 준비되지 않았습니다" 가 떴다.
+
+         선택 상태는 배선의 증거다: 배선되지 않은 버튼은 활성 표시가 붙지 않는다.
+    */
+    if (el.getAttribute('aria-selected') === 'true') return true;
+    if (el.getAttribute('aria-current') && el.getAttribute('aria-current') !== 'false') return true;
+    if (el.getAttribute('aria-pressed') === 'true') return true;
+    if (/(^|\s)(is-active|is-selected|active)(\s|$)/.test(el.className || '')) return true;
+
     return false;
   }
 
@@ -168,6 +185,22 @@
     ].join('|');
   }
 
+  /*
+     ★★ 반드시 **캡처 단계**로 등록해야 한다 (세 번째 인자 true).
+
+       버블 단계로 등록했더니 배선된 버튼이 줄줄이 오탐됐다. 이유는 순서다:
+
+         React 는 루트 컨테이너에 핸들러를 붙이고, 그것은 document 보다 안쪽이다.
+         그래서 버블 단계에서는 **React 의 onClick 이 먼저 실행되고 DOM 이 이미
+         갱신된 뒤에** 우리 코드가 돈다. 그 시점에 뜬 "변경 전" 지문에는 이미
+         결과가 들어 있으므로, 그 뒤로 아무리 기다려도 "변화 없음" 이다.
+
+       실측: /wallet 의 'Connect API' 는 마법사가 정상적으로 열리는데도 매 검사에서
+       changed=false 였다. 같은 클릭을 캡처 단계에서 관찰하면 201ms 뒤에 변화가
+       보인다. 즉 기다리는 시간이 부족한 게 아니라 기준점이 틀렸던 것이다.
+
+       캡처 단계는 React 보다 먼저 실행되므로 클릭 이전 상태를 뜬다.
+  */
   document.addEventListener(
     'click',
     function (e) {
@@ -185,12 +218,31 @@
       /*
          React 가 상태를 반영할 시간을 준다.
 
-         너무 짧으면 배선된 버튼도 "반응 없음" 으로 오판하고, 너무 길면
-         사용자가 안내를 늦게 본다. 리렌더 두 프레임 정도면 충분하다.
+         ★ 한 번만 보고 판단하면 안 된다.
+
+           전에는 220ms 뒤에 한 번 비교했다. 그 시점에 아직 아무것도 그려지지
+           않은 배선된 버튼이 오탐됐다 — 모달이 서버 응답을 기다렸다가 열리는
+           경우가 그렇다. 실제로 /wallet 의 'Connect API' 가 그랬다: 마법사가
+           정상적으로 열리는데 동시에 "아직 준비되지 않았습니다" 토스트가 떴다.
+
+           그래서 창을 두고 **여러 번 살펴본다.** 그 사이 한 번이라도 변화가
+           보이면 배선된 것으로 보고 조용히 끝낸다.
+
+         ★ 오탐은 단순한 불편이 아니다. 잘 되는 기능을 안 된다고 말하면
+           사용자는 그것을 다시 쓰지 않는다. 특히 거래소 연결은 수익이 시작되는
+           지점이라, 여기서 물러나면 그 사용자는 아무 것도 하지 못한다.
+           그래서 판단이 애매할 때는 **안내하지 않는 쪽**으로 기운다.
       */
-      setTimeout(function () {
+      var DEADLINE = 1200;   // 이 시간까지 변화가 없으면 배선되지 않은 것으로 본다
+      var STEP = 200;
+      var waited = 0;
+      var tick = function () {
+        waited += STEP;
         if (before !== snapshot() || beforeActive !== el.className) return; // 무언가 일어났다
+        if (waited < DEADLINE) { setTimeout(tick, STEP); return; }
         if (!window.QTToast) return;
+        // 버튼이 화면에서 사라졌다면(리렌더로 교체됨) 무언가 일어난 것이다.
+        if (!el.isConnected) return;
 
         lastNotified = { el: el, at: Date.now() };
         var label = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 40);
@@ -200,15 +252,21 @@
           variant: 'info',
           duration: 5000,
         });
-      }, 220);
+      };
+      setTimeout(tick, STEP);
     },
-    false,
+    true,
   );
 
   window.QTPending = {
     WIRED_SELECTORS: WIRED_SELECTORS,
     isWired: isWired,
     hintFor: hintFor,
+    /*
+       진단용. 오탐을 조사할 때 "무엇이 변화로 인식되지 않았는지" 를 봐야 한다.
+       이 값을 볼 수 없어서 오탐 원인을 좁히는 데 시간이 걸렸다.
+    */
+    snapshot: snapshot,
 
     /**
      * 진단용 **추정치**. 선택자 목록만으로 세므로 React onClick 이 붙은 버튼도

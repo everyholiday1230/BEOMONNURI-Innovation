@@ -5,7 +5,6 @@
    - AIStrategiesPage   /ai-strategies
    - PortfolioPage      /portfolio
    - AnalyticsPage      /analytics
-   - MultiChartPage     /multi-chart
    - WalletPage         /wallet          (Exchange connect + Referrals)
    - SettingsPage       /settings        (Profile · Security · Notifications · API keys)
    - NotificationsPage  /notifications
@@ -56,7 +55,15 @@
     const [sort, setSort] = useState({ key: 'vol', dir: 'desc' });
     const [view, setView] = useState('table'); // table | heatmap
 
-    const markets = window.QT.MARKETS;
+    /*
+       ★ 목록과 즐겨찾기를 QTMarkets 한 곳에서 받는다.
+
+         전에는 `window.QT.MARKETS`(선물 카탈로그)를 직접 읽었다. 그래서 현물
+         모드에서도 선물 종목이 나왔고, 즐겨찾기 별은 목업의 고정 플래그였다.
+         마켓 화면과 Market Watch 가 같은 출처를 보므로 두 곳이 어긋나지 않는다.
+    */
+    const mkSrc = window.QTMarkets ? window.QTMarkets.use() : { rows: (window.QT && window.QT.MARKETS) || [], market: 'futures', loading: false, failed: false };
+    const markets = mkSrc.rows;
     // 실시세가 QT.MARKETS 를 제자리 갱신하므로, 재계산 트리거가 필요하다.
     const liveVersion = window.QTLive ? window.QTLive.useLiveVersion() : 0;
 
@@ -76,20 +83,75 @@
     */
     const realService = window.QTMockPolicy ? window.QTMockPolicy.isRealService() : false;
     const unlisted = (r) => realService && r && r.dataSource === 'mock';
+    /*
+       상장 시각. 'New' 탭이 실제 신규 상장을 보여주려면 필요하다.
+
+       ★★ 전에는 `list.slice(-8)` — **목록의 마지막 8개**였다. 그것은 카탈로그
+         순서일 뿐 상장 순서가 아니고, 거래소에 상장되지 않은 심볼(TON)까지
+         '신규' 로 올라갔다. 이용자는 그것을 새로 생긴 종목이라고 믿는다.
+
+       ★ 값을 받지 못하면 'New' 정렬을 하지 않고 그 사실을 알린다. 임의 순서를
+         '신규' 라고 부르지 않는다.
+    */
+    const [listedAt, setListedAt] = useState(null);   // { SYMBOL: ms } | null
+    useEffect(() => {
+      const api = window.QTApi;
+      if (!api || !api.rest || !api.rest.contractSpecs) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return undefined;
+      let cancelled = false;
+      api.rest.contractSpecs()
+        .then((r) => {
+          if (cancelled) return;
+          const rows = Array.isArray(r && r.data) ? r.data : [];
+          const map = {};
+          for (const x of rows) {
+            if (x && x.symbol && Number(x.firstOpenDate) > 0) map[String(x.symbol)] = Number(x.firstOpenDate);
+          }
+          setListedAt(Object.keys(map).length ? map : null);
+        })
+        .catch(() => { /* 못 받으면 null 로 남는다 */ });
+      return () => { cancelled = true; };
+    }, []);
+
     const filtered = useMemo(() => {
       let list = [...markets];
       if (tab === 'Favorites') list = list.filter(m => m.fav);
-      else if (tab === 'Gainers') list = list.filter(m => m.chg24h > 2);
-      else if (tab === 'Losers')  list = list.filter(m => m.chg24h < -0.5);
-      else if (tab === 'New')     list = list.slice(-8);
+      /*
+         ★ 상승·하락 기준을 대칭으로 둔다.
+
+           전에는 Gainers 가 `> 2`, Losers 가 `< -0.5` 였다. 그래서 +1% 인 종목은
+           **어느 탭에도 나오지 않았다.** 임의로 정한 문턱 때문에 종목이 사라지면
+           이용자는 목록이 잘못됐다고 생각한다. 오른 것은 오름, 내린 것은 내림이다.
+      */
+      /*
+         ★ 미상장 심볼은 순위에서 제외한다.
+
+           그 종목은 값이 전부 '—' 인데도 목업에서 남은 변동률 때문에 상승률
+           1위로 올라왔다(실측: TON 이 Gainers 첫 줄). 실데이터가 없는 종목을
+           순위에 넣으면 그 순위 자체가 거짓이 된다.
+      */
+      else if (tab === 'Gainers') list = list.filter(m => !unlisted(m) && Number(m.chg24h) > 0);
+      else if (tab === 'Losers')  list = list.filter(m => !unlisted(m) && Number(m.chg24h) < 0);
+      else if (tab === 'New') {
+        if (!listedAt) list = [];
+        else {
+          list = list
+            .filter(m => !unlisted(m) && listedAt[(m.base + m.quote).toUpperCase()])
+            .sort((a, b) => listedAt[(b.base + b.quote).toUpperCase()] - listedAt[(a.base + a.quote).toUpperCase()])
+            .slice(0, 12);
+        }
+      }
       if (q) list = list.filter(m => m.base.toLowerCase().includes(q.toLowerCase()));
-      list.sort((a,b) => {
-        const dir = sort.dir === 'asc' ? 1 : -1;
-        const k = sort.key === 'chg' ? 'chg24h' : sort.key === 'price' ? 'price' : 'vol24h';
-        return (a[k] - b[k]) * dir;
-      });
+      // 'New' 는 상장 시각 순서가 의미이므로 공통 정렬을 덮어쓰지 않는다.
+      if (tab !== 'New') {
+        list.sort((a,b) => {
+          const dir = sort.dir === 'asc' ? 1 : -1;
+          const k = sort.key === 'chg' ? 'chg24h' : sort.key === 'price' ? 'price' : 'vol24h';
+          return (a[k] - b[k]) * dir;
+        });
+      }
       return list;
-    }, [q, tab, sort, markets, liveVersion]);
+    }, [q, tab, sort, markets, liveVersion, listedAt]);
 
     // heat cell color
     function heatCol(chg) {
@@ -125,7 +187,7 @@
                 <I.Grid size={11}/> Heatmap
               </button>
             </div>
-            <button className="btn btn--sm"><I.Filter size={13}/> Filter</button>
+            <button className="btn btn--sm"><I.Filter size={13}/> {t('notifications_f53a6e')}</button>
           </>
         }
       >
@@ -195,7 +257,7 @@
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
                 <I.Search size={12}/>
-                <input placeholder="Search symbol..." value={q} onChange={e => setQ(e.target.value)}/>
+                <input placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)}/>
               </div>
               <div className="seg">
                 {['All','Favorites','Gainers','Losers','New'].map(t => (
@@ -209,7 +271,23 @@
           {view === 'table' && (
             <window.DataTable
               columns={[
-                { key: 'fav',   label: '', width: 32, render: r => <span style={{color:r.fav?'var(--color-warning)':'var(--color-text-tertiary)', cursor:'pointer'}}>{r.fav ? '★' : '☆'}</span> },
+                { key: 'fav', label: '', width: 32, render: r => (
+                  /*
+                     ★ 별을 실제로 저장한다. 전에는 cursor:pointer 만 있고
+                       onClick 이 없어서, 눌러도 아무 일이 없었다.
+                     ★ 행 클릭(차트로 이동)과 겹치지 않게 전파를 멈춘다.
+                  */
+                  <span
+                    role="button"
+                    aria-label={t(r.fav ? 'fav_remove' : 'fav_add')}
+                    title={t(r.fav ? 'fav_remove' : 'fav_add')}
+                    style={{color: r.fav ? 'var(--color-warning)' : 'var(--color-text-tertiary)', cursor:'pointer'}}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.QTMarkets) window.QTMarkets.toggleFav(r.base + r.quote, mkSrc.market);
+                    }}
+                  >{r.fav ? '★' : '☆'}</span>
+                ) },
                 { key: 'sym',   label: 'Pair', render: r => (
                   <span>
                     <strong>{r.base}</strong><span style={{color:'var(--color-text-tertiary)'}}>/{r.quote}</span>
@@ -238,20 +316,48 @@
                        선은 실제 움직임이 아니고, 작은 그림이라 근거가 없다는 것이
                        드러나지 않는다. */
                   if (unlisted(r)) return <span style={{color:'var(--color-text-tertiary)'}}>—</span>;
-                  const pts = Array.from({length: 24}, (_, i) => r.price * (1 + Math.sin(i / 3 + r.base.charCodeAt(0)) * 0.02 + (Math.random()-0.5) * 0.006));
-                  return <Sparkline points={pts} up={r.chg24h >= 0}/>;
+                  /*
+                     ★★ 전에는 사인파 + 난수로 그렸다.
+
+                       `r.price * (1 + Math.sin(i/3 + r.base.charCodeAt(0)) * 0.02 + (Math.random()-0.5)*0.006)`
+                       심볼 이름으로 위상을 정한 가짜 곡선이었다. 사용자는 이
+                       모양을 보고 종목을 고르는데 그 모양에 근거가 없었고,
+                       그림이 작아서 가짜라는 것도 드러나지 않았다.
+
+                     ★ 지금은 실제 1시간봉 종가 24개를 쓴다. 아직 도착하지 않았거나
+                       받지 못했으면 '—' 로 둔다(가짜로 채우지 않는다).
+                       도착하면 liveVersion 이 올라가 다시 그려진다.
+                  */
+                  const pts = window.QTLive && window.QTLive.getSparkline
+                    ? window.QTLive.getSparkline(r.base + r.quote)
+                    : [];
+                  if (!pts || pts.length < 2) {
+                    return <span style={{color:'var(--color-text-tertiary)'}} title={t('mk_trend_pending')}>—</span>;
+                  }
+                  // 방향도 실제 구간(첫 점 → 마지막 점)으로 판단한다.
+                  return <Sparkline points={pts} up={pts[pts.length - 1] >= pts[0]}/>;
                 }},
                 { key: 'act',   label: '', align: 'right', width: 100, render: r => unlisted(r) ? (
                   /* ★ 버튼을 지우지 않는다(UI 계약). 비활성으로 두고 이유를 알린다.
                        누르게 두면 주문 패널까지 가서야 거래할 수 없음을 알게 된다. */
-                  <button className="btn btn--xs" disabled title={t(r.unavailableReasonKey || 'market_not_listed')}>Trade</button>
+                  <button className="btn btn--xs" disabled title={t(r.unavailableReasonKey || 'market_not_listed')}>{t('nav_trade')}</button>
                 ) : (
-                  <a className="btn btn--xs btn--primary" href={`#/trade?symbol=${r.base}${r.quote}`}>Trade</a>
+                  <a className="btn btn--xs btn--primary" href={`#/trade?symbol=${r.base}${r.quote}`}>{t('nav_trade')}</a>
                 ) },
               ]}
               rows={filtered}
               onRowClick={(r) => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + r.base + r.quote)}
             />
+          )}
+          {/*
+             빈 탭의 이유를 말한다. 'New' 는 상장 시각을 받지 못하면 정렬할 수
+             없으므로, 임의 순서를 신규라고 부르지 않고 그 사실을 알린다.
+          */}
+          {view === 'table' && filtered.length === 0 && (
+            <div className="empty" style={{padding:'18px 16px'}}>
+              <span className="empty__icon">🔍</span>
+              <span>{tab === 'New' && !listedAt ? t('mk_new_unavailable') : t('no_match')}</span>
+            </div>
           )}
           {view === 'heatmap' && (
             <div style={{padding: 12}}>
@@ -320,7 +426,8 @@
           setLive(r.data || []);
           setMeta({
             symbol: r.symbol, timeframe: r.timeframe, dataSource: r.dataSource,
-            metricsNote: r.metricsNote, caveats: r.caveats || [], unavailable: r.unavailable || [],
+            // ★ 서버는 번역 키를 준다(문장이 아니다). 화면에서 t() 로 번역한다.
+            metricsNoteKey: r.metricsNoteKey, caveats: r.caveats || [], unavailable: r.unavailable || [],
           });
           setErr(null);
         })
@@ -344,7 +451,23 @@
     }, []);
     useEffect(() => { load(); }, [load]);
 
+    /*
+       ★★ 전에는 `Array.isArray(live)` 하나로 판정했다.
+
+         live 의 초기값은 null 이므로 **최초 렌더와 조회 실패에서 목업 전략
+         8개**(`+38.4% · 승률 62% · 팔로워 1,240`)가 그대로 보였다. 사용자는
+         그것을 실제 성적으로 읽고 팔로우한다. 조회에 실패했다는 사실은
+         화면 어디에도 없었다.
+
+       ★ 지금은 판정처를 하나로 둔다(QTMockPolicy). 실서비스에서는 목업을
+         쓰지 않고, 미리보기(백엔드 없는 디자인 확인)에서만 목업을 쓴다.
+    */
     const isLive = Array.isArray(live);
+    const mockAllowed = window.QTMockPolicy && window.QTMockPolicy.allowMockData
+      ? window.QTMockPolicy.allowMockData()
+      : false;
+    // 조회에 실패했는데 목업도 쓸 수 없는 상태 — 이유를 말해야 한다.
+    const loadFailed = Boolean(err) && !isLive && !mockAllowed;
     const unavailable = new Set((meta && meta.unavailable) || []);
     // 구독 등급이 없으면 Free/Pro/VIP 필터는 의미가 없다.
     const hasTiers = isLive ? !unavailable.has('subscriptionTiers') : true;
@@ -361,7 +484,14 @@
       const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
       return {
         id: x.id,
-        name: x.name,
+        /*
+           ★ 서버는 번역 키(nameKey/descriptionKey)를 함께 준다. 키가 있으면
+             그것으로 번역하고, 없으면(사용자 작성 전략 등) 원문을 쓴다.
+             전에는 원문만 썼기 때문에 영어·일본어 화면에 한국어 전략명이
+             그대로 나왔다.
+        */
+        name: x.nameKey ? t(x.nameKey) : x.name,
+        description: x.descriptionKey ? t(x.descriptionKey) : x.description,
         author: x.author === 'built-in' ? null : x.author,
         authorKey: x.author === 'built-in' ? 'strategy_builtin' : null,
         tag: x.category || '—',
@@ -378,7 +508,15 @@
       };
     };
 
-    const strategies = isLive ? live.map(toCard) : window.QTApp.STRATEGIES;
+    /*
+       ★ 실데이터가 있으면 그것을, 없으면 미리보기에서만 목업을 쓴다.
+         실서비스에서 데이터가 없으면 **빈 목록**이다 — 가짜로 채우지 않는다.
+    */
+    const strategies = isLive
+      ? live.map(toCard)
+      : (window.QTMockPolicy && window.QTMockPolicy.pick
+          ? (window.QTMockPolicy.pick(null, window.QTApp.STRATEGIES) || [])
+          : []);
 
     const cmp = (a, b, key) => {
       // null 은 항상 뒤로 보낸다. 0 으로 취급하면 미실행 전략이 중간에 끼어든다.
@@ -455,8 +593,8 @@
             */}
             {!isLive || !unavailable.has('userAuthoredStrategies') ? (
               <>
-                <button className="btn btn--sm"><I.Plus size={12}/> Create Strategy</button>
-                <button className="btn btn--sm btn--primary"><I.Sparkles size={12}/> AI Generate</button>
+                <button className="btn btn--sm"><I.Plus size={12}/> {t('strat_create')}</button>
+                <button className="btn btn--sm btn--primary"><I.Sparkles size={12}/> {t('strat_ai_generate')}</button>
               </>
             ) : (
               <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
@@ -507,7 +645,29 @@
                 />
               </>
             );
-          })() : (
+          })() : loadFailed ? (
+            /*
+               ★★ 조회 실패. 전에는 이 자리에 목업 KPI 4개가 나왔다.
+
+                 `Total Strategies · Free 4 Pro 3 VIP 1` · `Avg 30d PnL +8.4%` ·
+                 `AI Signals · Today 486`(관리자 화면용 목업값을 사용자 화면에서
+                 썼다). 서버에서 아무 것도 받지 못한 상태인데 숫자가 보이므로
+                 사용자는 그것을 자기 서비스의 실적으로 읽는다.
+
+               ★ 지금은 숫자를 만들지 않고 실패를 말한다. 0 으로도 채우지 않는다 —
+                 "전략 0개" 와 "못 불러옴" 은 다른 사실이다.
+            */
+            <div
+              style={{
+                gridColumn:'1 / -1', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+                padding:'12px 14px', border:'1px solid var(--color-warning)', borderRadius:6,
+                background:'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+              }}
+            >
+              <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('strat_load_failed')}</span>
+              <button className="btn btn--xs" type="button" onClick={load}>{t('sec_retry')}</button>
+            </div>
+          ) : (
             <>
               <window.KPICard label="Total Strategies" value={strategies.length} sub="Free 4 · Pro 3 · VIP 1" icon="Sparkles" tone="ai"/>
               <window.KPICard label="Avg 30d PnL" value={'+' + (strategies.reduce((a,s) => a+s.pnl30, 0)/strategies.length).toFixed(1) + '%'} delta={+8.4} deltaLabel="vs prev 30d" tone="long"/>
@@ -536,10 +696,10 @@
                 </div>
               )}
               <select className="input" style={{height:28, fontSize:11, width: 130}} value={sort} onChange={e => setSort(e.target.value)}>
-                <option value="pnl">Sort · 30d PnL</option>
-                <option value="sharpe">Sort · Sharpe</option>
-                <option value="winRate">Sort · Win Rate</option>
-                <option value="followers">Sort · Followers</option>
+                <option value="pnl">{t('strat_sort_pnl')}</option>
+                <option value="sharpe">{t('strat_sort_sharpe')}</option>
+                <option value="winRate">{t('strat_sort_win')}</option>
+                <option value="followers">{t('strat_sort_followers')}</option>
               </select>
             </>
           }
@@ -580,7 +740,7 @@
                        200거래 승률 55% 는 완전히 다른 이야기다. 승률만 크게
                        보여주면 사용자가 표본이 적은 전략을 더 좋다고 오해한다.
                     */}
-                    <span className="strategy-card__stat__k">Win Rate</span>
+                    <span className="strategy-card__stat__k">{t('strat_win_rate')}</span>
                     <span className="strategy-card__stat__v" style={s.winRate === null ? {color:'var(--color-text-tertiary)'} : undefined}>
                       {s.winRate === null ? '—' : s.winRate.toFixed(1) + '%'}
                       {isLive && s.trades !== null && (
@@ -591,13 +751,13 @@
                     </span>
                   </div>
                   <div className="strategy-card__stat">
-                    <span className="strategy-card__stat__k">Sharpe</span>
+                    <span className="strategy-card__stat__k">{t('col_sharpe')}</span>
                     <span className="strategy-card__stat__v" style={{color: s.sharpe === null ? 'var(--color-text-tertiary)' : undefined}}>
                       {s.sharpe === null ? '—' : (isLive ? s.sharpe.toFixed(2) : s.sharpe)}
                     </span>
                   </div>
                   <div className="strategy-card__stat">
-                    <span className="strategy-card__stat__k">Max DD</span>
+                    <span className="strategy-card__stat__k">{t('strat_max_dd')}</span>
                     <span className="strategy-card__stat__v" style={{color: s.maxDD === null ? 'var(--color-text-tertiary)' : 'var(--color-trade-short)'}}>
                       {s.maxDD === null ? '—' : '-' + s.maxDD.toFixed(2) + '%'}
                     </span>
@@ -631,13 +791,13 @@
                       >
                         {isFollowing(s.id)
                           ? <><I.Check size={11}/> {t('strat_following_on')}</>
-                          : <><I.Plus size={11}/> Follow</>}
+                          : <><I.Plus size={11}/> {t('col_follow')}</>}
                       </button>
                     </>
                   ) : (
                     <>
-                      <button className="btn btn--xs" style={{flex:1}}><I.Chart size={11}/> Backtest</button>
-                      <button className="btn btn--xs btn--primary" style={{flex:1}}><I.Plus size={11}/> Follow</button>
+                      <button className="btn btn--xs" style={{flex:1}}><I.Chart size={11}/> {t('col_backtest')}</button>
+                      <button className="btn btn--xs btn--primary" style={{flex:1}}><I.Plus size={11}/> {t('col_follow')}</button>
                     </>
                   )}
                 </div>
@@ -661,11 +821,12 @@
                 {t('strat_caveats_title')}
               </div>
               <ul style={{margin:0, paddingLeft:18, fontSize:11.5, lineHeight:1.9, color:'var(--color-text-tertiary)'}}>
-                {meta.caveats.map((c, i) => <li key={i}>{c}</li>)}
+                {/* caveats 는 번역 키 배열이다. 키가 사전에 없으면 i18n 이 영어로 폴백한다. */}
+                {meta.caveats.map((c, i) => <li key={i}>{t(c)}</li>)}
               </ul>
-              {meta.metricsNote && (
+              {meta.metricsNoteKey && (
                 <div style={{marginTop:8, paddingTop:8, borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
-                  {meta.metricsNote}
+                  {t(meta.metricsNoteKey)}
                 </div>
               )}
             </div>
@@ -823,7 +984,19 @@
        ★ 이제 백엔드가 있으면(=실서비스) 목업을 쓰지 않는다. 빈 상태가
          고장처럼 보이는 것보다, 남의 거래를 자기 것으로 착각하는 편이 훨씬 나쁘다.
     */
-    const positions = (account.isLive && window.QTAccount)
+    /*
+       ★★ 어느 포지션을 보여줄지는 **모드**로 정한다 — 키 유무로 정하면 안 된다.
+
+         전에는 `account.isLive` 가 true 면 거래소 포지션만 썼다. 그래서 키를
+         연결한 이용자는 **모의 포지션이 보이지 않았다.** 실측: 모의 주문 4건으로
+         포지션이 생겼고 `/api/positions` 도 그것을 돌려주는데 화면은 "No data"
+         였다. Order History 에서도 같은 형태의 결함이 있었다.
+
+       ★★ 두 출처를 합치지 않는다. 모의 포지션과 실제 포지션이 섞이면 증거금·
+         청산가가 뒤섞여 이용자가 위험을 완전히 잘못 읽는다.
+    */
+    const isPaperMode = Boolean(window.QTMode && window.QTMode.get && window.QTMode.get() === 'paper');
+    const positions = (!isPaperMode && account.isLive && window.QTAccount)
       ? window.QTAccount.getPositions()
       : (window.QTMockPolicy
           ? window.QTMockPolicy.pick(localPos, window.QT.POSITIONS)
@@ -947,7 +1120,19 @@
             >
               {account.isLive ? t('acct_live') : t('acct_status_' + String(account.status).toLowerCase())}
             </span>
-            <button className="btn btn--sm"><I.Camera size={13}/> Export Report</button>
+{/*
+               Export 버튼을 숨겼다 (2026-08, 베타 런칭 범위에서 제외).
+
+               ★★ 버튼을 지우지 않고 감춘다. 마크업을 지우면 나중에 되살릴 때
+                 디자이너 산출물과 달라진다 — 지금은 배선할 서버 경로가 없어
+                 눌러도 아무 일이 없었고, 그것이 고장으로 보였다.
+
+               ★ 되살리는 방법: 이 조건을 없애고 onClick 에 실제 내보내기를
+                 붙인다(관리자 회원 Export 처럼 서버가 URL 을 준다).
+              */}
+            {false && (
+              <button className="btn btn--sm"><I.Camera size={13}/> {t('an_export_report')}</button>
+            )}
             <button
               className="btn btn--sm"
               title={t('acct_refresh')}
@@ -1151,7 +1336,7 @@
         </div>
 
         {/* Open Positions */}
-        <window.SectionCard title="Open Positions" subtitle={`${positions.length} open`} noPadding>
+        <window.SectionCard title={t('pf_open_positions')} subtitle={`${positions.length} open`} noPadding>
           <window.DataTable
             columns={[
               { key: 'sym', label: 'Symbol', render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
@@ -1197,7 +1382,7 @@
               { key: 'act', label: '', align:'right', render: r => (
                 <>
                   <button className="tbl-action">TP/SL</button>
-                  <button className="tbl-action tbl-action--danger" style={{marginLeft:4}}>Close</button>
+                  <button className="tbl-action tbl-action--danger" style={{marginLeft:4}}>{t('close')}</button>
                 </>
               ) },
             ]}
@@ -1293,8 +1478,31 @@
       return () => { cancelled = true; if (off) off(); };
     }, []);
 
-    /* 거래소 실체결 → 우리 DB 기록 → 목업 순서로 고른다. */
-    const isLive = liveJournal.length > 0 || Boolean(localTrades);
+    /*
+       ★★ `isLive` 를 "거래 기록이 있는가" 로 판단하고 있었다 — 그게 결함이었다.
+
+         거래소 키를 연결했지만 아직 거래가 없는 이용자는 `isLive === false` 가
+         되어 **목업 문구가 그대로 나왔다.** 실측: 거래 0건인데 화면에
+         `TOTAL PNL · 10 TRADES` 와 `▲ 12.40% vs prev 10` 이 표시됐다.
+         `QTMockPolicy.allowMockData()` 가 false 인 상태에서도 그랬다.
+
+       ★ 거래 0건은 **사실**이다 — 목업으로 대체할 대상이 아니다. 그래서
+         "실데이터인가" 는 기록 유무가 아니라 **목업이 허용되는 환경인가**로
+         판단한다. 판정은 QTMockPolicy 한 곳에서 한다(규칙 7).
+    */
+    const mockAllowed = Boolean(window.QTMockPolicy && window.QTMockPolicy.allowMockData
+      ? window.QTMockPolicy.allowMockData()
+      : false);
+    const isLive = !mockAllowed;
+    /*
+       거래소 계정을 읽을 수 있는가(검증된 키가 있는가).
+
+       ★ 이것과 "거래 기록이 있는가" 는 다르다. 읽을 수 있는데 거래가 없으면
+         손익 0 이 사실이고, 읽을 수 없으면 손익은 **모르는 값**이다.
+       ★ 미리보기에서는 목업을 보여주므로 읽을 수 있는 것으로 취급한다.
+    */
+    const canReadAccount = mockAllowed
+      || Boolean(window.QTAccount && window.QTAccount.isLive && window.QTAccount.isLive());
     /*
        거래 기록: 거래소 → 우리 DB → (미리보기에서만) 목업.
 
@@ -1387,8 +1595,11 @@
         breadcrumb={['Home','Analytics']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Camera size={13}/> Export CSV</button>
-            <button className="btn btn--sm btn--primary"><I.Sparkles size={13}/> AI Review</button>
+            {/* Export 숨김 — 위 Export Report 와 같은 이유(배선할 경로가 없다). */}
+            {false && (
+              <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
+            )}
+            <button className="btn btn--sm btn--primary"><I.Sparkles size={13}/> {t('an_ai_review')}</button>
           </>
         }
       >
@@ -1407,12 +1618,32 @@
                않은 것을 실현 손익이라고 말하는 셈이다.
           */}
           <window.KPICard
-            label={isLive ? t('an_total_pnl', { count: tj.length }) : 'Total PnL · 10 trades'}
-            value={totalPnl === null ? '—' : (totalPnl >= 0 ? '+' : '') + '$' + fmt(totalPnl)}
-            delta={isLive ? undefined : +12.4}
-            deltaLabel="vs prev 10"
-            sub={totalPnl === null ? t('an_pnl_unknown') : (isLive ? t('an_from_exchange') : undefined)}
-            tone={totalPnl === null ? undefined : totalPnl >= 0 ? 'long' : 'short'}
+            label={t('an_total_pnl', { count: tj.length })}
+            /*
+               ★★ 세 상태를 구분한다.
+
+                 1) 계정을 읽을 수 없다(키 없음/미검증) → `—`
+                    기록이 0건인 것은 우리가 **볼 수 없어서**다. `+$0.00` 을
+                    보여주면 "거래했지만 본전" 으로 읽힌다. 실측으로 이 상태에서
+                    `+$0.00 · Confirmed by the exchange` 가 나오고 있었다 —
+                    거래소가 확인해 준 적이 없는데 그렇게 말했다.
+                 2) 읽을 수 있고 기록 0건 → `$0.00` (사실이다: 실현 손익이 없다)
+                 3) 손익을 모르는 거래가 섞였다 → `—` (일부만 세면 거짓이 된다)
+            */
+            value={!canReadAccount || totalPnl === null
+              ? t('dash')
+              : (totalPnl >= 0 ? '+' : '') + '$' + fmt(totalPnl)}
+            /*
+               ★★ `+12.4` 가 박혀 있었다 — 이전 기간과 비교한 적이 없다.
+
+                 이전 10건과 비교하려면 그 10건의 손익이 있어야 하는데, 우리는
+                 그 계산을 하지 않는다. 없는 비교를 표시하면 이용자가 "성과가
+                 나아지고 있다" 고 읽는다. 값을 만들지 않고 델타를 빼둔다.
+            */
+            sub={!canReadAccount
+              ? t('an_no_account')
+              : (totalPnl === null ? t('an_pnl_unknown') : (isLive ? t('an_from_exchange') : undefined))}
+            tone={!canReadAccount || totalPnl === null ? undefined : totalPnl >= 0 ? 'long' : 'short'}
           />
           {/* 거래가 0건이면 승률을 만들 수 없다. NaN 을 화면에 띄우지 않는다. */}
           <window.KPICard
@@ -1470,7 +1701,11 @@
         )}
 
         <div className="grid-2-1">
-          <window.SectionCard title="Daily PnL · 30 days" subtitle={isLive ? t('an_daily_real') : 'Simulated distribution'}>
+          <window.SectionCard
+            title={t('an_daily_pnl_30')}
+            /* ★ 목업 미리보기에서만 '모의 분포' 라고 밝힌다. 실서비스에서는 실데이터다. */
+            subtitle={mockAllowed ? t('an_daily_simulated') : t('an_daily_real')}
+          >
             {/*
                ★ 손익을 모르면 그래프를 그리지 않는다.
 
@@ -1503,19 +1738,34 @@
             )}
           </window.SectionCard>
 
-          <window.SectionCard title="AI Insights" subtitle="Detected patterns">
+          {/*
+             ★★ 여기 있던 3개 카드는 전부 **만들어낸 숫자**였다.
+
+               'AI signal win rate 82%' · 'Nervous trades lose 40% of the time'
+               (손실 확률 2.3배) · 'Afternoon session outperforms 34%'.
+
+               우리는 그 분석을 한 적이 없다. AI provider 는 연결조차 안 됐고
+               (`/api/ai/status` → available:false), 감정 태그별 손실률이나
+               시간대별 성과를 계산하는 코드도 없다. 그런데 화면은 그 수치를
+               단정해서 말했고, 이용자는 그것으로 **매매 시간과 심리 관리를
+               바꾼다.** 근거 없는 숫자가 실제 행동을 바꾸는 자리다.
+
+             ★ 카드를 지우지 않고(UI 계약) 무엇이 필요한지 밝힌다. 표본이
+               쌓이고 계산이 붙으면 이 자리에 실제 결과가 들어간다.
+          */}
+          <window.SectionCard title={t('an_ai_insights')} subtitle={t('an_insights_sub')}>
             <div style={{display:'flex', flexDirection:'column', gap: 10}}>
-              <div style={{padding:'10px 12px', background:'var(--color-ai-bg)', borderLeft:'3px solid var(--color-ai)', borderRadius:4, fontSize:12}}>
-                <strong>{t('analytics_171e3e')}</strong><br/>
-                <span style={{color:'var(--color-text-secondary)'}}>{t('analytics_19b9a2')}</span>
+              <div style={{padding:'10px 12px', background:'var(--color-bg-subtle)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
+                <strong>{t('an_insights_none')}</strong><br/>
+                <span style={{color:'var(--color-text-secondary)'}}>{t('an_insights_why')}</span>
               </div>
-              <div style={{padding:'10px 12px', background:'oklch(80% 0.14 75 / 0.10)', borderLeft:'3px solid var(--color-warning)', borderRadius:4, fontSize:12}}>
-                <strong>{t('analytics_d6aabf')}</strong><br/>
-                <span style={{color:'var(--color-text-secondary)'}}>{t('analytics_4fa8b3')}</span>
-              </div>
-              <div style={{padding:'10px 12px', background:'oklch(78% 0.14 145 / 0.10)', borderLeft:'3px solid var(--color-success)', borderRadius:4, fontSize:12}}>
-                <strong>{t('analytics_c511d6')}</strong><br/>
-                <span style={{color:'var(--color-text-secondary)'}}>{t('analytics_4b3b6f')}</span>
+              {/*
+                 ★ 무엇이 있으면 되는지 적는다 — 이용자가 일지를 쓸 동기가 된다.
+                   (거래 기록만으로는 감정·시간대 분석을 만들 수 없다.)
+              */}
+              <div style={{padding:'10px 12px', background:'var(--color-bg-subtle)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
+                <strong>{t('an_insights_need')}</strong><br/>
+                <span style={{color:'var(--color-text-secondary)'}}>{t('an_insights_need_why')}</span>
               </div>
             </div>
           </window.SectionCard>
@@ -1524,7 +1774,12 @@
         <window.SectionCard
           title="Trade Journal"
           subtitle={`${tj.length} recorded trades · Manual + AI-assisted`}
-          actions={<button className="btn btn--sm"><I.Plus size={12}/> Manual Entry</button>}
+          /*
+             Manual Entry 를 숨겼다 — 거래일지를 손으로 넣는 화면이 아직 없다.
+             ★ 서버에 trade_journal 표는 있지만 입력 폼과 라우트가 없다.
+               누를 수 있게 두면 이용자가 일지를 쓸 수 있다고 믿는다.
+          */
+          actions={null}
           noPadding
         >
           <window.DataTable
@@ -1584,105 +1839,20 @@
   // ============================================================
   // MULTI-CHART PAGE
   // ============================================================
-  window.MultiChartPage = function MultiChartPage({ shellProps }) {
-    const [layout, setLayout] = useState('2x2');   // 2x2 | 1x2 | 3x2 | 2x3
-    const symbols = ['BTC/USDT','ETH/USDT','SOL/USDT','BNB/USDT','XRP/USDT','DOGE/USDT'];
-    const [selectedSymbols, setSelectedSymbols] = useState(symbols.slice(0, 4));
+  /*
+     멀티차트 페이지를 제거했다 (2026-08, 사장님 지시).
 
-    /*
-       차트별 시간축.
+     ★★ 기능은 거래 화면으로 옮겨졌다 — `window.ChartGrid`(src/chart-grid.jsx).
 
-       ★★ 전에는 시간축 버튼이 **아무 일도 하지 않았다.**
-         `className={tf==='15m'?'is-active':''}` 로 15분봉이 항상 활성으로 보이고,
-         `onClick` 이 없어 눌러도 반응이 없었다. MiniChart 에도
-         `timeframe="15m"` 이 박혀 있어 바꿀 방법이 없었다.
+       `/trade` 차트 위의 `Charts: Single / 2 / 2x2 / 3x2` 가 같은 일을 한다.
+       그쪽이 나은 점:
+         · 칸마다 **완전한 차트**다(여기서는 축소판 MiniChart 였다).
+         · 포커스된 칸이 주문 대상이므로 보던 자리에서 바로 주문한다.
+           이 페이지에서는 주문 패널이 없어 탭을 옮겨야 했고, 그 사이 호가가 바뀐다.
+         · 종목 목록이 QTMarkets 단일 출처다. 여기서는 6종목이 박혀 있었고
+           표기가 `BTC/USDT` 라서 시세 키(`BTCUSDT`)와 달라 시세가 붙지 않았다.
+  */
 
-         화면 부제가 "Independent timeframes" 라고 말하는데 실제로는 전부
-         15분봉이었다 — 사용자는 1분봉을 본다고 믿고 판단한다.
-
-       ★ 차트마다 따로 둔다. 부제의 약속대로 독립이어야 하고, 하나로 묶으면
-         여러 시간대를 나란히 보는 이 화면의 목적이 사라진다.
-    */
-    const [timeframes, setTimeframes] = useState(() => symbols.map(() => '15m'));
-    const setTf = (idx, tf) => setTimeframes((prev) => {
-      const next = [...prev];
-      next[idx] = tf;
-      return next;
-    });
-
-    const layoutGrids = {
-      '2x2': { cols: 2, rows: 2, count: 4 },
-      '1x2': { cols: 2, rows: 1, count: 2 },
-      '3x2': { cols: 3, rows: 2, count: 6 },
-      '2x3': { cols: 2, rows: 3, count: 6 },
-    };
-    const cfg = layoutGrids[layout];
-
-    return (
-      <window.PageShell
-        {...shellProps}
-        title="Multi-Chart"
-        subtitle={`View up to ${cfg.count} symbols simultaneously · Synced crosshair · Independent timeframes`}
-        breadcrumb={['Home','Multi-Chart']}
-        actions={
-          <>
-            <div className="seg">
-              {Object.keys(layoutGrids).map(l => (
-                <button key={l} className={`seg__opt ${layout===l?'is-active':''}`} onClick={() => setLayout(l)}>{l}</button>
-              ))}
-            </div>
-            <button className="btn btn--sm"><I.Camera size={13}/></button>
-            <button className="btn btn--sm"><I.Expand size={13}/></button>
-          </>
-        }
-        fullBleed
-      >
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${cfg.cols}, 1fr)`,
-          gridTemplateRows: `repeat(${cfg.rows}, 1fr)`,
-          gap: 6,
-          padding: 6,
-          height: '100%',
-          background: 'var(--color-bg-app)',
-        }}>
-          {Array.from({length: cfg.count}).map((_, i) => {
-            const sym = selectedSymbols[i] || symbols[i % symbols.length];
-            return (
-              <div key={i} style={{background:'var(--color-bg-panel)', border:'1px solid var(--color-border-subtle)', borderRadius:6, display:'flex', flexDirection:'column', overflow:'hidden', minHeight: 240}}>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
-                  <div style={{display:'flex', alignItems:'center', gap:6}}>
-                    <select
-                      style={{background:'transparent', border:0, color:'var(--color-text-primary)', fontSize:13, fontWeight:600, fontFamily:'var(--font-en)', cursor:'pointer'}}
-                      value={sym}
-                      onChange={e => { const next = [...selectedSymbols]; next[i] = e.target.value; setSelectedSymbols(next); }}
-                    >
-                      {symbols.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <span className="badge badge--perp">PERP</span>
-                  </div>
-                  <div className="seg" style={{fontSize:10}}>
-                    {['1m','5m','15m','1H','4H'].map(tf => (
-                      <button
-                        key={tf}
-                        className={`seg__opt ${(timeframes[i] || '15m') === tf ? 'is-active' : ''}`}
-                        style={{height:20, padding:'0 5px', fontSize:10}}
-                        aria-pressed={(timeframes[i] || '15m') === tf}
-                        onClick={() => setTf(i, tf)}
-                      >{tf}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{flex:1, minHeight:0, position:'relative'}}>
-                  <window.MiniChart symbol={sym} timeframe={timeframes[i] || '15m'} hideHeader={true}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </window.PageShell>
-    );
-  };
 
   // ============================================================
   // WALLET PAGE — Exchange Connect + Referrals + Balances
@@ -1695,6 +1865,56 @@
          훅 개수가 바뀌어 화면이 비어 버린다(실제로 겪었다).
     */
     const cfg = window.QTApi && window.QTApi.useConfig ? window.QTApi.useConfig() : null;
+
+    /*
+       KuCoin Fast API 인증 결과.
+
+       ★★ 토스트가 아니라 **화면에 남는 배너**로 알린다.
+
+         처음에는 QTToast 를 썼는데 알림이 뜨지 않았다. 원인은 타이밍이었다 —
+         이 효과는 화면이 마운트될 때 바로 돌지만 그 시점에 window.QTToast 가
+         아직 정의되지 않아 `if (window.QTToast)` 가 false 로 지나갔다.
+         조용히 사라지는 알림이 된 것이다.
+
+         타이밍을 맞추는 대신 배너로 바꾼다. 연결 성공·실패는 이용자가 놓치면
+         안 되는 정보이고(키가 연결됐는지 여부다), 토스트는 몇 초 뒤 사라져
+         잠깐 다른 곳을 보면 놓친다.
+
+       ★ 주소에서 결과 값은 즉시 지운다. 남겨 두면 새로고침마다 같은 알림이
+         뜨고, 이미 지난 실패를 현재 상태로 오해한다.
+    */
+    const [oauthResult, setOauthResult] = React.useState(null);
+    React.useEffect(() => {
+      /*
+         ★ 해시가 아니라 **pathname 쿼리**를 읽는다.
+
+           해시 뒤에 붙은 값(`#/wallet?kucoinOauth=…`)은 해시 라우터가 경로를
+           정규화하면서 지운다(실측으로 확인했다). 서버 콜백은 그래서
+           `/index.html?kucoinOauth=…#/wallet` 형태로 돌려보낸다.
+      */
+      const params = new URLSearchParams(window.location.search || '');
+      const reason = params.get('kucoinOauth');
+      if (!reason) return;
+
+      const MAP = {
+        connected: { key: 'fast_api_connected', ok: true },
+        invalid_state: { key: 'fast_api_invalid_state', ok: false },
+        session_mismatch: { key: 'fast_api_session_mismatch', ok: false },
+        missing_params: { key: 'fast_api_invalid_state', ok: false },
+        token_exchange_failed: { key: 'fast_api_token_failed', ok: false },
+        key_issue_failed: { key: 'fast_api_key_failed', ok: false },
+        unreachable: { key: 'fast_api_unreachable', ok: false },
+      };
+      setOauthResult(MAP[reason] || { key: 'fast_api_token_failed', ok: false });
+
+      // 주소에서 결과 값을 제거한다(위 주석 참고). 해시는 그대로 둔다.
+      params.delete('kucoinOauth');
+      const rest = params.toString();
+      window.history.replaceState(
+        null, '',
+        window.location.pathname + (rest ? '?' + rest : '') + (window.location.hash || ''),
+      );
+    }, []);
 
     /*
        거래소 목록 — 서버 판정을 쓴다.
@@ -1719,6 +1939,36 @@
     */
     const exPreviewOnly = window.QTLive && window.QTLive.isBackendPresent
       && window.QTLive.isBackendPresent() === false;
+    /*
+       실제로 연결된 거래소.
+
+       ★★ 전에는 목업 상수(`USER.connectedExchanges = ['binance','bitget']`)를 봤다.
+         그래서 KuCoin 키를 진짜로 연결해도 카드는 `AVAILABLE` 이었고, 연결한 적
+         없는 binance·bitget 이 '연결됨' 으로 표시됐다. 이용자는 자기가 어느
+         거래소를 연결했는지 이 화면에서 확인하는데, 그 정보가 거짓이었다.
+
+       ★ 조회 실패는 빈 목록이 아니라 null 로 남긴다 — "연결 없음" 과
+         "확인 못 함" 은 다르다.
+    */
+    const [creds, setCreds] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.credentials;
+      if (!api || !api.list) return undefined;
+      let alive = true;
+      api.list()
+        .then((r) => { if (alive) setCreds((r && r.data) || []); })
+        .catch(() => { if (alive) setCreds(null); });
+      return () => { alive = false; };
+    }, []);
+    /*
+       ★ 검증된 것만 '연결됨' 으로 본다. UNVERIFIED/FAILED 를 연결됨으로 표시하면
+         이용자가 왜 잔고가 안 보이는지 알 수 없다.
+    */
+    const connectedIds = React.useMemo(
+      () => (creds || []).filter((c) => c.connectionStatus === 'VERIFIED').map((c) => String(c.exchange || '').toLowerCase()),
+      [creds],
+    );
+
     const exData = window.QTApi && window.QTApi.useExchanges
       ? window.QTApi.useExchanges(isStaff)
       : null;
@@ -1740,11 +1990,42 @@
         breadcrumb={['Home','Wallet']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Refresh size={13}/> Sync</button>
-            <button className="btn btn--sm btn--primary"><I.Plus size={13}/> Add Exchange</button>
+            <button className="btn btn--sm"><I.Refresh size={13}/> {t('col_sync')}</button>
+            <button className="btn btn--sm btn--primary"><I.Plus size={13}/> {t('wal_add_exchange')}</button>
           </>
         }
       >
+        {/*
+           KuCoin Fast API 연결 결과.
+
+           ★ 화면에 남는 배너다(토스트가 아니다). 이용자가 KuCoin 을 다녀온 뒤
+             연결됐는지 실패했는지 반드시 알아야 하고, 토스트는 몇 초 뒤 사라져
+             잠깐 다른 곳을 보면 놓친다.
+        */}
+        {oauthResult && (
+          <div
+            role="status"
+            style={{
+              display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap',
+              padding:'12px 14px', marginBottom:12, borderRadius:6,
+              border:'1px solid ' + (oauthResult.ok ? 'var(--color-success)' : 'var(--color-warning)'),
+              background:'color-mix(in srgb, ' + (oauthResult.ok ? 'var(--color-success)' : 'var(--color-warning)') + ' 10%, transparent)',
+            }}
+          >
+            <span style={{fontSize:12.5, lineHeight:1.7, color: oauthResult.ok ? 'var(--color-success)' : 'var(--color-warning)'}}>
+              {t(oauthResult.key)}
+            </span>
+            <button
+              className="btn btn--xs"
+              type="button"
+              style={{marginLeft:'auto'}}
+              onClick={() => setOauthResult(null)}
+            >
+              {t('sec_done')}
+            </button>
+          </div>
+        )}
+
         {/* Tab bar */}
         <div style={{display:'flex', gap:0, borderBottom:'1px solid var(--color-border-subtle)', marginBottom: -12}}>
           {[
@@ -1807,7 +2088,7 @@
 
             <div className="grid-3">
               {EX.map(ex => {
-                const isConnected = USER.connectedExchanges.includes(ex.id);
+                const isConnected = connectedIds.includes(String(ex.id).toLowerCase());
                 /* 미협약 = 어댑터가 없어 실제로 연결되지 않는 거래소.
                    관리자에게만 보이며, 노란색으로 아직 확정이 아님을 알린다. */
                 const notReady = ex.connectable === false;
@@ -1844,7 +2125,27 @@
                           {t('ex_not_partnered')}
                         </span>
                       ) : (
-                        <span className={`exchange-card__status ${ex.status}`}>{ex.status === 'coming-soon' ? 'SOON' : ex.status.toUpperCase()}</span>
+                        /*
+                           ★★ 연결됐으면 그 사실을 배지로 말한다.
+
+                             전에는 거래소 **가용 상태**(AVAILABLE)만 표시했다. 키를
+                             연결한 이용자도 같은 배지를 보므로, 자기가 연결했는지
+                             화면에서 확인할 방법이 없었다(테두리 색만 달라졌고 그것은
+                             알아채기 어렵다).
+
+                           ★ 두 정보를 겹쳐 쓰지 않는다. 연결됨은 내 상태, AVAILABLE 은
+                             거래소 상태다 — 연결됐으면 내 상태를 먼저 보여준다.
+
+                           ★ 중괄호로 감싼 JSX 주석은 **표현식 자리에 올 수 없다.**
+                             삼항의 분기 안에 넣으면 `Expected ")"` 로 파일 전체가
+                             깨진다 — 이 자리에서 두 번 겪었다. 일반 주석을 쓴다.
+                             (그 형태를 여기 적으면 주석 자체가 조기 종료된다.)
+                        */
+                        <span className={`exchange-card__status ${isConnected ? 'available' : ex.status}`}>
+                          {isConnected
+                            ? t('wal_ex_connected')
+                            : (ex.status === 'coming-soon' ? 'SOON' /* qt-i18n-ignore: 거래소 상태 코드 표기 — 아래 available/beta 와 같은 계열 */ : ex.status.toUpperCase())}
+                        </span>
                       )}
                     </div>
 
@@ -1866,12 +2167,53 @@
                           데이터의 referralRebate(객체)를 formatRebate 에 넘겼는데,
                           서버 응답에는 그 필드가 없어 **항상 빈 칸**이었다.
                           referralNote 가 없으면 이 줄을 그리지 않는다. */}
-                      <span className="exchange-card__referral__note">{ex.referralNote || t('ex_referral_tbd')}</span>
+                      {/*
+                          ★ 서버는 **번역 키**를 준다(referralNoteKey). 전에는 문장을
+                            그대로 받았는데, 서버가 요청 언어를 모르므로 영어·일본어
+                            화면에도 한국어가 나왔다.
+                      */}
+                      <span className="exchange-card__referral__note">{t(ex.referralNoteKey || 'ex_referral_tbd')}</span>
                     </div>
+
+                    {/*
+                       추천 코드 (직접 입력용).
+
+                       ★★ 링크를 누르지 않고 거래소에서 바로 가입하는 사람이 있다.
+                         그때 코드를 입력할 자리가 있는데, 우리가 코드를 보여주지
+                         않으면 빈칸으로 가입하고 **귀속이 안 된다.** 가입은 정상
+                         처리되고 리베이트만 0 이 되므로 화면에 아무 오류가 없다 —
+                         알아챌 방법이 없는 종류의 손실이다.
+
+                       ★ 코드가 설정에 없으면 이 줄을 그리지 않는다. 예시 코드로
+                         채우면 우리 이용자가 남에게 귀속된다(없는 것보다 나쁘다).
+
+                       ★ 이미 그 거래소 계정이 있는 사람은 소급 귀속되지 않는다.
+                         문구에 그 사실을 적는다 — 기대만 만들면 안 된다.
+                    */}
+                    {!notReady && (window.QTApi && window.QTApi.getReferralCode
+                      ? window.QTApi.getReferralCode(ex.id) : '') && (
+                      <div className="qt-refcode">
+                        <span className="qt-refcode__label">{t('wal_ref_code_label')}</span>
+                        <code className="qt-refcode__value">{window.QTApi.getReferralCode(ex.id)}</code>
+                        <button
+                          type="button"
+                          className="btn btn--sm btn--ghost qt-refcode__copy"
+                          onClick={() => window.QTCopy(window.QTApi.getReferralCode(ex.id), {
+                            onDone: (ok) => window.QTToast && window.QTToast({
+                              title: t(ok ? 'copied' : 'copy_failed'),
+                              variant: ok ? 'success' : 'danger',
+                            }),
+                          })}
+                        >
+                          <I.Copy size={11}/> {t('copy')}
+                        </button>
+                        <span className="qt-refcode__hint">{t('wal_ref_code_hint')}</span>
+                      </div>
+                    )}
 
                     <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
                       Required: {ex.required.join(' · ')}
-                      <br/>Latency ~{ex.minLatency}ms · <a href={ex.apiDocs} target="_blank" style={{color:'var(--color-brand)'}}>API docs ↗</a>
+                      <br/>Latency ~{ex.minLatency}ms · <a href={ex.apiDocs} target="_blank" style={{color:'var(--color-brand)'}}>{t('wal_api_docs')}</a>
                     </div>
 
                     <div className="exchange-card__actions">
@@ -1923,7 +2265,18 @@
         )}
 
         {tab === 'balances' && (
-          <window.SectionCard title={t('wallet_f23807')} subtitle={`Across ${USER.connectedExchanges.length} connected exchanges`} noPadding>
+          /*
+             ★ 연결 개수도 실제 값이다. 목업 길이(2)를 쓰면 하나도 연결하지 않은
+               이용자에게 "2개 거래소에 걸쳐" 라고 말한다.
+             ★ 확인 못 했으면 개수를 말하지 않는다.
+          */
+          <window.SectionCard
+            title={t('wallet_f23807')}
+            subtitle={creds === null
+              ? t('wal_connected_unknown')
+              : t('wal_connected_count', { count: connectedIds.length })}
+            noPadding
+          >
             <window.DataTable
               columns={[
                 { key: 'asset', label: 'Asset', render: r => <strong>{r.assetKey ? t(r.assetKey) : r.asset}</strong> },
@@ -1931,7 +2284,7 @@
                 { key: 'pct',   label: 'Allocation', align:'right', render: r => r.pct.toFixed(1) + '%' },
                 { key: 'chg',   label: '24h', align:'right', render: r => <span className={r.chg24h >= 0 ? 't-long' : 't-short'}>{r.chg24h >= 0 ? '+' : ''}{r.chg24h.toFixed(2)}%</span> },
                 { key: 'ex',    label: 'Held on', render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>Binance · Bitget</span> },
-                { key: 'act',   label: '', align:'right', render: () => <><button className="tbl-action">Send</button> <button className="tbl-action">Receive</button></> },
+                { key: 'act',   label: '', align:'right', render: () => <><button className="tbl-action">{t('help_submit')}</button> <button className="tbl-action">{t('withdraw_5f9394')}</button></> },
               ]}
               rows={window.QTApp.ALLOCATION}
             />
@@ -1966,6 +2319,454 @@
   // ============================================================
   // SETTINGS PAGE
   // ============================================================
+  /*
+     보안 설정 탭 — 2단계 인증과 로그인 세션.
+
+     ★★ 전에는 이 탭 전체가 하드코딩이었다.
+
+       "✓ 활성화됨 · Google Authenticator" · "마지막 변경 · 63일 전" ·
+       "현재 활성 세션 3개" · "iPhone Safari · Seoul, KR" · "+82 10-****-1234"
+       를 그대로 적어 놓았다. 2단계 인증을 켜지 않은 사람이 켜졌다고 읽고,
+       그 믿음으로 비밀번호를 재사용한다. 남의 기기가 로그인해 있어도 목록에
+       나오지 않는다 — 보안 화면이 거짓을 말하면 없는 것보다 나쁘다.
+
+     ★ 지금은 서버 실측값만 보여준다.
+       - 2단계 인증: GET /api/account/mfa/status
+       - 세션 목록: GET /api/auth/sessions (종료는 revoke / revoke-others)
+
+     ★ 없는 것은 만들지 않는다.
+       - 비밀번호 마지막 변경 시각: 서버가 주지 않는다 → 문구를 지우고
+         '변경' 버튼만 남긴다(그 버튼은 실제로 동작한다).
+       - SMS 인증: 서버에 그 기능이 없다 → 준비 중임을 밝힌다. 스위치를
+         켜지는 것처럼 두면 SMS 가 온다고 믿는다.
+       - 위치(도시): 서버는 IP 만 준다. IP 를 도시로 바꾸는 조회를 하지 않으므로
+         만들지 않는다. 대신 IP 와 접속 시각을 보여준다 — 본인 확인에는 그게 충분하다.
+  */
+  function SecurityTab({ t }) {
+    const [mfa, setMfa] = React.useState({ state: 'loading', data: null, error: null });
+    const [sess, setSess] = React.useState({ state: 'loading', list: [], error: null });
+    const [busy, setBusy] = React.useState(null);
+    /*
+       2단계 인증 켜기/끄기 흐름.
+
+       flow    null | 'enable' | 'disable'
+       enroll  { secret, otpauthUri } → 코드 확인 후 { recoveryCodes }
+       pw/code 입력값. 화면을 벗어나면 지운다(아래 setFlow(null) 지점들).
+    */
+    const [flow, setFlow] = React.useState(null);
+    const [enroll, setEnroll] = React.useState(null);
+    const [pw, setPw] = React.useState('');
+    const [code, setCode] = React.useState('');
+    const [flowErr, setFlowErr] = React.useState(null);
+
+    /*
+       ★ 이 기능들은 `QTApi.auth` 에 있다(`rest` 가 아니다).
+
+         처음에 `rest` 를 봤더니 함수가 없어서 화면이 "이 배포에서는 보안
+         상태를 제공하지 않습니다" 로 떨어졌다 — 서버에는 있는데 화면만 못
+         찾는 상태였고, 그 문구는 사실과 달랐다. 객체를 확인해 바로잡았다.
+    */
+    const api = (window.QTApi && window.QTApi.auth) || null;
+
+    const loadMfa = React.useCallback(() => {
+      if (!api || !api.mfaStatus) { setMfa({ state: 'unsupported', data: null, error: null }); return; }
+      setMfa((p) => ({ ...p, state: p.data ? 'ready' : 'loading' }));
+      /*
+         ★ 이 클라이언트의 계약: 성공하면 **JSON 본문 그대로**, 실패하면 throw.
+           `{ ok, data }` 봉투가 아니다. 처음 그렇게 가정해서 정상 응답을
+           오류로 읽었고, 화면이 "불러오지 못했습니다" 를 띄웠다.
+      */
+      api.mfaStatus().then((d) => {
+        if (d && typeof d.enabled === 'boolean') setMfa({ state: 'ready', data: d, error: null });
+        else setMfa({ state: 'error', data: null, error: 'unexpected_shape' });
+      }).catch((e) => setMfa({ state: 'error', data: null, error: e }));
+    }, [api]);
+
+    const loadSessions = React.useCallback(() => {
+      if (!api || !api.sessions) { setSess({ state: 'unsupported', list: [], error: null }); return; }
+      api.sessions().then((d) => {
+        const list = d && Array.isArray(d.sessions) ? d.sessions : null;
+        if (list) setSess({ state: 'ready', list: list, error: null });
+        else setSess({ state: 'error', list: [], error: 'unexpected_shape' });
+      }).catch((e) => setSess({ state: 'error', list: [], error: e }));
+    }, [api]);
+
+    React.useEffect(() => { loadMfa(); loadSessions(); }, [loadMfa, loadSessions]);
+
+    /*
+       서버 오류를 사용자가 읽을 수 있는 문장으로.
+
+       코드를 그대로 보여주면(REAUTH_FAILED) 무엇을 고쳐야 하는지 모른다.
+       모르는 코드는 원문을 남긴다 — 문의할 때 근거가 된다.
+    */
+    function errText(e) {
+      // throw 된 Error 에는 `.code`(서버 오류 코드)와 `.status` 가 붙어 있다.
+      const codeStr = (e && (e.code || (e.payload && e.payload.error && e.payload.error.code))) || '';
+      const map = {
+        REAUTH_FAILED: 'sec_err_password',
+        INVALID_CODE: 'sec_err_code',
+        ALREADY_ENABLED: 'sec_err_already_on',
+        NOT_ENABLED: 'sec_err_not_on',
+        NO_PENDING: 'sec_err_restart',
+        SETUP_EXPIRED: 'sec_err_expired',
+        CSRF_FAILED: 'sec_err_reload',
+        UNAUTHENTICATED: 'sec_err_signin',
+      };
+      if (map[codeStr]) return t(map[codeStr]);
+      return t('sec_err_generic', { code: codeStr || '?' });
+    }
+
+    function beginEnroll() {
+      if (!api || !api.startMfaSetup) return;
+      setBusy('enable'); setFlowErr(null);
+      api.startMfaSetup(pw).then((d) => {
+        if (d && d.secret) {
+          setEnroll({ secret: d.secret, otpauthUri: d.otpauthUri || null });
+          setPw(''); // 비밀번호는 더 필요 없다 — 화면에 남겨두지 않는다.
+        } else {
+          setFlowErr(t('sec_err_generic', { code: '?' }));
+        }
+      }).catch((e) => setFlowErr(errText(e)))
+        .finally(() => setBusy(null));
+    }
+
+    function confirmEnroll() {
+      if (!api || !api.confirmMfaSetup) return;
+      setBusy('confirm'); setFlowErr(null);
+      api.confirmMfaSetup(code).then((d) => {
+        if (d && d.enabled) {
+          setEnroll((prev) => ({ ...(prev || {}), recoveryCodes: Array.isArray(d.recoveryCodes) ? d.recoveryCodes : [] }));
+          setCode('');
+          loadMfa();
+        } else {
+          setFlowErr(t('sec_err_generic', { code: '?' }));
+        }
+      }).catch((e) => setFlowErr(errText(e)))
+        .finally(() => setBusy(null));
+    }
+
+    function doDisable() {
+      if (!api || !api.disableMfa) return;
+      setBusy('disable'); setFlowErr(null);
+      api.disableMfa(pw, code).then(() => {
+        setFlow(null); setPw(''); setCode(''); loadMfa();
+      }).catch((e) => setFlowErr(errText(e)))
+        .finally(() => setBusy(null));
+    }
+
+    function fmtWhen(ms) {
+      if (!Number.isFinite(ms)) return '—';
+      const d = new Date(ms);
+      const diff = Date.now() - ms;
+      const mins = Math.floor(diff / 60000);
+      // 최근 접속은 상대 시각이 읽기 쉽고, 오래된 것은 날짜가 정확하다.
+      if (mins < 1) return t('sec_just_now');
+      if (mins < 60) return t('sec_mins_ago', { n: mins });
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return t('sec_hours_ago', { n: hrs });
+      return d.toLocaleString();
+    }
+
+    /** User-Agent 를 사람이 읽을 만한 짧은 이름으로. 추측을 덧붙이지 않는다. */
+    function uaLabel(ua) {
+      if (!ua) return t('sec_unknown_device');
+      const s = String(ua);
+      const browser = /Edg\//.test(s) ? 'Edge'
+        : /OPR\//.test(s) ? 'Opera'
+        : /Chrome\//.test(s) ? 'Chrome'
+        : /Firefox\//.test(s) ? 'Firefox'
+        : /Safari\//.test(s) ? 'Safari'
+        : /curl\//.test(s) ? 'curl'
+        : null;
+      const os = /iPhone|iPad/.test(s) ? 'iOS'
+        : /Android/.test(s) ? 'Android'
+        : /Mac OS X/.test(s) ? 'macOS'
+        : /Windows/.test(s) ? 'Windows'
+        : /Linux/.test(s) ? 'Linux'
+        : null;
+      if (browser && os) return browser + ' · ' + os;
+      if (browser) return browser;
+      // 모르면 원문을 짧게 보여준다 — 'Unknown' 보다 본인이 알아보기 쉽다.
+      return s.slice(0, 40);
+    }
+
+    function revoke(id) {
+      if (!api || !api.revokeSession) return;
+      setBusy(id);
+      api.revokeSession(id)
+        .then(() => loadSessions())
+        .catch(() => { if (window.QTToast) window.QTToast({ title: t('sec_sessions'), desc: t('sec_revoke_failed'), variant: 'warning' }); })
+        .finally(() => setBusy(null));
+    }
+
+    function revokeOthers() {
+      if (!api || !api.revokeOtherSessions) return;
+      setBusy('others');
+      api.revokeOtherSessions()
+        .then(() => loadSessions())
+        .catch(() => { if (window.QTToast) window.QTToast({ title: t('sec_sessions'), desc: t('sec_revoke_failed'), variant: 'warning' }); })
+        .finally(() => setBusy(null));
+    }
+
+    const dim = { fontSize: 11, color: 'var(--color-text-tertiary)' };
+    const rowStyle = {
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '10px 0', borderBottom: '1px solid var(--color-border-subtle)', gap: 12,
+    };
+
+    const others = sess.list.filter((s) => !s.current).length;
+
+    return (
+      <div style={{display:'flex', flexDirection:'column', gap:16}}>
+        <window.SectionCard title={t('settings_965a8c')}>
+          {/* 비밀번호 — 마지막 변경 시각은 서버가 주지 않으므로 적지 않는다. */}
+          <div style={rowStyle}>
+            <div>
+              <div style={{fontWeight:500}}>{t('settings_819738')}</div>
+              <div style={dim}>{t('sec_password_hint')}</div>
+            </div>
+            <a className="btn btn--sm" href="#/password-reset">{t('settings_ce0109')}</a>
+          </div>
+
+          {/* 2단계 인증 — 실제 상태만. */}
+          <div style={{...rowStyle, borderBottom: 'none'}}>
+            <div>
+              <div style={{fontWeight:500}}>{t('settings_a5d18c')}</div>
+              {mfa.state === 'loading' && <div style={dim}>{t('sec_loading')}</div>}
+              {mfa.state === 'unsupported' && <div style={dim}>{t('sec_unsupported')}</div>}
+              {mfa.state === 'error' && (
+                <div style={{fontSize:11, color:'var(--color-warning)'}}>{t('sec_load_failed')}</div>
+              )}
+              {mfa.state === 'ready' && mfa.data && (
+                mfa.data.enabled ? (
+                  <div style={{fontSize:11, color:'var(--color-success)'}}>
+                    {t('sec_mfa_on')}
+                    {Number.isFinite(mfa.data.recoveryRemaining) && (
+                      <> · {t('sec_recovery_left', { n: mfa.data.recoveryRemaining })}</>
+                    )}
+                  </div>
+                ) : (
+                  /* ★ 꺼져 있으면 켜라고 권한다. 조용히 두면 켜진 줄 안다. */
+                  <div style={{fontSize:11, color:'var(--color-warning)'}}>
+                    {mfa.data.pendingSetup ? t('sec_mfa_pending') : t('sec_mfa_off')}
+                  </div>
+                )
+              )}
+            </div>
+            {/*
+               ★ 흐름이 열려 있는 동안에는 이 버튼을 감춘다.
+
+                 감추지 않으면 키를 받아 코드를 넣는 중에 이 버튼이 그대로
+                 보이고, 누르면 setEnroll(null) 로 1단계로 되돌아간다. 방금 받은
+                 키는 서버가 다시 주지 않으므로 사용자는 앱에 등록한 항목을
+                 지우고 처음부터 해야 한다(실측으로 겪었다).
+            */}
+            {flow ? null : mfa.state === 'error'
+              ? <button className="btn btn--sm" type="button" onClick={loadMfa}>{t('sec_retry')}</button>
+              : mfa.state === 'ready' && mfa.data && (
+                mfa.data.enabled
+                  ? <button className="btn btn--sm" type="button" onClick={() => { setFlow('disable'); setPw(''); setCode(''); setFlowErr(null); }}>{t('sec_mfa_turn_off')}</button>
+                  : <button className="btn btn--sm btn--primary" type="button" onClick={() => { setFlow('enable'); setPw(''); setCode(''); setEnroll(null); setFlowErr(null); }}>{t('sec_mfa_enable')}</button>
+              )}
+          </div>
+
+          {/*
+             2단계 인증 켜기 / 끄기.
+
+             ★ 별도 화면으로 보내지 않는다. 상태를 보고 있는 자리에서 바로
+               처리하는 편이 중간에 그만두는 사람을 줄인다. 지금 이 기능이
+               켜져 있지 않은 계정이 대부분이므로 그 차이가 크다.
+
+             ★ QR 이미지를 만들지 않는다. 이미지 생성 라이브러리를 새로 들이지
+               않고, 인증 앱이 모두 지원하는 **수동 입력 키**와 otpauth 주소를
+               보여준다. 키는 서버가 한 번만 주므로 다시 열 수 없다는 것도 알린다.
+          */}
+          {flow === 'enable' && (
+            <div style={{borderTop:'1px solid var(--color-border-subtle)', paddingTop:12, display:'flex', flexDirection:'column', gap:8}}>
+              {!enroll ? (
+                <>
+                  <div style={dim}>{t('sec_enable_step1')}</div>
+                  <input
+                    className="input" type="password" autoComplete="current-password"
+                    placeholder={t('settings_819738')}
+                    value={pw} onChange={(e) => setPw(e.target.value)}
+                  />
+                  {flowErr && <div style={{fontSize:11, color:'var(--color-danger, #ef4444)'}}>{flowErr}</div>}
+                  <div style={{display:'flex', gap:8}}>
+                    <button className="btn btn--sm btn--primary" type="button" disabled={busy === 'enable' || !pw} onClick={beginEnroll}>
+                      {busy === 'enable' ? t('sec_loading') : t('sec_continue')}
+                    </button>
+                    <button className="btn btn--sm" type="button" onClick={() => setFlow(null)}>{t('settings_19b2d1')}</button>
+                  </div>
+                </>
+              ) : enroll.recoveryCodes ? (
+                <>
+                  {/* 활성화 완료 — 복구 코드는 지금만 보여줄 수 있다. */}
+                  <div style={{fontSize:12, color:'var(--color-success)', fontWeight:500}}>{t('sec_mfa_now_on')}</div>
+                  <div style={{fontSize:11, color:'var(--color-warning)'}}>{t('sec_recovery_save')}</div>
+                  <div
+                    style={{
+                      fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.7,
+                      padding:'8px 10px', border:'1px solid var(--color-border-subtle)',
+                      borderRadius:4, background:'var(--color-bg-surface)',
+                      display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px, 1fr))', gap:4,
+                      userSelect:'all',
+                    }}
+                  >
+                    {enroll.recoveryCodes.map((c) => <span key={c}>{c}</span>)}
+                  </div>
+                  <div style={{display:'flex', gap:8}}>
+                    <button
+                      className="btn btn--sm" type="button"
+                      onClick={() => {
+                        const text = enroll.recoveryCodes.join('\n');
+                        if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+                      }}
+                    >{t('sec_copy')}</button>
+                    <button className="btn btn--sm btn--primary" type="button" onClick={() => { setFlow(null); setEnroll(null); loadMfa(); }}>
+                      {t('sec_done')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={dim}>{t('sec_enable_step2')}</div>
+                  <div
+                    style={{
+                      fontFamily:'var(--font-mono)', fontSize:13, letterSpacing:'0.06em',
+                      padding:'8px 10px', border:'1px solid var(--color-border-subtle)',
+                      borderRadius:4, background:'var(--color-bg-surface)', userSelect:'all', wordBreak:'break-all',
+                    }}
+                  >{enroll.secret}</div>
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                    <button
+                      className="btn btn--xs" type="button"
+                      onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(enroll.secret).catch(() => {}); }}
+                    >{t('sec_copy_key')}</button>
+                    {enroll.otpauthUri && (
+                      <a className="btn btn--xs" href={enroll.otpauthUri}>{t('sec_open_app')}</a>
+                    )}
+                  </div>
+                  <input
+                    className="input" type="text" inputMode="numeric" autoComplete="one-time-code"
+                    placeholder={t('sec_code_placeholder')}
+                    value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  />
+                  {flowErr && <div style={{fontSize:11, color:'var(--color-danger, #ef4444)'}}>{flowErr}</div>}
+                  <div style={{display:'flex', gap:8}}>
+                    <button className="btn btn--sm btn--primary" type="button" disabled={busy === 'confirm' || code.length !== 6} onClick={confirmEnroll}>
+                      {busy === 'confirm' ? t('sec_loading') : t('sec_mfa_enable')}
+                    </button>
+                    <button className="btn btn--sm" type="button" onClick={() => { setFlow(null); setEnroll(null); }}>{t('settings_19b2d1')}</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {flow === 'disable' && (
+            <div style={{borderTop:'1px solid var(--color-border-subtle)', paddingTop:12, display:'flex', flexDirection:'column', gap:8}}>
+              {/* ★ 끄는 것이 위험하다는 사실을 말한다. 조용히 끄게 하지 않는다. */}
+              <div style={{fontSize:11, color:'var(--color-warning)'}}>{t('sec_disable_warn')}</div>
+              <input
+                className="input" type="password" autoComplete="current-password"
+                placeholder={t('settings_819738')}
+                value={pw} onChange={(e) => setPw(e.target.value)}
+              />
+              <input
+                className="input" type="text" inputMode="numeric" autoComplete="one-time-code"
+                placeholder={t('sec_code_placeholder')}
+                value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+              {flowErr && <div style={{fontSize:11, color:'var(--color-danger, #ef4444)'}}>{flowErr}</div>}
+              <div style={{display:'flex', gap:8}}>
+                <button className="btn btn--sm btn--danger" type="button" disabled={busy === 'disable' || !pw || code.length !== 6} onClick={doDisable}>
+                  {busy === 'disable' ? t('sec_loading') : t('sec_mfa_turn_off')}
+                </button>
+                <button className="btn btn--sm" type="button" onClick={() => setFlow(null)}>{t('settings_19b2d1')}</button>
+              </div>
+            </div>
+          )}
+
+          {/*
+             SMS 인증 — 서버에 없는 기능이다.
+             스위치를 그대로 두면 켰다고 믿고 SMS 를 기다린다.
+          */}
+          <div style={{...rowStyle, borderBottom:'none', borderTop:'1px solid var(--color-border-subtle)'}}>
+            <div>
+              <div style={{fontWeight:500}}>
+                {t('settings_872543')}
+                <span className="qt-pending-mark">{t('sec_pending')}</span>
+              </div>
+              <div style={dim}>{t('sec_sms_absent')}</div>
+            </div>
+            <label className="switch" title={t('sec_sms_absent')}>
+              <input type="checkbox" checked={false} disabled readOnly/>
+              <span className="switch__track"><span className="switch__thumb"/></span>
+            </label>
+          </div>
+        </window.SectionCard>
+
+        <window.SectionCard
+          title={t('settings_4bd28a')}
+          subtitle={
+            sess.state === 'ready'
+              ? t('sec_sessions_count', { n: sess.list.length })
+              : (sess.state === 'loading' ? t('sec_loading') : t('sec_load_failed'))
+          }
+          actions={
+            sess.state === 'ready' && others > 0 ? (
+              <button className="btn btn--sm btn--danger" type="button" disabled={busy === 'others'} onClick={revokeOthers}>
+                {t('sec_revoke_others', { n: others })}
+              </button>
+            ) : null
+          }
+        >
+          {sess.state === 'loading' && <div style={dim}>{t('sec_loading')}</div>}
+          {sess.state === 'unsupported' && <div style={dim}>{t('sec_unsupported')}</div>}
+          {sess.state === 'error' && (
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              {/* ★ 조회 실패를 빈 목록으로 위장하지 않는다. */}
+              <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('sec_sessions_failed')}</span>
+              <button className="btn btn--xs" type="button" onClick={loadSessions}>{t('sec_retry')}</button>
+            </div>
+          )}
+          {sess.state === 'ready' && (
+            <div style={{display:'flex', flexDirection:'column', gap: 6}}>
+              {sess.list.length === 0 && <div style={dim}>{t('sec_no_sessions')}</div>}
+              {sess.list.map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    display:'flex', justifyContent:'space-between', alignItems:'center', gap: 10,
+                    padding:'8px 10px', border:'1px solid var(--color-border-subtle)',
+                    borderRadius: 4, background:'var(--color-bg-surface)',
+                  }}
+                >
+                  <div style={{minWidth: 0}}>
+                    <div style={{fontSize:12, fontWeight:500}}>
+                      {uaLabel(s.userAgent)}
+                      {s.current && <span style={{marginLeft:6, fontSize:10, color:'var(--color-success)'}}>{t('settings_b7a78a')}</span>}
+                    </div>
+                    <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
+                      {fmtWhen(s.createdAt)}{s.ip ? ' · ' + s.ip : ''}
+                    </div>
+                  </div>
+                  {/* ★ 지금 이 기기는 종료 버튼을 주지 않는다 — 누르면 자기가 튕겨나간다. */}
+                  {!s.current && (
+                    <button className="btn btn--xs btn--danger" type="button" disabled={busy === s.id} onClick={() => revoke(s.id)}>
+                      {t('settings_cafdc6')}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </window.SectionCard>
+      </div>
+    );
+  }
+
   window.SettingsPage = function SettingsPage({ shellProps }) {
     /*
        화면 설정. 값과 변경 함수를 shellProps 로 받는다.
@@ -2161,61 +2962,17 @@
               </window.SectionCard>
             )}
 
-            {tab === 'security' && (
-              <div style={{display:'flex', flexDirection:'column', gap:16}}>
-                <window.SectionCard title={t('settings_965a8c')}>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--color-border-subtle)'}}>
-                    <div>
-                      <div style={{fontWeight:500}}>{t('settings_819738')}</div>
-                      <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('settings_9074af')}</div>
-                    </div>
-                    <button className="btn btn--sm">{t('settings_ce0109')}</button>
-                  </div>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--color-border-subtle)'}}>
-                    <div>
-                      <div style={{fontWeight:500}}>{t('settings_a5d18c')}</div>
-                      <div style={{fontSize:11, color:'var(--color-success)'}}>{t('settings_e33c1f')}</div>
-                    </div>
-                    <button className="btn btn--sm">{t('settings_ee3963')}</button>
-                  </div>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0'}}>
-                    <div>
-                      <div style={{fontWeight:500}}>{t('settings_872543')}</div>
-                      <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>+82 10-****-1234</div>
-                    </div>
-                    <label className="switch"><input type="checkbox" defaultChecked/><span className="switch__track"><span className="switch__thumb"/></span></label>
-                  </div>
-                </window.SectionCard>
-
-                <window.SectionCard title={t('settings_4bd28a')} subtitle={t('settings_2ac6ff')}>
-                  <div style={{display:'flex', flexDirection:'column', gap: 6}}>
-                    {[
-                      { name:'Chrome · Seoul, KR', when:t('settings_b7a78a'), ok:true },
-                      { name:'iPhone Safari · Seoul, KR', when:'2h ago', ok:true },
-                      { name:'Firefox · Tokyo, JP', when:t('settings_3c8a15'), ok:false },
-                    ].map((s, i) => (
-                      <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', border:'1px solid var(--color-border-subtle)', borderRadius: 4, background:'var(--color-bg-surface)'}}>
-                        <div>
-                          <div style={{fontSize:12, fontWeight:500}}>{s.name}</div>
-                          <div style={{fontSize:10, color:s.ok ? 'var(--color-text-tertiary)' : 'var(--color-warning)', fontFamily:'var(--font-mono)'}}>{s.when}</div>
-                        </div>
-                        <button className="btn btn--xs btn--danger">{t('settings_cafdc6')}</button>
-                      </div>
-                    ))}
-                  </div>
-                </window.SectionCard>
-              </div>
-            )}
+            {tab === 'security' && <SecurityTab t={t}/>}
 
             {tab === 'api' && (
               <window.SectionCard
                 title="API Keys"
                 subtitle={t('settings_8eb853')}
-                actions={<button className="btn btn--sm btn--primary"><I.Plus size={12}/> Add Key</button>}
+                actions={<button className="btn btn--sm btn--primary"><I.Plus size={12}/> {t('wal_add_key')}</button>}
                 noPadding
               >
                 <div className="api-key-row" style={{background:'var(--color-bg-panel)', color:'var(--color-text-tertiary)', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:500}}>
-                  <span/><span>Label / Exchange</span><span>Key</span><span>Perms</span><span>Last used</span><span/>
+                  <span/><span>{t('wal_col_label_exchange')}</span><span>{t('col_key')}</span><span>{t('col_perms')}</span><span>{t('wal_col_last_used')}</span><span/>
                 </div>
                 {/*
                    등록된 키가 없을 때.
@@ -2273,8 +3030,8 @@
                         {k.lastUsed ? timeAgo(new Date(k.lastUsed).getTime()) : '—'}
                       </div>
                       <div style={{display:'inline-flex', gap:4}}>
-                        <button className="tbl-action">Edit</button>
-                        <button className="tbl-action tbl-action--danger">Revoke</button>
+                        <button className="tbl-action">{t('col_edit')}</button>
+                        <button className="tbl-action tbl-action--danger">{t('col_revoke')}</button>
                       </div>
                     </div>
                   );
@@ -2296,10 +3053,10 @@
                 ].map(r => (
                   <div key={r.k} style={{display:'grid', gridTemplateColumns:'1fr auto auto auto auto', gap: 12, padding: '10px 0', borderBottom:'1px solid var(--color-border-subtle)', alignItems:'center'}}>
                     <span style={{fontSize:12}}>{r.label}</span>
-                    <label className="chk"><input type="checkbox" defaultChecked/><span className="chk__box"><I.Check size={10}/></span>In-app</label>
-                    <label className="chk"><input type="checkbox" defaultChecked={r.k !== 'promo'}/><span className="chk__box"><I.Check size={10}/></span>Email</label>
+                    <label className="chk"><input type="checkbox" defaultChecked/><span className="chk__box"><I.Check size={10}/></span>{t('set_ch_inapp')}</label>
+                    <label className="chk"><input type="checkbox" defaultChecked={r.k !== 'promo'}/><span className="chk__box"><I.Check size={10}/></span>{t('fld_email')}</label>
                     <label className="chk"><input type="checkbox" defaultChecked={r.k === 'risk'}/><span className="chk__box"><I.Check size={10}/></span>SMS</label>
-                    <label className="chk"><input type="checkbox" defaultChecked={r.k === 'signal' || r.k === 'risk'}/><span className="chk__box"><I.Check size={10}/></span>Push</label>
+                    <label className="chk"><input type="checkbox" defaultChecked={r.k === 'signal' || r.k === 'risk'}/><span className="chk__box"><I.Check size={10}/></span>{t('col_push')}</label>
                   </div>
                 ))}
               </window.SectionCard>
@@ -2309,15 +3066,15 @@
               <window.SectionCard title={t('settings_643822')}>
                 <div style={{display:'flex', flexDirection:'column', gap: 20}}>
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Theme</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('dops_theme')}</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className={`seg__opt ${tw.theme === 'dark' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'dark' })}><I.Moon size={11}/> Dark</button>
-                      <button className={`seg__opt ${tw.theme === 'light' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'light' })}><I.Sun size={11}/> Light</button>
+                      <button className={`seg__opt ${tw.theme === 'dark' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'dark' })}><I.Moon size={11}/> {t('theme_dark')}</button>
+                      <button className={`seg__opt ${tw.theme === 'light' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ theme: 'light' })}><I.Sun size={11}/> {t('theme_light')}</button>
                     </div>
                   </div>
 
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Density</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('dops_density')}</div>
                     <div className="seg" style={{width:'100%'}}>
                       {['comfortable','compact','dense'].map(d => (
                         <button
@@ -2333,63 +3090,86 @@
                   </div>
 
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Language</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('tw_7_language_word')}</div>
                     <div className="seg" style={{width:'100%'}}>
                       {/*
-                        등록된 언어만 활성화한다. 사전이 없는 언어를 고르면 화면에
-                        번역 키가 그대로 노출된다 — 없는 것을 있는 것처럼 두지 않는다.
+                        ★★ 언어 목록을 여기에 적지 않는다 — 등록된 사전에서 만든다.
+
+                          전에는 `[['ko','한국어'],['en','English'],['ja','日本語']]` 로
+                          적어 두었다. 그래서 중국어 사전을 등록한 뒤에도 **이 화면에는
+                          중국어가 아예 나타나지 않았다.** 언어를 늘릴 때마다 이 줄을
+                          고쳐야 하는 구조는, 고치는 것을 잊는 순간 조용히 틀린다.
+                          (헤더의 언어 순환 버튼은 이미 available() 을 쓰고 있어서
+                           두 곳이 서로 다른 목록을 보여주고 있었다)
+
+                          label 은 사전이 자기 언어로 들고 있다(register 의 meta.label).
+                          그래야 그 언어를 읽는 사람이 자기 언어를 알아본다.
                       */}
-                      {[['ko','한국어'],['en','English'],['ja','日本語']].map(([code, label]) => {
-                        /*
-                           available() 는 { code, label, bcp47, keys } 객체 배열을 돌려준다.
-                           문자열 배열로 가정하면 항상 false 가 되어 모든 언어가 비활성된다
-                           (실제로 겪었다 — 버튼 3개가 다 눌리지 않았다).
-                        */
-                        const available = window.QTI18n
-                          ? window.QTI18n.available().some((l) => l.code === code)
-                          : code === 'en';
-                        return (
-                          <button
-                            key={code}
-                            className={`seg__opt ${tw.lang === code ? 'is-active' : ''}`}
-                            style={{flex:1}}
-                            disabled={!available}
-                            title={available ? undefined : t('lang_not_available', { lang: label })}
-                            onClick={() => setTw({ lang: code })}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
+                      {(window.QTI18n && window.QTI18n.available
+                        ? window.QTI18n.available()
+                        : [{ code: 'en', label: 'English' }]
+                      ).map(({ code, label }) => (
+                        <button
+                          key={code}
+                          className={`seg__opt ${tw.lang === code ? 'is-active' : ''}`}
+                          style={{flex:1}}
+                          onClick={() => setTw({ lang: code })}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Number Format</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('tw_numfmt')}</div>
                     <div className="seg" style={{width:'100%'}}>
-                      <button className={`seg__opt ${tw.numFmt === 'standard' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'standard' })}>Standard (18,240,000)</button>
-                      <button className={`seg__opt ${tw.numFmt === 'compact' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'compact' })}>Compact (18.24M)</button>
+                      <button className={`seg__opt ${tw.numFmt === 'standard' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'standard' })}>{t('numfmt_standard')}</button>
+                      <button className={`seg__opt ${tw.numFmt === 'compact' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTw({ numFmt: 'compact' })}>{t('numfmt_compact')}</button>
                     </div>
                   </div>
 
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Default Trading View</div>
-                    <select className="input" style={{width: '100%'}} defaultValue="standard-trader">
-                      <option value="standard-trader">Standard Trader</option>
-                      <option value="ai-workspace">AI Workspace</option>
-                      <option value="chart-focus">Chart Focus</option>
-                      <option value="scalper">Scalper</option>
-                      <option value="multi-chart">Multi-Chart</option>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('set_default_view')}</div>
+                    {/*
+                       ★★ 목록을 코드에 박지 않고 프리셋 레지스트리에서 만든다.
+
+                         전에는 5개가 손으로 적혀 있었고 `defaultValue` 로 고정돼
+                         **선택해도 아무 일도 일어나지 않았다.** 설정 화면에 있는
+                         조작기가 반응하지 않으면 이용자는 저장됐다고 믿는다.
+                         (실제 프리셋은 7개 이상이라 목록도 사실과 달랐다)
+
+                       ★ 이제 tweaks.presetId 를 직접 읽고 쓴다. Tweaks 패널과
+                         같은 값을 보므로 두 화면이 어긋나지 않는다.
+                    */}
+                    <select
+                      className="input"
+                      style={{width: '100%'}}
+                      value={tw.presetId}
+                      onChange={(e) => setTw({ presetId: e.target.value })}
+                    >
+                      {Object.values((window.QT && window.QT.LAYOUT_PRESETS) || {}).map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>Default Timeframe</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 8}}>{t('set_default_tf')}</div>
+                    {/*
+                       ★ 기본 시간봉은 아직 저장되는 설정이 아니다.
+
+                         전에는 '15m' 이 활성으로 그려져 있고 누르면 아무 일도
+                         일어나지 않았다. **이미 저장된 설정처럼 보이는 것**이
+                         문제다 — 이용자는 자기 기본값이 15분이라고 믿는다.
+                         저장 경로가 생기면 여기에 연결한다.
+                    */}
                     <div className="seg" style={{width:'100%'}}>
                       {['1m','5m','15m','30m','1H','4H','1D'].map(tf => (
-                        <button key={tf} className={`seg__opt ${tf==='15m'?'is-active':''}`} style={{flex:1}}>{tf}</button>
+                        <button key={tf} className="seg__opt" style={{flex:1}} disabled title={t('set_default_tf_pending')}>{tf}</button>
                       ))}
                     </div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>{t('set_default_tf_pending')}</div>
                   </div>
 
                   <div style={{display:'flex', gap: 8, justifyContent:'flex-end'}}>
@@ -2438,7 +3218,55 @@
                         <div style={{fontWeight:500}}>{t('settings_2508a1')}</div>
                         <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('settings_d15b63')}</div>
                       </div>
-                      <button className="btn btn--sm"><I.Camera size={12}/> {t('settings_74e36c')}</button>
+                      {/*
+                         ★★ 데이터 내보내기 — 개인정보처리방침 7절이 약속한
+                           이전권이다. 전에는 onClick 이 없는 껍데기였다. 권리를
+                           적어 놓고 행사할 수단을 주지 않으면 약속을 지키지 않는
+                           것이다.
+
+                         ★ 받은 JSON 을 파일로 저장한다. 화면에 그대로 뿌리면
+                           개인정보가 브라우저 기록에 남고, 이용자가 그것을
+                           보관하기도 어렵다.
+
+                         ★ 응답의 `excluded` 를 함께 알린다 — 무엇이 빠졌는지
+                           모르면 따로 요청할 수 없다.
+                      */}
+                      <button
+                        className="btn btn--sm"
+                        type="button"
+                        onClick={async () => {
+                          const api = window.QTApi && window.QTApi.auth;
+                          if (!api || !api.exportMyData) return;
+                          try {
+                            const d = await api.exportMyData();
+                            const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `my-data-${new Date().toISOString().slice(0, 10)}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            const missing = (d && d.excluded) || [];
+                            if (window.QTToast) {
+                              window.QTToast({
+                                title: t('settings_2508a1'),
+                                desc: t('data_export_done', { n: missing.length }),
+                                variant: 'info',
+                              });
+                            }
+                          } catch (e) {
+                            if (window.QTToast) {
+                              window.QTToast({
+                                title: t('settings_2508a1'),
+                                desc: (e && e.message) || t('data_export_failed'),
+                                variant: 'warning',
+                              });
+                            }
+                          }
+                        }}
+                      >
+                        <I.Camera size={12}/> {t('settings_74e36c')}
+                      </button>
                     </div>
 
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding: '10px 0'}}>
@@ -2446,7 +3274,7 @@
                         <div style={{fontWeight:500}}>{t('settings_0207e4')}</div>
                         <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('settings_c523ec')}</div>
                       </div>
-                      <button className="btn btn--sm"><I.Camera size={12}/> Export</button>
+                      <button className="btn btn--sm"><I.Camera size={12}/> {t('col_export')}</button>
                     </div>
                   </div>
                 </window.SectionCard>
@@ -2794,7 +3622,23 @@
        ★ 실서비스에서 기록이 없으면 빈 배열이다. 아래 표가 "주문이 없습니다" 를
          보여준다 — 목업 주문을 자기 것으로 오해하는 것보다 정확하다.
     */
-    const allOrders = live
+    /*
+       ★★ 어느 목록을 보여줄지는 **모드**로 정한다 — 키 유무로 정하면 안 된다.
+
+         전에는 `live ? live.rows : localRows` 였다. `live` 는 "거래소 키가
+         검증됐는가" 이므로, 키를 연결한 이용자는 **모의 주문이 보이지 않았다.**
+         실측: 모의 주문 4건이 DB 에 있고 `/api/orders/history` 도 4건을
+         돌려주는데 표에는 "No data" 만 나왔다. 이용자는 자기 주문이 실패했다고
+         판단한다.
+
+       ★★ 두 목록을 합치지 않는다. 모의 체결과 실제 체결이 한 표에 섞이면
+         어느 것이 실제 손익인지 알 수 없다 — 그 상태로 전략을 판단하면 틀린다.
+
+       ★ Paper 모드에서는 우리 DB 기록(모의)이 정답이고, 실거래 모드에서는
+         거래소 기록이 정답이다. 각 행은 `mode` 를 들고 있어 화면이 표시한다.
+    */
+    const isPaperMode = Boolean(window.QTMode && window.QTMode.get && window.QTMode.get() === 'paper');
+    const allOrders = (isPaperMode ? null : live)
       ? live.rows
       : localRows
       ? localRows
@@ -2893,7 +3737,10 @@
                 <option key={sym} value={sym}>{sym.replace('USDT','/USDT')}</option>
               ))}
             </select>
-            <button className="btn btn--sm"><I.Camera size={13}/> Export CSV</button>
+            {/* Export 숨김 (베타 범위 제외) — 주문 내역 내보내기 경로가 아직 없다. */}
+            {false && (
+              <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
+            )}
           </>
         }
       >
@@ -2905,7 +3752,7 @@
           <window.KPICard label="Total Fees" value={kpi.fees} sub={kpi.feeMix || (kpi.isLive ? undefined : 'Maker: 62% · Taker: 38%')}/>
         </div>
 
-        <window.SectionCard title="Orders" noPadding>
+        <window.SectionCard title={t('adm_stat_orders')} noPadding>
           <window.DataTable
             columns={[
               { key: 'time',   label: 'Time', width: 120, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12:false})}</span> },

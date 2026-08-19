@@ -266,8 +266,21 @@ describe('BT-06 inputs it cannot honestly test are refused', () => {
     const r = runBacktest(oneShot(1, 'long'), bars, 'X', '15m', NO_COST);
     // Returned as data so they cannot be dropped when a card is reformatted.
     expect(r.caveats).toEqual([...BACKTEST_CAVEATS]);
-    expect(r.caveats.join(' ')).toMatch(/보장하지 않습니다/u);
-    expect(r.caveats.join(' ')).toMatch(/lookahead/u);
+    /*
+       ★ 문장이 아니라 **번역 키**를 검사한다.
+
+         전에는 한국어 문장을 정규식으로 확인했다. 이 배열은 API 응답에 그대로
+         실려 화면에 표시되는데, 서버는 요청 언어를 모르므로 한국어가 영어·
+         일본어 화면에 그대로 나왔다. 그래서 키로 바꿨고, 검사도 그에 맞춘다.
+
+       ★ 문장이 다시 들어오는 것을 막는다 — 그것이 이 회귀의 원인이었다.
+    */
+    for (const c of r.caveats) {
+      expect(c).toMatch(/^[a-z0-9_]+$/u);
+    }
+    // 반드시 있어야 하는 안내: 과거 시뮬레이션이라는 사실과 lookahead 제거.
+    expect(r.caveats).toContain('bt_caveat_simulation');
+    expect(r.caveats).toContain('bt_caveat_next_open');
   });
 
   it('[3] the window actually used is reported', () => {

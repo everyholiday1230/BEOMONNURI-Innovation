@@ -53,7 +53,6 @@
   var BASE_TIER = {
     // --- 일반 사용자 ---
     '/trade': 'user',
-    '/multi-chart': 'user',
     '/markets': 'user',
     '/portfolio': 'user',
     '/analytics': 'user',

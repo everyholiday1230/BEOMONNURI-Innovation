@@ -1,3 +1,5 @@
+// 학습 결과 수집 — 실주문 경로와 같은 순수 함수를 쓴다.
+import { buildOrderOutcomes } from '../learning/outcome-collector';
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, hasPermission, type PublicUser } from '@quantumtrade/auth';
@@ -61,6 +63,17 @@ export interface PortfolioReadRepo {
 export interface PortfolioRouterDeps {
   service: AuthService;
   repo: PortfolioReadRepo;
+  /*
+     거래 학습 데이터 수집기 (선택).
+
+     ★★ **모의 주문의 결과**를 여기서 모은다.
+
+       거래소 경로(trading-routes)는 실주문만 본다. 모의 주문은 거래소로 나가지
+       않고 우리 DB 에만 남으므로, 그 결과는 이 라우터가 이어 붙여야 한다.
+       초기에는 모의 거래가 표본의 대부분이므로 여기를 빼면 학습 데이터가
+       거의 비어 있게 된다.
+  */
+  learning?: import('../db/learning-repo').PgLearningRepo;
   /**
    * 일별 자산 스냅샷.
    *
@@ -137,6 +150,15 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     const states = resolveStatusFilter(parsed.data.status, OPEN_ORDER_STATES);
     if (!states.ok) return badQuery(c, [{ path: 'status', code: 'not_open_state' }]);
     const out = await d.repo.listOrders(a.user.id, states.states, parsed.data);
+    /*
+       ★ 여기는 **미체결** 목록이다. 미체결 주문은 결과가 아니므로 수집기가
+         걸러낸다(outcomeKindOf → null). 그래도 불러 두는 이유는, 부분 체결 후
+         취소된 주문이 이 목록에 남는 배포가 있기 때문이다.
+
+       ★★ 처음에 이 호출만 넣어 두고 "수집됐다" 고 판단했는데, 결과가 0건이었다.
+         결과가 생기는 곳은 **완료 목록**(/orders/history)이다 — 아래에도 넣는다.
+    */
+    void collectPaperOutcomes(a.user.id, out.items);
     return c.json(
       envelope(
         out.items,
@@ -160,6 +182,11 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
     const states = resolveStatusFilter(parsed.data.status, TERMINAL_ORDER_STATES);
     if (!states.ok) return badQuery(c, [{ path: 'status', code: 'not_terminal_state' }]);
     const out = await d.repo.listOrders(a.user.id, states.states, parsed.data);
+    /*
+       ★★ 학습 결과가 실제로 생기는 자리다 — 완료(체결·취소·만료)된 주문이다.
+         실패해도 조회에는 영향이 없다.
+    */
+    void collectPaperOutcomes(a.user.id, out.items);
     return c.json(
       envelope(
         out.items,
@@ -170,6 +197,53 @@ export function createPortfolioRouter(d: PortfolioRouterDeps): Hono {
       ),
     );
   });
+
+  /**
+   * 모의 주문에서 학습 결과를 모은다.
+   *
+   * ★ 던지지 않는다 — 이용자가 요청한 것은 주문 목록 조회다.
+   * ★ 실주문 경로와 **같은 순수 함수**를 쓴다. 두 경로가 다른 규칙으로 결과를
+   *   만들면, 모의와 실거래 표본이 서로 다른 의미를 갖게 된다.
+   */
+  async function collectPaperOutcomes(userId: string, items: unknown): Promise<void> {
+    if (!d.learning || !Array.isArray(items) || items.length === 0) return;
+    try {
+      const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const decisions = await d.learning.recentDecisionsForOutcome(userId, since);
+      if (decisions.length === 0) return;
+      const already = await d.learning.existingOutcomeKeys(decisions.map((x) => x.id));
+
+      const rows = items as Array<Record<string, unknown>>;
+      const orders = rows
+        .filter((o) => typeof o.clientOrderId === 'string' && o.clientOrderId !== '')
+        .map((o) => ({
+          clientOrderId: String(o.clientOrderId),
+          exchangeOrderId: typeof o.exchangeOrderId === 'string' ? o.exchangeOrderId : undefined,
+          symbol: String(o.symbol ?? ''),
+          side: (o.side === 'short' ? 'short' : 'long') as 'long' | 'short',
+          price: o.price === null || o.price === undefined ? undefined : String(o.price),
+          quantity: String(o.quantity ?? '0'),
+          filledQuantity: String(o.filledQuantity ?? '0'),
+          status: String(o.status ?? ''),
+          createdAt: Number(o.createdAt ?? 0),
+          updatedAt: Number(o.updatedAt ?? o.createdAt ?? 0),
+        }));
+      if (orders.length === 0) return;
+
+      const outcomes = buildOrderOutcomes({ decisions, orders, already, userId });
+      for (const o of outcomes) await d.learning.recordOutcome(o);
+    } catch (e) {
+      /*
+         수집 실패가 조회를 막지 않는다.
+
+         ★ 그러나 **조용히 삼키지 않는다.** 조용히 실패하면 "수집되고 있다" 고
+           믿는 동안 표가 비어 있다 — 실제로 그 상태를 겪었다(판단 11건 / 결과 0건).
+           원인을 찾을 단서가 로그뿐이었다.
+      */
+       
+      console.warn('[learning] paper outcome collection failed:', (e as Error).message);
+    }
+  }
 
   /** ORD-07 — fills. */
   app.get('/trades', async (c) => {

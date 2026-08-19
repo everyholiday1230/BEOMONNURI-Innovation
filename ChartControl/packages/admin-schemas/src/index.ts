@@ -165,6 +165,42 @@ export const NoQuerySchema = z.object({}).strict();
  * rather than inventing a second convention. There is deliberately no `userId` field: the target comes
  * from the PATH and the actor from the session, so a body cannot redirect the action at another account.
  */
+/**
+ * 회원 삭제 요청.
+ *
+ * ★★ 되돌릴 수 없으므로 세 가지를 함께 요구한다.
+ *
+ *   reason        — 4~500자. 감사 기록과 삭제 처리 기록에 남는다.
+ *   reauth        — 방금 본인 확인을 했다는 표시.
+ *   confirmEmail  — **대상의 이메일을 그대로 입력**해야 한다.
+ *
+ * ★ confirmEmail 이 핵심이다. 권한과 사유만 요구하면 목록에서 잘못된 행을
+ *   누른 실수가 그대로 삭제가 된다. 이메일을 직접 입력하게 하면 "지금 누구를
+ *   지우는지" 를 한 번 더 확인하게 된다(서버가 대상과 대조한다).
+ */
+export const UserDeleteSchema = z.object({
+  reason: Reason,
+  reauth: z.boolean(),
+  confirmEmail: z.string().min(3).max(320),
+}).strict();
+
+/**
+ * 관리자에 의한 이메일 변경.
+ *
+ * ★★ 이메일은 로그인 식별자다. 바뀌면 이용자는 이전 주소로 로그인할 수 없다.
+ *   잘못 입력하면 그 사람이 자기 계정에서 잠긴다. 그래서 재인증과 사유를
+ *   함께 요구한다.
+ *
+ * ★ 형식 검사는 최소한만 한다(z.string().email()). 지나치게 엄격한 정규식은
+ *   유효한 주소를 거부하는 쪽으로 실패하며, 실제 도달 가능성은 어차피
+ *   확인 메일로만 알 수 있다.
+ */
+export const UserEmailChangeSchema = z.object({
+  email: z.string().email().max(320),
+  reason: Reason,
+  reauth: z.boolean(),
+}).strict();
+
 export const AdminUnlockSchema = z.object({
   reason: Reason,
   reauth: z.boolean(),

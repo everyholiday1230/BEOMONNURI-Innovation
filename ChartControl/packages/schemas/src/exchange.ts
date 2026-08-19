@@ -83,7 +83,55 @@ const ExchangeBaseSchema = z
 
     /** Referral URL — the operator's own channel. Single source of truth (absolute rule §5.6). */
     referral: z.string().url(),
-    referralNote: z.string().min(1).max(120),
+    /*
+       ★★ A translation KEY, not a sentence.
+
+         This used to be `referralNote: z.string()` holding Korean prose. The
+         server does not know the caller's language, so that Korean text showed
+         up on the English and Japanese screens too (confirmed on /wallet).
+
+         The client renders `t(referralNoteKey)`. Keys missing from a dictionary
+         fall back to English through i18n, so forgetting a translation cannot
+         leak Korean into other locales.
+
+       ★ The pattern is enforced so a sentence cannot be put here by mistake —
+         that is exactly the regression this replaced.
+    */
+    referralNoteKey: z.string().min(1).max(60).regex(/^[a-z0-9_]+$/),
+
+    /*
+       Referral code shown as copyable text, optional.
+
+       ★ Why a code is needed when we already have a link: users who sign up in the exchange's
+         mobile app never open our link, so the only way to attribute them is to type the code
+         into the sign-up form. Showing the link alone loses those sign-ups silently — they
+         register successfully and the rebate is zero.
+
+       Absent means "we have no confirmed code", and the UI then shows nothing rather than a
+       placeholder. A wrong code is worse than no code: it attributes our users to someone else.
+    */
+    referralCode: z
+      .string()
+      .min(2)
+      .max(32)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .optional(),
+
+    /*
+       True only when the operator has verified this link actually credits us.
+
+       ★ Why this flag exists rather than trusting the `referral` field.
+
+         Most entries below still carry the designer's placeholder codes
+         (`QUANTUM…`). They are harmless while unused, but the moment the wizard
+         starts showing a link by default, a placeholder becomes a silent revenue
+         leak: the user signs up successfully, sees no error, and the sign-up is
+         attributed to nobody. So the default must be "do not show", and showing
+         has to be an explicit, reviewed decision per exchange.
+
+       Only entries with this flag are used as the built-in default for the UI.
+    */
+    referralConfirmed: z.boolean().optional(),
 
     status: ExchangeStatusSchema,
     recommended: z.boolean(),

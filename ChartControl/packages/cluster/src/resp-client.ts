@@ -89,8 +89,23 @@ export class RedisClient {
       const onReady = () => { clearTimeout(to); this.sock = sock as Socket; resolve(); };
       sock.once(this.opts.tls ? 'secureConnect' : 'connect', onReady);
       sock.once('error', (e) => { clearTimeout(to); reject(e); });
-      sock.on('data', (d) => this.onData(d));
-      sock.on('close', () => { this.closed = true; this.flushError(new Error('redis connection closed')); });
+      /*
+         ★★ 핸들러를 **이 소켓에만** 묶는다.
+
+           전에는 어느 소켓의 이벤트든 `this.closed` 를 건드렸다. 그래서 재연결
+           직후 **이전 소켓의 'close' 가 늦게 도착해** 방금 연결한 상태를
+           다시 닫힌 것으로 만들었다 — 실측: 재연결 검사가 `redis not connected`
+           로 실패했다.
+
+         ★ 지금 쓰는 소켓이 아니면 상태를 바꾸지 않는다. 남은 대기 요청도
+           그 소켓의 것이 아니므로 깨우지 않는다.
+      */
+      sock.on('data', (d) => { if (this.sock === sock) this.onData(d); });
+      sock.on('close', () => {
+        if (this.sock !== sock) return;
+        this.closed = true;
+        this.flushError(new Error('redis connection closed'));
+      });
     });
   }
 
@@ -118,8 +133,49 @@ export class RedisClient {
     while (this.queue.length) this.queue.shift()!.reject(e);
   }
 
-  command(...args: (string | number)[]): Promise<RespReply> {
-    if (!this.sock || this.closed) return Promise.reject(new Error('redis not connected'));
+  /**
+   * 연결을 보장한다 (첫 명령에서 연결, 끊겼으면 재연결).
+   *
+   * ★★ 왜 필요했는가 — 실서비스가 통째로 멈추는 결함이었다.
+   *
+   *   `connect()` 를 부르는 곳이 없었다. 그래서 프로덕션 레이트리밋(Redis 필수)이
+   *   모든 호출에서 `redis not connected` 로 실패했고, 그 위의
+   *   `FailClosedRateLimiter` 가 **모든 요청을 거부**했다.
+   *
+   *   결과: 프로덕션 모드에서 **로그인 자체가 불가능**했다(모든 로그인 429).
+   *   개발 모드는 메모리 리미터를 쓰므로 이 경로를 지나지 않아 드러나지 않았다.
+   *
+   * ★ 동시에 여러 명령이 오면 한 번만 연결한다(같은 Promise 를 공유).
+   *   각자 연결하면 소켓이 여러 개 열리고 응답 큐가 섞인다.
+   *
+   * ★ 끊긴 뒤 재연결할 때 `closed` 를 내린다. 내리지 않으면 한 번 끊긴 뒤
+   *   영구히 거부한다 — 재시작 전까지 서비스가 돌아오지 않는다.
+   */
+  private connecting: Promise<void> | null = null;
+
+  private async ensureConnected(): Promise<void> {
+    if (this.sock && !this.closed) return;
+    if (!this.connecting) {
+      /*
+         ★★ 새 소켓을 만들기 전에 이전 것을 버린다.
+
+           `connect()` 는 성공 시에만 `this.sock` 을 덮어쓴다. 닫힌 소켓을
+           남겨 두면 아래 `if (!this.sock || this.closed)` 검사가 통과해도
+           **죽은 소켓에 쓰게** 된다.
+
+         ★ `closed` 를 여기서 내린다. 내리지 않으면 한 번 끊긴 뒤 영구히 거부한다 —
+           Redis 재시작·네트워크 순단에서 재시작 전까지 서비스가 돌아오지 않는다.
+      */
+      this.sock = null;
+      this.closed = false;
+      this.connecting = this.connect().finally(() => { this.connecting = null; });
+    }
+    await this.connecting;
+  }
+
+  async command(...args: (string | number)[]): Promise<RespReply> {
+    await this.ensureConnected();
+    if (!this.sock || this.closed) throw new Error('redis not connected');
     return new Promise((resolve, reject) => {
       this.queue.push({ resolve, reject });
       this.sock!.write(encodeCommand(args));

@@ -14,7 +14,7 @@
  * 귀속이 안 돼 수익이 0 이 된다 — 조용히 새기 때문에 알아채기 어렵다.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -285,8 +285,15 @@ for (const f of ['src/pages-more.jsx', 'src/pages-user.jsx']) {
   if (/symbolUnlisted/.test(widgets)) pass('주문 패널이 미상장 심볼을 판정한다');
   else fail('주문 패널이 미상장 심볼을 판정하지 않는다');
 
-  // 판정만 하고 버튼을 열어 두면 의미가 없다.
-  if (/disabled=\{symbolUnlisted\}/.test(widgets)) pass('미상장이면 주문 버튼이 막힌다');
+  /*
+     판정만 하고 버튼을 열어 두면 의미가 없다.
+
+     ★ 정확히 `disabled={symbolUnlisted}` 만 찾으면, 차단 조건이 하나 더 늘어날 때
+       검사가 거짓 실패한다(현물 모드에서 주문을 막는 조건을 추가했을 때 실제로
+       그랬다). 중요한 것은 **그 변수가 disabled 조건에 들어 있는가** 이므로
+       조건식 안에 있으면 통과로 본다.
+  */
+  if (/disabled=\{[^}]*symbolUnlisted[^}]*\}/.test(widgets)) pass('미상장이면 주문 버튼이 막힌다');
   else fail('미상장인데 주문 버튼이 열려 있다');
 
   if (/unlisted\(r\)\s*\?\s*'—'/.test(user) || /unlisted\(r\)\s*\?/.test(user)) {
@@ -629,12 +636,30 @@ for (const f of ['src/pages-more.jsx', 'src/pages-user.jsx']) {
 
   /* 등록된 사전이 index.html 에서 로드되는지. 파일만 만들고 넣지 않으면 죽는다. */
   const html = read('index.html');
-  const locales = ['en', 'ko', 'ja'];
-  const missing = locales.filter((c) => !new RegExp(`src/locales/${c}\\.js`).test(html));
-  if (missing.length === 0) {
-    pass(`사전 ${locales.length}개가 모두 index.html 에서 로드된다`);
+  /*
+     ★ 언어 목록을 여기에 적지 않는다 — src/locales 에 있는 파일에서 만든다.
+
+       전에는 `['en','ko','ja']` 로 적어 두었다. 이 검사 자체가 "언어를 하드코딩하면
+       사전을 추가해도 죽는다" 를 잡으려고 만든 것인데, 검사가 같은 실수를 하고
+       있었다. 실제로 문제가 되었다: 한국어를 서비스 언어에서 제외하고 사전 파일을
+       지운 뒤에도 이 검사는 계속 ko 를 요구해 실패했고, 중국어를 추가했을 때는
+       zh 를 전혀 확인하지 않았다.
+
+       판정 방향도 분명히 한다: **존재하는 파일이 등록되어 있는가**를 본다.
+       "어떤 언어가 있어야 한다" 는 이 검사가 정할 일이 아니다.
+  */
+  const locales = [...new Set(
+    readdirSync(join(ROOT, 'src', 'locales'))
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => f.replace(/\.js$/, '').split('.').pop()),
+  )].sort();
+  const missing = locales.filter((c) => !new RegExp(`src/locales/${c}\\.js"`).test(html));
+  if (locales.length === 0) {
+    fail('src/locales 에 사전 파일이 없다');
+  } else if (missing.length === 0) {
+    pass(`사전 ${locales.length}개(${locales.join(', ')})가 모두 index.html 에서 로드된다`);
   } else {
-    fail(`사전이 로드되지 않는다: ${missing.join(', ')} — 파일만 만들어도 동작하지 않는다`);
+    fail(`사전 파일이 있는데 index.html 에 등록되지 않았다: ${missing.join(', ')} — 파일만 만들어도 동작하지 않는다`);
   }
 }
 

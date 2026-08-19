@@ -179,12 +179,49 @@
   // ---------------------------------------------------------------
 
   function setLocale(locale) {
-    const next = String(locale || '');
-    if (!next || next === current) return current;
-    current = next;
+    const raw = String(locale || '');
+    if (!raw) return current;
+
+    /*
+       ★★ 등록되지 않은 언어는 폴백으로 정규화한다.
+
+         현재 언어를 요청한 값 그대로 두면, 사전이 없는데도 그것이 "현재 언어" 가
+         된다. 그러면 화면 문장은 폴백(영어)으로 나오는데 언어 표시만 그 언어로
+         남아 **화면과 표시가 서로 다른 말을 한다.** 헤더의 순환 버튼이
+         `available()` 안에서 현재 값을 찾지 못해 동작이 어색해지기도 한다.
+
+         실제로 문제가 되는 경로: 한국어를 서비스 언어에서 제외했지만, 이미
+         `lang='ko'` 를 저장한 브라우저가 남아 있다. 그 이용자의 화면은 영어인데
+         버튼에는 KO 가 찍힌다.
+
+       ★ 지역 표기는 기본형으로 한 번 더 시도한다('zh-CN' 만 등록된 상태에서
+         'zh' 를 요청하거나 그 반대인 경우가 있다).
+    */
+    let next = raw;
+    if (!DICTS.has(next)) {
+      const base = next.split('-')[0];
+      if (DICTS.has(base)) {
+        next = base;
+      } else {
+        const regional = [...DICTS.keys()].find((c) => c.split('-')[0] === base);
+        next = regional || fallback;
+      }
+    }
+
+    /*
+       ★ lang 속성은 값이 같아도 한 번 맞춘다.
+
+         변경이 없으면 곧바로 돌려보내던 탓에, 문서에 정적으로 적힌 lang 값이
+         그대로 남았다(index.html 이 lang="ko" 였다). 화면은 영어인데 문서는
+         한국어라고 선언한 상태가 되어, 스크린리더가 영어 문장을 한국어 음성으로
+         읽고 브라우저 번역도 잘못 동작한다.
+    */
     try {
       document.documentElement.setAttribute('lang', bcp47Of(next));
     } catch (e) { /* noop */ }
+
+    if (next === current) return current;
+    current = next;
     notify();
     return current;
   }
@@ -314,6 +351,20 @@
     brand: brandName,
 
     formatRebate,
+    /**
+     * 진단용 — 한 언어의 사전을 그대로 돌려준다(복사본).
+     *
+     * ★ 왜 필요한가: 화면에 영어가 그대로 보이는 자리를 찾으려면 "이 문장이
+     *   en 사전의 값이고 대상 언어에는 그 키가 없다" 를 확인해야 한다. 사전을
+     *   볼 수 없으면 "라틴 문자가 보인다" 같은 판정밖에 못 하는데, 그러면
+     *   BTC·KuCoin·API Key 처럼 번역하지 않는 것이 정상인 문자열까지 걸린다.
+     *
+     * 반환값을 고쳐도 사전은 바뀌지 않는다(얕은 복사).
+     */
+    dump: function (locale) {
+      const d = DICTS.get(String(locale || current));
+      return d ? Object.assign({}, d) : null;
+    },
     register,
     available,
     has,
@@ -345,4 +396,64 @@
       };
     },
   };
+})();
+
+/* ============================================================
+   클립보드 복사 — 실패를 삼키지 않는 단일 경로
+   ------------------------------------------------------------
+   ★★ 왜 함수로 묶는가
+
+     `navigator.clipboard.writeText(x)` 는 **프로미스를 돌려준다.** 거부될 때
+     .catch 가 없으면 처리되지 않은 거부(unhandled rejection)가 되고, 화면은
+     아무 일도 없었던 것처럼 보인다. 실측에서 /referral 의 공유 버튼이 그 상태였다
+     (PAGEERROR: Write permission denied).
+
+     그리고 조용한 실패의 결과가 나쁘다: 이용자는 복사됐다고 믿고 붙여넣는다.
+     추천 링크라면 **빈 값을 붙여넣어 귀속이 사라진다.** 우리 수익이 줄고,
+     이용자는 이유를 모른다.
+
+   ★ clipboard API 는 https 또는 localhost 에서만 동작한다. 권한이 거부되는
+     환경도 있다. 그래서 "될 것이다" 를 가정하지 않고 결과를 알린다.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /**
+   * 텍스트를 클립보드에 복사한다.
+   *
+   * @param {string} text            복사할 값
+   * @param {object} [opts]
+   * @param {function} [opts.onDone] 성공 시 호출 (버튼 라벨을 '복사됨' 으로 바꾸는 용도)
+   * @returns {Promise<boolean>} 성공 여부. 절대 reject 하지 않는다.
+   */
+  function copyText(text, opts) {
+    var value = String(text == null ? '' : text);
+    var onDone = opts && opts.onDone;
+
+    var fail = function () {
+      /*
+         실패를 알린다. 값도 함께 보여준다 — 손으로 복사할 수 있어야 한다.
+         (여기서 조용히 넘기면 이용자는 붙여넣기가 왜 비어 있는지 알 수 없다)
+      */
+      if (window.QTToast) {
+        window.QTToast({
+          title: window.QTI18n ? window.QTI18n.t('copy_failed') : 'Could not copy',
+          desc: value,
+          variant: 'danger',
+          duration: 8000,
+        });
+      }
+      return false;
+    };
+
+    if (!value) return Promise.resolve(false);
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return Promise.resolve(fail());
+
+    return navigator.clipboard.writeText(value).then(
+      function () { if (onDone) onDone(); return true; },
+      fail,
+    );
+  }
+
+  window.QTCopy = copyText;
 })();

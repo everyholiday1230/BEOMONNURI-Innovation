@@ -698,6 +698,43 @@
         { timeoutMs: 25000 }).then(function (r) { return { ok: true, data: r }; });
     },
 
+    /**
+     * 아직 읽지 않은 팝업 공지.
+     *
+     * ★★ 읽음은 **서버가** 판정한다. 로컬에만 저장하면 기기를 바꿀 때마다 같은
+     *   팝업이 다시 뜨고, 그러면 이용자는 내용을 보지 않고 닫는 습관이 든다.
+     *
+     * ★ 화면 언어를 넘긴다. 공지는 언어별로 따로 작성되므로, 넘기지 않으면
+     *   읽을 수 없는 언어의 공지가 뜬다.
+     */
+    popupNotices: function (locale) {
+      var q = locale ? '?locale=' + encodeURIComponent(locale) : '';
+      return getJSON('', '/api/notices/popups' + q);
+    },
+
+    /**
+     * 공지를 읽음으로 표시한다.
+     *
+     * ★ 실패하면 throw 한다 — 화면이 닫았는데 서버에 기록되지 않으면 다음
+     *   로그인에 또 뜬다. 호출자가 그 사실을 알아야 한다.
+     */
+    markNoticeRead: function (id) {
+      return sendJSON('POST', '/api/notices/' + encodeURIComponent(id) + '/read', {});
+    },
+
+    /**
+     * 내 고객 등급.
+     *
+     * ★★ 서버가 **번역 키**를 준다(nameKey). 등급 이름을 서버가 문장으로 주면
+     *   이용자의 언어를 서버가 알아야 하고, 3개 언어 화면에 영어가 섞인다.
+     *
+     * ★ `unknown: true` 는 "등급 없음" 이 아니라 **측정 불가**다(거래소 키가
+     *   없어 거래를 볼 수 없다). 화면은 이 둘을 다르게 표시해야 한다.
+     */
+    myTier: function () {
+      return getJSON('', '/api/me/tier');
+    },
+
     /** 백테스트 실행. 계산에 시간이 걸리므로 타임아웃을 넉넉히 준다. */
     backtest: function (id, body) {
       return sendJSON('POST', '/api/strategies/' + encodeURIComponent(id) + '/backtest', body || {},
@@ -794,6 +831,56 @@
           supported: Boolean(r && r.supported),
         };
       });
+    },
+
+    /*
+       현물(Spot) 시세.
+
+       ★ 선물과 **다른 경로**를 쓴다. 심볼 표기·캔들 배열 순서·수량 의미가 달라서,
+         같은 함수로 두 시장을 다루면 어느 규칙으로 해석해야 하는지 알 수 없다.
+
+       ★ `supported:false` 를 그대로 전달한다. 어댑터가 없을 때 선물 값으로
+         대신 채우면 이용자는 현물을 본다고 믿으면서 선물 가격으로 판단한다.
+
+       ★ 아직 실시간 스트림이 없다(`streaming`). 화면이 실시간이라고 표시하지
+         않도록 그 사실을 함께 넘긴다.
+    */
+    spot: {
+      symbols: function () {
+        return market('/spot/symbols', { timeoutMs: 25000 }).then(function (r) {
+          return {
+            ok: true,
+            data: (r && r.symbols) || [],
+            supported: Boolean(r && r.supported),
+            streaming: Boolean(r && r.streaming),
+          };
+        });
+      },
+      candles: function (symbol, timeframe, limit) {
+        var q = '?symbol=' + encodeURIComponent(symbol) + '&timeframe=' + encodeURIComponent(timeframe)
+          + (limit ? '&limit=' + limit : '');
+        return market('/spot/candles' + q, { timeoutMs: 25000 }).then(function (r) {
+          return {
+            ok: true,
+            data: (r && r.candles) || [],
+            supported: Boolean(r && r.supported),
+          };
+        });
+      },
+      tickers: function () {
+        return market('/spot/tickers', { timeoutMs: 25000 }).then(function (r) {
+          return {
+            ok: true,
+            data: (r && r.tickers) || [],
+            supported: Boolean(r && r.supported),
+            streaming: Boolean(r && r.streaming),
+          };
+        });
+      },
+      ticker: function (symbol) {
+        return market('/spot/ticker?symbol=' + encodeURIComponent(symbol), { timeoutMs: 20000 })
+          .then(function (r) { return { ok: true, data: r, supported: Boolean(r && r.supported) }; });
+      },
     },
 
     /** 계약 사양만 필요할 때. */
@@ -957,6 +1044,21 @@
       };
     }
 
+    /**
+     * 지금 보고 있는 시장.
+     *
+     * ★★ 구독 요청에 **반드시** 함께 보낸다. 현물과 선물은 같은 심볼이라도
+     *   다른 가격이므로, 서버가 시장을 모르면 선물 스트림을 현물 화면에 흘려보낸다.
+     *   이용자는 현물 차트를 본다고 믿으면서 선물 가격을 읽고, 그 상태로 주문을
+     *   내면 예상과 다른 가격에 체결된다.
+     *
+     * ★ 판정을 여기서 하지 않고 QTMode 에 묻는다 — 주문 경로 판단과 같은 출처를
+     *   써야 두 곳이 어긋나지 않는다.
+     */
+    function currentMarket() {
+      return (window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot') ? 'spot' : 'futures';
+    }
+
     function subscribeSymbols(symbols) {
       var added = [];
       symbols.forEach(function (s) {
@@ -965,7 +1067,7 @@
         wantedSymbols.add(sym);
         added.push(sym);
       });
-      if (added.length) send({ op: 'subscribe', symbols: added });
+      if (added.length) send({ op: 'subscribe', market: currentMarket(), symbols: added });
     }
 
     function unsubscribeSymbols(symbols) {
@@ -984,7 +1086,7 @@
       var key = sym + '|' + tf;
       if (wantedCandles.has(key)) return;
       wantedCandles.set(key, { symbol: sym, tf: tf });
-      send({ op: 'subscribe', candles: [{ symbol: sym, tf: tf }] });
+      send({ op: 'subscribe', market: currentMarket(), candles: [{ symbol: sym, tf: tf }] });
     }
 
     function unsubscribeCandles(symbol, tf) {
@@ -1195,6 +1297,109 @@
     verifyMfa: function (code) {
       return sendJSON('POST', '/api/mfa/verify', { code: code });
     },
+
+    /*
+       ---- 보안 상태 (2단계 인증 · 로그인 세션) ----
+
+       ★★ 이 네 개가 없어서 설정 화면의 보안 탭 전체가 가짜였다.
+
+         화면은 "✓ 활성화됨 · Google Authenticator", "현재 활성 세션 3개",
+         "iPhone Safari · Seoul, KR" 를 **하드코딩**해서 보여줬다. 2단계 인증을
+         켜지 않은 사람도 켜졌다고 읽고, 그 믿음으로 비밀번호를 재사용한다.
+         남의 기기가 로그인해 있어도 "3개" 는 그대로였다.
+
+         서버에는 처음부터 실제 엔드포인트가 있었다(auth-routes.ts:333·338·347,
+         mfa/mfa-routes.ts:101). 클라이언트에 호출이 없어 쓰이지 않았을 뿐이다.
+    */
+
+    /**
+     * 2단계 인증 상태.
+     * @returns {{enabled:boolean, pendingSetup:boolean, recoveryRemaining:number}}
+     */
+    mfaStatus: function () {
+      return getJSON('', '/api/account/mfa/status');
+    },
+
+    /**
+     * 2단계 인증 등록 시작.
+     *
+     * ★ 비밀번호를 다시 받는다(서버가 요구한다 — REAUTH_FAILED).
+     *   세션만으로 2단계 인증을 새로 걸 수 있으면, 남의 컴퓨터에 열려 있던
+     *   화면으로 계정을 잠글 수 있다.
+     *
+     * @returns {{otpauthUri:string, secret:string}} secret 은 **이 한 번만** 온다.
+     */
+    startMfaSetup: function (password) {
+      return sendJSON('POST', '/api/auth/mfa/totp/setup', { password: password });
+    },
+
+    /**
+     * 등록 확인 — 첫 코드가 맞으면 활성화된다.
+     * @returns {{enabled:true, recoveryCodes:string[]}} 복구 코드도 **이 한 번만** 온다.
+     */
+    confirmMfaSetup: function (code) {
+      return sendJSON('POST', '/api/auth/mfa/totp/verify-enrollment', { code: code });
+    },
+
+    /** 2단계 인증 해제. 비밀번호와 현재 코드가 모두 필요하다. */
+    disableMfa: function (password, code) {
+      return sendJSON('POST', '/api/account/mfa/disable', { password: password, code: code });
+    },
+
+    /** 복구 코드 재발급. 기존 코드는 무효가 된다. */
+    regenerateRecoveryCodes: function (password, code) {
+      return sendJSON('POST', '/api/account/mfa/regenerate-recovery', { password: password, code: code });
+    },
+
+    /**
+     * 로그인 세션 목록.
+     *
+     * 각 항목: { id, userAgent, ip?, createdAt, expiresAt, current }
+     * `current: true` 가 지금 이 브라우저다 — 화면이 그것을 구분해 표시해야
+     * 사용자가 자기 세션을 끊고 튕겨나가지 않는다.
+     */
+    /**
+     * 내 데이터 내보내기 (개인정보처리방침 7절 · 이전권).
+     *
+     * ★ 계정 정보·화면 설정·즐겨찾기·차트 템플릿을 담는다.
+     *   주문·동의 기록은 아직 이 경로로 나오지 않으며, 응답의 `excluded` 가
+     *   무엇이 빠졌는지 밝힌다 — 화면이 그것을 보여줘야 이용자가 따로 요청할
+     *   수 있다.
+     * ★ 비밀번호 해시와 거래소 API 키는 담기지 않는다(넣을 이유가 없고, 파일이
+     *   유출되면 그 자체가 사고가 된다).
+     */
+    exportMyData: function () {
+      return getJSON('', '/api/me/export');
+    },
+
+    /**
+     * KuCoin Fast API (OAuth) 인증 시작.
+     *
+     * ★ 서버가 승인 화면 **주소를 돌려준다**(302 로 보내지 않는다). fetch 로
+     *   302 를 따라가면 CORS 때문에 실패하고 이용자에게는 아무 일도 일어나지
+     *   않는 것처럼 보인다. 화면이 받은 주소로 이동해야 한다.
+     *
+     * ★ 설정되지 않은 배포에서는 라우트가 등록되지 않으므로 404 가 온다.
+     *   화면은 /api/config 의 kucoinOauthAvailable 로 미리 판단해 버튼 자체를
+     *   보이지 않게 한다.
+     */
+    startKucoinOauth: function () {
+      return sendJSON('POST', '/api/exchanges/kucoin/oauth/start');
+    },
+
+    sessions: function () {
+      return getJSON('', '/api/auth/sessions');
+    },
+
+    /** 특정 세션 종료. */
+    revokeSession: function (sessionId) {
+      return sendJSON('POST', '/api/auth/sessions/revoke', { sessionId: sessionId });
+    },
+
+    /** 이 기기를 뺀 모든 세션 종료. 기기를 잃었을 때 쓰는 기능이다. */
+    revokeOtherSessions: function () {
+      return sendJSON('POST', '/api/auth/sessions/revoke-others');
+    },
   };
 
   // ---------------------------------------------------------------
@@ -1342,11 +1547,71 @@
         marginMode: o.marginMode === 'cross' ? 'cross' : 'isolated',
         // 서버가 명시적 확인을 요구한다. 사용자가 확인 버튼을 누른 시점에만 보낸다.
         confirmationToken: o.confirmationToken || '',
+        /*
+           ★★ 어느 시장의 주문인지 **반드시** 보낸다.
+
+             현물과 선물은 수량 의미가 다르다(기초자산 vs 계약수). 서버가 시장을
+             모르면 선물 어댑터로 보내고, 그러면 오류 없이 **주문 수량이 승수
+             배만큼 틀린다**(BTC 는 1000배). 그래서 화면 상태로 추측하지 않고
+             QTMode 한 곳에서 읽어 명시한다.
+
+           ★ 모드 판정을 여기서 하지 않고 QTMode 에 묻는 이유: 주문 경로 판단이
+             여러 곳으로 흩어지면 "모의인데 실주문" 같은 어긋남이 생긴다.
+        */
+        market: (window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot') ? 'spot' : 'futures',
       };
       if (body.orderType !== 'market' && o.price !== undefined && o.price !== null) {
         body.price = decStr(o.price);
       }
       if (o.reduceOnly) body.reduceOnly = true;
+      /*
+         ★★ 발동 가격(스톱). 있으면 서버가 발동 주문 경로로 보낸다.
+
+           이 값을 빼먹으면 일반 주문이 되어 **즉시 체결된다.** 손절을 걸었다고
+           믿는 이용자가 그 자리에서 체결되는 것이 그 결과다.
+      */
+      if (o.stopPrice !== undefined && o.stopPrice !== null && o.stopPrice !== '') {
+        body.stopPrice = decStr(o.stopPrice);
+      }
+      /*
+         OCO 의 손절 지정가. price·stopPrice 와 셋이 함께 있어야 OCO 가 된다.
+         일부만 보내면 서버가 OCO 로 보지 않는다 — 반쪽만 걸리면 반대쪽이 무방비다.
+      */
+      if (o.limitPrice !== undefined && o.limitPrice !== null && o.limitPrice !== '') {
+        body.limitPrice = decStr(o.limitPrice);
+      }
+
+      /*
+         ★ 현물에는 레버리지·증거금 모드·감소전용이 없다.
+
+           보내면 거래소가 거부하거나(레버리지) 조용히 무시된다. 무시되는 쪽이
+           더 나쁘다 — 이용자는 감소전용이 적용됐다고 믿는다. 그래서 현물이면
+           해당 필드를 아예 뺀다.
+      */
+      if (body.market === 'spot') {
+        delete body.leverage;
+        delete body.marginMode;
+        delete body.reduceOnly;
+      }
+
+      /*
+         ★★ 판단 문맥. 어떤 지표를 켜고 무엇을 보고 있었는지를 함께 보낸다.
+
+           서버는 이것을 알 수 없다. 지표 on/off·주기·레이아웃은 화면에만 있는
+           상태다. 학습 데이터의 핵심이 "어떤 근거로 그 매매를 했는가" 이므로,
+           보내지 않으면 결과만 남고 근거가 사라진다.
+
+         ★ 없으면 넣지 않는다(빈 객체도 넣지 않는다). 서버가 "화면이 보고하지
+           않았다" 와 "지표를 안 켰다" 를 구분해야 한다 — 기본값을 넣으면
+           없던 사실이 학습 데이터에 생긴다.
+
+         ★ 시세는 보내지 않는다. 서버가 자기 원천에서 읽는다 — 화면이 보낸
+           가격을 저장하면 조작된 요청으로 학습 데이터를 오염시킬 수 있다.
+      */
+      var ctx = (typeof window.QTDecisionContext === 'function')
+        ? window.QTDecisionContext(o && o.source)
+        : null;
+      if (ctx) body.uiContext = ctx;
 
       return sendJSON('POST', '/api/trading/orders/submit', body, {
         headers: { 'idempotency-key': key },
@@ -1443,6 +1708,25 @@
      * 실패해도 예외를 던지지 않고 이유를 돌려준다: 잘못된 키와 네트워크 장애를
      * 구분하지 못하면 사용자가 멀쩡한 키를 지운다.
      */
+    /**
+     * 등록된 자격증명 목록.
+     *
+     * ★★ 화면이 "이 거래소가 연결됐는가" 를 판단할 유일한 근거다.
+     *
+     *   전에는 목업 상수(`USER.connectedExchanges = ['binance','bitget']`)를
+     *   봤다. 그래서 KuCoin 키를 실제로 연결해도 카드는 `AVAILABLE` 이었고,
+     *   연결한 적 없는 binance·bitget 이 '연결됨' 으로 표시됐다.
+     *
+     * ★ 비밀은 오지 않는다 — 마스킹된 접근키와 상태만 온다.
+     */
+    list: function () {
+      return getJSON('', '/api/trading/credentials').then(function (r) {
+        return {
+          ok: true,
+          data: (r && (r.credentials || r.items)) || [],
+        };
+      });
+    },
     verify: function (id) {
       return sendJSON('POST', '/api/trading/credentials/' + encodeURIComponent(id) + '/verify')
         .then(function (r) {
@@ -1537,12 +1821,26 @@
     },
 
     /** 사용자 목록. 검색·상태 필터를 서버가 처리한다. */
+    /*
+       사용자 검색.
+
+       ★★ 파라미터 이름은 `q` 다. `search` 가 아니다.
+
+         전에는 `search=` 로 보냈다. 서버 스키마(UserSearchSchema)는 `.strict()`
+         이므로 모르는 키가 하나라도 있으면 **400 으로 전체 요청을 거부한다.**
+         즉 검색창에 무엇을 입력해도 목록이 통째로 실패했다. 실측으로 확인한
+         키는 q · status · role · limit · offset 이다.
+    */
     users: function (opts) {
       opts = opts || {};
       var q = [];
-      if (opts.search) q.push('search=' + encodeURIComponent(opts.search));
+      // 호출하는 쪽이 search 로 넘겨도 동작하게 둘 다 받는다(기존 호출부 보호).
+      var term = opts.q || opts.search;
+      if (term) q.push('q=' + encodeURIComponent(term));
       if (opts.status) q.push('status=' + encodeURIComponent(opts.status));
+      if (opts.role) q.push('role=' + encodeURIComponent(opts.role));
       if (opts.limit) q.push('limit=' + opts.limit);
+      if (opts.offset) q.push('offset=' + opts.offset);
       return getJSON('', '/api/admin/users' + (q.length ? '?' + q.join('&') : ''))
         .then(function (r) {
           return { ok: true, data: (r && r.users) || [], total: (r && r.total) || 0 };
@@ -1567,6 +1865,117 @@
 
     enableUser: function (id, reason) {
       return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/enable', { reason: reason || '' });
+    },
+
+    /**
+     * 2단계 인증 초기화 (기기 분실 대응).
+     *
+     * ★★ 요소를 제거하는 작업이다. 서버가 `reauth: true` 와 4~500자 사유를
+     *   요구하고, 성공하면 대상의 모든 세션도 함께 끊는다.
+     *
+     * ★ 운영자 계정(SUPPORT/ANALYST/ADMIN/SUPER_ADMIN)과 자기 자신은 대상이
+     *   아니다(서버가 403). 운영자 계정에서 요소를 벗기는 것은 권한 상승
+     *   경로이기 때문이다.
+     *
+     * ★ 응답의 `notified` 가 false 면 **사용자에게 통지되지 않았다.** 메일이
+     *   설정되지 않은 상태이므로 화면이 그 사실을 알려야 한다 — 본인이
+     *   요청하지 않은 초기화라면 알아야 대응할 수 있다.
+     */
+    resetUserMfa: function (id, reason, reauth) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/reset-mfa', {
+        reason: reason || '',
+        reauth: reauth === true,
+      });
+    },
+
+    /**
+     * 비밀번호 재설정 링크 발송 (관리자가 대신 요청).
+     *
+     * ★ 임시 비밀번호를 만들지 않는다. 이용자 본인이 쓰는 것과 같은 재설정
+     *   흐름을 촉발하고, 토큰은 이용자 메일로만 간다 — 관리자는 그 값을
+     *   알 수 없다(방침 8절: 비밀번호 원문을 보관하지 않는다).
+     *
+     * ★★ 메일이 설정되지 않은 배포에서는 서버가 `MAIL_NOT_CONFIGURED` 를
+     *   준다(HTTP 200 이지만 error 봉투다). 이용자는 아무것도 받지 못하므로
+     *   화면이 그 사실을 반드시 표시해야 한다.
+     */
+    sendPasswordReset: function (id, reason) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/send-password-reset', {
+        reason: reason || '',
+      });
+    },
+
+    /**
+     * 회원 삭제 (법정 보관분은 분리 보관).
+     *
+     * ★★ 되돌릴 수 없다. 서버가 세 가지를 함께 요구한다.
+     *   · admin.user.delete 권한 — **SUPER 에만 있다**
+     *   · reauth: true
+     *   · confirmEmail — 대상의 이메일과 정확히 같아야 한다(서버가 대조)
+     *
+     * ★ 성공하면 약관 동의·주문 기록은 `retained_*` 로 옮겨져 5년간 분리
+     *   보관된 뒤 파기된다(개인정보처리방침 1·6절). 그 밖의 자료는 사라진다.
+     *
+     * ★ `RETENTION_UNAVAILABLE` 은 "보관할 곳이 없어서 **지우지 않았다**" 는
+     *   뜻이다(HTTP 200 이지만 error 봉투). 성공으로 읽으면 안 된다.
+     */
+    deleteUser: function (id, reason, confirmEmail, reauth) {
+      return sendJSON('DELETE', '/api/admin/users/' + encodeURIComponent(id), {
+        reason: reason || '',
+        confirmEmail: confirmEmail || '',
+        reauth: reauth === true,
+      });
+    },
+
+    /*
+       ---- 관리자 노트 (회원별 운영 메모) ----
+
+       ★ 자유 서식 글이라 무엇이든 적힐 수 있다. 서버가 조회·작성·삭제를 모두
+         감사에 남긴다. 회원이 삭제되면 노트도 함께 사라진다(법정 보관 대상 아님).
+    */
+    userNotes: function (id) {
+      return getJSON('', '/api/admin/users/' + encodeURIComponent(id) + '/notes')
+        .then(function (r) { return { ok: true, data: (r && r.notes) || [] }; });
+    },
+    addUserNote: function (id, body) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/notes', { body: body });
+    },
+    deleteUserNote: function (id, noteId) {
+      return sendJSON('DELETE', '/api/admin/users/' + encodeURIComponent(id) + '/notes/' + encodeURIComponent(noteId));
+    },
+
+    /**
+     * 회원 이메일 변경.
+     *
+     * ★★ 이메일은 로그인 식별자다. 바꾸면 이용자는 이전 주소로 로그인할 수
+     *   없다. 서버가 reauth 와 사유를 요구하고, 새 주소는 미확인 상태가 된다.
+     * ★ 이미 쓰는 주소면 EMAIL_TAKEN(409).
+     */
+    setUserEmail: function (id, email, reason, reauth) {
+      return sendJSON('PATCH', '/api/admin/users/' + encodeURIComponent(id) + '/email', {
+        email: email,
+        reason: reason || '',
+        reauth: reauth === true,
+      });
+    },
+
+    /**
+     * 회원 목록 내보내기 주소.
+     *
+     * ★★ 개인정보 대량 반출이다. 서버가 admin.audit.export 권한을 함께 요구하고
+     *   high 위험도로 감사에 남긴다. 상한 5,000행.
+     *
+     * ★ fetch 로 받아 화면에서 파일로 만들지 않고 **주소를 그대로 열게** 한다.
+     *   브라우저가 Content-Disposition 을 처리하므로 파일명·인코딩을 우리가
+     *   다시 구현할 필요가 없다.
+     */
+    userExportUrl: function (opts) {
+      opts = opts || {};
+      var q = [];
+      if (opts.q) q.push('q=' + encodeURIComponent(opts.q));
+      if (opts.status) q.push('status=' + encodeURIComponent(opts.status));
+      if (opts.limit) q.push('limit=' + opts.limit);
+      return '/api/admin/users/export' + (q.length ? '?' + q.join('&') : '');
     },
 
     /** 세션 강제 종료. 계정 탈취 대응에 쓴다. */
@@ -1947,22 +2356,73 @@
       return sendJSON('POST', '/api/admin/notices/' + encodeURIComponent(id) + '/archive', {});
     },
 
-    /** 로그인 시도 초과로 잠긴 계정 해제. */
-    unlockUser: function (id, reason) {
-      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/unlock', { reason: reason || '' });
+    /**
+     * 로그인 시도 초과로 잠긴 계정 해제.
+     *
+     * ★★ `reauth: true` 가 필수다.
+     *
+     *   전에는 사유만 보냈다. 서버는 `reauth` 가 없으면 422(VALIDATION_FAILED),
+     *   false 면 403(STEP_UP_REQUIRED)을 준다. 즉 이 함수도 호출하면 반드시
+     *   실패했다.
+     *
+     *   이 플래그는 "관리자가 방금 본인 확인을 했다" 는 확인이다. 호출하는
+     *   화면이 비밀번호나 2단계 코드를 다시 받은 뒤에 true 로 넘겨야 한다 —
+     *   무조건 true 로 채우면 그 확인 절차가 무의미해진다.
+     */
+    unlockUser: function (id, reason, reauth) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/unlock', {
+        reason: reason || '',
+        reauth: reauth === true,
+      });
     },
 
-    /** 등급 변경. 서버가 admin.role.write 권한을 요구한다. */
-    setUserRole: function (id, role, reason) {
-      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/role', { role: role, reason: reason || '' });
+    /**
+     * 등급 변경. 서버가 admin.role.write 권한을 요구한다.
+     *
+     * ★★ 메서드는 PATCH, 필드는 `newRole` 이다.
+     *
+     *   전에는 `POST` + `{ role }` 로 보냈다. 서버는 `PATCH` 만 받고 스키마가
+     *   `.strict()` 라서, 이 함수는 **호출하면 반드시 실패**했다(경로 404 또는
+     *   본문 400). 화면에서 아직 부르지 않아 드러나지 않았을 뿐이다.
+     *
+     *   등급 값도 대문자 정규명이다: USER · PRO_USER · SUPPORT · ANALYST ·
+     *   ADMIN · SUPER_ADMIN. 소문자로 보내면 400 이다.
+     *
+     * ★ 사유는 4~500자를 요구한다(Reason 스키마). 빈 문자열이면 422 다.
+     */
+    setUserRole: function (id, newRole, reason) {
+      return sendJSON('PATCH', '/api/admin/users/' + encodeURIComponent(id) + '/role', {
+        newRole: newRole,
+        reason: reason || '',
+      });
     },
 
     /** 감사 로그. 추가만 가능하고 수정·삭제가 없다(appendOnly). */
+    /*
+       감사 로그 조회.
+
+       ★★ 파라미터 이름이 서버와 달랐다.
+
+         전에는 `actor=` 로 보냈다. 서버 스키마(AuditQuerySchema)는 `actorId` 를
+         받고 `.strict()` 이므로, actor 를 붙이면 **400 으로 전체 조회가
+         거부된다.** 필터를 쓴 적이 없어 드러나지 않았을 뿐이다.
+
+         실측 확인한 키: actorId · userId · action · resource · ip ·
+         correlationId · result · from · to · limit · offset
+
+       ★ `userId` 는 **대상** 사용자(그 사람에게 무슨 일이 있었나),
+         `actorId` 는 **행위자** 관리자(그 사람이 무엇을 했나)다. 둘을 바꿔
+         쓰면 "누가 당했나" 와 "누가 했나" 가 뒤집힌다.
+    */
     audit: function (opts) {
       opts = opts || {};
       var q = [];
       if (opts.limit) q.push('limit=' + opts.limit);
-      if (opts.actor) q.push('actor=' + encodeURIComponent(opts.actor));
+      if (opts.actorId || opts.actor) q.push('actorId=' + encodeURIComponent(opts.actorId || opts.actor));
+      if (opts.userId) q.push('userId=' + encodeURIComponent(opts.userId));
+      if (opts.action) q.push('action=' + encodeURIComponent(opts.action));
+      if (opts.result) q.push('result=' + encodeURIComponent(opts.result));
+      if (opts.offset) q.push('offset=' + opts.offset);
       return getJSON('', '/api/admin/audit' + (q.length ? '?' + q.join('&') : ''))
         .then(function (r) {
           return { ok: true, data: (r && r.entries) || [], total: (r && r.total) || 0, appendOnly: Boolean(r && r.appendOnly) };
@@ -2104,6 +2564,25 @@
       if (!map || typeof map !== 'object') return '';
       var url = map[String(exchangeId).toLowerCase()];
       return typeof url === 'string' ? url : '';
+    },
+
+    /**
+     * 거래소 추천 **코드**. 없으면 빈 문자열.
+     *
+     * ★ 링크와 별개로 필요한 이유: 거래소 모바일 앱에서 가입하는 사람은 우리
+     *   링크를 열지 않는다. 가입 화면에 코드를 손으로 넣는 것이 그때의 유일한
+     *   귀속 수단이다. 코드를 감추면 그 경로의 가입은 정상 처리되고 리베이트만
+     *   0 이 된다 — 화면에 아무 오류가 없어 알아챌 수 없다.
+     *
+     * 빈 문자열 계약은 getReferralUrl 과 같다: 호출자가 `if (code)` 로 감춘다.
+     * 예시 코드로 대체하지 않는다 — 틀린 코드는 우리 이용자를 남에게 귀속시킨다.
+     */
+    getReferralCode: function (exchangeId) {
+      if (!serverConfig || !exchangeId) return '';
+      var map = serverConfig.exchangeReferralCodes;
+      if (!map || typeof map !== 'object') return '';
+      var code = map[String(exchangeId).toLowerCase()];
+      return typeof code === 'string' ? code : '';
     },
 
     rest: rest,

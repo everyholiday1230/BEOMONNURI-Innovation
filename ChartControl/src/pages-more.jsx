@@ -43,10 +43,59 @@
     if (window.QTApi && window.QTApi.useConfig) window.QTApi.useConfig();
     const referralUrl = (window.QTApi && window.QTApi.getReferralUrl)
       ? window.QTApi.getReferralUrl(exchange.id) : '';
+    /*
+       추천 코드. 거래소 앱에서 가입하는 사람은 링크를 열지 않으므로 코드가
+       유일한 귀속 수단이다. 없으면 그 줄을 아예 그리지 않는다.
+    */
+    const referralCode = (window.QTApi && window.QTApi.getReferralCode)
+      ? window.QTApi.getReferralCode(exchange.id) : '';
+    const [codeCopied, setCodeCopied] = useState(false);
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({ label: 'Main Trading', apiKey: '', apiSecret: '', passphrase: '', ipRestrict: true });
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
+
+    /*
+       KuCoin Fast API (OAuth) 사용 가능 여부.
+
+       ★ 서버 설정이 결정한다(/api/config 의 kucoinOauthAvailable). client_id 와
+         Redirect URL 이 모두 있을 때만 true 다 — 반쯤 설정된 상태로 버튼을
+         보이면 이용자가 KuCoin 까지 갔다가 콜백에서 실패한다.
+    */
+    const fastApiAvailable = (() => {
+      const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+      return Boolean(cfg && cfg.kucoinOauthAvailable === true);
+    })();
+    const [fastApiBusy, setFastApiBusy] = useState(false);
+    const [fastApiErr, setFastApiErr] = useState(null);
+
+    /*
+       인증 시작.
+
+       ★ 서버가 **주소를 돌려주고** 화면이 이동한다. 서버가 302 로 바로 보내면
+         fetch 가 CORS 때문에 실패하고, 이용자에게는 아무 일도 일어나지 않는
+         것처럼 보인다.
+
+       ★ 같은 탭에서 이동한다. 새 탭으로 열면 승인 후 돌아온 화면이 원래 탭과
+         달라서 이용자가 두 화면 중 어느 것이 맞는지 헷갈린다.
+    */
+    const startFastApi = async () => {
+      // ★ QTApi.auth 에 있다(QTApi.exchanges 는 목록 조회 함수다).
+      const api = window.QTApi && window.QTApi.auth;
+      if (!api || !api.startKucoinOauth) return;
+      setFastApiBusy(true); setFastApiErr(null);
+      try {
+        const r = await api.startKucoinOauth();
+        if (r && r.url) {
+          window.location.href = r.url;
+          return; // 이동한다 — 아래 상태 정리는 실행되지 않는다.
+        }
+        setFastApiErr(t('fast_api_start_failed'));
+      } catch (e) {
+        setFastApiErr((e && e.message) || t('fast_api_start_failed'));
+      }
+      setFastApiBusy(false);
+    };
 
     if (!exchange) return null;
 
@@ -134,7 +183,7 @@
               <div className="exchange-card__logo" style={{width:32, height:32, background: exchange.logoBg, color: exchange.logoColor, borderRadius:6, fontSize: 12}}>{exchange.logoText}</div>
               <div>
                 <div className="modal__title">{t("wiz_title", { exchange: exchange.name })}</div>
-                <div style={{fontSize: 11, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)'}}>Step {step} of 4</div>
+                <div style={{fontSize: 11, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)'}}>{t('wiz_step_of', { step: step, total: 4 })}</div>
               </div>
             </div>
             <button className="btn btn--icon" onClick={onClose}><I.X size={14}/></button>
@@ -152,9 +201,83 @@
           <div className="modal__body" style={{padding: '20px 24px'}}>
             {step === 1 && (
               <div style={{display:'flex', flexDirection:'column', gap: 16}}>
+                {/*
+                   ★★ KuCoin Fast API — 한 번 클릭으로 연결.
+
+                     아래 4단계(가입 → 키 발급 → 키 입력 → 완료)는 이용자가
+                     KuCoin 에서 키를 손으로 만드는 경로다. 그 과정에서 이탈이
+                     생기고, 실수로 **출금 권한을 켜는** 위험도 있다.
+
+                     Fast API 가 설정되어 있으면 그 전부를 건너뛴다. 우리가
+                     요구하는 권한은 조회·현물·선물뿐이고 출금은 코드에서
+                     false 로 고정되어 있다(이용약관 제2조: 입출금을 취급하지 않는다).
+
+                   ★ 설정이 없으면 이 카드를 렌더하지 않는다 — 누르면 404 인
+                     버튼을 두면 이용자가 고장으로 여긴다.
+                */}
+                {exchange.id === 'kucoin' && fastApiAvailable && (
+                  <div
+                    style={{
+                      padding: '14px 16px', borderRadius: 8,
+                      border: '1px solid var(--color-brand)',
+                      background: 'color-mix(in srgb, var(--color-brand) 8%, transparent)',
+                      display: 'flex', flexDirection: 'column', gap: 10,
+                    }}
+                  >
+                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      <I.Zap size={15} style={{color:'var(--color-brand)', flexShrink:0}}/>
+                      <strong style={{fontSize:13}}>{t('fast_api_title')}</strong>
+                    </div>
+                    <div style={{fontSize:11.5, lineHeight:1.7, color:'var(--color-text-secondary)'}}>
+                      {t('fast_api_desc')}
+                    </div>
+                    <div style={{fontSize:11, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
+                      {t('fast_api_scopes')}
+                    </div>
+                    {fastApiErr && (
+                      <div style={{fontSize:11.5, color:'var(--color-warning)'}}>{fastApiErr}</div>
+                    )}
+                    <button
+                      className="btn btn--sm btn--primary"
+                      type="button"
+                      disabled={fastApiBusy}
+                      onClick={startFastApi}
+                    >
+                      {fastApiBusy ? t('sec_loading') : t('fast_api_connect')}
+                    </button>
+                    <div style={{fontSize:10.5, color:'var(--color-text-tertiary)'}}>
+                      {t('fast_api_manual_hint')}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{fontSize: 14, fontWeight: 600}}>{t("wiz_step1_q", { exchange: exchange.name })}</div>
+                {/*
+                     가입 안내 문장.
+
+                     ★ 보상 금액을 아는 경우에만 그것을 말하는 문장을 쓴다.
+
+                       전에는 문장을 조각으로 이어 붙여
+                         wiz_signup_a + '추천 링크' + ' 를 통해 가입하면 ' + <보상> + '.'
+                       처럼 만들었는데, 서버 카탈로그에 referralRebate 가 없어서
+                       <보상> 이 빈 문자열이 되고 화면에는
+                         "… sign up through the referral link below to receive ."
+                       처럼 **말이 끊긴 문장에 마침표만 남았다** (실제 화면에서 확인).
+
+                     ★ 그리고 금액을 함부로 적지 않는다. KuCoin 가입 페이지는
+                       "Up to 11,000 USDT" 라고 쓰지만 그것은 조건부 최대치다.
+                       우리가 "받는다" 고 단정하면 지키지 못하는 약속이 된다.
+                       조건을 확인하기 전까지는 링크가 있다는 사실만 말한다.
+                */}
                 <p style={{fontSize: 12.5, color:'var(--color-text-secondary)', lineHeight:1.7, margin:0}}>
-                  {t('wiz_signup_a')}<strong>{t('wiz_signup_link')}</strong>{t('wiz_signup_b')}<strong>{window.QTI18n ? window.QTI18n.formatRebate(exchange.referralRebate) : ''}</strong>{t('wiz_signup_c')}
+                  {(() => {
+                    const reward = window.QTI18n ? window.QTI18n.formatRebate(exchange.referralRebate) : '';
+                    if (!reward) {
+                      // 보상 조건 미확인 — 아무것도 약속하지 않는 완결된 문장.
+                      return <>{t('wiz_signup_a')}<strong>{t('wiz_signup_link')}</strong>{t('wiz_signup_plain_end')}</>;
+                    }
+                    return <>{t('wiz_signup_a')}<strong>{t('wiz_signup_link')}</strong>{t('wiz_signup_b')}<strong>{reward}</strong>{t('wiz_signup_c')}</>;
+                  })()}
                 </p>
                 {/*
                    추천 가입 카드.
@@ -172,11 +295,57 @@
                     <div className="wizard-referral-card__icon"><I.Sparkles size={20}/></div>
                     <div style={{flex: 1}}>
                       <div style={{fontWeight: 600, fontSize: 13}}>{t('exchange_connect_wizard_acfc61')}</div>
-                      <div style={{fontSize: 12, color: 'var(--color-text-secondary)'}}>{window.QTI18n ? window.QTI18n.formatRebate(exchange.referralRebate) : ''}</div>
+                      {/*
+                         보상 문구는 아는 경우에만. 빈 줄을 남기면 카드에 설명이
+                         없는 칸이 생겨 무엇을 주는지 모르는 채로 보인다.
+                      */}
+                      {(() => {
+                        const reward = window.QTI18n ? window.QTI18n.formatRebate(exchange.referralRebate) : '';
+                        return reward
+                          ? <div style={{fontSize: 12, color: 'var(--color-text-secondary)'}}>{reward}</div>
+                          : <div style={{fontSize: 12, color: 'var(--color-text-secondary)'}}>{t('wiz_signup_card_sub', { exchange: exchange.name })}</div>;
+                      })()}
                       <div style={{fontSize: 10, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)', marginTop: 4}}>{t('exchange_connect_wizard_ca4b74')}</div>
                     </div>
                     <div style={{color: 'var(--color-brand)'}}><I.ArrowRight size={16}/></div>
                   </a>
+                )}
+                {/*
+                   추천 코드.
+
+                   ★ 링크 카드와 별도로 둔다. 거래소 **모바일 앱**에서 가입하는
+                     사람은 위 링크를 열지 않으므로, 가입 화면의 "Referral Code"
+                     칸에 이 값을 손으로 넣는 것이 유일한 귀속 수단이다. 코드를
+                     보여주지 않으면 그 경로의 가입은 정상 처리되고 리베이트만
+                     0 이 된다 — 화면에 오류가 없어 알아챌 수 없다.
+
+                   ★ a 태그 안에 버튼을 넣지 않는다: 링크 안의 버튼은 클릭이
+                     링크 이동과 겹쳐 복사가 되는지 알 수 없게 된다.
+                */}
+                {referralCode && (
+                  <div className="section-card" style={{margin: 0, display:'flex', alignItems:'center', gap: 10, padding: '10px 12px'}}>
+                    <div style={{flex: 1, minWidth: 0}}>
+                      <div style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{t('wiz_referral_code_label')}</div>
+                      <div style={{fontFamily:'var(--font-mono)', fontSize: 14, fontWeight: 600, letterSpacing: '0.04em'}}>{referralCode}</div>
+                      <div style={{fontSize: 10.5, color:'var(--color-text-tertiary)', marginTop: 2, lineHeight: 1.5}}>{t('wiz_referral_code_hint')}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn--sm"
+                      aria-label={t('wiz_referral_code_copy_aria')}
+                      onClick={() => window.QTCopy(referralCode, {
+                        /*
+                           복사는 QTCopy 한 곳에서만 한다. 실패 처리를 화면마다
+                           따로 쓰면 어느 한 곳에서 빠지고, 빠진 곳은 조용히
+                           실패한다 — 이용자는 복사됐다고 믿고 빈 값을 붙여넣어
+                           추천 귀속을 잃는다.
+                        */
+                        onDone: () => { setCodeCopied(true); setTimeout(() => setCodeCopied(false), 1800); },
+                      })}
+                    >
+                      <I.Copy size={12}/> {codeCopied ? t('copied') : t('copy')}
+                    </button>
+                  </div>
                 )}
                 <div className="auth-alert auth-alert--info">
                   <I.Info size={12}/>
@@ -220,23 +389,23 @@
                 <div style={{fontSize: 14, fontWeight: 600}}>{t('exchange_connect_wizard_46d3df')}</div>
 
                 <div className="input-group">
-                  <span className="input-group__label">Label</span>
+                  <span className="input-group__label">{t('fld_label')}</span>
                   <input value={form.label} onChange={e => setForm({...form, label: e.target.value})}/>
                 </div>
 
                 <div className="input-group">
-                  <span className="input-group__label">API Key</span>
+                  <span className="input-group__label">{t('fld_api_key')}</span>
                   <input type="password" placeholder={t('exchange_connect_wizard_267402')} value={form.apiKey} onChange={e => setForm({...form, apiKey: e.target.value})}/>
                 </div>
 
                 <div className="input-group">
-                  <span className="input-group__label">API Secret</span>
+                  <span className="input-group__label">{t('fld_api_secret')}</span>
                   <input type="password" placeholder={t('exchange_connect_wizard_344324')} value={form.apiSecret} onChange={e => setForm({...form, apiSecret: e.target.value})}/>
                 </div>
 
                 {exchange.required.includes('passphrase') && (
                   <div className="input-group">
-                    <span className="input-group__label">Passphrase</span>
+                    <span className="input-group__label">{t('fld_passphrase')}</span>
                     <input type="password" placeholder={t('exchange_connect_wizard_ad0627')} value={form.passphrase} onChange={e => setForm({...form, passphrase: e.target.value})}/>
                   </div>
                 )}
@@ -394,7 +563,7 @@
             <window.SectionCard title={t('deposit_1bcffc')}>
               <div style={{display:'flex', flexDirection:'column', gap: 12}}>
                 <div>
-                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>Asset</div>
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>{t('asset')}</div>
                   <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
                     {['USDT','BTC','ETH','SOL','BNB','USDC'].map(a => (
                       <button key={a} className={`btn btn--sm ${asset===a ? 'btn--primary' : ''}`} onClick={() => setAsset(a)}>{a}</button>
@@ -403,7 +572,7 @@
                 </div>
 
                 <div>
-                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>Network</div>
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>{t('wd_network')}</div>
                   <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
                     {['TRC20','ERC20','BEP20','Solana'].map(n => (
                       <button key={n} className={`btn btn--sm ${network===n ? 'btn--primary' : ''}`} onClick={() => setNetwork(n)}>{n}</button>
@@ -470,7 +639,7 @@
                 </div>
                 <div style={{width: '100%', padding: '10px 12px', background: 'var(--color-bg-input)', border: '1px solid var(--color-border-default)', borderRadius: 6, display:'flex', gap: 8, alignItems: 'center'}}>
                   <span style={{flex:1, fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all'}}>{address}</span>
-                  <button className="btn btn--xs" onClick={() => navigator.clipboard.writeText(address)}><I.Copy size={11}/> Copy</button>
+                  <button className="btn btn--xs" onClick={() => window.QTCopy(address)}><I.Copy size={11}/> {t('copy')}</button>
                 </div>
               </div>
               )}
@@ -507,7 +676,7 @@
                   return (
                     <>
                       <div style={{fontFamily:'var(--font-num)', fontSize:24, fontWeight:600}}>9,840.22 <span style={{fontSize:12, color:'var(--color-text-tertiary)'}}>USDT</span></div>
-                      <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>All exchanges combined</div>
+                      <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>{t('pf_all_exchanges')}</div>
                     </>
                   );
                 }
@@ -645,7 +814,7 @@
           <window.SectionCard title={t('withdraw_3f13b3')}>
             <div style={{display:'flex', flexDirection:'column', gap: 12}}>
               <div>
-                <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>Asset</div>
+                <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>{t('asset')}</div>
                 <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
                   {['USDT','BTC','ETH','SOL','BNB','USDC'].map(a => (
                     <button key={a} className={`btn btn--sm ${asset===a ? 'btn--primary' : ''}`} onClick={() => setAsset(a)}>{a}</button>
@@ -654,7 +823,7 @@
               </div>
 
               <div>
-                <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>Network</div>
+                <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>{t('wd_network')}</div>
                 <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
                   {['TRC20','ERC20','BEP20','Solana'].map(n => (
                     <button key={n} className={`btn btn--sm ${network===n ? 'btn--primary' : ''}`} onClick={() => setNetwork(n)}>{n}</button>
@@ -663,12 +832,12 @@
               </div>
 
               <div className="input-group">
-                <span className="input-group__label">Address</span>
+                <span className="input-group__label">{t('fld_address')}</span>
                 <input placeholder={t('wd_address_placeholder', { network })} value={address} onChange={e => setAddress(e.target.value)}/>
               </div>
 
               <div className="input-group">
-                <span className="input-group__label">Amount</span>
+                <span className="input-group__label">{t('fld_amount')}</span>
                 <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}/>
                 <span className="input-group__suffix">{asset}</span>
               </div>
@@ -713,13 +882,21 @@
             </window.SectionCard>
 
             <window.SectionCard title={t('withdraw_fe7cae')}>
+              {/*
+                 ★★ 없는 한도를 숫자로 보여주지 않는다.
+
+                   '남은 한도 82,120 USDT / 일 한도 100,000 USDT / 17.88%' 와
+                   'KYC L2 · Pro tier' 가 박혀 있었다. 우리는 **출금을 취급하지
+                   않으므로 한도라는 것이 존재하지 않는다.** 이용자는 이 화면을
+                   보고 하루 10만 USDT 를 뺄 수 있다고 이해하고 자금 계획을 세운다.
+
+                 ★ 한도는 거래소가 정한다. 그래서 어디서 확인해야 하는지 알린다.
+                   숫자를 우리가 아는 척하지 않는다.
+              */}
               <div style={{fontSize: 12, display:'flex', flexDirection:'column', gap: 6}}>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span>{t('withdraw_757555')}</span><strong>82,120 USDT</strong></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span>{t('withdraw_fe7cae')}</span><strong>100,000 USDT</strong></div>
-                <div style={{height:6, background:'var(--color-bg-input)', borderRadius:999, overflow:'hidden'}}>
-                  <div style={{height:'100%', width:'17.88%', background:'var(--color-brand)'}}/>
-                </div>
-                <div style={{fontSize:10, color:'var(--color-text-tertiary)'}}>KYC L2 · Pro tier · <a href="#/settings" style={{color:'var(--color-brand)'}}>{t('withdraw_100747')}</a></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span>{t('withdraw_757555')}</span><strong>{t('dash')}</strong></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span>{t('withdraw_fe7cae')}</span><strong>{t('dash')}</strong></div>
+                <div style={{fontSize:10, color:'var(--color-text-tertiary)', lineHeight:1.6}}>{t('withdraw_limits_at_exchange')}</div>
               </div>
             </window.SectionCard>
 
@@ -756,15 +933,15 @@
               <div className="modal__body" style={{padding: 20, display:'flex', flexDirection:'column', gap: 12}}>
                 <div style={{fontSize: 12, color: 'var(--color-text-secondary)'}}>{t('withdraw_a426f8')}</div>
                 <div style={{padding: 12, background: 'var(--color-bg-surface)', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.8}}>
-                  <div><strong>Asset:</strong> {asset}</div>
-                  <div><strong>Network:</strong> {network}</div>
-                  <div><strong>To:</strong> <span style={{color:'var(--color-brand)'}}>{address.slice(0, 8)}...{address.slice(-6)}</span></div>
-                  <div><strong>Amount:</strong> {amount} {asset}</div>
-                  <div><strong>Fee:</strong> {fee} {asset}</div>
-                  <div><strong>Receive:</strong> {receive.toFixed(2)} {asset}</div>
+                  <div><strong>{t('asset')}:</strong> {asset}</div>
+                  <div><strong>{t('wd_network')}:</strong> {network}</div>
+                  <div><strong>{t('fld_to')}:</strong> <span style={{color:'var(--color-brand)'}}>{address.slice(0, 8)}...{address.slice(-6)}</span></div>
+                  <div><strong>{t('fld_amount')}:</strong> {amount} {asset}</div>
+                  <div><strong>{t('withdraw_34f036')}:</strong> {fee} {asset}</div>
+                  <div><strong>{t('withdraw_5f9394')}:</strong> {receive.toFixed(2)} {asset}</div>
                 </div>
                 <div className="input-group">
-                  <span className="input-group__label">2FA Code</span>
+                  <span className="input-group__label">{t('fld_2fa_code')}</span>
                   <input type="text" maxLength={6} placeholder={t('withdraw_403732')} value={otp} onChange={e => setOtp(e.target.value)}/>
                 </div>
               </div>
@@ -883,7 +1060,8 @@
         title="Transaction History"
         subtitle={t('transaction_history_1de8f9')}
         breadcrumb={['Home','Wallet','Transactions']}
-        actions={<button className="btn btn--sm"><I.Camera size={13}/> Export CSV</button>}
+        /* Export 숨김 (베타 범위 제외) — 배선할 서버 경로가 아직 없다. */
+        actions={null}
       >
         <div className="grid-4">
           {isLive ? (() => {
@@ -955,7 +1133,7 @@
               { key: 'network', label: 'Network' },
               { key: 'status',  label: 'Status', render: r => <span className={`status-pill status-pill--${r.status === 'completed' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
               { key: 'hash',    label: 'TX Hash', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash.slice(0, 12)}…</span> },
-              { key: 'act',     label: '', align:'right', render: () => <button className="tbl-action">View</button> },
+              { key: 'act',     label: '', align:'right', render: () => <button className="tbl-action">{t('col_view')}</button> },
             ]}
             rows={filtered}
           />
@@ -998,7 +1176,55 @@
     }, [strategyId]);
     useEffect(() => { load(); }, [load]);
 
-    const bt = live && live.backtest;
+    /*
+       백테스트 실행 상태.
+
+       ★ `bt` 는 두 곳에서 온다: 전략 조회에 딸려 온 미리 계산된 결과, 그리고
+         이용자가 방금 돌린 결과. 방금 돌린 것이 있으면 그것을 우선한다 —
+         이용자가 버튼을 눌렀는데 이전 결과가 남아 있으면 "안 돌아갔다" 고 본다.
+    */
+    const [btRun, setBtRun] = useState({ busy: false, error: null, note: null, result: null });
+    const [btForm, setBtForm] = useState({ symbol: 'BTCUSDT', timeframe: '15m', bars: '500' });
+
+    const runBacktest = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.backtest || !strategyId) return;
+      setBtRun((prev) => ({ ...prev, busy: true, error: null, note: null }));
+      api.backtest(strategyId, {
+        symbol: btForm.symbol,
+        timeframe: btForm.timeframe,
+        bars: Number(btForm.bars) || 500,
+      })
+        .then((r) => {
+          /*
+             ★ 서버가 캔들을 못 받으면 503(NO_DATA)을 준다. 그것을 "수익률 0" 으로
+               보여주면 시험하지 않은 것을 시험한 것처럼 만든다. 사유를 그대로 남긴다.
+          */
+          const data = (r && r.data) || r;
+          setBtRun({ busy: false, error: null, note: null, result: data || null });
+        })
+        .catch((e) => {
+          /*
+             ★★ 서버의 원문을 그대로 보여주지 않는다.
+
+               이 경로의 502 는 `계약 사양 미적재: NOPEUSDT` 처럼 **한국어 문장**을
+               담고 있다. 화면 언어는 영어·일본어·중국어뿐이라, 원문을 그대로 쓰면
+               읽을 수 없는 글이 나온다(규칙 16: 서버는 키를 주고 화면이 번역한다).
+
+               서버가 아직 키를 주지 않으므로 코드로 판정한다. 모르는 코드는
+               일반 문구로 — 원문으로 되돌아가지 않는다.
+          */
+          const code = (e && e.code) || '';
+          const key = code === 'NO_DATA' ? 'bt_err_no_data'
+            : code === 'UPSTREAM_ERROR' ? 'bt_err_upstream'
+            : code === 'BAD_REQUEST' ? 'bt_err_bad_request'
+            : 'bt_err_failed';
+          setBtRun({ busy: false, error: t(key), note: null, result: null });
+        });
+    }, [strategyId, btForm.symbol, btForm.timeframe, btForm.bars]);
+
+    // 방금 돌린 결과가 있으면 그것을, 없으면 전략에 딸려 온 것을 쓴다.
+    const bt = btRun.result || (live && live.backtest);
     const m = (bt && bt.metrics) || null;
     const isLive = Boolean(live);
 
@@ -1011,11 +1237,12 @@
     const strategy = isLive
       ? {
           id: live.id,
-          name: live.name,
+          // ★ 번역 키가 있으면 그것을 쓴다(목록 화면과 같은 규칙).
+          name: live.nameKey ? t(live.nameKey) : live.name,
           author: live.author === 'built-in' ? null : live.author,
           authorKey: live.author === 'built-in' ? 'strategy_builtin' : null,
           tag: live.category || '—',
-          description: live.description || '',
+          description: (live.descriptionKey ? t(live.descriptionKey) : live.description) || '',
           pnl30: m ? numOrNull(m.totalReturnPct) : null,
           winRate: m ? numOrNull(m.winRatePct) : null,
           sharpe: m ? numOrNull(m.sharpe) : null,
@@ -1115,15 +1342,26 @@
           <>
             {isLive ? (
               <>
-                {/* 백테스트는 실제로 서버가 계산한다. */}
-                <button className="btn btn--sm" disabled={busy} onClick={async () => {
-                  const api = window.QTApi && window.QTApi.rest;
-                  if (!api || !api.backtest) return;
-                  setBusy(true);
-                  try { await api.backtest(strategy.id, {}); load(); }
-                  catch (e) { setErr((e && e.message) || 'backtest failed'); }
-                  setBusy(false);
-                }}><I.Chart size={13}/> {busy ? '…' : t('strat_run_backtest')}</button>
+                {/*
+                   백테스트는 실제로 서버가 계산한다.
+
+                   ★★ 이 버튼은 아래 설정 카드와 **같은 경로**를 쓴다.
+
+                     전에는 여기서 `api.backtest(id, {})` 를 직접 불렀다. 빈 본문은
+                     서버 기본값(BTCUSDT·1h)으로 계산된다. 그래서 이용자가 설정
+                     카드에서 심볼·주기를 바꿔 놓아도 이 버튼은 **기본값 결과**를
+                     보여주었다 — 화면의 입력과 표시된 숫자가 서로 다른 조건이다.
+
+                   ★ 오류도 서버 원문(한국어)을 그대로 띄우고 있었다. 합치면서
+                     번역 키로 바뀐다.
+                */}
+                <button
+                  className="btn btn--sm"
+                  disabled={btRun.busy}
+                  onClick={() => { setTab('backtest'); runBacktest(); }}
+                >
+                  <I.Chart size={13}/> {btRun.busy ? t('bt_running') : t('strat_run_backtest')}
+                </button>
                 {/*
                    알림 버튼은 배선할 대상이 없다 — 전략 신호 알림을 만드는
                    서버 기능이 없다. 실데이터에서는 감춘다.
@@ -1134,8 +1372,20 @@
               </>
             ) : (
               <>
-                <button className="btn btn--sm"><I.Chart size={13}/> Live Backtest</button>
-                <button className="btn btn--sm"><I.Bell size={13}/> Alert</button>
+                {/*
+                   ★ 이 버튼도 실제로 백테스트를 돌린다.
+
+                     전에는 아무 동작이 없었다. 서버에 실행 경로가 있는데 화면이
+                     부르지 않는 상태가 두 곳(여기와 아래 설정 카드)에 있었다.
+                */}
+                <button
+                  className="btn btn--sm"
+                  disabled={btRun.busy}
+                  onClick={() => { setTab('backtest'); runBacktest(); }}
+                >
+                  <I.Chart size={13}/> {btRun.busy ? t('bt_running') : t('bt_live_backtest')}
+                </button>
+                <button className="btn btn--sm"><I.Bell size={13}/> {t('col_alert')}</button>
                 <button className="btn btn--sm btn--primary"><I.Plus size={13}/> {t('strategy_detail_73a075')}</button>
               </>
             )}
@@ -1195,7 +1445,7 @@
             </window.SectionCard>
 
             <div className="grid-2">
-              <window.SectionCard title="Strategy Description">
+              <window.SectionCard title={t('strat_desc_title')}>
                 <p style={{fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8, margin: 0}}>
                   {t('strat_desc_1', { name: strategy.name, tag: strategy.tag })}
                   {t('strat_desc_2')}
@@ -1205,7 +1455,7 @@
                 </p>
               </window.SectionCard>
 
-              <window.SectionCard title="Risk Profile">
+              <window.SectionCard title={t('strat_risk_profile')}>
                 <div style={{display:'flex', flexDirection:'column', gap: 10}}>
                   {[
                     { k: 'Volatility', level: 3, max: 5 },
@@ -1234,91 +1484,241 @@
 
         {tab === 'backtest' && (
           <>
-            <window.SectionCard title="Backtest Configuration">
+            {/*
+               ★★ 백테스트 실행 기능은 없다.
+
+                 서버에 백테스트를 돌리는 엔드포인트가 없다(검색 결과 0건).
+                 지표는 서버가 **미리 계산해 둔 결과**를 읽어오는 것이다.
+                 그런데 이 화면에는 기간·초기자본을 넣고 'Run Backtest' 를
+                 누르는 양식이 있었고, 누르면 아무 일도 일어나지 않았다.
+                 값을 바꿔 눌러본 사용자는 아래 숫자가 자기 설정으로 계산된
+                 것이라고 믿는다.
+
+               ★ 양식을 지우지 않고(UI 계약) 무엇이 준비 중인지 밝힌다.
+                 입력은 읽기 전용으로 두어 "바꿨는데 반영이 안 된다" 는
+                 오해를 없앤다.
+            */}
+            <window.SectionCard
+              title={t('bt_config_title')}
+              subtitle={btRun.note || t('bt_config_sub')}
+            >
+              {/*
+                 ★★ 이 양식은 실제로 백테스트를 돌린다.
+
+                   전에는 입력이 전부 readOnly 이고 버튼이 disabled 였다. 서버에는
+                   `POST /api/strategies/:id/backtest` 가 이미 있었고 실제로 지표를
+                   계산해 돌려주는데, 화면이 부르지 않아서 "실행 API 가 없다" 고
+                   적어 두었던 것이다.
+
+                 ★ 봉 수(bars)로 구간을 정한다. 서버가 그 개수만큼 최근 캔들을
+                   받아 시험하므로, 날짜를 임의로 넣는 것보다 결과가 재현된다.
+                   시작·종료 날짜는 **결과에서 나온 실제 구간**을 보여준다 —
+                   요청한 구간과 실제 구간이 다를 수 있고(상장 이후 데이터만 존재),
+                   요청값을 그대로 보여주면 없는 기간을 시험한 것처럼 보인다.
+              */}
               <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 12}}>
-                <div className="input-group"><span className="input-group__label">Symbol</span><input defaultValue="BTC/USDT"/></div>
-                <div className="input-group"><span className="input-group__label">From</span><input type="date" defaultValue="2025-01-01"/></div>
-                <div className="input-group"><span className="input-group__label">To</span><input type="date" defaultValue="2026-08-01"/></div>
-                <div className="input-group"><span className="input-group__label">Initial Capital</span><input defaultValue="10000"/></div>
+                <div className="input-group">
+                  <span className="input-group__label">{t('fld_symbol')}</span>
+                  <input
+                    value={btForm.symbol}
+                    onChange={(e) => setBtForm({ ...btForm, symbol: e.target.value.toUpperCase() })}
+                  />
+                </div>
+                <div className="input-group">
+                  <span className="input-group__label">{t('bt_timeframe')}</span>
+                  <select
+                    className="input"
+                    value={btForm.timeframe}
+                    onChange={(e) => setBtForm({ ...btForm, timeframe: e.target.value })}
+                  >
+                    {['5m','15m','30m','1H','4H','1D'].map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <span className="input-group__label">{t('bt_bars')}</span>
+                  <input
+                    value={btForm.bars}
+                    onChange={(e) => setBtForm({ ...btForm, bars: e.target.value.replace(/[^0-9]/g, '') })}
+                  />
+                </div>
+                <div className="input-group">
+                  <span className="input-group__label">{t('bt_window')}</span>
+                  {/*
+                     실제로 시험된 구간. 요청값이 아니라 결과값이다.
+                     아직 돌리지 않았으면 '—' — 0 이나 오늘 날짜로 채우지 않는다.
+                  */}
+                  {/*
+                     ★ `window` 는 응답 **루트**에 있다(metrics 안이 아니다).
+
+                       원래 코드가 `metrics.window` 를 읽고 있어서 늘 '—' 였다.
+                       값이 없는 것과 자리를 잘못 찾은 것은 화면에서 똑같이 보이므로,
+                       실제 응답을 확인하고 나서야 드러났다.
+                  */}
+                  <input
+                    readOnly
+                    value={bt && bt.window && bt.window.fromTime
+                      ? `${new Date(bt.window.fromTime).toISOString().slice(0,10)} → ${new Date(bt.window.toTime).toISOString().slice(0,10)}`
+                      : t('dash')}
+                  />
+                </div>
               </div>
-              <button className="btn btn--primary" style={{marginTop: 12}}><I.Sparkles size={12}/> Run Backtest</button>
+              <button
+                className="btn btn--primary"
+                style={{marginTop: 12}}
+                disabled={btRun.busy || !btForm.symbol || !Number(btForm.bars)}
+                onClick={runBacktest}
+              >
+                <I.Sparkles size={12}/> {btRun.busy ? t('bt_running') : t('bt_run')}
+              </button>
+              {/*
+                 결과·실패를 화면에 남긴다. 토스트는 사라지고, 백테스트는
+                 몇 초 걸리므로 이용자가 그 사이 다른 곳을 보고 있을 수 있다.
+              */}
+              {btRun.error && (
+                <div className="auth-alert auth-alert--danger" style={{marginTop: 10}} role="status">
+                  <I.Alert size={12}/><div>{btRun.error}</div>
+                </div>
+              )}
+              {/*
+                 ★★ 아래 지표가 **어떤 요청의 결과인지** 밝힌다.
+
+                   실행이 실패하면 이전 결과가 화면에 남는다(지우면 이용자가 보고
+                   있던 것을 빼앗는다). 그런데 어느 심볼의 결과인지 적지 않으면,
+                   방금 넣은 심볼의 결과로 읽는다 — 실패한 요청의 숫자로 오해한다.
+              */}
+              {bt && (bt.symbol || bt.timeframe) && (
+                <div className="text-dim" style={{marginTop: 10, fontSize: 12}}>
+                  {t('bt_showing')} {bt.symbol || t('dash')} · {bt.timeframe || t('dash')}
+                  {bt.computedAt ? ` · ${new Date(bt.computedAt).toLocaleString(window.QTI18n.bcp47Of())}` : ''}
+                </div>
+              )}
             </window.SectionCard>
 
+            {/*
+               ★★ 전에는 이 네 칸 중 셋이 하드코딩이었다.
+
+                 `Total Return +142.4%` · `Sortino 3.42` · `Calmar 1.84` 는 고정
+                 문자열이고 Sharpe 만 실데이터였다. 진짜와 가짜가 한 줄에 섞여
+                 있어서, 하나가 실제 값이라는 것을 아는 사용자는 나머지도
+                 실제라고 읽는다. +142.4% 는 팔로우를 결정하게 만드는 숫자다.
+
+               ★ 지금은 서버가 주는 것만 표시한다.
+                 Sortino·Calmar 는 서버가 계산하지 않으므로 '—' 로 두고 이유를
+                 붙인다. 다른 지표로 대체하거나 비슷한 값을 만들어 넣지 않는다.
+            */}
             <div className="grid-4">
-              <window.KPICard label="Total Return" value="+142.4%" tone="long"/>
-              <window.KPICard label="Sharpe Ratio" value={strategy.sharpe.toFixed(2)}/>
-              <window.KPICard label="Sortino" value="3.42" tone="brand"/>
-              <window.KPICard label="Calmar" value="1.84"/>
+              <window.KPICard
+                label="Total Return"
+                value={m && Number.isFinite(m.totalReturnPct) ? `${m.totalReturnPct >= 0 ? '+' : ''}${m.totalReturnPct.toFixed(2)}%` : '—'}
+                tone={m && Number.isFinite(m.totalReturnPct) ? (m.totalReturnPct >= 0 ? 'long' : 'short') : undefined}
+                sub={m && Number.isFinite(m.totalReturnPct) ? undefined : t('bt_no_metric')}
+              />
+              <window.KPICard
+                label="Sharpe Ratio"
+                value={m && Number.isFinite(m.sharpe) ? m.sharpe.toFixed(2) : '—'}
+                sub={m && Number.isFinite(m.sharpe) ? undefined : t('bt_no_metric')}
+              />
+              <window.KPICard label="Sortino" value="—" sub={t('bt_metric_absent')}/>
+              <window.KPICard label="Calmar" value="—" sub={t('bt_metric_absent')}/>
             </div>
 
-            <window.SectionCard title="Monthly Returns">
-              <div style={{display:'grid', gridTemplateColumns:'repeat(12, 1fr)', gap: 2, padding: 8}}>
-                {Array.from({length: 12*2}).map((_, i) => {
-                  const val = Math.sin(i / 2) * 15 + Math.random() * 8 - 4;
-                  const alpha = 0.2 + Math.abs(val) / 20 * 0.6;
-                  const color = val >= 0 ? `oklch(72% 0.14 175 / ${alpha})` : `oklch(68% 0.22 355 / ${alpha})`;
-                  return (
-                    <div key={i} style={{aspectRatio: '1 / 1', background: color, borderRadius: 3, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize: 9, fontWeight: 600}}>
-                      {val >= 0 ? '+' : ''}{val.toFixed(1)}
-                    </div>
-                  );
-                })}
+            {/*
+               ★★ 월별 수익률 히트맵이 `Math.sin(i/2)*15 + Math.random()*8 - 4` 였다.
+
+                 렌더할 때마다 숫자가 바뀌었다. 같은 화면을 두 번 보면 다른
+                 성적이 나오는데, 그것이 눈에 띄지 않을 만큼 작은 칸이었다.
+                 서버는 월별 분해를 주지 않는다(metrics 는 구간 합계뿐).
+
+               ★ 만들지 않는다. 없다는 사실을 말한다.
+            */}
+            <window.SectionCard title={t('strat_monthly_returns')}>
+              <div style={{padding:'14px 16px', fontSize:11.5, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
+                {t('bt_monthly_absent')}
               </div>
             </window.SectionCard>
           </>
         )}
 
         {tab === 'trades' && (
-          <window.SectionCard title="Historical Signals" noPadding>
-            <window.DataTable
-              columns={[
-                { key:'date', label:'Date' },
-                { key:'sym', label:'Symbol' },
-                { key:'side', label:'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-                { key:'entry', label:'Entry', align:'right' },
-                { key:'exit', label:'Exit', align:'right' },
-                { key:'pnl', label:'PnL', align:'right', render: r => <span className={r.pnl>=0?'t-long':'t-short'} style={{fontWeight:500}}>{r.pnl>=0?'+':''}{r.pnl.toFixed(1)}%</span> },
-                { key:'dur', label:'Duration' },
-              ]}
-              rows={[
-                { date:'2026-07-30', sym:'BTC/USDT', side:'long',  entry:'67,285', exit:'68,432', pnl:+1.7, dur:'2h 14m' },
-                { date:'2026-07-28', sym:'BTC/USDT', side:'long',  entry:'67,840', exit:'67,280', pnl:-0.82, dur:'4h 32m' },
-                { date:'2026-07-26', sym:'BTC/USDT', side:'short', entry:'68,120', exit:'67,480', pnl:+0.94, dur:'6h 20m' },
-                { date:'2026-07-24', sym:'BTC/USDT', side:'long',  entry:'67,200', exit:'68,450', pnl:+1.86, dur:'8h 15m' },
-              ]}
-            />
+          /*
+             ★★ 전에는 하드코딩된 4건이 표에 있었다.
+
+               `2026-07-30 · BTC/USDT · long · 67,285 → 68,432 · +1.7% · 2h 14m`
+               같은 행이 고정 문자열이었다. 이 표는 "이 전략이 실제로 이렇게
+               거래했다" 로 읽히고, 승률 계산의 근거로 보인다.
+
+               서버 metrics 는 구간 합계(수익률·승률·MDD·Sharpe·거래수)만 준다.
+               개별 신호 이력을 주는 엔드포인트가 없다.
+
+             ★ 만들지 않는다. 대신 서버가 준 거래 횟수와 구간을 사실대로 보여준다.
+          */
+          <window.SectionCard title={t('strat_hist_signals')}>
+            <div style={{padding:'4px 2px', fontSize:11.5, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+              <div>{t('bt_signals_absent')}</div>
+              {m && Number.isFinite(m.tradeCount) && (
+                <div style={{marginTop:8, color:'var(--color-text-secondary)'}}>
+                  {t('bt_trade_count', { n: m.tradeCount })}
+                  {m.window && m.window.fromTime && m.window.toTime && (
+                    <> · {new Date(m.window.fromTime).toLocaleDateString()} – {new Date(m.window.toTime).toLocaleDateString()}</>
+                  )}
+                </div>
+              )}
+            </div>
           </window.SectionCard>
         )}
 
         {tab === 'settings' && (
-          <window.SectionCard title="Follow Settings">
+          /*
+             ★★ 이 화면이 가장 위험했다.
+
+               'Auto-copy' 스위치가 **켜진 상태**로 그려지고, 포지션 크기·동시
+               보유 수·손실 중단선까지 있었다. 서버는 팔로우에 대해
+               `autoExecution: false` 를 명시한다 — 신호를 복제하거나 주문을
+               제출하지 않는다. 즉 이 설정은 아무 데도 저장되지 않고 아무
+               동작도 하지 않는다.
+
+               사용자는 자동 매매가 켜졌다고 믿고 기다린다. 주문이 나갈 줄 알고
+               기다리면 기회를 놓치고, 반대로 밤에 자동으로 나갈까 봐 불안해한다.
+               둘 다 실제 손해다.
+
+             ★ 양식을 지우지 않고(UI 계약) 비활성으로 두고 사실을 밝힌다.
+          */
+          <window.SectionCard title={t('strat_follow_settings')} subtitle={t('bt_autocopy_absent')}>
             <div style={{display:'flex', flexDirection:'column', gap: 12}}>
-              <div className="input-group"><span className="input-group__label">Auto-copy</span><label className="switch" style={{marginLeft:'auto'}}><input type="checkbox" defaultChecked/><span className="switch__track"><span className="switch__thumb"/></span></label></div>
-              <div className="input-group"><span className="input-group__label">Position size</span><input defaultValue="100"/><span className="input-group__suffix">USDT</span></div>
-              <div className="input-group"><span className="input-group__label">Max concurrent</span><input defaultValue="3"/><span className="input-group__suffix">positions</span></div>
-              <div className="input-group"><span className="input-group__label">Stop copy at drawdown</span><input defaultValue="10"/><span className="input-group__suffix">%</span></div>
-              <button className="btn btn--primary">Save Settings</button>
+              <div className="input-group">
+                <span className="input-group__label">
+                  {t('fld_auto_copy')}
+                  <span className="qt-pending-mark">{t('sec_pending')}</span>
+                </span>
+                <label className="switch" style={{marginLeft:'auto'}} title={t('bt_autocopy_absent')}>
+                  <input type="checkbox" checked={false} disabled readOnly/>
+                  <span className="switch__track"><span className="switch__thumb"/></span>
+                </label>
+              </div>
+              <div className="input-group"><span className="input-group__label">{t('fld_position_size')}</span><input defaultValue="100" disabled/><span className="input-group__suffix">USDT</span></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_max_concurrent')}</span><input defaultValue="3" disabled/><span className="input-group__suffix">positions</span></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_stop_copy_dd')}</span><input defaultValue="10" disabled/><span className="input-group__suffix">%</span></div>
+              <button className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
             </div>
           </window.SectionCard>
         )}
 
         {tab === 'reviews' && (
-          <window.SectionCard title="Reviews" subtitle="2,140 followers · Avg 4.6/5">
-            <div style={{display:'flex', flexDirection:'column', gap: 12}}>
-              {[
-                { user:'J.K.', rating:5, comment:t('strategy_detail_411128'), date:'3d ago' },
-                { user:'S.N.', rating:4, comment:t('strategy_detail_c84624'), date:'1w ago' },
-                { user:'A.F.', rating:5, comment:t('strategy_detail_20ef84'), date:'2w ago' },
-              ].map((r, i) => (
-                <div key={i} style={{padding: 12, background: 'var(--color-bg-surface)', borderRadius: 6}}>
-                  <div style={{display:'flex', gap: 8, alignItems:'center', marginBottom: 4}}>
-                    <span style={{width:24, height:24, borderRadius:'50%', background:'var(--color-bg-elevated)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:10, fontWeight:600}}>{r.user}</span>
-                    <span style={{color:'var(--color-warning)'}}>{'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)}</span>
-                    <span style={{marginLeft:'auto', fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{r.date}</span>
-                  </div>
-                  <div style={{fontSize: 12, color: 'var(--color-text-secondary)'}}>{r.comment}</div>
-                </div>
-              ))}
+          /*
+             ★★ 리뷰 3건과 "2,140 followers · Avg 4.6/5" 가 하드코딩이었다.
+
+               `J.K. ★★★★★ 3d ago` 같은 항목이다. 존재하지 않는 사람들의
+               존재하지 않는 평가이고, 별점 평균은 팔로우 결정에 직접 쓰인다.
+               서버에 리뷰·별점 기능이 없다.
+
+             ★ 팔로워 수만 서버 값으로 보여주고(있으면), 평가는 없다고 말한다.
+          */
+          <window.SectionCard
+            title="Reviews"
+            subtitle={live && Number.isFinite(live.followers) ? t('bt_followers', { n: live.followers }) : undefined}
+          >
+            <div style={{padding:'4px 2px', fontSize:11.5, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
+              {t('bt_reviews_absent')}
             </div>
           </window.SectionCard>
         )}
@@ -1350,7 +1750,8 @@
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.myStrategies) return;
       api.myStrategies()
-        .then((r) => { setMine(r.data || []); setNote({ autoExecution: r.autoExecution, text: r.note }); })
+        // ★ 서버는 번역 키(noteKey)를 준다. 문장을 담으면 다국어 화면에 한국어가 새어 나간다.
+        .then((r) => { setMine(r.data || []); setNote({ autoExecution: r.autoExecution, key: r.noteKey }); })
         .catch(() => setMine([]));
     }, []);
     useEffect(() => { load(); }, [load]);
@@ -1386,7 +1787,7 @@
               <window.KPICard
                 label={t('my_autocopy')}
                 value={t('my_autocopy_off')}
-                sub={note && note.text ? note.text : undefined}
+                sub={note && note.key ? t(note.key) : undefined}
                 tone="warning"
               />
               {/* 팔로우는 거래가 아니므로 손익이 없다. 실손익은 /analytics 에 있다. */}
@@ -1403,11 +1804,12 @@
           )}
         </div>
 
-        <window.SectionCard title="Followed Strategies" noPadding={isLive && mine.length > 0}>
+        <window.SectionCard title={t('strat_followed')} noPadding={isLive && mine.length > 0}>
           {isLive && mine.length > 0 ? (
             <window.DataTable
               columns={[
-                { key:'name', label:t('my_col_strategy'), render: r => <strong>{r.name}</strong> },
+                /* ★ 번역 키가 있으면 그것으로. 없으면 원문(사전에 없는 전략). */
+                { key:'name', label:t('my_col_strategy'), render: r => <strong>{r.nameKey ? t(r.nameKey) : r.name}</strong> },
                 { key:'pair', label:t('my_col_basis'), render: r => (
                   <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.symbol} · {r.timeframe}</span>
                 ) },
@@ -1569,7 +1971,7 @@
                 <button
                   className={`btn btn--sm ${copied ? 'btn--primary' : ''}`}
                   disabled={!referralLink}
-                  onClick={() => { if (!referralLink) return; navigator.clipboard.writeText(referralLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  onClick={() => { if (!referralLink) return; window.QTCopy(referralLink, { onDone: () => { setCopied(true); setTimeout(() => setCopied(false), 2000); } }); }}
                 >
                   {copied ? <><I.Check size={12}/> {t('copied')}</> : <><I.Copy size={12}/> {t('copy')}</>}
                 </button>
@@ -1614,9 +2016,15 @@
                     if (navigator.share) {
                       navigator.share({ title: t('ref_share_title'), text: t('ref_share_text'), url: referralLink }).catch(() => {});
                     } else {
-                      navigator.clipboard.writeText(referralLink);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
+                      /*
+                         ★ 복사 실패를 삼키지 않는다. 전에는 프로미스를 그대로 두어
+                           권한이 거부되면 처리되지 않은 거부가 났고, 화면은 성공처럼
+                           보였다(실측: PAGEERROR Write permission denied). 이용자는
+                           빈 값을 붙여넣어 추천 귀속을 잃는다.
+                      */
+                      window.QTCopy(referralLink, {
+                        onDone: () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
+                      });
                     }
                   }}
                 ><I.Share size={12}/> {t('ref_share')}</button>
@@ -1633,7 +2041,7 @@
                 <a
                   className="btn btn--sm" style={{flex:1, textDecoration:'none', pointerEvents: referralLink ? undefined : 'none', opacity: referralLink ? 1 : 0.4}}
                   href={referralLink ? `mailto:?subject=${encodeURIComponent(t('ref_share_title'))}&body=${encodeURIComponent(t('ref_share_text') + '\n' + referralLink)}` : undefined}
-                ><I.Send size={12}/> Email</a>
+                ><I.Send size={12}/> {t('fld_email')}</a>
               </div>
             </div>
           </div>
@@ -1706,7 +2114,23 @@
                 </div>
               </div>
             </window.SectionCard>
-          ) : (
+          ) : (window.QTMockPolicy && window.QTMockPolicy.allowMockData && window.QTMockPolicy.allowMockData()) ? (
+          /*
+             ★★ 이 5단 등급표는 목업이다.
+
+               `Beginner 20% · Silver 25% · Gold 30%(CURRENT) · Platinum 35% ·
+               Diamond 40%` — 실제 제도에는 등급이 없다(서버는 sharePct 하나만
+               준다). 그런데 서버가 안 붙었거나 제도가 꺼져 있을 때 이 표가
+               나왔고, **"현재 Gold 30%" 라는 배지까지 붙었다.** 바로 위 카드가
+               "제도가 시작되지 않았습니다" 라고 말하는 동안 옆에서는 내 등급이
+               Gold 라고 알려주는 상태였다.
+
+               지급 비율은 돈에 관한 약속이다. 없는 등급을 보여주면 사용자가
+               그 비율을 기대하고 친구를 초대한다.
+
+             ★ 지금은 **디자인 미리보기에서만** 렌더한다(레이아웃 확인용).
+               실서비스에서는 아래 안내로 대체된다. 마크업은 지우지 않았다.
+          */
           <window.SectionCard title={t('referral_a0193f')}>
             <div style={{display:'flex', flexDirection:'column', gap: 12}}>
               {[
@@ -1727,6 +2151,16 @@
               ))}
             </div>
           </window.SectionCard>
+          ) : (
+            /*
+               실서비스에서 제도가 아직 열리지 않은 상태.
+               비율을 만들지 않고, 확정되면 여기에 표시된다는 사실만 알린다.
+            */
+            <window.SectionCard title={t('referral_a0193f')}>
+              <div style={{fontSize:11.5, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
+                {t('ref_rates_tbd')}
+              </div>
+            </window.SectionCard>
           )}
 
           <window.SectionCard title={t('referral_7932cf')}>
@@ -1920,8 +2354,63 @@
     }, [acct.version, acct.isLive]);
 
     const isLive = Boolean(btc || mine);
-    // 우리 등급 체계는 아직 없다. 등급을 만들어 붙이지 않는다.
-    const my30dVol = mine ? mine.volume : 42180000;
+    /*
+       ★★ 목업 거래량이 화면에 나오고 있었다.
+
+         `mine` 이 없을 때(거래소 키 미연결) `42180000` 을 그대로 썼다. 그래서
+         가입만 한 이용자에게도 **30일 거래량 $42.18M** 이 표시됐다. 자기 계정에
+         거래 기록이 없는 사람이 이 숫자를 보면 남의 계정을 보고 있다고 생각하거나,
+         우리 화면을 신뢰하지 않게 된다.
+
+       ★ 모르면 null 이다. 표시하는 쪽이 '—' 로 그린다 — 0 으로도 채우지 않는다.
+         0 은 "거래를 한 번도 안 했다" 는 사실 주장이고, 우리는 그것을 확인하지
+         못했다(키가 없어서 조회 자체를 못 했다).
+    */
+    const my30dVol = mine ? mine.volume : null;
+    /*
+       화면에 그릴 값. 실값이 없으면 '—' 다.
+
+       ★ 목업 미리보기(백엔드 없는 디자인 확인)에서만 예시 숫자를 쓴다. 판정은
+         QTMockPolicy 한 곳에서 한다 — 화면마다 따로 판단하면 어떤 화면은
+         목업을, 어떤 화면은 '—' 를 보여준다.
+    */
+    const mockOk = Boolean(window.QTMockPolicy && window.QTMockPolicy.allowMockData());
+
+    /*
+       내 고객 등급 (서버 계산).
+
+       ★★ 등급은 **실거래만** 센다(거래일·금액·횟수 + 추천 가입). 모의 거래는
+         우리 서버가 즉시 체결시키므로 등급에 넣으면 버튼 몇 번으로 최고 등급이 된다.
+
+       ★ 조회 실패는 null 로 남긴다 — "등급 없음" 과 "확인 못 함" 은 다르다.
+    */
+    const [tier, setTier] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.myTier) return undefined;
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) {
+        return undefined;
+      }
+      /*
+         ★ 로그인 상태가 아니면 부르지 않는다.
+
+           등급은 인증이 필요한 조회다. 로그인하지 않은 상태에서 부르면 401 이
+           브라우저 콘솔에 남고, 그것이 "이 화면에 오류가 있다" 로 보고된다 —
+           실제로 검증 스크립트가 그렇게 잡았다. 부를 수 없는 요청을 보내지 않는
+           것이 맞다.
+      */
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) {
+        return undefined;
+      }
+      let alive = true;
+      api.myTier()
+        .then((r) => { if (alive) setTier(r || null); })
+        .catch(() => { if (alive) setTier(null); });
+      return () => { alive = false; };
+    }, []);
+    const vol30dText = my30dVol !== null
+      ? '$' + fmtCompact(my30dVol)
+      : (mockOk ? '$' + fmtCompact(42180000) : t('dash'));
 
     /*
        실제로 운영 중인 제도.
@@ -1967,17 +2456,37 @@
             거래소 기본 수수료율. 등급 체계가 없으므로 '기본' 으로 표시한다 —
             존재하지 않는 등급('Pro')을 보여주면 사용자가 할인받는 줄 안다.
           */}
+          {/*
+             내 등급.
+
+             ★★ 전에는 실데이터 모드에서 '거래소 기본 요율' 만 보여줬다. 우리에게
+               등급 제도가 없었기 때문이고, 그때는 그것이 정직한 표시였다.
+               이제 제도가 있으므로 실제 등급을 보여준다.
+
+             ★ 세 상태를 구분한다:
+                 · 측정 불가(키 없음) → '—' + 안내
+                 · 등급 계산됨 → 등급 이름(번역 키)
+                 · 제도 미설정/조회 실패 → 거래소 기본 요율로 되돌아간다
+          */}
           <window.KPICard
-            label={isLive ? t('fee_exchange_default') : 'Current Tier'}
-            value={isLive ? (btc ? t('fee_tier_base') : '—') : 'Pro'}
-            sub={isLive
-              ? (btc ? `Maker ${pct(btc.makerFeeRate) || '—'} · Taker ${pct(btc.takerFeeRate) || '—'}` : t('fee_unavailable'))
-              : 'Maker 0.015% · Taker 0.040%'}
+            label={t('fee_my_tier')}
+            value={tier && tier.configured
+              ? (tier.unknown
+                ? t('dash')
+                : (tier.tier ? t(tier.tier.nameKey) : t('tier_name_starter')))
+              : (isLive ? (btc ? t('fee_tier_base') : t('dash')) : t('dash'))}
+            sub={tier && tier.configured
+              ? (tier.unknown
+                ? t('tier_unmeasurable')
+                : t('tier_from_live_trades'))
+              : (isLive && btc
+                ? `Maker ${pct(btc.makerFeeRate) || t('dash')} · Taker ${pct(btc.takerFeeRate) || t('dash')}`
+                : t('fee_unavailable'))}
             tone="brand"
           />
           <window.KPICard
             label="30d Volume"
-            value={'$' + fmtCompact(my30dVol)}
+            value={vol30dText}
             sub={mine ? t('fee_vol_note', { count: mine.fillCount }) : undefined}
           />
           <window.KPICard
@@ -2008,24 +2517,80 @@
         )}
 
         {/*
-          등급 진척도.
+          다음 등급까지.
 
-          우리 등급 체계가 아직 없다. 실데이터 모드에서 "VIP 까지 $8M 남음" 같은
-          진척도를 보여주면 존재하지 않는 혜택을 약속하는 셈이다.
-          그래서 실데이터일 때는 수수료가 어디서 결정되는지 설명으로 대체한다.
+          ★★ 전에는 이 블록이 미리보기 전용이었다 — 우리에게 등급 제도가 없었고,
+            "VIP 까지 $8M 남음" 을 보여주면 존재하지 않는 혜택을 약속하는 셈이었다.
+
+          ★ 이제 제도가 있다(거래일·금액·횟수 + 추천 가입). 서버가 **무엇이
+            부족한지** 항목별로 주므로 그것을 그대로 보여준다.
+
+          ★★ 추천 가입 조건은 **소급되지 않는다.** 이미 거래소 계정이 있던 고객은
+            채울 방법이 없다. 그 사실을 함께 밝힌다 — 채울 수 없는 목표를
+            보여주면 거짓 기대를 만든다.
         */}
-        {!isLive ? (
+        {tier && tier.configured && !tier.unknown && tier.next ? (
+          <window.SectionCard title={t('fee_next_tier', { tier: t(tier.next.nameKey) })}>
+            <div style={{display:'flex', flexDirection:'column', gap: 10}}>
+              {tier.next.missing.map((m) => {
+                const need = m.key === 'referral' ? null : Number(m.need);
+                const have = m.key === 'referral' ? null : Number(m.have || 0);
+                const pctDone = need && need > 0 ? Math.min(100, (have / need) * 100) : 0;
+                return (
+                  <div key={m.key} style={{display:'flex', flexDirection:'column', gap: 4}}>
+                    <div style={{display:'flex', justifyContent:'space-between', fontSize:12}}>
+                      <span>{t('tier_need_' + m.key)}</span>
+                      {m.key === 'referral' ? (
+                        <span style={{color:'var(--color-warning)'}}>{t('tier_need_referral_note')}</span>
+                      ) : (
+                        /*
+                           ★ 횟수·일수는 정수다. fmtCompact 는 소수 2자리를 붙여
+                             `12.00 / 50.00` 처럼 나온다 — 거래 12.00 건은 있을 수
+                             없는 표기다. 금액만 축약하고 개수는 정수로 쓴다.
+                        */
+                        <span>
+                          <strong>{m.key === 'volume' ? fmtCompact(have) : String(Math.round(have))}</strong>
+                          {' / '}
+                          {m.key === 'volume' ? fmtCompact(need) : String(Math.round(need))}
+                          {' '}({pctDone.toFixed(0)}%)
+                        </span>
+                      )}
+                    </div>
+                    {m.key !== 'referral' && (
+                      <div style={{height:8, background:'var(--color-bg-input)', borderRadius:999, overflow:'hidden'}}>
+                        <div style={{height:'100%', width: pctDone + '%', background:'var(--color-brand)'}}/>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/*
+                 ★ 상위 등급의 **요율**은 적지 않는다. 우리에게 수수료 재량이 없고
+                   요율은 거래소가 고객 계정 기준으로 정한다. 등급은 우리 제도이고
+                   요율은 거래소 것이다 — 섞으면 없는 할인을 약속한다.
+              */}
+              <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>
+                {t('tier_benefit_unset')}
+              </div>
+            </div>
+          </window.SectionCard>
+        ) : !isLive ? (
           <window.SectionCard title={t('fee_next_tier', { tier: 'VIP' })}>
             <div style={{display:'flex', flexDirection:'column', gap: 10}}>
               <div style={{display:'flex', justifyContent:'space-between', fontSize:12}}>
-                <span><strong>{fmtCompact(my30dVol)}</strong> / {fmtCompact(50000000)} USDT ({((my30dVol / 50000000) * 100).toFixed(1)}%)</span>
-                <span style={{color:'var(--color-text-tertiary)'}}>${fmtCompact(50000000 - my30dVol)} more</span>
+                {/*
+                   ★ 이 블록은 `!isLive`(백엔드 없는 디자인 미리보기)에서만 그려진다.
+                     그래서 예시 값을 여기서 명시한다 — 실값 변수를 쓰면 값이 없을 때
+                     NaN 과 '$NaN more' 가 화면에 나온다.
+                */}
+                <span><strong>{fmtCompact(42180000)}</strong> / {fmtCompact(50000000)} USDT ({((42180000 / 50000000) * 100).toFixed(1)}%)</span>
+                <span style={{color:'var(--color-text-tertiary)'}}>${fmtCompact(50000000 - 42180000)} more</span>
               </div>
               <div style={{height:10, background:'var(--color-bg-input)', borderRadius:999, overflow:'hidden'}}>
-                <div style={{height:'100%', width: Math.min(100, (my30dVol / 50000000) * 100) + '%', background: 'linear-gradient(90deg, var(--color-brand), var(--brand-accent-500))', transition: 'width 300ms ease'}}/>
+                <div style={{height:'100%', width: Math.min(100, (42180000 / 50000000) * 100) + '%', background: 'linear-gradient(90deg, var(--color-brand), var(--color-ai))'}}/>
               </div>
               <div style={{fontSize:11, color:'var(--color-text-tertiary)', display:'flex', justifyContent:'space-between'}}>
-                <span>Pro</span><span>VIP · Maker 0.015% · Taker 0.035%</span>
+                <span>{t('fee_tier_next_unknown')}</span>
               </div>
             </div>
           </window.SectionCard>
@@ -2085,7 +2650,7 @@
             </div>
           </window.SectionCard>
         ) : (
-          <window.SectionCard title="All Tiers" noPadding>
+          <window.SectionCard title={t('fee_all_tiers')} noPadding>
             {/* 디자이너 미리보기(백엔드 없음)에서는 원본 표를 그대로 유지한다. */}
             <window.DataTable
               columns={[

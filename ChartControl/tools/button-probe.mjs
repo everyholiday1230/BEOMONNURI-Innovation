@@ -29,7 +29,7 @@
  *
  * 쓰는 법
  *   node tools/button-probe.mjs                 # 전 라우트
- *   ROUTES=/analytics,/multi-chart node tools/button-probe.mjs
+ *   ROUTES=/analytics,/portfolio node tools/button-probe.mjs
  *   ROLE=user node tools/button-probe.mjs
  */
 
@@ -84,7 +84,7 @@ const ACCOUNTS = {
 
 const ALL_ROUTES = [
   // 아직 버튼을 눌러보지 않은 화면을 앞에 둔다.
-  '/analytics', '/multi-chart', '/ai-strategies', '/ai-strategies/my',
+  '/analytics', '/ai-strategies', '/ai-strategies/my',
   '/admin/design-ops', '/admin/ai-ops', '/admin/broadcast', '/admin/system',
   '/admin/risk', '/admin/assets', '/admin/fees', '/admin/trades',
   '/admin/users', '/admin/audit', '/admin/notices',
@@ -191,7 +191,7 @@ const same = (a, b) =>
 for (const route of ROUTES) {
   await page.goto(`${BASE}/index.html#${route}`, { waitUntil: 'networkidle', timeout: 60000 });
   // 차트가 있는 화면은 더 기다린다 — 렌더 전에 누르면 버튼이 없다.
-  await page.waitForTimeout(/trade|multi-chart/.test(route) ? 9000 : 4000);
+  await page.waitForTimeout(/trade/.test(route) ? 9000 : 4000);
 
   const buttons = await page.evaluate(() => {
     const out = [];
@@ -300,7 +300,7 @@ for (const route of ROUTES) {
     const nowHash = await page.evaluate(() => location.hash);
     if (nowHash !== `#${route}`) {
       await page.goto(`${BASE}/index.html#${route}`, { waitUntil: 'networkidle', timeout: 60000 });
-      await page.waitForTimeout(/trade|multi-chart/.test(route) ? 6000 : 2500);
+      await page.waitForTimeout(/trade/.test(route) ? 6000 : 2500);
     }
   }
 

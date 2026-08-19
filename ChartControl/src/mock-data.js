@@ -247,6 +247,31 @@
         { id: 'trades',    type: 'recentTrades',x: 19, y: 12, w: 5,  h: 4 },
       ]
     },
+    /*
+       2분할 차트 — 거래 화면 안에서 두 종목을 나란히 본다.
+
+       왜 별도 페이지(/multi-chart)가 아니라 프리셋인가
+         /multi-chart 로 나가면 주문 패널과 포지션이 없다. 두 종목을 비교하는
+         이유는 그중 하나를 거래하기 위해서인데, 비교하다가 주문하려면 화면을
+         떠나야 했고 그 사이에 가격이 움직인다.
+
+       구성
+         위쪽에 차트 둘(왼쪽이 활성 심볼, 오른쪽은 위젯이 따로 기억한다),
+         아래에 포지션과 주문 패널. marketWatch 를 빼서 차트 폭을 확보했다 —
+         심볼은 각 차트 머리의 버튼으로 바꾼다.
+    */
+    'dual-chart': {
+      id: 'dual-chart',
+      name: 'Dual Chart',
+      descKey: 'preset_desc_dual',
+      cols: 24,
+      widgets: [
+        { id: 'chart',     type: 'chart',      x: 0,  y: 0,  w: 12, h: 10 },
+        { id: 'chart2',    type: 'miniChart',  x: 12, y: 0,  w: 12, h: 10 },
+        { id: 'positions', type: 'positions',  x: 0,  y: 10, w: 14, h: 6 },
+        { id: 'orderEntry',type: 'orderEntry', x: 14, y: 10, w: 10, h: 6 },
+      ]
+    },
     'multi-chart': {
       id: 'multi-chart',
       name: 'Multi-Chart',

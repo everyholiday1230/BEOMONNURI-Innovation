@@ -135,9 +135,56 @@ export interface ApiEnv {
    * 일어나지만 귀속이 안 돼 수익이 0 이 된다. 조용히 새는 종류의 손실이다.
    */
   exchangeReferralUrls: Readonly<Record<string, string>>;
+  /**
+   * 거래소별 추천 **코드**. `EXCHANGE_REFERRAL_CODE_<거래소ID>` 로 설정한다.
+   * 전용 변수 `KUCOIN_REFERRAL_CODE` 가 있으면 그쪽이 이긴다.
+   *
+   * 예: `EXCHANGE_REFERRAL_CODE_KUCOIN=CXE8HTY1`
+   *
+   * ★ 링크가 있는데 코드도 따로 두는 이유
+   *   이용자가 거래소 **모바일 앱**에서 가입하면 우리 링크를 열지 않는다. 그때
+   *   귀속시킬 유일한 방법이 가입 화면에 코드를 손으로 넣는 것이다. 코드를
+   *   보여주지 않으면 그 경로로 가입한 사람은 정상 가입되고 리베이트만 0 이 된다
+   *   — 화면에 오류가 없으니 알아채지 못한다.
+   *
+   * ★ 형식을 제한한다. 이 값은 화면에 그대로 그려지고 복사 버튼에 실린다.
+   */
+  exchangeReferralCodes: Readonly<Record<string, string>>;
   kucoinBrokerPartner: string;
   kucoinBrokerKey: string;
   kucoinBrokerName: string;
+  /*
+     현물 브로커 자격증명 (선물과 다른 값이 발급된다).
+
+     비어 있으면 현물 주문에 브로커 헤더를 붙이지 않는다. 선물 값으로
+     대체하지 않는다 — 다른 상품 자격증명으로 서명하면 거래가 우리에게
+     귀속되지 않으면서 오류도 나지 않는다(리베이트만 0원이 된다).
+  */
+  kucoinBrokerSpotPartner: string;
+  kucoinBrokerSpotKey: string;
+  kucoinBrokerSpotName: string;
+  /*
+     KuCoin Fast API (OAuth 2.0).
+
+     ★ 이용자가 KuCoin 에서 키를 손으로 만들지 않고, 한 번의 승인으로 키가
+       자동 발급되어 우리에게 연결되는 기능이다.
+
+     ★★ `client_id` 는 브로커 승인 통보에 들어 있지 않다. KuCoin 폼에
+       (1) Fast API 요청용 서버 IP 목록 (2) 거래용 서버 IP 목록
+       (3) OAuth 로그인 후 Redirect URL 을 제출하면 별도로 발급된다.
+       그래서 브로커 자격증명과 별개 값이다.
+
+     ★ 셋 중 하나라도 비어 있으면 기능을 켜지 않는다(fail-closed). 반쯤 설정된
+       상태로 켜면 이용자가 KuCoin 까지 갔다가 콜백에서 실패한다 — 그 사이
+       KuCoin 계정에는 우리 이름의 키가 만들어져 남는다.
+  */
+  kucoinOauthClientId: string;
+  /** 콜백 주소. KuCoin 에 제출한 값과 **정확히 같아야** 한다(문자 하나 다르면 거부된다). */
+  kucoinOauthRedirectUri: string;
+  /** OAuth 로그인/토큰 교환 기준 주소. 지역 사이트를 쓰는 경우에만 바꾼다. */
+  kucoinOauthBase: string;
+  /** 키 발급 엔드포인트. 신규 파트너는 v2(cyber-truck-vault)를 쓴다. */
+  kucoinOauthApiKeyPath: string;
   /** 공개 REST 레이트리밋. KuCoin 문서상 12회/2초이므로 기본 5rps. */
   kucoinRestMaxRps: number;
   kucoinRestBurst: number;
@@ -482,9 +529,83 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
 
       return Object.freeze(out);
     })(),
+    /*
+       거래소별 추천 코드 수집. URL 과 같은 규칙을 따른다.
+
+       ★ 링크와 코드가 어긋나면 어느 쪽으로 가입했는지에 따라 귀속이 갈린다.
+         그래서 두 값을 같은 곳(환경설정)에서 읽고, 형식이 틀리면 없는 것으로 본다.
+         틀린 코드는 없는 코드보다 나쁘다 — 우리 이용자를 남에게 귀속시킨다.
+    */
+    exchangeReferralCodes: (() => {
+      const out: Record<string, string> = {};
+      /*
+         화면에 그대로 그려지는 값이므로 문자 종류를 제한한다.
+         공백·꺾쇠·따옴표가 섞인 값이 통과하면 그것을 렌더하는 자리가 곧
+         주입 지점이 된다. 거래소 추천 코드는 영숫자와 -_ 로 충분하다.
+      */
+      const safeCode = (raw: string | undefined): string => {
+        const v = raw?.trim() ?? '';
+        if (!v) return '';
+        return /^[A-Za-z0-9_-]{2,32}$/.test(v) ? v : '';
+      };
+
+      const PREFIX = 'EXCHANGE_REFERRAL_CODE_';
+      for (const [k, v] of Object.entries(env)) {
+        if (!k.startsWith(PREFIX)) continue;
+        const id = k.slice(PREFIX.length).toLowerCase();
+        const code = safeCode(v as string | undefined);
+        if (id && code) out[id] = code;
+      }
+
+      // 전용 변수가 접두어 설정을 이긴다 (URL 쪽과 같은 우선순위).
+      const kucoinCode = safeCode(env.KUCOIN_REFERRAL_CODE);
+      if (kucoinCode) out.kucoin = kucoinCode;
+
+      return Object.freeze(out);
+    })(),
+    /*
+       ---- KuCoin Broker Pro 자격증명 ----
+
+       ★★ KuCoin 은 **현물과 선물에 서로 다른 자격증명**을 발급한다.
+
+         실제 발급 형태(2026-08 승인 통보):
+           Spot    partner=…  broker-key=…  broker-name=…
+           Futures partner=…  broker-key=…  broker-name=…
+
+         파트너 서명은 `base64(hmac_sha256(brokerKey, ts + partner + apiKey))`
+         이므로, 선물 주문에 현물 자격증명으로 서명하면 서명 자체는 만들어지지만
+         **그 거래가 우리에게 귀속되지 않는다.** 오류도 아니고 화면도 정상이라
+         "리베이트가 0원" 으로만 나타난다 — 가장 늦게 발견되는 종류의 손실이다.
+         (KC-API-PARTNER-VERIFY=true 를 켜면 서명 불일치는 400201 로 즉시 드러나지만,
+         유효한 다른 상품 자격증명은 불일치가 아니다.)
+
+       ★ 기존 이름(KUCOIN_BROKER_*)은 **선물** 자격증명으로 유지한다. 지금 실제로
+         쓰는 경로가 선물이고, 이미 배포 문서와 검사 도구가 그 이름을 참조한다.
+         현물은 KUCOIN_BROKER_SPOT_* 로 따로 받는다.
+
+       ★ 현물 값이 비어 있으면 선물 값으로 대체하지 **않는다.** 대체하면 위에서
+         말한 "조용히 귀속 안 됨" 이 그대로 일어난다. 없으면 없는 상태로 둔다.
+    */
     kucoinBrokerPartner: env.KUCOIN_BROKER_PARTNER?.trim() ?? '',
     kucoinBrokerKey: env.KUCOIN_BROKER_KEY?.trim() ?? '',
     kucoinBrokerName: env.KUCOIN_BROKER_NAME?.trim() ?? '',
+    kucoinBrokerSpotPartner: env.KUCOIN_BROKER_SPOT_PARTNER?.trim() ?? '',
+    kucoinBrokerSpotKey: env.KUCOIN_BROKER_SPOT_KEY?.trim() ?? '',
+    kucoinBrokerSpotName: env.KUCOIN_BROKER_SPOT_NAME?.trim() ?? '',
+    /*
+       Fast API (OAuth). 값이 없으면 기능이 꺼진 상태로 동작한다.
+
+       ★ 기본 경로는 문서(2026-07 개정) 기준이다.
+         · 로그인:       {base}/oauth?response_type=code&client_id=…
+         · 토큰 교환:    {base}/_oauth/access-token
+         · 키 발급(v2):  {base}/_oauth/resource/cyber-truck-vault/v2/outer/api-key/add
+         구버전(ucenter) 경로는 기존 파트너용이며 우리는 v2 를 쓴다.
+    */
+    kucoinOauthClientId: env.KUCOIN_OAUTH_CLIENT_ID?.trim() ?? '',
+    kucoinOauthRedirectUri: env.KUCOIN_OAUTH_REDIRECT_URI?.trim() ?? '',
+    kucoinOauthBase: env.KUCOIN_OAUTH_BASE?.trim() || 'https://www.kucoin.com',
+    kucoinOauthApiKeyPath: env.KUCOIN_OAUTH_APIKEY_PATH?.trim()
+      || '/_oauth/resource/cyber-truck-vault/v2/outer/api-key/add',
     kucoinRestMaxRps: numberFromEnv(env.KUCOIN_REST_MAX_RPS, 5, 1, 12),
     kucoinRestBurst: numberFromEnv(env.KUCOIN_REST_BURST, 10, 1, 30),
     // Phase 4 — AI. SAFE DEFAULTS: disabled, mock provider, store off. Models are config-driven (not

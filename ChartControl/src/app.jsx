@@ -35,9 +35,11 @@
   /**
    * 기본 언어를 브라우저 설정에서 결정한다.
    *
-   * 해외 우선 출시이므로 기본은 영어다. 다만 한국어 브라우저에서는 한국어를
-   * 보여주는 것이 맞으므로 navigator.language 를 본다. 사용자가 Tweaks 에서
-   * 직접 바꾸면 그 선택이 localStorage 에 저장되어 이 함수보다 우선한다.
+   * 해외 우선 출시이므로 기본은 영어다. 브라우저 설정이 **등록된 서비스 언어**
+   * (영어·일본어·중국어) 중 하나와 맞으면 그 언어로 시작한다. 맞는 것이 없으면
+   * 영어다 — 한국어 브라우저도 영어로 시작한다(한국어는 서비스 언어가 아니다).
+   * 사용자가 Tweaks 에서 직접 바꾸면 그 선택이 localStorage 에 저장되어 이
+   * 함수보다 우선한다.
    */
   function detectDefaultLang() {
     // 언어 후보를 하드코딩하지 않는다. i18n 레지스트리에 등록된 언어와
@@ -72,8 +74,22 @@
       root.dataset.longshort = state.longshort;
       root.dataset.density = state.density;
       // 언어는 i18n 이 단일 출처다. setLocale 이 document lang 도 갱신한다.
-      if (window.QTI18n) window.QTI18n.setLocale(state.lang);
-      else root.setAttribute('lang', state.lang);
+      if (window.QTI18n) {
+        /*
+           ★ setLocale 은 등록되지 않은 언어를 폴백으로 정규화하고 **실제로 적용된
+             값**을 돌려준다. 그 값을 저장 상태에 되써야 한다.
+
+             되쓰지 않으면 화면 문장은 영어인데 헤더 버튼에는 저장된 코드가 그대로
+             찍힌다. 한국어를 서비스 언어에서 제외한 뒤, 이미 lang='ko' 를 저장한
+             브라우저가 정확히 그 상태가 된다 — 영어 화면에 KO 표시.
+        */
+        const applied = window.QTI18n.setLocale(state.lang);
+        if (applied && applied !== state.lang) {
+          setState((s) => (s.lang === applied ? s : { ...s, lang: applied }));
+        }
+      } else {
+        root.setAttribute('lang', state.lang);
+      }
     }, [state]);
     const set = useCallback((partial) => setState(s => ({ ...s, ...partial })), []);
     return [state, set];
@@ -235,6 +251,29 @@
     const [tweaksOpen, setTweaksOpen] = useState(false);
 
     /*
+       언어 드롭다운 열림 상태.
+
+       ★ 바깥을 누르거나 Esc 로 닫는다. 안 닫으면 좁은 화면에서 메뉴가 다른
+         버튼 위에 남아 그 버튼을 누를 수 없게 된다.
+    */
+    const [langOpen, setLangOpen] = useState(false);
+    useEffect(() => {
+      if (!langOpen) return undefined;
+      const onDown = (e) => {
+        // 메뉴 안(자기 래퍼 안)을 누른 것이면 닫지 않는다.
+        if (e.target && e.target.closest && e.target.closest('.qt-langwrap')) return;
+        setLangOpen(false);
+      };
+      const onKey = (e) => { if (e.key === 'Escape') setLangOpen(false); };
+      document.addEventListener('mousedown', onDown);
+      document.addEventListener('keydown', onKey);
+      return () => {
+        document.removeEventListener('mousedown', onDown);
+        document.removeEventListener('keydown', onKey);
+      };
+    }, [langOpen]);
+
+    /*
        사이드바 접기·고정 상태.
 
        QTNav 가 유일한 출처다. 거래 화면과 일반 페이지가 같은 값을 봐야
@@ -281,17 +320,80 @@
        실제로 잊었다. 주소가 상태를 결정하게 하면 어느 경로로 들어와도
        같은 화면이 나온다(주소 복사·새로고침·뒤로가기 포함).
     */
-    const QUERY_PRESET = { ai: 'ai-workspace', 'multi-chart': 'multi-chart', chart: 'chart-focus' };
+    /*
+       짧은 별칭. 링크에 쓰기 편한 이름을 실제 프리셋 id 로 옮긴다.
+
+       ★ 별칭에 없는 값이라도 **실제 프리셋 id 이면 그대로 받아들인다.**
+         전에는 이 표에 있는 세 개만 동작했고, 프리셋을 추가할 때마다 여기에
+         한 줄 넣는 것을 잊으면 `?workspace=<새 프리셋>` 이 조용히 무시됐다
+         (실제로 dual-chart 를 추가하고 그렇게 됐다). 표를 잊어도 동작하게
+         한다 — 잊을 수 있는 곳을 하나 줄인다.
+    */
+    /*
+       ★ `multi` 별칭은 남긴다 — 멀티차트 **탭**은 없어졌지만 같은 이름의
+         레이아웃 프리셋은 그대로 있고, 공유된 옛 링크가 그 배치를 연다.
+    */
+    const QUERY_PRESET_ALIAS = { ai: 'ai-workspace', chart: 'chart-focus', multi: 'multi-chart', dual: 'dual-chart' };
+    function presetFromQuery(v) {
+      if (!v) return null;
+      const key = String(v);
+      if (QUERY_PRESET_ALIAS[key]) return QUERY_PRESET_ALIAS[key];
+      const presets = window.QT && window.QT.LAYOUT_PRESETS;
+      return presets && presets[key] ? key : null;
+    }
+    /*
+       ★★ 쿼리로 들어온 프리셋은 **일시적**이다 — 되돌려야 한다.
+
+         전에는 적용만 하고 복귀 경로가 없었다. 그래서 `?workspace=ai` 로 한 번
+         들어가면 그 배치가 영구히 남았고, 사이드바에서 `Trade` 를 눌러도
+         **화면이 그대로**였다(주소만 바뀐다). 이용자에게는 "탭을 눌러도 아무
+         반응이 없다" 로 보인다 — 실제로 그렇게 신고받았다.
+
+       ★ 이용자가 그 사이에 직접 프리셋을 바꿨으면 복귀하지 않는다. 명시적인
+         선택이 저장된 기억보다 우선한다 — 아니면 이용자가 고른 배치를 우리가
+         되돌려 버린다.
+    */
+    const queryPresetRef = useRef({ applied: null, restoreTo: null });
     useEffect(() => {
-      const wanted = QUERY_PRESET[route.query.workspace] || QUERY_PRESET[route.query.preset];
-      if (!wanted) return;
-      // 이미 그 프리셋이면 아무것도 하지 않는다 — 무한 갱신을 막는다.
-      if (tweaks.presetId === wanted) return;
-      setTweaks({ presetId: wanted });
+      const wanted = presetFromQuery(route.query.workspace) || presetFromQuery(route.query.preset);
+
+      if (wanted) {
+        if (tweaks.presetId === wanted) return;
+        // 돌아갈 곳을 적어 둔다. 이미 적어 뒀으면 덮지 않는다(중첩 이동).
+        if (queryPresetRef.current.restoreTo === null) {
+          queryPresetRef.current.restoreTo = tweaks.presetId;
+        }
+        queryPresetRef.current.applied = wanted;
+        setTweaks({ presetId: wanted });
+        return;
+      }
+
+      // 쿼리가 없어졌다 — 우리가 적용한 프리셋이 아직 그대로면 되돌린다.
+      const memo = queryPresetRef.current;
+      if (memo.applied && memo.restoreTo && tweaks.presetId === memo.applied) {
+        const back = memo.restoreTo;
+        queryPresetRef.current = { applied: null, restoreTo: null };
+        setTweaks({ presetId: back });
+        return;
+      }
+      /*
+         ★ 이용자가 직접 다른 프리셋을 골랐으면 기억을 버린다. 남겨 두면
+           나중에 엉뚱한 시점에 되돌려 버린다.
+      */
+      if (memo.applied && tweaks.presetId !== memo.applied) {
+        queryPresetRef.current = { applied: null, restoreTo: null };
+      }
     }, [route.query.workspace, route.query.preset, tweaks.presetId]);
 
     // Layout engine
     const engine = window.useLayoutEngine(tweaks.presetId);
+    /*
+       ★ 패널을 접거나 펴면 다시 그려야 한다. 이 구독이 없으면 접기 버튼을
+         눌러도 격자가 그대로 남는다(공간이 이웃에게 넘어가지 않는다).
+    */
+    if (window.QTPanelState && window.QTPanelState.useCollapsedVersion) {
+      window.QTPanelState.useCollapsedVersion();
+    }
     useEffect(() => {
       if (engine.presetId !== tweaks.presetId) engine.applyPreset(tweaks.presetId);
     }, [tweaks.presetId]);
@@ -816,16 +918,40 @@
     const bodyRef = useRef(null);
     const isBeginner = !tweaks.pro;
 
+    /*
+       AI 코파일럿에 넘기는 차트 맥락.
+
+       ★ 활성 지표는 **차트가 스스로 알려준 것**만 쓴다.
+
+         코파일럿의 맥락 칩에 `Indicators · MA20 · MA60 · MA120` 이 박혀 있었다.
+         사용자가 무엇을 켜 두었는지와 무관한 글자다. 사용자는 그 칩을 보고
+         "AI 가 이 지표들을 보고 있다" 고 이해하므로, 사실과 다르면 대화의 전제가
+         틀어진다.
+
+       ★ 차트 인스턴스는 ChartWidget 안에만 있다(getChart 는 여기서 접근할 수
+         없다). 그래서 차트가 지표를 바꿀 때 QTChartState 에 적어 두고, 여기서는
+         그것을 읽는다. 읽지 못하면 null 이며, 화면은 칩을 그리지 않는다 —
+         빈 값을 '없음' 으로 적으면 "하나도 켜지 않았다" 로 읽힌다.
+    */
+    const chartIndicators = window.QTChartState && window.QTChartState.useIndicators
+      ? window.QTChartState.useIndicators()
+      : null;
     const chartContext = useMemo(() => ({
       symbol: market.base + '/' + market.quote,
       tf: timeframe,
       price: lastPrice,
       candles,
-    }), [market, timeframe, lastPrice, candles]);
+      indicators: chartIndicators,
+    }), [market, timeframe, lastPrice, candles, chartIndicators]);
 
     // ---- shellProps for new-page components ----
     const shellProps = {
       activePath: route.path,
+      /*
+         주소의 쿼리. 화면이 `?section=pricing` 처럼 주소로 전달된 의도를 읽을 수
+         있어야 한다 — 공유된 링크가 약속한 자리를 보여주려면 필요하다.
+      */
+      query: route.query,
       // 서버 세션 등급. 비로그인이면 null 이다 — 'user' 로 가정하지 않는다.
       role: auth.role,
       // 등급을 아직 확인 중인지. 화면이 권한 판단을 미룰 수 있게 넘긴다.
@@ -866,7 +992,7 @@
       '/terms', '/privacy', '/risk', '/security',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
-      '/portfolio', '/analytics', '/multi-chart',
+      '/portfolio', '/analytics',
       '/wallet', '/wallet/deposit', '/wallet/withdraw', '/wallet/transactions',
       '/referral', '/points', '/fees', '/help', '/settings', '/notifications', '/order-history',
       '/admin', '/admin/users', '/admin/users/detail', '/admin/trades', '/admin/ai-ops',
@@ -1186,52 +1312,85 @@
                 <span style={{position:'absolute', top:4, right:4, width:6, height:6, borderRadius:999, background: riskAlerts.some(a=>a.level==='danger') ? 'var(--color-danger)' : 'var(--color-warning)'}}/>
               )}
             </button>
-            <button className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title="Toggle theme">
+            <button className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title={t('toggle_theme')}>
               {tweaks.theme === 'dark' ? <I.Moon size={14}/> : <I.Sun size={14}/>}
             </button>
-            <button
-              className="header-tool"
-              title={t('lang_switch_title')}
-              onClick={() => {
-                /*
-                   ★★ 원래 `lang === 'ko' ? 'en' : 'ko'` 로 **두 언어만** 토글했다.
-                     그래서 일본어 사전을 등록해도 이 버튼으로는 갈 수 없었다.
-                     언어를 추가할 때마다 이 줄을 고쳐야 하는 구조였다.
+            {/*
+               언어 선택.
 
-                   ★ i18n 레지스트리(`available()`)를 단일 출처로 순환한다.
-                     `src/locales/<code>.js` 를 추가하고 index.html 에 한 줄
-                     넣으면 이 버튼에 자동으로 포함된다.
-                */
-                const list = window.QTI18n && window.QTI18n.available
-                  ? window.QTI18n.available().map((x) => x.code)
-                  : ['en', 'ko'];
-                if (list.length === 0) return;
-                const cur = list.indexOf(tweaks.lang);
-                setTweaks({ lang: list[(cur + 1) % list.length] });
-              }}
-            >
-              <I.Globe size={13}/>
-              <span style={{fontFamily:'var(--font-mono)', fontSize: 11}}>{tweaks.lang.toUpperCase()}</span>
-            </button>
+               ★★ 전에는 누를 때마다 **한 칸씩 순환**했다. 언어가 3개라 원하는
+                 언어까지 최대 2번 눌러야 하고, 지나치면 한 바퀴를 더 돌았다.
+                 목록을 펼쳐 바로 고른다.
+
+               ★ 목록은 i18n 레지스트리(`available()`)가 단일 출처다.
+                 `src/locales/<code>.js` 를 추가하고 index.html 에 한 줄 넣으면
+                 여기에 자동으로 나타난다 — 이 파일을 고칠 필요가 없다.
+            */}
+            <div className="qt-langwrap">
+              <button
+                className="header-tool"
+                title={t('lang_switch_title')}
+                aria-haspopup="listbox"
+                aria-expanded={langOpen}
+                onClick={() => setLangOpen((v) => !v)}
+              >
+                <I.Globe size={13}/>
+                <span style={{fontFamily:'var(--font-mono)', fontSize: 11}}>{tweaks.lang.toUpperCase()}</span>
+              </button>
+              {langOpen && (
+                <div className="qt-langmenu" role="listbox" aria-label={t('lang_switch_title')}>
+                  {(window.QTI18n && window.QTI18n.available
+                    ? window.QTI18n.available()
+                    // i18n 이 아직 없을 때의 최소 폴백. 없는 언어를 넣지 않는다.
+                    : [{ code: 'en', label: 'English' }]
+                  ).map((x) => {
+                    const code = typeof x === 'string' ? x : x.code;
+                    // 사전이 자기 이름을 자기 언어로 준다(label). 없으면 코드로.
+                    const label = (typeof x === 'object' && x.label) || code.toUpperCase();
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        className="qt-langmenu__opt"
+                        role="option"
+                        aria-checked={tweaks.lang === code}
+                        aria-selected={tweaks.lang === code}
+                        onClick={() => { setTweaks({ lang: code }); setLangOpen(false); }}
+                      >
+                        <span>{label}</span>
+                        <span className="qt-langmenu__code">{code.toUpperCase()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {/*
               디자인 시스템·핸드오프·라이브러리 — 개발/디자인 문서다.
 
-              일반 사용자에게 보일 이유가 없다. 내부 컴포넌트 명세와 미구현
-              상태가 그대로 적혀 있어 무엇이 안 됐는지 외부에 드러난다.
-              승인된 방침(개발용은 super·admin 만)에 맞춰 게이팅한다.
-              백엔드 없는 디자인 미리보기에서는 그대로 보인다 — 디자이너가
-              쓰는 도구이기 때문이다.
+              ★ 실서비스 화면에서는 관리자에게도 보이지 않는다.
+
+                전에는 super·admin 에게 보여줬다. 그런데 이 문서들은 컴포넌트
+                명세와 "무엇이 아직 안 됐는지" 를 그대로 담고 있어 운영자가
+                볼 이유가 없고, 헤더 폭을 3개 항목만큼 차지해 실제로 쓰는
+                버튼(알림·테마·입금)을 좁은 화면에서 밀어냈다.
+
+                파일(design-system.html 등)은 지우지 않는다 — 디자이너 산출물이고
+                주소로 직접 열 수 있다. 여기서는 링크만 내린다.
+
+              ★ `auth.offline` 은 백엔드가 없는 디자인 미리보기다. 그 환경에서는
+                이 링크가 본래 용도로 쓰이므로 남긴다.
             */}
-            {(auth.offline || auth.role === 'super' || auth.role === 'admin') && (
+            {auth.offline && (
               <>
-                <a className="header-tool" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System">
-                  <I.Book size={13}/><span>Design</span>
+                <a className="header-tool" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System" /* qt-i18n-ignore: 개발자 전용 링크 — auth.offline 에서만 보인다 */>
+                  <I.Book size={13}/><span /* qt-i18n-ignore: 개발자 전용 링크 (auth.offline 에서만 보인다) */>Design</span>
                 </a>
-                <a className="header-tool" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff">
-                  <I.LayoutIcon size={13}/><span>Handoff</span>
+                <a className="header-tool" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff" /* qt-i18n-ignore: 개발자 전용 링크 — auth.offline 에서만 보인다 */>
+                  <I.LayoutIcon size={13}/><span /* qt-i18n-ignore: 개발자 전용 링크 (auth.offline 에서만 보인다) */>Handoff</span>
                 </a>
-                <a className="header-tool" href="design-library/index.html" target="_blank" rel="noopener noreferrer" title="Design Library">
-                  <I.Layers size={13}/><span>Library</span>
+                <a className="header-tool" href="design-library/index.html" target="_blank" rel="noopener noreferrer" title="Design Library" /* qt-i18n-ignore: 개발자 전용 링크 — auth.offline 에서만 보인다 */>
+                  <I.Layers size={13}/><span /* qt-i18n-ignore: 개발자 전용 링크 (auth.offline 에서만 보인다) */>Library</span>
                 </a>
               </>
             )}
@@ -1315,16 +1474,17 @@
                   <span className="sb-item-v2__icon"><I.Cog size={15}/></span>
                   {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('tweaks')}</span>}
                 </button>
-                {/* 디자인 문서는 내부용 — super·admin 과 디자인 미리보기에서만. */}
-                {(auth.offline || auth.role === 'super' || auth.role === 'admin') && (
+                {/* 디자인 문서는 개발·디자인용 — 백엔드 없는 미리보기에서만 보인다
+                    (헤더 쪽과 같은 판단. 실서비스에서는 관리자에게도 내린다). */}
+                {auth.offline && (
                   <>
-                    <a className="sb-item-v2" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System">
+                    <a className="sb-item-v2" href="design-system.html" target="_blank" rel="noopener noreferrer" title="Design System" /* qt-i18n-ignore: 개발자 전용 링크 — auth.offline 에서만 보인다 */>
                       <span className="sb-item-v2__icon"><I.Book size={15}/></span>
-                      {!navPrefs.collapsed && <span className="sb-item-v2__label">Design System</span>}
+                      {!navPrefs.collapsed && <span className="sb-item-v2__label" /* qt-i18n-ignore: 개발자 전용 사이드바 링크 */>Design System</span>}
                     </a>
-                    <a className="sb-item-v2" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff">
+                    <a className="sb-item-v2" href="developer-handoff.html" target="_blank" rel="noopener noreferrer" title="Developer Handoff" /* qt-i18n-ignore: 개발자 전용 링크 — auth.offline 에서만 보인다 */>
                       <span className="sb-item-v2__icon"><I.LayoutIcon size={15}/></span>
-                      {!navPrefs.collapsed && <span className="sb-item-v2__label">Developer Handoff</span>}
+                      {!navPrefs.collapsed && <span className="sb-item-v2__label" /* qt-i18n-ignore: 개발자 전용 사이드바 링크 */>Developer Handoff</span>}
                     </a>
                   </>
                 )}
@@ -1332,6 +1492,18 @@
             }
           />
         )}
+
+        {/*
+           공지 팝업.
+
+           ★★ 라우트 분기 **밖**에 둔다 — 어느 화면에 있어도 떠야 한다.
+             거래 화면에만 두면 다른 화면을 보는 이용자는 점검 공지를 못 본다.
+
+           ★ 컴포넌트 스스로 판단한다: 로그인 여부, 주문 패널이 열렸는지(그때는
+             보류), 이미 읽었는지(서버 기록). 여기서 조건을 또 쓰면 두 곳이
+             어긋난다.
+        */}
+        {window.NoticePopup ? <window.NoticePopup/> : null}
 
         {/* ============================================================
              ROUTE DISPATCH — non-trade pages
@@ -1346,7 +1518,6 @@
             {route.path === '/ai-strategies/my' && <window.MyStrategiesPage shellProps={shellProps}/>}
             {route.path === '/portfolio'      && <window.PortfolioPage      shellProps={shellProps}/>}
             {route.path === '/analytics'      && <window.AnalyticsPage      shellProps={shellProps}/>}
-            {route.path === '/multi-chart'    && <window.MultiChartPage     shellProps={shellProps}/>}
             {route.path === '/wallet'         && <window.WalletPage         shellProps={shellProps}/>}
             {route.path === '/wallet/deposit' && <window.DepositPage        shellProps={shellProps}/>}
             {route.path === '/wallet/withdraw'&& <window.WithdrawPage       shellProps={shellProps}/>}
@@ -1420,7 +1591,14 @@
             className={`trade-body ${engine.isEditing ? 'is-editing' : ''}`}
             style={{ gridTemplateRows: `repeat(auto-fill, ${40}px)` }}
           >
-            {engine.layout.widgets.map(w => (
+            {/*
+               ★★ 접힌 패널의 공간을 이웃에게 넘겨 그린다.
+
+                 저장된 레이아웃은 건드리지 않는다 — 접기는 표시 상태이고
+                 배치가 아니다. 저장본을 고치면 접었다 펴는 동작이 이용자가
+                 손으로 맞춘 배치를 영구히 망친다.
+            */}
+            {(window.QTPanelState ? window.QTPanelState.applyTo(engine.layout.widgets) : engine.layout.widgets).map(w => (
               <window.WidgetHost
                 key={w.id}
                 widget={w}
@@ -1452,6 +1630,12 @@
                   orderBook={orderBook}
                   trades={trades}
                   overlays={visibleOverlays}
+                  /*
+                     ★ 격자의 보조 칸이 **자기 종목**의 오버레이를 골라 쓴다.
+                       활성 종목으로 이미 걸러진 visibleOverlays 를 넘기면
+                       ETH 차트에 BTC 진입가 선이 그려진다.
+                  */
+                  allOverlays={overlays}
                   addOverlay={addOverlay}
                   updateOverlay={updateOverlay}
                   removeOverlay={removeOverlay}
@@ -1467,6 +1651,7 @@
                   rejectSignal={rejectSignal}
                   orderDraft={orderDraft}
                   isBeginner={isBeginner}
+                  onChange={(patch) => engine.updateWidget(w.id, patch)}
                   t={t}
                 />
               </window.WidgetHost>
@@ -1523,7 +1708,7 @@
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: 'var(--shadow-3)'
             }}
-            title="Open Tweaks"
+            title={t('open_tweaks')}
           >
             <I.Cog size={18}/>
           </button>
@@ -1617,7 +1802,78 @@
       case 'marketWatch':
         return <window.MarketWatch current={props.market.base + props.market.quote} onSelect={props.onSelectMarket} t={props.t}/>;
       case 'chart':
-        return <ChartWidget {...props}/>;
+        /*
+           ★★ 차트 자리를 격자로 감싼다 — 거래 화면 안에서 멀티차트가 된다.
+
+             전에는 여러 차트를 보려면 `/multi-chart` 탭으로 옮겨야 했다. 그
+             탭에서는 **주문을 낼 수 없다.** 여러 종목을 비교하는 목적은 그중
+             하나에 진입하는 것인데, 탭을 옮기는 동안 호가가 바뀐다.
+
+           ★★ 칸마다 **완전한 차트**다(축소판이 아니다). 지표·드로잉이 칸마다 따로
+             있다. 포커스된 칸이 활성 종목이므로 왼쪽 목록·AI 대화·주문 패널이
+             모두 그 칸을 따라간다.
+
+           ★ 1칸이 기본이다. 저장된 배치가 없으면 지금까지와 똑같이 보인다.
+        */
+        return window.ChartGrid ? (
+          <window.ChartGrid
+            activeSymbol={props.market ? props.market.base + props.market.quote : ''}
+            activeTimeframe={props.timeframe}
+            onSelectSymbol={props.onSelectMarket ? (sym) => {
+              /*
+                 ★ 활성 종목 변경은 시장 목록과 같은 경로를 쓴다. 여기서 따로
+                   상태를 바꾸면 MarketWatch 선택과 어긋난다.
+              */
+              const got = (window.QTMarkets && window.QTMarkets.list) ? window.QTMarkets.list() : null;
+              const hit = ((got && got.rows) || []).find((m) => String(m.base) + String(m.quote) === sym);
+              if (hit) props.onSelectMarket(hit);
+            } : null}
+            onSelectTimeframe={props.setTimeframe}
+            renderPane={({ symbol, timeframe, focused, paneId, setTimeframe }) => {
+              /*
+                 포커스된 칸은 거래 화면이 이미 들고 있는 값을 그대로 쓴다
+                 (캔들·오버레이·시세). 다시 만들면 같은 데이터를 두 벌 들고
+                 있게 되고, 한쪽만 갱신되는 순간 두 값이 어긋난다.
+              */
+              if (focused) {
+                return <ChartWidget {...props} paneId={paneId} focused={true}/>;
+              }
+              /*
+                 보조 칸은 자기 종목·주기의 캔들을 직접 읽는다.
+
+                 ★ QT.generateCandles 는 동기 계약이다(캐시 히트 시 실캔들,
+                   미스 시 요청을 걸고 목업 반환). 여기서 부르는 것이 안전하다.
+
+                 ★★ 오버레이는 **그 칸의 종목**으로 걸러야 한다. 활성 종목의
+                   오버레이를 그대로 넘기면 ETH 차트에 BTC 진입가 선이 그려지고,
+                   이용자는 자기가 ETH 포지션을 들고 있다고 읽는다.
+              */
+              const paneCandles = (window.QT && window.QT.generateCandles)
+                ? window.QT.generateCandles({ symbol, tf: timeframe, count: 220 })
+                : [];
+              const paneOverlays = (props.allOverlays || []).filter((o) => o.symbol === symbol);
+              const last = paneCandles.length ? paneCandles[paneCandles.length - 1].close : null;
+              return (
+                <ChartWidget
+                  {...props}
+                  paneId={paneId}
+                  focused={false}
+                  /*
+                     ★ market 객체를 통째로 넘기지 않고 심볼만 바꾼 사본을 만든다.
+                       원본을 넘기면 이 칸이 활성 종목의 정보(승수·수수료)를 쓴다.
+                  */
+                  market={{ ...props.market, base: symbol.replace(/USDT$|USDC$|BTC$/, ''), quote: symbol.replace(/^.*?(USDT|USDC|BTC)$/, '$1'), symbol }}
+                  candles={paneCandles}
+                  lastPrice={last}
+                  prevPrice={paneCandles.length > 1 ? paneCandles[paneCandles.length - 2].close : null}
+                  timeframe={timeframe}
+                  setTimeframe={setTimeframe}
+                  overlays={paneOverlays}
+                />
+              );
+            }}
+          />
+        ) : <ChartWidget {...props}/>;
       case 'miniChart':
         return <MiniChartWidget {...props}/>;
       case 'orderBook':
@@ -1670,6 +1926,8 @@
         return <window.AssetsRisk assets={liveAssets} t={props.t}/>;
       case 'aiCopilot':
         return <window.AICopilot
+          /* ★ 격자 id 를 넘긴다 — 접으면 이 칸의 공간이 차트로 넘어간다. */
+          widgetId={widget.id}
           context={props.chartContext}
           isBeginner={props.isBeginner}
           overlays={props.overlays}
@@ -1691,7 +1949,21 @@
   // ============================================================
   // Chart widget wrapper (with toolbar + draw tools)
   // ============================================================
-  function ChartWidget({ market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay, pushToast, t }) {
+  function ChartWidget({
+    market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay, pushToast, t,
+    /*
+       ★★ 격자에서 여러 개가 동시에 살아 있을 수 있다.
+
+         `focused` 는 "이 칸이 지금 이용자가 고른 칸인가" 다. 전역 단일값
+         (QTChartState 활성지표 · QTChartDebug)은 **포커스된 칸만** 쓴다.
+         전부 쓰면 마지막에 렌더된 칸의 값이 남아, AI 코파일럿이 이용자가
+         보고 있지 않은 차트의 지표를 말한다.
+
+       ★ 기본값 true — 격자를 쓰지 않는 화면(단일 차트)에서 지금까지와 같이
+         동작해야 한다.
+    */
+    focused = true, paneId = 'main',
+  }) {
     const [activeTool, setActiveTool] = useState('cursor');
     const [showMA, setShowMA] = useState(true);
     // 지표 패널. 버튼 마크업은 그대로 두고 패널만 아래에 띄운다.
@@ -1709,6 +1981,14 @@
          (선이 겹쳐 있거나 화면 밖에 그려질 수 있다). 검증 스크립트와
          운영 중 문제 추적에 쓴다. 읽기 전용 진단이며 렌더링에 영향이 없다.
       */
+      /*
+         ★★ 포커스된 칸만 전역 진단을 차지한다.
+
+           격자에서 6칸이 모두 덮어쓰면 `QTChartDebug.instance()` 가 마지막에
+           렌더된 칸을 가리킨다. 검증 스크립트가 "지표가 안 켜졌다" 고 보고하는데
+           실제로는 다른 칸을 본 것이다 — 원인을 찾을 수 없는 종류의 오보다.
+      */
+      if (!focused) return;
       window.QTChartDebug = {
         instance: () => chartInstRef.current,
         indicators: () => {
@@ -1739,7 +2019,11 @@
       };
       // 인스턴스가 바뀌면 패널이 상태를 다시 읽어야 한다.
       setChartGen(g => g + 1);
-    }, []);
+      /*
+         ★ focused 를 의존성에 넣는다. 넣지 않으면 포커스를 옮겨도 이 콜백이
+           예전 focused 값을 계속 보고, 전역 진단이 옮겨지지 않는다.
+      */
+    }, [focused]);
     const getChart = useCallback(() => chartInstRef.current, []);
     const supportsIndicators = Boolean(window.ChartIndicatorPanel && window.klinecharts);
     // 비교는 KLineChart 지표 등록이 필요하다. 자체 Canvas 엔진에서는 쓸 수 없다.
@@ -1874,6 +2158,12 @@
                 getChart={getChart}
                 version={chartGen}
                 onClose={() => setIndicatorsOpen(false)}
+                /*
+                   ★ 포커스된 칸만 활성 지표를 전역에 게시한다. AI 코파일럿과
+                     학습 기록이 그 값을 읽으므로, 여러 칸이 게시하면 이용자가
+                     보고 있지 않은 차트의 지표가 기록된다.
+                */
+                publish={focused}
               />
             )}
           </div>
@@ -2088,8 +2378,110 @@
     );
   }
 
-  function MiniChartWidget({ market, candles, timeframe }) {
-    return <window.MiniChart symbol={`${market.base}/${market.quote}`} timeframe={timeframe}/>;
+  /*
+     소형 차트 위젯 — 멀티차트의 구성 단위.
+
+     ★ 위젯마다 **자기 심볼**을 갖는다.
+
+       전에는 전역 `market` 을 그대로 넘겼다. 그래서 차트를 4개 띄워도 4개가
+       같은 심볼을 보여줬고, 멀티차트라는 이름과 달리 비교할 수가 없었다.
+
+       심볼은 `widget.symbol` 에 저장한다. 레이아웃과 같은 곳에 저장되므로
+       기기 저장(localStorage 'qt.layout')과 서버 템플릿 동기화에 자동으로
+       포함된다 — 저장 경로를 새로 만들지 않는다.
+
+       값이 없으면 전역 심볼을 따른다(기존 동작). 이렇게 하면 예전에 저장된
+       레이아웃도 그대로 열린다.
+  */
+  function MiniChartWidget({ widget, market, timeframe, onChange, pushToast, t }) {
+    const [picking, setPicking] = React.useState(false);
+
+    const own = widget && widget.symbol ? String(widget.symbol) : null;
+    // 표시용 'BTC/USDT' 와 조회용 'BTCUSDT' 를 구분한다.
+    const display = own || `${market.base}/${market.quote}`;
+    const tf = (widget && widget.timeframe) || timeframe;
+
+    /*
+       고를 수 있는 심볼은 서버가 아는 것만 쓴다.
+
+       하드코딩한 목록을 쓰면 미상장 심볼을 고를 수 있게 되고, 그 화면은
+       봉이 없는 채로 열린다. 시세 목록이 아직 없으면 선택기를 열지 않고
+       이유를 알린다.
+    */
+    const symbols = React.useMemo(() => {
+      const src = (window.QTApp && Array.isArray(window.QTApp.MARKETS) && window.QTApp.MARKETS)
+        || (window.QT && Array.isArray(window.QT.MARKETS) && window.QT.MARKETS)
+        || [];
+      const out = [];
+      for (const m of src) {
+        const base = m.base || m.symbol || '';
+        const quote = m.quote || 'USDT';
+        if (!base) continue;
+        const label = base.includes('/') ? base : `${base}/${quote}`;
+        if (!out.includes(label)) out.push(label);
+      }
+      return out;
+    }, []);
+
+    function pick() {
+      if (!symbols.length) {
+        if (pushToast) pushToast({ title: t('mc_pick_symbol'), desc: t('mc_symbols_unavailable'), variant: 'info' });
+        return;
+      }
+      setPicking((v) => !v);
+    }
+
+    return (
+      /*
+         ★ width:100% 가 필요하다.
+
+           위젯 칸(부모)은 flex 컨테이너다. 이 래퍼에 폭을 주지 않으면 내용
+           크기로 줄어들어, 12칸(681px)을 배정받은 차트가 258px 만 쓰고
+           나머지가 빈 공간으로 남았다(실측). 봉이 좁아져 비교가 어려워진다.
+      */
+      <div style={{ position: 'relative', height: '100%', width: '100%', minWidth: 0 }}>
+        <window.MiniChart
+          symbol={display}
+          timeframe={tf}
+          onPickSymbol={onChange ? pick : null}
+        />
+        {picking && (
+          /*
+             심볼 선택 목록.
+
+             모달을 쓰지 않는다 — 차트 두 개를 나란히 비교하는 중이므로
+             화면을 덮으면 비교 대상이 가려진다.
+          */
+          <div
+            className="panel"
+            role="listbox"
+            aria-label={t('mc_pick_symbol')}
+            style={{
+              position:'absolute', top: 28, left: 8, zIndex: 40,
+              maxHeight: 220, overflowY:'auto', minWidth: 130,
+              boxShadow:'var(--shadow-lg, 0 8px 24px rgba(0,0,0,.4))',
+            }}
+          >
+            {symbols.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="option"
+                aria-selected={s === display}
+                className={`btn btn--ghost btn--sm ${s === display ? 'is-active' : ''}`}
+                style={{ display:'block', width:'100%', textAlign:'left' }}
+                onClick={() => {
+                  setPicking(false);
+                  if (onChange) onChange({ symbol: s });
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   // ============================================================
@@ -2167,7 +2559,7 @@
     return (
       <div className="risk-checklist">
         <div className="risk-checklist__title">
-          <span>Risk Check · Pre-submission</span>
+          <span>{t('op_risk_title')}</span>
           <span style={{fontFamily:'var(--font-mono)', textTransform:'none', letterSpacing:'0.02em'}}>
             {failCount > 0 ? <span style={{color:'var(--color-danger)'}}>{failCount} FAIL</span> : warnCount > 0 ? <span style={{color:'var(--color-warning)'}}>{warnCount} WARN</span> : <span style={{color:'var(--color-success)'}}>ALL CLEAR</span>}
           </span>
@@ -2244,37 +2636,57 @@
           </div>
 
           <div className="op-flow-steps">
-            <span className={`op-step ${['user-review','approved','order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>1. AI Analysis</span>
+            <span className={`op-step ${['user-review','approved','order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>{t('op_step_1')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${['approved','order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>2. User Review</span>
+            <span className={`op-step ${['approved','order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>{t('op_step_2')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${['order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>3. Approve</span>
+            <span className={`op-step ${['order-draft','preview','risk-check','confirm','submitted'].includes(step) ? 'is-done' : ''}`}>{t('op_step_3')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${['preview','risk-check','confirm','submitted'].includes(step) ? (step === 'preview' ? 'is-active' : 'is-done') : ''}`}>4. Preview</span>
+            <span className={`op-step ${['preview','risk-check','confirm','submitted'].includes(step) ? (step === 'preview' ? 'is-active' : 'is-done') : ''}`}>{t('op_step_4')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${['risk-check','confirm','submitted'].includes(step) ? (step === 'risk-check' ? 'is-active' : 'is-done') : ''}`}>5. Risk Check</span>
+            <span className={`op-step ${['risk-check','confirm','submitted'].includes(step) ? (step === 'risk-check' ? 'is-active' : 'is-done') : ''}`}>{t('op_step_5')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${step==='confirm' ? 'is-active' : step === 'submitted' ? 'is-done' : ''}`}>6. Final Confirm</span>
+            <span className={`op-step ${step==='confirm' ? 'is-active' : step === 'submitted' ? 'is-done' : ''}`}>{t('op_step_6')}</span>
             <span className="op-step-arrow">→</span>
-            <span className={`op-step ${step==='submitted' ? 'is-active' : ''}`}>7. Submitted</span>
+            <span className={`op-step ${step==='submitted' ? 'is-active' : ''}`}>{t('op_step_7')}</span>
           </div>
 
           <div className="modal__body">
             <div className="op-grid">
-              <div className="op-row"><span className="op-row__k">Symbol</span><span className="op-row__v">{market.base}/{market.quote} · PERP</span></div>
-              <div className="op-row"><span className="op-row__k">Side / Type</span><span className="op-row__v"><span className={order.side==='long'?'t-long':'t-short'}>{order.side === 'long' ? '▲ LONG' : '▼ SHORT'}</span> · {order.type}</span></div>
-              <div className="op-row"><span className="op-row__k">Price</span><span className="op-row__v">{fmt(order.price, 1)} USDT</span></div>
-              <div className="op-row"><span className="op-row__k">Size</span><span className="op-row__v">{fmt(order.size, 4)} {market.base}</span></div>
-              <div className="op-row"><span className="op-row__k">Notional</span><span className="op-row__v">{fmt(shown.notional)} USDT</span></div>
-              <div className="op-row"><span className="op-row__k">Leverage</span><span className="op-row__v">20×</span></div>
-              <div className="op-row"><span className="op-row__k">Required Margin</span><span className="op-row__v">{fmt(shown.margin)} USDT</span></div>
-              <div className="op-row"><span className="op-row__k">Est. Fee (0.04%)</span><span className="op-row__v">{fmt(shown.fee, 4)} USDT</span></div>
-              <div className="op-row"><span className="op-row__k">Est. Liq. Price</span><span className="op-row__v t-warning">{fmt(shown.liq, 1)}</span></div>
+              <div className="op-row"><span className="op-row__k">{t('fld_symbol')}</span><span className="op-row__v">{market.base}/{market.quote} · PERP</span></div>
+              <div className="op-row"><span className="op-row__k">{t('op_side_type')}</span><span className="op-row__v"><span className={order.side==='long'?'t-long':'t-short'}>{order.side === 'long' ? t('side_long_arrow') : t('side_short_arrow')}</span> · {order.type === 'market' ? t('market') : t('limit')}</span></div>
+              <div className="op-row"><span className="op-row__k">{t('fld_price')}</span><span className="op-row__v">{fmt(order.price, 1)} USDT</span></div>
+              <div className="op-row"><span className="op-row__k">{t('fld_size')}</span><span className="op-row__v">{fmt(order.size, 4)} {market.base}</span></div>
+              <div className="op-row"><span className="op-row__k">{t('op_notional')}</span><span className="op-row__v">{fmt(shown.notional)} USDT</span></div>
+              {/*
+                 ★★ 레버리지를 코드에 박지 않는다.
+
+                   전에는 `20×` 로 고정돼 있었다. 이 창은 **실주문을 내기 직전의
+                   확인 화면**이다. 10배로 주문하는 사람에게 20배라고 보여주면
+                   필요 증거금과 청산가를 완전히 다르게 이해한 채 확인을 누른다.
+                   값을 모르면 '—' 를 보여주는 것이 낫다.
+              */}
+              <div className="op-row"><span className="op-row__k">{t('op_leverage')}</span><span className="op-row__v">{Number.isFinite(Number(order.leverage)) ? `${Number(order.leverage)}×` : t('dash')}</span></div>
+              <div className="op-row"><span className="op-row__k">{t('fld_required_margin')}</span><span className="op-row__v">{fmt(shown.margin)} USDT</span></div>
+              {/*
+                 수수료 요율은 거래소 계약 사양에서 온다(market.takerFeeRate).
+                 모르면 요율을 말하지 않고 값도 '—' 로 둔다 — 0 으로 채우면
+                 "수수료가 없다" 로 읽힌다.
+              */}
+              <div className="op-row">
+                <span className="op-row__k">
+                  {Number.isFinite(Number(market.takerFeeRate))
+                    ? t('oe_est_fee_pct', { pct: (Number(market.takerFeeRate) * 100).toFixed(3) })
+                    : t('oe_est_fee')}
+                </span>
+                <span className="op-row__v">{shown.fee == null ? t('dash') : `${fmt(shown.fee, 4)} USDT`}</span>
+              </div>
+              <div className="op-row"><span className="op-row__k">{t('oe_est_liq')}</span><span className="op-row__v t-warning">{fmt(shown.liq, 1)}</span></div>
               <div className="op-row"><span className="op-row__k">TIF</span><span className="op-row__v">{order.tif || 'GTC'}</span></div>
               {order.tpsl && (
                 <>
-                  <div className="op-row"><span className="op-row__k">Take Profit</span><span className="op-row__v t-long">{Array.isArray(order.tpsl.tp) ? order.tpsl.tp.map(t => fmt(t,0)).join(' / ') : fmt(order.tpsl.tp, 1)}</span></div>
-                  <div className="op-row"><span className="op-row__k">Stop Loss</span><span className="op-row__v t-short">{fmt(order.tpsl.sl, 1)}</span></div>
+                  <div className="op-row"><span className="op-row__k">{t('op_take_profit')}</span><span className="op-row__v t-long">{Array.isArray(order.tpsl.tp) ? order.tpsl.tp.map(t2 => fmt(t2,0)).join(' / ') : fmt(order.tpsl.tp, 1)}</span></div>
+                  <div className="op-row"><span className="op-row__k">{t('op_stop_loss')}</span><span className="op-row__v t-short">{fmt(order.tpsl.sl, 1)}</span></div>
                 </>
               )}
             </div>

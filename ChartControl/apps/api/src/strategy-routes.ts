@@ -169,8 +169,11 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
       symbol,
       timeframe,
       /** Stated so a consumer knows a null metric means "not computed", not "zero". */
-      metricsNote:
-        'metrics는 해당 심볼·타임프레임에 대해 실행된 백테스트 결과만 채워집니다. null은 0이 아니라 "미실행"을 의미합니다.',
+      /*
+         ★ 문장이 아니라 번역 키다. 서버는 요청 언어를 모르므로 한국어 문장을
+           담으면 다른 언어 화면에 그대로 나온다(caveats 와 같은 이유).
+      */
+      metricsNoteKey: 'bt_metrics_note',
       dataSource: d.candles.source(),
       caveats: [...BACKTEST_CAVEATS],
       /** No tiers and no user-authored strategies exist. */
@@ -193,7 +196,13 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
         timeframe: r.timeframe,
         note: r.note,
         createdAt: r.created_at,
+        /*
+           ★ 이름과 번역 키를 함께 준다.
+             화면은 nameKey 가 있으면 번역하고, 없으면 name 을 그대로 쓴다
+             (사용자 작성 전략처럼 사전에 없는 경우).
+        */
         name: STRATEGY_CATALOG.find((e) => e.id === r.strategy_id)?.name ?? r.strategy_id,
+        nameKey: STRATEGY_CATALOG.find((e) => e.id === r.strategy_id)?.nameKey,
       })),
       total: rows.length,
       /**
@@ -203,7 +212,14 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
        * anything: following records interest so the strategy appears on this list.
        */
       autoExecution: false,
-      note: '팔로우는 관심 등록입니다. 신호를 자동 복제하거나 주문을 제출하지 않습니다.',
+      /*
+         ★ 문장이 아니라 번역 키다.
+
+           이 문구는 "팔로우해도 주문이 나가지 않는다" 를 알리는 안내다. 읽지
+           못하는 언어로 나오면 안내를 하지 않은 것과 같고, 사용자는 주문이
+           자동으로 나갈 줄 알고 기다린다.
+      */
+      noteKey: 'strat_follow_note',
     });
   });
 

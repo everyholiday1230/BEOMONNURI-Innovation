@@ -177,9 +177,25 @@ export interface ParsedTopic {
  * 예: '/contractMarket/limitCandle:XBTUSDTM_1min'
  *      -> { channel:'limitCandle', exchangeSymbol:'XBTUSDTM', timeframe:'1m' }
  */
+/*
+   현물 토픽 접두어.
+
+   ★★ 이것을 넣지 않으면 현물 프레임이 전부 `unknown` 으로 버려진다.
+
+     연결도 되고 ack 도 오고 KuCoin 은 데이터를 계속 보내는데, 파서가 접두어를
+     모르면 조용히 전부 버린다. 화면은 "실시간 연결됨" 을 표시하면서 값이 갱신되지
+     않는다 — 실제로 그 상태를 겪었다(어댑터 수신 0건).
+
+   ★ 호가만 `/spotMarket/` 이다(KuCoin 이 그렇게 나눠 두었다).
+*/
+const SPOT_PREFIXES = ['/market/', '/spotMarket/'] as const;
+
 export function parseTopic(topic: string): ParsedTopic | null {
-  if (!topic.startsWith(PREFIX)) return null;
-  const rest = topic.slice(PREFIX.length);
+  const prefix = topic.startsWith(PREFIX)
+    ? PREFIX
+    : SPOT_PREFIXES.find((p) => topic.startsWith(p));
+  if (!prefix) return null;
+  const rest = topic.slice(prefix.length);
   const colon = rest.indexOf(':');
   if (colon <= 0) return null;
 

@@ -60,6 +60,15 @@
     candles: new Map(),
     /** 'SYM|tf' -> 진행 중 요청 Promise */
     candleInflight: new Map(),
+    /**
+     * 심볼 -> 추세 스파크라인 종가 배열.
+     *
+     * 캔들 캐시와 따로 둔다. 스파크라인은 적은 봉(24개)만 받으므로 이것을
+     * 캔들 캐시에 넣으면 차트가 24봉만 있는 것으로 잘못 판단한다.
+     */
+    sparklines: new Map(),
+    /** 심볼 -> 진행 중 스파크라인 요청 */
+    sparkInflight: new Map(),
     /** 심볼 -> 최신 오더북 */
     books: new Map(),
     /** 심볼 -> 최근 체결 배열 (최신 우선) */
@@ -181,7 +190,12 @@
         return;
       }
 
-      live.liveSymbols.add(symbol);
+      /*
+         ★ 이 목록은 **선물** 마켓 폴링에서 온다(Api.rest.markets). 그러므로
+           선물로 등록한다. 시장 없이 넣으면 '어느 시장에 상장됐는지' 를 잃고,
+           그 심볼에 다른 시장 경로로 요청하게 된다(규칙 18).
+      */
+      live.liveSymbols.add(symbol + '|futures');
       m.dataSource = 'live';
       delete m.unavailableReasonKey;
 
@@ -248,7 +262,38 @@
   // 캔들
   // ---------------------------------------------------------------
 
-  function candleKey(symbol, tf) { return symbol + '|' + tf; }
+  /**
+   * 캔들 캐시 키.
+   *
+   * ★★ 시장(현물/선물)을 키에 포함한다.
+
+   *   두 시장의 캔들은 **같은 심볼·같은 주기라도 다른 값**이다(가격이 다르고,
+   *   상장 여부도 다르다). 키에 시장을 넣지 않으면 모드를 바꿨을 때 이전 시장의
+   *   캔들이 그대로 보인다 — 이용자는 현물 차트를 본다고 믿으면서 선물 가격을
+   *   읽는다. 그 상태로 주문을 내면 예상과 다른 가격에 체결된다.
+   */
+  function currentMarketId() {
+    return (window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot') ? 'spot' : 'futures';
+  }
+
+  function candleKey(symbol, tf) {
+    return symbol + '|' + tf + '|' + currentMarketId();
+  }
+
+  /**
+   * 티커 캐시 키.
+   *
+   * ★★ 시장을 포함한다. 캔들과 같은 이유다.
+
+   *   현물과 선물은 같은 심볼이라도 **다른 가격**이고, 선물에만 있는 값(마크가·
+   *   지수가·펀딩비)이 있다. 한 키를 공유하면 현물 화면에 선물 값이 남는다.
+   *   실측에서 현물로 바꾼 뒤에도 mark·index·fundingRate 가 남아 있었다.
+   *   화면이 그 항목을 숨기고 있어 눈에 띄지 않았지만, `last` 가 선물 가격으로
+   *   덮이면 이용자는 현물 가격이라고 믿으며 다른 값을 본다.
+   */
+  function tickerKey(symbol) {
+    return symbol + '|' + currentMarketId();
+  }
 
   /**
    * 캔들 값을 숫자로 맞춘다.
@@ -292,14 +337,250 @@
     return out;
   }
 
+  /**
+   * 추세 스파크라인용 종가 배열.
+   *
+   * ★★ 시장 목록의 'Trend' 열이 사인파 + 난수였다.
+   *
+   *   `r.price * (1 + Math.sin(i/3 + base.charCodeAt(0)) * 0.02 + (Math.random()-0.5)*0.006)`
+   *   심볼 이름으로 위상을 정한 가짜 곡선이다. 작은 그림이라 근거가 없다는
+   *   것이 드러나지 않고, 사용자는 그 모양을 보고 종목을 고른다.
+   *
+   * ★ 왜 별도 함수인가
+   *   캔들 차트용 `ensureCandles` 는 300봉을 받는다. 목록에는 20여 종목이
+   *   동시에 있으므로 그대로 쓰면 300봉 × 20 요청이 된다. 스파크라인은
+   *   24포인트면 충분하므로 적게 받고, 받은 것은 같은 캐시에 넣지 않는다
+   *   (차트가 24봉만 있는 것으로 오해하면 안 된다).
+   *
+   * ★ 요청은 **화면이 요구할 때 한 번만** 나간다. 없는 동안 호출자는
+   *   빈 배열을 받고 '—' 를 표시해야 한다. 가짜 곡선으로 채우지 않는다.
+   *
+   * @returns {number[]} 종가 배열. 아직 없으면 빈 배열.
+   */
+  var SPARK_TF = '1h';
+  var SPARK_COUNT = 24;
+  function getSparkline(symbol) {
+    var s = normalizeSymbol(symbol);
+    if (!s) return [];
+
+    /*
+       ★ 캐시 키에 시장을 넣는다. 같은 심볼이라도 현물과 선물의 종가가 다르므로,
+         한 키를 공유하면 현물 목록에 선물 추세가 그려진다.
+    */
+    var cached = live.sparklines.get(s + '|' + currentMarketId());
+    if (cached) return cached;
+
+    // 차트용 캔들이 이미 있으면 그것을 쓴다 — 요청을 아낀다.
+    var full = live.candles.get(candleKey(s, live.activeTimeframe || '15m'));
+    if (full && full.length) {
+      return full.slice(-SPARK_COUNT).map(function (c) { return c.close; });
+    }
+
+    ensureSparkline(s);
+    return [];
+  }
+
+  /*
+     ★ 큐 상한과 실패 백오프.
+
+       검증 도구가 51개 라우트를 빠르게 넘기며 순회할 때 /markets 가 502 로
+       실패했다. 화면이 넘어가도 큐에 남은 심볼을 계속 요청하기 때문에 요청이
+       라우트를 넘어 누적되고, 어느 지점에서 상류 한도에 닿는다.
+       사람이 쓸 때도 목록을 빠르게 여닫으면 같은 일이 생긴다.
+
+       두 가지로 막는다.
+         · 상한: 큐가 가득하면 새 요청을 버린다. 버려진 심볼은 '—' 로 남고,
+           다시 화면에 필요해지면 그때 한 번 더 시도된다.
+         · 백오프: 실패하면 다음 간격을 늘린다. 상류가 한도라고 말할 때
+           같은 속도로 계속 두드리면 시세·주문 조회까지 막힌다.
+  */
+  var SPARK_QUEUE_MAX = 24;
+  var SPARK_GAP_MIN_MS = 120;
+  var SPARK_GAP_MAX_MS = 4000;
+  var sparkGapMs = SPARK_GAP_MIN_MS;
+  var sparkQueue = [];
+  var sparkRunning = false;
+
+  function pumpSparkQueue() {
+    if (sparkRunning) return;
+    var job = sparkQueue.shift();
+    if (!job) return;
+    var symbol = job.symbol;
+    sparkRunning = true;
+
+    /*
+       ★★ 스파크라인도 시장을 구분해야 한다.
+
+         현물 목록에는 BTCUSDC·USDTUSDC 처럼 **선물에 없는 종목**이 있다. 그런데
+         이 큐가 언제나 선물 캔들 경로로 요청해서, 그 종목마다 502
+         (`KuCoin 선물 미상장 심볼`)가 났다. 실측으로 /markets 에서 502 3건이
+         잡혔고 원인이 이것이었다.
+
+       ★ 502 는 재시도 대상으로 취급되어 백오프를 키운다. 즉 존재하지 않는 종목
+         때문에 **실제로 필요한 스파크라인 요청까지 느려진다.**
+    */
+    /*
+       ★★ 시장은 **큐에 넣을 때** 정해진다 — 꺼낼 때 다시 읽으면 안 된다.
+
+         큐는 간격을 두고 천천히 비워진다(상류 한도 때문에). 그 사이 이용자가
+         모드를 바꿀 수 있다. 전에는 여기서 `currentMarketId()` 를 다시 읽어서,
+         **현물 목록에서 담은 종목을 선물 경로로 요청했다.** BTCUSDC·USDTUSDC 는
+         선물에 없으므로 502(`선물 미상장 심볼`)가 났다. 실측으로 /markets 에서
+         이 502 가 반복 잡혔고, 원인이 이것이다.
+
+       ★ 502 는 백오프를 키운다. 즉 없는 심볼 하나가 **실제로 필요한 추세선
+         요청까지 느리게** 만든다.
+    */
+    var reqMk = job.market;
+    var reqSpot = reqMk === 'spot';
+    /*
+       ★ 현물인데 현물 경로가 없으면 **요청하지 않는다.** 선물 경로로 떨어지면
+         선물에 없는 종목이 502 가 되고, 있는 종목은 다른 시장의 추세선이 된다.
+         둘 다 조용히 틀린다 — 추세선은 '—' 로 비워 두는 편이 맞다.
+    */
+    if (reqSpot && !(Api.rest.spot && Api.rest.spot.candles)) {
+      live.sparkInflight.delete(symbol + '|' + reqMk);
+      sparkRunning = false;
+      if (sparkQueue.length) setTimeout(pumpSparkQueue, sparkGapMs);
+      return;
+    }
+    var spark = reqSpot
+      ? Api.rest.spot.candles(symbol, SPARK_TF, SPARK_COUNT)
+      : Api.rest.candles(symbol, SPARK_TF, SPARK_COUNT);
+    spark
+      .then(function (res) {
+        if (res && res.ok && Array.isArray(res.data) && res.data.length) {
+          var closes = [];
+          for (var i = 0; i < res.data.length; i += 1) {
+            var v = Number(res.data[i].close);
+            if (isFinite(v)) closes.push(v);
+          }
+          // 점이 2개 미만이면 선이 되지 않는다. 저장하지 않아 '—' 로 남긴다.
+          if (closes.length >= 2) {
+            live.sparklines.set(symbol + '|' + reqMk, closes);
+            scheduleBump();
+          }
+          // 성공했으면 원래 속도로 돌아온다.
+          sparkGapMs = SPARK_GAP_MIN_MS;
+        } else {
+          sparkGapMs = Math.min(sparkGapMs * 2, SPARK_GAP_MAX_MS);
+        }
+      })
+      .catch(function () {
+        /* 실패는 '—' 로 남는다. 가짜로 채우지 않는다. 속도만 줄인다. */
+        sparkGapMs = Math.min(sparkGapMs * 2, SPARK_GAP_MAX_MS);
+      })
+      .finally(function () {
+        live.sparkInflight.delete(symbol + '|' + reqMk);
+        sparkRunning = false;
+        if (sparkQueue.length) setTimeout(pumpSparkQueue, sparkGapMs);
+      });
+  }
+
+  function ensureSparkline(symbol) {
+    if (!canCallApi()) return;
+    /*
+       ★★ 시세가 실제로 도착한 심볼만 요청한다.
+
+         전에는 `isSupported()` 로 걸렀다. 그 판정은 `unsupported` 집합에
+         없으면 통과시키는데, 그 집합은 WS 의 hello 메시지나 시세 목록이
+         도착한 뒤에야 채워진다. 그래서 화면이 뜬 직후에는 **미상장 심볼도
+         통과했고**, TON 처럼 KuCoin 선물에 없는 종목에 캔들을 요청해
+         502(UPSTREAM_ERROR: 미상장 심볼)를 받았다. 검증에서 /markets 가
+         반복 실패한 원인이 이것이다.
+
+         liveSymbols 는 시세가 실제로 들어온 심볼만 담는다. 미상장은 여기
+         들어올 수 없으므로, 이 조건이면 없는 심볼에 요청하지 않는다.
+         시세가 아직 안 온 종목은 조금 뒤에 채워진다 — 시세도 없는 종목의
+         추세선을 서둘러 그릴 이유는 없다.
+    */
+    // 지금 시장에 시세가 온 심볼만. 다른 시장에만 있는 종목은 요청하지 않는다.
+    if (!hasLiveTicker(symbol)) return;
+    var sk = symbol + '|' + currentMarketId();
+    if (live.sparklines.has(sk) || live.sparkInflight.has(sk)) return;
+    // 상한을 넘으면 요청하지 않는다 — '—' 로 남는 편이 상류 한도를 쓰는 것보다 낫다.
+    if (sparkQueue.length >= SPARK_QUEUE_MAX) return;
+
+    // inflight 에 먼저 표시한다 — 같은 심볼이 큐에 두 번 들어가지 않게.
+    live.sparkInflight.set(sk, true);
+    // 시장을 함께 싣는다. 꺼낼 때의 모드가 아니라 담을 때의 시장이 맞다.
+    sparkQueue.push({ symbol: symbol, market: currentMarketId() });
+    pumpSparkQueue();
+  }
+
+  /**
+   * 이 시장에 이 심볼의 시세가 실제로 도착했는가.
+   *
+   * ★ 시세가 온 적 없는 심볼에 캔들을 요청하면 502 가 온다. 그리고 502 는
+   *   백오프를 키우므로, 없는 심볼 하나가 **실제로 필요한 요청까지 느리게** 만든다.
+   */
+  function hasLiveTicker(symbol, mk) {
+    return live.liveSymbols.has(symbol + '|' + (mk || currentMarketId()))
+      && !live.unsupported.has(symbol);
+  }
+
+  /**
+   * 이 심볼의 **표시용 데이터**가 실제인가.
+   *
+   * ★★ 티커만 보면 안 된다.
+   *
+   *   거래소에서 실제로 받아 온 캔들을 들고 있는데도 티커가 아직 안 왔다는
+   *   이유로 '실데이터 아님' 이 되면, 위젯이 그 봉을 그리지 않는다. 현물
+   *   모드의 거래 화면에서 이 일이 실제로 일어났다 — 캔들 60개가 메모리에
+   *   있는데 보조 차트가 **빈 칸**이었다. 오류도 없어서 "차트가 안 나온다" 는
+   *   형태로만 보인다.
+   *
+   * ★ 반대로 넓히지도 않는다. 목업 캔들은 여기 들어오지 않는다 —
+   *   `live.candles` 에는 서버 응답만 저장한다(mock 은 반환만 하고 저장하지 않는다).
+   */
+  function hasLiveData(symbol, tf) {
+    if (live.unsupported.has(symbol)) return false;
+    if (hasLiveTicker(symbol)) return true;
+    // 활성 주기를 우선 보고, 없으면 이 심볼의 아무 주기라도 실캔들이 있으면 실데이터다.
+    var key = candleKey(symbol, tf || live.activeTimeframe || '15m');
+    var got = live.candles.get(key);
+    if (got && got.length) return true;
+    var prefix = symbol + '|';
+    var suffix = '|' + currentMarketId();
+    var it = live.candles.keys();
+    for (var k = it.next(); !k.done; k = it.next()) {
+      var kk = k.value;
+      if (kk.indexOf(prefix) === 0 && kk.indexOf(suffix, kk.length - suffix.length) !== -1) {
+        var arr = live.candles.get(kk);
+        if (arr && arr.length) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 지금 현물 모드인가.
+   *
+   * ★★ 현물과 선물은 **다른 캔들 경로**를 쓴다. 배열 순서와 심볼 표기가 달라서
+   *   한쪽 응답을 다른 쪽 파서로 읽으면 고가·저가가 뒤섞인 차트가 나온다.
+   *   그래서 캐시 키에도 시장을 넣어, 모드를 바꿀 때 이전 시장의 캔들이
+   *   그대로 보이지 않게 한다.
+   */
+  function isSpotMode() {
+    return Boolean(window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot');
+  }
+
   /** 실캔들을 확보한다. 이미 있거나 요청 중이면 아무 것도 하지 않는다. */
   function ensureCandles(symbol, tf) {
-    if (!canCallApi() || !isSupported(symbol)) return;
+    if (!canCallApi()) return;
+    var spot = isSpotMode();
+    /*
+       ★ 미상장 검사는 **선물 기준**이다. 현물에는 다른 목록이 적용되므로
+         현물 모드에서는 이 검사를 건너뛴다 — 선물에 없는 종목이 현물에는
+         있을 수 있고, 그것을 막으면 볼 수 있는 차트를 못 보게 된다.
+    */
+    if (!spot && !isSupported(symbol)) return;
     var key = candleKey(symbol, tf);
     if (live.candles.has(key) || live.candleInflight.has(key)) return;
 
-    var p = Api.rest
-      .candles(symbol, tf, 300)
+    var p = (spot && Api.rest.spot
+      ? Api.rest.spot.candles(symbol, tf, 300)
+      : Api.rest.candles(symbol, tf, 300))
       .then(function (res) {
         if (res && res.ok && Array.isArray(res.data) && res.data.length) {
           // 문자열 가격을 여기서 숫자로 바꾼다 (경계에서 한 번만).
@@ -488,13 +769,51 @@
     return Object.assign({}, book, { bids: side(book.bids), asks: side(book.asks) });
   }
 
-  function applyTicker(t) {
+  /**
+   * 티커를 반영한다.
+   *
+   * @param {object} t        티커
+   * @param {'spot'|'futures'} [market]  이 데이터가 **어느 시장에서 왔는지**
+   *
+   * ★★ 시장을 인자로 받는 이유
+
+   *   전에는 저장 키를 `현재 모드` 로 만들었다. 그런데 선물 시세 폴링은 모드와
+   *   무관하게 돌기 때문에, 현물 모드에서 **선물 데이터가 현물 키에 기록됐다.**
+   *   실측에서 현물 티커에 mark·index·fundingRate 가 남아 있었고, `last` 도
+   *   선물 가격으로 덮일 수 있었다 — 이용자는 현물 가격이라고 믿으며 다른 값을 본다.
+   *
+   *   그래서 **쓰는 쪽이 출처를 밝힌다.** 생략하면 선물로 본다(기존 호출 호환).
+   */
+  function applyTicker(t, market) {
     var symbol = normalizeSymbol(t.symbol);
     if (!symbol) return;
+    var mk = market === 'spot' ? 'spot' : 'futures';
     // 문자열 가격을 여기서 숫자로 바꾼다 (경계에서 한 번만).
     t = numify(t, TICKER_NUM);
-    live.tickers.set(symbol, t);
-    live.liveSymbols.add(symbol);
+    /*
+       ★★ 부분 갱신을 덮어쓰기로 처리하지 않는다.
+
+         현물 WS 의 ticker 프레임에는 **24시간 변동률·고가·저가·거래대금이 없다**
+         (KuCoin 이 주지 않는다. 실제 프레임으로 확인: price·bestBid·bestAsk·size 뿐).
+         그것으로 티커를 통째로 바꾸면 변동률이 사라져 **모든 종목이 "변동 없음"**
+         으로 보이고, 24시간 고저와 거래대금도 빈다. 화면은 값이 지워진 것을
+         "0" 으로 그린다.
+
+         그래서 기존 값 위에 도착한 필드만 덮는다. 선물은 전체 티커가 오므로
+         결과가 같다.
+    */
+    var prev = live.tickers.get(symbol + '|' + mk);
+    if (prev) t = Object.assign({}, prev, t);
+    live.tickers.set(symbol + '|' + mk, t);
+    /*
+       ★★ 시장을 함께 담는다 (규칙 18: 시장별 캐시 키).
+
+         전에는 심볼만 담았다. 그래서 **현물 티커가 도착한 심볼을 선물에도
+         상장된 것으로 취급했다.** BTCUSDC·USDTUSDC 는 현물에만 있는데,
+         스파크라인이 선물 캔들 경로로 요청해 502(`선물 미상장 심볼`)가 났다.
+         실측으로 /markets 에서 이 502 가 잡혔고 원인이 이것이다.
+    */
+    live.liveSymbols.add(symbol + '|' + mk);
 
     /*
        마지막으로 **데이터**를 받은 시각.
@@ -690,7 +1009,12 @@
         publishConnectionState();
         break;
       case 'ticker':
-        applyTicker(data);
+        /*
+           ★ 서버 세션의 시장을 그대로 따른다. 우리가 요청한 시장과 서버가
+             구독한 시장은 같아야 하지만, 전환 직후에는 이전 시장의 프레임이
+             한두 개 더 올 수 있다. 그것을 새 시장 키에 쓰면 값이 섞인다.
+        */
+        applyTicker(data, data && data.market ? data.market : currentMarketId());
         break;
       case 'orderbook':
         applyBook(data);
@@ -894,7 +1218,7 @@
 
     primeActiveSymbol(symbol);
 
-    var t = live.tickers.get(symbol);
+    var t = live.tickers.get(tickerKey(symbol));
     if (t) applyTicker(t);
     scheduleBump();
   }
@@ -986,18 +1310,82 @@
   // 공개 API
   // ---------------------------------------------------------------
 
+  /*
+     ★★ 모드가 바뀌면 티커를 현물/선물에 맞게 다시 받는다.
+
+       캔들은 키에 시장이 들어 있어 자동으로 새로 받지만, 티커는 심볼별 Map 에
+       들어 있어 이전 시장 값이 남는다. 그러면 헤더의 현재가는 선물, 차트는 현물이
+       되어 **같은 화면에서 두 가격이 어긋난다.** 실제로 그런 종류의 불일치를
+       코파일럿 인사말에서 겪었다.
+
+     ★ REST 로 먼저 한 번 채운다. 현물 WS 의 ticker 프레임에는 24시간 변동률·
+       고저·거래대금이 없으므로(KuCoin 이 주지 않는다), 그 값들은 REST 에서만 온다.
+       WS 는 그 위에 최근가와 최우선 호가만 덮는다.
+  */
+  if (window.QTMode && window.QTMode.subscribe) {
+    window.QTMode.subscribe(function () {
+      live.tickers.clear();
+      live.unsupported.clear();
+      if (!canCallApi()) { scheduleBump(); return; }
+      var spot = isSpotMode();
+      if (spot && Api.rest.spot) {
+        Api.rest.spot.tickers()
+          .then(function (r) {
+            if (!r || !r.supported || !Array.isArray(r.data)) return;
+            r.data.forEach(function (row) { applyTicker(row, 'spot'); });
+            scheduleBump();
+          })
+          .catch(function () { scheduleBump(); });
+      } else {
+        // 선물로 돌아오면 기존 경로가 다시 채운다.
+        scheduleBump();
+      }
+
+      /*
+         ★★ WS 를 새 시장으로 다시 구독한다.
+
+           REST 로 한 번 채우는 것만으로는 **가격이 멈춰 있다.** 실측에서
+           모드를 바꾼 뒤 11초 동안 값이 그대로였다 — 서버 세션의 시장이 여전히
+           선물이라 현물 프레임이 오지 않았기 때문이다.
+
+           서버는 subscribe 요청의 `market` 으로 세션 시장을 정하고, 시장이
+           바뀌면 이전 구독을 끊는다. 그래서 클라이언트가 다시 구독해야 한다.
+      */
+      if (socket && live.activeSymbol) {
+        try {
+          socket.unsubscribeSymbols([live.activeSymbol]);
+          if (live.activeTimeframe) socket.unsubscribeCandles(live.activeSymbol, live.activeTimeframe);
+          socket.subscribeSymbols([live.activeSymbol]);
+          if (live.activeTimeframe) socket.subscribeCandles(live.activeSymbol, live.activeTimeframe);
+        } catch (e) { /* 소켓이 아직 없으면 연결 시 구독된다 */ }
+      }
+    });
+  }
+
   window.QTLive = {
     start: start,
     stop: stop,
     setActiveSymbol: setActiveSymbol,
     setActiveTimeframe: setActiveTimeframe,
+    /*
+       현재 주기를 읽는다.
+
+       ★ 설정하는 창구(setActiveTimeframe)만 있고 읽는 창구가 없었다. 학습
+         문맥이 "그때 무슨 주기를 보고 있었는가" 를 담아야 하는데, 화면 상태를
+         추측하면 틀린다 — 15분봉을 보며 낸 주문이 1시간봉으로 기록된다.
+    */
+    getActiveTimeframe: function () { return live.activeTimeframe || null; },
     useLiveVersion: useLiveVersion,
     subscribeVersion: subscribeVersion,
 
     /** 해당 심볼이 실데이터인지. 목업이면 false. */
     isLive: function (symbol) {
       var s = normalizeSymbol(symbol);
-      return Boolean(s) && live.liveSymbols.has(s) && !live.unsupported.has(s);
+      /*
+         ★ 캔들도 함께 본다. 티커만 보면 실캔들을 들고도 '목업' 으로 취급해
+           위젯이 봉을 그리지 않는다(현물 거래 화면에서 실제로 겪었다).
+      */
+      return Boolean(s) && hasLiveData(s);
     },
 
     /** 'live' | 'mock' — 화면 전체의 데이터 출처 */
@@ -1029,7 +1417,15 @@
       return live.lastDataAt ? Date.now() - live.lastDataAt : null;
     },
     getActiveSymbol: function () { return live.activeSymbol; },
-    getTicker: function (symbol) { return live.tickers.get(normalizeSymbol(symbol)) || null; },
+    getTicker: function (symbol) { return live.tickers.get(tickerKey(normalizeSymbol(symbol))) || null; },
+
+    /**
+     * 추세 스파크라인 종가 배열. 아직 없으면 빈 배열을 준다.
+     *
+     * 호출자는 빈 배열을 '—' 로 표시해야 한다 — 가짜 곡선으로 채우지 않는다.
+     * 처음 호출하면 요청이 나가고, 도착하면 useLiveVersion 이 올라가 다시 그린다.
+     */
+    getSparkline: getSparkline,
 
     /** 진단용. 콘솔에서 QTLive.debug() 로 현재 상태를 본다. */
     debug: function () {

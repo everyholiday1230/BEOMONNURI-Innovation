@@ -99,7 +99,7 @@ describe('STR-01 the catalogue carries no invented metrics', () => {
     const { app } = build();
     const res = await rq(app, 'GET', '/api/strategies');
     expect(res.status).toBe(200);
-    const b = await res.json() as { items: { id: string; metrics: unknown; followers: number }[]; unavailable: string[]; metricsNote: string };
+    const b = await res.json() as { items: { id: string; metrics: unknown; followers: number }[]; unavailable: string[]; metricsNoteKey: string };
     expect(b.items.length).toBeGreaterThanOrEqual(4);
     for (const i of b.items) {
       // The design's cards showed a Sharpe before anything had been computed.
@@ -108,7 +108,12 @@ describe('STR-01 the catalogue carries no invented metrics', () => {
       expect(i.followers).toBe(0);
     }
     // Stated so a consumer cannot read null as 0.
-    expect(b.metricsNote).toMatch(/미실행/u);
+    /*
+       ★ 문장이 아니라 번역 키를 검사한다. 서버가 한국어 문장을 담으면
+         영어·일본어 화면에 그대로 새어 나간다(그래서 키로 바꿨다).
+    */
+    expect(b.metricsNoteKey).toBe('bt_metrics_note');
+    expect(b).not.toHaveProperty('metricsNote');
     expect(b.unavailable).toContain('subscriptionTiers');
     expect(b.unavailable).toContain('userAuthoredStrategies');
     expect(b.unavailable).toContain('liveTrackRecord');
@@ -266,12 +271,20 @@ describe('STR-03 following records interest, not execution', () => {
     const jar = await login(app, 'f1@ex.com');
     const res = await rq(app, 'GET', '/api/strategies/mine', { jar });
     expect(res.status).toBe(200);
-    const b = await res.json() as { total: number; autoExecution: boolean; note: string };
+    const b = await res.json() as { total: number; autoExecution: boolean; noteKey: string };
     // Registered after `:id` this answered 404 for a strategy named "mine".
     expect(b.total).toBe(0);
     // The design called Follow "auto-copy signals". Nothing here copies or executes.
     expect(b.autoExecution).toBe(false);
-    expect(b.note).toMatch(/자동 복제하거나 주문을 제출하지 않습니다/u);
+    /*
+       ★ 문장이 아니라 번역 키를 검사한다.
+
+         이 문구는 "팔로우해도 주문이 나가지 않는다" 를 알리는 안내다. 서버가
+         한국어 문장을 담으면 영어·일본어 이용자는 그 안내를 못 읽는다 —
+         안내를 하지 않은 것과 같다. 그래서 키로 바꿨다.
+    */
+    expect(b.noteKey).toBe('strat_follow_note');
+    expect(b).not.toHaveProperty('note');
   });
 
   it('[2] following is idempotent and counted', async () => {
@@ -350,5 +363,47 @@ describe('STR-04 detail endpoint', () => {
     const b = await (await rq(app, 'GET', '/api/strategies/buy-and-hold')).json() as { backtest: unknown; followers: number };
     expect(b.backtest).toBeNull();
     expect(b.followers).toBe(0);
+  });
+});
+
+describe('STR-03 요청한 조건이 그대로 시험된다', () => {
+  it('[1] ★ 응답의 window·symbol·timeframe 이 요청과 같다', async () => {
+    /*
+       화면이 "어떤 조건의 결과인지" 를 이 값들로 표시한다. 요청과 다르면
+       이용자는 자기가 넣은 조건의 결과로 잘못 읽는다.
+
+       ★ window 는 metrics 안이 아니라 **루트**에 있다. 화면이 metrics.window 를
+         읽고 있어서 검증 구간이 늘 '—' 였다 — 실제 응답을 보고 나서야 드러났다.
+    */
+    const { app } = build();
+    const jar = await login(app, 'str3a@ex.com');
+    const res = await rq(app, 'POST', '/api/strategies/sma-cross-20-50/backtest', {
+      jar, csrf: true, body: { symbol: 'BTCUSDT', timeframe: '15m', bars: 200 },
+    });
+    expect(res.status).toBe(200);
+    const b = await res.json() as {
+      symbol: string; timeframe: string;
+      window: { fromTime: number; toTime: number; barCount: number };
+    };
+    expect(b.symbol).toBe('BTCUSDT');
+    expect(b.timeframe).toBe('15m');
+    expect(b.window.fromTime).toBeGreaterThan(0);
+    expect(b.window.toTime).toBeGreaterThan(b.window.fromTime);
+  });
+
+  it('[2] ★★ 시험할 수 없으면 0 이 아니라 오류 코드다', async () => {
+    /*
+       캔들이 없을 때 "수익률 0%" 를 주면, 시험하지 않은 것을 시험한 것으로
+       보여 준다. 화면은 이 **코드**로 안내 문구를 고른다 — 서버 문장을 그대로
+       띄우지 않는다(문장은 한국어이고 화면 언어에 한국어가 없다).
+    */
+    const { app } = build({ bars: [] });
+    const jar = await login(app, 'str3b@ex.com');
+    const res = await rq(app, 'POST', '/api/strategies/sma-cross-20-50/backtest', {
+      jar, csrf: true, body: { symbol: 'BTCUSDT', timeframe: '15m', bars: 200 },
+    });
+    expect([502, 503]).toContain(res.status);
+    const j = await res.json() as { error?: { code?: string } };
+    expect(['UPSTREAM_ERROR', 'NO_DATA']).toContain(j.error?.code ?? '');
   });
 });

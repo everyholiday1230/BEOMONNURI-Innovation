@@ -52,7 +52,6 @@
 
     // ---- 거래 ----
     '/trade': { status: 'partial', note: 'trade_partial' },  // 차트·지표·비교·드로잉 실제 / 주문집행 시뮬레이션
-    '/multi-chart': { status: 'partial', note: 'chart_live_only' },
     '/markets': { status: 'live', note: 'market_live' },
 
     // ---- 계정 ----
@@ -306,8 +305,17 @@
     { selector: '[class*="deposit"], [class*="withdraw"]', status: 'mock', note: 'not_built' },
     // 수수료·리베이트 표
     { selector: '[class*="fee-tier"], [class*="rebate"]', status: 'mock', note: 'not_built' },
-    // 전략 카드·백테스트
-    { selector: '[class*="strategy"], [class*="backtest"]', status: 'mock', note: 'ai_not_built' },
+    /*
+       전략 카드·백테스트는 **실데이터**다 — 이 목록에서 뺐다.
+
+         목록은 `GET /api/strategies`, 상세는 `GET /api/strategies/:id`,
+         그리고 실행은 `POST /api/strategies/:id/backtest` 로 서버가 실제
+         캔들에 규칙을 적용해 계산한다(수수료·슬리피지 차감 포함).
+
+       ★ 여기 남겨 두면 운영자에게 "이 숫자는 목업" 이라고 잘못 알린다.
+         목업을 실데이터로 표시하는 것과 마찬가지로, 실데이터를 목업으로
+         표시하는 것도 사실과 다르다 — 운영자가 실제 결과를 무시하게 된다.
+    */
   ];
 
   var state = {

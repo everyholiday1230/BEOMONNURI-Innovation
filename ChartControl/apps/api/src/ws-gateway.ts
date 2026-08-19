@@ -193,6 +193,15 @@ export function attachWsGateway(
 
   interface Session {
     ws: WebSocket;
+    /**
+     * 이 연결이 보고 있는 시장.
+     *
+     * ★★ 시장을 세션에 두는 이유: 현물과 선물은 **같은 심볼이라도 다른 가격**이다.
+     *   시장을 모르고 구독하면 선물 스트림을 현물 화면에 흘려보내고, 이용자는
+     *   현물 차트를 본다고 믿으면서 선물 가격을 읽는다. 그 상태로 주문을 내면
+     *   예상과 다른 가격에 체결된다.
+     */
+    market: 'spot' | 'futures';
     subs: Subscriptions;
     /** 업스트림 구독 해제 함수들. `채널|키` → unsubscribe */
     releases: Map<string, () => void>;
@@ -229,6 +238,83 @@ export function attachWsGateway(
       // subscribeTicker 는 IMarketDataProvider 표준 메서드가 아니다.
       // KuCoin 어댑터가 추가로 제공한다. 없는 어댑터(목업 등)에서도 나머지
       // 채널은 정상 동작해야 하므로 존재 여부를 확인한 뒤 붙인다.
+      /*
+         ★★ 현물 세션이면 현물 스트림을 쓴다.
+
+           현물 ticker 프레임에는 **24시간 변동률이 없다**(KuCoin 이 주지 않는다).
+           그래서 부분 갱신만 보낸다. 화면이 이것으로 전체 티커를 덮어쓰면 변동률이
+           사라져 모든 종목이 "변동 없음" 으로 보인다 — 클라이언트가 병합해야 한다.
+
+         ★ 현물 스트림이 없으면(소켓 미주입) 아무것도 붙이지 않는다. 선물 스트림으로
+           대신 채우면 이용자는 현물 가격을 본다고 믿으면서 선물 가격을 읽는다.
+      */
+      if (s.market === 'spot') {
+        const spot = providers.spot;
+        /*
+           ★ 현물 스트림은 **구독이 생길 때** 시작한다.
+
+             부팅 시점에 항상 붙이면, 현물을 아무도 보지 않는 배포에서도 연결을
+             유지하며 KuCoin 한도를 쓴다. start() 는 여러 번 불려도 안전하다
+             (이미 연결돼 있으면 아무 일도 하지 않는다).
+        */
+        void spot?.startStreaming?.().catch((e: unknown) => {
+          diag('현물 스트림 시작 실패', { error: (e as Error).message });
+        });
+        if (spot?.supportsStreaming && typeof spot.subscribeTicker === 'function') {
+          s.releases.set(
+            `ticker|${symbol}`,
+            /*
+               ★ 프레임에 시장을 표시한다. 클라이언트가 어느 시장의 값인지 알아야
+                 현물/선물 캐시를 섞지 않는다. 전환 직후 이전 시장의 프레임이
+                 한두 개 더 도착할 수 있는데, 표시가 없으면 새 시장 값으로 기록된다.
+            */
+            spot.subscribeTicker(symbol, (t: unknown) =>
+              send(s, 'ticker', { ...(t as object), market: 'spot' })),
+          );
+        }
+        /*
+           호가·체결.
+
+           ★ 현물 호가는 5단만 온다(level2Depth5). 화면이 더 많은 행을 그리는
+             자리에 5행이 오면 나머지는 비어야 한다 — 0 으로 채우면 "그 가격에
+             물량이 없다" 는 거짓이 된다. 채우는 판단은 화면이 한다.
+
+           ★ 없는 것을 있는 것처럼 두지 않는다: 어댑터가 그 구독을 제공하지
+             않으면 아무것도 붙이지 않는다.
+        */
+        if (typeof spot?.subscribeBook === 'function') {
+          s.releases.set(
+            `book|${symbol}`,
+            spot.subscribeBook(symbol, (bk: unknown) => {
+              /*
+                 ★★ 선물과 **같은 변환기**를 통과시킨다.
+
+                   화면의 호가 위젯은 `{price, amount, cumulative}` 객체 배열을
+                   기대한다. 현물 원본은 `[["63091.4","0.012"], …]` 문자열 배열이라,
+                   그대로 보내면 위젯이 `r.amount.toFixed` 에서 죽는다 —
+                   실제로 화면 전체가 빈 채로 렌더가 중단됐다.
+
+                 ★ 변환기가 null 을 주면(한쪽이 비면) 보내지 않는다. 0 으로 채운
+                   중간가·스프레드를 화면에 띄우지 않기 위한 기존 규칙이다.
+              */
+              const ui = toUiBook(bk as OrderBook);
+              if (ui) send(s, 'orderbook', { ...ui, market: 'spot' });
+            }),
+          );
+        }
+        if (typeof spot?.subscribeTrades === 'function') {
+          s.releases.set(
+            `trade|${symbol}`,
+            spot.subscribeTrades(symbol, (tr: unknown) => {
+              // 체결도 같은 변환기를 쓴다(화면은 amount·side·time 을 숫자로 기대한다).
+              const t = tr as { id: string; price: string; size: string; side: 'buy' | 'sell'; ts: number };
+              send(s, 'trade', { ...toUiTrade({ ...t }, symbol), market: 'spot' });
+            }),
+          );
+        }
+        return;
+      }
+
       const tickerCapable = providers.market as {
         subscribeTicker?: (symbol: string, cb: (t: Ticker) => void) => () => void;
       };
@@ -278,6 +364,21 @@ export function attachWsGateway(
     s.subs.candles.add(key);
 
     try {
+      if (s.market === 'spot') {
+        const spot = providers.spot;
+        void spot?.startStreaming?.().catch((e: unknown) => {
+          diag('현물 스트림 시작 실패', { error: (e as Error).message });
+        });
+        if (spot?.supportsStreaming && typeof spot.subscribeCandles === 'function') {
+          s.releases.set(
+            `candle|${key}`,
+            spot.subscribeCandles(symbol, tf, (candle: unknown) =>
+              send(s, 'candle', { symbol, timeframe: tf, candle, market: 'spot' }),
+            ),
+          );
+        }
+        return;
+      }
       s.releases.set(
         `candle|${key}`,
         providers.market.subscribeCandles(symbol, tf as Timeframe, (candle: Candle) =>
@@ -328,6 +429,8 @@ export function attachWsGateway(
   wss.on('connection', (ws: WebSocket) => {
     const session: Session = {
       ws,
+      // 기본은 선물이다(기존 동작 유지). 클라이언트가 subscribe 에서 바꾼다.
+      market: 'futures',
       subs: { symbols: new Set(), candles: new Set() },
       releases: new Map(),
       alive: true,
@@ -364,6 +467,23 @@ export function attachWsGateway(
             }))
             .filter((c) => c.symbol && c.tf)
         : [];
+
+      /*
+         ★ 시장이 바뀌면 기존 구독을 모두 끊는다.
+
+           끊지 않으면 이전 시장의 프레임이 계속 흘러와 두 시장의 가격이 섞인다.
+           화면은 어느 쪽이 최신인지 알 수 없다.
+      */
+      const wantedMarket = String((msg as { market?: unknown }).market ?? '').toLowerCase() === 'spot'
+        ? 'spot' as const : 'futures' as const;
+      if (msg.op === 'subscribe' && wantedMarket !== session.market) {
+        for (const sym of [...session.subs.symbols]) unsubscribeSymbol(session, sym);
+        for (const key of [...session.subs.candles]) {
+          const [sy, tf] = key.split('|');
+          if (sy && tf) unsubscribeCandle(session, sy, tf);
+        }
+        session.market = wantedMarket;
+      }
 
       switch (msg.op) {
         case 'subscribe':

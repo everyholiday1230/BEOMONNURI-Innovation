@@ -122,7 +122,7 @@ for (const dev of DEVICES) {
 
   for (const route of ROUTES) {
     await page.goto(`${BASE}/index.html#${route}`, { waitUntil: 'networkidle', timeout: 60000 });
-    await page.waitForTimeout(/trade|multi-chart/.test(route) ? 7000 : 3500);
+    await page.waitForTimeout(/trade/.test(route) ? 7000 : 3500);
 
     const found = await page.evaluate(() => {
       const out = [];

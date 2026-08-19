@@ -320,3 +320,112 @@ pnpm -r test
 node tools/launch-check.mjs --env .env.production
 node tools/db-persistence-check.mjs
 ```
+
+---
+
+## 정기 작업 — 분리 보관 기록의 파기
+
+우리 개인정보처리방침(§6)은 "법령이 보관을 요구하는 정보는 그 기간 동안 분리
+보관한 뒤 **파기**합니다" 라고 약속했습니다. 옮기는 것만 하고 파기를 하지 않으면
+보관 기간이 지난 개인정보가 영구히 쌓입니다 — 그 자체가 방침 위반이고, 유출되면
+이미 지웠어야 할 자료가 유출되는 셈입니다.
+
+**하루 한 번 실행하도록 등록하십시오.**
+
+```bash
+# 먼저 무엇을 지울지 확인 (지우지 않습니다)
+PGHOST=… PGPORT=… PGUSER=… PGPASSWORD=… PGDATABASE=… \
+  node tools/purge-retained.mjs
+
+# 실제 파기 — 되돌릴 수 없습니다
+PGHOST=… PGPORT=… PGUSER=… PGPASSWORD=… PGDATABASE=… \
+  node tools/purge-retained.mjs --apply
+```
+
+무엇을 지우는지
+
+| 대상 | 보관 기간 | 근거 |
+|---|---|---|
+| `retained_legal_consents` | 5년 | 개인정보처리방침 1절 (약관 동의 기록) |
+| `retained_orders` | 5년 | 개인정보처리방침 1절 (주문·체결 기록) |
+
+기간은 **옮길 때 행마다 기록**되므로(`purge_after`) 이 스크립트는 기간 상수를
+갖지 않습니다. 나중에 방침이 바뀌어도 이미 보관 중인 행의 기준은 흔들리지 않습니다.
+
+★ `user_deletion_records` 는 파기하지 않습니다. 삭제 처리가 적법했음을 보이는
+근거이고, 담긴 개인정보는 이메일뿐입니다. 지우면 "왜 지웠나" 에 답할 수 없습니다.
+
+★ 회원 삭제는 SUPER 등급만 할 수 있고(`admin.user.delete`), 재인증과 대상
+이메일 입력을 함께 요구합니다. 분리 보관 테이블이 없는 환경에서는 **삭제가
+거부됩니다**(`RETENTION_UNAVAILABLE`) — 보관하지 못하는 상태에서 지우면 방침이
+보관하겠다고 한 자료가 사라지기 때문입니다.
+
+---
+
+## KuCoin Fast API (OAuth) — 신청 절차
+
+이용자가 KuCoin에서 API 키를 손으로 만들지 않게 하는 기능입니다. 켜면 "KuCoin으로
+연결" 한 번으로 키가 자동 발급됩니다.
+
+**`client_id`는 브로커 승인 통보에 들어 있지 않습니다. 별도 신청입니다.**
+
+### 1. 준비 (도메인이 정해진 뒤에 가능)
+
+KuCoin 폼 `https://forms.gle/bNWiNh5Ai1GUP1KE7` 에 세 가지를 제출합니다.
+
+| 제출 항목 | 값 |
+|---|---|
+| Fast API 요청용 서버 IP 목록 | 우리 API 서버의 공인 IP (전부) |
+| 거래용 서버 IP 목록 | 주문을 내보내는 서버의 공인 IP (전부) |
+| OAuth 로그인 후 Redirect URL | `https://<도메인>/api/exchanges/kucoin/oauth/callback` |
+
+IP는 **전부** 적어야 합니다. 로드밸런서 뒤에 여러 대가 있으면 그 전부이고,
+나중에 서버를 늘리면 다시 신청해야 합니다(빠뜨린 IP에서 나간 요청은 거부됩니다).
+
+### 2. `client_id` 수령 후
+
+```bash
+KUCOIN_OAUTH_CLIENT_ID=<KuCoin이 보낸 값>
+KUCOIN_OAUTH_REDIRECT_URI=https://<도메인>/api/exchanges/kucoin/oauth/callback
+```
+
+★ `REDIRECT_URI`는 제출한 값과 **문자 하나까지 같아야** 합니다. 다르면 KuCoin이
+거부하고 이용자는 승인 화면에서 되돌아오지 못합니다.
+
+★ 둘 중 하나라도 비어 있으면 기능이 **등록되지 않습니다**(fail-closed). 서버
+기동 로그에 그 이유가 남습니다:
+`[api] KuCoin Fast API (OAuth) NOT mounted — …`
+
+★ PostgreSQL이 필요합니다(마이그레이션 0024 — OAuth state 저장).
+
+### 3. 확인
+
+```bash
+curl -s http://<서버>/api/config | grep kucoinOauthAvailable   # true 여야 합니다
+curl -s -b <관리자쿠키> http://<서버>/api/admin/system/health | grep kucoinFastApi
+```
+
+그리고 **실제로 한 번 통과시켜 보십시오.** 이 흐름은 `client_id` 없이는 끝까지
+검증할 수 없어, 코드는 문서를 근거로 작성했습니다. 첫 연결에서 확인할 것:
+
+- KuCoin 승인 화면에 우리 이름이 나오는지
+- 승인 후 지갑 화면으로 돌아와 초록 배너가 뜨는지
+- KuCoin의 API 관리 목록에 키가 생겼고 **출금 권한이 꺼져 있는지**
+- 그 키로 잔고·포지션 조회가 되는지
+
+### 우리가 요구하는 권한
+
+조회(`API_COMMON`) · 현물 거래(`API_SPOT`) · 선물 거래(`API_FUTURES`) **뿐입니다.**
+
+**출금(`API_WITHDRAW_OAUTH`)은 코드에서 false로 고정**되어 있습니다. 자금을
+보관하지 않고 입출금을 취급하지 않는다는 이용약관 제2조와 맞춘 것이며, 테스트로
+묶어 두었습니다(`kucoin-oauth.test.ts` S2). 이 값을 true로 바꾸면 약관과 정면으로
+어긋나고, 우리 서버가 침해될 때 피해가 이용자 자산 전체로 번집니다.
+
+마진·예치·이체 권한도 요구하지 않습니다 — 제공하지 않는 기능입니다.
+
+### 참고: OAuth 경유 입출금 수수료
+
+KuCoin은 Fast API OAuth로 이루어진 입출금에 별도 수수료를 부과합니다(출금액의
+10%, 최소 1 USDT, 최대 30 USDT). **우리는 출금을 취급하지 않으므로 해당이
+없습니다.** 나중에 누가 그 기능을 붙이려 할 때 알고 있어야 하는 조건입니다.

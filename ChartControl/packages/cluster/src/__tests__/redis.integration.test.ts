@@ -69,3 +69,59 @@ describe('Redis shared state (real)', () => {
     }
   });
 });
+
+describe.skipIf(!process.env.REDIS_URL)('RESP 연결 보장 (connect() 없이도 동작한다)', () => {
+  const url = process.env.REDIS_URL!;
+  const p = parseRedisUrl(url);
+
+  it('[1] ★★★ connect() 를 부르지 않아도 명령이 나간다', async () => {
+    /*
+       ★★★ 이것이 없어서 **프로덕션이 통째로 멈췄다.**
+
+         `createRateLimiter` 가 프로덕션에서 RedisClient 를 만들면서
+         `connect()` 를 부르지 않았다. 모든 명령이 `redis not connected` 로
+         실패하고, 그 위의 FailClosedRateLimiter 가 **모든 요청을 거부**했다.
+
+         결과: 프로덕션 모드에서 로그인 자체가 불가능(전부 429). 개발 모드는
+         메모리 리미터를 쓰므로 이 경로를 지나지 않아 드러나지 않았다 —
+         프로덕션으로 실제 띄워 보고 나서야 발견했다.
+    */
+    const c = new RedisClient({ host: p.host, port: p.port, connectTimeoutMs: 1500 });
+    // connect() 를 부르지 않는다.
+    expect(await c.command('PING')).toBe('PONG');
+    await c.quit();
+  });
+
+  it('[2] 동시 명령이 소켓을 하나만 연다', async () => {
+    /*
+       ★ 각자 연결하면 소켓이 여러 개 열리고 응답 큐가 섞인다 — 한 명령의 답이
+         다른 명령에게 간다.
+    */
+    const c = new RedisClient({ host: p.host, port: p.port, connectTimeoutMs: 1500 });
+    const key = `probe:concurrent:${Date.now()}`;
+    const replies = await Promise.all([
+      c.command('PING'),
+      c.command('INCR', key),
+      c.command('INCR', key),
+      c.command('PING'),
+    ]);
+    expect(replies[0]).toBe('PONG');
+    expect(replies[3]).toBe('PONG');
+    // 두 INCR 가 1, 2 로 순서대로 와야 한다(응답이 섞이면 값이 어긋난다).
+    expect([Number(replies[1]), Number(replies[2])].sort((a, b) => a - b)).toEqual([1, 2]);
+    await c.command('DEL', key);
+    await c.quit();
+  });
+
+  it('[3] ★★ 끊긴 뒤 다시 붙는다', async () => {
+    /*
+       ★ `closed` 를 내리지 않으면 한 번 끊긴 뒤 영구히 거부한다 — 재시작 전까지
+         서비스가 돌아오지 않는다. Redis 재시작·네트워크 순단에서 실제로 겪는다.
+    */
+    const c = new RedisClient({ host: p.host, port: p.port, connectTimeoutMs: 1500 });
+    expect(await c.command('PING')).toBe('PONG');
+    await c.quit();                       // 소켓을 닫는다
+    expect(await c.command('PING')).toBe('PONG');   // 다시 붙어야 한다
+    await c.quit();
+  });
+});

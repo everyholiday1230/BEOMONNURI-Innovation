@@ -34,37 +34,528 @@
   // ADMIN USER DETAIL — full profile view
   // ============================================================
   window.AdminUserDetailPage = function AdminUserDetailPage({ shellProps, userId }) {
-    const user = window.QTApp.ADMIN_USERS.find(u => u.id === (userId || 'usr_kuri001')) || window.QTApp.ADMIN_USERS[0];
+    /*
+       회원 상세.
+
+       ★★ 전에는 서버를 한 번도 부르지 않았다.
+
+         `ADMIN_USERS.find(u => u.id === (userId || 'usr_kuri001')) || ADMIN_USERS[0]`
+         — 목록 화면이 채워 둔 전역 배열에서 찾고, 못 찾으면 **첫 번째 사람의
+         상세를 열었다.** 즉 주소에 id 가 없거나 잘못된 id 로 들어오면 아무
+         상관 없는 회원의 화면이 열리고, 그 화면의 정지 버튼을 누르게 된다.
+         지금은 정지가 alert 뿐이라 사고가 나지 않았지만, 배선하는 순간
+         엉뚱한 사람을 정지시키는 경로가 된다.
+
+       ★ 지금은 `GET /api/admin/users/:id` 로 그 사람만 조회한다.
+         실측 응답: { user: { id, email, role, status, mfa_enabled, created_at,
+         updated_at }, stats: { sessions, aiConversations, aiSignals, orders,
+         exchangeCredentials } }
+
+       ★ id 가 없으면 아무도 열지 않는다. 다른 사람을 보여주는 것보다 "누구를
+         열지 알 수 없다" 고 말하는 것이 안전하다.
+    */
+    const [detail, setDetail] = React.useState({ state: userId ? 'loading' : 'noid', user: null, stats: null, error: null });
     const [tab, setTab] = useState('overview');
     const [showAction, setShowAction] = useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [actionMsg, setActionMsg] = React.useState(null);
+
+    const load = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!userId) { setDetail({ state: 'noid', user: null, stats: null, error: null }); return; }
+      if (!api || !api.user) { setDetail({ state: 'unsupported', user: null, stats: null, error: null }); return; }
+      setDetail((p) => ({ ...p, state: p.user ? 'ready' : 'loading' }));
+      api.user(userId)
+        .then((r) => {
+          const d = (r && r.data) || {};
+          if (d.user && d.user.id) setDetail({ state: 'ready', user: d.user, stats: d.stats || null, error: null });
+          else setDetail({ state: 'notfound', user: null, stats: null, error: null });
+        })
+        .catch((e) => {
+          const st = e && e.status;
+          setDetail({
+            state: st === 404 ? 'notfound' : st === 403 ? 'forbidden' : 'error',
+            user: null, stats: null, error: (e && e.message) || null,
+          });
+        });
+    }, [userId]);
+
+    React.useEffect(() => { load(); }, [load]);
+
+    /*
+       활동 로그 — 감사 로그를 이 사용자로 필터해 가져온다.
+
+       탭을 열 때만 조회한다. 상세 화면을 열자마자 함께 부르면, 활동 탭을
+       보지 않는 대부분의 경우에 쓸데없는 조회가 나간다.
+    */
+    const [activity, setActivity] = React.useState({ state: 'idle', rows: [] });
+    const loadActivity = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.audit || !userId) { setActivity({ state: 'error', rows: [] }); return; }
+      setActivity((p) => ({ ...p, state: 'loading' }));
+      api.audit({ userId: userId, limit: 50 })
+        .then((r) => setActivity({ state: 'ready', rows: (r && r.data) || [] }))
+        .catch(() => setActivity({ state: 'error', rows: [] }));
+    }, [userId]);
+
+    React.useEffect(() => {
+      if (tab === 'activity' && activity.state === 'idle') loadActivity();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab, activity.state, loadActivity]);
+
+    /*
+       정지 / 해제 — 실제 API 를 부른다.
+
+       ★★ 전에는 `alert('사용자가 정지되었습니다 (Simulation)')` 였다.
+         운영자는 정지된 줄 알고 넘어가지만 그 사람은 계속 로그인한다.
+         악용 신고를 받고 정지시켰다고 답변까지 한 뒤에도 그대로다.
+
+       ★ 사유를 반드시 받는다(서버가 4~500자를 요구하고 감사 로그에 남는다).
+    */
+    const changeStatus = async (disable) => {
+      const api = window.QTApi && window.QTApi.admin;
+      const u = detail.user;
+      if (!api || !u) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t(disable ? 'admin_suspend_reason' : 'admin_reactivate_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+      setBusy(true); setActionMsg(null); setShowAction(null);
+      try {
+        if (disable) await api.disableUser(u.id, reason);
+        else await api.enableUser(u.id, reason);
+        setActionMsg({ kind: 'ok', text: t(disable ? 'adm_suspended_done' : 'adm_reactivated_done') });
+        load();
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /** 세션 전체 종료 — 계정 탈취 대응. 서버 API 가 있는데 화면에 없었다. */
+    const revokeSessions = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const u = detail.user;
+      if (!api || !api.revokeSessions || !u) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_revoke_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+      setBusy(true); setActionMsg(null);
+      try {
+        await api.revokeSessions(u.id, reason);
+        setActionMsg({ kind: 'ok', text: t('adm_revoked_done') });
+        load();
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /*
+       2단계 인증 초기화.
+
+       ★★ 요소를 제거하는 작업이므로 확인 절차를 갖춘다.
+         · 사유를 받는다(서버가 4~500자를 요구하고 감사 로그에 남는다)
+         · 서버가 대상의 세션도 함께 끊는다
+         · 메일 미설정이라 **사용자에게 통지되지 않는다** — 그 사실을 화면에
+           밝힌다. "처리했다" 만 알리면 담당자가 통지까지 됐다고 믿는다.
+
+       ★ 운영자 계정과 자기 자신은 서버가 거부한다(403). 화면에서도 버튼을
+         감추지만, 화면 판단만 믿지 않고 서버가 최종 판단한다.
+    */
+    const resetMfa = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const target = detail.user;
+      if (!api || !api.resetUserMfa || !target) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_reset_mfa_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.resetUserMfa(target.id, reason, true);
+        setActionMsg({
+          kind: 'ok',
+          text: t('adm_reset_mfa_done', { n: (r && r.sessionsRevoked) || 0 })
+            + ((r && r.notified) ? '' : ' ' + t('adm_reset_mfa_not_notified')),
+        });
+        load();
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /*
+       비밀번호 재설정 링크 발송.
+
+       ★ 임시 비밀번호를 만들지 않는다 — 관리자가 이용자 비밀번호를 아는
+         상태가 되면 안 된다(방침 8절). 이용자 본인 흐름을 촉발할 뿐이다.
+
+       ★★ 메일이 설정되지 않은 배포에서는 서버가 error 봉투(MAIL_NOT_CONFIGURED)를
+         200 으로 준다. 이 클라이언트는 200 을 성공으로 보므로 **본문을 직접
+         확인해야 한다.** 확인하지 않으면 "메일 보냈습니다" 라고 잘못 안내하고,
+         이용자는 아무것도 받지 못한다.
+    */
+    const sendPasswordReset = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const target = detail.user;
+      if (!api || !api.sendPasswordReset || !target) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_pwreset_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.sendPasswordReset(target.id, reason);
+        // ★ 200 이어도 error 가 들어 있을 수 있다(위 주석).
+        if (r && r.error) {
+          const code = r.error.code || '';
+          setActionMsg({
+            kind: 'warn',
+            text: code === 'MAIL_NOT_CONFIGURED' ? t('adm_pwreset_mail_absent') : t('adm_action_failed'),
+          });
+        } else {
+          setActionMsg({ kind: 'ok', text: t('adm_pwreset_sent') });
+        }
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /*
+       회원 삭제.
+
+       ★★ 되돌릴 수 없다. 그래서 확인을 겹쳐 둔다.
+         · 권한(admin.user.delete)이 없으면 버튼 자체를 렌더하지 않는다
+         · 사유를 받는다(4자 이상, 감사·삭제 처리 기록에 남는다)
+         · **대상 이메일을 직접 입력**하게 한다 — 목록에서 잘못된 행을 누른
+           실수가 그대로 삭제가 되지 않게. 서버도 같은 값을 대조한다.
+
+       ★ 화면 확인만 믿지 않는다. 서버가 권한·재인증·이메일을 모두 다시 본다.
+    */
+    const deleteUser = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const target = detail.user;
+      if (!api || !api.deleteUser || !target) return;
+
+      // eslint-disable-next-line no-alert
+      const typed = window.prompt(t('adm_delete_confirm_email', { email: target.email }), '');
+      if (typed === null) return;
+      if (String(typed).trim().toLowerCase() !== String(target.email).trim().toLowerCase()) {
+        setActionMsg({ kind: 'warn', text: t('adm_delete_email_mismatch') });
+        return;
+      }
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_delete_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.deleteUser(target.id, reason, typed, true);
+        // ★ 200 이어도 error 가 들어 있을 수 있다(RETENTION_UNAVAILABLE).
+        if (r && r.error) {
+          setActionMsg({
+            kind: 'warn',
+            text: r.error.code === 'RETENTION_UNAVAILABLE' ? t('adm_delete_retention_absent') : t('adm_action_failed'),
+          });
+        } else {
+          const kept = (r && r.retained) || {};
+          setActionMsg({
+            kind: 'ok',
+            text: t('adm_delete_done', { c: kept.consents || 0, o: kept.orders || 0 }),
+          });
+          // 대상이 사라졌으므로 상세를 다시 부르지 않는다 — 목록으로 보낸다.
+          setTimeout(() => { window.location.hash = '#/admin/users'; }, 2500);
+        }
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /*
+       ★ 삭제 권한은 SUPER 에만 있다(admin.user.delete). 권한이 없으면 버튼을
+         렌더하지 않는다 — 누를 수 없는 버튼을 보여주면 "왜 안 되지" 를 반복한다.
+    */
+    const canDelete = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.user.delete'));
+
+    /*
+       관리자 노트.
+
+       ★ 탭을 열 때만 조회한다. 상세를 열자마자 함께 부르면 노트를 보지 않는
+         대부분의 경우에 불필요한 조회가 나가고, 그 조회도 감사에 남는다
+         (열지 않은 것까지 "열람" 으로 기록되면 기록의 뜻이 흐려진다).
+    */
+    const [notes, setNotes] = React.useState({ state: 'idle', rows: [] });
+    const [noteDraft, setNoteDraft] = React.useState('');
+
+    const loadNotes = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.userNotes || !userId) { setNotes({ state: 'error', rows: [] }); return; }
+      setNotes((p) => ({ ...p, state: 'loading' }));
+      api.userNotes(userId)
+        .then((r) => setNotes({ state: 'ready', rows: (r && r.data) || [] }))
+        .catch(() => setNotes({ state: 'error', rows: [] }));
+    }, [userId]);
+
+    React.useEffect(() => {
+      if (tab === 'notes' && notes.state === 'idle') loadNotes();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab, notes.state, loadNotes]);
+
+    const addNote = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const text = String(noteDraft || '').trim();
+      if (!api || !api.addUserNote || !userId || !text) return;
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.addUserNote(userId, text);
+        // ★ 200 이어도 error 가 들어 있을 수 있다(NOTES_UNAVAILABLE).
+        if (r && r.error) {
+          setActionMsg({ kind: 'warn', text: t('adm_note_unavailable') });
+        } else {
+          setNoteDraft('');
+          setNotes((p) => ({ ...p, state: 'idle' })); // 다시 불러온다
+        }
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    const removeNote = async (noteId) => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.deleteUserNote || !userId) return;
+      setBusy(true);
+      try {
+        await api.deleteUserNote(userId, noteId);
+        setNotes((p) => ({ ...p, state: 'idle' }));
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
+    /*
+       이메일(로그인 식별자) 변경.
+
+       ★★ 바꾸면 이용자는 이전 주소로 로그인할 수 없다. 잘못 입력하면 그 사람이
+         자기 계정에서 잠긴다. 그래서 현재 주소를 보여주고 새 주소를 두 번
+         확인받는다(서버도 형식·중복을 다시 본다).
+
+       ★ 변경 후 새 주소는 **미확인** 상태가 된다. 메일이 설정되지 않은 배포에서는
+         확인 메일이 가지 않으므로 그 사실을 화면에 밝힌다.
+    */
+    const changeEmail = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const target = detail.user;
+      if (!api || !api.setUserEmail || !target) return;
+
+      // eslint-disable-next-line no-alert
+      const next = window.prompt(t('adm_email_new', { current: target.email }), '');
+      if (next === null) return;
+      const email = String(next).trim().toLowerCase();
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        setActionMsg({ kind: 'warn', text: t('adm_email_invalid') });
+        return;
+      }
+      if (email === String(target.email).trim().toLowerCase()) {
+        setActionMsg({ kind: 'warn', text: t('adm_email_same') });
+        return;
+      }
+      // ★ 한 번 더 확인 — 오타가 그대로 저장되면 이용자가 잠긴다.
+      // eslint-disable-next-line no-alert
+      const again = window.prompt(t('adm_email_again', { email }), '');
+      if (again === null) return;
+      if (String(again).trim().toLowerCase() !== email) {
+        setActionMsg({ kind: 'warn', text: t('adm_email_mismatch') });
+        return;
+      }
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_email_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.setUserEmail(target.id, email, reason, true);
+        if (r && r.error) {
+          setActionMsg({
+            kind: 'warn',
+            text: r.error.code === 'EMAIL_TAKEN' ? t('adm_email_taken') : t('adm_action_failed'),
+          });
+        } else {
+          setActionMsg({
+            kind: 'ok',
+            text: t('adm_email_changed') + ((r && r.verificationSent) ? '' : ' ' + t('adm_email_no_verification')),
+          });
+          load();
+        }
+      } catch (e) {
+        // 409 는 throw 로 온다(HTTP 오류) — 코드로 구분한다.
+        const code = e && e.code;
+        setActionMsg({
+          kind: 'warn',
+          text: code === 'EMAIL_TAKEN' ? t('adm_email_taken') : ((e && e.message) || t('adm_action_failed')),
+        });
+      }
+      setBusy(false);
+    };
+
+    const canStatus = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.user.status.write'));
+
+    /*
+       조회가 끝나지 않았거나 실패한 상태.
+
+       ★ 이 경우 다른 사람의 정보를 대신 보여주지 않는다. 무엇이 문제인지만
+         말한다 — 관리자 화면에서 잘못된 대상에 조치하는 것이 가장 위험하다.
+    */
+    if (detail.state !== 'ready') {
+      const key = {
+        noid: 'adm_detail_noid',
+        loading: 'adm_detail_loading',
+        notfound: 'adm_detail_notfound',
+        forbidden: 'adm_state_forbidden',
+        unsupported: 'adm_detail_unsupported',
+      }[detail.state] || 'adm_detail_error';
+      return (
+        <window.PageShell
+          {...shellProps}
+          title={t('adm_detail_title')}
+          breadcrumb={['Home', 'Admin', 'Users']}
+        >
+          <div
+            style={{
+              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+              padding:'14px 16px', borderRadius:6,
+              border:'1px solid ' + (detail.state === 'loading' ? 'var(--color-border-subtle)' : 'var(--color-warning)'),
+              background: detail.state === 'loading' ? 'var(--color-bg-surface)' : 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+            }}
+          >
+            <span style={{fontSize:12.5, color: detail.state === 'loading' ? 'var(--color-text-tertiary)' : 'var(--color-warning)'}}>
+              {t(key)}
+            </span>
+            {detail.error && (
+              <span style={{fontSize:11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
+                {String(detail.error).slice(0, 120)}
+              </span>
+            )}
+            {detail.state !== 'loading' && detail.state !== 'noid' && (
+              <button className="btn btn--xs" type="button" onClick={load}>{t('sec_retry')}</button>
+            )}
+            <a className="btn btn--xs" href="#/admin/users">{t('adm_back_to_users')}</a>
+          </div>
+        </window.PageShell>
+      );
+    }
+
+    /*
+       화면에 쓰는 값.
+
+       ★ 서버가 주지 않는 것을 만들지 않는다.
+         이름(name)·등급(tier)·KYC 단계·30일 거래량은 서버 응답에 없다.
+         전에는 목업에서 가져와 채웠다. 이메일이 곧 식별자이므로 그것을 쓴다.
+    */
+    const u = detail.user;
+    const stats = detail.stats || {};
+    const joined = u.created_at ? new Date(Number(u.created_at)).toLocaleDateString() : '—';
 
     return (
       <window.PageShell
         {...shellProps}
-        title={user.name}
-        subtitle={user.email + ' · ' + user.id}
-        breadcrumb={['Home','Admin','Users', user.name]}
+        /* ★ 이름은 서버가 주지 않는다. 이메일이 식별자다 — 없는 이름을 만들지 않는다. */
+        title={u.email}
+        subtitle={u.id}
+        breadcrumb={['Home','Admin','Users', u.email]}
         badge={
           <>
-            <span className={`status-pill status-pill--${user.status}`}>{user.status.toUpperCase()}</span>
-            <span className="badge badge--neutral">{user.tier}</span>
-            <span className="badge badge--success">KYC L{user.kyc}</span>
+            <span className={`status-pill status-pill--${u.status === 'active' ? 'active' : 'suspended'}`}>
+              {String(u.status || '').toUpperCase() || '—'}
+            </span>
+            <span className="badge badge--neutral">{String(u.role || '—').toUpperCase()}</span>
+            {/* 2단계 인증 여부는 서버가 준다. 등급·KYC 단계는 주지 않으므로 표시하지 않는다. */}
+            <span className={`badge ${Number(u.mfa_enabled) ? 'badge--success' : 'badge--neutral'}`}>
+              {Number(u.mfa_enabled) ? '2FA ON' : '2FA OFF'}
+            </span>
           </>
         }
         actions={
           <>
-            <button className="btn btn--sm"><I.Send size={13}/> {t('admin_user_detail_96330a')}</button>
-            <button className="btn btn--sm"><I.Camera size={13}/> Export</button>
-            {user.status === 'active' && <button className="btn btn--sm btn--danger" onClick={() => setShowAction('suspend')}><I.Alert size={13}/> {t('admin_user_detail_1d441e')}</button>}
-            {user.status === 'suspended' && <button className="btn btn--sm btn--primary" onClick={() => setShowAction('unsuspend')}><I.Check size={13}/> {t('admin_user_detail_f63bf7')}</button>}
+            {/* 이메일 보내기·내보내기는 서버 API 가 없다. 눌러도 되는 것처럼 두지 않는다. */}
+            <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
+              <I.Send size={13}/> {t('admin_user_detail_96330a')}
+              <span className="qt-pending-mark">{t('sec_pending')}</span>
+            </button>
+            <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
+              <I.Camera size={13}/> {t('col_export')}
+              <span className="qt-pending-mark">{t('sec_pending')}</span>
+            </button>
+            {/* 세션 종료 — 서버 API 가 있는데 화면에 없었다. */}
+            {canStatus && (
+              <button className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
+                <I.Lock size={13}/> {t('adm_revoke_sessions')}
+              </button>
+            )}
+            {canStatus && u.status === 'active' && (
+              <button className="btn btn--sm btn--danger" type="button" disabled={busy} onClick={() => setShowAction('suspend')}>
+                <I.Alert size={13}/> {t('admin_user_detail_1d441e')}
+              </button>
+            )}
+            {canStatus && u.status !== 'active' && (
+              <button className="btn btn--sm btn--primary" type="button" disabled={busy} onClick={() => setShowAction('unsuspend')}>
+                <I.Check size={13}/> {t('admin_user_detail_f63bf7')}
+              </button>
+            )}
           </>
         }
       >
+        {/* 조치 결과 알림 — 성공도 실패도 화면에 남긴다(alert 로 지나가면 확인할 수 없다). */}
+        {actionMsg && (
+          <div
+            role="status"
+            style={{
+              padding:'10px 14px', marginBottom:12, borderRadius:6, fontSize:12,
+              border:'1px solid ' + (actionMsg.kind === 'ok' ? 'var(--color-success)' : 'var(--color-warning)'),
+              background: 'color-mix(in srgb, ' + (actionMsg.kind === 'ok' ? 'var(--color-success)' : 'var(--color-warning)') + ' 10%, transparent)',
+              color: actionMsg.kind === 'ok' ? 'var(--color-success)' : 'var(--color-warning)',
+            }}
+          >
+            {actionMsg.text}
+          </div>
+        )}
+
+        {/*
+           ★ 서버가 주는 통계만 보여준다.
+
+             전에는 `30일 거래량 $…`(목업 vol30) · `누적 수수료`(vol30 × 0.0004
+             으로 우리가 계산) · `포지션 3 (1 long · 2 short)` **고정값** 이었다.
+             수수료를 우리가 곱해 만들면 실제 정산과 다른 금액이 관리자 화면에
+             남고, 그 숫자로 고객 문의에 답하게 된다.
+
+             실측 stats: sessions · aiConversations · aiSignals · orders ·
+             exchangeCredentials
+        */}
         <div className="grid-4">
-          <window.KPICard label={t('admin_user_detail_22d6d2')} value={'$' + fmtCompact(user.vol30)} tone="brand"/>
-          <window.KPICard label={t('admin_user_detail_33103c')} value={'$' + fmtCompact(user.vol30 * 0.0004)} tone="warning"/>
-          <window.KPICard label={t('admin_user_detail_81922a')} value="3" sub="1 long · 2 short"/>
-          <window.KPICard label={t('admin_user_detail_170f7b')} value={user.joined}/>
+          <window.KPICard label={t('adm_stat_sessions')} value={Number.isFinite(stats.sessions) ? stats.sessions.toLocaleString() : '—'}/>
+          <window.KPICard label={t('adm_stat_orders')} value={Number.isFinite(stats.orders) ? stats.orders.toLocaleString() : '—'}/>
+          <window.KPICard label={t('adm_stat_exchanges')} value={Number.isFinite(stats.exchangeCredentials) ? stats.exchangeCredentials.toLocaleString() : '—'}/>
+          <window.KPICard label={t('admin_user_detail_170f7b')} value={joined}/>
         </div>
 
         <div className="tabs" style={{borderBottom:'1px solid var(--color-border-subtle)', marginBottom: -12}}>
@@ -84,20 +575,41 @@
         {tab === 'overview' && (
           <div className="grid-2-1">
             <div style={{display:'flex', flexDirection:'column', gap: 16}}>
-              <window.SectionCard title="Profile Information">
+              {/*
+                 ★ 서버가 주는 값만 표시한다.
+
+                   전에는 Name · Country · Tier · KYC Level 을 목업에서 가져와
+                   채웠다. 서버 응답에는 그 항목이 없다(id · email · role ·
+                   status · mfa_enabled · created_at · updated_at 뿐).
+                   없는 항목을 그럴듯하게 채우면 관리자가 그 값을 근거로
+                   판단한다 — 예컨대 KYC 단계를 보고 한도를 조정하려 한다.
+              */}
+              <window.SectionCard title={t('adm_profile_info')}>
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12, fontSize: 12}}>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Name</div><div style={{fontWeight:500, marginTop:2}}>{user.name}</div></div>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Email</div><div style={{fontWeight:500, marginTop:2}}>{user.email}</div></div>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Country</div><div style={{fontWeight:500, marginTop:2}}>{user.country}</div></div>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Tier</div><div style={{fontWeight:500, marginTop:2}}>{user.tier}</div></div>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>KYC Level</div><div style={{fontWeight:500, marginTop:2}}>L{user.kyc}</div></div>
-                  <div><div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Joined</div><div style={{fontWeight:500, marginTop:2}}>{user.joined}</div></div>
+                  {[
+                    ['Email', u.email || '—'],
+                    ['User ID', u.id],
+                    ['Role', String(u.role || '—').toUpperCase()],
+                    ['Status', String(u.status || '—').toUpperCase()],
+                    ['2FA', Number(u.mfa_enabled) ? 'Enabled' : 'Disabled'],
+                    ['Joined', joined],
+                    ['Last updated', u.updated_at ? new Date(Number(u.updated_at)).toLocaleString() : '—'],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <div style={{fontSize:10, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>{label}</div>
+                      <div style={{fontWeight:500, fontFamily: label === 'User ID' ? 'var(--font-mono)' : undefined, fontSize: label === 'User ID' ? 11 : undefined, wordBreak:'break-all'}}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* 이름·국가·등급·KYC 단계는 우리가 수집하지 않는다(개인정보처리방침 2절). */}
+                <div style={{marginTop:10, fontSize:11, color:'var(--color-text-tertiary)', lineHeight:1.7}}>
+                  {t('adm_profile_fields_absent')}
                 </div>
               </window.SectionCard>
 
-              {user.flags.length > 0 && (
-                <window.SectionCard title="⚠ Flags">
-                  {user.flags.map(f => (
+              {false && Array.isArray(u.flags) && u.flags.length > 0 && (
+                <window.SectionCard title={t('adm_flags')}>
+                  {(u.flags || []).map(f => (
                     <div key={f} className="auth-alert auth-alert--warning" style={{marginBottom: 6}}>
                       <I.Alert size={12}/>
                       <div><strong>{f}</strong>{t('flag_auto_detected')}<a href="#" style={{color:'var(--color-warning)'}}>{t('flag_investigate')}</a></div>
@@ -106,117 +618,365 @@
                 </window.SectionCard>
               )}
 
-              <window.SectionCard title="Connected Exchanges">
-                <div style={{display:'flex', flexDirection:'column', gap: 6}}>
-                  <div style={{display:'flex', alignItems:'center', gap: 10, padding: 10, background: 'var(--color-bg-surface)', borderRadius: 4}}>
-                    <div className="exchange-card__logo" style={{width:28, height:28, borderRadius:5, background:'#F0B90B', color:'#0A0E14', fontSize:11}}>B</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:12, fontWeight:500}}>Binance</div>
-                      <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>Read + Trade + Futures · IP restricted</div>
+              {/*
+                 ★★ 전에는 Binance · Bitget 이 `ACTIVE` 로 하드코딩돼 있었다.
+
+                   권한 문구까지 적혀 있었다("Read + Trade + Futures · IP restricted").
+                   운영자는 이 회원이 거래소를 연결해 두었고 주문 권한이 있다고
+                   읽는다. 실제로는 아무 것도 연결하지 않은 회원일 수 있다.
+                   우리는 Binance 어댑터도 없다(KuCoin·BitMart 만).
+
+                 ★ 서버가 주는 것은 연결된 키의 **개수**다(stats.exchangeCredentials).
+                   어느 거래소인지·어떤 권한인지는 주지 않으므로 만들지 않는다.
+                   키 값은 애초에 조회 대상이 아니다(관리자도 볼 수 없어야 한다).
+              */}
+              <window.SectionCard title={t('adm_connected_exchanges')}>
+                {Number.isFinite(stats.exchangeCredentials) ? (
+                  <div style={{fontSize:12.5, lineHeight:1.8}}>
+                    <div style={{fontFamily:'var(--font-num)', fontSize:24, fontWeight:700}}>
+                      {stats.exchangeCredentials}
                     </div>
-                    <span className="status-pill status-pill--ok">ACTIVE</span>
-                  </div>
-                  <div style={{display:'flex', alignItems:'center', gap: 10, padding: 10, background: 'var(--color-bg-surface)', borderRadius: 4}}>
-                    <div className="exchange-card__logo" style={{width:28, height:28, borderRadius:5, background:'#00CED1', color:'#0A0E14', fontSize:11}}>Bg</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:12, fontWeight:500}}>Bitget</div>
-                      <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>Read + Trade · No IP restriction</div>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>
+                      {t(stats.exchangeCredentials > 0 ? 'adm_ex_count' : 'adm_ex_none')}
                     </div>
-                    <span className="status-pill status-pill--ok">ACTIVE</span>
+                    <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:8}}>
+                      {t('adm_ex_detail_absent')}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('adm_ex_unknown')}</div>
+                )}
               </window.SectionCard>
             </div>
 
             <div style={{display:'flex', flexDirection:'column', gap: 16}}>
-              <window.SectionCard title="Quick Actions">
+              {/*
+                 ★★ 이 버튼 6개는 onClick 이 없는 껍데기였다.
+
+                   이메일 보내기 · 자산 조회 · 거래 히스토리 · 2FA 재설정 ·
+                   비밀번호 리셋 · KYC 재요청. 눌러도 아무 일이 없었고, 표시도
+                   없었다. 운영자는 "눌렀는데 왜 안 되지" 를 반복하거나, 눌러서
+                   처리됐다고 믿는다. 특히 비밀번호 리셋과 2FA 재설정은
+                   "처리했다" 고 고객에게 답변하게 되는 항목이다.
+
+                 ★ 서버에 해당 API 가 없다(검색 확인). 버튼을 지우지 않고
+                   비활성 + 준비중 표시로 둔다 — 무엇이 없는지 드러나야 만들 수 있다.
+                 ★ 정지는 실제로 동작한다(위 changeStatus).
+              */}
+              <window.SectionCard title={t('adm_quick_actions')}>
                 <div style={{display:'flex', flexDirection:'column', gap: 6}}>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Send size={12}/> {t('admin_user_detail_941ad1')}</button>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Wallet size={12}/> {t('admin_user_detail_e4ec3e')}</button>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Chart size={12}/> {t('admin_user_detail_80a094')}</button>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Lock size={12}/> {t('admin_user_detail_e03d2f')}</button>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Refresh size={12}/> {t('admin_user_detail_04f2aa')}</button>
-                  <button className="btn btn--sm" style={{justifyContent:'flex-start'}}><I.Camera size={12}/> {t('admin_user_detail_851473')}</button>
-                  <button className="btn btn--sm btn--danger" style={{justifyContent:'flex-start'}} onClick={() => setShowAction('suspend')}><I.Alert size={12}/> {t('admin_user_detail_82d3e7')}</button>
+                  {[
+                    ['admin_user_detail_941ad1', 'Send'],
+                    ['admin_user_detail_e4ec3e', 'Wallet'],
+                    ['admin_user_detail_80a094', 'Chart'],
+                    ['admin_user_detail_851473', 'Camera'],
+                  ].map(([key, icon]) => {
+                    const Ic = I[icon] || I.Grid;
+                    return (
+                      <button
+                        key={key}
+                        className="btn btn--sm"
+                        type="button"
+                        style={{justifyContent:'flex-start'}}
+                        disabled
+                        title={t('adm_feature_absent')}
+                      >
+                        <Ic size={12}/> {t(key)}
+                        <span className="qt-pending-mark">{t('sec_pending')}</span>
+                      </button>
+                    );
+                  })}
+                  {/* ★ 이메일(로그인 식별자) 변경 — 실제 API. 오타로 잠긴 계정을 되살리는 수단. */}
+                  {canStatus && (
+                    <button
+                      className="btn btn--sm"
+                      type="button"
+                      style={{justifyContent:'flex-start'}}
+                      disabled={busy}
+                      title={t('adm_email_hint')}
+                      onClick={changeEmail}
+                    >
+                      <I.Send size={12}/> {t('adm_email_change')}
+                    </button>
+                  )}
+                  {/* ★ 비밀번호 재설정 링크 발송 — 실제 API. 임시 비밀번호를 만들지 않는다. */}
+                  {canStatus && (
+                    <button
+                      className="btn btn--sm"
+                      type="button"
+                      style={{justifyContent:'flex-start'}}
+                      disabled={busy}
+                      title={t('adm_pwreset_hint')}
+                      onClick={sendPasswordReset}
+                    >
+                      <I.Refresh size={12}/> {t('admin_user_detail_04f2aa')}
+                    </button>
+                  )}
+                  {/*
+                     ★ 2단계 인증 초기화 — 서버 API 를 실제로 부른다.
+                       휴대폰을 잃고 복구 코드도 없는 사용자를 되살리는 유일한 수단이다.
+                       일반 회원에게만 보인다(운영자 계정은 서버가 거부한다).
+                  */}
+                  {canStatus && !['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'ANALYST'].includes(String(u.role || '').toUpperCase()) && (
+                    <button
+                      className="btn btn--sm"
+                      type="button"
+                      style={{justifyContent:'flex-start'}}
+                      disabled={busy || !Number(u.mfa_enabled)}
+                      title={Number(u.mfa_enabled) ? t('adm_reset_mfa_hint') : t('adm_reset_mfa_off')}
+                      onClick={resetMfa}
+                    >
+                      <I.Lock size={12}/> {t('admin_user_detail_e03d2f')}
+                    </button>
+                  )}
+                  {/* 세션 종료는 서버 API 가 있다 — 실제로 동작한다. */}
+                  {canStatus && (
+                    <button className="btn btn--sm" type="button" style={{justifyContent:'flex-start'}} disabled={busy} onClick={revokeSessions}>
+                      <I.Lock size={12}/> {t('adm_revoke_sessions')}
+                    </button>
+                  )}
+                  {canStatus && u.status === 'active' && (
+                    <button className="btn btn--sm btn--danger" type="button" style={{justifyContent:'flex-start'}} disabled={busy} onClick={() => setShowAction('suspend')}>
+                      <I.Alert size={12}/> {t('admin_user_detail_82d3e7')}
+                    </button>
+                  )}
                 </div>
               </window.SectionCard>
 
-              <window.SectionCard title="Risk Score" subtitle={t('admin_user_detail_d65b24')}>
-                <div style={{fontFamily:'var(--font-num)', fontSize: 32, fontWeight: 700, color: 'var(--color-success)'}}>18/100</div>
-                <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginBottom: 12}}>Low risk · KYC L{user.kyc} · No flags</div>
-                <div style={{height:8, background:'var(--color-bg-input)', borderRadius:999, overflow:'hidden'}}>
-                  <div style={{height:'100%', width:'18%', background:'var(--color-success)'}}/>
-                </div>
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:10, color:'var(--color-text-tertiary)', marginTop:4}}>
-                  <span>Low</span><span>Medium</span><span>High</span>
-                </div>
+              {/*
+                 ★★ 위험 구역 — 되돌릴 수 없는 작업.
+
+                   따로 카드로 분리한다. Quick Actions 안에 두면 다른 버튼을
+                   누르려다 옆을 누를 수 있고, 그 실수는 복구할 수 없다.
+              */}
+              {canDelete && (
+                <window.SectionCard
+                  title={t('adm_danger_zone')}
+                  subtitle={t('adm_danger_zone_sub')}
+                >
+                  <div style={{fontSize:11.5, lineHeight:1.8, color:'var(--color-text-tertiary)', marginBottom:10}}>
+                    {t('adm_delete_explain')}
+                  </div>
+                  <button
+                    className="btn btn--sm btn--danger"
+                    type="button"
+                    disabled={busy}
+                    onClick={deleteUser}
+                  >
+                    <I.Trash size={12}/> {t('adm_delete_user')}
+                  </button>
+                </window.SectionCard>
+              )}
+
+              {/*
+                 ★★ 위험 점수는 우리가 계산하지 않는다.
+
+                   전에는 `18/100` · `Low risk · KYC L… · No flags` 가 고정
+                   문자열이었고, 막대까지 18% 로 그려져 있었다. 위험 점수는
+                   계정을 제한할지 판단하는 근거다. 아무 계정을 열어도 18 이
+                   나오므로, 실제로 위험한 계정도 "낮음" 으로 보인다.
+
+                   서버에 위험 점수 산출이 없다(KYC 단계도 수집하지 않는다).
+                   만들지 않고 없다고 말한다.
+              */}
+              <window.SectionCard title={t('adm_risk_score')}>
+                <div style={{fontFamily:'var(--font-num)', fontSize: 32, fontWeight: 700, color: 'var(--color-text-tertiary)'}}>—</div>
+                <div style={{fontSize:11, color:'var(--color-text-tertiary)', lineHeight:1.7}}>{t('adm_risk_score_absent')}</div>
               </window.SectionCard>
             </div>
           </div>
         )}
 
         {tab === 'kyc' && (
+          /*
+             ★★ 이 탭에 존재하지 않는 서류와 검사 결과가 그려져 있었다.
+
+               'ID_FRONT.jpg · 2.4MB · Uploaded 2025-11-18 · Verified'
+               'SELFIE.jpg · 1.8MB · Verified'
+               'Face match 98.4%' · 'PEP check Clear' · 'Sanctions list Clear'
+               'Document authenticity Passed' · 'Address verification Passed'
+
+               누구를 열어도 같은 값이 나왔다. 우리는 **신분증을 수집하지 않고**
+               제재 목록 조회도 하지 않는다(개인정보처리방침 §2에 그렇게 적어
+               게시했다). 그런데 화면은 검사를 통과했다고 말한다.
+
+               운영자가 이 화면을 근거로 AML 판단을 내리면, 하지 않은 검사를
+               했다고 믿고 결정하는 것이다. 가짜 데이터 중에서도 가장 위험한
+               종류다 — 그럴듯하고, 확인할 방법이 화면에 없다.
+
+             ★ 탭은 남긴다(디자인 보존). 대신 사실을 쓴다: 무엇을 수집하지 않는지,
+               본인 확인은 누가 하는지.
+          */
           <div className="grid-2">
-            <window.SectionCard title={t('admin_user_detail_3f4319')}>
-              <div style={{aspectRatio: '1.6/1', background:'linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-surface))', border: '1px dashed var(--color-border-default)', borderRadius: 8, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap: 4, color:'var(--color-text-tertiary)'}}>
-                <I.Camera size={32}/>
-                <div style={{fontSize:11, fontFamily:'var(--font-mono)'}}>ID_FRONT.jpg · 2.4MB</div>
-                <div style={{fontSize:10}}>Uploaded 2025-11-18 · Verified</div>
-              </div>
-              <div style={{aspectRatio: '1.6/1', background:'linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-surface))', border: '1px dashed var(--color-border-default)', borderRadius: 8, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap: 4, color:'var(--color-text-tertiary)', marginTop: 8}}>
-                <I.User size={32}/>
-                <div style={{fontSize:11, fontFamily:'var(--font-mono)'}}>SELFIE.jpg · 1.8MB</div>
-                <div style={{fontSize:10}}>Uploaded 2025-11-18 · Verified</div>
+            <window.SectionCard title={t('admin_user_detail_0057bd')}>
+              <div style={{fontSize:12, color:'var(--color-text-secondary)', lineHeight:1.8}}>
+                <div style={{fontWeight:600, color:'var(--color-text-primary)', marginBottom:6}}>{t('adm_kyc_none_title')}</div>
+                <div>{t('adm_profile_fields_absent')}</div>
+                <div style={{marginTop:8}}>{t('adm_kyc_none_why')}</div>
               </div>
             </window.SectionCard>
 
             <window.SectionCard title={t('admin_user_detail_a43b70')}>
-              <div style={{display:'flex', flexDirection:'column', gap: 10, fontSize: 12}}>
-                {[
-                  { k:'Face match', v:'98.4%', ok: true },
-                  { k:'Document authenticity', v:'Passed', ok: true },
-                  { k:'PEP check', v:'Clear', ok: true },
-                  { k:'Sanctions list', v:'Clear', ok: true },
-                  { k:'Address verification', v:'Passed', ok: true },
-                  { k:'Duplicate account', v:'None', ok: true },
-                ].map(r => (
-                  <div key={r.k} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding: '6px 0', borderBottom: '1px solid var(--color-border-subtle)'}}>
-                    <span>{r.k}</span>
-                    <span style={{color: r.ok ? 'var(--color-success)' : 'var(--color-danger)', fontFamily:'var(--font-mono)', fontWeight: 500}}>{r.ok ? '✓ ' : '✗ '}{r.v}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{marginTop: 12, display: 'flex', gap: 8}}>
-                <button className="btn btn--sm">{t('admin_user_detail_afc528')}</button>
-                <button className="btn btn--sm btn--primary">{t('admin_user_detail_219da4')}</button>
+              <div style={{fontSize:12, color:'var(--color-text-secondary)', lineHeight:1.8}}>
+                {t('adm_kyc_checks_absent')}
               </div>
             </window.SectionCard>
           </div>
         )}
 
         {tab === 'activity' && (
-          <window.SectionCard title={t('admin_user_detail_8f5d10')} noPadding>
-            <window.DataTable
-              columns={[
-                { key:'time', label:'Time', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.time}</span> },
-                { key:'action', label:'Action', render: r => <span style={{fontFamily:'var(--font-mono)', color:'var(--color-brand)'}}>{r.action}</span> },
-                { key:'detail', label:'Detail' },
-                { key:'ip', label:'IP', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.ip}</span> },
-              ]}
-              rows={[
-                { time:'2026-08-02 09:14', action:'login',           detail:'Seoul, KR · Chrome', ip:'59.10.20.4' },
-                { time:'2026-08-02 08:14', action:'order.submit',    detail:'BTC/USDT Long 0.185',ip:'59.10.20.4' },
-                { time:'2026-08-01 15:44', action:'order.submit',    detail:'ETH/USDT Short 1.5', ip:'59.10.20.4' },
-                { time:'2026-08-01 09:32', action:'ai.signal.approve', detail:'sig-btc-01', ip:'59.10.20.4' },
-                { time:'2026-08-01 09:14', action:'login',           detail:'Seoul, KR · Chrome', ip:'59.10.20.4' },
-                { time:'2026-07-30 22:20', action:'deposit',         detail:'USDT 1000 · TRC20',  ip:'59.10.20.4' },
-                { time:'2026-07-28 14:22', action:'api.key.rotate',  detail:'Binance Main', ip:'59.10.20.4' },
-              ]}
-            />
+          /*
+             ★★ 전에는 7건이 하드코딩이었다.
+
+               `2026-08-02 09:14 login Seoul, KR · Chrome 59.10.20.4` 같은 행이
+               고정 문자열이었고 **누구의 상세를 열어도 같은 목록**이 나왔다.
+               활동 로그는 "이 사람이 무엇을 했나" 를 보는 화면이다. 남의
+               활동(존재하지도 않는 활동)을 보고 조치하면 그대로 오조치다.
+               IP 까지 적혀 있어서 더 그럴듯했다.
+
+             ★ 지금은 감사 로그를 그 사용자로 필터해 가져온다
+               (GET /admin/audit?userId=…). 대상 사용자 기준이므로 "이 사람에게
+               무슨 일이 있었나" 가 맞다.
+             ★ 우리 감사 로그는 관리 작업 중심이다. 로그인·주문 같은 이용자
+               행위는 여기 담기지 않으므로 그 사실을 밝힌다 — 없는 것을 있는
+               것처럼 두지 않는다.
+          */
+          <window.SectionCard
+            title={t('admin_user_detail_8f5d10')}
+            subtitle={t('adm_activity_scope')}
+            noPadding
+          >
+            {activity.state === 'loading' && (
+              <div style={{padding:'14px 16px', fontSize:12, color:'var(--color-text-tertiary)'}}>{t('sec_loading')}</div>
+            )}
+            {activity.state === 'error' && (
+              <div style={{padding:'14px 16px', fontSize:12, color:'var(--color-warning)', display:'flex', gap:10, alignItems:'center'}}>
+                {t('adm_activity_failed')}
+                <button className="btn btn--xs" type="button" onClick={loadActivity}>{t('sec_retry')}</button>
+              </div>
+            )}
+            {activity.state === 'ready' && activity.rows.length === 0 && (
+              <div style={{padding:'14px 16px', fontSize:12, color:'var(--color-text-tertiary)'}}>{t('adm_activity_none')}</div>
+            )}
+            {activity.state === 'ready' && activity.rows.length > 0 && (
+              <window.DataTable
+                columns={[
+                  { key:'at', label:'Time', render: r => (
+                    <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>
+                      {r.at ? new Date(Number(r.at)).toLocaleString() : '—'}
+                    </span>
+                  ) },
+                  { key:'action', label:'Action', render: r => (
+                    <span style={{fontFamily:'var(--font-mono)', color:'var(--color-brand)'}}>{r.action || '—'}</span>
+                  ) },
+                  { key:'reason', label:'Reason', render: r => r.reason || '—' },
+                  { key:'result', label:'Result', render: r => (
+                    <span className={`status-pill status-pill--${r.result === 'success' ? 'ok' : 'warn'}`}>
+                      {String(r.result || '—').toUpperCase()}
+                    </span>
+                  ) },
+                  { key:'ip', label:'IP', render: r => (
+                    <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.ip || '—'}</span>
+                  ) },
+                ]}
+                rows={activity.rows}
+              />
+            )}
           </window.SectionCard>
         )}
 
-        {(tab === 'trades' || tab === 'assets' || tab === 'security' || tab === 'notes') && (
+        {tab === 'notes' && (
+          /*
+             관리자 노트 — 실제로 저장된다.
+
+             ★ 자유 서식 글이라 무엇이든 적힐 수 있다. 서버가 조회·작성·삭제를
+               모두 감사에 남기고, 회원이 삭제되면 노트도 함께 사라진다
+               (법정 보관 대상이 아니다).
+             ★ 화면에도 그 사실을 밝힌다 — 담당자가 "여기 적은 것은 남는다" 를
+               알고 써야 한다.
+          */
+          <window.SectionCard
+            title={t('admin_user_detail_915cf6')}
+            subtitle={t('adm_note_scope')}
+          >
+            {canStatus && (
+              <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:14}}>
+                <textarea
+                  className="input"
+                  rows={3}
+                  maxLength={4000}
+                  placeholder={t('adm_note_placeholder')}
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  style={{resize:'vertical', fontFamily:'inherit'}}
+                />
+                <div style={{display:'flex', alignItems:'center', gap:10}}>
+                  <button
+                    className="btn btn--sm btn--primary"
+                    type="button"
+                    disabled={busy || !String(noteDraft).trim()}
+                    onClick={addNote}
+                  >
+                    {t('adm_note_save')}
+                  </button>
+                  <span style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
+                    {String(noteDraft).length} / 4000
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {notes.state === 'loading' && <div style={{fontSize:12, color:'var(--color-text-tertiary)'}}>{t('sec_loading')}</div>}
+            {notes.state === 'error' && (
+              <div style={{display:'flex', alignItems:'center', gap:10}}>
+                <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('adm_note_load_failed')}</span>
+                <button className="btn btn--xs" type="button" onClick={loadNotes}>{t('sec_retry')}</button>
+              </div>
+            )}
+            {notes.state === 'ready' && notes.rows.length === 0 && (
+              <div style={{fontSize:12, color:'var(--color-text-tertiary)'}}>{t('adm_note_none')}</div>
+            )}
+            {notes.state === 'ready' && notes.rows.length > 0 && (
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                {notes.rows.map((n) => (
+                  <div
+                    key={n.id}
+                    style={{
+                      padding:'10px 12px', border:'1px solid var(--color-border-subtle)',
+                      borderRadius:4, background:'var(--color-bg-surface)',
+                    }}
+                  >
+                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+                      <span style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
+                        {n.created_at ? new Date(Number(n.created_at)).toLocaleString() : '—'}
+                      </span>
+                      <span style={{fontSize:10, color:'var(--color-text-tertiary)'}}>
+                        {n.author_email || t('adm_note_author_gone')}
+                      </span>
+                      {canStatus && (
+                        <button
+                          className="btn btn--xs"
+                          type="button"
+                          style={{marginLeft:'auto'}}
+                          disabled={busy}
+                          onClick={() => removeNote(n.id)}
+                        >
+                          {t('adm_note_delete')}
+                        </button>
+                      )}
+                    </div>
+                    {/* 줄바꿈을 유지한다 — 담당자가 목록 형태로 쓰는 경우가 많다. */}
+                    <div style={{fontSize:12.5, lineHeight:1.7, whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
+                      {n.body}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </window.SectionCard>
+        )}
+
+        {(tab === 'trades' || tab === 'assets' || tab === 'security') && (
           <window.PagePlaceholder
             title={{trades:t('admin_user_detail_8797eb'), assets:t('admin_user_detail_40ce13'), security:t('admin_user_detail_8dd7e4'), notes:t('admin_user_detail_915cf6')}[tab]}
             todo={[
@@ -238,8 +998,8 @@
               <div className="modal__body" style={{padding: 20}}>
                 <p style={{margin: '0 0 12px', fontSize: 13}}>{t('admin_user_detail_ebe503')}</p>
                 <div style={{padding:10, background:'var(--color-bg-surface)', borderRadius:4, fontFamily:'var(--font-mono)', fontSize:11}}>
-                  <div><strong>User:</strong> {user.name}</div>
-                  <div><strong>ID:</strong> {user.id}</div>
+                  <div><strong>{t('admin_c_s_ticket_5c50d9')}:</strong> {u.email}</div>
+                  <div><strong>ID:</strong> {u.id}</div>
                 </div>
                 <div className="input-group" style={{marginTop: 12}}>
                   <span className="input-group__label">{t('admin_user_detail_63c279')}</span>
@@ -252,7 +1012,7 @@
                   </select>
                 </div>
                 <div className="input-group" style={{marginTop: 8}}>
-                  <span className="input-group__label">Note</span>
+                  <span className="input-group__label">{t('fld_note')}</span>
                   <input placeholder={t('admin_user_detail_f35682')}/>
                 </div>
                 <div className="auth-alert auth-alert--warning" style={{marginTop: 12}}>
@@ -262,7 +1022,57 @@
               </div>
               <div className="modal__footer">
                 <button className="btn btn--sm" onClick={() => setShowAction(null)}>{t('admin_user_detail_19b2d1')}</button>
-                <button className="btn btn--sm btn--danger" onClick={() => { alert(t('admin_user_detail_4def42')); setShowAction(null); }}>{t('admin_user_detail_ff8aa0')}</button>
+                {/*
+                   ★★ 전에는 `alert('사용자가 정지되었습니다 (Simulation)')` 였다.
+
+                     운영자는 정지된 줄 알고 창을 닫지만 그 사람은 계속 로그인한다.
+                     악용 신고에 "정지 처리했습니다" 라고 답변까지 한 뒤에도 그대로다.
+                     지금은 서버 API(POST /admin/users/:id/disable)를 실제로 부르고,
+                     결과를 화면에 남긴다(성공도 실패도).
+                */}
+                <button
+                  className="btn btn--sm btn--danger"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => changeStatus(true)}
+                >
+                  {busy ? t('sec_loading') : t('admin_user_detail_ff8aa0')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/*
+           ★ 정지 해제 모달.
+
+             전에는 해제 버튼이 setShowAction('unsuspend') 만 하고 대응 모달이
+             **없었다.** 즉 버튼을 눌러도 아무 일도 일어나지 않았다(무동작).
+             정지된 계정을 되살리는 경로가 화면에 없었던 것이다.
+        */}
+        {showAction === 'unsuspend' && (
+          <div className="overlay" onClick={() => setShowAction(null)}>
+            <div className="modal" style={{width: 440}} onClick={e => e.stopPropagation()}>
+              <div className="modal__header">
+                <div className="modal__title">{t('admin_user_detail_f63bf7')}</div>
+                <button className="btn btn--icon" type="button" onClick={() => setShowAction(null)}><I.X size={14}/></button>
+              </div>
+              <div className="modal__body" style={{padding: 20}}>
+                <p style={{margin:'0 0 12px', fontSize:13}}>{t('adm_unsuspend_confirm')}</p>
+                <div style={{padding:10, background:'var(--color-bg-surface)', borderRadius:4, fontFamily:'var(--font-mono)', fontSize:11}}>
+                  <div><strong>{t('admin_c_s_ticket_5c50d9')}:</strong> {u.email}</div>
+                  <div><strong>ID:</strong> {u.id}</div>
+                </div>
+                <div className="auth-alert auth-alert--warning" style={{marginTop: 12}}>
+                  <I.Info size={12}/>
+                  <div>{t('adm_reason_required')}</div>
+                </div>
+              </div>
+              <div className="modal__footer">
+                <button className="btn btn--sm" type="button" onClick={() => setShowAction(null)}>{t('admin_user_detail_19b2d1')}</button>
+                <button className="btn btn--sm btn--primary" type="button" disabled={busy} onClick={() => changeStatus(false)}>
+                  {busy ? t('sec_loading') : t('admin_user_detail_f63bf7')}
+                </button>
               </div>
             </div>
           </div>
@@ -350,7 +1160,7 @@
               { key:'risk', label:'Risk Score', render: r => <span style={{color: r.riskScore > 40 ? 'var(--color-danger)' : r.riskScore > 25 ? 'var(--color-warning)' : 'var(--color-success)', fontFamily:'var(--font-mono)', fontWeight: 500}}>{r.riskScore}</span> },
               { key:'flags', label:'Auto Flags', render: r => r.flags?.length || r.autoFlags?.length ? (r.autoFlags || r.flags).map(f => <span key={f} className="severity-pill severity-pill--medium" style={{marginRight:3}}>{f}</span>) : <span style={{color:'var(--color-text-tertiary)'}}>·</span> },
               { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'pending' ? 'warn' : r.status === 'reviewing' ? 'neutral' : r.status === 'approved' ? 'ok' : 'danger'}`}>{r.status.toUpperCase()}</span> },
-              { key:'act', label:'', align:'right', render: r => <><button className="tbl-action">Review</button> <button className="tbl-action" style={{marginLeft:3}}>Approve</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>Reject</button></> },
+              { key:'act', label:'', align:'right', render: r => <><button className="tbl-action">{t('col_review')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> },
             ]}
             rows={filtered}
           />
@@ -419,7 +1229,7 @@
               { key:'time', label:'Time', render: r => timeAgo(r.time) },
               { key:'tx', label:'TX', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash}</span> },
               { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
-              { key:'act', label:'', align:'right', render: r => (r.status !== 'confirmed' ? <><button className="tbl-action">Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>Approve</button></> : <button className="tbl-action">View</button>) },
+              { key:'act', label:'', align:'right', render: r => (r.status !== 'confirmed' ? <><button className="tbl-action" /* qt-i18n-ignore: 진단용 개발 버튼 */>Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button></> : <button className="tbl-action">{t('col_view')}</button>) },
             ]}
             rows={items}
           />
@@ -488,7 +1298,7 @@
               { key:'time', label:'Time', render: r => timeAgo(r.time) },
               { key:'risk', label:'Risk', render: r => <span className={`severity-pill severity-pill--${r.risk === 'high' ? 'high' : r.risk === 'medium' ? 'medium' : 'low'}`}>{r.risk.toUpperCase()}</span> },
               { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'sent' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
-              { key:'act', label:'', align:'right', render: r => (r.status === 'pending-approval' ? <><button className="tbl-action">Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>Approve</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>Reject</button></> : <button className="tbl-action">View</button>) },
+              { key:'act', label:'', align:'right', render: r => (r.status === 'pending-approval' ? <><button className="tbl-action" /* qt-i18n-ignore: 진단용 개발 버튼 */>Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> : <button className="tbl-action">{t('col_view')}</button>) },
             ]}
             rows={items}
           />
@@ -532,6 +1342,14 @@
     const [recent, setRecent] = useState(null);
     const [schedAt, setSchedAt] = useState('');
     const [pinned, setPinned] = useState(false);
+    /*
+       팝업 여부와 긴급도.
+
+       ★★ 기본값은 팝업 아님이다. 운영자가 명시적으로 켜야 한다 — 모든 공지가
+         튀어나오면 이용자가 닫는 데 익숙해져 정작 중요한 공지도 읽지 않는다.
+    */
+    const [popup, setPopup] = useState(false);
+    const [severity, setSeverity] = useState('info');
 
     const api = window.QTApi && window.QTApi.admin;
     const canWrite = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.notice.write'));
@@ -559,6 +1377,8 @@
           body: body,
           category: 'broadcast',
           pinned: pinned,
+          popup: popup,
+          severity: severity,
           publishAt: scheduled && schedAt ? new Date(schedAt).getTime() : null,
           locale: (window.QTI18n && window.QTI18n.getLocale) ? window.QTI18n.getLocale() : 'en',
         });
@@ -680,8 +1500,8 @@
                   </div>
                 ) : (
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-                  <div className="input-group"><span className="input-group__label">Date</span><input type="date"/></div>
-                  <div className="input-group"><span className="input-group__label">Time (UTC)</span><input type="time"/></div>
+                  <div className="input-group"><span className="input-group__label">{t('fld_date')}</span><input type="date"/></div>
+                  <div className="input-group"><span className="input-group__label">{t('fld_time_utc')}</span><input type="time"/></div>
                 </div>
                 )
               )}
@@ -692,6 +1512,43 @@
                   <span className="chk__box"><I.Check size={10}/></span>
                   {t('bc_pin')}
                 </label>
+              )}
+
+              {/*
+                 팝업으로 띄우기.
+
+                 ★★ 기본값은 꺼짐이다. 모든 공지를 띄우면 이용자가 닫는 데
+                   익숙해져 정작 중요한 공지도 읽지 않는다.
+
+                 ★ '상단 고정'(pinned)과 다른 것이다 — 고정은 목록 순서이고
+                   팝업은 화면에 띄우는 것이다. 한 값으로 합치면 오래 두려는
+                   공지가 매번 튀어나온다.
+              */}
+              {isLive && (
+                <label className="chk">
+                  <input type="checkbox" checked={popup} onChange={e => setPopup(e.target.checked)}/>
+                  <span className="chk__box"><I.Check size={10}/></span>
+                  {t('bc_popup')}
+                </label>
+              )}
+
+              {/*
+                 긴급도. 팝업을 켰을 때만 의미가 있다.
+
+                 ★ 화면 동작이 이 값으로 갈린다:
+                     info     — 상단 배너(화면을 막지 않는다)
+                     warning  — 모달, 바깥·Esc 로 닫힌다
+                     critical — 모달, **닫기 버튼만** 닫는다
+              */}
+              {isLive && popup && (
+                <div className="input-group">
+                  <span className="input-group__label">{t('bc_severity')}</span>
+                  <select className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
+                    <option value="info">{t('bc_sev_info')}</option>
+                    <option value="warning">{t('bc_sev_warning')}</option>
+                    <option value="critical">{t('bc_sev_critical')}</option>
+                  </select>
+                </div>
               )}
 
               {msg && (
@@ -720,7 +1577,7 @@
                   </>
                 ) : (
                   <>
-                    <button className="btn btn--sm">Preview</button>
+                    <button className="btn btn--sm">{t('col_preview')}</button>
                     <button className="btn btn--sm">{t('admin_broadcast_e6f9c4')}</button>
                     <button className="btn btn--sm btn--primary" disabled={!subject || !body}>
                       <I.Send size={12}/> {scheduled ? t('admin_broadcast_265106') : t('admin_broadcast_626099')}
@@ -806,6 +1663,14 @@
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [pinned, setPinned] = useState(false);
+    /*
+       팝업 여부와 긴급도.
+
+       ★★ 기본값은 팝업 아님이다. 운영자가 명시적으로 켜야 한다 — 모든 공지가
+         튀어나오면 이용자가 닫는 데 익숙해져 정작 중요한 공지도 읽지 않는다.
+    */
+    const [popup, setPopup] = useState(false);
+    const [severity, setSeverity] = useState('info');
     const [category, setCategory] = useState('general');
     const [preview, setPreview] = useState(false);
 
@@ -856,6 +1721,8 @@
           body: body,
           category: category,
           pinned: pinned,
+          popup: popup,
+          severity: severity,
           publishAt: toMs(publishAt),
           expiresAt: toMs(expiresAt),
           locale: locale,
@@ -895,7 +1762,7 @@
             </div>
 
             <div style={{display:'flex', gap: 12, alignItems:'center'}}>
-              <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Category:</div>
+              <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>{t('cs_category')}:</div>
               <div className="seg">
                 {['general','maintenance','promotion','regulation','feature'].map(c => (
                   <button key={c} className={`seg__opt ${category===c?'is-active':''}`} onClick={() => setCategory(c)}>{c}</button>
@@ -906,6 +1773,39 @@
                 <span className="chk__box"><I.Check size={10}/></span>
                 {t('admin_notice_editor_189dd9')}
               </label>
+            </div>
+
+            {/*
+               팝업으로 띄우기 + 긴급도.
+
+               ★★ 기본값은 꺼짐이다. 모든 공지를 띄우면 이용자가 닫는 데 익숙해져
+                 정작 중요한 공지도 읽지 않는다.
+
+               ★ '상단 고정'과 다른 것이다 — 고정은 목록 순서이고 팝업은 화면에
+                 띄우는 것이다. 한 값으로 합치면 오래 두려는 공지가 매번 튀어나온다.
+            */}
+            <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+              <label className="chk">
+                <input type="checkbox" checked={popup} onChange={e => setPopup(e.target.checked)}/>
+                <span className="chk__box"><I.Check size={10}/></span>
+                {t('bc_popup')}
+              </label>
+
+              {/*
+                 ★ 긴급도는 팝업을 켰을 때만 보여준다. 항상 보여주면 팝업이 아닌
+                   공지에도 긴급도를 고르게 되고, 그 값은 아무 효과가 없다 —
+                   운영자가 "중요로 했는데 안 뜬다" 고 여긴다.
+              */}
+              {popup && (
+                <div className="input-group" style={{flex:1, minWidth:260}}>
+                  <span className="input-group__label">{t('bc_severity')}</span>
+                  <select className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
+                    <option value="info">{t('bc_sev_info')}</option>
+                    <option value="warning">{t('bc_sev_warning')}</option>
+                    <option value="critical">{t('bc_sev_critical')}</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             {!preview && (
@@ -985,8 +1885,19 @@
               </label>
             </div>
             <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border-subtle)', fontSize: 11, color: 'var(--color-text-tertiary)'}}>
-              <div>Author · <strong style={{color:'var(--color-text-primary)'}}>{t('admin_notice_editor_102c1f')}</strong></div>
-              <div>Published · <strong style={{color:'var(--color-text-primary)'}}>{t('admin_notice_editor_11a5df')}</strong></div>
+              {/*
+                 ★ 작성자는 로그인한 관리자다.
+
+                   전에는 `t('admin_notice_editor_102c1f')` = "권누리" 를 고정으로
+                   찍었다. 공지 작성자는 책임 소재이므로 다른 사람 이름이 남으면
+                   기록으로서 해롭다. 서버가 /admin/me 로 본인을 알려준다.
+              */}
+              <div>{t('notice_author')} · <strong style={{color:'var(--color-text-primary)'}}>{
+                (window.QTAuth && window.QTAuth.getUser && window.QTAuth.getUser()
+                  ? window.QTAuth.getUser().email
+                  : null) || '—'
+              }</strong></div>
+              <div>{t('notice_published')} · <strong style={{color:'var(--color-text-primary)'}}>{t('admin_notice_editor_11a5df')}</strong></div>
               <div>ID · <strong style={{color:'var(--color-text-primary)', fontFamily:'var(--font-mono)'}}>NT-{Date.now().toString(36).toUpperCase()}</strong></div>
             </div>
           </window.SectionCard>
@@ -1179,8 +2090,8 @@
               </>
             ) : (
               <>
-                <button className="btn btn--sm">Assign to me</button>
-                <button className="btn btn--sm btn--primary"><I.Check size={13}/> Resolve</button>
+                <button className="btn btn--sm">{t('cs_assign_me')}</button>
+                <button className="btn btn--sm btn--primary"><I.Check size={13}/> {t('col_resolve')}</button>
               </>
             )}
           </>
@@ -1269,10 +2180,10 @@
             <window.SectionCard title={t('admin_c_s_ticket_5c8747')}>
               <div style={{display:'flex', flexDirection:'column', gap: 6, fontSize: 12}}>
                 <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>ID</span><span style={{fontFamily:'var(--font-mono)'}}>{ticket.id}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>User</span><span style={{fontFamily:'var(--font-mono)'}}>{ticket.user}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>Priority</span><span>{ticket.priority}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>Status</span><span>{ticket.status}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>Updated</span><span>{timeAgo(ticket.updated)}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>{t('admin_c_s_ticket_5c50d9')}</span><span style={{fontFamily:'var(--font-mono)'}}>{ticket.user}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>{t('col_priority')}</span><span>{ticket.priority}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>{t('col_status')}</span><span>{ticket.status}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between'}}><span style={{color:'var(--color-text-tertiary)'}}>{t('col_updated')}</span><span>{timeAgo(ticket.updated)}</span></div>
               </div>
             </window.SectionCard>
 
@@ -1350,7 +2261,7 @@
     }
 
     return (
-      <window.PageShell {...shellProps} title="Assets & Withdrawals" subtitle={t('admin_assets_hi_fi_60cb06')} breadcrumb={['Home','Admin','Assets']}>
+      <window.PageShell {...shellProps} title={t('adm_assets_withdrawals')} subtitle={t('admin_assets_hi_fi_60cb06')} breadcrumb={['Home','Admin','Assets']}>
         <div className="grid-4">
           <window.KPICard label="Hot Wallet"  value="$4.2M" sub={t('admin_assets_hi_fi_503c9d')} tone="brand"/>
           <window.KPICard label="Cold Wallet" value="$28.4M" sub="Multi-sig · 3-of-5" tone="success"/>
@@ -1403,7 +2314,7 @@
               { key:'amount', label:'Amount', align:'right', render: () => '500,000' },
               { key:'signers', label:'Signers', render: () => '2/3 signed' },
               { key:'status', label:'Status', render: () => <span className="status-pill status-pill--warn">PENDING SIGNATURES</span> },
-              { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">Sign</button> <button className="tbl-action" style={{marginLeft:3}}>Details</button></> },
+              { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">{t('col_sign')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_details')}</button></> },
             ]}
             rows={[{id:1},{id:2}]}
           />

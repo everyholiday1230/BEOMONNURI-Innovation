@@ -26,7 +26,8 @@
       ai_think_context: 'Reading context',
 
       // --- 시스템 / 환영 ---
-      ai_ctx_loaded: 'Context loaded. BTC/USDT Perp · 15m · 220 candles · 5 indicators active.',
+      ai_ctx_loaded: 'Context loaded. {symbol} · {tf} · {bars} candles.',
+      ai_ctx_loaded_ind: 'Context loaded. {symbol} · {tf} · {bars} candles · {n} indicator(s) active.',
       ai_welcome_beginner:
         "Hello, this is the {brand} Copilot. I'm analysing the **{symbol}** chart. "
         + 'Ask me anything in plain words and I can draw trendlines, support and resistance directly on the chart, '

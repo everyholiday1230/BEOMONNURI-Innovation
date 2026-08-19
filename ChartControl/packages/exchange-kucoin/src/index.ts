@@ -143,3 +143,54 @@ export {
   type BrokerUserTransactionRow,
   type BrokerPage,
 } from './broker-rest.js';
+
+/*
+   현물 시세 어댑터.
+
+   ★ 선물 어댑터와 나란히 두되 섞지 않는다. 심볼 규칙·캔들 배열 순서·수량 의미가
+     모두 다르므로, 한 곳에서 분기하면 어느 시장의 규칙이 적용됐는지 알 수 없다.
+*/
+export {
+  KucoinSpotAdapter,
+  toSpotSymbol,
+  fromSpotSymbol,
+  type KucoinSpotAdapterOptions,
+} from './spot-adapter.js';
+
+/*
+   현물 비공개 REST (잔고·주문).
+
+   ★★ 선물 클라이언트와 절대 섞지 않는다. 수량 의미(계약수 vs 기초자산)와
+     레버리지 유무가 다르므로, 한쪽 코드를 다른 쪽에 쓰면 주문 크기가 1000배
+     달라지거나 거래소가 거부한다.
+*/
+export {
+  KucoinSpotPrivate,
+  KucoinSpotApiError,
+  type KucoinSpotPrivateConfig,
+  type SpotSubmitRequest,
+  type SpotStopSubmitRequest,
+  type SpotSubmitResult,
+  type SpotBalance,
+} from './spot-private-rest.js';
+
+/*
+   현물 실시간 스트림 (토픽 · 프레임 해석 · bullet).
+
+   ★ 선물 토픽과 접두어가 다르다(/market/ vs /contractMarket/, 호가는
+     /spotMarket/). 잘못된 토픽은 오류가 아니라 조용한 무응답이라, 화면은
+     실시간이라고 믿으며 영원히 기다린다.
+*/
+export {
+  spotTickerTopic,
+  spotMatchTopic,
+  spotDepth5Topic,
+  spotCandleTopic,
+  symbolFromSpotTopic,
+  parseSpotTicker,
+  parseSpotCandle,
+  parseSpotBook,
+  parseSpotTrade,
+  createSpotBulletProvider,
+  type SpotBulletProvider,
+} from './spot-ws.js';

@@ -184,6 +184,24 @@ d('PgLegalRepo', () => {
   });
 
   it('새 버전이 나오면 다시 동의가 필요하다', async () => {
+    /*
+       ★ 이 검사는 terms 와 privacy 를 **둘 다** 만들어 둔다.
+
+         pendingConsents 는 동의가 필요한 두 종류(terms · privacy)를 모두 본다.
+         그리고 liveFor 는 요청 로케일에 게시본이 없으면 en 으로 폴백한다.
+
+         전에는 terms 만 만들었다. 그때는 DB 에 게시된 문서가 하나도 없어서
+         privacy 는 폴백에서도 안 잡혔고 우연히 통과했다. 실제 약관을 게시한
+         뒤에는 privacy/en 게시본이 폴백으로 잡혀 pending 이 1건 남았다
+         (구현이 옳고, 이 검사가 DB 전역 상태에 의존했던 것이다).
+
+         자기 로케일에 두 종류를 모두 두면 폴백이 끼어들 자리가 없어져
+         다른 데이터와 무관하게 같은 결과가 나온다.
+    */
+    const p1 = await draft({ kind: 'privacy' });
+    await repo.publish(p1.id);
+    await repo.recordConsent({ userId: user, documentId: p1.id });
+
     const v1 = await draft();
     await repo.publish(v1.id);
     await repo.recordConsent({ userId: user, documentId: v1.id });
@@ -195,6 +213,8 @@ d('PgLegalRepo', () => {
 
     const pending = await repo.pendingConsents(user, 'zz');
     expect(pending.map((x) => x.kind)).toContain('terms');
+    // 새로 게시한 terms 만 남는다 — privacy 는 이미 동의했다.
+    expect(pending).toHaveLength(1);
     expect(pending[0]?.version).toBe(v2.version);
   });
 

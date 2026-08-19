@@ -21,6 +21,36 @@
   // 사전에 키가 없으면 폴백 언어(영어)로, 그것도 없으면 키를 그대로 보여준다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
+  /*
+     국가 목록 — 한 곳에서만 정의한다.
+
+     ★★ 전에는 가입 화면과 KYC 화면에 각각 하드코딩돼 있었고, **목록이 서로
+       달랐다**(7개 / 4개). 가입할 때 고른 나라를 KYC 에서는 고를 수 없는 상태가
+       될 수 있다.
+
+     ★ 라벨을 사전 키로 둔다. 전에는 `🇯🇵 日本`·`🇩🇪 Deutschland` 처럼 그 나라
+       말로 적혀 있어서, 중국어 화면에 일본어·독일어가 섞여 나왔다. 나라 이름은
+       보는 사람의 언어로 적는 것이 맞다.
+
+     ★ 국기 이모지는 사전 값에 함께 둔다 — 언어와 무관한 표기이고, 목록에서
+       나라를 빨리 찾는 데 도움이 된다.
+  */
+  const COUNTRY_OPTIONS = [
+    { value: 'KR', key: 'country_kr' },
+    { value: 'US', key: 'country_us' },
+    { value: 'JP', key: 'country_jp' },
+    { value: 'CN', key: 'country_cn' },
+    { value: 'TW', key: 'country_tw' },
+    { value: 'SG', key: 'country_sg' },
+    { value: 'HK', key: 'country_hk' },
+    { value: 'GB', key: 'country_gb' },
+    { value: 'DE', key: 'country_de' },
+    { value: 'OTHER', key: 'country_other' },
+  ];
+  const countryOptions = () => COUNTRY_OPTIONS.map(
+    (c) => <option key={c.value} value={c.value}>{t(c.key)}</option>,
+  );
+
   /** 언어 변경 시 이 파일의 컴포넌트들이 재렌더되도록 하는 훅. */
   const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
 
@@ -28,6 +58,44 @@
   // AUTH SHELL — reusable wrapper for auth pages
   // ============================================================
   window.AuthShell = function AuthShell({ title, subtitle, children, mode = 'auth', progress }) {
+    /*
+       ★★ 히어로 통계는 **셀 수 있는 것만** 보여준다.
+
+         원래 이 자리에 이렇게 적혀 있었다:
+           '21+ Pairs'      — 실제로는 662개(그리고 서버가 세어 준다)
+           '8 Exchanges'    — 거래는 KuCoin 하나만 지원한다
+           '62% Signal Hit' — AI 가 연결되어 있지 않다. 근거가 전혀 없다
+           '2.6× Avg R:R'   — 같음
+
+         랜딩 페이지의 같은 블록은 이미 실제 개수로 고쳤는데, **로그인 화면의
+         히어로에는 옛 숫자가 남아 있었다.** 방문자가 가장 먼저 보는 두 화면이
+         서로 다른 숫자를 말하고 있었다.
+
+         적중률이 가장 위험하다. "이 서비스를 쓰면 62% 맞는다" 로 읽히고, 그것을
+         근거로 돈을 넣는다. 측정하지 않은 수치는 쓰지 않는다.
+
+       ★ 비수탁·출금권한 미요구는 **검증 가능한 사실**이므로 그대로 쓴다.
+         이쪽이 광고 문구보다 실제로 더 설득력이 있다.
+    */
+    const [heroPairs, setHeroPairs] = useState(null);
+    useEffect(() => {
+      const api = window.QTApi;
+      if (!api || !api.rest || !api.rest.instruments) return undefined;
+      // 백엔드 없는 디자인 미리보기에서는 요청하지 않는다(콘솔 404 방지).
+      if (window.QTLive && window.QTLive.isBackendPresent && window.QTLive.isBackendPresent() === false) return undefined;
+      let cancelled = false;
+      api.rest.instruments()
+        .then((r) => {
+          if (cancelled) return;
+          const n = Array.isArray(r && r.data) ? r.data.length : null;
+          setHeroPairs(Number.isFinite(n) && n > 0 ? n : null);
+        })
+        .catch(() => { /* 실패하면 '—' 로 남는다 — 추측값을 넣지 않는다 */ });
+      return () => { cancelled = true; };
+    }, []);
+    const heroEx = window.QTApi && window.QTApi.useExchanges ? window.QTApi.useExchanges(false) : null;
+    const heroExCount = heroEx && Array.isArray(heroEx.items) ? heroEx.items.length : 0;
+
     return (
       <div className="auth-shell">
         {/* LEFT — form */}
@@ -70,7 +138,16 @@
               <a href="#/security">{t('auth_a5e5da')}</a>
               <a href="#/help">{t('auth_e2654a')}</a>
             </div>
-            <div className="auth-foot-copy">© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · SIMULATION</div>
+            {/* 모드는 고정 문구로 쓰지 않는다 — 위 랜딩 푸터와 같은 이유. */}
+            <div className="auth-foot-copy">© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · {(() => {
+              const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+              const backend = !(window.QTLive && window.QTLive.isBackendPresent
+                && window.QTLive.isBackendPresent() === false);
+              if (!backend) return t('stripe_preview');
+              if (!cfg) return t('stripe_checking');
+              return (Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || '')))
+                ? t('stripe_live') : t('stripe_sim');
+            })()}</div>
           </div>
         </div>
 
@@ -78,7 +155,7 @@
         <div className="auth-shell__hero">
           <div className="auth-hero-bg"/>
           <div className="auth-hero-content">
-            <div className="auth-hero-badge">Institutional AI Trading</div>
+            <div className="auth-hero-badge">{t('auth_hero_badge')}</div>
             <div className="auth-hero-title">
               {t('auth_77edb5')}<br/>
               {t('auth_9ab22f')}
@@ -119,10 +196,16 @@
               })}
             </div>
             <div className="auth-hero-stats">
-              <div><strong>21+</strong><span>Pairs</span></div>
-              <div><strong>8</strong><span>Exchanges</span></div>
-              <div><strong>62%</strong><span>Signal Hit</span></div>
-              <div><strong>2.6×</strong><span>Avg R:R</span></div>
+              <div>
+                <strong>{heroPairs === null ? t('dash') : heroPairs.toLocaleString()}</strong>
+                <span>{t('landing_stat_pairs')}</span>
+              </div>
+              <div>
+                <strong>{heroExCount > 0 ? heroExCount : t('dash')}</strong>
+                <span>{t('landing_stat_exchange')}</span>
+              </div>
+              <div><strong>0</strong><span>{t('landing_stat_custody')}</span></div>
+              <div><strong>0</strong><span>{t('landing_stat_withdraw')}</span></div>
             </div>
           </div>
         </div>
@@ -206,11 +289,11 @@
         {step === 'credentials' && (
           <form onSubmit={submit} className="auth-form">
             <div className="input-group">
-              <span className="input-group__label"><I.User size={11}/> Email</span>
-              <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus/>
+              <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
+              <input type="email" placeholder={t('fld_email_ph')} value={email} onChange={e => setEmail(e.target.value)} required autoFocus/>
             </div>
             <div className="input-group">
-              <span className="input-group__label"><I.Lock size={11}/> Password</span>
+              <span className="input-group__label"><I.Lock size={11}/> {t('fld_password')}</span>
               <input type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} required/>
             </div>
 
@@ -239,7 +322,7 @@
             <div style={{display:'flex', gap: 8}}>
               <button type="button" className="btn" style={{flex:1}}>Google</button>
               <button type="button" className="btn" style={{flex:1}}>Apple</button>
-              <button type="button" className="btn" style={{flex:1}}>GitHub</button>
+              <button type="button" className="btn" style={{flex:1}} /* qt-i18n-ignore: 서비스 고유명사 */>GitHub</button>
             </div>
 
             <div className="auth-row-center">
@@ -248,7 +331,7 @@
 
             <div className="auth-alert auth-alert--info" style={{marginTop: 16}}>
               <I.Info size={12}/>
-              <div><strong>Demo:</strong> {t('login_13d6ae')}</div>
+              <div><strong>{t('demo_label')}</strong> {t('login_13d6ae')}</div>
             </div>
           </form>
         )}
@@ -445,12 +528,12 @@
       >
         <form onSubmit={submit} className="auth-form">
           <div className="input-group">
-            <span className="input-group__label"><I.User size={11}/> Email</span>
-            <input type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required autoFocus/>
+            <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
+            <input type="email" placeholder={t('fld_email_ph')} value={form.email} onChange={e => setForm({...form, email: e.target.value})} required autoFocus/>
           </div>
 
           <div className="input-group">
-            <span className="input-group__label"><I.Lock size={11}/> Password</span>
+            <span className="input-group__label"><I.Lock size={11}/> {t('fld_password')}</span>
             <input type="password" placeholder={t('signup_10c83d')} value={form.pw} onChange={e => setForm({...form, pw: e.target.value})} required/>
           </div>
 
@@ -466,21 +549,14 @@
           )}
 
           <div className="input-group">
-            <span className="input-group__label"><I.Lock size={11}/> Confirm</span>
+            <span className="input-group__label"><I.Lock size={11}/> {t('fld_confirm')}</span>
             <input type="password" placeholder={t('signup_711154')} value={form.pw2} onChange={e => setForm({...form, pw2: e.target.value})} required/>
           </div>
 
           <div className="input-group">
-            <span className="input-group__label"><I.Globe size={11}/> Country</span>
+            <span className="input-group__label"><I.Globe size={11}/> {t('fld_country')}</span>
             <select value={form.country} onChange={e => setForm({...form, country: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
-              <option value="KR">{t('signup_b329a3')}</option>
-              <option value="US">🇺🇸 United States</option>
-              <option value="JP">🇯🇵 日本</option>
-              <option value="SG">🇸🇬 Singapore</option>
-              <option value="HK">🇭🇰 Hong Kong</option>
-              <option value="GB">🇬🇧 United Kingdom</option>
-              <option value="DE">🇩🇪 Deutschland</option>
-              <option value="OTHER">{t('signup_44650a')}</option>
+              {countryOptions()}
             </select>
           </div>
 
@@ -793,17 +869,14 @@
             <>
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_9334ed')}</div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 10}}>
-                <div className="input-group"><span className="input-group__label">First Name</span><input value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})}/></div>
-                <div className="input-group"><span className="input-group__label">Last Name</span><input value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_first_name')}</span><input value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_last_name')}</span><input value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})}/></div>
               </div>
               <div className="input-group"><span className="input-group__label">{t('k_y_c_onboarding_31fbff')}</span><input type="date" value={form.birth} onChange={e => setForm({...form, birth: e.target.value})}/></div>
               <div className="input-group">
                 <span className="input-group__label">{t('k_y_c_onboarding_ff63ca')}</span>
                 <select value={form.nationality} onChange={e => setForm({...form, nationality: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
-                  <option value="KR">{t('signup_b329a3')}</option>
-                  <option value="US">🇺🇸 United States</option>
-                  <option value="JP">🇯🇵 日本</option>
-                  <option value="OTHER">{t('signup_44650a')}</option>
+                  {countryOptions()}
                 </select>
               </div>
             </>
@@ -812,10 +885,10 @@
           {step === 2 && (
             <>
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_ebce71')}</div>
-              <div className="input-group"><span className="input-group__label">Address</span><input placeholder={t('k_y_c_onboarding_dad291')} value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_address')}</span><input placeholder={t('k_y_c_onboarding_dad291')} value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></div>
               <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap: 10}}>
-                <div className="input-group"><span className="input-group__label">City</span><input value={form.city} onChange={e => setForm({...form, city: e.target.value})}/></div>
-                <div className="input-group"><span className="input-group__label">Postal</span><input value={form.postal} onChange={e => setForm({...form, postal: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_city')}</span><input value={form.city} onChange={e => setForm({...form, city: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_postal')}</span><input value={form.postal} onChange={e => setForm({...form, postal: e.target.value})}/></div>
               </div>
               <div className="auth-alert auth-alert--info">
                 <I.Info size={12}/>
@@ -953,7 +1026,7 @@
           {step === 1 && (
             <>
               <div className="input-group">
-                <span className="input-group__label"><I.User size={11}/> Email</span>
+                <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoFocus/>
               </div>
               {resetError && (
@@ -1022,6 +1095,23 @@
        ★ 랜딩은 비로그인 화면이므로 항상 연결 가능한 것만 보여준다.
        ★ 백엔드 없는 미리보기에서는 예시 목록을 쓴다 — 디자이너 화면 보존.
     */
+    /*
+       주소로 직접 들어온 경우에도 해당 섹션으로 옮겨준다.
+
+       `#/?section=pricing` 로 링크를 공유하거나 새 탭으로 열면 페이지 위쪽이
+       보인다. 링크를 눌렀을 때만 스크롤하면 공유된 주소가 약속을 지키지 못한다.
+       (렌더 직후에는 섹션이 아직 없을 수 있어 한 프레임 뒤에 찾는다)
+    */
+    useEffect(() => {
+      const want = (shellProps && shellProps.query && shellProps.query.section) || '';
+      if (!want) return undefined;
+      const id = requestAnimationFrame(() => {
+        const el = document.getElementById(String(want));
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return () => cancelAnimationFrame(id);
+    }, [shellProps && shellProps.query && shellProps.query.section]);
+
     const exPreviewOnly = window.QTLive && window.QTLive.isBackendPresent
       && window.QTLive.isBackendPresent() === false;
     const exData = window.QTApi && window.QTApi.useExchanges
@@ -1065,11 +1155,47 @@
             <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
             <span className="app-brand__ver">v1.0</span>
           </a>
+          {/*
+             ★★ 이 링크들이 404 를 만들고 있었다.
+
+               이 앱은 해시 라우터를 쓴다(`#/trade` → 경로 `trade`). 그래서
+               `href="#features"` 는 앵커가 아니라 **경로 `features` 로 해석**되고,
+               그런 라우트는 없으므로 세 개 모두 "404 · Not Found" 로 갔다.
+               방문자가 가장 먼저 누르는 메뉴 세 개가 전부 막혀 있었던 것이다.
+
+             ★ 대상 섹션은 같은 페이지에 실제로 있다(id="features"/"pricing"/
+               "exchanges"). 그래서 라우트를 새로 만들 필요가 없고, 그 자리로
+               스크롤해 주면 된다. 해시를 건드리지 않으므로 라우터와 충돌하지 않는다.
+
+             ★ 로그인 여부로 막지 않는다. 이 세 개는 **가입을 결정하기 전에 보는
+               소개·가격·지원 거래소**다. 여기서 가입 화면으로 보내면, 무엇을 사는지
+               모르는 사람에게 먼저 계정을 만들라고 요구하는 셈이 된다. 오히려
+               이탈이 늘고, 우리 수익은 가입이 아니라 그 뒤의 거래에서 나온다.
+               (로그인한 사용자는 앱 안에 있으므로 이 헤더 자체를 보지 않는다)
+
+             ★ scrollIntoView 만 쓰고 href 는 남긴다 — 새 탭으로 열거나 주소를
+               복사하는 사용자를 막지 않기 위해서다.
+          */}
           <nav className="landing-nav">
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#exchanges">Exchanges</a>
-            <a href="design-system.html" target="_blank">Design</a>
+            {[
+              { id: 'features', key: 'landing_nav_features' },
+              { id: 'pricing', key: 'landing_nav_pricing' },
+              { id: 'exchanges', key: 'landing_nav_exchanges' },
+            ].map((item) => (
+              <a
+                key={item.id}
+                href={`#/?section=${item.id}`}
+                onClick={(e) => {
+                  const el = document.getElementById(item.id);
+                  if (!el) return;                 // 없으면 기본 동작에 맡긴다
+                  e.preventDefault();
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                {t(item.key)}
+              </a>
+            ))}
+            <a href="design-system.html" target="_blank" rel="noopener noreferrer" /* qt-i18n-ignore: 개발자 문서 */>Design</a>
           </nav>
           <div style={{display:'inline-flex', gap: 6}}>
             <a className="btn btn--sm" href="#/login">{t('login_e225a6')}</a>
@@ -1180,7 +1306,7 @@
         </section>
 
         <section id="pricing" className="landing-section">
-          <div className="landing-section-title">Pricing</div>
+          <div className="landing-section-title">{t('landing_nav_pricing')}</div>
           <div className="landing-pricing">
             {[
               { name:'Beginner', price:'$0', period:t('landing_04b7df'), desc:t('landing_1351e7'), features:[t('landing_d3219e'), t('landing_9c7f54'), t('landing_724991'), t('landing_8466e2')], cta:t('landing_b8adca'), highlight:false },
@@ -1200,7 +1326,7 @@
         </section>
 
         <section id="exchanges" className="landing-section">
-          <div className="landing-section-title">Supported Exchanges</div>
+          <div className="landing-section-title">{t('landing_exchanges_title')}</div>
           <div className="landing-exchanges">
             {landingExchanges.map(ex => (
               <div key={ex.id} className="landing-ex">
@@ -1213,8 +1339,30 @@
         </section>
 
         <footer className="landing-foot">
-          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · Institutional Cool · v1.0</div>
-          <div>SIMULATION · No real funds · Prototype demo</div>
+          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · v1.0</div>
+          {/*
+             ★★ 모드를 고정 문구로 쓰지 않는다.
+
+               전에는 'SIMULATION · No real funds · Prototype demo' 가 박혀 있었다.
+               실주문이 열린 배포에서도 이 문구가 그대로 나오므로, 방문자는
+               **자기 돈이 실제로 움직이지 않는다고 믿는다.** 위험을 축소하는
+               방향으로 틀리는 문구는 가장 나쁘다.
+
+             ★ 판정 기준은 앱 상단 배너와 같다(서버 설정의 liveOrdersEnabled +
+               tradingMode). 두 곳이 다른 기준을 쓰면 화면 안에서 말이 어긋난다.
+             ★ 설정을 아직 못 받았으면 단정하지 않는다.
+          */}
+          <div>{(() => {
+            const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+            const backend = !(window.QTLive && window.QTLive.isBackendPresent
+              && window.QTLive.isBackendPresent() === false);
+            if (!backend) return `${t('stripe_preview')} · ${t('stripe_preview_note')}`;
+            if (!cfg) return `${t('stripe_checking')} · ${t('stripe_checking_note')}`;
+            const liveOrders = Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || ''));
+            return liveOrders
+              ? `${t('stripe_live')} · ${t('stripe_live_note')}`
+              : `${t('stripe_sim')} · ${t('stripe_sim_note')}`;
+          })()}</div>
         </footer>
       </div>
     );
@@ -1225,7 +1373,7 @@
   // ============================================================
   window.NotFoundPage = function NotFoundPage({ shellProps, message }) {
     return (
-      <window.AuthShell title="404 · Not Found" subtitle={t('not_found_eeedd6')}>
+      <window.AuthShell title={t('nf_title_attr')} subtitle={t('not_found_eeedd6')}>
         <div className="auth-form" style={{alignItems:'center', textAlign:'center'}}>
           <div style={{fontSize: 64, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-brand-subtle)'}}>404</div>
           <div style={{fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.7}}>

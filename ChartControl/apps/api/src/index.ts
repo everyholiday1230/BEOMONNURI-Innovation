@@ -24,6 +24,7 @@ import { ResourceRepo } from './db/resource-repo';
 import { CredentialVault, LocalKekProvider } from './trading/credential-vault';
 import { KucoinAccountAdapter } from './trading/kucoin-account-adapter';
 import { KucoinTradingAdapter } from './trading/kucoin-trading-adapter';
+import { KucoinSpotTradingAdapter } from './trading/kucoin-spot-trading-adapter';
 import { PgNoticeRepo } from './db/notice-repo';
 import { PgSupportRepo } from './db/support-repo';
 import { createSupportRouter } from './support/support-routes';
@@ -37,6 +38,9 @@ import { createLegalRouter } from './legal/legal-routes';
 import { PgSimOrderProjection } from './portfolio/pg-sim-projection';
 import { PgPortfolioRepo } from './db/pg-portfolio-repo';
 import { PgEquitySnapshotRepo } from './db/equity-snapshot-repo';
+import { PgLearningRepo } from './db/learning-repo';
+import { PgCredentialRepo } from './db/pg-credential-repo';
+import { PgTierRepo } from './db/pg-tier-repo';
 import { PgChartTemplateRepo } from './db/chart-template-repo';
 import { RiskWatchLoop } from './trading/risk-watch-loop';
 
@@ -57,6 +61,7 @@ import { SqliteStrategyRepo } from './db/strategy-repo';
 import { PgStrategyRepo } from './db/pg-strategy-repo';
 import { createStrategyRouter } from './strategy-routes';
 import { createTradingRouter } from './trading-routes';
+import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
 import { createAiRouter } from './ai-routes';
 import { SqliteConversationRepo, SqliteUsageRepo } from './db/ai-repos';
@@ -69,6 +74,7 @@ import { createMfaRouter, mfaChallengeHash } from './mfa/mfa-routes';
 
 import { createMarketSearchRouter } from './market/market-routes';
 import { createExchangeRouter } from './exchanges/exchange-routes';
+import { getConfirmedReferrals } from './exchanges/exchange-catalog';
 import { createPortfolioRouter } from './portfolio/portfolio-routes';
 import { PortfolioRepo } from './db/portfolio-repo';
 import { assertProductionRepositoryReadiness, REQUIRED_PRODUCTION_REPOSITORY_IDS, type RepositoryDescriptor } from './db/repository-registry';
@@ -154,6 +160,21 @@ const app = new Hono();
    ★ 나중에 빌드 단계를 도입하면 'unsafe-eval' 과 'unsafe-inline' 을 지워야
      한다. 그때가 CSP 가 실제로 XSS 를 막기 시작하는 시점이다.
 */
+/*
+   CSP 가 허용하는 외부 스크립트 출처.
+
+   ★ 실서비스 화면(index.html)은 이 목록을 **쓰지 않는다.** React·Babel·폰트를
+     모두 자체 호스팅한다(vendor/ · src/fonts/).
+
+   ★ 그런데 목록을 비우지 못한다. design-library/ 와 design-system.html 이
+     아직 CDN 을 쓰고, 이 CSP 는 오리진 전체에 적용되어 문서별로 나눌 수 없다.
+     그 문서들은 디자이너·개발자용이며 실사용자에게 링크를 노출하지 않는다.
+
+   ★ 그래서 재발 방지는 CSP 가 아니라 검사 도구로 한다:
+       node tools/external-ref-check.mjs
+     실서비스 화면과 src/ 에 외부 도메인 참조가 생기면 실패한다. CSP 를
+     좁히는 것보다 정확하다 — 무엇이 어디서 쓰이는지 구분할 수 있기 때문이다.
+*/
 const CDN = ['https://unpkg.com', 'https://cdn.jsdelivr.net'];
 
 app.use('*', secureHeaders({
@@ -162,9 +183,18 @@ app.use('*', secureHeaders({
     // 브라우저 Babel 변환 때문에 eval 과 인라인이 필요하다 (위 주석 참고).
     scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", ...CDN],
     scriptSrcElem: ["'self'", "'unsafe-inline'", ...CDN],
-    // 인라인 style 속성(React style={{...}})과 웹폰트 CSS.
-    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...CDN],
-    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', ...CDN],
+    /*
+       인라인 style 속성(React style={{...}})만 허용한다.
+
+       ★ 전에는 `https://fonts.googleapis.com` 을 허용했다. 폰트를 자체
+         호스팅하면서(src/fonts.css) 필요 없어졌다. 허용 목록에 남겨 두면
+         나중에 누군가 다시 외부 CDN 링크를 넣어도 CSP 가 막지 않는다 —
+         그러면 이용자 IP 가 다시 제3자로 나가고, 우리 개인정보처리방침
+         4절과 어긋난다. 좁혀서 실수를 막는다.
+    */
+    styleSrc: ["'self'", "'unsafe-inline'", ...CDN],
+    // 폰트도 자체 호스팅이므로 외부 도메인이 필요 없다. data: 는 인라인 폰트용.
+    fontSrc: ["'self'", 'data:', ...CDN],
     // 차트가 canvas 를 이미지로 내보낼 때 blob: 를 쓴다.
     imgSrc: ["'self'", 'data:', 'blob:'],
     /*
@@ -281,7 +311,34 @@ app.get('/api/config', (c) =>
          감춰야 한다. 예시 코드가 박힌 링크를 보여주면 사용자는 가입하는데
          귀속이 안 돼 수익이 0 이 된다 — 조용히 새기 때문에 알아채기 어렵다.
     */
-    exchangeReferralUrls: env.exchangeReferralUrls,
+    /*
+       거래소 추천 링크·코드.
+
+       ★ 코드에 있는 **확인된** 값이 기본이고, 환경설정이 있으면 그쪽이 이긴다.
+
+         전에는 환경설정만 읽었다. 그래서 변수를 빠뜨린 배포는 링크를 아예 보여주지
+         않고 모든 신규 가입이 귀속되지 않았는데, 화면에는 아무 표시도 없어 알아챌
+         수 없었다. 확인된 값은 배포마다 다르지 않으므로(운영자 자기 계정) 코드에
+         두고, 바꿔야 할 때만 환경설정으로 덮는다.
+
+       ★ 확인되지 않은 거래소는 기본값에 들어가지 않는다 — 자리표시자 코드로
+         가입이 일어나면 정상 가입되고 리베이트만 0 이 된다.
+
+       ★ 코드가 따로 필요한 이유: 거래소 모바일 앱에서 가입하는 사람은 링크를
+         열지 않아, 가입 화면에 코드를 넣는 것이 유일한 귀속 수단이다.
+    */
+    exchangeReferralUrls: { ...getConfirmedReferrals().urls, ...env.exchangeReferralUrls },
+    exchangeReferralCodes: { ...getConfirmedReferrals().codes, ...env.exchangeReferralCodes },
+    /*
+       KuCoin Fast API (OAuth) 사용 가능 여부.
+
+       ★ 화면이 이 값으로 "KuCoin 으로 연결" 버튼을 보일지 결정한다. 설정이
+         없으면 버튼을 만들지 않는다 — 누르면 404 인 버튼을 두면 이용자가
+         고장으로 여긴다.
+       ★ client_id 자체는 내보내지 않는다. 공개해도 치명적이지는 않지만
+         필요하지 않은 값을 내보내지 않는 것이 기본이다.
+    */
+    kucoinOauthAvailable: isKucoinOauthConfigured(env),
   }),
 );
 
@@ -390,6 +447,9 @@ app.get('/api/notices', async (c) => {
         publishedAt: n.publishedAt ?? n.publishAt,
         expiresAt: n.expiresAt,
         locale: n.locale,
+        /* 목록에서도 긴급도를 보여준다 — 배지 색이 갈린다. */
+        severity: n.severity,
+        popup: n.popup,
       })),
       supported: true,
       asOf: Date.now(),
@@ -408,6 +468,7 @@ app.get('/api/market/contract-specs', async (c) => {
       fundingFeeRate?: number;
       initialMarginRate?: number;
       maintenanceMarginRate?: number;
+      firstOpenDate?: number;
     } | undefined;
   };
 
@@ -436,10 +497,81 @@ app.get('/api/market/contract-specs', async (c) => {
           initialMarginRate: raw?.initialMarginRate ?? null,
           maintenanceMarginRate: raw?.maintenanceMarginRate ?? null,
           maxLeverage: s.maxLeverage,
+          /*
+             상장 시각(ms). 마켓 화면의 'New' 정렬에 쓴다.
+             없으면 null — 화면은 그때 신규 정렬을 제공하지 않는다.
+          */
+          firstOpenDate: raw?.firstOpenDate ?? null,
         };
       });
 
     return c.json({ specs, total: specs.length, source: providers.source, supported: true, asOf: Date.now() });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+/*
+   현물(Spot) 시세.
+   ------------------------------------------------------------
+   ★★ 선물 경로에 `market=spot` 을 얹지 않고 **별도 경로**로 둔다.
+
+     심볼 표기·캔들 배열 순서·수량 의미가 다르므로, 같은 경로에서 분기하면
+     응답을 받은 쪽이 어느 시장의 규칙으로 해석해야 하는지 알 수 없다. 경로가
+     다르면 그 혼동이 생기지 않는다.
+
+   ★ 어댑터가 없으면 `supported: false` 를 준다. 선물 데이터로 대신 채우지
+     않는다 — 이용자는 현물 시세를 본다고 믿으면서 선물 가격으로 판단하게 된다.
+
+   ★ 스트리밍은 아직 없다. `streaming: false` 로 분명히 밝혀서, 화면이 실시간을
+     기다리며 멈춰 있지 않게 한다.
+*/
+app.get('/api/market/spot/symbols', async (c) => {
+  if (!providers.spot) return c.json({ symbols: [], supported: false, source: providers.source });
+  try {
+    const symbols = await providers.spot.getSymbols();
+    return c.json({
+      symbols, total: symbols.length, supported: true,
+      source: 'kucoin_spot', streaming: providers.spot.supportsStreaming, asOf: Date.now(),
+    });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+app.get('/api/market/spot/candles', async (c) => {
+  if (!providers.spot) return c.json({ candles: [], supported: false, source: providers.source });
+  const symbol = c.req.query('symbol') ?? 'BTCUSDT';
+  const timeframe = c.req.query('timeframe') ?? '15m';
+  const limit = Number(c.req.query('limit') ?? 300);
+  const before = c.req.query('before') ? Number(c.req.query('before')) : undefined;
+  try {
+    const candles = await providers.spot.getCandles({ symbol, timeframe, limit, before });
+    return c.json({ symbol, timeframe, candles, supported: true, source: 'kucoin_spot' });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+app.get('/api/market/spot/tickers', async (c) => {
+  if (!providers.spot) return c.json({ tickers: [], supported: false, source: providers.source });
+  try {
+    const tickers = await providers.spot.getTickers();
+    return c.json({
+      tickers, total: tickers.length, supported: true,
+      source: 'kucoin_spot', streaming: providers.spot.supportsStreaming, asOf: Date.now(),
+    });
+  } catch (e) {
+    return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
+  }
+});
+
+app.get('/api/market/spot/ticker', async (c) => {
+  if (!providers.spot) return c.json({ supported: false, source: providers.source });
+  const symbol = c.req.query('symbol') ?? 'BTCUSDT';
+  try {
+    const ticker = await providers.spot.getTicker(symbol);
+    return c.json({ ...(ticker as object), supported: true, source: 'kucoin_spot' });
   } catch (e) {
     return c.json(errBody('UPSTREAM_ERROR', (e as Error).message), 502);
   }
@@ -770,6 +902,56 @@ if (env.authEnabled) {
       process.exit(1);
     }
     wiredRepositoryDescriptors.push(...core.descriptors);
+
+    /*
+       거래소 자격증명 저장소.
+
+       ★★ PostgreSQL 이 있으면 반드시 그쪽을 쓴다.
+
+         `exchange_credentials` 에는 `user_id → users(id)` 외래키가 있다. 회원이
+         PostgreSQL 에 있는데 자격증명을 SQLite 에 넣으면 그 회원이 SQLite 에
+         없으므로 **저장이 외래키 위반으로 실패한다.** 실제로 500 이 났고,
+         읽기 경로는 빈 목록을 주므로(`credentialStatus: NONE`) "아직 연결
+         안 함" 과 구분되지 않아 실제 키로 시도할 때까지 드러나지 않았다.
+
+       ★ 두 라우터(거래·Fast API)가 **같은 인스턴스**를 쓴다. 따로 만들면 한쪽에
+         등록한 키가 다른 쪽 목록에 없는 상태가 생긴다.
+    */
+    /*
+       고객 등급 저장소.
+
+       ★ PostgreSQL 에만 둔다. 등급은 30일 실거래 집계이므로 재시작마다 사라지는
+         저장소에서는 의미가 없다.
+    */
+    const tierRepo = core.pool ? new PgTierRepo(core.pool) : undefined;
+
+    const credentialRepo = core.pool
+      ? new PgCredentialRepo(core.pool)
+      : new SqliteCredentialRepo(db);
+     
+    console.log(`[api] exchange credential store: ${core.pool ? 'postgres' : 'sqlite'}`);
+
+    /*
+       거래 학습 데이터 수집기.
+
+       ★★ PostgreSQL 에만 둔다.
+
+         이 기록은 **다시 만들 수 없다.** 어떤 지표를 켜고 있었는지는 그 순간에만
+         알 수 있고, 지나간 화면 상태를 나중에 복원할 방법이 없다. 휘발성
+         저장소(메모리 SQLite)에 두면 재시작 때마다 사라져 학습 표본이 되지 못한다.
+
+       ★ 없으면 수집하지 않고 주문은 그대로 나간다. 수집 여부는
+         `/api/admin/learning/stats` 에서 확인한다 — 조용히 안 모이는 것을
+         알아채기 위한 유일한 창구다.
+    */
+    const learningRepo = core.pool
+      ? new PgLearningRepo(core.pool, (event, detail) => {
+        /*
+           감사기록으로 남긴다. 여기서 던지면 주문 경로가 죽는다.
+        */
+        try { console.warn(`[learning] ${event}`, JSON.stringify(detail).slice(0, 300)); } catch { /* noop */ }
+      })
+      : undefined;
      
     console.log(`[api] core identity repositories: backend=${core.backend} (${BATCH_1_REPOSITORY_IDS.join(', ')})`);
 
@@ -958,14 +1140,55 @@ if (env.authEnabled) {
                거래는 정상 동작하지만 **리베이트가 0원**이다. 거래가 잘 되는 것을
                보고 수익도 들어온다고 오해하기 쉬우므로 명시한다.
           */
+          /*
+             브로커 리베이트 귀속 — 선물.
+
+             ★ 이름에 상품이 없어서 오해하기 쉬운데, `KUCOIN_BROKER_*` 는
+               **선물** 자격증명이다. 우리가 현재 거래하는 상품이다.
+          */
           brokerRebate: (() => {
             const missing: string[] = [];
             if (!env.kucoinBrokerPartner) missing.push('PARTNER');
             if (!env.kucoinBrokerKey) missing.push('KEY');
             if (!env.kucoinBrokerName) missing.push('NAME');
-            if (missing.length === 0) return 'Configured — orders carry broker attribution';
+            if (missing.length === 0) return 'Configured — futures orders carry broker attribution';
             if (missing.length === 3) return 'Not Connected — rebate is 0 (no broker credential)';
             return `INCOMPLETE — rebate is 0 (missing ${missing.join(', ')})`;
+          })(),
+          /*
+             브로커 리베이트 귀속 — 현물.
+
+             ★★ 현물은 **다른 자격증명**이다. 선물 값으로 대체하면 서명은
+               만들어지지만 거래가 귀속되지 않고, 오류도 나지 않는다. 그래서
+               상태를 따로 보고한다 — 한 줄로 묶으면 "설정됨" 으로 보이면서
+               절반이 새는 상태를 놓친다.
+
+             ★ 현물 어댑터가 아직 없으므로 비어 있는 것이 지금은 정상이다.
+               현물을 열 때 이 줄이 Configured 인지 먼저 확인해야 한다.
+          */
+          /*
+             KuCoin Fast API (OAuth) 설정 상태.
+
+             ★ 이것이 꺼져 있으면 이용자가 KuCoin 에서 키를 손으로 만들어야
+               한다 — 그 단계에서 이탈이 생기고 실수로 출금 권한을 켤 위험도
+               있다. 수익에 직접 영향은 없지만 가입 전환에 영향이 크므로
+               상태를 드러낸다.
+          */
+          kucoinFastApi: (() => {
+            const missing: string[] = [];
+            if (!env.kucoinOauthClientId) missing.push('KUCOIN_OAUTH_CLIENT_ID');
+            if (!env.kucoinOauthRedirectUri) missing.push('KUCOIN_OAUTH_REDIRECT_URI');
+            if (missing.length === 0) return 'Configured — users can connect with one click';
+            return `Not Connected — users must create API keys manually (missing ${missing.join(', ')})`;
+          })(),
+          brokerRebateSpot: (() => {
+            const missing: string[] = [];
+            if (!env.kucoinBrokerSpotPartner) missing.push('SPOT_PARTNER');
+            if (!env.kucoinBrokerSpotKey) missing.push('SPOT_KEY');
+            if (!env.kucoinBrokerSpotName) missing.push('SPOT_NAME');
+            if (missing.length === 0) return 'Configured — spot orders carry broker attribution';
+            if (missing.length === 3) return 'Not Connected — spot rebate would be 0 (spot trading is not enabled yet)';
+            return `INCOMPLETE — spot rebate is 0 (missing ${missing.join(', ')})`;
           })(),
           /*
              운영자 조회 키 — 리베이트가 실제로 들어오는지 확인하는 수단.
@@ -1012,6 +1235,8 @@ if (env.authEnabled) {
         `[api] broker rebate reader: ${brokerRebates ? `configured (brokerId=${env.bitmartBrokerId})` : 'not configured (no operator BitMart credential)'}`,
       );
 
+
+
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
         cookieName: env.cookieName, health, ratePerMin: env.adminRateLimitPerMin, rateLimiter,
@@ -1019,6 +1244,16 @@ if (env.authEnabled) {
         // actually running in MOCK trading mode. Any other mode reports DISABLED_BY_POLICY rather than
         // mutating state and calling it a reconnect. Decided here, at mount time, from the environment.
         gatewayControl: { controllable: env.tradingMode === 'MOCK', target: 'LOCAL_MOCK' },
+        /*
+           거래 학습 데이터셋. 현황 조회·내보내기 라우트가 이것을 쓴다.
+
+           ★ 없으면 라우트가 `configured:false` 를 준다 — 0 건을 주면 "수집
+             중인데 아직 없다" 로 읽혀, 아무 것도 안 쌓이는 동안 운영자가
+             데이터가 모이고 있다고 믿는다.
+        */
+        ...(learningRepo ? { learning: learningRepo } : {}),
+        /* 고객 등급 — /admin/tiers 가 기준·분포를 읽는다. */
+        ...(tierRepo ? { tiers: tierRepo } : {}),
         /*
            공지 저장소. Postgres 풀이 있을 때만 주입한다.
 
@@ -1421,10 +1656,17 @@ if (env.authEnabled) {
     */
     const equitySnapshots = core.pool ? new PgEquitySnapshotRepo(core.pool) : undefined;
 
+
+
     app.route('/api', createPortfolioRouter({
       service: authService,
       repo: portfolioRepo,
       ...(equitySnapshots ? { equitySnapshots } : {}),
+      /*
+         모의 주문의 학습 결과 수집. 거래소 경로는 실주문만 보므로, 모의는
+         이 라우터가 이어 붙인다 — 초기에는 표본의 대부분이 모의 거래다.
+      */
+      ...(learningRepo ? { learning: learningRepo } : {}),
       posture: tradingPosture,
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
@@ -1469,6 +1711,10 @@ if (env.authEnabled) {
     // BATCH_2 — async repository (PostgreSQL in production, SQLite in dev/test), selected by the factory.
     const notificationRepo = userData.notifications;
     app.route('/api', createNotificationRouter({
+      /*
+         공지 팝업 — 알림과 같은 라우터에 둔다(읽음 규칙을 한 곳에서 관리).
+      */
+      ...(noticeRepo ? { notices: noticeRepo } : {}),
       service: authService,
       audit: auditRepo,
       repo: notificationRepo,
@@ -1596,6 +1842,36 @@ if (env.authEnabled) {
       });
 
       /*
+         ★★ 모의 주문도 학습 판단으로 기록한다.
+
+           전에는 이 경로가 학습 데이터를 남기지 않았다. 그래서 모의 주문은
+           결과(체결)만 존재하고 **이을 판단이 없어** 표본이 되지 못했다.
+           초기에는 모의 거래가 표본의 대부분이므로, 빼면 데이터가 거의 비어 있다.
+
+         ★ `executionMode: 'paper'` 로 분리한다. 실주문과 체결 성질이 다르므로
+           (모의는 슬리피지가 실제와 다르다) 섞이면 학습이 오염된다.
+
+         ★ 화면 문맥(uiContext)은 이 경로로 오지 않는다 — 모의 주문 확인 API 는
+           그 필드를 받지 않는다. 없으면 비운다(없는 값을 만들지 않는다).
+      */
+      if (learningRepo) {
+        await learningRepo.recordDecision({
+          userId: v.user.id,
+          market: 'futures',
+          executionMode: 'paper',
+          symbol: String(o.symbol),
+          side: String(o.side),
+          orderType: String(o.orderType ?? 'limit'),
+          price: o.price === undefined || o.price === null ? null : String(o.price),
+          quantity: String(o.quantity),
+          leverage: o.leverage === undefined ? null : Number(o.leverage),
+          marginMode: o.marginMode === undefined ? null : String(o.marginMode),
+          submitStatus: 'ACCEPTED',
+          clientOrderId: String(o.clientOrderId),
+        });
+      }
+
+      /*
          모의 거래의 자산 이력.
 
          ★★ 출처를 `mock` 으로 분리해 기록한다. 거래소 실값과 같은 곡선에 섞으면
@@ -1696,7 +1972,7 @@ if (env.authEnabled) {
         createTradingRouter({
           service: authService,
           vault,
-          credRepo: new SqliteCredentialRepo(db),
+          credRepo: credentialRepo,
           accountAdapter,
           // 저장되는 자격증명에 기록될 거래소. 어댑터 선택과 같은 조건을 쓴다.
           exchangeId: useKucoinAccounts ? 'kucoin' : 'bitmart',
@@ -1705,6 +1981,87 @@ if (env.authEnabled) {
              자산곡선의 유일한 근거다.
           */
           ...(equitySnapshots ? { equitySnapshots } : {}),
+          /*
+             거래 학습 데이터 수집. 주문을 낸 순간의 지표·시장·위험 판정을 남긴다.
+
+             ★ 거부·차단·타임아웃도 남긴다 — 손실과 실패가 학습 대상이다.
+          */
+          ...(learningRepo ? { learning: learningRepo } : {}),
+          /* 고객 등급 — /me/tier 가 이것을 쓴다. */
+          ...(tierRepo ? { tiers: tierRepo } : {}),
+          /*
+             학습 기록용 시장 스냅샷.
+
+             ★★ 화면이 보낸 가격을 쓰지 않기 위해 서버 원천에서 읽는다.
+               조작된 요청이 학습 데이터를 오염시키면, 그 데이터로 학습한 모델이
+               실제로 없었던 시장 상황을 배운다.
+          */
+          marketSnapshot: async (symbol, market) => {
+            try {
+              /*
+                 ★ 시장별 원천을 쓴다. 현물 어댑터가 없으면 선물 시세로 대체하지
+                   않는다 — 다른 시장의 가격을 그 시장의 값으로 기록하면,
+                   학습 데이터에 실제로 없었던 시장 상황이 들어간다.
+              */
+              const src = market === 'spot' ? providers.spot : providers.market;
+              if (!src || typeof src.getTicker !== 'function') return null;
+              /*
+                 ★★ 필드 이름은 우리 Ticker 스키마를 따른다.
+
+                   처음에 `mark`·`chg24hPct` 로 읽었는데 스키마는 `markPrice`·
+                   `changePct` 다. 그래서 값이 있는데도 전부 null 로 기록됐다 —
+                   오류 없이 **데이터만 비었다.** 학습 데이터에서 이런 실수는
+                   나중에 "그때 마크가가 없었다" 로 읽힌다.
+              */
+              const t = (await src.getTicker(symbol)) as {
+                last?: unknown; changePct?: unknown;
+                markPrice?: unknown; indexPrice?: unknown;
+                fundingRate?: unknown; high24h?: unknown; low24h?: unknown; vol24h?: unknown;
+              } | null;
+              if (!t) return null;
+
+              /*
+                 호가와 스프레드.
+
+                 ★★ 티커에는 호가가 없다(스키마에 bid/ask 가 없다). 호가창에서
+                   읽어야 한다. 스프레드는 그 순간에만 알 수 있는 값이라 나중에
+                   계산할 수 없으므로, 여기서 얻어 함께 저장한다.
+
+                 ★ 실패하면 넣지 않는다. 0 을 넣으면 "스프레드가 없었다" 가 되고,
+                   그런 시장은 존재하지 않는다.
+              */
+              let quote: Record<string, unknown> = {};
+              try {
+                const book = market === 'spot' ? null : await providers.book.getSnapshot(symbol, 1);
+                const bid = Number(book?.bids?.[0]?.[0]);
+                const ask = Number(book?.asks?.[0]?.[0]);
+                if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0 && ask > 0) {
+                  quote = {
+                    bid: String(book!.bids[0]![0]),
+                    ask: String(book!.asks[0]![0]),
+                    spreadBps: String((((ask - bid) / ((ask + bid) / 2)) * 10_000).toFixed(4)),
+                  };
+                }
+              } catch { /* 호가를 못 읽는 것이 주문을 막지 않는다 */ }
+
+              return {
+                last: t.last ?? null,
+                ...quote,
+                markPrice: t.markPrice ?? null,
+                indexPrice: t.indexPrice ?? null,
+                fundingRate: t.fundingRate ?? null,
+                changePct: t.changePct ?? null,
+                high24h: t.high24h ?? null,
+                low24h: t.low24h ?? null,
+                vol24h: t.vol24h ?? null,
+                capturedAt: Date.now(),
+                market,
+              };
+            } catch {
+              // 시세를 못 읽는 것이 주문을 막지 않는다. 스냅샷 없이 기록한다.
+              return null;
+            }
+          },
           /*
              실주문 어댑터.
 
@@ -1737,6 +2094,34 @@ if (env.authEnabled) {
                 },
               })
             : undefined,
+          /*
+             현물 실주문 어댑터.
+
+             ★★ 선물과 **별도 인스턴스**다. 수량 의미(계약수 vs 기초자산)와
+               레버리지 유무가 달라서 하나로 합치면 주문 크기가 1000배 틀린다.
+
+             ★ 브로커 자격증명도 현물용을 쓴다(partner=CCAI). 선물용(CCAIF)으로
+               서명하면 서명은 만들어지지만 거래가 귀속되지 않고 오류도 나지
+               않는다 — 리베이트만 0 이 된다.
+
+             ★ 현물 브로커 자격증명이 없으면 헤더를 붙이지 않는다. 선물 값으로
+               대체하지 않는다(대체하면 위와 같은 조용한 손실이 된다).
+          */
+          spotTradingAdapter: useKucoinAccounts
+            ? new KucoinSpotTradingAdapter({
+                restBase: env.kucoinSpotRest,
+                broker: {
+                  partner: env.kucoinBrokerSpotPartner,
+                  key: env.kucoinBrokerSpotKey,
+                  name: env.kucoinBrokerSpotName,
+                },
+                liveEnabled: () =>
+                  env.liveOrdersEnabled && env.bitmartLiveTradingEnabled && !env.bitmartKillSwitch,
+                onAudit: (event, detail) => {
+                  console.log(`[order-audit] ${event} ${JSON.stringify(detail)}`);
+                },
+              })
+            : undefined,
           policy: { allowedSymbols: ['BTCUSDT'], maxOrderNotional: '100000', maxLeverage: 20, maxOpenPositions: 5, dailyOrderLimit: 50, dailyLossLimit: '1000', priceDeviationLimitPct: 5 },
           symbolInfo: DEFAULT_SYMBOL_INFO,
           csrfKey: env.csrfKey,
@@ -1745,6 +2130,26 @@ if (env.authEnabled) {
           mode: env.bitmartMode as 'BITMART_LIVE_READ_ONLY',
           liveTradingEnabled: env.bitmartLiveTradingEnabled,
           killSwitch: env.bitmartKillSwitch,
+          /*
+             실주문을 여는 **실제** 조건. 안내 문구가 이 값으로 만들어진다.
+
+             ★★ 전에는 문구가 `TRADING_MODE` 와 `FEATURE_LIVE_ORDERS_ENABLED` 를
+               말했는데, 이 라우터가 검사하는 것은 `BITMART_MODE` 와
+               `BITMART_LIVE_TRADING_ENABLED` 였다. 안내대로 켜도 열리지 않는다.
+
+             ★ 두 겹으로 유지한다. 하나만 실수로 켜져도 실주문이 열리면 안 된다 —
+               플래그를 합치면 그 보호가 사라진다.
+          */
+          liveGateEnv: {
+            modeVar: 'BITMART_MODE',
+            modeRequired: 'BITMART_LIVE_TRADE',
+            modeActual: env.bitmartMode,
+            flags: [
+              { name: 'BITMART_LIVE_TRADING_ENABLED', value: env.bitmartLiveTradingEnabled },
+              { name: 'FEATURE_LIVE_ORDERS_ENABLED', value: env.liveOrdersEnabled },
+              { name: 'BITMART_EMERGENCY_KILL_SWITCH=false', value: !env.bitmartKillSwitch },
+            ],
+          },
           // Same adapter instance: transaction history is a Read-only call and must carry the same broker
           // ID header as every other request so attribution is consistent.
           transactionSource: accountAdapter,
@@ -1771,6 +2176,50 @@ if (env.authEnabled) {
         }),
       );
        
+      /*
+         KuCoin Fast API (OAuth 2.0) — 이용자 키 자동 연결.
+
+         ★★ 설정이 완전할 때만 등록한다(fail-closed).
+
+           `client_id` 나 redirect URI 가 없으면 라우트를 아예 만들지 않는다.
+           반쯤 설정된 상태로 켜면 이용자가 KuCoin 승인 화면까지 갔다가
+           콜백에서 실패하고, 그 사이 KuCoin 계정에는 우리 이름의 키가
+           만들어져 남는다. "있는데 안 되는" 상태보다 "없는" 상태가 낫다 —
+           화면은 /api/config 의 kucoinOauthAvailable 로 그 사실을 표시한다.
+
+         ★ state 저장이 Postgres 를 요구한다(마이그레이션 0024). 개발 SQLite
+           환경에는 표가 없으므로 pgPool 이 있을 때만 등록한다.
+      */
+      if (core?.pool && isKucoinOauthConfigured(env)) {
+        app.route(
+          '/api',
+          createKucoinOauthRouter({
+            service: authService,
+            vault,
+            credRepo: credentialRepo,
+            pool: core.pool,
+            csrfKey: env.csrfKey,
+            corsOrigins: env.corsOrigins,
+            cookieName: env.cookieName,
+            csrfCookieName: 'qt_csrf',
+            clientId: env.kucoinOauthClientId,
+            redirectUri: env.kucoinOauthRedirectUri,
+            oauthBase: env.kucoinOauthBase,
+            apiKeyPath: env.kucoinOauthApiKeyPath,
+          }),
+        );
+        console.log('[api] KuCoin Fast API (OAuth) mounted');
+      } else {
+        /*
+           왜 꺼졌는지 남긴다. 조용히 없으면 "왜 버튼이 안 보이나" 를
+           코드에서 찾게 된다.
+        */
+        const why = !core?.pool
+          ? 'requires PostgreSQL (migration 0024)'
+          : 'KUCOIN_OAUTH_CLIENT_ID / KUCOIN_OAUTH_REDIRECT_URI not set';
+        console.log(`[api] KuCoin Fast API (OAuth) NOT mounted — ${why}`);
+      }
+
       console.log(`[api] trading mounted (mode=${env.bitmartMode}, live=${env.bitmartLiveTradingEnabled}, killSwitch=${env.bitmartKillSwitch})`);
     } catch (e) {
        

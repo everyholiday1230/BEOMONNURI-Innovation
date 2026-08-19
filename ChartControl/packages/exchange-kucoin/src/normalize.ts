@@ -67,6 +67,8 @@ export interface KucoinContract {
   /** 유지증거금률. 이 아래로 떨어지면 청산된다. */
   maintainMargin?: number;
   status?: string;
+  /** 상장 시각(ms). KuCoin `/api/v1/contracts/active` 가 준다. */
+  firstOpenDate?: number;
   lastTradePrice?: number;
   markPrice?: number;
   indexPrice?: number;
@@ -129,6 +131,15 @@ export interface KucoinInstrument {
   /** 개시증거금률·유지증거금률. 청산가 계산과 레버리지 한도에 쓰인다. */
   initialMarginRate?: number;
   maintenanceMarginRate?: number;
+  /**
+   * 상장 시각(ms). KuCoin `firstOpenDate` 를 그대로 옮긴다.
+   *
+   * ★ 왜 필요한가: 마켓 화면의 'New' 탭이 목록의 **마지막 8개**를 잘라서
+   *   보여주고 있었다. 그것은 카탈로그 순서일 뿐 상장 순서가 아니고, 거래소에
+   *   상장되지 않은 심볼까지 '신규' 로 올라갔다. 실제 상장 시각이 있으면
+   *   그것으로 정렬할 수 있다.
+   */
+  firstOpenDate?: number;
   info: SymbolInfo;
   tradable: boolean;
 }
@@ -189,6 +200,8 @@ export function normalizeInstrument(raw: KucoinContract): KucoinInstrument | nul
     fundingFeeRate: rate(raw.fundingFeeRate),
     initialMarginRate: rate(raw.initialMargin),
     maintenanceMarginRate: rate(raw.maintainMargin),
+    // 상장 시각. 값이 없거나 0 이면 두지 않는다(0 을 1970년으로 읽으면 안 된다).
+    firstOpenDate: Number(raw.firstOpenDate) > 0 ? Number(raw.firstOpenDate) : undefined,
     info: parsed.data,
     tradable: raw.status === 'Open',
   };

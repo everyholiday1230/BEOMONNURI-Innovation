@@ -352,16 +352,16 @@
         {/* Widget controls popover (top-right) */}
         {isEditing && (
           <div className="widget-controls" onClick={e => e.stopPropagation()}>
-            <button className="widget-controls__btn" onMouseDown={onDragStart} title="Drag to move"><I.Drag size={11}/></button>
+            <button className="widget-controls__btn" onMouseDown={onDragStart} title={t('lay_drag')}><I.Drag size={11}/></button>
             <div className="widget-controls__sep"/>
-            <button className="widget-controls__btn" onClick={() => onLock && onLock(widget.id)} title={widget.locked ? 'Unlock' : 'Lock'}>
+            <button className="widget-controls__btn" onClick={() => onLock && onLock(widget.id)} title={widget.locked ? t('lay_unlock') : t('lock')}>
               {widget.locked ? <I.Lock size={11}/> : <I.Unlock size={11}/>}
             </button>
-            <button className="widget-controls__btn" onClick={() => onSettings && onSettings(widget.id)} title="Settings"><I.Cog size={11}/></button>
-            <button className="widget-controls__btn" onClick={() => onDuplicate && onDuplicate(widget.id)} title="Duplicate"><I.Layers size={11}/></button>
-            <button className="widget-controls__btn" onClick={() => onMaximize && onMaximize(widget.id)} title="Maximize"><I.Expand size={11}/></button>
+            <button className="widget-controls__btn" onClick={() => onSettings && onSettings(widget.id)} title={t('chart_settings')}><I.Cog size={11}/></button>
+            <button className="widget-controls__btn" onClick={() => onDuplicate && onDuplicate(widget.id)} title={t('lay_duplicate')}><I.Layers size={11}/></button>
+            <button className="widget-controls__btn" onClick={() => onMaximize && onMaximize(widget.id)} title={t('lay_maximize')}><I.Expand size={11}/></button>
             <div className="widget-controls__sep"/>
-            <button className="widget-controls__btn is-danger" onClick={() => onHide && onHide(widget.id)} title="Hide"><I.EyeOff size={11}/></button>
+            <button className="widget-controls__btn is-danger" onClick={() => onHide && onHide(widget.id)} title={t('lay_hide')}><I.EyeOff size={11}/></button>
           </div>
         )}
 
@@ -447,9 +447,9 @@
         <div className="widget-library__header">
           <div className="widget-library__title">
             <I.EyeOff size={12}/>
-            Hidden Widgets <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontSize: 10}}>{hidden.length}</span>
+            {t('lay_hidden_widgets')} <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontSize: 10}}>{hidden.length}</span>
           </div>
-          <button className="btn btn--icon" onClick={onClose} title="Close"><I.X size={12}/></button>
+          <button className="btn btn--icon" onClick={onClose} title={t('close')}><I.X size={12}/></button>
         </div>
         <div className="widget-library__body">
           {hidden.length === 0 ? (
@@ -467,7 +467,7 @@
             })
           )}
           <div style={{borderTop:'1px solid var(--color-border-subtle)', marginTop: 6, paddingTop: 6}}>
-            <div style={{fontSize: 10, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)', padding:'4px 6px', fontWeight:600}}>Add New</div>
+            <div style={{fontSize: 10, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)', padding:'4px 6px', fontWeight:600}}>{t('lay_add_new')}</div>
             {['orderBook','recentTrades','aiCopilot','miniChart','assetsRisk'].map(type => {
               const Icon = iconMap[type] || I.Grid;
               return (
@@ -500,7 +500,7 @@
             )}
           </div>
           <div className="layout-toolbar__sub">
-            {t('layout_edit_toolbar_38b2c0')} <kbd style={{fontSize:9}}>Ctrl+Z</kbd> Undo · <kbd style={{fontSize:9}}>Ctrl+S</kbd> Save
+            {t('layout_edit_toolbar_38b2c0')} <kbd style={{fontSize:9}}>Ctrl+Z</kbd> {t('undo')} · <kbd style={{fontSize:9}}>Ctrl+S</kbd> {t('save')}
           </div>
         </div>
 
@@ -508,9 +508,9 @@
           <button
             className={`btn btn--sm ${engine.libraryOpen ? 'btn--primary' : ''}`}
             onClick={() => engine.setLibraryOpen(!engine.libraryOpen)}
-            title="Hidden Widgets Library"
+            title={t('lay_library_title')}
           >
-            <I.EyeOff size={13}/> Library
+            <I.EyeOff size={13}/> {t('lay_library')}
             {hiddenCount > 0 && (
               <span style={{padding:'0 5px', background: engine.libraryOpen ? 'rgba(255,255,255,0.2)' : 'var(--color-warning)', color: engine.libraryOpen ? 'inherit' : 'var(--color-bg-app)', borderRadius:8, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700}}>{hiddenCount}</span>
             )}
@@ -518,19 +518,19 @@
 
           <div style={{width:1, height: 20, background:'var(--color-border-subtle)'}}/>
 
-          <button className="btn btn--sm btn--ghost" onClick={engine.undo} disabled={!engine.history.past.length} title="Undo (Ctrl+Z)">
+          <button className="btn btn--sm btn--ghost" onClick={engine.undo} disabled={!engine.history.past.length} title={t('lay_undo_hint')}>
             <I.Undo size={13}/> {t('undo')}
           </button>
-          <button className="btn btn--sm btn--ghost" onClick={engine.redo} disabled={!engine.history.future.length} title="Redo (Ctrl+Shift+Z)">
+          <button className="btn btn--sm btn--ghost" onClick={engine.redo} disabled={!engine.history.future.length} title={t('lay_redo_hint')}>
             <I.Redo size={13}/> {t('redo')}
           </button>
 
           <div style={{width:1, height: 20, background:'var(--color-border-subtle)'}}/>
 
           <button className="btn btn--sm btn--ghost" onClick={() => engine.setIsLocked(v => !v)}>
-            {engine.isLocked ? <I.Lock size={13}/> : <I.Unlock size={13}/>} {engine.isLocked ? 'Locked' : t('lock')}
+            {engine.isLocked ? <I.Lock size={13}/> : <I.Unlock size={13}/>} {engine.isLocked ? t('lay_locked') : t('lock')}
           </button>
-          <button className="btn btn--sm" onClick={() => engine.reset(engine.presetId)} title="Reset to preset default">
+          <button className="btn btn--sm" onClick={() => engine.reset(engine.presetId)} title={t('lay_reset_hint')}>
             <I.Refresh size={13}/> {t('reset')}
           </button>
           <button className="btn btn--sm" onClick={onSaveAs}>{t('save_as')}</button>
