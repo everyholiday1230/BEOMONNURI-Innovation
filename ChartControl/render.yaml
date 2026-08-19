@@ -1,8 +1,17 @@
 # ============================================================
 # Render 배포 설정 (Blueprint)
 # ------------------------------------------------------------
-# 이 파일을 저장소 루트에 두고 Render 에서 "New > Blueprint" 로 가리키면
-# 웹 서비스 · PostgreSQL · Redis 가 함께 만들어진다.
+# Render 에서 "New > Blueprint" → 저장소 선택 → **Blueprint 파일 경로**에
+# `ChartControl/render.yaml` 을 지정한다.
+#
+# ★ 왜 저장소 루트에 두지 않았나
+#     Render 는 기본으로 루트의 `render.yaml` 을 찾지만, 설정 화면에서 경로를
+#     바꿀 수 있다. 이 저장소에는 프로젝트가 여럿 있어(superchart-ai, homepage2,
+#     maeum-matchum …) 루트에 두면 어느 프로젝트의 설정인지 알 수 없고, 다른
+#     프로젝트가 Blueprint 를 쓸 때 충돌한다.
+#
+# ★ `rootDir: ChartControl` 은 그대로 필요하다. Blueprint 파일 위치와 서비스의
+#   빌드 기준 경로는 별개다 — rootDir 은 항상 **저장소 루트 기준**이다.
 #
 # ★★ 알고 시작할 것 — Render 의 한계
 #
@@ -30,13 +39,21 @@ databases:
     region: singapore        # KuCoin 상류가 아시아라 지연이 낮다.
 
 services:
-  # ---- Redis (레이트리밋 + 클러스터 상태) ----
-  - type: redis
+  # ---- Redis (레이트리밋) ----
+  #
+  # ★ Render 는 이것을 'Key Value' 라고 부른다. `type: redis` 는 폐기된 별칭이다.
+  - type: keyvalue
     name: chartcontrol-redis
     # ★ Redis 8 — 프로덕션 레이트리밋이 EVAL(Lua) 만 쓰므로 호환 문제가 없다.
     #   8 시리즈에서 테스트 1,873개를 검증했다.
-    plan: starter            # 무료 플랜은 유휴 시 잠든다 → 레이트리밋이 fail-closed 로 전부 거부한다.
+    plan: starter            # 무료 플랜은 영속성이 없다(재시작 시 레이트리밋 카운터 소실).
     region: singapore
+
+    # ★★ Key Value 는 ipAllowList 가 **필수**다(생략하면 Blueprint 가 동기화되지 않는다).
+    #
+    #   빈 목록 = 외부 접속 차단, 같은 리전 내부망만 허용.
+    #   우리 API 는 같은 리전에 있으므로 이걸로 충분하고, 인터넷에서는 닿을 수 없다.
+    ipAllowList: []
     # ★★ maxmemoryPolicy 를 noeviction 으로 둔다.
     #
     #   기본값(allkeys-lru)이면 메모리가 차면 레이트리밋 키를 **조용히 버린다.**
@@ -52,6 +69,13 @@ services:
     plan: starter            # 무료는 15분 유휴 시 잠든다(청산 감시가 멈춘다).
     branch: main
     rootDir: ChartControl
+
+    # ★★ 자동 배포를 끈다.
+    #
+    #   기본값은 `commit` — main 에 푸시할 때마다 **거래 중인 프로덕션이 재배포**된다.
+    #   배포 중에는 KuCoin WebSocket 이 끊기고 청산 감시가 멈춘다.
+    #   언제 배포할지는 사람이 정한다(대시보드의 Manual Deploy).
+    autoDeployTrigger: 'off'
     buildCommand: pnpm install --frozen-lockfile && pnpm -r build
     # ★ 마이그레이션을 기동 전에 돌린다. 표가 없으면 프로덕션 기동 검사가 막는다.
     preDeployCommand: pnpm --filter @quantumtrade/api exec tsx scripts/migrate.ts up
@@ -69,7 +93,7 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: chartcontrol-redis
           property: connectionString
 
