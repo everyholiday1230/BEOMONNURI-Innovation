@@ -1,0 +1,129 @@
+# ============================================================
+# Render 배포 설정 (Blueprint)
+# ------------------------------------------------------------
+# 이 파일을 저장소 루트에 두고 Render 에서 "New > Blueprint" 로 가리키면
+# 웹 서비스 · PostgreSQL · Redis 가 함께 만들어진다.
+#
+# ★★ 알고 시작할 것 — Render 의 한계
+#
+#   1. 아웃바운드 IP 가 고정이 아닐 수 있다(플랜·리전에 따라).
+#      KuCoin Fast API 신청서와 브로커 키 IP 화이트리스트에 **서버 IP 목록**을
+#      내야 한다. 고정 IP 가 필요하면 Render 의 static outbound IP 를 지원하는
+#      플랜을 쓰거나, VPS 로 옮겨야 한다.
+#
+#   2. 무료 플랜은 15분 유휴 시 잠든다. 잠든 사이 청산 감시·WS 스트림이 멈춘다.
+#      거래 서비스에서는 유료 플랜이 필요하다.
+#
+#   3. 무료 PostgreSQL 은 90일 후 삭제된다. 거래 기록·학습 데이터가 사라진다.
+#
+# ★ 브로커 키는 이 파일에 적지 않는다. Render 대시보드의 환경변수(Secret)로
+#   넣는다 — 이 파일은 저장소에 커밋되므로 여기 적으면 키가 공개된다.
+# ============================================================
+
+databases:
+  - name: chartcontrol-db
+    databaseName: chartcontrol
+    user: chartcontrol
+    # ★ PostgreSQL 18 — 마이그레이션 28개와 테스트 1,873개를 18.6 에서 검증했다.
+    postgresMajorVersion: "18"
+    plan: basic-256mb        # 무료는 90일 후 삭제된다. 거래 기록을 잃을 수 없다.
+    region: singapore        # KuCoin 상류가 아시아라 지연이 낮다.
+
+services:
+  # ---- Redis (레이트리밋 + 클러스터 상태) ----
+  - type: redis
+    name: chartcontrol-redis
+    # ★ Redis 8 — 프로덕션 레이트리밋이 EVAL(Lua) 만 쓰므로 호환 문제가 없다.
+    #   8 시리즈에서 테스트 1,873개를 검증했다.
+    plan: starter            # 무료 플랜은 유휴 시 잠든다 → 레이트리밋이 fail-closed 로 전부 거부한다.
+    region: singapore
+    # ★★ maxmemoryPolicy 를 noeviction 으로 둔다.
+    #
+    #   기본값(allkeys-lru)이면 메모리가 차면 레이트리밋 키를 **조용히 버린다.**
+    #   그러면 제한이 풀려 로그인 무차별 시도를 막지 못한다 — 보호가 사라진 것을
+    #   아무도 모른다.
+    maxmemoryPolicy: noeviction
+
+  # ---- API + 프론트엔드 (한 서비스가 둘 다 서빙한다) ----
+  - type: web
+    name: chartcontrol
+    runtime: node
+    region: singapore
+    plan: starter            # 무료는 15분 유휴 시 잠든다(청산 감시가 멈춘다).
+    branch: main
+    rootDir: ChartControl
+    buildCommand: pnpm install --frozen-lockfile && pnpm -r build
+    # ★ 마이그레이션을 기동 전에 돌린다. 표가 없으면 프로덕션 기동 검사가 막는다.
+    preDeployCommand: pnpm --filter @quantumtrade/api exec tsx scripts/migrate.ts up
+    startCommand: pnpm --filter @quantumtrade/api exec tsx src/index.ts
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # ---- 데이터 저장소 (Render 가 자동으로 채운다) ----
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chartcontrol-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: chartcontrol-redis
+          property: connectionString
+
+      # ---- 브로커 자격증명 보관 위치 ----
+      #
+      # ★★ AWS Secrets Manager 를 쓰지 않는 선택이다. 기본값은 AWS 요구이며,
+      #   이 값을 **직접 적어야** 환경변수 경로가 열린다(실수로 열리지 않게).
+      #
+      # ★ 포기하는 것: 서버가 침해되면 프로세스 환경에서 브로커 키가 읽힌다.
+      #   걸린 것: 운영자 브로커 키(고객 키는 별개로 DB 봉투암호화). 유출되면 남이
+      #   우리 이름으로 주문 태그를 붙일 수 있지만 **자금은 빼낼 수 없다**(출금 권한 없음).
+      - key: CREDENTIAL_SOURCE
+        value: env
+
+      # ---- 실주문 잠금 (기본은 전부 잠김) ----
+      #
+      # ★★ 다섯 겹이 모두 열려야 주문이 거래소에 도달한다. 하나만 실수로 켜져도
+      #   열리지 않도록 일부러 나눠 두었다. 실거래를 열 때 대시보드에서 바꾼다.
+      - key: TRADING_MODE
+        value: MOCK
+      - key: FEATURE_LIVE_ORDERS_ENABLED
+        value: "false"
+      - key: BITMART_MODE
+        value: BITMART_LIVE_READ_ONLY
+      - key: BITMART_LIVE_TRADING_ENABLED
+        value: "false"
+      - key: BITMART_EMERGENCY_KILL_SWITCH
+        value: "true"
+
+      # ---- 시세 (공개 API, 키 불필요) ----
+      - key: DATA_MODE
+        value: KUCOIN_PUBLIC
+
+      # ---- 도메인 (CORS·메일 링크·OAuth 리다이렉트가 이 값을 쓴다) ----
+      #
+      # ★ 서브도메인을 Render 대시보드에서 연결한 뒤 실제 주소로 바꾼다.
+      #   틀리면 CSRF 검사(origin)가 막아 로그인이 안 된다.
+      - key: APP_BASE_URL
+        value: https://chartcontrol.beomonnuri.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://chartcontrol.beomonnuri.com
+
+      # ---- 아래는 대시보드에서 직접 넣는다 (여기 적으면 공개된다) ----
+      #
+      #   SESSION_SECRET            32자 이상 랜덤
+      #   CSRF_KEY                  32자 이상 랜덤
+      #   CREDENTIAL_ENCRYPTION_KEY 고객 거래소 키 봉투암호화용
+      #   KUCOIN_BROKER_PARTNER / _KEY / _NAME          (선물)
+      #   KUCOIN_BROKER_SPOT_PARTNER / _KEY / _NAME     (현물)
+      #   KUCOIN_OAUTH_CLIENT_ID    Fast API 발급 후
+      #   SMTP_*                    메일 발송
+      - key: SESSION_SECRET
+        sync: false
+      - key: CSRF_KEY
+        sync: false
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false

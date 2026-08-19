@@ -4,6 +4,7 @@ import {
   AwsSecretsManagerCredentialProvider,
   EnvCredentialProvider,
   parseCredentialSecret,
+  assertProductionCredentialReadiness,
   type SecretsManagerClientLike,
 } from '../trading/credential-source';
 
@@ -72,5 +73,67 @@ describe('AwsSecretsManagerCredentialProvider', () => {
   it('real SDK path is fail-closed when @aws-sdk is not installed (no injected client)', async () => {
     const p = new AwsSecretsManagerCredentialProvider('arn:...:bitmart', 'ap-northeast-2');
     await expect(p.load()).rejects.toThrow(/not installed|fail-closed/i);
+  });
+});
+
+describe('CRED-SRC AWS 없는 배포 (Render 등)', () => {
+  it('[1] ★★ 프로덕션에서 아무 설정도 없으면 기동을 막는다', async () => {
+    /*
+       기본값이 통과면 ARN 을 적는 것을 잊은 배포가 조용히 환경변수 경로로 열린다.
+       잊은 것과 의도한 것을 구분할 수 없게 된다.
+    */
+    await expect(assertProductionCredentialReadiness({
+      isProduction: true, env: {} as NodeJS.ProcessEnv,
+    })).rejects.toThrow(/BITMART_SECRET_ARN/);
+  });
+
+  it('[2] CREDENTIAL_SOURCE=env 를 직접 적으면 통과한다', async () => {
+    /*
+       AWS 를 쓰지 않는 배포(Render)를 위한 길이다. **명시적으로** 적어야 열린다.
+    */
+    await expect(assertProductionCredentialReadiness({
+      isProduction: true, env: { CREDENTIAL_SOURCE: 'env' } as NodeJS.ProcessEnv,
+    })).resolves.toBeUndefined();
+  });
+
+  it('[3] ★ 비슷한 값으로는 열리지 않는다', async () => {
+    // 'ENV' · 'environment' · 'true' 같은 값이 통과하면 실수로 열린다.
+    for (const v of ['ENV', 'environment', 'true', '1', 'yes']) {
+      await expect(assertProductionCredentialReadiness({
+        isProduction: true, env: { CREDENTIAL_SOURCE: v } as NodeJS.ProcessEnv,
+      })).rejects.toThrow(/BITMART_SECRET_ARN/);
+    }
+  });
+
+  it('[4] ★★ 제공자 선택도 같은 규칙을 따른다', () => {
+    /*
+       기동 검사만 통과하고 실제 제공자가 거부하면, 첫 주문에서 실패한다 —
+       기동 시점이 아니라 **돈이 걸린 순간**에 터진다. 두 경로가 같은 규칙이어야 한다.
+
+       ★ 프로덕션 기본값은 'aws-secrets-manager' 이므로, 아무 설정도 없으면
+         ARN 부재로 먼저 막힌다. 어느 쪽이든 열리지 않는 것이 요점이다.
+    */
+    expect(() => resolveCredentialProvider({
+      isProduction: true, env: {} as NodeJS.ProcessEnv,
+    })).toThrow(/BITMART_SECRET_ARN/);
+
+    // 'env' 를 명시적으로 고르면서 CREDENTIAL_SOURCE 가 없으면 거부한다.
+    expect(() => resolveCredentialProvider({
+      isProduction: true, source: 'env', env: {} as NodeJS.ProcessEnv,
+    })).toThrow(/CREDENTIAL_SOURCE=env/);
+
+    // 둘이 맞으면 통과한다.
+    expect(resolveCredentialProvider({
+      isProduction: true, source: 'env', env: { CREDENTIAL_SOURCE: 'env' } as NodeJS.ProcessEnv,
+    })).toBeTruthy();
+  });
+
+  it('[5] 개발 환경은 영향받지 않는다', async () => {
+    await expect(assertProductionCredentialReadiness({
+      isProduction: false, env: {} as NodeJS.ProcessEnv,
+    })).resolves.toBeUndefined();
+    expect(resolveCredentialProvider({
+      isProduction: false, env: {} as NodeJS.ProcessEnv,
+    })).toBeTruthy();
   });
 });

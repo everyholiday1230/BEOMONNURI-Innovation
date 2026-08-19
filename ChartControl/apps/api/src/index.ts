@@ -2316,7 +2316,18 @@ if (isProduction) {
       region: process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION,
     });
      
-    console.log('[api] production credential readiness: OK (AWS Secrets Manager configured)');
+    /*
+       ★ 어느 경로로 통과했는지 밝힌다.
+
+         전에는 항상 "AWS Secrets Manager configured" 라고 적었다. 환경변수
+         경로로 뜬 배포에서도 그렇게 말하므로, 로그만 보면 **키가 어디에 있는지
+         알 수 없다.** 사고 조사에서 가장 먼저 확인할 값이다.
+    */
+    console.log(
+      process.env.CREDENTIAL_SOURCE === 'env'
+        ? '[api] production credential readiness: OK (CREDENTIAL_SOURCE=env — broker keys come from the process environment, not AWS Secrets Manager)'
+        : '[api] production credential readiness: OK (AWS Secrets Manager configured)',
+    );
   } catch (e) {
      
     console.error('[api] FAIL-CLOSED startup:', (e as Error).message);

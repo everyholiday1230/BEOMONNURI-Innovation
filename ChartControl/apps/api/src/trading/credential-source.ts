@@ -142,8 +142,33 @@ export function resolveCredentialProvider(opts: ResolveCredentialOptions): ICred
     if (!opts.region) throw new Error('fail-closed: AWS_REGION required for aws-secrets-manager');
     return new AwsSecretsManagerCredentialProvider(opts.secretId, opts.region, opts.clientFactory);
   }
-  // 'env'
-  if (opts.isProduction) throw new Error('fail-closed: env credential provider is not allowed in production (use aws-secrets-manager)');
+  /*
+     'env' — 환경변수에서 읽는다.
+
+     ★★ 프로덕션에서는 **명시적으로 선택해야** 허용된다.
+
+       AWS 를 쓰지 않는 배포(Render 등)에서는 Secrets Manager 가 없다. 그렇다고
+       조건을 없애면 실수로 프로덕션이 환경변수 경로로 열린다 — 그래서
+       `CREDENTIAL_SOURCE=env` 를 **직접 적어야** 통과한다.
+
+     ★ 무엇을 포기하는가 (알고 선택해야 한다)
+         · 서버가 침해되면 `/proc/<pid>/environ` 이나 프로세스 덤프에서 브로커
+           키가 그대로 읽힌다. Secrets Manager 도 값을 메모리에 올리므로 차이는
+           "환경·디스크에 남는지" 와 "접근 감사 로그" 다.
+         · 키 회전이 수동이 된다(재배포 필요).
+
+     ★ 무엇이 걸려 있는가
+         이 키는 **운영자 브로커 키**다(고객 키는 별개로 DB 에 봉투암호화된다).
+         유출되면 남이 우리 이름으로 주문에 태그를 붙일 수 있지만 **자금을
+         빼낼 수는 없다** — 출금 권한이 없다. 그래서 환경변수 + 서버 접근 통제로
+         감당 가능한 범위라고 판단했다(2026-08, 사장님 승인).
+  */
+  if (opts.isProduction && (opts.env ?? process.env).CREDENTIAL_SOURCE !== 'env') {
+    throw new Error(
+      'fail-closed: env credential provider in production requires CREDENTIAL_SOURCE=env '
+      + '(set it deliberately, or use aws-secrets-manager)',
+    );
+  };
   return new EnvCredentialProvider(opts.env ?? process.env);
 }
 
@@ -155,8 +180,23 @@ export async function assertProductionCredentialReadiness(o: {
   isProduction: boolean;
   secretId?: string;
   region?: string;
+  /** 검사용 주입. 없으면 process.env. */
+  env?: NodeJS.ProcessEnv;
 }): Promise<void> {
   if (!o.isProduction) return; // dev / e2e unaffected
+  /*
+     ★★ AWS 를 쓰지 않는 배포는 `CREDENTIAL_SOURCE=env` 로 통과한다.
+
+       Render 처럼 Secrets Manager 가 없는 곳에 올리려면 이 길이 필요하다.
+       기본값은 여전히 AWS 요구다 — 아무 설정도 없으면 기동을 막는다.
+
+     ★ 조건을 "AWS 설정이 없으면 통과" 로 만들지 않았다. 그러면 ARN 을 적는 것을
+       잊은 배포가 조용히 환경변수 경로로 열린다 — 잊은 것과 의도한 것을
+       구분할 수 없다.
+  */
+  if ((o.env ?? process.env).CREDENTIAL_SOURCE === 'env') {
+    return;
+  }
   if (!o.secretId) throw new Error('fail-closed startup: BITMART_SECRET_ARN/BITMART_SECRET_ID required in production');
   if (!o.region) throw new Error('fail-closed startup: AWS_REGION required in production');
   try {
