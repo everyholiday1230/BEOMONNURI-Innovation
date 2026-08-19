@@ -286,7 +286,14 @@
             subtitle={isLive
               ? t('adm_recent_orders_sub', { n: (orders && orders.data ? orders.data.length : 0) })
               : `${trades.length} events in last minute · click row to inspect`}
-            actions={<button className="btn btn--sm">{t('adm_view_all')}</button>}
+            /*
+               ★★ <button> 이라서 눌러도 아무 일이 없었다. 같은 화면의 다른
+                 'View all' 은 <a href="#/admin/risk"> 로 되어 있다 — 한쪽만
+                 링크가 되어 있어 같은 라벨이 다르게 동작했다.
+
+               ★ 최근 주문의 전체 목록은 /admin/trades 다.
+            */
+            actions={<a className="btn btn--sm" href="#/admin/trades">{t('adm_view_all')}</a>}
             noPadding
           >
             <window.DataTable
@@ -1023,7 +1030,38 @@
               { key:'act', label:'', align:'right', render: r => (
                 <>
                   <button className="tbl-action" onClick={() => { window.location.hash = '#/admin/users/detail?id=' + encodeURIComponent(r.id); }}>{t('col_view')}</button>
-                  <button className="tbl-action" style={{marginLeft:3}}>KYC</button>
+                  {/*
+                     ★★ onClick 이 없어서 눌러도 아무 일이 없었다.
+
+                       ★ 그런데 여기에 KYC 심사 기능을 만들 수 없다 — **우리는 KYC 를
+                         수집하지 않는다.** 신원 서류도, 얼굴 인증도 받지 않는다.
+                         고객은 거래소에서 이미 KYC 를 마치고 오고, 우리는 자금을
+                         보관하지 않으므로 그것을 다시 확인할 근거가 없다.
+
+                       ★ 전에 이 화면에 'Face match 98.4%' 같은 KYC 심사 표가 있었고
+                         전부 목업이었다. 운영자가 그것으로 AML 판단을 하고 있었다 —
+                         제거했다. 이 버튼은 그때 남은 것이다.
+
+                     ★ 그래서 버튼을 지우지 않고(디자인 불가침) 왜 동작하지 않는지
+                       말한다. 조용히 아무 일도 안 하는 것보다 정직하다.
+                  */}
+                  <button
+                    className="tbl-action"
+                    style={{marginLeft:3, opacity: 0.6}}
+                    title={t('adm_kyc_not_collected')}
+                    onClick={(e) => {
+                      e.stopPropagation();   // 행 클릭(상세 이동)과 겹치지 않게
+                      if (window.QTToast) {
+                        window.QTToast({
+                          title: t('adm_kyc_not_collected'),
+                          desc: t('adm_kyc_not_collected_desc'),
+                          variant: 'warning',
+                        });
+                      }
+                    }}
+                  >
+                    KYC
+                  </button>
                   {/*
                      변경 버튼은 권한이 있을 때만 보인다.
 
@@ -2023,6 +2061,14 @@
       ? liveAudit
       : (mockAllowed ? window.QTApp.ADMIN_AUDIT : []);
     // 왜 비었는지 구분해 알린다.
+    /*
+       'Filter' 버튼 상태 — 실패한 동작만 보기.
+
+       ★★ 전에는 onClick 이 없어서 눌러도 아무 일이 없었다.
+       ★ 감사 로그에서 운영자가 가장 자주 찾는 것은 **실패한 관리자 동작**이다
+         (권한 거부·검증 실패). ok 칼럼이 이미 있으므로 그것으로 좁힌다.
+    */
+    const [failOnly, setFailOnly] = useState(false);
     const auditEmptyReason = audit.length > 0 ? null
       : (adm.status && adm.status !== 'READY') ? 'adm_audit_unavailable'
       : 'adm_audit_none';
@@ -2036,7 +2082,13 @@
         actions={
           <>
             <button className="btn btn--sm"><I.Camera size={13}/> {t('col_export')}</button>
-            <button className="btn btn--sm">{t('notifications_f53a6e')}</button>
+            <button
+              className={`btn btn--sm ${failOnly ? 'btn--primary' : ''}`}
+              onClick={() => setFailOnly((v) => !v)}
+              title={failOnly ? t('adm_audit_fail_on') : t('adm_audit_fail_off')}
+            >
+              {t('notifications_f53a6e')}
+            </button>
           </>
         }
       >
@@ -2063,7 +2115,7 @@
               { key:'meta', label:'Detail', render: r => <span style={{fontSize:11, color:'var(--color-text-secondary)'}}>{r.meta || ''}</span> },
               { key:'ok', label:'Result', render: r => r.ok ? <span className="status-pill status-pill--ok">OK</span> : <span className="status-pill status-pill--danger">FAIL</span> },
             ]}
-            rows={audit}
+            rows={failOnly ? audit.filter((r) => r.ok === false || r.ok === 'false' || r.ok === 0) : audit}
           />
         </window.SectionCard>
       </window.PageShell>

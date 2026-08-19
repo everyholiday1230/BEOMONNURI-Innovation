@@ -14,10 +14,10 @@ import { evaluateTier, type TierDefinition, type TierMetrics } from '../tiers/ti
  */
 
 const DEFS: TierDefinition[] = [
-  { code: 'starter', nameKey: 'tier_name_starter', rank: 10, minVolume30d: null, minTrades30d: null, minActiveDays30d: null, requiresReferral: false, benefitKey: null },
-  { code: 'active', nameKey: 'tier_name_active', rank: 20, minVolume30d: 10_000, minTrades30d: 10, minActiveDays30d: 3, requiresReferral: false, benefitKey: null },
-  { code: 'pro', nameKey: 'tier_name_pro', rank: 30, minVolume30d: 100_000, minTrades30d: 50, minActiveDays30d: 8, requiresReferral: false, benefitKey: null },
-  { code: 'partner', nameKey: 'tier_name_partner', rank: 40, minVolume30d: 500_000, minTrades30d: 150, minActiveDays30d: 15, requiresReferral: true, benefitKey: null },
+  { code: 'starter', nameKey: 'tier_name_starter', rank: 10, minVolume30d: null, minTrades30d: null, minActiveDays30d: null, requiresReferral: false, benefitKey: null, rebateShareBps: 0 },
+  { code: 'active', nameKey: 'tier_name_active', rank: 20, minVolume30d: 10_000, minTrades30d: 10, minActiveDays30d: 3, requiresReferral: false, benefitKey: null, rebateShareBps: 1000 },
+  { code: 'pro', nameKey: 'tier_name_pro', rank: 30, minVolume30d: 100_000, minTrades30d: 50, minActiveDays30d: 8, requiresReferral: false, benefitKey: null, rebateShareBps: 2000 },
+  { code: 'partner', nameKey: 'tier_name_partner', rank: 40, minVolume30d: 500_000, minTrades30d: 150, minActiveDays30d: 15, requiresReferral: true, benefitKey: null, rebateShareBps: 3000 },
 ];
 
 const M = (over: Partial<TierMetrics> = {}): TierMetrics => ({
@@ -157,5 +157,41 @@ describe('TIER-05 기준은 데이터다', () => {
     ];
     const r = evaluateTier(M({ volume30d: 999_999, trades30d: 12, activeDays30d: 30 }), strict);
     expect(r.tier).toBeNull();
+  });
+});
+
+describe('TIER-BENEFIT 환급률', () => {
+  it('[1] 등급이 오르면 환급률도 오른다 (역전 없음)', () => {
+    /*
+       역전되면 등급을 올리는 것이 손해가 된다 — 제도가 무의미해진다.
+    */
+    const sorted = [...DEFS].sort((a, b) => a.rank - b.rank);
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i]!.rebateShareBps).toBeGreaterThanOrEqual(sorted[i - 1]!.rebateShareBps);
+    }
+  });
+
+  it('[2] ★★ 환급률이 우리 커미션을 넘지 않는다', () => {
+    /*
+       우리가 KuCoin 에서 받는 몫은 50%(L0, 추천가입+우리API)다. 환급률은 **우리
+       커미션의 비율**이므로 100% 를 넘지만 않으면 마이너스가 되지 않는다.
+
+       상한을 50%(5000bps)로 둔 이유: 절반을 넘겨 돌려줄 사업적 이유가 없고,
+       실수로 큰 값이 들어가는 것을 막는다(DB CHECK 제약과 같은 값).
+    */
+    for (const d of DEFS) {
+      expect(d.rebateShareBps).toBeGreaterThanOrEqual(0);
+      expect(d.rebateShareBps).toBeLessThanOrEqual(5000);
+    }
+  });
+
+  it('[3] ★ starter 는 환급이 0 이다', () => {
+    /*
+       비제휴 고객(기존 KuCoin 계정으로 API 만 연결)은 Level 0 에서 우리 커미션이
+       **0%** 다 — KuCoin BPP 공식 표에서 확인했다. 받는 것이 없으면 돌려줄 것도
+       없다. 0 이 정직한 값이고, 여기에 양수를 넣으면 우리 돈으로 메워야 한다.
+    */
+    const starter = DEFS.find((d) => d.code === 'starter');
+    expect(starter?.rebateShareBps).toBe(0);
   });
 });

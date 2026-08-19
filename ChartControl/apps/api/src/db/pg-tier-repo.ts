@@ -25,7 +25,7 @@ export class PgTierRepo {
   async definitions(): Promise<TierDefinition[]> {
     const r = await this.pool.query(
       `SELECT code, name_key, rank, min_volume_30d, min_trades_30d,
-              min_active_days_30d, requires_referral, benefit_key
+              min_active_days_30d, requires_referral, benefit_key, rebate_share_bps
          FROM tier_definitions
         WHERE active
         ORDER BY rank ASC`,
@@ -39,6 +39,11 @@ export class PgTierRepo {
       minActiveDays30d: row.min_active_days_30d === null ? null : Number(row.min_active_days_30d),
       requiresReferral: row.requires_referral === true,
       benefitKey: (row.benefit_key as string | null) ?? null,
+      /*
+         ★ 숫자로 정규화한다. pg 가 INTEGER 를 문자열로 주는 경우가 있어,
+           그대로 두면 화면에서 '1000' / 100 = NaN 이 된다.
+      */
+      rebateShareBps: Number(row.rebate_share_bps ?? 0) || 0,
     }));
   }
 
@@ -48,6 +53,42 @@ export class PgTierRepo {
    * @param hasVerifiedCredential 거래소 키가 검증됐는가. false 면 측정 불가다 —
    *   거래를 조회할 방법이 없으므로 "거래 0" 이 아니라 "모른다" 다.
    */
+  /**
+   * 환급 집행 스위치.
+   *
+   * ★★ 실패하면 **false** 를 준다.
+   *
+   *   조회가 실패했을 때 true 를 주면, DB 장애 중에 화면이 "환급 지급 중"이라고
+   *   말한다. 돈이 걸린 안내는 확인된 경우에만 켠다.
+   */
+  /**
+   * 환급 집행 스위치를 켜거나 끈다.
+   *
+   * ★★ 누가 언제 켰는지 남긴다. 돈이 나가는 스위치이므로 "누가 이걸 열었나" 에
+   *   답할 수 있어야 한다.
+   */
+  async setPayoutsEnabled(o: { enabled: boolean; by: string; note?: string | undefined }): Promise<void> {
+    await this.pool.query(
+      `UPDATE tier_benefit_settings
+          SET payouts_enabled = $1,
+              enabled_at = CASE WHEN $1 THEN now() ELSE NULL END,
+              enabled_by = CASE WHEN $1 THEN $2::text ELSE NULL END,
+              note       = $3,
+              updated_at = now()
+        WHERE id = TRUE`,
+      [o.enabled, o.by, o.note ?? null],
+    );
+  }
+
+  async payoutsEnabled(): Promise<boolean> {
+    try {
+      const r = await this.pool.query('SELECT payouts_enabled FROM tier_benefit_settings WHERE id = TRUE');
+      return r.rows[0]?.payouts_enabled === true;
+    } catch {
+      return false;
+    }
+  }
+
   async metrics(userId: string, hasVerifiedCredential: boolean): Promise<
     TierMetrics & { volumeUnknownRows: number }
   > {

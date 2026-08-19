@@ -2499,6 +2499,50 @@
           />
         </div>
 
+        {/*
+           등급 혜택 표 — 브로커 커미션 환급률.
+
+           ★★ payoutsEnabled 가 false 면 "예정" 으로만 보여주고 금액을 말하지 않는다.
+             우리는 리베이트가 실제로 입금되는 것을 아직 확인하지 못했다. 확인 전에
+             금액을 말하면 지킬 수 없는 약속이 된다.
+
+           ★ 등급표는 서버가 주는 criteria 를 그대로 그린다. 비율을 화면에 박으면
+             운영 중 조정할 때 두 곳을 고쳐야 하고, 한 곳을 잊으면 화면과 실제
+             지급이 달라진다.
+        */}
+        {tier && tier.configured && Array.isArray(tier.criteria) && tier.criteria.length > 0 && (
+          <window.SectionCard
+            title={t('tier_benefit_title')}
+            subtitle={tier.benefitsPayoutsEnabled ? t('tier_benefit_sub_live') : t('tier_benefit_sub_pending')}
+            noPadding
+          >
+            <window.DataTable
+              columns={[
+                { key: 'code', label: t('col_tier'), render: r => (
+                  <strong style={{ color: tier.tier && tier.tier.code === r.code ? 'var(--brand-primary-500)' : undefined }}>
+                    {t(r.nameKey)}
+                  </strong>
+                ) },
+                { key: 'rebate', label: t('tier_benefit_col_rebate'), align: 'right', render: r => (
+                  r.rebateShareBps > 0 ? `${r.rebateShareBps / 100}%` : t('dash')
+                ) },
+                { key: 'referral', label: t('col_referral'), align: 'center', render: r => (
+                  r.requiresReferral ? t('yes') : t('dash')
+                ) },
+              ]}
+              rows={tier.criteria}
+              rowKey={r => r.code}
+            />
+            {/*
+               ★ 환급 기준을 밝힌다. "거래액의 O%" 로 오해하면 실제 지급액이
+                 기대보다 훨씬 작아 보인다 — 우리 커미션의 비율이다.
+            */}
+            <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+              {t('tier_benefit_basis')}
+            </div>
+          </window.SectionCard>
+        )}
+
         {/* 실 수수료율 표. 거래소가 계약별로 다르게 매긴다. */}
         {isLive && specs && specs.length > 0 && (
           <window.SectionCard title={t('fee_specs_title')} subtitle={t('fee_specs_sub')} noPadding>

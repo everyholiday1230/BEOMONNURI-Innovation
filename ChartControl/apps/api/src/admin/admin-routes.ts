@@ -2518,7 +2518,48 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
              정하지 못했다 — 운영자가 조정할 것을 전제로 넣은 값이다.
         */
         note: 'thresholds_are_provisional',
+        /*
+           ★★ 환급이 집행 중인가. 기본은 잠겨 있다.
+
+             우리는 리베이트가 실제로 입금되는 것을 아직 확인하지 못했다. 확인 전에
+             지급을 켜면, 들어오지 않는 수입을 근거로 약속하게 된다.
+        */
+        payoutsEnabled: await d.tiers.payoutsEnabled(),
       });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  /**
+   * POST /admin/tiers/payouts — 환급 집행 스위치.
+   *
+   * ★★ SUPER 전용이다. 고객에게 돈이 나가기 시작하는 스위치이므로 열람 권한과
+   *   같은 등급에 두지 않는다.
+   *
+   * ★ 켤 때 이유를 받는다. 나중에 "왜 이때 열었나" 를 답할 수 있어야 한다.
+   */
+  app.post('/admin/tiers/payouts', async (c) => {
+    const g = await guard(c, 'admin.tier.payouts.write'); if ('err' in g) return g.err;
+    if (!d.tiers) return c.json({ configured: false }, 200);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (typeof body.enabled !== 'boolean') {
+      return c.json(err('INVALID_BODY', 'enabled must be boolean'), 400);
+    }
+    /*
+       ★ 켤 때는 이유를 요구한다. 끌 때는 요구하지 않는다 — 사고 대응 중에
+         입력을 강제하면 잠그는 것이 늦어진다.
+    */
+    if (body.enabled === true && (typeof body.note !== 'string' || body.note.trim() === '')) {
+      return c.json(err('NOTE_REQUIRED', 'note is required when enabling payouts'), 400);
+    }
+    try {
+      await d.tiers.setPayoutsEnabled({
+        enabled: body.enabled,
+        by: g.a.user.id,
+        note: typeof body.note === 'string' ? body.note.trim() : undefined,
+      });
+      return c.json({ ok: true, payoutsEnabled: body.enabled });
     } catch (e) {
       return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
     }

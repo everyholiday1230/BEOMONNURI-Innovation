@@ -36,6 +36,15 @@ export interface TierDefinition {
   minActiveDays30d: number | null;
   requiresReferral: boolean;
   benefitKey: string | null;
+  /*
+     우리가 받는 브로커 커미션 중 고객에게 돌려주는 비율 (만분율, 1000 = 10%).
+
+     ★ 왜 '우리 커미션의 비율' 인가 — '거래액의 비율' 이 아니다
+       거래액 기준이면 거래소가 수수료를 내리거나 고객이 KCS 할인을 쓸 때
+       **우리가 받는 것보다 많이 돌려주게 된다.** 우리 수입에 연동하면 무슨
+       일이 있어도 마이너스가 되지 않는다.
+  */
+  rebateShareBps: number;
 }
 
 /** 계산에 쓰는 실거래 지표. */

@@ -63,7 +63,18 @@
          마켓 화면과 Market Watch 가 같은 출처를 보므로 두 곳이 어긋나지 않는다.
     */
     const mkSrc = window.QTMarkets ? window.QTMarkets.use() : { rows: (window.QT && window.QT.MARKETS) || [], market: 'futures', loading: false, failed: false };
-    const markets = mkSrc.rows;
+    /*
+       'Filter' 버튼 상태 — 즐겨찾기만 보기.
+
+       ★★ 전에는 onClick 이 없어서 눌러도 아무 일이 없었다. 별도 필터 화면을
+         새로 만들지 않고 **이미 있는 즐겨찾기**를 재사용한다 — 목록에 별 표시가
+         이미 있고(toggleFav), 가장 자주 쓰는 좁히기다.
+    */
+    const [favOnly, setFavOnly] = useState(false);
+    const allMarkets = mkSrc.rows;
+    const markets = favOnly && window.QTMarkets && window.QTMarkets.isFav
+      ? allMarkets.filter((r) => window.QTMarkets.isFav(r.base + r.quote, mkSrc.market))
+      : allMarkets;
     // 실시세가 QT.MARKETS 를 제자리 갱신하므로, 재계산 트리거가 필요하다.
     const liveVersion = window.QTLive ? window.QTLive.useLiveVersion() : 0;
 
@@ -187,7 +198,17 @@
                 <I.Grid size={11}/> Heatmap
               </button>
             </div>
-            <button className="btn btn--sm"><I.Filter size={13}/> {t('notifications_f53a6e')}</button>
+            <button
+              className={`btn btn--sm ${favOnly ? 'btn--primary' : ''}`}
+              onClick={() => setFavOnly((v) => !v)}
+              /*
+                 ★ 즐겨찾기가 없으면 켜도 빈 목록이 된다. 이용자가 고장으로
+                   여기지 않게 상태를 제목에 밝힌다.
+              */
+              title={favOnly ? t('mk_fav_only_on') : t('mk_fav_only_off')}
+            >
+              <I.Filter size={13}/> {t('notifications_f53a6e')}
+            </button>
           </>
         }
       >
@@ -1599,7 +1620,34 @@
             {false && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
             )}
-            <button className="btn btn--sm btn--primary"><I.Sparkles size={13}/> {t('an_ai_review')}</button>
+            {/*
+               ★★ onClick 이 없어서 눌러도 아무 일이 없었다.
+
+                 AI 는 아직 연결되지 않았다(서버가 provider: 'unavailable' 을 준다).
+                 그래서 분석을 만들어낼 수 없다 — 없는 분석을 그리면 이용자가 그
+                 숫자로 매매한다.
+
+               ★ 대신 코파일럿을 열어 거기서 답하게 한다. 코파일럿은 AI 미연결일 때
+                 "연결되지 않아 가격을 제시하지 않는다" 고 이미 정직하게 말한다.
+                 여기서 같은 문장을 또 만들지 않는다(한 곳에서만 말한다).
+            */}
+            <button
+              className="btn btn--sm btn--primary"
+              onClick={() => {
+                /* 코파일럿이 접혀 있으면 펼친다. */
+                if (window.QTPanelState && window.QTPanelState.setCollapsed) {
+                  window.QTPanelState.setCollapsed('ai', false);
+                }
+                try { localStorage.setItem('qt.ai.collapsed', '0'); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
+                /*
+                   ★ 분석 화면에는 코파일럿이 없다. 거래 화면으로 보낸다 —
+                     거기서 코파일럿이 종목 문맥을 들고 답한다.
+                */
+                if (typeof location !== 'undefined') location.hash = '#/trade?ai=review';
+              }}
+            >
+              <I.Sparkles size={13}/> {t('an_ai_review')}
+            </button>
           </>
         }
       >
@@ -1951,10 +1999,25 @@
          "확인 못 함" 은 다르다.
     */
     const [creds, setCreds] = useState(null);
+    const [syncing, setSyncing] = useState(false);
+    /*
+       자격증명 목록 재조회.
+
+       ★ 마운트와 'Sync' 버튼이 같은 함수를 쓴다. 두 곳에 따로 쓰면 한쪽만
+         고치는 일이 생기고, 새로고침 결과가 처음 조회와 달라진다.
+    */
+    const reloadCreds = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.credentials;
+      if (!api || !api.list) return Promise.resolve();
+      return api.list()
+        .then((r) => { setCreds((r && r.data) || []); })
+        /* 실패는 null 로 남긴다 — "연결 없음" 과 "확인 못 함" 은 다르다. */
+        .catch(() => { setCreds(null); });
+    }, []);
     useEffect(() => {
+      let alive = true;
       const api = window.QTApi && window.QTApi.credentials;
       if (!api || !api.list) return undefined;
-      let alive = true;
       api.list()
         .then((r) => { if (alive) setCreds((r && r.data) || []); })
         .catch(() => { if (alive) setCreds(null); });
@@ -1990,8 +2053,51 @@
         breadcrumb={['Home','Wallet']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Refresh size={13}/> {t('col_sync')}</button>
-            <button className="btn btn--sm btn--primary"><I.Plus size={13}/> {t('wal_add_exchange')}</button>
+            {/*
+               ★★ 두 버튼 다 onClick 이 없어서 눌러도 아무 일이 없었다.
+
+                 'Sync' 는 거래소 연결 상태를 다시 읽는 것이 자연스럽다 —
+                 다른 창에서 키를 지웠거나 검증이 끝난 것을 반영한다.
+                 'Add Exchange' 는 연결 탭으로 보낸다(추가 절차가 그 탭에 있다).
+            */}
+            <button
+              className="btn btn--sm"
+              disabled={syncing}
+              onClick={() => {
+                setSyncing(true);
+                Promise.resolve(reloadCreds()).finally(() => setSyncing(false));
+              }}
+            >
+              <I.Refresh size={13}/> {t('col_sync')}
+            </button>
+            <button
+              className="btn btn--sm btn--primary"
+              onClick={() => {
+                setTab('exchanges');
+                /*
+                   ★★ 스크롤만으로는 부족하다.
+
+                     이미 연결 탭에 있고 목록이 화면에 보이면 **눌러도 아무 변화가
+                     없다** — 이용자에게는 고장으로 보인다(검증 도구도 무반응으로
+                     잡았다).
+
+                   ★ 그래서 안내를 띄운다. 어디서 무엇을 해야 하는지 말한다.
+                */
+                if (typeof document !== 'undefined') {
+                  const el = document.querySelector('[data-exchange-list]');
+                  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                if (window.QTToast) {
+                  window.QTToast({
+                    title: t('wal_add_exchange_how'),
+                    desc: t('wal_add_exchange_how_desc'),
+                    variant: 'info',
+                  });
+                }
+              }}
+            >
+              <I.Plus size={13}/> {t('wal_add_exchange')}
+            </button>
           </>
         }
       >
@@ -2049,7 +2155,12 @@
         </div>
 
         {tab === 'exchanges' && (
-          <>
+          /*
+             ★ data-exchange-list 는 'Add Exchange' 버튼이 이 영역으로 스크롤할 때
+               쓰는 표식이다. 표식이 없으면 scrollIntoView 가 조용히 아무것도
+               하지 않아, 버튼이 다시 무반응이 된다.
+          */
+          <div data-exchange-list>
             <div style={{padding:'16px 20px', background:'var(--color-brand-subtle)', border:'1px solid var(--color-brand)', borderRadius: 6, display:'flex', alignItems:'center', gap: 14, marginTop: 24}}>
               <div style={{width:40, height:40, borderRadius:8, background:'var(--color-brand)', color:'var(--color-text-inverse)', display:'inline-flex', alignItems:'center', justifyContent:'center'}}>
                 <I.Sparkles size={20}/>
@@ -2261,7 +2372,7 @@
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         {tab === 'balances' && (
@@ -3452,6 +3563,37 @@
           ? [] : window.QTApp.NOTIFICATIONS)];
     const filtered = filter === 'all' ? N : filter === 'unread' ? N.filter(x => x.unread) : N.filter(x => x.kind === filter);
 
+    /*
+       전체 읽음 처리.
+
+       ★ 서버가 진실이다 — 로컬 상태만 바꾸면 새로고침하면 되돌아온다.
+       ★ 실패를 조용히 넘기지 않는다. 눌렀는데 아무 일도 없으면 이용자는 다시
+         누르고, 그래도 안 되면 고장이라고 여긴다.
+    */
+    const [markingAll, setMarkingAll] = useState(false);
+    const markAllRead = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.markAllNotificationsRead) return;
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+      setMarkingAll(true);
+      api.markAllNotificationsRead()
+        .then(() => {
+          /*
+             ★ 서버가 성공을 준 뒤에 다시 읽는다. 낙관적으로 먼저 지우면, 실패했을
+               때 화면은 읽음인데 서버는 안 읽음이 되어 다음 접속에 되살아난다.
+          */
+          if (api.notifications) {
+            return api.notifications().then((r) => {
+              const rows = (r && (r.items || r.notifications)) || [];
+              setServerAlerts(Array.isArray(rows) ? rows : []);
+            });
+          }
+          return undefined;
+        })
+        .catch(() => { /* 실패하면 배지가 그대로 남는다 — 그것이 정직한 표시다. */ })
+        .finally(() => setMarkingAll(false));
+    }, []);
+
     return (
       <window.PageShell
         {...shellProps}
@@ -3460,8 +3602,35 @@
         breadcrumb={['Home','Notifications']}
         actions={
           <>
-            <button className="btn btn--sm">{t('notifications_f6bc37')}</button>
-            <button className="btn btn--sm">{t('notifications_f53a6e')}</button>
+            {/*
+               ★★ 두 버튼 다 onClick 이 없어서 눌러도 아무 일이 없었다.
+
+                 'Mark all read' 는 서버 라우트(/api/notifications/read-all)와
+                 클라이언트 함수(markAllNotificationsRead)가 **이미 있었는데**
+                 화면이 부르지 않았다. 배선만 빠진 상태였다.
+            */}
+            <button
+              className="btn btn--sm"
+              /*
+                 ★ 읽지 않은 알림이 없으면 누를 수 없게 한다. 누를 수 있는데 아무
+                   변화가 없으면 고장으로 보인다.
+              */
+              disabled={markingAll || N.filter((x) => x.unread).length === 0}
+              onClick={markAllRead}
+            >
+              {t('notifications_f6bc37')}
+            </button>
+            {/*
+               'Filter' 는 아래 세그먼트(All/Unread/Signals/…)와 같은 일을 한다.
+               별도 동작을 만들지 않고 **읽지 않은 것만 보기** 로 잇는다 —
+               가장 자주 쓰는 필터이고, 이미 있는 상태를 재사용한다.
+            */}
+            <button
+              className={`btn btn--sm ${filter === 'unread' ? 'btn--primary' : ''}`}
+              onClick={() => setFilter(filter === 'unread' ? 'all' : 'unread')}
+            >
+              {t('notifications_f53a6e')}
+            </button>
           </>
         }
       >

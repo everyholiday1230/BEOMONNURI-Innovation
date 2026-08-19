@@ -246,3 +246,116 @@ describe('OUT-03 실현손익 연결은 추정이며 그렇게 표시한다', ()
     expect(out).toHaveLength(0);
   });
 });
+
+describe('PNL-WIRE 원장 → 손익 배선 (실거래 전 필수)', () => {
+  const decision = (id: string, symbol: string, decidedAt: number): KnownDecision => ({
+    id, clientOrderId: `c-${id}`, symbol, side: 'long', market: 'futures',
+    executionMode: 'live', decidedAt,
+  });
+
+  it('[1] ★★ 체결이 관측된 판단에만 손익이 붙는다', () => {
+    /*
+       체결되지 않은 주문에 청산을 붙이면 **일어나지 않은 거래의 손익**이
+       학습 표본에 들어간다.
+    */
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000), decision('d2', 'XBTUSDTM', 2000)],
+      closedDecisionIds: new Set(),
+      filledDecisionIds: new Set(['d1']),          // d2 는 체결 안 됨
+      entries: [{ symbol: 'XBTUSDTM', amount: '12.5', at: 3000, kind: 'RealisedPNL' }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.decisionId).toBe('d1');
+    expect(out[0]!.realizedPnl).toBe('12.5');
+  });
+
+  it('[2] ★★ 이미 청산이 붙은 판단에 두 번 붙지 않는다', () => {
+    // 중복 집계되면 손익이 두 배로 학습된다.
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(['d1']),
+      filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '9', at: 3000 }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    // 붙일 판단이 없으므로 decisionId 는 null 이지만, 손익 자체는 버리지 않는다.
+    expect(out).toHaveLength(1);
+    expect(out[0]!.decisionId).toBeNull();
+  });
+
+  it('[3] ★ 손실도 부호를 보존한다', () => {
+    /*
+       절대값으로 바꾸면 손실이 이익으로 학습된다 — 가장 위험한 오염이다.
+    */
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(),
+      filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '-33.7', at: 2000 }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(out[0]!.realizedPnl).toBe('-33.7');
+  });
+
+  it('[4] 청산은 closeReason 이 liquidation, 그 외는 unknown', () => {
+    /*
+       ★ 손익 부호로 익절/손절을 추측하지 않는다. 이익이 나도 손절 주문일 수 있다 —
+         추측하면 "손절이 잘 작동한다" 는 없던 사실을 학습한다.
+    */
+    const liq = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(), filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '-50', at: 2000, kind: 'Liquidation' }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(liq[0]!.outcomeKind).toBe('liquidated');
+    expect(liq[0]!.closeReason).toBe('liquidation');
+
+    const norm = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(), filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '50', at: 2000, kind: 'RealisedPNL' }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(norm[0]!.outcomeKind).toBe('closed');
+    expect(norm[0]!.closeReason).toBe('unknown');
+  });
+
+  it('[5] ★ 다른 종목의 손익은 붙지 않는다', () => {
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(), filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'ETHUSDTM', amount: '5', at: 2000 }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(out[0]!.decisionId).toBeNull();   // 붙이지 않았다
+    expect(out[0]!.symbol).toBe('ETHUSDTM'); // 그래도 손익은 남긴다
+  });
+
+  it('[6] ★ 판단보다 앞선 손익은 붙지 않는다', () => {
+    // 진입 전에 발생한 손익을 그 진입 결과로 학습하면 인과가 뒤집힌다.
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 5000)],
+      closedDecisionIds: new Set(), filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '7', at: 1000 }],   // 판단보다 먼저
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(out[0]!.decisionId).toBeNull();
+  });
+
+  it('[7] 추정임을 데이터에 남긴다 (observedFrom)', () => {
+    /*
+       원장에는 clientOid 가 없어 정확 매칭이 불가능하다. 추정으로 이었다는
+       사실을 남겨야, 나중에 학습에서 가중치를 낮출 수 있다.
+    */
+    const out = attributeRealizedPnl({
+      decisions: [decision('d1', 'XBTUSDTM', 1000)],
+      closedDecisionIds: new Set(), filledDecisionIds: new Set(['d1']),
+      entries: [{ symbol: 'XBTUSDTM', amount: '3', at: 2000 }],
+      userId: 'u1', market: 'futures', executionMode: 'live',
+    });
+    expect(out[0]!.observedFrom).toBe('position_diff');
+    expect(out[0]!.roiPct).toBeNull();   // 진입 명목가를 모르면 만들지 않는다
+  });
+});

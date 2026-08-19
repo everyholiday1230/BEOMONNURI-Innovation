@@ -4,7 +4,7 @@ import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumt
 import type { BitMartMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
 import { CredentialVault } from './trading/credential-vault';
 // 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
-import { buildOrderOutcomes } from './learning/outcome-collector';
+import { attributeRealizedPnl, buildOrderOutcomes } from './learning/outcome-collector';
 import { evaluateTier } from './tiers/tier-engine';
 import { runRiskEngine, type TradingPolicy } from './trading/risk-engine';
 import { IdempotencyService, MemoryIdempotencyStore } from './trading/idempotency';
@@ -567,6 +567,18 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       const credential = await d.vault.decrypt(row); // server-side only; never leaves this process
       const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential };
       const items = await d.transactionSource.getTransactionHistory(ctx, parsed.data);
+
+      /*
+         ★★ 학습 손익을 여기서 모은다.
+
+           이 라우트는 `exchangeRead` 를 거치지 않는다(응답 형태가 달라 직접
+           만든다). 그래서 `collectOutcomes` 가 자동으로 불리지 않아, 원장을
+           손에 들고도 손익을 버리고 있었다.
+
+         ★ 조회를 막지 않는다 — 안에서 예외를 삼킨다.
+      */
+      await collectOutcomes(a.user.id, 'transactions', items);
+
       return c.json({
         items,
         totals: summarizeTransactions(items),
@@ -633,9 +645,10 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       const owned = await d.credRepo.listOwned(a.user.id);
       const verified = owned.some((x) => x.connectionStatus === 'VERIFIED');
 
-      const [defs, metrics] = await Promise.all([
+      const [defs, metrics, payoutsEnabled] = await Promise.all([
         d.tiers.definitions(),
         d.tiers.metrics(a.user.id, verified),
+        d.tiers.payoutsEnabled(),
       ]);
       const result = evaluateTier(metrics, defs);
 
@@ -656,8 +669,20 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         unknown: result.unknown,
         tier: result.tier
           ? { code: result.tier.code, nameKey: result.tier.nameKey, rank: result.tier.rank,
-              benefitKey: result.tier.benefitKey }
+              benefitKey: result.tier.benefitKey,
+              /*
+                 ★ 우리 커미션 중 돌려주는 비율 (만분율). 화면이 /100 해서 % 로 쓴다.
+              */
+              rebateShareBps: result.tier.rebateShareBps }
           : null,
+        /*
+           ★★ 환급이 실제로 집행되는가.
+ 
+             false 면 화면은 비율을 **"예정"** 으로만 보여주고 금액을 말하지 않는다.
+             우리는 리베이트가 실제로 입금되는 것을 아직 확인하지 못했다 —
+             확인 전에 금액을 말하면 지킬 수 없는 약속이 된다.
+        */
+        benefitsPayoutsEnabled: payoutsEnabled,
         next: result.next
           ? {
             code: result.next.tier.code,
@@ -688,6 +713,8 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           code: x.code, nameKey: x.nameKey, rank: x.rank,
           minVolume30d: x.minVolume30d, minTrades30d: x.minTrades30d,
           minActiveDays30d: x.minActiveDays30d, requiresReferral: x.requiresReferral,
+          /* 등급표에 "환급 O%" 를 그리려면 등급별 값이 필요하다. */
+          rebateShareBps: x.rebateShareBps, benefitKey: x.benefitKey,
         })),
         computedAt: Date.now(),
       });
@@ -864,8 +891,20 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
    */
   async function collectOutcomes(userId: string, key: string, data: unknown): Promise<void> {
     if (!d.learning) return;
-    // 주문·체결만 결과의 근거가 된다. 잔고·포지션 조회로는 결과를 만들 수 없다.
-    if (key !== 'orders' && key !== 'fills') return;
+    /*
+       주문·체결·원장만 결과의 근거가 된다. 잔고·포지션 조회로는 결과를 만들 수 없다.
+
+       ★★ 'transactions' 를 뒤늦게 추가했다.
+
+         `attributeRealizedPnl` 을 만들어 두고 **부르는 곳이 없었다.** 그래서 결과가
+         `filled` 까지만 쌓이고 손익이 영원히 비어 있었다 — 학습 표본으로는
+         "주문이 체결됐다" 만 알고 "그래서 얼마를 벌었나" 를 모르는 상태였다.
+
+       ★ 왜 실거래를 열기 전에 붙여야 하나
+         손익은 거래소 원장에서 읽는다. 조회 창(기본 7일)을 지나면 사라지므로,
+         나중에 붙여도 **그 사이 거래는 소급해서 채울 수 없다.**
+    */
+    if (key !== 'orders' && key !== 'fills' && key !== 'transactions') return;
     if (!Array.isArray(data) || data.length === 0) return;
 
     try {
@@ -915,6 +954,70 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           at: Number(f.at ?? f.time ?? 0),
         }))
         : [];
+
+      /*
+         ★ 원장 조회는 손익을 붙인다 — 주문 경로와 별개다.
+
+           원장에는 clientOid 가 없다. 그래서 정확 매칭이 불가능하고, 심볼과
+           시각으로 **가장 최근 진입에 추정으로** 잇는다. 추정임을 데이터에
+           남기려고 `observedFrom: 'position_diff'` 로 기록된다.
+      */
+      if (key === 'transactions') {
+        const entries = (data as Array<Record<string, unknown>>)
+          /*
+             실현손익과 청산만 본다.
+
+             ★ 수수료(COMMISSION_FEE)·펀딩비(FUNDING_FEE)·이체(TRANSFER)를 넣으면
+               거래 손익이 아닌 것이 손익으로 학습된다. 특히 이체는 금액이 커서
+               표본을 크게 망친다.
+          */
+          .filter((r) => r.kind === 'REALIZED_PNL' || r.kind === 'LIQUIDATION_CLEARANCE')
+          .filter((r) => typeof r.symbol === 'string' && r.symbol !== '')
+          .map((r) => ({
+            symbol: String(r.symbol),
+            amount: String(r.amount ?? '0'),
+            at: Number(r.time ?? 0),
+            kind: String(r.rawType ?? r.kind ?? ''),
+          }))
+          .filter((r) => Number.isFinite(r.at) && r.at > 0);
+
+        if (entries.length === 0) return;
+
+        /*
+           `already` 는 `${decisionId}:${kind}` 형식이다. 여기서 두 집합을 만든다.
+
+           ★ closed 는 이미 청산이 붙은 판단 — 두 번 붙이면 손익이 중복 집계된다.
+           ★ filled 는 진입이 관측된 판단 — 체결되지 않은 주문에 청산을 붙이면
+             일어나지 않은 거래의 손익이 된다.
+        */
+        const closedDecisionIds = new Set<string>();
+        const filledDecisionIds = new Set<string>();
+        for (const k of already) {
+          const at = k.lastIndexOf(':');
+          if (at <= 0) continue;
+          const id = k.slice(0, at);
+          const kind = k.slice(at + 1);
+          if (kind === 'closed' || kind === 'liquidated') closedDecisionIds.add(id);
+          if (kind === 'filled' || kind === 'partially_filled') filledDecisionIds.add(id);
+        }
+
+        if (filledDecisionIds.size === 0) return;   // 붙일 진입이 없다
+
+        const pnlOutcomes = attributeRealizedPnl({
+          decisions,
+          closedDecisionIds,
+          filledDecisionIds,
+          entries,
+          userId,
+          // 원장은 KuCoin 선물 계정 하나다(어댑터가 account:'futures' 로 고정한다).
+          market: 'futures',
+          executionMode: 'live',
+        });
+        for (const o of pnlOutcomes) {
+          await d.learning.recordOutcome(o);
+        }
+        return;
+      }
 
       if (orders.length === 0) return;   // 체결만으로는 주문의 최종 상태를 모른다
 
