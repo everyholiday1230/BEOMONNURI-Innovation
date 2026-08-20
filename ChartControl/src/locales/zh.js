@@ -58,6 +58,8 @@
       fld_auto_copy: '自动跟单',
       acct_refresh: '刷新余额与持仓',
       acct_status_unauthenticated: '登录后即可查看你的账户。',
+      an_total_pnl: '已实现盈亏 · {count} 条',
+      an_daily_real: '按实际结算日期分组',
       an_rr_na: '还没有亏损的交易',
       assets_risk: '资产与风险',
       auth_exchanges_desc: '连接你自己的 API 密钥 — 我们从不保管你的资金',

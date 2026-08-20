@@ -168,11 +168,35 @@ const SCAN = (args) => {
   return { unsupported: false, items };
 };
 
-const browser = await chromium.launch();
+/*
+   ★★ 라우트를 여러 개 이어 돌리면 브라우저가 죽었다.
+
+     실측: /trade(차트·캔버스 다수) 다음 /markets 를 처리하는 중에 연결이 끊기고,
+     그 뒤 ctx.newPage() 가 "browser has been closed" 로 던져 **나머지 라우트를
+     하나도 검사하지 못했다.** 검사 도구가 중간에 멈추면 "통과" 도 "실패" 도
+     아닌 상태가 되는데, 로그만 보면 통과처럼 보인다 — 가장 위험한 형태다.
+
+   ★ 컨테이너에서 Chromium 이 죽는 흔한 원인들을 함께 막는다.
+     · --disable-dev-shm-usage : 공유메모리 대신 임시파일 사용
+     · --no-sandbox           : 컨테이너에서 샌드박스가 자원을 더 먹는다
+     · --disable-gpu          : 헤드리스에서 GPU 프로세스는 불필요
+*/
+const browser = await chromium.launch({
+  args: ['--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu'],
+});
+browser.on('disconnected', () => {
+  if (process.env.FB_DEBUG) console.error('    [fb] ★ 브라우저 연결 끊김');
+});
 const ctx = await browser.newContext({ viewport: { width: 1500, height: 1050 } });
 
-/* 로그인 뒤의 화면도 열어야 하므로 세션을 위조한다(검증 환경 전용). */
-await ctx.route('**/api/auth/session', (r) => r.fulfill({
+/*
+   컨텍스트 설정(세션 위조 + 초기 스크립트).
+
+   ★ 함수로 둔다 — 브라우저를 되살릴 때 **같은 설정을 다시 적용**해야 한다.
+     안 하면 재기동 이후 라우트가 로그아웃 상태로 검사되어, 화면이 달라진다.
+*/
+const applyCtxSetup = async (c) => {
+  await c.route('**/api/auth/session', (r) => r.fulfill({
   status: 200,
   contentType: 'application/json',
   body: JSON.stringify({
@@ -183,18 +207,29 @@ await ctx.route('**/api/auth/session', (r) => r.fulfill({
       createdAt: Date.now(), updatedAt: Date.now(),
     },
   }),
-}));
-
-await ctx.addInitScript((L) => {
-  localStorage.setItem('qt.tweaks', JSON.stringify({
-    role: 'super', lang: L, theme: 'dark', brand: 'institutional-cool',
-    longshort: 'teal-magenta', density: 'comfortable',
-    presetId: 'standard-trader', pro: true, numFmt: 'standard',
   }));
-}, LOCALE);
+
+  await c.addInitScript((L) => {
+    /*
+       ★ about:blank 같은 불투명 출처에서는 localStorage 접근이 예외를 던진다.
+         감싸지 않으면 매 문서마다 pageerror 가 쌓여 진짜 오류를 가린다.
+    */
+    try {
+      localStorage.setItem('qt.tweaks', JSON.stringify({
+        role: 'super', lang: L, theme: 'dark', brand: 'institutional-cool',
+        longshort: 'teal-magenta', density: 'comfortable',
+        presetId: 'standard-trader', pro: true, numFmt: 'standard',
+      }));
+    } catch (e) { /* 접근 불가 문서 — 무시한다 */ }
+  }, LOCALE);
+};
+
+await applyCtxSetup(ctx);
 
 const found = new Map(); // "key\ttext" -> Set(where)
 let unsupported = false;
+/** 브라우저가 죽어 검사하지 못한 라우트. 비어 있지 않으면 실패로 끝낸다. */
+const aborted = [];
 
 const record = (hits, where) => {
   if (hits.unsupported) { unsupported = true; return false; }
@@ -206,8 +241,43 @@ const record = (hits, where) => {
   return true;
 };
 
+let browserRef = browser;
+let ctxRef = ctx;
+
+/*
+   ★★ 브라우저가 죽으면 되살린다.
+
+     실측: /trade(캔버스 다수) 다음 /markets 를 처리하는 중에 연결이 끊기고,
+     그 뒤 newPage() 가 던져 **나머지 라우트를 하나도 검사하지 못했다.**
+
+     원인을 하나로 특정하지 못했다(메모리·fd 상한은 넉넉하고, 라우트를 하나씩
+     돌리면 모두 통과한다). 그래서 원인 추정에 기대지 않고 **죽으면 다시 세운다** —
+     무엇 때문이든 검사가 끝까지 간다.
+
+   ★ 되살린 횟수를 남긴다. 조용히 재기동하면 도구가 불안정한 사실이 묻힌다.
+*/
+const relaunched = [];
+const ensureBrowser = async (route) => {
+  if (browserRef.isConnected()) return;
+  relaunched.push(route);
+  browserRef = await chromium.launch({
+    args: ['--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu'],
+  });
+  ctxRef = await browserRef.newContext({ viewport: { width: 1500, height: 1050 } });
+  await applyCtxSetup(ctxRef);
+};
+
 for (const route of ROUTES) {
-  const page = await ctx.newPage();
+  /* FB_DEBUG=1 이면 어느 라우트에서 멈추는지 보인다(브라우저 사망 지점 추적용). */
+  if (process.env.FB_DEBUG) console.error(`    [fb] ${route} 시작`);
+  try {
+    await ensureBrowser(route);
+  } catch (e) {
+    /* 재기동조차 실패하면 남은 라우트를 검사하지 못했다고 밝힌다. */
+    aborted.push(route);
+    continue;
+  }
+  const page = await ctxRef.newPage();
   const open = async () => {
     /*
        ★★ 쿼리에 값을 붙여 **문서를 새로 읽게** 한다.
@@ -304,7 +374,26 @@ for (const route of ROUTES) {
   await page.close();
 }
 
-await browser.close();
+if (browserRef.isConnected()) await browserRef.close();
+
+/*
+   ★ 되살린 횟수를 밝힌다. 조용히 재기동하면 도구가 불안정한 사실이 묻히고,
+     나중에 "왜 느린가" 를 설명할 수 없다.
+*/
+if (relaunched.length > 0) {
+  console.log(`  ⓘ 브라우저를 ${relaunched.length}회 되살렸습니다 (${relaunched.join(', ')} 앞).`);
+}
+
+/*
+   ★★ 검사하지 못한 라우트가 있으면 실패로 끝낸다.
+
+     "영어 문구 0종" 만 출력하고 0 으로 끝내면, 절반만 검사한 결과가 통과로
+     기록된다.
+*/
+if (aborted.length > 0) {
+  console.log(`\n★ 브라우저가 죽어 ${aborted.length}개 라우트를 검사하지 못했습니다: ${aborted.join(', ')}`);
+  process.exit(1);
+}
 
 if (unsupported) {
   console.log('QTI18n.dump 가 없어 검사할 수 없습니다. src/i18n.js 에 dump 를 노출하십시오.');

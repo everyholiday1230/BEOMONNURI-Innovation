@@ -158,7 +158,22 @@
          매번 접어야 한다.
     */
     const [collapsed, setCollapsed] = useState(() => {
-      try { return localStorage.getItem('qt.ai.collapsed') === '1'; } catch (e) { return false; }
+      /*
+         ★★ 기본값은 **접힌 상태**다.
+
+           코파일럿은 이제 거래 화면 기본 배치에 들어 있다(standard-trader).
+           펼친 채로 시작하면 디자이너가 만든 배치보다 차트가 좁아진다 —
+           접힌 상태는 2칸만 쓰고 남는 폭을 차트가 가져가므로 첫 화면이
+           이전과 같다.
+
+         ★ 이용자가 한 번이라도 펼치면 그 선택을 기억한다(아래 저장).
+           접어 놓고 새로고침했는데 다시 펼쳐져 있으면 매번 접어야 한다.
+      */
+      try {
+        const saved = localStorage.getItem('qt.ai.collapsed');
+        if (saved === '0') return false;   // 이용자가 펼쳐 둔 것
+        return true;                        // 저장이 없거나 '1' 이면 접힘
+      } catch (e) { return true; }
     });
     const toggleCollapsed = useCallback(() => {
       setCollapsed((prev) => {

@@ -54,6 +54,8 @@
       fld_auto_copy: '自動コピー',
       acct_refresh: '残高と建玉を再取得',
       acct_status_unauthenticated: 'ログインすると口座が表示されます。',
+      an_total_pnl: '実現損益 · {count}件',
+      an_daily_real: '実際の決済日で集計',
       an_rr_na: '負けトレードがまだありません',
       assets_risk: '資産とリスク',
       auth_exchanges_desc: 'ご自身の API キーを接続します — 当社が資金を預かることはありません',

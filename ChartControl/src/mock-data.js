@@ -191,8 +191,32 @@
       cols: 24,
       widgets: [
         { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },
-        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 12, h: 11, minW: 8, minH: 6 },
+        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 6,  h: 11, minW: 8, minH: 6 },
         { id: 'positions', type: 'positions',   x: 4,  y: 11, w: 12, h: 5,  minW: 8, minH: 3 },
+        /*
+           ★★ AI 코파일럿을 기본 배치에 넣는다.
+
+             전에는 `ai-workspace` 프리셋에만 있었다. 그래서 거래 화면(/trade)에서
+             코파일럿을 접으면 **그 화면에는 원래 코파일럿이 없어서** 다시 펼칠
+             방법이 없어 보였다(실제로 그렇게 보고받았다).
+
+           ★ 처음부터 **접힌 상태**로 둔다(아래 collapsedByDefault).
+             접히면 2칸만 쓰고 남는 폭은 왼쪽 이웃(차트)이 가져간다. 그래서
+             디자이너가 만든 배치와 거의 같은 화면으로 시작하고, 필요할 때만
+             펼친다 — 배치를 크게 바꾸지 않는다.
+
+           ★★ 저장 폭은 **펼친 크기**(6칸)로 둔다.
+
+             처음에 2칸으로 저장했더니 접기 변환이 `freed = 2 - 2 = 0` 이 되어
+             접기·펼치기가 둘 다 아무 일도 하지 않았다(실측: 펼쳐도 109px 그대로).
+             접힘은 **표시 상태**이고 저장 폭은 펼친 크기여야 한다.
+
+           ★ 차트를 12 → 6 으로 줄이고 코파일럿에 6을 준다. 접힌 상태에서는
+             코파일럿이 2칸만 쓰고 남은 4칸을 왼쪽 이웃(차트)이 가져가므로
+             차트가 10칸이 된다 — 디자이너 배치(12칸)보다 2칸 좁지만, 펼쳤을 때
+             코파일럿이 쓸 수 있는 최소 폭(minW 5)을 확보한다.
+        */
+        { id: 'ai',        type: 'aiCopilot',   x: 10, y: 0,  w: 6,  h: 11, minW: 5, minH: 10 },
         { id: 'orderbook', type: 'orderBook',   x: 16, y: 0,  w: 4,  h: 11, minW: 3, minH: 6 },
         { id: 'trades',    type: 'recentTrades',x: 16, y: 11, w: 4,  h: 5,  minW: 3, minH: 3 },
         { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 11, minW: 3, minH: 8 },
