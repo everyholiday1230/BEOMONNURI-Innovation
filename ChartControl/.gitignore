@@ -34,3 +34,6 @@ tests/e2e-admin/results.json
 *.tfplan
 crash.log
 terraform.tfvars
+
+# IR 화면 캡처 — 재생성 가능(tools/ir-screenshots.mjs)하고 용량이 크므로 커밋하지 않는다.
+docs/ir-screenshots/
