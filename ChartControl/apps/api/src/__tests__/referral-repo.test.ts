@@ -19,6 +19,8 @@
 import { randomUUID } from 'node:crypto';
 
 import pg from 'pg';
+import { createPool, migrateUp } from '../db/pg';
+import { createIsolatedTestDatabase } from './helpers/pg-test-db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { PgReferralRepo, normalizeCode } from '../db/referral-repo';
@@ -55,7 +57,9 @@ d('PgReferralRepo', () => {
   let savedSettings: Awaited<ReturnType<PgReferralRepo['getSettings']>> | null = null;
 
   beforeAll(async () => {
-    pool = new pg.Pool({ connectionString: URL });
+    /* ★ 스키마를 적용한 격리 DB (빈 DB 에서 users 부재로 전부 실패하던 것을 고침). */
+    pool = createPool(await createIsolatedTestDatabase(URL!, 'referral_repo'));
+    await migrateUp(pool);
     repo = new PgReferralRepo(pool);
     savedSettings = await repo.getSettings();
     alice = await mkUser();

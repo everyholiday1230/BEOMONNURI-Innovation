@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
+import { createPool, migrateUp } from '../db/pg';
+import { createIsolatedTestDatabase } from './helpers/pg-test-db';
 import { randomUUID } from 'node:crypto';
 import {
   PgChartTemplateRepo,
@@ -28,7 +30,9 @@ d('chart templates (real Postgres)', () => {
   let userB = '';
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: PG_URL });
+    /* ★ 스키마를 적용한 격리 DB (빈 DB 에서 users 부재로 전부 실패하던 것을 고침). */
+    pool = createPool(await createIsolatedTestDatabase(PG_URL!, 'chart_template_repo'));
+    await migrateUp(pool);
     repo = new PgChartTemplateRepo(pool);
     /* ★ users.id 에 DB 기본값이 없다 — 명시적으로 넣어야 한다.
          (기존 테스트들도 randomUUID() 를 직접 넘긴다) */

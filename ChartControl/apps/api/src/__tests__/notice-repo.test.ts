@@ -8,9 +8,11 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPool, migrateUp } from '../db/pg';
+import { createIsolatedTestDatabase } from './helpers/pg-test-db';
 import { PgNoticeRepo } from '../db/notice-repo';
 
 const URL = process.env.PG_TEST_URL;
@@ -22,7 +24,15 @@ d('PgNoticeRepo', () => {
   let actorId: string;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: URL });
+    /*
+       ★ 스키마를 적용한 **격리 데이터베이스**를 쓴다.
+
+         전에는 PG_TEST_URL 에 직접 붙어 `users` 가 이미 있다고 가정했다.
+         빈 DB 에서는 `relation "users" does not exist` 로 전부 실패한다.
+         다른 PG 스위트와 같은 패턴(격리 DB + migrateUp)으로 맞춘다.
+    */
+    pool = createPool(await createIsolatedTestDatabase(URL!, 'notice_repo'));
+    await migrateUp(pool);
     repo = new PgNoticeRepo(pool);
     // 감사 추적 컬럼이 users 를 참조하므로 실제 사용자가 필요하다.
     actorId = randomUUID();

@@ -12,9 +12,11 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPool, migrateUp } from '../db/pg';
+import { createIsolatedTestDatabase } from './helpers/pg-test-db';
 import { PgSupportRepo } from '../db/support-repo';
 
 const URL = process.env.PG_TEST_URL;
@@ -38,7 +40,9 @@ d('PgSupportRepo', () => {
   };
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: URL });
+    /* ★ 스키마를 적용한 격리 DB (빈 DB 에서 users 부재로 전부 실패하던 것을 고침). */
+    pool = createPool(await createIsolatedTestDatabase(URL!, 'support_repo'));
+    await migrateUp(pool);
     repo = new PgSupportRepo(pool);
     customer = await mkUser('USER');
     other = await mkUser('USER');
