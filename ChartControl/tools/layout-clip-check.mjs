@@ -81,6 +81,19 @@ const ACCOUNTS = {
   super: { email: 'test@test.local', password: 'test' },
   user: { email: 'customer@test.local', password: 'test' },
 };
+/*
+   ★ 계정은 환경마다 다르다.
+
+     이 표는 개발자의 로컬 계정이라, 새로 시드한 데이터베이스에서는 로그인이
+     실패한다. 그러면 이 도구가 "로그인 실패" 로 즉시 끝나고 **한 화면도
+     검사하지 못한다** — 검증을 못 했는데도 넘어가기 쉬운 지점이다(실제로 겪었다).
+
+     시드 계정 예:
+       EMAIL=admin@qt.local PASSWORD=adminpass1234 node tools/layout-clip-check.mjs
+*/
+if (process.env.EMAIL && process.env.PASSWORD) {
+  ACCOUNTS[ROLE] = { email: process.env.EMAIL, password: process.env.PASSWORD };
+}
 const who = ACCOUNTS[ROLE] || ACCOUNTS.super;
 
 const ROUTES = process.env.ROUTES ? process.env.ROUTES.split(',') : [

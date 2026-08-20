@@ -82,6 +82,21 @@ const ACCOUNTS = {
   ops: { email: 'opstest@x.local', password: 'Passw0rd!x9' },
 };
 
+/*
+   ★ 계정은 환경마다 다르다.
+
+     이 표는 개발자의 로컬 계정을 담고 있어서, 새로 만든 데이터베이스
+     (`pnpm --filter @quantumtrade/api seed:dev` 로 시드한 것)에서는 로그인이
+     실패한다. 그러면 도구가 "로그인 실패" 로 즉시 끝나고 **버튼을 하나도
+     눌러보지 못한다** — 검증을 못 했는데 검증한 것처럼 넘어가기 쉬운 지점이다.
+
+     그래서 EMAIL/PASSWORD 로 덮어쓸 수 있게 한다. 시드 계정 예:
+       EMAIL=admin@qt.local PASSWORD=adminpass1234 node tools/button-probe.mjs
+*/
+if (env.EMAIL && env.PASSWORD) {
+  ACCOUNTS[ROLE] = { email: env.EMAIL, password: env.PASSWORD };
+}
+
 const ALL_ROUTES = [
   // 아직 버튼을 눌러보지 않은 화면을 앞에 둔다.
   '/analytics', '/ai-strategies', '/ai-strategies/my',
@@ -161,7 +176,32 @@ const snapshot = () => page.evaluate(() => ({
   inputs: [...document.querySelectorAll('input,select,textarea')].map((e) => String(e.value ?? '')).join('|').length,
   aria: [...document.querySelectorAll('[aria-expanded],[aria-selected],[aria-checked]')]
     .map((e) => e.getAttribute('aria-expanded') + e.getAttribute('aria-selected') + e.getAttribute('aria-checked')).join(','),
-  active: [...document.querySelectorAll('.is-active,[class*="--active"],[class*="is-selected"]')].length,
+  /*
+     ★★ 활성 요소는 **개수가 아니라 무엇이 활성인지**를 본다.
+
+       전에는 `.is-active` 의 개수만 셌다. 그래서 필터 탭을 옮겨도 활성 개수는
+       그대로 1개이므로 지문이 변하지 않았다. 같은 이유로 `len`(본문 길이)도
+       결과가 1행 → 다른 1행이면 길이가 같아 구분되지 않는다.
+
+       실측: /markets 에서 Gainers→Losers→Favorites→All 을 실제로 누르면
+       표가 21행↔1행으로 바뀌고 활성 탭도 매번 바뀌는데, 이 도구는 5개 버튼을
+       "무반응" 으로 보고했다. 정상 동작하는 필터를 결함으로 지목한 것이다.
+
+       오탐은 단순한 잡음이 아니다 — 그 목록을 믿고 고치려다 정상 코드를
+       건드리게 된다. 그래서 **무엇이** 활성인지와 표 내용의 서명을 함께 본다.
+  */
+  active: [...document.querySelectorAll('.is-active,[class*="--active"],[class*="is-selected"]')]
+    .map((e) => (e.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 20)).join(','),
+  /*
+     표 서명 — 필터·정렬·검색의 결과는 대부분 표의 행에 나타난다.
+     행 수와 첫 행·마지막 행의 내용을 같이 본다(행 수가 같아도 정렬이 바뀌면
+     첫 행이 달라진다).
+  */
+  rows: (() => {
+    const tr = [...document.querySelectorAll('tbody tr')];
+    const sig = (el) => ((el && el.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return `${tr.length}|${sig(tr[0])}|${sig(tr[tr.length - 1])}`;
+  })(),
   /*
      ★ 테마·거래모드·밀도는 DOM 길이를 바꾸지 않는다.
 
@@ -184,7 +224,7 @@ const snapshot = () => page.evaluate(() => ({
 
 const same = (a, b) =>
   a.len === b.len && a.hash === b.hash && a.modal === b.modal && a.toast === b.toast &&
-  a.inputs === b.inputs && a.aria === b.aria && a.active === b.active &&
+  a.inputs === b.inputs && a.aria === b.aria && a.active === b.active && a.rows === b.rows &&
   a.theme === b.theme && a.density === b.density && a.lang === b.lang &&
   a.tradeMode === b.tradeMode && a.navPrefs === b.navPrefs;
 
