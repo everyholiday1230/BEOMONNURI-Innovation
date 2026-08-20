@@ -535,7 +535,19 @@
                 <option value="1">1</option>
                 <option value="10">10</option>
               </select>
-              <button className="btn btn--icon" onClick={() => setDisplay(display === 'amount' ? 'cumulative' : 'amount')} title={display}>
+              {/*
+                 ★ 툴팁에 내부 상태값을 그대로 쓰지 않는다.
+
+                   전에는 `title={display}` 였다. display 는 'amount' | 'cumulative'
+                   라는 코드값이라, 일본어·중국어 화면에서도 툴팁이 영어로 떴다.
+                   무엇으로 바뀌는지 알려주는 것이 이 버튼의 목적이므로,
+                   **다음 상태**를 사람이 읽는 말로 보여준다.
+              */}
+              <button
+                className="btn btn--icon"
+                onClick={() => setDisplay(display === 'amount' ? 'cumulative' : 'amount')}
+                title={display === 'amount' ? t('ob_show_cum') : t('ob_show_size')}
+              >
                 <I.Layers size={12}/>
               </button>
             </div>
@@ -1477,7 +1489,7 @@
             <span style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>{t('mg_equity')}</span>
             <span style={{fontFamily:'var(--font-num)', fontSize: 22, fontWeight: 600, fontVariantNumeric:'tabular-nums'}}>{fmt(assets.equity)}</span>
             <span style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>
-              Unrealized: <span className="t-long">+{fmt(assets.unrealizedPnl)}</span>
+              {t('pos_unrealized')}: <span className="t-long">+{fmt(assets.unrealizedPnl)}</span>
             </span>
           </div>
 

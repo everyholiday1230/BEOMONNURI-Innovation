@@ -1223,7 +1223,7 @@
             columns={[
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.id}</span> },
               { key:'user', label:'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
-              { key:'amount', label:'Amount', align:'right', render: r => <strong style={{fontFamily:'var(--font-num)'}}>{r.amount} {r.asset}</strong> },
+              { key:'amount', label:t('col_amount'), align:'right', render: r => <strong style={{fontFamily:'var(--font-num)'}}>{r.amount} {r.asset}</strong> },
               { key:'network', label:'Network' },
               { key:'conf', label:'Confirmations', align:'right', render: r => r.confirmations },
               { key:'time', label:'Time', render: r => timeAgo(r.time) },
@@ -1292,7 +1292,7 @@
             columns={[
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.id}</span> },
               { key:'user', label:'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
-              { key:'amount', label:'Amount', align:'right', render: r => <strong>{r.amount} {r.asset}</strong> },
+              { key:'amount', label:t('col_amount'), align:'right', render: r => <strong>{r.amount} {r.asset}</strong> },
               { key:'network', label:'Network' },
               { key:'to', label:'To Address', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.to}</span> },
               { key:'time', label:'Time', render: r => timeAgo(r.time) },
@@ -2311,7 +2311,7 @@
               { key:'time', label:'Time', render: () => '2h ago' },
               { key:'kind', label:'Direction', render: () => <span className="status-pill status-pill--neutral">HOT → COLD</span> },
               { key:'asset', label:'Asset', render: () => <strong>USDT</strong> },
-              { key:'amount', label:'Amount', align:'right', render: () => '500,000' },
+              { key:'amount', label:t('col_amount'), align:'right', render: () => '500,000' },
               { key:'signers', label:'Signers', render: () => '2/3 signed' },
               { key:'status', label:'Status', render: () => <span className="status-pill status-pill--warn">PENDING SIGNATURES</span> },
               { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">{t('col_sign')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_details')}</button></> },

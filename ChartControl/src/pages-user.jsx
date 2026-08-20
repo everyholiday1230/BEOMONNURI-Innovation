@@ -789,7 +789,7 @@
                   {/* 팔로워 수가 없으면 표시하지 않는다. 0 명을 강조할 이유가 없다. */}
                   <span className="followers">
                     <I.User size={9} style={{verticalAlign:'-1px'}}/>{' '}
-                    {s.followers === null ? '—' : s.followers.toLocaleString() + ' followers'}
+                    {s.followers === null ? '—' : t('bt_followers', { n: s.followers.toLocaleString() })}
                   </span>
                   {/* 구독 등급 제도가 없으면 배지를 비운다 — 'null' 이라는 글자가 나오면 안 된다. */}
                   {s.subscription ? <span className={`sub ${s.subscription}`}>{s.subscription}</span> : <span/>}
@@ -1204,7 +1204,7 @@
                 tone={live.unrealized === null ? undefined : live.unrealized >= 0 ? 'long' : 'short'}
               />
               <window.KPICard
-                label="Realized 30d"
+                label={t('pf_realized_30d')}
                 value={live.realized === null ? '—' : (live.realized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.realized))}
                 delta={mockDelta(+9.7)}
                 deltaLabel="vs prev 30d"
@@ -1225,7 +1225,7 @@
         {/* Equity curve + Allocation */}
         <div className="grid-2-1">
           <window.SectionCard
-            title="Equity Curve · 30 days"
+            title={t('pf_equity_curve')}
             subtitle={(() => {
               if (window.QTMockPolicy && window.QTMockPolicy.allowMockData()) return undefined;
               if (!curve) return undefined;
@@ -1340,7 +1340,7 @@
                 <text x={donutSize/2} y={donutSize/2 - 4} textAnchor="middle" fontFamily="var(--font-num)" fontSize="18" fontWeight="600" fill="var(--color-text-primary)">
                   {totalValue === null ? '—' : `$${fmtCompact(totalValue)}`}
                 </text>
-                <text x={donutSize/2} y={donutSize/2 + 14} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="var(--color-text-tertiary)">TOTAL</text>
+                <text x={donutSize/2} y={donutSize/2 + 14} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fill="var(--color-text-tertiary)">{t('pf_alloc_total')}</text>
               </svg>
             </div>
             <div className="donut-legend">
@@ -1357,7 +1357,7 @@
         </div>
 
         {/* Open Positions */}
-        <window.SectionCard title={t('pf_open_positions')} subtitle={`${positions.length} open`} noPadding>
+        <window.SectionCard title={t('pf_open_positions')} subtitle={t('pf_open_count', { n: positions.length })} noPadding>
           <window.DataTable
             columns={[
               { key: 'sym', label: t('col_symbol'), render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
@@ -1821,7 +1821,7 @@
 
         <window.SectionCard
           title={t('an_journal')}
-          subtitle={`${tj.length} recorded trades · Manual + AI-assisted`}
+          subtitle={t('an_journal_sub', { n: tj.length })}
           /*
              Manual Entry 를 숨겼다 — 거래일지를 손으로 넣는 화면이 아직 없다.
              ★ 서버에 trade_journal 표는 있지만 입력 폼과 라우트가 없다.
@@ -2334,8 +2334,8 @@
                     )}
 
                     <div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>
-                      Required: {ex.required.join(' · ')}
-                      <br/>Latency ~{ex.minLatency}ms · <a href={ex.apiDocs} target="_blank" style={{color:'var(--color-brand)'}}>{t('wal_api_docs')}</a>
+                      {t('wal_required')}: {ex.required.join(' · ')}
+                      <br/>{t('wal_latency')} ~{ex.minLatency}ms · <a href={ex.apiDocs} target="_blank" style={{color:'var(--color-brand)'}}>{t('wal_api_docs')}</a>
                     </div>
 
                     <div className="exchange-card__actions">
@@ -3609,7 +3609,7 @@
       <window.PageShell
         {...shellProps}
         title={t('nav_notifications')}
-        subtitle={`${N.filter(x=>x.unread).length} unread · ${N.length} total`}
+        subtitle={t('nt_sub', { unread: N.filter(x=>x.unread).length, total: N.length })}
         breadcrumb={['Home','Notifications']}
         actions={
           <>
