@@ -1033,6 +1033,62 @@
       ai_unavailable_reply: 'AI 分析尚未接入，所以我不会给出价位。没有模型就给出入场价和止损价，等于是编数字。在此期间，图表工具、绘图和你的笔记都能正常使用。',
 
       oe_err_not_listed: '该交易所未上线此交易对 — 无法下单',
+
+      /* ------------------------------------------------------------
+         界面上实际可见的英文残留（2026-08 修补）
+
+         ★ 检查工具报告「0 处」，但截图里明显有英文。原因是那个工具
+           只在「屏幕文本与 en 词典的值完全一致、且该键在目标语言中
+           不存在、长度 ≥ MIN_LEN、值在词典里唯一」时才判定为未翻译。
+           所以短标签（Price·Size·Time）和一值多键（Points 同时属于
+           nav_points 和 pt_unit_default）都被排除了。
+
+         ★ 其中 Deposit 出现在 13 个页面的页眉，Points 出现在侧边栏 —
+           用户每一屏都看得到。声称「支持三种语言」却让导航保持英文，
+           会直接削弱这个说法。
+         ------------------------------------------------------------ */
+      deposit: '充值',
+      nav_points: '积分',
+      pt_unit_default: '积分',
+      nav_admin_points: '积分管理',
+      size: '数量',
+      order_history: '委托记录',
+      price: '价格',
+      acct_not_available: '交易所未提供',
+      oh_not_available: '交易所未提供',
+      an_funding: '资金费',
+      funding: '资金费',
+      funding_countdown_tip: '距下次结算的时间',
+      positions: '持仓',
+      trigger: '条件单',
+      available: '可用',
+      strat_following: '已跟随',
+      strat_following_on: '已跟随',
+      strat_following_sub: '信号不会自动执行',
+      chart_time: '时间',
+      time: '时间',
+      aiops_time: '时间',
+      amount: '金额',
+      ref_col_amount: '金额',
+      admin_pt_amount: '数量',
+      status: '状态',
+      help_col_status: '状态',
+      fee: '手续费',
+      set_email_unverified: '邮箱未验证',
+      ref_share: '分享',
+      help_contact_unavailable: '此部署环境未开通消息功能。',
+
+      /* 面包屑各级（page-shell.jsx 的 CRUMB_KEYS 引用） */
+      mk_all_markets: '全部交易对',
+      nav_home: '首页',
+      nav_admin: '管理',
+      withdraw: '提现',
+      nav_transactions: '出入金记录',
+      nav_system: '系统',
+      nav_audit: '审计日志',
+      nav_cs_tickets: '客服工单',
+      crumb_new: '新建',
+      crumb_my: '我的',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

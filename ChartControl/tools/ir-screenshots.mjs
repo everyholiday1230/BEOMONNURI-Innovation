@@ -69,17 +69,50 @@ const WANT_MOBILE = env.MOBILE !== '0';
 const EMAIL = env.EMAIL ?? 'admin@qt.local';
 const PASSWORD = env.PASSWORD ?? 'adminpass1234';
 const CLEAN = env.CLEAN === '1';
+/*
+   화면 언어. 'en' | 'ja' | 'zh'
+
+   ★ 지원 언어 목록은 제품이 등록한 사전에서 나온다(QTI18n.available()). 여기에
+     등록되지 않은 값을 넣으면 i18n 이 폴백(en)으로 정규화하므로, 파일 이름은
+     ja 인데 화면은 영어인 캡처가 만들어질 수 있다. 그래서 촬영 후 화면에
+     실제로 적용된 언어를 읽어 확인하고, 다르면 실패로 보고한다.
+*/
+const LOCALE = env.LOCALE ?? '';
+/*
+   AI 코파일럿을 펼친 상태로 찍는다.
+
+   ★ 코파일럿은 기본이 접힘이라(qt.ai.collapsed) 트레이드 화면 캡처에서 오른쪽
+     세로 띠로만 보인다. 제품의 핵심 차별점인데 덱에서는 보이지 않는다.
+*/
+const OPEN_AI = env.OPEN_AI !== '0';
 
 /*
-   구현상태 표시를 끄는 초기 스크립트.
+   페이지 스크립트보다 **먼저** 실행되어야 하는 초기 설정.
 
-   ★ 페이지 스크립트보다 **먼저** 실행되어야 한다(addInitScript). provenance.js
-     는 로드 시점에 localStorage 를 한 번 읽으므로, 그 뒤에 값을 넣으면 이미
-     배지를 그린 상태다.
+   ★ provenance.js / ai-copilot.jsx / i18n-bootstrap.js 는 로드 시점에
+     localStorage 를 한 번 읽는다. 그 뒤에 값을 넣으면 이미 그린 상태다.
 */
-const CLEAN_INIT = `try {
-  localStorage.setItem('qt.provenance', JSON.stringify({ enabled: false, mode: 'badge' }));
-} catch (e) {}`;
+const initScript = () => {
+  const lines = [];
+  if (CLEAN) {
+    lines.push(`localStorage.setItem('qt.provenance', JSON.stringify({ enabled: false, mode: 'badge' }));`);
+  }
+  if (OPEN_AI) {
+    lines.push(`localStorage.setItem('qt.ai.collapsed', '0');`);
+  }
+  if (LOCALE) {
+    /* 언어는 qt.tweaks 안의 lang 이 단일 출처다. 기존 값을 보존해 병합한다. */
+    lines.push(`(function () {
+      var t = {};
+      try { t = JSON.parse(localStorage.getItem('qt.tweaks') || '{}') || {}; } catch (e) { t = {}; }
+      t.lang = ${JSON.stringify(LOCALE)};
+      localStorage.setItem('qt.tweaks', JSON.stringify(t));
+    })();`);
+  }
+  if (!lines.length) return null;
+  return `try {\n${lines.join('\n')}\n} catch (e) {}`;
+};
+const INIT = initScript();
 
 /*
    찍을 화면과 파일 이름.
@@ -97,6 +130,18 @@ const PUBLIC_SHOTS = [
 const SHOTS = [
   /* 제품의 핵심. 차트 엔진이 그려질 시간을 넉넉히 준다. */
   { file: '03-trade-terminal', route: '/trade', wait: 11000, label: '트레이딩 터미널 (핵심 화면)' },
+  /*
+     AI 코파일럿.
+
+     ★ 같은 /trade 화면이지만 코파일럿을 펼쳐서 따로 찍는다. 덱에서 "AI 네이티브"
+       를 주장하는 근거 화면이므로 전체 터미널 샷과 분리해야 한다.
+     ★ 패널이 실제로 펼쳐졌는지 확인한다 — 접힌 채 찍히면 오른쪽에 세로 띠만
+       남고, 그 사실을 모르고 덱에 넣게 된다.
+  */
+  {
+    file: '03b-ai-copilot', route: '/trade', wait: 11000, label: 'AI 코파일럿 (펼침)',
+    require: '.ai-messages, .ai-input',
+  },
   { file: '04-markets', route: '/markets', wait: 5000, label: '시장 목록 · 필터' },
   { file: '05-portfolio', route: '/portfolio', wait: 4500, label: '포트폴리오' },
   { file: '06-analytics', route: '/analytics', wait: 4500, label: '거래 저널 · 손익 분석' },
@@ -152,30 +197,73 @@ const shoot = async (page, shot, suffix = '') => {
     */
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
+
+    /*
+       ★ 반드시 보여야 하는 요소를 확인한다.
+
+         없는데도 찍으면 "그 기능이 없는 화면" 이 덱에 들어간다. 실제로 AI
+         코파일럿이 접힌 채로 찍힐 수 있다.
+    */
+    if (shot.require) {
+      const ok = await page.evaluate((sel) => Boolean(document.querySelector(sel)), shot.require);
+      if (!ok) throw new Error(`필수 요소가 화면에 없습니다: ${shot.require}`);
+    }
+
     await page.screenshot({ path });
     await collectBadges(page, shot.file + suffix);
     made.push({ path, label: shot.label });
     console.log(`  ✓ ${shot.file}${suffix}  ${shot.label}`);
   } catch (e) {
-    failed.push({ file: shot.file, error: e.message.slice(0, 80) });
-    console.log(`  ✗ ${shot.file}${suffix}  ${e.message.slice(0, 60)}`);
+    failed.push({ file: shot.file, error: e.message.slice(0, 90) });
+    console.log(`  ✗ ${shot.file}${suffix}  ${e.message.slice(0, 70)}`);
   }
+};
+
+/**
+ * 화면에 실제로 적용된 언어를 읽는다.
+ *
+ * ★ 요청한 언어와 다르면 그대로 찍지 않는다 — 파일 이름은 ja 인데 내용이 영어인
+ *   캡처가 덱에 들어가면, 다국어 지원을 주장하는 슬라이드가 근거를 잃는다.
+ */
+const verifyLocale = async (page) => {
+  if (!LOCALE) return true;
+  const applied = await page.evaluate(
+    () => (window.QTI18n && window.QTI18n.getLocale ? window.QTI18n.getLocale() : ''),
+  );
+  if (applied === LOCALE) return true;
+  console.error(`\n요청 언어 '${LOCALE}' 가 적용되지 않았습니다 (실제 '${applied}').`);
+  console.error(`등록된 언어만 쓸 수 있습니다. index.html 의 사전 로드 목록을 확인하십시오.`);
+  return false;
 };
 
 // ---- 데스크톱 ----
 
 console.log(`\nIR 화면 캡처 — ${BASE} · ${WIDTH}×${HEIGHT} @${SCALE}x → ${OUT}`);
-console.log(`모드: ${CLEAN ? 'CLEAN (일반 고객 화면 — 개발용 배지 없음)' : '있는 그대로 (개발용 상태 배지 포함)'}\n`);
+console.log(`모드: ${CLEAN ? 'CLEAN (일반 고객 화면 — 개발용 배지 없음)' : '있는 그대로 (개발용 상태 배지 포함)'}`);
+console.log(`언어: ${LOCALE || '기본(브라우저 감지)'} · AI 코파일럿: ${OPEN_AI ? '펼침' : '기본'}\n`);
 
 const ctx = await browser.newContext({
   viewport: { width: WIDTH, height: HEIGHT },
   deviceScaleFactor: SCALE,
   locale: 'en-US',
 });
-if (CLEAN) await ctx.addInitScript(CLEAN_INIT);
+if (INIT) await ctx.addInitScript(INIT);
 const page = await ctx.newPage();
 
 console.log('[공개 화면]');
+/*
+   ★ 언어 확인은 **첫 화면을 연 뒤에** 해야 한다.
+
+     about:blank 에서는 window.QTI18n 이 없으므로 적용 언어가 빈 문자열로 나온다.
+     전에는 그 값을 그대로 실패로 보고했다가 곧바로 재확인에서 통과했다 —
+     즉 정상인데도 경고가 찍혔다. 잘못된 경고는 출력 전체를 믿지 못하게 만든다.
+*/
+await page.goto(`${BASE}/index.html#/`, { waitUntil: 'networkidle', timeout: 60000 });
+await page.waitForTimeout(3000);
+if (!(await verifyLocale(page))) {
+  await browser.close();
+  process.exit(1);
+}
 for (const shot of wanted(PUBLIC_SHOTS)) await shoot(page, shot);
 
 // 로그인
@@ -210,7 +298,7 @@ if (WANT_MOBILE && wanted(MOBILE_SHOTS).length) {
     hasTouch: true,
     locale: 'en-US',
   });
-  if (CLEAN) await mctx.addInitScript(CLEAN_INIT);
+  if (INIT) await mctx.addInitScript(INIT);
   const mpage = await mctx.newPage();
   await mpage.goto(`${BASE}/index.html#/login`, { waitUntil: 'networkidle', timeout: 60000 });
   await mpage.waitForTimeout(2500);

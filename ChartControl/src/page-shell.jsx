@@ -359,6 +359,72 @@
   // ============================================================
   // PAGE HEADER — reusable title/breadcrumb/actions row
   // ============================================================
+
+  /*
+     빵가루(breadcrumb) 번역 표.
+
+     ★★ 왜 컴포넌트 안에서 번역하는가
+
+       빵가루는 49곳에서 `breadcrumb={['Home','Wallet','Deposit']}` 처럼
+       **영문 문자열로 직접** 넘어온다. 그래서 언어를 일본어·중국어로 바꿔도
+       빵가루만 영어로 남았다(실측: 중국어 화면에 'Home / Markets').
+
+       호출부 49곳을 고치는 방법도 있지만, 그러면 새 페이지를 만들 때마다 같은
+       실수가 반복된다. 넘어온 값을 이 지점에서 번역하면 기존 49곳과 앞으로
+       추가될 곳이 한 번에 해결된다.
+
+     ★ 표에 없는 값은 그대로 통과시킨다. 회원 이메일·전략 이름·티켓 번호처럼
+       번역 대상이 아닌 동적 값이 섞여 들어오기 때문이다.
+  */
+  const CRUMB_KEYS = {
+    Home: 'nav_home',
+    Admin: 'nav_admin',
+    Markets: 'nav_markets',
+    Trade: 'nav_trade',
+    Portfolio: 'nav_portfolio',
+    Analytics: 'nav_analytics',
+    Wallet: 'nav_wallet',
+    Deposit: 'deposit',
+    Withdraw: 'withdraw',
+    Transactions: 'nav_transactions',
+    Settings: 'nav_settings',
+    Notifications: 'nav_notifications',
+    Help: 'nav_help',
+    Referral: 'nav_referral',
+    Fees: 'nav_fees_rebates',
+    Users: 'nav_users',
+    KYC: 'nav_kyc_queue',
+    Deposits: 'nav_deposits',
+    Withdrawals: 'nav_withdrawals',
+    Assets: 'nav_assets_vault',
+    System: 'nav_system',
+    Audit: 'nav_audit',
+    Risk: 'nav_risk_queue',
+    Broadcast: 'nav_broadcast',
+    Notices: 'nav_notices_cs',
+    New: 'crumb_new',
+    My: 'crumb_my',
+    'Order History': 'order_history',
+    'AI Strategies': 'nav_ai_strategies',
+    'AI Ops': 'nav_ai_ops',
+    'Design Ops': 'nav_design_ops',
+    'Trade Monitor': 'nav_trade_monitor',
+    'CS Tickets': 'nav_cs_tickets',
+    'Notices & CS': 'nav_notices_cs',
+  };
+
+  function translateCrumb(crumb) {
+    if (typeof crumb !== 'string') return crumb;
+    const key = CRUMB_KEYS[crumb];
+    if (!key || !window.QTI18n) return crumb;
+    const out = window.QTI18n.t(key);
+    /*
+       ★ 사전에 키가 없으면 t() 가 키 이름을 그대로 돌려주는 구현이 있다.
+         그 값을 그리면 화면에 'nav_home' 이 뜬다 — 영어가 남는 것보다 나쁘다.
+    */
+    return out && out !== key ? out : crumb;
+  }
+
   window.PageHeader = function PageHeader({ title, subtitle, breadcrumb, actions, badge }) {
     return (
       <div className="page-header">
@@ -368,7 +434,7 @@
               {breadcrumb.map((crumb, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span className="page-breadcrumb__sep">/</span>}
-                  <span className={i === breadcrumb.length - 1 ? 'is-current' : ''}>{crumb}</span>
+                  <span className={i === breadcrumb.length - 1 ? 'is-current' : ''}>{translateCrumb(crumb)}</span>
                 </React.Fragment>
               ))}
             </div>

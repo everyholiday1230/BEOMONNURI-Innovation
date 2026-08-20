@@ -579,6 +579,26 @@
       nav_analytics: "Analytics",
       nav_portfolio: "Portfolio",
       nav_wallet: "Wallet",
+
+      /*
+         Breadcrumb segments (page-shell.jsx CRUMB_KEYS).
+
+         ★ These existed only as hardcoded English strings passed into
+           `breadcrumb={[...]}` at 49 call sites, so the trail stayed in English
+           on the Japanese and Chinese screens. The component now translates the
+           segments centrally; these are the keys it needs that no other screen
+           already provided.
+      */
+      mk_all_markets: 'All Markets',
+      nav_home: 'Home',
+      nav_admin: 'Admin',
+      withdraw: 'Withdraw',
+      nav_transactions: 'Transactions',
+      nav_system: 'System',
+      nav_audit: 'Audit',
+      nav_cs_tickets: 'CS Tickets',
+      crumb_new: 'New',
+      crumb_my: 'My',
       nav_order_history: "Order History",
       nav_notifications: "Notifications",
       nav_referral: "Referral",

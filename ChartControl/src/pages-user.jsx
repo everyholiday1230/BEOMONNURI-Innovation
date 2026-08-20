@@ -273,7 +273,7 @@
         </div>
 
         <window.SectionCard
-          title="All Markets"
+          title={t('mk_all_markets')}
           actions={
             <>
               <div className="input-group" style={{width: 240, height: 30}}>

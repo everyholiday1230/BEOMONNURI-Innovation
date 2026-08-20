@@ -1027,6 +1027,73 @@
       */
       ai_unavailable_reply: 'AI 分析がまだ接続されていないため、価格の数値は作成しません。モデル無しで回答すると、エントリー価格や損切り価格を捏造することになります。その間もチャートツール・描画・メモは通常どおりご利用いただけます。',
       oe_err_not_listed: '取引所に上場していない銘柄です — 注文できません',
+
+      /* ------------------------------------------------------------
+         画面に実際に残っていた英語（2026-08 修正）
+
+         ★ 検査ツールは「0件」と報告していたが、スクリーンショットには
+           英語がはっきり写っていた。あのツールは「画面の文字が en 辞書の値と
+           完全一致し、そのキーが対象言語に無く、長さが MIN_LEN 以上で、
+           値が辞書内で一意」のときだけ未翻訳と判定する。だから短いラベル
+           （Price・Size・Time）や、一つの値に複数キーがあるもの
+           （Points は nav_points と pt_unit_default の両方）は除外されていた。
+
+         ★ Deposit はヘッダーにあり 13 画面すべてに、Points はサイドバーに
+           出る。「3言語対応」と言いながらナビゲーションが英語のままでは、
+           その主張そのものが弱くなる。
+         ------------------------------------------------------------ */
+      deposit: '入金',
+      deposit_b9ca11: '入金',
+      wallet_b9ca11: '入金',
+      nav_points: 'ポイント',
+      pt_unit_default: 'ポイント',
+      nav_admin_points: 'ポイント管理',
+      size: '数量',
+      order_history: '注文履歴',
+      price: '価格',
+      acct_not_available: '取引所から提供されていません',
+      oh_not_available: '取引所から提供されていません',
+      an_funding: '資金調達率',
+      funding: '資金調達率',
+      funding_countdown_tip: '次回精算までの時間',
+      positions: 'ポジション',
+      admin_user_detail_81922a: 'ポジション',
+      trigger: 'トリガー',
+      available: '利用可能',
+      withdraw_d4bbb3: '利用可能',
+      not_found_7f5914: 'マーケット',
+      not_found_d9477a: 'ポートフォリオ',
+      strat_following: 'フォロー中',
+      strat_following_on: 'フォロー中',
+      strat_following_sub: 'シグナルは自動執行されません',
+      chart_time: '時刻',
+      time: '時刻',
+      aiops_time: '時刻',
+      amount: '金額',
+      ref_col_amount: '金額',
+      admin_pt_amount: '数量',
+      status: 'ステータス',
+      help_col_status: 'ステータス',
+      fee: '手数料',
+      withdraw_34f036: '手数料',
+      set_email_unverified: 'メール未認証',
+      ref_share: '共有',
+      referral_0f2024: '共有',
+      auth_e2654a: 'ヘルプ',
+      settings_e29d14: '通知',
+      help_contact_unavailable: 'この環境ではメッセージ機能をご利用いただけません。',
+
+      /* パンくずリストの各段（page-shell.jsx の CRUMB_KEYS が参照する） */
+      mk_all_markets: '全銘柄',
+      nav_home: 'ホーム',
+      nav_admin: '管理',
+      withdraw: '出金',
+      nav_transactions: '入出金履歴',
+      nav_system: 'システム',
+      nav_audit: '監査ログ',
+      nav_cs_tickets: 'サポート問い合わせ',
+      crumb_new: '新規',
+      crumb_my: 'マイ',
     },
     { label: '日本語', bcp47: 'ja-JP' },
   );
