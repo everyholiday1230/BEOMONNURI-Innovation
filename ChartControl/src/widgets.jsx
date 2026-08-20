@@ -136,6 +136,19 @@
     const TABS = isSpotList
       ? ['Favorites', 'USDT', 'USDC', 'BTC', 'Movers']
       : ['Favorites', 'USDT-PERP', 'USDC', 'BTC', 'Movers', 'New'];
+    /*
+       ★ 탭 값은 **id 이면서 표시 문자**로 함께 쓰이고 있었다(`tab === 'Favorites'`).
+         그래서 화면을 일본어·중국어로 바꿔도 이 탭만 영어로 남았다.
+         id 는 그대로 두고 보이는 글자만 번역한다 — id 를 번역하면 위의 비교가
+         전부 깨진다.
+       ★ USDT·USDC·BTC 는 통화 기호이므로 번역하지 않는다.
+    */
+    const TAB_LABEL = (id) => (
+      id === 'Favorites' ? t('wl_tab_favorites')
+        : id === 'Movers' ? t('wl_tab_movers')
+          : id === 'New' ? t('wl_tab_new')
+            : id
+    );
     const [tab, setTab] = useState(isSpotList ? 'USDT' : 'USDT-PERP');
     // 모드가 바뀌어 지금 탭이 없어졌으면 첫 거래 탭으로 돌린다.
     useEffect(() => {
@@ -188,7 +201,7 @@
           </div>
           <div className="mw-tabs">
             {TABS.map(x => (
-              <button key={x} className={`mw-tab ${tab === x ? 'is-active' : ''}`} onClick={() => setTab(x)}>{x}</button>
+              <button key={x} className={`mw-tab ${tab === x ? 'is-active' : ''}`} onClick={() => setTab(x)}>{TAB_LABEL(x)}</button>
             ))}
           </div>
           <div className="mw-list-head">
@@ -499,7 +512,7 @@
         <div className="panel__body" style={{padding: 0}}>
           <div className="ob-head">
             <span>{t('fld_price')}</span>
-            <span>{display === 'cumulative' ? 'Cum' : 'Size'}</span>
+            <span>{display === 'cumulative' ? t('ob_cum') : t('col_size')}</span>
             <span>{t('total')}</span>
           </div>
           <div className="ob-rows">
@@ -509,7 +522,7 @@
             <div className="ob-mid__last">
               <span className={isUp ? 't-long' : 't-short'}>{isUp ? '▲' : '▼'} {fmtPrice(lastPrice, tick)}</span>
             </div>
-            <div className="ob-mid__spread">Spread {fmtPrice(spread, tick)} · {((spread/lastPrice)*100).toFixed(3)}%</div>
+            <div className="ob-mid__spread">{t('ob_spread')} {fmtPrice(spread, tick)} · {((spread/lastPrice)*100).toFixed(3)}%</div>
           </div>
           <div className="ob-rows">
             {(mode !== 'sell') && bids.map((r, i) => renderRow(r, 'bid', i))}
@@ -835,12 +848,12 @@
               <label className="chk">
                 <input type="checkbox" checked={reduceOnly} onChange={e => setReduceOnly(e.target.checked)}/>
                 <span className="chk__box"><I.Check size={10}/></span>
-                Reduce Only
+                {t('oe_reduce_only')}
               </label>
               <label className="chk">
                 <input type="checkbox" checked={postOnly} onChange={e => setPostOnly(e.target.checked)}/>
                 <span className="chk__box"><I.Check size={10}/></span>
-                Post Only
+                {t('oe_post_only')}
               </label>
               <label className="chk">
                 <input type="checkbox" checked={enableTpsl} onChange={e => setEnableTpsl(e.target.checked)}/>
@@ -1170,7 +1183,7 @@
                   <th>{t('col_mark')}</th>
                   <th>{t('pos_liq_price')}</th>
                   <th>{t('col_margin')}</th>
-                  <th>PnL (ROE)</th>
+                  <th>{t('pos_col_pnl_roe')}</th>
                   <th>TP / SL</th>
                   <th>{t('col_actions')}</th>
                 </tr>

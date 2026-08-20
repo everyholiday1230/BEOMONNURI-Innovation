@@ -546,7 +546,16 @@
   };
 
   // Data Table — reusable sortable table wrapper (light)
-  window.DataTable = function DataTable({ columns, rows, empty = 'No data', onRowClick }) {
+  /*
+     ★ 빈 표 문구의 기본값을 함수 밖에서 정하면 안 된다.
+
+       전에는 `empty = 'No data'` 를 기본 인자로 두었다. 기본 인자는 모듈이
+       읽힐 때가 아니라 호출 때 평가되지만, 문자열 상수라 언제 평가되든 영어다.
+       그래서 일본어·중국어 화면에서 빈 표만 영어로 남았다(실측).
+       호출부가 값을 주지 않았을 때 이 자리에서 번역한다.
+  */
+  window.DataTable = function DataTable({ columns, rows, empty, onRowClick }) {
+    const emptyText = empty !== undefined ? empty : t('tbl_no_data');
     return (
       <div className="data-table-wrap">
         <table className="data-table">
@@ -559,7 +568,7 @@
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={columns.length} className="data-table__empty">{empty}</td></tr>
+              <tr><td colSpan={columns.length} className="data-table__empty">{emptyText}</td></tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={r.id || i} onClick={onRowClick ? () => onRowClick(r) : undefined} className={onRowClick ? 'is-clickable' : ''}>

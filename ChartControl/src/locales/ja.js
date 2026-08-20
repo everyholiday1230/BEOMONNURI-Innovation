@@ -1015,7 +1015,7 @@
       market_not_listed: '取引所に未上場',
 
       // --- AI Copilot ---
-      ai_copilot: 'AI Copilot',
+      ai_copilot: 'AI コパイロット',
       ai_collapse: 'Copilot を折りたたむ',
       ai_expand: 'Copilot を開く',
       ai_clear_chat: '会話をクリア',
@@ -1085,6 +1085,139 @@
 
       /* パンくずリストの各段（page-shell.jsx の CRUMB_KEYS が参照する） */
       mk_all_markets: '全銘柄',
+
+      /*
+         これまで JSX に直接書かれていて翻訳されなかったラベル（2026-08 追加）
+
+         ★ 検査ツールは「未翻訳 0件」と報告していた。あの判定は画面の文字を
+           この辞書の値と照合するので、**そもそも辞書に無い文字列は原理的に
+           検出できない。** 日本語・中国語のスクリーンショットには、ページ見出し・
+           表の見出し・フィルタタブ・KPI ラベルが英語のまま写っていた。
+
+         ★ フィルタタブはコード側で id として比較される（`tab === 'Favorites'`）。
+           表示ラベルだけをここに移し、id は英語のまま残す — id を訳すと
+           比較が壊れる。
+      */
+      mk_view_table: '表',
+      mk_heatmap: 'ヒートマップ',
+      mk_col_chg: '24時間変動',
+      mk_col_range: '24時間レンジ',
+      mk_f_all: 'すべて',
+      mk_f_favorites: 'お気に入り',
+      mk_f_gainers: '上昇',
+      mk_f_losers: '下落',
+      mk_f_new: '新規上場',
+
+      strat_page_sub: 'AI による取引戦略 · バックテスト · フォロー · 運用 — 執行はすべてシミュレーションです',
+      strat_gallery: '戦略ギャラリー',
+      my_title: 'マイ戦略',
+      strat_30d_pnl: '30日損益',
+
+      pf_page_sub: '資産 · 資産推移 · 配分 · 保有建玉',
+      pf_total_equity: '純資産',
+      pf_unrealized: '未実現損益',
+      pf_allocation: '配分',
+
+      an_page_sub: '取引ノート · パフォーマンス · 行動パターン',
+      an_avg_win_loss: '平均利益 / 損失',
+      an_best_trade: '最良トレード',
+      an_journal: '取引ノート',
+      an_col_mood: '心理状態',
+      an_col_tags: 'タグ',
+
+      nt_inbox: '受信箱',
+      nt_f_all: 'すべて',
+      nt_f_unread: '未読',
+      nt_f_signals: 'シグナル',
+      nt_f_orders: '注文',
+      nt_f_notices: 'お知らせ',
+
+      oh_total_orders: '注文総数',
+      oh_fill_rate: '約定率',
+      oh_avg_slippage: '平均スリッページ',
+      oh_total_fees: '手数料合計',
+
+      wal_connect_api: 'API を接続',
+
+      tx_title: '入出金履歴',
+      tx_f_all: 'すべて',
+      tx_f_deposit: '入金',
+      tx_f_withdraw: '出金',
+      tx_f_transfer: '振替',
+      tx_f_trade: '取引',
+      tx_f_fee: '手数料',
+      tx_f_rebate: 'リベート',
+      tx_col_time: '時刻',
+      tx_col_type: '種別',
+      tx_col_asset: '銘柄',
+      tx_col_hash: 'トランザクションハッシュ',
+
+      fee_vol30: '30日取引高',
+      fee_total_30d: '手数料合計（30日）',
+      fee_col_maker: 'メイカー',
+      fee_col_taker: 'テイカー',
+      fee_col_vol_req: '30日取引高の条件',
+      fee_col_hold_req: 'トークン保有条件',
+      ex_col_max_lev: '最大レバレッジ',
+
+      help_title: 'ヘルプセンター',
+
+      ob_spread: 'スプレッド',
+      oe_reduce_only: '決済のみ',
+      oe_post_only: 'ポストオンリー',
+      pos_col_pnl_roe: '損益（ROE）',
+
+      wl_tab_favorites: 'お気に入り',
+      wl_tab_movers: '変動',
+      wl_tab_new: '新規',
+
+      ai_signal_layers: 'シグナルレイヤー',
+      ai_layer_draft: 'AI 下書き',
+      ai_layer_approved: 'AI 承認済み',
+      ai_layer_mine: '自分の描画',
+      ai_layer_orders: '注文',
+      ai_layer_positions: 'ポジション',
+
+      tbl_no_data: 'データがありません',
+
+      /* 表の共通見出し（2026-08 追加）— 列定義に直接書かれていて未翻訳だった */
+      col_symbol: '銘柄',
+      col_side: '方向',
+      col_size: '数量',
+      col_entry: 'エントリー',
+      col_mark: 'マーク',
+      col_liq_price: 'ロスカット価格',
+      col_margin: '証拠金',
+      col_pnl: '損益',
+      col_price: '価格',
+      col_pair: '銘柄ペア',
+      col_vol24: '24時間出来高',
+      col_date: '日付',
+      col_type: '種別',
+      col_fee: '手数料',
+      col_filled: '約定済み',
+      col_status: 'ステータス',
+      col_network: 'ネットワーク',
+      col_amount: '金額',
+      col_exit: '決済',
+      col_trend: '推移',
+      col_backtest: 'バックテスト',
+      ob_cum: '累計',
+      nt_f_risk: 'リスク',
+      ai_copilot_title: 'AI コパイロット',
+      ai_analyst_mode: 'アナリストモード',
+      ai_mentor_mode: 'メンターモード',
+      ai_analyst: 'アナリスト',
+      ai_mentor: 'メンター',
+      ai_you: 'あなた',
+      ex_status_available: '利用可能',
+      ex_status_beta: 'ベータ',
+      'ex_status_coming-soon': '準備中',
+      kpi_win_rate: '勝率',
+      kpi_margin_ratio: '証拠金維持率',
+      pf_alloc_title: '配分',
+      fee_page_title: '手数料・リベート',
+      set_api_keys: 'API キー',
       nav_home: 'ホーム',
       nav_admin: '管理',
       withdraw: '出金',
@@ -1094,6 +1227,70 @@
       nav_cs_tickets: 'サポート問い合わせ',
       crumb_new: '新規',
       crumb_my: 'マイ',
+
+      /* ------------------------------------------------------------
+         入出金・元帳・マイ戦略（2026-08 追加）
+
+         ★ この画面群は「当社は資金を預からない」という構造そのものを
+           説明している。訳を弱めると、利用者が「ここに入金するのだ」と
+           誤解しかねない — それは資金を失う誤解なので、原文の強さを保つ。
+
+         ★ 出金権限を要求しない理由（withdraw_noncustodial_2）は
+           セキュリティ上の核心なので、短くまとめずに全文を訳す。
+         ------------------------------------------------------------ */
+      dep_net_a: '⚠ 入金は必ず ',
+      dep_net_b: ' ネットワークで行ってください。別のネットワークで送ると資金を永久に失う恐れがあります。',
+      wd_2fa_a: '出金は次の確認を経て審査待ちに入ります：',
+      wd_2fa_em: '2段階認証',
+      wd_2fa_b: '。高額の場合は運営の承認が必要になることがあります。',
+      dep_confirm_count: '{n} 回の承認',
+      wd_address_placeholder: '{network} のアドレスを入力',
+      tx_kind: '種別',
+      tx_kind_realized_pnl: '実現損益',
+      tx_kind_funding_fee: '資金調達料',
+      tx_kind_commission_fee: '取引手数料',
+      tx_kind_unknown: 'その他',
+      deposit_at_exchange: 'ご自身の取引所口座に入金してください。当社は資金を一切預かりません。',
+      deposit_noncustodial_title: '当社は資金を預かりません',
+      deposit_noncustodial_1: 'このプラットフォームに入金アドレスはありません。ご自身の取引所口座に入金し、当社は接続された API キーを通じて取引を行います。',
+      deposit_noncustodial_2: '取引ツールが表示するアドレスへ送金しないでください。アドレスは必ず取引所自体からコピーしてください。',
+      deposit_step_1: '取引所口座にログインします。',
+      deposit_step_2: '入金画面を開き、{network} ネットワークの {asset} を選び、取引所が表示するアドレスをコピーします。',
+      deposit_step_3: '着金すると残高はここに自動で表示されます — 当社側での操作は不要です。',
+      deposit_create_account: '取引所口座を開設する',
+      deposit_connect_keys: 'API キーを接続する',
+      withdraw_noncustodial_title: '出金は取引所で行います',
+      withdraw_noncustodial_1: '当社は資金を預からないため、動かすこともできません。取引所口座にログインし、そこから出金してください。',
+      withdraw_noncustodial_2: '当社がお願いする API キーは、出金権限を意図的に除外しています。出金権限のあるキーが漏れれば資金は戻りません — 参照と取引のみに限ることで、最悪の場合でも損失は取引による範囲にとどまります。',
+      withdraw_at_exchange_hint: '取引所口座から出金してください',
+      withdraw_addressbook_na: '保存済みの出金先アドレスは取引所口座にあり、ここにはありません。',
+      my_following_sub: 'ウォッチのみ — 発注は行われません',
+      my_autocopy: '自動コピー',
+      my_autocopy_off: '利用できません',
+      my_combined_pnl: '合計損益',
+      my_combined_pnl_sub: 'フォローは取引ではありません — 実際の損益は「分析」で確認してください',
+      my_combined_win: '合計勝率',
+      my_col_strategy: '戦略',
+      my_col_basis: '基準',
+      my_col_since: 'フォロー開始',
+      my_col_open: '保有中',
+      my_col_unfollow: 'フォロー解除',
+      help_term_account: '新規登録',
+      help_term_funds: '出金',
+      help_term_trading: 'API キー',
+      help_term_ai: 'AI',
+      tx_in: '入金合計',
+      tx_out: '出金合計',
+      tx_fees: '支払手数料',
+      tx_fees_sub: '元帳に記録された取引手数料と資金調達料',
+      tx_realized: '実現損益',
+      tx_realized_sub: '取引所が記録した決済済み取引の結果',
+      tx_ledger_src: '取引所の元帳より',
+      dep_balance_src: '取引所の利用可能残高',
+      dep_balance_unknown: '残高を表示するには取引所キーを接続してください。資金は取引所に置かれたままで、当社は預かりません。',
+      dep_history_none: '取引所の元帳に入金記録が見つかりませんでした。',
+      dep_history_need_key: '入金履歴を読むには取引所キーを接続してください。入金は取引所で行うもので、ここでは行いません。',
+      tx_need_key: '元帳を読むには取引所キーを接続してください',
     },
     { label: '日本語', bcp47: 'ja-JP' },
   );

@@ -552,8 +552,8 @@
           {/*
              ★★ 접힌 상태에서는 제목을 그리지 않는다.
 
-               접힌 띠는 2칸(약 109px)이다. 그런데 제목(점 + "AI Copilot" +
-               "Analyst Mode")이 150px 를 차지해서, 그 뒤에 오는 펼치기 버튼이
+               접힌 띠는 2칸(약 109px)이다. 그런데 제목(점 + {t('ai_copilot_title')} +
+               {t('ai_analyst_mode')})이 150px 를 차지해서, 그 뒤에 오는 펼치기 버튼이
                패널 밖(x=1203, 패널은 1028~1137)으로 밀려났다. 패널은
                `overflow: hidden` 이므로 **버튼이 잘려서 보이지 않았다** —
                접은 뒤 다시 펼칠 방법이 화면에 없었다(실측으로 확인).
@@ -567,7 +567,7 @@
               <span>{t('ai_copilot')}</span>
               <span className="ai-persona">
                 <I.Sparkles size={10}/>
-                {isBeginner ? 'Mentor Mode' : 'Analyst Mode'}
+                {isBeginner ? t('ai_mentor_mode') : t('ai_analyst_mode')}
               </span>
             </div>
           )}
@@ -736,18 +736,18 @@
         <div className="ai-layers">
           <div className="ai-layers__title">
             <I.Layers size={10} style={{display:'inline', verticalAlign:'-2px', marginRight: 4}}/>
-            Signal Layers
+            {t('ai_signal_layers')}
           </div>
           {[
-            { name: 'AI Draft', count: overlays.filter(o=>o.source==='ai-draft').length, color: 'var(--color-ai)', dashed: true },
-            { name: 'AI Approved', count: overlays.filter(o=>o.source==='ai-approved').length, color: 'var(--color-signal-approved)' },
-            { name: 'My Drawings', count: overlays.filter(o=>o.source==='user').length, color: 'var(--color-text-primary)' },
-            { name: 'Orders', count: 3, color: 'var(--color-order-pending)' },
-            { name: 'Positions', count: 3, color: 'var(--color-trade-long)' },
+            { name: 'AI Draft', label: t('ai_layer_draft'), count: overlays.filter(o=>o.source==='ai-draft').length, color: 'var(--color-ai)', dashed: true },
+            { name: 'AI Approved', label: t('ai_layer_approved'), count: overlays.filter(o=>o.source==='ai-approved').length, color: 'var(--color-signal-approved)' },
+            { name: 'My Drawings', label: t('ai_layer_mine'), count: overlays.filter(o=>o.source==='user').length, color: 'var(--color-text-primary)' },
+            { name: 'Orders', label: t('ai_layer_orders'), count: 3, color: 'var(--color-order-pending)' },
+            { name: 'Positions', label: t('ai_layer_positions'), count: 3, color: 'var(--color-trade-long)' },
           ].map(l => (
             <div className="ai-layer" key={l.name}>
               <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined, borderTopColor: l.dashed ? l.color : undefined}}/>
-              <span className="ai-layer__name">{l.name}</span>
+              <span className="ai-layer__name">{l.label || l.name}</span>
               <span className="ai-layer__count">{l.count}</span>
               <button className="ai-layer__eye" title={t('ai_toggle')}><I.Eye size={12}/></button>
             </div>
@@ -792,7 +792,7 @@
         <div className="ai-msg__avatar">{isUser ? 'You' : 'AI'}</div>
         <div className="ai-msg__body">
           <div className="ai-msg__meta">
-            <span>{isUser ? 'You' : (isBeginner ? 'Mentor' : 'Analyst')}</span>
+            <span>{isUser ? t('ai_you') : (isBeginner ? t('ai_mentor') : t('ai_analyst'))}</span>
             <span>·</span>
             <span>{new Date(msg.time).toLocaleTimeString('en-GB', {hour12:false})}</span>
           </div>

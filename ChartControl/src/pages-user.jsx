@@ -175,7 +175,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Markets"
+        title={t('nav_markets')}
         subtitle={(() => {
           /* ★ "21 pairs · Live mock stream" 이 하드코딩돼 있었다. 심볼 수가
                바뀌어도 21 로 남고, 실서비스에서도 "mock stream" 이라고 적혀
@@ -192,10 +192,10 @@
           <>
             <div className="seg">
               <button className={`seg__opt ${view==='table' ? 'is-active' : ''}`} onClick={() => setView('table')}>
-                <I.LayoutIcon size={11}/> Table
+                <I.LayoutIcon size={11}/> {t('mk_view_table')}
               </button>
               <button className={`seg__opt ${view==='heatmap' ? 'is-active' : ''}`} onClick={() => setView('heatmap')}>
-                <I.Grid size={11}/> Heatmap
+                <I.Grid size={11}/> {t('mk_heatmap')}
               </button>
             </div>
             <button
@@ -281,8 +281,8 @@
                 <input placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)}/>
               </div>
               <div className="seg">
-                {['All','Favorites','Gainers','Losers','New'].map(t => (
-                  <button key={t} className={`seg__opt ${tab===t?'is-active':''}`} onClick={() => setTab(t)}>{t}</button>
+                {[['All','mk_f_all'],['Favorites','mk_f_favorites'],['Gainers','mk_f_gainers'],['Losers','mk_f_losers'],['New','mk_f_new']].map(([id, k]) => (
+                  <button key={id} className={`seg__opt ${tab===id?'is-active':''}`} onClick={() => setTab(id)}>{t(k)}</button>
                 ))}
               </div>
             </>
@@ -309,7 +309,7 @@
                     }}
                   >{r.fav ? '★' : '☆'}</span>
                 ) },
-                { key: 'sym',   label: 'Pair', render: r => (
+                { key: 'sym',   label: t('col_pair'), render: r => (
                   <span>
                     <strong>{r.base}</strong><span style={{color:'var(--color-text-tertiary)'}}>/{r.quote}</span>
                     <span className="badge badge--perp" style={{marginLeft:6}}>{r.type}</span>
@@ -320,19 +320,19 @@
                     )}
                   </span>
                 ) },
-                { key: 'price', label: 'Price', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : r.price.toLocaleString('en-US', {maximumFractionDigits: r.price >= 100 ? 2 : 4})}</span> },
-                { key: 'chg',   label: '24h Change', align: 'right', render: r => unlisted(r) ? (
+                { key: 'price', label: t('col_price'), align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : r.price.toLocaleString('en-US', {maximumFractionDigits: r.price >= 100 ? 2 : 4})}</span> },
+                { key: 'chg',   label: t('mk_col_chg'), align: 'right', render: r => unlisted(r) ? (
                   <span style={{color:'var(--color-text-tertiary)'}}>—</span>
                 ) : (
                   <span className={r.chg24h >= 0 ? 't-long' : 't-short'} style={{fontFamily:'var(--font-mono)', fontWeight:500}}>
                     {r.chg24h >= 0 ? '▲' : '▼'} {Math.abs(r.chg24h).toFixed(2)}%
                   </span>
                 ) },
-                { key: 'range', label: '24h Range', align: 'right', render: r => (
+                { key: 'range', label: t('mk_col_range'), align: 'right', render: r => (
                   <span style={{fontFamily:'var(--font-num)', color:'var(--color-text-secondary)', fontSize:11}}>{unlisted(r) ? '—' : `${fmt(r.lo, r.lo >= 100 ? 1 : 4)} – ${fmt(r.hi, r.hi >= 100 ? 1 : 4)}`}</span>
                 ) },
-                { key: 'vol',   label: '24h Volume', align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : fmtCompact(r.vol24h)}</span> },
-                { key: 'spark', label: 'Trend', align: 'right', width: 100, render: r => {
+                { key: 'vol',   label: t('col_vol24'), align: 'right', render: r => <span style={{fontFamily:'var(--font-num)'}}>{unlisted(r) ? '—' : fmtCompact(r.vol24h)}</span> },
+                { key: 'spark', label: t('col_trend'), align: 'right', width: 100, render: r => {
                   /* ★ 미상장 심볼에는 추세선을 그리지 않는다. 목업 가격으로 그린
                        선은 실제 움직임이 아니고, 작은 그림이라 근거가 없다는 것이
                        드러나지 않는다. */
@@ -600,8 +600,8 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="AI Strategies"
-        subtitle="AI-driven trading strategies · Backtest · Follow · Deploy — all with simulated execution"
+        title={t('nav_ai_strategies')}
+        subtitle={t('strat_page_sub')}
         breadcrumb={['Home','AI Strategies']}
         actions={
           <>
@@ -699,7 +699,7 @@
         </div>
 
         <window.SectionCard
-          title="Strategy Gallery"
+          title={t('strat_gallery')}
           subtitle={isLive ? t('strat_gallery_sub') : "Simulated performance based on backtest + paper live. Not investment advice."}
           actions={
             <>
@@ -707,7 +707,7 @@
               {hasTiers && (
                 <div className="seg">
                   {[
-                    { id: 'all', label: 'All' },
+                    { id: 'all', label: t('mk_f_all') },
                     { id: 'free', label: 'Free' },
                     { id: 'pro', label: 'Pro' },
                     { id: 'vip', label: 'VIP' },
@@ -803,7 +803,7 @@
                         disabled={busyId === s.id}
                         onClick={() => runBacktest(s.id)}
                         title={t('strat_backtest_hint')}
-                      ><I.Chart size={11}/> {busyId === s.id ? '…' : 'Backtest'}</button>
+                      ><I.Chart size={11}/> {busyId === s.id ? '…' : t('col_backtest')}</button>
                       <button
                         className={`btn btn--xs ${isFollowing(s.id) ? '' : 'btn--primary'}`}
                         style={{flex:1}}
@@ -1126,8 +1126,8 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Portfolio"
-        subtitle="Assets · Equity curve · Allocation · Open positions"
+        title={t('nav_portfolio')}
+        subtitle={t('pf_page_sub')}
         breadcrumb={['Home','Portfolio']}
         actions={
           <>
@@ -1191,12 +1191,12 @@
           return (
             <div className="grid-4">
               <window.KPICard
-                label="Total Equity"
+                label={t('pf_total_equity')}
                 value={totalValue === null ? '—' : '$' + fmt(totalValue)}
                 sub={totalValue === null ? t('pf_equity_unknown') : undefined}
                 delta={mockDelta(+3.42)} deltaLabel="24h" icon="Wallet" tone="brand"/>
               <window.KPICard
-                label="Unrealized PnL"
+                label={t('pf_unrealized')}
                 value={live.unrealized === null ? '—' : (live.unrealized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.unrealized))}
                 delta={mockDelta(+3.18)}
                 deltaLabel="vs entry"
@@ -1212,7 +1212,7 @@
                 tone={live.realized === null ? undefined : live.realized >= 0 ? 'long' : 'short'}
               />
               <window.KPICard
-                label="Margin Ratio"
+                label={t('kpi_margin_ratio')}
                 value={live.marginRatio === null ? '—' : fmt(live.marginRatio, 1) + '%'}
                 sub={live.marginRatio === null ? (isReal ? t('acct_not_available') : 'Healthy · Liq. at 82%') : undefined}
                 icon="Alert"
@@ -1255,7 +1255,7 @@
                    ★ 판정 근거는 서버가 준 `history.points` 다. 화면이 추정하지 않는다.
                 */
                 const RANGES = [
-                  ['1D', 1], ['7D', 7], ['30D', 30], ['90D', 90], ['1Y', 365], ['All', 1825],
+                  ['1D', 1], ['7D', 7], ['30D', 30], ['90D', 90], ['1Y', 365], [t('mk_f_all'), 1825],
                 ];
                 const known = curve && curve.history ? curve.history.points : 0;
                 const preview = window.QTMockPolicy ? window.QTMockPolicy.allowMockData() : false;
@@ -1314,7 +1314,7 @@
                로직이 없다 — 그 문구를 보고 사용자가 조언을 받았다고 믿는다.
           */}
           <window.SectionCard
-            title="Allocation"
+            title={t('pf_alloc_title')}
             subtitle={A.length > 0 ? t('pf_alloc_sub', { n: A.length }) : t('pf_alloc_none')}
           >
             <div style={{display:'flex', justifyContent:'center', marginBottom: 12}}>
@@ -1360,12 +1360,12 @@
         <window.SectionCard title={t('pf_open_positions')} subtitle={`${positions.length} open`} noPadding>
           <window.DataTable
             columns={[
-              { key: 'sym', label: 'Symbol', render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
-              { key: 'side', label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-              { key: 'size', label: 'Size', align:'right', render: r => fmt(r.size, 3) },
-              { key: 'entry', label: 'Entry', align:'right', render: r => fmt(r.entry, 1) },
-              { key: 'mark',  label: 'Mark',  align:'right', render: r => fmt(r.mark, 1) },
-              { key: 'liq',   label: 'Liq. Price', align:'right', render: r => <span className="t-warning">{fmt(r.liq, 1)}</span> },
+              { key: 'sym', label: t('col_symbol'), render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
+              { key: 'side', label: t('col_side'), render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
+              { key: 'size', label: t('col_size'), align:'right', render: r => fmt(r.size, 3) },
+              { key: 'entry', label: t('col_entry'), align:'right', render: r => fmt(r.entry, 1) },
+              { key: 'mark',  label: t('col_mark'),  align:'right', render: r => fmt(r.mark, 1) },
+              { key: 'liq',   label: t('col_liq_price'), align:'right', render: r => <span className="t-warning">{fmt(r.liq, 1)}</span> },
               /*
                  손익.
 
@@ -1378,7 +1378,7 @@
 
                  ★ 0 으로 채우지 않는다. '손익 0' 은 본전이라는 뜻으로 읽힌다.
               */
-              { key: 'pnl',   label: 'PnL', align:'right', render: r => {
+              { key: 'pnl',   label: t('col_pnl'), align:'right', render: r => {
                 /*
                    ★ null 을 먼저 걸러야 한다.
 
@@ -1611,8 +1611,8 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Analytics"
-        subtitle="Trade journal · Performance · Behavioral patterns"
+        title={t('nav_analytics')}
+        subtitle={t('an_page_sub')}
         breadcrumb={['Home','Analytics']}
         actions={
           <>
@@ -1695,13 +1695,13 @@
           />
           {/* 거래가 0건이면 승률을 만들 수 없다. NaN 을 화면에 띄우지 않는다. */}
           <window.KPICard
-            label="Win Rate"
+            label={t('kpi_win_rate')}
             value={winRate === null ? '—' : winRate.toFixed(0) + '%'}
             sub={`${wins.length}W · ${losses.length}L`}
             tone="brand"
           />
           <window.KPICard
-            label="Avg Win / Loss"
+            label={t('an_avg_win_loss')}
             value={(tj.length === 0 || avgWin === null || avgLoss === null)
               ? '—'
               : `$${fmt(avgWin,0)} / $${fmt(Math.abs(avgLoss),0)}`}
@@ -1722,7 +1722,7 @@
             const best = scored.length > 0 ? scored.reduce((a, b) => (b.pnl > a.pnl ? b : a)) : null;
             return (
               <window.KPICard
-                label="Best Trade"
+                label={t('an_best_trade')}
                 value={best ? `${best.pnl >= 0 ? '+' : ''}$${fmt(best.pnl, 0)} · ${best.sym}` : '—'}
                 sub={best ? [best.date, best.side ? (best.side === 'long' ? 'Long' : 'Short') : null].filter(Boolean).join(' · ') : undefined}
                 tone={best && best.pnl >= 0 ? 'long' : 'short'}
@@ -1820,7 +1820,7 @@
         </div>
 
         <window.SectionCard
-          title="Trade Journal"
+          title={t('an_journal')}
           subtitle={`${tj.length} recorded trades · Manual + AI-assisted`}
           /*
              Manual Entry 를 숨겼다 — 거래일지를 손으로 넣는 화면이 아직 없다.
@@ -1832,21 +1832,21 @@
         >
           <window.DataTable
             columns={[
-              { key: 'date',  label: 'Date', width: 100 },
-              { key: 'sym',   label: 'Symbol', render: r => <strong>{r.sym}</strong> },
+              { key: 'date',  label: t('col_date'), width: 100 },
+              { key: 'sym',   label: t('col_symbol'), render: r => <strong>{r.sym}</strong> },
               /*
                  거래소 원장에는 방향·진입가·청산가·수량이 없다(실현손익만 준다).
                  없는 값을 만들지 않고 '—' 로 둔다 — 손익 부호로 방향을 추측하면
                  틀린다(숏도 이익이 날 수 있다).
               */
-              { key: 'side',  label: 'Side', render: r => (
+              { key: 'side',  label: t('col_side'), render: r => (
                 r.side ? <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span>
                        : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
               ) },
-              { key: 'entry', label: 'Entry', align:'right', render: r => (r.entry == null ? '—' : fmt(r.entry, 2)) },
-              { key: 'exit',  label: 'Exit',  align:'right', render: r => (r.exit == null ? '—' : fmt(r.exit, 2)) },
-              { key: 'size',  label: 'Size',  align:'right', render: r => (r.size == null ? '—' : fmt(r.size, 3)) },
-              { key: 'pnl',   label: 'PnL', align:'right', render: r => {
+              { key: 'entry', label: t('col_entry'), align:'right', render: r => (r.entry == null ? '—' : fmt(r.entry, 2)) },
+              { key: 'exit',  label: t('col_exit'),  align:'right', render: r => (r.exit == null ? '—' : fmt(r.exit, 2)) },
+              { key: 'size',  label: t('col_size'),  align:'right', render: r => (r.size == null ? '—' : fmt(r.size, 3)) },
+              { key: 'pnl',   label: t('col_pnl'), align:'right', render: r => {
                 /*
                    ★ 손익을 모르면 '—' 만 쓴다.
 
@@ -1867,11 +1867,11 @@
                   </span>
                 );
               } },
-              { key: 'mood',  label: 'Mood', render: r => {
+              { key: 'mood',  label: t('an_col_mood'), render: r => {
                 const m = { confident: '😎', neutral: '😐', nervous: '😬' };
                 return <span title={r.mood} style={{fontSize:14}}>{m[r.mood] || '·'}</span>;
               }},
-              { key: 'tag',   label: 'Tags', render: r => (
+              { key: 'tag',   label: t('an_col_tags'), render: r => (
                 <span style={{display:'inline-flex', gap:3, flexWrap:'wrap'}}>
                   {r.tag.map(tg => <span key={tg} style={{padding:'1px 5px', background:'var(--color-bg-elevated)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:9, color:'var(--color-text-secondary)'}}>{tg}</span>)}
                 </span>
@@ -2048,7 +2048,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Wallet"
+        title={t('nav_wallet')}
         subtitle={t('wallet_95195c')}
         breadcrumb={['Home','Wallet']}
         actions={
@@ -2255,7 +2255,18 @@
                         <span className={`exchange-card__status ${isConnected ? 'available' : ex.status}`}>
                           {isConnected
                             ? t('wal_ex_connected')
-                            : (ex.status === 'coming-soon' ? 'SOON' /* qt-i18n-ignore: 거래소 상태 코드 표기 — 아래 available/beta 와 같은 계열 */ : ex.status.toUpperCase())}
+                            /*
+                               ★ 거래소 상태 배지도 번역한다.
+
+                                 전에는 `ex.status.toUpperCase()` 를 그대로 찍었다. 상태 코드
+                                 표기라는 이유였지만, 결과적으로 중국어·일본어 화면에
+                                 'AVAILABLE' 이 영어로 남았다. 3개 언어 대응을 주장하는 제품에서
+                                 첫 화면급으로 눈에 띄는 자리다.
+                                 사전에 없는 상태가 새로 생기면 코드를 대문자로 보여준다(폴백).
+                            */
+                            : (t('ex_status_' + ex.status) !== 'ex_status_' + ex.status
+                                ? t('ex_status_' + ex.status)
+                                : ex.status.toUpperCase())}
                         </span>
                       )}
                     </div>
@@ -2364,7 +2375,7 @@
                           title={notReady ? t('ex_not_partnered_hint') : undefined}
                           onClick={() => setConnectingEx(ex)}
                         >
-                          <I.Plus size={11}/> Connect API
+                          <I.Plus size={11}/> {t('wal_connect_api')}
                         </button>
                       )}
                     </div>
@@ -2961,7 +2972,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Settings"
+        title={t('nav_settings')}
         subtitle={t('settings_2d430b')}
         breadcrumb={['Home','Settings']}
       >
@@ -2971,7 +2982,7 @@
               { id:'profile',   label:t('settings_14fab1'),      icon:'User' },
               { id:'security',  label:t('settings_cfaa68'),  icon:'Lock' },
               { id:'notif',     label:t('settings_e29d14'),        icon:'Bell' },
-              { id:'api',       label:'API Keys',    icon:'Wallet' },
+              { id:'api',       label:t('set_api_keys'),    icon:'Wallet' },
               { id:'prefs',     label:t('settings_643822'),    icon:'Cog' },
               { id:'a11y',      label:t('settings_3a4173'),      icon:'Eye' },
               { id:'danger',    label:t('settings_5a4346'),   icon:'Alert' },
@@ -3077,7 +3088,7 @@
 
             {tab === 'api' && (
               <window.SectionCard
-                title="API Keys"
+                title={t('set_api_keys')}
                 subtitle={t('settings_8eb853')}
                 actions={<button className="btn btn--sm btn--primary"><I.Plus size={12}/> {t('wal_add_key')}</button>}
                 noPadding
@@ -3597,7 +3608,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Notifications"
+        title={t('nav_notifications')}
         subtitle={`${N.filter(x=>x.unread).length} unread · ${N.length} total`}
         breadcrumb={['Home','Notifications']}
         actions={
@@ -3635,16 +3646,16 @@
         }
       >
         <window.SectionCard
-          title="Inbox"
+          title={t('nt_inbox')}
           actions={
             <div className="seg">
               {[
-                { id:'all', label:'All' },
-                { id:'unread', label:'Unread' },
-                { id:'signal', label:'Signals' },
-                { id:'order', label:'Orders' },
-                { id:'risk', label:'Risk' },
-                { id:'notice', label:'Notices' },
+                { id:'all', label:t('nt_f_all') },
+                { id:'unread', label:t('nt_f_unread') },
+                { id:'signal', label:t('nt_f_signals') },
+                { id:'order', label:t('nt_f_orders') },
+                { id:'risk', label:t('nt_f_risk') },
+                { id:'notice', label:t('nt_f_notices') },
               ].map(f => (
                 <button key={f.id} className={`seg__opt ${filter===f.id?'is-active':''}`} onClick={() => setFilter(f.id)}>{f.label}</button>
               ))}
@@ -3889,7 +3900,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Order History"
+        title={t('order_history')}
         subtitle={t('order_history_ea8391')}
         breadcrumb={['Home','Order History']}
         actions={
@@ -3914,29 +3925,29 @@
         }
       >
         <div className="grid-4">
-          <window.KPICard label="Total Orders" value={kpi.total} sub={kpi.isLive ? t('oh_from_exchange') : 'Last 30 days'}/>
-          <window.KPICard label="Fill Rate" value={kpi.fillRate} sub={kpi.isLive ? undefined : '↑ 2.4% vs prev'} tone="brand"/>
+          <window.KPICard label={t('oh_total_orders')} value={kpi.total} sub={kpi.isLive ? t('oh_from_exchange') : 'Last 30 days'}/>
+          <window.KPICard label={t('oh_fill_rate')} value={kpi.fillRate} sub={kpi.isLive ? undefined : '↑ 2.4% vs prev'} tone="brand"/>
           {/* 슬리피지는 주문가·체결가를 함께 비교해야 구할 수 있다. 근거가 없으면 '—'. */}
-          <window.KPICard label="Avg Slippage" value={kpi.slippage} sub={kpi.isLive ? t('oh_not_available') : 'Excellent'} tone={kpi.isLive ? undefined : 'long'}/>
-          <window.KPICard label="Total Fees" value={kpi.fees} sub={kpi.feeMix || (kpi.isLive ? undefined : 'Maker: 62% · Taker: 38%')}/>
+          <window.KPICard label={t('oh_avg_slippage')} value={kpi.slippage} sub={kpi.isLive ? t('oh_not_available') : 'Excellent'} tone={kpi.isLive ? undefined : 'long'}/>
+          <window.KPICard label={t('oh_total_fees')} value={kpi.fees} sub={kpi.feeMix || (kpi.isLive ? undefined : 'Maker: 62% · Taker: 38%')}/>
         </div>
 
         <window.SectionCard title={t('adm_stat_orders')} noPadding>
           <window.DataTable
             columns={[
-              { key: 'time',   label: 'Time', width: 120, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12:false})}</span> },
-              { key: 'sym',    label: 'Symbol', render: r => <strong>{(r.symbol || '').replace('USDT','/USDT')}</strong> },
-              { key: 'side',   label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-              { key: 'type',   label: 'Type' },
+              { key: 'time',   label: t('col_time'), width: 120, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12:false})}</span> },
+              { key: 'sym',    label: t('col_symbol'), render: r => <strong>{(r.symbol || '').replace('USDT','/USDT')}</strong> },
+              { key: 'side',   label: t('col_side'), render: r => <span className={r.side==='long'?'t-long':'t-short'} style={{fontWeight:500}}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
+              { key: 'type',   label: t('col_type') },
               // 시장가 주문은 지정가가 없다(null). fmt(null) 은 0 이 되어 '0원 주문' 으로 읽힌다.
-              { key: 'price',  label: 'Price', align:'right', render: r => (r.price == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : fmt(r.price, r.price >= 100 ? 1 : 4)) },
-              { key: 'amount', label: 'Amount', align:'right', render: r => fmt(r.amount, 3) },
-              { key: 'filled', label: 'Filled', align:'right', render: r => fmt(r.filled, 3) + '/' + fmt(r.amount, 3) },
+              { key: 'price',  label: t('col_price'), align:'right', render: r => (r.price == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : fmt(r.price, r.price >= 100 ? 1 : 4)) },
+              { key: 'amount', label: t('col_amount'), align:'right', render: r => fmt(r.amount, 3) },
+              { key: 'filled', label: t('col_filled'), align:'right', render: r => fmt(r.filled, 3) + '/' + fmt(r.amount, 3) },
               /*
                  상태 표기가 두 갈래다: 목업은 filled/partial/pending, 거래소는 done/open/canceled.
                  양쪽을 모두 처리하고, r.status 가 없을 때 toUpperCase() 로 터지지 않게 한다.
               */
-              { key: 'status', label: 'Status', render: r => {
+              { key: 'status', label: t('col_status'), render: r => {
                 const st = String(r.status || 'unknown');
                 const tone = /filled|done/i.test(st) ? 'ok'
                   : /partial/i.test(st) ? 'warn'
@@ -3945,8 +3956,8 @@
                 return <span className={`status-pill status-pill--${tone}`}>{st.toUpperCase()}</span>;
               } },
               // 실제 나간 수수료. 체결에서 가져온다 — 주문 응답에는 없다.
-              { key: 'fee', label: 'Fee', align:'right', render: r => (r.fee == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : <span className={r.fee < 0 ? 't-long' : undefined}>{fmt(r.fee, 4)}</span>) },
-              { key: 'pnl',    label: 'PnL', align:'right', render: r => r.pnl != null ? <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}</span> : <span style={{color:'var(--color-text-tertiary)'}}>—</span> },
+              { key: 'fee', label: t('col_fee'), align:'right', render: r => (r.fee == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : <span className={r.fee < 0 ? 't-long' : undefined}>{fmt(r.fee, 4)}</span>) },
+              { key: 'pnl',    label: t('col_pnl'), align:'right', render: r => r.pnl != null ? <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}</span> : <span style={{color:'var(--color-text-tertiary)'}}>—</span> },
             ]}
             rows={orders}
           />

@@ -1057,7 +1057,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Transaction History"
+        title={t('tx_title')}
         subtitle={t('transaction_history_1de8f9')}
         breadcrumb={['Home','Wallet','Transactions']}
         /* Export 숨김 (베타 범위 제외) — 배선할 서버 경로가 아직 없다. */
@@ -1101,7 +1101,7 @@
         </div>
 
         <window.SectionCard
-          title="Transactions"
+          title={t('nav_transactions')}
           actions={
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
@@ -1110,7 +1110,7 @@
               </div>
               <div className="seg">
                 {['all','deposit','withdraw','transfer','trade','fee','rebate'].map(f => (
-                  <button key={f} className={`seg__opt ${filter===f?'is-active':''}`} onClick={() => setFilter(f)}>{f}</button>
+                  <button key={f} className={`seg__opt ${filter===f?'is-active':''}`} onClick={() => setFilter(f)}>{t('tx_f_' + f)}</button>
                 ))}
               </div>
             </>
@@ -1119,20 +1119,20 @@
         >
           <window.DataTable
             columns={[
-              { key: 'time',   label: 'Time', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12: false})}</span> },
-              { key: 'kind',   label: 'Type', render: r => {
+              { key: 'time',   label: t('tx_col_time'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12: false})}</span> },
+              { key: 'kind',   label: t('tx_col_type'), render: r => {
                 const colors = { deposit: 'ok', withdraw: 'warn', transfer: 'neutral', trade: 'neutral', fee: 'warn', rebate: 'ok' };
                 return <span className={`status-pill status-pill--${colors[r.kind] || 'neutral'}`}>{r.kind.toUpperCase()}</span>;
               }},
-              { key: 'asset',  label: 'Asset', render: r => <strong>{r.asset}</strong> },
-              { key: 'amount', label: 'Amount', align:'right', render: r => (
+              { key: 'asset',  label: t('tx_col_asset'), render: r => <strong>{r.asset}</strong> },
+              { key: 'amount', label: t('col_amount'), align:'right', render: r => (
                 <span className={r.amount >= 0 ? 't-long' : 't-short'} style={{fontFamily:'var(--font-num)', fontWeight: 500}}>
                   {r.amount >= 0 ? '+' : ''}{r.amount} {r.asset}
                 </span>
               )},
-              { key: 'network', label: 'Network' },
-              { key: 'status',  label: 'Status', render: r => <span className={`status-pill status-pill--${r.status === 'completed' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
-              { key: 'hash',    label: 'TX Hash', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash.slice(0, 12)}…</span> },
+              { key: 'network', label: t('col_network') },
+              { key: 'status',  label: t('col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'completed' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
+              { key: 'hash',    label: t('tx_col_hash'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash.slice(0, 12)}…</span> },
               { key: 'act',     label: '', align:'right', render: () => <button className="tbl-action">{t('col_view')}</button> },
             ]}
             rows={filtered}
@@ -1395,13 +1395,13 @@
         <div className="grid-4">
           {/* 없는 값은 '—'. 0 으로 채우면 미실행과 성과 0 이 구분되지 않는다. */}
           <window.KPICard
-            label={isLive ? t('strat_backtest_ret') : '30d PnL'}
+            label={isLive ? t('strat_backtest_ret') : t('strat_30d_pnl')}
             value={strategy.pnl30 === null ? '—' : (strategy.pnl30 >= 0 ? '+' : '') + Number(strategy.pnl30).toFixed(2) + '%'}
             tone={strategy.pnl30 === null ? undefined : (strategy.pnl30 >= 0 ? 'long' : 'short')}
             sub={isLive && bt && bt.window ? t('strat_bars', { n: bt.window.barCount }) : undefined}
           />
           <window.KPICard
-            label="Win Rate"
+            label={t('kpi_win_rate')}
             value={strategy.winRate === null ? '—' : Number(strategy.winRate).toFixed(1) + '%'}
             sub={isLive && strategy.trades !== null ? t('strat_trades_n', { n: strategy.trades }) : undefined}
             tone="brand"
@@ -1417,7 +1417,7 @@
         <div className="tabs" style={{borderBottom: '1px solid var(--color-border-subtle)', marginBottom: -12}}>
           {[
             { id: 'overview', label: 'Overview' },
-            { id: 'backtest', label: 'Backtest' },
+            { id: 'backtest', label: t('col_backtest') },
             { id: 'trades', label: 'Historical Trades' },
             { id: 'settings', label: 'Settings' },
             { id: 'reviews', label: 'Reviews' },
@@ -1769,7 +1769,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="My Strategies"
+        title={t('my_title')}
         subtitle={t('my_strategies_2247f0')}
         breadcrumb={['Home','AI Strategies','My']}
         actions={<a className="btn btn--sm btn--primary" href="#/ai-strategies">{t('my_strategies_bc178b')}</a>}
@@ -2447,7 +2447,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Fees & Rebates"
+        title={t('fee_page_title')}
         subtitle={t('fee_rebate_4f1ad0')}
         breadcrumb={['Home','Settings','Fees']}
       >
@@ -2485,12 +2485,12 @@
             tone="brand"
           />
           <window.KPICard
-            label="30d Volume"
+            label={t('fee_vol30')}
             value={vol30dText}
             sub={mine ? t('fee_vol_note', { count: mine.fillCount }) : undefined}
           />
           <window.KPICard
-            label="Total Fees (30d)"
+            label={t('fee_total_30d')}
             value={mine
               ? '$' + fmt(mine.fees, 4)
               : ((window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) ? '—' : '$18.42')}
@@ -2548,12 +2548,12 @@
           <window.SectionCard title={t('fee_specs_title')} subtitle={t('fee_specs_sub')} noPadding>
             <window.DataTable
               columns={[
-                { key: 'symbol', label: 'Symbol', render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
-                { key: 'maker', label: 'Maker', align:'right', render: r => pct(r.makerFeeRate) || '—' },
-                { key: 'taker', label: 'Taker', align:'right', render: r => pct(r.takerFeeRate) || '—' },
+                { key: 'symbol', label: t('col_symbol'), render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
+                { key: 'maker', label: t('fee_col_maker'), align:'right', render: r => pct(r.makerFeeRate) || '—' },
+                { key: 'taker', label: t('fee_col_taker'), align:'right', render: r => pct(r.takerFeeRate) || '—' },
                 { key: 'funding', label: t('fee_funding_8h'), align:'right', render: r => pct(r.fundingFeeRate) || '—' },
                 { key: 'mm', label: t('fee_maint_margin'), align:'right', render: r => pct(r.maintenanceMarginRate) || '—' },
-                { key: 'lev', label: 'Max Lev', align:'right', render: r => (r.maxLeverage ? r.maxLeverage + '×' : '—') },
+                { key: 'lev', label: t('ex_col_max_lev'), align:'right', render: r => (r.maxLeverage ? r.maxLeverage + '×' : '—') },
               ]}
               rows={specs}
             />
@@ -2701,10 +2701,10 @@
                 { key:'tier', label:'Tier', render: r => r.tier === 'Pro'
                   ? <strong style={{color:'var(--color-brand)'}}>{r.tier} · CURRENT</strong>
                   : <span>{r.tier}</span> },
-                { key:'maker', label:'Maker', align:'right', render: r => (r.maker*100).toFixed(3) + '%' },
-                { key:'taker', label:'Taker', align:'right', render: r => (r.taker*100).toFixed(3) + '%' },
-                { key:'volReq', label:'30d Volume Req.', align:'right', render: r => '$' + fmtCompact(r.vol30Req) },
-                { key:'holdReq', label:'Token Hold Req.', align:'right', render: r => r.holdReq + ' QT' },
+                { key:'maker', label:t('fee_col_maker'), align:'right', render: r => (r.maker*100).toFixed(3) + '%' },
+                { key:'taker', label:t('fee_col_taker'), align:'right', render: r => (r.taker*100).toFixed(3) + '%' },
+                { key:'volReq', label:t('fee_col_vol_req'), align:'right', render: r => '$' + fmtCompact(r.vol30Req) },
+                { key:'holdReq', label:t('fee_col_hold_req'), align:'right', render: r => r.holdReq + ' QT' },
               ]}
               rows={tiers}
             />
@@ -2912,7 +2912,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Help Center"
+        title={t('help_title')}
         subtitle={t('help_center_42b43b')}
         breadcrumb={['Home','Help']}
       >
@@ -2941,7 +2941,7 @@
             { icon:'User',     title:t('help_center_df04a4'), desc:t('help_center_b92aff'), term: t('help_term_account') },
             { icon:'Wallet',   title:t('help_center_3910ce'),      desc:t('help_center_7901e1'), term: t('help_term_funds') },
             { icon:'Chart',    title:t('help_center_dc20f4'),        desc:t('help_center_eafac1'), term: t('help_term_trading') },
-            { icon:'Sparkles', title:'AI Copilot',  desc:t('help_center_87ad98'), term: t('help_term_ai') },
+            { icon:'Sparkles', title:t('ai_copilot_title'),  desc:t('help_center_87ad98'), term: t('help_term_ai') },
           ].map((c, i) => {
             const Ic = I[c.icon] || I.Grid;
             const active = q === c.term;

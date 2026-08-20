@@ -590,6 +590,146 @@
            already provided.
       */
       mk_all_markets: 'All Markets',
+
+      /*
+         Labels that used to be written directly in JSX (2026-08).
+
+         ★ These never translated. Both i18n checkers reported "0 untranslated"
+           because they compare screen text against this dictionary — a string
+           that was never in the dictionary cannot be detected that way. The
+           Japanese and Chinese screenshots showed them plainly: page titles,
+           column headers, filter tabs, KPI card labels.
+
+         ★ Filter tabs are keyed by id in code (`tab === 'Favorites'`), so only
+           the visible label moves here. The ids stay English on purpose —
+           translating them would break the comparisons.
+      */
+      mk_view_table: 'Table',
+      mk_heatmap: 'Heatmap',
+      mk_col_chg: '24h Change',
+      mk_col_range: '24h Range',
+      mk_f_all: 'All',
+      mk_f_favorites: 'Favorites',
+      mk_f_gainers: 'Gainers',
+      mk_f_losers: 'Losers',
+      mk_f_new: 'New',
+
+      strat_page_sub: 'AI-driven trading strategies · Backtest · Follow · Deploy — all with simulated execution',
+      strat_gallery: 'Strategy Gallery',
+      my_title: 'My Strategies',
+      strat_30d_pnl: '30d PnL',
+
+      pf_page_sub: 'Assets · Equity curve · Allocation · Open positions',
+      pf_total_equity: 'Total Equity',
+      pf_unrealized: 'Unrealized PnL',
+      pf_allocation: 'Allocation',
+
+      an_page_sub: 'Trade journal · Performance · Behavioral patterns',
+      an_avg_win_loss: 'Avg Win / Loss',
+      an_best_trade: 'Best Trade',
+      an_journal: 'Trade Journal',
+      an_col_mood: 'Mood',
+      an_col_tags: 'Tags',
+
+      nt_inbox: 'Inbox',
+      nt_f_all: 'All',
+      nt_f_unread: 'Unread',
+      nt_f_signals: 'Signals',
+      nt_f_orders: 'Orders',
+      nt_f_notices: 'Notices',
+
+      oh_total_orders: 'Total Orders',
+      oh_fill_rate: 'Fill Rate',
+      oh_avg_slippage: 'Avg Slippage',
+      oh_total_fees: 'Total Fees',
+
+      wal_connect_api: 'Connect API',
+
+      tx_title: 'Transaction History',
+      tx_f_all: 'All',
+      tx_f_deposit: 'Deposit',
+      tx_f_withdraw: 'Withdraw',
+      tx_f_transfer: 'Transfer',
+      tx_f_trade: 'Trade',
+      tx_f_fee: 'Fee',
+      tx_f_rebate: 'Rebate',
+      tx_col_time: 'Time',
+      tx_col_type: 'Type',
+      tx_col_asset: 'Asset',
+      tx_col_hash: 'TX Hash',
+
+      fee_vol30: '30d Volume',
+      fee_total_30d: 'Total Fees (30d)',
+      fee_col_maker: 'Maker',
+      fee_col_taker: 'Taker',
+      fee_col_vol_req: '30d Volume Req.',
+      fee_col_hold_req: 'Token Hold Req.',
+      ex_col_max_lev: 'Max Lev',
+
+      help_title: 'Help Center',
+
+      ob_spread: 'Spread',
+      oe_reduce_only: 'Reduce Only',
+      oe_post_only: 'Post Only',
+      pos_col_pnl_roe: 'PnL (ROE)',
+
+      wl_tab_favorites: 'Favorites',
+      wl_tab_movers: 'Movers',
+      wl_tab_new: 'New',
+
+      ai_signal_layers: 'Signal Layers',
+      ai_layer_draft: 'AI Draft',
+      ai_layer_approved: 'AI Approved',
+      ai_layer_mine: 'My Drawings',
+      ai_layer_orders: 'Orders',
+      ai_layer_positions: 'Positions',
+
+      tbl_no_data: 'No data',
+
+      /*
+         Shared table column labels (2026-08).
+
+         ★ These were written as `label: 'Side'` inside column definitions, so
+           they never went through the dictionary. They repeat across positions,
+           orders, journal and market tables, so one key each is enough.
+      */
+      col_symbol: 'Symbol',
+      col_side: 'Side',
+      col_size: 'Size',
+      col_entry: 'Entry',
+      col_mark: 'Mark',
+      col_liq_price: 'Liq. Price',
+      col_margin: 'Margin',
+      col_pnl: 'PnL',
+      col_price: 'Price',
+      col_pair: 'Pair',
+      col_vol24: '24h Volume',
+      col_date: 'Date',
+      col_type: 'Type',
+      col_fee: 'Fee',
+      col_filled: 'Filled',
+      col_status: 'Status',
+      col_network: 'Network',
+      col_amount: 'Amount',
+      col_exit: 'Exit',
+      col_trend: 'Trend',
+      col_backtest: 'Backtest',
+      ob_cum: 'Cum',
+      nt_f_risk: 'Risk',
+      ai_copilot_title: 'AI Copilot',
+      ai_analyst_mode: 'Analyst Mode',
+      ai_mentor_mode: 'Mentor Mode',
+      ai_analyst: 'Analyst',
+      ai_mentor: 'Mentor',
+      ai_you: 'You',
+      ex_status_available: 'AVAILABLE',
+      ex_status_beta: 'BETA',
+      'ex_status_coming-soon': 'SOON',
+      kpi_win_rate: 'Win Rate',
+      kpi_margin_ratio: 'Margin Ratio',
+      pf_alloc_title: 'Allocation',
+      fee_page_title: 'Fees & Rebates',
+      set_api_keys: 'API Keys',
       nav_home: 'Home',
       nav_admin: 'Admin',
       withdraw: 'Withdraw',

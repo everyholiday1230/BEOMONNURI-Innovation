@@ -1023,7 +1023,6 @@
       mc_no_candles: '{symbol} 暂时没有 K 线数据。',
       mc_backend_absent: '未连接到服务器，因此无法显示 K 线。',
       market_not_listed: '该交易所未上线此交易对',
-
       ai_copilot: 'AI 副驾驶',
       ai_collapse: '收起副驾驶',
       ai_expand: '展开副驾驶',
@@ -1080,6 +1079,137 @@
 
       /* 面包屑各级（page-shell.jsx 的 CRUMB_KEYS 引用） */
       mk_all_markets: '全部交易对',
+
+      /*
+         此前直接写在 JSX 里、因此从未被翻译的标签（2026-08 补充）
+
+         ★ 检查工具报告「未翻译 0 处」。那种判定是把屏幕文字与本词典的值比对，
+           **词典里本来就没有的字符串，原理上检测不到。** 日文和中文截图里，
+           页面标题、表头、筛选标签、KPI 标签都还是英文。
+
+         ★ 筛选标签在代码里作为 id 比较（`tab === 'Favorites'`），
+           所以只把显示用的标签移到这里，id 保持英文 — 翻译 id 会破坏比较。
+      */
+      mk_view_table: '列表',
+      mk_heatmap: '热力图',
+      mk_col_chg: '24 小时涨跌',
+      mk_col_range: '24 小时区间',
+      mk_f_all: '全部',
+      mk_f_favorites: '自选',
+      mk_f_gainers: '上涨',
+      mk_f_losers: '下跌',
+      mk_f_new: '新上线',
+
+      strat_page_sub: 'AI 驱动的交易策略 · 回测 · 关注 · 部署 — 执行全部为模拟',
+      strat_gallery: '策略库',
+      my_title: '我的策略',
+      strat_30d_pnl: '30 日盈亏',
+
+      pf_page_sub: '资产 · 净值曲线 · 配置 · 当前持仓',
+      pf_total_equity: '账户净值',
+      pf_unrealized: '未实现盈亏',
+      pf_allocation: '资产配置',
+
+      an_page_sub: '交易日志 · 绩效 · 行为模式',
+      an_avg_win_loss: '平均盈利 / 亏损',
+      an_best_trade: '最佳交易',
+      an_journal: '交易日志',
+      an_col_mood: '心态',
+      an_col_tags: '标签',
+
+      nt_inbox: '收件箱',
+      nt_f_all: '全部',
+      nt_f_unread: '未读',
+      nt_f_signals: '信号',
+      nt_f_orders: '委托',
+      nt_f_notices: '公告',
+
+      oh_total_orders: '委托总数',
+      oh_fill_rate: '成交率',
+      oh_avg_slippage: '平均滑点',
+      oh_total_fees: '手续费合计',
+
+      wal_connect_api: '连接 API',
+
+      tx_title: '出入金记录',
+      tx_f_all: '全部',
+      tx_f_deposit: '充值',
+      tx_f_withdraw: '提现',
+      tx_f_transfer: '划转',
+      tx_f_trade: '交易',
+      tx_f_fee: '手续费',
+      tx_f_rebate: '返佣',
+      tx_col_time: '时间',
+      tx_col_type: '类型',
+      tx_col_asset: '币种',
+      tx_col_hash: '交易哈希',
+
+      fee_vol30: '30 日成交额',
+      fee_total_30d: '手续费合计（30 日）',
+      fee_col_maker: '挂单方',
+      fee_col_taker: '吃单方',
+      fee_col_vol_req: '30 日成交额要求',
+      fee_col_hold_req: '代币持有要求',
+      ex_col_max_lev: '最高杠杆',
+
+      help_title: '帮助中心',
+
+      ob_spread: '价差',
+      oe_reduce_only: '只减仓',
+      oe_post_only: '只做挂单',
+      pos_col_pnl_roe: '盈亏（ROE）',
+
+      wl_tab_favorites: '自选',
+      wl_tab_movers: '异动',
+      wl_tab_new: '新上线',
+
+      ai_signal_layers: '信号图层',
+      ai_layer_draft: 'AI 草稿',
+      ai_layer_approved: 'AI 已确认',
+      ai_layer_mine: '我的绘图',
+      ai_layer_orders: '委托',
+      ai_layer_positions: '持仓',
+
+      tbl_no_data: '暂无数据',
+
+      /* 表格通用表头（2026-08 补充）— 之前直接写在列定义里，未走词典 */
+      col_symbol: '交易对',
+      col_side: '方向',
+      col_size: '数量',
+      col_entry: '开仓价',
+      col_mark: '标记价',
+      col_liq_price: '强平价',
+      col_margin: '保证金',
+      col_pnl: '盈亏',
+      col_price: '价格',
+      col_pair: '交易对',
+      col_vol24: '24 小时成交额',
+      col_date: '日期',
+      col_type: '类型',
+      col_fee: '手续费',
+      col_filled: '已成交',
+      col_status: '状态',
+      col_network: '网络',
+      col_amount: '金额',
+      col_exit: '平仓价',
+      col_trend: '走势',
+      col_backtest: '回测',
+      ob_cum: '累计',
+      nt_f_risk: '风险',
+      ai_copilot_title: 'AI 副驾驶',
+      ai_analyst_mode: '分析师模式',
+      ai_mentor_mode: '导师模式',
+      ai_analyst: '分析师',
+      ai_mentor: '导师',
+      ai_you: '你',
+      ex_status_available: '可用',
+      ex_status_beta: '测试版',
+      'ex_status_coming-soon': '即将上线',
+      kpi_win_rate: '胜率',
+      kpi_margin_ratio: '保证金率',
+      pf_alloc_title: '资产配置',
+      fee_page_title: '费率与返佣',
+      set_api_keys: 'API 密钥',
       nav_home: '首页',
       nav_admin: '管理',
       withdraw: '提现',
@@ -1089,6 +1219,70 @@
       nav_cs_tickets: '客服工单',
       crumb_new: '新建',
       crumb_my: '我的',
+
+      /* ------------------------------------------------------------
+         出入金・账本・我的策略（2026-08 补充）
+
+         ★ 这组页面说明的正是「我们不保管资金」这一结构。译得轻了，
+           用户可能以为「往这里充值」——那是会丢钱的误解，
+           所以原文的力度要保留。
+
+         ★ 不索取提现权限的理由（withdraw_noncustodial_2）是安全上的核心，
+           不做压缩，完整翻译。
+         ------------------------------------------------------------ */
+      dep_net_a: '⚠ 只能通过 ',
+      dep_net_b: ' 网络充值。使用其他网络转账可能导致资金永久丢失。',
+      wd_2fa_a: '提现在完成以下验证后进入审核队列：',
+      wd_2fa_em: '两步验证',
+      wd_2fa_b: '。大额提现可能需要运营人员审批。',
+      dep_confirm_count: '{n} 次确认',
+      wd_address_placeholder: '请输入 {network} 地址',
+      tx_kind: '类型',
+      tx_kind_realized_pnl: '已实现盈亏',
+      tx_kind_funding_fee: '资金费',
+      tx_kind_commission_fee: '交易手续费',
+      tx_kind_unknown: '其他',
+      deposit_at_exchange: '请充值到您自己的交易所账户。我们从不保管您的资金。',
+      deposit_noncustodial_title: '我们从不保管您的资金',
+      deposit_noncustodial_1: '本平台没有充值地址。您充值到自己的交易所账户，我们通过您连接的 API 密钥进行交易。',
+      deposit_noncustodial_2: '不要向交易工具显示的地址转账。地址必须从交易所本身复制。',
+      deposit_step_1: '登录您的交易所账户。',
+      deposit_step_2: '打开充值页面，选择 {network} 网络上的 {asset}，复制交易所给出的地址。',
+      deposit_step_3: '到账后余额会自动显示在这里 — 我们这边无需任何操作。',
+      deposit_create_account: '开通交易所账户',
+      deposit_connect_keys: '连接 API 密钥',
+      withdraw_noncustodial_title: '提现在您的交易所完成',
+      withdraw_noncustodial_1: '我们从不保管您的资金，因此也无法转移。请登录交易所账户并从那里提现。',
+      withdraw_noncustodial_2: '我们索取的 API 密钥有意排除了提现权限。带提现权限的密钥一旦泄露，资金就追不回来 — 只保留读取和交易权限，最坏的情况也只限于交易亏损。',
+      withdraw_at_exchange_hint: '请从您的交易所账户提现',
+      withdraw_addressbook_na: '已保存的提现地址在您的交易所账户中，不在这里。',
+      my_following_sub: '仅关注 — 不会下单',
+      my_autocopy: '自动跟单',
+      my_autocopy_off: '暂不可用',
+      my_combined_pnl: '合计盈亏',
+      my_combined_pnl_sub: '关注不等于交易 — 实际盈亏请查看「分析」',
+      my_combined_win: '合计胜率',
+      my_col_strategy: '策略',
+      my_col_basis: '基准',
+      my_col_since: '关注起始',
+      my_col_open: '持仓中',
+      my_col_unfollow: '取消关注',
+      help_term_account: '注册',
+      help_term_funds: '提现',
+      help_term_trading: 'API 密钥',
+      help_term_ai: 'AI',
+      tx_in: '转入合计',
+      tx_out: '转出合计',
+      tx_fees: '已付手续费',
+      tx_fees_sub: '账本中记录的交易手续费与资金费',
+      tx_realized: '已实现盈亏',
+      tx_realized_sub: '交易所记录的已平仓交易结果',
+      tx_ledger_src: '来自交易所账本',
+      dep_balance_src: '交易所的可用余额',
+      dep_balance_unknown: '连接交易所密钥后可查看余额。您的资金留在交易所，我们不会保管。',
+      dep_history_none: '在您的交易所账本中未找到充值记录。',
+      dep_history_need_key: '连接交易所密钥后可读取充值记录。充值在交易所完成，不在这里。',
+      tx_need_key: '连接交易所密钥后可读取账本',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

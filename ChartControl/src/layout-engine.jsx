@@ -47,7 +47,7 @@
     orderEntry:   { minW: 3, minH: 8,  name: 'Order Entry' },
     positions:    { minW: 8, minH: 3,  name: 'Positions & Orders' },
     assetsRisk:   { minW: 3, minH: 3,  name: 'Assets · Risk' },
-    aiCopilot:    { minW: 5, minH: 10, name: 'AI Copilot' },
+    aiCopilot:    { minW: 5, minH: 10, name: t('ai_copilot_title') },
     miniChart:    { minW: 4, minH: 6,  name: 'Mini Chart' },
   };
 
