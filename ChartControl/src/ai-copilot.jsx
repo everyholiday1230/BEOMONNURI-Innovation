@@ -547,16 +547,30 @@
 
     // ---- UI ----
     return (
-      <div className="panel" style={{height:'100%'}}>
+      <div className={`panel ${collapsed ? 'qt-ai-collapsed' : ''}`} style={{height:'100%'}}>
         <div className="ai-header">
-          <div className="panel__title" style={{gap: 10}}>
-            <span className="dot dot--ai"/>
-            <span>{t('ai_copilot')}</span>
-            <span className="ai-persona">
-              <I.Sparkles size={10}/>
-              {isBeginner ? 'Mentor Mode' : 'Analyst Mode'}
-            </span>
-          </div>
+          {/*
+             ★★ 접힌 상태에서는 제목을 그리지 않는다.
+
+               접힌 띠는 2칸(약 109px)이다. 그런데 제목(점 + "AI Copilot" +
+               "Analyst Mode")이 150px 를 차지해서, 그 뒤에 오는 펼치기 버튼이
+               패널 밖(x=1203, 패널은 1028~1137)으로 밀려났다. 패널은
+               `overflow: hidden` 이므로 **버튼이 잘려서 보이지 않았다** —
+               접은 뒤 다시 펼칠 방법이 화면에 없었다(실측으로 확인).
+
+             ★ 접혔을 때는 버튼만 남긴다. 무엇인지는 버튼의 title 이 말한다
+               ("Expand the copilot").
+          */}
+          {!collapsed && (
+            <div className="panel__title" style={{gap: 10}}>
+              <span className="dot dot--ai"/>
+              <span>{t('ai_copilot')}</span>
+              <span className="ai-persona">
+                <I.Sparkles size={10}/>
+                {isBeginner ? 'Mentor Mode' : 'Analyst Mode'}
+              </span>
+            </div>
+          )}
           <div className="panel__actions">
             {/*
                ★ 원래 이 두 버튼은 onClick 이 없어 눌러도 아무 일이 없었다.
@@ -570,20 +584,31 @@
             >
               {collapsed ? <I.Down size={14}/> : <I.Up size={14}/>}
             </button>
-            <button
-              className="btn btn--icon"
-              title={t('ai_clear_chat')}
-              onClick={() => {
-                /* 대화만 비운다. 컨텍스트(심볼·타임프레임) 안내는 남겨야
-                   지금 무엇을 보고 있는지 알 수 있다. */
-                setMsgs([makeMsg('system', t('ai_ctx_loaded'), { icon: 'ok' })]);
-                setThinking(null);
-                setStreaming(null);
-              }}
-            >
-              <I.More size={14}/>
-            </button>
+            {/*
+               ★ 접힌 띠에는 펼치기 버튼만 남긴다. 좁은 폭에 버튼 두 개를 넣으면
+                 둘 다 잘리거나, 펼치려다 대화를 지운다.
+            */}
+            {!collapsed && (
+              <button
+                className="btn btn--icon"
+                title={t('ai_clear_chat')}
+                onClick={() => {
+                  /* 대화만 비운다. 컨텍스트(심볼·타임프레임) 안내는 남겨야
+                     지금 무엇을 보고 있는지 알 수 있다. */
+                  setMsgs([makeMsg('system', t('ai_ctx_loaded'), { icon: 'ok' })]);
+                  setThinking(null);
+                  setStreaming(null);
+                }}
+              >
+                <I.More size={14}/>
+              </button>
+            )}
           </div>
+          {/*
+             ★ 띠가 무엇인지 알려준다. 버튼만 있으면 무엇을 펼치는 것인지 모른다.
+               세로쓰기로 좁은 폭에 들어간다(pending.css).
+          */}
+          {collapsed && <span className="ai-collapsed-label">{t('ai_copilot')}</span>}
         </div>
 
         {/*

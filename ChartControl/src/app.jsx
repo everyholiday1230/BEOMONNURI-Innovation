@@ -184,7 +184,14 @@
       setToasts(t => [...t, { id, ...toast }]);
       setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), toast.duration || 4200);
     }, []);
-    return [toasts, push];
+    /*
+       ★ 개별 안내를 지우는 함수. 행동 버튼(예: "되살리기")을 누르면 그 안내는
+         할 일이 끝났으므로 즉시 사라져야 한다 — 남아 있으면 또 눌린다.
+    */
+    const dismiss = useCallback((id) => {
+      setToasts(t => t.filter(x => x.id !== id));
+    }, []);
+    return [toasts, push, dismiss];
   }
 
   // ============================================================
@@ -282,7 +289,7 @@
     const navPrefs = window.QTNav && window.QTNav.useNav
       ? window.QTNav.useNav()
       : { collapsed: true, pinned: [], isPinned: () => false, toggleCollapsed: () => {}, togglePin: () => {} };
-    const [toasts, pushToast] = useToasts();
+    const [toasts, pushToast, dismissToast] = useToasts();
 
     /*
        토스트를 전역에 노출한다.
@@ -1628,6 +1635,14 @@
                 onMaximize={() => pushToast({ title: 'Maximize Widget', desc: '(spec-only — future implementation)', variant: 'info' })}
                 label={widgetLabel(w.type, t)}
                 allWidgets={engine.layout.widgets}
+                /*
+                   ★ 마지막으로 만진 창을 맨 위로. 드래그를 놓은 뒤에도 위에 남는다.
+                     쌓임 순서는 보는 방식이라 배치(layout)에 저장하지 않는다.
+                */
+                raisedOrder={(engine.raised && engine.raised[w.id]) || 0}
+                onRaise={engine.raiseWidget}
+                /* 닫기 안내의 '되살리기' 가 이것을 부른다. */
+                onOpenLibrary={() => engine.setLibraryOpen(true)}
                 onChange={(patch) => engine.updateWidget(w.id, patch)}
               >
                 <WidgetContent
@@ -1671,8 +1686,17 @@
         </main>
         )}
 
-        {/* Hidden Widget Library drawer (only in edit mode) */}
-        {engine.isEditing && engine.libraryOpen && (
+        {/*
+           숨긴 위젯 라이브러리.
+
+           ★★ 전에는 `isEditing && libraryOpen` 이었다. 창을 닫은 뒤 되살리려면
+             (1) Layout 을 눌러 편집 모드에 들어가고 (2) 라이브러리를 또 열어야
+             했다. 두 단계를 모르면 닫은 창을 영원히 못 찾는다.
+
+           ★ libraryOpen 만으로도 열리게 한다. 라이브러리 안에서 '＋ ADD' 를
+             누르면 위젯이 돌아오므로 편집 모드일 필요가 없다.
+        */}
+        {engine.libraryOpen && (
           <window.WidgetLibrary engine={engine} onClose={() => engine.setLibraryOpen(false)}/>
         )}
 
@@ -1682,6 +1706,25 @@
             <div key={t.id} className={`toast toast--${t.variant || 'info'}`}>
               <div className="toast__title">{t.title}</div>
               {t.desc && <div className="toast__desc">{t.desc}</div>}
+              {/*
+                 ★★ 안내에 행동 버튼을 붙일 수 있게 한다.
+
+                   전에는 title·desc 만 그렸다. 그래서 `action` 을 넘겨도 조용히
+                   무시됐다 — 부르는 쪽은 버튼이 나온다고 믿는데 화면엔 없다.
+                   "창을 닫았습니다 → 되살리기" 처럼 다음 행동이 분명한 안내에
+                   필요하다.
+              */}
+              {t.action && t.action.label && (
+                <button
+                  className="toast__action"
+                  onClick={() => {
+                    try { t.action.onClick && t.action.onClick(); } catch (e) { /* 안내가 화면을 죽이지 않는다 */ }
+                    dismissToast(t.id);
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </div>
           ))}
         </div>

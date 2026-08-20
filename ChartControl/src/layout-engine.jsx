@@ -130,6 +130,23 @@
       });
     }, []);
 
+    /*
+       마지막으로 만진 창 순서.
+
+       ★ 배치(layout)에 저장하지 않는다. 쌓임 순서는 **보는 방식**이고, 저장하면
+         레이아웃 프리셋이 세션마다 달라진다(누적 규칙: 접기와 같은 원칙).
+    */
+    const [raised, setRaised] = useState({});
+    const raiseWidget = useCallback((id) => {
+      if (!id) return;
+      setRaised((prev) => {
+        /* 이미 맨 위면 다시 쓰지 않는다 — 불필요한 렌더를 만든다. */
+        const max = Object.values(prev).reduce((m, v) => (v > m ? v : m), 0);
+        if (prev[id] === max && max > 0) return prev;
+        return { ...prev, [id]: max + 1 };
+      });
+    }, []);
+
     const hideWidget = useCallback((id) => {
       setLayout(prev => {
         const nextWidgets = prev.widgets.map(w => w.id === id ? { ...w, hidden: true } : w);
@@ -211,6 +228,8 @@
       setIsEditing, setIsLocked, setSelectedId, setGhost, setLibraryOpen,
       updateWidget, hideWidget, showWidget, duplicateWidget,
       toggleLock, removeWidget, addWidget,
+      /* 마지막으로 만진 창을 맨 위로 올린다. 화면이 드래그 시작 때 부른다. */
+      raiseWidget, raised,
       commit, undo, redo, save, reset, applyPreset,
     };
   };
@@ -223,22 +242,60 @@
     isEditing, isLocked, isSelected, onChange,
     onSelect, onHide, onDuplicate, onLock, onSettings, onMaximize,
     children, trackRef, label, allWidgets,
+    /*
+       마지막으로 만진 순서. 0 이면 아직 만지지 않았다(기본 쌓임 유지).
+       클 수록 위에 온다 — 엔진이 관리한다(raiseWidget).
+    */
+    raisedOrder = 0,
+    /** 이 창을 맨 위로 올려 달라고 알린다. */
+    onRaise,
+    /** 숨긴 위젯 라이브러리를 열어 달라고 알린다(닫기 안내의 되살리기 버튼). */
+    onOpenLibrary,
   }) {
     const rootRef = useRef(null);
     const [drag, setDrag] = useState(null);
     const [resize, setResize] = useState(null);
 
-    if (widget.hidden) return null;
+    /*
+       ★★ 여기서 조기 반환하면 안 된다 (React 훅 규칙).
+
+         `if (widget.hidden) return null;` 이 이 위치에 있었다. 이 아래에 훅
+         (useCallback 등)이 더 있으므로, 숨긴 순간 그 렌더는 훅을 **덜 호출**한다.
+         React 가 "Rendered fewer hooks than expected" 로 던지고 **화면 전체가
+         죽는다** — 실측: 호가창 닫기 버튼을 누르자 위젯 8개가 0개가 됐다.
+
+       ★ 그래서 판정만 미리 해 두고, 반환은 훅을 모두 부른 뒤 JSX 자리에서 한다.
+    */
+    const isHidden = Boolean(widget.hidden);
 
     const style = {
       gridColumn: `${widget.x + 1} / span ${widget.w}`,
       gridRow: `${widget.y + 1} / span ${widget.h}`,
+      /*
+         ★★ 마지막으로 만진 창이 맨 위에 남는다.
+
+           전에는 드래그하는 동안만 z-index 30 이었고, 놓으면 원래대로 돌아갔다.
+           그래서 겹치도록 배치하면 방금 올린 창이 다시 아래로 깔렸다.
+
+         ★ 왜 `raisedAt` 인가 — 단순히 "선택된 것 하나만 올리기" 로 하면, 창을
+           세 개 겹쳤을 때 두 번째로 만진 창이 세 번째 아래로 들어간다. 만진
+           순서를 기억해야 쌓임이 사람의 기대와 맞는다.
+
+         기준값 5 위에 순서를 얹는다. 드래그(20~30)보다는 낮게 둬서 드래그 중인
+         창이 항상 최상단에 보이게 한다.
+      */
+      zIndex: raisedOrder > 0 ? 5 + Math.min(raisedOrder, 12) : undefined,
     };
 
     // ---- Drag handler ----
     const onDragStart = useCallback((e) => {
       if (!isEditing || isLocked || widget.locked) return;
       onSelect && onSelect(widget.id);
+      /*
+         ★ 드래그를 시작하는 순간 맨 위로 올린다. 놓은 뒤에도 위에 남는다 —
+           겹치게 배치했을 때 방금 올린 창이 다시 깔리면 올린 의미가 없다.
+      */
+      onRaise && onRaise(widget.id);
       const rect = trackRef.current.getBoundingClientRect();
       const cellW = (rect.width - (cols - 1) * gap) / cols;
       const cellH = rowH;
@@ -318,6 +375,9 @@
     const showResize = isEditing && !isLocked && !widget.locked;
     const showControls = isEditing && (isSelected || false);
 
+    /* ★ 훅을 모두 부른 뒤에 숨김을 처리한다(위 isHidden 주석 참조). */
+    if (isHidden) return null;
+
     return (
       <div
         ref={rootRef}
@@ -347,6 +407,47 @@
             <span className="type">{label}</span>
             <span> · {widget.w}×{widget.h} · ({widget.x},{widget.y})</span>
           </div>
+        )}
+
+        {/*
+           ★★ 편집 모드가 아니어도 닫을 수 있게 한다.
+
+             전에는 닫기 버튼이 편집 모드(Layout 버튼)에서만 나왔다. 창 하나를
+             치우려고 편집 모드에 들어갔다 나오는 것은 번거롭다 — 특히 코파일럿·
+             호가창처럼 자주 켜고 끄는 것이 있다.
+
+           ★ 다시 켜는 곳은 편집 모드의 위젯 라이브러리다. 그래서 닫을 때
+             어디서 되살리는지 알려준다(안내 없으면 닫고 못 찾는다).
+
+           ★ 편집 모드에서는 아래 컨트롤 묶음에 닫기가 이미 있으므로 겹치지 않게
+             편집 중에는 그리지 않는다.
+        */}
+        {!isEditing && onHide && (
+          <button
+            className="qt-widget-close"
+            title={t('lay_hide_hint')}
+            aria-label={t('lay_hide')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onHide(widget.id);
+              if (window.QTToast) {
+                window.QTToast({
+                  title: t('lay_hidden_toast'),
+                  desc: t('lay_hidden_toast_desc'),
+                  variant: 'info',
+                  /*
+                     ★ 안내에서 바로 되살릴 수 있게 한다. 문구만 주면 "어디서
+                       되살리나" 를 찾아야 하고, 그 사이 안내가 사라진다.
+                  */
+                  action: onOpenLibrary
+                    ? { label: t('lay_reopen'), onClick: onOpenLibrary }
+                    : undefined,
+                });
+              }
+            }}
+          >
+            <I.X size={11}/>
+          </button>
         )}
 
         {/* Widget controls popover (top-right) */}
@@ -458,10 +559,26 @@
             hidden.map(w => {
               const Icon = iconMap[w.type] || I.Grid;
               return (
-                <div key={w.id} className="widget-library__item">
+                /*
+                   ★★ 행 전체를 누를 수 있게 한다.
+
+                     숨긴 항목은 `＋ ADD` **버튼에만** 클릭이 걸려 있었고, 아래
+                     "추가" 목록은 **행 전체**에 걸려 있었다. 두 목록이 나란히
+                     있는데 동작이 달라서, 행을 눌러도 아무 일이 없는 줄 알았다
+                     (실측: 행 클릭 → 위젯 그대로 7개).
+                */
+                <div
+                  key={w.id}
+                  className="widget-library__item"
+                  onClick={() => engine.showWidget(w.id)}
+                >
                   <div className="widget-library__item__icon"><Icon size={12}/></div>
                   <div className="widget-library__item__name">{w.type}<span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 6, fontSize:10}}>{w.w}×{w.h}</span></div>
-                  <button className="widget-library__item__add" onClick={() => engine.showWidget(w.id)}>＋ ADD</button>
+                  {/* 행에도 클릭이 있으므로 이중 실행을 막는다. */}
+                  <button
+                    className="widget-library__item__add"
+                    onClick={(e) => { e.stopPropagation(); engine.showWidget(w.id); }}
+                  >＋ ADD</button>
                 </div>
               );
             })
