@@ -22,6 +22,26 @@
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
   const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+
+  /*
+     서버가 돌려주는 고정 문구(note)를 사람이 읽는 말로 바꾼다.
+
+     ★ 왜 매핑인가 — note 는 API 응답 필드에 담긴 **영어 상수**다. 그대로 붙이면
+       번역된 문장 옆에 영어가 남는다(중국어·일본어 화면에서 실측됨). 아는 문구는
+       사전으로 바꾸고, 모르는 문구는 그대로 보여준다 — 서버가 문구를 바꿨을 때
+       정보를 잃는 것보다 영어로라도 보이는 편이 낫다.
+  */
+  const SERVER_NOTE_KEYS = {
+    'read-only; no admin order submission, modification or cancellation': 'adm_note_trades_readonly',
+    'read-only; no close, leverage or margin-mode change': 'adm_note_risk_readonly',
+    'read-only; prompt/response text is never returned': 'adm_note_aiops_readonly',
+  };
+  const serverNote = (note) => {
+    const s = String(note || '').trim();
+    if (!s) return '';
+    const key = SERVER_NOTE_KEYS[s];
+    return key ? t(key) : s;
+  };
   const I = window.Icons;
   const { fmt, fmtCompact } = window.QTFmt;
 
@@ -135,7 +155,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Admin Dashboard"
+        title={t('admin_dashboard_title')}
         subtitle={t('admin_dashboard_0ccafd')}
         breadcrumb={['Home','Admin']}
         badge={badge}
@@ -252,7 +272,7 @@
             */
             <>
               <window.KPICard label="AI Signals · Today" value={ai.signalsToday.toLocaleString()} sub={`Approve ${(ai.approveRate*100).toFixed(0)}% · Hit 7d ${(ai.hitRate7d*100).toFixed(0)}%`} icon="Sparkles" tone="ai"/>
-              <window.KPICard label="System Health" value={system.filter(s => s.status === 'ok').length + '/' + system.length + ' OK'} sub={system.find(s => s.status !== 'ok')?.name || 'All systems nominal'} icon="Wifi" tone={system.some(s => s.status !== 'ok') ? 'warning' : 'success'}/>
+              <window.KPICard label={t('admin_system_title')} value={system.filter(s => s.status === 'ok').length + '/' + system.length + ' OK'} sub={system.find(s => s.status !== 'ok')?.name || 'All systems nominal'} icon="Wifi" tone={system.some(s => s.status !== 'ok') ? 'warning' : 'success'}/>
               <window.KPICard label="Open CS Tickets" value={window.QTApp.CS_TICKETS.filter(c => c.status !== 'resolved').length} sub={`${window.QTApp.CS_TICKETS.filter(c => c.priority === 'high').length} high priority`} icon="Bell" tone="brand"/>
               <window.KPICard label="Fee Revenue · 30d" value="$142,820" delta={+12.4} deltaLabel="vs prev 30d" icon="Wallet" tone="brand"/>
             </>
@@ -298,14 +318,14 @@
           >
             <window.DataTable
               columns={[
-                { key: 'time', label: 'Time', width: 60, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{Math.floor((Date.now()-r.time)/1000)}s</span> },
-                { key: 'user', label: 'User', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.userId}</span> },
-                { key: 'sym',  label: 'Symbol', render: r => <strong>{r.sym}</strong> },
-                { key: 'side', label: 'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲':'▼'}</span>},
-                { key: 'size', label: 'Size', align:'right', render: r => fmt(r.size, 3) },
-                { key: 'price',label: 'Price', align:'right', render: r => fmt(r.price, 1) },
-                { key: 'not',  label: 'Notional', align:'right', render: r => '$' + fmtCompact(r.notional) },
-                { key: 'tag',  label: 'Flag', render: r => {
+                { key: 'time', label: t('adm_col_time'), width: 60, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{Math.floor((Date.now()-r.time)/1000)}s</span> },
+                { key: 'user', label: t('adm_col_user'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.userId}</span> },
+                { key: 'sym',  label: t('adm_col_symbol'), render: r => <strong>{r.sym}</strong> },
+                { key: 'side', label: t('adm_col_side'), render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲':'▼'}</span>},
+                { key: 'size', label: t('adm_col_size'), align:'right', render: r => fmt(r.size, 3) },
+                { key: 'price',label: t('adm_col_price'), align:'right', render: r => fmt(r.price, 1) },
+                { key: 'not',  label: t('adm_col_notional'), align:'right', render: r => '$' + fmtCompact(r.notional) },
+                { key: 'tag',  label: t('adm_col_flag'), render: r => {
                   if (r.tag === 'ok') return <span style={{color:'var(--color-text-tertiary)', fontSize:11}}>·</span>;
                   const cls = { large: 'warn', suspicious: 'danger', flagged: 'danger', vip: 'ok' }[r.tag] || 'neutral';
                   return <span className={`status-pill status-pill--${cls}`}>{r.tag.toUpperCase()}</span>;
@@ -432,7 +452,7 @@
           <window.DataTable
             columns={[
               { key: 'name',   label: 'Service', render: r => <strong>{r.name}</strong> },
-              { key: 'status', label: 'Status', render: r => <span className={`status-pill status-pill--${r.status === 'ok' ? 'ok' : r.status === 'degraded' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
+              { key: 'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'ok' ? 'ok' : r.status === 'degraded' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
               { key: 'latency', label: 'Latency', align:'right', render: r => typeof r.latency === 'number' ? r.latency + 'ms' : r.latency },
               { key: 'uptime',  label: 'Uptime', align:'right', render: r => r.uptime.toFixed(3) + '%' },
               { key: 'note',    label: 'Note', render: r => <span style={{color:'var(--color-text-tertiary)', fontSize:11}}>{r.note || ''}</span> },
@@ -876,7 +896,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="User Management"
+        title={t('admin_users_title')}
         subtitle={t('admin_users_subtitle', { n: users.length })}
         breadcrumb={['Home','Admin','Users']}
         actions={
@@ -908,7 +928,7 @@
             )}
             {/* 초대 기능은 서버 API 가 없다 — 누를 수 있는 것처럼 두지 않는다. */}
             <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
-              <I.Plus size={13}/> Invite User
+              <I.Plus size={13}/> {t('adm_invite_user')}
               <span className="qt-pending-mark">{t('sec_pending')}</span>
             </button>
           </>
@@ -959,10 +979,10 @@
         )}
 
         <div className="grid-4">
-          <window.KPICard label="Total"      value={users.length}/>
-          <window.KPICard label="Active"     value={users.filter(u => u.status === 'active').length} tone="long"/>
-          <window.KPICard label="Pending KYC" value={users.filter(u => u.status === 'pending').length} tone="warning"/>
-          <window.KPICard label="Suspended / Restricted" value={users.filter(u => u.status === 'suspended' || u.status === 'restricted').length} tone="danger"/>
+          <window.KPICard label={t('adm_kpi_total')}      value={users.length}/>
+          <window.KPICard label={t('adm_kpi_active')}     value={users.filter(u => u.status === 'active').length} tone="long"/>
+          <window.KPICard label={t('adm_kpi_pending_kyc')} value={users.filter(u => u.status === 'pending').length} tone="warning"/>
+          <window.KPICard label={t('adm_kpi_suspended')} value={users.filter(u => u.status === 'suspended' || u.status === 'restricted').length} tone="danger"/>
         </div>
 
         {actionMsg && (
@@ -988,7 +1008,7 @@
         )}
 
         <window.SectionCard
-          title="Users"
+          title={t('admin_users_list_title')}
           actions={
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
@@ -1009,24 +1029,24 @@
           <window.DataTable
             columns={[
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.id}</span> },
-              { key:'name', label:'Name / Email', render: r => (
+              { key:'name', label: t('adm_col_name_email'), render: r => (
                 <div>
                   <div style={{fontWeight:500}}>{r.name}</div>
                   <div style={{fontSize:10, color:'var(--color-text-tertiary)'}}>{r.email}</div>
                 </div>
               )},
-              { key:'country', label:'Country', width: 60, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.country}</span> },
-              { key:'tier', label:'Tier', render: r => <span className="badge badge--neutral">{r.tier}</span> },
+              { key:'country', label: t('adm_col_country'), width: 60, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.country}</span> },
+              { key:'tier', label: t('col_tier'), render: r => <span className="badge badge--neutral">{r.tier}</span> },
               { key:'kyc', label:'KYC', render: r => (
                 <div style={{display:'inline-flex', alignItems:'center', gap:4}}>
                   {[1,2,3].map(lv => <span key={lv} style={{width:6, height:6, borderRadius:'50%', background: lv <= r.kyc ? 'var(--color-success)' : 'var(--color-border-default)'}}/>)}
                   <span style={{fontFamily:'var(--font-mono)', fontSize:10, marginLeft:2}}>L{r.kyc}</span>
                 </div>
               )},
-              { key:'vol', label:'30d Vol', align:'right', render: r => '$' + fmtCompact(r.vol30) },
-              { key:'flags', label:'Flags', render: r => r.flags.length ? r.flags.map(f => <span key={f} className="severity-pill severity-pill--medium" style={{marginRight:3}}>{f}</span>) : <span style={{color:'var(--color-text-tertiary)'}}>·</span> },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status}`}>{r.status.toUpperCase()}</span> },
-              { key:'joined', label:'Joined', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.joined}</span> },
+              { key:'vol', label: t('adm_col_vol30'), align:'right', render: r => '$' + fmtCompact(r.vol30) },
+              { key:'flags', label: t('adm_col_flags'), render: r => r.flags.length ? r.flags.map(f => <span key={f} className="severity-pill severity-pill--medium" style={{marginRight:3}}>{f}</span>) : <span style={{color:'var(--color-text-tertiary)'}}>·</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status}`}>{r.status.toUpperCase()}</span> },
+              { key:'joined', label: t('ref_col_joined'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.joined}</span> },
               { key:'act', label:'', align:'right', render: r => (
                 <>
                   <button className="tbl-action" onClick={() => { window.location.hash = '#/admin/users/detail?id=' + encodeURIComponent(r.id); }}>{t('col_view')}</button>
@@ -1075,7 +1095,7 @@
                       style={{marginLeft:3}}
                       disabled={busyId === r.id}
                       onClick={() => changeStatus(r, true)}
-                    >{busyId === r.id ? '…' : 'Suspend'}</button>
+                    >{busyId === r.id ? '…' : t('admin_user_detail_1d441e')}</button>
                   )}
                   {canChangeStatus && (r.status === 'suspended' || r.status === 'disabled') && (
                     <button
@@ -1083,7 +1103,7 @@
                       style={{marginLeft:3}}
                       disabled={busyId === r.id}
                       onClick={() => changeStatus(r, false)}
-                    >{busyId === r.id ? '…' : 'Reactivate'}</button>
+                    >{busyId === r.id ? '…' : t('adm_reactivate')}</button>
                   )}
                 </>
               )},
@@ -1172,14 +1192,14 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Trade Monitoring"
+        title={t('admin_trades_title')}
         subtitle={t('admin_trades_bc077b')}
         breadcrumb={['Home','Admin','Trade Monitor']}
         actions={
           <>
             {/* LIVE 배지는 실제로 실데이터일 때만 켠다. 목업에 LIVE 를 붙이면 거짓이다. */}
             <span style={{padding:'2px 8px', background: isLive ? 'oklch(78% 0.14 145 / 0.14)' : 'var(--color-bg-input)', color: isLive ? 'var(--color-success)' : 'var(--color-text-tertiary)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700, letterSpacing:'0.06em'}}>
-              {isLive ? '● LIVE' : '○ MOCK'}
+              {isLive ? '● ' + t('adm_badge_live') : '○ ' + t('adm_badge_mock')}
             </span>
             <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>
           </>
@@ -1207,7 +1227,7 @@
             tone="long"
           />
           <window.KPICard
-            label="Largest Trade"
+            label={t('adm_kpi_largest_trade')}
             value={withNotional.length ? '$' + fmtCompact(largest) : '—'}
             sub={isLive ? undefined : 'Auto-review triggered'}
           />
@@ -1219,14 +1239,14 @@
         </div>
 
         <window.SectionCard
-          title="Live Trade Stream"
+          title={t('adm_stream_title')}
           actions={
             <div className="seg">
               {[
-                { id:'all', label:'All' },
-                { id:'suspicious', label:'Suspicious' },
-                { id:'flagged', label:'Flagged' },
-                { id:'large', label:'Large' },
+                { id:'all', label:t('adm_filter_all') },
+                { id:'suspicious', label:t('adm_filter_suspicious') },
+                { id:'flagged', label:t('adm_filter_flagged') },
+                { id:'large', label:t('adm_filter_large') },
                 { id:'vip', label:'VIP' },
               ].map(f => (
                 <button key={f.id} className={`seg__opt ${filter===f.id?'is-active':''}`} onClick={() => setFilter(f.id)}>{f.label}</button>
@@ -1238,18 +1258,18 @@
           <window.DataTable
             columns={[
               /* 없는 값은 '—'. 0 이나 1970-01-01 로 채우면 값으로 오인된다. */
-              { key: 'time', label: 'Time', width:80, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.time ? new Date(r.time).toLocaleTimeString('en-GB', {hour12:false}) : '—'}</span> },
-              { key: 'user', label: 'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.userId}</span> },
-              { key: 'sym',  label: 'Symbol', render: r => <strong>{r.sym}</strong> },
-              { key: 'side', label: 'Side', render: r => (
+              { key: 'time', label: t('adm_col_time'), width:80, render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.time ? new Date(r.time).toLocaleTimeString('en-GB', {hour12:false}) : '—'}</span> },
+              { key: 'user', label: t('adm_col_user'), render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.userId}</span> },
+              { key: 'sym',  label: t('adm_col_symbol'), render: r => <strong>{r.sym}</strong> },
+              { key: 'side', label: t('adm_col_side'), render: r => (
                 r.side === 'long' || r.side === 'buy' ? <span className="t-long" style={{fontWeight:500}}>▲ LONG</span>
                 : r.side === 'short' || r.side === 'sell' ? <span className="t-short" style={{fontWeight:500}}>▼ SHORT</span>
                 : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
               ) },
-              { key: 'size', label: 'Size', align:'right', render: r => (typeof r.size === 'number' ? fmt(r.size, 3) : '—') },
-              { key: 'price', label: 'Price', align:'right', render: r => (typeof r.price === 'number' ? fmt(r.price, 1) : '—') },
-              { key: 'not',  label: 'Notional', align:'right', render: r => (typeof r.notional === 'number' ? '$' + fmtCompact(r.notional) : '—') },
-              { key: 'tag',  label: 'Flag', render: r => {
+              { key: 'size', label: t('adm_col_size'), align:'right', render: r => (typeof r.size === 'number' ? fmt(r.size, 3) : '—') },
+              { key: 'price', label: t('adm_col_price'), align:'right', render: r => (typeof r.price === 'number' ? fmt(r.price, 1) : '—') },
+              { key: 'not',  label: t('adm_col_notional'), align:'right', render: r => (typeof r.notional === 'number' ? '$' + fmtCompact(r.notional) : '—') },
+              { key: 'tag',  label: t('adm_col_flag'), render: r => {
                 if (r.tag === 'ok') return <span style={{color:'var(--color-text-tertiary)'}}>ok</span>;
                 const cls = { large: 'warn', suspicious: 'danger', flagged: 'danger', vip: 'ok', filled: 'ok', canceled: 'neutral', rejected: 'danger' }[r.tag] || 'neutral';
                 return <span className={`status-pill status-pill--${cls}`}>{String(r.tag).toUpperCase()}</span>;
@@ -1289,7 +1309,7 @@
           {/* 읽기 전용임을 서버가 알려준다. 관리자가 취소 버튼을 찾지 않게 표시한다. */}
           {isLive && meta.readOnly && (
             <div style={{padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
-              {t('admin_trades_readonly')}{meta.note ? ` · ${meta.note}` : ''}
+              {t('admin_trades_readonly')}{meta.note ? ` · ${serverNote(meta.note)}` : ''}
             </div>
           )}
           {err && (
@@ -1364,7 +1384,7 @@
       return (
         <window.PageShell
           {...shellProps}
-          title="AI Ops"
+          title={t('admin_aiops_title')}
           subtitle={t('aiops_subtitle', { provider: provider || '—' })}
           breadcrumb={['Home','Admin','AI Ops']}
           actions={<button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
@@ -1448,7 +1468,7 @@
           {/* 실행 기록. 프롬프트·응답 본문은 서버가 반환하지 않는다. */}
           <window.SectionCard
             title={t('aiops_runs_title')}
-            subtitle={usage && usage.note ? usage.note : undefined}
+            subtitle={usage && usage.note ? serverNote(usage.note) : undefined}
             noPadding={Boolean(usage && usage.runs && usage.runs.length)}
           >
             {usage && Array.isArray(usage.runs) && usage.runs.length > 0 ? (
@@ -1483,7 +1503,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="AI Ops"
+        title={t('admin_aiops_title')}
         /*
            ★ 모델 버전·배포 시각은 서버가 주는 값만 쓴다.
              전에는 목업(`ADMIN_AI_METRICS.modelVersion` / `lastDeploy`)을 그대로
@@ -1609,7 +1629,7 @@
             columns={[
               { key: 'name', label: 'Prompt' },
               { key: 'ver',  label: 'Version', render: () => <span className="badge badge--neutral">v14.2</span> },
-              { key: 'status', label: 'Status', render: () => <span className="status-pill status-pill--ok">DEPLOYED</span> },
+              { key: 'status', label: t('adm_col_status'), render: () => <span className="status-pill status-pill--ok">DEPLOYED</span> },
               /*
                  ★ 전에는 `t('admin_a_i_ops_ed2648')` = "3d ago · 권누리" 를 모든
                    행에 고정으로 찍었다. 프롬프트를 누가 언제 고쳤는지는 감사
@@ -1687,10 +1707,10 @@
       return (
         <window.PageShell
           {...shellProps}
-          title="Design Ops"
+          title={t('admin_dops_title')}
           subtitle={t('dops_subtitle')}
           breadcrumb={['Home','Admin','Design Ops']}
-          badge={<span className="badge badge--ai">SUPER ADMIN</span>}
+          badge={<span className="badge badge--ai">{t('adm_badge_super')}</span>}
           actions={
             <>
               <a className="btn btn--sm" href="design-system.html" target="_blank" rel="noopener noreferrer"><I.Book size={13}/> Design System</a>{/* qt-i18n-ignore: 개발자 문서 링크 (도구 고유 이름) */}
@@ -1745,8 +1765,8 @@
                 ) },
               ]}
               rows={[
-                { k: t('dops_theme'), v: 'dark · light', where: t('dops_via_tweaks') },
-                { k: t('dops_density'), v: 'comfortable · compact · dense', where: t('dops_via_tweaks') },
+                { k: t('dops_theme'), v: [t('tw_theme_dark'), t('tw_theme_light')].join(' · '), where: t('dops_via_tweaks') },
+                { k: t('dops_density'), v: [t('tw_density_comfortable'), t('tw_density_compact'), t('tw_density_dense')].join(' · '), where: t('dops_via_tweaks') },
                 { k: t('dops_locale'), v: (window.QTI18n && window.QTI18n.available)
                     ? window.QTI18n.available().map((x) => (typeof x === 'string' ? x : x.code)).join(' · ') : '—',
                   where: t('dops_via_settings') },
@@ -1761,10 +1781,10 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Design Ops"
+        title={t('admin_dops_title')}
         subtitle={t('admin_design_ops_247f98')}
         breadcrumb={['Home','Admin','Design Ops']}
-        badge={<span className="badge badge--ai">SUPER ADMIN</span>}
+        badge={<span className="badge badge--ai">{t('adm_badge_super')}</span>}
         actions={
           <>
             <a className="btn btn--sm" href="design-system.html" target="_blank"><I.Book size={13}/> Design System</a>{/* qt-i18n-ignore: 개발자 문서 링크 (도구 고유 이름) */}
@@ -1919,7 +1939,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="System Health"
+        title={t('admin_system_title')}
         subtitle={isLive
           ? t('admin_system_subtitle', { ok: okCount, total: checked })
           : `${okCount}/${system.length} services healthy · WebSocket · DB · API · Batch`}
@@ -2016,7 +2036,7 @@
           <window.DataTable
             columns={[
               { key:'name', label:'Service', render: r => <strong>{r.name}</strong> },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'ok' ? 'ok' : r.status === 'degraded' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'ok' ? 'ok' : r.status === 'degraded' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
               { key:'latency', label:'Latency', align:'right', render: r => typeof r.latency === 'number' ? r.latency + 'ms' : r.latency },
               { key:'uptime', label:'Uptime · 30d', align:'right', render: r => r.uptime + '%' },
               { key:'note', label:'Note' },
@@ -2076,8 +2096,8 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Audit Log"
-        subtitle="Admin actions · System events · 30-day retention"
+        title={t('admin_audit_title')}
+        subtitle={t('adm_audit_subtitle')}
         breadcrumb={['Home','Admin','Audit']}
         actions={
           <>
@@ -2104,16 +2124,16 @@
             {t(auditEmptyReason)}
           </div>
         )}
-        <window.SectionCard title={t('sys_events')} subtitle={`${audit.length} entries · newest first`} noPadding>
+        <window.SectionCard title={t('sys_events')} subtitle={t('adm_audit_entries', { n: audit.length })} noPadding>
           <window.DataTable
             columns={[
-              { key:'time', label:'Time', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12:false})}</span> },
-              { key:'actor', label:'Actor', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.actor}</span> },
-              { key:'action', label:'Action', render: r => <span style={{fontFamily:'var(--font-mono)', color:'var(--color-brand)'}}>{r.action}</span> },
-              { key:'target', label:'Target', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.target}</span> },
+              { key:'time', label: t('adm_col_time'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{new Date(r.time).toLocaleString('en-GB', {hour12:false})}</span> },
+              { key:'actor', label: t('adm_col_actor'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.actor}</span> },
+              { key:'action', label: t('adm_col_action'), render: r => <span style={{fontFamily:'var(--font-mono)', color:'var(--color-brand)'}}>{r.action}</span> },
+              { key:'target', label: t('adm_col_target'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.target}</span> },
               { key:'ip', label:'IP', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>{r.ip}</span> },
-              { key:'meta', label:'Detail', render: r => <span style={{fontSize:11, color:'var(--color-text-secondary)'}}>{r.meta || ''}</span> },
-              { key:'ok', label:'Result', render: r => r.ok ? <span className="status-pill status-pill--ok">OK</span> : <span className="status-pill status-pill--danger">FAIL</span> },
+              { key:'meta', label: t('adm_col_detail'), render: r => <span style={{fontSize:11, color:'var(--color-text-secondary)'}}>{r.meta || ''}</span> },
+              { key:'ok', label: t('adm_col_result'), render: r => r.ok ? <span className="status-pill status-pill--ok">OK</span> : <span className="status-pill status-pill--danger">FAIL</span> },
             ]}
             rows={failOnly ? audit.filter((r) => r.ok === false || r.ok === 'false' || r.ok === 0) : audit}
           />
@@ -2199,7 +2219,7 @@
       return (
         <window.PageShell
           {...shellProps}
-          title="Fees & Promotions"
+          title={t('admin_fees_title')}
           subtitle={t('admin_fees_subtitle')}
           breadcrumb={['Home','Admin','Fees']}
         >
@@ -2356,7 +2376,7 @@
             <window.SectionCard title={t('admin_fees_exchange_rates')} subtitle={t('admin_fees_exchange_rates_sub')} noPadding>
               <window.DataTable
                 columns={[
-                  { key:'symbol', label:'Symbol', render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
+                  { key:'symbol', label: t('adm_col_symbol'), render: r => <strong>{r.symbol.replace('USDT','/USDT')}</strong> },
                   { key:'maker', label:'Maker', align:'right', render: r => pct(r.makerFeeRate) || '—' },
                   { key:'taker', label:'Taker', align:'right', render: r => pct(r.takerFeeRate) || '—' },
                   { key:'funding', label:t('fee_funding_8h'), align:'right', render: r => pct(r.fundingFeeRate) || '—' },
@@ -2388,7 +2408,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Fees & Promotions"
+        title={t('admin_fees_title')}
         subtitle={t('admin_fees_65feac')}
         breadcrumb={['Home','Admin','Fees']}
         actions={<button className="btn btn--sm btn--primary"><I.Plus size={13}/> {t('fee_new_promo')}</button>}
@@ -2396,10 +2416,10 @@
         <window.SectionCard title={t('fee_tiers_title')} subtitle="Maker / Taker · Volume-based" noPadding>
           <window.DataTable
             columns={[
-              { key:'tier', label:'Tier', render: r => <strong>{r.tier}</strong> },
+              { key:'tier', label: t('col_tier'), render: r => <strong>{r.tier}</strong> },
               { key:'maker', label:'Maker', align:'right', render: r => (r.maker*100).toFixed(3) + '%' },
               { key:'taker', label:'Taker', align:'right', render: r => (r.taker*100).toFixed(3) + '%' },
-              { key:'vol', label:'30d Volume Req.', align:'right', render: r => '$' + fmtCompact(r.vol30Req) },
+              { key:'vol', label: t('adm_col_vol30_req'), align:'right', render: r => '$' + fmtCompact(r.vol30Req) },
               { key:'hold', label:'Token Hold Req.', align:'right', render: r => r.holdReq + ' QT' },
               { key:'act', label:'', align:'right', render: () => <button className="tbl-action">{t('col_edit')}</button> },
             ]}
@@ -2413,7 +2433,7 @@
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.id}</span> },
               { key:'name', label:'Name', render: r => <strong>{r.name}</strong> },
               { key:'period', label:'Period' },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'active' ? 'ok' : 'neutral'}`}>{r.status.toUpperCase()}</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'active' ? 'ok' : 'neutral'}`}>{r.status.toUpperCase()}</span> },
               { key:'payout', label:'Payout · 30d', align:'right', render: r => '$' + fmtCompact(r.payout) },
               { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">{t('col_report')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_edit')}</button></> },
             ]}
@@ -2537,7 +2557,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Notices & CS"
+        title={t('admin_notices_title')}
         subtitle={t('admin_notices_11300f')}
         breadcrumb={['Home','Admin','Notices & CS']}
         actions={canWriteNotice
@@ -2591,7 +2611,7 @@
           </window.SectionCard>
 
           <window.SectionCard
-            title="CS Tickets"
+            title={t('admin_cs_title')}
             subtitle={`${cs.filter(x => x.status !== 'resolved').length} open`}
             actions={csIsLive ? <a className="btn btn--sm" href="#/admin/cs" style={{textDecoration:'none'}}>{t('help_col_open')}</a> : undefined}
             noPadding
@@ -2732,12 +2752,12 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Risk Management"
+        title={t('admin_risk_title')}
         subtitle={t('admin_risk_a1edf2')}
         breadcrumb={['Home','Admin','Risk']}
       >
         <div className="grid-4">
-          <window.KPICard label="Critical / High" value={risk.filter(r => r.severity === 'critical' || r.severity === 'high').length} tone="danger"/>
+          <window.KPICard label={t('adm_kpi_critical_high')} value={risk.filter(r => r.severity === 'critical' || r.severity === 'high').length} tone="danger"/>
           <window.KPICard
             label={isLive ? t('admin_risk_positions') : 'Total in Queue'}
             value={risk.length}
@@ -2755,7 +2775,7 @@
             tone={isLive && activeSwitches ? 'danger' : undefined}
           />
           <window.KPICard
-            label="Exposure · Long / Short"
+            label={t('adm_kpi_exposure')}
             value={!isLive ? '58% / 42%'
               : (exposure && exposure.known ? `${exposure.longPct.toFixed(0)}% / ${exposure.shortPct.toFixed(0)}%` : '—')}
             sub={!isLive ? 'Balanced' : (exposure && exposure.known ? undefined : t('admin_risk_no_exposure'))}
@@ -2764,13 +2784,13 @@
         <window.SectionCard title={t('nav_risk_queue')} noPadding>
           <window.DataTable
             columns={[
-              { key:'sev', label:'Severity', render: r => <span className={`severity-pill severity-pill--${r.severity}`}>{r.severity.toUpperCase()}</span> },
-              { key:'user', label:'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.userId}</span> },
-              { key:'sym', label:'Symbol', render: r => <strong>{r.sym}</strong> },
-              { key:'side', label:'Side', render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
-              { key:'size', label:'Size', align:'right', render: r => fmt(r.size, 3) },
-              { key:'mr', label:'Margin Ratio', align:'right', render: r => (typeof r.marginRatio === 'number' ? (r.marginRatio*100).toFixed(0) + '%' : '—') },
-              { key:'liq', label:'Liq. Distance', align:'right', render: r => (
+              { key:'sev', label: t('adm_col_severity'), render: r => <span className={`severity-pill severity-pill--${r.severity}`}>{r.severity.toUpperCase()}</span> },
+              { key:'user', label: t('adm_col_user'), render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.userId}</span> },
+              { key:'sym', label: t('adm_col_symbol'), render: r => <strong>{r.sym}</strong> },
+              { key:'side', label: t('adm_col_side'), render: r => <span className={r.side==='long'?'t-long':'t-short'}>{r.side==='long'?'▲ LONG':'▼ SHORT'}</span> },
+              { key:'size', label: t('adm_col_size'), align:'right', render: r => fmt(r.size, 3) },
+              { key:'mr', label: t('adm_col_margin_ratio'), align:'right', render: r => (typeof r.marginRatio === 'number' ? (r.marginRatio*100).toFixed(0) + '%' : '—') },
+              { key:'liq', label: t('adm_col_liq_distance'), align:'right', render: r => (
                 typeof r.liqDist === 'number'
                   ? <span className={r.liqDist < 5 ? 't-short' : ''}>{r.liqDist.toFixed(1)}%</span>
                   : <span style={{color:'var(--color-text-tertiary)'}}>—</span>
@@ -2803,7 +2823,7 @@
           )}
           {isLive && meta.readOnly && (
             <div style={{padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle)', fontSize:11, color:'var(--color-text-tertiary)'}}>
-              {t('admin_risk_readonly')}{meta.note ? ` · ${meta.note}` : ''}
+              {t('admin_risk_readonly')}{meta.note ? ` · ${serverNote(meta.note)}` : ''}
             </div>
           )}
           {err && <div style={{padding:'10px 16px', fontSize:11, color:'var(--color-danger)'}}>{t('admin_load_failed')} · {err}</div>}

@@ -94,7 +94,7 @@
                   style={{flex: 1}}
                   onClick={() => setTweaks({ density: d })}
                 >
-                  {d[0].toUpperCase() + d.slice(1)}
+                  {t('tw_density_' + d)}
                 </button>
               ))}
             </div>
@@ -105,10 +105,10 @@
             <div className="tw-section__title">{t('tw_3_mode')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${!tweaks.pro ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ pro: false })}>
-                <I.Info size={11}/> Beginner
+                <I.Info size={11}/> {t('tw_mode_beginner')}
               </button>
               <button className={`seg__opt ${tweaks.pro ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ pro: true })}>
-                <I.Sparkles size={11}/> Pro
+                <I.Sparkles size={11}/> {t('tw_mode_pro')}
               </button>
             </div>
             <div style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>
@@ -123,10 +123,10 @@
             <div className="tw-section__title">{t('tw_4_theme')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${tweaks.theme==='dark' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ theme: 'dark' })}>
-                <I.Moon size={11}/> Dark
+                <I.Moon size={11}/> {t('tw_theme_dark')}
               </button>
               <button className={`seg__opt ${tweaks.theme==='light' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ theme: 'light' })}>
-                <I.Sun size={11}/> Light
+                <I.Sun size={11}/> {t('tw_theme_light')}
               </button>
             </div>
           </div>
@@ -207,10 +207,10 @@
             <div className="tw-section__title">{t('tw_8_numfmt')}</div>
             <div className="seg" style={{width:'100%'}}>
               <button className={`seg__opt ${tweaks.numFmt==='standard' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ numFmt: 'standard' })}>
-                Standard <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 4}}>18,240,000</span>
+                {t('tw_numfmt_standard')} <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 4}}>18,240,000</span>
               </button>
               <button className={`seg__opt ${tweaks.numFmt==='compact' ? 'is-active' : ''}`} style={{flex:1}} onClick={() => setTweaks({ numFmt: 'compact' })}>
-                Compact <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 4}}>18.24M</span>
+                {t('tw_numfmt_compact')} <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginLeft: 4}}>18.24M</span>
               </button>
             </div>
           </div>

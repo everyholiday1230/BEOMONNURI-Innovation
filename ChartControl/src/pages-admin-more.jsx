@@ -861,16 +861,16 @@
             {activity.state === 'ready' && activity.rows.length > 0 && (
               <window.DataTable
                 columns={[
-                  { key:'at', label:'Time', render: r => (
+                  { key:'at', label: t('adm_col_time'), render: r => (
                     <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>
                       {r.at ? new Date(Number(r.at)).toLocaleString() : '—'}
                     </span>
                   ) },
-                  { key:'action', label:'Action', render: r => (
+                  { key:'action', label: t('adm_col_action'), render: r => (
                     <span style={{fontFamily:'var(--font-mono)', color:'var(--color-brand)'}}>{r.action || '—'}</span>
                   ) },
                   { key:'reason', label:'Reason', render: r => r.reason || '—' },
-                  { key:'result', label:'Result', render: r => (
+                  { key:'result', label: t('adm_col_result'), render: r => (
                     <span className={`status-pill status-pill--${r.result === 'success' ? 'ok' : 'warn'}`}>
                       {String(r.result || '—').toUpperCase()}
                     </span>
@@ -1153,13 +1153,13 @@
           <window.DataTable
             columns={[
               { key:'id', label:'Case ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.id}</span> },
-              { key:'user', label:'User', render: r => <div><strong>{r.name}</strong><div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{r.user}</div></div> },
-              { key:'country', label:'Country' },
+              { key:'user', label: t('adm_col_user'), render: r => <div><strong>{r.name}</strong><div style={{fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{r.user}</div></div> },
+              { key:'country', label: t('adm_col_country') },
               { key:'level', label:'KYC', render: r => `L${r.level} → L${r.target}` },
               { key:'submitted', label:'Submitted', render: r => timeAgo(r.submitted) },
               { key:'risk', label:'Risk Score', render: r => <span style={{color: r.riskScore > 40 ? 'var(--color-danger)' : r.riskScore > 25 ? 'var(--color-warning)' : 'var(--color-success)', fontFamily:'var(--font-mono)', fontWeight: 500}}>{r.riskScore}</span> },
               { key:'flags', label:'Auto Flags', render: r => r.flags?.length || r.autoFlags?.length ? (r.autoFlags || r.flags).map(f => <span key={f} className="severity-pill severity-pill--medium" style={{marginRight:3}}>{f}</span>) : <span style={{color:'var(--color-text-tertiary)'}}>·</span> },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'pending' ? 'warn' : r.status === 'reviewing' ? 'neutral' : r.status === 'approved' ? 'ok' : 'danger'}`}>{r.status.toUpperCase()}</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'pending' ? 'warn' : r.status === 'reviewing' ? 'neutral' : r.status === 'approved' ? 'ok' : 'danger'}`}>{r.status.toUpperCase()}</span> },
               { key:'act', label:'', align:'right', render: r => <><button className="tbl-action">{t('col_review')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> },
             ]}
             rows={filtered}
@@ -1214,7 +1214,7 @@
       <window.PageShell {...shellProps} title={t('admin_deposits_e9e567')} subtitle={t('admin_deposits_df0901')} breadcrumb={['Home','Admin','Deposits']}>
         <div className="grid-4">
           <window.KPICard label="Pending" value={items.filter(i => i.status === 'pending').length} tone="warning"/>
-          <window.KPICard label="Flagged" value={items.filter(i => i.status === 'flagged').length} tone="danger"/>
+          <window.KPICard label={t('adm_kpi_flagged')} value={items.filter(i => i.status === 'flagged').length} tone="danger"/>
           <window.KPICard label="24h Volume" value="$142,340" tone="long"/>
           <window.KPICard label="Confirmed · 24h" value="98"/>
         </div>
@@ -1222,13 +1222,13 @@
           <window.DataTable
             columns={[
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.id}</span> },
-              { key:'user', label:'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
+              { key:'user', label: t('adm_col_user'), render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
               { key:'amount', label:t('col_amount'), align:'right', render: r => <strong style={{fontFamily:'var(--font-num)'}}>{r.amount} {r.asset}</strong> },
               { key:'network', label:'Network' },
               { key:'conf', label:'Confirmations', align:'right', render: r => r.confirmations },
-              { key:'time', label:'Time', render: r => timeAgo(r.time) },
+              { key:'time', label: t('adm_col_time'), render: r => timeAgo(r.time) },
               { key:'tx', label:'TX', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash}</span> },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : 'danger'}`}>{r.status.toUpperCase()}</span> },
               { key:'act', label:'', align:'right', render: r => (r.status !== 'confirmed' ? <><button className="tbl-action" /* qt-i18n-ignore: 진단용 개발 버튼 */>Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button></> : <button className="tbl-action">{t('col_view')}</button>) },
             ]}
             rows={items}
@@ -1291,13 +1291,13 @@
           <window.DataTable
             columns={[
               { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10}}>{r.id}</span> },
-              { key:'user', label:'User', render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
+              { key:'user', label: t('adm_col_user'), render: r => <span style={{fontFamily:'var(--font-mono)'}}>{r.user}</span> },
               { key:'amount', label:t('col_amount'), align:'right', render: r => <strong>{r.amount} {r.asset}</strong> },
               { key:'network', label:'Network' },
               { key:'to', label:'To Address', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.to}</span> },
-              { key:'time', label:'Time', render: r => timeAgo(r.time) },
+              { key:'time', label: t('adm_col_time'), render: r => timeAgo(r.time) },
               { key:'risk', label:'Risk', render: r => <span className={`severity-pill severity-pill--${r.risk === 'high' ? 'high' : r.risk === 'medium' ? 'medium' : 'low'}`}>{r.risk.toUpperCase()}</span> },
-              { key:'status', label:'Status', render: r => <span className={`status-pill status-pill--${r.status === 'sent' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
+              { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'sent' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
               { key:'act', label:'', align:'right', render: r => (r.status === 'pending-approval' ? <><button className="tbl-action" /* qt-i18n-ignore: 진단용 개발 버튼 */>Inspect</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> : <button className="tbl-action">{t('col_view')}</button>) },
             ]}
             rows={items}
@@ -1412,7 +1412,7 @@
     return (
       <window.PageShell
         {...shellProps}
-        title="Broadcast"
+        title={t('admin_bc_title')}
         subtitle={isLive ? t('bc_subtitle') : t('admin_broadcast_b7f563')}
         breadcrumb={['Home','Admin','Broadcast']}
       >
@@ -2308,12 +2308,12 @@
         <window.SectionCard title={t('admin_assets_hi_fi_48aeb1')} noPadding>
           <window.DataTable
             columns={[
-              { key:'time', label:'Time', render: () => '2h ago' },
+              { key:'time', label: t('adm_col_time'), render: () => '2h ago' },
               { key:'kind', label:'Direction', render: () => <span className="status-pill status-pill--neutral">HOT → COLD</span> },
               { key:'asset', label:'Asset', render: () => <strong>USDT</strong> },
               { key:'amount', label:t('col_amount'), align:'right', render: () => '500,000' },
               { key:'signers', label:'Signers', render: () => '2/3 signed' },
-              { key:'status', label:'Status', render: () => <span className="status-pill status-pill--warn">PENDING SIGNATURES</span> },
+              { key:'status', label: t('adm_col_status'), render: () => <span className="status-pill status-pill--warn">PENDING SIGNATURES</span> },
               { key:'act', label:'', align:'right', render: () => <><button className="tbl-action">{t('col_sign')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_details')}</button></> },
             ]}
             rows={[{id:1},{id:2}]}
