@@ -51,7 +51,7 @@
       ? window.QTApi.getReferralCode(exchange.id) : '';
     const [codeCopied, setCodeCopied] = useState(false);
     const [step, setStep] = useState(1);
-    const [form, setForm] = useState({ label: 'Main Trading', apiKey: '', apiSecret: '', passphrase: '', ipRestrict: true });
+    const [form, setForm] = useState({ label: t('layout_preset_main'), apiKey: '', apiSecret: '', passphrase: '', ipRestrict: true });
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
 
@@ -1406,9 +1406,9 @@
             sub={isLive && strategy.trades !== null ? t('strat_trades_n', { n: strategy.trades }) : undefined}
             tone="brand"
           />
-          <window.KPICard label="Sharpe" value={strategy.sharpe === null ? '—' : Number(strategy.sharpe).toFixed(2)}/>
+          <window.KPICard label={t('col_sharpe')} value={strategy.sharpe === null ? '—' : Number(strategy.sharpe).toFixed(2)}/>
           <window.KPICard
-            label="Max Drawdown"
+            label={t('bt_max_dd')}
             value={strategy.maxDD === null ? '—' : '-' + Number(strategy.maxDD).toFixed(2) + '%'}
             tone="short"
           />
@@ -1416,11 +1416,11 @@
 
         <div className="tabs" style={{borderBottom: '1px solid var(--color-border-subtle)', marginBottom: -12}}>
           {[
-            { id: 'overview', label: 'Overview' },
+            { id: 'overview', label: t('strat_tab_overview') },
             { id: 'backtest', label: t('col_backtest') },
-            { id: 'trades', label: 'Historical Trades' },
-            { id: 'settings', label: 'Settings' },
-            { id: 'reviews', label: 'Reviews' },
+            { id: 'trades', label: t('strat_tab_trades') },
+            { id: 'settings', label: t('strat_tab_settings') },
+            { id: 'reviews', label: t('strat_tab_reviews') },
           ].map(t => (
             <button key={t.id} className={`tab ${tab===t.id?'is-active':''}`} onClick={() => setTab(t.id)}>{t.label}</button>
           ))}
@@ -1608,18 +1608,18 @@
             */}
             <div className="grid-4">
               <window.KPICard
-                label="Total Return"
+                label={t('bt_total_return')}
                 value={m && Number.isFinite(m.totalReturnPct) ? `${m.totalReturnPct >= 0 ? '+' : ''}${m.totalReturnPct.toFixed(2)}%` : '—'}
                 tone={m && Number.isFinite(m.totalReturnPct) ? (m.totalReturnPct >= 0 ? 'long' : 'short') : undefined}
                 sub={m && Number.isFinite(m.totalReturnPct) ? undefined : t('bt_no_metric')}
               />
               <window.KPICard
-                label="Sharpe Ratio"
+                label={t('bt_sharpe_ratio')}
                 value={m && Number.isFinite(m.sharpe) ? m.sharpe.toFixed(2) : '—'}
                 sub={m && Number.isFinite(m.sharpe) ? undefined : t('bt_no_metric')}
               />
-              <window.KPICard label="Sortino" value="—" sub={t('bt_metric_absent')}/>
-              <window.KPICard label="Calmar" value="—" sub={t('bt_metric_absent')}/>
+              <window.KPICard label={t('bt_sortino')} value="—" sub={t('bt_metric_absent')}/>
+              <window.KPICard label={t('bt_calmar')} value="—" sub={t('bt_metric_absent')}/>
             </div>
 
             {/*
@@ -1714,7 +1714,7 @@
              ★ 팔로워 수만 서버 값으로 보여주고(있으면), 평가는 없다고 말한다.
           */
           <window.SectionCard
-            title="Reviews"
+            title={t('strat_tab_reviews')}
             subtitle={live && Number.isFinite(live.followers) ? t('bt_followers', { n: live.followers }) : undefined}
           >
             <div style={{padding:'4px 2px', fontSize:11.5, lineHeight:1.8, color:'var(--color-text-tertiary)'}}>
@@ -1796,10 +1796,10 @@
             </>
           ) : (
             <>
-              <window.KPICard label="Following" value="0" sub={t('my_strategies_eb1536')}/>
-              <window.KPICard label="Auto-copy" value="0" tone="brand"/>
-              <window.KPICard label="Combined PnL" value="$0.00" tone="neutral"/>
-              <window.KPICard label="Combined Win Rate" value="—" />
+              <window.KPICard label={t('strat_kpi_following')} value="0" sub={t('my_strategies_eb1536')}/>
+              <window.KPICard label={t('my_autocopy')} value="0" tone="brand"/>
+              <window.KPICard label={t('my_combined_pnl')} value="$0.00" tone="neutral"/>
+              <window.KPICard label={t('my_combined_win')} value="—" />
             </>
           )}
         </div>
@@ -2146,7 +2146,7 @@
                     <div style={{fontSize:13, fontWeight: t.current ? 600 : 500}}>{t.tier}</div>
                     <div style={{fontSize:11, color: 'var(--color-text-tertiary)'}}>{t.req}</div>
                   </div>
-                  {t.current && <span className="status-pill status-pill--ok">CURRENT</span>}
+                  {t.current && <span className="status-pill status-pill--ok">{window.QTI18n ? window.QTI18n.t('tier_current') : 'CURRENT'}</span>}
                 </div>
               ))}
             </div>
@@ -2698,8 +2698,8 @@
             {/* 디자이너 미리보기(백엔드 없음)에서는 원본 표를 그대로 유지한다. */}
             <window.DataTable
               columns={[
-                { key:'tier', label:'Tier', render: r => r.tier === 'Pro'
-                  ? <strong style={{color:'var(--color-brand)'}}>{r.tier} · CURRENT</strong>
+                { key:'tier', label:t('col_tier'), render: r => r.tier === 'Pro'
+                  ? <strong style={{color:'var(--color-brand)'}}>{r.tier} · {t('tier_current')}</strong>
                   : <span>{r.tier}</span> },
                 { key:'maker', label:t('fee_col_maker'), align:'right', render: r => (r.maker*100).toFixed(3) + '%' },
                 { key:'taker', label:t('fee_col_taker'), align:'right', render: r => (r.taker*100).toFixed(3) + '%' },

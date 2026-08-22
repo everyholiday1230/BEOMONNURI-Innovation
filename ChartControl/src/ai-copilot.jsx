@@ -28,7 +28,8 @@
       id: 'ai-trend-1',
       type: 'trend-line',
       source: 'ai-draft',
-      label: 'AI Trendline · slope +42.6',
+      /* 라벨은 그리는 시점에 사전에서 가져온다 — 여기에 문자열을 두면 언어가 고정되고,
+         전에는 계측하지 않은 기울기(+42.6)까지 붙어 있었다. */
       points: [], // populated at runtime with actual candle time
       width: 1.8,
     }
@@ -298,6 +299,7 @@
       // Fake swing lows below body
       const overlay = {
         ...FLOW_TRENDLINE.overlay,
+        label: t('ai_overlay_trendline'),
         id: 'ai-trend-' + Date.now(),
         points: [
           { time: p1.time, price: p1.low - 40 },
@@ -323,7 +325,7 @@
         source: 'ai-draft',
         priceHi: signal.entryZone[1],
         priceLo: signal.entryZone[0],
-        label: 'Entry Zone (AI)',
+        label: t('ai_overlay_entry_zone'),
       });
       addOverlay({
         id: 'sig-sl',

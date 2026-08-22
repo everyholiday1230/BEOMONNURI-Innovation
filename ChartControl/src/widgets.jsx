@@ -492,7 +492,7 @@
     const renderRow = (r, side, i) => {
       const depthPct = (r.cumulative / maxCum) * 100;
       return (
-        <div key={side + '-' + i + '-' + r.price} className={`ob-row ob-row--${side}`} onClick={() => onClickPrice && onClickPrice(r.price)} title={`Click to fill price ${r.price}`}>
+        <div key={side + '-' + i + '-' + r.price} className={`ob-row ob-row--${side}`} onClick={() => onClickPrice && onClickPrice(r.price)} title={t('ob_click_fill', { price: r.price })}>
           <div className="ob-row__depth" style={{width: `${depthPct}%`}}/>
           <span className="ob-row__price">{fmtPrice(r.price, tick)}</span>
           <span className="ob-row__amt">{r.amount.toFixed(3)}</span>
@@ -1155,7 +1155,7 @@
           <button className={`tab ${tab==='history'?'is-active':''}`} onClick={() => setTab('history')}>{t('order_history')}</button>
           <button className={`tab ${tab==='trades'?'is-active':''}`} onClick={() => setTab('trades')}>{t('trade_history')}</button>
           <button className={`tab ${tab==='tx'?'is-active':''}`} onClick={() => setTab('tx')}>{t('transaction_history')}</button>
-          <button className={`tab ${tab==='signals'?'is-active':''}`} onClick={() => setTab('signals')}><span style={{color:'var(--color-ai)'}}>✦</span> {t('ai_signals')} <span className="tab__count">2</span></button>
+          <button className={`tab ${tab==='signals'?'is-active':''}`} onClick={() => setTab('signals')}><span style={{color:'var(--color-ai)'}}>✦</span> {t('ai_signals')}</button>
           <div className="pos-tabs__right">
             <label
               className="chk"

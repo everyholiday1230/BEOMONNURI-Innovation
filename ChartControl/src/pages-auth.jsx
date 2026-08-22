@@ -165,9 +165,9 @@
             </div>
             <div className="auth-hero-features">
               {[
-                { icon: 'Sparkles', title: 'AI-Native Workflow', desc: t('auth_833f52') },
-                { icon: 'Chart',    title: '24-col Layout',       desc: t('auth_66cdd9') },
-                { icon: 'Alert',    title: 'Safety by Design',    desc: t('auth_2d0495') },
+                { icon: 'Sparkles', title: t('auth_feat_ai'), desc: t('auth_833f52') },
+                { icon: 'Chart',    title: t('auth_feat_layout'),       desc: t('auth_66cdd9') },
+                { icon: 'Alert',    title: t('auth_feat_safety'),    desc: t('auth_2d0495') },
                 {
                   icon: 'Wallet',
                   /*
@@ -861,7 +861,7 @@
         progress={[
           { label: t('signup_1ff941'), done: true },
           { label: t('signup_32b217'), done: true },
-          { label: 'KYC', active: true },
+          { label: t('na_kyc_title'), active: true },
         ]}
       >
         <div className="auth-form">
@@ -1286,12 +1286,12 @@
           <div className="landing-section-title">{t('landing_why_brand')}</div>
           <div className="landing-feat-grid">
             {[
-              { icon: 'Sparkles', title: 'AI-Native Workflow', body: t('landing_5f6b64') },
+              { icon: 'Sparkles', title: t('auth_feat_ai'), body: t('landing_5f6b64') },
               { icon: 'Chart',    title: '24-column Custom Layout', body: t('landing_44cbb3') },
-              { icon: 'Alert',    title: 'Safety by Design', body: t('landing_40f668') },
+              { icon: 'Alert',    title: t('auth_feat_safety'), body: t('landing_40f668') },
               { icon: 'Wallet',   title: '8+ Exchange Integration', body: 'Binance · Bitget · OKX · Bybit · BitMart · Gate · Kraken · Coinbase' },
-              { icon: 'Book',     title: 'Trade Journal + AI Insights', body: t('landing_69704c') },
-              { icon: 'Layers',   title: 'Institutional Design System', body: 'OKLCH tokens · 4 brand palettes · 3 densities · Dark/Light' },
+              { icon: 'Book',     title: t('auth_feat_journal'), body: t('landing_69704c') },
+              { icon: 'Layers',   title: t('auth_feat_design'), body: 'OKLCH tokens · 4 brand palettes · 3 densities · Dark/Light' },
             ].map((f, i) => {
               const Ic = I[f.icon] || I.Grid;
               return (

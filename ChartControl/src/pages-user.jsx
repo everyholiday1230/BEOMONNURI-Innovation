@@ -690,10 +690,10 @@
             </div>
           ) : (
             <>
-              <window.KPICard label="Total Strategies" value={strategies.length} sub="Free 4 · Pro 3 · VIP 1" icon="Sparkles" tone="ai"/>
-              <window.KPICard label="Avg 30d PnL" value={'+' + (strategies.reduce((a,s) => a+s.pnl30, 0)/strategies.length).toFixed(1) + '%'} delta={+8.4} deltaLabel="vs prev 30d" tone="long"/>
-              <window.KPICard label="Following" value="0" sub="Follow strategies to auto-copy signals" icon="Zap" tone="brand"/>
-              <window.KPICard label="AI Signals · Today" value={window.QTApp.ADMIN_AI_METRICS.signalsToday} sub={`Approve rate ${(window.QTApp.ADMIN_AI_METRICS.approveRate * 100).toFixed(0)}%`} tone="ai"/>
+              <window.KPICard label={t('strat_kpi_total')} value={strategies.length} icon="Sparkles" tone="ai"/>
+              <window.KPICard label={t('strat_kpi_avg30')} value={'+' + (strategies.reduce((a,s) => a+s.pnl30, 0)/strategies.length).toFixed(1) + '%'} delta={+8.4} deltaLabel={t('delta_vs_prev_30d')} tone="long"/>
+              <window.KPICard label={t('strat_kpi_following')} value="0" sub={t('my_strategies_eb1536')} icon="Zap" tone="brand"/>
+              <window.KPICard label={t('strat_kpi_signals_today')} value={window.QTApp.ADMIN_AI_METRICS.signalsToday} sub={`Approve rate ${(window.QTApp.ADMIN_AI_METRICS.approveRate * 100).toFixed(0)}%`} tone="ai"/>
             </>
           )}
         </div>
@@ -708,9 +708,9 @@
                 <div className="seg">
                   {[
                     { id: 'all', label: t('mk_f_all') },
-                    { id: 'free', label: 'Free' },
-                    { id: 'pro', label: 'Pro' },
-                    { id: 'vip', label: 'VIP' },
+                    { id: 'free', label: t('strat_tier_free') },
+                    { id: 'pro', label: t('strat_tier_pro') },
+                    { id: 'vip', label: t('strat_tier_vip') },
                   ].map(f => (
                     <button key={f.id} className={`seg__opt ${filter===f.id?'is-active':''}`} onClick={() => setFilter(f.id)}>{f.label}</button>
                   ))}
@@ -1199,7 +1199,7 @@
                 label={t('pf_unrealized')}
                 value={live.unrealized === null ? '—' : (live.unrealized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.unrealized))}
                 delta={mockDelta(+3.18)}
-                deltaLabel="vs entry"
+                deltaLabel={t('delta_vs_entry')}
                 sub={live.unrealized === null && isReal ? t('pos_pnl_unknown_short') : undefined}
                 tone={live.unrealized === null ? undefined : live.unrealized >= 0 ? 'long' : 'short'}
               />
@@ -1207,7 +1207,7 @@
                 label={t('pf_realized_30d')}
                 value={live.realized === null ? '—' : (live.realized >= 0 ? '+$' : '-$') + fmt(Math.abs(live.realized))}
                 delta={mockDelta(+9.7)}
-                deltaLabel="vs prev 30d"
+                deltaLabel={t('delta_vs_prev_30d')}
                 sub={live.realized === null && isReal ? t('acct_not_available') : undefined}
                 tone={live.realized === null ? undefined : live.realized >= 0 ? 'long' : 'short'}
               />
@@ -2401,11 +2401,11 @@
           >
             <window.DataTable
               columns={[
-                { key: 'asset', label: 'Asset', render: r => <strong>{r.assetKey ? t(r.assetKey) : r.asset}</strong> },
-                { key: 'value', label: 'Value', align:'right', render: r => '$' + fmt(r.value) },
-                { key: 'pct',   label: 'Allocation', align:'right', render: r => r.pct.toFixed(1) + '%' },
+                { key: 'asset', label: t('asset'), render: r => <strong>{r.assetKey ? t(r.assetKey) : r.asset}</strong> },
+                { key: 'value', label: t('col_value'), align:'right', render: r => '$' + fmt(r.value) },
+                { key: 'pct',   label: t('pf_allocation'), align:'right', render: r => r.pct.toFixed(1) + '%' },
                 { key: 'chg',   label: '24h', align:'right', render: r => <span className={r.chg24h >= 0 ? 't-long' : 't-short'}>{r.chg24h >= 0 ? '+' : ''}{r.chg24h.toFixed(2)}%</span> },
-                { key: 'ex',    label: 'Held on', render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>Binance · Bitget</span> },
+                { key: 'ex',    label: t('col_held_on'), render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>Binance · Bitget</span> },
                 { key: 'act',   label: '', align:'right', render: () => <><button className="tbl-action">{t('help_submit')}</button> <button className="tbl-action">{t('withdraw_5f9394')}</button></> },
               ]}
               rows={window.QTApp.ALLOCATION}

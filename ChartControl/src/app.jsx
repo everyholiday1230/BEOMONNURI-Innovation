@@ -719,6 +719,9 @@
     const createOrderDraft = useCallback(() => {
       if (!currentSignal) return;
       setOrderDraft({
+        /* 출처를 남긴다 — 주문 확인창의 AI 경고와 확신도는 이 값으로만 켠다. */
+        source: 'ai',
+        confidence: typeof currentSignal.confidence === 'number' ? currentSignal.confidence : null,
         side: currentSignal.direction,
         price: (currentSignal.entryZone[0] + currentSignal.entryZone[1]) / 2,
         size: 0.05,
@@ -745,14 +748,24 @@
         return;
       }
 
+      /*
+         AI 초안에서 온 주문인지 표시를 함께 넘긴다.
+
+         ★ 전에는 확인창이 모든 주문에 "AI 분석이 만든 초안" 경고를 붙였다.
+           손으로 낸 주문에도 붙어서, 경고가 사실이 아닌 채로 항상 떠 있었다.
+      */
+      const withOrigin = orderDraft && orderDraft.source === 'ai'
+        ? Object.assign({}, data, { ai: { confidence: orderDraft.confidence } })
+        : data;
+
       // 백엔드가 없으면 화면 흐름만 보여준다 (정적 프리뷰 계약).
       if (!window.QTApi || !window.QTApi.orders) {
-        setOrderPreview(data);
+        setOrderPreview(withOrigin);
         setFlowStep('preview');
         return;
       }
 
-      setOrderPreview(data);
+      setOrderPreview(withOrigin);
       setFlowStep('preview');
 
       window.QTApi.orders.createDraft({
@@ -779,7 +792,7 @@
             variant: 'error',
           });
         });
-    }, [pushToast, market]);
+    }, [pushToast, market, orderDraft]);
 
     /**
      * 2단계 — 사용자가 확인을 누른 시점.
@@ -909,7 +922,7 @@
         if (e.target.matches('input, textarea')) return;
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); engine.undo(); }
         else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); engine.redo(); }
-        else if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); engine.save(); pushToast({ title: 'Layout Saved', variant: 'success' }); }
+        else if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); engine.save(); pushToast({ title: t('layout_saved_title'), variant: 'success' }); }
         else if (e.key === 'Escape' && engine.isEditing) {
           if (engine.dirty && !confirm(t('confirm_unsaved_leave'))) return;
           pushRoute('/trade');
@@ -1631,8 +1644,8 @@
                 onHide={engine.hideWidget}
                 onDuplicate={engine.duplicateWidget}
                 onLock={engine.toggleLock}
-                onSettings={() => pushToast({ title: 'Widget Settings', desc: '(spec-only — future implementation)', variant: 'info' })}
-                onMaximize={() => pushToast({ title: 'Maximize Widget', desc: '(spec-only — future implementation)', variant: 'info' })}
+                onSettings={() => pushToast({ title: t('pending_title_named', { label: t('widget_settings') }), desc: t('pending_generic'), variant: 'info' })}
+                onMaximize={() => pushToast({ title: t('pending_title_named', { label: t('widget_maximize') }), desc: t('pending_generic'), variant: 'info' })}
                 label={widgetLabel(w.type, t)}
                 allWidgets={engine.layout.widgets}
                 /*
@@ -2592,20 +2605,44 @@
       detail: t(Math.abs(priceDev) > 3 ? 'risk_dev_far' : 'risk_dev_near'),
       meta: `${priceDev >= 0 ? '+' : ''}${priceDev.toFixed(2)}%`,
     });
-    // 6. Data freshness
-    checks.push({
-      state: 'ok',
-      label: t('risk_data_state'),
-      detail: 'Live · 24ms · Mock stream',
-      meta: 'WS',
-    });
-    // 7. AI confidence
-    checks.push({
-      state: 'ok',
-      label: 'AI Confidence',
-      detail: t('risk_ai_conf_detail'),
-      meta: '74%',
-    });
+    /*
+       6. 데이터 출처·지연.
+
+       ★★ 전에는 `'Live · 24ms · Mock stream'` 이 문자열로 박혀 있었다. 24ms 는
+         아무도 계측하지 않은 숫자이고, 목업 스트림인데 'Live' 라고 적혀 있었다.
+         주문 확인창은 사용자가 마지막으로 판단하는 화면이다 — 여기서 거짓을
+         보여주면 그 판단이 무의미해진다.
+
+       ★ 이제 QTLive 의 실측값만 쓴다. 계측되지 않았으면 계측되지 않았다고 쓴다.
+    */
+    {
+      const L = window.QTLive;
+      const source = L && typeof L.getSource === 'function' ? L.getSource() : null;
+      const ms = L && typeof L.getLatency === 'function' ? Math.round(L.getLatency()) : 0;
+      const isLiveFeed = source === 'live';
+      checks.push({
+        state: isLiveFeed ? 'ok' : 'warn',
+        label: t('risk_data_state'),
+        detail: isLiveFeed
+          ? (ms > 0 ? t('risk_data_live', { ms: ms }) : t('risk_data_unmeasured'))
+          : t('risk_data_mock'),
+        meta: isLiveFeed ? 'WS' : '—',
+      });
+    }
+    /*
+       7. AI 확신도 — 승인한 신호가 있을 때만 보여준다.
+
+       ★★ 전에는 모든 주문에 '74%' 가 붙었다. 손으로 낸 주문에도 AI 가 74%
+         확신한다고 적혀 있었다. 어떤 모델도 계산하지 않은 숫자다.
+    */
+    if (order.ai && typeof order.ai.confidence === 'number') {
+      checks.push({
+        state: 'ok',
+        label: t('ai_confidence'),
+        detail: t('risk_ai_conf_from_signal'),
+        meta: `${order.ai.confidence}%`,
+      });
+    }
 
     const failCount = checks.filter(c => c.state === 'fail').length;
     const warnCount = checks.filter(c => c.state === 'warn').length;
@@ -2615,7 +2652,7 @@
         <div className="risk-checklist__title">
           <span>{t('op_risk_title')}</span>
           <span style={{fontFamily:'var(--font-mono)', textTransform:'none', letterSpacing:'0.02em'}}>
-            {failCount > 0 ? <span style={{color:'var(--color-danger)'}}>{failCount} FAIL</span> : warnCount > 0 ? <span style={{color:'var(--color-warning)'}}>{warnCount} WARN</span> : <span style={{color:'var(--color-success)'}}>ALL CLEAR</span>}
+            {failCount > 0 ? <span style={{color:'var(--color-danger)'}}>{t('risk_fail_n', { n: failCount })}</span> : warnCount > 0 ? <span style={{color:'var(--color-warning)'}}>{t('risk_warn_n', { n: warnCount })}</span> : <span style={{color:'var(--color-success)'}}>{t('risk_all_clear')}</span>}
           </span>
         </div>
         {checks.map((c, i) => (
@@ -2748,12 +2785,14 @@
             {/* Multi-signal Risk Checklist */}
             <RiskChecklist order={order} lastPrice={lastPrice}/>
 
-            <div className="oe-warn" style={{marginTop: 12}}>
-              <span className="oe-warn__icon"><I.Alert size={14}/></span>
-              <div>
-                <strong>{t('op_ai_warn_label')}</strong> {t('op_ai_warn_body')}
+            {order.ai && (
+              <div className="oe-warn" style={{marginTop: 12}}>
+                <span className="oe-warn__icon"><I.Alert size={14}/></span>
+                <div>
+                  <strong>{t('op_ai_warn_label')}</strong> {t('op_ai_warn_body')}
+                </div>
               </div>
-            </div>
+            )}
 
             {submitting && (
               <div style={{marginTop:16, padding: 12, background:'var(--color-bg-panel)', borderRadius: 6, textAlign:'center'}}>
