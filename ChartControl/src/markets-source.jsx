@@ -37,7 +37,7 @@
 
   /** 서버가 아는 즐겨찾기 집합. null 은 "아직 읽지 못했다"(빈 집합과 다르다). */
   let favSet = null;
-  let favVersion = null;
+  /* ★ favVersion 을 두고 두 곳에서 대입했지만 읽는 곳이 없었다(죽은 값). 지웠다. */
   let loading = false;
   const listeners = new Set();
 
@@ -81,7 +81,6 @@
       .then((r) => {
         const list = (r && r.symbols) || [];
         favSet = new Set(Array.isArray(list) ? list.map((x) => String(x).toUpperCase()) : []);
-        favVersion = r && typeof r.version === 'number' ? r.version : null;
         notify();
       })
       .catch(() => {
@@ -111,10 +110,7 @@
     notify();
 
     return api.rest.saveFavorites([...favSet])
-      .then((r) => {
-        if (r && typeof r.version === 'number') favVersion = r.version;
-        return true;
-      })
+      .then(() => true)
       .catch((e) => {
         // 되돌리고 알린다. 저장 안 된 것을 저장된 것처럼 두지 않는다.
         if (had) favSet.add(key); else favSet.delete(key);

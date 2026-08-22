@@ -14,7 +14,7 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useMemo } = React;
+  const { useState, useEffect } = React;
   const I = window.Icons;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
@@ -52,12 +52,12 @@
   );
 
   /** 언어 변경 시 이 파일의 컴포넌트들이 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
 
   // ============================================================
   // AUTH SHELL — reusable wrapper for auth pages
   // ============================================================
-  window.AuthShell = function AuthShell({ title, subtitle, children, mode = 'auth', progress }) {
+  window.AuthShell = function AuthShell({ title, subtitle, children, _mode = 'auth', progress }) {
     /*
        ★★ 히어로 통계는 **셀 수 있는 것만** 보여준다.
 
@@ -216,7 +216,7 @@
   // ============================================================
   // LOGIN PAGE
   // ============================================================
-  window.LoginPage = function LoginPage({ shellProps }) {
+  window.LoginPage = function LoginPage({ shellProps: _shellProps }) {
     const [email, setEmail] = useState('');
     const [pw, setPw] = useState('');
     const [remember, setRemember] = useState(true);
@@ -394,7 +394,7 @@
   // ============================================================
   // SIGNUP PAGE
   // ============================================================
-  window.SignupPage = function SignupPage({ shellProps }) {
+  window.SignupPage = function SignupPage({ shellProps: _shellProps }) {
     const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: 'KR', agree: false, marketing: true });
 
     /*
@@ -658,7 +658,7 @@
   // ============================================================
   // EMAIL VERIFY
   // ============================================================
-  window.EmailVerifyPage = function EmailVerifyPage({ shellProps }) {
+  window.EmailVerifyPage = function EmailVerifyPage({ shellProps: _shellProps }) {
     const [code, setCode] = useState(['','','','','','']);
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
@@ -762,7 +762,7 @@
   // ============================================================
   // KYC ONBOARDING
   // ============================================================
-  window.KYCOnboardingPage = function KYCOnboardingPage({ shellProps }) {
+  window.KYCOnboardingPage = function KYCOnboardingPage({ shellProps: _shellProps }) {
     /*
        본인 인증 온보딩.
 
@@ -791,6 +791,19 @@
 
     const cfg = (window.QTApi && window.QTApi.useConfig) ? window.QTApi.useConfig() : null;
     const signupUrl = (cfg && cfg.exchangeSignupUrl) || '';
+
+     /*
+        ★★ 이 훅들이 아래 `if (!backendKnownAbsent) return (…)` **뒤에** 있었다.
+          백엔드 판정은 null(모름) → true/false 로 바뀌므로, 그 렌더에서 훅 개수가
+          달라져 React 가 죽는다. 훅은 조건보다 먼저, 항상 같은 순서로 부른다.
+     */
+    const [step, setStep] = useState(1);
+    const [form, setForm] = useState({
+      firstName: '', lastName: '', birth: '', nationality: 'KR',
+      address: '', city: '', postal: '',
+      idType: 'passport', idFront: null, idBack: null, selfie: null,
+      source: '', purpose: '',
+    });
 
     if (!backendKnownAbsent) {
       return (
@@ -838,13 +851,6 @@
       );
     }
 
-    const [step, setStep] = useState(1);
-    const [form, setForm] = useState({
-      firstName: '', lastName: '', birth: '', nationality: 'KR',
-      address: '', city: '', postal: '',
-      idType: 'passport', idFront: null, idBack: null, selfie: null,
-      source: '', purpose: '',
-    });
 
     const totalSteps = 4;
     const next = () => setStep(Math.min(totalSteps, step + 1));
@@ -994,7 +1000,7 @@
   // ============================================================
   // PASSWORD RESET
   // ============================================================
-  window.PasswordResetPage = function PasswordResetPage({ shellProps }) {
+  window.PasswordResetPage = function PasswordResetPage({ shellProps: _shellProps }) {
     const [step, setStep] = useState(1);
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
@@ -1397,7 +1403,7 @@
   // ============================================================
   // NOT FOUND (404)
   // ============================================================
-  window.NotFoundPage = function NotFoundPage({ shellProps, message }) {
+  window.NotFoundPage = function NotFoundPage({ shellProps: _shellProps, message }) {
     return (
       <window.AuthShell title={t('nf_title_attr')} subtitle={t('not_found_eeedd6')}>
         <div className="auth-form" style={{alignItems:'center', textAlign:'center'}}>

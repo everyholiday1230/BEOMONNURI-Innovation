@@ -209,7 +209,7 @@
   }
 
   window.ChartTemplatePanel = function ChartTemplatePanel({
-    getChart, version, symbol, timeframe, notify, onClose,
+    getChart, version: _version, symbol, timeframe, notify, onClose,
   }) {
     useLocale();
     const ref = useRef(null);

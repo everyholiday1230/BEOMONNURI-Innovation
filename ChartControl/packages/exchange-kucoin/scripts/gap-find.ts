@@ -1,4 +1,4 @@
-import { KucoinFuturesRest, normalizeInstrument, normalizeRestCandles, toKucoinSymbol, toGranularity, planKlinePages, mergeCandlePages } from '../src/index.js';
+import { KucoinFuturesRest, normalizeInstrument, normalizeRestCandles, toGranularity, planKlinePages, mergeCandlePages } from '../src/index.js';
 const rest = new KucoinFuturesRest({ restBase: 'https://api-futures.kucoin.com' });
 const contracts = (await rest.getActiveContracts()) as never[];
 const insts = new Map(contracts.map(normalizeInstrument).filter(Boolean).map(i => [i!.symbol, i!]));

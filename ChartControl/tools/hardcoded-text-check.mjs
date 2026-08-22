@@ -87,7 +87,24 @@ const ALLOW_WORDS = new Set([
 ]);
 
 /* 순수 기호·숫자·짧은 표기 */
-const NON_TEXT = /^[\s\d.,:;/|+\-—–·×%()[\]{}<>@#$^*_=~`'"!?→←↑↓▲▼✓✗★☆●○◆■□⚠🎁📌📊📐📍✍️🔒💡🎯🔀→\u200b\uFE0F]*$/u;
+/*
+   ★ 이모지를 문자 클래스에 그대로 넣으면 안 된다. '✍️' 처럼 이형 선택자(U+FE0F)가
+     붙은 것은 코드포인트 2개라서, 클래스 안에서는 '✍' 와 U+FE0F 를 따로 넣은 것과
+     구별되지 않는다(eslint no-misleading-character-class). 이모지는 클래스 밖으로
+     빼서 문자열 단위로 지운 다음, 남은 것이 기호·숫자뿐인지 본다.
+*/
+const DECORATIVE = ['🎁', '📌', '📊', '📐', '📍', '✍️', '🔒', '💡', '🎯', '🔀'];
+/* 이형 선택자(U+FE0F)와 폭 없는 공백은 클래스에 넣지 않고 미리 제거한다 —
+   클래스 안에 두면 '⚠'+U+FE0F 같은 결합 문자와 구별되지 않는다. */
+const INVISIBLE = /\u200b|\uFE0F/gu;   /* 클래스가 아니라 선택지로 쓴다 — 이형 선택자는 클래스 안에서 결합 문자로 해석된다. */
+const NON_TEXT_REST = /^[\s\d.,:;/|+\-—–·×%()[\]{}<>@#$^*_=~`'"!?→←↑↓▲▼✓✗★☆●○◆■□⚠]*$/u;
+const NON_TEXT = {
+  test(s) {
+    let out = String(s);
+    for (const e of DECORATIVE) out = out.split(e).join('');
+    return NON_TEXT_REST.test(out.replace(INVISIBLE, ''));
+  },
+};
 
 /** 낱말이 전부 허용목록에 있으면 번역 대상이 아니다. */
 function isAllowed(text) {

@@ -12,15 +12,15 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useMemo } = React;
+  const { useState, useEffect } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
   const I = window.Icons;
-  const { fmt, fmtCompact } = window.QTFmt;
+  const { fmtCompact } = window.QTFmt;
 
   function timeAgo(ts) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -607,6 +607,7 @@
                 </div>
               </window.SectionCard>
 
+              {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
               {false && Array.isArray(u.flags) && u.flags.length > 0 && (
                 <window.SectionCard title={t('adm_flags')}>
                   {(u.flags || []).map(f => (
@@ -1098,6 +1099,14 @@
     if (window.QTLive && window.QTLive.useLiveVersion) window.QTLive.useLiveVersion();
     const __backend = window.QTLive && window.QTLive.isBackendPresent
       ? window.QTLive.isBackendPresent() : null;
+     /*
+        ★★ 이 훅이 아래 `if (__backend !== false) return (…)` **뒤에** 있었다.
+          backendPresent 는 처음 null(판정 중)이고 곧 true/false 로 바뀐다. 그
+          전이에서 조기 return 여부가 달라지므로 훅 개수가 렌더마다 달라진다 —
+          React 가 "Rendered more hooks than during the previous render" 로 죽는다.
+     */
+    const [filter, setFilter] = useState('pending');
+
     if (__backend !== false) {
       return (
         <window.PageShell
@@ -1116,7 +1125,6 @@
       );
     }
 
-    const [filter, setFilter] = useState('pending');
     const cases = [
       { id:'KYC-A1B2C3', user:'usr_00005', name:'Alice Wu',  submitted: Date.now()-1000*60*30,   country:'HK', level:1, target:2, status:'pending',   riskScore:22, autoFlags:[] },
       { id:'KYC-D4E5F6', user:'usr_00003', name:'John Kim',  submitted: Date.now()-1000*60*60*3, country:'US', level:2, target:3, status:'pending',   riskScore:14, autoFlags:[] },
@@ -1160,7 +1168,7 @@
               { key:'risk', label:'Risk Score', render: r => <span style={{color: r.riskScore > 40 ? 'var(--color-danger)' : r.riskScore > 25 ? 'var(--color-warning)' : 'var(--color-success)', fontFamily:'var(--font-mono)', fontWeight: 500}}>{r.riskScore}</span> },
               { key:'flags', label:'Auto Flags', render: r => r.flags?.length || r.autoFlags?.length ? (r.autoFlags || r.flags).map(f => <span key={f} className="severity-pill severity-pill--medium" style={{marginRight:3}}>{f}</span>) : <span style={{color:'var(--color-text-tertiary)'}}>·</span> },
               { key:'status', label: t('adm_col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'pending' ? 'warn' : r.status === 'reviewing' ? 'neutral' : r.status === 'approved' ? 'ok' : 'danger'}`}>{r.status.toUpperCase()}</span> },
-              { key:'act', label:'', align:'right', render: r => <><button className="tbl-action">{t('col_review')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> },
+              { key:'act', label:'', align:'right', render: _r => <><button className="tbl-action">{t('col_review')}</button> <button className="tbl-action" style={{marginLeft:3}}>{t('col_approve')}</button> <button className="tbl-action tbl-action--danger" style={{marginLeft:3}}>{t('col_reject')}</button></> },
             ]}
             rows={filtered}
           />

@@ -72,6 +72,7 @@ export default tseslint.config(
          그래서 sourceType 은 script 이고, 서로를 window 전역으로 참조한다.
     */
     files: ['src/**/*.js', 'src/**/*.jsx'],
+    plugins: { 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',
@@ -87,8 +88,25 @@ export default tseslint.config(
       },
     },
     rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
+      ...reactHooks.configs.recommended.rules,
+      /*
+         기본 규칙과 typescript-eslint 규칙이 **둘 다** 켜져 있어 같은 줄이 두 번 잡혔다.
+         권장 방식대로 기본 규칙을 끄고 TS 쪽만 쓴다.
+
+         ★ caughtErrors:'none' — 이 코드베이스는 catch 블록을 비워 두는 방식을 의도적으로
+           쓴다(화면을 죽이지 않기 위해). 잡은 오류를 안 쓰는 것이 규칙 위반이 아니다.
+      */
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
+      /*
+         `onClose && onClose()` 관용구를 허용한다.
+
+         ★ 이 프론트엔드는 선택적 콜백을 이렇게 호출한다(9곳). 값을 쓰지 않는
+           표현식이라 규칙이 잡지만, 단축평가 호출은 의도된 호출이다. 옵션으로
+           허용하는 것이 9곳을 다시 쓰는 것보다 안전하다.
+      */
+      '@typescript-eslint/no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
     },
   },
   {
@@ -103,12 +121,18 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.node, ...globals.browser, ...globals.es2022 },
     },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
+    },
   },
   {
     // Test files: relax a few rules that are noisy in test scaffolding.
     files: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}', '**/test-setup.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      /* 테스트는 모듈을 지연 로드해 환경변수 조합을 바꿔 가며 검증한다. */
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 );

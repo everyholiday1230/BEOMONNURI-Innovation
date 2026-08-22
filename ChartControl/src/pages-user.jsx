@@ -12,15 +12,15 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useMemo, useCallback } = React;
+  const { useState, useEffect, useMemo } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
   const I = window.Icons;
-  const { fmt, fmtPct, fmtCompact } = window.QTFmt;
+  const { fmt, fmtCompact } = window.QTFmt;
 
   // Helper: format time ago
   function timeAgo(ts) {
@@ -52,7 +52,7 @@
   window.MarketsPage = function MarketsPage({ shellProps }) {
     const [q, setQ] = useState('');
     const [tab, setTab] = useState('All');
-    const [sort, setSort] = useState({ key: 'vol', dir: 'desc' });
+    const [sort, _setSort] = useState({ key: 'vol', dir: 'desc' });
     const [view, setView] = useState('table'); // table | heatmap
 
     /*
@@ -1153,6 +1153,7 @@
                ★ 되살리는 방법: 이 조건을 없애고 onClick 에 실제 내보내기를
                  붙인다(관리자 회원 Export 처럼 서버가 URL 을 준다).
               */}
+            {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
             {false && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('an_export_report')}</button>
             )}
@@ -1402,7 +1403,7 @@
                   </span>
                 );
               } },
-              { key: 'act', label: '', align:'right', render: r => (
+              { key: 'act', label: '', align:'right', render: _r => (
                 <>
                   <button className="tbl-action">TP/SL</button>
                   <button className="tbl-action tbl-action--danger" style={{marginLeft:4}}>{t('close')}</button>
@@ -1619,6 +1620,7 @@
         actions={
           <>
             {/* Export 숨김 — 위 Export Report 와 같은 이유(배선할 경로가 없다). */}
+            {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
             {false && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
             )}
@@ -1908,13 +1910,13 @@
   // WALLET PAGE — Exchange Connect + Referrals + Balances
   // ============================================================
   window.WalletPage = function WalletPage({ shellProps }) {
-    const USER = window.QTApp.USER;
+    const _USER = window.QTApp.USER;
     /*
        ★ 훅은 조건 없이 호출한다. 원래 `if (window.QTApi && window.QTApi.useConfig)
          window.QTApi.useConfig();` 였다 — QTApi 가 첫 렌더보다 늦게 준비되면
          훅 개수가 바뀌어 화면이 비어 버린다(실제로 겪었다).
     */
-    const cfg = window.QTApi && window.QTApi.useConfig ? window.QTApi.useConfig() : null;
+    const _cfg = window.QTApi && window.QTApi.useConfig ? window.QTApi.useConfig() : null;
 
     /*
        KuCoin Fast API 인증 결과.
@@ -3924,6 +3926,7 @@
               ))}
             </select>
             {/* Export 숨김 (베타 범위 제외) — 주문 내역 내보내기 경로가 아직 없다. */}
+            {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
             {false && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
             )}

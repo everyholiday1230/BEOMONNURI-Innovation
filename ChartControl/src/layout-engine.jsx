@@ -16,7 +16,7 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useRef, useMemo, useCallback } = React;
+  const { useState, useEffect, useRef, useCallback } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
@@ -67,7 +67,7 @@
     const [ghost, setGhost] = useState(null); // {x,y,w,h,valid}
     const [libraryOpen, setLibraryOpen] = useState(false);
 
-    const pushHistory = useCallback((prev) => {
+    const _pushHistory = useCallback((prev) => {
       setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));
     }, []);
 
@@ -241,7 +241,7 @@
     widget, cols = 24, rowH = 40, gap = 6,
     isEditing, isLocked, isSelected, onChange,
     onSelect, onHide, onDuplicate, onLock, onSettings, onMaximize,
-    children, trackRef, label, allWidgets,
+    children, trackRef, label, allWidgets: _allWidgets,
     /*
        마지막으로 만진 순서. 0 이면 아직 만지지 않았다(기본 쌓임 유지).
        클 수록 위에 온다 — 엔진이 관리한다(raiseWidget).
@@ -373,7 +373,7 @@
     }, [resize, cols, gap, widget.minW, widget.minH, onChange]);
 
     const showResize = isEditing && !isLocked && !widget.locked;
-    const showControls = isEditing && (isSelected || false);
+    const _showControls = isEditing && (isSelected || false);
 
     /* ★ 훅을 모두 부른 뒤에 숨김을 처리한다(위 isHidden 주석 참조). */
     if (isHidden) return null;

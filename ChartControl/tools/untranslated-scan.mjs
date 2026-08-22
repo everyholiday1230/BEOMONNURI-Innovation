@@ -77,7 +77,7 @@ const isNotTranslatable = (s) => {
   // 코인 티커·통화·약어 (대문자/숫자 2~6자): BTC, USDT, PERP, GTC, PNL, ROE …
   if (/^[A-Z0-9]{1,6}$/.test(s)) return true;
   // 거래쌍·복합 심볼: BTC/USDT, USDT-PERP, ETH/USDT · +17.50%
-  if (/^[A-Z0-9]{2,10}[/\-][A-Z0-9]{2,10}/.test(s)) return true;
+  if (/^[A-Z0-9]{2,10}[/-][A-Z0-9]{2,10}/.test(s)) return true;
   // 숫자·기호만, 또는 숫자에 단위가 붙은 것: 1.32B, 125× MAX, 30D, 1H, +17.62%
   if (/^[\d\s.,:%+\-–—/()×x]+$/.test(s)) return true;
   if (/^[\d.,]+\s*[A-Za-z%×]{1,4}$/.test(s)) return true;

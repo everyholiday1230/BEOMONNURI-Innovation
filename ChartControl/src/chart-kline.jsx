@@ -36,7 +36,7 @@
 (function () {
   'use strict';
 
-  const { useEffect, useRef, useState, useMemo, useCallback } = React;
+  const { useEffect, useRef, useState, useMemo } = React;
 
   const KL = window.klinecharts;
   if (!KL) {
@@ -561,7 +561,7 @@
   // 스타일 — tokens.css 값을 KLineChart Styles 로 변환
   // ===============================================================
   function buildStyles(colors, opts) {
-    const { showVolume, decimals } = opts;
+    const { decimals: _decimals } = opts;
     return {
       grid: {
         show: true,
@@ -727,14 +727,14 @@
     timeframe = '15m',
     symbol = 'BTC/USDT',
     overlays = [],
-    lastPrice,
+    _lastPrice,
     onOverlayChange,
     onOverlayHover,
-    activeTool = 'cursor',
+    _activeTool = 'cursor',
     showMA = true,
     showVolume = true,
     showLegend = true,
-    padding = { top: 20, right: 68, bottom: 44, left: 8 },
+    _padding = { top: 20, right: 68, bottom: 44, left: 8 },
     className = '',
     /** 차트 인스턴스를 상위로 알린다. 지표 패널이 여기에 붙는다.
         (chart, generation) 형태로 호출하며 파괴 시 (null, generation) 이 온다. */

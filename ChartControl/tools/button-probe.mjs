@@ -408,4 +408,15 @@ if (emptyRoutes.length > 0) {
   console.log('  ("Rendered more hooks than during the previous render" 를 실제로 겪었다.)');
 }
 
+/*
+   ★ 세션이 끊긴 뒤의 결과는 신뢰할 수 없다.
+     전에는 어느 버튼이 세션을 끊었는지 기록만 하고 아무 곳에서도 쓰지 않았다 —
+     그래서 로그아웃 이후의 '무반응' 이 진짜 결함인지 세션 탓인지 알 수 없었다.
+*/
+if (sessionLostBy) {
+  console.log('');
+  console.log(`★ 세션이 끊겼다 — ${sessionLostBy.route} 의 "${sessionLostBy.label}" 를 누른 뒤.`);
+  console.log('  그 뒤의 결과는 신뢰할 수 없다. 그 버튼을 제외하고 다시 돌려 확인할 것.');
+}
+
 exit(broken.length || emptyRoutes.length ? 1 : 0);

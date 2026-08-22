@@ -67,8 +67,8 @@
     overlays = [],           // Overlay[]
     lastPrice,
     onOverlayChange,         // (id, newPoints) => void
-    onOverlayHover,          // (overlay) => void
-    activeTool = 'cursor',   // 'cursor' | 'trend-line' | 'horizontal' | ...
+    _onOverlayHover,          // (overlay) => void
+    _activeTool = 'cursor',   // 'cursor' | 'trend-line' | 'horizontal' | ...
     showMA = true,
     showVolume = true,
     showLegend = true,
@@ -501,7 +501,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(label, scales.plotX + scales.plotW + 4 + w / 2, y);
     }
-    function drawTag(ctx, text, x, y, colors, color, source) {
+    function drawTag(ctx, text, x, y, colors, color, _source) {
       ctx.setLineDash([]);
       ctx.font = '500 10px "IBM Plex Mono", monospace';
       const pad = 4;

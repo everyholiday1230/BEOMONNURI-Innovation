@@ -2203,6 +2203,16 @@
          直書きの t('key') だけを探す検査では見落とされ、ja 辞書に無かった分。
          ------------------------------------------------------------ */
       risk_liq_danger_close: '⚠ 非常に危険です',
+
+      /* --- AI コパイロットの状態バー --- */
+      ai_state_thinking: '考えています',
+      ai_state_streaming: '生成中',
+      ai_state_streaming_note: '応答を生成しています…',
+      ai_state_approved: 'シグナル承認済み',
+      ai_state_review: '確認待ち',
+      ai_state_review_note: 'シグナルの下書きができました · 承認または編集',
+      ai_state_ready: '準備完了',
+      ai_state_ready_note: 'トレンド · サポート/レジスタンス · エントリーを聞いてください',
     },
     { label: '日本語', bcp47: 'ja-JP' },
   );

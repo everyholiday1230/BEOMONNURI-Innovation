@@ -19,13 +19,13 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useCallback, useMemo } = React;
+  const { useState, useEffect, useCallback } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
   const I = window.Icons;
 
   // ---- Sidebar item registry — grouped by section, filtered by role ----

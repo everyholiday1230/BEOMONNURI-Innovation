@@ -68,7 +68,7 @@ const walk = (dir) => {
     if (st.isDirectory()) walk(p);
     else if (/\.(ts|mjs|js)$/.test(name)) {
       const text = readFileSync(p, 'utf8');
-      for (const m of text.matchAll(/(?:process\.)?env(?:ironment)?[.\[]['"]?([A-Z][A-Z0-9_]{2,})['"]?\]?/g)) {
+      for (const m of text.matchAll(/(?:process\.)?env(?:ironment)?[.[]['"]?([A-Z][A-Z0-9_]{2,})['"]?\]?/g)) {
         codeKeys.add(m[1]);
       }
       // EXCHANGE_REFERRAL_URL_<ID> 처럼 접두사로 조립하는 것

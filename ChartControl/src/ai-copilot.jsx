@@ -7,12 +7,12 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useRef, useMemo, useCallback } = React;
+  const { useState, useEffect, useRef, useCallback } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
   const I = window.Icons;
-  const { fmt, fmtPct } = window.QTFmt;
+  const { fmt } = window.QTFmt;
 
   // ---- Scripted flows ----
   // Flow 3: trendline
@@ -84,7 +84,7 @@
 
   // ============================================================
   window.AICopilot = function AICopilot({
-    context, isBeginner, overlays, addOverlay, updateOverlay, removeOverlay,
+    context, isBeginner, overlays, addOverlay, updateOverlay: _updateOverlay, removeOverlay: _removeOverlay,
     onProposeSignal, currentSignal, onApproveSignal, onCreateOrderDraft, onEditSignal, onRejectSignal,
     t,
     /*
@@ -290,7 +290,7 @@
          지금 지워 버리면 오버레이 만드는 방법(타입·앵커·라벨 형식)을 다시
          알아내야 한다.
     */
-    const submitTrendline = useCallback(async () => {
+    const _submitTrendline = useCallback(async () => {
       await runThinking(FLOW_TRENDLINE.thinking);
       // Create the overlay — points span last 90 → last 20 candles
       const candles = context.candles;
@@ -313,11 +313,11 @@
       setMsgs(m => [...m, makeMsg('ai', '', { hint: t('ai_hint_drag') })]);
     }, [context, addOverlay, isBeginner, runThinking, streamReply]);
 
-    const submitSignal = useCallback(async () => {
+    const _submitSignal = useCallback(async () => {
       await runThinking(FLOW_SIGNAL.thinking);
       const signal = QT.AI_SIGNAL;
       // Create overlays for signal
-      const now = Date.now();
+      const _now = Date.now();
       const timeAnchor = context.candles[context.candles.length - 8].time;
       addOverlay({
         id: 'sig-entry',
@@ -534,18 +534,19 @@
 
     // ---- Compute AI state for state bar ----
     // Idle | Thinking | Streaming | Draft ready | Waiting review | Approved | Error | Stale | Reconnecting
-    let aiState, aiStateLabel, aiStateNote, aiStateClass;
-    if (thinking)          { aiState = 'thinking';   aiStateLabel = 'THINKING';        aiStateNote = thinking.msg;                    aiStateClass = ''; }
-    else if (streaming)    { aiState = 'streaming';  aiStateLabel = 'STREAMING';       aiStateNote = 'Generating response…';          aiStateClass = ''; }
-    else if (currentSignal && currentSignal.status === 'approved') { aiState = 'approved'; aiStateLabel = 'SIGNAL APPROVED'; aiStateNote = `${currentSignal.symbol.replace('USDT','/USDT')} · ${currentSignal.timeframe}`; aiStateClass = 'is-approved'; }
-    else if (currentSignal){ aiState = 'review';     aiStateLabel = 'WAITING REVIEW';  aiStateNote = 'Signal draft ready · approve or edit'; aiStateClass = ''; }
+    /* ★ 전에는 aiState 변수도 함께 두었지만 읽는 곳이 없었다(죽은 대입 6곳). 지웠다. */
+    let aiStateLabel, aiStateNote, aiStateClass;
+    if (thinking)          { aiStateLabel = t('ai_state_thinking');  aiStateNote = thinking.msg;                    aiStateClass = ''; }
+    else if (streaming)    { aiStateLabel = t('ai_state_streaming'); aiStateNote = t('ai_state_streaming_note');      aiStateClass = ''; }
+    else if (currentSignal && currentSignal.status === 'approved') { aiStateLabel = t('ai_state_approved'); aiStateNote = `${currentSignal.symbol.replace('USDT','/USDT')} · ${currentSignal.timeframe}`; aiStateClass = 'is-approved'; }
+    else if (currentSignal){ aiStateLabel = t('ai_state_review');    aiStateNote = t('ai_state_review_note');         aiStateClass = ''; }
     /*
        ★★ 'READY' 가 하드코딩돼 있었다. AI 가 연결되지 않은 상태에서도 "준비됨"
          이라고 표시하면, 사용자는 뒤이어 나오는 예시 문구를 실제 분석으로 믿는다.
          연결 상태를 그대로 말한다.
     */
-    else if (!aiReady)     { aiState = 'idle';       aiStateLabel = t('ai_state_beta');  aiStateNote = t('ai_state_beta_note'); aiStateClass = 'is-pending'; }
-    else                   { aiState = 'idle';       aiStateLabel = 'READY';           aiStateNote = 'Ask about trends, S/R, entry'; aiStateClass = 'is-idle'; }
+    else if (!aiReady)     { aiStateLabel = t('ai_state_beta');      aiStateNote = t('ai_state_beta_note');           aiStateClass = 'is-pending'; }
+    else                   { aiStateLabel = t('ai_state_ready');     aiStateNote = t('ai_state_ready_note');          aiStateClass = 'is-idle'; }
 
     // ---- UI ----
     return (

@@ -2376,6 +2376,16 @@
       landing_price_body_2: 'AI analysis runs are metered with points you earn from referrals and events — not with money.',
       landing_price_body_3: 'If paid tiers open later, we will say so on this page before anything changes for you.',
       landing_price_cta: 'Create a free account',
+
+      /* --- AI 코파일럿 상태바 --- */
+      ai_state_thinking: 'THINKING',
+      ai_state_streaming: 'STREAMING',
+      ai_state_streaming_note: 'Generating response…',
+      ai_state_approved: 'SIGNAL APPROVED',
+      ai_state_review: 'WAITING REVIEW',
+      ai_state_review_note: 'Signal draft ready · approve or edit',
+      ai_state_ready: 'READY',
+      ai_state_ready_note: 'Ask about trends, S/R, entry',
     },
     { label: 'English', bcp47: 'en-US' },
   );

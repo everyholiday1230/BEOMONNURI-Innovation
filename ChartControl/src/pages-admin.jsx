@@ -15,13 +15,13 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useMemo } = React;
+  const { useState, useEffect } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
 
   /*
      서버가 돌려주는 고정 문구(note)를 사람이 읽는 말로 바꾼다.
@@ -482,7 +482,7 @@
    *   · 제도를 켤 때 지급 방법 설명을 요구한다(서버도 검증한다).
    */
   window.AdminReferralPage = function AdminReferralPage({ shellProps }) {
-    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    const _adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
 
     const [data, setData] = useState(null);
     const [err, setErr] = useState(null);
@@ -1881,7 +1881,7 @@
   // ADMIN SYSTEM PAGE
   // ============================================================
   window.AdminSystemPage = function AdminSystemPage({ shellProps }) {
-    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    const _adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
 
     /*
        시스템 상태 (실데이터).
@@ -2669,7 +2669,7 @@
        킬스위치는 QTAdmin 이 폴링해서 채운다. 이 훅이 없으면 데이터가 도착해도
        재렌더되지 않아 '0개' 로 고정된다(실제로 겪음).
     */
-    const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
+    const _adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
 
     const [live, setLive] = useState(null);
     const [meta, setMeta] = useState({ readOnly: false, note: '' });
@@ -2691,7 +2691,7 @@
 
     const toRow = (pos) => {
       const size = Number(pos.quantity !== undefined ? pos.quantity : pos.size);
-      const entry = Number(pos.entryPrice);
+      const _entry = Number(pos.entryPrice);
       const mark = Number(pos.markPrice);
       const liq = Number(pos.liquidationPrice);
       const margin = Number(pos.margin !== undefined ? pos.margin : pos.initialMargin);

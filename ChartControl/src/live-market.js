@@ -1286,11 +1286,19 @@
    */
   function useLiveVersion() {
     var React = window.React;
+    /*
+       ★ React 가 없으면 0 을 돌려준다(정적 프리뷰·테스트 하네스에서 이 파일만 로드되는 경우).
+         규칙상 조기 return 뒤의 훅 호출이지만, window.React 의 유무는 페이지 수명 동안
+         바뀌지 않으므로 훅 순서는 렌더마다 동일하다. 조건을 없앨 수는 없다 — React 가
+         없으면 훅 자체를 부를 수 없다.
+    */
     if (!React) return 0;
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     var state = React.useState(live.version);
     var version = state[0];
     var setVersion = state[1];
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     React.useEffect(function () {
       var off = subscribeVersion(function (v) { setVersion(v); });
       // 마운트 사이에 갱신이 있었을 수 있으므로 즉시 동기화한다.

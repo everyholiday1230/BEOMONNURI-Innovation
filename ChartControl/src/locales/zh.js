@@ -2194,6 +2194,16 @@
          只找字面 t('key') 的检查会漏掉它们，这里补齐 zh 缺失的部分。
          ------------------------------------------------------------ */
       risk_liq_danger_close: '⚠ 非常危险',
+
+      /* --- AI 副驾状态栏 --- */
+      ai_state_thinking: '正在思考',
+      ai_state_streaming: '正在生成',
+      ai_state_streaming_note: '正在生成回复…',
+      ai_state_approved: '信号已确认',
+      ai_state_review: '等待你确认',
+      ai_state_review_note: '信号草稿已就绪 · 可确认或修改',
+      ai_state_ready: '就绪',
+      ai_state_ready_note: '可以问趋势、支撑/阻力、入场点',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

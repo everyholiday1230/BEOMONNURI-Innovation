@@ -5,7 +5,7 @@
 (function () {
   const { useState, useEffect, useMemo, useRef, useCallback } = React;
   const I = window.Icons;
-  const { fmt, fmtPct, fmtCompact, fmtPrice } = window.QTFmt;
+  const { fmt, fmtPrice } = window.QTFmt;
 
   /**
    * 번역 조회 — 파일 단위 헬퍼.
@@ -2017,7 +2017,7 @@
   // Chart widget wrapper (with toolbar + draw tools)
   // ============================================================
   function ChartWidget({
-    market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay, pushToast, t,
+    market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay: _addOverlay, pushToast, t,
     /*
        ★★ 격자에서 여러 개가 동시에 살아 있을 수 있다.
 
@@ -2029,7 +2029,7 @@
        ★ 기본값 true — 격자를 쓰지 않는 화면(단일 차트)에서 지금까지와 같이
          동작해야 한다.
     */
-    focused = true, paneId = 'main',
+    focused = true, _paneId = 'main',
   }) {
     const [activeTool, setActiveTool] = useState('cursor');
     const [showMA, setShowMA] = useState(true);

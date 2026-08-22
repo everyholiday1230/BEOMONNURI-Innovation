@@ -10,13 +10,13 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useMemo, useRef } = React;
+  const { useState, useEffect } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /** 언어 변경 시 재렌더되도록 하는 훅. */
-  const useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
+  const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
   const I = window.Icons;
   const { fmt, fmtCompact } = window.QTFmt;
 
@@ -97,10 +97,18 @@
       setFastApiBusy(false);
     };
 
-    if (!exchange) return null;
+    /*
+       ★★ `if (!exchange) return null;` 이 이 줄들보다 **위에** 있었다.
 
+         조기 return 뒤에 훅을 부르면 렌더마다 훅 개수가 달라진다. exchange 가
+         null → 값 으로 바뀌는 렌더에서 React 가 "Rendered more hooks than during
+         the previous render" 로 죽는다. 마법사는 카드에서 거래소를 고를 때 정확히
+         그 전이를 겪는다.
+
+       ★ 훅을 모두 위로 올리고, 조기 return 은 훅 뒤로 내렸다.
+    */
     /** 저장된 자격증명 id. 검증·삭제에 쓴다. */
-    const [credentialId, setCredentialId] = useState(null);
+    const [_credentialId, setCredentialId] = useState(null);
 
     /**
      * 키를 저장하고 거래소에 실제로 연결해 본다.
@@ -174,6 +182,9 @@
           });
         });
     };
+
+    /* 훅을 모두 부른 뒤에 판정한다 — 훅 순서가 렌더마다 달라지지 않게. */
+    if (!exchange) return null;
 
     return (
       <div className="overlay" onClick={onClose}>
@@ -1165,7 +1176,7 @@
     */
     const [live, setLive] = useState(null);
     const [err, setErr] = useState(null);
-    const [busy, setBusy] = useState(false);
+    const [_busy, _setBusy] = useState(false);
 
     const load = React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;

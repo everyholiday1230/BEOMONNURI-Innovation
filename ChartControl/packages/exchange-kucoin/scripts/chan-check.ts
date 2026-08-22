@@ -14,7 +14,7 @@ const tryIt = (label: string, fn: () => () => void) => {
   try { return fn(); } catch (e) { errs.push(`${label}: ${(e as Error).message}`); return () => {}; }
 };
 
-const u1 = tryIt('ticker', () => (a as never as { subscribeTicker: Function }).subscribeTicker('BTCUSDT', () => { n.ticker += 1; }));
+const u1 = tryIt('ticker', () => (a as never as { subscribeTicker: (symbol: string, cb: () => void) => unknown }).subscribeTicker('BTCUSDT', () => { n.ticker += 1; }));
 const u2 = tryIt('book', () => a.subscribeBook('BTCUSDT', () => { n.book += 1; }));
 const u3 = tryIt('trade', () => a.subscribeTrades('BTCUSDT', () => { n.trade += 1; }));
 const u4 = tryIt('candle', () => a.subscribeCandles('BTCUSDT', '1m', () => { n.candle += 1; }));

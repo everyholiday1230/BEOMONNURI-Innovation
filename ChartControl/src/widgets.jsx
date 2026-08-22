@@ -8,7 +8,7 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect, useRef, useMemo, useCallback } = React;
+  const { useState, useEffect, useRef, useMemo } = React;
   const I = window.Icons;
 
   // ---------- Number utils ----------
@@ -116,7 +116,7 @@
   // ============================================================
   window.MarketWatch = function MarketWatch({ current, onSelect, t }) {
     const [q, setQ] = useState('');
-    const [sort, setSort] = useState({ key: 'vol', dir: 'desc' });
+    const [sort, _setSort] = useState({ key: 'vol', dir: 'desc' });
     /*
        ★★ 목록을 모드에 맞춘다.
 

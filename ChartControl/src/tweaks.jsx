@@ -10,7 +10,7 @@
   const { useState, useEffect } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처.
-  const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
+  const _t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
   const I = window.Icons;
 
   const BRAND_PALETTES = [

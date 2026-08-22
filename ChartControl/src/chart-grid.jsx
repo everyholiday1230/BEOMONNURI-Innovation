@@ -33,7 +33,7 @@
    ============================================================ */
 (function () {
   'use strict';
-  const { useState, useEffect, useCallback, useRef } = React;
+  const { useState, useEffect, useCallback } = React;
 
   const t = (k, p) => (window.QTI18n ? window.QTI18n.t(k, p) : k);
 
