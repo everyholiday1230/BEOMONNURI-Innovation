@@ -2417,6 +2417,14 @@
       landing_how_4: 'Place the order — it fills in your own account',
       landing_how_4_sub: 'The server re-checks size, price deviation, leverage and daily limits before anything is sent. If a check fails, nothing is sent and you see why.',
       landing_how_cta: 'Start with a free account',
+
+      /* --- 랜딩: 실시간 시세·자금 흐름·시작 절차 --- */
+      acct_connect_cta: 'Connect a key →',
+
+      /* --- 랜딩: 실시간 시세·자금 흐름·시작 절차 --- */
+      ai_bar_mode_live: 'LIVE ORDERS',
+      ai_bar_mode_sim: 'SIMULATED',
+      ai_bar_mode_unknown: 'MODE ?',
     },
     { label: 'English', bcp47: 'en-US' },
   );

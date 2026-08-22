@@ -2720,7 +2720,19 @@
                 const path = (window.QTMode && window.QTMode.getOrderPath)
                   ? window.QTMode.getOrderPath()
                   : null;
-                const isLive = path === 'live';
+                /*
+                   ★ 화면 모드와 **서버 상태**를 함께 본다.
+
+                     화면이 선물 모드여도 서버가 실주문을 열지 않았으면 그 주문은
+                     전송되지 않는다. 그때 "실제 돈을 잃을 수 있다" 고 쓰면 틀린 경고다.
+                     반대로 서버가 실주문인데 모의라고 쓰면 위험을 축소한다 — 그래서
+                     설정을 아직 못 받았으면(null) 실주문으로 간주해 경고를 남긴다.
+                */
+                const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+                const serverLive = cfg
+                  ? (Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || '')))
+                  : true;
+                const isLive = path === 'live' && serverLive;
                 return (
                   <div style={{
                     fontSize: 12, marginTop: 3, fontWeight: isLive ? 600 : 400,

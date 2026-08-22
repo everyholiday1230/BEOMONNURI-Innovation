@@ -1086,7 +1086,21 @@
      * 마지막을 두 번째로 표시하면 사용자가 데이터가 사라진 줄 안다.
      */
     const emptyReason = (allRows, emptyKey) => {
-      if (!acct.isLive) return t('acct_status_' + String(acct.status).toLowerCase());
+      /*
+         ★★ 키를 연결하지 않은 사용자에게는 **갈 곳을 준다.**
+
+           전에는 "거래소 API 키를 연결하면 보입니다" 라는 문장만 있었다. 그런데 누를
+           것이 없어서, 신규 사용자는 어디서 연결하는지 스스로 찾아야 했다(연결 화면은
+           /wallet 이다). 가입 직후 첫 화면에서 막히면 그 사용자는 아무것도 하지 못한다.
+      */
+      if (!acct.isLive) {
+        return (
+          <>
+            {t('acct_status_' + String(acct.status).toLowerCase())}{' '}
+            <a href="#/wallet" style={{color:'var(--color-brand)'}}>{t('acct_connect_cta')}</a>
+          </>
+        );
+      }
       if (symbolOnly && currentSymbol && allRows.length > 0) {
         return t('filter_no_match_symbol', { symbol: currentSymbol });
       }

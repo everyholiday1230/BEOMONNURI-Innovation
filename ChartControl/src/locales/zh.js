@@ -2235,6 +2235,14 @@
       landing_how_4: '下单 — 在你自己的账户里成交',
       landing_how_4_sub: '发送前服务器会重新校验数量、价格偏离、杠杆和每日上限。任一不通过就不发送，并告诉你原因。',
       landing_how_cta: '免费注册开始',
+
+      /* --- 落地页：实时行情、资金流向、上手步骤 --- */
+      acct_connect_cta: '去连接密钥 →',
+
+      /* --- 落地页：实时行情、资金流向、上手步骤 --- */
+      ai_bar_mode_live: '实盘下单',
+      ai_bar_mode_sim: '模拟',
+      ai_bar_mode_unknown: '模式未知',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

@@ -632,7 +632,21 @@
           <span className="ai-state-bar__spacer"/>
           <span className="ai-state-bar__note" title={t('data_freshness')}>◷ {new Date().toLocaleTimeString('en-GB',{hour12:false})}</span>
           <span className="ai-state-bar__note">·</span>
-          <span className="ai-state-bar__note">SIM</span>
+          {/*
+             ★★ 'SIM' 이 문자열로 박혀 있었다. 실주문을 연 배포에서도 이 자리에 SIM 이
+               남아, AI 패널만 보는 사용자는 주문이 모의라고 믿는다. 위험을 축소하는
+               방향으로 틀리는 표시는 가장 나쁘다 — 상단 띠와 같은 기준(서버 설정)을 쓴다.
+          */}
+          {(() => {
+            const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+            const live = cfg ? (Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || ''))) : null;
+            const key = live === null ? 'ai_bar_mode_unknown' : live ? 'ai_bar_mode_live' : 'ai_bar_mode_sim';
+            return (
+              <span className="ai-state-bar__note" style={live ? { color: 'var(--color-trade-short)', fontWeight: 700 } : undefined}>
+                {t(key)}
+              </span>
+            );
+          })()}
         </div>
 
         <div className="ai-context">
