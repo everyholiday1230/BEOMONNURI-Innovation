@@ -21,6 +21,19 @@ import { summarizeRebates, type RebateRecord } from '@quantumtrade/exchange-bitm
 import { toJsonl } from '../learning/training-format';
 import type { IAdminRepo } from '../db/admin-repo-contract';
 
+
+/*
+   메일 발송 준비 여부.
+
+   ★ 경로가 둘이다(SMTP · Resend). 한쪽만 보면 SMTP 로 보내는 배포에서 화면이
+     "메일 미설정" 이라고 말한다 — 운영자가 고칠 것이 없는데 경고가 뜬다.
+*/
+function mailConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  const common = Boolean(env.MAIL_FROM && env.APP_BASE_URL);
+  const smtp = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+  const resend = Boolean(env.RESEND_API_KEY);
+  return common && (smtp || resend);
+}
 const CSRF = 'qt_csrf';
 const corr = () => Math.random().toString(36).slice(2, 10);
 const err = (code: string, message: string) => ({ error: { code, message, correlationId: corr() } });
@@ -596,7 +609,7 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
        ★ 발송할 수 없으면 토큰을 만들지 않는다. 아무도 받지 못하는 재설정
          토큰을 DB 에 쌓아 두면 유효한 토큰이 늘어나는 것뿐이다(공격 표면).
     */
-    const mailReady = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM && process.env.APP_BASE_URL);
+    const mailReady = mailConfigured();
     if (!mailReady) {
       await d.repo.recordAction({
         actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.password_reset_send',
@@ -897,7 +910,7 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
          "확인 메일을 보냈다" 고 답하지 않는다 — 담당자가 그렇게 안내하면
          이용자는 오지 않는 메일을 기다린다.
     */
-    const mailReady = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM && process.env.APP_BASE_URL);
+    const mailReady = mailConfigured();
 
     return c.json({
       ok: true,

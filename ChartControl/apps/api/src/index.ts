@@ -16,7 +16,7 @@ import { attachWsGateway, type WsGatewayHandle } from './ws-gateway';
 
 import { MockAIProvider } from './ai/mock-ai-provider';
 import { SimOrderEngine } from './sim/order-engine';
-import { AuthService, MailSink, resendFromEnv, verifyCsrf, originAllowed } from '@quantumtrade/auth';
+import { AuthService, MailSink, resendFromEnv, smtpFromEnv, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import { createAuthRouter } from './auth-routes';
 import { openDb } from './db/sqlite';
 import { createCoreIdentityRepositories, BATCH_1_REPOSITORY_IDS, createUserDataRepositories, BATCH_2_REPOSITORY_IDS, createAdminRepositories, BATCH_3_REPOSITORY_IDS } from './db/repository-factory';
@@ -995,17 +995,32 @@ if (env.authEnabled) {
     console.log(`[api] user/trading repositories: backend=${userData.backend} (${BATCH_2_REPOSITORY_IDS.join(', ')})`);
 
     const auditRepo = core.audit;
-    const resendProvider = resendFromEnv();
-    const mailProvider = resendProvider ?? new MailSink();
-    if (resendProvider === null) {
+    /*
+       메일 발송 경로 선택.
+
+       ★★ 전에는 Resend 하나뿐이었다. `RESEND_API_KEY` 가 없으면 인증·비밀번호 재설정
+         메일이 **한 통도 나가지 않는다**(메모리 싱크에만 쌓인다). 비밀번호를 잊은
+         사용자는 복구할 방법이 없다.
+
+       ★ 그래서 SMTP 를 먼저 본다. 운영자가 이미 회사 메일 계정을 가지고 있으면
+         추가 비용도 외부 의존도 없이 보낼 수 있다(SMTP_HOST·SMTP_USER·SMTP_PASS).
+         둘 다 없으면 싱크로 떨어지고, 그 사실을 경고로 남긴다 — 조용히 넘기지 않는다.
+    */
+    const smtpProvider = smtpFromEnv();
+    const resendProvider = smtpProvider ? null : resendFromEnv();
+    const mailProvider = smtpProvider ?? resendProvider ?? new MailSink();
+    if (smtpProvider === null && resendProvider === null) {
        
       console.warn(
         '[api] MAIL NOT CONFIGURED — using in-memory sink. Verification and password-reset links will NOT ' +
-          'reach users. Set RESEND_API_KEY, MAIL_FROM and APP_BASE_URL.',
+          'reach users. Set either SMTP_HOST/SMTP_USER/SMTP_PASS or RESEND_API_KEY, together with ' +
+          'MAIL_FROM and APP_BASE_URL.',
       );
     } else {
        
-      console.log(`[api] mail provider: ${resendProvider.name} (from=${process.env.MAIL_FROM ?? '?'})`);
+      console.log(
+        `[api] mail provider: ${mailProvider.name} (from=${process.env.MAIL_FROM ?? '?'})`,
+      );
     }
 
     /*
@@ -1147,7 +1162,9 @@ if (env.authEnabled) {
           */
           mail: (() => {
             const missing: string[] = [];
-            if (!process.env.RESEND_API_KEY) missing.push('RESEND_API_KEY');
+            /* SMTP 로 보내는 배포도 있다 — 둘 중 하나면 준비된 것이다. */
+            const hasSmtp = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+            if (!process.env.RESEND_API_KEY && !hasSmtp) missing.push('RESEND_API_KEY 또는 SMTP_HOST/SMTP_USER/SMTP_PASS');
             if (!process.env.MAIL_FROM) missing.push('MAIL_FROM');
             if (!process.env.APP_BASE_URL) missing.push('APP_BASE_URL');
             if (missing.length === 0) return 'Configured';

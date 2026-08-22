@@ -5,6 +5,7 @@ export * from './rbac';
 export * from './policy';
 export * from './mail';
 export * from './resend-mail';
+export * from './smtp-mail';
 export * from './tokens';
 export * from './repositories';
 export * from './memory-repo';
