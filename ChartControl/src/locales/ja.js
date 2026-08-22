@@ -2120,6 +2120,19 @@
       ex_market_gate: 'グローバル · アルトコインが豊富',
       ex_market_kraken: '米国 · 規制対応',
       ex_market_coinbase: '米国 · 機関投資家向け',
+
+      /* --- ランディング（公開ページ）— 事実に合わせた文言 --- */
+      landing_hero_badge: 'AI ネイティブの取引ターミナル',
+      landing_feat_layout: '24 カラムのカスタムレイアウト',
+      landing_feat_design_body: 'OKLCH デザイントークン · ブランドパレット・テーマ・情報密度を実行中に切り替えられます。',
+      landing_feat_ex_title: '自分の取引所口座をつなぐ',
+      landing_feat_ex_none: '接続できる取引所の一覧を読み込んでいます。',
+      landing_feat_ex_body: '{names} — 資金は自分の取引所口座に置いたままです。当社が預かることはありません。',
+      landing_price_title: '現在はすべて無料です',
+      landing_price_body_1: '決済事業者を接続していないため、料金を請求することも有料プランを購入することもできません。',
+      landing_price_body_2: 'AI 分析の実行回数は、紹介やイベントで得たポイントで管理します — お金ではありません。',
+      landing_price_body_3: '将来有料プランを始める場合は、何かが変わる前にこのページでお知らせします。',
+      landing_price_cta: '無料でアカウントを作る',
     },
     { label: '日本語', bcp47: 'ja-JP' },
   );

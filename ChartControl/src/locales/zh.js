@@ -2111,6 +2111,19 @@
       ex_market_gate: '全球 · 山寨币品类多',
       ex_market_kraken: '美国 · 受监管',
       ex_market_coinbase: '美国 · 面向机构',
+
+      /* --- 落地页（公开页面）— 与事实一致的文案 --- */
+      landing_hero_badge: 'AI 原生交易终端',
+      landing_feat_layout: '24 栏自定义布局',
+      landing_feat_design_body: 'OKLCH 设计 token · 品牌配色、主题和信息密度可在运行时切换。',
+      landing_feat_ex_title: '连接你自己的交易所账户',
+      landing_feat_ex_none: '正在加载可连接的交易所列表。',
+      landing_feat_ex_body: '{names} — 你的资金留在自己的交易所账户里，我们从不保管。',
+      landing_price_title: '目前全部功能免费',
+      landing_price_body_1: '我们没有接入支付服务商，因此无法收费，也无法购买付费套餐。',
+      landing_price_body_2: 'AI 分析次数用你从推荐和活动中获得的积分计量 — 不用花钱。',
+      landing_price_body_3: '如果以后开放付费套餐，我们会在这个页面提前告知，然后才会有任何变化。',
+      landing_price_cta: '免费注册账号',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

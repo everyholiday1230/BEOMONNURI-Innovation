@@ -1195,7 +1195,14 @@
                 {t(item.key)}
               </a>
             ))}
-            <a href="design-system.html" target="_blank" rel="noopener noreferrer" /* qt-i18n-ignore: 개발자 문서 */>Design</a>
+            {/*
+               ★★ 공개 랜딩에 있던 개발자 문서 링크(design-system.html)를 없앴다.
+                 두 가지 문제가 있었다:
+                   · 그 파일은 정적 서빙 허용목록에 없어 **404 가 난다**(실측).
+                     방문자가 처음 보는 화면에서 깨진 링크를 누르게 된다.
+                   · 내부 디자인 문서는 고객에게 보여줄 것이 아니다.
+                 필요한 사람은 관리자 화면(/admin/design-ops)에서 열 수 있다.
+            */}
           </nav>
           <div style={{display:'inline-flex', gap: 6}}>
             <a className="btn btn--sm" href="#/login">{t('login_e225a6')}</a>
@@ -1205,7 +1212,7 @@
 
         <section className="landing-hero">
           <div className="landing-hero__badge">
-            <span className="dot dot--ai"/> AI-Native Trading Terminal
+            <span className="dot dot--ai"/> {t('landing_hero_badge')}
           </div>
           <h1 className="landing-hero__title">
             {t('auth_77edb5')}<br/>
@@ -1287,11 +1294,21 @@
           <div className="landing-feat-grid">
             {[
               { icon: 'Sparkles', title: t('auth_feat_ai'), body: t('landing_5f6b64') },
-              { icon: 'Chart',    title: '24-column Custom Layout', body: t('landing_44cbb3') },
+              { icon: 'Chart',    title: t('landing_feat_layout'), body: t('landing_44cbb3') },
               { icon: 'Alert',    title: t('auth_feat_safety'), body: t('landing_40f668') },
-              { icon: 'Wallet',   title: '8+ Exchange Integration', body: 'Binance · Bitget · OKX · Bybit · BitMart · Gate · Kraken · Coinbase' },
+              /*
+                 ★★ 전에는 '8+ Exchange Integration' 과 함께
+                   'Binance · Bitget · OKX · Bybit · BitMart · Gate · Kraken · Coinbase'
+                   가 박혀 있었다. 실제로 연결되는 것은 카탈로그가 connectable 로
+                   표시한 것뿐이다(현재 KuCoin·BitMart). 나머지는 어댑터가 없다 —
+                   가입한 사람이 Binance 를 연결하려다 방법이 없음을 알게 된다.
+              */
+              { icon: 'Wallet',   title: t('landing_feat_ex_title'),
+                body: landingExchanges.length > 0
+                  ? t('landing_feat_ex_body', { names: landingExchanges.map((e) => e.name).join(' · ') })
+                  : t('landing_feat_ex_none') },
               { icon: 'Book',     title: t('auth_feat_journal'), body: t('landing_69704c') },
-              { icon: 'Layers',   title: t('auth_feat_design'), body: 'OKLCH tokens · 4 brand palettes · 3 densities · Dark/Light' },
+              { icon: 'Layers',   title: t('auth_feat_design'), body: t('landing_feat_design_body') },
             ].map((f, i) => {
               const Ic = I[f.icon] || I.Grid;
               return (
@@ -1305,23 +1322,32 @@
           </div>
         </section>
 
+        {/*
+           요금.
+
+           ★★ 전에는 Beginner $0 / Pro $29 / VIP "문의" 3장의 요금표가 있었고
+             'POPULAR' 배지와 결제로 이어지는 CTA 까지 붙어 있었다. 그런데
+             **결제 사업자가 연결돼 있지 않다.** 서버도 구독 등급을
+             `unavailable: ['subscriptionTiers', …]` 로 선언한다. 즉 월 $29 를
+             내려고 눌러도 낼 수 있는 곳이 없다. 런칭 첫 화면에서 팔 수 없는
+             것을 파는 것이 가장 나쁘다.
+
+           ★ 섹션을 지우지 않고 사실을 쓴다 — 방문자는 요금을 찾아서 여기를 누른다.
+             "무료다 / 청구할 수단이 없다 / 유료가 열리면 먼저 알린다" 를 말한다.
+        */}
         <section id="pricing" className="landing-section">
           <div className="landing-section-title">{t('landing_nav_pricing')}</div>
           <div className="landing-pricing">
-            {[
-              { name:'Beginner', price:'$0', period:t('landing_04b7df'), desc:t('landing_1351e7'), features:[t('landing_d3219e'), t('landing_9c7f54'), t('landing_724991'), t('landing_8466e2')], cta:t('landing_b8adca'), highlight:false },
-              { name:'Pro', price:'$29', period:t('landing_04b7df'), desc:t('landing_74f8f5'), features:[t('landing_4f403f'), t('landing_6e9bb1'), t('landing_c3d5f3'), t('landing_bc5424'), t('landing_1a4272'), t('landing_91e9d6')], cta:t('landing_0077f3'), highlight:true },
-              { name:'VIP', price:t('landing_0fc1ee'), period:'', desc:t('landing_b7f95d'), features:[t('landing_6587f1'), t('landing_860f96'), t('landing_633158'), t('landing_0af146')], cta:t('landing_531f6a'), highlight:false },
-            ].map(p => (
-              <div key={p.name} className={`landing-price-card ${p.highlight ? 'is-highlight' : ''}`}>
-                {p.highlight && <div className="landing-price-card__badge">POPULAR</div>}
-                <div className="landing-price-card__name">{p.name}</div>
-                <div className="landing-price-card__desc">{p.desc}</div>
-                <div className="landing-price-card__price"><strong>{p.price}</strong><span>{p.period}</span></div>
-                <ul>{p.features.map(f => <li key={f}>✓ {f}</li>)}</ul>
-                <a className={`btn ${p.highlight ? 'btn--primary' : ''}`} href="#/signup" style={{width: '100%'}}>{p.cta}</a>
-              </div>
-            ))}
+            <div className="landing-price-card is-highlight" style={{gridColumn: '1 / -1'}}>
+              <div className="landing-price-card__name">{t('landing_price_title')}</div>
+              <div className="landing-price-card__price"><strong>$0</strong></div>
+              <ul>
+                <li>✓ {t('landing_price_body_1')}</li>
+                <li>✓ {t('landing_price_body_2')}</li>
+                <li>✓ {t('landing_price_body_3')}</li>
+              </ul>
+              <a className="btn btn--primary" href="#/signup" style={{width: '100%'}}>{t('landing_price_cta')}</a>
+            </div>
           </div>
         </section>
 
@@ -1332,7 +1358,7 @@
               <div key={ex.id} className="landing-ex">
                 <div className="landing-ex__logo" style={{background: ex.logoBg, color: ex.logoColor}}>{(window.exchangeLogo && window.exchangeLogo(ex.id, { size: 20 })) || ex.logoText}</div>
                 <div className="landing-ex__name">{ex.name}</div>
-                <div className="landing-ex__market">{ex.market}</div>
+                <div className="landing-ex__market">{ex.marketKey ? t(ex.marketKey) : ex.market}</div>
               </div>
             ))}
           </div>

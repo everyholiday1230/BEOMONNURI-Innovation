@@ -2372,6 +2372,19 @@
       ex_market_gate: 'Global · Alt-heavy',
       ex_market_kraken: 'US · Regulated',
       ex_market_coinbase: 'US · Institutional',
+
+      /* --- 랜딩(공개 페이지) — 사실에 맞춘 문구 --- */
+      landing_hero_badge: 'AI-native trading terminal',
+      landing_feat_layout: '24-column custom layout',
+      landing_feat_design_body: 'OKLCH design tokens · brand palette, theme and density switch at runtime.',
+      landing_feat_ex_title: 'Connect your own exchange account',
+      landing_feat_ex_none: 'The connectable exchange list is loading.',
+      landing_feat_ex_body: '{names} — your funds stay in your own exchange account. We never hold them.',
+      landing_price_title: 'Everything is free right now',
+      landing_price_body_1: 'No payment provider is connected, so nothing can be charged and no paid tier can be bought.',
+      landing_price_body_2: 'AI analysis runs are metered with points you earn from referrals and events — not with money.',
+      landing_price_body_3: 'If paid tiers open later, we will say so on this page before anything changes for you.',
+      landing_price_cta: 'Create a free account',
     },
     { label: 'English', bcp47: 'en-US' },
   );

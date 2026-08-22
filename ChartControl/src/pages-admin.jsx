@@ -1713,9 +1713,14 @@
           badge={<span className="badge badge--ai">{t('adm_badge_super')}</span>}
           actions={
             <>
-              <a className="btn btn--sm" href="design-system.html" target="_blank" rel="noopener noreferrer"><I.Book size={13}/> Design System</a>{/* qt-i18n-ignore: 개발자 문서 링크 (도구 고유 이름) */}
+              {/*
+                 ★★ design-system.html · developer-handoff.html 로 가는 버튼을 없앴다.
+                   두 파일은 정적 서빙 허용목록(static-web.ts) 에 없어서 **404 가 난다**
+                   (실측). 눌러도 안 되는 버튼은 없는 것보다 나쁘다 — 운영자는 기능이
+                   고장났다고 판단한다. 문서는 저장소에서 열면 된다. 허용목록에 넣지
+                   않은 것은 의도다: 정적 서빙에는 인증이 없어 내부 문서가 공개된다.
+              */}
               <a className="btn btn--sm" href="design-library/index.html" target="_blank" rel="noopener noreferrer"><I.Layers size={13}/> Library {/* qt-i18n-ignore: 개발자 문서 */} {/* qt-i18n-ignore: 개발자 전용 화면 이름 */}</a>
-              <a className="btn btn--sm" href="developer-handoff.html" target="_blank" rel="noopener noreferrer"><I.LayoutIcon size={13}/> Handoff {/* qt-i18n-ignore: 개발자 전용 화면 이름 */}</a>
             </>
           }
         >
@@ -1787,9 +1792,13 @@
         badge={<span className="badge badge--ai">{t('adm_badge_super')}</span>}
         actions={
           <>
-            <a className="btn btn--sm" href="design-system.html" target="_blank"><I.Book size={13}/> Design System</a>{/* qt-i18n-ignore: 개발자 문서 링크 (도구 고유 이름) */}
             <a className="btn btn--sm" href="design-library/index.html" target="_blank"><I.Layers size={13}/> Library {/* qt-i18n-ignore: 개발자 문서 */} {/* qt-i18n-ignore: 개발자 전용 화면 이름 */}</a>
-            <button className="btn btn--sm btn--primary"><I.Check size={13}/> Publish ({d.unpublishedChanges})</button>
+            {/*
+               ★★ 'Publish (N)' 버튼을 없앴다. 누르면 아무 일도 일어나지 않으며,
+                 존재하지 않는 동기화(관리자 화면 → 코드)를 있는 것처럼 보이게 한다.
+                 이 화면의 본문이 이미 "디자인 공개 공정은 없다" 고 말한다 —
+                 버튼과 본문이 서로 다른 말을 하고 있었다.
+            */}
           </>
         }
       >
