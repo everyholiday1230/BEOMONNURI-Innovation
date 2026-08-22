@@ -118,7 +118,7 @@ The Service may not be used by anyone under 19, and we do not knowingly collect 
 
 For questions, complaints or remedies regarding personal data:
 
-Email: support@chartcontrol.local
+Email: {{SUPPORT_EMAIL}}
 
 If you are in the Republic of Korea you may also contact the Korea Internet & Security Agency privacy centre (privacy.kisa.or.kr, 118) or the Personal Information Dispute Mediation Committee (kopico.go.kr, 1833-6972). If you are in the EEA or the UK you may lodge a complaint with your local supervisory authority.
 

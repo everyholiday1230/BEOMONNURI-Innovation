@@ -34,6 +34,7 @@ import { PgPointsRepo } from './db/points-repo';
 import { createPointsRouter } from './points/points-routes';
 import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
 import { PgLegalRepo } from './db/legal-repo';
+import { seedLegalDocuments } from './legal/seed-legal';
 import { createLegalRouter } from './legal/legal-routes';
 import { PgSimOrderProjection } from './portfolio/pg-sim-projection';
 import { PgPortfolioRepo } from './db/pg-portfolio-repo';
@@ -2368,6 +2369,45 @@ if (isProduction) {
  * 단일 오리진으로 합치면 CORS 와 SameSite 쿠키 문제가 사라지고 배포 대상도 하나가 된다.
  * 프론트엔드를 찾지 못해도 API 는 정상 동작한다 (헤드리스 배포를 막지 않는다).
  */
+/*
+   법적 문서 등록.
+
+   ★★ 가입 화면은 이용약관·개인정보처리방침 동의를 받는데, 문서가 게시돼 있지 않으면
+     그 동의는 아무것도 가리키지 않는다(라이브에서 4종 모두 not_published 였다).
+     그래서 부팅 때 빠진 문서를 채운다. 문서 본문은 docs/legal/*.md 에 있다.
+
+   ★ 기본은 초안까지만. 공개는 되돌릴 수 없으므로 LEGAL_AUTOPUBLISH=true 를
+     명시할 때만 공개한다. 실주문이 열려 있는데 사업자 정보(COMPANY_INFO)가 없으면
+     공개하지 않는다 — 실거래를 제공하는 사업자가 자기 정보를 밝히지 않는 약관을
+     게시할 수는 없다.
+*/
+if (legalRepo) {
+  void seedLegalDocuments(legalRepo, {
+    publish: process.env.LEGAL_AUTOPUBLISH === 'true',
+    version: (process.env.LEGAL_VERSION ?? '2026-08-22').trim(),
+    supportEmail: env.supportEmail ?? '',
+    companyInfo: (process.env.COMPANY_INFO ?? '').trim(),
+    liveOrdersEnabled: env.liveOrdersEnabled,
+  })
+    .then((r) => {
+      const parts = [
+        `생성 ${r.created.length}`,
+        `공개 ${r.published.length}`,
+        `건너뜀 ${r.skipped.length}`,
+      ];
+      console.log(`[legal] 문서 시딩: ${parts.join(' · ')}`);
+      if (r.created.length > 0) console.log(`[legal] 생성: ${r.created.join(', ')}`);
+      if (r.published.length > 0) console.log(`[legal] 공개: ${r.published.join(', ')}`);
+      /* 막힌 것과 빠진 파일은 반드시 눈에 보이게 남긴다 — 조용히 넘기면 아무도 모른다. */
+      if (r.blocked.length > 0) console.warn(`[legal] 공개하지 않음: ${r.blocked.join(', ')}`);
+      if (r.missingFiles.length > 0) console.warn(`[legal] 문서 없음/실패: ${r.missingFiles.join(', ')}`);
+      if (!process.env.LEGAL_AUTOPUBLISH) {
+        console.log('[legal] 초안만 만들었다. /admin/legal 에서 검토 후 공개하거나 LEGAL_AUTOPUBLISH=true 로 배포할 것.');
+      }
+    })
+    .catch((e: unknown) => console.warn(`[legal] 시딩 실패: ${(e as Error).message}`));
+}
+
 const webRoot = mountStatic(app);
 if (webRoot) {
    

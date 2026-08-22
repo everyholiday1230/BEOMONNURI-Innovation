@@ -90,4 +90,4 @@
 
 이 서비스를 이용하는 것은 위 위험을 읽고 이해했으며, 스스로 감수하겠다는 뜻입니다.
 
-문의: support@chartcontrol.local
+문의: {{SUPPORT_EMAIL}}

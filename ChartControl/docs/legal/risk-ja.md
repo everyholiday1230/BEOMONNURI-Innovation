@@ -71,4 +71,4 @@
 
 本サービスを利用することは、上記のリスクを読み理解し、自ら引き受けることを意味します。
 
-お問い合わせ: support@chartcontrol.local
+お問い合わせ: {{SUPPORT_EMAIL}}

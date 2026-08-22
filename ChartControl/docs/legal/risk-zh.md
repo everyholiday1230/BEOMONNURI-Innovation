@@ -84,4 +84,4 @@
 
 使用本服务即表示你已阅读、理解并接受上述风险。
 
-联系方式：support@chartcontrol.local
+联系方式：{{SUPPORT_EMAIL}}

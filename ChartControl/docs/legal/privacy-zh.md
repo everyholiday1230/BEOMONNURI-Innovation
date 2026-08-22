@@ -118,7 +118,7 @@ ChartControl（下称「我们」）谨慎处理你的个人信息，并遵守�
 
 关于个人信息的咨询、投诉或救济：
 
-邮箱：support@chartcontrol.local
+邮箱：{{SUPPORT_EMAIL}}
 
 如果你在大韩民国，也可以联系韩国互联网振兴院个人信息保护中心（privacy.kisa.or.kr，118）或个人信息纠纷调解委员会（kopico.go.kr，1833-6972）。如果你在欧洲经济区或英国，可以向你所在地的监管机构提出投诉。
 

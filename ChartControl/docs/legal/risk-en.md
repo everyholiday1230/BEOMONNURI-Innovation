@@ -91,4 +91,4 @@ soon. In leveraged trading, losses grow faster than expected.
 
 Using this Service means you have read and understood these risks and accept them.
 
-Contact: support@chartcontrol.local
+Contact: {{SUPPORT_EMAIL}}

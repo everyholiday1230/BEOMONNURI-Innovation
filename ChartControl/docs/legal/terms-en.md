@@ -103,10 +103,10 @@ We process personal data under our separate Privacy Policy, which forms part of 
 
 ## 14. Contact
 
-Email: support@chartcontrol.local
+Email: {{SUPPORT_EMAIL}}
 
 ---
 
 ### Business information
 
-Details of the operating entity are published inside the Service or on a business information page. Until that information is confirmed, the Service **does not offer live trading and operates in simulation mode only.**
+{{COMPANY_INFO}}
