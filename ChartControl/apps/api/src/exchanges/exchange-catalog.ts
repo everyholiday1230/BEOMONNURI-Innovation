@@ -64,6 +64,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#24AE8F',
     logoColor: '#0A0E14',
     market: 'Global · 664 USDT perpetuals',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_kucoin',
     supportedProducts: ['Spot', 'Perp', 'Futures', 'Margin'],
     minLatency: 18,
     apiDocs: 'https://www.kucoin.com/docs-new',
@@ -90,6 +92,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#F0B90B',
     logoColor: '#0A0E14',
     market: 'Global · #1 by volume',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_binance',
     supportedProducts: ['Spot', 'Perp', 'Futures', 'Options', 'Margin'],
     minLatency: 12,
     apiDocs: 'https://binance-docs.github.io/apidocs/',
@@ -109,6 +113,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#00CED1',
     logoColor: '#0A0E14',
     market: 'Global · Copy trading strong',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_bitget',
     supportedProducts: ['Spot', 'Perp', 'Futures', 'Copy'],
     minLatency: 18,
     apiDocs: 'https://bitgetlimited.github.io/apidoc/en/',
@@ -128,6 +134,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#00D4AA',
     logoColor: '#0A0E14',
     market: 'Global · Deep alt liquidity',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_bitmart',
     supportedProducts: ['Spot', 'Perp', 'Futures'],
     minLatency: 24,
     apiDocs: 'https://developer-pro.bitmart.com/',
@@ -166,6 +174,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#0D0D0D',
     logoColor: '#FFFFFF',
     market: 'Global · Institutional',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_okx',
     supportedProducts: ['Spot', 'Perp', 'Futures', 'Options'],
     minLatency: 14,
     apiDocs: 'https://www.okx.com/docs-v5/',
@@ -185,6 +195,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#F7A600',
     logoColor: '#0A0E14',
     market: 'Global · Derivatives focus',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_bybit',
     supportedProducts: ['Spot', 'Perp', 'Futures', 'Options'],
     minLatency: 15,
     apiDocs: 'https://bybit-exchange.github.io/docs/v5/intro',
@@ -204,6 +216,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#2354E6',
     logoColor: '#FFFFFF',
     market: 'Global · Alt-heavy',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_gate',
     supportedProducts: ['Spot', 'Perp', 'Futures'],
     minLatency: 22,
     apiDocs: 'https://www.gate.io/docs/apiv4/',
@@ -223,6 +237,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#5741D9',
     logoColor: '#FFFFFF',
     market: 'US · Regulated',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_kraken',
     supportedProducts: ['Spot', 'Perp', 'Futures'],
     minLatency: 32,
     apiDocs: 'https://docs.kraken.com/rest/',
@@ -244,6 +260,8 @@ const CATALOGUE: readonly Exchange[] = [
     logoBg: '#0052FF',
     logoColor: '#FFFFFF',
     market: 'US · Institutional',
+    /* 화면 표기는 사전에서 온다 — 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다. */
+    marketKey: 'ex_market_coinbase',
     supportedProducts: ['Spot', 'Perp (Advanced)'],
     minLatency: 34,
     apiDocs: 'https://docs.cloud.coinbase.com/',

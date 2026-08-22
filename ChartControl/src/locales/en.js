@@ -2361,6 +2361,17 @@
       /* --- 주문 확인창 위험 점검 — 실측값만 표시 --- */
       ob_click_fill: 'Click to fill price {price}',
       tier_current: 'CURRENT',
+
+      /* --- 거래소 카탈로그 설명 (서버가 키를 준다) --- */
+      ex_market_kucoin: 'Global · USDT-margined perpetuals',
+      ex_market_bitmart: 'Global · Deep alt liquidity',
+      ex_market_binance: 'Global · #1 by volume',
+      ex_market_bitget: 'Global · Copy trading strong',
+      ex_market_okx: 'Global · Institutional',
+      ex_market_bybit: 'Global · Derivatives focus',
+      ex_market_gate: 'Global · Alt-heavy',
+      ex_market_kraken: 'US · Regulated',
+      ex_market_coinbase: 'US · Institutional',
     },
     { label: 'English', bcp47: 'en-US' },
   );

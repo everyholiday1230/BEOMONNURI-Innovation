@@ -2109,6 +2109,17 @@
       /* --- 注文確認のリスク点検 — 実測値のみ表示 --- */
       ob_click_fill: 'クリックすると価格 {price} が入ります',
       tier_current: '現在の等級',
+
+      /* --- 取引所カタログの説明（サーバーがキーを返す） --- */
+      ex_market_kucoin: 'グローバル · USDT 証拠金の無期限先物',
+      ex_market_bitmart: 'グローバル · アルトコインの流動性が厚い',
+      ex_market_binance: 'グローバル · 取引高1位',
+      ex_market_bitget: 'グローバル · コピートレードに強い',
+      ex_market_okx: 'グローバル · 機関投資家向け',
+      ex_market_bybit: 'グローバル · デリバティブ中心',
+      ex_market_gate: 'グローバル · アルトコインが豊富',
+      ex_market_kraken: '米国 · 規制対応',
+      ex_market_coinbase: '米国 · 機関投資家向け',
     },
     { label: '日本語', bcp47: 'ja-JP' },
   );

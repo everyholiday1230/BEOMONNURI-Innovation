@@ -2225,7 +2225,11 @@
                       </div>
                       <div style={{flex:1, minWidth:0}}>
                         <div className="exchange-card__name">{ex.name}</div>
-                        <div className="exchange-card__market">{ex.market}</div>
+                        <div className="exchange-card__market">{
+                          /* 서버가 번역 키를 준다(marketKey). 없으면 서버 문장으로 폴백한다 —
+                             문장을 화면이 정하지 않고, 언어가 바뀌면 함께 바뀐다. */
+                          ex.marketKey ? t(ex.marketKey) : ex.market
+                        }</div>
                       </div>
                       {notReady ? (
                         <span

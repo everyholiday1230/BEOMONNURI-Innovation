@@ -69,6 +69,14 @@ const ExchangeBaseSchema = z
     logoColor: HexColor,
     /** Free-text positioning line, e.g. "Global · #1 by volume". */
     market: z.string().min(1).max(120),
+    /**
+     * Translation key for the line above.
+     *
+     * The UI prefers this over `market`. A server-authored English sentence stayed English on the
+     * Japanese and Chinese screens (measured on /wallet), so the wording lives in the dictionary
+     * and the catalogue only names it. `market` remains the fallback for entries without a key.
+     */
+    marketKey: z.string().regex(/^[a-z0-9_]+$/u).min(3).max(64).optional(),
 
     /** Product lines the exchange offers, e.g. ["Spot","Perp","Futures"]. Free-form by design. */
     supportedProducts: z.array(z.string().min(1).max(32)).min(1).max(12),

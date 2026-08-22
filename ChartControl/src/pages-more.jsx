@@ -2480,7 +2480,8 @@
                 ? t('tier_unmeasurable')
                 : t('tier_from_live_trades'))
               : (isLive && btc
-                ? `Maker ${pct(btc.makerFeeRate) || t('dash')} · Taker ${pct(btc.takerFeeRate) || t('dash')}`
+                /* 'Maker'/'Taker' 를 문자열로 두면 ja/zh 화면에 영어가 남는다 — 기존 열 머리글 키를 쓴다. */
+                ? `${t('fee_col_maker')} ${pct(btc.makerFeeRate) || t('dash')} · ${t('fee_col_taker')} ${pct(btc.takerFeeRate) || t('dash')}`
                 : t('fee_unavailable'))}
             tone="brand"
           />
@@ -2618,7 +2619,13 @@
               </div>
             </div>
           </window.SectionCard>
-        ) : !isLive ? (
+        ) : (!isLive && mockOk) ? (
+          /*
+             ★★ 이 진행바의 42.18M / 50M 은 예시 숫자다. 전에는 `!isLive` 로만
+               걸러서, **키를 연결하지 않은 실사용자**에게도 보였다(실측).
+               백엔드가 붙어 있으면 실서비스다 — 그때는 예시를 그리지 않고
+               아래의 "수수료는 어디서 정해지는가" 안내로 내려간다.
+          */
           <window.SectionCard title={t('fee_next_tier', { tier: 'VIP' })}>
             <div style={{display:'flex', flexDirection:'column', gap: 10}}>
               <div style={{display:'flex', justifyContent:'space-between', fontSize:12}}>
@@ -2662,7 +2669,15 @@
              우리 화면이 거짓이 되고, 우리는 바뀐 것을 모른다. 대신 어디서
              확인해야 하는지 알려준다.
         */}
-        {isLive ? (
+        {!mockOk ? (
+          /*
+             ★★ 조건이 `isLive` 였다. 수수료 실데이터가 없으면(=키 미연결)
+               목업 등급표(Beginner/Standard/Pro·VIP, 0.020%/0.050%, 1000 QT)가
+               나왔고 사용자를 'Pro · 현재 등급' 으로 표시했다. 존재하지 않는
+               제도이고 요율도 우리 것이 아니다.
+               → 실서비스에서는 항상 이 안내(거래소가 정한다 + 확인 링크)를 쓴다.
+                 목업 표는 백엔드 없는 디자이너 미리보기에서만 남긴다.
+          */
           <window.SectionCard title={t('fee_tiers_title')} subtitle={t('fee_tiers_sub')}>
             <div style={{display:'flex', flexDirection:'column', gap:10, fontSize:12.5, lineHeight:1.8}}>
               <div>{t('fee_tiers_1')}</div>

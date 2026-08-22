@@ -2100,6 +2100,17 @@
       /* --- 下单确认的风险检查 — 只显示实测值 --- */
       ob_click_fill: '点击可填入价格 {price}',
       tier_current: '当前等级',
+
+      /* --- 交易所目录说明（由服务器返回键名） --- */
+      ex_market_kucoin: '全球 · USDT 保证金永续合约',
+      ex_market_bitmart: '全球 · 山寨币流动性充足',
+      ex_market_binance: '全球 · 成交量第一',
+      ex_market_bitget: '全球 · 跟单交易见长',
+      ex_market_okx: '全球 · 面向机构',
+      ex_market_bybit: '全球 · 以衍生品为主',
+      ex_market_gate: '全球 · 山寨币品类多',
+      ex_market_kraken: '美国 · 受监管',
+      ex_market_coinbase: '美国 · 面向机构',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );
