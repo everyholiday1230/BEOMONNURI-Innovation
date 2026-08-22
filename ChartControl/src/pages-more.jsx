@@ -571,6 +571,17 @@
       >
         <div className="grid-2-1">
           <div style={{display:'flex', flexDirection:'column', gap: 16}}>
+            {/*
+               ★★ 자산·네트워크 선택과 주소 카드는 **디자이너 미리보기에서만** 그린다.
+
+                 실서비스에서는 우리 입금 주소가 존재하지 않으므로(비수탁) 주소가 빈
+                 값이었다. 그런데 선택 칩은 그대로 보여서, 사용자는 네트워크를 고르면
+                 주소가 나올 것으로 기대하고 누른다 — 아무 일도 일어나지 않는다.
+                 있지도 않은 입금 경로를 암시하는 UI 는 자금 사고로 이어질 수 있다.
+
+               ★ 실서비스에서는 아래의 "거래소에서 입금하세요" 안내만 남는다.
+            */}
+            {!isRealService && (
             <window.SectionCard title={t('deposit_1bcffc')}>
               <div style={{display:'flex', flexDirection:'column', gap: 12}}>
                 <div>
@@ -592,6 +603,7 @@
                 </div>
               </div>
             </window.SectionCard>
+            )}
 
             <window.SectionCard title={t('deposit_eba168')}>
               {/*
@@ -656,6 +668,16 @@
               )}
             </window.SectionCard>
 
+            {/*
+               ★★ 입금 조건(최소 수량·확인 횟수·소요 시간·허용 네트워크)은 **거래소가**
+                 정한다. 우리는 입금을 받지 않으므로 그 값을 알 수 없다. 그런데 여기에
+                 '최소 10 USDT · 확인 1회 · 1~3분 · TRC20 전용' 이 박혀 있었다.
+                 사용자가 이 숫자를 믿고 다른 네트워크로 보내면 자금이 사라진다 —
+                 우리가 알지도 못하는 조건을 단정한 것이 원인이 된다.
+               ★ 그래서 실서비스에서는 이 카드를 그리지 않는다. 위의 안내가 "주소는
+                 거래소에서 복사하라" 고 이미 말한다. 미리보기에서는 디자인을 남긴다.
+            */}
+            {!isRealService && (
             <window.SectionCard title={t('deposit_adb488')}>
               <ul style={{margin:0, paddingLeft: 20, fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.8}}>
                 <li>{t('deposit_eca2cd')} <strong>10 {asset}</strong></li>
@@ -664,6 +686,7 @@
                 <li className="t-danger">{t('dep_net_a')}<strong>{network}</strong>{t('dep_net_b')}</li>
               </ul>
             </window.SectionCard>
+            )}
           </div>
 
           <div style={{display:'flex', flexDirection:'column', gap: 16}}>
@@ -781,9 +804,17 @@
          출금 폼은 이미 비활성이지만, 예시 잔고가 보이면 사용자가 그 돈이
          있다고 믿는다.
     */
+    /*
+       ★★ 읽지 못한 잔고를 0 으로 쓰지 않는다.
+
+         전에는 실서비스에서 0 을 넣었다. 화면에는 '0.00 USDT' 가 잔고로 표시되는데,
+         이는 "잔고가 0 이다" 라는 단정이다. 키를 연결하지 않았으면 우리는 잔고를
+         **모른다** — 모르는 것과 0 은 다른 사실이고, 사용자는 0 을 보고 자금이
+         사라졌다고 오해할 수 있다. null 을 넘겨 화면이 '—' 로 표시하게 한다.
+    */
     const balance = liveBalance !== null
       ? liveBalance
-      : (((window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) || isRealService) ? 0 : 9840.22);
+      : (((window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) || isRealService) ? null : 9840.22);
     const fee = { TRC20: 1, ERC20: 15, BEP20: 0.5, Solana: 0.5 }[network] || 1;
     const receive = Math.max(0, parseFloat(amount) - fee || 0);
 
@@ -822,6 +853,15 @@
         )}
 
         <div className="grid-2-1">
+          {/*
+             ★★ 출금 입력 카드는 **디자이너 미리보기에서만** 그린다.
+
+               실서비스에서 이 카드는 아무 일도 하지 않는다 — 우리는 출금 권한이 없는
+               키만 받으므로 출금을 실행할 수 없고, 제출 버튼도 비활성이었다. 그런데
+               자산·네트워크 칩은 눌리기만 해서, 사용자는 출금 창구가 있다고 오해한 채
+               주소까지 입력하게 된다. 위의 경고만 남기는 것이 정직하다.
+          */}
+          {!isRealService && (
           <window.SectionCard title={t('withdraw_3f13b3')}>
             <div style={{display:'flex', flexDirection:'column', gap: 12}}>
               <div>
@@ -855,7 +895,7 @@
 
               <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
                 {[25, 50, 75, 100].map(p => (
-                  <button key={p} className="btn btn--xs" onClick={() => setAmount((balance * p / 100).toFixed(2))}>{p}%</button>
+                  <button key={p} className="btn btn--xs" disabled={balance === null} onClick={() => setAmount(((balance || 0) * p / 100).toFixed(2))}>{p}%</button>
                 ))}
               </div>
 
@@ -886,10 +926,11 @@
               </button>
             </div>
           </window.SectionCard>
+          )}
 
           <div style={{display:'flex', flexDirection:'column', gap: 16}}>
             <window.SectionCard title={t('deposit_d4cde2')}>
-              <div style={{fontFamily: 'var(--font-num)', fontSize: 24, fontWeight: 600}}>{balance.toFixed(2)} <span style={{fontSize: 12, color: 'var(--color-text-tertiary)'}}>USDT</span></div>
+              <div style={{fontFamily: 'var(--font-num)', fontSize: 24, fontWeight: 600}}>{balance === null ? t('dash') : balance.toFixed(2)} <span style={{fontSize: 12, color: 'var(--color-text-tertiary)'}}>USDT</span></div>
             </window.SectionCard>
 
             <window.SectionCard title={t('withdraw_fe7cae')}>
