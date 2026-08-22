@@ -399,8 +399,17 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const symbolsRaw = (env.TRADE_ALLOWED_SYMBOLS ?? 'BTCUSDT,ETHUSDT').trim();
   const tradingPolicy = {
     allowedSymbols: symbolsRaw === '*' ? ['*'] : symbolsRaw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean),
-    maxOrderNotional: (env.TRADE_MAX_ORDER_NOTIONAL ?? '100000').trim(),
-    maxLeverage: positiveInt(env.TRADE_MAX_LEVERAGE, 20),
+    /*
+       ★★ 기본값을 '거래소를 따른다' 로 바꿨다.
+
+         전에는 레버리지 20× · 주문 10만 USDT 가 기본이었다. 그런데 거래소는 종목마다
+         상한이 다르다(BTC 125×). 우리 기본값이 더 낮으면 거래소가 허용하는 주문이
+         우리 쪽에서 거부되고, 사용자는 이유를 알 수 없다.
+         빈 값(0)은 "우리 상한 없음 — 거래소 한도가 적용된다" 는 뜻이다. 운영자가
+         더 보수적으로 가고 싶을 때만 값을 넣는다.
+    */
+    maxOrderNotional: (env.TRADE_MAX_ORDER_NOTIONAL ?? '').trim(),
+    maxLeverage: positiveInt(env.TRADE_MAX_LEVERAGE, 0),
     maxOpenPositions: positiveInt(env.TRADE_MAX_OPEN_POSITIONS, 5),
     dailyOrderLimit: positiveInt(env.TRADE_DAILY_ORDER_LIMIT, 50),
     dailyLossLimit: (env.TRADE_DAILY_LOSS_LIMIT ?? '1000').trim(),

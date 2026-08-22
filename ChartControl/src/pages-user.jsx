@@ -2141,8 +2141,20 @@
           {[
             { id:'exchanges', label:t('wallet_ed546c'),   icon:'Wifi' },
             { id:'balances',  label:t('wallet_f23807'),     icon:'Wallet' },
-            { id:'deposit',   label:t('wallet_b9ca11'),          icon:'Down' },
-            { id:'withdraw',  label:t('wallet_972169'),          icon:'Up' },
+          {/*
+             ★★ 입금·출금 탭을 주석으로 내렸다 (요청: 우리 페이지에서 입출금을 하지 않는다).
+
+               우리는 비수탁이므로 입금 주소도, 출금 실행 권한도 없다. 탭이 있으면
+               사용자는 여기서 입출금을 하는 것으로 기대하고 들어와, 결국 "거래소에서
+               하세요" 라는 안내만 보고 되돌아온다. 기대를 만들지 않는 편이 낫다.
+
+             ★ 코드는 지우지 않는다. 나중에 입출금을 우리 화면에서 다루기로 하면
+               이 두 줄과 아래 탭 본문의 주석을 풀면 된다.
+               (되살릴 때 함께 볼 것: app.jsx 의 /wallet/deposit · /wallet/withdraw 라우트,
+                access.js 의 라우트 등급, page-shell.jsx 의 메뉴 항목)
+          */}
+            // { id:'deposit',   label:t('wallet_b9ca11'),          icon:'Down' },
+            // { id:'withdraw',  label:t('wallet_972169'),          icon:'Up' },
           ].map(t => {
             const Ic = I[t.icon] || I.Grid;
             return (
@@ -2421,6 +2433,9 @@
           </window.SectionCard>
         )}
 
+        {/*
+           입출금 탭 본문 — 위 탭 정의와 함께 주석 처리했다. 되살릴 때 같이 푼다.
+
         {tab === 'deposit' && (
           <div style={{textAlign:'center', padding:'30px'}}>
             <a className="btn btn--primary btn--lg" href="#/wallet/deposit">{t('wallet_57177e')}</a>
@@ -2431,6 +2446,7 @@
             <a className="btn btn--primary btn--lg" href="#/wallet/withdraw">{t('wallet_d3cdff')}</a>
           </div>
         )}
+        */}
 
         {/* Exchange Connect Wizard modal */}
         {connectingEx && (

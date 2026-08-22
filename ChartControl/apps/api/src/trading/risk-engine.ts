@@ -80,9 +80,45 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   const symbolAllowed =
     i.policy.allowedSymbols.includes('*') || i.policy.allowedSymbols.includes(i.symbol?.id ?? '');
   add('policy.symbol', 'Symbol allowed by policy', symbolAllowed, `allowed: ${i.policy.allowedSymbols.join(',')}`);
-  add('policy.leverage', 'Leverage within policy', i.leverage <= i.policy.maxLeverage, `${i.leverage}x ≤ ${i.policy.maxLeverage}x`);
+  /*
+     레버리지 상한 — **거래소가 정한 값**을 기준으로 삼는다.
+
+     ★★ 전에는 우리 정책값(기본 20×)만 봤다. 그런데 거래소는 종목마다 상한이
+       다르다(BTC 125× · 알트는 20~50×). 우리 값이 더 낮으면, 거래소에서 허용하는
+       주문이 우리 쪽에서 거부된다 — 사용자는 이유를 알 수 없다. 반대로 우리 값이
+       더 높으면 거래소가 거부하므로 어차피 나가지 않는다.
+
+     ★ 그래서 심볼 메타데이터의 maxLeverage(거래소가 준 값)를 기준으로 하고,
+       운영자가 TRADE_MAX_LEVERAGE 를 **명시**했을 때만 그것을 추가 상한으로 겹친다.
+       기본값(0)은 "거래소를 따른다" 는 뜻이다.
+  */
+  const exchangeLev = Number(i.symbol?.maxLeverage);
+  const operatorLev = Number(i.policy.maxLeverage);
+  const caps = [
+    Number.isFinite(exchangeLev) && exchangeLev > 0 ? exchangeLev : null,
+    Number.isFinite(operatorLev) && operatorLev > 0 ? operatorLev : null,
+  ].filter((n): n is number => n !== null);
+  const levCap = caps.length > 0 ? Math.min(...caps) : null;
+  const levSource = levCap === null
+    ? 'no cap known'
+    : (levCap === exchangeLev ? `exchange max ${exchangeLev}x` : `operator cap ${operatorLev}x`);
+  add('policy.leverage', 'Leverage within limit', levCap === null || i.leverage <= levCap, `${i.leverage}x ≤ ${levCap ?? '?'}x (${levSource})`);
   const notional = num(i.positionValue);
-  add('policy.notional', 'Order notional within cap', !Number.isFinite(notional) || notional <= num(i.policy.maxOrderNotional), `${i.positionValue ?? '?'} ≤ ${i.policy.maxOrderNotional}`);
+  /*
+     주문 금액 상한.
+
+     ★ 거래소도 위험 한도(risk limit) 로 금액을 제한하고, 초과하면 거래소가 거부한다.
+       우리 값은 **운영자가 명시했을 때만** 겹치는 추가 상한이다. 빈 값·0 이면 검사하지
+       않는다 — 우리가 모르는 기준으로 거래소가 허용하는 주문을 막지 않는다.
+  */
+  const notionalCap = num(i.policy.maxOrderNotional);
+  const notionalCapped = Number.isFinite(notionalCap) && notionalCap > 0;
+  add(
+    'policy.notional',
+    'Order notional within cap',
+    !notionalCapped || !Number.isFinite(notional) || notional <= notionalCap,
+    notionalCapped ? `${i.positionValue ?? '?'} ≤ ${i.policy.maxOrderNotional}` : 'no operator cap — exchange risk limit applies',
+  );
   add('policy.dailyOrders', 'Daily order count within limit', i.dailyOrderCount < i.policy.dailyOrderLimit, `${i.dailyOrderCount} < ${i.policy.dailyOrderLimit}`);
   add('policy.dailyLoss', 'Daily loss within limit', num(i.dailyLossSoFar) <= num(i.policy.dailyLossLimit), `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}`);
   add('policy.openPositions', 'Open positions within limit', i.openPositions < i.policy.maxOpenPositions, `${i.openPositions} < ${i.policy.maxOpenPositions}`);

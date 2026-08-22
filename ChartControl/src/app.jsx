@@ -1438,6 +1438,16 @@
               키를 연결하지 않았으면 먼저 연결 화면으로 보낸다 — 입금해도 우리가
               그 자금을 볼 수 없기 때문이다.
             */}
+            {/*
+               ★★ 헤더의 '입금' 버튼도 주석으로 내렸다 (요청: 우리 페이지에서 입출금을 하지 않는다).
+
+                 이 버튼은 이미 정직하게 동작했다 — 입금은 거래소에서 한다고 알리고
+                 /wallet 으로 보냈다. 그래도 헤더에 '입금' 이 있으면 우리가 입금을
+                 받는 것처럼 읽힌다. 기대를 만들지 않는 편이 낫다.
+
+               ★ 되살릴 때는 이 주석만 풀면 된다(문구 키 deposit·deposit_hint·
+                 deposit_needs_key·deposit_at_exchange 는 사전에 그대로 있다).
+
             <button
               className="btn btn--sm btn--primary"
               title={t('deposit_hint')}
@@ -1454,6 +1464,7 @@
             >
               <I.Plus size={12}/> {t('deposit')}
             </button>
+            */}
             {/*
               프로필 버튼 — 마크업과 스타일은 그대로다. 동작만 붙였다.
               로그인 상태면 로그아웃, 아니면 로그인 화면으로 보낸다.
@@ -1550,8 +1561,18 @@
             {route.path === '/portfolio'      && <window.PortfolioPage      shellProps={shellProps}/>}
             {route.path === '/analytics'      && <window.AnalyticsPage      shellProps={shellProps}/>}
             {route.path === '/wallet'         && <window.WalletPage         shellProps={shellProps}/>}
-            {route.path === '/wallet/deposit' && <window.DepositPage        shellProps={shellProps}/>}
-            {route.path === '/wallet/withdraw'&& <window.WithdrawPage       shellProps={shellProps}/>}
+            {/*
+               ★★ 입금·출금 화면을 주석으로 내렸다 (요청: 우리 페이지에서 입출금을 하지 않는다).
+
+                 비수탁이므로 우리에게는 입금 주소도 출금 권한도 없다. 이 화면들은
+                 "거래소에서 하세요" 안내만 하던 자리였다. 지갑 화면의 탭도 함께 내렸으므로
+                 여기로 오는 링크는 앱 안에 없다.
+
+               ★ 컴포넌트(pages-more.jsx 의 DepositPage · WithdrawPage)는 지우지 않았다.
+                 되살릴 때 이 두 줄과 지갑 탭 주석을 풀면 된다.
+            */}
+            {/* {route.path === '/wallet/deposit' && <window.DepositPage        shellProps={shellProps}/>} */}
+            {/* {route.path === '/wallet/withdraw'&& <window.WithdrawPage       shellProps={shellProps}/>} */}
             {route.path === '/wallet/transactions' && <window.TransactionHistoryPage shellProps={shellProps}/>}
             {route.path === '/referral'       && <window.ReferralPage       shellProps={shellProps}/>}
             {route.path === '/points'         && <window.PointsPage         shellProps={shellProps}/>}

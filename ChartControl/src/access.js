@@ -57,8 +57,9 @@
     '/portfolio': 'user',
     '/analytics': 'user',
     '/wallet': 'user',
-    '/wallet/deposit': 'user',
-    '/wallet/withdraw': 'user',
+    /* 입출금 경로 — 우리 화면에서 다루지 않으므로 주석 처리했다(코드는 남겨 둔다). */
+    // '/wallet/deposit': 'user',
+    // '/wallet/withdraw': 'user',
     '/wallet/transactions': 'user',
     '/order-history': 'user',
     '/ai-strategies': 'user',
