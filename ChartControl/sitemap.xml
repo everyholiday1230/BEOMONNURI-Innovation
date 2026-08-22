@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  공개 페이지만 싣는다. 로그인 뒤 화면은 해시 경로라서 색인 대상이 아니다.
+  도메인을 바꾸면 이 파일과 robots.txt 의 주소를 함께 고쳐야 한다.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://chartcontrol.onrender.com/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://chartcontrol.onrender.com/index.html#/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://chartcontrol.onrender.com/index.html#/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>

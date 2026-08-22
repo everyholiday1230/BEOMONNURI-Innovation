@@ -40,7 +40,13 @@ import type { Context, Hono } from 'hono';
 export const STATIC_DIRS = ['src', 'vendor', 'design-library'] as const;
 
 /** 루트에서 직접 서빙할 개별 파일. */
-export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'robots.txt'] as const;
+/*
+   루트에서 서빙하는 파일.
+
+   ★ sitemap.xml 을 추가했다. robots.txt 가 사이트맵 주소를 알려주는데 그 파일이
+     404 면 크롤러가 매번 헛걸음한다.
+*/
+export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'robots.txt', 'sitemap.xml'] as const;
 
 /**
  * 확장자 → Content-Type.
@@ -57,6 +63,8 @@ const MIME: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',   /* sitemap.xml — octet-stream 으로 주면 크롤러가 무시한다. */
+  '.txt': 'text/plain; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -67,7 +75,6 @@ const MIME: Record<string, string> = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
-  '.txt': 'text/plain; charset=utf-8',
 };
 
 function contentTypeFor(path: string): string {

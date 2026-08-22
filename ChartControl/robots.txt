@@ -1,0 +1,14 @@
+# ChartControl — 검색엔진 안내
+#
+# 공개 페이지(소개·약관·개인정보·위험고지·보안)는 수집을 허용한다.
+# 로그인 뒤의 화면은 해시 라우팅(#/trade …)이라 크롤러가 접근할 수 없지만,
+# API 경로는 명시적으로 막는다 — 인증이 필요한 경로를 크롤링하면 서버에
+# 의미 없는 401/403 부하만 남는다.
+
+User-agent: *
+Allow: /$
+Allow: /index.html
+Disallow: /api/
+Disallow: /design-library/
+
+Sitemap: https://chartcontrol.onrender.com/sitemap.xml

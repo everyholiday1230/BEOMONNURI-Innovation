@@ -456,7 +456,8 @@
 
         {/* GROUP 4: Actions */}
         <div className="sh-actions">
-          <button className="btn btn--xs" title={t('wg_alerts')}>
+          {/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}
+          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>
             {window.Icons?.Bell ? <window.Icons.Bell size={11}/> : '🔔'}
           </button>
           <button className="btn btn--xs" title={t('ref_share')}>
@@ -749,7 +750,7 @@
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Wallet size={14}/><span>{t('order_entry')}</span></div>
-          <div className="panel__actions"><button className="btn btn--icon" title={t('oe_calculator')}><I.More size={12}/></button></div>
+          <div className="panel__actions">{/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}<button className="btn btn--icon" disabled title={t('adm_feature_absent')}><I.More size={12}/></button></div>
         </div>
 
         <div className="panel__body" style={{padding: 0}}>
@@ -778,7 +779,11 @@
             <button className={`oe-tab ${orderType==='limit'?'is-active':''}`} onClick={() => setOrderType('limit')}>{t('limit')}</button>
             <button className={`oe-tab ${orderType==='market'?'is-active':''}`} onClick={() => setOrderType('market')}>{t('market')}</button>
             <button className={`oe-tab ${orderType==='trigger'?'is-active':''}`} onClick={() => setOrderType('trigger')}>{t('trigger')}</button>
-            {!isBeginner && <button className="oe-tab" title={t('oe_more_types')}>{t('advanced')} ▾</button>}
+            {!isBeginner && (
+              <button className="oe-tab" disabled title={t('adm_feature_absent')}>
+                {t('advanced')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+              </button>
+            )}
           </div>
 
           <div className="oe-body">
@@ -1541,8 +1546,15 @@
 
           <div style={{display:'flex', gap: 6}}>
             {/* 증거금 추가는 선물에만 있다. */}
-            {!assetsIsSpot && <button className="btn btn--sm" style={{flex:1}}>{t('mg_add')}</button>}
-            <button className="btn btn--sm" style={{flex:1}}>{t('oe_calculator')}</button>
+            {/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}
+            {!assetsIsSpot && (
+              <button className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
+                {t('mg_add')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+              </button>
+            )}
+            <button className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
+              {t('oe_calculator')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+            </button>
           </div>
 
           <div style={{fontSize: 10, color:'var(--color-text-tertiary)', borderTop:'1px solid var(--color-border-subtle)', paddingTop: 8, display:'flex', justifyContent:'space-between'}}>

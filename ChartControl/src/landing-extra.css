@@ -1,0 +1,198 @@
+/* ============================================================
+   랜딩 추가 섹션 — 실시간 시세 · 자금 흐름 · 시작 절차
+   ------------------------------------------------------------
+   ★ 색·간격은 토큰만 쓴다. 값을 직접 쓰면 테마를 바꿀 때 이 섹션만 어긋난다.
+   ★ 좁은 화면에서는 흐름도를 세로로 세운다 — 가로 배치를 유지하면 화살표가
+     찌그러져 관계가 읽히지 않는다.
+   ============================================================ */
+
+.landing-live__sub {
+  text-align: center;
+  max-width: 720px;
+  margin: -8px auto 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.landing-live {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.landing-live__card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  padding: 14px 16px 8px;
+}
+
+.landing-live__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.landing-live__head strong { font-family: var(--font-mono); font-size: 12.5px; }
+
+.landing-live__price {
+  font-family: var(--font-num);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 6px 0 2px;
+}
+
+.landing-live__note {
+  margin-top: 12px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---- 자금 흐름도 ---- */
+
+.landing-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.landing-flow__node {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+/* 가운데(우리)만 강조한다 — 방문자가 확인하려는 것은 "우리가 무엇을 하지 않는가" 다. */
+.landing-flow__node--us {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 35%, transparent) inset;
+}
+
+.landing-flow__icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-bg-input);
+  color: var(--color-brand);
+}
+
+.landing-flow__node strong { font-size: 13.5px; }
+.landing-flow__node span { font-size: 11.5px; line-height: 1.6; color: var(--color-text-secondary); }
+
+.landing-flow__arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 92px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+}
+
+.landing-flow__line { width: 100%; height: 1px; background: var(--color-border-subtle); position: relative; }
+.landing-flow__line i {
+  position: absolute; right: -1px; top: -3px;
+  border-left: 5px solid var(--color-border-strong, var(--color-border-subtle));
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+}
+.landing-flow__back { opacity: 0.75; }
+
+.landing-custody__points {
+  list-style: none;
+  padding: 0;
+  margin: 18px auto 0;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-custody__points li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--color-text-secondary);
+}
+
+.landing-custody__points li::before {
+  content: '✓';
+  position: absolute; left: 0; top: 0;
+  color: var(--color-success);
+  font-size: 12px;
+}
+
+/* ---- 푸터의 법적 문서 링크 ---- */
+
+.landing-foot__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.landing-foot__legal a {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.landing-foot__legal a:hover {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-subtle);
+}
+
+/* ---- 시작 절차 ---- */
+
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.landing-step {
+  display: flex;
+  gap: 14px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.landing-step__no {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-brand);
+  line-height: 1;
+  min-width: 34px;
+}
+
+.landing-step__title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
+.landing-step__body { font-size: 12px; line-height: 1.75; color: var(--color-text-secondary); }
+
+@media (max-width: 900px) {
+  .landing-flow { grid-template-columns: 1fr; }
+  /* 세로 배치에서는 화살표 칸이 높이만 차지하므로 낮춘다. */
+  .landing-flow__arrow { min-width: 0; flex-direction: row; gap: 8px; padding: 2px 0; }
+  .landing-flow__line { width: 40px; }
+}

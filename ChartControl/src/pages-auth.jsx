@@ -22,6 +22,20 @@
   const t = (key, vars) => (window.QTI18n ? window.QTI18n.t(key, vars) : key);
 
   /*
+     랜딩 시세용 숫자 형식.
+
+     ★ QTFmt 가 없을 수도 있는 경로(정적 프리뷰)를 고려해 폴백을 둔다. 자리수는
+       가격대에 맞춘다 — BTC 를 소수 4자리로 쓰면 읽기 어렵고, 저가 코인을
+       정수로 쓰면 값이 사라진다.
+  */
+  const fmtNum = (n) => {
+    if (!Number.isFinite(n)) return '—';
+    const digits = n >= 1000 ? 1 : n >= 1 ? 2 : 4;
+    return (window.QTFmt && window.QTFmt.fmt) ? window.QTFmt.fmt(n, digits)
+      : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  };
+
+  /*
      국가 목록 — 한 곳에서만 정의한다.
 
      ★★ 전에는 가입 화면과 KYC 화면에 각각 하드코딩돼 있었고, **목록이 서로
@@ -1127,6 +1141,47 @@
       ? (window.QTApp.EXCHANGES || [])
       : (exData ? exData.items : []);
 
+    /*
+       랜딩의 실시간 시세.
+
+       ★★ 첫 화면에 스크린샷이나 예시 숫자를 두지 않는다. 공개 API(/api/market/…)는
+         로그인 없이 열려 있으므로, 방문자가 보는 값은 **지금 거래소에서 온 실데이터**다.
+         읽지 못하면 '—' 를 두고 안내 문구를 보여준다 — 예시로 채우면 그 값을 믿는다.
+
+       ★ 세 종목만 부른다. 랜딩에서 664종을 부르면 첫 화면이 느려지고, 방문자가
+         비교하려는 것은 대표 종목이다.
+    */
+    const LANDING_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
+    const [liveQuotes, setLiveQuotes] = useState(null);   // null = 조회 중 · [] = 실패
+    useEffect(() => {
+      let cancelled = false;
+      const rest = window.QTApi && window.QTApi.rest;
+      if (!rest || !rest.candles) { setLiveQuotes([]); return undefined; }
+      Promise.all(LANDING_SYMBOLS.map((s) => Promise.all([
+        rest.candles(s, '1h', 48).catch(() => null),
+        rest.ticker ? rest.ticker(s).catch(() => null) : Promise.resolve(null),
+      ]).then(([c, tk]) => {
+        const rows = (c && c.data) || [];
+        const closes = Array.isArray(rows)
+          ? rows.map((r) => Number(r.close)).filter((n) => Number.isFinite(n))
+          : [];
+        if (closes.length < 2) return null;
+        const first = closes[0];
+        const last = closes[closes.length - 1];
+        return {
+          symbol: s,
+          closes,
+          last,
+          /* 변동률은 우리가 받은 캔들로 계산한다 — 티커의 24h 값과 창이 달라 섞으면 어긋난다. */
+          changePct: first > 0 ? ((last - first) / first) * 100 : null,
+          vol24h: tk && tk.data && Number.isFinite(Number(tk.data.vol24h)) ? Number(tk.data.vol24h) : null,
+        };
+      }))).then((list) => {
+        if (!cancelled) setLiveQuotes(list.filter(Boolean));
+      }).catch(() => { if (!cancelled) setLiveQuotes([]); });
+      return () => { cancelled = true; };
+    }, []);
+
     return (
       <div className="landing-shell">
         {/*
@@ -1184,6 +1239,8 @@
           */}
           <nav className="landing-nav">
             {[
+              { id: 'live', key: 'landing_nav_live' },
+              { id: 'how', key: 'landing_nav_how' },
               { id: 'features', key: 'landing_nav_features' },
               { id: 'pricing', key: 'landing_nav_pricing' },
               { id: 'exchanges', key: 'landing_nav_exchanges' },
@@ -1295,6 +1352,131 @@
           </div>
         </section>
 
+        {/*
+           실시간 시세.
+
+           ★★ 랜딩에 제품 스크린샷을 붙이는 대신 **실데이터를 그린다.** 방문자가
+             "진짜 도는 서비스인가" 를 확인하는 가장 짧은 경로다. 값을 읽지 못하면
+             예시로 채우지 않고 못 읽었다고 말한다.
+        */}
+        <section id="live" className="landing-section">
+          <div className="landing-section-title">{t('landing_live_title')}</div>
+          <div className="landing-live__sub">{t('landing_live_sub')}</div>
+          {liveQuotes === null ? (
+            <div className="landing-live__note">{t('cmp_loading')}</div>
+          ) : liveQuotes.length === 0 ? (
+            <div className="landing-live__note">{t('landing_live_unavailable')}</div>
+          ) : (
+            <>
+              <div className="landing-live">
+                {liveQuotes.map((q) => {
+                  /* 스파크라인 — 받은 종가만으로 그린다. 값이 없으면 이 카드는 나오지 않는다. */
+                  const w = 260;
+                  const h = 64;
+                  const lo = Math.min(...q.closes);
+                  const hi = Math.max(...q.closes);
+                  const span = hi - lo || 1;
+                  const step = q.closes.length > 1 ? w / (q.closes.length - 1) : w;
+                  const pts = q.closes.map((c, i) => `${(i * step).toFixed(1)},${(h - ((c - lo) / span) * (h - 6) - 3).toFixed(1)}`);
+                  const up = q.changePct !== null && q.changePct >= 0;
+                  /* ★ 토큰 이름을 틀리면 선이 그려지지 않는다(stroke 가 무효값이 된다).
+                       실제 토큰은 --color-trade-long / --color-trade-short 다. */
+                  const stroke = up ? 'var(--color-trade-long)' : 'var(--color-trade-short)';
+                  return (
+                    <div key={q.symbol} className="landing-live__card">
+                      <div className="landing-live__head">
+                        <strong>{q.symbol.replace('USDT', '/USDT')}</strong>
+                        <span className={up ? 't-long' : 't-short'}>
+                          {q.changePct === null ? '—' : `${up ? '+' : ''}${q.changePct.toFixed(2)}%`}
+                        </span>
+                      </div>
+                      <div className="landing-live__price">{fmtNum(q.last)}</div>
+                      <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" aria-hidden="true">
+                        {/* 면적을 옅게 깔고 선을 얹는다 — 선만 있으면 작은 화면에서 거의 보이지 않는다. */}
+                        <polygon points={`0,${h} ${pts.join(' ')} ${w},${h}`} fill={stroke} opacity="0.14"/>
+                        <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+                      </svg>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="landing-live__note">
+                {t('landing_live_note', { n: liveQuotes[0] ? liveQuotes[0].closes.length : 0 })}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/*
+           자금의 위치.
+
+           ★★ 비수탁이라는 말은 글로만 쓰면 읽히지 않는다. 자금이 어디 있고 우리가
+             무엇을 보내는지 그림으로 한 번에 보여준다. 여기에 적은 세 가지는 모두
+             코드로 확인되는 사실이다(출금 권한 미요구·지갑 없음·직원 출금 불가).
+        */}
+        <section id="custody" className="landing-section">
+          <div className="landing-section-title">{t('landing_custody_title')}</div>
+          <div className="landing-live__sub">{t('landing_custody_sub')}</div>
+          <div className="landing-flow">
+            <div className="landing-flow__node">
+              <div className="landing-flow__icon"><I.User size={18}/></div>
+              <strong>{t('landing_custody_you')}</strong>
+              <span>{t('landing_custody_you_sub')}</span>
+            </div>
+            <div className="landing-flow__arrow">
+              <span>{t('landing_custody_flow_1')}</span>
+              <div className="landing-flow__line"><i/></div>
+              <span className="landing-flow__back">{t('landing_custody_flow_2')}</span>
+            </div>
+            <div className="landing-flow__node landing-flow__node--us">
+              <div className="landing-flow__icon"><I.Chart size={18}/></div>
+              <strong>{t('landing_custody_us')}</strong>
+              <span>{t('landing_custody_us_sub')}</span>
+            </div>
+            <div className="landing-flow__arrow">
+              <span>{t('landing_custody_flow_1')}</span>
+              <div className="landing-flow__line"><i/></div>
+              <span className="landing-flow__back">{t('landing_custody_flow_2')}</span>
+            </div>
+            <div className="landing-flow__node">
+              <div className="landing-flow__icon"><I.Wallet size={18}/></div>
+              <strong>{t('landing_custody_ex')}</strong>
+              <span>{t('landing_custody_ex_sub')}</span>
+            </div>
+          </div>
+          <ul className="landing-custody__points">
+            <li>{t('landing_custody_point_1')}</li>
+            <li>{t('landing_custody_point_2')}</li>
+            <li>{t('landing_custody_point_3')}</li>
+          </ul>
+        </section>
+
+        {/* 시작 절차 — 가입에서 첫 주문까지 무엇이 필요한지 숨기지 않는다. */}
+        <section id="how" className="landing-section">
+          <div className="landing-section-title">{t('landing_how_title')}</div>
+          <div className="landing-steps">
+            {[
+              ['landing_how_1', 'landing_how_1_sub'],
+              ['landing_how_2', 'landing_how_2_sub'],
+              ['landing_how_3', 'landing_how_3_sub'],
+              ['landing_how_4', 'landing_how_4_sub'],
+            ].map(([k, sub], i) => (
+              <div key={k} className="landing-step">
+                <div className="landing-step__no">{String(i + 1).padStart(2, '0')}</div>
+                <div>
+                  <div className="landing-step__title">{t(k)}</div>
+                  <div className="landing-step__body">{t(sub)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{textAlign: 'center', marginTop: 22}}>
+            <a className="btn btn--primary btn--lg" href="#/signup">
+              <I.Sparkles size={14}/> {t('landing_how_cta')}
+            </a>
+          </div>
+        </section>
+
         <section id="features" className="landing-section">
           <div className="landing-section-title">{t('landing_why_brand')}</div>
           <div className="landing-feat-grid">
@@ -1372,6 +1554,26 @@
 
         <footer className="landing-foot">
           <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · v1.0</div>
+          {/*
+             ★★ 법적 문서 링크를 랜딩에 둔다.
+
+               전에는 약관·개인정보·위험고지·보안 문서가 **가입 화면에서만** 닿을 수
+               있었다. 가입 전에 조건을 읽으려는 방문자는 찾을 방법이 없다. 파생상품을
+               다루는 서비스에서 위험 고지에 닿지 못하는 첫 화면은 그 자체로 문제다.
+             ★ 문의 주소도 함께 둔다 — 서버 설정(supportEmail)에서 온다. 값이 없으면
+               링크를 만들지 않는다(mailto: 빈 주소는 오류처럼 보인다).
+          */}
+          <div className="landing-foot__legal">
+            <a href="#/terms">{t('auth_3b9e30')}</a>
+            <a href="#/privacy">{t('auth_d629d0')}</a>
+            <a href="#/risk">{t('legal_risk')}</a>
+            <a href="#/security">{t('auth_a5e5da')}</a>
+            {(() => {
+              const c = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+              const mail = (c && c.supportEmail) || '';
+              return mail ? <a href={`mailto:${mail}`}>{mail}</a> : null;
+            })()}
+          </div>
           {/*
              ★★ 모드를 고정 문구로 쓰지 않는다.
 
