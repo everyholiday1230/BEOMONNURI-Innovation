@@ -19,6 +19,7 @@ import { SimOrderEngine } from './sim/order-engine';
 import { AuthService, MailSink, resendFromEnv, smtpFromEnv, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import { createAuthRouter } from './auth-routes';
 import { openDb } from './db/sqlite';
+import { bootstrapSuperAdmin } from './admin/bootstrap-admin';
 import { createCoreIdentityRepositories, BATCH_1_REPOSITORY_IDS, createUserDataRepositories, BATCH_2_REPOSITORY_IDS, createAdminRepositories, BATCH_3_REPOSITORY_IDS } from './db/repository-factory';
 import { ResourceRepo } from './db/resource-repo';
 import { CredentialVault, LocalKekProvider } from './trading/credential-vault';
@@ -1083,6 +1084,34 @@ if (env.authEnabled) {
       // Seed feature flags (safe defaults).
       await adminRepo.seedFlag('ai_enabled', env.aiEnabled, 'AI copilot enabled');
       await adminRepo.seedFlag('bitmart_live_trading_enabled', false, 'BitMart live trading (default off)');
+
+      /*
+         첫 관리자 승격.
+
+         ★★ 개발용 씨드는 프로덕션에서 돌지 않고, 가입은 모두 'user' 역할이다.
+           그래서 배포만 하면 관리자로 들어갈 사람이 아무도 없다. 운영자가 자기
+           이메일로 가입한 뒤 BOOTSTRAP_ADMIN_EMAIL 에 그 주소를 넣으면 올려 준다.
+           관리자가 이미 있으면 아무것도 하지 않는다(뒷문을 남기지 않는다).
+      */
+      {
+        const outcome = await bootstrapSuperAdmin({
+          email: process.env.BOOTSTRAP_ADMIN_EMAIL,
+          findByEmail: async (mail) => {
+            const u = await core.users.findByEmail(mail);
+            return u ? { id: u.id, email: u.email, role: String(u.role), status: String(u.status) } : null;
+          },
+          activeSuperAdminIds: () => adminRepo.activeSuperAdminIds(),
+          setUserRole: (id, role) => adminRepo.setUserRole(id, role),
+          recordAudit: (entry) => auditRepo.record(entry),
+          newId: () => randomUUID(),
+           
+          log: (m) => console.log(m),
+        });
+        if (outcome === 'blocked_user_not_found' || outcome === 'blocked_user_not_active') {
+           
+          console.warn(`[api] 첫 관리자 승격을 하지 못했다 (${outcome}).`);
+        }
+      }
       // Seed release gates — pending items stay NOT_EXECUTED (never auto-Passed).
       const gates: Array<[string, string, string, boolean]> = [
         ['bitmart-stage-a', 'Phase3', 'BitMart Production Read-Only Stage A', true],
