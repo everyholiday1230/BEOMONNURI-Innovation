@@ -25,6 +25,7 @@
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 import { connect as netConnect, type Socket } from 'node:net';
 import type { MailMessage, MailProvider } from './mail';
+import { renderMail } from './mail-templates';
 
 export interface SmtpConfig {
   host: string;
@@ -36,6 +37,8 @@ export interface SmtpConfig {
   /** 메일 본문의 링크를 만들 기준 주소. */
   appBaseUrl: string;
   replyTo?: string;
+  /** 제목·본문에 넣는 브랜드 이름. */
+  brandName?: string;
   /** 소켓 무응답 한도. 기본 15초 — 배포 환경에서 막힌 포트를 오래 붙들지 않는다. */
   timeoutMs?: number;
   /*
@@ -179,19 +182,49 @@ class SmtpSession {
     await this.say(`RCPT TO:<${addressOf(msg.to)}>`, [250, 251]);
     await this.say('DATA', [354]);
 
+    /*
+       ★★ 호출부의 msg.text 를 그대로 보내면 안 된다 — 그것은 '동봉된 토큰을
+         사용하세요' 같은 자리표시자이고 링크가 없다. 공용 템플릿이 실제 링크가
+         있는 본문을 만든다(Resend 경로와 같은 본문).
+    */
+    const rendered = renderMail(msg, {
+      appBaseUrl: this.cfg.appBaseUrl,
+      ...(this.cfg.brandName ? { brandName: this.cfg.brandName } : {}),
+      ...(msg.meta && typeof msg.meta.locale === 'string' ? { locale: msg.meta.locale } : {}),
+    });
+
+    /*
+       평문과 HTML 을 함께 보낸다(multipart/alternative). 메일 앱이 둘 중 하나를
+       고른다. 평문만 보내면 링크가 눌리지 않는 앱이 있고, HTML 만 보내면
+       평문 전용 환경에서 아무것도 읽히지 않는다.
+    */
+    const boundary = `ccai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     const headers = [
       `From: ${from}`,
       `To: ${msg.to}`,
-      `Subject: ${encodeHeader(msg.subject)}`,
+      `Subject: ${encodeHeader(rendered.subject)}`,
       ...(this.cfg.replyTo ? [`Reply-To: ${this.cfg.replyTo}`] : []),
       `Date: ${new Date().toUTCString()}`,
       'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ].join('\r\n');
+
+    const body = [
+      `--${boundary}`,
       'Content-Type: text/plain; charset=utf-8',
       'Content-Transfer-Encoding: 8bit',
+      '',
+      dotStuff(rendered.text),
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      dotStuff(rendered.html),
+      `--${boundary}--`,
     ].join('\r\n');
 
     if (!this.socket) throw new Error('SMTP: 소켓이 없다');
-    this.socket.write(`${headers}\r\n\r\n${dotStuff(msg.text)}\r\n.\r\n`);
+    this.socket.write(`${headers}\r\n\r\n${body}\r\n.\r\n`);
     const reply = await this.read();
     if (statusOf(reply) !== 250) {
       throw new Error(`SMTP: 본문 전송 실패 (${statusOf(reply)}) ${reply.trim().slice(0, 160)}`);
@@ -254,6 +287,7 @@ export function smtpFromEnv(env: NodeJS.ProcessEnv = process.env): SmtpMailProvi
     from,
     appBaseUrl,
     ...(env.MAIL_REPLY_TO?.trim() ? { replyTo: env.MAIL_REPLY_TO.trim() } : {}),
+    ...(env.BRAND_NAME?.trim() ? { brandName: env.BRAND_NAME.trim() } : { brandName: 'ChartControl AI' }),
     ...(env.SMTP_TIMEOUT_MS ? { timeoutMs: Number(env.SMTP_TIMEOUT_MS) } : {}),
   });
 }

@@ -138,7 +138,14 @@
      서버 설정(brandName)이 있으면 그 값을 쓴다 — 배포마다 다른 이름을
      달 수 있어야 한다(화이트라벨). 없으면 기본값.
   */
-  var DEFAULT_BRAND = 'ChartControl';
+  var DEFAULT_BRAND = 'ChartControl AI';
+  /*
+     약어. 좁은 자리(로고 배지·모바일 머리글·공유 카드)에서 쓴다.
+
+     ★ 풀네임과 약어를 각각 두는 이유: 좁은 곳에 풀네임을 넣으면 잘리고,
+       넓은 곳에 약어만 쓰면 무슨 서비스인지 알 수 없다.
+  */
+  var DEFAULT_BRAND_SHORT = 'CCAI';
 
   function brandName() {
     try {
@@ -146,6 +153,15 @@
       if (cfg && typeof cfg.brandName === 'string' && cfg.brandName.trim()) return cfg.brandName.trim();
     } catch (e) { /* 설정을 못 읽어도 이름은 나와야 한다 */ }
     return DEFAULT_BRAND;
+  }
+
+  /** 약어 — 서버가 BRAND_SHORT_NAME 을 주면 그것을, 없으면 기본 약어. */
+  function brandShortName() {
+    try {
+      var cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+      if (cfg && typeof cfg.brandShortName === 'string' && cfg.brandShortName.trim()) return cfg.brandShortName.trim();
+    } catch (e) { /* 설정을 못 읽어도 약어는 나와야 한다 */ }
+    return DEFAULT_BRAND_SHORT;
   }
 
   /**
@@ -160,6 +176,9 @@
     var merged = vars || {};
     if (!Object.prototype.hasOwnProperty.call(merged, 'brand')) {
       merged = Object.assign({ brand: brandName() }, merged);
+    }
+    if (!Object.prototype.hasOwnProperty.call(merged, 'brandShort')) {
+      merged = Object.assign({ brandShort: brandShortName() }, merged);
     }
     return String(template).replace(/\{(\w+)\}/g, (m, name) =>
       Object.prototype.hasOwnProperty.call(merged, name) ? String(merged[name]) : m,
@@ -349,6 +368,8 @@
   window.QTI18n = {
     /** 브랜드 이름 — 화면이 직접 쓸 때. 사전 문장 안에서는 {brand} 를 쓴다. */
     brand: brandName,
+    /** 약어 — 좁은 자리에서. 사전 문장 안에서는 {brandShort} 를 쓴다. */
+    brandShort: brandShortName,
 
     formatRebate,
     /**

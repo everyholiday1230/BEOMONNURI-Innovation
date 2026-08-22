@@ -4,7 +4,7 @@ Effective: 10 August 2026 · Version 1.0
 
 ## 1. What this service is
 
-These Terms govern your use of ChartControl (the "Service").
+These Terms govern your use of {{BRAND_NAME}} (the "Service").
 
 The Service is a **charting, analysis and order-routing tool** for cryptocurrency derivatives trading. It provides:
 

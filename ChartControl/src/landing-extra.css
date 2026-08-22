@@ -196,3 +196,42 @@
   .landing-flow__arrow { min-width: 0; flex-direction: row; gap: 8px; padding: 2px 0; }
   .landing-flow__line { width: 40px; }
 }
+
+/* ────────────────────────────────────────────────────────────
+   종목 머리글의 '더보기' 메뉴.
+
+   ★ 절대 위치로 띄운다. 머리글이 좁아 메뉴를 흐름 안에 두면 옆 항목을 밀어낸다.
+   ★ z-index 는 차트 위로 올라와야 한다(차트는 캔버스라 쌓임 순서가 높다).
+   ──────────────────────────────────────────────────────────── */
+.sh-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 168px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated, #16181d);
+  border: 1px solid var(--color-border-subtle, #2a2e37);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 4px;
+}
+.sh-more-menu__item {
+  appearance: none;
+  background: none;
+  border: 0;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-primary, #e6e8ec);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sh-more-menu__item:hover,
+.sh-more-menu__item:focus-visible {
+  background: var(--color-bg-hover, #22262e);
+  outline: none;
+}

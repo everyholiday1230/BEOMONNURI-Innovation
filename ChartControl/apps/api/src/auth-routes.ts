@@ -154,7 +154,14 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   const sessionCookie = deps.cookieName ?? SESSION;
   const base = { secure: secureCookies, sameSite: 'Lax' as const, path: '/', ...(deps.cookieDomain ? { domain: deps.cookieDomain } : {}) };
 
-  const ctxOf = (c: Context) => ({ ip: ipOf(c), userAgent: c.req.header('user-agent'), traceId: c.req.header('x-trace-id') ?? corr() });
+  /*
+     요청 문맥. locale 은 메일 언어에 쓴다.
+
+     ★ 화면이 보내는 x-qt-lang 을 먼저 믿는다(사용자가 고른 언어다). 없으면
+       브라우저의 accept-language 를 쓴다. 둘 다 없으면 메일은 영어로 나간다.
+  */
+  const langOf = (c: Context) => c.req.header('x-qt-lang') ?? c.req.header('accept-language') ?? undefined;
+  const ctxOf = (c: Context) => ({ ip: ipOf(c), userAgent: c.req.header('user-agent'), locale: langOf(c), traceId: c.req.header('x-trace-id') ?? corr() });
 
   async function authed(c: Context): Promise<{ user: PublicUser; raw: string; csrfSecret: string } | null> {
     const raw = getCookie(c, sessionCookie);

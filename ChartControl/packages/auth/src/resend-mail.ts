@@ -1,4 +1,5 @@
 import type { MailMessage, MailProvider } from './mail';
+import { renderMail } from './mail-templates';
 
 /**
  * Resend mail provider.
@@ -28,6 +29,8 @@ export interface ResendConfig {
    * no link at all — which is what the current templates produced — is worse.
    */
   appBaseUrl: string;
+  /** 제목·본문에 넣는 브랜드 이름. 없으면 넣지 않는다. */
+  brandName?: string;
   /** Optional reply-to. */
   replyTo?: string;
   fetchImpl?: typeof fetch;
@@ -49,93 +52,6 @@ export class MailSendError extends Error {
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-/**
- * Builds the user-facing body for a message.
- *
- * The existing call sites pass `text: 'Use the enclosed token to verify your email.'` with the token only in
- * `meta`. Sent verbatim that is an e-mail with no token and no link — the user cannot act on it. So known
- * `meta.kind` values are rendered into a real body with a real link here, and anything unrecognised falls
- * back to the caller's text.
- */
-export function renderMail(
-  msg: MailMessage,
-  appBaseUrl: string,
-): { subject: string; text: string; html: string } {
-  const base = appBaseUrl.replace(/\/+$/u, '');
-  const kind = typeof msg.meta?.kind === 'string' ? msg.meta.kind : '';
-  const token = typeof msg.meta?.token === 'string' ? msg.meta.token : '';
-
-  if (kind === 'verify' && token !== '') {
-    const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
-    return {
-      subject: '이메일 인증',
-      text: [
-        '이메일 인증을 완료하려면 아래 링크를 여세요.',
-        '',
-        link,
-        '',
-        '이 링크는 한 번만 사용할 수 있습니다.',
-        '본인이 요청하지 않았다면 이 메일을 무시하세요. 계정은 생성되지 않은 상태로 남습니다.',
-      ].join('\n'),
-      html: layout('이메일 인증', [
-        '<p>이메일 인증을 완료하려면 아래 버튼을 누르세요.</p>',
-        button(link, '이메일 인증'),
-        `<p style="font-size:12px;color:#667">버튼이 동작하지 않으면 이 주소를 붙여넣으세요:<br><span style="word-break:break-all">${escapeHtml(link)}</span></p>`,
-        '<p style="font-size:12px;color:#667">이 링크는 한 번만 사용할 수 있습니다. 본인이 요청하지 않았다면 이 메일을 무시하세요.</p>',
-      ]),
-    };
-  }
-
-  if (kind === 'reset' && token !== '') {
-    const link = `${base}/password-reset?token=${encodeURIComponent(token)}`;
-    return {
-      subject: '비밀번호 재설정',
-      text: [
-        '비밀번호를 재설정하려면 아래 링크를 여세요.',
-        '',
-        link,
-        '',
-        '이 링크는 한 번만 사용할 수 있으며 일정 시간 후 만료됩니다.',
-        '본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 변경되지 않습니다.',
-      ].join('\n'),
-      html: layout('비밀번호 재설정', [
-        '<p>비밀번호를 재설정하려면 아래 버튼을 누르세요.</p>',
-        button(link, '비밀번호 재설정'),
-        `<p style="font-size:12px;color:#667">버튼이 동작하지 않으면 이 주소를 붙여넣으세요:<br><span style="word-break:break-all">${escapeHtml(link)}</span></p>`,
-        // Stated because a reset e-mail is the classic phishing pretext; a user who did not ask must know
-        // that ignoring it is safe.
-        '<p style="font-size:12px;color:#667">본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 변경되지 않습니다.</p>',
-      ]),
-    };
-  }
-
-  // Unrecognised kind: send the caller's text as-is rather than inventing a template for it.
-  return { subject: msg.subject, text: msg.text, html: layout(msg.subject, [`<p>${escapeHtml(msg.text)}</p>`]) };
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/gu, '&amp;')
-    .replace(/</gu, '&lt;')
-    .replace(/>/gu, '&gt;')
-    .replace(/"/gu, '&quot;')
-    .replace(/'/gu, '&#39;');
-}
-
-function button(href: string, label: string): string {
-  return `<p><a href="${escapeHtml(href)}" style="display:inline-block;padding:10px 18px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:5px;font-weight:600">${escapeHtml(label)}</a></p>`;
-}
-
-function layout(title: string, parts: string[]): string {
-  return [
-    '<!doctype html><html><body style="margin:0;padding:24px;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#1a1d23">',
-    '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;padding:28px">',
-    `<h1 style="margin:0 0 16px;font-size:18px">${escapeHtml(title)}</h1>`,
-    ...parts,
-    '</div></body></html>',
-  ].join('');
-}
-
 export class ResendMailProvider implements MailProvider {
   readonly name = 'resend';
   private readonly fetchImpl: typeof fetch;
@@ -154,7 +70,11 @@ export class ResendMailProvider implements MailProvider {
   }
 
   async send(msg: MailMessage): Promise<void> {
-    const rendered = renderMail(msg, this.cfg.appBaseUrl);
+    const rendered = renderMail(msg, {
+        appBaseUrl: this.cfg.appBaseUrl,
+        ...(this.cfg.brandName ? { brandName: this.cfg.brandName } : {}),
+        ...(msg.meta && typeof msg.meta.locale === 'string' ? { locale: msg.meta.locale } : {}),
+      });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -213,6 +133,7 @@ export function resendFromEnv(env: NodeJS.ProcessEnv = process.env): ResendMailP
     apiKey,
     from,
     appBaseUrl,
+    brandName: env.BRAND_NAME?.trim() || 'ChartControl AI',
     ...(env.MAIL_REPLY_TO?.trim() ? { replyTo: env.MAIL_REPLY_TO.trim() } : {}),
   });
 }

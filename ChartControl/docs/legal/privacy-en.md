@@ -2,7 +2,7 @@
 
 Effective: 10 August 2026 · Version 1.0
 
-ChartControl ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
+{{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
 ## 1. What we collect
 

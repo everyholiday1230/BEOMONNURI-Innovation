@@ -1165,8 +1165,8 @@
             <span className="qt-drawer-toggle__bars" aria-hidden="true"/>
           </button>
           <a className="app-brand" href="#/trade">
-            <span className="app-brand__mark">Q</span>
-            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
+            <span className="app-brand__mark">{window.QTI18n && window.QTI18n.brandShort ? window.QTI18n.brandShort() : 'CCAI'}</span>
+            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</span>
             <span className="app-brand__ver">v1.0</span>
           </a>
 

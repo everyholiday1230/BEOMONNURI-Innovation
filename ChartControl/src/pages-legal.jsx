@@ -139,7 +139,7 @@
         .catch(() => setFailed(true));
     }, [kind]);
 
-    const brand = window.QTI18n ? window.QTI18n.brand() : 'ChartControl';
+    const brand = window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI';
     const available = doc && doc.available;
 
     return (

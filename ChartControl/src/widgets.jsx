@@ -269,6 +269,24 @@
   // SYMBOL HEADER
   // ============================================================
   window.SymbolHeader = function SymbolHeader({ price, prev, market, t }) {
+    /* '더보기' 메뉴 열림 상태. */
+    const [moreOpen, setMoreOpen] = React.useState(false);
+
+    /*
+       '거래소에서 열기' 주소.
+
+       ★ 우리가 링크를 지어내지 않는다. 서버가 준 거래소 주소(리퍼럴 포함)만 쓰고,
+         없으면 그 항목을 아예 보여주지 않는다 — 죽은 링크를 두지 않기 위해서다.
+    */
+    const exchangeUrl = (() => {
+      try {
+        const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
+        const urls = cfg && cfg.exchangeReferralUrls;
+        if (!urls) return '';
+        return urls.kucoin || urls.bitmart || '';
+      } catch (e) { return ''; }
+    })();
+
     const changeAbs = market.price * market.chg24h / 100;
     const isUp = price >= prev;
     const isUp24 = market.chg24h >= 0;
@@ -460,12 +478,97 @@
           <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>
             {window.Icons?.Bell ? <window.Icons.Bell size={11}/> : '🔔'}
           </button>
-          <button className="btn btn--xs" title={t('ref_share')}>
+          {/*
+             ★★ 공유·더보기 — 전에는 onClick 이 아예 없었다. 누르면 아무 일도
+               일어나지 않아 사용자는 고장으로 읽었다. 실제로 만들 수 있는
+               기능이므로 배선한다(준비중 표시로 넘기지 않는다).
+
+             공유: 지금 보고 있는 종목으로 바로 들어오는 링크를 만든다.
+               라우터가 이미 ?symbol= 을 읽으므로(app.jsx marketFromQuery)
+               받는 사람은 같은 종목 화면으로 들어온다.
+          */}
+          <button
+            className="btn btn--xs"
+            title={t('sh_share_link')}
+            onClick={() => {
+              const sym = String((market.base || '') + (market.quote || ''));
+              const url = `${window.location.origin}${window.location.pathname}#/trade?symbol=${encodeURIComponent(sym)}`;
+              /* 모바일에는 시스템 공유가 있다 — 있으면 그것을 쓰고, 없으면 복사한다. */
+              if (navigator.share) {
+                navigator.share({ title: sym, url }).catch(() => {
+                  if (window.QTCopy) window.QTCopy(url);
+                });
+                return;
+              }
+              if (window.QTCopy) {
+                window.QTCopy(url).then((ok) => {
+                  if (ok && window.QTToast) {
+                    window.QTToast({ title: t('sh_link_copied'), desc: url, variant: 'success', duration: 5000 });
+                  }
+                });
+              }
+            }}
+          >
             {window.Icons?.Share ? <window.Icons.Share size={11}/> : '↗'}
           </button>
-          <button className="btn btn--xs" title={t('wg_more')}>
-            {window.Icons?.More ? <window.Icons.More size={11}/> : '⋯'}
-          </button>
+          <div style={{position: 'relative'}}>
+            <button
+              className="btn btn--xs"
+              title={t('wg_more')}
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              {window.Icons?.More ? <window.Icons.More size={11}/> : '⋯'}
+            </button>
+            {moreOpen && (
+              <div
+                className="sh-more-menu"
+                role="menu"
+                onMouseLeave={() => setMoreOpen(false)}
+              >
+                <button
+                  className="sh-more-menu__item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    const sym = String((market.base || '') + (market.quote || ''));
+                    if (window.QTCopy) {
+                      window.QTCopy(sym).then((ok) => {
+                        if (ok && window.QTToast) window.QTToast({ title: t('sh_symbol_copied'), desc: sym, variant: 'success' });
+                      });
+                    }
+                  }}
+                >{t('sh_copy_symbol')}</button>
+                <button
+                  className="sh-more-menu__item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    /* 가격은 지금 화면에 보이는 값이다 — 우리가 만들어 낸 값이 아니다. */
+                    const price = market.price;
+                    if (!Number.isFinite(price)) {
+                      if (window.QTToast) window.QTToast({ title: t('sh_no_price'), variant: 'warning' });
+                      return;
+                    }
+                    if (window.QTCopy) {
+                      window.QTCopy(String(price)).then((ok) => {
+                        if (ok && window.QTToast) window.QTToast({ title: t('sh_price_copied'), desc: String(price), variant: 'success' });
+                      });
+                    }
+                  }}
+                >{t('sh_copy_price')}</button>
+                {exchangeUrl ? (
+                  <a
+                    className="sh-more-menu__item"
+                    role="menuitem"
+                    href={exchangeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMoreOpen(false)}
+                  >{t('sh_open_exchange')}</a>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

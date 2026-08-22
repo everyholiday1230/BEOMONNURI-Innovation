@@ -20,6 +20,14 @@ export interface RequestCtx {
   ip?: string;
   userAgent?: string;
   traceId?: string;
+  /*
+     화면 언어. 인증·재설정 메일을 어느 언어로 쓸지 정하는 데 쓴다.
+
+     ★ 사용자 계정에는 언어를 저장하지 않는다. 요청을 보낸 화면이 자기 언어를
+       알려주는 것이 가장 정확하다(설정에서 언어를 바꾸면 즉시 반영된다).
+       없으면 메일은 영어로 나간다.
+  */
+  locale?: string;
 }
 
 export type RegisterResult =
@@ -296,7 +304,7 @@ export class AuthService {
     const { raw, hash } = generateToken();
     const rec: TokenRecord = { id: randomUUID(), userId, tokenHash: hash, expiresAt: this.now() + this.verificationTtlMs, usedAt: null, createdAt: this.now() };
     await this.emailTokens.create(rec);
-    await this.mail?.send({ to: user.email, subject: 'Verify your email', text: 'Use the enclosed token to verify your email.', meta: { token: raw, kind: 'verify' } });
+    await this.mail?.send({ to: user.email, subject: 'Verify your email', text: 'Use the enclosed token to verify your email.', meta: { token: raw, kind: 'verify', ...(ctx.locale ? { locale: ctx.locale } : {}) } });
     await this.log('auth.email.verify_request', userId, ctx, 'success');
   }
   async verifyEmail(rawToken: string, ctx: RequestCtx = {}): Promise<{ ok: boolean }> {
@@ -319,7 +327,7 @@ export class AuthService {
       const { raw, hash } = generateToken();
       const rec: TokenRecord = { id: randomUUID(), userId: user.id, tokenHash: hash, expiresAt: this.now() + this.resetTtlMs, usedAt: null, createdAt: this.now() };
       await this.resetTokens.create(rec);
-      await this.mail?.send({ to: user.email, subject: 'Password reset', text: 'Use the enclosed token to reset your password.', meta: { token: raw, kind: 'reset' } });
+      await this.mail?.send({ to: user.email, subject: 'Password reset', text: 'Use the enclosed token to reset your password.', meta: { token: raw, kind: 'reset', ...(ctx.locale ? { locale: ctx.locale } : {}) } });
     }
     // Always log + return generically (no user enumeration).
     await this.log('auth.password.reset_request', user?.id ?? null, ctx, 'accepted', { email: String(email ?? '').toLowerCase() });

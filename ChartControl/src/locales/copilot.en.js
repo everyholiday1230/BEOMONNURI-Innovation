@@ -76,13 +76,6 @@
         + '- R:R 1 : 2.8 · confidence 74%\n'
         + '- Invalidation: 15m close < 67,480',
 
-      // --- 지지/저항 응답 ---
-      ai_reply_sr_beginner:
-        'The main **resistance** sits around 69,120 and **support** near 67,200. '
-        + 'Expect larger moves when either level breaks.',
-      ai_reply_sr_pro:
-        'Resistance: 69,120 (untested since 07-16). Support: 67,200 (2 touches, high volume).',
-
       // --- 일반 응답 ---
       ai_reply_general:
         'Detected question: "{text}".\n\nTry commands such as "draw a trendline", "propose entry/SL/TP" or "find support and resistance".',

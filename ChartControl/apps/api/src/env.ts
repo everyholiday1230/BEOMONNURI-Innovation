@@ -120,6 +120,7 @@ export interface ApiEnv {
    * 한 곳을 빠뜨려 옛 이름이 남는다. 화이트라벨 배포도 가능해진다.
    */
   brandName: string;
+  brandShortName: string;
   /**
    * 고객 지원 이메일.
    *
@@ -529,7 +530,12 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
        클릭 한 번에 스크립트가 실행된다. 설정 파일은 신뢰 경계 밖일 수 있다.
     */
     // 비어 있으면 화면 기본값(ChartControl)이 쓰인다.
-    brandName: env.BRAND_NAME?.trim() || 'ChartControl',
+    brandName: env.BRAND_NAME?.trim() || 'ChartControl AI',
+    /*
+       약어. 로고 배지·좁은 머리글처럼 풀네임이 잘리는 자리에서 쓴다.
+       운영자가 이름을 바꾸면 약어도 함께 바꿀 수 있게 별도 변수로 둔다.
+    */
+    brandShortName: env.BRAND_SHORT_NAME?.trim() || 'CCAI',
     /*
        기본값을 두지 않는다.
 

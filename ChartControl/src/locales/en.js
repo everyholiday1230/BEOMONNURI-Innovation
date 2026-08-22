@@ -117,6 +117,14 @@
       wl_pair: 'Pair',
       mk_perp_usdt: 'Perpetual · USDT-margined',
       wg_alerts: 'Alerts',
+      sh_share_link: 'Share this market',
+      sh_link_copied: 'Link copied',
+      sh_copy_symbol: 'Copy symbol',
+      sh_symbol_copied: 'Symbol copied',
+      sh_copy_price: 'Copy last price',
+      sh_price_copied: 'Price copied',
+      sh_no_price: 'No price yet — market data has not arrived',
+      sh_open_exchange: 'Open on the exchange',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
@@ -540,15 +548,6 @@
       wd_2fa_a: 'Withdrawals enter the review queue after ',
       wd_2fa_em: '2FA verification',
       wd_2fa_b: '. Large amounts may require operator approval.',
-      ref_pay_a: 'When a friend trades, ',
-      ref_pay_em: '30% of their fees',
-      ref_pay_b: ' is paid to you automatically',
-      ref_bonus_a: 'Your friend also gets a ',
-      ref_bonus_em: '$50 sign-up credit',
-      ref_bonus_b: '',
-      ref_tier_a: 'When a friend upgrades to ',
-      ref_tier_em: 'Pro or VIP',
-      ref_tier_b: ', your commission rate increases automatically.',
 
       // --- 마법사 / 입출금 / 전략 / 수수료 (변수 보간) ---
       wiz_title: 'Connect {exchange}',
@@ -1120,7 +1119,6 @@
       profile_signed_in_as: 'Signed in as {email} — click to sign out',
 
       toast_order_rejected: 'Order rejected',
-      toast_order_status_desc: '{status} · {size} {base} @ {price}',
 
       op_verifying: 'Verifying with server…',
 
@@ -1276,7 +1274,6 @@
       prov_note_admin_users_live: 'Live users from the database — suspend/enable actually works',
       prov_note_admin_audit_live: 'Live audit log (append-only, recorded by the server)',
 
-      lang_not_available: '{lang} is not translated yet',
 
       // --- 미구현 기능 안내 ---
       pending_title: 'Not available yet',
@@ -1357,8 +1354,6 @@
       admin_read_only_notice: 'Your role has read-only access here. Changing account status requires an administrator.',
 
       // --- 거래소 가입 (레퍼럴) ---
-      no_exchange_account: "Don't have an account on this exchange yet?",
-      create_exchange_account: 'Create a {name} account',
 
       // --- 입금 (비수탁) ---
       deposit_noncustodial_title: 'We never hold your funds',
@@ -1395,7 +1390,6 @@
       conn_title: 'WebSocket {state} · latency {latency}ms · source: {source}',
       data_freshness_tip: 'Time since the last price update. If this climbs, the stream has stalled — do not trade on a stale price.',
 
-      sidebar_profile_settings: 'Signed in as {email} — open settings',
 
       // --- 관리자 시스템 상태 ---
       admin_system_subtitle: '{ok} of {total} checked components healthy',
@@ -1563,7 +1557,6 @@
       strat_back_to_list: 'All strategies',
       strat_bars: 'Over {n} candles',
       strat_trades_n: '{n} closed trades',
-      strat_no_backtest: 'No backtest has been run for this strategy yet. Run one to see the equity curve.',
 
       my_following_sub: 'Watchlist only — nothing is executed',
       my_autocopy: 'Auto-copy',
@@ -1735,7 +1728,6 @@
       mode_futures: 'Futures',
       mode_paper: 'Paper',
       change_24: '24H Chg',
-      leverage: 'Leverage',
       total: 'Total',
       long: 'Long',
       short: 'Short',
@@ -1872,8 +1864,8 @@
       ref_single_tier_sub: 'Of what the exchange pays us for your invitees',
       ref_no_tiers: 'There are no tier levels. A tiered table would imply targets that do not exist.',
       ref_share: 'Share',
-      ref_share_title: 'Trade on ChartControl',
-      ref_share_text: 'Join me on ChartControl — a non-custodial trading terminal. Your funds stay in your own exchange account.',
+      ref_share_title: 'Trade on {brand}',
+      ref_share_text: 'Join me on {brand} — a non-custodial trading terminal. Your funds stay in your own exchange account.',
       ref_list_sub: 'Emails are partly hidden — we do not expose who signed up',
       ref_col_who: 'Invitee',
       ref_col_joined: 'Joined',
@@ -2010,9 +2002,6 @@
       pt_reason_refund: 'Refunded',
       pt_reason_expiry: 'Expired',
       pt_reason_other: 'Adjustment',
-      pt_item_ai10: 'AI Analysis · 10 runs',
-      pt_item_ai50: 'AI Analysis · 50 runs',
-      pt_item_comp: 'Paper Trading Competition · entry',
       prov_note_points_live: 'Real append-only ledger; points are not cash and cannot be withdrawn',
       prov_note_admin_points_live: 'Real ledger and liability totals; the outstanding balance is what we owe',
 
@@ -2131,7 +2120,6 @@
       pf_alloc_sub: '{n} assets held at the exchange',
       pf_alloc_none: 'Connect an exchange key to see your balances',
       // 포트폴리오 — 자산곡선 기간 선택
-      pf_equity_no_history: 'Range selection is unavailable — we do not store an equity history yet, so there is nothing to compare across periods.',
       pf_equity_range_why: 'We do not record daily equity snapshots, so a different range would show the same curve. Enabling this without the data would mean inventing it.',
       // 설정 — 등록된 거래소 키
       settings_no_keys: 'No exchange keys connected yet. Connect one from the Wallet page to see your balances and positions — your funds stay at the exchange, we only read and route orders.',
@@ -2220,14 +2208,7 @@
       auth_err_generic: 'Sign-in failed. Please try again.',
 
       // --- 실시간 데이터 상태 ---
-      data_source_live: 'Live',
-      data_source_mock: 'Demo data',
       conn_live: 'Connected',
-      conn_reconnecting: 'Reconnecting…',
-      conn_lost: 'Disconnected',
-      conn_offline: 'Offline preview',
-      symbol_unsupported: 'Not listed on this exchange: {symbol}',
-      timeframe_unsupported: 'Timeframe not supported: {timeframe}',
       backend_absent: 'Backend not attached — running on demo data',
 
       /* --- 관리자 화면에 하드코딩돼 있던 라벨 — 사전으로 옮긴 것 --- */

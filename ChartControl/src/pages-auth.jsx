@@ -115,8 +115,8 @@
         {/* LEFT — form */}
         <div className="auth-shell__form">
           <a className="auth-shell__brand" href="#/">
-            <span className="auth-shell__brand-mark">Q</span>
-            <span>{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
+            <span className="auth-shell__brand-mark">{window.QTI18n && window.QTI18n.brandShort ? window.QTI18n.brandShort() : 'CCAI'}</span>
+            <span>{window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</span>
             <span className="auth-shell__brand-ver">v1.0</span>
           </a>
 
@@ -153,7 +153,7 @@
               <a href="#/help">{t('auth_e2654a')}</a>
             </div>
             {/* 모드는 고정 문구로 쓰지 않는다 — 위 랜딩 푸터와 같은 이유. */}
-            <div className="auth-foot-copy">© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · {(() => {
+            <div className="auth-foot-copy">© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'} · {(() => {
               const cfg = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
               const backend = !(window.QTLive && window.QTLive.isBackendPresent
                 && window.QTLive.isBackendPresent() === false);
@@ -1212,8 +1212,8 @@
 
         <header className="landing-header">
           <a className="app-brand" href="#/">
-            <span className="app-brand__mark">Q</span>
-            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl'}</span>
+            <span className="app-brand__mark">{window.QTI18n && window.QTI18n.brandShort ? window.QTI18n.brandShort() : 'CCAI'}</span>
+            <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</span>
             <span className="app-brand__ver">v1.0</span>
           </a>
           {/*
@@ -1553,7 +1553,7 @@
         </section>
 
         <footer className="landing-foot">
-          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl'} · v1.0</div>
+          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'} · v1.0</div>
           {/*
              ★★ 법적 문서 링크를 랜딩에 둔다.
 

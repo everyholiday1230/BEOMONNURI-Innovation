@@ -322,6 +322,7 @@ app.get('/api/config', (c) =>
     */
     // 화면이 브랜드 이름을 여기서 받는다 (i18n 의 {brand} 치환에 쓰인다).
     brandName: env.brandName,
+    brandShortName: env.brandShortName,
     // 비어 있으면 화면이 이메일 문의 경로를 감춘다.
     supportEmail: env.supportEmail,
     exchangeSignupUrl: env.kucoinReferralUrl,
@@ -2432,6 +2433,7 @@ if (legalRepo) {
     publish: process.env.LEGAL_AUTOPUBLISH === 'true',
     version: (process.env.LEGAL_VERSION ?? '2026-08-22').trim(),
     supportEmail: env.supportEmail ?? '',
+    brandName: env.brandName,
     companyInfo: (process.env.COMPANY_INFO ?? '').trim(),
     liveOrdersEnabled: env.liveOrdersEnabled,
   })

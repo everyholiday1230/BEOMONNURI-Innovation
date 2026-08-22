@@ -1158,6 +1158,16 @@
       var headers = { accept: 'application/json' };
       if (body !== undefined) headers['content-type'] = 'application/json';
       if (csrfToken) headers['x-csrf-token'] = csrfToken;
+      /*
+         화면 언어를 함께 보낸다.
+
+         ★ 서버는 이 값으로 인증·비밀번호 재설정 메일의 언어를 정한다. 계정에
+           언어를 저장하지 않으므로, 지금 보고 있는 화면의 언어가 가장 정확하다.
+      */
+      try {
+        var lang = window.QTI18n && window.QTI18n.getLocale ? window.QTI18n.getLocale() : '';
+        if (lang) headers['x-qt-lang'] = lang;
+      } catch (e) { /* 언어를 못 읽어도 요청은 나가야 한다 */ }
       // 멱등성 키처럼 요청별로 필요한 헤더를 받는다.
       if (opts.headers) {
         Object.keys(opts.headers).forEach(function (k) { headers[k] = opts.headers[k]; });

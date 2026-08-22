@@ -43,6 +43,13 @@ export interface LegalSeedOptions {
   version: string;
   /** 문의 이메일 (SUPPORT_EMAIL). */
   supportEmail: string;
+  /*
+     서비스 이름 (BRAND_NAME).
+
+     ★ 문서에 이름을 박아 두면 이름이 바뀔 때 16개 파일을 다시 손봐야 하고,
+       화면에는 새 이름인데 약관에는 옛 이름이 남는다.
+  */
+  brandName?: string;
   /** 사업자 정보 한 문단. 비어 있으면 실주문이 열린 상태에서는 공개하지 않는다. */
   companyInfo: string;
   /** 실주문이 열려 있는가. 공개 판정에만 쓴다. */
@@ -121,6 +128,7 @@ export async function seedLegalDocuments(
 
       let body = await readFile(path, 'utf8');
       body = body
+        .split('{{BRAND_NAME}}').join(opts.brandName?.trim() || 'ChartControl AI')
         .split('{{SUPPORT_EMAIL}}').join(opts.supportEmail || '(문의 이메일 미설정)')
         .split('{{COMPANY_INFO}}').join(
           companyMissing

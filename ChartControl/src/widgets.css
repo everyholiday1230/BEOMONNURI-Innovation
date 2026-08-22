@@ -28,7 +28,14 @@
   height: 100%;
 }
 .app-brand__mark {
-  width: 22px; height: 22px;
+  /*
+     약어 'CCAI' 가 들어가야 한다. 22px 정사각형에 12px 모노 4글자는 폭이
+     29px 라서 overflow:hidden 에 잘렸다. 높이는 그대로 두고 폭만 글자에
+     맞춰 늘린다(min-width 로 한 글자만 넣어도 모양이 유지된다).
+  */
+  min-width: 22px; height: 22px;
+  padding: 0 5px;
+  box-sizing: border-box;
   border-radius: 5px;
   background: linear-gradient(135deg, var(--color-brand) 0%, var(--brand-accent-500) 100%);
   position: relative;
@@ -38,8 +45,10 @@
   justify-content: center;
   color: var(--color-text-inverse);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
   font-weight: var(--fw-bold);
+  white-space: nowrap;
 }
 .app-brand__mark::after {
   content: "";

@@ -160,3 +160,56 @@ describe('SMTP 발송기', () => {
     expect(() => new SmtpMailProvider({ ...base(25), appBaseUrl: 'example.com' })).toThrow(/appBaseUrl/);
   });
 });
+
+/*
+   본문 렌더링. 이것이 틀리면 메일은 나가지만 사용자가 아무것도 할 수 없다 —
+   전에 실제로 "동봉된 토큰을 사용하세요" 라고만 적힌 메일이 나갔다.
+*/
+describe('메일 본문', () => {
+  const VERIFY = {
+    to: 'user@example.net',
+    subject: 'Verify your email',
+    text: 'Use the enclosed token to verify your email.',
+    meta: { token: 'tok-123', kind: 'verify' },
+  };
+
+  it('자리표시자 대신 실제 링크를 보낸다', async () => {
+    const fake = await fakeSmtp();
+    await new SmtpMailProvider({ ...base(fake.port), appBaseUrl: 'https://app.example.com' }).send(VERIFY);
+    const body = fake.body();
+    expect(body).toContain('https://app.example.com/verify-email?token=tok-123');
+    expect(body).not.toContain('Use the enclosed token');
+    await fake.close();
+  });
+
+  it('평문과 HTML 을 함께 보낸다', async () => {
+    const fake = await fakeSmtp();
+    await new SmtpMailProvider({ ...base(fake.port), appBaseUrl: 'https://app.example.com' }).send(VERIFY);
+    const body = fake.body();
+    expect(body).toContain('multipart/alternative');
+    expect(body).toContain('Content-Type: text/plain; charset=utf-8');
+    expect(body).toContain('Content-Type: text/html; charset=utf-8');
+    await fake.close();
+  });
+
+  it('브랜드 이름을 제목에 붙인다', async () => {
+    const fake = await fakeSmtp();
+    await new SmtpMailProvider({ ...base(fake.port), brandName: 'ChartControl AI' }).send(VERIFY);
+    /* 제목은 RFC 2047 로 인코딩될 수 있으니 디코딩해서 확인한다. */
+    const line = fake.log.length >= 0 ? fake.body().split('\n').find((l) => l.startsWith('Subject:')) ?? '' : '';
+    const decoded = /=\?UTF-8\?B\?(.+)\?=/.exec(line);
+    const subject = decoded ? Buffer.from(decoded[1] ?? '', 'base64').toString('utf8') : line;
+    expect(subject).toContain('ChartControl AI');
+    await fake.close();
+  });
+
+  it('사용자 언어로 쓴다 (일본어 요청이면 일본어 본문)', async () => {
+    const fake = await fakeSmtp();
+    await new SmtpMailProvider({ ...base(fake.port) }).send({
+      ...VERIFY,
+      meta: { ...VERIFY.meta, locale: 'ja' },
+    });
+    expect(fake.body()).toContain('メールアドレスの確認');
+    await fake.close();
+  });
+});

@@ -28,7 +28,6 @@
       auth_833f52: 'Natural language → chart overlay → signal proposal',
       auth_66cdd9: 'Drag, resize and preset your own layout',
       auth_2d0495: 'Approve ≠ Submit · multi-stage risk check',
-      auth_38d152: '8+ exchanges supported',
 
       // --- 로그인 ---
       login_e225a6: 'Sign in',
@@ -131,7 +130,6 @@
 
       // --- 랜딩 ---
       landing_66a662: 'Institutional-grade trading tools for individual traders.',
-      landing_1ad875: 'Bloomberg-grade information density · AI Copilot · 8 exchanges · 24-column custom layout.',
       landing_7bbd5b: 'Start for free',
       landing_1ea899: 'View demo',
       landing_4c1fc3: 'One approval',
