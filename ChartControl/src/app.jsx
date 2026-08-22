@@ -2595,7 +2595,7 @@
     checks.push({
       state: liqDistPct < 3 ? 'fail' : liqDistPct < 6 ? 'warn' : 'ok',
       label: t('risk_liq_distance'),
-      detail: t(liqDistPct < 3 ? 'risk_liq_danger' : liqDistPct < 6 ? 'risk_liq_warn' : 'risk_liq_safe'),
+      detail: t(liqDistPct < 3 ? 'risk_liq_danger_close' : liqDistPct < 6 ? 'risk_liq_warn' : 'risk_liq_safe'),
       meta: `-${liqDistPct.toFixed(2)}%`,
     });
     // 5. Price deviation

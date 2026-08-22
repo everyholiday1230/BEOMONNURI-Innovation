@@ -694,12 +694,8 @@
            orders, journal and market tables, so one key each is enough.
       */
       col_symbol: 'Symbol',
-      col_side: 'Side',
       col_size: 'Size',
-      col_entry: 'Entry',
-      col_mark: 'Mark',
       col_liq_price: 'Liq. Price',
-      col_margin: 'Margin',
       col_pnl: 'PnL',
       col_price: 'Price',
       col_pair: 'Pair',
@@ -708,12 +704,10 @@
       col_type: 'Type',
       col_fee: 'Fee',
       col_filled: 'Filled',
-      col_status: 'Status',
       col_network: 'Network',
       col_amount: 'Amount',
       col_exit: 'Exit',
       col_trend: 'Trend',
-      col_backtest: 'Backtest',
       ob_cum: 'Cum',
       ob_show_cum: 'Show cumulative',
       ob_show_size: 'Show size',
@@ -721,7 +715,6 @@
       ai_copilot_title: 'AI Copilot',
       ai_analyst_mode: 'Analyst Mode',
       ai_mentor_mode: 'Mentor Mode',
-      ai_analyst: 'Analyst',
       ai_mentor: 'Mentor',
       ai_you: 'You',
       ex_status_available: 'AVAILABLE',
@@ -833,7 +826,10 @@
       risk_lev_high: '{lev}× · high liquidation risk',
       risk_lev_normal: '{lev}× · standard range',
       risk_liq_distance: 'Distance to liquidation',
-      risk_liq_danger: '⚠ Very risky',
+      /* 주문 확인창의 '청산까지 거리' 항목. 알림용 risk_liq_danger 와 이름이 같아
+         중복 정의였고, 나중 정의(⚠ {symbol} liquidation imminent)가 이겨서 확인창에
+         `{symbol}` 이 그대로 찍혔다 — 확인창은 vars 를 넘기지 않는다. */
+      risk_liq_danger_close: '⚠ Very risky',
       risk_liq_warn: 'Caution',
       risk_liq_safe: 'Safe range',
       risk_price_dev: 'Deviation from last price',
@@ -1235,7 +1231,6 @@
       tier_super: 'super admin',
 
       // --- 주문 취소 ---
-      cancel: 'Cancel',
       canceling: 'Canceling…',
       cancel_order: 'Cancel this order',
       cancel_needs_live: 'Connect and verify an exchange API key first',
@@ -1604,7 +1599,6 @@
       help_reply_ph: 'Add to this conversation…',
       help_reply_send: 'Reply',
       help_loading: 'Loading…',
-      close: 'Close',
 
       help_no_match: 'No article matches \u201c{q}\u201d. Try the message form below — we will answer directly.',
 
@@ -1755,9 +1749,6 @@
 
       /* 자석 모드 — 값은 chart-actions.js 의 MAGNET_MODES 와 정확히 같아야 한다
          (normal / weak_magnet / strong_magnet). 다르면 토스트에 키가 그대로 나온다. */
-      magnet_normal: 'Magnet off',
-      magnet_weak_magnet: 'Magnet: weak',
-      magnet_strong_magnet: 'Magnet: strong',
 
       /*
          복합 상태.

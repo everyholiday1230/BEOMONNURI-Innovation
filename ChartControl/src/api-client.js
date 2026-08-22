@@ -2433,9 +2433,8 @@
       return getJSON('', '/api/admin/system/health').then(function (r) { return { ok: true, data: r }; });
     },
 
-    securitySummary: function () {
-      return getJSON('', '/api/admin/security/summary').then(function (r) { return { ok: true, data: r }; });
-    },
+    /* ★ securitySummary 중복 정의를 지웠다 — 같은 객체에 같은 구현이 두 번 있었고,
+         뒤가 이기므로 위 정의는 죽은 코드였다. 하나만 남긴다. */
 
     /** 킬스위치 목록. 실주문을 즉시 멈추는 장치다. */
     killSwitches: function () {
@@ -2456,10 +2455,9 @@
       });
     },
 
-    /** 브로커 리베이트 집계. 수익이 실제로 들어오는지 확인하는 화면이 쓴다. */
-    brokerRebates: function () {
-      return getJSON('', '/api/admin/broker/rebates').then(function (r) { return { ok: true, data: r }; });
-    },
+    /* ★★ 여기에 brokerRebates 가 한 번 더 정의돼 있었다(같은 객체). 뒤가 이기므로
+         위쪽의 `configured` 판정 구현이 죽어 있었다 — 설정을 안 한 상태와 정말 0원인
+         상태를 구분하지 못하고, 503 을 오류로 던졌다. 중복을 지워 위 구현을 살린다. */
   };
 
   window.QTApi = {

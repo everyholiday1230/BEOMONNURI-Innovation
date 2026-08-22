@@ -516,7 +516,9 @@
         author: x.author === 'built-in' ? null : x.author,
         authorKey: x.author === 'built-in' ? 'strategy_builtin' : null,
         tag: x.category || '—',
-        description: x.description || '',
+        /* ★★ 여기에 `description: x.description || ''` 가 한 번 더 있었다. 같은 객체에
+             같은 키를 두 번 쓰면 뒤가 이긴다 — 위에서 descriptionKey 로 번역한 값이
+             조용히 버려지고, 일본어·중국어 화면에 원문이 그대로 나왔다. */
         pnl30: num(m.totalReturnPct),
         winRate: num(m.winRatePct),
         sharpe: num(m.sharpe),
