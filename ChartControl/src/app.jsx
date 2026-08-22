@@ -2582,8 +2582,16 @@
         meta: `TP ${fmt(tp,1)} vs Entry ${fmt(px,1)}`,
       });
     }
-    // 3. Leverage
-    const leverage = 20;
+    /*
+       3. 레버리지.
+
+       ★★ `const leverage = 20;` 이 박혀 있었다. 주문이 다른 배율로 나가도 확인창은
+         언제나 20× 라고 적었다. 실주문을 열면 이 줄이 사용자를 오도한다 — 확인창은
+         마지막으로 판단하는 화면이다. 주문에 실린 값을 쓰고, 없으면 시장 기본값을 쓴다.
+    */
+    const leverage = Number(order.leverage) > 0
+      ? Number(order.leverage)
+      : (Number(order.market && order.market.leverage) > 0 ? Number(order.market.leverage) : 20);
     checks.push({
       state: leverage > 50 ? 'warn' : 'ok',
       label: t('risk_leverage'),

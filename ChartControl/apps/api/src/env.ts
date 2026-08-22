@@ -39,6 +39,20 @@ export interface ApiEnv {
   bitmartMode: string;
   bitmartLiveTradingEnabled: boolean;
   bitmartKillSwitch: boolean;
+  /**
+   * 서버가 강제하는 주문 상한. 검증 경로와 제출 경로가 **같은 값**을 써야 한다.
+   * `allowedSymbols: '*'` 는 심볼 제한 없음(상한만으로 방어).
+   */
+  tradingPolicy: {
+    /** 심볼 화이트리스트. `['*']` 는 제한 없음. */
+    allowedSymbols: readonly string[];
+    maxOrderNotional: string;
+    maxLeverage: number;
+    maxOpenPositions: number;
+    dailyOrderLimit: number;
+    dailyLossLimit: string;
+    priceDeviationLimitPct: number;
+  };
   bitmartKek?: string;
 
   // --- KuCoin (현재 운영 거래소) ---
@@ -341,6 +355,15 @@ export function assertProductionDatabaseReadiness(
   return { backend: 'postgres' };
 }
 
+/**
+ * 양의 정수만 받는다. 비었거나 이상한 값이면 기본값 — 상한이 0 이나 NaN 이 되면
+ * 모든 주문이 막히거나(0) 모든 주문이 통과한다(NaN 비교는 항상 false). 둘 다 사고다.
+ */
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const n = Number((raw ?? '').trim());
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
 export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const tradingMode = pickEnum(env.TRADING_MODE, TRADING_MODES, 'MOCK');
   /*
@@ -356,7 +379,35 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const LIVE_ORDER_MODES: readonly string[] = ['BITMART_DEMO', 'KUCOIN_LIVE'];
   const liveOrdersEnabled =
     env.FEATURE_LIVE_ORDERS_ENABLED === 'true' && LIVE_ORDER_MODES.includes(tradingMode);
+
+  /*
+     주문 정책 — 서버가 강제하는 상한.
+
+     ★★ 전에는 이 값들이 index.ts 두 곳에 **하드코딩**돼 있었고, 두 곳의 값이
+       서로 달랐다(검증 경로 allowedSymbols=['BTCUSDT','ETHUSDT'], 제출 경로
+       =['BTCUSDT']). 그래서 ETHUSDT 는 주문 확인창까지 통과한 뒤 전송 단계에서
+       'symbol ETHUSDT not allowed' 로 거부됐다 — 사용자에게는 이유 없는 실패다.
+       실주문을 열면 BTCUSDT 하나만 나가는 상태이기도 했다(화면은 664종을 보여준다).
+
+     ★ 이제 한 곳에서 읽어 두 경로에 같은 값을 넘긴다. 기본값은 종전과 같게 두어
+       설정을 바꾸지 않은 배포의 동작이 달라지지 않게 한다.
+
+     ★ TRADE_ALLOWED_SYMBOLS='*' 는 심볼 제한을 두지 않는다는 뜻이다. 상장 종목이
+       늘어날 때마다 환경변수를 고치지 않으려면 이 값을 쓴다 — 대신 상한(레버리지·
+       금액·일일 한도)이 유일한 방어선이 되므로, 그 값들을 반드시 확인할 것.
+  */
+  const symbolsRaw = (env.TRADE_ALLOWED_SYMBOLS ?? 'BTCUSDT,ETHUSDT').trim();
+  const tradingPolicy = {
+    allowedSymbols: symbolsRaw === '*' ? ['*'] : symbolsRaw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean),
+    maxOrderNotional: (env.TRADE_MAX_ORDER_NOTIONAL ?? '100000').trim(),
+    maxLeverage: positiveInt(env.TRADE_MAX_LEVERAGE, 20),
+    maxOpenPositions: positiveInt(env.TRADE_MAX_OPEN_POSITIONS, 5),
+    dailyOrderLimit: positiveInt(env.TRADE_DAILY_ORDER_LIMIT, 50),
+    dailyLossLimit: (env.TRADE_DAILY_LOSS_LIMIT ?? '1000').trim(),
+    priceDeviationLimitPct: positiveInt(env.TRADE_PRICE_DEVIATION_PCT, 5),
+  } as const;
   return {
+    tradingPolicy,
     port: Number(env.API_PORT ?? 8787),
     host: env.API_HOST ?? '127.0.0.1',
     dataMode: pickEnum(env.DATA_MODE, DATA_MODES, 'MOCK_REPLAY'),
@@ -398,9 +449,24 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     cookieName: env.AUTH_COOKIE_NAME ?? 'qt_session',
     cookieDomain: env.AUTH_COOKIE_DOMAIN,
     // Phase 3 — BitMart live trading. SAFE DEFAULTS: read-only mode, live disabled, kill switch ON.
-    bitmartMode: pickEnum(env.BITMART_MODE, ['BITMART_LIVE_READ_ONLY', 'BITMART_LIVE_SHADOW', 'BITMART_LIVE_TRADE'] as const, 'BITMART_LIVE_READ_ONLY'),
-    bitmartLiveTradingEnabled: env.BITMART_LIVE_TRADING_ENABLED === 'true',
-    bitmartKillSwitch: env.BITMART_EMERGENCY_KILL_SWITCH !== 'false', // default true (blocked)
+    /*
+       실행 모드·실거래 플래그·킬스위치.
+
+       ★★ 이름이 BITMART_* 지만 **KuCoin 실주문도 이 값들이 막는다**. 운영자가
+         TRADING_MODE·FEATURE_LIVE_ORDERS_ENABLED 만 켜도 주문은 나가지 않는다.
+         그 사실을 코드 주석에만 적어 두면 아무도 모른다 — 그래서 거래소 이름이
+         없는 별칭을 함께 받는다. 새 이름이 있으면 그것을 쓰고, 없으면 옛 이름을
+         본다(기존 배포가 깨지지 않게).
+    */
+    bitmartMode: pickEnum(
+      env.LIVE_EXECUTION_MODE ?? env.BITMART_MODE,
+      ['BITMART_LIVE_READ_ONLY', 'BITMART_LIVE_SHADOW', 'BITMART_LIVE_TRADE'] as const,
+      'BITMART_LIVE_READ_ONLY',
+    ),
+    bitmartLiveTradingEnabled:
+      (env.LIVE_TRADING_ENABLED ?? env.BITMART_LIVE_TRADING_ENABLED) === 'true',
+    // 기본값 true(차단). 'false' 라고 **명시**할 때만 열린다.
+    bitmartKillSwitch: (env.EMERGENCY_KILL_SWITCH ?? env.BITMART_EMERGENCY_KILL_SWITCH) !== 'false',
     bitmartKek: env.BITMART_DEV_KEK,
 
     kucoinFuturesRest: env.KUCOIN_FUTURES_REST ?? 'https://api-futures.kucoin.com',

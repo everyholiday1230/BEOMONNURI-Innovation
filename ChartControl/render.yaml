@@ -112,16 +112,61 @@ services:
       #
       # ★★ 다섯 겹이 모두 열려야 주문이 거래소에 도달한다. 하나만 실수로 켜져도
       #   열리지 않도록 일부러 나눠 두었다. 실거래를 열 때 대시보드에서 바꾼다.
+      # ---- 실주문 (실제 돈이 움직인다) ----
+      #
+      # ★★ 실주문은 **다섯 개**가 모두 맞아야 열린다. 하나라도 어긋나면 주문은
+      #   전송되지 않고 화면에 이유가 표시된다(리스크 게이트가 이유를 돌려준다).
+      #     1) TRADING_MODE=KUCOIN_LIVE          — 사용자 자기 키로 KuCoin 에 주문
+      #     2) FEATURE_LIVE_ORDERS_ENABLED=true  — 실주문 기능 플래그
+      #     3) LIVE_EXECUTION_MODE=BITMART_LIVE_TRADE — 주문 변경(전송)을 허용하는 모드
+      #     4) LIVE_TRADING_ENABLED=true         — 어댑터의 실전송 허용
+      #     5) EMERGENCY_KILL_SWITCH=false       — 비상 정지 해제
+      #
+      # ★ 3~5 는 예전에 BITMART_* 이름이었다. KuCoin 실주문도 이 값들이 막기 때문에
+      #   운영자가 1·2 만 켜고 "왜 안 되지" 를 겪었다. 거래소 이름이 없는 새 이름을
+      #   쓰고, 옛 이름도 계속 인식한다(env.ts).
+      #
+      # ★★ 사고가 나면 대시보드에서 EMERGENCY_KILL_SWITCH=true 로 바꾸고 재시작하면
+      #   즉시 모든 실주문이 막힌다. 이 값이 유일한 즉시 정지 수단이다.
+      #
+      # ★ 이것들을 켜도 다음이 없으면 개별 사용자의 주문은 나가지 않는다:
+      #     · 사용자가 자기 KuCoin API 키를 연결하고 검증에 성공(credential VERIFIED)
+      #     · 그 키에 선물 거래 권한(Future-Trade)이 확인됨
+      #     · 시세가 LIVE, 확인 토큰·멱등키 유효, 계정 active
       - key: TRADING_MODE
-        value: MOCK
+        value: KUCOIN_LIVE
       - key: FEATURE_LIVE_ORDERS_ENABLED
-        value: "false"
-      - key: BITMART_MODE
-        value: BITMART_LIVE_READ_ONLY
-      - key: BITMART_LIVE_TRADING_ENABLED
-        value: "false"
-      - key: BITMART_EMERGENCY_KILL_SWITCH
         value: "true"
+      - key: LIVE_EXECUTION_MODE
+        value: BITMART_LIVE_TRADE
+      - key: LIVE_TRADING_ENABLED
+        value: "true"
+      - key: EMERGENCY_KILL_SWITCH
+        value: "false"
+
+      # ---- 서버가 강제하는 주문 상한 ----
+      #
+      # ★★ 전에는 이 값들이 코드에 하드코딩돼 있었고, 검증 경로와 전송 경로의 값이
+      #   서로 달랐다(BTCUSDT+ETHUSDT vs BTCUSDT). 그래서 실주문을 열어도 BTCUSDT
+      #   하나만 나갔고, ETHUSDT 는 확인창을 통과한 뒤 전송에서 거부됐다.
+      #
+      # ★ TRADE_ALLOWED_SYMBOLS='*' 는 심볼 제한 없음이다. 상장이 664종이라 목록을
+      #   손으로 관리하면 새 종목이 조용히 거부된다. 대신 아래 상한이 유일한 방어선이
+      #   되므로, 레버리지·주문금액·일일 한도를 실제로 감당할 값으로 두어야 한다.
+      - key: TRADE_ALLOWED_SYMBOLS
+        value: "*"
+      - key: TRADE_MAX_LEVERAGE
+        value: "20"
+      - key: TRADE_MAX_ORDER_NOTIONAL
+        value: "100000"
+      - key: TRADE_MAX_OPEN_POSITIONS
+        value: "5"
+      - key: TRADE_DAILY_ORDER_LIMIT
+        value: "50"
+      - key: TRADE_DAILY_LOSS_LIMIT
+        value: "1000"
+      - key: TRADE_PRICE_DEVIATION_PCT
+        value: "5"
 
       # ---- 시세 (공개 API, 키 불필요) ----
       - key: DATA_MODE

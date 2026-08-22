@@ -77,7 +77,9 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     gates.push({ id, label, status: ok ? 'ok' : 'fail', detail });
 
   // 2) live policy limits.
-  add('policy.symbol', 'Symbol allowed by policy', i.policy.allowedSymbols.includes(i.symbol?.id ?? ''), `allowed: ${i.policy.allowedSymbols.join(',')}`);
+  const symbolAllowed =
+    i.policy.allowedSymbols.includes('*') || i.policy.allowedSymbols.includes(i.symbol?.id ?? '');
+  add('policy.symbol', 'Symbol allowed by policy', symbolAllowed, `allowed: ${i.policy.allowedSymbols.join(',')}`);
   add('policy.leverage', 'Leverage within policy', i.leverage <= i.policy.maxLeverage, `${i.leverage}x ≤ ${i.policy.maxLeverage}x`);
   const notional = num(i.positionValue);
   add('policy.notional', 'Order notional within cap', !Number.isFinite(notional) || notional <= num(i.policy.maxOrderNotional), `${i.positionValue ?? '?'} ≤ ${i.policy.maxOrderNotional}`);

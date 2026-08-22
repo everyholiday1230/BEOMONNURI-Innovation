@@ -43,7 +43,16 @@ export function evaluateLiveTradingGate(i: LiveTradingGateInput): GateResult {
   if (!i.idempotencyKeyValid) reasons.push('idempotency key invalid');
   if (i.marketDataStale) reasons.push('market data is stale');
   if (!i.exchangeConnectivityHealthy) reasons.push('exchange connectivity unhealthy');
-  if (!i.allowedSymbols.includes(i.symbol)) reasons.push(`symbol ${i.symbol} not allowed`);
+  /*
+     심볼 화이트리스트. `'*'` 가 들어 있으면 제한을 두지 않는다.
+
+     ★ 상장 종목이 664개인데 화이트리스트를 손으로 관리하면, 새 종목은 주문
+       확인창을 통과한 뒤 전송 단계에서 거부된다 — 사용자에게는 이유 없는 실패다.
+       제한을 열 때는 레버리지·금액·일일 한도가 유일한 방어선이 된다.
+  */
+  if (!i.allowedSymbols.includes('*') && !i.allowedSymbols.includes(i.symbol)) {
+    reasons.push(`symbol ${i.symbol} not allowed`);
+  }
   return { allowed: reasons.length === 0, reasons };
 }
 

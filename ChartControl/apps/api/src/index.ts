@@ -272,6 +272,25 @@ app.get('/api/config', (c) =>
     // guessing a value; this is a read-only mirror of BITMART_EMERGENCY_KILL_SWITCH.
     killSwitchActive: env.bitmartKillSwitch,
     /*
+       서버가 강제하는 주문 상한.
+
+       ★★ 화면은 레버리지를 최대 125× 까지 고르게 하지만, 서버 정책이 그보다 낮으면
+         주문은 리스크 게이트에서 거부된다(policy.leverage). 사용자는 이유를 모른 채
+         "주문 실패" 만 본다. 상한을 내보내면 화면이 미리 막거나 알릴 수 있다.
+
+       ★ allowedSymbols 가 ['*'] 면 심볼 제한이 없다는 뜻이다 — 화면은 '제한 없음' 과
+         '목록' 을 구분해 표시해야 한다.
+    */
+    orderPolicy: {
+      allowedSymbols: env.tradingPolicy.allowedSymbols,
+      maxLeverage: env.tradingPolicy.maxLeverage,
+      maxOrderNotional: env.tradingPolicy.maxOrderNotional,
+      maxOpenPositions: env.tradingPolicy.maxOpenPositions,
+      dailyOrderLimit: env.tradingPolicy.dailyOrderLimit,
+      dailyLossLimit: env.tradingPolicy.dailyLossLimit,
+      priceDeviationLimitPct: env.tradingPolicy.priceDeviationLimitPct,
+    },
+    /*
        AI 분석 사용 가능 여부.
 
        ★★ 이 값이 없어서 클라이언트가 AI 연결 상태를 알 수 없었다. 그 결과
@@ -1686,7 +1705,14 @@ if (env.authEnabled) {
       drafts: userData.orderDrafts,
       portfolio: portfolioRepo,
       symbolInfo: DEFAULT_SYMBOL_INFO,
-      policy: { allowedSymbols: ['BTCUSDT', 'ETHUSDT'], maxOrderNotional: '100000', maxLeverage: 20, maxOpenPositions: 5, dailyOrderLimit: 50, dailyLossLimit: '1000', priceDeviationLimitPct: 5 },
+      /*
+         주문 정책은 env.tradingPolicy 한 곳에서 온다.
+
+         ★★ 전에는 이 줄과 실주문 라우터의 policy 가 **각각 하드코딩**돼 있었고 값이
+           달랐다(여기 BTCUSDT+ETHUSDT / 저기 BTCUSDT). ETHUSDT 는 확인창까지
+           통과한 뒤 전송에서 거부됐다.
+      */
+      policy: { ...env.tradingPolicy, allowedSymbols: [...env.tradingPolicy.allowedSymbols] },
       posture: tradingPosture,
       referencePrice: async (symbol) => {
         const t = await providers.market.getTicker(symbol);
@@ -2122,7 +2148,8 @@ if (env.authEnabled) {
                 },
               })
             : undefined,
-          policy: { allowedSymbols: ['BTCUSDT'], maxOrderNotional: '100000', maxLeverage: 20, maxOpenPositions: 5, dailyOrderLimit: 50, dailyLossLimit: '1000', priceDeviationLimitPct: 5 },
+          /* 검증 경로와 **같은** 정책을 쓴다(위 주석 참조). */
+          policy: { ...env.tradingPolicy, allowedSymbols: [...env.tradingPolicy.allowedSymbols] },
           symbolInfo: DEFAULT_SYMBOL_INFO,
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
