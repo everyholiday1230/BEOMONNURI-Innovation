@@ -116,7 +116,18 @@
     }, [adm.version]);
 
     const liveUsers = window.QTAdmin ? window.QTAdmin.getUsers() : [];
-    const isLive = adm.isLive && liveUsers.length >= 0 && Boolean(sec || tickets || orders);
+    /*
+       ★★ 실서비스 여부는 '백엔드가 응답했는가'(adm.isLive = status READY) 로만 판정한다.
+
+       전에는 여기에 Boolean(sec || tickets || orders) 를 AND 로 걸었다. 그러면
+       갓 런칭해 주문·문의·보안이벤트가 하나도 없을 때 — 즉 정상적인 신규 상태 —
+       실서비스인데도 화면에 'MOCK' 배지가 떴다. 운영자는 이걸 "아직 목업이다"
+       로 오해한다(실제로 그 문의가 들어왔다). 활동이 없는 것과 목업인 것은 다르다.
+
+       활동이 없으면 아래 각 표는 실데이터(빈 배열)를 받아 "아직 없음" 빈 상태를
+       보여준다 — 가짜 행을 만들지 않는다(dashMock 은 백엔드가 있으면 false).
+    */
+    const isLive = adm.isLive;
     // 목업 KPI 는 디자인 미리보기에서만. 실서비스에서는 숫자를 만들지 않는다.
     const mockAllowedDash = window.QTMockPolicy && window.QTMockPolicy.allowMockData
       ? window.QTMockPolicy.allowMockData()

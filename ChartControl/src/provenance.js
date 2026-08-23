@@ -318,8 +318,25 @@
     */
   ];
 
+  /*
+     ★★ 기본값은 프로덕션에서 꺼둔다.
+
+       이 오버레이는 데이터 출처(LIVE/PARTIAL/MOCK)를 요소마다 배지로 붙여 주는
+       **개발·디자인 확인용 도구**다. 관리자에게만 보이지만(isVisibleToViewer),
+       기본이 켜져 있어서 실서비스에 들어온 운영자가 'MOCK' 범례를 보고 "아직
+       목업이다" 로 오해했다. 실데이터는 LIVE 로 태깅되는데도 그렇다.
+
+       그래서 로컬 개발(localhost)에서만 기본으로 켜고, 실제 도메인에서는 끈다.
+       필요하면 화면의 토글(prov_show)로 켤 수 있고, 저장된 설정은 아래에서
+       그대로 존중한다.
+  */
+  var isLocalDev = (function () {
+    try { return /localhost|127\.0\.0\.1/.test(window.location.hostname); }
+    catch (e) { return false; }
+  })();
+
   var state = {
-    enabled: true,
+    enabled: isLocalDev,
     /** 'badge' = 배지만, 'outline' = 배지 + 테두리 */
     mode: 'outline',
   };
