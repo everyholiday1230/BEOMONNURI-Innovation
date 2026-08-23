@@ -76,7 +76,11 @@ services:
     #   배포 중에는 KuCoin WebSocket 이 끊기고 청산 감시가 멈춘다.
     #   언제 배포할지는 사람이 정한다(대시보드의 Manual Deploy).
     autoDeployTrigger: 'off'
-    buildCommand: pnpm install --frozen-lockfile && pnpm -r build
+    # ★★ --prod=false 가 핵심이다. 이 서비스는 NODE_ENV=production 이고, 그러면 pnpm 은
+    #   devDependencies 를 건너뛴다. 그런데 빌드(tsc·tsup)도, 마이그레이션·기동
+    #   (tsx)도 모두 devDependency 다. 이 플래그가 없으면 빌드가
+    #   "Cannot find type definition file for 'node'" 로 실패한다(@types/node 누락).
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm -r build
     # ★ 마이그레이션을 기동 전에 돌린다. 표가 없으면 프로덕션 기동 검사가 막는다.
     preDeployCommand: pnpm --filter @quantumtrade/api exec tsx scripts/migrate.ts up
     startCommand: pnpm --filter @quantumtrade/api exec tsx src/index.ts
