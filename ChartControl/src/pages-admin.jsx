@@ -115,7 +115,6 @@
       return () => { cancelled = true; };
     }, [adm.version]);
 
-    const liveUsers = window.QTAdmin ? window.QTAdmin.getUsers() : [];
     /*
        ★★ 실서비스 여부는 '백엔드가 응답했는가'(adm.isLive = status READY) 로만 판정한다.
 

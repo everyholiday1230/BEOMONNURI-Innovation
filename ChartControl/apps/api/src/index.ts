@@ -707,6 +707,19 @@ app.post('/api/ai/analyze', async (c) => {
     /** Accepted for backwards compatibility and deliberately NOT used. */
     lastPrice?: number;
   }>();
+  /*
+     ★★ AI 가 실제로 연결돼 있지 않으면 여기서 멈춘다.
+
+       이 엔드포인트의 분석기는 MockAIProvider(대본 응답)다. 프런트엔드는 이제
+       /ai/copilot(인증·게이트된 경로)만 쓰고 이 경로는 호출하지 않지만, 라우트가
+       열려 있으면 실서비스에서 목업 분석이 그대로 나간다(비인증). aiAvailable 이
+       false 인 동안에는 목업을 흘리지 않고 '아직 없음' 을 명확히 알린다.
+       진짜 provider 를 붙이면(aiResolution.available) 그때 실제 분석을 연결한다.
+  */
+  if (aiResolution.kind === 'unavailable' || aiResolution.available !== true) {
+    return c.json(errBody('AI_UNAVAILABLE', 'AI analysis is not enabled on this deployment'), 503);
+  }
+
   const symbol = body.symbol ?? env.defaultSymbol;
   const timeframe = (body.timeframe ?? '15m') as (typeof SUPPORTED_TIMEFRAMES)[number];
 

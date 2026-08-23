@@ -331,22 +331,40 @@
               {loading ? <><span className="spinner"/> {t('login_33c1f7')}</> : <>{t('login_e2d231')}</>}
             </button>
 
+            {/*
+               ★★ 소셜 로그인(Google/Apple/GitHub) 버튼을 주석 처리했다.
+
+                 이 세 버튼은 onClick 이 없어 눌러도 아무 일이 없었고, 백엔드에
+                 소셜 OAuth 연동 자체가 없다(로그인은 이메일+비밀번호, 거래소 연결은
+                 KuCoin OAuth 를 쓴다). 구현되지 않은 로그인 수단을 버튼으로 두면
+                 고객은 고장으로 읽는다. '또는' 구분선도 함께 내렸다.
+
+               ★ 나중에 소셜 로그인을 붙이면 이 주석을 풀고 각 버튼에 onClick 을
+                 연결하면 된다(문구 키 login_46bed0 은 사전에 남겨 둔다).
+
             <div className="auth-divider"><span>{t('login_46bed0')}</span></div>
 
             <div style={{display:'flex', gap: 8}}>
               <button type="button" className="btn" style={{flex:1}}>Google</button>
               <button type="button" className="btn" style={{flex:1}}>Apple</button>
-              <button type="button" className="btn" style={{flex:1}} /* qt-i18n-ignore: 서비스 고유명사 */>GitHub</button>
+              <button type="button" className="btn" style={{flex:1}}>GitHub</button>
             </div>
+            */}
 
             <div className="auth-row-center">
               {t('login_68a92d')} <a href="#/signup" style={{color:'var(--color-brand)', marginLeft: 4}}>{t('login_49f561')}</a>
             </div>
 
-            <div className="auth-alert auth-alert--info" style={{marginTop: 16}}>
-              <I.Info size={12}/>
-              <div><strong>{t('demo_label')}</strong> {t('login_13d6ae')}</div>
-            </div>
+            {/*
+               ★★ '데모: 아무 이메일/비번으로 입장' 안내를 제거했다.
+
+                 실서비스에서 인증은 실제로 동작한다(위 submit → 서버 로그인).
+                 그런데 이 문구는 "아무 값이나 넣으면 들어가진다" 고 말해서,
+                 고객에게 인증이 가짜/우회 가능한 것처럼 보였다. 명백히 거짓이고
+                 보안적으로도 오해를 준다. 문구 키(demo_label·login_13d6ae)는
+                 사전에 남겨 둔다 — 되살릴 일은 없지만 지우면 다른 곳 참조가
+                 깨질 수 있다.
+            */}
           </form>
         )}
 

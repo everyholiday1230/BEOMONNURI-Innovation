@@ -613,7 +613,9 @@
                   {(u.flags || []).map(f => (
                     <div key={f} className="auth-alert auth-alert--warning" style={{marginBottom: 6}}>
                       <I.Alert size={12}/>
-                      <div><strong>{f}</strong>{t('flag_auto_detected')}<a href="#" style={{color:'var(--color-warning)'}}>{t('flag_investigate')}</a></div>
+                      {/* '조사(Investigate)' 링크 제거 — onClick 도 대상 화면도 없어 죽은 링크였다.
+                          조사는 아래 탭(활동 로그·거래 내역)에서 실제로 한다. 플래그 문구는 그대로 둔다. */}
+                      <div><strong>{f}</strong>{t('flag_auto_detected')}</div>
                     </div>
                   ))}
                 </window.SectionCard>

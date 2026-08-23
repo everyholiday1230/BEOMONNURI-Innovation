@@ -616,8 +616,18 @@
             */}
             {!isLive || !unavailable.has('userAuthoredStrategies') ? (
               <>
-                <button className="btn btn--sm"><I.Plus size={12}/> {t('strat_create')}</button>
-                <button className="btn btn--sm btn--primary"><I.Sparkles size={12}/> {t('strat_ai_generate')}</button>
+                {/*
+                   ★ 백엔드에는 전략 생성 API(POST /strategies)가 있지만, 이 화면엔
+                     아직 입력 폼이 없어 눌러도 사용자가 만들 방법이 없다. 죽은 버튼으로
+                     두지 않고 '준비중' 으로 명확히 표시한다. 폼을 붙이면 disabled 를
+                     떼고 onClick 으로 생성 흐름을 연결하면 된다.
+                */}
+                <button className="btn btn--sm" disabled title={t('sec_pending')}>
+                  <I.Plus size={12}/> {t('strat_create')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+                </button>
+                <button className="btn btn--sm btn--primary" disabled title={t('sec_pending')}>
+                  <I.Sparkles size={12}/> {t('strat_ai_generate')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+                </button>
               </>
             ) : (
               <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
