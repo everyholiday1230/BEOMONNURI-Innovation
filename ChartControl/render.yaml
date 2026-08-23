@@ -185,9 +185,9 @@ services:
       # ★ 서브도메인을 Render 대시보드에서 연결한 뒤 실제 주소로 바꾼다.
       #   틀리면 CSRF 검사(origin)가 막아 로그인이 안 된다.
       - key: APP_BASE_URL
-        value: https://chartcontrol.beomonnuri.com
+        value: https://chartcontrol.onrender.com
       - key: CORS_ALLOWED_ORIGINS
-        value: https://chartcontrol.beomonnuri.com
+        value: https://chartcontrol.onrender.com
 
       # ---- 법적 문서 게시 ----
       #
