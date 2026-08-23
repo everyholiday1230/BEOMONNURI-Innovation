@@ -125,6 +125,7 @@
       sh_price_copied: 'Price copied',
       sh_no_price: 'No price yet — market data has not arrived',
       sh_open_exchange: 'Open on the exchange',
+      landing_foot_board: 'Inquiry board',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

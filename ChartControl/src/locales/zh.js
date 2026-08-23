@@ -382,6 +382,7 @@
       intent_kw_signal: '入场, 止损, 止盈, 情景, 信号, 建议, 盈亏比, 风险收益, 买入信号, 卖出信号',
       intent_kw_sr: '支撑, 阻力, 支撑位, 阻力位',
       intent_kw_hide: '隐藏, 清除, 全部清除',
+      landing_foot_board: '咨询留言板',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

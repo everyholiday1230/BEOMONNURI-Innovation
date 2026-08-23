@@ -16,9 +16,13 @@
    ★★ 기본은 **초안까지만** 만든다. 공개(publish)는 취소할 수 없고 법적 약속이
      되므로, 사람이 읽고 결정해야 한다. `LEGAL_AUTOPUBLISH=true` 일 때만 공개한다.
 
-   ★★ 실주문이 열려 있는데 사업자 정보가 없으면 **공개하지 않는다.** 약관에는
-     사업자 정보를 적는 자리가 있고, 실거래를 제공하는 사업자가 자기 정보를 밝히지
-     않는 문서는 게시하면 안 된다. 이 경우 초안만 만들고 이유를 로그에 남긴다.
+   ★★ 실주문이 열려 있는데 **문의 창구가 하나도 없으면 공개하지 않는다.**
+     문제가 생겼을 때 연락할 방법이 없는 약관을 게시하면 안 된다. 이 경우 초안만
+     만들고 이유를 로그에 남긴다.
+
+     운영 방침: 사업자등록번호·전화번호는 게시하지 않고, 문의는 게시판(#/help)과
+     이메일로 받는다. 그래서 공개를 막는 조건은 사업자 정보가 아니라 문의 창구다.
+     COMPANY_INFO 를 나중에 채우면 그 문단이 약관 끝에 덧붙는다.
 
    ★ 이미 같은 (종류·언어·버전) 이 있으면 건너뛴다. 재배포마다 초안이 쌓이면
      관리자 화면이 쓸 수 없게 된다.
@@ -50,7 +54,12 @@ export interface LegalSeedOptions {
        화면에는 새 이름인데 약관에는 옛 이름이 남는다.
   */
   brandName?: string;
-  /** 사업자 정보 한 문단. 비어 있으면 실주문이 열린 상태에서는 공개하지 않는다. */
+  /*
+     사업자 정보 한 문단(선택).
+
+     비어 있어도 공개를 막지 않는다 — 문의는 게시판으로 받는 방침이다. 값이 있으면
+     약관 끝의 문의 창구 문단 뒤에 그대로 붙는다.
+  */
   companyInfo: string;
   /** 실주문이 열려 있는가. 공개 판정에만 쓴다. */
   liveOrdersEnabled: boolean;
@@ -61,6 +70,8 @@ export interface LegalSeedOptions {
 export interface LegalSeedResult {
   created: string[];
   published: string[];
+  /** 파일 내용이 바뀌어 초안 본문을 다시 맞춘 문서. */
+  refreshed: string[];
   skipped: string[];
   blocked: string[];
   missingFiles: string[];
@@ -101,20 +112,35 @@ export async function seedLegalDocuments(
   repo: PgLegalRepo,
   opts: LegalSeedOptions,
 ): Promise<LegalSeedResult> {
-  const out: LegalSeedResult = { created: [], published: [], skipped: [], blocked: [], missingFiles: [] };
+  const out: LegalSeedResult = { created: [], published: [], refreshed: [], skipped: [], blocked: [], missingFiles: [] };
   const docsDir = resolveDocsDir(opts.docsDir);
   if (!docsDir) {
     out.missingFiles.push('docs/legal (디렉터리를 찾지 못했다)');
     return out;
   }
 
-  /* 사업자 정보가 없는데 실주문이 열려 있으면 공개하지 않는다. */
-  const companyMissing = opts.companyInfo.trim().length === 0;
-  const publishBlockedByCompany = opts.publish && companyMissing && opts.liveOrdersEnabled;
+  /*
+     문의 창구 문단.
+
+     ★★ 전에는 사업자 정보(COMPANY_INFO)가 없으면 실주문이 열린 상태에서 약관을
+       공개하지 않았다. 운영 방침이 바뀌었다 — 사업자등록번호·전화번호를 게시하지
+       않고, 문의는 게시판으로 받는다. 그래서 공개를 막는 조건에서 사업자 정보를
+       뺀다. 대신 **문의 창구가 하나라도 있는지**는 확인한다. 창구가 전혀 없는
+       약관을 공개하면 사용자는 문제가 생겨도 연락할 방법이 없다.
+
+     ★ COMPANY_INFO 를 나중에 채우면 그 문단이 그대로 덧붙는다(지우지 않았다).
+  */
+  const companyInfo = opts.companyInfo.trim();
+  const boardPath = '#/help';
+  const contactInfo = [
+    companyInfo ? `---\n\n${companyInfo}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  /* 창구가 없으면(이메일도, 게시판 안내도 없음) 공개하지 않는다. */
+  const noContactChannel = opts.supportEmail.trim().length === 0;
+  const publishBlockedNoContact = opts.publish && noContactChannel && opts.liveOrdersEnabled;
 
   const existing = await repo.list(500).catch(() => []);
-  const has = (kind: string, locale: string, version: string) =>
-    existing.some((d) => d.kind === kind && d.locale === locale && d.version === version);
   const published = await repo.publishedKinds().catch(() => []);
   const isPublished = (kind: string, locale: string) =>
     published.some((p) => p.kind === kind && p.locale === locale);
@@ -124,23 +150,68 @@ export async function seedLegalDocuments(
       const key = `${kind}/${locale}`;
       const path = join(docsDir, `${kind}-${locale}.md`);
       if (!existsSync(path)) { out.missingFiles.push(key); continue; }
-      if (has(kind, locale, opts.version)) { out.skipped.push(`${key} v${opts.version}`); continue; }
+      /*
+         같은 (종류·언어·버전) 이 이미 있는 경우.
 
+         ★★ 전에는 그냥 건너뛰었다. 그래서 초안이 먼저 만들어진 배포에서
+           LEGAL_AUTOPUBLISH=true 를 켜도 **아무것도 공개되지 않았다** —
+           운영자는 공개됐다고 믿는데 사용자에게는 여전히 '미게시' 로 보인다.
+           실제로 겪었다(생성 0 · 공개 0 · 건너뜀 16).
+
+         ★ 그래서 문서를 새로 만들지는 않되, 공개가 요청됐고 아직 공개된 것이
+           없으면 **기존 초안을 공개한다.**
+      */
       let body = await readFile(path, 'utf8');
       body = body
         .split('{{BRAND_NAME}}').join(opts.brandName?.trim() || 'ChartControl AI')
         .split('{{SUPPORT_EMAIL}}').join(opts.supportEmail || '(문의 이메일 미설정)')
-        .split('{{COMPANY_INFO}}').join(
-          companyMissing
-            ? '사업자 정보는 확정 후 이 자리에 게시합니다.'
-            : opts.companyInfo,
-        );
+        .split('{{BOARD_PATH}}').join(boardPath)
+        .split('{{CONTACT_INFO}}').join(contactInfo)
+        /* 예전 문서에 남아 있을 수 있는 토큰 — 값이 있으면 그것을, 없으면 빈 문단. */
+        .split('{{COMPANY_INFO}}').join(companyInfo);
+      const title = titleOf(body, `${kind} (${locale})`);
+
+      /*
+         같은 (종류·언어·버전) 이 이미 있는 경우.
+
+         ★★ 전에는 그냥 건너뛰었다. 그래서 초안이 먼저 만들어진 배포에서
+           LEGAL_AUTOPUBLISH=true 를 켜도 **아무것도 공개되지 않았다** —
+           운영자는 공개됐다고 믿는데 사용자에게는 여전히 '미게시' 로 보인다.
+           실제로 겪었다(생성 0 · 공개 0 · 건너뜀 16).
+
+         ★★ 그리고 파일 내용이 그동안 바뀌었을 수 있다. 낡은 초안을 그대로 공개하면
+           **틀린 약관이 게시된다.** 실제로 겪었다 — 영어·일본어·중국어 문서에
+           한국어 자리표시자가 그대로 게시됐다. 그래서 공개 전에 본문을 맞춘다.
+
+         ★ 이미 공개된 문서는 손대지 않는다. 게시된 약관은 되돌릴 수 없는 약속이고,
+           본문을 몰래 바꾸면 사용자가 동의한 내용과 달라진다. 그 경우 LEGAL_VERSION
+           을 올려 새 버전으로 만들어야 한다.
+      */
+      const already = existing.find(
+        (d) => d.kind === kind && d.locale === locale && d.version === opts.version,
+      );
+      if (already) {
+        if (isPublished(kind, locale)) { out.skipped.push(`${key} 이미 공개됨`); continue; }
+        if (already.body !== body || already.title !== title) {
+          const fixed = await repo.updateDraft(already.id, { title, body })
+            .then(() => true)
+            .catch((e: unknown) => { out.blocked.push(`${key} 초안 갱신 실패: ${(e as Error).message}`); return false; });
+          if (!fixed) continue;
+          out.refreshed.push(key);
+        }
+        if (!opts.publish) { out.skipped.push(`${key} v${opts.version}`); continue; }
+        if (publishBlockedNoContact) { out.blocked.push(`${key} (문의 창구 없음 + 실주문 열림)`); continue; }
+        await repo.publish(already.id)
+          .then(() => out.published.push(`${key} (기존 초안)`))
+          .catch((e: unknown) => out.blocked.push(`${key} 공개 실패: ${(e as Error).message}`));
+        continue;
+      }
 
       const doc = await repo.createDraft({
         kind: kind as LegalKind,
         locale,
         version: opts.version,
-        title: titleOf(body, `${kind} (${locale})`),
+        title,
         body,
         effectiveAt: Date.now(),
         actorId: null,
@@ -149,7 +220,7 @@ export async function seedLegalDocuments(
       out.created.push(key);
 
       if (!opts.publish) continue;
-      if (publishBlockedByCompany) { out.blocked.push(`${key} (사업자 정보 없음 + 실주문 열림)`); continue; }
+      if (publishBlockedNoContact) { out.blocked.push(`${key} (문의 창구 없음 + 실주문 열림)`); continue; }
       if (isPublished(kind, locale)) { out.skipped.push(`${key} 이미 공개된 버전 있음`); continue; }
       await repo.publish(doc.id)
         .then(() => out.published.push(key))

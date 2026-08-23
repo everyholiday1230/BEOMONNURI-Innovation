@@ -1568,6 +1568,12 @@
             <a href="#/privacy">{t('auth_d629d0')}</a>
             <a href="#/risk">{t('legal_risk')}</a>
             <a href="#/security">{t('auth_a5e5da')}</a>
+            {/*
+               ★ 문의 게시판이 주 창구다. 전화번호를 게시하지 않는 대신 게시판에서
+                 질문·요청·문의를 받고 답변과 처리 상태를 같은 화면에서 볼 수 있게 한다.
+                 로그인이 필요하므로, 눌렀을 때 로그인 화면으로 가는 것은 정상이다.
+            */}
+            <a href="#/help">{t('landing_foot_board')}</a>
             {(() => {
               const c = window.QTApi && window.QTApi.getConfig ? window.QTApi.getConfig() : null;
               const mail = (c && c.supportEmail) || '';

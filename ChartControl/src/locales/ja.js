@@ -380,6 +380,7 @@
       intent_kw_signal: 'エントリー, ストップ, 損切り, 利確, シナリオ, シグナル, 提案, リスクリワード, 買いシグナル, 売りシグナル',
       intent_kw_sr: 'サポート, レジスタンス, 支持線, 抵抗線',
       intent_kw_hide: '消す, 非表示, すべて消去',
+      landing_foot_board: 'お問い合わせ掲示板',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

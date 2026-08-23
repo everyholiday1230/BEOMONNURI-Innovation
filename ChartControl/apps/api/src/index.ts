@@ -2441,11 +2441,14 @@ if (legalRepo) {
       const parts = [
         `생성 ${r.created.length}`,
         `공개 ${r.published.length}`,
+        /* 파일이 바뀌어 초안을 다시 맞춘 수 — 낡은 약관이 게시되는 것을 막은 흔적이다. */
+        `본문갱신 ${r.refreshed.length}`,
         `건너뜀 ${r.skipped.length}`,
       ];
       console.log(`[legal] 문서 시딩: ${parts.join(' · ')}`);
       if (r.created.length > 0) console.log(`[legal] 생성: ${r.created.join(', ')}`);
       if (r.published.length > 0) console.log(`[legal] 공개: ${r.published.join(', ')}`);
+      if (r.refreshed.length > 0) console.log(`[legal] 본문 갱신: ${r.refreshed.join(', ')}`);
       /* 막힌 것과 빠진 파일은 반드시 눈에 보이게 남긴다 — 조용히 넘기면 아무도 모른다. */
       if (r.blocked.length > 0) console.warn(`[legal] 공개하지 않음: ${r.blocked.join(', ')}`);
       if (r.missingFiles.length > 0) console.warn(`[legal] 문서 없음/실패: ${r.missingFiles.join(', ')}`);

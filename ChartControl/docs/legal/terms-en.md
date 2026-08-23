@@ -103,10 +103,11 @@ We process personal data under our separate Privacy Policy, which forms part of 
 
 ## 14. Contact
 
-Email: {{SUPPORT_EMAIL}}
+Questions, requests and reports are received through the channels below.
 
----
+1. **Inquiry board** — sign in and use the form on the [Help](#/help) screen.
+   Each submission gets a reference number, and you can follow the reply and its
+   status on the same screen. Please use this channel first: it leaves a record.
+2. **Email** — {{SUPPORT_EMAIL}}
 
-### Business information
-
-{{COMPANY_INFO}}
+{{CONTACT_INFO}}
