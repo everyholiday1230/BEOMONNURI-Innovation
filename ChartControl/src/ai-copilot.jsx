@@ -14,36 +14,6 @@
   const I = window.Icons;
   const { fmt } = window.QTFmt;
 
-  // ---- Scripted flows ----
-  // Flow 3: trendline
-  const FLOW_TRENDLINE = {
-    thinking: [
-      { key: 'ai_think_collect', dur: 700 },
-      { key: 'ai_think_swinglow', dur: 900 },
-      { key: 'ai_think_trendcand', dur: 700 },
-    ],
-        reply_beginner_key: 'ai_reply_trendline_beginner',
-        reply_pro_key: 'ai_reply_trendline_pro',
-    overlay: {
-      id: 'ai-trend-1',
-      type: 'trend-line',
-      source: 'ai-draft',
-      /* 라벨은 그리는 시점에 사전에서 가져온다 — 여기에 문자열을 두면 언어가 고정되고,
-         전에는 계측하지 않은 기울기(+42.6)까지 붙어 있었다. */
-      points: [], // populated at runtime with actual candle time
-      width: 1.8,
-    }
-  };
-
-  // Flow 5: signal proposal
-  const FLOW_SIGNAL = {
-    thinking: [
-      { key: 'ai_think_mtf', dur: 700 },
-      { key: 'ai_think_atr', dur: 900 },
-      { key: 'ai_think_rr', dur: 700 },
-    ]
-  };
-
   // ---- AI Message model ----
   function makeMsg(role, content, extras = {}) {
     return {
@@ -222,141 +192,92 @@
     // 키워드를 코드에 박지 않는다. 사전(intent_kw_*)에서 가져오므로 언어를
     // 추가하면 그 언어의 명령어가 자동으로 인식된다.
     //
-    // 사전 형식: 쉼표로 구분한 키워드 목록.
-    //   en: 'trendline, trend line'
-    //   ko: '추세선'
-    // 모든 등록 언어의 키워드를 함께 검사한다 — 사용자가 영어 UI 에서
-    // 한국어로 입력해도 동작해야 하기 때문이다.
-    const INTENTS = ['trendline', 'signal', 'sr', 'hide'];
+    // 의도 분류(추세선/신호/지지저항 키워드 매칭)는 제거했다. 이제 실제 모델이
+    // 자연어를 이해하고 propose_chart_command/propose_signal 툴로 판단하므로,
+    // 프론트의 좁은 키워드 분류기는 불필요하다(서버가 돌려주는 command/signal
+    // 이벤트를 그대로 렌더한다).
 
-    function keywordsFor(intent) {
-      const I18n = window.QTI18n;
-      if (!I18n) return [];
-      const out = [];
-      for (const loc of I18n.available()) {
-        const raw = I18n.t(`intent_kw_${intent}`, undefined, loc.code);
-        if (!raw || raw === `intent_kw_${intent}`) continue;
-        for (const kw of raw.split(',')) {
-          const w = kw.trim().toLowerCase();
-          if (w) out.push(w);
-        }
-      }
-      return out;
-    }
+    // 대화 id(첫 요청에 생성) + 진행 중 스트림 핸들(중단용).
+    const convRef = useRef(null);
+    const activeStreamRef = useRef(null);
 
-    function classify(text) {
-      const lower = String(text || '').toLowerCase();
-      for (const intent of INTENTS) {
-        for (const kw of keywordsFor(intent)) {
-          if (lower.includes(kw)) return intent;
-        }
-      }
-      return 'general';
-    }
-
-    const runThinking = useCallback(async (steps) => {
-      const total = steps.length;
-      for (let i = 0; i < total; i++) {
-        // 단계 문구는 사전에서 가져온다. 이전 방식(steps[i].text)의
-        // 하드코딩 문자열을 없앴으므로 key 를 우선 조회하고, 구형 데이터
-        // 호환을 위해 text 도 받아들인다.
-        setThinking({ steps, currentIdx: i, msg: steps[i].key ? t(steps[i].key) : steps[i].text });
-        await new Promise(r => setTimeout(r, steps[i].dur));
-      }
-      setThinking(null);
-    }, []);
-
-    const streamReply = useCallback(async (fullText) => {
-      const chunks = fullText.split(' ');
-      let acc = '';
-      for (let i = 0; i < chunks.length; i++) {
-        acc += (i === 0 ? '' : ' ') + chunks[i];
-        setStreaming(acc);
-        await new Promise(r => setTimeout(r, 22 + Math.random() * 30));
-      }
-      setStreaming(null);
-      setMsgs(m => [...m, makeMsg('ai', fullText)]);
-    }, []);
+    /* 숫자 변환 헬퍼 — 가격은 서버에서 DecimalString(문자열)로 온다. */
+    const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+    const anchorTime = useCallback(() => {
+      const cs = context.candles;
+      return (Array.isArray(cs) && cs.length) ? cs[Math.max(0, cs.length - 1)].time : Date.now();
+    }, [context.candles]);
 
     /*
-       ★ 아래 두 함수(submitTrendline · submitSignal)는 **호출되지 않는다.**
-
-         사전에 박힌 좌표로 차트에 선을 그리기 때문에 handleSubmit 에서
-         호출을 끊었다(그 자리의 주석 참고). 함수를 지우지 않은 이유는
-         서버가 구조화된 신호를 주게 되면 여기에 응답을 넣어 되살리는 것이
-         가장 짧은 경로이기 때문이다. 그때 QT.AI_SIGNAL 참조를 서버 응답으로
-         바꾸면 된다.
-
-         지금 지워 버리면 오버레이 만드는 방법(타입·앵커·라벨 형식)을 다시
-         알아내야 한다.
+       서버가 검증해 보낸 AiChartCommand 하나를 실제 차트에 적용한다. 좌표·가격은
+       모두 서버 값이다(프론트에 박힌 예시 아님). 지표는 ChartKlineUtil 브리지로.
+       반환값은 채팅에 표시할 짧은 안내(없으면 표시 안 함).
     */
-    const _submitTrendline = useCallback(async () => {
-      await runThinking(FLOW_TRENDLINE.thinking);
-      // Create the overlay — points span last 90 → last 20 candles
-      const candles = context.candles;
-      const p1 = candles[Math.max(0, candles.length - 90)];
-      const p2 = candles[Math.max(0, candles.length - 20)];
-      // Fake swing lows below body
-      const overlay = {
-        ...FLOW_TRENDLINE.overlay,
-        label: t('ai_overlay_trendline'),
-        id: 'ai-trend-' + Date.now(),
-        points: [
-          { time: p1.time, price: p1.low - 40 },
-          { time: p2.time, price: p2.low + 90 }
-        ]
-      };
-      addOverlay(overlay);
-      setMsgs(m => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_trendline') })]);
-      await streamReply(t(isBeginner ? FLOW_TRENDLINE.reply_beginner_key : FLOW_TRENDLINE.reply_pro_key));
-      // Add tip about drag
-      setMsgs(m => [...m, makeMsg('ai', '', { hint: t('ai_hint_drag') })]);
-    }, [context, addOverlay, isBeginner, runThinking, streamReply]);
+    const applyCommand = useCallback((cmd) => {
+      if (!cmd || !cmd.command) return null;
+      const a = cmd.args || {};
+      const id = 'ai-' + (cmd.commandId || Math.random().toString(36).slice(2, 8));
+      const util = window.ChartKlineUtil;
+      switch (cmd.command) {
+        case 'createTrendLine':
+          addOverlay({ id, type: 'trend-line', source: 'ai-draft', width: 1.8, label: a.label || t('ai_overlay_trendline'),
+            points: (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) })) });
+          return t('ai_tool_trendline');
+        case 'createHorizontalLevel':
+          addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: a.label || String(a.price), points: [{ price: toNum(a.price), time: anchorTime() }] });
+          return t('ai_cmd_applied');
+        case 'createSupportResistance':
+          addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: (a.kind === 'support' ? 'S' : 'R') + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
+          return t('ai_tool_sr');
+        case 'createEntryZone':
+          addOverlay({ id, type: 'entry-zone', source: 'ai-draft', priceLo: toNum(a.priceLo), priceHi: toNum(a.priceHi), label: t('ai_overlay_entry_zone') });
+          return t('ai_cmd_applied');
+        case 'createStopLoss':
+          addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: 'SL · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
+          return t('ai_cmd_applied');
+        case 'createTakeProfit':
+          addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: 'TP' + ((toNum(a.index) || 0) + 1) + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
+          return t('ai_cmd_applied');
+        case 'createInvalidationLevel':
+          addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: t('ai_invalidation_word') + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
+          return t('ai_cmd_applied');
+        case 'createLongMarker':
+        case 'createShortMarker':
+          addOverlay({ id, type: 'signal-marker', source: 'ai-draft', direction: cmd.command === 'createLongMarker' ? 'long' : 'short',
+            text: a.text, points: [{ time: Number(a.point && a.point.time), price: toNum(a.point && a.point.price) }] });
+          return t('ai_cmd_applied');
+        case 'addIndicator': {
+          const ok = util && util.addIndicator ? util.addIndicator(a.indicator, a.params) : false;
+          return ok ? t('ai_indicator_added', { name: a.indicator }) : t('ai_indicator_unsupported', { name: a.indicator });
+        }
+        case 'removeIndicator':
+          if (util && util.removeIndicator) util.removeIndicator(a.indicator);
+          return t('ai_indicator_removed', { name: a.indicator });
+        case 'hideOverlay':
+        case 'deleteOverlay':
+          if (_removeOverlay) _removeOverlay(a.overlayId);
+          return t('ai_overlay_removed');
+        case 'updateOverlay':
+          if (_updateOverlay && a.patch) _updateOverlay(a.overlayId, a.patch);
+          return t('ai_cmd_applied');
+        default:
+          return null;
+      }
+    }, [addOverlay, _removeOverlay, _updateOverlay, anchorTime, t]);
 
-    const _submitSignal = useCallback(async () => {
-      await runThinking(FLOW_SIGNAL.thinking);
-      const signal = QT.AI_SIGNAL;
-      // Create overlays for signal
-      const _now = Date.now();
-      const timeAnchor = context.candles[context.candles.length - 8].time;
-      addOverlay({
-        id: 'sig-entry',
-        type: 'entry-zone',
-        source: 'ai-draft',
-        priceHi: signal.entryZone[1],
-        priceLo: signal.entryZone[0],
-        label: t('ai_overlay_entry_zone'),
+    /* 서버가 검증해 보낸 SignalObject를 오버레이(진입/손절/익절/마커)로 그리고 상위에 제안한다. */
+    const applySignal = useCallback((sig) => {
+      if (!sig || !Array.isArray(sig.entryZone)) return;
+      const anchor = anchorTime();
+      addOverlay({ id: 'sig-entry', type: 'entry-zone', source: 'ai-draft', priceLo: toNum(sig.entryZone[0]), priceHi: toNum(sig.entryZone[1]), label: t('ai_overlay_entry_zone') });
+      addOverlay({ id: 'sig-sl', type: 'horizontal', source: 'ai-draft', points: [{ price: toNum(sig.stopLoss), time: anchor }], label: 'SL · ' + sig.stopLoss });
+      (Array.isArray(sig.takeProfits) ? sig.takeProfits : []).forEach((tp, i) => {
+        addOverlay({ id: 'sig-tp' + (i + 1), type: 'horizontal', source: 'ai-draft', points: [{ price: toNum(tp), time: anchor }], label: 'TP' + (i + 1) + ' · ' + tp });
       });
-      addOverlay({
-        id: 'sig-sl',
-        type: 'horizontal',
-        source: 'ai-draft',
-        points: [{ price: signal.stopLoss, time: timeAnchor }],
-        label: `SL · ${signal.stopLoss}`,
-      });
-      signal.takeProfits.forEach((tp, i) => {
-        addOverlay({
-          id: 'sig-tp' + (i+1),
-          type: 'horizontal',
-          source: 'ai-draft',
-          points: [{ price: tp, time: timeAnchor }],
-          label: `TP${i+1} · ${tp}`,
-        });
-      });
-      addOverlay({
-        id: 'sig-marker',
-        type: 'signal-marker',
-        source: 'ai-draft',
-        direction: 'long',
-        points: [{ time: timeAnchor, price: (signal.entryZone[0] + signal.entryZone[1]) / 2 }]
-      });
-      onProposeSignal(signal);
-      setMsgs(m => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal') })]);
-      const reply = isBeginner
-        ? t('ai_reply_signal_beginner')
-        : t('ai_reply_signal_pro');
-      await streamReply(reply);
-    }, [context, addOverlay, onProposeSignal, isBeginner, runThinking, streamReply]);
+      const mid = (toNum(sig.entryZone[0]) + toNum(sig.entryZone[1])) / 2;
+      addOverlay({ id: 'sig-marker', type: 'signal-marker', source: 'ai-draft', direction: sig.direction || 'long', points: [{ time: anchor, price: mid }] });
+      if (onProposeSignal) onProposeSignal(sig);
+    }, [addOverlay, anchorTime, onProposeSignal, t]);
 
     /*
        AI 분석 사용 가능 여부.
@@ -395,34 +316,47 @@
         return;
       }
 
-      const kind = classify(text);
-      /*
-         ★★ 좌표를 만드는 도구(추세선·진입 시나리오·지지저항)는 막는다.
-
-           이 세 경로는 사전에 박힌 값을 쓴다 —
-             · 진입 시나리오: QT.AI_SIGNAL (진입 68,120 / 손절 67,480 / 익절 68,980…)
-             · 지지·저항: 69,120 · 67,200
-             · 추세선: 목업 캔들 기준 두 점
-           그리고 그 값으로 **차트에 선을 그린다.** 화면에 그려진 선은 분석
-           결과로 읽히고, 사용자는 그 가격에 주문을 넣는다.
-
-           AI 를 연결하면 괜찮아지는 문제가 아니다. 서버의 /ai/copilot 은
-           **텍스트만** 돌려주고(응답에 좌표가 없다), 구조화된 신호를 주는
-           엔드포인트가 없다. 즉 AI 가 붙어도 이 좌표는 여전히 사전 값이다.
-           지금은 AI 미연결로 위쪽 가드에 막혀 보이지 않을 뿐이고, 연결하는
-           순간 가짜 신호가 차트에 나가는 상태였다.
-
-         ★ 서버가 좌표를 주게 되면 이 상수를 지우고 응답을 그리면 된다.
-           그때까지는 무엇이 없어서 못 하는지 말한다.
-      */
-      if (kind === 'trendline' || kind === 'signal' || kind === 'sr') {
-        setMsgs((m) => [...m, makeMsg('ai', t('ai_tools_absent'), { icon: 'warn' })]);
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiCopilotStream) {
+        setMsgs((m) => [...m, makeMsg('ai', t('ai_unavailable_reply'), { icon: 'warn' })]);
         return;
       }
-      // General reply
-      await runThinking([{ key: 'ai_think_context', dur: 500 }]);
-      await streamReply(t('ai_reply_general', { text }));
-    }, [input, aiReady, runThinking, streamReply]);
+
+      /*
+         실제 백엔드(/ai/copilot)에 스트리밍으로 붙는다. 서버는 실시장 스냅샷으로
+         근거를 잡고, 모델의 제안을 검증한 뒤 command/signal 이벤트를 준다. 좌표는
+         전부 서버가 검증한 값이다 — 프론트에 박힌 예시 숫자를 그리지 않는다.
+         근거(실가격)가 없으면 서버가 가격 제안을 거부하므로 가짜 선이 나갈 수 없다.
+      */
+      let conversationId = convRef.current;
+      try {
+        if (!conversationId) { conversationId = await api.aiCreateConversation('Copilot'); convRef.current = conversationId; }
+      } catch (e) {
+        setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]);
+        return;
+      }
+
+      // 진행 표시(가짜 계산 단계가 아니라 단순 로딩). 첫 토큰이 오면 사라진다.
+      setThinking({ steps: [], currentIdx: 0, msg: t('ai_thinking') });
+      let acc = '';
+      const lang = (window.QTI18n && window.QTI18n.getLocale && String(window.QTI18n.getLocale()).indexOf('ko') === 0) ? 'ko' : 'en';
+      const stream = api.aiCopilotStream(
+        { conversationId, message: text, symbol: context.symbol, timeframe: context.tf, mode: 'copilot', language: lang },
+        {
+          onEvent: (ev) => {
+            if (!ev || !ev.type) return;
+            if (ev.type === 'text') { setThinking(null); acc += ev.delta || ''; setStreaming(acc); return; }
+            if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note })]); return; }
+            if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal') })]); return; }
+            if (ev.type === 'error') { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
+            // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
+          },
+          onError: (e) => { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]); },
+          onDone: () => { setThinking(null); setStreaming(null); if (acc) setMsgs((m) => [...m, makeMsg('ai', acc)]); activeStreamRef.current = null; },
+        },
+      );
+      activeStreamRef.current = stream;
+    }, [input, aiReady, context.symbol, context.tf, t, applyCommand, applySignal]);
 
     /*
        차트 툴바의 'AI 분석' 버튼과 연결하는 창구.

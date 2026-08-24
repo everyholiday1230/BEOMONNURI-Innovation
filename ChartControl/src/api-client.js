@@ -605,6 +605,77 @@
         .then(function (r) { return { ok: true, consumed: Boolean(r && r.consumed), remaining: r && r.remaining }; });
     },
 
+    // ---- AI 코파일럿 ----
+
+    /** AI 가용 여부/제공자/모델. 미가용이면 available:false + 이유. */
+    aiStatus: function () {
+      return getJSON('', '/api/ai/status').then(
+        function (r) { return { ok: true, available: Boolean(r && r.available), provider: r && r.provider, model: r && r.model, reason: r && r.reason }; },
+        function (e) { return { ok: false, available: false, reason: (e && e.message) || 'status failed' }; }
+      );
+    },
+
+    /** 대화 생성 → conversationId. 코파일럿 스트림 전에 한 번 호출한다. */
+    aiCreateConversation: function (title) {
+      return sendJSON('POST', '/api/ai/conversations', { title: title || 'Copilot' })
+        .then(function (r) { return r && r.id; });
+    },
+
+    /**
+     * 코파일럿 SSE 스트림.
+     *
+     * fetch + ReadableStream 으로 서버발 이벤트를 읽는다(EventSource 는 POST 를
+     * 못 하므로 못 쓴다). handlers: onEvent(ev), onError({code,message}), onDone().
+     * 서버 이벤트 형태: {type:'text'|'command'|'signal'|'tool'|'state'|'error'|'usage'|'done', ...}.
+     * 반환값의 abort() 로 사용자가 중단할 수 있다.
+     */
+    aiCopilotStream: function (payload, handlers) {
+      handlers = handlers || {};
+      var controller = new AbortController();
+      var headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
+      if (csrfToken) headers['x-csrf-token'] = csrfToken;
+      fetch('/api/ai/copilot', {
+        method: 'POST', headers: headers, credentials: 'same-origin',
+        body: JSON.stringify(payload || {}), signal: controller.signal,
+      }).then(function (res) {
+        if (!res.ok || !res.body) {
+          return res.text().then(function (t) {
+            var j = null; try { j = JSON.parse(t); } catch (e) { /* 비JSON */ }
+            var msg = (j && j.error && j.error.message) || ('HTTP ' + res.status);
+            if (handlers.onError) handlers.onError({ code: (j && j.error && j.error.code) || ('HTTP_' + res.status), message: msg });
+            if (handlers.onDone) handlers.onDone();
+          });
+        }
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var buf = '';
+        function pump() {
+          return reader.read().then(function (r) {
+            if (r.done) { if (handlers.onDone) handlers.onDone(); return undefined; }
+            buf += decoder.decode(r.value, { stream: true });
+            var blocks = buf.split('\n\n');
+            buf = blocks.pop();
+            blocks.forEach(function (block) {
+              var data = '';
+              block.split('\n').forEach(function (line) {
+                if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+              });
+              if (!data) return;
+              var parsed = null; try { parsed = JSON.parse(data); } catch (e) { return; }
+              if (handlers.onEvent) handlers.onEvent(parsed);
+            });
+            return pump();
+          });
+        }
+        return pump();
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        if (handlers.onError) handlers.onError({ code: 'NETWORK', message: (e && e.message) || 'stream failed' });
+        if (handlers.onDone) handlers.onDone();
+      });
+      return { abort: function () { controller.abort(); } };
+    },
+
     /**
      * 상품 사용.
      *

@@ -1096,6 +1096,54 @@
     /** 살아있는 차트 인스턴스 목록. */
     instances: () => [...INSTANCES],
 
+    /*
+       AI 지표 브리지 — 코파일럿이 검증된 addIndicator/removeIndicator 명령을 실제
+       차트에 적용하는 통로. 사용자가 켜는 지표(showMA/showVolume)와 충돌하지 않게
+       AI 가 추가한 지표의 페인 id 만 따로 기억한다.
+
+       가격축에 겹치는 지표(MA/EMA/BOLL/SAR/BBI)는 candle_pane 에 stack 으로, 그
+       외(RSI/MACD/KDJ 등)는 별도 페인에 그린다. klinecharts 가 모르는 이름이면
+       조용히 실패하지 않고 false 를 돌려줘 코파일럿이 "미지원" 을 정직히 알린다.
+    */
+    _aiOverlayInds: new Set(['MA', 'EMA', 'SMA', 'BOLL', 'SAR', 'BBI']),
+    _aiInd: new Map(), // name(UPPER) -> paneId
+    _aiAlias: { STOCH: 'KDJ' }, // 우리 enum → klinecharts 내장명
+    addIndicator(name, params) {
+      const raw = String(name || '').toUpperCase();
+      const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
+      const calcParams = Array.isArray(params) ? params.filter((n) => Number.isFinite(n) && n > 0) : undefined;
+      let applied = false;
+      for (const chart of INSTANCES) {
+        try {
+          const onPrice = this._aiOverlayInds.has(kName);
+          const create = onPrice
+            ? { name: kName, paneId: 'candle_pane', ...(calcParams ? { calcParams } : {}) }
+            : { name: kName, ...(calcParams ? { calcParams } : {}) };
+          const id = chart.createIndicator(create, onPrice);
+          if (id) { this._aiInd.set(kName, onPrice ? 'candle_pane' : id); applied = true; }
+        } catch (e) { /* 지원하지 않는 지표 이름 등 — applied 는 false 로 남는다 */ }
+      }
+      return applied;
+    },
+    removeIndicator(name) {
+      const raw = String(name || '').toUpperCase();
+      const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
+      const paneId = this._aiInd.get(kName);
+      let removed = false;
+      for (const chart of INSTANCES) {
+        try { chart.removeIndicator({ paneId: paneId || 'candle_pane', name: kName }); removed = true; } catch (e) { /* noop */ }
+      }
+      this._aiInd.delete(kName);
+      return removed;
+    },
+    listIndicators() {
+      const out = [];
+      for (const chart of INSTANCES) {
+        try { chart.getIndicators().forEach((i) => out.push({ name: i.name, paneId: i.paneId })); } catch (e) { /* noop */ }
+      }
+      return out;
+    },
+
     /** 진단: 지표/오버레이/데이터 현황. 콘솔에서 ChartKlineUtil.debug() */
     debug() {
       return [...INSTANCES].map((chart) => {
