@@ -2385,6 +2385,7 @@ if (env.authEnabled) {
             cookieName: env.cookieName,
             csrfCookieName: 'qt_csrf',
             clientId: env.kucoinOauthClientId,
+            ...(env.kucoinOauthClientSecret ? { clientSecret: env.kucoinOauthClientSecret } : {}),
             redirectUri: env.kucoinOauthRedirectUri,
             oauthBase: env.kucoinOauthBase,
             apiKeyPath: env.kucoinOauthApiKeyPath,

@@ -103,6 +103,12 @@ export interface KucoinOauthDeps {
   /** CSRF 쿠키 이름. */
   csrfCookieName: string;
   clientId: string;
+  /*
+     OAuth client_secret (선택). KuCoin 이 발급하면 토큰 교환에 포함한다.
+     문서의 토큰 교환 예시엔 secret 이 없지만(구버전), 표준 authorization_code 는
+     confidential client 에 secret 을 요구하므로, 있으면 함께 보낸다(없으면 생략).
+  */
+  clientSecret?: string;
   redirectUri: string;
   /** 기본 https://www.kucoin.com */
   oauthBase: string;
@@ -280,7 +286,8 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
       const tokenUrl = `${d.oauthBase}/_oauth/access-token?grant_type=authorization_code`
         + `&code=${encodeURIComponent(code)}`
         + `&redirect_uri=${d.redirectUri}`
-        + `&client_id=${encodeURIComponent(d.clientId)}`;
+        + `&client_id=${encodeURIComponent(d.clientId)}`
+        + (d.clientSecret ? `&client_secret=${encodeURIComponent(d.clientSecret)}` : '');
 
       const tokenRes = await fetch(tokenUrl, { method: 'GET', signal: AbortSignal.timeout(15_000) });
       const tokenBody = (await tokenRes.json().catch(() => null)) as { access_token?: string } | null;

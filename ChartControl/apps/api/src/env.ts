@@ -194,6 +194,7 @@ export interface ApiEnv {
        KuCoin 계정에는 우리 이름의 키가 만들어져 남는다.
   */
   kucoinOauthClientId: string;
+  kucoinOauthClientSecret: string;
   /** 콜백 주소. KuCoin 에 제출한 값과 **정확히 같아야** 한다(문자 하나 다르면 거부된다). */
   kucoinOauthRedirectUri: string;
   /** OAuth 로그인/토큰 교환 기준 주소. 지역 사이트를 쓰는 경우에만 바꾼다. */
@@ -683,6 +684,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
          구버전(ucenter) 경로는 기존 파트너용이며 우리는 v2 를 쓴다.
     */
     kucoinOauthClientId: env.KUCOIN_OAUTH_CLIENT_ID?.trim() ?? '',
+    kucoinOauthClientSecret: env.KUCOIN_OAUTH_CLIENT_SECRET?.trim() ?? '',
     kucoinOauthRedirectUri: env.KUCOIN_OAUTH_REDIRECT_URI?.trim() ?? '',
     kucoinOauthBase: env.KUCOIN_OAUTH_BASE?.trim() || 'https://www.kucoin.com',
     kucoinOauthApiKeyPath: env.KUCOIN_OAUTH_APIKEY_PATH?.trim()

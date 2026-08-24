@@ -326,5 +326,7 @@ services:
       # 도메인 확정 후 KuCoin 에 신청해 발급받는다.
       - key: KUCOIN_OAUTH_CLIENT_ID
         sync: false
+      - key: KUCOIN_OAUTH_CLIENT_SECRET
+        sync: false
       - key: KUCOIN_OAUTH_REDIRECT_URI
         sync: false
