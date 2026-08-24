@@ -397,6 +397,8 @@
       pwreset_mismatch: '两次输入的密码不一致。',
       pwreset_link_invalid: '该重置链接无效或已过期。请从登录页重新申请。',
       pwreset_done: '密码已更改。现在可以登录了。',
+      help_tickets_load_failed: '无法加载你的咨询列表。数据并未丢失，这是加载问题。',
+      help_thread_load_failed: '无法加载该会话。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

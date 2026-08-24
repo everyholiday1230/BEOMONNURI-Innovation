@@ -140,6 +140,8 @@
       pwreset_mismatch: 'The two passwords do not match.',
       pwreset_link_invalid: 'This reset link is invalid or has expired. Request a new one from the sign-in page.',
       pwreset_done: 'Your password has been changed. You can now sign in.',
+      help_tickets_load_failed: 'Could not load your messages. They are not lost — this is a loading problem.',
+      help_thread_load_failed: 'Could not load this conversation.',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

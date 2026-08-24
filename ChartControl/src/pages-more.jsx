@@ -1795,6 +1795,8 @@
        내 실제 손익은 /analytics 에 있다(거래소 원장 기준).
     */
     const [mine, setMine] = useState(null);
+    /* 조회 실패를 '구독 없음' 으로 덮지 않기 위한 상태. */
+    const [mineError, setMineError] = useState(false);
     const [note, setNote] = useState(null);
     const [busyId, setBusyId] = useState(null);
 
@@ -1804,7 +1806,8 @@
       api.myStrategies()
         // ★ 서버는 번역 키(noteKey)를 준다. 문장을 담으면 다국어 화면에 한국어가 새어 나간다.
         .then((r) => { setMine(r.data || []); setNote({ autoExecution: r.autoExecution, key: r.noteKey }); })
-        .catch(() => setMine([]));
+        /* ★ 실패를 빈 배열로 덮으면 구독한 전략이 사라진 것처럼 보인다. */
+        .catch(() => { setMine([]); setMineError(true); });
     }, []);
     useEffect(() => { load(); }, [load]);
 
@@ -1856,6 +1859,19 @@
           )}
         </div>
 
+        {mineError && (
+          <div
+            style={{
+              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+              padding:'11px 13px', marginBottom:12, borderRadius:6,
+              border:'1px solid var(--color-warning)',
+              background:'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+            }}
+          >
+            <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('strat_load_failed')}</span>
+            <button className="btn btn--xs" type="button" onClick={load}>{t('sec_retry')}</button>
+          </div>
+        )}
         <window.SectionCard title={t('strat_followed')} noPadding={isLive && mine.length > 0}>
           {isLive && mine.length > 0 ? (
             <window.DataTable
@@ -2891,21 +2907,31 @@
     const supportEmail = (cfg && cfg.supportEmail) || '';
 
     const [tickets, setTickets] = useState(null);
+    /* 목록 조회 실패를 '문의 없음' 으로 덮지 않기 위한 상태. */
+    const [ticketsError, setTicketsError] = useState(false);
     const [supported, setSupported] = useState(true);
     const [form, setForm] = useState({ subject: '', body: '' });
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
     const [openId, setOpenId] = useState(null);
     const [thread, setThread] = useState(null);
+    /* 스레드 조회 실패. 없으면 화면이 영원히 '불러오는 중' 으로 남는다. */
+    const [threadError, setThreadError] = useState(false);
     const [reply, setReply] = useState('');
 
     const api = window.QTApi && window.QTApi.rest;
 
     const loadTickets = React.useCallback(() => {
       if (!api || !api.supportTickets) return;
+      setTicketsError(false);
       api.supportTickets()
         .then((r) => { setTickets(r.data || []); setSupported(r.supported); })
-        .catch(() => setTickets([]));
+        /*
+           ★★ 실패를 빈 배열로 덮지 않는다. 전에는 조회가 실패해도 '문의 없음' 처럼
+             보여서, 고객은 자기 문의가 사라졌다고 오해했다. 실패는 실패로 말하고
+             다시 시도할 수단을 준다.
+        */
+        .catch(() => { setTickets([]); setTicketsError(true); });
     }, [api]);
     useEffect(() => { loadTickets(); }, [loadTickets]);
 
@@ -2913,9 +2939,11 @@
       if (!api || !api.supportTicket) return;
       setOpenId(id);
       setThread(null);
+      setThreadError(false);
       api.supportTicket(id)
         .then((r) => setThread({ ticket: r.ticket, messages: r.messages || [] }))
-        .catch(() => setThread(null));
+        /* ★ 실패를 null 로만 두면 제목이 계속 '불러오는 중' 이다 — 실패를 말한다. */
+        .catch(() => { setThread(null); setThreadError(true); });
     };
 
     const createTicket = async () => {
@@ -3108,6 +3136,19 @@
         </window.SectionCard>
 
         {/* 내 문의 목록 — 답장이 왔는지 여기서 확인한다. */}
+        {canTicket && ticketsError && (
+          <div
+            style={{
+              display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+              padding:'11px 13px', marginTop:12, borderRadius:6,
+              border:'1px solid var(--color-warning)',
+              background:'color-mix(in srgb, var(--color-warning) 10%, transparent)',
+            }}
+          >
+            <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('help_tickets_load_failed')}</span>
+            <button className="btn btn--xs" type="button" onClick={loadTickets}>{t('sec_retry')}</button>
+          </div>
+        )}
         {canTicket && Array.isArray(tickets) && tickets.length > 0 && (
           <window.SectionCard title={t('help_my_tickets')} noPadding>
             <window.DataTable
@@ -3170,6 +3211,12 @@
                     </button>
                   </div>
                 </div>
+              </div>
+            ) : threadError ? (
+              /* ★ 조회 실패를 '불러오는 중' 으로 두지 않는다. 다시 시도할 수단을 준다. */
+              <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+                <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('help_thread_load_failed')}</span>
+                <button className="btn btn--xs" type="button" onClick={() => openThread(openId)}>{t('sec_retry')}</button>
               </div>
             ) : (
               <div style={{fontSize:12, color:'var(--color-text-tertiary)'}}>{t('help_loading')}</div>

@@ -395,6 +395,8 @@
       pwreset_mismatch: 'パスワードが一致しません。',
       pwreset_link_invalid: 'この再設定リンクは無効か期限切れです。ログイン画面から再度リクエストしてください。',
       pwreset_done: 'パスワードを変更しました。ログインできます。',
+      help_tickets_load_failed: 'お問い合わせ一覧を読み込めませんでした。データが消えたのではなく、読み込みの問題です。',
+      help_thread_load_failed: 'この会話を読み込めませんでした。',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
