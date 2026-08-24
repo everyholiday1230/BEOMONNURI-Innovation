@@ -12,6 +12,7 @@
     "seed:dev": "tsx src/dev/seed-cli.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1097.0",
     "@aws-sdk/client-secrets-manager": "3.1097.0",
     "@hono/node-server": "2.0.12",
     "@quantumtrade/admin-domain": "workspace:*",

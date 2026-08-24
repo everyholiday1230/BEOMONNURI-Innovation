@@ -124,12 +124,14 @@ const aiToolData: ToolDataSource = {
 };
 
 // Resolve the AI provider at startup (fail-closed for openai without a Secrets Manager key).
+const aiModel = env.aiProvider === 'bedrock' ? (env.bedrockModelId || env.openaiModelPrimary) : env.openaiModelPrimary;
 const aiResolution = await resolveAiProvider({
   enabled: env.aiEnabled,
   provider: env.aiProvider,
   isProduction: process.env.NODE_ENV === 'production',
-  model: env.openaiModelPrimary,
+  model: aiModel,
   secret: { isProduction: process.env.NODE_ENV === 'production', secretArn: env.openaiSecretArn, region: env.awsRegion },
+  bedrockRegion: env.bedrockRegion,
   estimateCostMicros: (_m, i, o) => Math.ceil((i / 1000) * 5000 + (o / 1000) * 15000),
 });
 
@@ -2432,7 +2434,7 @@ if (env.authEnabled) {
           corsOrigins: env.corsOrigins,
           cookieName: env.cookieName,
           ai: { available: aiResolution.available, provider: aiResolution.provider, kind: aiResolution.kind, reason: aiResolution.reason },
-          model: env.openaiModelPrimary,
+          model: aiModel,
           maxOutputTokens: env.aiMaxOutputTokens,
           store: env.openaiStore,
           maxToolCalls: env.aiMaxToolCalls,

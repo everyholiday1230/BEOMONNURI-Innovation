@@ -1,10 +1,14 @@
 import {
   MockReplayProvider,
   OpenAIResponsesProvider,
+  BedrockConverseProvider,
   type IAIStreamingProvider,
   type OpenAiResponsesTransport,
   type OpenAiResponsesPayload,
   type RawResponsesEvent,
+  type BedrockConverseTransport,
+  type BedrockConversePayload,
+  type BedrockStreamChunk,
 } from '@quantumtrade/ai';
 
 /**
@@ -84,28 +88,76 @@ export async function createOpenAiTransport(apiKey: string): Promise<OpenAiRespo
 
 export interface AiRuntimeConfig {
   enabled: boolean;
-  provider: 'openai' | 'mock' | 'fake';
+  provider: 'openai' | 'bedrock' | 'mock' | 'fake';
   isProduction: boolean;
   model: string;
   secret: AiSecretConfig;
   estimateCostMicros: (model: string, input: number, output: number) => number;
+  /** AWS region for Bedrock (falls back to secret.region / AWS_REGION). Required when provider=bedrock. */
+  bedrockRegion?: string;
 }
 
 export interface AiResolution {
   available: boolean;
   provider?: IAIStreamingProvider;
-  kind: 'openai' | 'mock' | 'fake' | 'unavailable';
+  kind: 'openai' | 'bedrock' | 'mock' | 'fake' | 'unavailable';
   reason?: string;
 }
 
 /**
- * Resolve the active AI provider. openai → real (fail-closed if secret/SDK missing → UNAVAILABLE, not
- * mock). mock → MockReplayProvider (dev/e2e). Disabled → unavailable.
+ * Build a Bedrock Converse transport backed by the AWS SDK. Credentials come from the standard AWS
+ * provider chain (instance role, or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env on non-AWS hosts).
+ * The package stays SDK-free; raw ConverseStream chunks are passed through unchanged.
+ */
+export async function createBedrockTransport(region: string): Promise<BedrockConverseTransport> {
+  if (!region) throw new Error('fail-closed: AWS_REGION required for Bedrock');
+  let mod: {
+    BedrockRuntimeClient: new (c: { region: string }) => { send(cmd: unknown, opts?: { abortSignal?: AbortSignal }): Promise<{ stream?: AsyncIterable<BedrockStreamChunk> }> };
+    ConverseStreamCommand: new (i: Record<string, unknown>) => unknown;
+  };
+  try {
+    mod = (await import('@aws-sdk/client-bedrock-runtime')) as unknown as typeof mod;
+  } catch {
+    throw new Error('fail-closed: @aws-sdk/client-bedrock-runtime not installed');
+  }
+  const client = new mod.BedrockRuntimeClient({ region });
+  return {
+    async *streamConverse(payload: BedrockConversePayload, signal?: AbortSignal): AsyncIterable<BedrockStreamChunk> {
+      const cmd = new mod.ConverseStreamCommand({
+        modelId: payload.modelId,
+        system: payload.system,
+        messages: payload.messages,
+        toolConfig: payload.toolConfig,
+        inferenceConfig: payload.inferenceConfig,
+      });
+      const res = await client.send(cmd, signal ? { abortSignal: signal } : undefined);
+      if (!res.stream) return;
+      for await (const item of res.stream) {
+        if (signal?.aborted) return;
+        yield item;
+      }
+    },
+  };
+}
+
+/**
+ * Resolve the active AI provider. openai/bedrock → real (fail-closed if SDK/secret/region missing →
+ * UNAVAILABLE, not mock). mock → MockReplayProvider (dev/e2e). Disabled → unavailable.
  */
 export async function resolveAiProvider(cfg: AiRuntimeConfig): Promise<AiResolution> {
   if (!cfg.enabled) return { available: false, kind: 'unavailable', reason: 'AI disabled' };
   if (cfg.provider === 'mock' || cfg.provider === 'fake') {
     return { available: true, provider: new MockReplayProvider(cfg.model), kind: 'mock' };
+  }
+  if (cfg.provider === 'bedrock') {
+    try {
+      const region = cfg.bedrockRegion || cfg.secret.region || '';
+      const transport = await createBedrockTransport(region);
+      return { available: true, provider: new BedrockConverseProvider(transport, { model: cfg.model, estimateCostMicros: cfg.estimateCostMicros }), kind: 'bedrock' };
+    } catch (e) {
+      // FAIL-CLOSED: never silently fall back to mock.
+      return { available: false, kind: 'unavailable', reason: (e as Error).message };
+    }
   }
   // openai
   try {

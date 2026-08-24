@@ -129,3 +129,129 @@ export class OpenAIResponsesProvider implements IAIProvider, IAIStreamingProvide
     return collect(events);
   }
 }
+
+
+// ---- Amazon Bedrock (Converse API; transport-injected, SDK stays out of this package) ----
+
+/** Bedrock Converse request payload (subset we use). Built from the provider-agnostic AiRequest. */
+export interface BedrockConversePayload {
+  modelId: string;
+  system?: { text: string }[];
+  messages: { role: 'user' | 'assistant'; content: { text: string }[] }[];
+  toolConfig?: { tools: { toolSpec: { name: string; description: string; inputSchema: { json: Record<string, unknown> } } }[] };
+  inferenceConfig?: { maxTokens?: number };
+}
+
+/**
+ * A raw ConverseStream chunk (union — exactly one key set). We type only the fields we read; the
+ * apps/api transport passes the AWS SDK objects through unchanged so this package needs no SDK.
+ */
+export interface BedrockStreamChunk {
+  messageStart?: { role?: string };
+  contentBlockStart?: { start?: { toolUse?: { toolUseId?: string; name?: string } }; contentBlockIndex?: number };
+  contentBlockDelta?: { delta?: { text?: string; toolUse?: { input?: string } }; contentBlockIndex?: number };
+  contentBlockStop?: { contentBlockIndex?: number };
+  messageStop?: { stopReason?: string };
+  metadata?: { usage?: { inputTokens?: number; outputTokens?: number } };
+}
+
+export interface BedrockConverseTransport {
+  /** Perform the Bedrock ConverseStream call and yield RAW chunks. */
+  streamConverse(payload: BedrockConversePayload, signal?: AbortSignal): AsyncIterable<BedrockStreamChunk>;
+}
+
+export interface BedrockProviderConfig {
+  model: string;
+  estimateCostMicros: (model: string, input: number, output: number) => number;
+  fallbackUsed?: boolean;
+}
+
+/**
+ * Bedrock Converse streaming provider. Maps ConverseStream chunks to the same normalized AiStreamEvent
+ * union the orchestrator already consumes, so Claude/Nova/Llama on Bedrock drive the exact same
+ * validated tool-call → command/signal pipeline as any other provider. Tool use (proposal tools) maps
+ * from toolUse blocks; text maps from text deltas. LLM output is never trusted or executed directly.
+ */
+export class BedrockConverseProvider implements IAIProvider, IAIStreamingProvider {
+  readonly kind = 'bedrock' as const;
+  constructor(private readonly transport: BedrockConverseTransport, private readonly cfg: BedrockProviderConfig) {}
+
+  private payload(req: AiRequest): BedrockConversePayload {
+    const messages = req.input.map((m) => ({
+      role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: [{ text: m.content }],
+    }));
+    const p: BedrockConversePayload = {
+      modelId: req.model,
+      system: req.instructions ? [{ text: req.instructions }] : undefined,
+      messages,
+      inferenceConfig: { maxTokens: req.maxOutputTokens },
+    };
+    if (req.tools && req.tools.length) {
+      p.toolConfig = {
+        tools: req.tools.map((t) => ({ toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.parameters } } })),
+      };
+    }
+    return p;
+  }
+
+  async *streamResponse(req: AiRequest): AsyncIterable<AiStreamEvent> {
+    const responseId = `bedrock-${req.correlationId}`;
+    yield { type: 'created', responseId };
+    const toolBlocks = new Map<number, { id: string; name: string; args: string }>();
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let completedSent = false;
+    const emitCompleted = (): AiStreamEvent => ({
+      type: 'completed',
+      responseId,
+      usage: {
+        inputTokens,
+        outputTokens,
+        estimatedCostMicros: this.cfg.estimateCostMicros(req.model, inputTokens, outputTokens),
+        model: req.model,
+        fallbackUsed: this.cfg.fallbackUsed ?? false,
+      },
+    });
+    try {
+      for await (const chunk of this.transport.streamConverse(this.payload(req), req.signal)) {
+        if (req.signal?.aborted) return;
+        if (chunk.contentBlockStart?.start?.toolUse) {
+          const idx = chunk.contentBlockStart.contentBlockIndex ?? 0;
+          const tu = chunk.contentBlockStart.start.toolUse;
+          toolBlocks.set(idx, { id: tu.toolUseId ?? `tu-${idx}`, name: tu.name ?? '', args: '' });
+        } else if (chunk.contentBlockDelta?.delta) {
+          const idx = chunk.contentBlockDelta.contentBlockIndex ?? 0;
+          const d = chunk.contentBlockDelta.delta;
+          if (typeof d.text === 'string' && d.text) {
+            yield { type: 'output_text.delta', delta: d.text };
+          } else if (d.toolUse && typeof d.toolUse.input === 'string') {
+            const b = toolBlocks.get(idx);
+            if (b) b.args += d.toolUse.input;
+          }
+        } else if (chunk.contentBlockStop) {
+          const idx = chunk.contentBlockStop.contentBlockIndex ?? 0;
+          const b = toolBlocks.get(idx);
+          if (b) {
+            yield { type: 'function_call.done', callId: b.id, name: b.name, args: b.args || '{}' };
+            toolBlocks.delete(idx);
+          }
+        } else if (chunk.metadata?.usage) {
+          inputTokens = chunk.metadata.usage.inputTokens ?? inputTokens;
+          outputTokens = chunk.metadata.usage.outputTokens ?? outputTokens;
+          yield emitCompleted();
+          completedSent = true;
+        }
+      }
+      if (!completedSent) yield emitCompleted();
+    } catch (e) {
+      yield { type: 'failed', code: 'bedrock-stream', message: (e as Error).message };
+    }
+  }
+
+  async createResponse(req: AiRequest): Promise<AiResponse> {
+    const events: AiStreamEvent[] = [];
+    for await (const e of this.streamResponse(req)) events.push(e);
+    return collect(events);
+  }
+}

@@ -189,6 +189,33 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://chartcontrol.onrender.com
 
+      # ---- AI 코파일럿 (모델 비종속) ----
+      #
+      # 파이프라인은 이미 완성돼 있고, 제공자만 붙이면 시황·차트·지표 분석, 지표추가,
+      # 신호생성, 선 그리기가 즉시 작동한다. 아래를 채우기 전에는 코파일럿이 정직하게
+      # "아직 분석할 수 없음" 을 표시한다(가짜 분석을 내보내지 않는다).
+      #
+      # Bedrock(권장) 사용:
+      #   AI_ENABLED=true, AI_PROVIDER=bedrock
+      #   BEDROCK_MODEL_ID=<Claude Sonnet 등의 모델/추론프로파일 id>
+      #   BEDROCK_REGION=us-east-1 (또는 AWS_REGION)
+      #   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (Render 는 AWS 밖이므로 필요;
+      #     Bedrock InvokeModel/Converse 권한이 있는 IAM 사용자)
+      # OpenAI(호환) 사용: AI_PROVIDER=openai + OPENAI_SECRET_ARN + OPENAI_MODEL_PRIMARY
+      # 값은 대시보드에서 설정한다(sync:false).
+      - key: AI_ENABLED
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: BEDROCK_MODEL_ID
+        sync: false
+      - key: BEDROCK_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
       # ---- 법적 문서 게시 ----
       #
       # 문서 본문은 docs/legal/{terms,privacy,risk,security}-{ko,en,ja,zh}.md 에 있다.

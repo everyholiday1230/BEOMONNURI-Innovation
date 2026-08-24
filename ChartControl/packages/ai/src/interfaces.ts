@@ -6,7 +6,7 @@ import type { z } from 'zod';
  * providers drive deterministic tests. LLM output is never trusted or executed directly.
  */
 
-export type AiProviderKind = 'openai' | 'mock' | 'fake';
+export type AiProviderKind = 'openai' | 'bedrock' | 'mock' | 'fake';
 
 export interface AiModelConfig {
   primary: string;

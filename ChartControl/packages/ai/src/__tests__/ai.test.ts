@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AiChartCommandSchema, validateChartCommandArgs, AiSignalObjectSchema, transitionAiSignal, canTransitionAiSignal,
   PromptRegistry, buildDelimitedInput, SafetyPolicy, sanitizeMarkdown, CostController, DEFAULT_COST_CONFIG,
-  FakeProvider, MockReplayProvider, OpenAIResponsesProvider, ToolRegistry, ToolLoopGuard, zodToJsonSchema,
+  FakeProvider, MockReplayProvider, OpenAIResponsesProvider, BedrockConverseProvider, ToolRegistry, ToolLoopGuard, zodToJsonSchema,
   normalizeResponsesEvent, ToolCallAccumulator, parseSseChunk, Orchestrator, validateProposedChartCommand,
   EvaluationService, READ_ONLY_TOOL_NAMES,
   type AiStreamEvent, type ToolDataSource, type OpenAiResponsesTransport, type RawResponsesEvent, type IAIUsageRepository,
@@ -357,5 +357,61 @@ describe('evaluation service', () => {
     expect(rep.staleDataRejectionRate).toBe(1);
     expect(rep.schemaValidityRate).toBeGreaterThan(0);
     expect(rep.cases.every((c) => c.pass)).toBe(true);
+  });
+});
+
+
+describe('BedrockConverseProvider (Converse stream mapping)', () => {
+  it('maps text deltas, an accumulated tool call, and usage to normalized events', async () => {
+    const chunks = [
+      { messageStart: { role: 'assistant' } },
+      { contentBlockDelta: { delta: { text: 'Looking at the chart. ' }, contentBlockIndex: 0 } },
+      { contentBlockStart: { start: { toolUse: { toolUseId: 't1', name: 'propose_chart_command' } }, contentBlockIndex: 1 } },
+      { contentBlockDelta: { delta: { toolUse: { input: '{"command":"add' } }, contentBlockIndex: 1 } },
+      { contentBlockDelta: { delta: { toolUse: { input: 'Indicator"}' } }, contentBlockIndex: 1 } },
+      { contentBlockStop: { contentBlockIndex: 1 } },
+      { metadata: { usage: { inputTokens: 10, outputTokens: 20 } } },
+    ];
+    const transport = { async *streamConverse() { for (const c of chunks) yield c; } };
+    const p = new BedrockConverseProvider(transport, { model: 'anthropic.claude', estimateCostMicros: () => 42 });
+    const req = { conversationId: 'k', userId: 'u', model: 'anthropic.claude', instructions: 'sys', input: [{ role: 'user' as const, content: 'hi' }], maxOutputTokens: 100, store: false, correlationId: 'x' };
+    const events: Array<Record<string, unknown>> = [];
+    for await (const e of p.streamResponse(req)) events.push(e as unknown as Record<string, unknown>);
+    expect(events.some((e) => e.type === 'created')).toBe(true);
+    expect(events.some((e) => e.type === 'output_text.delta' && String(e.delta).includes('chart'))).toBe(true);
+    const fc = events.find((e) => e.type === 'function_call.done') as { name: string; args: string } | undefined;
+    expect(fc).toBeTruthy();
+    expect(fc && fc.name).toBe('propose_chart_command');
+    expect(fc && fc.args).toBe('{"command":"addIndicator"}'); // accumulated across deltas
+    const done = events.find((e) => e.type === 'completed') as { usage: { estimatedCostMicros: number; inputTokens: number } } | undefined;
+    expect(done).toBeTruthy();
+    expect(done && done.usage.estimatedCostMicros).toBe(42);
+    expect(done && done.usage.inputTokens).toBe(10);
+  });
+
+  it('drives the orchestrator end-to-end: a Bedrock tool call becomes a validated command', async () => {
+    const chunks = [
+      { contentBlockStart: { start: { toolUse: { toolUseId: 't1', name: 'propose_chart_command' } }, contentBlockIndex: 0 } },
+      { contentBlockDelta: { delta: { toolUse: { input: JSON.stringify({ command: 'addIndicator', argsJson: JSON.stringify({ indicator: 'RSI', params: [14] }), confidence: 70, reasoningSummary: 'momentum' }) } }, contentBlockIndex: 0 } },
+      { contentBlockStop: { contentBlockIndex: 0 } },
+      { metadata: { usage: { inputTokens: 5, outputTokens: 5 } } },
+    ];
+    const transport = { async *streamConverse() { for (const c of chunks) yield c; } };
+    const provider = new BedrockConverseProvider(transport, { model: 'anthropic.claude', estimateCostMicros: () => 1 });
+    const ds = {
+      async get_market_snapshot() { return { last: '100' }; }, async get_candles() { return []; }, async get_order_book_summary() { return {}; },
+      async get_recent_trades_summary() { return {}; }, async get_funding_rate() { return {}; }, async get_market_metadata() { return {}; },
+      async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; },
+    };
+    const o = new Orchestrator({
+      provider, prompts: new PromptRegistry(() => NOW), safety: new SafetyPolicy(), tools: new ToolRegistry(ds),
+      cost: new CostController(DEFAULT_COST_CONFIG, { record: async () => {}, dailyTokens: async () => 0, dailyCostMicros: async () => 0 }, () => NOW),
+      model: 'anthropic.claude', maxOutputTokens: 100, store: false, maxToolCalls: 5, toolTimeoutMs: 1000,
+    });
+    const out: Array<Record<string, unknown>> = [];
+    for await (const e of o.run({ conversationId: 'k', userId: 'u', userMessage: 'add rsi', symbol: 'BTCUSDT', timeframe: '15m', mode: 'copilot', language: 'en', correlationId: 'x' })) out.push(e as unknown as Record<string, unknown>);
+    const cmd = out.find((e) => e.type === 'command') as { command: { command: string } } | undefined;
+    expect(cmd).toBeTruthy();
+    expect(cmd && cmd.command.command).toBe('addIndicator');
   });
 });

@@ -206,11 +206,15 @@ export interface ApiEnv {
   kucoinRestBurst: number;
   // Phase 4 — AI copilot
   aiEnabled: boolean;
-  aiProvider: 'openai' | 'mock' | 'fake';
+  aiProvider: 'openai' | 'bedrock' | 'mock' | 'fake';
   awsRegion?: string;
   openaiSecretArn?: string;
   openaiModelPrimary: string;
   openaiModelFallback: string;
+  /** Bedrock model id / inference-profile id (e.g. an Anthropic Claude Sonnet id). */
+  bedrockModelId?: string;
+  /** AWS region for Bedrock (falls back to AWS_REGION). */
+  bedrockRegion?: string;
   openaiStore: boolean;
   aiMaxOutputTokens: number;
   aiRequestTimeoutMs: number;
@@ -694,11 +698,13 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     // Phase 4 — AI. SAFE DEFAULTS: disabled, mock provider, store off. Models are config-driven (not
     // hardcoded per call-site); defaults are placeholders overridden by env in each environment.
     aiEnabled: env.AI_ENABLED === 'true',
-    aiProvider: pickEnum(env.AI_PROVIDER, ['openai', 'mock', 'fake'] as const, 'mock'),
+    aiProvider: pickEnum(env.AI_PROVIDER, ['openai', 'bedrock', 'mock', 'fake'] as const, 'mock'),
     awsRegion: env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
     openaiSecretArn: env.OPENAI_SECRET_ARN,
     openaiModelPrimary: env.OPENAI_MODEL_PRIMARY ?? 'gpt-4.1-mini',
     openaiModelFallback: env.OPENAI_MODEL_FALLBACK ?? 'gpt-4.1-mini',
+    bedrockModelId: env.BEDROCK_MODEL_ID,
+    bedrockRegion: env.BEDROCK_REGION ?? env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
     openaiStore: env.OPENAI_STORE === 'true', // default false — no provider-side retention
     aiMaxOutputTokens: Number(env.AI_MAX_OUTPUT_TOKENS ?? 1200),
     aiRequestTimeoutMs: Number(env.AI_REQUEST_TIMEOUT_MS ?? 30_000),
