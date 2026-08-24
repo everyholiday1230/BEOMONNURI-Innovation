@@ -10,6 +10,8 @@ import {
   MemoryUserRepository,
   MemorySessionRepository,
   MemoryAuditRepository,
+  MemoryTokenRepository,
+  MailSink,
 } from '../index';
 
 function svc(opts?: { limiter?: LoginRateLimiter }) {
@@ -123,5 +125,57 @@ describe('AuthService', () => {
     expect(entries.some((e) => e.action === 'auth.register')).toBe(true);
     expect(entries.some((e) => e.action === 'auth.login' && (e.meta as { result?: string })?.result === 'success')).toBe(true);
     expect(JSON.stringify(entries)).not.toContain('longenough123');
+  });
+});
+
+
+describe('이메일 인증 필수 (requireEmailVerification)', () => {
+  function svcVerify() {
+    const users = new MemoryUserRepository();
+    const sessions = new MemorySessionRepository();
+    const audit = new MemoryAuditRepository();
+    const emailTokens = new MemoryTokenRepository();
+    const mail = new MailSink();
+    const service = new AuthService(users, sessions, audit, {
+      emailTokens, mail, requireEmailVerification: true,
+    });
+    return { users, service, mail };
+  }
+
+  it('★ 인증 안 한 계정은 로그인이 EMAIL_NOT_VERIFIED 로 막히고, 인증 메일을 다시 보낸다', async () => {
+    const { service, mail } = svcVerify();
+    await service.register({ email: 'u@ex.com', password: 'longenough123' });
+    mail.clear();
+    const r = await service.login({ email: 'u@ex.com', password: 'longenough123' });
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.code).toBe('EMAIL_NOT_VERIFIED');
+    // 막을 때 인증 메일을 재발송한다
+    expect(mail.sent.some((m) => m.meta?.kind === 'verify')).toBe(true);
+  });
+
+  it('이메일을 인증하면 로그인된다', async () => {
+    const { users, service } = svcVerify();
+    const reg = await service.register({ email: 'v@ex.com', password: 'longenough123' });
+    const uid = reg.ok ? reg.user.id : '';
+    await users.setEmailVerified(uid, true);
+    const r = await service.login({ email: 'v@ex.com', password: 'longenough123' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('★ 관리자(SUPER_ADMIN)는 미인증이어도 로그인된다 (메일 장애로 운영자가 잠기지 않게)', async () => {
+    const { users, service } = svcVerify();
+    const reg = await service.register({ email: 'admin@ex.com', password: 'longenough123' });
+    const uid = reg.ok ? reg.user.id : '';
+    await users.setRole(uid, 'SUPER_ADMIN' as never);
+    const r = await service.login({ email: 'admin@ex.com', password: 'longenough123' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('요구가 꺼져 있으면(기본) 미인증도 로그인된다', async () => {
+    const users = new MemoryUserRepository();
+    const service = new AuthService(users, new MemorySessionRepository(), new MemoryAuditRepository(), {});
+    await service.register({ email: 'off@ex.com', password: 'longenough123' });
+    const r = await service.login({ email: 'off@ex.com', password: 'longenough123' });
+    expect(r.ok).toBe(true);
   });
 });

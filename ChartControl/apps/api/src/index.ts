@@ -1074,6 +1074,21 @@ if (env.authEnabled) {
       // falling back to the sink means no user ever receives a verification link, and that must be visible in
       // the boot output rather than discovered from a support ticket.
       mail: mailProvider,
+      /*
+         ★★ 이메일 인증을 로그인 필수로 만든다.
+
+           비밀번호 재설정이 이메일로 가는 서비스라, 인증되지 않은(=소유 확인 안 된)
+           주소로는 계정을 되찾을 수 없다. 그래서 최초 로그인 전에 이메일 소유를
+           확인한다. 인증 안 된 계정이 로그인하면 EMAIL_NOT_VERIFIED 로 막고
+           인증 메일을 다시 보낸다. 관리자(SUPER_ADMIN·ADMIN)는 예외(서비스에서 제외).
+
+           REQUIRE_EMAIL_VERIFICATION=false 로 끌 수 있다(기본 켜짐). 메일 발송이
+           설정돼 있어야 의미가 있다 — SMTP/Resend 가 없으면 아무도 인증을 못 해
+           로그인이 막히므로, 메일 provider 가 없으면(싱크) 자동으로 요구를 끈다.
+      */
+      requireEmailVerification:
+        (process.env.REQUIRE_EMAIL_VERIFICATION ?? 'true') !== 'false'
+        && mailProvider.name !== 'mail-sink-dev',
     });
     const resource = new ResourceRepo(db);
 

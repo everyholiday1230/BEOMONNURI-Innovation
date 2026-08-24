@@ -260,6 +260,12 @@ services:
       # (B) Resend 를 쓴다 — RESEND_API_KEY 만 넣으면 된다.
       #
       # 둘 다 있으면 SMTP 를 쓴다. 둘 다 없으면 메일이 나가지 않고 기동 로그에 경고가 남는다.
+      # 이메일 인증을 로그인 필수로 할지. 기본 켜짐(true). 메일(SMTP/Resend)이
+      # 설정돼 있어야 의미가 있다 — 메일 provider 가 없으면 서버가 자동으로 요구를 끈다
+      # (아무도 인증 못 해 전원 잠기는 것을 막기 위해). 끄려면 false.
+      # 관리자(SUPER_ADMIN·ADMIN)는 항상 예외다.
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "true"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

@@ -272,6 +272,16 @@
         })
         .catch((err) => {
           setLoading(false);
+          /*
+             ★ 이메일 미인증(EMAIL_NOT_VERIFIED)은 비밀번호 오류와 상태코드(401)가
+               같으므로 코드로 구분한다. 서버가 이미 인증 메일을 다시 보냈으니,
+               인증 화면으로 보내 메일 확인을 안내한다.
+          */
+          if (err && err.code === 'EMAIL_NOT_VERIFIED') {
+            try { sessionStorage.setItem('qt.pendingVerifyEmail', email); } catch (e) { /* 저장 실패 무시 */ }
+            window.location.hash = '/verify-email';
+            return;
+          }
           // 비밀번호 오류와 계정 잠금을 구분해 알려준다.
           setAuthError(
             err && err.status === 401 ? t('auth_err_invalid_credentials')
@@ -691,38 +701,48 @@
   // EMAIL VERIFY
   // ============================================================
   window.EmailVerifyPage = function EmailVerifyPage({ shellProps: _shellProps }) {
-    const [code, setCode] = useState(['','','','','','']);
-    const [loading, setLoading] = useState(false);
+    /*
+       ★★ 이메일 인증은 '메일의 링크' 로 한다.
+
+         인증 토큰은 6자리 숫자가 아니라 긴 무작위 토큰(base64url)이라 손으로 입력할
+         수 없다. 그래서 사용자는 메일의 '이메일 인증' 버튼(#/verify-email?token=…)을
+         누르고, 이 화면은 URL 의 토큰을 읽어 자동으로 인증한다.
+         (예전엔 6자리 입력칸이 있었는데 토큰 형식과 맞지 않아 인증이 불가능했다.)
+    */
+    const [status, setStatus] = useState('idle'); // idle | verifying | success | failed
     const [sent, setSent] = useState(false);
-    const refs = Array.from({length:6}, () => React.createRef());
-    useEffect(() => { refs[0].current?.focus(); }, []);
+    const [sendErr, setSendErr] = useState('');
 
-    const [verifyError, setVerifyError] = useState('');
-
-    const submit = () => {
-      if (!window.QTApi || !window.QTApi.auth) { window.location.hash = '/kyc'; return; }
-      setVerifyError('');
-      setLoading(true);
-      window.QTApi.auth.verifyEmail(code.join(''))
-        .then(() => {
-          setLoading(false);
-          // 인증되면 세션의 emailVerified 가 바뀐다. 화면 등급 상태도 갱신한다.
+    useEffect(() => {
+      const hash = String(window.location.hash || '');
+      const q = hash.indexOf('?');
+      const token = q === -1 ? '' : (new URLSearchParams(hash.slice(q + 1)).get('token') || '');
+      if (!token) { setStatus('idle'); return; }
+      if (!window.QTApi || !window.QTApi.auth) { setStatus('success'); return; }
+      setStatus('verifying');
+      window.QTApi.auth.verifyEmail(token)
+        .then((r) => {
+          if (r && r.ok === false) { setStatus('failed'); return; }
+          setStatus('success');
           if (window.QTAuth) window.QTAuth.refresh();
-          window.location.hash = '/kyc';
         })
-        .catch((err) => {
-          setLoading(false);
-          setVerifyError((err && err.message) || t('auth_err_invalid_code'));
-        });
-    };
+        .catch(() => setStatus('failed'));
+    }, []);
 
-    /** 인증 코드 재발송. 서버가 실제로 메일을 보낸다. */
+    /*
+       재발송. 로그인 상태에서만 서버가 사용자를 안다(POST /auth/verify-email/request 는
+       인증 필요). 로그인 차단으로 이 화면에 온 사용자는 세션이 없으므로, 그때는
+       "다시 로그인하면 인증 메일을 다시 보낸다" 고 안내한다(로그인 시 서버가 자동 재발송).
+    */
     const resend = () => {
+      setSendErr('');
       if (!window.QTApi || !window.QTApi.auth) { setSent(true); setTimeout(() => setSent(false), 3000); return; }
-      setVerifyError('');
       window.QTApi.auth.requestEmailVerify()
         .then(() => { setSent(true); setTimeout(() => setSent(false), 3000); })
-        .catch((err) => setVerifyError((err && err.message) || t('auth_err_generic')));
+        .catch((err) => {
+          if (err && err.status === 401) setSendErr(t('verify_resend_login'));
+          else setSendErr((err && err.message) || t('auth_err_generic'));
+        });
     };
 
     return (
@@ -736,56 +756,63 @@
         ]}
       >
         <div className="auth-form">
-          <div className="auth-verify-icon">
-            <I.Bell size={30}/>
-          </div>
+          <div className="auth-verify-icon"><I.Bell size={30}/></div>
 
-          <div style={{textAlign: 'center', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 8}}>
-            {t('verify_hint_pre')}<strong>{t('verify_hint_em')}</strong>{t('verify_hint_post')}<br/>
-            <span style={{color: 'var(--color-text-tertiary)'}}>{t('email_verify_0fa353')}</span>
-          </div>
-
-          <div className="otp-input">
-            {code.map((d, i) => (
-              <input
-                key={i}
-                ref={refs[i]}
-                type="text" maxLength={1}
-                className="otp-input__cell"
-                value={d}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g,'').slice(0,1);
-                  const next = [...code]; next[i] = val; setCode(next);
-                  if (val && i < 5) refs[i+1].current?.focus();
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Backspace' && !code[i] && i > 0) refs[i-1].current?.focus();
-                }}
-              />
-            ))}
-          </div>
-
-          {verifyError && (
-            <div className="auth-alert auth-alert--danger">
-              <I.Alert size={12}/>
-              <div>{verifyError}</div>
+          {status === 'verifying' && (
+            <div style={{textAlign:'center', fontSize:13, color:'var(--color-text-secondary)'}}>
+              <span className="spinner"/> {t('verify_processing')}
             </div>
           )}
 
-          <button className="btn btn--primary btn--lg" style={{width:'100%'}} onClick={submit} disabled={loading || code.some(x => !x)}>
-            {loading ? <><span className="spinner"/> {t('login_33c1f7')}</> : t('email_verify_455f7c')}
-          </button>
+          {status === 'success' && (
+            <>
+              <div style={{textAlign:'center', fontSize:14, fontWeight:500, color:'var(--color-success)', marginBottom:8}}>
+                {t('verify_success')}
+              </div>
+              <button className="btn btn--primary btn--lg" style={{width:'100%'}} onClick={() => { window.location.hash = '/login'; }}>
+                {t('verify_go_login')}
+              </button>
+            </>
+          )}
 
-          <div className="auth-row-center" style={{fontSize:12}}>
-            {sent ? (
-              <span style={{color: 'var(--color-success)'}}>{t('email_verify_089bb3')}</span>
-            ) : (
-              <>
-                {t('login_f3047a')}
-                <a href="#" style={{color:'var(--color-brand)', marginLeft: 4}} onClick={e => { e.preventDefault(); resend(); }}>{t('email_verify_37a414')}</a>
-              </>
-            )}
-          </div>
+          {status === 'failed' && (
+            <>
+              <div className="auth-alert auth-alert--danger">
+                <I.Alert size={12}/>
+                <div>{t('verify_failed')}</div>
+              </div>
+              <button className="btn btn--primary btn--lg" style={{width:'100%'}} onClick={() => { window.location.hash = '/login'; }}>
+                {t('verify_go_login')}
+              </button>
+            </>
+          )}
+
+          {status === 'idle' && (
+            <>
+              <div style={{textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)', lineHeight:1.7, marginBottom:8}}>
+                {t('verify_check_email')}
+              </div>
+              <div className="auth-row-center" style={{fontSize:12}}>
+                {sent ? (
+                  <span style={{color:'var(--color-success)'}}>{t('email_verify_089bb3')}</span>
+                ) : (
+                  <>
+                    {t('login_f3047a')}
+                    <a href="#" style={{color:'var(--color-brand)', marginLeft:4}} onClick={e => { e.preventDefault(); resend(); }}>{t('email_verify_37a414')}</a>
+                  </>
+                )}
+              </div>
+              {sendErr && (
+                <div className="auth-alert auth-alert--warning" style={{marginTop:8}}>
+                  <I.Info size={12}/>
+                  <div>{sendErr}</div>
+                </div>
+              )}
+              <button className="btn btn--ghost" style={{width:'100%', marginTop:12}} onClick={() => { window.location.hash = '/login'; }}>
+                {t('verify_go_login')}
+              </button>
+            </>
+          )}
         </div>
       </window.AuthShell>
     );
@@ -1037,6 +1064,41 @@
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [resetError, setResetError] = useState('');
+    const [resetToken, setResetToken] = useState('');
+    const [newPw, setNewPw] = useState('');
+    const [newPw2, setNewPw2] = useState('');
+    const [resetDone, setResetDone] = useState(false);
+
+    /*
+       ★★ 재설정 링크로 도착한 경우. 메일의 버튼(#/password-reset?token=…)을 누르면
+         URL 에 토큰이 실려 온다. 그 토큰을 읽어 '새 비밀번호 입력'(step 3) 으로 간다.
+         (예전엔 이 단계가 없어 링크를 눌러도 비밀번호를 바꿀 수 없었다.)
+    */
+    useEffect(() => {
+      const hash = String(window.location.hash || '');
+      const q = hash.indexOf('?');
+      const tok = q === -1 ? '' : (new URLSearchParams(hash.slice(q + 1)).get('token') || '');
+      if (tok) { setResetToken(tok); setStep(3); }
+    }, []);
+
+    /* 새 비밀번호 확정. 서버가 토큰을 단 한 번만 받아 처리한다. */
+    const doReset = () => {
+      setResetError('');
+      if (newPw.length < 10) { setResetError(t('pwreset_too_short')); return; }
+      if (newPw !== newPw2) { setResetError(t('pwreset_mismatch')); return; }
+      if (!window.QTApi || !window.QTApi.auth) { setResetDone(true); return; }
+      setLoading(true);
+      window.QTApi.auth.resetPassword(resetToken, newPw)
+        .then((r) => {
+          setLoading(false);
+          if (r && r.ok === false) { setResetError(t('pwreset_link_invalid')); return; }
+          setResetDone(true);
+        })
+        .catch((err) => {
+          setLoading(false);
+          setResetError((err && err.message) || t('pwreset_link_invalid'));
+        });
+    };
 
     /**
      * 재설정 링크 요청.
@@ -1087,6 +1149,33 @@
               <div style={{fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 20, fontFamily: 'var(--font-mono)'}}>{t('email_verify_0fa353')}</div>
               <button className="btn" style={{marginTop: 20}} onClick={() => window.location.hash = '/login'}>{t('password_reset_a40b90')}</button>
             </div>
+          )}
+          {step === 3 && (
+            resetDone ? (
+              <div style={{textAlign:'center'}}>
+                <div className="auth-verify-icon"><I.Check size={30}/></div>
+                <div style={{fontSize:14, fontWeight:500, marginTop:12, color:'var(--color-success)'}}>{t('pwreset_done')}</div>
+                <button className="btn btn--primary btn--lg" style={{width:'100%', marginTop:20}} onClick={() => { window.location.hash = '/login'; }}>{t('verify_go_login')}</button>
+              </div>
+            ) : (
+              <>
+                <div style={{textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)', marginBottom:8}}>{t('pwreset_new_hint')}</div>
+                <div className="input-group">
+                  <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw')}</span>
+                  <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoFocus/>
+                </div>
+                <div className="input-group">
+                  <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw2')}</span>
+                  <input type="password" value={newPw2} onChange={e => setNewPw2(e.target.value)}/>
+                </div>
+                {resetError && (
+                  <div className="auth-alert auth-alert--danger"><I.Alert size={12}/><div>{resetError}</div></div>
+                )}
+                <button className="btn btn--primary btn--lg" style={{width:'100%'}} onClick={doReset} disabled={loading || !newPw || !newPw2}>
+                  {loading ? <><span className="spinner"/> {t('login_33c1f7')}</> : t('pwreset_submit')}
+                </button>
+              </>
+            )
           )}
         </div>
       </window.AuthShell>

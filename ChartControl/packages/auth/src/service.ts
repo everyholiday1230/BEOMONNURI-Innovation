@@ -36,7 +36,7 @@ export type RegisterResult =
 
 export type LoginResult =
   | { ok: true; user: PublicUser; sessionId: string; csrfSecret: string; expiresAt: number }
-  | { ok: false; code: 'INVALID_CREDENTIALS' | 'RATE_LIMITED' | 'DISABLED'; error: string; retryAfterMs?: number };
+  | { ok: false; code: 'INVALID_CREDENTIALS' | 'RATE_LIMITED' | 'DISABLED' | 'EMAIL_NOT_VERIFIED'; error: string; retryAfterMs?: number };
 
 export interface DeviceSession {
   id: string;
@@ -80,6 +80,16 @@ export interface AuthServiceOptions {
   mail?: MailProvider;
   verificationTtlMs?: number;
   resetTtlMs?: number;
+  /*
+     로그인에 이메일 인증을 요구할지.
+
+     ★ true 면 이메일을 인증하지 않은 계정은 로그인이 거부되고(EMAIL_NOT_VERIFIED),
+       인증 메일을 자동으로 다시 보낸다. 비밀번호 재설정이 이메일로 가는 서비스라
+       유효한 이메일을 보장하기 위해 프로덕션 기본값은 true 로 둔다.
+     ★ SUPER_ADMIN·ADMIN 은 예외로 둔다 — 메일 문제로 운영자가 관리자 화면에서
+       잠기는 것을 막기 위해서다(운영자 계정은 수동으로 만들고 신뢰된다).
+  */
+  requireEmailVerification?: boolean;
 }
 
 const MIN_PASSWORD = 10;
@@ -100,6 +110,7 @@ export class AuthService {
   private readonly mail?: MailProvider;
   private readonly verificationTtlMs: number;
   private readonly resetTtlMs: number;
+  private readonly requireEmailVerification: boolean;
 
   constructor(
     private readonly users: IUserRepository,
@@ -115,6 +126,7 @@ export class AuthService {
     this.mail = opts.mail;
     this.verificationTtlMs = opts.verificationTtlMs ?? 24 * 60 * 60 * 1000;
     this.resetTtlMs = opts.resetTtlMs ?? 60 * 60 * 1000;
+    this.requireEmailVerification = opts.requireEmailVerification ?? false;
   }
 
   private async log(action: string, actorUserId: string | null, ctx: RequestCtx, result: string, meta?: Record<string, unknown>) {
@@ -175,6 +187,27 @@ export class AuthService {
     if (user.status === 'disabled') {
       await this.log('auth.login', user.id, ctx, 'disabled', { email });
       return { ok: false, code: 'DISABLED', error: 'account disabled' };
+    }
+
+    /*
+       이메일 인증 요구.
+
+       ★★ 인증하지 않은 계정은 로그인을 막는다. 비밀번호를 잊으면 재설정 링크가
+         이메일로 가는데, 인증되지 않은(=존재를 확인 못 한) 주소로는 계정을 되찾을
+         수 없다. 그래서 최초 진입 전에 이메일 소유를 확인한다.
+       ★ 관리자(SUPER_ADMIN·ADMIN)는 예외다 — 메일 장애로 운영자가 관리자 화면에서
+         잠기면 서비스 대응이 마비된다. 운영자 계정은 수동 생성·신뢰된다.
+       ★ 막을 때 인증 메일을 다시 보낸다(있으면). 사용자가 바로 행동할 수 있게.
+    */
+    /* role 은 타입상 'user'|'admin' 이지만 런타임엔 'SUPER_ADMIN'·'ADMIN' 등이 저장된다
+       (두 RBAC 체계가 섞여 있다). 문자열로 정규화해 비교한다. */
+    const roleStr = String(user.role).toUpperCase();
+    const isOperator = roleStr === 'SUPER_ADMIN' || roleStr === 'ADMIN';
+    if (this.requireEmailVerification && !user.emailVerified && !isOperator) {
+      await this.log('auth.login', user.id, ctx, 'email_unverified', { email });
+      // 인증 메일 재발송 (실패는 로그인 거부 응답을 바꾸지 않는다)
+      try { await this.requestEmailVerification(user.id, ctx); } catch { /* 재발송 실패는 무시 */ }
+      return { ok: false, code: 'EMAIL_NOT_VERIFIED', error: 'email not verified' };
     }
 
     this.limiter.reset(ctx.ip, email);

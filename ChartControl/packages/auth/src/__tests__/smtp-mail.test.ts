@@ -177,7 +177,7 @@ describe('메일 본문', () => {
     const fake = await fakeSmtp();
     await new SmtpMailProvider({ ...base(fake.port), appBaseUrl: 'https://app.example.com' }).send(VERIFY);
     const body = fake.body();
-    expect(body).toContain('https://app.example.com/verify-email?token=tok-123');
+    expect(body).toContain('https://app.example.com/#/verify-email?token=tok-123');
     expect(body).not.toContain('Use the enclosed token');
     await fake.close();
   });

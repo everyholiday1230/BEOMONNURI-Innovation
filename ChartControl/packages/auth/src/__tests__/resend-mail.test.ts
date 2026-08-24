@@ -42,22 +42,22 @@ describe('MAIL-01 the body contains an actual link', () => {
   it('[1] a verification message renders a link to /verify-email?token=', () => {
     const r = renderMail(VERIFY, { appBaseUrl: 'https://app.example.com' });
     // Without this the e-mail said "use the enclosed token" and enclosed nothing.
-    expect(r.text).toContain('https://app.example.com/verify-email?token=tok-abc-123');
-    expect(r.html).toContain('https://app.example.com/verify-email?token=tok-abc-123');
+    expect(r.text).toContain('https://app.example.com/#/verify-email?token=tok-abc-123');
+    expect(r.html).toContain('https://app.example.com/#/verify-email?token=tok-abc-123');
     /* 서비스 언어는 영어·일본어·중국어다 — 기본은 영어(전에는 한국어뿐이었다). */
     expect(r.subject).toBe('Verify your email');
   });
 
   it('[2] a reset message renders a link to /password-reset?token=', () => {
     const r = renderMail(RESET, { appBaseUrl: 'https://app.example.com' });
-    expect(r.text).toContain('https://app.example.com/password-reset?token=tok-reset-789');
+    expect(r.text).toContain('https://app.example.com/#/password-reset?token=tok-reset-789');
     // A reset e-mail is the classic phishing pretext, so a user who did not request it must be told that
     // ignoring it is safe.
     expect(r.text).toMatch(/If you did not request this/u);
   });
 
   it('[3] a trailing slash on the base URL does not double up', () => {
-    expect(renderMail(VERIFY, { appBaseUrl: 'https://app.example.com/' }).text).toContain('https://app.example.com/verify-email?');
+    expect(renderMail(VERIFY, { appBaseUrl: 'https://app.example.com/' }).text).toContain('https://app.example.com/#/verify-email?');
   });
 
   it('[4] the token is URL-encoded', () => {
@@ -102,8 +102,8 @@ describe('MAIL-02 transport', () => {
     const body = JSON.parse(String(calls[0]!.init.body)) as { to: string[]; text: string; html: string; from: string };
     expect(body.to).toEqual(['u@example.com']);
     // Both parts: a text-only mail lands in spam more often, an HTML-only one breaks in plain-text clients.
-    expect(body.text).toContain('/verify-email?token=');
-    expect(body.html).toContain('/verify-email?token=');
+    expect(body.text).toContain('/#/verify-email?token=');
+    expect(body.html).toContain('/#/verify-email?token=');
     expect(body.from).toContain('no-reply@example.com');
   });
 

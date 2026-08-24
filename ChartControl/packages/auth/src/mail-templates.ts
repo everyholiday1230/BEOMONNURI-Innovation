@@ -137,7 +137,9 @@ export function renderMail(msg: MailMessage, opts: MailRenderOptions): RenderedM
   const token = typeof msg.meta?.token === 'string' ? msg.meta.token : '';
 
   if (kind === 'verify' && token !== '') {
-    const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
+    /* ★ 해시 라우터(SPA)다 — 경로형 링크(/verify-email)는 라우팅되지 않는다.
+         반드시 #/ 형식으로 만들어야 클릭 시 인증 화면이 토큰을 받는다. */
+    const link = `${base}/#/verify-email?token=${encodeURIComponent(token)}`;
     return {
       subject: withBrand(c.verifySubject, brand),
       text: [c.verifyLead, '', link, '', c.onceOnly, c.ignoreVerify, ...(brand ? ['', `— ${brand}`] : [])].join('\n'),
@@ -155,7 +157,7 @@ export function renderMail(msg: MailMessage, opts: MailRenderOptions): RenderedM
   }
 
   if (kind === 'reset' && token !== '') {
-    const link = `${base}/password-reset?token=${encodeURIComponent(token)}`;
+    const link = `${base}/#/password-reset?token=${encodeURIComponent(token)}`;
     return {
       subject: withBrand(c.resetSubject, brand),
       text: [c.resetLead, '', link, '', c.onceOnly, c.ignoreReset, ...(brand ? ['', `— ${brand}`] : [])].join('\n'),
