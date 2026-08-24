@@ -1593,6 +1593,98 @@
   // ============================================================
   // ASSETS / RISK PANEL
   // ============================================================
+  /* ============================================================
+     포지션 계산기 모달.
+
+     ★ 순수 계산이다(백엔드 없음). 사용자가 진입가·수량·레버리지·방향을 넣으면
+       포지션 가치·필요 증거금·(목표가 입력 시) 손익·ROE 를 정확히 계산하고,
+       청산가는 **추정치** 로 명시해 보여준다(실제 청산가는 거래소가 정한다).
+     ★ 스타일은 기존 overlay/modal/input-group 클래스를 그대로 쓴다(디자인 신규 없음).
+     ============================================================ */
+  window.PositionCalculatorModal = function PositionCalculatorModal({ t, onClose }) {
+    const [side, setSide] = React.useState('long');
+    const [entry, setEntry] = React.useState('');
+    const [qty, setQty] = React.useState('');
+    const [lev, setLev] = React.useState('10');
+    const [exit, setExit] = React.useState('');
+
+    const calc = window.QTPositionCalc && window.QTPositionCalc.compute
+      ? window.QTPositionCalc.compute({ side, entry, qty, leverage: lev, exit })
+      : { ok: false, error: 'UNAVAILABLE' };
+
+    const fmt = (n, d = 2) => (Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: d }) : '—');
+    const row = (label, value, tone) => (
+      <div style={{display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--color-border-subtle)', fontSize:12.5}}>
+        <span style={{color:'var(--color-text-secondary)'}}>{label}</span>
+        <span style={{fontFamily:'var(--font-mono)', fontWeight:600, color: tone || 'var(--color-text-primary)'}}>{value}</span>
+      </div>
+    );
+
+    return (
+      <div className="overlay" onClick={onClose}>
+        <div className="modal" style={{width: 420}} onClick={e => e.stopPropagation()}>
+          <div className="modal__header">
+            <div className="modal__title">{t('calc_title')}</div>
+            <button className="btn btn--icon" onClick={onClose} aria-label={t('close')}>{I.X ? <I.X size={14}/> : 'X'}</button>
+          </div>
+          <div className="modal__body" style={{display:'flex', flexDirection:'column', gap:10}}>
+            <div className="seg" style={{alignSelf:'flex-start'}}>
+              <button className={`seg__opt ${side==='long'?'is-active':''}`} onClick={() => setSide('long')}>{t('side_long_arrow')}</button>
+              <button className={`seg__opt ${side==='short'?'is-active':''}`} onClick={() => setSide('short')}>{t('side_short_arrow')}</button>
+            </div>
+            <div className="input-group">
+              <span className="input-group__label">{t('calc_entry')}</span>
+              <input type="number" inputMode="decimal" value={entry} onChange={e => setEntry(e.target.value)} placeholder="0.00"/>
+            </div>
+            <div className="input-group">
+              <span className="input-group__label">{t('calc_qty')}</span>
+              <input type="number" inputMode="decimal" value={qty} onChange={e => setQty(e.target.value)} placeholder="0.00"/>
+            </div>
+            <div className="input-group">
+              <span className="input-group__label">{t('calc_leverage')}</span>
+              <input type="number" inputMode="decimal" value={lev} onChange={e => setLev(e.target.value)} placeholder="10"/>
+            </div>
+            <div className="input-group">
+              <span className="input-group__label">{t('calc_exit')}</span>
+              <input type="number" inputMode="decimal" value={exit} onChange={e => setExit(e.target.value)} placeholder={t('calc_exit_ph')}/>
+            </div>
+
+            <div style={{marginTop:4}}>
+              {calc.ok ? (
+                <>
+                  {row(t('calc_position_value'), fmt(calc.positionValue) + ' USDT')}
+                  {row(t('calc_initial_margin'), fmt(calc.initialMargin) + ' USDT')}
+                  {row(
+                    t('calc_liq_price'),
+                    fmt(calc.liqPrice) + ' USDT',
+                    'var(--color-warning)'
+                  )}
+                  {calc.exit != null && row(
+                    t('calc_pnl'),
+                    (calc.pnl >= 0 ? '+' : '') + fmt(calc.pnl) + ' USDT',
+                    calc.pnl >= 0 ? 'var(--color-long)' : 'var(--color-short)'
+                  )}
+                  {calc.exit != null && row(
+                    t('calc_roe'),
+                    (calc.roe >= 0 ? '+' : '') + fmt(calc.roe) + ' %',
+                    calc.roe >= 0 ? 'var(--color-long)' : 'var(--color-short)'
+                  )}
+                  <div style={{fontSize:10.5, color:'var(--color-text-tertiary)', marginTop:8, lineHeight:1.6}}>
+                    {t('calc_liq_note')}
+                  </div>
+                </>
+              ) : (
+                <div style={{fontSize:12, color:'var(--color-text-tertiary)', padding:'8px 0'}}>
+                  {t('calc_enter_values')}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   window.AssetsRisk = function AssetsRisk({ assets, t }) {
     /*
        현물 모드 여부. 증거금·청산 관련 항목을 보여줄지 결정한다.
@@ -1600,7 +1692,11 @@
     */
     const assetsIsSpot = window.QTMode && window.QTMode.get ? window.QTMode.get() === 'spot' : false;
     const marginPct = assets.marginRatio * 100;
+    /* 포지션 계산기 모달 열림 상태. */
+    const [calcOpen, setCalcOpen] = React.useState(false);
     return (
+      <>
+      {calcOpen && <window.PositionCalculatorModal t={t} onClose={() => setCalcOpen(false)} />}
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Wallet size={14}/><span>{t('assets_risk')}</span></div>
@@ -1669,8 +1765,9 @@
                 {t('mg_add')} <span className="qt-pending-mark">{t('sec_pending')}</span>
               </button>
             )}
-            <button className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
-              {t('oe_calculator')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+            {/* ★ 포지션 계산기 — 순수 계산이므로 실제로 구현했다(백엔드 불필요). */}
+            <button className="btn btn--sm" style={{flex:1}} onClick={() => setCalcOpen(true)}>
+              {t('oe_calculator')}
             </button>
           </div>
 
@@ -1683,6 +1780,7 @@
           </div>
         </div>
       </div>
+      </>
     );
   };
 
