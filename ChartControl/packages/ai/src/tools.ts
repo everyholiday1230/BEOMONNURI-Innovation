@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TIMEFRAMES } from '@quantumtrade/config';
+import { AI_CHART_COMMANDS } from './schemas';
 import type { AiToolDefinition, AiToolResult, IAIToolRegistry, ToolExecContext } from './interfaces';
 
 /**
@@ -28,6 +29,49 @@ const TOOL_SCHEMAS = {
 
 export type ToolName = keyof typeof TOOL_SCHEMAS;
 export const READ_ONLY_TOOL_NAMES = Object.keys(TOOL_SCHEMAS) as ToolName[];
+
+/**
+ * PROPOSAL tools (docs PHASE4-06). Unlike the read-only tools above, these do not fetch data — they
+ * let the model PROPOSE a chart drawing/indicator command or a trading signal. The proposal is
+ * validated server-side (schema + provenance + grounding) by the orchestrator and surfaced to the UI
+ * as a PROPOSAL the user reviews; it is NEVER auto-applied and NEVER submits an order. The model emits
+ * only the essential fields — the server owns all provenance (ids, timestamps, expiry, symbol/tf).
+ */
+const PROPOSAL_TOOL_SCHEMAS = {
+  propose_chart_command: z
+    .object({
+      command: z.enum(AI_CHART_COMMANDS),
+      // args as a JSON string so strict function-calling stays simple; validated per-command server-side.
+      argsJson: z.string().min(2).max(2000),
+      confidence: z.number().min(0).max(100),
+      reasoningSummary: z.string().min(1).max(600),
+    })
+    .strict(),
+  propose_signal: z
+    .object({
+      // full SignalObject fields as JSON; the server fills provenance and validates the schema.
+      signalJson: z.string().min(2).max(6000),
+    })
+    .strict(),
+} as const;
+
+export type ProposalToolName = keyof typeof PROPOSAL_TOOL_SCHEMAS;
+export const PROPOSAL_TOOL_NAMES = Object.keys(PROPOSAL_TOOL_SCHEMAS) as ProposalToolName[];
+export function isProposalTool(name: string): name is ProposalToolName {
+  return (PROPOSAL_TOOL_NAMES as string[]).includes(name);
+}
+
+const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
+  propose_chart_command:
+    'Propose ONE chart drawing/indicator action (trend line, horizontal level, support/resistance, ' +
+    'entry zone, stop loss, take profit, markers, invalidation, addIndicator, removeIndicator, hide/delete). ' +
+    'Prices must come from MARKET_DATA you were given — never invent a level. Shown to the user as a ' +
+    'proposal; never auto-applied.',
+  propose_signal:
+    'Propose a trading SignalObject (direction, entryZone, stopLoss, takeProfits, invalidation, ' +
+    'riskReward, thesis, supporting + contradicting evidence). Derive every level from MARKET_DATA. ' +
+    'Shown for user review; never auto-executed.',
+};
 
 const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   get_market_snapshot: 'Read-only current market snapshot (last/mark price, 24h stats) for a symbol.',
@@ -87,15 +131,22 @@ export class ToolRegistry implements IAIToolRegistry {
   constructor(private readonly ds: ToolDataSource) {}
 
   list(): AiToolDefinition[] {
-    return READ_ONLY_TOOL_NAMES.map((name) => ({
+    const readOnly = READ_ONLY_TOOL_NAMES.map((name) => ({
       name,
       description: TOOL_DESCRIPTIONS[name],
       parameters: zodToJsonSchema(TOOL_SCHEMAS[name]),
       strict: true,
     }));
+    const proposal = PROPOSAL_TOOL_NAMES.map((name) => ({
+      name,
+      description: PROPOSAL_TOOL_DESCRIPTIONS[name],
+      parameters: zodToJsonSchema(PROPOSAL_TOOL_SCHEMAS[name]),
+      strict: true,
+    }));
+    return [...readOnly, ...proposal];
   }
   has(name: string): boolean {
-    return (READ_ONLY_TOOL_NAMES as string[]).includes(name);
+    return (READ_ONLY_TOOL_NAMES as string[]).includes(name) || isProposalTool(name);
   }
 
   async execute(name: string, argsJson: string, ctx: ToolExecContext): Promise<AiToolResult> {
@@ -139,6 +190,25 @@ export class ToolRegistry implements IAIToolRegistry {
       case 'validate_chart_command': return { note: 'schema validation is performed by the orchestrator pipeline' };
     }
   }
+}
+
+/**
+ * Parse + validate the ARGUMENTS of a proposal tool call (shape only). Standalone so the orchestrator
+ * (typed on IAIToolRegistry) can use it. Deeper command/signal validation, provenance, and grounding
+ * checks are the orchestrator's responsibility.
+ */
+export function parseProposalArgs(name: ProposalToolName, argsJson: string):
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(argsJson || '{}');
+  } catch {
+    return { ok: false, error: 'invalid proposal arguments JSON' };
+  }
+  const v = PROPOSAL_TOOL_SCHEMAS[name].safeParse(parsed);
+  if (!v.success) return { ok: false, error: v.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') };
+  return { ok: true, value: v.data as Record<string, unknown> };
 }
 
 /**

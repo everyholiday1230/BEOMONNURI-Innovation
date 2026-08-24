@@ -10,9 +10,25 @@ import type {
   OrchestratorInput,
 } from './interfaces';
 import type { CostController } from './cost';
-import { ToolLoopGuard } from './tools';
+import { ToolLoopGuard, isProposalTool, parseProposalArgs, type ProposalToolName } from './tools';
 import { buildDelimitedInput } from './prompts';
-import { AiChartCommandSchema, validateChartCommandArgs, type AiChartCommandName } from './schemas';
+import {
+  AiChartCommandSchema,
+  AiSignalObjectSchema,
+  validateChartCommandArgs,
+  AI_CHART_COMMAND_VERSION,
+  AI_SIGNAL_SCHEMA_VERSION,
+  type AiChartCommandName,
+} from './schemas';
+
+/** Commands whose args carry a price/level — these require grounded MARKET_DATA before they may be proposed. */
+const PRICE_BEARING_COMMANDS = new Set<AiChartCommandName>([
+  'createTrendLine', 'createHorizontalLevel', 'createSupportResistance', 'createEntryZone',
+  'createStopLoss', 'createTakeProfit', 'createLongMarker', 'createShortMarker', 'createInvalidationLevel',
+]);
+
+/** How long a proposed command/signal stays valid before the UI must discard it. */
+const PROPOSAL_TTL_MS = 5 * 60_000;
 
 /**
  * AI orchestrator (docs PHASE4-01/03). Runs: safety screen → cost/quota → prompt assembly →
@@ -73,7 +89,7 @@ export class Orchestrator implements IAIOrchestrator {
       userId: input.userId,
       model: this.d.model,
       instructions: prompt.template,
-      input: [{ role: 'user', content: buildDelimitedInput({ userMessage: input.userMessage }) }],
+      input: [{ role: 'user', content: buildDelimitedInput({ userMessage: input.userMessage, marketData: input.marketData }) }],
       tools: this.d.tools.list(),
       maxOutputTokens: this.d.maxOutputTokens,
       store: this.d.store,
@@ -83,7 +99,9 @@ export class Orchestrator implements IAIOrchestrator {
 
     this.d.cost.acquire();
     const loop = new ToolLoopGuard(this.d.maxToolCalls);
-    let hasMarketToolResult = false;
+    // Grounding: server-injected MARKET_DATA counts as grounded from the start; a market data tool
+    // call sets it too. Price-bearing proposals and priced text are gated on this.
+    const grounding = { has: Boolean(input.marketData) };
     let fullText = '';
     try {
       yield { type: 'state', state: 'streaming' };
@@ -93,7 +111,7 @@ export class Orchestrator implements IAIOrchestrator {
           yield { type: 'done' };
           return;
         }
-        const mapped = await this.handleEvent(ev, input, loop, (m) => (hasMarketToolResult = hasMarketToolResult || m));
+        const mapped = await this.handleEvent(ev, input, loop, grounding);
         for (const m of mapped) {
           if (m.type === 'text') fullText += m.delta;
           yield m;
@@ -101,7 +119,7 @@ export class Orchestrator implements IAIOrchestrator {
         if (ev.type === 'completed') {
           // 4) Screen model output before final acceptance.
           const stale = this.d.marketDataStale?.() ?? false;
-          const outScreen = this.d.safety.screenModelOutput(fullText, { hasMarketToolResult, marketDataStale: stale });
+          const outScreen = this.d.safety.screenModelOutput(fullText, { hasMarketToolResult: grounding.has, marketDataStale: stale });
           if (!outScreen.allowed) {
             yield { type: 'error', code: 'unsafe-output', message: `Model output rejected: ${outScreen.violations.join(', ')}` };
           }
@@ -123,30 +141,118 @@ export class Orchestrator implements IAIOrchestrator {
     yield { type: 'done' };
   }
 
-  /** Map a provider event to orchestrator events (executing read-only tools with guards). */
+  /** Map a provider event to orchestrator events (executing read-only tools; validating proposals). */
   private async handleEvent(
     ev: AiStreamEvent,
     input: OrchestratorInput,
     loop: ToolLoopGuard,
-    markMarket: (m: boolean) => void,
+    grounding: { has: boolean },
   ): Promise<OrchestratorEvent[]> {
     if (ev.type === 'output_text.delta') return [{ type: 'text', delta: ev.delta }];
     if (ev.type === 'function_call.done') {
       const admit = loop.admit(ev.name, ev.args);
       if (!admit.ok) return [{ type: 'error', code: admit.reason ?? 'tool-blocked', message: `tool call blocked: ${admit.reason}` }];
+
+      // PROPOSAL tools: validate + emit a command/signal proposal (never executed, never auto-applied).
+      if (isProposalTool(ev.name)) {
+        return this.handleProposal(ev.name, ev.args, input, grounding);
+      }
+
       if (!this.d.tools.has(ev.name)) return [{ type: 'error', code: 'unknown-tool', message: `unknown tool: ${ev.name}` }];
       try {
         const result = await loop.withTimeout(
           this.d.tools.execute(ev.name, ev.args, { userId: input.userId, symbol: input.symbol, timeframe: input.timeframe, correlationId: input.correlationId }),
           this.d.toolTimeoutMs,
         );
-        markMarket(ev.name.startsWith('get_market') || ev.name === 'get_candles' || ev.name === 'get_current_chart_context');
+        if (ev.name.startsWith('get_market') || ev.name === 'get_candles' || ev.name === 'get_current_chart_context') grounding.has = true;
         return [{ type: 'tool', name: ev.name, ok: result.ok }];
       } catch (e) {
         return [{ type: 'tool', name: ev.name, ok: false }, { type: 'error', code: 'tool-timeout', message: (e as Error).message }];
       }
     }
     return [];
+  }
+
+  /** Validate a model proposal, fill server-owned provenance, and emit a command/signal event. */
+  private handleProposal(
+    name: ProposalToolName,
+    argsJson: string,
+    input: OrchestratorInput,
+    grounding: { has: boolean },
+  ): OrchestratorEvent[] {
+    const parsed = parseProposalArgs(name, argsJson);
+    if (!parsed.ok) return [{ type: 'error', code: 'proposal-invalid', message: parsed.error }];
+    const now = Date.now();
+
+    if (name === 'propose_chart_command') {
+      const command = String(parsed.value.command) as AiChartCommandName;
+      // Grounding gate: a price-bearing level must be backed by real market data.
+      if (PRICE_BEARING_COMMANDS.has(command) && !grounding.has) {
+        return [{ type: 'error', code: 'ungrounded-proposal', message: `${command} requires market data before it can be proposed` }];
+      }
+      let cmdArgs: unknown;
+      try {
+        cmdArgs = JSON.parse(String(parsed.value.argsJson));
+      } catch {
+        return [{ type: 'error', code: 'proposal-invalid', message: 'argsJson is not valid JSON' }];
+      }
+      const argCheck = validateChartCommandArgs(command, cmdArgs);
+      if (!argCheck.ok) return [{ type: 'error', code: 'proposal-invalid', message: `args: ${argCheck.error}` }];
+      const built = {
+        schemaVersion: AI_CHART_COMMAND_VERSION,
+        commandId: this.uuid(),
+        conversationId: input.conversationId,
+        userId: input.userId,
+        symbol: input.symbol,
+        marketType: input.marketType ?? 'perpetual',
+        timeframe: input.timeframe,
+        createdAt: now,
+        expiresAt: now + PROPOSAL_TTL_MS,
+        source: 'ai' as const,
+        confidence: Number(parsed.value.confidence),
+        reasoningSummary: String(parsed.value.reasoningSummary),
+        dataSnapshotId: input.dataSnapshotId ?? `ctx-${input.correlationId}`,
+        aiGenerated: true,
+        command,
+        args: argCheck.value as Record<string, unknown>,
+      };
+      const check = AiChartCommandSchema.safeParse(built);
+      if (!check.success) return [{ type: 'error', code: 'proposal-invalid', message: check.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }];
+      return [{ type: 'command', command: check.data }];
+    }
+
+    // propose_signal — a signal always carries levels, so it always requires grounding.
+    if (!grounding.has) return [{ type: 'error', code: 'ungrounded-proposal', message: 'signal requires market data before it can be proposed' }];
+    let signalFields: Record<string, unknown>;
+    try {
+      signalFields = JSON.parse(String(parsed.value.signalJson));
+    } catch {
+      return [{ type: 'error', code: 'proposal-invalid', message: 'signalJson is not valid JSON' }];
+    }
+    const built = {
+      ...signalFields,
+      signalId: this.uuid(),
+      schemaVersion: AI_SIGNAL_SCHEMA_VERSION,
+      symbol: input.symbol,
+      marketType: input.marketType ?? 'perpetual',
+      timeframe: input.timeframe,
+      aiGenerated: true as const,
+      model: this.d.model,
+      promptVersion: '1.0.0',
+      dataSnapshotId: input.dataSnapshotId ?? `ctx-${input.correlationId}`,
+      dataTimestamp: now,
+      expiresAt: now + PROPOSAL_TTL_MS,
+      userEdited: false,
+      status: 'PROPOSED' as const,
+    };
+    const check = AiSignalObjectSchema.safeParse(built);
+    if (!check.success) return [{ type: 'error', code: 'proposal-invalid', message: check.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }];
+    return [{ type: 'signal', signal: check.data }];
+  }
+
+  private uuid(): string {
+    const g = globalThis as { crypto?: { randomUUID?: () => string } };
+    return g.crypto?.randomUUID ? g.crypto.randomUUID() : `id-${Math.random().toString(36).slice(2)}-${Date.now()}`;
   }
 }
 

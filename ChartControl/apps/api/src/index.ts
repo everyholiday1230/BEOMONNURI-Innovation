@@ -2441,6 +2441,33 @@ if (env.authEnabled) {
           // production, fail-closed). Bounds AI request RATE, separate from the token/cost budget.
           rateLimiter,
           aiRatePerMin: env.aiRateLimitPerMin,
+          /*
+             Server-verified grounding for the copilot. Reuses the same fail-closed market-context
+             builder as /api/ai/analyze: no real price → returns null → the orchestrator refuses
+             price-bearing proposals instead of letting the model invent a level. Positions/balance are
+             read from the caller's own rows via aiUserContext when available.
+          */
+          groundContext: async (_userId, symbol, timeframe) => {
+            const built = await buildAiMarketContext(
+              { symbol, timeframe: timeframe as (typeof SUPPORTED_TIMEFRAMES)[number] },
+              {
+                getTicker: (s) => providers.market.getTicker(s) as Promise<TickerLike | null>,
+                getPositions: () => [],
+                getAvailableBalance: () => null,
+                source: env.dataMode === 'MOCK_REPLAY' ? 'MOCK' : 'SNAPSHOT',
+                tradingMode: env.tradingMode,
+                liveTradingEnabled: env.liveOrdersEnabled && env.bitmartLiveTradingEnabled,
+                killSwitchActive: env.bitmartKillSwitch,
+              },
+            );
+            if (!built.ok) return null;
+            const ctx = built.context;
+            const marketData = JSON.stringify({
+              symbol, timeframe, lastPrice: ctx.lastPrice, markPrice: ctx.markPrice,
+              asOf: ctx.asOf, source: ctx.source, stale: ctx.stale,
+            });
+            return { marketData, dataSnapshotId: `snap-${ctx.asOf}`, marketType: 'perpetual' };
+          },
         }),
       );
        

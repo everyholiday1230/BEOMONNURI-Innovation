@@ -45,6 +45,16 @@ export interface AiRouterDeps {
   rateLimiter?: RateLimiter;
   /** AI requests allowed per minute, per authenticated user + route category. */
   aiRatePerMin?: number;
+  /**
+   * Build a grounded, server-verified market snapshot for the prompt (decimal strings + timestamps).
+   * Returns null when no real price is available — the orchestrator then refuses price-bearing
+   * proposals rather than letting the model invent a level. Wired in index.ts from buildAiMarketContext.
+   */
+  groundContext?: (
+    userId: string,
+    symbol: string,
+    timeframe: string,
+  ) => Promise<{ marketData: string; dataSnapshotId: string; marketType?: 'futures' | 'perpetual' } | null>;
 }
 
 /** Default per-user AI request budget per minute when the server does not override it. */
@@ -142,18 +152,29 @@ export function createAiRouter(d: AiRouterDeps): Hono {
       const abort = new AbortController();
       stream.onAbort(() => abort.abort());
       await d.conversations.appendMessage(a.user.id, body.conversationId!, { role: 'user', content: body.message! });
+      const symbol = body.symbol ?? 'BTCUSDT';
+      const timeframe = body.timeframe ?? '15m';
+      // Ground the model in a server-verified market snapshot. Failure is non-fatal: without it the
+      // orchestrator simply refuses price-bearing proposals (no fabricated levels).
+      let grounded: { marketData: string; dataSnapshotId: string; marketType?: 'futures' | 'perpetual' } | null = null;
+      if (d.groundContext) {
+        try { grounded = await d.groundContext(a.user.id, symbol, timeframe); } catch { grounded = null; }
+      }
       let assistantText = '';
       try {
         for await (const ev of orchestrator.run({
           conversationId: body.conversationId!,
           userId: a.user.id,
           userMessage: body.message!,
-          symbol: body.symbol ?? 'BTCUSDT',
-          timeframe: body.timeframe ?? '15m',
+          symbol,
+          timeframe,
           mode: (body.mode as 'copilot' | 'chart-analysis' | 'signal') ?? 'copilot',
           language: (body.language as 'ko' | 'en') ?? 'en',
           signal: abort.signal,
           correlationId,
+          marketData: grounded?.marketData,
+          dataSnapshotId: grounded?.dataSnapshotId,
+          marketType: grounded?.marketType,
         })) {
           if (ev.type === 'text') assistantText += ev.delta;
           if (ev.type === 'usage') await d.usage.record(a.user.id, { ...ev.usage, conversationId: body.conversationId!, correlationId });

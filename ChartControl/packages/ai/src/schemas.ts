@@ -45,12 +45,25 @@ export const AI_CHART_COMMANDS = [
   'createLongMarker',
   'createShortMarker',
   'createInvalidationLevel',
+  'addIndicator',
+  'removeIndicator',
   'updateOverlay',
   'hideOverlay',
   'deleteOverlay',
   'createSignalProposal',
   'createOrderDraftProposal',
 ] as const;
+
+/**
+ * Indicators the chart can render (KLineCharts built-ins). The AI may only ask for these — anything
+ * else fails validation. `params` are the indicator calc-params (e.g. [14] for RSI, [12,26,9] for
+ * MACD); the chart applies sane defaults when omitted.
+ */
+export const AI_INDICATORS = [
+  'MA', 'EMA', 'SMA', 'BOLL', 'SAR', 'BBI', // overlay on the price pane
+  'MACD', 'RSI', 'KDJ', 'VOL', 'ATR', 'CCI', 'WR', 'DMI', 'OBV', 'TRIX', 'ROC', 'BIAS', 'STOCH', 'VR', 'MTM', // separate pane
+] as const;
+export type AiIndicatorName = (typeof AI_INDICATORS)[number];
 export type AiChartCommandName = (typeof AI_CHART_COMMANDS)[number];
 
 const cmd = z.object({ command: z.enum(AI_CHART_COMMANDS) });
@@ -76,6 +89,14 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
   createLongMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }).strict(),
   createShortMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }).strict(),
   createInvalidationLevel: z.object({ price: DecimalString }).strict(),
+  addIndicator: z
+    .object({
+      indicator: z.enum(AI_INDICATORS),
+      params: z.array(z.number().int().positive().max(1000)).max(6).optional(),
+      label: z.string().max(60).optional(),
+    })
+    .strict(),
+  removeIndicator: z.object({ indicator: z.string().min(1).max(20) }).strict(),
   updateOverlay: z.object({ overlayId: z.string().min(1), patch: z.record(z.union([z.string(), z.number(), z.boolean()])) }).strict(),
   hideOverlay: z.object({ overlayId: z.string().min(1) }).strict(),
   deleteOverlay: z.object({ overlayId: z.string().min(1) }).strict(),

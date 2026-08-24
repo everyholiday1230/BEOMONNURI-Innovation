@@ -111,6 +111,16 @@ export interface OrchestratorInput {
   language: 'ko' | 'en';
   signal?: AbortSignal;
   correlationId: string;
+  /**
+   * Server-built, grounded market snapshot (decimal strings, timestamps). Injected into the prompt as
+   * UNTRUSTED MARKET_DATA. When present, price-bearing proposals are allowed; when absent, the model
+   * must not emit a level (no fabrication). Built by `buildAiMarketContext` in the route.
+   */
+  marketData?: string;
+  /** Identifier of the data snapshot the proposal is grounded in (provenance). */
+  dataSnapshotId?: string;
+  /** Contract type for provenance on proposed commands. Defaults to 'perpetual'. */
+  marketType?: 'futures' | 'perpetual';
 }
 
 export type OrchestratorEvent =

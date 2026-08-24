@@ -274,6 +274,67 @@ describe('orchestrator pipeline', () => {
     const evs = await drain(new Orchestrator(d).run(input()));
     expect(evs.some((e) => e.type === 'error' && e.code === 'provider-unavailable')).toBe(true);
   });
+
+  // ---- proposal pipeline (draw / indicator / signal) ----
+  const proposeCmd = (command: string, args: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
+    type: 'function_call.done' as const, callId: 'p1', name: 'propose_chart_command',
+    args: JSON.stringify({ command, argsJson: JSON.stringify(args), confidence: 60, reasoningSummary: 'derived from market data', ...over }),
+  });
+  const completed = { type: 'completed' as const, responseId: 'r', usage: { inputTokens: 1, outputTokens: 1, estimatedCostMicros: 0, model: 'm', fallbackUsed: false } };
+
+  it('emits a validated command for a grounded price-bearing proposal', async () => {
+    const events: AiStreamEvent[] = [proposeCmd('createSupportResistance', { price: '100', kind: 'support' }), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(input({ marketData: 'last=100 asOf=NOW' })));
+    const cmd = evs.find((e) => e.type === 'command') as { type: string; command: { command: string; args: Record<string, unknown> } } | undefined;
+    expect(cmd).toBeTruthy();
+    expect(cmd!.command.command).toBe('createSupportResistance');
+    expect(cmd!.command.args.price).toBe('100');
+  });
+  it('allows addIndicator without market grounding (no price)', async () => {
+    const events: AiStreamEvent[] = [proposeCmd('addIndicator', { indicator: 'RSI', params: [14] }), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(input())); // no marketData
+    const cmd = evs.find((e) => e.type === 'command') as { command: { command: string } } | undefined;
+    expect(cmd?.command.command).toBe('addIndicator');
+  });
+  it('rejects a price-bearing proposal when there is no market grounding', async () => {
+    const events: AiStreamEvent[] = [proposeCmd('createStopLoss', { price: '95' }), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(input())); // no marketData
+    expect(evs.some((e) => e.type === 'command')).toBe(false);
+    expect(evs.some((e) => e.type === 'error' && e.code === 'ungrounded-proposal')).toBe(true);
+  });
+  it('rejects a proposal with malformed command args', async () => {
+    const events: AiStreamEvent[] = [proposeCmd('createStopLoss', { price: 'not-a-number' }), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(input({ marketData: 'last=100' })));
+    expect(evs.some((e) => e.type === 'command')).toBe(false);
+    expect(evs.some((e) => e.type === 'error' && e.code === 'proposal-invalid')).toBe(true);
+  });
+  it('emits a validated signal for a grounded propose_signal', async () => {
+    const signal = {
+      direction: 'long', entryZone: ['99', '101'], stopLoss: '95', takeProfits: ['110'], invalidationLevel: '94',
+      confidence: 55, riskReward: '2.0', thesis: 'higher lows into support', supportingEvidence: ['higher lows'],
+      contradictingEvidence: ['resistance overhead'], assumptions: ['no major news'],
+    };
+    const events: AiStreamEvent[] = [
+      { type: 'function_call.done', callId: 's1', name: 'propose_signal', args: JSON.stringify({ signalJson: JSON.stringify(signal) }) },
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal', marketData: 'last=100' })));
+    const sig = evs.find((e) => e.type === 'signal') as { signal: { direction: string; status: string; aiGenerated: boolean } } | undefined;
+    expect(sig).toBeTruthy();
+    expect(sig!.signal.direction).toBe('long');
+    expect(sig!.signal.status).toBe('PROPOSED');
+    expect(sig!.signal.aiGenerated).toBe(true);
+  });
+  it('rejects propose_signal without market grounding', async () => {
+    const signal = { direction: 'long', entryZone: ['99', '101'], stopLoss: '95', takeProfits: ['110'], invalidationLevel: '94', confidence: 55, riskReward: '2.0', thesis: 't', supportingEvidence: [], contradictingEvidence: [], assumptions: [] };
+    const events: AiStreamEvent[] = [
+      { type: 'function_call.done', callId: 's1', name: 'propose_signal', args: JSON.stringify({ signalJson: JSON.stringify(signal) }) },
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal' }))); // no marketData
+    expect(evs.some((e) => e.type === 'signal')).toBe(false);
+    expect(evs.some((e) => e.type === 'error' && e.code === 'ungrounded-proposal')).toBe(true);
+  });
 });
 
 describe('validateProposedChartCommand', () => {
