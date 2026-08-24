@@ -29,6 +29,9 @@ import { KucoinSpotTradingAdapter } from './trading/kucoin-spot-trading-adapter'
 import { PgNoticeRepo } from './db/notice-repo';
 import { PgSupportRepo } from './db/support-repo';
 import { createSupportRouter } from './support/support-routes';
+import { createAlertRouter } from './alerts/alert-routes';
+import { PgPriceAlertRepo } from './db/price-alert-repo';
+import { runAlertSweep } from './alerts/alert-watcher';
 import { PgReferralRepo } from './db/referral-repo';
 import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
@@ -425,6 +428,7 @@ let noticeRepo: PgNoticeRepo | null = null;
    "문의가 없다" 로 읽히고, 티켓 생성이 조용히 성공한 것처럼 보인다.
 */
 let supportRepo: PgSupportRepo | null = null;
+let priceAlertRepo: PgPriceAlertRepo | null = null;
 
 /*
    리퍼럴 저장소.
@@ -1664,6 +1668,18 @@ if (env.authEnabled) {
       originAllowed,
     }));
 
+    /* 가격 알림 — PostgreSQL 배포에만 있다. */
+    if (core.pool) priceAlertRepo = new PgPriceAlertRepo(core.pool);
+    app.route('/api', createAlertRouter({
+      service: authService,
+      ...(priceAlertRepo ? { repo: priceAlertRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+    }));
+
     /*
        거래 읽기 저장소.
 
@@ -1812,6 +1828,67 @@ if (env.authEnabled) {
     // B6 — notifications (NTF-01/02). Polling contract; no real-time channel exists in this deployment.
     // BATCH_2 — async repository (PostgreSQL in production, SQLite in dev/test), selected by the factory.
     const notificationRepo = userData.notifications;
+
+    /*
+       가격 알림 감시기.
+
+       ★ 30초마다 활성 알림을 훑어 실제 시세와 비교하고, 조건 충족 시 한 번만 발동한다.
+         발동하면 앱 알림을 남기고(notificationRepo), notifyEmail 이면 이메일도 보낸다.
+       ★ 시세를 지어내지 않는다 — 조회 실패/무가격 심볼은 건너뛴다(watcher 내부 처리).
+       ★ Postgres 배포에만 켠다. 겹쳐 도는 것을 막기 위해 진행 중이면 이번 주기를 건너뛴다.
+    */
+    if (priceAlertRepo) {
+      const alertRepo = priceAlertRepo;
+      const brand = env.brandName;
+      let sweeping = false;
+      const sweep = async () => {
+        if (sweeping) return;
+        sweeping = true;
+        try {
+          await runAlertSweep({
+            repo: alertRepo,
+            getPrice: async (symbol) => {
+              try {
+                const tk = (await providers.market.getTicker(symbol)) as { last?: string | number; markPrice?: string | number } | null;
+                const raw = tk ? (tk.last ?? tk.markPrice) : null;
+                const n = raw == null ? NaN : Number(raw);
+                return Number.isFinite(n) && n > 0 ? n : null;
+              } catch { return null; }
+            },
+            notify: async (ev) => {
+              const arrow = ev.direction === 'above' ? '≥' : '≤';
+              await notificationRepo.create({
+                userId: ev.userId,
+                type: 'price_alert',
+                severity: 'info',
+                message: `${ev.symbol} ${arrow} ${ev.target} — now ${ev.price}`,
+                at: Date.now(),
+              });
+            },
+            sendEmail: async (ev) => {
+              const arrow = ev.direction === 'above' ? '≥' : '≤';
+              await mailProvider.send({
+                to: ev.to,
+                subject: `${ev.symbol} price alert`,
+                text:
+                  `Your ${brand} price alert triggered.\n\n` +
+                  `${ev.symbol} is now ${ev.price} (target ${arrow} ${ev.target}).\n\n` +
+                  `This is a notification only — no order was placed.`,
+              });
+            },
+             
+            log: (m) => console.warn(m),
+          });
+        } finally {
+          sweeping = false;
+        }
+      };
+      const alertTimer = setInterval(() => { void sweep(); }, 30_000);
+      if (typeof alertTimer.unref === 'function') alertTimer.unref();
+       
+      console.log('[api] price-alert watcher started (30s interval)');
+    }
+
     app.route('/api', createNotificationRouter({
       /*
          공지 팝업 — 알림과 같은 라우터에 둔다(읽음 규칙을 한 곳에서 관리).

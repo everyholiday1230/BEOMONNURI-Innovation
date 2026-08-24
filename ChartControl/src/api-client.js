@@ -788,6 +788,19 @@
       });
     },
 
+    /* ---- 가격 알림 ---- */
+    priceAlerts: function () {
+      return getJSON('', '/api/me/alerts').then(function (r) {
+        return { ok: true, data: (r && r.alerts) || [], supported: !(r && r.supported === false) };
+      });
+    },
+    createPriceAlert: function (input) {
+      return sendJSON('POST', '/api/me/alerts', input || {});
+    },
+    cancelPriceAlert: function (id) {
+      return sendJSON('DELETE', '/api/me/alerts/' + encodeURIComponent(id));
+    },
+
     /** 내 문의 상세. 내부 메모는 서버가 제외한다. */
     supportTicket: function (id) {
       return getJSON('', '/api/support/tickets/' + encodeURIComponent(id)).then(function (r) {

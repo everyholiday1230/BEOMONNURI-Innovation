@@ -271,6 +271,8 @@
   window.SymbolHeader = function SymbolHeader({ price, prev, market, t }) {
     /* '더보기' 메뉴 열림 상태. */
     const [moreOpen, setMoreOpen] = React.useState(false);
+    /* 가격 알림 모달 열림 상태. */
+    const [alertOpen, setAlertOpen] = React.useState(false);
 
     /*
        '거래소에서 열기' 주소.
@@ -474,10 +476,18 @@
 
         {/* GROUP 4: Actions */}
         <div className="sh-actions">
-          {/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}
-          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>
+          {/* ★ 가격 알림 — 이 종목의 알림을 만들고 관리한다(실제 구현). */}
+          <button className="btn btn--xs" title={t('alert_title')} onClick={() => setAlertOpen(true)}>
             {window.Icons?.Bell ? <window.Icons.Bell size={11}/> : '🔔'}
           </button>
+          {alertOpen && (
+            <window.PriceAlertModal
+              t={t}
+              symbol={String((market.base || '') + (market.quote || ''))}
+              lastPrice={market.price}
+              onClose={() => setAlertOpen(false)}
+            />
+          )}
           {/*
              ★★ 공유·더보기 — 전에는 onClick 이 아예 없었다. 누르면 아무 일도
                일어나지 않아 사용자는 고장으로 읽었다. 실제로 만들 수 있는
@@ -1601,6 +1611,118 @@
        청산가는 **추정치** 로 명시해 보여준다(실제 청산가는 거래소가 정한다).
      ★ 스타일은 기존 overlay/modal/input-group 클래스를 그대로 쓴다(디자인 신규 없음).
      ============================================================ */
+  /* ============================================================
+     가격 알림 모달.
+
+     ★ 지금 보고 있는 종목의 가격 알림을 만들고, 내 알림을 목록으로 보여준다.
+       조건(이상/이하)·목표가·이메일 수신 여부를 정한다. 발동은 서버 감시기가
+       실제 시세로 판단한다(프런트는 값을 지어내지 않는다).
+     ★ 스타일은 기존 overlay/modal/input-group/seg 클래스를 재사용한다.
+     ============================================================ */
+  window.PriceAlertModal = function PriceAlertModal({ t, symbol, lastPrice, onClose }) {
+    const api = window.QTApi && window.QTApi.rest;
+    const [alerts, setAlerts] = React.useState(null);
+    const [supported, setSupported] = React.useState(true);
+    const [loadError, setLoadError] = React.useState(false);
+    const [direction, setDirection] = React.useState(Number.isFinite(lastPrice) ? 'above' : 'above');
+    const [target, setTarget] = React.useState(Number.isFinite(lastPrice) ? String(lastPrice) : '');
+    const [notifyEmail, setNotifyEmail] = React.useState(true);
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState(null);
+
+    const load = React.useCallback(() => {
+      if (!api || !api.priceAlerts) return;
+      setLoadError(false);
+      api.priceAlerts()
+        .then((r) => { setAlerts(r.data || []); setSupported(r.supported); })
+        .catch(() => { setAlerts([]); setLoadError(true); });
+    }, [api]);
+    React.useEffect(() => { load(); }, [load]);
+
+    const create = () => {
+      const price = Number(target);
+      if (!(price > 0)) { setMsg({ ok: false, text: t('alert_target_invalid') }); return; }
+      setBusy(true); setMsg(null);
+      api.createPriceAlert({ symbol: symbol, direction: direction, targetPrice: price, notifyEmail: notifyEmail })
+        .then((r) => {
+          setBusy(false);
+          if (r && r.ok === false) { setMsg({ ok: false, text: (r.error && r.error.message) || t('alert_create_failed') }); return; }
+          setMsg({ ok: true, text: t('alert_created') });
+          load();
+        })
+        .catch((err) => { setBusy(false); setMsg({ ok: false, text: (err && err.message) || t('alert_create_failed') }); });
+    };
+
+    const cancel = (id) => {
+      api.cancelPriceAlert(id).then(load).catch(() => {});
+    };
+
+    const mine = Array.isArray(alerts) ? alerts.filter((a) => a.status === 'active') : [];
+
+    return (
+      <div className="overlay" onClick={onClose}>
+        <div className="modal" style={{width: 440}} onClick={e => e.stopPropagation()}>
+          <div className="modal__header">
+            <div className="modal__title">{t('alert_title')} · {symbol}</div>
+            <button className="btn btn--icon" onClick={onClose} aria-label={t('close')}>{I.X ? <I.X size={14}/> : 'X'}</button>
+          </div>
+          <div className="modal__body" style={{display:'flex', flexDirection:'column', gap:10}}>
+            {!supported ? (
+              <div style={{fontSize:12.5, color:'var(--color-text-secondary)'}}>{t('alert_unsupported')}</div>
+            ) : (
+              <>
+                <div className="seg" style={{alignSelf:'flex-start'}}>
+                  <button className={`seg__opt ${direction==='above'?'is-active':''}`} onClick={() => setDirection('above')}>{t('alert_above')}</button>
+                  <button className={`seg__opt ${direction==='below'?'is-active':''}`} onClick={() => setDirection('below')}>{t('alert_below')}</button>
+                </div>
+                <div className="input-group">
+                  <span className="input-group__label">{t('alert_target')}</span>
+                  <input type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00"/>
+                </div>
+                <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--color-text-secondary)', cursor:'pointer'}}>
+                  <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)}/>
+                  {t('alert_notify_email')}
+                </label>
+                {msg && (
+                  <div className={`auth-alert ${msg.ok ? 'auth-alert--success' : 'auth-alert--danger'}`} style={{fontSize:12}}>
+                    <div>{msg.text}</div>
+                  </div>
+                )}
+                <button className="btn btn--sm btn--primary" onClick={create} disabled={busy || !target}>
+                  <I.Bell size={12}/> {busy ? '…' : t('alert_create')}
+                </button>
+
+                <div style={{borderTop:'1px solid var(--color-border-subtle)', paddingTop:10, marginTop:2}}>
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginBottom:6}}>{t('alert_my_active', { n: mine.length })}</div>
+                  {loadError ? (
+                    <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                      <span style={{fontSize:12, color:'var(--color-warning)'}}>{t('alert_load_failed')}</span>
+                      <button className="btn btn--xs" onClick={load}>{t('sec_retry')}</button>
+                    </div>
+                  ) : mine.length === 0 ? (
+                    <div style={{fontSize:12, color:'var(--color-text-tertiary)'}}>{t('alert_none')}</div>
+                  ) : (
+                    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                      {mine.map((a) => (
+                        <div key={a.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12, padding:'4px 0'}}>
+                          <span style={{fontFamily:'var(--font-mono)'}}>
+                            {a.symbol} {a.direction === 'above' ? '≥' : '≤'} {a.targetPrice}
+                            {a.notifyEmail ? ' · ✉' : ''}
+                          </span>
+                          <button className="btn btn--xs" onClick={() => cancel(a.id)}>{t('alert_cancel')}</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   window.PositionCalculatorModal = function PositionCalculatorModal({ t, onClose }) {
     const [side, setSide] = React.useState('long');
     const [entry, setEntry] = React.useState('');
