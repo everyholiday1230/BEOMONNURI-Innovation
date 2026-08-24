@@ -440,6 +440,8 @@
       adm_email_need_fields: '请填写主题和内容。',
       wal_balances_connect_first: '连接交易所密钥后即可查看余额。我们只显示来自交易所的真实余额。',
       wal_balances_empty: '在你已连接的交易所账户中未找到余额。',
+      points_unit_default: '积分',
+      ref_terms_points_sub: '受邀者注册后即发放积分，可用于 AI 运行和功能。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

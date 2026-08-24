@@ -183,6 +183,8 @@
       adm_email_need_fields: 'Enter both a subject and a message.',
       wal_balances_connect_first: 'Connect an exchange key to see your balances. We show your real balances from the exchange — nothing is shown until then.',
       wal_balances_empty: 'No balances found on your connected exchange account.',
+      points_unit_default: 'points',
+      ref_terms_points_sub: 'Points are credited when your invitee signs up — usable for AI runs and features.',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

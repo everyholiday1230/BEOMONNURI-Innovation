@@ -1658,6 +1658,14 @@ if (env.authEnabled) {
       verifyCsrf,
       originAllowed,
       ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
+      /*
+         초대 보상을 포인트로 줄 때, 화면이 "초대하면 N 포인트" 를 정확히 보여주도록
+         포인트 설정을 읽어 준다. 포인트 저장소가 없으면 제공하지 않는다(화면은 sharePct 만 표시).
+      */
+      ...(pointsRepo ? { pointsReward: async () => {
+        const ps = await pointsRepo!.getSettings();
+        return { enabled: Boolean(ps.enabled && ps.referralAsPoints), points: ps.referralPoints, unit: ps.unitName };
+      } } : {}),
     }));
 
     app.route('/api', createSupportRouter({

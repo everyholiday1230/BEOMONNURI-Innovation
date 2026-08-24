@@ -1967,8 +1967,17 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       return c.json(err('BAD_REQUEST', 'payoutNote is required to enable the programme — users must know how they get paid'), 400);
     }
     if (enabled && sharePct <= 0) {
-      // 0% 로 켜면 "보상이 있다" 고 말하면서 0 을 준다.
-      return c.json(err('BAD_REQUEST', 'sharePct must be greater than 0 to enable the programme'), 400);
+      /*
+         현금 배분(sharePct)이 0 이어도, **포인트 보상**이 켜져 있으면 허용한다.
+         초대 보상을 현금이 아니라 포인트로 주는 모델이다(운영자 방침). 이때 실제
+         보상은 존재하므로 "0 을 주면서 보상이 있다고 말하는" 문제가 아니다.
+         둘 다 없으면(현금 0 + 포인트 미설정) 진짜로 보상이 없으므로 막는다.
+      */
+      const pts = d.points ? await d.points.getSettings() : null;
+      const pointsReward = Boolean(pts && pts.enabled && pts.referralAsPoints && pts.referralPoints > 0);
+      if (!pointsReward) {
+        return c.json(err('BAD_REQUEST', 'set a reward first: either sharePct > 0, or enable referral points in Points settings'), 400);
+      }
     }
 
     const settings = await d.referral.updateSettings(

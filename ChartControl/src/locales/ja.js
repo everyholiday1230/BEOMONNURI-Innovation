@@ -438,6 +438,8 @@
       adm_email_need_fields: '件名と本文の両方を入力してください。',
       wal_balances_connect_first: '残高を表示するには取引所のキーを接続してください。取引所の実際の残高のみを表示します。',
       wal_balances_empty: '接続した取引所口座に残高がありません。',
+      points_unit_default: 'ポイント',
+      ref_terms_points_sub: '招待した人が登録するとポイントが付与されます（AI 実行や機能に使えます）。',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

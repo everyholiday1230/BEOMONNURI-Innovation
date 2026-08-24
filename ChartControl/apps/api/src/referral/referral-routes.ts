@@ -38,6 +38,11 @@ export interface ReferralRouterDeps {
    * 않고 코드만 준다 — 열리지 않는 주소를 주면 사용자가 그것을 공유한다.
    */
   publicBaseUrl?: string;
+  /*
+     초대 보상을 포인트로 줄 때의 정보(선택). 화면이 "초대하면 N 포인트" 를 정확히
+     보여주기 위해 주입한다. 없거나 꺼져 있으면 포인트 보상은 표시하지 않는다.
+  */
+  pointsReward?: () => Promise<{ enabled: boolean; points: number; unit: string } | null>;
 }
 
 const err = (code: string, message: string) => ({ error: { code, message } });
@@ -98,6 +103,7 @@ export function createReferralRouter(d: ReferralRouterDeps): Hono {
         d.repo.listPayouts(a.user.id, 50),
       ]);
 
+      const pointsReward = d.pointsReward ? await d.pointsReward().catch(() => null) : null;
       return c.json({
         supported: true,
         enabled: true,
@@ -110,6 +116,7 @@ export function createReferralRouter(d: ReferralRouterDeps): Hono {
           payoutCurrency: settings.payoutCurrency,
           payoutNote: settings.payoutNote,
         },
+        pointsReward: pointsReward && pointsReward.enabled && pointsReward.points > 0 ? pointsReward : null,
         summary,
         /*
            초대받은 사람의 이메일을 그대로 주지 않는다.

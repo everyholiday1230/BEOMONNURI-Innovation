@@ -1967,6 +1967,8 @@
     const referralLink = refOn ? ref.link : null;
     const refSum = (ref && ref.summary) || null;
     const refSet = (ref && ref.settings) || null;
+    /* 포인트 보상(있으면). 현금 배분(sharePct) 대신 이걸 우선 표시한다. */
+    const refPoints = (ref && ref.pointsReward) || null;
 
     return (
       <window.PageShell
@@ -2010,8 +2012,12 @@
               />
               <window.KPICard
                 label={t('ref_terms')}
-                value={refSet ? refSet.sharePct + '%' : '—'}
-                sub={refSet ? t('ref_terms_sub', { min: fmt(refSet.minPayout, 2), cur: refSet.payoutCurrency }) : undefined}
+                value={refPoints
+                  ? refPoints.points + ' ' + (refPoints.unit || t('points_unit_default'))
+                  : (refSet ? refSet.sharePct + '%' : '—')}
+                sub={refPoints
+                  ? t('ref_terms_points_sub')
+                  : (refSet ? t('ref_terms_sub', { min: fmt(refSet.minPayout, 2), cur: refSet.payoutCurrency }) : undefined)}
               />
             </>
           ) : (
