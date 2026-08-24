@@ -493,6 +493,22 @@
             <span className={`badge ${Number(u.mfa_enabled) ? 'badge--success' : 'badge--neutral'}`}>
               {Number(u.mfa_enabled) ? '2FA ON' : '2FA OFF'}
             </span>
+            {/*
+               ★ 이메일 인증 여부. 로그인에 인증이 필수가 되었으므로 운영자가 이걸 볼 수
+                 있어야 한다 — 고객이 "로그인이 안 된다" 고 문의하면 대부분 이 상태다.
+                 서버(admin-data.js)가 email_verified 를 준다.
+            */}
+            {(() => {
+              const verified = Boolean(Number(u.email_verified ?? u.emailVerified ?? 0));
+              return (
+                <span
+                  className={`badge ${verified ? 'badge--success' : 'badge--warning'}`}
+                  title={verified ? t('adm_email_verified_hint') : t('adm_email_unverified_hint')}
+                >
+                  {verified ? t('adm_email_verified') : t('adm_email_unverified')}
+                </span>
+              );
+            })()}
           </>
         }
         actions={
