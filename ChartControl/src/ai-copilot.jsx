@@ -667,8 +667,9 @@
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_trendline_cmd'))}>{t('ai_chip_trendline')}</button>
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_signal_cmd'))}>{t('ai_chip_signal')}</button>
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_sr_cmd'))}>{t('ai_chip_sr')}</button>
-          <button className="ai-quick__chip">{t('ai_chip_fib')}</button>
-          <button className="ai-quick__chip">{t('ai_chip_rr')}</button>
+          {/* ★ 전에는 이 두 칩에 onClick 이 없어 눌러도 아무 일이 없었다. 자연어 요청으로 연결한다. */}
+          <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_fib_cmd'))}>{t('ai_chip_fib')}</button>
+          <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_rr_cmd'))}>{t('ai_chip_rr')}</button>
         </div>
 
         <div className="ai-input">
@@ -686,9 +687,29 @@
             }}
             rows={2}
           />
-          <button className="ai-input__send" onClick={() => handleSubmit()} disabled={!input.trim()}>
-            <I.Send size={16}/>
-          </button>
+          {/*
+             ★ 응답이 진행 중이면 보내기 대신 중단 버튼을 보여준다. 진행 중인 SSE 스트림을
+               취소하고(activeStreamRef.abort) 진행 표시를 정리한다. 전에는 중단 수단이
+               없어, 긴 응답이 돌면 사용자가 기다리거나 새로고침할 수밖에 없었다.
+          */}
+          {(thinking || streaming) ? (
+            <button
+              className="ai-input__send"
+              title={t('ai_stop')}
+              onClick={() => {
+                if (activeStreamRef.current && activeStreamRef.current.abort) activeStreamRef.current.abort();
+                activeStreamRef.current = null;
+                setThinking(null);
+                setStreaming(null);
+              }}
+            >
+              <I.Stop size={16}/>
+            </button>
+          ) : (
+            <button className="ai-input__send" onClick={() => handleSubmit()} disabled={!input.trim()}>
+              <I.Send size={16}/>
+            </button>
+          )}
         </div>
 
         <div className="ai-layers">
@@ -700,8 +721,10 @@
             { name: 'AI Draft', label: t('ai_layer_draft'), count: overlays.filter(o=>o.source==='ai-draft').length, color: 'var(--color-ai)', dashed: true },
             { name: 'AI Approved', label: t('ai_layer_approved'), count: overlays.filter(o=>o.source==='ai-approved').length, color: 'var(--color-signal-approved)' },
             { name: 'My Drawings', label: t('ai_layer_mine'), count: overlays.filter(o=>o.source==='user').length, color: 'var(--color-text-primary)' },
-            { name: 'Orders', label: t('ai_layer_orders'), count: 3, color: 'var(--color-order-pending)' },
-            { name: 'Positions', label: t('ai_layer_positions'), count: 3, color: 'var(--color-trade-long)' },
+            /* ★ 주문·포지션 개수는 실제 오버레이에서 센다. 전에는 3 으로 박혀 있었다 —
+                 주문이 없어도 "3" 이라고 말하는 가짜 값이었다(사용자가 있지도 않은 주문을 믿는다). */
+            { name: 'Orders', label: t('ai_layer_orders'), count: overlays.filter(o=>o.source==='order').length, color: 'var(--color-order-pending)' },
+            { name: 'Positions', label: t('ai_layer_positions'), count: overlays.filter(o=>String(o.source||'').indexOf('position')===0).length, color: 'var(--color-trade-long)' },
           ].map(l => (
             <div className="ai-layer" key={l.name}>
               <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined, borderTopColor: l.dashed ? l.color : undefined}}/>
