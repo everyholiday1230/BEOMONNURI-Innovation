@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { InMemoryRateLimiter, type RateLimiter } from '../security/rate-limiter';
 import { getCookie } from 'hono/cookie';
 import { createHash } from 'node:crypto';
-import { AuthService, verifyCsrf, originAllowed, normalizeRole } from '@quantumtrade/auth';
+import { AuthService, verifyCsrf, originAllowed, normalizeRole, type MailProvider } from '@quantumtrade/auth';
 import {
   hasAdminPermission, isAdminRole, type AdminPermission, ADMIN_PERMISSIONS,
   canAssignRole, canDisableAdmin, wouldRemoveLastSuperAdmin,
@@ -99,6 +99,11 @@ export interface AdminRouterDeps {
    *   화면을 다시 열 때까지 기다리게 된다 — 문의한 사람은 답을 기다린다.
    */
   notifications?: import('../db/notification-repo').INotificationRepo;
+  /*
+     메일 발송기. 운영자가 특정 사용자에게 직접 이메일을 보낼 때 쓴다.
+     없으면(싱크/미설정) 이메일 라우트가 발송 불가를 알린다 — 조용히 성공시키지 않는다.
+  */
+  mail?: MailProvider;
   service: AuthService;
   repo: IAdminRepo;
   csrfKey: string;
@@ -629,6 +634,55 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     });
 
     return c.json({ ok: true, sent: true, note: 'a reset link was emailed to the user; the token is not visible to admins' });
+  });
+
+  /*
+     사용자에게 직접 이메일 보내기.
+
+     ★ 운영자가 특정 고객에게 안내 메일을 보낸다(예: 계정 관련 공지). 임의 제목·본문.
+     ★★ 메일이 설정돼 있지 않으면 보내지 않고 사실을 알린다 — 성공한 척하지 않는다.
+     ★ 감사 로그에 제목을 남긴다(본문 전체는 남기지 않는다 — 길고 개인정보일 수 있다).
+  */
+  app.post('/admin/users/:id/email', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const subject = String(body.subject ?? '').trim();
+    const message = String(body.body ?? '').trim();
+    if (!subject || subject.length > 200) return c.json(err('VALIDATION_FAILED', 'subject required (max 200)'), 422);
+    if (!message || message.length > 10_000) return c.json(err('VALIDATION_FAILED', 'body required (max 10000)'), 422);
+
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    if (!d.mail || !mailConfigured()) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.email_send',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'medium', ip: ip(c), reason: subject.slice(0, 120),
+        after: { refused: 'mail is not configured' },
+      });
+      return c.json(err('MAIL_NOT_CONFIGURED', 'email is not configured'), 200);
+    }
+
+    try {
+      await d.mail.send({ to: target.email, subject, text: message });
+    } catch (e) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.email_send',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'failure', riskLevel: 'medium', ip: ip(c), reason: subject.slice(0, 120),
+        after: { error: (e as Error).message.slice(0, 160) },
+      });
+      return c.json(err('SEND_FAILED', 'the email could not be sent'), 502);
+    }
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.email_send',
+      resource: 'user', resourceId: target.id, targetUserId: target.id,
+      result: 'success', riskLevel: 'medium', ip: ip(c), reason: subject.slice(0, 120),
+    });
+    return c.json({ ok: true, sent: true });
   });
 
   /*

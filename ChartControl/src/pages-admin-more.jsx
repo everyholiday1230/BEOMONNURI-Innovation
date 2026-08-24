@@ -302,6 +302,8 @@
     */
     const [notes, setNotes] = React.useState({ state: 'idle', rows: [] });
     const [noteDraft, setNoteDraft] = React.useState('');
+    /* 사용자에게 이메일 보내기 모달. null=닫힘. */
+    const [emailModal, setEmailModal] = React.useState(null);
 
     const loadNotes = React.useCallback(() => {
       const api = window.QTApi && window.QTApi.admin;
@@ -476,7 +478,59 @@
     const stats = detail.stats || {};
     const joined = u.created_at ? new Date(Number(u.created_at)).toLocaleDateString() : '—';
 
+    const sendEmail = () => {
+      if (!emailModal) return;
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.emailUser) return;
+      const subject = (emailModal.subject || '').trim();
+      const bodyText = (emailModal.body || '').trim();
+      if (!subject || !bodyText) { setEmailModal((m) => ({ ...m, msg: { ok:false, text: t('adm_email_need_fields') } })); return; }
+      setEmailModal((m) => ({ ...m, busy: true, msg: null }));
+      api.emailUser(u.id, subject, bodyText)
+        .then((r) => {
+          if (r && (r.ok === false || r.error)) {
+            const code = r.error && r.error.code;
+            setEmailModal((m) => ({ ...m, busy:false, msg: { ok:false, text: code === 'MAIL_NOT_CONFIGURED' ? t('adm_email_not_configured') : t('adm_email_failed') } }));
+            return;
+          }
+          setEmailModal((m) => ({ ...m, busy:false, msg: { ok:true, text: t('adm_email_sent') } }));
+        })
+        .catch((err) => setEmailModal((m) => ({ ...m, busy:false, msg: { ok:false, text: (err && err.message) || t('adm_email_failed') } })));
+    };
+
     return (
+      <>
+      {emailModal && (
+        <div className="overlay" onClick={() => setEmailModal(null)}>
+          <div className="modal" style={{width: 460}} onClick={e => e.stopPropagation()}>
+            <div className="modal__header">
+              <div className="modal__title">{t('adm_email_title')} · {u.email}</div>
+              <button className="btn btn--icon" onClick={() => setEmailModal(null)} aria-label={t('close')}>{I.X ? <I.X size={14}/> : 'X'}</button>
+            </div>
+            <div className="modal__body" style={{display:'flex', flexDirection:'column', gap:10}}>
+              <div className="input-group">
+                <span className="input-group__label">{t('adm_email_subject')}</span>
+                <input type="text" maxLength={200} value={emailModal.subject} onChange={e => setEmailModal((m) => ({ ...m, subject: e.target.value }))}/>
+              </div>
+              <textarea
+                value={emailModal.body}
+                maxLength={10000}
+                onChange={e => setEmailModal((m) => ({ ...m, body: e.target.value }))}
+                placeholder={t('adm_email_body_ph')}
+                style={{width:'100%', minHeight:140, padding:10, background:'var(--color-bg-input)', border:'1px solid var(--color-border-default)', borderRadius:6, color:'var(--color-text-primary)', fontSize:12.5, resize:'vertical', outline:'none', lineHeight:1.7}}
+              />
+              {emailModal.msg && (
+                <div className={`auth-alert ${emailModal.msg.ok ? 'auth-alert--success' : 'auth-alert--danger'}`} style={{fontSize:12}}>
+                  <div>{emailModal.msg.text}</div>
+                </div>
+              )}
+              <button className="btn btn--sm btn--primary" style={{alignSelf:'flex-end'}} disabled={emailModal.busy || !emailModal.subject.trim() || !emailModal.body.trim()} onClick={sendEmail}>
+                <I.Send size={12}/> {emailModal.busy ? '…' : t('adm_email_send')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <window.PageShell
         {...shellProps}
         /* ★ 이름은 서버가 주지 않는다. 이메일이 식별자다 — 없는 이름을 만들지 않는다. */
@@ -513,15 +567,13 @@
         }
         actions={
           <>
-            {/* 이메일 보내기·내보내기는 서버 API 가 없다. 눌러도 되는 것처럼 두지 않는다. */}
-            <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
-              <I.Send size={13}/> {t('admin_user_detail_96330a')}
-              <span className="qt-pending-mark">{t('sec_pending')}</span>
-            </button>
-            <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
-              <I.Camera size={13}/> {t('col_export')}
-              <span className="qt-pending-mark">{t('sec_pending')}</span>
-            </button>
+            {/* ★ 사용자에게 직접 이메일 보내기 — 실제 구현(감사 로그 남음). */}
+            {canStatus && (
+              <button className="btn btn--sm" type="button" onClick={() => setEmailModal({ subject:'', body:'', busy:false, msg:null })}>
+                <I.Send size={13}/> {t('admin_user_detail_96330a')}
+              </button>
+            )}
+            {/* 사용자 목록 CSV 내보내기는 목록 화면(/admin/users)에 있다 — 여기 중복 버튼은 없앤다. */}
             {/* 세션 종료 — 서버 API 가 있는데 화면에 없었다. */}
             {canStatus && (
               <button className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
@@ -1097,6 +1149,7 @@
           </div>
         )}
       </window.PageShell>
+      </>
     );
   };
 

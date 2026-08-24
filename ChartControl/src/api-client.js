@@ -1928,6 +1928,13 @@
       });
     },
 
+    /** 사용자에게 직접 이메일 발송(제목·본문). 감사 로그에 남는다. */
+    emailUser: function (id, subject, body) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/email', {
+        subject: subject || '', body: body || '',
+      });
+    },
+
     /**
      * 회원 삭제 (법정 보관분은 분리 보관).
      *

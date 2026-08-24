@@ -1339,6 +1339,8 @@ if (env.authEnabled) {
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
         cookieName: env.cookieName, health, ratePerMin: env.adminRateLimitPerMin, rateLimiter,
+        // 운영자가 특정 사용자에게 직접 이메일을 보낼 때 쓴다(관리자 사용자 상세).
+        mail: mailProvider,
         // ADM-API-08: only the LOCAL MOCK gateway is ever controllable, and only when this deployment is
         // actually running in MOCK trading mode. Any other mode reports DISABLED_BY_POLICY rather than
         // mutating state and calling it a reconnect. Decided here, at mount time, from the environment.
