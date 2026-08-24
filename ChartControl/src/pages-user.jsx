@@ -2387,7 +2387,7 @@
                           href={window.QTApi.getReferralUrl(ex.id)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn btn--sm"
+                          className="btn btn--sm btn--primary"
                           style={{flex: isConnected ? 1 : 1.4}}
                         >
                           <I.User size={11}/> {t('wallet_ecb4cc')}
@@ -2399,7 +2399,7 @@
                         </button>
                       ) : (
                         <button
-                          className="btn btn--sm btn--primary"
+                          className="btn btn--sm"
                           style={{flex:1}}
                           disabled={ex.status === 'coming-soon' || notReady}
                           title={notReady ? t('ex_not_partnered_hint') : undefined}
