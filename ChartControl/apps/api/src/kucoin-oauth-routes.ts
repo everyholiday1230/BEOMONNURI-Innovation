@@ -310,15 +310,27 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
       });
       const keyBody = (await keyRes.json().catch(() => null)) as {
         success?: boolean;
+        code?: string | number;
+        msg?: string;
         data?: { apiKey?: string; secret?: string; passphrase?: string; apiName?: string };
       } | null;
 
       const k = keyBody?.data;
       if (!keyRes.ok || keyBody?.success !== true || !k?.apiKey || !k?.secret || !k?.passphrase) {
         /*
-           문서가 밝힌 실패 사유는 두 가지다: 같은 apiName 중복, 키 개수 상한 초과.
-           어느 쪽인지 응답으로 구분되지 않으므로 한 가지로 알린다 — 화면이
-           "KuCoin 에서 키를 만들지 못했다" 는 사실과 대처를 안내한다.
+           ★★ KuCoin 의 실제 실패 사유를 로그에 남긴다(키 자료는 남기지 않는다).
+             전에는 무조건 '키 개수 상한' 으로 안내했는데, 실제 원인이 권한·중복·
+             그 외일 수 있어 운영자가 원인을 알 수 없었다. 코드·메시지·HTTP 상태를
+             남겨 로그에서 진짜 이유를 확인할 수 있게 한다.
+        */
+         
+        console.warn(
+          `[kucoin-oauth] key-add 실패 user=${a.user.id} http=${keyRes.status} ` +
+            `code=${keyBody?.code ?? '?'} msg=${(keyBody?.msg ?? '').slice(0, 160)}`,
+        );
+        /*
+           문서가 밝힌 실패 사유(중복 apiName·키 개수 상한) 외의 경우도 있으므로,
+           화면에는 일반 안내(key_issue_failed)를 주되 서버 로그로 실제 원인을 본다.
         */
         return back('key_issue_failed');
       }

@@ -181,6 +181,8 @@
       adm_email_failed: 'The email could not be sent.',
       adm_email_not_configured: 'Email is not configured on this deployment, so nothing was sent.',
       adm_email_need_fields: 'Enter both a subject and a message.',
+      wal_balances_connect_first: 'Connect an exchange key to see your balances. We show your real balances from the exchange — nothing is shown until then.',
+      wal_balances_empty: 'No balances found on your connected exchange account.',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
@@ -1146,7 +1148,7 @@
       fast_api_invalid_state: 'That authorisation link is no longer valid. Start again — links expire after 10 minutes and can only be used once.',
       fast_api_session_mismatch: 'That authorisation was started in a different browser or session. Start again in this one.',
       fast_api_token_failed: 'KuCoin did not accept the authorisation. Nothing was connected. Please try again.',
-      fast_api_key_failed: 'KuCoin could not create the key. This usually means you already have the maximum number of API keys — remove an unused one in KuCoin and try again.',
+      fast_api_key_failed: 'KuCoin declined to create the API key. Common causes: you already have the maximum number of API keys on KuCoin (remove an unused one), a previous attempt already created one, or the authorization did not grant trading permission. Check KuCoin → API Management, then try again.',
       fast_api_unreachable: 'Could not reach KuCoin. If a key was created there, check your KuCoin API list before retrying.',
       // --- 관리자: 2단계 인증 초기화 ---
       adm_reset_mfa_reason: 'Why are you clearing this user\u2019s two-factor authentication? (4-500 characters, recorded in the audit log)',

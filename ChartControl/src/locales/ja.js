@@ -436,6 +436,8 @@
       adm_email_failed: 'メールを送信できませんでした。',
       adm_email_not_configured: 'この環境ではメールが設定されていないため送信されませんでした。',
       adm_email_need_fields: '件名と本文の両方を入力してください。',
+      wal_balances_connect_first: '残高を表示するには取引所のキーを接続してください。取引所の実際の残高のみを表示します。',
+      wal_balances_empty: '接続した取引所口座に残高がありません。',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
@@ -1086,7 +1088,7 @@
       fast_api_invalid_state: 'その認証リンクは無効です。もう一度お試しください — リンクは10分で期限切れになり、一度しか使用できません。',
       fast_api_session_mismatch: '別のブラウザまたは別のセッションで開始された認証です。このブラウザでもう一度お試しください。',
       fast_api_token_failed: 'KuCoin が認証を受け付けませんでした。連携は行われていません。もう一度お試しください。',
-      fast_api_key_failed: 'KuCoin がキーを作成できませんでした。多くの場合、API キーの上限に達しています — KuCoin で使用していないキーを削除してから再度お試しください。',
+      fast_api_key_failed: 'KuCoin が API キーの作成を拒否しました。よくある原因: KuCoin の API キーが上限に達している（未使用のものを削除）、前回の試行で既に作成済み、または認可時に取引権限が付与されなかった。KuCoin の「API 管理」を確認してから再試行してください。',
       fast_api_unreachable: 'KuCoin に接続できませんでした。キーが作成された可能性があるため、再試行の前に KuCoin の API 一覧をご確認ください。',
       // --- 관리자: 2단계 인증 초기화 ---
       adm_reset_mfa_reason: 'この会員の二要素認証を初期化する理由を入力してください。（4〜500文字、監査ログに記録されます）',

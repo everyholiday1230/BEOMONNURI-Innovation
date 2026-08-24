@@ -438,6 +438,8 @@
       adm_email_failed: '邮件发送失败。',
       adm_email_not_configured: '当前环境未配置邮件，未发送。',
       adm_email_need_fields: '请填写主题和内容。',
+      wal_balances_connect_first: '连接交易所密钥后即可查看余额。我们只显示来自交易所的真实余额。',
+      wal_balances_empty: '在你已连接的交易所账户中未找到余额。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',
@@ -1101,7 +1103,7 @@
       fast_api_invalid_state: '该授权链接已失效。请重新开始 — 链接 10 分钟后过期，且只能使用一次。',
       fast_api_session_mismatch: '该授权是在另一个浏览器或会话中开始的。请在当前浏览器重新开始。',
       fast_api_token_failed: 'KuCoin 未接受该授权。没有连接任何账号，请重试。',
-      fast_api_key_failed: 'KuCoin 无法创建密钥。通常是因为你的 API 密钥数量已达上限 — 请在 KuCoin 删除一个不用的，然后重试。',
+      fast_api_key_failed: 'KuCoin 拒绝创建 API 密钥。常见原因：你在 KuCoin 的 API 密钥已达上限（请删除未使用的）、上一次尝试已创建、或授权时未授予交易权限。请在 KuCoin →API 管理中检查后重试。',
       fast_api_unreachable: '无法连接到 KuCoin。如果那边已经创建了密钥，请先查看 KuCoin 的 API 列表再重试。',
 
       mk_trend_pending: '走势需要真实的 K 线数据。正在加载 — 如果取不到，这里会保持空白。',

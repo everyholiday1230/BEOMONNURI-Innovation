@@ -2429,17 +2429,48 @@
               : t('wal_connected_count', { count: connectedIds.length })}
             noPadding
           >
-            <window.DataTable
-              columns={[
-                { key: 'asset', label: t('asset'), render: r => <strong>{r.assetKey ? t(r.assetKey) : r.asset}</strong> },
-                { key: 'value', label: t('col_value'), align:'right', render: r => '$' + fmt(r.value) },
-                { key: 'pct',   label: t('pf_allocation'), align:'right', render: r => r.pct.toFixed(1) + '%' },
-                { key: 'chg',   label: '24h', align:'right', render: r => <span className={r.chg24h >= 0 ? 't-long' : 't-short'}>{r.chg24h >= 0 ? '+' : ''}{r.chg24h.toFixed(2)}%</span> },
-                { key: 'ex',    label: t('col_held_on'), render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>Binance · Bitget</span> },
-                { key: 'act',   label: '', align:'right', render: () => <><button className="tbl-action">{t('help_submit')}</button> <button className="tbl-action">{t('withdraw_5f9394')}</button></> },
-              ]}
-              rows={window.QTApp.ALLOCATION}
-            />
+            {(() => {
+              /*
+                 ★★ 실잔고만 보여준다. 전에는 window.QTApp.ALLOCATION(목업 배분)을
+                   게이트 없이 그대로 렌더해서, 키를 하나도 연결하지 않은 이용자에게
+                   가짜 잔고(0.185 BTC 등)와 가짜 보유처(Binance · Bitget)가 보였다.
+                 ★ 실서비스에서는 연결된 키의 실제 잔고를 쓰고, 없으면 '연결하세요'
+                   빈 상태를 보여준다(목업으로 채우지 않는다). 미리보기(백엔드 없음)
+                   에서만 디자이너 확인용 목업을 쓴다.
+              */
+              const realAlloc = (window.QTAccount && window.QTAccount.getAllocation)
+                ? (window.QTAccount.getAllocation() || [])
+                : [];
+              const allowMock = window.QTMockPolicy && window.QTMockPolicy.allowMockData
+                ? window.QTMockPolicy.allowMockData() : false;
+              const rows = (Array.isArray(realAlloc) && realAlloc.length > 0)
+                ? realAlloc
+                : (allowMock ? window.QTApp.ALLOCATION : []);
+
+              if (!rows || rows.length === 0) {
+                return (
+                  <div style={{padding:'22px 18px', textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)', lineHeight:1.7}}>
+                    {connectedIds.length === 0 ? t('wal_balances_connect_first') : t('wal_balances_empty')}
+                  </div>
+                );
+              }
+              return (
+                <window.DataTable
+                  columns={[
+                    { key: 'asset', label: t('asset'), render: r => <strong>{r.assetKey ? t(r.assetKey) : r.asset}</strong> },
+                    { key: 'value', label: t('col_value'), align:'right', render: r => '$' + fmt(r.value) },
+                    { key: 'pct',   label: t('pf_allocation'), align:'right', render: r => (Number.isFinite(r.pct) ? r.pct.toFixed(1) : '0.0') + '%' },
+                    /* ★ 24h 변화는 잔고 조회에 없다(undefined). 없으면 '—' — 0.00% 로 지어내지 않는다. */
+                    { key: 'chg',   label: '24h', align:'right', render: r => (Number.isFinite(r.chg24h)
+                        ? <span className={r.chg24h >= 0 ? 't-long' : 't-short'}>{r.chg24h >= 0 ? '+' : ''}{r.chg24h.toFixed(2)}%</span>
+                        : <span style={{color:'var(--color-text-tertiary)'}}>—</span>) },
+                    /* ★ 보유처는 거래소가 하나이므로 연결된 거래소를 보여준다(하드코딩 Binance·Bitget 제거). */
+                    { key: 'ex',    label: t('col_held_on'), render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>{connectedIds.length > 0 ? connectedIds.map((x) => x.toUpperCase()).join(' · ') : '—'}</span> },
+                  ]}
+                  rows={rows}
+                />
+              );
+            })()}
           </window.SectionCard>
         )}
 
