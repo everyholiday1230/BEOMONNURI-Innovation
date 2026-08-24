@@ -340,8 +340,15 @@
       setThinking({ steps: [], currentIdx: 0, msg: t('ai_thinking') });
       let acc = '';
       const lang = (window.QTI18n && window.QTI18n.getLocale && String(window.QTI18n.getLocale()).indexOf('ko') === 0) ? 'ko' : 'en';
+      /*
+         심볼을 백엔드 표기로 맞춘다. 화면 context.symbol 은 'BTC/USDT'(슬래시 포함)인데
+         서버의 시세 조회(getTicker)·정규 스키마는 'BTCUSDT' 를 쓴다. 슬래시를 남기면
+         근거 시세를 못 찾아 서버가 가격 제안을 거부한다(=기능이 안 켜진 것처럼 보인다).
+         타임프레임은 이미 소문자('15m' 등)라 그대로 보낸다.
+      */
+      const wireSymbol = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       const stream = api.aiCopilotStream(
-        { conversationId, message: text, symbol: context.symbol, timeframe: context.tf, mode: 'copilot', language: lang },
+        { conversationId, message: text, symbol: wireSymbol, timeframe: context.tf, mode: 'copilot', language: lang },
         {
           onEvent: (ev) => {
             if (!ev || !ev.type) return;
