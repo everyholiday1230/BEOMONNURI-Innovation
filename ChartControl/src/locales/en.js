@@ -221,6 +221,7 @@
       sv_saving: 'Saving…',
       ai_save_proposal: 'Save · {n}pt',
       sv_need_points: 'Not enough points',
+      ai_saved_view: 'Saved',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

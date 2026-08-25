@@ -363,6 +363,23 @@
       setSavingId(null);
     }, [context.symbol, context.tf, t]);
 
+    // CCAI Copilot 안에서 저장된 항목(신호/지표/드로잉)을 본다.
+    const [savedOpen, setSavedOpen] = useState(false);
+    const [savedItems, setSavedItems] = useState(null);
+    const loadSaved = useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedList) { setSavedItems([]); return; }
+      api.savedList().then((r) => setSavedItems((r && r.items) || [])).catch(() => setSavedItems([]));
+    }, []);
+    const toggleSaved = useCallback(() => {
+      setSavedOpen((o) => { const n = !o; if (n) loadSaved(); return n; });
+    }, [loadSaved]);
+    const deleteSavedItem = useCallback((id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedDelete) return;
+      api.savedDelete(id).then(() => loadSaved()).catch(() => { /* noop */ });
+    }, [loadSaved]);
+
     /*
        AI 분석 사용 가능 여부.
 
@@ -673,6 +690,9 @@
         <div className="ai-context">
           <span className="ai-ctx-chip">{t('fld_symbol')} · <strong>{context.symbol}</strong></span>
           <span className="ai-ctx-chip">TF · <strong>{context.tf}</strong></span>
+          <span className="ai-ctx-chip" role="button" tabIndex={0} style={{cursor:'pointer'}} onClick={toggleSaved} title={t('sv_section_title')}>
+            <I.Save size={10}/> {t('ai_saved_view')}{Array.isArray(savedItems) ? ' · ' + savedItems.length : ''}
+          </span>
           <span className="ai-ctx-chip">{t('ai_ctx_last')} · <strong>{fmt(context.price, 1)}</strong></span>
           {/*
              ★ 지표 목록을 코드에 박지 않는다.
@@ -688,6 +708,22 @@
           <span className="ai-ctx-chip">{t('ai_ctx_range')} · <strong>{t('ai_ctx_bars', { n: context.candles.length })}</strong></span>
           <span className="ai-ctx-chip" style={{color:'var(--color-warning)'}}>{t('ai_not_advice')}</span>
         </div>
+
+        {savedOpen && (
+          <div style={{margin:'0 0 6px', border:'1px solid var(--color-border-subtle)', borderRadius:6, background:'var(--color-bg-surface)', maxHeight:180, overflowY:'auto'}}>
+            {savedItems === null ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>…</div>
+            ) : savedItems.length === 0 ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('sv_empty')}</div>
+            ) : savedItems.map((it) => (
+              <div key={it.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
+                <span style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'var(--color-bg-elevated)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
+                <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
+                <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="ai-messages" ref={scrollRef}>
           {msgs.map(m => (

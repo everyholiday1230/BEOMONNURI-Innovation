@@ -478,6 +478,7 @@
       sv_saving: '保存中…',
       ai_save_proposal: '保存 · {n}积分',
       sv_need_points: '积分不足',
+      ai_saved_view: '已保存',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

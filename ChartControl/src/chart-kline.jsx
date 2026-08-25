@@ -747,11 +747,6 @@
     const overlayIdsRef = useRef(new Map());
     const maPaneRef = useRef(null);
     const volPaneRef = useRef(null);
-    // 차트 init 이펙트는 최초 1회만 돌아 symbol/timeframe 을 한 번만 캡처한다.
-    // 과거 로딩에서 현재 값을 써야 하므로 ref 로 최신 값을 들고 간다.
-    const symbolRef = useRef(symbol); symbolRef.current = symbol;
-    const tfRef = useRef(timeframe); tfRef.current = timeframe;
-    const loadingOlderRef = useRef(false);
 
     const [colors, setColors] = useState(readColors);
     const [hoverCandle, setHoverCandle] = useState(null);
@@ -792,43 +787,12 @@
 
       // 데이터는 dataRef 에서 공급한다. KLineChart 가 forward/backward 를 요청하면
       // 우리가 가진 범위 밖이므로 빈 배열 + more:false 로 응답해 무한 요청을 막는다.
-      // 데이터 로더. init 은 우리가 가진 캔들을 주고, backward(과거로 스크롤)는
-      // 서버에서 더 오래된 캔들을 받아 앞에 붙인다. forward(미래)는 없음.
+      // 데이터는 dataRef 에서 공급한다. (히스토리 스크롤 로딩은 차트 리사이즈
+      // 회귀를 유발해 임시로 비활성화 — 안정화 후 재도입 예정.)
       chart.setDataLoader({
         getBars: ({ type, callback }) => {
-          if (type === 'init') {
-            // backward:true 로 알려야 KLineChart 가 왼쪽 끝에서 과거를 더 요청한다.
-            callback(dataRef.current.slice(), { forward: false, backward: dataRef.current.length > 0 });
-            return;
-          }
-          if (type === 'forward') { callback([], { forward: false, backward: dataRef.current.length > 0 }); return; }
-          // backward: 더 오래된 캔들 로딩
-          const earliest = dataRef.current.length ? dataRef.current[0].timestamp : null;
-          if (!earliest || loadingOlderRef.current || !window.QTLive || !window.QTLive.loadOlderCandles) {
-            callback([], { forward: false, backward: false });
-            return;
-          }
-          loadingOlderRef.current = true;
-          const reqSymbol = symbolRef.current, reqTf = tfRef.current;
-          window.QTLive.loadOlderCandles(reqSymbol, reqTf, earliest, 300)
-            .then((older) => {
-              loadingOlderRef.current = false;
-              // 로딩 중 심볼/주기가 바뀌었으면 이 결과는 버린다(다른 심볼에 섞이면 안 됨).
-              if (symbolRef.current !== reqSymbol || tfRef.current !== reqTf) { callback([], { forward: false, backward: false }); return; }
-              const bars = (older || [])
-                .map((c) => ({
-                  timestamp: Number(c.time),
-                  open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
-                  volume: Number(c.volume) || 0,
-                }))
-                .filter((b) => Number.isFinite(b.timestamp) && b.timestamp > 0 && b.timestamp < earliest && Number.isFinite(b.close))
-                .sort((a, b) => a.timestamp - b.timestamp);
-              if (bars.length === 0) { callback([], { forward: false, backward: false }); return; }
-              dataRef.current = bars.concat(dataRef.current);
-              // 50개 미만이면 더 과거가 거의 없다고 보고 추가 요청을 멈춘다.
-              callback(bars, { forward: false, backward: bars.length >= 50 });
-            })
-            .catch(() => { loadingOlderRef.current = false; callback([], { forward: false, backward: false }); });
+          if (type === 'init') callback(dataRef.current.slice(), { forward: false, backward: false });
+          else callback([], { forward: false, backward: false });
         },
       });
 

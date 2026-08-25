@@ -476,6 +476,7 @@
       sv_saving: '保存中…',
       ai_save_proposal: '保存 · {n}pt',
       sv_need_points: 'ポイントが不足しています',
+      ai_saved_view: '保存済み',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
