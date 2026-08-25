@@ -200,6 +200,63 @@
     // 대화 id(첫 요청에 생성) + 진행 중 스트림 핸들(중단용).
     const convRef = useRef(null);
     const activeStreamRef = useRef(null);
+    const CONV_KEY = 'qt.ai.convId';
+
+    /*
+       새로고침 후 대화 복원.
+
+       대화 id 를 localStorage 에 저장해 두고, 마운트 시 서버에서 이전 메시지를
+       불러와 이어 붙인다. id 가 이 사용자 것이 아니면(다른 로그인) 서버가 404 →
+       저장을 지우고 새로 시작한다. AI 가 준비된 뒤에만 시도한다.
+    */
+    const restoredRef = useRef(false);
+    useEffect(() => {
+      if (restoredRef.current || !aiReady) return;
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiConversationMessages) return;
+      let saved = null;
+      try { saved = localStorage.getItem(CONV_KEY); } catch (e) { /* 접근 불가 */ }
+      restoredRef.current = true;
+      if (!saved) return undefined;
+      let cancelled = false;
+      api.aiConversationMessages(saved)
+        .then((rows) => {
+          if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
+          convRef.current = saved;
+          greetedRef.current = true; // 복원 시 인사말은 생략한다(이미 대화가 있으므로)
+          setMsgs([
+            makeMsg('system', ctxText(), { icon: 'ok' }),
+            ...rows.map((r) => makeMsg(r.role === 'assistant' ? 'ai' : (r.role === 'user' ? 'user' : 'system'), r.content || '')),
+          ]);
+        })
+        .catch(() => {
+          // 내 대화가 아니거나 사라짐 — 저장을 지우고 새 대화로 시작한다.
+          try { localStorage.removeItem(CONV_KEY); } catch (e) { /* noop */ }
+          convRef.current = null;
+        });
+      return () => { cancelled = true; };
+    }, [aiReady]);
+
+    /*
+       심볼이 바뀌면 대화를 새로 시작한다.
+
+       BTC 를 보다가 ETH 로 바꾸면, 이전 심볼 기준으로 나눈 대화·그린 오버레이가
+       뒤섞여 오해를 준다. 진행 중 스트림을 끊고, 대화 id 를 비우고(localStorage 도),
+       컨텍스트 안내만 남긴 새 대화로 전환한다. 첫 마운트에서는 리셋하지 않는다.
+    */
+    const prevSymbolRef = useRef(context.symbol);
+    useEffect(() => {
+      if (prevSymbolRef.current === context.symbol) return;
+      prevSymbolRef.current = context.symbol;
+      if (activeStreamRef.current && activeStreamRef.current.abort) activeStreamRef.current.abort();
+      activeStreamRef.current = null;
+      convRef.current = null;
+      try { localStorage.removeItem(CONV_KEY); } catch (e) { /* noop */ }
+      setThinking(null);
+      setStreaming(null);
+      setMsgs([makeMsg('system', ctxText(), { icon: 'ok' })]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [context.symbol]);
 
     /* 숫자 변환 헬퍼 — 가격은 서버에서 DecimalString(문자열)로 온다. */
     const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -330,7 +387,11 @@
       */
       let conversationId = convRef.current;
       try {
-        if (!conversationId) { conversationId = await api.aiCreateConversation('Copilot'); convRef.current = conversationId; }
+        if (!conversationId) {
+          conversationId = await api.aiCreateConversation('Copilot');
+          convRef.current = conversationId;
+          try { localStorage.setItem(CONV_KEY, conversationId); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
+        }
       } catch (e) {
         setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]);
         return;

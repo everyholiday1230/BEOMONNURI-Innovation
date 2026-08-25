@@ -440,10 +440,11 @@ describe('ADM-API-15 GET /admin/backup/status', () => {
     expect(b.pragmas.journalMode).toBeTruthy();
     expect(typeof b.pragmas.walEnabled).toBe('boolean');
     expect(Number(b.pragmas.pageSize)).toBeGreaterThan(0);
-    // The last applied migration is a real row, and 0009 is part of this schema.
-    // Updated with migration 0010 (Phase 8 trade journal). This assertion is deliberately exact: it is
-    // how the backup-status endpoint proves it reports the schema actually applied, not a hardcoded string.
-    expect(b.migrations.last?.version).toBe('0011_phase8_strategies');
+    // The last applied migration is a real row. Updated with migration 0012 (AI user_id FK fix — the
+    // SQLite AI tables must not FK to a users table that lives in Postgres on production). This assertion
+    // is deliberately exact: it is how the backup-status endpoint proves it reports the schema actually
+    // applied, not a hardcoded string.
+    expect(b.migrations.last?.version).toBe('0012_ai_userfk_fix');
     expect(b.migrations.appliedCount).toBeGreaterThanOrEqual(9);
     // NOTHING unknowable is reported as a success: every backup field is null and named as unavailable.
     for (const [k, v] of Object.entries(b.backup)) {

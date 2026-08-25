@@ -622,6 +622,15 @@
     },
 
     /**
+     * 대화의 이전 메시지 목록. 새로고침 후 대화 복원에 쓴다.
+     * 소유자가 아니면 서버가 404 → reject 되므로, 호출부가 localStorage 를 정리한다.
+     */
+    aiConversationMessages: function (id) {
+      return getJSON('', '/api/ai/conversations/' + encodeURIComponent(id) + '/messages')
+        .then(function (r) { return (r && r.messages) || []; });
+    },
+
+    /**
      * 코파일럿 SSE 스트림.
      *
      * fetch + ReadableStream 으로 서버발 이벤트를 읽는다(EventSource 는 POST 를
