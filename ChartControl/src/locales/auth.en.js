@@ -134,7 +134,7 @@
       landing_1ea899: 'View demo',
       landing_4c1fc3: 'One approval',
       landing_af3947: 'to execute.',
-      landing_5f6b64: 'Say "draw a trendline" or "entry scenario" and the AI adds chart overlays plus a signal card',
+      landing_5f6b64: 'Ask in plain language and the copilot reads the chart you are viewing — proposing support/resistance, trend lines, indicators and trade signals from live market data. Every draft is yours to review before it is applied.',
       landing_44cbb3: 'Freely drag and resize · 7 presets (Standard / Scalper / Multi / AI and more)',
       landing_40f668: 'AI approval ≠ order submission · 9-gate risk check · simulation stripe always visible',
       landing_69704c: 'Mood tags · performance by time of day · automatic pattern detection',
