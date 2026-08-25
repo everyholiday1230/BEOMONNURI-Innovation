@@ -205,6 +205,7 @@
       pt_topup_credited: 'Payment confirmed — {n} points added.',
       pt_topup_already: 'This order was already credited.',
       pt_topup_failed: 'Payment could not be completed.',
+      ai_points_charged: '−{n} pt · balance {bal}',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

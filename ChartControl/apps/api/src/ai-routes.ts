@@ -15,6 +15,8 @@ import {
   type CostConfig,
 } from '@quantumtrade/ai';
 import type { RateLimiter } from './security/rate-limiter';
+import type { PgPointsRepo } from './db/points-repo';
+import { computeRunPoints, AI_MIN_BALANCE } from './points/ai-metering';
 
 const CSRF = 'qt_csrf';
 const corr = () => Math.random().toString(36).slice(2, 10);
@@ -45,6 +47,12 @@ export interface AiRouterDeps {
   rateLimiter?: RateLimiter;
   /** AI requests allowed per minute, per authenticated user + route category. */
   aiRatePerMin?: number;
+  /**
+   * Points repo for usage-metered billing. When present AND the points programme is enabled, each AI
+   * run is charged (base + output overage) and a pre-run balance check gates the request. Absent →
+   * AI is free (no metering).
+   */
+  points?: PgPointsRepo;
   /**
    * Build a grounded, server-verified market snapshot for the prompt (decimal strings + timestamps).
    * Returns null when no real price is available — the orchestrator then refuses price-bearing
@@ -140,6 +148,22 @@ export function createAiRouter(d: AiRouterDeps): Hono {
     const owned = await d.conversations.getOwned(a.user.id, body.conversationId);
     if (!owned) return c.json(errBody('NOT_FOUND', 'conversation not found'), 404);
 
+    /*
+       사용량 기반 포인트 차감(하이브리드). 포인트 제도가 켜져 있을 때만 과금한다.
+       실행 전 최소 잔액(기본 1회분)을 확인해 잔액이 없는 사용자가 무료로 돌리거나
+       음수가 되는 것을 막는다. 실제 차감은 실행 후 usage(출력 토큰)로 계산한다.
+    */
+    let meteringOn = false;
+    if (d.points) {
+      try { meteringOn = Boolean((await d.points.getSettings()).enabled); } catch { meteringOn = false; }
+      if (meteringOn) {
+        const balance = await d.points.balanceOf(a.user.id);
+        if (balance < AI_MIN_BALANCE) {
+          return c.json(errBody('INSUFFICIENT_POINTS', `need at least ${AI_MIN_BALANCE} points to run AI`), 402);
+        }
+      }
+    }
+
     const correlationId = corr();
     const orchestrator = new Orchestrator({
       provider: d.ai.provider,
@@ -183,7 +207,17 @@ export function createAiRouter(d: AiRouterDeps): Hono {
           marketType: grounded?.marketType,
         })) {
           if (ev.type === 'text') assistantText += ev.delta;
-          if (ev.type === 'usage') await d.usage.record(a.user.id, { ...ev.usage, conversationId: body.conversationId!, correlationId });
+          if (ev.type === 'usage') {
+            await d.usage.record(a.user.id, { ...ev.usage, conversationId: body.conversationId!, correlationId });
+            // 사용량 기반 차감(멱등: 같은 실행 correlationId 는 한 번만). 실패해도 응답을 막지 않는다.
+            if (meteringOn && d.points) {
+              try {
+                const points = computeRunPoints(ev.usage.outputTokens);
+                const res = await d.points.spendMetered({ userId: a.user.id, amount: points, refType: 'ai_run', refId: correlationId, memo: `ai copilot · out ${ev.usage.outputTokens}tok` });
+                if (res) await stream.writeSSE({ event: 'points', data: JSON.stringify({ type: 'points', charged: res.deducted, balance: res.balanceAfter }) });
+              } catch { /* 차감 실패는 비치명 */ }
+            }
+          }
           await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
         }
         if (assistantText) await d.conversations.appendMessage(a.user.id, body.conversationId!, { role: 'assistant', content: assistantText });

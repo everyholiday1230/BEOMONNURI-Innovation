@@ -460,6 +460,7 @@
       pt_topup_credited: '決済確認 — {n} ポイントを追加しました。',
       pt_topup_already: 'この注文はすでに反映済みです。',
       pt_topup_failed: '決済を完了できませんでした。',
+      ai_points_charged: '−{n} pt · 残高 {bal}',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

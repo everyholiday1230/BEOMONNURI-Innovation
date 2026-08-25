@@ -351,9 +351,34 @@ export class PgPointsRepo {
     );
   }
 
+  /**
+   * 사용량 기반 차감(AI 실행 등). 실행 1건(refType/refId)당 한 번만 반영(멱등).
+   * 요청 금액이 잔액보다 크면 남은 잔액까지만 차감한다(음수 방지). 차감액과 잔액을 돌려준다.
+   * 이미 차감된 실행(중복 웹훅/재시도)은 null.
+   */
+  async spendMetered(input: { userId: string; amount: number; refType: string; refId: string; memo?: string | null }): Promise<{ deducted: number; balanceAfter: number } | null> {
+    const amount = int(input.amount);
+    if (amount <= 0) return null;
+    try {
+      return await this.withUserLock(input.userId, async (c) => {
+        const cur = await c.query<{ bal: string }>('SELECT COALESCE(SUM(delta), 0) AS bal FROM point_ledger WHERE user_id = $1', [input.userId]);
+        const bal = int(cur.rows[0]?.bal);
+        const spend = Math.min(amount, bal);
+        if (spend <= 0) return { deducted: 0, balanceAfter: bal };
+        const entry = await this.appendLocked(c, {
+          userId: input.userId, delta: -spend, reason: 'redeem',
+          refType: input.refType, refId: input.refId, memo: input.memo ?? null,
+        });
+        return { deducted: spend, balanceAfter: entry.balanceAfter };
+      });
+    } catch (e) {
+      if (isDuplicate(e)) return null; // 같은 실행에 대한 중복 차감 방지(uq_points_ref)
+      throw e;
+    }
+  }
+
   /** 내역. 최근 순. */
-  async history(userId: string, limit = 100): Promise<LedgerEntry[]> {
-    const r = await this.pool.query(
+  async history(userId: string, limit = 100): Promise<LedgerEntry[]> {    const r = await this.pool.query(
       // seq 는 삽입 순서를 보장한다. created_at 은 같은 값이 나올 수 있어 순서가 흔들린다.
       `SELECT ${L_COLS} FROM point_ledger WHERE user_id = $1 ORDER BY seq DESC LIMIT $2`,
       [userId, Math.min(Math.max(limit, 1), 500)],

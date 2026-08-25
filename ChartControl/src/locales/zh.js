@@ -462,6 +462,7 @@
       pt_topup_credited: '付款已确认——已添加 {n} 积分。',
       pt_topup_already: '该订单已入账。',
       pt_topup_failed: '支付未能完成。',
+      ai_points_charged: '−{n} 积分 · 余额 {bal}',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

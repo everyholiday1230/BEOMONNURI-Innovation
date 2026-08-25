@@ -430,6 +430,7 @@
             if (ev.type === 'text') { setThinking(null); acc += ev.delta || ''; setStreaming(acc); return; }
             if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note })]); return; }
             if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal') })]); return; }
+            if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
             if (ev.type === 'error') { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
           },
@@ -478,34 +479,11 @@
           busyRef.current = true;
 
           /*
-             AI 분석 이용권 소비.
-
-             ★ AI 실행은 우리에게 실제 비용이 든다(토큰). 그래서 포인트로
-               구매한 이용권을 차감한다. 이용권이 없으면 실행하지 않는다 —
-               실행해 버리면 비용은 우리가 내고 사용자는 무료로 쓴다.
-
-             ★ 제도가 꺼져 있으면 서버가 consumed:true 를 준다.
-               그때는 무료로 동작하는 것이 의도다(제도를 끄면 기능이 열린다).
-
-             ★ 소비에 실패(네트워크 등)하면 실행하지 않는다.
-               "소비 못 했으니 무료로 해주자" 는 잘못된 관대함이다 — 그 경로가
-               열려 있으면 네트워크를 끊어 무료로 쓸 수 있다.
+             과금은 서버(/ai/copilot)가 사용량 기반으로 처리한다. 실행 전 최소 잔액
+             확인 + 실행 후 출력 토큰만큼 차감(멱등). 잔액이 부족하면 서버가 402 를
+             주고 handleSubmit 의 스트림 onError 가 안내한다. 여기서 미리 차감하지
+             않는다 — 그러면 이중 과금이 된다.
           */
-          const api = window.QTApi && window.QTApi.rest;
-          if (api && api.consumeEntitlement) {
-            try {
-              const r = await api.consumeEntitlement('ai_10');
-              if (!r.consumed) {
-                busyRef.current = false;
-                setMsgs((m) => [...m, makeMsg('system', t('ai_need_credit'), { icon: 'warn' })]);
-                return false;
-              }
-            } catch (e) {
-              busyRef.current = false;
-              setMsgs((m) => [...m, makeMsg('system', t('ai_credit_check_failed'), { icon: 'warn' })]);
-              return false;
-            }
-          }
           /*
              자연어 요청으로 바꿔 기존 흐름을 그대로 탄다.
 

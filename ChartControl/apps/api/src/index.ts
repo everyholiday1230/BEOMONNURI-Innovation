@@ -2472,6 +2472,8 @@ if (env.authEnabled) {
           // production, fail-closed). Bounds AI request RATE, separate from the token/cost budget.
           rateLimiter,
           aiRatePerMin: env.aiRateLimitPerMin,
+          // 사용량 기반 포인트 차감(제도가 켜져 있을 때만). 없으면 AI 무료.
+          ...(pointsRepo ? { points: pointsRepo } : {}),
           /*
              Server-verified grounding for the copilot. Reuses the same fail-closed market-context
              builder as /api/ai/analyze: no real price → returns null → the orchestrator refuses
