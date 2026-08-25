@@ -45,6 +45,13 @@
   font-weight: 700;
   white-space: nowrap;
 }
+/* CCAI 로고 이미지 마크 — 인증 셸의 텍스트 배지를 대체한다(투명 PNG, 배지 높이 24px). */
+.auth-shell__brand-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
 .auth-shell__brand-ver {
   color: var(--color-text-tertiary);
   font-family: var(--font-mono);

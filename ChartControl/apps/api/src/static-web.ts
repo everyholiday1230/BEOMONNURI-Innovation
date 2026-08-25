@@ -46,7 +46,7 @@ export const STATIC_DIRS = ['src', 'vendor', 'design-library'] as const;
    ★ sitemap.xml 을 추가했다. robots.txt 가 사이트맵 주소를 알려주는데 그 파일이
      404 면 크롤러가 매번 헛걸음한다.
 */
-export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'robots.txt', 'sitemap.xml'] as const;
+export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'apple-touch-icon.png', 'robots.txt', 'sitemap.xml'] as const;
 
 /**
  * 확장자 → Content-Type.

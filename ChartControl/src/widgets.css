@@ -58,6 +58,14 @@
     linear-gradient(90deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%),
     radial-gradient(circle at 30% 30%, rgba(255,255,255,0.25), transparent 40%);
 }
+/* CCAI 로고 이미지 마크 — 기존 텍스트 배지(app-brand__mark)를 대체한다.
+   배지 높이(22px)에 맞추고 배경/보더 없이 그대로 얹는다(투명 PNG). */
+.app-brand__logo {
+  height: 22px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
 .app-brand__name { color: var(--color-text-primary); }
 .app-brand__ver {
   color: var(--color-text-tertiary);
