@@ -281,6 +281,18 @@
 .resize-handle--se { right: -3px; bottom: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
 .resize-handle--se::after { right: 3px; bottom: 3px; width: 6px; height: 6px; border-radius: 2px; }
 
+/* 왼쪽/위 가장자리 + 나머지 세 모서리 — 8방향 리사이즈(어느 변에서든 크기 조정). */
+.resize-handle--w { top: 8px; bottom: 8px; left: -3px; width: 6px; cursor: ew-resize; }
+.resize-handle--w::after { top: 30%; bottom: 30%; right: 2px; width: 2px; }
+.resize-handle--n { left: 8px; right: 8px; top: -3px; height: 6px; cursor: ns-resize; }
+.resize-handle--n::after { left: 30%; right: 30%; bottom: 2px; height: 2px; }
+.resize-handle--sw { left: -3px; bottom: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.resize-handle--sw::after { left: 3px; bottom: 3px; width: 6px; height: 6px; border-radius: 2px; }
+.resize-handle--ne { right: -3px; top: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.resize-handle--ne::after { right: 3px; top: 3px; width: 6px; height: 6px; border-radius: 2px; }
+.resize-handle--nw { left: -3px; top: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+.resize-handle--nw::after { left: 3px; top: 3px; width: 6px; height: 6px; border-radius: 2px; }
+
 .drag-badge {
   position: absolute;
   top: 8px; left: 50%;

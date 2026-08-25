@@ -351,14 +351,24 @@
         const dy = Math.round((e.clientY - resize.y0) / (resize.cellH + gap));
         const minW = widget.minW || 3;
         const minH = widget.minH || 3;
-        let nw = resize.ow, nh = resize.oh;
+        let nw = resize.ow, nh = resize.oh, nx = resize.ox, ny = resize.oy;
         if (resize.dir.includes('e')) {
           nw = Math.max(minW, Math.min(cols - resize.ox, resize.ow + dx));
         }
         if (resize.dir.includes('s')) {
           nh = Math.max(minH, resize.oh + dy);
         }
-        onChange({ w: nw, h: nh, _resizing: true });
+        if (resize.dir.includes('w')) {
+          // 왼쪽 모서리: x 를 옮기고 그만큼 폭을 키운다. 좌측 경계(0)와 최소폭으로 제한.
+          const cand = Math.max(0, Math.min(resize.ox + dx, resize.ox + resize.ow - minW));
+          nx = cand; nw = resize.ow + (resize.ox - cand);
+        }
+        if (resize.dir.includes('n')) {
+          // 위쪽 모서리: y 를 옮기고 그만큼 높이를 키운다.
+          const cand = Math.max(0, Math.min(resize.oy + dy, resize.oy + resize.oh - minH));
+          ny = cand; nh = resize.oh + (resize.oy - cand);
+        }
+        onChange({ x: nx, y: ny, w: nw, h: nh, _resizing: true });
       };
       const onUp = () => {
         onChange({ _resizing: false });
@@ -466,10 +476,16 @@
           </div>
         )}
 
-        {/* Also allow dragging by grabbing the panel header area */}
+        {/*
+           편집 모드에서는 위젯 어디를 잡아도 드래그된다. (전에는 상단 36px 띠만
+           잡혔다 — 차트처럼 내용이 꽉 찬 위젯은 잡을 곳이 거의 없어 "이동이
+           자유롭지 않다"는 문제가 있었다.) 리사이즈 핸들(z5)·컨트롤(z8)은 이 면
+           (z2) 위에 있어 그대로 동작한다.
+        */}
         {isEditing && !widget.locked && (
           <div
-            style={{position:'absolute', top:0, left:0, right:80, height: 36, zIndex: 4, cursor: drag ? 'grabbing' : 'grab'}}
+            className="widget-drag-surface"
+            style={{position:'absolute', inset:0, zIndex:2, cursor: drag ? 'grabbing' : 'grab'}}
             onMouseDown={onDragStart}
           />
         )}
@@ -478,7 +494,12 @@
           <>
             <div className="resize-handle resize-handle--e" onMouseDown={(e) => onResizeStart(e, 'e')}/>
             <div className="resize-handle resize-handle--s" onMouseDown={(e) => onResizeStart(e, 's')}/>
+            <div className="resize-handle resize-handle--w" onMouseDown={(e) => onResizeStart(e, 'w')}/>
+            <div className="resize-handle resize-handle--n" onMouseDown={(e) => onResizeStart(e, 'n')}/>
             <div className="resize-handle resize-handle--se" onMouseDown={(e) => onResizeStart(e, 'se')}/>
+            <div className="resize-handle resize-handle--sw" onMouseDown={(e) => onResizeStart(e, 'sw')}/>
+            <div className="resize-handle resize-handle--ne" onMouseDown={(e) => onResizeStart(e, 'ne')}/>
+            <div className="resize-handle resize-handle--nw" onMouseDown={(e) => onResizeStart(e, 'nw')}/>
           </>
         )}
       </div>
