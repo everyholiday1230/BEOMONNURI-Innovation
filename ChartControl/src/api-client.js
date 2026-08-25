@@ -695,6 +695,23 @@
       return sendJSON('POST', '/api/points/redeem', { itemId: itemId });
     },
 
+    // ---- 저장 항목(신호·지표·드로잉) — 저장 시 포인트 차감 ----
+    /** 저장 목록. kind: 'signal'|'indicator'|'drawing' (선택). */
+    savedList: function (kind) {
+      var q = kind ? ('?kind=' + encodeURIComponent(kind)) : '';
+      return getJSON('', '/api/me/saved' + q).then(
+        function (r) { return { ok: true, supported: Boolean(r && r.supported), items: (r && r.items) || [], saveCost: (r && r.saveCost) || 0 }; },
+        function (e) { return { ok: false, supported: false, items: [], saveCost: 0, status: e && e.status }; }
+      );
+    },
+    /** 저장(포인트 차감). {kind,name,symbol?,timeframe?,payload}. 잔액 부족은 402. */
+    savedCreate: function (input) {
+      return sendJSON('POST', '/api/me/saved', input);
+    },
+    savedDelete: function (id) {
+      return sendJSON('DELETE', '/api/me/saved/' + encodeURIComponent(id));
+    },
+
     // ---- 포인트 충전(결제): PayPal / USDT ----
 
     /** 사용 가능한 결제수단 + 포인트 패키지. supported.{paypal,usdt}=false 면 화면이 "준비중" 표시. */

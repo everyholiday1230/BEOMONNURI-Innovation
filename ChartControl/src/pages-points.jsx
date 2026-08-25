@@ -49,6 +49,7 @@
     const [topup, setTopup] = useState(null);        // { supported:{paypal,usdt}, packages, enabled }
     const [topupBusy, setTopupBusy] = useState(null); // 진행 중 패키지 id
     const [usdtInvoice, setUsdtInvoice] = useState(null); // { address, network, amount }
+    const [saved, setSaved] = useState(null);         // { supported, items, saveCost }
 
     const load = window.React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -59,6 +60,7 @@
         .then((r) => { setData(r); setErr(null); })
         .catch((e) => setErr((e && e.message) || 'load failed'));
       if (api.topupPackages) api.topupPackages().then((r) => setTopup(r)).catch(() => { /* 비치명 */ });
+      if (api.savedList) api.savedList().then((r) => setSaved(r)).catch(() => { /* 비치명 */ });
     }, []);
     useEffect(() => { load(); }, [load]);
 
@@ -143,6 +145,29 @@
         else setMsg({ ok: false, text: t('pt_topup_failed') });
       } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }); }
       setTopupBusy(null);
+    };
+
+    // 현재 차트에 켜둔 지표를 저장(포인트 차감). ChartKlineUtil 브리지에서 활성 지표를 읽는다.
+    const saveCurrentIndicators = async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedCreate) return;
+      const util = window.ChartKlineUtil;
+      const inds = util && util.listIndicators ? util.listIndicators() : [];
+      if (!inds || inds.length === 0) { setMsg({ ok: false, text: t('sv_no_indicators') }); return; }
+      setMsg(null);
+      try {
+        const r = await api.savedCreate({ kind: 'indicator', name: t('sv_indicator_preset_name', { n: inds.length }), payload: { indicators: inds } });
+        if (r && r.ok !== false) { setMsg({ ok: true, text: t('sv_saved_ok', { n: (r && r.charged) || 0 }) }); load(); }
+        else setMsg({ ok: false, text: (r && r.message) || t('sv_save_failed') });
+      } catch (e) {
+        const insuff = e && e.status === 402;
+        setMsg({ ok: false, text: insuff ? t('pt_not_enough', { unit }) : ((e && e.message) || t('sv_save_failed')) });
+      }
+    };
+    const deleteSaved = async (id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedDelete) return;
+      try { await api.savedDelete(id); load(); } catch (e) { /* noop */ }
     };
 
     return (
@@ -281,6 +306,28 @@
                       </div>
                     )}
                   </>
+                )}
+              </window.SectionCard>
+            )}
+
+            {/* 내 저장 항목 — 신호·지표 저장(포인트 차감) + 목록/삭제 */}
+            {saved && saved.supported && (
+              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub', { cost: saved.saveCost })}>
+                <div style={{marginBottom:10}}>
+                  <button className="btn btn--sm" onClick={saveCurrentIndicators}>{t('sv_save_current_indicators')}</button>
+                </div>
+                {saved.items.length === 0 ? (
+                  <div style={{padding:'10px 12px', fontSize:12.5, color:'var(--color-text-secondary)'}}>{t('sv_empty')}</div>
+                ) : (
+                  <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                    {saved.items.map((it) => (
+                      <div key={it.id} style={{display:'flex', alignItems:'center', gap:10, padding:'8px 10px', border:'1px solid var(--color-border-subtle)', borderRadius:6}}>
+                        <span style={{fontSize:10.5, fontWeight:700, padding:'2px 6px', borderRadius:4, background:'var(--color-bg-surface)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
+                        <span style={{flex:1, fontSize:12.5}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
+                        <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSaved(it.id)}><I.Trash size={12}/></button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </window.SectionCard>
             )}

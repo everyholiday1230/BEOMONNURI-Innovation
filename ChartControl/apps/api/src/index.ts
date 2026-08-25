@@ -38,7 +38,9 @@ import { PgPointsRepo } from './db/points-repo';
 import { createPointsRouter } from './points/points-routes';
 import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
-import { resolvePaymentProviders } from './payments/providers';import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
+import { resolvePaymentProviders } from './payments/providers';
+import { createSavedRouter } from './saved-routes';
+import { PgSavedItemRepo } from './db/saved-item-repo';import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
 import { PgLegalRepo } from './db/legal-repo';
 import { seedLegalDocuments } from './legal/seed-legal';
 import { createLegalRouter } from './legal/legal-routes';
@@ -1692,6 +1694,19 @@ if (env.authEnabled) {
       ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
     }));
     console.log(`[api] payments mounted (paypal=${Boolean(paymentProviders.paypal)}, usdt=${Boolean(paymentProviders.crypto)})`);
+
+    /* 저장 항목(신호·지표·드로잉) — PG. 저장 시 포인트 차감(제도 켜져 있을 때). */
+    const savedItemRepo = core.pool ? new PgSavedItemRepo(core.pool) : undefined;
+    app.route('/api', createSavedRouter({
+      service: authService,
+      ...(savedItemRepo ? { repo: savedItemRepo } : {}),
+      ...(pointsRepo ? { points: pointsRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+    }));
 
     app.route('/api', createReferralRouter({
       service: authService,
