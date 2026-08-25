@@ -54,6 +54,12 @@ export interface AiRouterDeps {
     userId: string,
     symbol: string,
     timeframe: string,
+    /**
+     * The chart context the user is currently viewing (active indicators + their latest values,
+     * user-drawn levels, visible range). UNTRUSTED UI state — used only to tell the model what is on
+     * the user's screen. The authoritative price and the candle series are fetched SERVER-SIDE.
+     */
+    clientContext?: unknown,
   ) => Promise<{ marketData: string; dataSnapshotId: string; marketType?: 'futures' | 'perpetual' } | null>;
 }
 
@@ -158,7 +164,7 @@ export function createAiRouter(d: AiRouterDeps): Hono {
       // orchestrator simply refuses price-bearing proposals (no fabricated levels).
       let grounded: { marketData: string; dataSnapshotId: string; marketType?: 'futures' | 'perpetual' } | null = null;
       if (d.groundContext) {
-        try { grounded = await d.groundContext(a.user.id, symbol, timeframe); } catch { grounded = null; }
+        try { grounded = await d.groundContext(a.user.id, symbol, timeframe, (body as { chartContext?: unknown }).chartContext); } catch { grounded = null; }
       }
       let assistantText = '';
       try {

@@ -2449,7 +2449,7 @@ if (env.authEnabled) {
              price-bearing proposals instead of letting the model invent a level. Positions/balance are
              read from the caller's own rows via aiUserContext when available.
           */
-          groundContext: async (_userId, symbol, timeframe) => {
+          groundContext: async (_userId, symbol, timeframe, clientContext) => {
             const built = await buildAiMarketContext(
               { symbol, timeframe: timeframe as (typeof SUPPORTED_TIMEFRAMES)[number] },
               {
@@ -2464,9 +2464,56 @@ if (env.authEnabled) {
             );
             if (!built.ok) return null;
             const ctx = built.context;
+
+            /*
+               고객이 보는 차트를 실제로 읽게 하려면 봉 시계열이 필요하다(지지/저항·추세선은
+               가격 히스토리에서 나온다). 봉은 **서버에서** 가져온다(클라이언트가 준 가격을
+               믿지 않는다는 B9 원칙 유지). 토큰 예산을 위해 최근 N봉만, 정밀도를 줄여 담는다.
+            */
+            const BARS = 90;
+            let candles: Array<{ t: number; o: number; h: number; l: number; c: number }> = [];
+            let window: { from: number; to: number; high: number; low: number } | null = null;
+            try {
+              const raw = (await providers.market.getCandles({
+                symbol, timeframe: timeframe as (typeof SUPPORTED_TIMEFRAMES)[number], limit: BARS,
+              })) as Array<Record<string, unknown>>;
+              const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : NaN; };
+              const rows = (Array.isArray(raw) ? raw : []).map((k) => ({
+                t: num(k.timestamp ?? k.time ?? k.t ?? k.ts),
+                o: num(k.open ?? k.o), h: num(k.high ?? k.h), l: num(k.low ?? k.l), c: num(k.close ?? k.c),
+              })).filter((k) => Number.isFinite(k.t) && Number.isFinite(k.c));
+              // 정밀도: 가격 크기에 따라 반올림(BTC 수천~수만이면 소수1, 소액이면 더 정밀).
+              const p0 = rows.length ? Math.abs(rows[rows.length - 1]!.c) : 0;
+              const dp = p0 >= 1000 ? 1 : p0 >= 1 ? 3 : 6;
+              const r = (x: number) => Number(x.toFixed(dp));
+              candles = rows.map((k) => ({ t: k.t, o: r(k.o), h: r(k.h), l: r(k.l), c: r(k.c) }));
+              if (candles.length) {
+                window = {
+                  from: candles[0]!.t, to: candles[candles.length - 1]!.t,
+                  high: r(Math.max(...rows.map((k) => k.h))), low: r(Math.min(...rows.map((k) => k.l))),
+                };
+              }
+            } catch { /* 봉 조회 실패는 비치명 — 가격만으로 진행(구조 분석은 제한) */ }
+
+            /*
+               클라이언트가 보낸 화면 상태(활성 지표·사용자 드로잉). UNTRUSTED 로 취급하되,
+               "사용자가 지금 화면에 무엇을 켜뒀는지"를 모델에 알려 준다. 가격 주장에는 쓰지
+               않는다(가격은 위 서버 값이 authoritative). 크기를 방어적으로 제한한다.
+            */
+            let screen: { indicators?: unknown; drawings?: unknown } | null = null;
+            if (clientContext && typeof clientContext === 'object') {
+              const cc = clientContext as Record<string, unknown>;
+              const inds = Array.isArray(cc.indicators) ? cc.indicators.slice(0, 12) : undefined;
+              const draws = Array.isArray(cc.drawings) ? cc.drawings.slice(0, 20) : undefined;
+              if (inds || draws) screen = { ...(inds ? { indicators: inds } : {}), ...(draws ? { drawings: draws } : {}) };
+            }
+
             const marketData = JSON.stringify({
-              symbol, timeframe, lastPrice: ctx.lastPrice, markPrice: ctx.markPrice,
-              asOf: ctx.asOf, source: ctx.source, stale: ctx.stale,
+              symbol, timeframe,
+              price: { last: ctx.lastPrice, mark: ctx.markPrice, asOf: ctx.asOf, source: ctx.source, stale: ctx.stale },
+              window, candles,
+              screen,
+              positions: ctx.positions, risk: ctx.risk,
             });
             return { marketData, dataSnapshotId: `snap-${ctx.asOf}`, marketType: 'perpetual' };
           },

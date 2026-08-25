@@ -408,8 +408,22 @@
          타임프레임은 이미 소문자('15m' 등)라 그대로 보낸다.
       */
       const wireSymbol = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      /*
+         지금 화면에 켜둔 지표와 사용자가 그린 선을 함께 보낸다(서버는 봉·가격을 직접
+         조회하므로, 여기선 "사용자 화면 상태"만 참고용으로 전달한다). 크기를 제한한다.
+      */
+      const chartContext = {
+        indicators: Array.isArray(context.indicators) ? context.indicators.slice(0, 12) : [],
+        drawings: (Array.isArray(overlays) ? overlays : [])
+          .filter((o) => o && (o.source === 'user' || o.source === 'ai-draft'))
+          .slice(0, 20)
+          .map((o) => ({
+            type: o.type, label: o.label, source: o.source,
+            price: o.price != null ? o.price : (o.priceLo != null ? o.priceLo : (o.points && o.points[0] ? o.points[0].price : undefined)),
+          })),
+      };
       const stream = api.aiCopilotStream(
-        { conversationId, message: text, symbol: wireSymbol, timeframe: context.tf, mode: 'copilot', language: lang },
+        { conversationId, message: text, symbol: wireSymbol, timeframe: context.tf, mode: 'copilot', language: lang, chartContext },
         {
           onEvent: (ev) => {
             if (!ev || !ev.type) return;
@@ -424,7 +438,7 @@
         },
       );
       activeStreamRef.current = stream;
-    }, [input, aiReady, context.symbol, context.tf, t, applyCommand, applySignal]);
+    }, [input, aiReady, context.symbol, context.tf, context.indicators, overlays, t, applyCommand, applySignal]);
 
     /*
        차트 툴바의 'AI 분석' 버튼과 연결하는 창구.
