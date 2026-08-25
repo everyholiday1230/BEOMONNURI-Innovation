@@ -132,7 +132,7 @@ const aiResolution = await resolveAiProvider({
   provider: env.aiProvider,
   isProduction: process.env.NODE_ENV === 'production',
   model: aiModel,
-  secret: { isProduction: process.env.NODE_ENV === 'production', secretArn: env.openaiSecretArn, region: env.awsRegion },
+  secret: { isProduction: process.env.NODE_ENV === 'production', secretArn: env.openaiSecretArn, region: env.awsRegion, directKey: env.openaiApiKey },
   bedrockRegion: env.bedrockRegion,
   estimateCostMicros: (_m, i, o) => Math.ceil((i / 1000) * 5000 + (o / 1000) * 15000),
 });
@@ -1575,7 +1575,20 @@ if (env.authEnabled) {
               reason: 'referral_signup',
               refType: 'referred_user',
               refId: userId,
-              memo: `referral signup`,
+              memo: `referral signup (referrer)`,
+            });
+            /*
+               초대받은 신규 가입자에게도 동일 포인트를 지급한다(양쪽 지급 — 오픈 이벤트).
+               멱등: (referee_id, referral_signup, referral_bonus, referee_id) 는 uq_points_ref 로
+               한 번만 반영된다. 실패해도 위 referrer 지급/가입은 유지된다(catch).
+            */
+            await pointsRepo.grant({
+              userId,
+              amount: ps.referralPoints,
+              reason: 'referral_signup',
+              refType: 'referral_bonus',
+              refId: userId,
+              memo: `referral signup (referee)`,
             });
           } catch (e) {
             console.warn('[points] 초대 보상 적립 실패 — 가입은 유지한다:', (e as Error).message);

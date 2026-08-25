@@ -209,6 +209,7 @@ export interface ApiEnv {
   aiProvider: 'openai' | 'bedrock' | 'mock' | 'fake';
   awsRegion?: string;
   openaiSecretArn?: string;
+  openaiApiKey?: string;
   openaiModelPrimary: string;
   openaiModelFallback: string;
   /** Bedrock model id / inference-profile id (e.g. an Anthropic Claude Sonnet id). */
@@ -708,6 +709,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     aiProvider: pickEnum(env.AI_PROVIDER, ['openai', 'bedrock', 'mock', 'fake'] as const, 'mock'),
     awsRegion: env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
     openaiSecretArn: env.OPENAI_SECRET_ARN,
+    openaiApiKey: env.OPENAI_API_KEY,
     openaiModelPrimary: env.OPENAI_MODEL_PRIMARY ?? 'gpt-4.1-mini',
     openaiModelFallback: env.OPENAI_MODEL_FALLBACK ?? 'gpt-4.1-mini',
     bedrockModelId: env.BEDROCK_MODEL_ID,

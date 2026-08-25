@@ -22,13 +22,21 @@ export interface AiSecretConfig {
   isProduction: boolean;
   secretArn?: string;
   region?: string;
+  /**
+   * Plain API key from an env var (e.g. OPENAI_API_KEY). Lets a non-AWS host (Render) enable AI
+   * WITHOUT AWS Secrets Manager. When present it is used directly. Keep it only in the platform's
+   * secret env store — never in git.
+   */
+  directKey?: string;
   /** test-only: inject a Secrets Manager client (never a real secret). */
   smClientFactory?: () => Promise<{ send(cmd: unknown): Promise<{ SecretString?: string }> }>;
 }
 
-/** Load the OpenAI API key from Secrets Manager (fail-closed; redaction-safe errors). */
+/** Load the OpenAI API key from a direct env var, else AWS Secrets Manager (fail-closed). */
 export async function loadOpenAiApiKey(cfg: AiSecretConfig): Promise<string> {
-  if (!cfg.secretArn) throw new Error('fail-closed: OPENAI_SECRET_ARN required');
+  // Non-AWS deployments (Render) can supply the key directly via env.
+  if (cfg.directKey && cfg.directKey.trim()) return cfg.directKey.trim();
+  if (!cfg.secretArn) throw new Error('fail-closed: OPENAI_SECRET_ARN or OPENAI_API_KEY required');
   if (!cfg.region) throw new Error('fail-closed: AWS_REGION required for OpenAI secret');
   let client: { send(cmd: unknown): Promise<{ SecretString?: string }> };
   let CommandCtor: (new (i: { SecretId: string }) => unknown) | undefined;
