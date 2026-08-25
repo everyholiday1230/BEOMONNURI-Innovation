@@ -46,6 +46,9 @@
     const [err, setErr] = useState(null);
     const [busyId, setBusyId] = useState(null);
     const [msg, setMsg] = useState(null);
+    const [topup, setTopup] = useState(null);        // { supported:{paypal,usdt}, packages, enabled }
+    const [topupBusy, setTopupBusy] = useState(null); // 진행 중 패키지 id
+    const [usdtInvoice, setUsdtInvoice] = useState(null); // { address, network, amount }
 
     const load = window.React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -55,8 +58,35 @@
       api.points()
         .then((r) => { setData(r); setErr(null); })
         .catch((e) => setErr((e && e.message) || 'load failed'));
+      if (api.topupPackages) api.topupPackages().then((r) => setTopup(r)).catch(() => { /* 비치명 */ });
     }, []);
     useEffect(() => { load(); }, [load]);
+
+    /*
+       PayPal 승인 후 복귀 처리.
+
+       사용자가 PayPal 에서 승인하고 return_url(#/points?topup=paypal&order=...)로 돌아오면
+       그 주문을 캡처(결제 확정)해 포인트를 적립한다. 캡처 후 쿼리를 지워 새로고침해도
+       재캡처되지 않게 한다(서버도 멱등이지만 UI 도 정리한다).
+    */
+    useEffect(() => {
+      const h = window.location.hash || '';
+      const m = h.match(/[?&]order=([^&]+)/);
+      const isPaypalReturn = /[?&]topup=paypal/.test(h) && m;
+      if (!isPaypalReturn) return;
+      const orderId = decodeURIComponent(m[1]);
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.topupPaypalCapture) return;
+      try { window.history.replaceState(null, '', '#/points'); } catch (e) { /* noop */ }
+      api.topupPaypalCapture(orderId)
+        .then((r) => {
+          if (r && r.credited) { setMsg({ ok: true, text: t('pt_topup_credited', { n: r.points }) }); load(); }
+          else if (r && r.alreadyPaid) { setMsg({ ok: true, text: t('pt_topup_already') }); }
+          else { setMsg({ ok: false, text: t('pt_topup_failed') }); }
+        })
+        .catch((e) => setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const live = Boolean(data && data.supported);
     const on = Boolean(data && data.enabled);
@@ -87,6 +117,32 @@
         setMsg({ ok: false, text: insufficient ? t('pt_not_enough', { unit }) : ((e && e.message) || t('pt_redeem_failed')) });
       }
       setBusyId(null);
+    };
+
+    // PayPal: 주문 생성 후 승인 페이지로 이동. 복귀 시 위 useEffect 가 캡처한다.
+    const payWithPaypal = async (pk) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.topupPaypalCreate) return;
+      setTopupBusy(pk.id); setMsg(null); setUsdtInvoice(null);
+      try {
+        const r = await api.topupPaypalCreate(pk.id);
+        if (r && r.approveUrl) { window.location.href = r.approveUrl; return; }
+        setMsg({ ok: false, text: t('pt_topup_failed') });
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }); }
+      setTopupBusy(null);
+    };
+
+    // USDT: 인보이스(수신 주소/금액) 생성. 송금 후 웹훅이 적립한다.
+    const payWithUsdt = async (pk) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.topupUsdtCreate) return;
+      setTopupBusy(pk.id); setMsg(null); setUsdtInvoice(null);
+      try {
+        const r = await api.topupUsdtCreate(pk.id);
+        if (r && (r.address !== undefined)) setUsdtInvoice({ address: r.address, network: r.network, amount: r.amount });
+        else setMsg({ ok: false, text: t('pt_topup_failed') });
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }); }
+      setTopupBusy(null);
     };
 
     return (
@@ -183,6 +239,50 @@
                 border: '1px solid ' + (msg.ok ? 'var(--color-success)' : 'var(--color-danger)'),
                 color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)',
               }}>{msg.text}</div>
+            )}
+
+            {/* 포인트 충전(결제): PayPal / USDT. 결제수단 미설정이면 정직하게 "준비 중". */}
+            {topup && (
+              <window.SectionCard title={t('pt_topup_title', { unit })} subtitle={t('pt_topup_sub')}>
+                {!topup.enabled ? (
+                  <div style={{
+                    padding:'12px 14px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                    background:'var(--color-bg-surface)', border:'1px solid var(--color-border-subtle)', color:'var(--color-text-secondary)',
+                  }}>{t('pt_topup_pending')}</div>
+                ) : (
+                  <>
+                    <div className="grid-3">
+                      {topup.packages.map((pk) => (
+                        <div key={pk.id} style={{
+                          padding:14, borderRadius:8, background:'var(--color-bg-surface)',
+                          border:'1px solid var(--color-border-subtle)', display:'flex', flexDirection:'column', gap:8,
+                        }}>
+                          <div style={{fontWeight:700, fontSize:16}}>{fmt(pk.points, 0)} {unit}</div>
+                          <div style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>${pk.amount}</div>
+                          <div style={{display:'flex', gap:6, marginTop:2}}>
+                            {topup.supported.paypal && (
+                              <button className="btn btn--sm btn--primary" style={{flex:1}} disabled={topupBusy === pk.id} onClick={() => payWithPaypal(pk)}>{t('pt_pay_paypal')}</button>
+                            )}
+                            {topup.supported.usdt && (
+                              <button className="btn btn--sm" style={{flex:1}} disabled={topupBusy === pk.id} onClick={() => payWithUsdt(pk)}>{t('pt_pay_usdt')}</button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {usdtInvoice && (
+                      <div style={{
+                        marginTop:12, padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                        background:'color-mix(in srgb, var(--color-brand) 8%, transparent)', border:'1px solid var(--color-brand)',
+                      }}>
+                        <div style={{fontWeight:600, marginBottom:6}}>{t('pt_usdt_send', { amount: usdtInvoice.amount, network: usdtInvoice.network })}</div>
+                        <code style={{userSelect:'all', wordBreak:'break-all', fontFamily:'var(--font-mono)', fontSize:12}}>{usdtInvoice.address || '—'}</code>
+                        <div style={{marginTop:6, fontSize:11, color:'var(--color-text-tertiary)'}}>{t('pt_usdt_note')}</div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </window.SectionCard>
             )}
 
             {/* 상품 */}

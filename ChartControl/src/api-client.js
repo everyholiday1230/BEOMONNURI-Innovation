@@ -695,6 +695,28 @@
       return sendJSON('POST', '/api/points/redeem', { itemId: itemId });
     },
 
+    // ---- 포인트 충전(결제): PayPal / USDT ----
+
+    /** 사용 가능한 결제수단 + 포인트 패키지. supported.{paypal,usdt}=false 면 화면이 "준비중" 표시. */
+    topupPackages: function () {
+      return getJSON('', '/api/me/topup/packages').then(
+        function (r) { return { ok: true, supported: (r && r.supported) || {}, packages: (r && r.packages) || [], enabled: Boolean(r && r.enabled) }; },
+        function () { return { ok: false, supported: {}, packages: [], enabled: false }; }
+      );
+    },
+    /** PayPal 결제 주문 생성 → { orderId, approveUrl } (approveUrl 로 이동해 승인). */
+    topupPaypalCreate: function (packageId) {
+      return sendJSON('POST', '/api/me/topup/paypal/create', { packageId: packageId });
+    },
+    /** PayPal 승인 후 캡처(결제 확정) → 포인트 적립. */
+    topupPaypalCapture: function (orderId) {
+      return sendJSON('POST', '/api/me/topup/paypal/capture', { orderId: orderId });
+    },
+    /** USDT 인보이스 생성 → { address, network, amount } (해당 주소로 송금하면 웹훅이 적립). */
+    topupUsdtCreate: function (packageId) {
+      return sendJSON('POST', '/api/me/topup/usdt/create', { packageId: packageId });
+    },
+
     // ---- 친구 초대 (리퍼럴) ----
 
     /**
