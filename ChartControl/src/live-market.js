@@ -240,6 +240,47 @@
       }
     });
 
+    /*
+       ★ 목록에 없던 실거래 심볼을 추가한다.
+
+         전에는 위 forEach 가 **기존 QT.MARKETS 행만 제자리 갱신**해서, 목업 시드에
+         들어 있던 소수 종목만 보였다(거래소는 수백 개를 주는데 화면엔 20여 개).
+         참조를 유지해야 하므로(컴포넌트가 QT.MARKETS 배열 참조를 캡처함) 새 배열로
+         바꾸지 않고 제자리에 push 한다. 가격이 없는 심볼은 넣지 않는다(정직).
+    */
+    var existing = new Set(QT.MARKETS.map(function (m) { return normalizeSymbol(m.base + m.quote); }));
+    var QUOTES = ['USDT', 'USDC', 'USD', 'BTC', 'ETH'];
+    rows.forEach(function (r) {
+      if (!r || r.available === false) return;
+      var sym = normalizeSymbol(r.symbol);
+      if (!sym || existing.has(sym)) return;
+      var base = r.base;
+      var quote = r.quote;
+      if (!base || !quote) {
+        base = sym; quote = '';
+        for (var qi = 0; qi < QUOTES.length; qi += 1) {
+          var qc = QUOTES[qi];
+          if (sym.length > qc.length && sym.slice(-qc.length) === qc) { base = sym.slice(0, sym.length - qc.length); quote = qc; break; }
+        }
+        if (!quote) return;
+      }
+      if (!(typeof r.price === 'number' && r.price > 0)) return;
+      existing.add(sym);
+      live.liveSymbols.add(sym + '|futures');
+      QT.MARKETS.push({
+        base: base, quote: quote, type: 'futures', dataSource: 'live',
+        price: r.price,
+        chg24h: typeof r.chg24h === 'number' ? r.chg24h : 0,
+        vol24h: typeof r.vol24h === 'number' ? r.vol24h : 0,
+        hi: typeof r.hi === 'number' ? r.hi : null,
+        lo: typeof r.lo === 'number' ? r.lo : null,
+        mark: r.mark, index: r.index, bid: r.bid, ask: r.ask,
+        fundingRate: r.fundingRate, nextFundingTime: r.nextFundingTime, openInterest: r.openInterest,
+        tickSize: r.tickSize, multiplier: r.multiplier, maxLeverage: r.maxLeverage,
+        takerFeeRate: r.takerFeeRate, makerFeeRate: r.makerFeeRate,
+      });
+    });
+
     scheduleBump();
   }
 

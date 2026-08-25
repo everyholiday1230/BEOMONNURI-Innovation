@@ -384,7 +384,7 @@
             <div style={{padding: 12}}>
               <div className="markets-heatmap">
                 {filtered.map(m => (
-                  <div key={m.base} className="heat-cell" style={{background: unlisted(m) ? 'var(--color-surface-2)' : heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
+                  <div key={m.base + m.quote} className="heat-cell" style={{background: unlisted(m) ? 'var(--color-surface-2)' : heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
                     <div className="heat-cell__sym">{m.base}</div>
                     <div>
                       {/* ★ 미상장은 색으로 상승·하락을 말하지 않는다 — 색이 가장 먼저 읽힌다. */}
