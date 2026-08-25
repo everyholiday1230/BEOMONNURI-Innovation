@@ -804,7 +804,7 @@
       ob_show_cum: 'Show cumulative',
       ob_show_size: 'Show size',
       nt_f_risk: 'Risk',
-      ai_copilot_title: 'AI Copilot',
+      ai_copilot_title: 'CCAI Copilot',
       ai_analyst_mode: 'Analyst Mode',
       ai_mentor_mode: 'Mentor Mode',
       ai_mentor: 'Mentor',
@@ -1775,7 +1775,7 @@
       deposit: 'Deposit',
 
       // --- 위젯 제목 · 주문 패널 · 레이아웃 (사전 누락으로 키 문자열이 노출되던 것) ---
-      ai_copilot: 'AI Copilot',
+      ai_copilot: 'CCAI Copilot',
       nav_ai: 'AI',
       market_watch: 'Market Watch',
       order_book: 'Order Book',

@@ -988,9 +988,10 @@
           };
         });
       },
-      candles: function (symbol, timeframe, limit) {
+      candles: function (symbol, timeframe, limit, before) {
         var q = '?symbol=' + encodeURIComponent(symbol) + '&timeframe=' + encodeURIComponent(timeframe)
-          + (limit ? '&limit=' + limit : '');
+          + (limit ? '&limit=' + limit : '')
+          + (before ? '&before=' + before : '');
         return market('/spot/candles' + q, { timeoutMs: 25000 }).then(function (r) {
           return {
             ok: true,
@@ -1045,11 +1046,12 @@
         });
     },
 
-    candles: function (symbol, tf, limit) {
+    candles: function (symbol, tf, limit, before) {
       return market(
         '/candles?symbol=' + encodeURIComponent(symbol) +
         '&timeframe=' + encodeURIComponent(normalizeTimeframe(tf)) +
-        '&limit=' + (limit || 300),
+        '&limit=' + (limit || 300) +
+        (before ? '&before=' + before : ''),
         { timeoutMs: 25000 }
       ).then(function (r) {
         // 캔들은 차트가 Number() 로 변환하므로 문자열을 그대로 넘긴다.

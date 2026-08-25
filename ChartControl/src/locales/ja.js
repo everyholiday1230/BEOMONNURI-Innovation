@@ -1145,7 +1145,7 @@
       market_not_listed: '取引所に未上場',
 
       // --- AI Copilot ---
-      ai_copilot: 'AI コパイロット',
+      ai_copilot: 'CCAI コパイロット',
       ai_collapse: 'Copilot を折りたたむ',
       ai_expand: 'Copilot を開く',
       ai_clear_chat: '会話をクリア',
@@ -1330,7 +1330,7 @@
       ob_show_cum: '累計を表示',
       ob_show_size: '数量を表示',
       nt_f_risk: 'リスク',
-      ai_copilot_title: 'AI コパイロット',
+      ai_copilot_title: 'CCAI コパイロット',
       ai_analyst_mode: 'アナリストモード',
       ai_mentor_mode: 'メンターモード',
       ai_mentor: 'メンター',

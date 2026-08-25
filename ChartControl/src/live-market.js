@@ -635,6 +635,37 @@
     live.candleInflight.set(key, p);
   }
 
+  /*
+     차트를 과거로 스크롤할 때 더 오래된 캔들을 받아 온다. KLineChart 의
+     setDataLoader(backward) 가 이 함수를 부른다. beforeTs 이전 캔들을 서버에서
+     받아(백엔드는 before 파라미터 지원) 캐시 앞쪽에 병합하고, 받은 배열을
+     오름차순(오래된 것 먼저)으로 반환한다. 실패/없음이면 빈 배열.
+  */
+  function loadOlderCandles(symbol, tf, beforeTs, limit) {
+    if (!canCallApi()) return Promise.resolve([]);
+    var sym = normalizeSymbol(symbol);
+    if (!sym || !beforeTs) return Promise.resolve([]);
+    var spot = isSpotMode();
+    var req = (spot && Api.rest.spot)
+      ? Api.rest.spot.candles(sym, tf, limit || 300, beforeTs)
+      : Api.rest.candles(sym, tf, limit || 300, beforeTs);
+    return req.then(function (res) {
+      if (!(res && res.ok && Array.isArray(res.data) && res.data.length)) return [];
+      var older = toNumericCandles(res.data)
+        .filter(function (c) { return c && c.time && c.time < beforeTs; })
+        .sort(function (a, b) { return a.time - b.time; });
+      if (!older.length) return [];
+      var key = candleKey(sym, tf);
+      var cur = live.candles.get(key);
+      if (cur && cur.length) {
+        var firstTs = cur[0].time;
+        var head = older.filter(function (c) { return c.time < firstTs; });
+        if (head.length) live.candles.set(key, head.concat(cur));
+      }
+      return older;
+    }).catch(function () { return []; });
+  }
+
   /** WS 로 들어온 진행 중 캔들을 병합한다. */
   function mergeCandle(symbol, tf, candle) {
     var key = candleKey(symbol, tf);
@@ -1416,6 +1447,8 @@
     stop: stop,
     setActiveSymbol: setActiveSymbol,
     setActiveTimeframe: setActiveTimeframe,
+    /** 차트 과거 스크롤 시 더 오래된 캔들을 받아 온다(오름차순 배열 반환). */
+    loadOlderCandles: loadOlderCandles,
     /*
        현재 주기를 읽는다.
 
