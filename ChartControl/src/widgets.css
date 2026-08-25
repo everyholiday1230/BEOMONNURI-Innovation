@@ -227,6 +227,13 @@
   min-height: 0;
   background: var(--color-bg-app);
   position: relative;
+  /*
+     ★★ 위젯 z-index(드래그 20, 올림 5~17)가 루트 스택으로 새어 나가 헤더
+       (z-sticky:10)의 언어 메뉴/드롭다운을 덮어 "언어 누르면 레이아웃 뒤로
+       가려 안 보임" 버그가 났다. 여기서 스택 컨텍스트를 격리해 위젯 z-index 를
+       trade-body 안에 가둔다 → 헤더 드롭다운이 항상 위에 온다.
+  */
+  isolation: isolate;
 }
 .trade-body.is-editing::before {
   content: "";

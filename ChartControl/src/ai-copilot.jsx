@@ -336,6 +336,33 @@
       if (onProposeSignal) onProposeSignal(sig);
     }, [addOverlay, anchorTime, onProposeSignal, t]);
 
+    // AI 가 만든 선/신호를 저장한다(포인트 차감). 저장소는 PG(/me/saved).
+    const [savingId, setSavingId] = useState(null);
+    const saveProposal = useCallback(async (msgId, savable) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedCreate || !savable) return;
+      setSavingId(msgId);
+      const sym = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      try {
+        const r = await api.savedCreate({
+          kind: savable.kind,
+          name: savable.name,
+          symbol: sym || undefined,
+          timeframe: context.tf,
+          payload: savable.payload,
+        });
+        if (r && r.ok !== false) {
+          setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, saved: true, savedNote: t('sv_saved_ok', { n: (r && r.charged) || 0 }) } : x)));
+        } else {
+          setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: (r && r.message) || t('sv_save_failed') } : x)));
+        }
+      } catch (e) {
+        const insuff = e && e.status === 402;
+        setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: insuff ? t('sv_need_points') : ((e && e.message) || t('sv_save_failed')) } : x)));
+      }
+      setSavingId(null);
+    }, [context.symbol, context.tf, t]);
+
     /*
        AI 분석 사용 가능 여부.
 
@@ -428,8 +455,8 @@
           onEvent: (ev) => {
             if (!ev || !ev.type) return;
             if (ev.type === 'text') { setThinking(null); acc += ev.delta || ''; setStreaming(acc); return; }
-            if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note })]); return; }
-            if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal') })]); return; }
+            if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
+            if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
             if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
             if (ev.type === 'error') { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
@@ -664,7 +691,7 @@
 
         <div className="ai-messages" ref={scrollRef}>
           {msgs.map(m => (
-            <AIMessage key={m.id} msg={m} currentSignal={currentSignal} onApproveSignal={onApproveSignal} onCreateOrderDraft={onCreateOrderDraft} onEditSignal={onEditSignal} onRejectSignal={onRejectSignal} isBeginner={isBeginner}/>
+            <AIMessage key={m.id} msg={m} currentSignal={currentSignal} onApproveSignal={onApproveSignal} onCreateOrderDraft={onCreateOrderDraft} onEditSignal={onEditSignal} onRejectSignal={onRejectSignal} onSaveProposal={saveProposal} savingId={savingId} isBeginner={isBeginner}/>
           ))}
 
           {/* SIGNAL CARD floated once a signal is proposed and last message is AI reply */}
@@ -794,7 +821,7 @@
   };
 
   // ---- Sub components ----
-  function AIMessage({ msg, isBeginner }) {
+  function AIMessage({ msg, isBeginner, onSaveProposal, savingId }) {
     if (msg.role === 'system') {
       return (
         <div style={{display:'flex', alignItems:'center', gap: 8, fontSize: 11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', padding:'2px 0'}}>
@@ -809,6 +836,17 @@
           <div className="ai-tool-result">
             <I.Sparkles size={11}/>
             <span>{msg.toolResult}</span>
+            {msg.savable && !msg.saved && (
+              <button
+                className="btn btn--sm"
+                style={{marginLeft:'auto'}}
+                disabled={savingId === msg.id}
+                onClick={() => onSaveProposal && onSaveProposal(msg.id, msg.savable)}
+              >
+                {savingId === msg.id ? t('sv_saving') : t('ai_save_proposal', { n: 100 })}
+              </button>
+            )}
+            {msg.savedNote && <span style={{marginLeft: msg.savable && !msg.saved ? 8 : 'auto', fontSize:11, color:'var(--color-text-secondary)'}}>{msg.savedNote}</span>}
           </div>
         </div>
       );

@@ -183,6 +183,26 @@
     const [q, setQ] = useState('');
     const [active, setActive] = useState(() => new Map()); // name -> paneId
     const panelRef = useRef(null);
+    /*
+       ★★ 툴바(.chart-toolbar)는 overflow-x:auto 라, 그 안에서 absolute 로 띄운
+         드롭다운이 세로로 잘려 아무것도 안 보였다(실측 버그). 그래서 버튼 위치를
+         기준으로 position:fixed 로 띄워 조상 overflow 클리핑을 벗어난다.
+    */
+    const [fixedPos, setFixedPos] = useState(null);
+    useEffect(() => {
+      const wrap = panelRef.current && panelRef.current.parentElement;
+      if (!wrap) return undefined;
+      const place = () => {
+        const r = wrap.getBoundingClientRect();
+        const w = 320;
+        let left = Math.round(r.left);
+        if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+        setFixedPos({ top: Math.round(r.bottom + 6), left: left });
+      };
+      place();
+      window.addEventListener('resize', place);
+      return () => window.removeEventListener('resize', place);
+    }, []);
     // 언어 변경 시 라벨/설명이 즉시 갱신되도록 구독한다.
     window.useI18nLocale();
 
@@ -317,7 +337,11 @@
     const totalShown = groups.reduce((n, g) => n + filtered[g].length, 0);
 
     return (
-      <div className="chart-ind-panel" ref={panelRef}>
+      <div
+        className="chart-ind-panel"
+        ref={panelRef}
+        style={fixedPos ? { position: 'fixed', top: fixedPos.top, left: fixedPos.left, right: 'auto', zIndex: 200 } : undefined}
+      >
         <div className="chart-ind-panel__head">
           <input
             autoFocus
