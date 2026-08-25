@@ -215,6 +215,13 @@ export interface ApiEnv {
   bedrockModelId?: string;
   /** AWS region for Bedrock (falls back to AWS_REGION). */
   bedrockRegion?: string;
+  // ---- 결제(포인트 충전) — 없으면 해당 결제수단 비활성 ----
+  paypalClientId?: string;
+  paypalClientSecret?: string;
+  paypalMode?: string;
+  cryptoWebhookSecret?: string;
+  cryptoUsdtAddress?: string;
+  cryptoNetwork?: string;
   openaiStore: boolean;
   aiMaxOutputTokens: number;
   aiRequestTimeoutMs: number;
@@ -705,6 +712,12 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     openaiModelFallback: env.OPENAI_MODEL_FALLBACK ?? 'gpt-4.1-mini',
     bedrockModelId: env.BEDROCK_MODEL_ID,
     bedrockRegion: env.BEDROCK_REGION ?? env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
+    paypalClientId: env.PAYPAL_CLIENT_ID,
+    paypalClientSecret: env.PAYPAL_CLIENT_SECRET,
+    paypalMode: env.PAYPAL_MODE,
+    cryptoWebhookSecret: env.CRYPTO_WEBHOOK_SECRET,
+    cryptoUsdtAddress: env.CRYPTO_USDT_ADDRESS,
+    cryptoNetwork: env.CRYPTO_NETWORK,
     openaiStore: env.OPENAI_STORE === 'true', // default false — no provider-side retention
     aiMaxOutputTokens: Number(env.AI_MAX_OUTPUT_TOKENS ?? 1200),
     aiRequestTimeoutMs: Number(env.AI_REQUEST_TIMEOUT_MS ?? 30_000),

@@ -36,7 +36,9 @@ import { PgReferralRepo } from './db/referral-repo';
 import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
 import { createPointsRouter } from './points/points-routes';
-import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
+import { createPaymentRouter } from './payment-routes';
+import { PgPointOrderRepo } from './db/point-order-repo';
+import { resolvePaymentProviders } from './payments/providers';import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
 import { PgLegalRepo } from './db/legal-repo';
 import { seedLegalDocuments } from './legal/seed-legal';
 import { createLegalRouter } from './legal/legal-routes';
@@ -1650,6 +1652,33 @@ if (env.authEnabled) {
       verifyCsrf,
       originAllowed,
     }));
+
+    /*
+       포인트 충전(결제) 라우터. PayPal/USDT 자격증명이 없으면 각 수단이 비활성으로
+       정직하게 보고된다(NOT_CONFIGURED). 적립은 결제 검증 후 point_ledger 로 멱등 처리.
+    */
+    const paymentProviders = resolvePaymentProviders({
+      paypalClientId: env.paypalClientId,
+      paypalClientSecret: env.paypalClientSecret,
+      paypalMode: env.paypalMode,
+      cryptoWebhookSecret: env.cryptoWebhookSecret,
+      cryptoUsdtAddress: env.cryptoUsdtAddress,
+      cryptoNetwork: env.cryptoNetwork,
+    });
+    const pointOrderRepo = core.pool && pointsRepo ? new PgPointOrderRepo(core.pool, pointsRepo) : undefined;
+    app.route('/api', createPaymentRouter({
+      service: authService,
+      ...(pointOrderRepo ? { orders: pointOrderRepo } : {}),
+      ...(pointsRepo ? { points: pointsRepo } : {}),
+      providers: paymentProviders,
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+      ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
+    }));
+    console.log(`[api] payments mounted (paypal=${Boolean(paymentProviders.paypal)}, usdt=${Boolean(paymentProviders.crypto)})`);
 
     app.route('/api', createReferralRouter({
       service: authService,
