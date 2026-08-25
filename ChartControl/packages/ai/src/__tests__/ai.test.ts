@@ -22,9 +22,12 @@ describe('schemas: ChartCommand + args', () => {
     expect(AiChartCommandSchema.safeParse(mkCmd('createStopLoss', { price: '100' })).success).toBe(true);
     expect(AiChartCommandSchema.safeParse(mkCmd('doHack', { price: '100' })).success).toBe(false);
   });
-  it('per-command strict args reject extra properties', () => {
+  it('per-command args strip unknown properties (LLM tolerance)', () => {
     expect(validateChartCommandArgs('createStopLoss', { price: '100' }).ok).toBe(true);
-    expect(validateChartCommandArgs('createStopLoss', { price: '100', extra: 1 }).ok).toBe(false);
+    // LLM 관용성: 알 수 없는 키는 거부하지 않고 제거한다(코파일럿이 reason/timeframe 등을 덧붙이는 경우가 많음).
+    const stripped = validateChartCommandArgs('createStopLoss', { price: '100', extra: 1 });
+    expect(stripped.ok).toBe(true);
+    if (stripped.ok) expect((stripped.value as Record<string, unknown>).extra).toBeUndefined();
   });
 });
 

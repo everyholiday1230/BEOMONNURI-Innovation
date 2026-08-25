@@ -63,10 +63,16 @@ export function isProposalTool(name: string): name is ProposalToolName {
 
 const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
   propose_chart_command:
-    'Propose ONE chart drawing/indicator action (trend line, horizontal level, support/resistance, ' +
-    'entry zone, stop loss, take profit, markers, invalidation, addIndicator, removeIndicator, hide/delete). ' +
-    'Prices must come from MARKET_DATA you were given — never invent a level. Shown to the user as a ' +
-    'proposal; never auto-applied.',
+    'Propose ONE chart drawing/indicator action. `command` is the action; `argsJson` is a JSON object ' +
+    'with EXACTLY these keys per command (no extra keys, prices from MARKET_DATA as strings):\n' +
+    '- createSupportResistance: {"price":"65000","kind":"support"|"resistance"}\n' +
+    '- createHorizontalLevel: {"price":"65000","label":"optional"}\n' +
+    '- createTrendLine: {"points":[{"time":1699999999000,"price":"64000"},{"time":1700000999000,"price":"66000"}],"label":"optional"}\n' +
+    '- createEntryZone: {"priceLo":"64000","priceHi":"64500"}\n' +
+    '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
+    '- createTakeProfit: {"price":"68000","index":0}\n' +
+    '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
+    'Prices must come from MARKET_DATA — never invent a level. Shown to the user as a proposal; never auto-applied.',
   propose_signal:
     'Propose a trading SignalObject (direction, entryZone, stopLoss, takeProfits, invalidation, ' +
     'riskReward, thesis, supporting + contradicting evidence). Derive every level from MARKET_DATA. ' +

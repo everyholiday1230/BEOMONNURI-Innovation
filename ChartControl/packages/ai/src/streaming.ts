@@ -13,6 +13,9 @@ export interface RawResponsesEvent {
   call_id?: string;
   name?: string;
   arguments?: string;
+  // response.output_item.added/done 는 함수 호출의 name/call_id 를 여기(item)에 담는다.
+  // arguments.delta/done 이벤트에는 name 이 없으므로 여기서 이름을 확보해야 한다.
+  item?: { id?: string; type?: string; name?: string; call_id?: string; arguments?: string };
   code?: string;
   message?: string;
 }
@@ -29,6 +32,13 @@ export function normalizeResponsesEvent(raw: RawResponsesEvent, opts: StreamNorm
       return { type: 'created', responseId: raw.response?.id ?? '' };
     case 'response.output_text.delta':
       return { type: 'output_text.delta', delta: raw.delta ?? '' };
+    // 함수 호출 시작 이벤트: 여기서만 도구 이름이 온다. 뒤따르는 arguments.delta/done 에는
+    // 이름이 없으므로, 이 이벤트로 누산기에 (call_id → name) 을 미리 심는다(argsDelta='').
+    case 'response.output_item.added':
+      if (raw.item?.type === 'function_call') {
+        return { type: 'function_call.delta', callId: raw.item.id ?? raw.item.call_id ?? '', name: raw.item.name ?? '', argsDelta: '' };
+      }
+      return null;
     case 'response.function_call_arguments.delta':
       return { type: 'function_call.delta', callId: raw.call_id ?? raw.item_id ?? '', name: raw.name ?? '', argsDelta: raw.delta ?? '' };
     case 'response.function_call_arguments.done':

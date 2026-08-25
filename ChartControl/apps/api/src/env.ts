@@ -561,7 +561,9 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
        잘못된 값은 없는 것으로 본다 — 깨진 링크를 만드는 것보다 안 만드는 게 낫다.
     */
     publicBaseUrl: (() => {
-      const raw = env.PUBLIC_BASE_URL?.trim() ?? '';
+      // PUBLIC_BASE_URL 우선, 없으면 APP_BASE_URL(이미 CORS 등에 쓰는 정식 오리진)로 폴백한다.
+      // 이 값이 비면 PayPal return_url 이 상대경로가 되어 PayPal 이 400 을 준다.
+      const raw = (env.PUBLIC_BASE_URL?.trim() || env.APP_BASE_URL?.trim()) ?? '';
       if (!raw) return '';
       try {
         const u = new URL(raw);

@@ -72,7 +72,7 @@ export async function loadOpenAiApiKey(cfg: AiSecretConfig): Promise<string> {
 
 /** Minimal structural type of the OpenAI SDK Responses streaming client (avoids hard type coupling). */
 interface OpenAiLike {
-  responses: { stream(payload: Record<string, unknown>): AsyncIterable<{ type: string; [k: string]: unknown }> };
+  responses: { stream(payload: Record<string, unknown>, options?: { signal?: AbortSignal }): AsyncIterable<{ type: string; [k: string]: unknown }> };
 }
 
 /**
@@ -85,7 +85,9 @@ export async function createOpenAiTransport(apiKey: string): Promise<OpenAiRespo
   const client = new mod.default({ apiKey });
   return {
     async *streamRaw(payload: OpenAiResponsesPayload, signal?: AbortSignal): AsyncIterable<RawResponsesEvent> {
-      const stream = client.responses.stream({ ...payload, ...(signal ? { signal } : {}) });
+      // AbortSignal 은 요청 옵션(2번째 인자)으로 넘긴다. body 에 섞으면 OpenAI 가
+      // "Unknown parameter: 'signal'" 400 을 준다.
+      const stream = client.responses.stream({ ...payload }, signal ? { signal } : undefined);
       for await (const ev of stream) {
         if (signal?.aborted) return;
         yield ev as unknown as RawResponsesEvent;

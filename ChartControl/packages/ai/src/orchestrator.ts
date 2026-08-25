@@ -90,7 +90,10 @@ export class Orchestrator implements IAIOrchestrator {
       model: this.d.model,
       instructions: prompt.template,
       input: [{ role: 'user', content: buildDelimitedInput({ userMessage: input.userMessage, marketData: input.marketData }) }],
-      tools: this.d.tools.list(),
+      // 서버가 시장 데이터를 이미 주입했으면(grounded) 읽기 전용 조회 도구는 노출하지 않는다.
+      // 단일 패스 스트림에서 모델이 읽기 도구를 부르면 출력 제출을 기다리며 스트림이 끝나
+      // 제안(command/signal)이 전혀 안 나온다. 주입된 데이터로 바로 제안하게 강제한다.
+      tools: input.marketData ? this.d.tools.list().filter((t) => isProposalTool(t.name)) : this.d.tools.list(),
       maxOutputTokens: this.d.maxOutputTokens,
       store: this.d.store,
       signal: input.signal,

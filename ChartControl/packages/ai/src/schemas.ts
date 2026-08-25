@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DecimalString, PositiveDecimalString, EpochMs } from '@quantumtrade/schemas';
+import { DecimalString as RawDecimalString, PositiveDecimalString as RawPositiveDecimalString, EpochMs } from '@quantumtrade/schemas';
 import { TIMEFRAMES } from '@quantumtrade/config';
 
 /**
@@ -9,6 +9,11 @@ import { TIMEFRAMES } from '@quantumtrade/config';
  */
 export const AI_CHART_COMMAND_VERSION = 2;
 export const AI_SIGNAL_SCHEMA_VERSION = 2;
+
+// LLM 은 가격/레벨을 JSON 숫자로 내보내는 경우가 많다(예: 65000). 원장의 문자열 소수 규칙은
+// 그대로 유지하되, 숫자로 와도 문자열로 변환해 받아들인다. (문자열은 그대로 통과.)
+const DecimalString = z.preprocess((v) => (typeof v === 'number' ? String(v) : v), RawDecimalString);
+const PositiveDecimalString = z.preprocess((v) => (typeof v === 'number' ? String(v) : v), RawPositiveDecimalString);
 
 export const MarketTypeSchema = z.enum(['futures', 'perpetual']);
 export const TimeframeSchema = z.enum(TIMEFRAMES);
@@ -80,28 +85,37 @@ export type AiChartCommand = z.infer<typeof AiChartCommandSchema>;
 
 /** Per-command argument schemas (strict). Used by the validation pipeline. */
 export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny> = {
-  createTrendLine: z.object({ points: z.tuple([OverlayPoint, OverlayPoint]), label: z.string().max(80).optional() }).strict(),
-  createHorizontalLevel: z.object({ price: DecimalString, label: z.string().max(80).optional() }).strict(),
-  createSupportResistance: z.object({ price: DecimalString, kind: z.enum(['support', 'resistance']) }).strict(),
-  createEntryZone: z.object({ priceLo: DecimalString, priceHi: DecimalString }).strict(),
-  createStopLoss: z.object({ price: DecimalString }).strict(),
-  createTakeProfit: z.object({ price: DecimalString, index: z.number().int().min(0).max(10) }).strict(),
-  createLongMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }).strict(),
-  createShortMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }).strict(),
-  createInvalidationLevel: z.object({ price: DecimalString }).strict(),
+  createTrendLine: z.object({ points: z.tuple([OverlayPoint, OverlayPoint]), label: z.string().max(80).optional() }),
+  createHorizontalLevel: z.object({ price: DecimalString, label: z.string().max(80).optional() }),
+  createSupportResistance: z.preprocess(
+    // LLM 이 kind 대신 type 으로 support/resistance 를 넣는 경우가 있어 별칭 처리한다.
+    (v) => {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const o = v as Record<string, unknown>;
+        if (o.kind === undefined && (o.type === 'support' || o.type === 'resistance')) return { ...o, kind: o.type };
+      }
+      return v;
+    },
+    z.object({ price: DecimalString, kind: z.enum(['support', 'resistance']) }),
+  ),
+  createEntryZone: z.object({ priceLo: DecimalString, priceHi: DecimalString }),
+  createStopLoss: z.object({ price: DecimalString }),
+  createTakeProfit: z.object({ price: DecimalString, index: z.number().int().min(0).max(10) }),
+  createLongMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
+  createShortMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
+  createInvalidationLevel: z.object({ price: DecimalString }),
   addIndicator: z
     .object({
       indicator: z.enum(AI_INDICATORS),
       params: z.array(z.number().int().positive().max(1000)).max(6).optional(),
       label: z.string().max(60).optional(),
-    })
-    .strict(),
-  removeIndicator: z.object({ indicator: z.string().min(1).max(20) }).strict(),
-  updateOverlay: z.object({ overlayId: z.string().min(1), patch: z.record(z.union([z.string(), z.number(), z.boolean()])) }).strict(),
-  hideOverlay: z.object({ overlayId: z.string().min(1) }).strict(),
-  deleteOverlay: z.object({ overlayId: z.string().min(1) }).strict(),
-  createSignalProposal: z.object({ signalId: z.string().min(1) }).strict(),
-  createOrderDraftProposal: z.object({ signalId: z.string().min(1), note: z.string().max(200).optional() }).strict(),
+    }),
+  removeIndicator: z.object({ indicator: z.string().min(1).max(20) }),
+  updateOverlay: z.object({ overlayId: z.string().min(1), patch: z.record(z.union([z.string(), z.number(), z.boolean()])) }),
+  hideOverlay: z.object({ overlayId: z.string().min(1) }),
+  deleteOverlay: z.object({ overlayId: z.string().min(1) }),
+  createSignalProposal: z.object({ signalId: z.string().min(1) }),
+  createOrderDraftProposal: z.object({ signalId: z.string().min(1), note: z.string().max(200).optional() }),
 };
 
 export function validateChartCommandArgs(cmdName: AiChartCommandName, args: unknown): { ok: true; value: unknown } | { ok: false; error: string } {
