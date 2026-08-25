@@ -449,6 +449,7 @@
       ai_chip_fib_cmd: '現在のスイングにフィボナッチ・リトレースメントを描いてください。',
       ai_chip_rr_cmd: 'ここでの妥当なセットアップのリスクリワードを見積もってください。',
       ai_stop: '停止',
+      aiops_unavail_reason: '理由: {reason}',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

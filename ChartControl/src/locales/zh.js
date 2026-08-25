@@ -451,6 +451,7 @@
       ai_chip_fib_cmd: '在当前波段上绘制斐波那契回撤水平。',
       ai_chip_rr_cmd: '估算此处一个合理设置的风险回报比。',
       ai_stop: '停止',
+      aiops_unavail_reason: '原因：{reason}',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

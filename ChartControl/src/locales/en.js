@@ -194,6 +194,7 @@
       ai_chip_fib_cmd: 'Draw Fibonacci retracement levels on the current swing.',
       ai_chip_rr_cmd: 'Estimate the risk/reward for a reasonable setup here.',
       ai_stop: 'Stop',
+      aiops_unavail_reason: 'Reason: {reason}',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

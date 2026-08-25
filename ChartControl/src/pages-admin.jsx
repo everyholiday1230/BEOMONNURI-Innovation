@@ -1356,26 +1356,30 @@
     const adm = window.useAdminData ? window.useAdminData() : { status: 'OFFLINE', isLive: false };
     const [policy, setPolicy] = useState(null);
     const [usage, setUsage] = useState(null);
+    const [status, setStatus] = useState(null); // /api/ai/status — 연결 여부/제공자/모델/사유
     const [err, setErr] = useState(null);
 
     useEffect(() => {
       const api = window.QTApi && window.QTApi.admin;
+      const rest = window.QTApi && window.QTApi.rest;
       if (!api || !api.aiPolicy) return undefined;
       let cancelled = false;
       Promise.all([
         api.aiPolicy().catch((e) => ({ __err: e })),
         api.aiUsage ? api.aiUsage().catch((e) => ({ __err: e })) : Promise.resolve(null),
-      ]).then(([p, u]) => {
+        rest && rest.aiStatus ? rest.aiStatus().catch(() => null) : Promise.resolve(null),
+      ]).then(([p, u, s]) => {
         if (cancelled) return;
         if (p && !p.__err) setPolicy(p.data); else if (p && p.__err) setErr((p.__err.message) || 'policy failed');
         if (u && !u.__err) setUsage(u.data);
+        if (s) setStatus(s);
       });
       return () => { cancelled = true; };
     }, [adm.version]);
 
     const isLive = Boolean(policy || usage);
-    const provider = usage ? usage.provider : null;
-    const executed = provider && provider !== 'unavailable';
+    const provider = (status && status.provider) || (usage ? usage.provider : null);
+    const executed = Boolean((status && status.available) || (provider && provider !== 'unavailable'));
     const sum = (usage && usage.summary) || null;
 
     // null 은 미실행이다. 0 으로 바꾸면 실행했는데 결과가 0 인 것과 구분되지 않는다.
@@ -1409,6 +1413,12 @@
               {executed ? t('aiops_active', { provider: provider }) : t('aiops_inactive')}
             </div>
             <div>{executed ? t('aiops_active_note') : t('aiops_inactive_note')}</div>
+            {status && status.available && status.model && (
+              <div style={{marginTop:6, fontFamily:'var(--font-mono)', fontSize:12}}>{t('aiops_model', { model: status.model })}</div>
+            )}
+            {status && !status.available && status.reason && (
+              <div style={{marginTop:6, fontSize:12, color:'var(--color-warning)'}}>{t('aiops_unavail_reason', { reason: status.reason })}</div>
+            )}
           </div>
 
           <div className="grid-4">
