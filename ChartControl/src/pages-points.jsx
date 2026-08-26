@@ -170,16 +170,16 @@
       setTopupBusy(null);
     };
 
-    // Toss 결제 SDK 를 한 번만 로드한다.
+    // Toss 결제 SDK(v2 standard) 를 한 번만 로드한다. v2 는 gck(클라이언트) 키를 쓴다.
     const loadTossSdk = () => new Promise((resolve, reject) => {
       if (window.TossPayments) { resolve(); return; }
       const s = document.createElement('script');
-      s.src = 'https://js.tosspayments.com/v1/payment';
+      s.src = 'https://js.tosspayments.com/v2/standard';
       s.onload = () => resolve();
       s.onerror = () => reject(new Error('toss sdk load failed'));
       document.head.appendChild(s);
     });
-    // Toss(한국결제): 주문 생성 → 결제창 → 성공 시 successUrl 로 리다이렉트(위 useEffect 가 confirm).
+    // Toss(한국결제): 주문 생성 → v2 결제창 → 성공 시 successUrl 로 리다이렉트(위 useEffect 가 confirm).
     const payWithToss = async (pk) => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.tossCreate) return;
@@ -189,9 +189,13 @@
         if (!r || !r.clientKey || !r.orderId) { setMsg({ ok: false, text: t('pt_topup_failed') }); setTopupBusy(null); return; }
         await loadTossSdk();
         const base = window.location.origin + window.location.pathname;
-        const toss = window.TossPayments(r.clientKey);
-        await toss.requestPayment('카드', {
-          amount: r.amount, orderId: r.orderId, orderName: r.orderName,
+        const tossPayments = window.TossPayments(r.clientKey);
+        const payment = tossPayments.payment({ customerKey: window.TossPayments.ANONYMOUS });
+        await payment.requestPayment({
+          method: 'CARD',
+          amount: { currency: 'KRW', value: r.amount },
+          orderId: r.orderId,
+          orderName: r.orderName,
           successUrl: base + '#/points?topup=toss',
           failUrl: base + '#/points?topup=cancel',
         });
