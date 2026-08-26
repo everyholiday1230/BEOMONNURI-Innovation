@@ -187,13 +187,17 @@ const app = new Hono();
      좁히는 것보다 정확하다 — 무엇이 어디서 쓰이는지 구분할 수 있기 때문이다.
 */
 const CDN = ['https://unpkg.com', 'https://cdn.jsdelivr.net'];
+// Toss 결제 SDK(v2)는 브라우저에서 js.tosspayments.com 스크립트를 로드하고
+// *.tosspayments.com 으로 통신/결제창(iframe)을 띄운다. 결제에 필요한 정식 예외다.
+const TOSS_SCRIPT = 'https://js.tosspayments.com';
+const TOSS_ORIGINS = ['https://js.tosspayments.com', 'https://api.tosspayments.com', 'https://event.tosspayments.com', 'https://apigw.tosspayments.com'];
 
 app.use('*', secureHeaders({
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
     // 브라우저 Babel 변환 때문에 eval 과 인라인이 필요하다 (위 주석 참고).
-    scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", ...CDN],
-    scriptSrcElem: ["'self'", "'unsafe-inline'", ...CDN],
+    scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", TOSS_SCRIPT, ...CDN],
+    scriptSrcElem: ["'self'", "'unsafe-inline'", TOSS_SCRIPT, ...CDN],
     /*
        인라인 style 속성(React style={{...}})만 허용한다.
 
@@ -214,13 +218,13 @@ app.use('*', secureHeaders({
        ★ 거래소를 브라우저에서 직접 부르지 않는다 — 키가 브라우저에 있으면
          안 되기 때문이다. 그래서 외부 API 도메인을 허용하지 않는다.
     */
-    connectSrc: ["'self'"],
+    connectSrc: ["'self'", ...TOSS_ORIGINS],
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
     formAction: ["'self'"],
     frameAncestors: ["'none'"],
-    // 상위 문서를 다른 곳으로 돌리는 것을 막는다.
-    frameSrc: ["'none'"],
+    // 상위 문서를 다른 곳으로 돌리는 것을 막는다. (토스 결제창 iframe 은 허용)
+    frameSrc: [...TOSS_ORIGINS],
     workerSrc: ["'self'", 'blob:'],
   },
   // X-Frame-Options 와 함께 둔다 — 오래된 브라우저는 CSP frame-ancestors 를 모른다.
