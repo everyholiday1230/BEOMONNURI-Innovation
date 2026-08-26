@@ -134,8 +134,22 @@
        여러 개다(USDT·USDC·BTC). 없는 탭을 보여주면 눌러도 빈 목록이 나온다.
     */
     const TABS = isSpotList
-      ? ['Favorites', 'USDT', 'USDC', 'BTC', 'Movers']
-      : ['Favorites', 'USDT-PERP', 'USDC', 'BTC', 'Movers', 'New'];
+      ? ['Favorites', 'USDT', 'USDC', 'BTC', 'Movers', 'meme', 'sol', 'ai', 'defi', 'l1', 'stockidx']
+      : ['Favorites', 'USDT-PERP', 'USDC', 'BTC', 'Movers', 'New', 'meme', 'sol', 'ai', 'defi', 'l1', 'stockidx'];
+    /*
+       섹터 카테고리(KuCoin 처럼). 거래소 공개 API 가 섹터 태그를 주지 않아 주요
+       코인을 큐레이션한 맵으로 분류한다. 한 코인이 여러 카테고리에 속할 수 있다.
+       목록에 없는 심볼은 카테고리 탭에 안 뜬다(견적통화 탭에서 보인다).
+    */
+    const MW_CAT = {
+      meme: new Set(['DOGE','SHIB','PEPE','WIF','BONK','FLOKI','BOME','MEME','MEW','POPCAT','TRUMP','PENGU','BRETT','MOG','TURBO','NEIRO','PNUT','ACT','GOAT','BABYDOGE','DEGEN','SPX','FARTCOIN','MOODENG']),
+      sol: new Set(['SOL','JTO','PYTH','JUP','WIF','BONK','RAY','ORCA','TNSR','W','DRIFT','KMNO','IO','ZEUS','CLOUD','PRCL','POPCAT','MEW','JITO','RENDER','PYUSD']),
+      ai: new Set(['FET','RENDER','TAO','WLD','AGIX','OCEAN','GRT','AKT','ARKM','AI16Z','VIRTUAL','NMR','CGPT','PHB','AIOZ','GLM','ATH']),
+      defi: new Set(['UNI','AAVE','MKR','LDO','CRV','COMP','SNX','SUSHI','DYDX','GMX','PENDLE','ENA','ETHFI','CAKE','RUNE','INJ','JOE','1INCH','BAL','LQTY','AERO']),
+      l1: new Set(['BTC','ETH','SOL','BNB','ADA','AVAX','TRX','DOT','NEAR','APT','SUI','SEI','TON','ATOM','ICP','ALGO','HBAR','INJ','TIA','KAS','XRP','LTC','BCH','ETC','FTM','S']),
+      stockidx: new Set(['NVDA','TSLA','AAPL','MSFT','AMZN','GOOGL','META','COIN','MSTR','NFLX','AMD','SPX','NDX','DJI','GOOG']),
+    };
+    const CAT_IDS = ['meme','sol','ai','defi','l1','stockidx'];
     /*
        ★ 탭 값은 **id 이면서 표시 문자**로 함께 쓰이고 있었다(`tab === 'Favorites'`).
          그래서 화면을 일본어·중국어로 바꿔도 이 탭만 영어로 남았다.
@@ -147,7 +161,8 @@
       id === 'Favorites' ? t('wl_tab_favorites')
         : id === 'Movers' ? t('wl_tab_movers')
           : id === 'New' ? t('wl_tab_new')
-            : id
+            : CAT_IDS.includes(id) ? t('wl_cat_' + id)
+              : id
     );
     const [tab, setTab] = useState(isSpotList ? 'USDT' : 'USDT-PERP');
     // 모드가 바뀌어 지금 탭이 없어졌으면 첫 거래 탭으로 돌린다.
@@ -162,6 +177,7 @@
       else if (tab === 'USDC') arr = arr.filter(m => m.quote === 'USDC');
       else if (tab === 'BTC') arr = arr.filter(m => m.quote === 'BTC');
       else if (tab === 'Movers') arr = arr.filter(m => Math.abs(Number(m.chg24h)) > 0);
+      else if (CAT_IDS.includes(tab)) arr = arr.filter(m => MW_CAT[tab] && MW_CAT[tab].has(m.base));
       if (q) arr = arr.filter(m => m.base.toLowerCase().includes(q.toLowerCase()));
       if (tab === 'Movers') {
         // 변동이 큰 순서. 방향과 무관하게 절대값으로 본다.
