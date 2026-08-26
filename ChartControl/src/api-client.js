@@ -737,6 +737,14 @@
     topupUsdtCreate: function (packageId) {
       return sendJSON('POST', '/api/me/topup/usdt/create', { packageId: packageId });
     },
+    /** Toss(한국결제) 주문 생성 → {orderId, amount(KRW), orderName, clientKey}. */
+    tossCreate: function (packageId) {
+      return sendJSON('POST', '/api/me/topup/toss/create', { packageId: packageId });
+    },
+    /** Toss 결제 확정(서버가 직접 confirm). */
+    tossConfirm: function (paymentKey, orderId, amount) {
+      return sendJSON('POST', '/api/me/topup/toss/confirm', { paymentKey: paymentKey, orderId: orderId, amount: amount });
+    },
 
     // ---- 친구 초대 (리퍼럴) ----
 

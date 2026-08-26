@@ -242,6 +242,7 @@
       wl_cat_all: 'All',
       wl_cat_metals: 'Metals',
       legal_refund: 'Refund Policy',
+      pt_pay_toss: 'Toss',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

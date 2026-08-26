@@ -146,6 +146,7 @@ export class CryptoInvoiceProvider {
 export interface PaymentProviders {
   paypal?: PayPalProvider;
   crypto?: CryptoInvoiceProvider;
+  toss?: TossProvider;
 }
 
 /** 환경설정에서 사용 가능한 결제 제공자를 만든다. 자격증명이 없으면 그 제공자는 undefined. */
@@ -156,6 +157,8 @@ export function resolvePaymentProviders(env: {
   cryptoWebhookSecret?: string;
   cryptoUsdtAddress?: string;
   cryptoNetwork?: string;
+  tossClientKey?: string;
+  tossSecretKey?: string;
 }): PaymentProviders {
   const out: PaymentProviders = {};
   if (env.paypalClientId && env.paypalClientSecret) {
@@ -164,6 +167,9 @@ export function resolvePaymentProviders(env: {
       clientSecret: env.paypalClientSecret,
       mode: env.paypalMode === 'live' ? 'live' : 'sandbox',
     });
+  }
+  if (env.tossClientKey && env.tossSecretKey) {
+    out.toss = new TossProvider({ clientKey: env.tossClientKey, secretKey: env.tossSecretKey });
   }
   if (env.cryptoWebhookSecret) {
     out.crypto = new CryptoInvoiceProvider({
@@ -175,13 +181,35 @@ export function resolvePaymentProviders(env: {
   return out;
 }
 
-/** 포인트 패키지 카탈로그(서버 권위값). 금액은 USD/USDT 동일 스케일로 둔다. */
-export interface PointPackage { id: string; points: number; amount: string; }
+/** 포인트 패키지 카탈로그(서버 권위값). amount 는 USD/USDT, krw 는 토스(원화 정수)용. */
+export interface PointPackage { id: string; points: number; amount: string; krw: number; }
 export const POINT_PACKAGES: PointPackage[] = [
-  { id: 'pack_10k', points: 10_000, amount: '9.99' },
-  { id: 'pack_55k', points: 55_000, amount: '49.99' },
-  { id: 'pack_120k', points: 120_000, amount: '99.99' },
+  { id: 'pack_10k', points: 10_000, amount: '9.99', krw: 13000 },
+  { id: 'pack_55k', points: 55_000, amount: '49.99', krw: 69000 },
+  { id: 'pack_120k', points: 120_000, amount: '99.99', krw: 139000 },
 ];
 export function findPackage(id: string): PointPackage | undefined {
   return POINT_PACKAGES.find((p) => p.id === id);
+}
+
+/*
+   Toss Payments (한국 결제). 클라이언트 위젯이 결제를 요청하고 successUrl 로
+   paymentKey·orderId·amount 를 돌려주면, 서버가 secret 키로 /v1/payments/confirm 을
+   호출해 **직접 확정**한다(클라이언트 말만 믿지 않음). 자격증명 없으면 비활성.
+*/
+export interface TossConfig { clientKey: string; secretKey: string; }
+export class TossProvider {
+  readonly kind = 'toss' as const;
+  constructor(private readonly cfg: TossConfig) {}
+  get clientKey(): string { return this.cfg.clientKey; }
+  async confirm(input: { paymentKey: string; orderId: string; amount: number }): Promise<{ ok: boolean; status?: string; method?: string; message?: string }> {
+    const auth = Buffer.from(`${this.cfg.secretKey}:`).toString('base64');
+    const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: { authorization: `Basic ${auth}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ paymentKey: input.paymentKey, orderId: input.orderId, amount: input.amount }),
+    });
+    const body = (await res.json().catch(() => null)) as { status?: string; method?: string; message?: string } | null;
+    return { ok: res.ok && body?.status === 'DONE', status: body?.status, method: body?.method, message: body?.message };
+  }
 }

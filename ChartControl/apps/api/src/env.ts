@@ -220,6 +220,8 @@ export interface ApiEnv {
   paypalClientId?: string;
   paypalClientSecret?: string;
   paypalMode?: string;
+  tossClientKey?: string;
+  tossSecretKey?: string;
   cryptoWebhookSecret?: string;
   cryptoUsdtAddress?: string;
   cryptoNetwork?: string;
@@ -749,6 +751,8 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     paypalClientId: env.PAYPAL_CLIENT_ID,
     paypalClientSecret: env.PAYPAL_CLIENT_SECRET,
     paypalMode: env.PAYPAL_MODE,
+    tossClientKey: env.TOSS_CLIENT_KEY,
+    tossSecretKey: env.TOSS_SECRET_KEY,
     cryptoWebhookSecret: env.CRYPTO_WEBHOOK_SECRET,
     cryptoUsdtAddress: env.CRYPTO_USDT_ADDRESS,
     cryptoNetwork: env.CRYPTO_NETWORK,

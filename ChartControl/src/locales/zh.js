@@ -499,6 +499,7 @@
       wl_cat_all: '全部',
       wl_cat_metals: '贵金属',
       legal_refund: '退款政策',
+      pt_pay_toss: 'Toss',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

@@ -1683,6 +1683,8 @@ if (env.authEnabled) {
       paypalClientId: env.paypalClientId,
       paypalClientSecret: env.paypalClientSecret,
       paypalMode: env.paypalMode,
+      tossClientKey: env.tossClientKey,
+      tossSecretKey: env.tossSecretKey,
       cryptoWebhookSecret: env.cryptoWebhookSecret,
       cryptoUsdtAddress: env.cryptoUsdtAddress,
       cryptoNetwork: env.cryptoNetwork,
@@ -1700,7 +1702,7 @@ if (env.authEnabled) {
       originAllowed,
       ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
     }));
-    console.log(`[api] payments mounted (paypal=${Boolean(paymentProviders.paypal)}, usdt=${Boolean(paymentProviders.crypto)})`);
+    console.log(`[api] payments mounted (paypal=${Boolean(paymentProviders.paypal)}, usdt=${Boolean(paymentProviders.crypto)}, toss=${Boolean(paymentProviders.toss)})`);
 
     /* 저장 항목(신호·지표·드로잉) — PG. 저장 시 포인트 차감(제도 켜져 있을 때). */
     const savedItemRepo = core.pool ? new PgSavedItemRepo(core.pool) : undefined;

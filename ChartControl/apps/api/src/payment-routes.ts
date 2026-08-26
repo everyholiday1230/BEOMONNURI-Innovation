@@ -36,16 +36,17 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
 
   const paypalOn = Boolean(d.orders && d.points && d.providers.paypal);
   const usdtOn = Boolean(d.orders && d.points && d.providers.crypto);
+  const tossOn = Boolean(d.orders && d.points && d.providers.toss);
 
   // ---- 사용 가능한 결제 수단 + 포인트 패키지 ----
   app.get('/me/topup/packages', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     return c.json({
-      supported: { paypal: paypalOn, usdt: usdtOn },
+      supported: { paypal: paypalOn, usdt: usdtOn, toss: tossOn },
       packages: POINT_PACKAGES,
       // 결제 수단이 하나도 없으면 화면이 "결제 준비 중" 을 정직히 표시한다.
-      enabled: paypalOn || usdtOn,
+      enabled: paypalOn || usdtOn || tossOn,
     });
   });
 
@@ -97,6 +98,60 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
         await d.orders!.markFailed(order.id);
         return c.json(err('PAYMENT_NOT_COMPLETED', `status=${cap.status}`), 402);
       }
+      const res = await d.orders!.markPaid(order.id);
+      const balance = await d.points!.balanceOf(a.user.id);
+      return c.json({ credited: Boolean(res?.credited), points: order.points, balance });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
+    }
+  });
+
+  // ---- Toss(한국결제): 클라이언트 키 반환 (위젯 초기화용) ----
+  app.get('/me/topup/toss/config', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!tossOn) return c.json({ supported: false });
+    return c.json({ supported: true, clientKey: d.providers.toss!.clientKey });
+  });
+
+  // ---- Toss: 주문 생성 → 위젯에 넘길 정보 반환(원화) ----
+  app.post('/me/topup/toss/create', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
+    if (!tossOn) return c.json(err('NOT_CONFIGURED', 'Toss is not enabled'), 503);
+    const body = (await c.req.json().catch(() => ({}))) as { packageId?: string };
+    const pkg = body.packageId ? findPackage(body.packageId) : undefined;
+    if (!pkg) return c.json(err('BAD_REQUEST', 'unknown package'), 400);
+    const order = await d.orders!.create({
+      userId: a.user.id, provider: 'toss', packageId: pkg.id, points: pkg.points, amount: String(pkg.krw), currency: 'KRW',
+    });
+    return c.json({ orderId: order.id, amount: pkg.krw, orderName: `${pkg.points.toLocaleString()} points`, clientKey: d.providers.toss!.clientKey, provider: 'toss' });
+  });
+
+  // ---- Toss: 결제 확정 → 서버가 직접 confirm → 포인트 적립 ----
+  app.post('/me/topup/toss/confirm', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
+    if (!tossOn) return c.json(err('NOT_CONFIGURED', 'Toss is not enabled'), 503);
+    const body = (await c.req.json().catch(() => ({}))) as { paymentKey?: string; orderId?: string; amount?: number };
+    if (!body.paymentKey || !body.orderId || !body.amount) return c.json(err('BAD_REQUEST', 'paymentKey, orderId, amount required'), 400);
+    const order = await d.orders!.getOwned(a.user.id, body.orderId);
+    if (!order) return c.json(err('NOT_FOUND', 'order not found'), 404);
+    if (order.status === 'paid') {
+      const balance = await d.points!.balanceOf(a.user.id);
+      return c.json({ credited: false, alreadyPaid: true, balance });
+    }
+    // 클라이언트가 보낸 금액이 서버 주문 금액(원화)과 일치해야 한다(위변조 방지).
+    if (Number(body.amount) !== Number(order.amount)) return c.json(err('AMOUNT_MISMATCH', ''), 400);
+    try {
+      const conf = await d.providers.toss!.confirm({ paymentKey: body.paymentKey, orderId: body.orderId, amount: Number(body.amount) });
+      if (!conf.ok) {
+        await d.orders!.markFailed(order.id);
+        return c.json(err('PAYMENT_NOT_COMPLETED', `status=${conf.status ?? conf.message ?? ''}`), 402);
+      }
+      await d.orders!.attachRef(order.id, body.paymentKey);
       const res = await d.orders!.markPaid(order.id);
       const balance = await d.points!.balanceOf(a.user.id);
       return c.json({ credited: Boolean(res?.credited), points: order.points, balance });

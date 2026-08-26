@@ -12,7 +12,7 @@ import type { PgPointsRepo } from './points-repo';
    와도 포인트가 두 번 들어가지 않는다.
 */
 
-export type PaymentProvider = 'paypal' | 'usdt';
+export type PaymentProvider = 'paypal' | 'usdt' | 'toss';
 export type PointOrderStatus = 'created' | 'paid' | 'failed' | 'expired';
 
 export interface PointOrderRow {

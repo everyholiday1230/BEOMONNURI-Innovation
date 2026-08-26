@@ -90,6 +90,29 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    /*
+       Toss 결제 성공 후 successUrl(#/points?topup=toss&paymentKey=..&orderId=..&amount=..)로
+       돌아오면 서버에 confirm 요청해 결제를 확정하고 포인트를 적립한다.
+    */
+    useEffect(() => {
+      const h = window.location.hash || '';
+      if (!/[?&]topup=toss/.test(h)) return;
+      const pk = (h.match(/[?&]paymentKey=([^&]+)/) || [])[1];
+      const oid = (h.match(/[?&]orderId=([^&]+)/) || [])[1];
+      const amt = (h.match(/[?&]amount=([^&]+)/) || [])[1];
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.tossConfirm || !pk || !oid || !amt) return;
+      try { window.history.replaceState(null, '', '#/points'); } catch (e) { /* noop */ }
+      api.tossConfirm(decodeURIComponent(pk), decodeURIComponent(oid), Number(amt))
+        .then((r) => {
+          if (r && r.credited) { setMsg({ ok: true, text: t('pt_topup_credited', { n: r.points }) }); load(); }
+          else if (r && r.alreadyPaid) { setMsg({ ok: true, text: t('pt_topup_already') }); }
+          else { setMsg({ ok: false, text: t('pt_topup_failed') }); }
+        })
+        .catch((e) => setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const live = Boolean(data && data.supported);
     const on = Boolean(data && data.enabled);
     const unit = (data && data.settings && data.settings.unitName) || t('pt_unit_default');
@@ -145,6 +168,37 @@
         else setMsg({ ok: false, text: t('pt_topup_failed') });
       } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') }); }
       setTopupBusy(null);
+    };
+
+    // Toss 결제 SDK 를 한 번만 로드한다.
+    const loadTossSdk = () => new Promise((resolve, reject) => {
+      if (window.TossPayments) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://js.tosspayments.com/v1/payment';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('toss sdk load failed'));
+      document.head.appendChild(s);
+    });
+    // Toss(한국결제): 주문 생성 → 결제창 → 성공 시 successUrl 로 리다이렉트(위 useEffect 가 confirm).
+    const payWithToss = async (pk) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.tossCreate) return;
+      setTopupBusy(pk.id); setMsg(null); setUsdtInvoice(null);
+      try {
+        const r = await api.tossCreate(pk.id);
+        if (!r || !r.clientKey || !r.orderId) { setMsg({ ok: false, text: t('pt_topup_failed') }); setTopupBusy(null); return; }
+        await loadTossSdk();
+        const base = window.location.origin + window.location.pathname;
+        const toss = window.TossPayments(r.clientKey);
+        await toss.requestPayment('카드', {
+          amount: r.amount, orderId: r.orderId, orderName: r.orderName,
+          successUrl: base + '#/points?topup=toss',
+          failUrl: base + '#/points?topup=cancel',
+        });
+      } catch (e) {
+        setMsg({ ok: false, text: (e && e.message) || t('pt_topup_failed') });
+        setTopupBusy(null);
+      }
     };
 
     // 현재 차트에 켜둔 지표를 저장(포인트 차감). ChartKlineUtil 브리지에서 활성 지표를 읽는다.
@@ -305,6 +359,9 @@
                             )}
                             {topup.supported.usdt && (
                               <button className="btn btn--sm" style={{flex:1}} disabled={topupBusy === pk.id} onClick={() => payWithUsdt(pk)}>{t('pt_pay_usdt')}</button>
+                            )}
+                            {topup.supported.toss && (
+                              <button className="btn btn--sm" style={{flex:1}} disabled={topupBusy === pk.id} onClick={() => payWithToss(pk)}>{t('pt_pay_toss')}</button>
                             )}
                           </div>
                         </div>
