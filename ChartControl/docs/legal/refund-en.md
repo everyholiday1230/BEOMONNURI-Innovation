@@ -11,7 +11,7 @@ _Last updated: 2026-08-26. This policy explains refunds for purchases made on {{
 If you purchased points and have **not used them**, you may request a full refund within **7 days** of purchase. This reflects the cooling-off right for digital content under applicable consumer law (e.g. Korea's Act on Consumer Protection in Electronic Commerce).
 
 - Refunds are issued to the **original payment method**.
-- If you used **part** of the points, we refund the **unused remainder** on a pro-rata basis (unit price = amount paid ÷ points purchased).
+- **Once you have used any of the points, the purchase is no longer refundable**, because the digital service has begun. Please decide before you spend your points.
 
 ## 3. Used / consumed points
 
