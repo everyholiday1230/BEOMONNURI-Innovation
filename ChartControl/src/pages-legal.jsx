@@ -27,6 +27,7 @@
     '/privacy': 'privacy',
     '/risk': 'risk',
     '/security': 'security',
+    '/refund': 'refund',
   };
 
   const TITLE_KEY = {
@@ -34,6 +35,7 @@
     privacy: 'legal_privacy',
     risk: 'legal_risk',
     security: 'legal_security',
+    refund: 'legal_refund',
   };
 
   /**

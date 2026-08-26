@@ -1028,14 +1028,14 @@
     */
     const isAuthRoute = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
-      '/terms', '/privacy', '/risk', '/security',
+      '/terms', '/privacy', '/risk', '/security', '/refund',
     ].includes(route.path);
 
     // All known routes — anything not in this list is 404
     const ALL_KNOWN_ROUTES = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       // 법적 문서 — 로그인 없이 열린다.
-      '/terms', '/privacy', '/risk', '/security',
+      '/terms', '/privacy', '/risk', '/security', '/refund',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
@@ -1088,7 +1088,7 @@
         <>
           {route.path === '/'               && <window.LandingPage        shellProps={shellProps}/>}
           {/* 법적 문서 — route 를 넘겨 어느 문서인지 판단한다. */}
-          {['/terms','/privacy','/risk','/security'].includes(route.path) && <window.LegalPage route={route}/>}
+          {['/terms','/privacy','/risk','/security','/refund'].includes(route.path) && <window.LegalPage route={route}/>}
           {route.path === '/login'          && <window.LoginPage          shellProps={shellProps}/>}
           {route.path === '/signup'         && <window.SignupPage         shellProps={shellProps}/>}
           {route.path === '/verify-email'   && <window.EmailVerifyPage    shellProps={shellProps}/>}

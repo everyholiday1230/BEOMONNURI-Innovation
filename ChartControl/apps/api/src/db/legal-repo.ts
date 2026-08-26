@@ -14,9 +14,9 @@
 
 import type { Pool, PoolClient } from 'pg';
 
-export type LegalKind = 'terms' | 'privacy' | 'risk' | 'security';
+export type LegalKind = 'terms' | 'privacy' | 'risk' | 'security' | 'refund';
 
-export const LEGAL_KINDS: readonly LegalKind[] = ['terms', 'privacy', 'risk', 'security'];
+export const LEGAL_KINDS: readonly LegalKind[] = ['terms', 'privacy', 'risk', 'security', 'refund'];
 
 export interface LegalDoc {
   id: string;

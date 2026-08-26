@@ -496,6 +496,7 @@
       wl_cat_stockidx: '株価指数',
       wl_cat_all: 'すべて',
       wl_cat_metals: '貴金属',
+      legal_refund: '返金ポリシー',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

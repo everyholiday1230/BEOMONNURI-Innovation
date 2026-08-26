@@ -241,6 +241,7 @@
       wl_cat_stockidx: 'Stock Index',
       wl_cat_all: 'All',
       wl_cat_metals: 'Metals',
+      legal_refund: 'Refund Policy',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
