@@ -156,7 +156,8 @@
       if (!inds || inds.length === 0) { setMsg({ ok: false, text: t('sv_no_indicators') }); return; }
       setMsg(null);
       try {
-        const r = await api.savedCreate({ kind: 'indicator', name: t('sv_indicator_preset_name', { n: inds.length }), payload: { indicators: inds } });
+        // 지표 프리셋은 모든 종목에서 재사용 가능 → scope 'global'(차등가격).
+        const r = await api.savedCreate({ kind: 'indicator', scope: 'global', name: t('sv_indicator_preset_name', { n: inds.length }), payload: { indicators: inds } });
         if (r && r.ok !== false) { setMsg({ ok: true, text: t('sv_saved_ok', { n: (r && r.charged) || 0 }) }); load(); }
         else setMsg({ ok: false, text: (r && r.message) || t('sv_save_failed') });
       } catch (e) {
@@ -169,6 +170,20 @@
       if (!api || !api.savedDelete) return;
       try { await api.savedDelete(id); load(); } catch (e) { /* noop */ }
     };
+    const extendSaved = async (id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedExtend) return;
+      try {
+        const r = await api.savedExtend(id);
+        if (r && r.ok !== false) { setMsg({ ok: true, text: t('sv_extended_ok', { n: (r && r.charged) || 0 }) }); load(); }
+        else setMsg({ ok: false, text: (r && r.message) || t('sv_save_failed') });
+      } catch (e) {
+        const insuff = e && e.status === 402;
+        setMsg({ ok: false, text: insuff ? t('pt_not_enough', { unit }) : ((e && e.message) || t('sv_save_failed')) });
+      }
+    };
+    // 만료까지 남은 일수(음수면 만료됨)
+    const daysLeft = (ms) => (ms ? Math.ceil((ms - Date.now()) / 86400000) : null);
 
     return (
       <window.PageShell
@@ -312,7 +327,7 @@
 
             {/* 내 저장 항목 — 신호·지표 저장(포인트 차감) + 목록/삭제 */}
             {saved && saved.supported && (
-              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub', { cost: saved.saveCost })}>
+              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 100, glob: (saved.saveCost && saved.saveCost.global) || 300 })}>
                 <div style={{marginBottom:10}}>
                   <button className="btn btn--sm" onClick={saveCurrentIndicators}>{t('sv_save_current_indicators')}</button>
                 </div>
@@ -320,13 +335,23 @@
                   <div style={{padding:'10px 12px', fontSize:12.5, color:'var(--color-text-secondary)'}}>{t('sv_empty')}</div>
                 ) : (
                   <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                    {saved.items.map((it) => (
+                    {saved.items.map((it) => {
+                      const dl = daysLeft(it.expiresAt);
+                      const expiring = dl !== null && dl <= 3;
+                      return (
                       <div key={it.id} style={{display:'flex', alignItems:'center', gap:10, padding:'8px 10px', border:'1px solid var(--color-border-subtle)', borderRadius:6}}>
                         <span style={{fontSize:10.5, fontWeight:700, padding:'2px 6px', borderRadius:4, background:'var(--color-bg-surface)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
                         <span style={{flex:1, fontSize:12.5}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
+                        {dl !== null && (
+                          <span style={{fontSize:11, color: expiring ? 'var(--color-warning)' : 'var(--color-text-tertiary)'}}>
+                            {dl < 0 ? t('sv_expired') : t('sv_days_left', { n: dl })}
+                          </span>
+                        )}
+                        <button className="btn btn--sm" title={t('sv_extend_hint', { n: (saved.extendCost || 50) })} onClick={() => extendSaved(it.id)}>{t('sv_extend', { n: (saved.extendCost || 50) })}</button>
                         <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSaved(it.id)}><I.Trash size={12}/></button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </window.SectionCard>

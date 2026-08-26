@@ -56,4 +56,20 @@ d('PgSavedItemRepo', () => {
     expect(await repo.remove(a, itemA.id)).toBe(true);
     expect(await repo.getOwned(a, itemA.id)).toBeNull();
   });
+
+  it('sets an expiry on create and extend pushes it further out (owner only)', async () => {
+    const a = await makeUser();
+    const b = await makeUser();
+    const item = await repo.create({ userId: a, kind: 'signal', scope: 'global', name: 'long', payload: { x: 1 } });
+    expect(item.scope).toBe('global');
+    expect(item.expiresAt).toBeGreaterThan(Date.now()); // ~30일 뒤
+    const before = item.expiresAt!;
+
+    // 남이 연장 불가
+    expect(await repo.extend(b, item.id)).toBeNull();
+    // 소유자는 연장 → 만료가 뒤로 밀린다
+    const extended = await repo.extend(a, item.id);
+    expect(extended).not.toBeNull();
+    expect(extended!.expiresAt!).toBeGreaterThan(before);
+  });
 });

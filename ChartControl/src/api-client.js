@@ -711,6 +711,10 @@
     savedDelete: function (id) {
       return sendJSON('DELETE', '/api/me/saved/' + encodeURIComponent(id));
     },
+    /** 저장 만료 연장(포인트 차감). */
+    savedExtend: function (id) {
+      return sendJSON('POST', '/api/me/saved/' + encodeURIComponent(id) + '/extend', {});
+    },
 
     // ---- 포인트 충전(결제): PayPal / USDT ----
 
