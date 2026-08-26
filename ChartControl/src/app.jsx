@@ -31,6 +31,32 @@
    */
   const t = (k, vars) => (window.QTI18n ? window.QTI18n.t(k, vars) : k);
 
+  /*
+     필수 면책 동의 게이트. 첫 사용 시 한 번, "이 서비스는 투자자문이 아니며 모든
+     판단·매매는 본인 책임" 을 명확히 고지하고 동의를 받는다(규제/책임 방어).
+     동의는 localStorage 에 남긴다(문구 버전이 바뀌면 KEY 를 올려 재동의).
+  */
+  function DisclaimerGate() {
+    const KEY = 'qt.disclaimer.ack.v1';
+    const [ack, setAck] = React.useState(() => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } });
+    if (ack) return null;
+    const agree = () => { try { localStorage.setItem(KEY, '1'); } catch (e) { /* noop */ } setAck(true); };
+    return (
+      <div role="dialog" aria-modal="true" aria-label={t('disc_title')}
+        style={{position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.72)', display:'flex', alignItems:'center', justifyContent:'center', padding:16}}>
+        <div style={{maxWidth:560, width:'100%', background:'var(--color-bg-elevated, #14181f)', border:'1px solid var(--color-border-default, #2a2f3a)', borderRadius:10, padding:'22px 22px 18px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}}>
+          <div style={{fontSize:16, fontWeight:700, marginBottom:10, color:'var(--color-text-primary, #fff)'}}>{t('disc_title')}</div>
+          <div style={{fontSize:13, lineHeight:1.75, color:'var(--color-text-secondary, #b8c0cc)', whiteSpace:'pre-line'}}>{t('disc_body')}</div>
+          <div style={{display:'flex', gap:12, marginTop:18, alignItems:'center', justifyContent:'flex-end'}}>
+            <a href="#/risk" style={{fontSize:12, color:'var(--color-brand, #35d0e0)'}}>{t('disc_read_more')}</a>
+            <button className="btn btn--primary" onClick={agree}>{t('disc_agree')}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  window.DisclaimerGate = DisclaimerGate;
+
   // ---- Persist / read tweaks state ----
   /**
    * 기본 언어를 브라우저 설정에서 결정한다.
@@ -1085,6 +1111,7 @@
 
     return (
       <div className={`app-shell app-shell--v2 ${isTradeRoute && !navPrefs.collapsed ? 'has-expanded-nav' : ''}`}>
+        <window.DisclaimerGate/>
         {/*
            최상단 상태 띠.
 
