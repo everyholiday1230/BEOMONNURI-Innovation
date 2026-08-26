@@ -708,8 +708,15 @@ let aiUserContext: ((c: Context) => Promise<{
   positions: { symbol: string; side: string; size: string; entryPrice: string | null }[];
   availableBalance: string | null;
 }>) | null = null;
+// 세션 검증기(뒤에서 authService 준비되면 할당). /api/ai/analyze 를 인증 게이트한다.
+let aiSessionValid: ((c: Context) => Promise<boolean>) | null = null;
 
 app.post('/api/ai/analyze', async (c) => {
+  // ★ 인증 게이트(fail-closed). 이 경로는 실 LLM 분석을 돌려 비용이 든다 —
+  //   비인증·무제한 공개 시 비용/DoS 위험. 프런트는 게이트된 /ai/copilot 을 쓴다.
+  if (!aiSessionValid || !(await aiSessionValid(c))) {
+    return c.json(errBody('UNAUTHENTICATED', 'sign in to use AI analysis'), 401);
+  }
   const body = await c.req.json<{
     symbol?: string;
     timeframe?: string;
@@ -2039,8 +2046,7 @@ if (env.authEnabled) {
     aiUserContext = async (c) => {
       const raw = getCookie(c, env.cookieName);
       const v = raw ? await authService.validateSession(raw) : null;
-      if (!v) return { positions: [], availableBalance: null };
-      const positions = aiPortfolio.listPositions(v.user.id, { limit: 20 });
+      if (!v) return { positions: [], availableBalance: null };      const positions = aiPortfolio.listPositions(v.user.id, { limit: 20 });
       const balances = aiPortfolio.listBalances(v.user.id);
       const quote = balances.items.find((b) => b.asset === 'USDT');
       return {
@@ -2048,6 +2054,11 @@ if (env.authEnabled) {
         // Null, not 0: an unknown balance must not read as an empty account.
         availableBalance: quote ? quote.available : null,
       };
+    };
+    // /api/ai/analyze 인증 게이트: 유효 세션이면 true.
+    aiSessionValid = async (c) => {
+      const raw = getCookie(c, env.cookieName);
+      return raw ? Boolean(await authService.validateSession(raw)) : false;
     };
 
     // Durable projection for confirmed SIMULATED orders. Ownership is taken from the validated session
