@@ -49,21 +49,27 @@
      ★ 국기 이모지는 사전 값에 함께 둔다 — 언어와 무관한 표기이고, 목록에서
        나라를 빨리 찾는 데 도움이 된다.
   */
-  const COUNTRY_OPTIONS = [
-    { value: 'KR', key: 'country_kr' },
-    { value: 'US', key: 'country_us' },
-    { value: 'JP', key: 'country_jp' },
-    { value: 'CN', key: 'country_cn' },
-    { value: 'TW', key: 'country_tw' },
-    { value: 'SG', key: 'country_sg' },
-    { value: 'HK', key: 'country_hk' },
-    { value: 'GB', key: 'country_gb' },
-    { value: 'DE', key: 'country_de' },
-    { value: 'OTHER', key: 'country_other' },
-  ];
-  const countryOptions = () => COUNTRY_OPTIONS.map(
-    (c) => <option key={c.value} value={c.value}>{t(c.key)}</option>,
-  );
+  // 자주 쓰는 주요 시장은 맨 위에 고정, 나머지는 사용자 언어로 정렬해 전부 노출한다.
+  const COUNTRY_PRIORITY = ['KR', 'US', 'JP', 'CN', 'TW', 'SG', 'HK', 'GB', 'DE'];
+  const COUNTRY_CODES = ('AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BY BZ '
+    + 'CA CD CG CH CI CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE '
+    + 'GH GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KP KR KW KZ '
+    + 'LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MR MT MU MV MW MX MY MZ NA NE NG NI NL '
+    + 'NO NP NR NZ OM PA PE PG PH PK PL PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST '
+    + 'SV SY SZ TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VN VU WS YE ZA ZM ZW').split(' ');
+  const countryOptions = () => {
+    const loc = (window.QTI18n && window.QTI18n.getLocale && window.QTI18n.getLocale()) || 'en';
+    let dn = null;
+    try { dn = new Intl.DisplayNames([loc], { type: 'region' }); } catch (e) { /* older browser */ }
+    const label = (code) => { try { return (dn && dn.of(code)) || code; } catch (e) { return code; } };
+    const rest = COUNTRY_CODES
+      .filter((c) => !COUNTRY_PRIORITY.includes(c))
+      .sort((a, b) => label(a).localeCompare(label(b), loc));
+    const ordered = COUNTRY_PRIORITY.concat(rest);
+    const opts = ordered.map((code) => <option key={code} value={code}>{label(code)}</option>);
+    opts.push(<option key="OTHER" value="OTHER">{t('country_other')}</option>);
+    return opts;
+  };
 
   /** 언어 변경 시 이 파일의 컴포넌트들이 재렌더되도록 하는 훅. */
   const _useLocale = () => (window.useI18nLocale ? window.useI18nLocale() : null);
