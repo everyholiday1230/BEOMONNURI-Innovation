@@ -661,8 +661,8 @@
       wiz_done_desc: 'You can now manage trades executed on your {exchange} account from {brand}.',
       dep_confirm_count: '{n} confirmations',
       wd_address_placeholder: 'Enter {network} address',
-      strat_desc_1: '{name} is an AI-driven trend-following strategy that operates on the {tag} timeframe.',
-      strat_desc_2: 'The {brand} Analyst v1 model combines multiple indicators (MA20/60/120, RSI, VOL) to generate entry, stop-loss and take-profit signals.',
+      strat_desc_1: '{name} is a chart study template you can apply and backtest yourself on the {tag} timeframe. Results are historical and for study only, not a recommendation.',
+      strat_desc_2: 'It combines common indicators (MA20/60/120, RSI, VOL) so you can study entry, stop-loss and take-profit levels yourself. It does not tell you what to trade.',
       fee_next_tier: 'Next tier · to {tier}',
 
       // --- 관리자: 이상거래 플래그 (어순 분리) ---

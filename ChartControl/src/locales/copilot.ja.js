@@ -37,14 +37,14 @@
       ai_chip_trendline: "🎯 上昇トレンドラインを描く",
       ai_chip_trendline_cmd: "直近の安値を基準に上昇トレンドラインを描いて",
       ai_chip_signal: "📊 エントリーの想定",
-      ai_chip_signal_cmd: "エントリー・損切り・利確の水準を提案して",
+      ai_chip_signal_cmd: "自分のエントリー・損切り・利確の水準を書き込むのを手伝って",
       ai_chip_sr: "📍 サポート・レジスタンスを探す",
       ai_chip_sr_cmd: "サポートとレジスタンスを探して",
       ai_chip_fib: "📐 フィボナッチ",
       ai_chip_rr: "🔀 リスクリワード計算",
 
       ai_input_beginner: "何をお手伝いしましょうか？ 例）トレンドラインを描いて",
-      ai_input_pro: "コマンドを入力…（例: draw trendline / propose signal / find S/R）",
+      ai_input_pro: "コマンドを入力…（例: draw trendline / draft my setup / find S/R）",
       ai_reason_beginner: "💡 理由",
       ai_reason_pro: "根拠",
       /* ★ 未翻訳だったため、コパイロットを開いた最初の一文が英語で出ていた */

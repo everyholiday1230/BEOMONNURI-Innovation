@@ -84,7 +84,7 @@
       ai_chip_trendline: '🎯 Draw ascending trendline',
       ai_chip_trendline_cmd: 'draw an ascending trendline from the recent lows',
       ai_chip_signal: '📊 Entry scenario',
-      ai_chip_signal_cmd: 'propose entry, stop loss and take profit',
+      ai_chip_signal_cmd: 'help me mark my entry, stop loss and take profit',
       ai_chip_sr: '📍 Find support / resistance',
       ai_chip_sr_cmd: 'find support and resistance',
       ai_chip_fib: '📐 Fibonacci',
@@ -92,7 +92,7 @@
 
       // --- 입력창 / 라벨 ---
       ai_input_beginner: 'How can I help? e.g. draw a trendline',
-      ai_input_pro: 'Enter a command… (e.g. draw trendline / propose signal / find S/R)',
+      ai_input_pro: 'Enter a command… (e.g. draw trendline / draft my setup / find S/R)',
       ai_reason_beginner: '💡 Why',
       ai_reason_pro: 'Reason',
     },
