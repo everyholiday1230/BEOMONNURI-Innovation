@@ -133,7 +133,7 @@
        탭 구성이 시장마다 다르다. 현물에는 무기한(PERP)이 없고, 대신 견적통화가
        여러 개다(USDT·USDC·BTC). 없는 탭을 보여주면 눌러도 빈 목록이 나온다.
     */
-    const TABS = ['All', 'meme', 'stockidx', 'metals'];
+    const TABS = ['All', 'Favorites', 'meme', 'stockidx', 'metals'];
     /*
        섹터 카테고리. 거래소 공개 API 가 섹터를 안 줘서 주요 심볼을 큐레이션한
        맵으로 분류한다. All 은 전체(필터 없음). 미분류 심볼은 All 에서 보인다.
