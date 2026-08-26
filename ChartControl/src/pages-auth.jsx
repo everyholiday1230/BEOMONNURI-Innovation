@@ -156,6 +156,7 @@
               <a href="#/terms">{t('auth_3b9e30')}</a>
               <a href="#/privacy">{t('auth_d629d0')}</a>
               <a href="#/security">{t('auth_a5e5da')}</a>
+              <a href="#/refund">{t('legal_refund')}</a>
               <a href="#/help">{t('auth_e2654a')}</a>
             </div>
             {/* 모드는 고정 문구로 쓰지 않는다 — 위 랜딩 푸터와 같은 이유. */}
@@ -1681,6 +1682,7 @@
             <a href="#/privacy">{t('auth_d629d0')}</a>
             <a href="#/risk">{t('legal_risk')}</a>
             <a href="#/security">{t('auth_a5e5da')}</a>
+            <a href="#/refund">{t('legal_refund')}</a>
             {/*
                ★ 문의 게시판이 주 창구다. 전화번호를 게시하지 않는 대신 게시판에서
                  질문·요청·문의를 받고 답변과 처리 상태를 같은 화면에서 볼 수 있게 한다.
