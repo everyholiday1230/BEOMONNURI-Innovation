@@ -370,6 +370,36 @@ export function assertProductionDatabaseReadiness(
 }
 
 /**
+ * 프로덕션 시장데이터/AI fail-closed 가드.
+ *   · DATA_MODE 가 MOCK_REPLAY(또는 미설정)면 조작된 캔들/호가/체결이 실데이터처럼
+ *     사용자에게 나간다 — "가짜 데이터 노출 금지" 원칙의 최악 위반. 라이브 소스
+ *     (KUCOIN_PUBLIC 등)만 허용한다.
+ *   · AI 가 켜졌는데 AI_PROVIDER 가 mock/미설정이면 대본(가짜) 분석이 나간다. 막는다.
+ * 개발/테스트(NODE_ENV !== 'production')는 영향 없음.
+ */
+export function assertProductionMarketDataReadiness(
+  env: NodeJS.ProcessEnv = process.env,
+  isProduction = env.NODE_ENV === 'production',
+): void {
+  if (!isProduction) return;
+  const dataMode = (env.DATA_MODE ?? '').trim().toUpperCase();
+  if (dataMode === '' || dataMode === 'MOCK_REPLAY') {
+    throw new Error(
+      'fail-closed startup: DATA_MODE must be a live market source (e.g. KUCOIN_PUBLIC) in production — ' +
+        'MOCK_REPLAY serves fabricated candles/order-book/trades as if real. Refusing to start.',
+    );
+  }
+  const aiEnabled = /^(1|true|yes|on)$/i.test((env.AI_ENABLED ?? '').trim());
+  const aiProvider = (env.AI_PROVIDER ?? '').trim().toLowerCase();
+  if (aiEnabled && (aiProvider === '' || aiProvider === 'mock' || aiProvider === 'fake')) {
+    throw new Error(
+      'fail-closed startup: AI_ENABLED is on but AI_PROVIDER is mock/unset in production — ' +
+        'scripted (fake) AI answers would reach users. Set a real provider or disable AI.',
+    );
+  }
+}
+
+/**
  * 양의 정수만 받는다. 비었거나 이상한 값이면 기본값 — 상한이 0 이나 NaN 이 되면
  * 모든 주문이 막히거나(0) 모든 주문이 통과한다(NaN 비교는 항상 false). 둘 다 사고다.
  */

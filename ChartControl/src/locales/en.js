@@ -228,6 +228,7 @@
       sv_days_left: '{n}d left',
       sv_extend: 'Extend {n}pt',
       sv_extend_hint: 'Extend 30 days for {n} points',
+      no_live_data: 'No live data for this symbol',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

@@ -483,6 +483,7 @@
       sv_days_left: '残り{n}日',
       sv_extend: '延長 {n}pt',
       sv_extend_hint: '{n}ポイントで30日延長',
+      no_live_data: 'この銘柄のライブデータはありません',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',

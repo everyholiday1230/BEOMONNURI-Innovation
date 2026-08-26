@@ -192,6 +192,16 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   app.post('/auth/register', async (c) => {
     const parsed = await readJson(c);
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid or oversized body'), 400);
+    // 분산 레이트리밋(IP): 자동 대량 가입 방지.
+    if (deps.rateLimiter) {
+      const budget = deps.loginRatePerMin ?? DEFAULT_LOGIN_RATE_PER_MIN;
+      const ipKey = `register:ip:${ipOf(c) ?? 'unknown'}`;
+      const dec = await deps.rateLimiter.allow(ipKey, budget, 60_000);
+      if (!dec.ok) {
+        c.header('Retry-After', String(Math.max(1, Math.ceil(dec.retryAfterMs / 1000))));
+        return c.json(err('RATE_LIMITED', 'too many attempts'), 429);
+      }
+    }
     const r = await service.register(parsed.body, ctxOf(c));
     if (!r.ok) return c.json(err(r.code, r.error), r.code === 'EMAIL_TAKEN' ? 409 : 400);
 
@@ -343,6 +353,19 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     if (!originAllowed(c.req.header('origin'), c.req.header('referer'), corsOrigins)) return c.json(err('FORBIDDEN', 'origin'), 403);
     const parsed = await readJson(c);
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid body'), 400);
+    // 분산 레이트리밋(IP + 이메일 해시): 재설정 메일 폭탄/DoS 방지.
+    if (deps.rateLimiter) {
+      const budget = deps.loginRatePerMin ?? DEFAULT_LOGIN_RATE_PER_MIN;
+      const emailForKey = String((parsed.body as { email?: unknown } | null)?.email ?? '').trim().toLowerCase();
+      const ipKey = `forgot:ip:${ipOf(c) ?? 'unknown'}`;
+      const acctKey = `forgot:acct:${createHash('sha256').update(emailForKey).digest('hex')}`;
+      const [byIp, byAcct] = await Promise.all([
+        deps.rateLimiter.allow(ipKey, budget, 60_000),
+        deps.rateLimiter.allow(acctKey, budget, 60_000),
+      ]);
+      // 한도 초과 시 조용히 성공 응답(열거 방지) — 메일만 보내지 않는다.
+      if (!byIp.ok || !byAcct.ok) return c.json({ ok: true });
+    }
     await service.requestPasswordReset(String((parsed.body as { email?: string }).email ?? ''), ctxOf(c));
     return c.json({ ok: true }); // ALWAYS generic (no user enumeration)
   });

@@ -7,7 +7,7 @@ import { getCookie } from 'hono/cookie';
 import { secureHeaders } from 'hono/secure-headers';
 import { streamSSE } from 'hono/streaming';
 import type { SymbolInfo } from '@quantumtrade/schemas';
-import { SUPPORTED_TIMEFRAMES, loadEnv, assertProductionSigningKeys, assertProductionDatabaseReadiness } from './env';
+import { SUPPORTED_TIMEFRAMES, loadEnv, assertProductionSigningKeys, assertProductionDatabaseReadiness, assertProductionMarketDataReadiness } from './env';
 import { selectProviders } from './providers';
 import { computeMarketDataStatus } from './market-freshness';
 import { describeStatic, mountStatic } from './static-web';
@@ -2615,6 +2615,8 @@ if (isProduction) {
     // Application signing material must be explicitly provided in production (no generated or
     // hard-coded fallback) — Phase 7 §3.
     assertProductionSigningKeys();
+    // 프로덕션은 라이브 시장데이터·실 AI provider 여야 한다(가짜 데이터/대본 응답 유출 방지).
+    assertProductionMarketDataReadiness();
     // R5/BL-10 — production must run on Managed PostgreSQL, never SQLite. Refuse to start otherwise.
     const dbReadiness = assertProductionDatabaseReadiness();
      

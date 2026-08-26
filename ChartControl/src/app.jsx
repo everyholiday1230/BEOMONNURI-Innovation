@@ -1964,10 +1964,19 @@
         ) : <ChartWidget {...props}/>;
       case 'miniChart':
         return <MiniChartWidget {...props}/>;
-      case 'orderBook':
+      case 'orderBook': {
+        // 실서비스에서 라이브가 아닌 종목은 가짜 호가를 그리지 않는다(미지원 종목 mock 차단).
+        const k = props.market ? props.market.base + props.market.quote : '';
+        const maskMock = Boolean(window.QTMockPolicy && window.QTMockPolicy.isRealService() && window.QTLive && typeof window.QTLive.isLive === 'function' && k && !window.QTLive.isLive(k));
+        if (maskMock) return <div className="panel" style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--color-text-tertiary)', fontSize:12}}>{props.t('no_live_data')}</div>;
         return <window.OrderBook book={props.orderBook} lastPrice={props.lastPrice} prevPrice={props.prevPrice} onClickPrice={props.onClickPrice} t={props.t}/>;
-      case 'recentTrades':
+      }
+      case 'recentTrades': {
+        const k = props.market ? props.market.base + props.market.quote : '';
+        const maskMock = Boolean(window.QTMockPolicy && window.QTMockPolicy.isRealService() && window.QTLive && typeof window.QTLive.isLive === 'function' && k && !window.QTLive.isLive(k));
+        if (maskMock) return <div className="panel" style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--color-text-tertiary)', fontSize:12}}>{props.t('no_live_data')}</div>;
         return <window.RecentTrades trades={props.trades} t={props.t}/>;
+      }
       case 'orderEntry':
         return <window.OrderEntry
           lastPrice={props.lastPrice} market={props.market} assets={liveAssets}

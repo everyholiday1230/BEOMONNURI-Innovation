@@ -76,6 +76,13 @@ const DEFAULT_AI_RATE_PER_MIN = 20;
 
 export function createAiRouter(d: AiRouterDeps): Hono {
   const app = new Hono();
+  /*
+     사용자별 동시 실행 가드(경제 무결성). 잔액 사전확인과 실제 차감이 분리돼 있어,
+     잔액 최소치(예: 300)만 있는 사용자가 동시에 여러 번 호출하면 모두 사전확인을
+     통과해 OpenAI 비용은 N번 나가고 차감은 1번(clamp)만 되는 누수가 있었다.
+     한 사용자는 한 번에 한 실행만 허용해 이 경합을 막는다(단일 인스턴스 기준).
+  */
+  const aiInFlight = new Set<string>();
   const prompts = new PromptRegistry();
   const safety = new SafetyPolicy();
   const cost = new CostController(d.costConfig, d.usage);
@@ -164,6 +171,12 @@ export function createAiRouter(d: AiRouterDeps): Hono {
       }
     }
 
+    // 동시 실행 차단(경제 무결성): 이미 진행 중이면 새 실행을 막는다.
+    if (aiInFlight.has(a.user.id)) {
+      return c.json(errBody('AI_BUSY', 'a previous AI run is still in progress'), 429);
+    }
+    aiInFlight.add(a.user.id);
+
     const correlationId = corr();
     const orchestrator = new Orchestrator({
       provider: d.ai.provider,
@@ -223,6 +236,8 @@ export function createAiRouter(d: AiRouterDeps): Hono {
         if (assistantText) await d.conversations.appendMessage(a.user.id, body.conversationId!, { role: 'assistant', content: assistantText });
       } catch (e) {
         await stream.writeSSE({ event: 'error', data: JSON.stringify({ code: 'stream-exception', message: (e as Error).message }) });
+      } finally {
+        aiInFlight.delete(a.user.id);
       }
     });
   });

@@ -485,6 +485,7 @@
       sv_days_left: '剩{n}天',
       sv_extend: '延长 {n}积分',
       sv_extend_hint: '用{n}积分延长30天',
+      no_live_data: '该品种暂无实时数据',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',
