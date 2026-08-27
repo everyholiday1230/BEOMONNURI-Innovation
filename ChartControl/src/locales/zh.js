@@ -523,6 +523,7 @@
       cp_success: '密码已更改。',
       cp_wrong_current: '当前密码不正确。',
       cp_failed: '无法更改密码。',
+      prov_note_notif_live: '真实通知：成交、客服回复、积分变动与强平风险提醒。不向真实用户显示任何模拟数据。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

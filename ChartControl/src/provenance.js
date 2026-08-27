@@ -71,7 +71,7 @@
     '/referral': { status: 'partial', note: 'referral_manual_payout' },
     '/fees': { status: 'partial', note: 'fees_partial' },
     '/help': { status: 'live', note: 'support_wired' },
-    '/notifications': { status: 'partial', note: 'notif_partial' },
+    '/notifications': { status: 'live', note: 'notif_live' },
   };
 
   /** 관리자 라우트는 전부 미구현이다. 개별로 적지 않고 접두사로 처리한다. */

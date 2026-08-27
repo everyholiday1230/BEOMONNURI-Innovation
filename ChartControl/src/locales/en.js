@@ -266,6 +266,7 @@
       cp_success: 'Password changed.',
       cp_wrong_current: 'Current password is incorrect.',
       cp_failed: 'Could not change password.',
+      prov_note_notif_live: 'Real notifications: order fills, support replies, point changes and liquidation-risk alerts. No mock is shown to real users.',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
