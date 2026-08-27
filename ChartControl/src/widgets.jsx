@@ -282,6 +282,18 @@
   window.SymbolHeader = function SymbolHeader({ price, prev, market, t }) {
     /* '더보기' 메뉴 열림 상태. */
     const [moreOpen, setMoreOpen] = React.useState(false);
+    /* ⋯ 더보기 메뉴를 버튼 위치 기준 position:fixed 로 띄운다 — 심볼 헤더는
+       overflow-x:auto + 낮은 높이라 absolute 로 두면 잘려서 다른 패널에 가린다. */
+    const moreBtnRef = React.useRef(null);
+    const [morePos, setMorePos] = React.useState(null);
+    const openMore = () => {
+      const r = moreBtnRef.current && moreBtnRef.current.getBoundingClientRect();
+      if (r) {
+        const W = 200;
+        setMorePos({ top: Math.round(r.bottom + 4), left: Math.round(Math.min(r.left, window.innerWidth - W - 8)) });
+      }
+      setMoreOpen((v) => !v);
+    };
     /* 가격 알림 모달 열림 상태. */
     const [alertOpen, setAlertOpen] = React.useState(false);
 
@@ -534,9 +546,11 @@
           </button>
           <div style={{position: 'relative'}}>
             <button
+              ref={moreBtnRef}
               className="btn btn--xs"
               title={t('wg_more')}
-              onClick={() => setMoreOpen((v) => !v)}
+              aria-expanded={moreOpen}
+              onClick={openMore}
             >
               {window.Icons?.More ? <window.Icons.More size={11}/> : '⋯'}
             </button>
@@ -544,6 +558,7 @@
               <div
                 className="sh-more-menu"
                 role="menu"
+                style={morePos ? { position: 'fixed', top: morePos.top, left: morePos.left, right: 'auto' } : undefined}
                 onMouseLeave={() => setMoreOpen(false)}
               >
                 <button
