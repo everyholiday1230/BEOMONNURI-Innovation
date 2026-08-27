@@ -263,11 +263,11 @@
     { selector: '.pos-tabs .tab:nth-of-type(3)', status: 'dynamic:account', note: 'needs_api_key' },
     { selector: '.pos-tabs .tab:nth-of-type(4)', status: 'dynamic:account', note: 'needs_api_key' },
     { selector: '.pos-tabs .tab:nth-of-type(5)', status: 'dynamic:account', note: 'needs_api_key' },
-    { selector: '.pos-tabs .tab:nth-of-type(6)', status: 'mock', note: 'ai_not_built' },
+    { selector: '.pos-tabs .tab:nth-of-type(6)', status: 'partial', note: 'ai_signals_planned' },
     // 전량 청산·개별 취소 배선 완료. 키가 검증되면 실제로 취소된다.
     { selector: '.pos-tabs__right .btn--danger', status: 'dynamic:account', note: 'needs_api_key' },
     // 거래 모드: 선물·모의는 동작, 현물은 미지원(누르면 이유 안내).
-    { selector: '.seg', status: 'partial', note: 'mode_partial' },
+    { selector: '.seg', status: 'live', note: 'mode_live' },
 
     // 차트 도구: 비교 기능이 배선됐다.
     { selector: '.chart-drawtools', status: 'live', note: 'draw_tools_live' },

@@ -268,6 +268,8 @@
       cp_failed: 'Could not change password.',
       prov_note_notif_live: 'Real notifications: order fills, support replies, point changes and liquidation-risk alerts. No mock is shown to real users.',
       foot_business: 'BEOMONNURI Innovation Co., Ltd. · CEO Nuri Kwon · Business Reg. No. 472-81-03730 · Tel 010-8405-4499 · 15, 4F, Zone D, 190 Galmae-jungang-ro, Guri-si, Gyeonggi-do, Republic of Korea',
+      prov_note_mode_live: 'Futures and Spot orders go live; Paper simulates on the server. All three modes work.',
+      prov_note_ai_signals_planned: 'AI returns written analysis, not priced entry/SL/TP signals — so there is no signal feed to list (shown honestly).',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
