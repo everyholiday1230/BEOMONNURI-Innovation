@@ -1478,18 +1478,25 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         leverage: Number(body.leverage ?? 1),
         marginMode: body.marginMode === 'cross' ? 'cross' : 'isolated',
         reduceOnly: body.reduceOnly === true,
+        postOnly: body.postOnly === true,
+        ...(typeof body.timeInForce === 'string' && body.timeInForce ? { timeInForce: String(body.timeInForce) } : {}),
         /*
            ★★ 발동 가격을 어댑터로 전달한다.
 
              값이 있으면 어댑터가 **발동 주문 경로**로 보낸다. 전달하지 않으면
              일반 주문이 되어 즉시 체결되고, 손절을 걸었다고 믿는 이용자가 그
-             자리에서 체결된다. 그래서 값을 조용히 버리지 않는다.
+             자리에서 체결된다. 그래서 값을 조용히 버리지 않는다. 방향(up/down)과
+             기준가 종류도 함께 넘긴다 — 방향이 없으면 어댑터가 'down' 으로 본다.
 
            ★ 형식 검증은 어댑터가 한다(0 이하·숫자 아님이면 주문하지 않는다).
              여기서 기본값을 넣지 않는다 — 기본 발동가라는 것은 존재하지 않는다.
         */
         ...(body.stopPrice !== undefined && body.stopPrice !== null && String(body.stopPrice) !== ''
-          ? { stopPrice: String(body.stopPrice) }
+          ? {
+              stopPrice: String(body.stopPrice),
+              ...(body.stopDirection === 'up' || body.stopDirection === 'down' ? { stopDirection: body.stopDirection } : {}),
+              ...(body.stopPriceType === 'TP' || body.stopPriceType === 'IP' || body.stopPriceType === 'MP' ? { stopPriceType: body.stopPriceType } : {}),
+            }
           : {}),
         /*
            OCO 의 손절 지정가. stopPrice·price 와 함께 있을 때만 OCO 가 된다.

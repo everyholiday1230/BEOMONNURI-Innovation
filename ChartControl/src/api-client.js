@@ -1743,6 +1743,10 @@
       */
       if (o.stopPrice !== undefined && o.stopPrice !== null && o.stopPrice !== '') {
         body.stopPrice = decStr(o.stopPrice);
+        // 발동 방향. 화면이 현재가와 stopPrice 를 비교해 정한다(없으면 서버가 'down').
+        if (o.stopDirection === 'up' || o.stopDirection === 'down') {
+          body.stopDirection = o.stopDirection;
+        }
       }
       /*
          OCO 의 손절 지정가. price·stopPrice 와 셋이 함께 있어야 OCO 가 된다.

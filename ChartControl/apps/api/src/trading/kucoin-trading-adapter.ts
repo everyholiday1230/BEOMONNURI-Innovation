@@ -111,7 +111,12 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
           price: req.price,
           leverage: req.leverage ?? 1,
           reduceOnly: req.reduceOnly,
+          postOnly: req.postOnly,
+          timeInForce: req.timeInForce,
           marginMode: req.marginMode,
+          stopPrice: req.stopPrice,
+          stopDirection: req.stopDirection,
+          stopPriceType: req.stopPriceType,
         },
         multiplier,
       );

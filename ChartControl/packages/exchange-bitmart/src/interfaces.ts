@@ -42,6 +42,18 @@ export interface SubmitOrderRequest {
   leverage?: number;
   marginMode?: 'isolated' | 'cross';
   reduceOnly?: boolean;
+  postOnly?: boolean;
+  /** GTC | IOC | FOK */
+  timeInForce?: string;
+  /**
+   * 발동(스톱) 가격. 있으면 어댑터가 발동 주문 경로로 보낸다. 없으면 일반 주문이다.
+   * 이 값을 조용히 버리면 손절 주문이 즉시 체결된다 — 절대 무시하지 않는다.
+   */
+  stopPrice?: string;
+  /** 발동 방향. 'up' = 가격이 stopPrice 이상으로 오르면 발동, 'down' = 이하로 내리면 발동. */
+  stopDirection?: 'up' | 'down';
+  /** 발동 기준가 종류. TP=최종거래가, IP=지수가, MP=마크가(기본). */
+  stopPriceType?: 'TP' | 'IP' | 'MP';
 }
 export type SubmitOutcome =
   | { status: 'ACCEPTED'; order: NormalizedOrder }

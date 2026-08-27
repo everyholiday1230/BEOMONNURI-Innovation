@@ -140,6 +140,12 @@ export interface KucoinSubmitRequest {
   /** GTC | IOC | FOK */
   timeInForce?: string;
   marginMode?: 'isolated' | 'cross';
+  /** 발동(스톱) 가격. 있으면 KuCoin 발동 주문으로 보낸다. */
+  stopPrice?: string;
+  /** 발동 방향. 'up'=stopPrice 이상 상승 시 발동, 'down'=이하 하락 시 발동. */
+  stopDirection?: 'up' | 'down';
+  /** 발동 기준가. TP=최종거래가, IP=지수가, MP=마크가(기본). */
+  stopPriceType?: 'TP' | 'IP' | 'MP';
 }
 
 export interface KucoinSubmitResult {
@@ -610,6 +616,19 @@ export class KucoinFuturesPrivate {
     if (req.postOnly) body.postOnly = true;
     if (req.timeInForce) body.timeInForce = req.timeInForce.toUpperCase();
     if (req.marginMode === 'cross') body.marginMode = 'CROSS';
+    /*
+       ★★ 발동(스톱) 주문. stopPrice 가 있으면 KuCoin 발동 주문 경로로 보낸다.
+
+         KuCoin 선물은 같은 /api/v1/orders 에 stop/stopPrice/stopPriceType 를
+         함께 넣으면 발동 주문이 된다. 이 값을 빼면 일반 주문이 되어 **즉시
+         체결된다** — 손절을 걸었다고 믿는 이용자가 그 자리에서 체결된다.
+         방향(up/down)은 호출자가 현재가와 stopPrice 를 비교해 정한다.
+    */
+    if (req.stopPrice) {
+      body.stop = req.stopDirection === 'up' ? 'up' : 'down';
+      body.stopPrice = req.stopPrice;
+      body.stopPriceType = req.stopPriceType || 'MP';
+    }
 
     const d = await this.request<{ orderId?: string; clientOid?: string }>(
       user,
