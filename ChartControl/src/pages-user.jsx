@@ -1413,10 +1413,15 @@
                   </span>
                 );
               } },
-              { key: 'act', label: '', align:'right', render: _r => (
+              { key: 'act', label: '', align:'right', render: r => (
                 <>
-                  <button className="tbl-action">TP/SL</button>
-                  <button className="tbl-action tbl-action--danger" style={{marginLeft:4}}>{t('close')}</button>
+                  {/*
+                     ★ 포지션 청산은 실주문(reduce-only)이라 서버 확인 게이트를 거쳐야
+                       한다. 표에서 한 번 눌러 바로 시장가로 닫으면 위험하다 — 그래서
+                       해당 심볼의 주문 패널로 보내 검증된 확인 흐름에서 닫게 한다.
+                       (예전에는 onClick 이 없어 아무 일도 안 하는 죽은 버튼이었다.)
+                  */}
+                  <button className="tbl-action tbl-action--danger" onClick={() => { window.location.hash = '/trade?symbol=' + encodeURIComponent(r.symbol); }}>{t('close')}</button>
                 </>
               ) },
             ]}
@@ -2028,6 +2033,24 @@
         /* 실패는 null 로 남긴다 — "연결 없음" 과 "확인 못 함" 은 다르다. */
         .catch(() => { setCreds(null); });
     }, []);
+
+    /*
+       거래소 키 연결 해제(삭제).
+
+       ★ 전에는 연결된 거래소에 '해제' 수단이 UI 에 없었다 — 등록만 되고 지울 수
+         없었다. credentials.remove(id) 로 실제 삭제하고 목록을 다시 읽는다.
+       ★ 되돌릴 수 없으므로 확인을 받는다.
+    */
+    const disconnectEx = (ex) => {
+      const api = window.QTApi && window.QTApi.credentials;
+      const cred = (creds || []).find((c) => String(c.exchange || '').toLowerCase() === String(ex.id).toLowerCase());
+      if (!api || !api.remove || !cred) return;
+      if (typeof window.confirm === 'function' && !window.confirm(t('wal_disconnect_confirm'))) return;
+      api.remove(cred.id)
+        .then(() => reloadCreds())
+        .then(() => { if (window.QTToast) window.QTToast({ title: t('wal_disconnected'), variant: 'success' }); })
+        .catch(() => { if (window.QTToast) window.QTToast({ title: t('acct_req_failed'), variant: 'error' }); });
+    };
     useEffect(() => {
       let alive = true;
       const api = window.QTApi && window.QTApi.credentials;
@@ -2394,9 +2417,14 @@
                         </a>
                       )}
                       {isConnected ? (
-                        <button className="btn btn--sm btn--primary" style={{flex:1}} onClick={() => setConnectingEx(ex)}>
-                          <I.Check size={11}/> Connected
-                        </button>
+                        <>
+                          <button className="btn btn--sm btn--primary" style={{flex:1}} onClick={() => setConnectingEx(ex)}>
+                            <I.Check size={11}/> {t('wal_ex_connected')}
+                          </button>
+                          <button className="btn btn--sm" style={{marginLeft:4}} title={t('wal_disconnect')} onClick={() => disconnectEx(ex)}>
+                            {t('wal_disconnect')}
+                          </button>
+                        </>
                       ) : (
                         <button
                           className="btn btn--sm"
@@ -3041,6 +3069,24 @@
     };
 
     /*
+       계정 정지·삭제 요청.
+
+       ★ 셀프서비스 삭제/정지 엔드포인트는 아직 없고(계정 삭제는 관리자가
+         감사·법적 동의 보존 절차와 함께 처리한다), 개인정보처리방침이 약속한
+         '삭제 요구권' 을 행사할 수단이 필요하다. 그래서 버튼이 죽어 있지 않고
+         **실제 문의(서포트 티켓)를 접수**해 운영자가 처리하게 한다.
+       ★ 되돌릴 수 없는 요청이므로 확인을 받는다.
+    */
+    const requestAccountAction = React.useCallback((labelKey) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.createSupportTicket) return;
+      if (typeof window.confirm === 'function' && !window.confirm(t('acct_req_confirm'))) return;
+      api.createSupportTicket({ subject: t(labelKey), body: t(labelKey) })
+        .then(() => { if (window.QTToast) window.QTToast({ title: t('acct_req_sent'), variant: 'success' }); })
+        .catch(() => { if (window.QTToast) window.QTToast({ title: t('acct_req_failed'), variant: 'error' }); });
+    }, []);
+
+    /*
        프로필 — 실 세션.
 
        목업 USER 는 '권누리 / usr_kuri001 / kuri@quantumtrade.ai / KYC Level 2 /
@@ -3549,7 +3595,7 @@
                           <div style={{fontWeight:600, color:'var(--color-warning)'}}>{t('settings_7cbf79')}</div>
                           <div style={{fontSize:11, color:'var(--color-text-secondary)', marginTop:2}}>{t('settings_4957e1')}</div>
                         </div>
-                        <button className="btn btn--sm">{t('settings_340d4e')}</button>
+                        <button className="btn btn--sm" onClick={() => requestAccountAction('settings_340d4e')}>{t('settings_340d4e')}</button>
                       </div>
                     </div>
 
@@ -3559,7 +3605,7 @@
                           <div style={{fontWeight:600, color:'var(--color-danger)'}}>{t('settings_009e27')}</div>
                           <div style={{fontSize:11, color:'var(--color-text-secondary)', marginTop:2}}>{t('settings_560adc')}</div>
                         </div>
-                        <button className="btn btn--sm btn--danger">{t('settings_254a82')}</button>
+                        <button className="btn btn--sm btn--danger" onClick={() => requestAccountAction('settings_254a82')}>{t('settings_254a82')}</button>
                       </div>
                     </div>
 
