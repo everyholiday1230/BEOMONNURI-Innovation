@@ -106,6 +106,8 @@ export interface AdminRouterDeps {
   mail?: MailProvider;
   service: AuthService;
   repo: IAdminRepo;
+  /** 유저 겸직 태그(team_leader 등). 없으면 태그 기능은 비활성(빈 배열). */
+  userTags?: import('../db/user-tags-repo').PgUserTagsRepo;
   csrfKey: string;
   corsOrigins: string[];
   cookieName: string;
@@ -994,6 +996,33 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     const revoked = await d.repo.revokeUserSessions(target.id); // role change → re-auth
     await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.role.change', resource: 'user', resourceId: target.id, targetUserId: target.id, result: 'success', riskLevel: 'high', ip: ip(c), reason: body.data.reason, before: { role: target.role }, after: { role: body.data.newRole, sessionsRevoked: revoked } });
     return c.json({ ok: true });
+  });
+
+  // ---------- 유저 겸직 태그 (team_leader 등) — 여러 개 가능 ----------
+  app.get('/admin/users/:id/tags', async (c) => {
+    const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
+    if (!d.userTags) return c.json({ tags: [] });
+    return c.json({ tags: await d.userTags.listForUser(c.req.param('id')) });
+  });
+  app.post('/admin/users/:id/tags', async (c) => {
+    const g = await mutateGuard(c, 'admin.role.write'); if ('err' in g) return g.err;
+    if (!d.userTags) return c.json(err('NOT_CONFIGURED', 'tags require the PostgreSQL backend'), 503);
+    const body = (await c.req.json().catch(() => ({}))) as { tag?: string };
+    const tag = typeof body.tag === 'string' ? body.tag.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') : '';
+    if (!tag) return c.json(err('BAD_REQUEST', 'tag required'), 400);
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', ''), 404);
+    await d.userTags.add(target.id, tag, g.a.user.id);
+    await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.tag.add', resource: 'user', resourceId: target.id, targetUserId: target.id, result: 'success', riskLevel: 'medium', ip: ip(c), after: { tag } });
+    return c.json({ ok: true, tags: await d.userTags.listForUser(target.id) });
+  });
+  app.delete('/admin/users/:id/tags/:tag', async (c) => {
+    const g = await mutateGuard(c, 'admin.role.write'); if ('err' in g) return g.err;
+    if (!d.userTags) return c.json(err('NOT_CONFIGURED', ''), 503);
+    const id = c.req.param('id'); const tag = c.req.param('tag');
+    await d.userTags.remove(id, tag);
+    await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.tag.remove', resource: 'user', resourceId: id, targetUserId: id, result: 'success', riskLevel: 'medium', ip: ip(c), before: { tag } });
+    return c.json({ ok: true, tags: await d.userTags.listForUser(id) });
   });
 
   // ---------- trading ops (READ-ONLY) ----------

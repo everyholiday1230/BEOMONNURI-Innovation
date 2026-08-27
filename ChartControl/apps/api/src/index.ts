@@ -42,6 +42,7 @@ import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
 import { createUserStrategyRouter } from './user-strategy-routes';
 import { PgUserStrategyRepo } from './db/user-strategy-repo';
+import { PgUserTagsRepo } from './db/user-tags-repo';
 import { PgSavedItemRepo } from './db/saved-item-repo';import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
 import { PgLegalRepo } from './db/legal-repo';
 import { seedLegalDocuments } from './legal/seed-legal';
@@ -1359,6 +1360,7 @@ if (env.authEnabled) {
 
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
+        ...(core.pool ? { userTags: new PgUserTagsRepo(core.pool) } : {}),
         cookieName: env.cookieName, health, ratePerMin: env.adminRateLimitPerMin, rateLimiter,
         // 운영자가 특정 사용자에게 직접 이메일을 보낼 때 쓴다(관리자 사용자 상세).
         mail: mailProvider,
