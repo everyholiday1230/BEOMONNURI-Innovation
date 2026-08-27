@@ -848,6 +848,12 @@
     const qtyPrec = Number.isFinite(Number(market && market.quantityPrecision)) ? Number(market.quantityPrecision) : 3;
     const snapQty = (q) => ((!(qtyStep > 0) || !Number.isFinite(q)) ? q : Number((Math.floor(q / qtyStep) * qtyStep).toFixed(qtyPrec)));
     const sz = snapQty(parseFloat(size) || 0);
+    /*
+       ★ 심볼별 최대 레버리지를 넘으면 KuCoin 이 주문을 거부한다(예: 최대 20배
+         심볼에 50배). 입력 상한과 현재값을 이 한도로 제한한다.
+    */
+    const symMaxLev = Math.max(1, Math.min(125, Number(market && market.maxLeverage) || 125));
+    useEffect(() => { setLev((l) => Math.min(l, symMaxLev)); }, [symMaxLev]);
     const totalUSDT = px * sz;
     /*
        ★★ 수수료율을 코드에 박지 않는다.
@@ -956,8 +962,8 @@
               </div>
               <div className="oe-margin__group">
                 <span className="oe-lev">
-                  <input type="number" min="1" max="125" step="1" value={lev}
-                    onChange={(e) => { const n = parseInt(e.target.value, 10); setLev(Number.isFinite(n) ? Math.max(1, Math.min(125, n)) : 1); }}
+                  <input type="number" min="1" max={symMaxLev} step="1" value={lev}
+                    onChange={(e) => { const n = parseInt(e.target.value, 10); setLev(Number.isFinite(n) ? Math.max(1, Math.min(symMaxLev, n)) : 1); }}
                     style={{ width: 34, background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', textAlign: 'right', outline: 'none', padding: 0 }}
                     aria-label={t('calc_leverage')} />×
                 </span>
