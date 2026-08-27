@@ -244,6 +244,7 @@
       legal_refund: 'Refund Policy',
       pt_pay_toss: 'Toss',
       autofit_toggle: 'Auto-fit (Trade Ex)',
+      nav_trade_ex: 'Trade Ex',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',

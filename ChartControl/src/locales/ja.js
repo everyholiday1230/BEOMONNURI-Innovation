@@ -499,6 +499,7 @@
       legal_refund: '返金ポリシー',
       pt_pay_toss: 'Toss',
       autofit_toggle: '自動フィット (Trade Ex)',
+      nav_trade_ex: 'Trade Ex',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
