@@ -290,13 +290,13 @@
               />
               <window.KPICard
                 label={t('pt_earned')}
-                value={fmt(data.history.filter(h => h.delta > 0).reduce((a, h) => a + h.delta, 0), 0)}
+                value={fmt(data.totals ? data.totals.earned : data.history.filter(h => h.delta > 0).reduce((a, h) => a + h.delta, 0), 0)}
                 sub={t('pt_earned_sub')}
                 tone="long"
               />
               <window.KPICard
                 label={t('pt_spent')}
-                value={fmt(Math.abs(data.history.filter(h => h.delta < 0).reduce((a, h) => a + h.delta, 0)), 0)}
+                value={fmt(data.totals ? data.totals.spent : Math.abs(data.history.filter(h => h.delta < 0).reduce((a, h) => a + h.delta, 0)), 0)}
                 sub={t('pt_spent_sub')}
               />
             </div>

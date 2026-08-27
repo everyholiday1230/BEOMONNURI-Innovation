@@ -386,7 +386,23 @@ export class PgPointsRepo {
     return r.rows.map(mapEntry);
   }
 
-  // ---- 상품 ----
+  /**
+   * 전체 적립·사용 합계.
+   *
+   * ★ 화면 KPI 가 최근 100건(history)만 합산해 전체 적립/사용을 틀리게 보여줬다.
+   *   원장 전체를 서버에서 집계해 정확한 값을 준다(내역 페이지네이션과 무관).
+   */
+  async userTotals(userId: string): Promise<{ earned: number; spent: number }> {
+    const r = await this.pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS earned,
+         COALESCE(SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END), 0) AS spent
+       FROM point_ledger WHERE user_id = $1`,
+      [userId],
+    );
+    const row = r.rows[0] || {};
+    return { earned: Number(row.earned) || 0, spent: Number(row.spent) || 0 };
+  }
 
   async listCatalog(includeDisabled = false): Promise<CatalogItem[]> {
     const r = await this.pool.query(

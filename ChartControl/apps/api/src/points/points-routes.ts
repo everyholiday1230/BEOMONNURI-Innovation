@@ -61,12 +61,13 @@ export function createPointsRouter(d: PointsRouterDeps): Hono {
         return c.json({ supported: true, enabled: false, settings: { enabled: false, unitName: settings.unitName } });
       }
 
-      const [balance, history, catalog, entitlements, redemptions] = await Promise.all([
+      const [balance, history, catalog, entitlements, redemptions, totals] = await Promise.all([
         d.repo.balanceOf(a.user.id),
         d.repo.history(a.user.id, 100),
         d.repo.listCatalog(false),
         d.repo.entitlementsOf(a.user.id),
         d.repo.listRedemptions(a.user.id, 50),
+        d.repo.userTotals(a.user.id),
       ]);
 
       return c.json({
@@ -92,6 +93,8 @@ export function createPointsRouter(d: PointsRouterDeps): Hono {
         catalog,
         history,
         redemptions,
+        // 전체 적립/사용 합계(내역 100건 잘림과 무관한 정확한 값).
+        totals,
         /*
            ★ 화면이 반드시 표시해야 하는 사실.
 

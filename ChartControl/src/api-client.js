@@ -589,6 +589,7 @@
           catalog: (r && r.catalog) || [],
           history: (r && r.history) || [],
           redemptions: (r && r.redemptions) || [],
+          totals: (r && r.totals) || null,
           disclosures: (r && r.disclosures) || { cashConvertible: false, withdrawable: false, usableOnlyInApp: true },
         };
       });
