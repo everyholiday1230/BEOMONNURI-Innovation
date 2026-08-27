@@ -40,6 +40,8 @@ import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
+import { createUserStrategyRouter } from './user-strategy-routes';
+import { PgUserStrategyRepo } from './db/user-strategy-repo';
 import { PgSavedItemRepo } from './db/saved-item-repo';import { KucoinBrokerClient } from '@quantumtrade/exchange-kucoin';
 import { PgLegalRepo } from './db/legal-repo';
 import { seedLegalDocuments } from './legal/seed-legal';
@@ -1721,6 +1723,17 @@ if (env.authEnabled) {
       cookieName: env.cookieName,
       verifyCsrf,
       originAllowed,
+    }));
+
+    /* 사용자 전략/지표(Option B) — PG. 생성 시 포인트 차감(제도 켜져 있을 때), 편집·삭제 무료. */
+    const userStrategyRepo = core.pool ? new PgUserStrategyRepo(core.pool) : undefined;
+    app.route('/api', createUserStrategyRouter({
+      service: authService,
+      ...(userStrategyRepo ? { repo: userStrategyRepo } : {}),
+      ...(pointsRepo ? { points: pointsRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
     }));
 
     app.route('/api', createReferralRouter({

@@ -445,7 +445,7 @@ describe('ADM-API-15 GET /admin/backup/status', () => {
     // lives in Postgres on production; extends the 0012 fix to the resource tables). This assertion
     // is deliberately exact: it is how the backup-status endpoint proves it reports the schema actually
     // applied, not a hardcoded string.
-    expect(b.migrations.last?.version).toBe('0013_resource_userfk_fix');
+    expect(b.migrations.last?.version).toBe('0014_user_strategies');
     expect(b.migrations.appliedCount).toBeGreaterThanOrEqual(9);
     // NOTHING unknowable is reported as a success: every backup field is null and named as unavailable.
     for (const [k, v] of Object.entries(b.backup)) {
