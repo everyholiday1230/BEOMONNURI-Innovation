@@ -123,7 +123,7 @@
           <a className="auth-shell__brand" href="#/">
             <img className="auth-shell__brand-logo" src="/src/ccai-logo.png" alt={window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}/>
             <span>{window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</span>
-            <span className="auth-shell__brand-ver">v1.0</span>
+            
           </a>
 
           <div className="auth-shell__form-inner">
@@ -1328,7 +1328,7 @@
           <a className="app-brand" href="#/">
             <img className="app-brand__logo" src="/src/ccai-logo.png" alt={window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}/>
             <span className="app-brand__name">{window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</span>
-            <span className="app-brand__ver">v1.0</span>
+            
           </a>
           {/*
              ★★ 이 링크들이 404 를 만들고 있었다.
@@ -1667,7 +1667,7 @@
         </section>
 
         <footer className="landing-foot">
-          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'} · v1.0</div>
+          <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</div>
           {/*
              ★★ 법적 문서 링크를 랜딩에 둔다.
 
