@@ -154,8 +154,27 @@
         </a>
       </div>
 
-      <!-- RIGHT: Form -->
-      <form class="contact-form" id="diagnose-form" novalidate>
+      <!-- RIGHT: Form
+           전송 경로가 2단이다.
+             1) JS: FormData 로 AJAX 전송(페이지 이동 없이 인라인 성공 메시지)
+             2) 실패 시: 아래 action 으로 네이티브 폼 전송
+           네이티브 폼 전송은 CORS(preflight/ACAO) 제약을 받지 않으므로,
+           AJAX 가 CORS 로 막히거나 JS 가 실패해도 문의가 전달된다.
+           (실측: api.web3forms.com 의 OPTIONS preflight 가 403 + ACAO 없음
+            → Content-Type: application/json 방식은 브라우저에서 차단됨)
+           CSP form-action 에 api.web3forms.com 이 포함되어 있어야 한다(_headers 확인). -->
+      <form class="contact-form" id="diagnose-form" method="POST"
+            action="https://api.web3forms.com/submit" novalidate>
+
+        <input type="hidden" name="access_key" value="a4ff2d0f-2e89-4637-999c-275ed1f32eb1">
+        <input type="hidden" name="subject" value="[도입 진단 신청] 범온누리 이노베이션 홈페이지">
+        <input type="hidden" name="from_name" value="범온누리 이노베이션 도입 진단 폼">
+        <!-- 정리된 본문. 제출 시 JS 가 값을 채운다(네이티브 전송에서도 수신 메일이
+             읽기 쉽도록). JS 가 없으면 개별 필드만 전달된다. -->
+        <input type="hidden" name="message" value="">
+        <!-- 네이티브 전송 시 Web3Forms 가 이 주소로 되돌려 보낸다. ?sent=1 이면
+             페이지 로드 시 성공 메시지를 표시한다. -->
+        <input type="hidden" name="redirect" value="https://www.beomonnuri.com/contact?sent=1">
 
         <!-- 스팸 봇 차단(허니포트). 사람에게는 보이지 않으며 값이 채워지면 전송을 중단한다.
              Web3Forms 서버 측 botcheck 필드와 동일한 이름을 사용한다. -->
@@ -314,8 +333,16 @@
             return { subject: '[도입 진단 신청] ' + org, body: lines.join('\n') };
           }
 
-          // 보내기: Web3Forms API로 서버 전송(AJAX). 실패 시 메일 앱(mailto) 폴백.
-          var WEB3FORMS_KEY = 'a4ff2d0f-2e89-4637-999c-275ed1f32eb1';
+          // 보내기: Web3Forms 로 전송.
+          //   1차) FormData AJAX — 페이지 이동 없이 인라인 성공 메시지를 보여준다.
+          //        JSON(application/json)이 아니라 FormData(multipart)를 쓰는 이유:
+          //        JSON 은 CORS preflight(OPTIONS)를 유발하는데 api.web3forms.com 의
+          //        OPTIONS 응답이 403 + Access-Control-Allow-Origin 없음이라
+          //        브라우저가 요청을 차단한다(실측 확인).
+          //   2차) 1차가 어떤 이유로든 실패하면 네이티브 폼 전송으로 넘긴다.
+          //        폼 내비게이션은 CORS 제약을 받지 않으므로 전달이 보장된다.
+          //        (기존 구현은 mailto 폴백이었는데, 모바일·웹메일 사용자에게는
+          //         메일 앱이 열리지 않아 문의가 그대로 유실됐다.)
           var submitBtn = form.querySelector('.cf-submit-btn');
           var copyStatus = document.getElementById('copy-status');
           function showStatus(msg, ok) {
@@ -324,11 +351,21 @@
             copyStatus.className = 'cf-copy-status' + (ok ? ' is-ok' : ' is-err');
           }
 
-          function mailtoFallback(data) {
-            var href = 'mailto:' + CONTACT_EMAIL
-              + '?subject=' + encodeURIComponent(data.subject)
-              + '&body=' + encodeURIComponent(data.body);
-            window.location.href = href;
+          // 히든 필드(subject / message)에 정리된 값을 채운다.
+          // 네이티브 폼 전송에서도 그대로 쓰이므로 제출 직전에 항상 갱신한다.
+          function syncHiddenFields(data) {
+            var s = form.querySelector('input[name="subject"]');
+            var m = form.querySelector('input[name="message"]');
+            if (s && data && data.subject) s.value = data.subject;
+            if (m && data && data.body) m.value = data.body;
+          }
+
+          // 네이티브 폼 전송으로 넘긴다. form.submit() 은 submit 이벤트를
+          // 발생시키지 않으므로 이 핸들러가 재귀 호출되지 않는다.
+          function nativeSubmit(data) {
+            syncHiddenFields(data);
+            showStatus('전송을 계속합니다. 잠시만 기다려주세요...', true);
+            form.submit();
           }
 
           form.addEventListener('submit', function (e) {
@@ -341,43 +378,49 @@
             var data = collect(true);
             if (!data) return;
 
-            var payload = {
-              access_key: WEB3FORMS_KEY,
-              subject: data.subject,
-              from_name: '범온누리 이노베이션 도입 진단 폼',
-              email: (form.email.value || '').trim(),
-              message: data.body,
-              // Web3Forms 서버 측 스팸 필터도 함께 동작하도록 값을 전달
-              botcheck: form.botcheck ? form.botcheck.checked : false
-            };
+            syncHiddenFields(data);
+
+            // FormData 로 폼 필드 전체를 그대로 보낸다. 정리된 본문(message)도
+            // 함께 들어가 수신 메일에서 한눈에 읽힌다.
+            var fd = new FormData(form);
+            fd.delete('redirect');   // AJAX 경로에서는 리다이렉트가 필요 없다
 
             var origLabel = submitBtn ? submitBtn.textContent : '';
             if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '보내는 중...'; }
             showStatus('', true);
 
-            fetch('https://api.web3forms.com/submit', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify(payload)
-            })
+            var done = false;
+            fetch('https://api.web3forms.com/submit', { method: 'POST', body: fd })
               .then(function (res) { return res.json(); })
               .then(function (json) {
+                done = true;
                 if (json && json.success) {
                   form.reset();
                   showStatus('✓ 도입 진단 신청이 정상 접수됐습니다. 영업일 기준 빠르게 회신드리겠습니다.', true);
+                  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origLabel; }
                 } else {
-                  showStatus('전송에 실패했습니다. 메일 앱으로 다시 시도합니다. 열리지 않으면 아래 복사 기능을 이용해주세요.', false);
-                  mailtoFallback(data);
+                  nativeSubmit(data);
                 }
               })
               .catch(function () {
-                showStatus('네트워크 오류로 전송하지 못했습니다. 메일 앱으로 다시 시도합니다. 열리지 않으면 아래 복사 기능을 이용해주세요.', false);
-                mailtoFallback(data);
-              })
-              .then(function () {
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origLabel; }
+                // CORS·네트워크·차단 등 어떤 실패든 네이티브 전송으로 넘긴다.
+                if (!done) nativeSubmit(data);
               });
           });
+
+          // 네이티브 전송 후 ?sent=1 로 되돌아오면 성공 메시지를 보여준다.
+          try {
+            if (/[?&]sent=1(&|$)/.test(location.search)) {
+              showStatus('✓ 도입 진단 신청이 정상 접수됐습니다. 영업일 기준 빠르게 회신드리겠습니다.', true);
+              if (copyStatus && typeof copyStatus.scrollIntoView === 'function') {
+                copyStatus.scrollIntoView({ block: 'center' });
+              }
+              // 새로고침 시 메시지가 남지 않도록 쿼리를 정리한다.
+              if (window.history && history.replaceState) {
+                history.replaceState(null, '', location.pathname);
+              }
+            }
+          } catch (err) { /* 무시 */ }
 
           // 내용 복사하기: 클립보드에 문의 내용 전문 복사 (수신 메일 주소 포함)
           var copyBtn = document.getElementById('copy-btn');
