@@ -114,6 +114,12 @@ export interface KucoinOauthDeps {
   oauthBase: string;
   /** 키 발급 경로 (v2 권장) */
   apiKeyPath: string;
+  /**
+   * authGroupMap override (선택). env KUCOIN_OAUTH_GROUPS 에서 온다.
+   * 예: {"API_FUTURES": false} — 선물 미활성 계정에서 40503 을 피한다.
+   * 출금(API_WITHDRAW_OAUTH)은 여기서 true 로 줘도 무시되고 항상 false 다.
+   */
+  authGroups?: Record<string, boolean>;
   /** 돌아갈 문서 경로. 기본 '/index.html' — 결과는 이 뒤 쿼리에 붙는다. */
   appReturnPath?: string;
   /** 돌아갈 화면의 해시. 기본 '#/wallet' */
@@ -298,14 +304,27 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
 
             ★ 출금 권한은 false 로 고정한다(위 AUTH_GROUPS 주석 참고).
             ★ isAddressbookOnly: false — 주소록 전용 키가 아니다(거래를 해야 한다).
+
+            ★★ authGroupMap 은 env 로 덮어쓸 수 있다(KUCOIN_OAUTH_GROUPS).
+              KuCoin 은 "이용자가 OAuth 페이지에서 실제로 허가한 권한" 과
+              authGroupMap 이 맞아야 한다(안 맞으면 code=40503 risk validation).
+              특히 API_FUTURES 는 인증 계정이 **선물 거래를 먼저 활성화**해야
+              허용된다 — 활성화 전이면 futures 를 false 로 두어야 키 발급이 된다.
+              그래서 배포 환경에서 재배포 없이 조정할 수 있게 env 로 뺀다.
+              단, 출금(API_WITHDRAW_OAUTH)은 어떤 override 로도 켜지 않는다.
       */
+      const authGroupMap = {
+        ...AUTH_GROUPS,
+        ...(d.authGroups || {}),
+        API_WITHDRAW_OAUTH: false,
+      };
       const keyRes = await fetch(`${d.oauthBase}${d.apiKeyPath}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
           authorization: `bearer ${tokenBody.access_token}`,
         },
-        body: JSON.stringify({ authGroupMap: AUTH_GROUPS, isAddressbookOnly: false }),
+        body: JSON.stringify({ authGroupMap, isAddressbookOnly: false }),
         signal: AbortSignal.timeout(20_000),
       });
       const keyBody = (await keyRes.json().catch(() => null)) as {

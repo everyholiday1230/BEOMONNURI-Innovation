@@ -73,7 +73,7 @@
     { section: 'account', labelKey: 'nav_notifications',  icon: 'Bell',        route: '/notifications',  roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_referral',       icon: 'Share',       route: '/referral',       roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_points',         icon: 'Zap',         route: '/points',         roles: ['user','ops','admin','super'] },
-    { section: 'account', labelKey: 'nav_fees_rebates', icon: 'Zap',         route: '/fees',           roles: ['user','ops','admin','super'] },
+    { section: 'account', labelKey: 'nav_fees_rebates', icon: 'Zap',         route: '/fees',           roles: ['ops','admin','super'] },
     { section: 'account', labelKey: 'nav_settings',       icon: 'Cog',         route: '/settings',       roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_help',           icon: 'Info',        route: '/help',           roles: ['user','ops','admin','super'] },
 

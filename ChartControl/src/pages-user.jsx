@@ -2151,7 +2151,7 @@
           {[
             { id:'exchanges', label:t('wallet_ed546c'),   icon:'Wifi' },
             { id:'balances',  label:t('wallet_f23807'),     icon:'Wallet' },
-          {/*
+          /*
              ★★ 입금·출금 탭을 주석으로 내렸다 (요청: 우리 페이지에서 입출금을 하지 않는다).
 
                우리는 비수탁이므로 입금 주소도, 출금 실행 권한도 없다. 탭이 있으면
@@ -2162,7 +2162,7 @@
                이 두 줄과 아래 탭 본문의 주석을 풀면 된다.
                (되살릴 때 함께 볼 것: app.jsx 의 /wallet/deposit · /wallet/withdraw 라우트,
                 access.js 의 라우트 등급, page-shell.jsx 의 메뉴 항목)
-          */}
+          */
             // { id:'deposit',   label:t('wallet_b9ca11'),          icon:'Down' },
             // { id:'withdraw',  label:t('wallet_972169'),          icon:'Up' },
           ].map(t => {

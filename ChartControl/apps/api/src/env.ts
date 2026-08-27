@@ -201,6 +201,8 @@ export interface ApiEnv {
   kucoinOauthBase: string;
   /** 키 발급 엔드포인트. 신규 파트너는 v2(cyber-truck-vault)를 쓴다. */
   kucoinOauthApiKeyPath: string;
+  /** authGroupMap override (KUCOIN_OAUTH_GROUPS). 없으면 기본 권한 집합을 쓴다. */
+  kucoinOauthGroups?: Record<string, boolean>;
   /** 공개 REST 레이트리밋. KuCoin 문서상 12회/2초이므로 기본 5rps. */
   kucoinRestMaxRps: number;
   kucoinRestBurst: number;
@@ -735,6 +737,22 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     kucoinOauthBase: env.KUCOIN_OAUTH_BASE?.trim() || 'https://www.kucoin.com',
     kucoinOauthApiKeyPath: env.KUCOIN_OAUTH_APIKEY_PATH?.trim()
       || '/_oauth/resource/cyber-truck-vault/v2/outer/api-key/add',
+    // authGroupMap override (JSON). 예: KUCOIN_OAUTH_GROUPS='{"API_FUTURES":false}'
+    // KuCoin 은 authGroupMap 이 이용자가 허가한 권한과 맞아야 하며(안 맞으면 40503),
+    // 특히 API_FUTURES 는 계정의 선물 활성화가 선행되어야 한다. 재배포 없이 조정하려고 env 로 뺀다.
+    kucoinOauthGroups: (() => {
+      const raw = env.KUCOIN_OAUTH_GROUPS?.trim();
+      if (!raw) return undefined;
+      try {
+        const o = JSON.parse(raw);
+        if (o && typeof o === 'object') {
+          const out: Record<string, boolean> = {};
+          for (const [k, v] of Object.entries(o)) out[k] = Boolean(v);
+          return out;
+        }
+      } catch { /* 잘못된 JSON 은 무시하고 기본값 사용 */ }
+      return undefined;
+    })(),
     kucoinRestMaxRps: numberFromEnv(env.KUCOIN_REST_MAX_RPS, 5, 1, 12),
     kucoinRestBurst: numberFromEnv(env.KUCOIN_REST_BURST, 10, 1, 30),
     // Phase 4 — AI. SAFE DEFAULTS: disabled, mock provider, store off. Models are config-driven (not

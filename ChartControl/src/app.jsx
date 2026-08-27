@@ -1626,7 +1626,7 @@
             {route.path === '/wallet/transactions' && <window.TransactionHistoryPage shellProps={shellProps}/>}
             {route.path === '/referral'       && <window.ReferralPage       shellProps={shellProps}/>}
             {route.path === '/points'         && <window.PointsPage         shellProps={shellProps}/>}
-            {route.path === '/fees'           && <window.FeeRebatePage      shellProps={shellProps}/>}
+            {route.path === '/fees'           && auth.role !== 'user' && <window.FeeRebatePage      shellProps={shellProps}/>}
             {route.path === '/help'           && <window.HelpCenterPage     shellProps={shellProps}/>}
             {route.path === '/settings'       && <window.SettingsPage       shellProps={shellProps}/>}
             {route.path === '/notifications'  && <window.NotificationsPage  shellProps={shellProps}/>}

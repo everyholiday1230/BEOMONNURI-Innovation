@@ -2475,6 +2475,7 @@ if (env.authEnabled) {
             redirectUri: env.kucoinOauthRedirectUri,
             oauthBase: env.kucoinOauthBase,
             apiKeyPath: env.kucoinOauthApiKeyPath,
+            ...(env.kucoinOauthGroups ? { authGroups: env.kucoinOauthGroups } : {}),
           }),
         );
         console.log('[api] KuCoin Fast API (OAuth) mounted');
