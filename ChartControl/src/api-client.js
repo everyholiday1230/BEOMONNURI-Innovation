@@ -2252,6 +2252,10 @@
            brokerAttached: false → 승인됐지만 서명 헤더 3종이 없음 → 앞으로도 집계 안 됨
     */
 
+    /** 팀장(team_leader) 정산 — 하위 추천 회원 집계 + 20% rate. */
+    teamLeaders: function () {
+      return getJSON('', '/api/admin/fees/team-leaders');
+    },
     brokerCommission: function (opts) {
       opts = opts || {};
       return getJSON('', '/api/admin/broker/kucoin/commission?page=' + (opts.page || 1)

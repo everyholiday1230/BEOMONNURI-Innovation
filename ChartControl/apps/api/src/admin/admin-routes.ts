@@ -1025,6 +1025,28 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     return c.json({ ok: true, tags: await d.userTags.listForUser(id) });
   });
 
+  // ---------- 팀장(team_leader) 정산 — 하위 추천 회원 집계 + 20% ----------
+  app.get('/admin/fees/team-leaders', async (c) => {
+    const g = await guard(c, 'admin.broker.rebate.read'); if ('err' in g) return g.err;
+    if (!d.userTags || !d.referral) return c.json({ configured: false, rate: 0.2, leaders: [] });
+    const leaders = await d.userTags.listUsersByTag('team_leader');
+    const refs = await d.referral.listReferrers(500);
+    const byId = new Map(refs.map((r) => [r.userId, r]));
+    const rows = leaders.map((l) => {
+      const s = byId.get(l.userId);
+      return {
+        userId: l.userId,
+        email: l.email,
+        signups: s ? s.signups : 0,
+        keysConnected: s ? s.keysConnected : 0,
+        traded: s ? s.traded : 0,
+      };
+    });
+    // rate 0.2 = 회사가 받는 브로커 수수료의 20%. 실제 커미션 금액은 /admin/broker/kucoin/commission
+    // 에서 확인해 곱한다(정확한 1인당 귀속은 KuCoin 브로커 리포트 기준). 자동지급 없음.
+    return c.json({ configured: true, rate: 0.2, leaders: rows });
+  });
+
   // ---------- trading ops (READ-ONLY) ----------
   app.get('/admin/exchange-connections', async (c) => {
     const g = await guard(c, 'admin.exchange.read'); if ('err' in g) return g.err;

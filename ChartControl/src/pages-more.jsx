@@ -2457,6 +2457,39 @@
   // ============================================================
   // FEE & REBATE (사용자 화면)
   // ============================================================
+  /* 팀장 정산 표 — team_leader 태그 유저 + 하위 추천 집계 + 20% 안내(회사 수동 지급). */
+  function TeamLeaderPayouts() {
+    const [data, setData] = React.useState(null);
+    React.useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.teamLeaders) return;
+      api.teamLeaders().then((r) => setData(r || { configured: false, leaders: [] })).catch(() => setData({ configured: false, leaders: [] }));
+    }, []);
+    if (!data || data.configured === false) return null;
+    const leaders = data.leaders || [];
+    return (
+      <window.SectionCard title={t('tl_title')}>
+        {leaders.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', padding: '8px 0' }}>{t('tl_none')}</div>
+        ) : (
+          <table className="tbl">
+            <thead><tr><th style={{ textAlign: 'left' }}>{t('tl_email')}</th><th>{t('tl_invitees')}</th><th>{t('tl_connected')}</th><th>{t('tl_traded')}</th></tr></thead>
+            <tbody>
+              {leaders.map((l) => (
+                <tr key={l.userId}>
+                  <td style={{ textAlign: 'left' }}>{l.email || l.userId}</td>
+                  <td>{l.signups}</td><td>{l.keysConnected}</td><td>{l.traded}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 8, lineHeight: 1.6 }}>{t('tl_rate_note')}</div>
+      </window.SectionCard>
+    );
+  }
+  window.TeamLeaderPayouts = TeamLeaderPayouts;
+
   window.FeeRebatePage = function FeeRebatePage({ shellProps }) {
     const acct = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
     const tiers = window.QTApp.FEE_TIERS;
@@ -2611,6 +2644,7 @@
         subtitle={t('fee_rebate_4f1ad0')}
         breadcrumb={['Home','Settings','Fees']}
       >
+        <window.TeamLeaderPayouts/>
         <div className="grid-3">
           {/*
             거래소 기본 수수료율. 등급 체계가 없으므로 '기본' 으로 표시한다 —
