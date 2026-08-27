@@ -32,7 +32,6 @@
   const SIDEBAR_ITEMS = [
     // ---------- USER ITEMS ----------
     { section: 'trading', labelKey: 'nav_trade',       icon: 'Chart',       route: '/trade',          roles: ['user','ops','admin','super'] },
-    { section: 'trading', labelKey: 'nav_trade_ex',       icon: 'Expand',       route: '/trade-ex',          roles: ['user','ops','admin','super'] },
     /*
        AI Workspace 항목을 사이드바에서 내렸다 (2026-08, 사장님 지시).
 

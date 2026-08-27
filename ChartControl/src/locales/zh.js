@@ -500,7 +500,7 @@
       wl_cat_metals: '贵金属',
       legal_refund: '退款政策',
       pt_pay_toss: 'Toss',
-      autofit_toggle: '自动适配 (Trade Ex)',
+      autofit_toggle: '自动适配',
       nav_trade_ex: 'Trade Ex',
       prov_note_ai_copilot_live: 'AI 副驾驶已上线 — 实时执行图表操作，每次运行消耗积分。',
       foot_disclaimer: '加密货币交易存在重大风险，非投资建议。',

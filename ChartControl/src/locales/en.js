@@ -243,7 +243,7 @@
       wl_cat_metals: 'Metals',
       legal_refund: 'Refund Policy',
       pt_pay_toss: 'Toss',
-      autofit_toggle: 'Auto-fit (Trade Ex)',
+      autofit_toggle: 'Auto-fit',
       nav_trade_ex: 'Trade Ex',
       prov_note_ai_copilot_live: 'AI Copilot is live — it streams chart-tool actions and costs points per run.',
       foot_disclaimer: 'Crypto trading involves substantial risk. Not investment advice.',

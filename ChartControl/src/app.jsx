@@ -155,7 +155,7 @@
     lang: detectDefaultLang(),
     pro: true,      // Pro is default (interactions_depth 8)
     numFmt: 'standard',
-    autofit: false, // Trade Ex 자동맞춤 실험 모드 (기본 꺼짐 = 현재 UI 그대로)
+    autofit: true, // 자동맞춤: Trade 탭에 기본 적용(화면 꽉 채움 + 촘촘 + 주문버튼 고정). 토글로 끌 수 있다.
     role: 'user',   // user | ops | admin | super
   };
 
@@ -327,16 +327,12 @@
     const [route, pushRoute] = useRoute();
 
     /*
-       Trade Ex 자동맞춤(auto-fit) 적용 여부.
-
-       ★ /trade-ex 탭에서는 항상 켠다(비교용 — 실제 Trade 배치는 안 건드린다).
-       ★ 그 외 화면에서는 사용자가 상단 ⊹ 토글로 고정한 tweaks.autofit 을 따른다.
-       CSS 는 html[data-autofit="on"] 에서만 반응하므로, 끄면 현재 UI 그대로다.
+       자동맞춤(auto-fit) 적용 여부. Trade 탭에 기본 적용(DEFAULT_TWEAKS.autofit=true).
+       상단 ⊹ 토글로 켜고 끌 수 있다. CSS 는 html[data-autofit="on"] 에서만 반응한다.
     */
     useEffect(() => {
-      const on = tweaks.autofit || route.path === '/trade-ex';
-      document.documentElement.dataset.autofit = on ? 'on' : 'off';
-    }, [tweaks.autofit, route.path]);
+      document.documentElement.dataset.autofit = tweaks.autofit ? 'on' : 'off';
+    }, [tweaks.autofit]);
 
     /*
        서랍 닫기.
@@ -1104,7 +1100,7 @@
     };
 
     // ---- Route dispatch — return early for non-trade routes ----
-    const isTradeRoute = route.path === '/trade' || route.path === '/trade-ex' || !route.path;
+    const isTradeRoute = route.path === '/trade' || !route.path;
     // Auth/Landing routes have no sim-stripe, no header, no sidebar (fully custom shell)
     /*
        자체 레이아웃을 쓰는 라우트 (헤더·사이드바·시뮬레이션 띠 없음).
@@ -1122,7 +1118,7 @@
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       // 법적 문서 — 로그인 없이 열린다.
       '/terms', '/privacy', '/risk', '/security', '/refund',
-      '/trade', '/trade-ex',
+      '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
       '/wallet', '/wallet/deposit', '/wallet/withdraw', '/wallet/transactions',
@@ -1328,12 +1324,6 @@
           <nav className="app-nav">
             <a className="app-nav__item" href="#/markets"><I.Grid size={13}/>{t('nav_markets')}</a>
             <a className={`app-nav__item ${route.path === '/trade' ? 'is-active' : ''}`} href="#/trade"><I.Chart size={13}/>{t('nav_trade')}</a>
-            {/*
-               Trade Ex — 같은 거래 화면을 자동맞춤(auto-fit) 모드로 연다. 실제 Trade 탭은
-               건드리지 않으므로, 두 탭을 오가며 배치를 비교할 수 있다. 마음에 들면
-               상단 ⊹ 토글로 일반 Trade 에도 적용(고정)한다.
-            */}
-            <a className={`app-nav__item ${route.path === '/trade-ex' ? 'is-active' : ''}`} href="#/trade-ex" title={t('autofit_toggle')}><I.Expand size={13}/>{t('nav_trade_ex')}</a>
             {/*
                ★★ AI 탭을 숨긴다 (지시받음).
 

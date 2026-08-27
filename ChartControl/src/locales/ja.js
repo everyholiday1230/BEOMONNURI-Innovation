@@ -498,7 +498,7 @@
       wl_cat_metals: '貴金属',
       legal_refund: '返金ポリシー',
       pt_pay_toss: 'Toss',
-      autofit_toggle: '自動フィット (Trade Ex)',
+      autofit_toggle: '自動フィット',
       nav_trade_ex: 'Trade Ex',
       prov_note_ai_copilot_live: 'AI コパイロットは稼働中 — チャート操作をストリーミングし、実行ごとにポイントを消費します。',
       foot_disclaimer: '暗号資産取引には大きなリスクがあります。投資助言ではありません。',
