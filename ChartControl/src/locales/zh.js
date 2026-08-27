@@ -538,6 +538,8 @@
       tl_traded: '已交易',
       tl_none: '暂无团队负责人。请在管理→用户中为用户添加 team_leader 标签。',
       tl_rate_note: '支付=各负责人下线产生的 KuCoin 经纪佣金的 20%。实际金额见经纪佣金。由公司手动支付(无自动支付)。',
+      prov_note_fees_live: '手续费档位(实时费率)与团队负责人分成(经纪手续费20%)均已上线。',
+      prov_note_admin_home_live: '管理后台已上线(用户、审计、系统、公告、积分、推荐、手续费)。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

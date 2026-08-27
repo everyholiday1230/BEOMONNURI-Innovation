@@ -69,7 +69,7 @@
     '/ai-strategies/detail': { status: 'live', note: 'ai_provider_off' },
     '/ai-strategies/my': { status: 'live', note: 'ai_provider_off' },
     '/referral': { status: 'partial', note: 'referral_manual_payout' },
-    '/fees': { status: 'partial', note: 'fees_partial' },
+    '/fees': { status: 'live', note: 'fees_live' },
     '/help': { status: 'live', note: 'support_wired' },
     '/notifications': { status: 'live', note: 'notif_live' },
   };
@@ -79,7 +79,7 @@
      배선이 끝난 관리자 화면은 개별로 등록한다.
      접두사 규칙(/admin → mock)보다 개별 등록이 우선한다(routeStatus 참고).
   */
-  ROUTES['/admin'] = { status: 'partial', note: 'admin_partial' };
+  ROUTES['/admin'] = { status: 'dynamic:admin', note: 'admin_home_live' };
   ROUTES['/admin/users'] = { status: 'dynamic:admin', note: 'admin_users_live' };
   ROUTES['/admin/users/detail'] = { status: 'dynamic:admin', note: 'admin_users_live' };
   ROUTES['/admin/audit'] = { status: 'dynamic:admin', note: 'admin_audit_live' };
@@ -292,14 +292,11 @@
     // ================= 목업 데이터 화면 =================
     // 관리자 화면 전체
     // 거래 일지·성과 분석
-    { selector: '.journal, [class*="journal"]', status: 'mock', note: 'not_built' },
     // AI 인사이트·신호 카드
     // 알림·공지·티켓 목록
     // 리퍼럴 링크
     // 입출금
-    { selector: '[class*="deposit"], [class*="withdraw"]', status: 'mock', note: 'not_built' },
     // 수수료·리베이트 표
-    { selector: '[class*="fee-tier"], [class*="rebate"]', status: 'mock', note: 'not_built' },
     /*
        전략 카드·백테스트는 **실데이터**다 — 이 목록에서 뺐다.
 
