@@ -57,6 +57,55 @@
   }
   window.DisclaimerGate = DisclaimerGate;
 
+  /*
+    프로필 메뉴 — 예전에는 동그란 아바타 버튼을 누르면 **즉시 로그아웃**됐다.
+    실수로 눌러 세션이 끊기는 문제가 있어, 아래로 열리는 드롭다운으로 바꾼다.
+    (개인설정 · 포인트 · 로그아웃). 기존 번역 키만 재사용해 하드코딩을 피한다.
+  */
+  function ProfileMenu({ auth, pushRoute }) {
+    const [open, setOpen] = React.useState(false);
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      if (!open) return undefined;
+      const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+      const onEsc = (e) => { if (e.key === 'Escape') setOpen(false); };
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onEsc);
+      return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+    }, [open]);
+    const initial = auth.user && auth.user.email ? auth.user.email[0].toUpperCase() : 'K';
+    const avatar = (
+      <div style={{width:22, height:22, background:'var(--color-brand)', color:'var(--color-text-inverse)', borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:11, fontWeight:600}}>{initial}</div>
+    );
+    if (!auth.user) {
+      return (
+        <button className="header-tool header-tool--icon" title={t('profile_sign_in')} onClick={() => pushRoute('/login')}>{avatar}</button>
+      );
+    }
+    const go = (route) => { setOpen(false); pushRoute(route); };
+    const doLogout = () => {
+      setOpen(false);
+      if (window.QTAuth) window.QTAuth.logout().then(() => pushRoute('/login'));
+      else pushRoute('/login');
+    };
+    return (
+      <div ref={ref} style={{position:'relative', display:'inline-flex'}}>
+        <button className="header-tool header-tool--icon" aria-haspopup="true" aria-expanded={open}
+          title={t('profile_signed_in_as', { email: auth.user.email })}
+          onClick={() => setOpen((o) => !o)}>{avatar}</button>
+        {open && (
+          <div role="menu" className="profile-menu">
+            <div className="profile-menu__email">{auth.user.email}</div>
+            <button role="menuitem" className="profile-menu__item" onClick={() => go('/settings')}>{t('nav_settings')}</button>
+            <button role="menuitem" className="profile-menu__item" onClick={() => go('/points')}>{t('nav_points')}</button>
+            <button role="menuitem" className="profile-menu__item profile-menu__item--danger" onClick={doLogout}>{t('set_sign_out')}</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  window.ProfileMenu = ProfileMenu;
+
   // ---- Persist / read tweaks state ----
   /**
    * 기본 언어를 브라우저 설정에서 결정한다.
@@ -1305,37 +1354,10 @@
             </div>
             )}
             {/*
-              연결 표시.
-
-              title 이 항상 'Mock stream' 이었다 — 실데이터일 때도 목업이라고
-              말하니 운영 중에 출처를 판단할 수 없다. 실제 출처를 넣는다.
+              연결 표시(WS/지연/데이터 신선도)는 사용자 요청으로 상단바에서 제거했다.
+              conn/latency/dataAge 상태 자체는 오래된 데이터 가드 등에서 계속 쓰이므로
+              계산은 유지하고, 눈에 보이는 클러스터만 뺀다.
             */}
-            <div className="conn-cluster" title={t('conn_title', {
-              state: conn,
-              latency: latency,
-              source: (window.QTLive && window.QTLive.getSource) ? window.QTLive.getSource() : 'unknown',
-            })}>
-              <span className={`conn-cluster__seg ${conn === 'live' ? 'is-live' : conn === 'reconnecting' ? 'is-warn' : 'is-err'}`}>
-                <span className={`dot ${conn === 'live' ? 'dot--live' : conn === 'reconnecting' ? 'dot--warn' : 'dot--err'}`}/>
-                {conn === 'live' ? 'WS' : conn === 'reconnecting' ? 'RECON' : 'DOWN'}
-              </span>
-              <span className={`conn-cluster__seg conn-cluster__latency ${latency > 200 ? 'is-err' : latency > 100 ? 'is-warn' : ''}`}>
-                <span className="k">↔</span>{latency}ms
-              </span>
-              {/*
-                 데이터 신선도.
-
-                 원래 '0s' 고정이었다 — 스트림이 죽어 5분째 값이 안 와도 0s 라
-                 사용자는 실시간이라고 믿는다. 그 상태로 주문하면 옛 가격에
-                 체결된다. 실제 경과 시간을 보여주고, 오래되면 색으로 경고한다.
-              */}
-              <span
-                className={`conn-cluster__seg ${dataAgeMs !== null && dataAgeMs > 30000 ? 'is-err' : dataAgeMs !== null && dataAgeMs > 10000 ? 'is-warn' : ''}`}
-                title={t('data_freshness_tip')}
-              >
-                <span className="k">◷</span>{dataAgeLabel}
-              </span>
-            </div>
             {/*
               알림 벨. 마크업·스타일은 그대로 두고 동작만 붙였다.
 
@@ -1493,24 +1515,9 @@
             </button>
             */}
             {/*
-              프로필 버튼 — 마크업과 스타일은 그대로다. 동작만 붙였다.
-              로그인 상태면 로그아웃, 아니면 로그인 화면으로 보낸다.
-              머리글자는 로그인한 이메일에서 뽑는다 (비로그인 시 기존 'K' 유지).
+              프로필 버튼 — 즉시 로그아웃 대신 아래로 열리는 드롭다운(개인설정·포인트·로그아웃).
             */}
-            <button
-              className="header-tool header-tool--icon"
-              title={auth.user ? t('profile_signed_in_as', { email: auth.user.email }) : t('profile_sign_in')}
-              onClick={() => {
-                if (!auth.user) { pushRoute('/login'); return; }
-                if (window.QTAuth) {
-                  window.QTAuth.logout().then(() => pushRoute('/login'));
-                } else {
-                  pushRoute('/login');
-                }
-              }}
-            >
-              <div style={{width: 22, height: 22, background: 'var(--color-brand)', color:'var(--color-text-inverse)', borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-mono)', fontSize:11, fontWeight:600}}>{auth.user && auth.user.email ? auth.user.email[0].toUpperCase() : 'K'}</div>
-            </button>
+            <window.ProfileMenu auth={auth} pushRoute={pushRoute}/>
           </div>
         </header>
 
