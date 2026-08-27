@@ -1585,3 +1585,34 @@
     scrollbar-width: thin;
   }
 }
+
+/* ---------- Trade Ex 자동맞춤(auto-fit) — data-autofit="on" 일 때만 적용 ----------
+   기본(off)에서는 이 블록이 전혀 관여하지 않아 현재 UI 가 그대로 유지된다.
+   on 이면 각 패널 본문을 컨테이너로 삼아, 패널이 좁아질수록 표를 촘촘하게 하고
+   부차 열을 접으며, Order Entry 제출 버튼을 하단에 고정한다. */
+[data-autofit="on"] .panel__body { container-type: inline-size; }
+
+/* Order Entry: 제출 버튼을 패널 하단에 고정 — 스크롤 밖으로 사라지지 않게 */
+[data-autofit="on"] .oe-buttons {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--color-bg-panel);
+  padding-top: 6px;
+  margin-top: 4px;
+  box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, 0.45);
+}
+
+/* 좁은 패널: 밀도를 촘촘하게 + 부차 정보 접기 */
+@container (max-width: 240px) {
+  [data-autofit="on"] .tbl th,
+  [data-autofit="on"] .tbl td { padding: 3px 6px; height: 26px; font-size: var(--fs-xs); }
+  [data-autofit="on"] .mw-row__quote { display: none; }
+  [data-autofit="on"] .ob-row__total { display: none; }
+  [data-autofit="on"] .oe-summary__row { font-size: var(--fs-xs); }
+}
+@container (max-width: 170px) {
+  [data-autofit="on"] .tbl th,
+  [data-autofit="on"] .tbl td { padding: 2px 4px; }
+  [data-autofit="on"] .rt-row__time { display: none; }
+}

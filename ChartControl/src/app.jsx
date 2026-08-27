@@ -132,6 +132,7 @@
     lang: detectDefaultLang(),
     pro: true,      // Pro is default (interactions_depth 8)
     numFmt: 'standard',
+    autofit: false, // Trade Ex 자동맞춤 실험 모드 (기본 꺼짐 = 현재 UI 그대로)
     role: 'user',   // user | ops | admin | super
   };
 
@@ -148,6 +149,8 @@
       root.dataset.brand = state.brand;
       root.dataset.longshort = state.longshort;
       root.dataset.density = state.density;
+      // Trade Ex 자동맞춤 모드 — CSS 가 [data-autofit="on"] 에서만 반응한다.
+      root.dataset.autofit = state.autofit ? 'on' : 'off';
       // 언어는 i18n 이 단일 출처다. setLocale 이 document lang 도 갱신한다.
       if (window.QTI18n) {
         /*
@@ -1394,6 +1397,19 @@
             </button>
             <button className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title={t('toggle_theme')}>
               {tweaks.theme === 'dark' ? <I.Moon size={14}/> : <I.Sun size={14}/>}
+            </button>
+            {/*
+               Trade Ex — 자동맞춤(auto-fit) 실험 토글. 켜면 패널 내용이 크기에 맞춰
+               촘촘해지고(컨테이너 쿼리), Order Entry 제출 버튼이 하단에 고정되며,
+               좁은 표는 부차 열을 접는다. 기본은 꺼짐(현재 UI 그대로) — 켠 채로 두면 적용.
+            */}
+            <button
+              className={`header-tool header-tool--icon ${tweaks.autofit ? 'is-active' : ''}`}
+              onClick={() => setTweaks({ autofit: !tweaks.autofit })}
+              title={t('autofit_toggle')}
+              aria-pressed={!!tweaks.autofit}
+            >
+              <I.Expand size={14}/>
             </button>
             {/*
                언어 선택.

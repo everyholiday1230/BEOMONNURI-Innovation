@@ -189,7 +189,7 @@
          상위 60개만 둔다(거래대금 순). 검색은 전체에서 하므로 원하는 종목을
          찾지 못하는 일은 없다.
       */
-      return isSpotList && !q ? arr.slice(0, 60) : arr;
+      return isSpotList && !q ? arr.slice(0, 200) : arr;
     }, [q, tab, sort, src.rows, isSpotList]);
 
     return (
