@@ -836,7 +836,17 @@
     useEffect(() => { if (prefillSize != null) setSize(String(prefillSize)); }, [prefillSize]);
     useEffect(() => { if (prefillSide != null) setSide(prefillSide); }, [prefillSide]);
 
-    const px = parseFloat(price) || lastPrice;
+    /*
+       ★★ 가격도 거래소 tickSize 배수여야 한다.
+
+         수량(stepSize)뿐 아니라 가격도 tickSize 에 안 맞으면 서버가
+         PRECISION_VIOLATION 으로 거부한다. tickSize 로 반올림하고, 자리수는
+         tickSize 소수 자리수에서 구한다. tickSize 를 모르면 건드리지 않는다.
+    */
+    const tickSz = Number(market && market.tickSize) || 0;
+    const pricePrec = (String(tickSz).split('.')[1] || '').length;
+    const snapPrice = (p) => ((!(tickSz > 0) || !Number.isFinite(p)) ? p : Number((Math.round(p / tickSz) * tickSz).toFixed(pricePrec)));
+    const px = snapPrice(parseFloat(price) || lastPrice);
     /*
        ★★ 거래소 수량 단위(stepSize)로 스냅한다.
 
@@ -1159,7 +1169,7 @@
                 style={side !== 'long' ? { background: 'var(--color-trade-long-bg)', color:'var(--color-trade-long)', border:'1px solid var(--color-trade-long)'} : undefined}
                 onClick={() => {
                   setSide('long');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger') });
                 }}
               >
                 ▲ {t('buy_long')}
@@ -1171,7 +1181,7 @@
                 style={side !== 'short' ? { background: 'var(--color-trade-short-bg)', color:'var(--color-trade-short)', border:'1px solid var(--color-trade-short)'} : undefined}
                 onClick={() => {
                   setSide('short');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger') });
                 }}
               >
                 ▼ {t('sell_short')}
