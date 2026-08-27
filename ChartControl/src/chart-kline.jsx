@@ -743,6 +743,9 @@
     const hostRef = useRef(null);
     const chartRef = useRef(null);
     const dataRef = useRef([]);
+    // dataRef 가 어떤 심볼/타임프레임의 데이터인지 표시한다. 심볼 전환 시
+    // 이전 심볼 캔들이 새 심볼 라벨 아래 잠깐 보이는(깜빡임) 문제를 막는다.
+    const dataKeyRef = useRef('');
     /** 우리 overlay.id -> KLineChart overlay id */
     const overlayIdsRef = useRef(new Map());
     const maPaneRef = useRef(null);
@@ -856,6 +859,8 @@
         .filter((b) => Number.isFinite(b.timestamp) && b.timestamp > 0 && Number.isFinite(b.close));
 
       dataRef.current = bars;
+      // 이 데이터가 속한 심볼/타임프레임을 기록한다.
+      dataKeyRef.current = symbol + '|' + timeframe;
       if (bars.length === 0) return;
 
       // resetData 는 loader 를 다시 호출해 init 데이터를 가져간다.
@@ -866,8 +871,16 @@
     useEffect(() => {
       const chart = chartRef.current;
       if (!chart) return;
+      const key = symbol + '|' + timeframe;
+      // 현재 보유 데이터가 새 심볼/타임프레임의 것이 아니면(아직 새 candles 미도착),
+      // 이전 심볼 캔들이 잠깐 보이지 않도록 먼저 비운다. 새 candles 가 오면
+      // 위의 데이터 주입 effect 가 resetData 로 채운다. 데이터가 이미 일치하면
+      // (심볼+candles 가 같은 렌더에서 도착) 건드리지 않아 방금 채운 데이터를 지우지 않는다.
+      const stale = dataKeyRef.current !== key;
+      if (stale) dataRef.current = [];
       chart.setSymbol({ ticker: symbol, pricePrecision: decimals, volumePrecision: 3 });
       chart.setPeriod(periodFor(timeframe));
+      if (stale) chart.resetData();
     }, [symbol, timeframe, decimals]);
 
     // --- 지표: MA (showMA) ---
