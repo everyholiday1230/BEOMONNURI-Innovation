@@ -788,6 +788,16 @@
     const [postOnly, setPostOnly] = useState(false);
     const [tif, setTif] = useState('GTC');
     const [enableTpsl, setEnableTpsl] = useState(!!tpsl);
+    /*
+       ★★ 레버리지·증거금 모드는 사용자가 고르고, 이 값이 표시·증거금/청산 계산·
+         주문 제출의 **단일 출처**다. 전에는 표시가 20× 로 고정돼 있고 제출은
+         10× 로 폴백해서, 화면에서 20× 로 크기를 잡아도 실제 주문은 10× 로 나갔다.
+    */
+    const [lev, setLev] = useState(Math.max(1, Math.min(125, Number(leverage) || 10)));
+    const [mMode, setMMode] = useState(marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS');
+    /* TP/SL 입력을 상태로 관리한다(전에는 defaultValue 라 입력값이 유실됐다). */
+    const [tpVal, setTpVal] = useState('');
+    const [slVal, setSlVal] = useState('');
 
     // Re-sync when parent prefill changes
     useEffect(() => {
@@ -842,9 +852,9 @@
       ? Number(market.takerFeeRate)
       : null;
     const fee = takerRate == null ? null : totalUSDT * takerRate;
-    const requiredMargin = totalUSDT / leverage;
+    const requiredMargin = totalUSDT / lev;
     const availAfter = assets.availableBalance - requiredMargin;
-    const estLiq = side === 'long' ? px * (1 - 0.92 / leverage) : px * (1 + 0.92 / leverage);
+    const estLiq = side === 'long' ? px * (1 - 0.92 / lev) : px * (1 + 0.92 / lev);
     const priceDev = ((px - lastPrice) / lastPrice) * 100;
 
     const errors = [];
@@ -883,7 +893,7 @@
     if (totalUSDT < 5) errors.push({ level: 'warn', text: t('oe_err_min_notional') });
     if (requiredMargin > assets.availableBalance) errors.push({ level: 'danger', text: t('oe_err_insufficient', { amount: fmt(requiredMargin - assets.availableBalance) }) });
     if (Math.abs(priceDev) > 3) errors.push({ level: 'warn', text: t('oe_err_price_dev', { pct: `${priceDev >= 0 ? '+' : ''}${priceDev.toFixed(2)}` }) });
-    if (leverage > 50) errors.push({ level: 'warn', text: t('oe_err_high_leverage', { lev: leverage }) });
+    if (lev > 50) errors.push({ level: 'warn', text: t('oe_err_high_leverage', { lev: lev }) });
 
     return (
       <div className="panel" style={{height:'100%'}}>
@@ -904,12 +914,17 @@
             <div className="oe-margin">
               <div className="oe-margin__group">
                 <div className="seg">
-                  <button className={`seg__opt ${marginMode==='CROSS'?'is-active':''}`}>{t('cross')}</button>
-                  <button className={`seg__opt ${marginMode==='ISOLATED'?'is-active':''}`}>{t('isolated')}</button>
+                  <button className={`seg__opt ${mMode==='CROSS'?'is-active':''}`} onClick={() => setMMode('CROSS')}>{t('cross')}</button>
+                  <button className={`seg__opt ${mMode==='ISOLATED'?'is-active':''}`} onClick={() => setMMode('ISOLATED')}>{t('isolated')}</button>
                 </div>
               </div>
               <div className="oe-margin__group">
-                <span className="oe-lev">{leverage}×</span>
+                <span className="oe-lev">
+                  <input type="number" min="1" max="125" step="1" value={lev}
+                    onChange={(e) => { const n = parseInt(e.target.value, 10); setLev(Number.isFinite(n) ? Math.max(1, Math.min(125, n)) : 1); }}
+                    style={{ width: 34, background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', textAlign: 'right', outline: 'none', padding: 0 }}
+                    aria-label={t('calc_leverage')} />×
+                </span>
               </div>
             </div>
           )}
@@ -987,7 +1002,7 @@
                       className={`pct-slider__stop ${pct === v ? 'is-active' : ''}`}
                       onClick={() => {
                         setPct(v);
-                        const newSize = (assets.availableBalance * leverage * (v/100)) / px;
+                        const newSize = (assets.availableBalance * lev * (v/100)) / px;
                         setSize(newSize.toFixed(4));
                       }}
                       title={`${v}%`}
@@ -1022,11 +1037,11 @@
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 6}}>
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_tp')}</span>
-                  <input type="text" defaultValue={tpsl?.tp?.[0] ? tpsl.tp[0].toFixed(1) : (px * 1.02).toFixed(1)} />
+                  <input type="text" value={tpVal} onChange={(e) => setTpVal(e.target.value)} placeholder={tpsl?.tp?.[0] ? tpsl.tp[0].toFixed(1) : (px * 1.02).toFixed(1)} />
                 </div>
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_sl')}</span>
-                  <input type="text" defaultValue={tpsl?.sl ? tpsl.sl.toFixed(1) : (px * 0.98).toFixed(1)}/>
+                  <input type="text" value={slVal} onChange={(e) => setSlVal(e.target.value)} placeholder={tpsl?.sl ? tpsl.sl.toFixed(1) : (px * 0.98).toFixed(1)}/>
                 </div>
               </div>
             )}
@@ -1096,7 +1111,7 @@
                 style={side !== 'long' ? { background: 'var(--color-trade-long-bg)', color:'var(--color-trade-long)', border:'1px solid var(--color-trade-long)'} : undefined}
                 onClick={() => {
                   setSide('long');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, tpsl: enableTpsl ? { tp: tpsl?.tp || [(px*1.02)], sl: tpsl?.sl || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger') });
                 }}
               >
                 ▲ {t('buy_long')}
@@ -1108,7 +1123,7 @@
                 style={side !== 'short' ? { background: 'var(--color-trade-short-bg)', color:'var(--color-trade-short)', border:'1px solid var(--color-trade-short)'} : undefined}
                 onClick={() => {
                   setSide('short');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, tpsl: enableTpsl ? { tp: tpsl?.tp || [(px*0.98)], sl: tpsl?.sl || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? stopPrice : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger') });
                 }}
               >
                 ▼ {t('sell_short')}
