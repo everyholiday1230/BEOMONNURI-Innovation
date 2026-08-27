@@ -49,110 +49,20 @@
 <!-- Three.js for v4 hero neural network (lighter background layer) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260827b">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260827a">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260827a">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260827c">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260827c">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260827c">
+<link rel="stylesheet" href="assets/css/responsive.css?v=20260827c">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
     if (m.includes('Transition was skipped') || m.includes('view transition')) e.preventDefault();
   });
 </script>
-<style>
-  html, body {
-    height: 100%;
-  }
-  body.has-hero .hero {
-    min-height: 100svh;
-    height: 100svh;
-    padding: 88px 0 0;
-  }
-  body.has-hero .hero > .container {
-    height: calc(100svh - 88px);
-    display: flex;
-    flex-direction: column;
-  }
-  body.has-hero .hero-inline-partners {
-    margin-top: 34px;
-    height: clamp(136px, 19.2vh, 192px);
-    flex: 0 0 auto;
-  }
-  /* 히어로 한 줄 설명. 히어로가 100svh로 고정되어 있어 세로 공간이 빡빡하므로
-     h1 상단 여백과 마퀴 여백을 함께 줄여 자리를 만든다. */
-  body.has-hero .hero h1 {
-    margin-top: 28px;
-  }
-  body.has-hero .hero-sub {
-    flex: 0 0 auto;
-    margin: 14px 0 0;
-    font-size: clamp(13px, 1.05vw, 15.5px);
-    line-height: 1.55;
-    letter-spacing: -0.01em;
-    color: var(--mute);
-    max-width: 60ch;
-  }
-  body.has-hero .hero-sub a {
-    color: var(--paper);
-    font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-thickness: 1px;
-    text-decoration-color: rgba(13, 13, 13, 0.28);
-    transition: color 0.2s ease, text-decoration-color 0.2s ease;
-  }
-  body.has-hero .hero-sub a:hover,
-  body.has-hero .hero-sub a:focus-visible {
-    color: var(--acid);
-    text-decoration-color: var(--acid);
-  }
-  /* 세로가 짧은 노트북에서 마퀴가 잘리지 않도록 여백을 더 줄인다. */
-  @media (max-height: 820px) {
-    body.has-hero .hero h1 { margin-top: 16px; }
-    body.has-hero .hero-sub { margin-top: 10px; }
-    body.has-hero .hero-inline-partners { margin-top: 18px; }
-  }
-  @media (max-width: 700px) {
-    body.has-hero .hero {
-      padding-top: 72px;
-    }
-    body.has-hero .hero > .container {
-      height: calc(100svh - 72px);
-    }
-    body.has-hero .hero-inline-partners {
-      height: clamp(128px, 21vh, 168px);
-      margin-top: 30px;
-    }
-    body.has-hero .hero-sub {
-      font-size: 13px;
-      margin-top: 12px;
-      max-width: none;
-    }
-    /* 3D 실린더는 좁은 화면에서 로고가 과도하게 확대/블러 처리되어(perspective
-       투영 특성) 가독성이 떨어짐. 모바일에서는 실린더를 숨기고 평면 마퀴로 전환. */
-    body.has-hero .hero-inline-partners.partner-cylinder {
-      display: none;
-    }
-    body.has-hero .hero-inline-partners + .partner-marquee {
-      display: flex !important;
-      align-items: center;
-      height: clamp(128px, 21vh, 168px);
-      margin-top: 30px;
-      overflow: hidden;
-    }
-    body.has-hero .hero-inline-partners + .partner-marquee .partner-marquee-track {
-      padding: 0;
-    }
-    body.has-hero .hero-inline-partners + .partner-marquee .pm-item {
-      height: auto;
-    }
-  }
-  @media (max-width: 400px) {
-    body.has-hero .hero-inline-partners {
-      margin-top: 26px;
-      height: clamp(120px, 20vh, 154px);
-    }
-  }
-</style>
+<!-- 홈 히어로 레이아웃은 assets/css/responsive.css 의 "4. 홈 히어로 레이아웃"
+     섹션으로 이전했다. 인라인 <style> 은 링크된 CSS 보다 뒤에 적용돼
+     반응형 레이어가 히어로 높이(100svh 고정)를 고칠 수 없게 만들었고,
+     CSP style-src 'unsafe-inline' 의존을 늘렸다. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -344,9 +254,9 @@
 </main>
 
 <!-- ===== AI WIDGET ===== -->
-<script src="assets/js/ai-frontier.js?v=20260827b" defer></script>
-<script src="assets/js/v5-nextgen.js?v=20260827a" defer></script>
-<script src="assets/js/v5-webgpu.js?v=20260827a" defer></script>
-<script src="assets/js/v5-mobile.js?v=20260827a" defer></script>
+<script src="assets/js/ai-frontier.js?v=20260827c" defer></script>
+<script src="assets/js/v5-nextgen.js?v=20260827c" defer></script>
+<script src="assets/js/v5-webgpu.js?v=20260827c" defer></script>
+<script src="assets/js/v5-mobile.js?v=20260827c" defer></script>
 </body>
 </html>

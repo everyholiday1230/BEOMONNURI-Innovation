@@ -1,0 +1,593 @@
+/* =========================================================
+   BEOMONNURI — RESPONSIVE SYSTEM (최종 레이어)
+
+   모든 CSS 뒤에 로드된다. 기존 파일을 대규모로 재작성하는 대신
+   이 레이어에서 체계를 통일한다.
+
+   ── 브레이크포인트 체계 ──
+     xs   ≤ 479px    작은 폰 (iPhone SE, 소형 안드로이드)
+     sm   ≤ 767px    폰 전체
+     md   768~1023   태블릿 세로 (iPad 768, iPad Air 820, Surface 912)
+     lg   1024~1279  태블릿 가로 / 소형 노트북
+     xl   1280~1919  데스크톱
+     2xl  ≥ 1920px   대형 데스크톱
+     3xl  ≥ 2560px   초광폭 (QHD, 울트라와이드)
+
+   기존 코드의 400/640/700/720/760/900/960/1100px 난립을 위 경계로 정렬한다.
+   특히 기존에는 햄버거 전환이 ≤900px, 폰 레이아웃이 ≤700px 여서
+   701~900px 구간에 레이아웃 공백이 있었다 (실측: 768px에서 푸터 4열,
+   원칙 그리드 3열 유지 → 열마다 114~230px로 과도하게 좁음).
+   이 레이어에서 폰 레이아웃을 ≤767px로 확장하고 768~1023px 태블릿
+   레이아웃을 새로 정의해 공백을 없앤다.
+   ========================================================= */
+
+/* =========================================================
+   1. 유동 타이포그래피 하한 — 판독성 보장
+   실측에서 12px 미만 폰트가 40여종 발견됐다. 최악은 모바일
+   브랜드 서브텍스트 7.5px. 모노스페이스 라벨은 11px, 본문성
+   텍스트는 12px를 하한으로 둔다.
+   ========================================================= */
+
+/* 브랜드 영문 서브텍스트: 모바일 7.5px → 하한 12px */
+.brand .brand-en {
+  font-size: clamp(12px, 1.5vw, 12.5px);
+}
+
+/* 모노스페이스 계열 마이크로 라벨 — 12px 하한
+   대문자 모노스페이스는 소문자보다 판독이 어려워 12px를 하한으로 둔다.
+   셀렉터는 실측(390px 뷰포트 DOM 경로 추적)으로 특정했다. */
+.sect-label,
+.pd-id,
+.pd-for,
+.pi-tag,
+.pi-for,
+.pn,
+.mf-label,
+.ci-label,
+.cf-label,
+.ft-bottom-row,
+.hud,
+.status-orb,
+.thinking-strip,
+.mobile-menu-label,
+.mobile-menu .meta-row,
+.compare-table th,
+.crumb,
+.hero-top,
+.hero-top span,
+.hero-top a,
+.page-hero-meta .k,
+.page-hero-meta .v,
+.hb-cell .k,
+.hb-cell .mk,
+.intel-cell .k,
+.pd-cell .k,
+.sec-item-v4 .k,
+.ci-block .ci-label,
+.pi-card .pi-top span,
+.hw-metrics .mk,
+.hw-metrics .m .mk,
+.ht-metrics .mk,
+.roll-row-v4 .rr-tag,
+.roll-row-v4 .rr-tag span,
+.home-transfer-why .k,
+.home-transfer-products .k,
+.cf-chips label,
+.cf-hint {
+  font-size: clamp(12px, 0.9vw, 13px) !important;
+}
+
+/* 폼 라벨은 입력 정확도에 직결되므로 12.5px 하한 */
+.cf-label,
+#cf-interest-label,
+#cf-security-label {
+  font-size: clamp(12.5px, 0.95vw, 13.5px) !important;
+}
+
+/* 모션 토글 버튼 라벨 */
+.bn-motion-toggle {
+  font-size: clamp(12px, 0.9vw, 12.5px) !important;
+}
+
+/* =========================================================
+   2. 터치 타깃 최소 크기 (WCAG 2.5.8 최소 24px / 권장 44px)
+   실측에서 22종이 미달이었다. 본문 흐름 안의 인라인 링크는
+   44px를 강제하면 줄 간격이 깨지므로 제외하고, 독립 컨트롤만
+   보정한다.
+   ========================================================= */
+
+/* 푸터 링크 — 실측 33x14 ~ 135x15px */
+footer .footer-grid a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* 히어로 상단 법적 고지 링크 — 실측 76x13, 42x12px */
+.hero-top-legal a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* 브랜드(로고+회사명) — 실측 모바일 148x28px */
+.brand {
+  min-height: 44px;
+}
+
+/* 스킵 링크 — 실측 129x39px */
+.skip-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 모션 토글 — 실측 118x30px */
+.bn-motion-toggle {
+  min-height: 44px;
+}
+
+/* 동의 체크박스 — 실측 13x13px. 커서도 default 였다(요구사항: 호버 시 변화) */
+.cf-consent input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  margin-top: 0;
+  cursor: pointer;
+  accent-color: var(--acid);
+}
+.cf-consent {
+  align-items: center;
+}
+
+/* 제품 카드 내 CTA 링크 — 실측 78x21, 238x41px
+   .perf-links a / .bs-links a 는 display:block 이라 min-height 만으로는
+   43px에 머물렀다(패딩 부족). 실측 경로로 특정해 44px를 보장한다. */
+.pi-cta,
+.pd-cta,
+.svc a,
+.prod-nav a,
+.cta-inline,
+.ct-cta-v4,
+.pn-cell a,
+.cta-cell a,
+.home-transfer-why a,
+.home-transfer-products a,
+.ci-block a,
+.contact-info a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 카드 하단 링크 목록 — display:block 유지하되 수직 패딩으로 44px 확보 */
+.perf-links a,
+.bs-links a,
+.pi-links a,
+.svc-links a {
+  display: block;
+  min-height: 44px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* 본문 힌트 문장 안의 메일 링크 — 실측 135x15px.
+   인라인이라 44px 강제는 줄 간격을 깨므로 24px 기준만 만족시킨다. */
+.cf-hint a,
+.cf-consent-detail a,
+.hero-top-legal a,
+.crumb a {
+  display: inline-block;
+  padding: 5px 2px;
+  min-height: 24px;
+}
+
+/* 결제 수단 선택 버튼 — 실측 242x42px */
+.co-method-btn,
+.co-pay-btn {
+  min-height: 44px;
+}
+
+/* 동의 체크박스 — 라벨 전체가 클릭 영역이 되도록 연결 */
+.cf-consent label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* =========================================================
+   3. 커서 규칙 보강
+   요구사항: OS 커서는 항상 보이고, 요소에 올리면 커서가 바뀌며,
+   마우스를 따라다니는 발광 입자(#gpu-particles)는 유지한다.
+
+   cursor:none 은 사이트 전체에서 사용하지 않는다(실측 0건 유지).
+   포인터 위치를 잃는 사용자가 생기기 때문이다.
+   ========================================================= */
+
+/* 클릭 가능한 모든 것 */
+a[href], button, summary, label[for], [role="button"], [role="tab"],
+[role="link"], .btn, input[type="checkbox"], input[type="radio"],
+input[type="submit"], select {
+  cursor: pointer;
+}
+
+/* 텍스트 입력은 텍스트 캐럿 */
+input[type="text"], input[type="email"], input[type="tel"],
+input[type="search"], input[type="url"], input[type="number"], textarea {
+  cursor: text;
+}
+
+/* 비활성 상태 */
+button:disabled,
+[aria-disabled="true"],
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+/* 마우스를 따라다니는 발광 입자 캔버스는 포인터 이벤트를 가로채지 않아야
+   아래 요소의 커서 변화가 정상 동작한다. */
+#gpu-particles {
+  pointer-events: none !important;
+}
+
+/* 터치 기기에서는 마우스 추적 입자가 의미 없으므로 숨긴다(성능). */
+@media (hover: none) and (pointer: coarse) {
+  #gpu-particles {
+    display: none !important;
+  }
+}
+
+/* =========================================================
+   4. 홈 히어로 레이아웃
+   (index.html 인라인 <style> 에서 이전 — 인라인 스타일은 CSP 의
+    style-src 'unsafe-inline' 의존을 늘리고, 링크된 CSS 보다 뒤에
+    적용돼 반응형 레이어가 히어로 높이를 고칠 수 없게 만들었다.)
+
+   기존 문제(실측):
+     - height:100svh 고정 + 고정 패딩 → 세로 짧은 화면에서 파트너
+       실린더가 97~155px 잘림 (1280x600, 1366x640, 844x390)
+     - 콘텐츠가 상단에 몰려 하단 빈 공간 과다
+       (912x1368에서 718px, iPad 820에서 553px)
+
+   해결: 높이를 min-height 로 바꿔 콘텐츠가 넘치면 늘어나게 하고,
+   파트너 마퀴를 margin-top:auto 로 하단에 앵커링해 빈 공간을 흡수한다.
+   ========================================================= */
+
+html, body { height: 100%; }
+
+body.has-hero .hero {
+  /* 고정 height 제거 — 짧은 뷰포트에서 잘리지 않도록 min-height 만 사용 */
+  height: auto;
+  min-height: 100svh;
+  padding: 88px 0 0;
+}
+
+body.has-hero .hero > .container {
+  height: auto;
+  min-height: calc(100svh - 88px);
+  display: flex;
+  flex-direction: column;
+}
+
+body.has-hero .hero h1 {
+  margin-top: clamp(12px, 2.4vh, 28px);
+}
+
+body.has-hero .hero-sub {
+  flex: 0 0 auto;
+  margin: clamp(10px, 1.6vh, 14px) 0 0;
+  /* 하한 13px → 13.5px (모바일 판독성) */
+  font-size: clamp(13.5px, 1.05vw, 15.5px);
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+  color: var(--mute);
+  max-width: 60ch;
+}
+body.has-hero .hero-sub a {
+  color: var(--paper);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(13, 13, 13, 0.28);
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+body.has-hero .hero-sub a:hover,
+body.has-hero .hero-sub a:focus-visible {
+  color: var(--acid);
+  text-decoration-color: var(--acid);
+}
+
+/* 파트너 마퀴: 하단 앵커링으로 남는 수직 공간 흡수 */
+body.has-hero .hero-inline-partners {
+  flex: 0 0 auto;
+  height: clamp(136px, 19.2vh, 192px);
+  margin-top: auto;
+  margin-bottom: clamp(12px, 3.2vh, 44px);
+}
+
+/* 모바일: 3D 실린더는 좁은 화면에서 로고가 과확대/블러되어 가독성이 낮다.
+   평면 마퀴로 전환한다. (기존 index.html 인라인 규칙 유지, ≤700 → ≤767 확장) */
+@media (max-width: 767px) {
+  body.has-hero .hero { padding-top: 72px; }
+  body.has-hero .hero > .container { min-height: calc(100svh - 72px); }
+  body.has-hero .hero-sub {
+    font-size: 13.5px;
+    max-width: none;
+  }
+}
+
+/* 3D 실린더 → 평면 마퀴 전환은 태블릿(≤1023px)까지 적용한다.
+   실측: 768px에서 실린더가 로고 1개만 흐리게 표시하고 나머지 셀은 비었다.
+   perspective 투영이 좁은 폭에서 로고를 과확대하기 때문이다. */
+@media (max-width: 1023px) {
+  body.has-hero .hero-inline-partners.partner-cylinder { display: none; }
+  body.has-hero .hero-inline-partners + .partner-marquee {
+    display: flex !important;
+    align-items: center;
+    height: clamp(120px, 19vh, 168px);
+    margin-top: auto;
+    margin-bottom: clamp(12px, 3vh, 36px);
+    overflow: hidden;
+  }
+  body.has-hero .hero-inline-partners + .partner-marquee .partner-marquee-track {
+    padding: 0;
+  }
+  body.has-hero .hero-inline-partners + .partner-marquee .pm-item { height: auto; }
+}
+
+@media (max-width: 479px) {
+  body.has-hero .hero-inline-partners,
+  body.has-hero .hero-inline-partners + .partner-marquee {
+    height: clamp(112px, 17vh, 144px);
+  }
+}
+
+/* 세로가 짧은 가로 환경(노트북 600~720px, 폰 가로) — 100svh 강제를 해제.
+   orientation:landscape 로 한정한다. 세로 폰(360x640 등)은 높이가 720px
+   미만이어도 히어로가 한 화면을 채워야 하므로 이 규칙에서 제외한다.
+   (실측 잘림 사례는 1280x600 / 1366x640 / 844x390 으로 모두 가로 방향) */
+@media (max-height: 720px) and (orientation: landscape) {
+  body.has-hero .hero {
+    min-height: auto;
+    padding-top: 76px;
+    padding-bottom: 28px;
+  }
+  body.has-hero .hero > .container { min-height: 0; }
+  body.has-hero .hero h1 { margin-top: 12px; }
+  body.has-hero .hero-inline-partners,
+  body.has-hero .hero-inline-partners + .partner-marquee {
+    margin-top: clamp(18px, 3vh, 30px);
+    margin-bottom: 0;
+    height: clamp(104px, 17vh, 136px);
+  }
+}
+
+/* 폰 가로 방향 — 히어로를 화면 높이에 묶지 않는다 */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  body.has-hero .hero {
+    min-height: auto;
+    padding-top: 68px;
+    padding-bottom: 24px;
+  }
+  body.has-hero .hero h1 {
+    font-size: clamp(30px, 6.4vh, 52px);
+    margin-top: 8px;
+  }
+  body.has-hero .hero-inline-partners,
+  body.has-hero .hero-inline-partners + .partner-marquee {
+    height: clamp(84px, 22vh, 112px);
+    margin-top: 14px;
+  }
+}
+
+/* =========================================================
+   5. 폰 레이아웃을 ≤767px 로 확장
+   기존 v5-mobile.css 의 폰 규칙은 ≤700px 에만 적용돼
+   701~767px 구간이 데스크톱 그리드로 남아 있었다.
+   ========================================================= */
+@media (max-width: 767px) {
+  .container { padding: 0 20px; }
+
+  /* 단일 열로 강제 (v5-mobile.css ≤700px 규칙과 동일 목적) */
+  .svc-grid,
+  .intel-grid,
+  .how-grid,
+  .sec-grid-v4,
+  .case-grid-v4,
+  .principle-grid,
+  .contact-grid,
+  .contact-info-grid,
+  .page-hero-meta,
+  .hero-bottom,
+  .prod-detail .pd-grid,
+  .prod-detail .pd-head,
+  .roll-row-v4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 열 구분선을 행 구분선으로 전환 */
+  .hb-cell,
+  .how-cell,
+  .page-hero-meta > div,
+  .prod-detail .pd-cell {
+    border-right: 0 !important;
+  }
+
+  /* 푸터: 2열 + 브랜드 블록은 전체 폭 */
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 28px 24px !important;
+  }
+  .footer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  /* 비교표는 가로 스크롤 허용 (열을 줄이면 의미가 깨지는 표) */
+  .compare-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .compare-table table { min-width: 560px; }
+}
+
+/* 작은 폰 (≤479px) */
+@media (max-width: 479px) {
+  .container { padding: 0 16px; }
+  /* 푸터를 1열로 — 2열은 각 111px로 너무 좁다 */
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* =========================================================
+   6. 태블릿 레이아웃 (768~1023px) — 기존 공백 구간
+   ========================================================= */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .container { padding: 0 28px; }
+
+  /* 4열 그리드는 2열로 (실측: 768px에서 4열은 열당 114px) */
+  .footer-grid,
+  .page-hero-meta,
+  .hero-bottom,
+  .prod-detail .pd-grid,
+  .intel-grid,
+  .pipe-labels {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .footer-grid {
+    gap: 36px 32px !important;
+  }
+  .footer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  /* 3열 그리드는 2열로 (원칙 카드는 36px 제목이라 300px 이상 필요) */
+  .principle-grid,
+  .how-grid,
+  .partner-grid-v4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* 2열 유지가 적절한 것들 */
+  .svc-grid,
+  .case-grid-v4,
+  .sec-grid-v4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* 문의 폼은 단일 열이 입력에 유리 */
+  .contact-grid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+
+  /* 홈 히어로 h1 — 태블릿 폭에 맞춘 스케일 */
+  .hero h1 {
+    font-size: clamp(64px, 9.6vw, 104px);
+  }
+
+  /* 마지막 열의 구분선 제거 */
+  .footer-grid > div:nth-child(2n),
+  .page-hero-meta > div:nth-child(2n),
+  .prod-detail .pd-cell:nth-child(2n) {
+    border-right: 0 !important;
+  }
+
+  .compare-table { overflow-x: auto; }
+  .compare-table table { min-width: 640px; }
+}
+
+/* =========================================================
+   7. 햄버거 내비게이션 전환점을 ≤1023px 로 통일
+   기존 ≤900px 이라 912px(Surface Pro)에서 데스크톱 링크가
+   나오는데 레이아웃은 태블릿이라 불일치했다.
+   ========================================================= */
+@media (max-width: 1023px) {
+  .nav-hamburger { display: inline-flex !important; }
+  .mobile-menu { display: block; }
+  nav.top .nav-links { display: none !important; }
+  nav.top .row {
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+@media (min-width: 1024px) {
+  .nav-hamburger { display: none !important; }
+  .mobile-menu { display: none !important; }
+  nav.top .nav-links { display: flex !important; }
+}
+
+/* =========================================================
+   8. 태블릿 가로 / 소형 노트북 (1024~1279px)
+   ========================================================= */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .container { padding: 0 32px; }
+  .footer-grid { gap: 40px; }
+  /* 4열을 유지하되 gap을 줄여 열 폭 확보 */
+  .prod-detail .pd-grid { gap: 1px; }
+}
+
+/* =========================================================
+   9. 초광폭 대응 (≥1920 / ≥2560)
+   기존에는 .container max-width:1520px 만 있어 2560/3440px에서
+   좌우 여백이 과도하고 히어로 하단 빈 공간이 499px였다.
+   ========================================================= */
+@media (min-width: 1920px) {
+  .container {
+    max-width: 1680px;
+    padding: 0 48px;
+  }
+  /* 본문 가독 폭 상한 — 초광폭에서 한 줄이 너무 길어지지 않게 */
+  .page-hero .lead,
+  .sect-head .lead,
+  .prod-detail .pd-lead {
+    max-width: 76ch;
+  }
+}
+
+@media (min-width: 2560px) {
+  .container {
+    max-width: 1840px;
+    padding: 0 64px;
+  }
+  /* 초광폭에서 히어로 타이포 보정.
+     상한은 실측으로 정했다: 컨테이너 내용폭 1712px 안에 "OPERATIONS"
+     아웃라인이 들어가야 한다. 268px에서는 1826px로 114px 넘쳐 잘렸고,
+     240px에서 약 1635px로 여유 있게 들어간다. */
+  .hero h1 {
+    font-size: clamp(200px, 7vw, 240px);
+  }
+  body.has-hero .hero-sub {
+    font-size: clamp(15.5px, 0.72vw, 19px);
+    max-width: 74ch;
+  }
+  .page-hero h1 {
+    font-size: clamp(120px, 5.2vw, 168px);
+  }
+}
+
+/* =========================================================
+   10. 오버플로우 진단 가능성 확보
+   html 과 body 양쪽에 overflow-x:hidden 이 걸려 있어 실제
+   오버플로우가 문서 스크롤로 드러나지 않고 은폐됐다.
+   body 쪽만 남겨 원인 추적이 가능하게 하고, position:sticky 가
+   깨지지 않도록 html 은 clip 을 쓰지 않는다.
+   ========================================================= */
+html {
+  overflow-x: clip;
+}
+
+/* =========================================================
+   11. 모션 환경설정 존중 — 마우스 추적 입자 외 자동재생 정지
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .partner-marquee-track,
+  .ticker-track,
+  .cylinder-stage {
+    animation-play-state: paused !important;
+  }
+}

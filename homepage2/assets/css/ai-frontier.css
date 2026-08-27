@@ -333,12 +333,30 @@ nav.top .row {
   pointer-events: none;
   transition: --beam-x 0.6s ease, --beam-y 0.6s ease;
 }
-.hero > .container { position: relative; z-index: 3; }
+/* .hero 는 display:flex(column) 이므로 가로가 교차축이다. 교차축에 .container 의
+   `margin: 0 auto` 가 걸리면 align-items:stretch 가 무효화되고, 플렉스 아이템 기본값
+   min-width:auto 때문에 컨테이너가 min-content 아래로 줄지 못한다. 그 결과 컨테이너가
+   뷰포트 폭이 아니라 콘텐츠 폭(모바일에서 max-width 값인 1520px)으로 레이아웃되고
+   .hero 의 overflow:hidden 이 넘친 부분을 잘라냈다.
+   (실측: 360px 뷰포트에서 컨테이너 1520px → h1/hero-sub 가 1144px 잘림)
+   width:100% + min-width:0 으로 교차축 크기를 뷰포트에 고정한다. */
+.hero > .container {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  min-width: 0;
+}
 .hero-top {
   display: flex; justify-content: space-between; align-items: center;
+  /* nowrap 이면 좁은 폭에서 좌우 span 이 겹친다(실측: 768~912px 구간 겹침).
+     wrap + row-gap 으로 줄바꿈을 허용한다. */
+  flex-wrap: wrap;
+  gap: 4px 18px;
   padding: 20px 0 0;
   font-family: var(--mono);
-  font-size: 11px; letter-spacing: 0.06em;
+  /* 모바일에서 9px까지 내려가 판독이 어려웠다. 유동 스케일에 하한 11px를 둔다. */
+  font-size: clamp(11px, 0.86vw, 12px);
+  letter-spacing: 0.06em;
   color: var(--mute);
   text-transform: uppercase;
 }
