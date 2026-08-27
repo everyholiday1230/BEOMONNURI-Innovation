@@ -367,7 +367,22 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
         secretKey: k.secret,
         memo: k.passphrase,
       });
-      await d.credRepo.create(a.user.id, enc, k.apiName || 'KuCoin (Fast API)', 'kucoin');
+      const createdCred = await d.credRepo.create(a.user.id, enc, k.apiName || 'KuCoin (Fast API)', 'kucoin');
+
+      /*
+         ★★ OAuth 로 만든 키는 VERIFIED 로 표시한다.
+
+           방금 KuCoin 이 발급했고 권한도 OAuth 동의로 확정됐다. 수동 등록과 달리
+           별도 verify 호출이 없어 UNVERIFIED 로 남았고, 화면(account-data)은
+           VERIFIED 가 아니면 포지션·주문·체결을 **읽어와도 표시하지 않았다**
+           (실측: fills 29건이 오는데 화면은 비어 있었다). 그래서 여기서 VERIFIED
+           로 올린다. 실패해도 키 저장은 유지한다.
+      */
+      try {
+        await d.credRepo.setVerified(a.user.id, createdCred.id, 'VERIFIED', true);
+      } catch (e) {
+        console.warn('[kucoin-oauth] setVerified 실패(키는 저장됨):', (e as Error).message);
+      }
 
       /*
          ★ 토큰은 여기서 버린다. 키가 있으므로 더 필요하지 않다.
