@@ -179,9 +179,21 @@
    * @param {number} p.version              차트 재생성 감지용 (인스턴스 교체 시 재조회)
    * @param {() => void} p.onClose
    */
+  /*
+     사용자가 지정한 지표 파라미터(예: MA 기간)를 로컬에 저장한다.
+     새로고침 후에도 유지되고, 차트(ChartKline)가 기본 지표를 만들 때도 이 값을 읽는다.
+  */
+  const CALC_KEY = 'qt.chart.calcparams.v1';
+  function loadCalcAll() { try { return JSON.parse(localStorage.getItem(CALC_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function getCalc(name) { const v = loadCalcAll()[name]; return Array.isArray(v) && v.length ? v.slice() : null; }
+  function setCalc(name, params) { try { const all = loadCalcAll(); all[name] = params; localStorage.setItem(CALC_KEY, JSON.stringify(all)); } catch (e) { /* noop */ } }
+  if (!window.QTChartParams) window.QTChartParams = { get: getCalc, set: setCalc, all: loadCalcAll };
+
   window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose, publish = true }) {
     const [q, setQ] = useState('');
     const [active, setActive] = useState(() => new Map()); // name -> paneId
+    const [params, setParams] = useState(() => new Map()); // name -> calcParams[]
+    const [editing, setEditing] = useState(null); // 파라미터 편집 중인 지표 이름
     const panelRef = useRef(null);
     /*
        ★★ 툴바(.chart-toolbar)는 overflow-x:auto 라, 그 안에서 absolute 로 띄운
@@ -223,8 +235,10 @@
              다른 판단이다. 이름만 남기면 학습에서 두 경우가 한 덩어리가 된다.
         */
         const detail = [];
+        const pmap = new Map();
         for (const ind of chart.getIndicators()) {
           map.set(ind.name, ind.paneId);
+          if (Array.isArray(ind.calcParams) && ind.calcParams.length) pmap.set(ind.name, ind.calcParams.slice());
           detail.push({
             id: ind.name,
             // 값이 없으면 넣지 않는다 — 기본값을 적으면 없던 설정이 생긴다.
@@ -234,6 +248,7 @@
           });
         }
         setActive(map);
+        setParams(pmap);
         /*
            ★ 활성 지표를 공유 저장소에 알린다.
 
@@ -304,15 +319,25 @@
         } catch (e) { /* noop */ }
       } else {
         try {
+          let created;
           if (item.overlay) {
             // 실측 주의 2가지:
             //  1) paneId 를 3번째 인자로 주면 무시되고 새 페인이 생긴다.
             //     IndicatorCreate 안에 넣어야 캔들 페인에 겹친다.
             //  2) isStack=true 가 없으면 같은 페인의 기존 지표를 "교체"한다.
             //     BOLL 을 켜면 MA 가 사라지는 것을 실제로 확인했다.
-            chart.createIndicator({ name: item.name, paneId: 'candle_pane' }, true);
+            created = chart.createIndicator({ name: item.name, paneId: 'candle_pane' }, true);
           } else {
-            chart.createIndicator({ name: item.name }, false);
+            created = chart.createIndicator({ name: item.name }, false);
+          }
+          // 저장해 둔 사용자 파라미터가 있으면 적용한다.
+          const saved = getCalc(item.name);
+          if (saved) {
+            try {
+              chart.overrideIndicator(created && typeof created === 'string'
+                ? { id: created, calcParams: saved }
+                : { name: item.name, calcParams: saved });
+            } catch (e) { /* noop */ }
           }
         } catch (e) {
           console.warn('[Indicators] 생성 실패', item.name, e);
@@ -321,6 +346,21 @@
       // 차트가 실제로 반영한 결과를 다시 읽는다 (낙관적 갱신 금지).
       setTimeout(syncFromChart, 0);
     }, [active, getChart, syncFromChart]);
+
+    // 지표 파라미터(기간 등) 하나를 바꾼다 — 차트에 즉시 반영하고 로컬에 저장한다.
+    const updateParam = useCallback((item, idx, raw) => {
+      const chart = getChart && getChart();
+      if (!chart) return;
+      const cur = (params.get(item.name) || []).slice();
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n) || n <= 0) return;
+      cur[idx] = n;
+      try {
+        chart.overrideIndicator({ name: item.name, paneId: active.get(item.name), calcParams: cur });
+      } catch (e) { /* noop */ }
+      setCalc(item.name, cur);
+      setParams((prev) => { const next = new Map(prev); next.set(item.name, cur); return next; });
+    }, [params, active, getChart]);
 
     const clearAll = useCallback(() => {
       const chart = getChart && getChart();
@@ -363,21 +403,48 @@
                 <div className="chart-ind-group">{t(`indicators_group_${g}`)}</div>
                 {items.map((item) => {
                   const on = active.has(item.name);
+                  const plist = params.get(item.name) || [];
+                  const canEdit = on && plist.length > 0;
                   return (
-                    <button
-                      key={item.name}
-                      className={`chart-ind-row ${on ? 'is-on' : ''}`}
-                      onClick={() => toggle(item)}
-                      aria-pressed={on}
-                      title={descOf(item.name)}
-                    >
-                      <span className="chart-ind-row__check">{on ? '✓' : ''}</span>
-                      <span className="chart-ind-row__name">{item.name}</span>
-                      <span className="chart-ind-row__desc">{descOf(item.name)}</span>
-                      <span className="chart-ind-row__pane">
-                        {t(item.overlay ? 'indicators_placement_overlay' : 'indicators_placement_pane')}
-                      </span>
-                    </button>
+                    <div key={item.name} className="chart-ind-rowwrap">
+                      <button
+                        className={`chart-ind-row ${on ? 'is-on' : ''}`}
+                        onClick={() => toggle(item)}
+                        aria-pressed={on}
+                        title={descOf(item.name)}
+                      >
+                        <span className="chart-ind-row__check">{on ? '✓' : ''}</span>
+                        <span className="chart-ind-row__name">{item.name}</span>
+                        <span className="chart-ind-row__desc">{descOf(item.name)}</span>
+                        <span className="chart-ind-row__pane">
+                          {t(item.overlay ? 'indicators_placement_overlay' : 'indicators_placement_pane')}
+                        </span>
+                      </button>
+                      {canEdit && (
+                        <button
+                          className={`chart-ind-gear ${editing === item.name ? 'is-on' : ''}`}
+                          onClick={() => setEditing(editing === item.name ? null : item.name)}
+                          title={t('nav_settings')}
+                          aria-label={t('nav_settings')}
+                          aria-expanded={editing === item.name}
+                        >⚙</button>
+                      )}
+                      {canEdit && editing === item.name && (
+                        <div className="chart-ind-params">
+                          {plist.map((val, i) => (
+                            <input
+                              key={i}
+                              type="number"
+                              min="1"
+                              className="chart-ind-param"
+                              value={val}
+                              onChange={(e) => updateParam(item, i, e.target.value)}
+                              aria-label={`${item.name} ${i + 1}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

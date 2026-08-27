@@ -147,3 +147,38 @@
   font-size: var(--fs-xs);
   color: var(--color-text-tertiary);
 }
+
+/* ---------- 지표 파라미터 편집 (기간 등) ---------- */
+.chart-ind-rowwrap { position: relative; display: flex; flex-wrap: wrap; align-items: center; }
+.chart-ind-rowwrap > .chart-ind-row { flex: 1; min-width: 0; }
+.chart-ind-gear {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1;
+}
+.chart-ind-gear:hover,
+.chart-ind-gear.is-on { background: var(--color-bg-hover); color: var(--color-text-primary); }
+.chart-ind-params {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 10px 8px 28px;
+}
+.chart-ind-param {
+  width: 56px;
+  padding: 4px 6px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: 5px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

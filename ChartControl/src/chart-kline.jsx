@@ -895,9 +895,10 @@
           // IndicatorCreate 객체 안에 paneId 를 넣어야 candle_pane 에 붙는다.
           // isStack=true: 사용자가 나중에 BOLL 등 다른 가격축 지표를 켜도
           // MA 가 교체되지 않고 함께 표시된다.
+          const maParams = (window.QTChartParams && window.QTChartParams.get('MA')) || [20, 60, 120];
           const id = chart.createIndicator({
             name: 'MA',
-            calcParams: [20, 60, 120],
+            calcParams: maParams,
             paneId: 'candle_pane',
           }, true);
           maPaneRef.current = id ?? 'candle_pane';
