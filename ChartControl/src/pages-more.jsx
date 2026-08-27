@@ -1781,6 +1781,90 @@
   // ============================================================
   // MY STRATEGIES PAGE
   // ============================================================
+  /*
+     내가 만든 전략/지표 (Option B). 생성 시 포인트 차감, 편집(이름)·삭제 무료.
+     자기 소유만 보이고 관리한다. 백엔드 /me/strategies 를 쓴다.
+  */
+  function MyCreatedStrategies() {
+    const [items, setItems] = React.useState(null);
+    const [cost, setCost] = React.useState({ strategy: 300, indicator: 100 });
+    const [supported, setSupported] = React.useState(true);
+    const [busy, setBusy] = React.useState(false);
+    const [form, setForm] = React.useState({ kind: 'strategy', name: '', symbol: 'BTCUSDT', timeframe: '1h' });
+    const [msg, setMsg] = React.useState(null);
+
+    const load = React.useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.myUserStrategies) return;
+      api.myUserStrategies()
+        .then((r) => {
+          setSupported(r && r.supported !== false);
+          setItems((r && r.items) || []);
+          if (r && r.saveCost) setCost(r.saveCost);
+        })
+        .catch(() => setItems([]));
+    }, []);
+    React.useEffect(() => { load(); }, [load]);
+
+    const create = async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.createUserStrategy) return;
+      if (!form.name.trim()) { setMsg({ ok: false, text: t('us_name_required') }); return; }
+      setBusy(true); setMsg(null);
+      try {
+        const r = await api.createUserStrategy({ kind: form.kind, name: form.name.trim(), symbol: form.symbol, timeframe: form.timeframe, config: {} });
+        if (r && r.error) setMsg({ ok: false, text: r.error.message || t('us_save_failed') });
+        else { setForm({ ...form, name: '' }); setMsg({ ok: true, text: t('us_saved') }); load(); }
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('us_save_failed') }); }
+      setBusy(false);
+    };
+    const remove = async (id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.deleteUserStrategy) return;
+      setBusy(true);
+      try { await api.deleteUserStrategy(id); load(); } catch (e) { /* 목록 유지 */ }
+      setBusy(false);
+    };
+
+    if (!supported) return null;
+    const c = cost[form.kind] || 0;
+    return (
+      <div className="panel" style={{ marginTop: 16, padding: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 10 }}>{t('us_title')}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+            <option value="strategy">{t('us_kind_strategy')}</option>
+            <option value="indicator">{t('us_kind_indicator')}</option>
+          </select>
+          <input placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
+          <input placeholder={t('us_symbol_ph')} value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} style={{ width: 120 }} />
+          <select value={form.timeframe} onChange={(e) => setForm({ ...form, timeframe: e.target.value })}>
+            {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+          </select>
+          <button className="btn btn--sm btn--primary" disabled={busy} onClick={create}>
+            {t('us_create')} · {c}{t('us_points')}
+          </button>
+        </div>
+        {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)', marginBottom: 8 }}>{msg.text}</div>}
+        {items === null ? null : items.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{t('us_empty')}</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {items.map((it) => (
+              <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--color-border-subtle)', borderRadius: 6 }}>
+                <span className="badge">{t(it.kind === 'indicator' ? 'us_kind_indicator' : 'us_kind_strategy')}</span>
+                <span style={{ fontWeight: 600 }}>{it.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{it.symbol} · {it.timeframe}</span>
+                <button className="btn btn--xs" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => remove(it.id)}>{t('us_delete')}</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  window.MyCreatedStrategies = MyCreatedStrategies;
+
   window.MyStrategiesPage = function MyStrategiesPage({ shellProps }) {
     /*
        내 전략 (팔로우 목록).
@@ -1858,6 +1942,8 @@
             </>
           )}
         </div>
+
+        <window.MyCreatedStrategies/>
 
         {mineError && (
           <div

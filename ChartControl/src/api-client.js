@@ -912,6 +912,21 @@
       return sendJSON('DELETE', '/api/strategies/follow/' + encodeURIComponent(followId));
     },
 
+    /* ---- 내가 만든 전략/지표 (Option B) — 생성 시 포인트 차감, 편집·삭제 무료 ---- */
+    myUserStrategies: function (kind) {
+      var q = kind ? '?kind=' + encodeURIComponent(kind) : '';
+      return getJSON('', '/api/me/strategies' + q);
+    },
+    createUserStrategy: function (body) {
+      return sendJSON('POST', '/api/me/strategies', body);
+    },
+    updateUserStrategy: function (id, patch) {
+      return sendJSON('PATCH', '/api/me/strategies/' + encodeURIComponent(id), patch);
+    },
+    deleteUserStrategy: function (id) {
+      return sendJSON('DELETE', '/api/me/strategies/' + encodeURIComponent(id));
+    },
+
     /** 내 문의 목록. */
     supportTickets: function () {
       return getJSON('', '/api/support/tickets').then(function (r) {
