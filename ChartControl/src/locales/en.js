@@ -318,6 +318,7 @@
       wal_col_label_exchange: 'Label / Exchange',
       wal_col_last_used: 'Last used',
       set_ch_inapp: 'In-app',
+      notif_prefs_note: 'The in-app list is filtered by these settings; email preferences are saved on this device. SMS and push are not available yet.',
       tw_numfmt: 'Number Format',
       numfmt_standard: 'Standard (18,240,000)',
       numfmt_compact: 'Compact (18.24M)',

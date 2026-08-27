@@ -3013,6 +3013,34 @@
     const [tab, setTab] = useState('profile');
 
     /*
+       알림 채널 설정.
+
+       ★ 인앱·이메일만 실제 전송 수단이 있다. SMS·푸시는 발송 백엔드가 없으므로
+         켜지는 것처럼 보이게 두지 않고 비활성('준비중')으로 표시한다.
+       ★ 값은 이 기기에 저장한다(서버 전용 저장소가 아직 스칼라 몇 개만 허용한다).
+         인앱 목록은 이 설정으로 실제 걸러진다 — 저장만 하고 안 쓰는 값이 아니다.
+    */
+    const NOTIF_CATS = ['signal', 'order', 'risk', 'promo', 'notice'];
+    const [notifPrefs, setNotifPrefs] = useState(() => {
+      const def = {};
+      NOTIF_CATS.forEach((k) => { def[k] = { inapp: true, email: k !== 'promo' }; });
+      try {
+        const saved = JSON.parse(localStorage.getItem('qt.notifprefs.v1') || 'null');
+        if (saved && typeof saved === 'object') {
+          NOTIF_CATS.forEach((k) => { if (saved[k]) def[k] = { inapp: saved[k].inapp !== false, email: saved[k].email === true }; });
+        }
+      } catch (e) { /* 손상된 설정은 기본값으로 */ }
+      return def;
+    });
+    const toggleNotif = (cat, ch) => {
+      setNotifPrefs((prev) => {
+        const next = Object.assign({}, prev, { [cat]: Object.assign({}, prev[cat], { [ch]: !prev[cat][ch] }) });
+        try { localStorage.setItem('qt.notifprefs.v1', JSON.stringify(next)); } catch (e) { /* 저장 실패(용량 등)는 무시 */ }
+        return next;
+      });
+    };
+
+    /*
        프로필 — 실 세션.
 
        목업 USER 는 '권누리 / usr_kuri001 / kuri@quantumtrade.ai / KYC Level 2 /
@@ -3286,12 +3314,13 @@
                 ].map(r => (
                   <div key={r.k} style={{display:'grid', gridTemplateColumns:'1fr auto auto auto auto', gap: 12, padding: '10px 0', borderBottom:'1px solid var(--color-border-subtle)', alignItems:'center'}}>
                     <span style={{fontSize:12}}>{r.label}</span>
-                    <label className="chk"><input type="checkbox" defaultChecked/><span className="chk__box"><I.Check size={10}/></span>{t('set_ch_inapp')}</label>
-                    <label className="chk"><input type="checkbox" defaultChecked={r.k !== 'promo'}/><span className="chk__box"><I.Check size={10}/></span>{t('fld_email')}</label>
-                    <label className="chk"><input type="checkbox" defaultChecked={r.k === 'risk'}/><span className="chk__box"><I.Check size={10}/></span>SMS</label>
-                    <label className="chk"><input type="checkbox" defaultChecked={r.k === 'signal' || r.k === 'risk'}/><span className="chk__box"><I.Check size={10}/></span>{t('col_push')}</label>
+                    <label className="chk"><input type="checkbox" checked={notifPrefs[r.k].inapp} onChange={() => toggleNotif(r.k, 'inapp')}/><span className="chk__box"><I.Check size={10}/></span>{t('set_ch_inapp')}</label>
+                    <label className="chk"><input type="checkbox" checked={notifPrefs[r.k].email} onChange={() => toggleNotif(r.k, 'email')}/><span className="chk__box"><I.Check size={10}/></span>{t('fld_email')}</label>
+                    <label className="chk chk--disabled" title={t('adm_feature_absent')}><input type="checkbox" checked={false} disabled/><span className="chk__box"><I.Check size={10}/></span>SMS <span className="qt-pending-mark">{t('sec_pending')}</span></label>
+                    <label className="chk chk--disabled" title={t('adm_feature_absent')}><input type="checkbox" checked={false} disabled/><span className="chk__box"><I.Check size={10}/></span>{t('col_push')} <span className="qt-pending-mark">{t('sec_pending')}</span></label>
                   </div>
                 ))}
+                <p style={{fontSize:11, color:'var(--color-text-tertiary)', margin:'10px 0 0'}}>{t('notif_prefs_note')}</p>
               </window.SectionCard>
             )}
 
@@ -3683,7 +3712,22 @@
       */
       : [...liveAlerts, ...((window.QTMockPolicy && !window.QTMockPolicy.allowMockData())
           ? [] : window.QTApp.NOTIFICATIONS)];
-    const filtered = filter === 'all' ? N : filter === 'unread' ? N.filter(x => x.unread) : N.filter(x => x.kind === filter);
+    /*
+       인앱 알림 채널 설정을 실제로 반영한다.
+
+       ★ 설정 화면에서 끈 카테고리(risk/order/notice)는 목록에서 감춘다 —
+         저장만 하고 효과가 없으면 그 토글은 가짜다. kind→카테고리 매핑으로 건다.
+    */
+    let inappPrefs = null;
+    try { inappPrefs = JSON.parse(localStorage.getItem('qt.notifprefs.v1') || 'null'); } catch (e) { inappPrefs = null; }
+    const kindToCat = { risk: 'risk', order: 'order', system: 'notice' };
+    const passesInapp = (x) => {
+      if (!inappPrefs) return true;
+      const p = kindToCat[x.kind] && inappPrefs[kindToCat[x.kind]];
+      return !p || p.inapp !== false;
+    };
+    const Nf = N.filter(passesInapp);
+    const filtered = filter === 'all' ? Nf : filter === 'unread' ? Nf.filter(x => x.unread) : Nf.filter(x => x.kind === filter);
 
     /*
        전체 읽음 처리.

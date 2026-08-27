@@ -573,6 +573,7 @@
       wal_col_label_exchange: 'ラベル / 取引所',
       wal_col_last_used: '最終利用',
       set_ch_inapp: 'アプリ内',
+      notif_prefs_note: 'アプリ内の一覧はこの設定で絞り込まれ、メール設定はこの端末に保存されます。SMS・プッシュは未提供です。',
       tw_numfmt: '数値表記',
       numfmt_standard: '標準 (18,240,000)',
       numfmt_compact: '短縮 (18.24M)',

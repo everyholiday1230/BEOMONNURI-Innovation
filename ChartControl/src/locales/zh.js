@@ -575,6 +575,7 @@
       wal_col_label_exchange: '名称 / 交易所',
       wal_col_last_used: '最近使用',
       set_ch_inapp: '站内',
+      notif_prefs_note: '站内列表按此设置过滤，邮件偏好保存在本设备。短信与推送暂未提供。',
       tw_numfmt: '数字格式',
       numfmt_standard: '标准 (18,240,000)',
       numfmt_compact: '紧凑 (18.24M)',
