@@ -1121,7 +1121,7 @@
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
-      '/wallet', '/wallet/deposit', '/wallet/withdraw', '/wallet/transactions',
+      '/wallet', '/wallet/transactions',
       '/referral', '/points', '/fees', '/help', '/settings', '/notifications', '/order-history',
       '/admin', '/admin/users', '/admin/users/detail', '/admin/trades', '/admin/ai-ops',
       '/admin/design-ops', '/admin/risk', '/admin/assets', '/admin/kyc',

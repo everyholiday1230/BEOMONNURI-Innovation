@@ -516,6 +516,7 @@
       us_delete: '删除',
       us_points: 'P',
       us_symbol_ph: 'BTCUSDT',
+      prov_note_referral_auto_points: '推荐在注册时归属，推荐积分自动发放给双方。不提供现金支付(非托管)。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

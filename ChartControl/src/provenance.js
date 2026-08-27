@@ -162,7 +162,7 @@
        계산하지 않고 지급이 운영자 수동**이다. 자동화가 확정되지 않았으므로
        노란색으로 남긴다.
   */
-  ROUTES['/referral'] = { status: 'partial', note: 'referral_manual_payout' };
+  ROUTES['/referral'] = { status: 'live', note: 'referral_auto_points' };
   /*
      포인트 — 실제 원장(append-only, 행 잠금).
 

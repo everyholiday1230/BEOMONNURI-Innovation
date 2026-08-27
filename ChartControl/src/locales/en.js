@@ -259,6 +259,7 @@
       us_delete: 'Delete',
       us_points: 'P',
       us_symbol_ph: 'BTCUSDT',
+      prov_note_referral_auto_points: 'Referral is attributed at signup and referral points are credited automatically to both sides. Cash payout is not offered (non-custodial).',
       wg_more: 'More',
       ob_loading: 'Loading order book…',
       ob_both: 'Both',
