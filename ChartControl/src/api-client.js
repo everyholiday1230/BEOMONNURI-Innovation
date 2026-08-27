@@ -2650,10 +2650,21 @@
        되돌릴 수 없는 영향이 아니지만 즉시 거래를 멈춘다. 이유를 반드시 받는다 —
        왜 멈췄는지 모르면 언제 풀어야 할지도 알 수 없다.
     */
-    setKillSwitch: function (id, active, reason) {
-      return sendJSON('POST', '/api/admin/kill-switches/' + encodeURIComponent(id), {
-        active: Boolean(active),
-        reason: reason || '',
+    setKillSwitch: function (id, payload) {
+      /*
+         서버는 PATCH + strict 스키마를 요구한다:
+         { scope, active, target, reason, reauth(step-up), version(낙관적 잠금) }.
+         (예전엔 POST + {active,reason} 라 404 + 검증 실패였다. 현재 이 메서드를
+          부르는 UI 는 없다 — 토글 UI 를 붙일 때 이 형식으로 넘겨야 한다.)
+      */
+      payload = payload || {};
+      return sendJSON('PATCH', '/api/admin/kill-switches/' + encodeURIComponent(id), {
+        scope: payload.scope,
+        active: Boolean(payload.active),
+        target: payload.target != null ? payload.target : null,
+        reason: payload.reason || '',
+        reauth: Boolean(payload.reauth),
+        version: Number(payload.version) || 0,
       });
     },
 
