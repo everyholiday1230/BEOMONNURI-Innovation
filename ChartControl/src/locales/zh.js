@@ -503,6 +503,7 @@
       autofit_toggle: '自动适配 (Trade Ex)',
       nav_trade_ex: 'Trade Ex',
       prov_note_ai_copilot_live: 'AI 副驾驶已上线 — 实时执行图表操作，每次运行消耗积分。',
+      foot_disclaimer: '加密货币交易存在重大风险，非投资建议。',
       wg_more: '更多',
       ob_loading: '正在加载盘口…',
       ob_both: '双向',

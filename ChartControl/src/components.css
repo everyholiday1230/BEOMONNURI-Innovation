@@ -549,3 +549,21 @@ kbd {
 }
 .profile-menu__item:hover { background: var(--color-bg-hover); }
 .profile-menu__item--danger { color: var(--color-danger, #f5566e); }
+
+/* ---------- 최소 법적 푸터 (거래 화면 제외) ---------- */
+.app-legal-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.app-legal-footer__links { display: inline-flex; flex-wrap: wrap; gap: 12px; }
+.app-legal-footer__links a { color: var(--color-text-tertiary); text-decoration: none; }
+.app-legal-footer__links a:hover { color: var(--color-brand); text-decoration: underline; }

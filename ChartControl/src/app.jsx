@@ -106,6 +106,29 @@
   }
   window.ProfileMenu = ProfileMenu;
 
+  /*
+    최소 법적 푸터 — 거래(전체화면) 화면을 제외한 일반 페이지 하단에 얇게 깐다.
+    꼭 필요한 것만: 브랜드·© 연도, 약관·개인정보·리스크·환불 링크, 한 줄 리스크 고지, 문의.
+  */
+  function AppFooter() {
+    const brand = (window.QTI18n && window.QTI18n.brand) ? window.QTI18n.brand() : 'ChartControl AI';
+    const year = new Date().getFullYear();
+    const support = (window.QTConfig && window.QTConfig.supportEmail) || 'support@beomonnuri.com';
+    return (
+      <footer className="app-legal-footer">
+        <span className="app-legal-footer__copy">© {year} {brand} · {t('foot_disclaimer')}</span>
+        <span className="app-legal-footer__links">
+          <a href="#/terms">{t('auth_3b9e30')}</a>
+          <a href="#/privacy">{t('auth_d629d0')}</a>
+          <a href="#/risk">{t('legal_risk')}</a>
+          <a href="#/refund">{t('legal_refund')}</a>
+          <a href={`mailto:${support}`}>{support}</a>
+        </span>
+      </footer>
+    );
+  }
+  window.AppFooter = AppFooter;
+
   // ---- Persist / read tweaks state ----
   /**
    * 기본 언어를 브라우저 설정에서 결정한다.
@@ -1619,7 +1642,8 @@
              Each page renders its own PageShell (sidebar + main).
              ============================================================ */}
         {!isTradeRoute && (
-          <div style={{gridColumn: '1 / -1', overflow: 'hidden'}}>
+          <div style={{gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0}}>
+            <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
             {/* USER PAGES */}
             {route.path === '/markets'        && <window.MarketsPage        shellProps={shellProps}/>}
             {route.path === '/ai-strategies'  && <window.AIStrategiesPage   shellProps={shellProps}/>}
@@ -1673,6 +1697,8 @@
             {route.path === '/admin/cs'           && <window.AdminCSTicketPage   shellProps={shellProps} ticketId={route.query.id}/>}
 
             {/* NotFound is handled in the isAuthRoute block above */}
+            </div>
+            <window.AppFooter/>
           </div>
         )}
 
