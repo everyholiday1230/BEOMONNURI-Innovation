@@ -787,7 +787,7 @@
     const [reduceOnly, setReduceOnly] = useState(false);
     const [postOnly, setPostOnly] = useState(false);
     const [tif, setTif] = useState('GTC');
-    const [enableTpsl, setEnableTpsl] = useState(!!tpsl);
+    const [enableTpsl] = useState(false); // TP/SL 브래킷 주문 준비 전까지 항상 꺼둔다(오해 방지).
     /*
        ★★ 레버리지·증거금 모드는 사용자가 고르고, 이 값이 표시·증거금/청산 계산·
          주문 제출의 **단일 출처**다. 전에는 표시가 20× 로 고정돼 있고 제출은
@@ -808,7 +808,6 @@
     }, [prefillPrice]);
     useEffect(() => { if (prefillSize != null) setSize(String(prefillSize)); }, [prefillSize]);
     useEffect(() => { if (prefillSide != null) setSide(prefillSide); }, [prefillSide]);
-    useEffect(() => { if (tpsl) setEnableTpsl(true); }, [tpsl]);
 
     const px = parseFloat(price) || lastPrice;
     const sz = parseFloat(size) || 0;
@@ -1026,10 +1025,16 @@
                 <span className="chk__box"><I.Check size={10}/></span>
                 {t('oe_post_only')}
               </label>
-              <label className="chk">
-                <input type="checkbox" checked={enableTpsl} onChange={e => setEnableTpsl(e.target.checked)}/>
+              {/*
+                 ★ TP/SL(진입 주문에 손절·익절을 붙이는 브래킷 주문)은 아직 거래소로
+                   전송되지 않는다. 값을 받아 두면 "보호가 걸렸다" 고 오해하지만
+                   실제로는 아무 주문도 나가지 않는다. 그래서 켜지 않고 '준비중' 으로
+                   명확히 표시한다 — 진입 후 발동(트리거) 주문으로 손절을 직접 걸 수 있다.
+              */}
+              <label className="chk chk--disabled" title={t('adm_feature_absent')}>
+                <input type="checkbox" checked={false} disabled/>
                 <span className="chk__box"><I.Check size={10}/></span>
-                TP/SL
+                TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span>
               </label>
             </div>
 
@@ -1870,7 +1875,7 @@
             <span style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>{t('mg_equity')}</span>
             <span style={{fontFamily:'var(--font-num)', fontSize: 22, fontWeight: 600, fontVariantNumeric:'tabular-nums'}}>{fmt(assets.equity)}</span>
             <span style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>
-              {t('pos_unrealized')}: <span className="t-long">+{fmt(assets.unrealizedPnl)}</span>
+              {t('pos_unrealized')}: <span className={assets.unrealizedPnl >= 0 ? 't-long' : 't-short'}>{assets.unrealizedPnl >= 0 ? '+' : ''}{fmt(assets.unrealizedPnl)}</span>
             </span>
           </div>
 

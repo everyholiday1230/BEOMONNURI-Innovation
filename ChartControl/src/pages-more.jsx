@@ -1496,41 +1496,21 @@
               </svg>
             </window.SectionCard>
 
-            <div className="grid-2">
-              <window.SectionCard title={t('strat_desc_title')}>
-                <p style={{fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8, margin: 0}}>
-                  {t('strat_desc_1', { name: strategy.name, tag: strategy.tag })}
-                  {t('strat_desc_2')}
-                </p>
-                <p style={{fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8, margin: '12px 0 0'}}>
-                  <strong>{t('strategy_detail_0a17fe')}</strong> {strategy.authorKey === 'author_house_lab' ? t('strategy_detail_40a912') : t('strategy_detail_704ee2')}
-                </p>
-              </window.SectionCard>
-
-              <window.SectionCard title={t('strat_risk_profile')}>
-                <div style={{display:'flex', flexDirection:'column', gap: 10}}>
-                  {[
-                    { k: 'Volatility', level: 3, max: 5 },
-                    { k: 'Position size', level: 2, max: 5 },
-                    { k: 'Correlation to BTC', level: 4, max: 5 },
-                    { k: 'Time in market', level: 3, max: 5 },
-                    { k: 'Data dependency', level: 3, max: 5 },
-                  ].map(r => (
-                    <div key={r.k}>
-                      <div style={{display:'flex', justifyContent:'space-between', fontSize:11, marginBottom: 4}}>
-                        <span>{r.k}</span>
-                        <span style={{fontFamily:'var(--font-mono)'}}>{r.level}/{r.max}</span>
-                      </div>
-                      <div style={{display:'flex', gap:2}}>
-                        {Array.from({length: r.max}).map((_, i) => (
-                          <div key={i} style={{flex:1, height:6, borderRadius:2, background: i < r.level ? 'var(--color-brand)' : 'var(--color-border-default)'}}/>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </window.SectionCard>
-            </div>
+            {/*
+               ★ 예전 '위험 프로파일' 카드는 모든 전략에 동일한 조작된 막대
+                 (Volatility 3/5 등)를 영어로 보여줬다. 전략 객체에는 그런 필드가
+                 없어 전부 지어낸 값이었다. 실제 위험 지표(최대낙폭·샤프·승률)는
+                 위 성과 표에 실데이터로 이미 나오므로, 지어낸 카드는 제거한다.
+            */}
+            <window.SectionCard title={t('strat_desc_title')}>
+              <p style={{fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8, margin: 0}}>
+                {t('strat_desc_1', { name: strategy.name, tag: strategy.tag })}
+                {t('strat_desc_2')}
+              </p>
+              <p style={{fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8, margin: '12px 0 0'}}>
+                <strong>{t('strategy_detail_0a17fe')}</strong> {strategy.authorKey === 'author_house_lab' ? t('strategy_detail_40a912') : t('strategy_detail_704ee2')}
+              </p>
+            </window.SectionCard>
           </>
         )}
 
