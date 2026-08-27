@@ -116,6 +116,7 @@
     const support = (window.QTConfig && window.QTConfig.supportEmail) || 'support@beomonnuri.com';
     return (
       <footer className="app-legal-footer">
+        <span className="app-legal-footer__biz">{t('foot_business')}</span>
         <span className="app-legal-footer__copy">© {year} {brand} · {t('foot_disclaimer')}</span>
         <span className="app-legal-footer__links">
           <a href="#/terms">{t('auth_3b9e30')}</a>

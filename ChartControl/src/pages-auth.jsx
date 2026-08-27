@@ -1668,6 +1668,7 @@
 
         <footer className="landing-foot">
           <div>© 2026 {window.QTI18n ? window.QTI18n.brand() : 'ChartControl AI'}</div>
+          <div className="landing-foot__biz">{t('foot_business')}</div>
           {/*
              ★★ 법적 문서 링크를 랜딩에 둔다.
 

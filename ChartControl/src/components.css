@@ -567,3 +567,7 @@ kbd {
 .app-legal-footer__links { display: inline-flex; flex-wrap: wrap; gap: 12px; }
 .app-legal-footer__links a { color: var(--color-text-tertiary); text-decoration: none; }
 .app-legal-footer__links a:hover { color: var(--color-brand); text-decoration: underline; }
+
+/* 사업자 정보 줄 (전자상거래법 필수 · 토스 심사용) */
+.app-legal-footer__biz { flex-basis: 100%; color: var(--color-text-tertiary); font-size: 11px; line-height: 1.6; }
+.landing-foot__biz { color: var(--color-text-tertiary); font-size: 11px; line-height: 1.6; margin-top: 4px; }

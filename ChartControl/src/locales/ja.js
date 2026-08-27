@@ -522,6 +522,7 @@
       cp_wrong_current: '現在のパスワードが正しくありません。',
       cp_failed: 'パスワードを変更できませんでした。',
       prov_note_notif_live: '実データの通知: 約定・サポート返信・ポイント変動・清算リスク警告。実ユーザーにモックは表示しません。',
+      foot_business: 'BEOMONNURI Innovation Co., Ltd. · CEO Nuri Kwon · Business Reg. No. 472-81-03730 · Tel 010-8405-4499 · 15, 4F, Zone D, 190 Galmae-jungang-ro, Guri-si, Gyeonggi-do, Republic of Korea',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
