@@ -1279,7 +1279,7 @@
       prov_note_chart_live: 'Live candles, order book and trades',
       prov_note_conn_live: 'Real upstream connection state',
       prov_note_role_from_server: 'Tier comes from the server session',
-      prov_note_trade_partial: 'Chart and order book are live; order execution is simulated',
+      prov_note_trade_partial: 'Charts, market data, indicators and AI Copilot are live. Order execution runs live on the exchange once you connect a key; until then it is simulated — the live/sim banner shows the current mode.',
       prov_note_chart_live_only: 'Charts are live; layout controls are demo',
       prov_note_needs_api_key: 'Live once an exchange API key is verified — demo data until then',
       prov_note_settings_partial: 'Language, theme and layout work; the rest is demo',
@@ -1293,7 +1293,7 @@
 
       prov_note_book_live: 'Live order book from KuCoin',
       prov_note_trades_live: 'Live trades from KuCoin',
-      prov_note_order_sim: 'Server-validated, but execution is simulated (no real exchange order)',
+      prov_note_order_sim: 'Server-validated. Executes live on the exchange when an exchange key is connected; otherwise simulated — see the live/sim banner.',
       prov_note_chart_tools_live: 'Timeframes, indicators and drawings work',
       prov_note_cred_wired: 'Saves encrypted and verifies against the exchange',
       prov_note_i18n_live: 'Language switching works',
