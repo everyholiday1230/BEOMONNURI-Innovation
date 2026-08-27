@@ -157,7 +157,11 @@
   cursor: pointer;
   transition: background 0.25s;
 }
-.co-pay-btn:hover { background: var(--acid-bright); }
+/* 호버 피드백: 기본색 --acid(#921230, 흰 글씨 대비 8.93:1)보다 밝게 유지하되,
+   흰색 13px bold 텍스트 대비 4.5:1(AA)을 넘도록 교정한다.
+   #c22040 은 #ffffff 대비 5.875:1 로 WCAG 1.4.3 AA 통과(기존 --acid-bright #e8375c 는
+   4.09:1로 미달이었음). */
+.co-pay-btn:hover { background: #c22040; }
 
 .co-note {
   margin-top: 16px;
@@ -243,4 +247,33 @@
   .co-methods { flex-direction: column; }
   .co-result-card { padding: 36px 22px; }
   .co-result-actions { flex-direction: column; }
+}
+
+/* =========================================================
+   접근성 보강 (WCAG 2.1.1 / 2.4.7 / 4.1.2 / 1.4.1)
+   - 숨겨진 라디오는 키보드로 포커스되지만 시각 표시가 없으므로,
+     라벨(.co-plan)에 focus-within 포커스 링을 준다.
+   - 선택 상태를 색상 외 시각 단서(표식·굵기)로도 전달한다.
+   ========================================================= */
+.co-plan:focus-within {
+  outline: 3px solid var(--acid);   /* 상징색 #921230 */
+  outline-offset: 2px;
+  border-color: var(--acid);
+}
+/* 선택된 플랜: 색상 외 시각 단서(● 표식) 보강 */
+.co-plan.is-active .co-plan-name::before {
+  content: '\25CF\00a0';   /* ● + NBSP */
+  color: var(--acid);
+}
+
+/* 결제수단 버튼: 키보드 포커스 링 */
+.co-method-btn:focus-visible {
+  outline: 3px solid var(--acid);
+  outline-offset: 2px;
+}
+/* 선택된 결제수단: 배경색 외 시각 단서(✓ 표식 + 굵기) 보강 */
+.co-method-btn.is-active { font-weight: 800; }
+.co-method-btn.is-active::before {
+  content: '\2713\00a0';   /* ✓ + NBSP */
+  font-weight: 900;
 }

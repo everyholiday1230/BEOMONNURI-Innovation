@@ -41,35 +41,35 @@
       <div class="mobile-menu-inner">
         <div class="mobile-menu-label">BEOMONNURI · MENU</div>
         <nav aria-label="Mobile primary">
-          <a href="/index.html"${isActive('/index.html')}>
+          <a href="/"${isActive('/')}>
             <span>HOME</span><span class="num">01</span>
           </a>
-          <a href="/products.html"${isActive('/products.html')}>
+          <a href="/products"${isActive('/products')}>
             <span>PRODUCTS</span><span class="num">02</span>
           </a>
-          <a href="/products-private.html" class="sub"${isActive('/products-private.html')}>
+          <a href="/products-private" class="sub"${isActive('/products-private')}>
             <span>· 범온 프라이빗 AI</span><span class="num">02-1</span>
           </a>
-          <a href="/products-agent.html" class="sub"${isActive('/products-agent.html')}>
+          <a href="/products-agent" class="sub"${isActive('/products-agent')}>
             <span>· 범온 에이전트 AI</span><span class="num">02-2</span>
           </a>
           <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 블록 주석 해제 + 외주·MVP 번호를 02-4로 되돌릴 것
-          <a href="/products-superchart.html" class="sub"${isActive('/products-superchart.html')}>
+          <a href="/products-superchart" class="sub"${isActive('/products-superchart')}>
             <span>· 범온 슈퍼차트 AI</span><span class="num">02-3</span>
           </a>
           -->
-          <a href="/services-outsourcing.html" class="sub"${isActive('/services-outsourcing.html')}>
+          <a href="/services-outsourcing" class="sub"${isActive('/services-outsourcing')}>
             <span>· 외주·MVP 제작</span><span class="num">02-3</span>
           </a>
-          <a href="/why.html"${isActive('/why.html')}>
+          <a href="/why"${isActive('/why')}>
             <span>WHY</span><span class="num">03</span>
           </a>
-          <a href="/contact.html"${isActive('/contact.html')}>
+          <a href="/contact"${isActive('/contact')}>
             <span>CONTACT</span><span class="num">04</span>
           </a>
         </nav>
         <div class="cta-row">
-          <a href="/contact.html">
+          <a href="/contact">
             <span>도입 진단 신청</span>
             <span>→</span>
           </a>

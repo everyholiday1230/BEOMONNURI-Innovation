@@ -1,0 +1,61 @@
+# Cloudflare Pages 리다이렉트
+# https://developers.cloudflare.com/pages/configuration/redirects/
+#
+# 목적: 구 사이트(저장소의 homepage/ 디렉터리, Vite 기반 다국어 구조)에서 쓰던 URL이
+#       현재 구조에서 전부 404 가 되어 있다. 검색 색인·외부 링크·북마크에서 유입되는
+#       트래픽을 잃지 않도록 가장 가까운 현재 페이지로 301 로 넘긴다.
+#       (2026-08-27 실측: 아래 경로 14개가 라이브에서 404)
+#
+# 제약(공식 문서 확인):
+#   - source 는 경로만 지정 가능하다. 도메인 레벨 리다이렉트는 지원하지 않는다.
+#     따라서 apex(beomonnuri.com) -> www 리다이렉트는 이 파일로 처리할 수 없고
+#     Cloudflare 대시보드의 Redirect Rules 로 설정해야 한다. (README 참조)
+#   - 규칙 순서가 중요하다. 정적 규칙을 먼저 두고 splat(*) 규칙을 뒤에 둔다.
+#   - 리다이렉트는 실제 자산 존재 여부와 무관하게 항상 적용되므로, 현재 살아 있는
+#     경로를 가리는 규칙을 만들지 않도록 주의한다.
+#
+# 참고: /products/ · /contact/ · /privacy/ 같은 후행 슬래시 형태는 Cloudflare 가
+#       이미 308 로 정리하므로 규칙을 두지 않는다.
+
+# ── 구 제품 상세 페이지 ──
+/products/private-ai              /products-private        301
+/products/private-ai/             /products-private        301
+/products/agent-ai                /products-agent          301
+/products/agent-ai/               /products-agent          301
+
+# 슈퍼차트는 현재 TEMP-HIDDEN(noindex) 상태다. noindex 페이지로 보내면 색인이 끊기므로
+# 제품 목록으로 넘긴다. 재노출 시 /products-superchart 로 바꿀 것.
+/products/superchart-ai           /products                301
+/products/superchart-ai/          /products                301
+
+# 단산된 구 제품군 → 제품 목록
+/products/farm-shipping-ai        /products                301
+/products/farm-shipping-ai/       /products                301
+/products/commodity-procurement-ai   /products             301
+/products/commodity-procurement-ai/  /products             301
+/products/apartment-management-ai    /products             301
+/products/apartment-management-ai/   /products             301
+
+# ── 구 정보 페이지 ──
+# 회사 소개 → 접근 원칙을 설명하는 Why
+/company                          /why                     301
+/company/                         /why                     301
+# AI 도입 가이드 → Why (도입 관점 설명)
+/ai-adoption-guide                /why                     301
+/ai-adoption-guide/               /why                     301
+# FAQ → 제품 페이지(FAQPage 구조화 데이터 보유)
+/faq                              /products                301
+/faq/                             /products                301
+# 인사이트(폐지, 대체 페이지 없음) → 홈
+/insights                         /                        301
+/insights/                        /                        301
+
+# ── 구 영문 버전(현재 미제공) ──
+# 영문 사이트를 다시 제공하게 되면 이 규칙들을 제거하고 /en/ 을 실제 페이지로 되돌린다.
+/en                               /                        301
+/en/                              /                        301
+
+# ── 동적 규칙(splat) — 반드시 정적 규칙 뒤에 위치 ──
+/en/products/*                    /products                301
+/en/*                             /                        301
+/products/*                       /products                301

@@ -9,3 +9,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# 반응형 실측 감사 도구 산출물 (로컬 검증용, 배포 대상 아님)
+homepage2/.audit/

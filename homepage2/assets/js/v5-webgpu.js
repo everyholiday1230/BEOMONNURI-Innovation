@@ -7,9 +7,17 @@
    "정신없는" 효과가 아닌 절제된 시그니처.
    ========================================================= */
 (() => {
-  // Reduced-motion gate removed per client direction 2026-07 —
-  // WebGPU/GPU particles always render for the branded experience.
-  const reduced = false;
+  /* 모션 게이트 (WCAG 2.3.3 / 2.2.2). ai-frontier.js가 로드되면 window.BN_MOTION
+     (사용자 선택 우선)을 따르고, 결제 페이지처럼 미로드된 곳에서는 OS
+     prefers-reduced-motion으로 안전하게 폴백한다. 초기 시점에 모션 OFF면 전역 입자
+     캔버스를 아예 생성하지 않는다(전정장애/저사양 배려). 런타임 정지/재개는 아래
+     frame 루프가 motionOffGPU()로 처리한다. */
+  const prefersReduced = () => {
+    try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+  };
+  const motionOffGPU = () => (window.BN_MOTION ? window.BN_MOTION.isOff() : prefersReduced());
+  const reduced = motionOffGPU();
+  if (reduced) return;
 
   // GLOBAL: canvas covers entire viewport (fixed), not just hero
   let canvas = document.querySelector('#gpu-particles');
@@ -51,6 +59,18 @@
     mouse.active = 1;
   });
   document.addEventListener('pointerleave', () => { mouse.active = 0; });
+
+  // 성능(항목 3): 전역 고정 캔버스는 히어로 영역이 뷰포트를 벗어나면 rAF를 실제로
+  // 멈추고, 다시 들어오면 재개한다. .hero가 없는 페이지(결제 등)에서는 관측 대상이
+  // 없어 heroOnscreen을 true로 유지 → 기존 동작(탭 가시성에만 의존) 그대로.
+  let heroOnscreen = true;
+  const heroEl = document.querySelector('.hero');
+  if (heroEl && 'IntersectionObserver' in window) {
+    const heroIO = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { heroOnscreen = e.isIntersecting; });
+    }, { root: null, rootMargin: '120px 0px', threshold: 0 });
+    heroIO.observe(heroEl);
+  }
 
   /* ==========================================================
      WEBGPU PATH
@@ -279,7 +299,7 @@
     document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
     const frame = () => {
-      if (!visible) { requestAnimationFrame(frame); return; }
+      if (!visible || !heroOnscreen || motionOffGPU()) { requestAnimationFrame(frame); return; }
       mouse.x += (mouse.tx - mouse.x) * 0.08;
       mouse.y += (mouse.ty - mouse.y) * 0.08;
       // Decay active flag
@@ -346,7 +366,7 @@
     document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
     const frame = () => {
-      if (!visible) { requestAnimationFrame(frame); return; }
+      if (!visible || !heroOnscreen || motionOffGPU()) { requestAnimationFrame(frame); return; }
       mouse.x += (mouse.tx - mouse.x) * 0.08;
       mouse.y += (mouse.ty - mouse.y) * 0.08;
       if (mouse.active > 0) mouse.active = Math.max(0, mouse.active - 0.005);

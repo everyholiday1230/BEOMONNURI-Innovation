@@ -20,13 +20,20 @@
 <meta property="og:title" content="범온누리 이노베이션 — 보안 환경의 엔터프라이즈 AI">
 <meta property="og:description" content="처리시간·정확도·자동화율·운영 안정성 기준으로 2개의 AI 제품과 외주·MVP 제작을 설계하는 보안 환경의 엔터프라이즈 AI.">
 <meta property="og:image" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta property="og:image:secure_url" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="범온누리 이노베이션 로고와 슬로건 '데이터를 OPERATIONS 성과로'">
 <meta property="og:locale" content="ko_KR">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="범온누리 이노베이션 — 보안 환경의 엔터프라이즈 AI">
 <meta name="twitter:description" content="AI 제품 성능 기준(처리시간·정확도·자동화율·운영 안정성)으로 도입 전략을 설계하세요.">
 <meta name="twitter:image" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta name="twitter:image:alt" content="범온누리 이노베이션 로고와 슬로건 '데이터를 OPERATIONS 성과로'">
 
+<link rel="image_src" href="https://www.beomonnuri.com/assets/logo-square.png">
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/img/logos/company/favicon-192.png">
@@ -36,15 +43,15 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=Archivo:wght@400;500;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" referrerpolicy="no-referrer" />
 
 <!-- Three.js for v4 hero neural network (lighter background layer) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260804c">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260827b">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260827a">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260827a">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -152,11 +159,25 @@
   "@graph": [
     {
       "@type": "Organization",
+      "@id": "https://www.beomonnuri.com/#organization",
       "name": "범온누리 이노베이션",
       "legalName": "(주)범온누리 이노베이션",
       "alternateName": "BEOMONNURI INNOVATION",
       "url": "https://www.beomonnuri.com/",
-      "logo": "https://www.beomonnuri.com/assets/img/logos/company/beomonnuri-logo.png",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.beomonnuri.com/assets/logo-square.png",
+        "contentUrl": "https://www.beomonnuri.com/assets/logo-square.png",
+        "width": 1200,
+        "height": 1200,
+        "caption": "범온누리 이노베이션 로고"
+      },
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://www.beomonnuri.com/assets/og-image.png",
+        "width": 1200,
+        "height": 630
+      },
       "email": "beomonnuri@gmail.com",
       "founder": {
         "@type": "Person",
@@ -179,9 +200,27 @@
     },
     {
       "@type": "WebSite",
+      "@id": "https://www.beomonnuri.com/#website",
       "name": "BEOMONNURI",
+      "alternateName": "범온누리 이노베이션",
       "url": "https://www.beomonnuri.com/",
-      "inLanguage": "ko-KR"
+      "inLanguage": "ko-KR",
+      "publisher": { "@id": "https://www.beomonnuri.com/#organization" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://www.beomonnuri.com/#webpage",
+      "url": "https://www.beomonnuri.com/",
+      "name": "범온누리 이노베이션 · BEOMONNURI INNOVATION — 보안 환경의 엔터프라이즈 AI",
+      "isPartOf": { "@id": "https://www.beomonnuri.com/#website" },
+      "about": { "@id": "https://www.beomonnuri.com/#organization" },
+      "inLanguage": "ko-KR",
+      "primaryImageOfPage": {
+        "@type": "ImageObject",
+        "url": "https://www.beomonnuri.com/assets/og-image.png",
+        "width": 1200,
+        "height": 630
+      }
     }
   ]
 }
@@ -223,12 +262,10 @@
 <!-- ===== SCROLL PROGRESS BAR ===== -->
 <div class="scroll-progress" aria-hidden="true"><div></div></div>
 
-<!-- ===== MOUSE TRAIL ===== -->
-<!-- ===== CUSTOM CURSOR ===== -->
 <!-- ===== NAV ===== -->
 <nav class="top" aria-label="주 내비게이션">
   <div class="container row">
-    <a class="brand" href="index.html">
+    <a class="brand" href="/">
       <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 이노베이션 로고" decoding="async" width="34" height="34"></span>
       <span class="brand-copy">
         <span class="brand-ko">범온누리 이노베이션</span>
@@ -236,21 +273,21 @@
       </span>
     </a>
     <div class="nav-links">
-      <a href="index.html" class="active">Home</a>
+      <a href="/" class="active">Home</a>
       <div class="nav-dd">
-        <a href="products.html" aria-haspopup="true">Products</a>
-        <div class="nav-dd-menu" role="menu">
-          <a href="products.html" role="menuitem">전체 제품 보기</a>
-          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
-          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+        <a href="/products">Products</a>
+        <div class="nav-dd-menu">
+          <a href="/products">전체 제품 보기</a>
+          <a href="/products-private">범온 프라이빗 AI</a>
+          <a href="/products-agent">범온 에이전트 AI</a>
           <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
-          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+          <a href="/products-superchart">범온 슈퍼차트 AI</a>
           -->
-          <a href="services-outsourcing.html" role="menuitem">외주·MVP 제작</a>
+          <a href="/services-outsourcing">외주·MVP 제작</a>
         </div>
       </div>
-      <a href="why.html">Why</a>
-      <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
+      <a href="/why">Why</a>
+      <a href="/contact" class="cta"><span>도입 진단 →</span></a>
     </div>
   </div>
 </nav>
@@ -258,9 +295,9 @@
 <main id="main-content">
 <!-- ===== HERO ===== -->
 <section class="hero">
-  <canvas id="hero-canvas"></canvas>
-  <canvas id="neural-grid"></canvas>
-  <canvas id="liquid-hero"></canvas>
+  <canvas id="hero-canvas" aria-hidden="true"></canvas>
+  <canvas id="neural-grid" aria-hidden="true"></canvas>
+  <canvas id="liquid-hero" aria-hidden="true"></canvas>
   <div id="glass-orbs"></div>
 
   <div class="container">
@@ -269,9 +306,9 @@
       <!-- 홈은 풀스크린 히어로 단일 화면 구성으로 footer가 없다. 개인정보처리방침은
            모든 페이지에서 접근 가능해야 하므로 상단 메타 행에 배치한다. -->
       <span class="hero-top-legal">
-        <a href="privacy.html">개인정보처리방침</a>
+        <a href="/privacy">개인정보처리방침</a>
         <span aria-hidden="true">·</span>
-        <a href="contact.html">CONTACT</a>
+        <a href="/contact">CONTACT</a>
         <span aria-hidden="true">·</span>
         © 2026 BEOMONNURI INNOVATION
       </span>
@@ -286,9 +323,9 @@
     <!-- 홈은 히어로 한 화면으로만 구성되므로, 회사가 무엇을 하는지 한 줄로 알 수 있게 한다. -->
     <p class="hero-sub">
       보안 환경에서 운영하는 기업용 AI —
-      <a href="products-private.html">프라이빗 AI</a> ·
-      <a href="products-agent.html">에이전트 AI</a> ·
-      <a href="services-outsourcing.html">외주·MVP 제작</a>
+      <a href="/products-private">프라이빗 AI</a> ·
+      <a href="/products-agent">에이전트 AI</a> ·
+      <a href="/services-outsourcing">외주·MVP 제작</a>
     </p>
 
     <!-- ===== 3D CYLINDER PARTNER MARQUEE ===== -->
@@ -307,9 +344,9 @@
 </main>
 
 <!-- ===== AI WIDGET ===== -->
-<script src="assets/js/ai-frontier.js?v=20260804c"></script>
-<script src="assets/js/v5-nextgen.js?v=20260804c"></script>
-<script src="assets/js/v5-webgpu.js?v=20260804b"></script>
-<script src="assets/js/v5-mobile.js?v=20260804b"></script>
+<script src="assets/js/ai-frontier.js?v=20260827b" defer></script>
+<script src="assets/js/v5-nextgen.js?v=20260827a" defer></script>
+<script src="assets/js/v5-webgpu.js?v=20260827a" defer></script>
+<script src="assets/js/v5-mobile.js?v=20260827a" defer></script>
 </body>
 </html>

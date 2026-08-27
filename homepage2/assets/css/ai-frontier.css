@@ -102,39 +102,20 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
-/* ----- CUSTOM CURSOR ----- */
-@media (hover: hover) {
-  body { cursor: none; }
-  .cursor-ring, .cursor-dot {
-    position: fixed; top: 0; left: 0; pointer-events: none;
-    z-index: 9999; will-change: transform;
-  }
-  .cursor-ring {
-    width: 36px; height: 36px;
-    border: 1.5px solid var(--paper);
-    border-radius: 50%;
-    mix-blend-mode: difference;
-    transition: width 0.25s cubic-bezier(.2,.7,.2,1.4), height 0.25s cubic-bezier(.2,.7,.2,1.4), border-color 0.2s;
-  }
-  .cursor-ring.hover {
-    width: 64px; height: 64px;
-    border-color: var(--acid);
-    border-width: 2px;
-  }
-  .cursor-ring.text {
-    width: 4px; height: 24px;
-    border-radius: 0;
-    background: var(--acid);
-    border: none;
-    mix-blend-mode: normal;
-  }
-  .cursor-dot {
-    width: 5px; height: 5px;
-    background: var(--acid);
-    border-radius: 50%;
-  }
-  .cursor-dot.hover { opacity: 0; }
-}
+/* ----- CURSOR -----
+   커스텀 커서(.cursor-ring/.cursor-dot)는 제거됨. OS 기본 커서를 항상 노출한다.
+   접근성: 커서를 숨기면 포인터 위치를 잃는 사용자가 발생하므로 cursor:none 금지. */
+body { cursor: auto; }
+a[href],
+button,
+summary,
+label[for],
+[role="button"],
+[role="tab"],
+[role="link"],
+.btn { cursor: pointer; }
+button:disabled,
+[aria-disabled="true"] { cursor: not-allowed; }
 
 /* ----- NAV (glass) ----- */
 nav.top {
@@ -2213,8 +2194,6 @@ footer {
 }
 @media (max-width: 700px) {
   .container { padding: 0 18px; }
-  body { cursor: auto !important; }
-  .cursor-ring, .cursor-dot { display: none; }
   nav.top .nav-links a:not(.cta):not(.brand) { display: none; }
   .brand { font-size: 14px; gap: 8px; }
   .brand .box { width: 28px; height: 28px; }
@@ -2247,6 +2226,41 @@ footer {
 }
 
 /* ----- SKIP LINK (a11y) ----- */
+/* ===== 스크린리더 전용 텍스트 =====
+   시각적으로는 숨기되 접근성 트리에는 남긴다. display:none / visibility:hidden 은
+   보조기술에서도 사라지므로 사용하지 않는다. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== 폼 오류 안내 =====
+   alert() 대신 필드와 프로그래밍적으로 연결된 인라인 오류를 쓴다.
+   (WCAG 3.3.1 오류 식별, 3.3.3 오류 수정 제안) */
+.cf-form-error {
+  margin: 10px 0 0;
+  font-family: var(--mono, monospace);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--acid);
+  font-weight: 700;
+}
+.cf-form-error:empty {
+  display: none;
+}
+/* 오류 필드는 색상 외에 두꺼운 하단 테두리로도 구분한다(WCAG 1.4.1 색상 비의존). */
+.contact-form [aria-invalid="true"] {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--acid);
+}
+
 .skip-link {
   position: absolute;
   top: -48px;
@@ -2305,14 +2319,14 @@ select:focus-visible,
   border-color: rgba(13, 13, 13, 0.45);
 }
 /* 강조형: 실제 SUPERCHART AI 사이트 바로가기 등 핵심 외부 CTA */
-.cta-inline--solid {
+.cta-inline-solid {
   background: var(--acid);
   border-color: var(--acid);
   color: #fff;
   padding: 13px 20px;
   box-shadow: 0 4px 14px rgba(146, 18, 48, 0.28);
 }
-.cta-inline--solid:hover {
+.cta-inline-solid:hover {
   background: #7d0f29;
   border-color: #7d0f29;
   color: #fff;
@@ -2325,4 +2339,70 @@ select:focus-visible,
 }
 .cta-inline-wrap {
   margin-top: 14px;
+}
+
+/* =========================================================
+   MOTION CONTROL — 자동재생 애니메이션 정지/재생 (WCAG 2.2.2 / 2.3.3 / 2.3.1)
+   ai-frontier.js가 <html data-motion="on|off">를 토글하고, 화면 우하단에 실제
+   <button.bn-motion-toggle>를 동적 생성한다. 여기서는 그 버튼의 스타일과,
+   data-motion="off"일 때 CSS 자동재생 애니메이션(마퀴/티커/점멸)을 멈추는 훅을 정의한다.
+   ========================================================= */
+.bn-motion-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-family: var(--mono);        /* 모노스페이스 톤 */
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--paper);             /* 잉크 #0d0d0d */
+  background: var(--bg);           /* 종이색 #f6f4ef */
+  border: 1.5px solid var(--paper);
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(13, 13, 13, 0.14);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.bn-motion-toggle:hover {
+  background: var(--paper);
+  color: var(--bg);
+}
+/* 키보드 포커스 링 — 상징색 #921230 */
+.bn-motion-toggle:focus-visible {
+  outline: 3px solid var(--acid);
+  outline-offset: 2px;
+}
+/* 정지(aria-pressed=true) 상태 시각 구분 */
+.bn-motion-toggle[aria-pressed="true"] {
+  border-color: var(--acid);
+  color: var(--acid);
+}
+.bn-motion-toggle[aria-pressed="true"]:hover {
+  background: var(--acid);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .bn-motion-toggle {
+    font-size: 10px;
+    padding: 9px 11px;
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+/* 모션 OFF: CSS 자동재생 애니메이션 정지 (마퀴/티커) */
+html[data-motion="off"] .ticker-track,
+html[data-motion="off"] .partner-marquee-track {
+  animation-play-state: paused !important;
+}
+/* 모션 OFF: 점멸(blink)·펄스 애니메이션 정지 (WCAG 2.3.1 경계) */
+html[data-motion="off"] .ai-msg.bot.loading::after,
+html[data-motion="off"] .tk-item .dot,
+html[data-motion="off"] .partner-marquee-head::before {
+  animation-play-state: paused !important;
 }

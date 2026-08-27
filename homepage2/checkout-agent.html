@@ -6,17 +6,18 @@
 <title>범온 에이전트 AI — 결제(예시) | 범온누리 이노베이션</title>
 <meta name="description" content="범온 에이전트 AI 도입 예시 상품 결제 페이지 (심사·테스트용).">
 <meta name="robots" content="noindex,nofollow">
+<link rel="image_src" href="https://www.beomonnuri.com/assets/logo-square.png">
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=Archivo:wght@400;500;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" referrerpolicy="no-referrer" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260804c">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
-<link rel="stylesheet" href="assets/css/checkout.css?v=20260723b">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260827b">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260827a">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260827a">
+<link rel="stylesheet" href="assets/css/checkout.css?v=20260827a">
 
 <!-- 토스페이먼츠 SDK -->
 <script src="https://js.tosspayments.com/v2/standard"></script>
@@ -26,7 +27,7 @@
 <a href="#main-content" class="skip-link">본문으로 바로가기</a>
 <nav class="top" aria-label="주 내비게이션">
   <div class="container row">
-    <a class="brand" href="index.html">
+    <a class="brand" href="/">
       <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 이노베이션 로고" decoding="async" width="34" height="34"></span>
       <span class="brand-copy">
         <span class="brand-ko">범온누리 이노베이션</span>
@@ -34,21 +35,21 @@
       </span>
     </a>
     <div class="nav-links">
-      <a href="index.html">Home</a>
+      <a href="/">Home</a>
       <div class="nav-dd">
-        <a href="products.html" aria-haspopup="true">Products</a>
-        <div class="nav-dd-menu" role="menu">
-          <a href="products.html" role="menuitem">전체 제품 보기</a>
-          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
-          <a href="products-agent.html" role="menuitem" class="active">범온 에이전트 AI</a>
+        <a href="/products">Products</a>
+        <div class="nav-dd-menu">
+          <a href="/products">전체 제품 보기</a>
+          <a href="/products-private">범온 프라이빗 AI</a>
+          <a href="/products-agent" class="active">범온 에이전트 AI</a>
           <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
-          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+          <a href="/products-superchart">범온 슈퍼차트 AI</a>
           -->
-          <a href="services-outsourcing.html" role="menuitem">외주·MVP 제작</a>
+          <a href="/services-outsourcing">외주·MVP 제작</a>
         </div>
       </div>
-      <a href="why.html">Why</a>
-      <a href="contact.html" class="cta"><span>도입 진단 →</span></a>
+      <a href="/why">Why</a>
+      <a href="/contact" class="cta"><span>도입 진단 →</span></a>
     </div>
   </div>
 </nav>
@@ -56,7 +57,7 @@
 <main id="main-content">
 <section class="page-hero">
   <div class="container">
-    <div class="crumb"><a href="index.html">HOME</a> · <a href="products-agent.html">AGENT AI</a> · CHECKOUT (예시)</div>
+    <div class="crumb"><a href="/">HOME</a> · <a href="/products-agent">AGENT AI</a> · CHECKOUT (예시)</div>
     <h1>
       <span class="ko">에이전트 AI </span><span class="acid">구축비</span><br>
       <span class="stroke">단건 결제</span> 예시.
@@ -101,14 +102,18 @@
   </div>
 </footer>
 
-<script src="assets/js/v5-mobile.js?v=20260804b"></script>
-<script src="assets/js/checkout-common.js?v=20260723a"></script>
+<script src="assets/js/v5-mobile.js?v=20260827a" defer></script>
+<script src="assets/js/checkout-common.js?v=20260827a" defer></script>
 <script>
-  initSingleCheckout({
-    orderName: "범온 에이전트 AI 스타터 구축비",
-    amountValue: 2500000,
-    successPath: "/checkout-success.html",
-    failPath: "/checkout-fail.html"
+  // checkout-common.js 는 defer 로드이므로 DOMContentLoaded 이후에 호출해야 한다.
+  // (인라인 스크립트는 파싱 즉시 실행되어 defer 스크립트보다 먼저 돈다)
+  document.addEventListener("DOMContentLoaded", function () {
+    initSingleCheckout({
+      orderName: "범온 에이전트 AI 스타터 구축비",
+      amountValue: 2500000,
+      successPath: "/checkout-success",
+      failPath: "/checkout-fail"
+    });
   });
 </script>
 </body>

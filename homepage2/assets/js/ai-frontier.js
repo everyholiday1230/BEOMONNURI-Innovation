@@ -12,9 +12,100 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
-// Always run all animations/WebGL effects — branded experience takes priority.
-// (Original prefers-reduced-motion check disabled per client direction 2026-07.)
-const reduced = false;
+
+/* ---------- 모션 환경설정 게이트 (WCAG 2.3.3 / 2.2.2) ----------
+   전정장애 사용자가 자동재생 애니메이션을 끌 수 있도록 모션 on/off 상태를 한 곳에서
+   관리한다. 우선순위: 사용자 명시 선택(localStorage) > OS prefers-reduced-motion 설정.
+   <html data-motion="on|off"> 속성으로 반영해 CSS/JS 양쪽에서 제어 가능하게 하고,
+   window.BN_MOTION = { isOff(), toggle(), subscribe(fn) } 를 공개한다. */
+(() => {
+  const STORAGE_KEY = 'bn-motion';
+  const root = document.documentElement;
+  const mq = matchMedia('(prefers-reduced-motion: reduce)');
+  const subs = [];
+
+  const stored = () => {
+    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+  };
+  // 저장된 사용자 선택이 있으면 그것을 우선하고, 없으면 OS 설정을 따른다.
+  const computeOff = () => {
+    const s = stored();
+    if (s === 'on') return false;
+    if (s === 'off') return true;
+    return mq.matches;
+  };
+
+  let off = computeOff();
+
+  const apply = () => { root.setAttribute('data-motion', off ? 'off' : 'on'); };
+  apply();
+
+  const notify = () => { subs.forEach(fn => { try { fn(off); } catch (e) {} }); };
+
+  const setOff = (next, persist) => {
+    off = !!next;
+    if (persist) {
+      try { localStorage.setItem(STORAGE_KEY, off ? 'off' : 'on'); } catch (e) {}
+    }
+    apply();
+    notify();
+  };
+
+  // OS 설정이 바뀌면, 사용자가 아직 명시적으로 선택하지 않은 경우에만 따라간다.
+  const onMq = () => { if (stored() === null) setOff(mq.matches, false); };
+  if (mq.addEventListener) mq.addEventListener('change', onMq);
+  else if (mq.addListener) mq.addListener(onMq);
+
+  window.BN_MOTION = {
+    isOff: () => off,
+    toggle: () => { setOff(!off, true); return off; },
+    subscribe: (fn) => {
+      if (typeof fn === 'function') { subs.push(fn); fn(off); }
+      return () => { const i = subs.indexOf(fn); if (i >= 0) subs.splice(i, 1); };
+    },
+  };
+})();
+
+// 초기 렌더 시점의 모션 OFF 여부. 무거운 WebGL 초기화를 건너뛰는 게이트로 쓰인다.
+// (런타임 일시정지/재개는 각 rAF 루프가 window.BN_MOTION.isOff()를 매 프레임 확인한다.)
+const reduced = !!(window.BN_MOTION && window.BN_MOTION.isOff());
+// 매 프레임 조회용 헬퍼 — 정지 컨트롤 토글에 rAF 루프가 즉시 반응하도록 한다.
+const motionOff = () => !!(window.BN_MOTION && window.BN_MOTION.isOff());
+
+/* ---------- 모션 정지/재생 컨트롤 (WCAG 2.2.2 Level A) ----------
+   자동 재생되는 마퀴 / 3D 실린더 회전 / 입자 애니메이션을 사용자가 멈출 수 있도록
+   진짜 <button>을 동적 생성해 화면 우하단에 고정한다. 누르면 BN_MOTION을 토글해
+   data-motion="off" (CSS animation-play-state:paused) + rAF 루프 정지를 동시에 적용하고,
+   상태는 localStorage(BN_MOTION)로 지속된다. */
+(() => {
+  const mount = () => {
+    if (!document.body || document.querySelector('.bn-motion-toggle')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bn-motion-toggle';
+
+    // 아이콘 span은 CSS로 색만 입히고, 상태 문구는 별도 span으로 둔다.
+    const sync = (isOff) => {
+      btn.setAttribute('aria-pressed', isOff ? 'true' : 'false');
+      // aria-pressed=true(정지됨) 상태에서는 "재생하기"가 다음 동작임을 안내한다.
+      btn.setAttribute('aria-label', isOff ? '화면 애니메이션 재생하기' : '화면 애니메이션 정지하기');
+      btn.title = isOff ? '애니메이션 재생' : '애니메이션 정지';
+      btn.textContent = isOff ? '▶ 애니메이션 재생' : '❚❚ 애니메이션 정지';
+    };
+
+    btn.addEventListener('click', () => {
+      if (window.BN_MOTION) window.BN_MOTION.toggle();
+      else sync(false);
+    });
+
+    if (window.BN_MOTION) window.BN_MOTION.subscribe(sync); // 구독 즉시 현재 상태로 초기화
+    else sync(false);
+
+    document.body.appendChild(btn);
+  };
+  if (document.body) mount();
+  else document.addEventListener('DOMContentLoaded', mount);
+})();
 
 /* ---------- SMOOTH SCROLL ----------
    We intentionally use NATIVE scroll. CSS `scroll-behavior: smooth` is enabled
@@ -55,13 +146,34 @@ const reduced = false;
 
   // WebP를 우선 제공하고 PNG로 폴백한다. data-webp는 3D 실린더(v5-nextgen.js)가
   // 같은 소스를 재사용할 때 읽는다.
-  const imgHtml = (p) =>
-    `<img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}"` +
-    (p.webp ? ` data-webp="${p.webp}"` : '') +
-    ` loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
+  // 파트너 로고 원본(PNG) 실측 크기 — CLS 방지를 위해 <img>에 width/height를 명시한다.
+  // (assets/img/logos/partners/*.png 를 PIL로 조사한 실제 픽셀값. CSS가 표시 크기를
+  //  제어하므로 여기 값은 종횡비 박스 예약 용도이다.)
+  const LOGO_DIMS = {
+    'mss':              { w: 960,  h: 750 },
+    'moel':             { w: 960,  h: 960 },
+    'gov-gg':           { w: 844,  h: 297 },
+    'korcham':          { w: 410,  h: 165 },
+    'startup':          { w: 1024, h: 342 },
+    'inv-posco':        { w: 400,  h: 133 },
+    'fin-nh':           { w: 1280, h: 410 },
+    'youth-foundation': { w: 1200, h: 360 },
+    'edu-dku':          { w: 500,  h: 500 },
+    'localmotive':      { w: 443,  h: 101 },
+    'lab-knl':          { w: 710,  h: 473 },
+    'kiss':             { w: 1015, h: 132 },
+  };
+  const imgHtml = (p) => {
+    const d = LOGO_DIMS[p.id];
+    const wh = d ? ` width="${d.w}" height="${d.h}"` : '';
+    return `<img class="logo-mark logo-${p.id}" src="${p.src}" alt="${p.alt}"` +
+      wh +
+      (p.webp ? ` data-webp="${p.webp}"` : '') +
+      ` loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
+  };
 
   const itemHtml = (p) => `
-    <div class="pm-item" data-cursor data-partner-id="${p.id}">
+    <div class="pm-item" data-partner-id="${p.id}">
       ${p.webp
         ? `<picture><source type="image/webp" srcset="${p.webp}">${imgHtml(p)}</picture>`
         : imgHtml(p)}
@@ -95,7 +207,7 @@ const reduced = false;
     let halfWidth = track.scrollWidth / 2;
     let last = null;
     const step = (now) => {
-      if (!marqueeVisible || marqueeHovered) {
+      if (!marqueeVisible || marqueeHovered || motionOff()) {
         last = null;
         requestAnimationFrame(step);
         return;
@@ -352,6 +464,8 @@ const reduced = false;
 
   const clock = new THREE.Clock();
   const animate = () => {
+    // 모션 OFF(사용자 정지 또는 reduced-motion) 상태면 렌더를 건너뛰고 대기한다.
+    if (motionOff()) { requestAnimationFrame(animate); return; }
     const t = clock.getElapsedTime();
     mouse.x = lerp(mouse.x, mouse.tx, 0.06);
     mouse.y = lerp(mouse.y, mouse.ty, 0.06);

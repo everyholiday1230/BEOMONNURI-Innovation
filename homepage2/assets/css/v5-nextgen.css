@@ -581,3 +581,14 @@ body:not(.has-hero) #gpu-particles {
   transition: transform 0.06s linear;
   box-shadow: 0 0 12px rgba(146,18,48,0.6);
 }
+
+/* =========================================================
+   모션 OFF 훅 (WCAG 2.3.1 경계 / 2.3.3)
+   ai-frontier.js의 BN_MOTION이 <html data-motion="off">를 설정하면 이 파일의
+   점멸(blink) 애니메이션(약 3회/초 포함)을 정지한다.
+   ========================================================= */
+html[data-motion="off"] .llm-terminal .lt-output .stream::after,
+html[data-motion="off"] .system-bar button.active .dot,
+html[data-motion="off"] .thinking-strip-track {
+  animation-play-state: paused !important;
+}

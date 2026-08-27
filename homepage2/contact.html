@@ -15,11 +15,18 @@
 <meta property="og:title" content="BEOMONNURI Contact — 도입 진단 신청">
 <meta property="og:description" content="간단한 정보를 남겨주시면 확인 후 순차 회신드립니다.">
 <meta property="og:image" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta property="og:image:secure_url" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="범온누리 이노베이션 로고와 슬로건 '데이터를 OPERATIONS 성과로'">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="BEOMONNURI Contact — 도입 진단 신청">
 <meta name="twitter:description" content="도입 목적, 데이터, 보안 요건을 남겨주시면 적용 범위를 검토해 회신드립니다.">
 <meta name="twitter:image" content="https://www.beomonnuri.com/assets/og-image.png">
+<meta name="twitter:image:alt" content="범온누리 이노베이션 로고와 슬로건 '데이터를 OPERATIONS 성과로'">
+<link rel="image_src" href="https://www.beomonnuri.com/assets/logo-square.png">
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/img/logos/company/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/img/logos/company/favicon-192.png">
@@ -29,11 +36,11 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=Archivo:wght@400;500;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" referrerpolicy="no-referrer" />
-<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260804c">
-<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260723a">
-<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260723a">
+<link rel="stylesheet" href="assets/css/ai-frontier.css?v=20260827b">
+<link rel="stylesheet" href="assets/css/v5-nextgen.css?v=20260827a">
+<link rel="stylesheet" href="assets/css/v5-mobile.css?v=20260827a">
 <script>
   addEventListener('unhandledrejection', e => {
     const m = String(e.reason && e.reason.message || e.reason || '');
@@ -47,7 +54,7 @@
     {
       "@type": "ContactPage",
       "name": "도입 가능성 진단 문의",
-      "url": "https://www.beomonnuri.com/contact.html",
+      "url": "https://www.beomonnuri.com/contact",
       "inLanguage": "ko-KR"
     },
     {
@@ -81,7 +88,7 @@
 <!-- NAV -->
 <nav class="top" aria-label="주 내비게이션">
   <div class="container row">
-    <a class="brand" href="index.html">
+    <a class="brand" href="/">
       <span class="box"><img src="assets/img/logos/company/beomonnuri-logo.png" alt="범온누리 이노베이션 로고" decoding="async" width="34" height="34"></span>
       <span class="brand-copy">
         <span class="brand-ko">범온누리 이노베이션</span>
@@ -89,21 +96,21 @@
       </span>
     </a>
     <div class="nav-links">
-      <a href="index.html">Home</a>
+      <a href="/">Home</a>
       <div class="nav-dd">
-        <a href="products.html" aria-haspopup="true">Products</a>
-        <div class="nav-dd-menu" role="menu">
-          <a href="products.html" role="menuitem">전체 제품 보기</a>
-          <a href="products-private.html" role="menuitem">범온 프라이빗 AI</a>
-          <a href="products-agent.html" role="menuitem">범온 에이전트 AI</a>
+        <a href="/products">Products</a>
+        <div class="nav-dd-menu">
+          <a href="/products">전체 제품 보기</a>
+          <a href="/products-private">범온 프라이빗 AI</a>
+          <a href="/products-agent">범온 에이전트 AI</a>
           <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
-          <a href="products-superchart.html" role="menuitem">범온 슈퍼차트 AI</a>
+          <a href="/products-superchart">범온 슈퍼차트 AI</a>
           -->
-          <a href="services-outsourcing.html" role="menuitem">외주·MVP 제작</a>
+          <a href="/services-outsourcing">외주·MVP 제작</a>
         </div>
       </div>
-      <a href="why.html">Why</a>
-      <a href="contact.html" class="cta active"><span>도입 진단 →</span></a>
+      <a href="/why">Why</a>
+      <a href="/contact" class="cta active"><span>도입 진단 →</span></a>
     </div>
   </div>
 </nav>
@@ -112,7 +119,7 @@
 <!-- PAGE HERO -->
 <section class="page-hero">
   <div class="container">
-    <div class="crumb"><a href="index.html">HOME</a> · CONTACT</div>
+    <div class="crumb"><a href="/">HOME</a> · CONTACT</div>
     <h1>
       <span class="ko">도입 </span><span class="acid">가능성</span><br>
       <span class="stroke">진단</span>부터.
@@ -154,22 +161,22 @@
         <input type="checkbox" name="botcheck" class="cf-botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
 
         <div class="cf-row">
-          <label class="cf-label" for="cf-org">[ /01 · ORG ]</label>
+          <label class="cf-label" for="cf-org">[ /01 · ORG ]<span class="sr-only"> 회사 · 기관명</span></label>
           <input type="text" id="cf-org" name="org" placeholder="회사 · 기관명" autocomplete="organization" required>
         </div>
 
         <div class="cf-row">
-          <label class="cf-label" for="cf-contact">[ /02 · CONTACT ]</label>
+          <label class="cf-label" for="cf-contact">[ /02 · CONTACT ]<span class="sr-only"> 담당자 이름 · 직책</span></label>
           <input type="text" id="cf-contact" name="contact" placeholder="담당자 이름 · 직책" autocomplete="name" required>
         </div>
 
         <div class="cf-row">
-          <label class="cf-label" for="cf-email">[ /03 · EMAIL ]</label>
+          <label class="cf-label" for="cf-email">[ /03 · EMAIL ]<span class="sr-only"> 이메일 주소</span></label>
           <input type="email" id="cf-email" name="email" placeholder="이메일" autocomplete="email" required>
         </div>
 
         <div class="cf-row">
-          <div class="cf-label" id="cf-interest-label">[ /04 · INTEREST ]</div>
+          <div class="cf-label" id="cf-interest-label">[ /04 · INTEREST ]<span class="sr-only"> 관심 제품 선택</span></div>
           <div class="cf-chips" role="group" aria-labelledby="cf-interest-label">
             <input type="checkbox" id="p1" name="interest" value="Private AI"><label for="p1">Private AI</label>
             <input type="checkbox" id="p2" name="interest" value="Agent AI"><label for="p2">Agent AI</label>
@@ -181,12 +188,12 @@
         </div>
 
         <div class="cf-row">
-          <label class="cf-label" for="cf-priority">[ /05 · PRIORITY ]</label>
+          <label class="cf-label" for="cf-priority">[ /05 · PRIORITY ]<span class="sr-only"> 해결하고 싶은 업무 또는 데이터 활용 시나리오</span></label>
           <textarea id="cf-priority" name="priority" rows="4" placeholder="해결하고 싶은 업무 또는 데이터 활용 시나리오를 적어주세요."></textarea>
         </div>
 
         <div class="cf-row">
-          <div class="cf-label" id="cf-security-label">[ /06 · SECURITY ]</div>
+          <div class="cf-label" id="cf-security-label">[ /06 · SECURITY ]<span class="sr-only"> 보안 요건 선택</span></div>
           <div class="cf-chips" role="group" aria-labelledby="cf-security-label">
             <input type="checkbox" id="s1" name="security" value="온프레미스"><label for="s1">온프레미스</label>
             <input type="checkbox" id="s2" name="security" value="프라이빗 클라우드"><label for="s2">프라이빗 클라우드</label>
@@ -202,7 +209,7 @@
             <label for="consent">
               개인정보 수집 · 이용에 동의합니다. (필수)<br>
               <span class="cf-consent-detail">
-                수집 항목: 회사·기관명, 담당자 이름·직책, 이메일 / 수집 목적: 도입 진단 문의 응대 및 상담 / 보유 기간: 문의 처리 완료 후 관련 법령에 따라 보관·파기 / 국외이전: 문의 폼 전송을 위해 Web3Forms(미국 소재)로 개인정보가 전송됩니다. 자세한 내용은 <a href="privacy.html">개인정보처리방침</a>을 확인하세요.
+                수집 항목: 회사·기관명, 담당자 이름·직책, 이메일 / 수집 목적: 도입 진단 문의 응대 및 상담 / 보유 기간: 문의 처리 완료 후 관련 법령에 따라 보관·파기 / 국외이전: 문의 폼 전송을 위해 Web3Forms(미국 소재)로 개인정보가 전송됩니다. 자세한 내용은 <a href="/privacy">개인정보처리방침</a>을 확인하세요.
               </span>
             </label>
           </div>
@@ -210,6 +217,7 @@
 
         <div class="cf-row">
           <div class="cf-label">[ /08 · SUBMIT ]</div>
+          <p id="cf-form-error" class="cf-form-error" role="alert"></p>
           <div class="cf-submit-group">
             <button type="submit" class="cf-submit-btn">
               도입 진단 신청 보내기 →
@@ -234,25 +242,53 @@
           // Cloudflare 이메일 난독화가 인라인 스크립트를 훼손하지 않도록 주소를 조각내어 조립
           var CONTACT_EMAIL = ['beomonnuri', '@', 'gmail', '.', 'com'].join('');
 
-          // 폼 값을 검증하고, 통과 시 {subject, body} 반환. 실패 시 null 반환(알림 표시).
+          // 폼 오류 안내: alert() 대신 필드와 프로그래밍적으로 연결된 인라인 오류를 쓴다.
+          // (WCAG 3.3.1 오류 식별 / 3.3.3 오류 수정 제안 / 4.1.2 상태 노출)
+          var errBox = document.getElementById('cf-form-error');
+
+          function clearErrors() {
+            if (errBox) errBox.textContent = '';
+            var marked = form.querySelectorAll('[aria-invalid="true"]');
+            for (var i = 0; i < marked.length; i++) {
+              marked[i].removeAttribute('aria-invalid');
+              marked[i].removeAttribute('aria-describedby');
+            }
+          }
+
+          // 오류 메시지를 role="alert" 영역에 넣고, 해당 필드에 aria-invalid 와
+          // aria-describedby 를 걸어 스크린리더가 필드에서 바로 이유를 읽게 한다.
+          function failWith(message, fields) {
+            if (errBox) errBox.textContent = message;
+            for (var i = 0; i < fields.length; i++) {
+              if (!fields[i]) continue;
+              fields[i].setAttribute('aria-invalid', 'true');
+              fields[i].setAttribute('aria-describedby', 'cf-form-error');
+            }
+            if (fields[0] && typeof fields[0].focus === 'function') fields[0].focus();
+            return null;
+          }
+
+          // 폼 값을 검증하고, 통과 시 {subject, body} 반환. 실패 시 null 반환.
           function collect(validateRequired) {
             var org = (form.org.value || '').trim();
             var contact = (form.contact.value || '').trim();
             var email = (form.email.value || '').trim();
             var priority = (form.priority.value || '').trim();
             if (validateRequired) {
-              if (!org || !contact || !email) {
-                alert('회사·기관명, 담당자, 이메일은 필수 입력입니다.');
-                return null;
+              clearErrors();
+              var missing = [];
+              if (!org) missing.push(form.org);
+              if (!contact) missing.push(form.contact);
+              if (!email) missing.push(form.email);
+              if (missing.length) {
+                return failWith('회사·기관명, 담당자, 이메일은 필수 입력입니다. 비어 있는 항목을 채워주세요.', missing);
               }
               var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (!emailPattern.test(email)) {
-                alert('올바른 이메일 형식을 입력해 주세요.');
-                return null;
+                return failWith('이메일 형식이 올바르지 않습니다. 예: name@company.com', [form.email]);
               }
               if (!form.consent.checked) {
-                alert('개인정보 수집·이용 동의가 필요합니다.');
-                return null;
+                return failWith('개인정보 수집·이용 동의가 필요합니다. 동의 체크박스를 선택해주세요.', [form.consent]);
               }
             }
             var interest = Array.prototype.slice
@@ -426,23 +462,23 @@
       </div>
       <div>
         <h3>Products</h3>
-        <a href="products-private.html">프라이빗 AI</a>
-        <a href="products-agent.html">에이전트 AI</a>
+        <a href="/products-private">프라이빗 AI</a>
+        <a href="/products-agent">에이전트 AI</a>
         <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 한 줄의 주석만 해제
-        <a href="products-superchart.html">슈퍼차트 AI</a>
+        <a href="/products-superchart">슈퍼차트 AI</a>
         -->
-        <a href="services-outsourcing.html">외주·MVP 제작</a>
+        <a href="/services-outsourcing">외주·MVP 제작</a>
       </div>
       <div>
         <h3>Company</h3>
-        <a href="why.html">Why Beomonnuri</a>
-        <a href="contact.html">Contact</a>
-        <a href="privacy.html">개인정보처리방침</a>
+        <a href="/why">Why Beomonnuri</a>
+        <a href="/contact">Contact</a>
+        <a href="/privacy">개인정보처리방침</a>
       </div>
       <div>
         <h3>Connect</h3>
         <a href="mailto:beomonnuri@gmail.com">beomonnuri@gmail.com</a>
-        <a href="https://maps.google.com/?q=경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15" target="_blank" rel="noopener noreferrer">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
+        <a href="https://maps.google.com/?q=%EA%B2%BD%EA%B8%B0%EB%8F%84%20%EA%B5%AC%EB%A6%AC%EC%8B%9C%20%EA%B0%88%EB%A7%A4%EC%A4%91%EC%95%99%EB%A1%9C%20190%20%28%EA%B5%AC%EB%A6%AC%EA%B0%88%EB%A7%A4%ED%9C%B4%EB%B0%B8%20%EB%82%98%EC%9D%B8%EC%A7%80%EC%8B%9D%EC%82%B0%EC%97%85%EC%84%BC%ED%84%B0%29%20D%EC%A1%B4%204%EC%B8%B5%2015" target="_blank" rel="noopener noreferrer">경기도 구리시 갈매중앙로 190 (구리갈매휴밸 나인지식산업센터) D존 4층 15</a>
       </div>
     </div>
     <div class="ft-bottom-row">
@@ -468,9 +504,9 @@
   </defs>
 </svg>
 
-<script src="assets/js/ai-frontier.js?v=20260804c"></script>
-<script src="assets/js/v5-nextgen.js?v=20260804c"></script>
-<script src="assets/js/v5-webgpu.js?v=20260804b"></script>
-<script src="assets/js/v5-mobile.js?v=20260804b"></script>
+<script src="assets/js/ai-frontier.js?v=20260827b" defer></script>
+<script src="assets/js/v5-nextgen.js?v=20260827a" defer></script>
+<script src="assets/js/v5-webgpu.js?v=20260827a" defer></script>
+<script src="assets/js/v5-mobile.js?v=20260827a" defer></script>
 </body>
 </html>

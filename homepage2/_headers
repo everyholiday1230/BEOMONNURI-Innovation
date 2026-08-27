@@ -1,0 +1,80 @@
+# Cloudflare Pages 커스텀 응답 헤더
+# https://developers.cloudflare.com/pages/configuration/headers/
+#
+# 주의 1: 같은 헤더 이름을 여러 규칙에서 선언하면 값이 콤마로 합쳐진다.
+#         CSP가 콤마로 합쳐지면 두 정책의 교집합으로 동작해 의도치 않게 리소스가
+#         차단되므로, 사이트 전체에 단일 CSP만 선언한다.
+#         (결제 페이지에 필요한 tosspayments 도메인도 이 정책에 포함되어 있다.)
+# 주의 2: Cloudflare는 /products.html 을 /products 로 308 리다이렉트해 서빙한다.
+#         따라서 `/*.html` 패턴 규칙은 실제 요청과 매칭되지 않는다.
+
+/*
+  # --- 전송 계층 ---
+  # preload 는 브라우저 프리로드 목록 등재 후 철회가 어려우므로 의도적으로 제외했다.
+  # 등재를 원하면 https://hstspreload.org 에 별도 신청한 뒤 preload 를 추가한다.
+  # includeSubDomains: chart.beomonnuri.com 이 이미 http→https 301 이므로 안전.
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+  # --- 콘텐츠 주입 방어 ---
+  # script-src 'unsafe-inline': index/contact/checkout 에 인라인 <script> 가 남아 있어 필요.
+  #   인라인 스크립트를 외부 .js 로 분리하면 제거할 수 있다.
+  # style-src  'unsafe-inline': 페이지별 인라인 <style> 과 style= 속성이 다수 존재해 필요.
+  # 도메인 근거:
+  #   cdnjs.cloudflare.com      three.js r128 (index)
+  #   *.tosspayments.com        결제 SDK. SDK 내부에서 connect/event/log/payment-gateway/
+  #                             payment-widget 서브도메인을 호출한다(SDK 정적 분석 확인).
+  #   fonts.googleapis.com      Google Fonts CSS
+  #   fonts.gstatic.com         Google Fonts 폰트 파일
+  #   cdn.jsdelivr.net          Pretendard CSS + woff2
+  #   api.web3forms.com         contact 폼 전송 엔드포인트
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://api.web3forms.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://js.tosspayments.com https://*.tosspayments.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://api.web3forms.com https://*.tosspayments.com; frame-src 'self' https://*.tosspayments.com; manifest-src 'self'; worker-src 'none'; upgrade-insecure-requests
+
+  # --- 클릭재킹 / MIME 스니핑 / 리퍼러 ---
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # --- 브라우저 기능 최소 권한 ---
+  # payment: 토스 결제창(Payment Request API) 을 위해 self + 토스 오리진만 허용.
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), usb=(), xr-spatial-tracking=(), payment=(self "https://js.tosspayments.com")
+
+  # --- 크로스 오리진 ---
+  # same-origin-allow-popups: 우리가 여는 팝업(토스 결제창)은 opener 참조를 유지하되,
+  #   외부 문서가 우리 창을 opener 로 잡는 것은 차단한다. 순수 same-origin 으로 두면
+  #   결제 팝업의 opener 통신이 끊길 수 있다.
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  # Cross-Origin-Resource-Policy 는 설정하지 않는다. same-origin 으로 두면 외부 사이트가
+  #   <img> 로 로고/og-image 를 표시할 수 없게 되어 브랜드 노출에 해가 된다.
+  # Cross-Origin-Embedder-Policy 도 설정하지 않는다. Google Fonts / jsDelivr / cdnjs 가
+  #   CORP 헤더를 주지 않아 require-corp 로 두면 폰트와 three.js 가 전부 차단된다.
+
+# ── 캐시 정책 ──
+# Cloudflare Pages 는 같은 헤더가 여러 규칙에서 선언되면 값을 콤마로 합친다.
+# 따라서 아래 패턴들은 서로 겹치지 않게 나눠 두었다. (`*` 는 `/` 까지 탐욕적으로 매칭하므로
+#  `/assets/*` 하나만 쓰면 css/js/img 를 모두 삼켜 세분화가 불가능하다.)
+
+# CSS·JS 는 참조 URL 에 ?v=YYYYMMDD 버전 쿼리가 붙어 있어 immutable 이 안전하다.
+# 내용을 고칠 때는 HTML 의 ?v= 값을 반드시 함께 올려야 한다.
+/assets/css/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 이미지는 버전 쿼리가 없다. immutable 로 두면 로고를 교체해도 1년간 구버전이 남으므로
+# 재검증 가능한 중기 캐시로 둔다.
+/assets/img/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# 공유 카드·정사각 로고는 검색엔진/SNS 가 재수집할 때 빨리 갱신되어야 하므로 짧게 둔다.
+/assets/og-image.png
+  Cache-Control: public, max-age=3600, stale-while-revalidate=3600
+
+/assets/logo-square.png
+  Cache-Control: public, max-age=3600, stale-while-revalidate=3600
+
+# 색인 대상이 아닌 결제 페이지는 헤더 수준에서도 색인을 차단한다.
+# robots.txt Disallow 만으로는 크롤러가 페이지를 읽지 못해 meta noindex 도 인식하지 못한다.
+/checkout-*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store

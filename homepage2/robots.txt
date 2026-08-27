@@ -1,13 +1,17 @@
+# www.beomonnuri.com
+#
+# 색인 제외는 robots.txt Disallow 가 아니라 meta robots="noindex" 와
+# X-Robots-Tag 응답 헤더(_headers 참조)로 처리한다.
+# Disallow 로 크롤링을 막으면 크롤러가 페이지를 열지 못해 noindex 를 읽을 수 없고,
+# 결과적으로 URL 만 검색결과에 남는 상태가 될 수 있다.
+#
+# 현재 noindex 처리된 경로(크롤링은 허용, 색인은 차단):
+#   /checkout-private, /checkout-agent, /checkout-private-billing,
+#   /checkout-agent-billing, /checkout-success, /checkout-billing-success,
+#   /checkout-fail  ... meta noindex,nofollow + X-Robots-Tag
+#   /products-superchart ......... TEMP-HIDDEN(2026-08-04), meta noindex
+
 User-agent: *
 Allow: /
-Disallow: /checkout-private.html
-Disallow: /checkout-agent.html
-Disallow: /checkout-private-billing.html
-Disallow: /checkout-agent-billing.html
-Disallow: /checkout-success.html
-Disallow: /checkout-billing-success.html
-Disallow: /checkout-fail.html
-# TEMP-HIDDEN(SUPERCHART / 2026-08-04): 페이지 임시 비노출. 재노출 시 아래 한 줄 삭제
-Disallow: /products-superchart.html
 
 Sitemap: https://www.beomonnuri.com/sitemap.xml

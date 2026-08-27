@@ -2,57 +2,57 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.beomonnuri.com/</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/products</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/products-private</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/products-agent</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- TEMP-HIDDEN(SUPERCHART / 2026-08-04): 재노출 시 아래 url 블록의 주석만 해제
   <url>
     <loc>https://www.beomonnuri.com/products-superchart</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   -->
   <url>
     <loc>https://www.beomonnuri.com/services-outsourcing</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/why</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/contact</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.beomonnuri.com/privacy</loc>
-    <lastmod>2026-07-15</lastmod>
+    <lastmod>2026-08-27</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

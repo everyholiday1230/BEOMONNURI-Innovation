@@ -23,9 +23,17 @@ const pausableInterval5 = (fn, ms) => {
   });
   return id;
 };
-// Always run all animations/WebGL effects — branded experience takes priority.
-// (Original prefers-reduced-motion check disabled per client direction 2026-07.)
-const reducedV5 = false;
+/* 모션 게이트 (WCAG 2.3.3 / 2.2.2).
+   ai-frontier.js가 로드되면 window.BN_MOTION(사용자 선택 우선)을 그대로 따르고,
+   결제 페이지처럼 ai-frontier.js가 없는 곳에서는 OS prefers-reduced-motion으로
+   안전하게 폴백한다. */
+const prefersReducedV5 = () => {
+  try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+};
+const motionOffV5 = () => (window.BN_MOTION ? window.BN_MOTION.isOff() : prefersReducedV5());
+// 초기 렌더 시점 스냅샷 — 무거운 WebGL 초기화를 건너뛰는 게이트.
+// (런타임 정지/재개는 각 rAF 루프가 motionOffV5()를 매 프레임 확인한다.)
+const reducedV5 = motionOffV5();
 
 /* ============================================================
    1. SCROLL PROGRESS BAR
@@ -348,7 +356,7 @@ const reducedV5 = false;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
   const tick = () => {
-    if (!visible) { requestAnimationFrame(tick); return; }
+    if (!visible || motionOffV5()) { requestAnimationFrame(tick); return; }
     const now = performance.now();
     const t = (now - start) / 1000;
 
@@ -580,7 +588,7 @@ const reducedV5 = false;
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
   const tick = () => {
-    if (!visible) { requestAnimationFrame(tick); return; }
+    if (!visible || motionOffV5()) { requestAnimationFrame(tick); return; }
     mouse.x += (mouse.tx - mouse.x) * 0.08;
     mouse.y += (mouse.ty - mouse.y) * 0.08;
     const t = (performance.now() - start) / 1000;
@@ -728,7 +736,7 @@ const reducedV5 = false;
 
   let envFrameCount = 0;
   const tick = () => {
-    if (!visible) { requestAnimationFrame(tick); return; }
+    if (!visible || motionOffV5()) { requestAnimationFrame(tick); return; }
     const t = clock.getElapsedTime();
     mouse.x += (mouse.tx - mouse.x) * 0.06;
     mouse.y += (mouse.ty - mouse.y) * 0.06;
@@ -800,8 +808,28 @@ const reducedV5 = false;
 
   // Prefer logos copied from hidden flat marquee, fallback to static source paths.
   const logoMap = {};
+  // 파트너 로고 원본(PNG) 실측 크기 — CLS 방지를 위해 <img>에 width/height를 명시한다.
+  // (assets/img/logos/partners/*.png 를 PIL로 조사한 실제 픽셀값. CSS가 표시 크기를
+  //  제어하므로 여기 값은 종횡비 박스 예약 용도이다.)
+  const LOGO_DIMS = {
+    'mss':              { w: 960,  h: 750 },
+    'moel':             { w: 960,  h: 960 },
+    'gov-gg':           { w: 844,  h: 297 },
+    'korcham':          { w: 410,  h: 165 },
+    'startup':          { w: 1024, h: 342 },
+    'inv-posco':        { w: 400,  h: 133 },
+    'fin-nh':           { w: 1280, h: 410 },
+    'youth-foundation': { w: 1200, h: 360 },
+    'edu-dku':          { w: 500,  h: 500 },
+    'localmotive':      { w: 443,  h: 101 },
+    'lab-knl':          { w: 710,  h: 473 },
+    'kiss':             { w: 1015, h: 132 },
+  };
   const logoHtml = (id, src, alt, webp) => {
+    const d = LOGO_DIMS[id];
+    const wh = d ? ` width="${d.w}" height="${d.h}"` : '';
     const img = `<img class="logo-mark logo-${id}" src="${src}" alt="${alt || ''}"`
+      + wh
       + (webp ? ` data-webp="${webp}"` : '')
       + ` loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
     return webp ? `<picture><source type="image/webp" srcset="${webp}">${img}</picture>` : img;
@@ -881,15 +909,27 @@ const reducedV5 = false;
   // some Chromium/GPU driver combos), leaving the cylinder visibly frozen.
   // Manual rAF control is more reliable across environments.
   const ROTATION_PERIOD_MS = 40000; // matches previous 40s CSS animation
-  let rotationVisible = true;
+  let rotationVisible = true;        // 탭 가시성 (기존 동작 유지)
   document.addEventListener('visibilitychange', () => {
     rotationVisible = !document.hidden;
   });
 
+  // 성능: 실린더가 뷰포트 밖이면 회전 rAF를 실제로 멈춘다. IntersectionObserver를
+  // 지원하지 않거나 관측 대상이 없으면 항상 켜진 것으로 두어 회귀를 막는다.
+  let rotationOnscreen = true;
+  const rotationTarget = stage.parentElement || stage;
+  if ('IntersectionObserver' in window && rotationTarget) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { rotationOnscreen = e.isIntersecting; });
+    }, { root: null, rootMargin: '200px 0px', threshold: 0 });
+    io.observe(rotationTarget);
+  }
+
   function startRotation() {
     let start = null;
     const spin = (now) => {
-      if (!rotationVisible) {
+      // 탭 숨김 / 화면 밖 / 모션 OFF 중 하나라도 해당하면 회전을 멈추고 대기한다.
+      if (!rotationVisible || !rotationOnscreen || motionOffV5()) {
         requestAnimationFrame(spin);
         return;
       }

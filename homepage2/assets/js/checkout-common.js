@@ -27,13 +27,26 @@ function initSingleCheckout(opts) {
   var methodWrap = document.getElementById("payment-method");
   if (methodWrap) {
     var btns = methodWrap.querySelectorAll(".co-method-btn");
+    // 선택 상태를 배경색뿐 아니라 aria-pressed로도 전달한다(WCAG 4.1.2/1.4.1).
+    var syncMethod = function (active) {
+      btns.forEach(function (b) {
+        var on = b === active;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    };
     btns.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        btns.forEach(function (b) { b.classList.remove("is-active"); });
-        btn.classList.add("is-active");
+        syncMethod(btn);
         selectedMethod = btn.getAttribute("data-method");
       });
     });
+    // 초기 상태(마크업의 .is-active) 반영
+    var initialMethod = methodWrap.querySelector(".co-method-btn.is-active") || btns[0];
+    if (initialMethod) {
+      syncMethod(initialMethod);
+      selectedMethod = initialMethod.getAttribute("data-method");
+    }
   }
 
   var payBtn = document.getElementById("pay-btn");
@@ -88,27 +101,50 @@ function initBillingCheckout(opts) {
   var planWrap = document.getElementById("plan-select");
   if (planWrap) {
     var planLabels = planWrap.querySelectorAll(".co-plan");
+    // change 이벤트 기반으로 전환한다. 라디오는 opacity:0로 숨겨져 있어 키보드 방향키로
+    // 선택을 옮기면 click은 발생하지 않고 change만 발생하는데, 기존 label click 핸들러는
+    // 이를 놓쳐 시각적 선택 표시(.is-active)가 갱신되지 않았다(WCAG 2.1.1/1.4.1).
+    // change에서 현재 checked 상태를 기준으로 표시를 동기화하며, click 핸들러는 두지 않아
+    // 이중 처리를 피한다(라벨 클릭은 라디오 change를 자동 유발).
+    var syncPlan = function () {
+      planLabels.forEach(function (l) {
+        var radio = l.querySelector("input[type=radio]");
+        var on = !!(radio && radio.checked);
+        l.classList.toggle("is-active", on);
+        if (on) selectedPlan = radio.value;
+      });
+    };
     planLabels.forEach(function (label) {
       var input = label.querySelector("input[type=radio]");
-      label.addEventListener("click", function () {
-        planLabels.forEach(function (l) { l.classList.remove("is-active"); });
-        label.classList.add("is-active");
-        input.checked = true;
-        selectedPlan = input.value;
-      });
+      if (input) input.addEventListener("change", syncPlan);
     });
+    // 초기 상태(미리 checked된 라디오) 반영
+    syncPlan();
   }
 
   var methodWrap = document.getElementById("billing-method");
   if (methodWrap) {
     var btns = methodWrap.querySelectorAll(".co-method-btn");
+    // 선택 상태를 배경색뿐 아니라 aria-pressed로도 전달한다(WCAG 4.1.2/1.4.1).
+    var syncMethod = function (active) {
+      btns.forEach(function (b) {
+        var on = b === active;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    };
     btns.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        btns.forEach(function (b) { b.classList.remove("is-active"); });
-        btn.classList.add("is-active");
+        syncMethod(btn);
         selectedMethod = btn.getAttribute("data-method");
       });
     });
+    // 초기 상태(마크업의 .is-active) 반영
+    var initialMethod = methodWrap.querySelector(".co-method-btn.is-active") || btns[0];
+    if (initialMethod) {
+      syncMethod(initialMethod);
+      selectedMethod = initialMethod.getAttribute("data-method");
+    }
   }
 
   var billingBtn = document.getElementById("billing-btn");
