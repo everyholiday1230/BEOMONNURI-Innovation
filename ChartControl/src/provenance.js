@@ -172,7 +172,8 @@
      ★ `partial` 인 이유: 적립·차감·잔액은 실제지만 **판매(결제)가 열려 있지
        않다**(결제 대행사 미연결). 그 부분이 확정되지 않았다.
   */
-  ROUTES['/points'] = { status: 'partial', note: 'points_no_payment' };
+  // 결제(PayPal·Toss)가 배선되어 구매가 열렸다. 원장·잔액·구매·내역 모두 실제다.
+  ROUTES['/points'] = { status: 'live', note: 'points_live' };
   /*
      법적 문서 — 게시 여부에 따라 내용이 달라진다.
 
