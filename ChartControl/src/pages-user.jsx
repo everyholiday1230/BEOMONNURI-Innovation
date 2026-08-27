@@ -3087,6 +3087,27 @@
     }, []);
 
     /*
+       접근성 설정.
+
+       ★ 전에는 스위치가 defaultChecked 라 아무 것도 하지 않았다. 실제로 효과가
+         있는 것만 남기고(문서 루트에 data-a11y-* 속성을 붙여 CSS 가 반응한다),
+         켤 수 없는 항목('스크린 리더'는 외부 프로그램이라 토글 대상이 아니다)은
+         뺐다. 값은 기기에 저장하고, 앱 로드 시 i18n-bootstrap 이 다시 적용한다.
+    */
+    const A11Y_KEYS = ['reduce-motion', 'high-contrast', 'large-text', 'keyboard-only', 'color-blind', 'focus-indicator'];
+    const [a11y, setA11y] = useState(() => {
+      const def = {}; A11Y_KEYS.forEach((k) => { def[k] = false; });
+      try { const s = JSON.parse(localStorage.getItem('qt.a11y.v1') || 'null'); if (s) A11Y_KEYS.forEach((k) => { if (typeof s[k] === 'boolean') def[k] = s[k]; }); } catch (e) { /* 손상 시 기본값 */ }
+      return def;
+    });
+    useEffect(() => {
+      const root = document.documentElement;
+      A11Y_KEYS.forEach((k) => root.toggleAttribute('data-a11y-' + k, !!a11y[k]));
+      try { localStorage.setItem('qt.a11y.v1', JSON.stringify(a11y)); } catch (e) { /* 저장 실패 무시 */ }
+    }, [a11y]);
+    const toggleA11y = (k) => setA11y((prev) => Object.assign({}, prev, { [k]: !prev[k] }));
+
+    /*
        프로필 — 실 세션.
 
        목업 USER 는 '권누리 / usr_kuri001 / kuri@quantumtrade.ai / KYC Level 2 /
@@ -3495,7 +3516,6 @@
                     { k:'reduce-motion',   label:t('settings_12d487'),                desc:t('settings_dc3d8a') },
                     { k:'high-contrast',   label:t('settings_02bb1c'),              desc:t('settings_a63c4a') },
                     { k:'large-text',      label:t('settings_c56d3c'),                  desc:t('settings_bbb99f') },
-                    { k:'screen-reader',   label:t('settings_625fc6'),       desc:t('settings_da0cf0') },
                     { k:'keyboard-only',   label:t('settings_c35257'),         desc:t('settings_4599e3') },
                     { k:'color-blind',     label:t('settings_a5d169'),                desc:t('settings_3f9048') },
                     { k:'focus-indicator', label:t('settings_816538'),          desc:t('settings_fa2fee') },
@@ -3505,7 +3525,7 @@
                         <div style={{fontSize:13, fontWeight: 500}}>{r.label}</div>
                         <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:2}}>{r.desc}</div>
                       </div>
-                      <label className="switch"><input type="checkbox" defaultChecked={r.k === 'focus-indicator'}/><span className="switch__track"><span className="switch__thumb"/></span></label>
+                      <label className="switch"><input type="checkbox" checked={!!a11y[r.k]} onChange={() => toggleA11y(r.k)}/><span className="switch__track"><span className="switch__thumb"/></span></label>
                     </div>
                   ))}
                 </div>

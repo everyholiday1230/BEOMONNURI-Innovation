@@ -47,3 +47,21 @@
     console.info(`[i18n] locale=${I18n.getLocale()} 등록언어=${langs} 레거시흡수=${absorbed}키`);
   }
 })();
+
+
+/* ============================================================
+   접근성 설정 재적용.
+   SettingsPage 가 localStorage(qt.a11y.v1)에 저장한 값을, 새로고침 후에도
+   화면 초기화 시점에 문서 루트에 다시 붙인다(없으면 설정 화면을 다시 열기 전까지
+   적용되지 않는다). CSS 는 widgets.css 의 :root[data-a11y-*] 규칙이 담당한다.
+   ============================================================ */
+(function () {
+  'use strict';
+  try {
+    var a = JSON.parse(localStorage.getItem('qt.a11y.v1') || 'null');
+    if (!a) return;
+    ['reduce-motion', 'high-contrast', 'large-text', 'keyboard-only', 'color-blind', 'focus-indicator'].forEach(function (k) {
+      if (a[k]) document.documentElement.setAttribute('data-a11y-' + k, '');
+    });
+  } catch (e) { /* 손상된 설정은 무시 */ }
+})();

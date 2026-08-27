@@ -1650,3 +1650,35 @@
   text-decoration: none;
 }
 .sh-more-menu__item:hover { background: var(--color-bg-hover); }
+
+/* ============================================================
+   접근성 설정 (Settings → Accessibility)
+   SettingsPage 의 스위치가 문서 루트에 data-a11y-* 속성을 붙이고,
+   앱 로드 시 i18n-bootstrap 이 저장값을 다시 적용한다. 아래 규칙이 반응한다.
+   ============================================================ */
+:root[data-a11y-reduce-motion] *,
+:root[data-a11y-reduce-motion] *::before,
+:root[data-a11y-reduce-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-a11y-large-text] { font-size: 118%; }
+:root[data-a11y-high-contrast] {
+  --color-text-secondary: var(--color-text-primary);
+  --color-text-tertiary: var(--color-text-primary);
+  --color-border-subtle: var(--color-border-default);
+}
+:root[data-a11y-keyboard-only] :focus,
+:root[data-a11y-focus-indicator] :focus-visible {
+  outline: 2px solid var(--color-brand) !important;
+  outline-offset: 2px !important;
+}
+/* 색각 보조 — Okabe–Ito 색맹 안전 팔레트로 롱/숏·성공/위험 색을 바꾼다. */
+:root[data-a11y-color-blind] {
+  --color-trade-long: #0072B2;
+  --color-trade-short: #E69F00;
+  --color-success: #0072B2;
+  --color-danger: #E69F00;
+}
