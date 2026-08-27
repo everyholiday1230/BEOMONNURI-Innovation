@@ -3,7 +3,7 @@
 -- 편집·삭제·재백테스트할 수 있는 자기 소유 전략/지표를 담는다.
 CREATE TABLE IF NOT EXISTS user_strategies (
   id               TEXT PRIMARY KEY,
-  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind             TEXT NOT NULL DEFAULT 'strategy' CHECK (kind IN ('strategy', 'indicator')),
   name             TEXT NOT NULL,
   base_strategy_id TEXT,
