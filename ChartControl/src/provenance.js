@@ -245,7 +245,7 @@
     // 포지션·자산은 API 키가 검증되면 실데이터가 된다.
     { selector: '[data-widget-type="positions"]', status: 'dynamic:account', note: 'needs_api_key' },
     { selector: '[data-widget-type="assetsRisk"]', status: 'dynamic:account', note: 'needs_api_key' },
-    { selector: '[data-widget-type="aiCopilot"]', status: 'mock', note: 'ai_not_built' },
+    { selector: '[data-widget-type="aiCopilot"]', status: 'partial', note: 'ai_copilot_live' },
 
     /*
        포지션 위젯의 탭은 상태가 서로 다르다.

@@ -1592,6 +1592,13 @@
    부차 열을 접으며, Order Entry 제출 버튼을 하단에 고정한다. */
 [data-autofit="on"] .panel__body { container-type: inline-size; }
 
+/* 화면을 꽉 채운다 — 프리셋(16행)이 뷰포트 높이에 맞게 늘어나 하단 공백이 사라지고
+   위젯들이 남는 세로 공간을 나눠 갖는다. off 이면 기존 40px 고정 행 그대로다. */
+[data-autofit="on"] .trade-body {
+  grid-template-rows: repeat(16, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+}
+
 /* Order Entry: 제출 버튼을 패널 하단에 고정 — 스크롤 밖으로 사라지지 않게 */
 [data-autofit="on"] .oe-buttons {
   position: sticky;

@@ -500,6 +500,7 @@
       pt_pay_toss: 'Toss',
       autofit_toggle: '自動フィット (Trade Ex)',
       nav_trade_ex: 'Trade Ex',
+      prov_note_ai_copilot_live: 'AI コパイロットは稼働中 — チャート操作をストリーミングし、実行ごとにポイントを消費します。',
       wg_more: 'その他',
       ob_loading: '板情報を読み込み中…',
       ob_both: '両方',
