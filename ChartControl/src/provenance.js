@@ -336,7 +336,10 @@
   try {
     var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if (saved && typeof saved === 'object') {
-      if (typeof saved.enabled === 'boolean') state.enabled = saved.enabled;
+      // ★ 실서비스 도메인에서는 저장된 '켜짐' 설정을 무시한다 — 개발용 오버레이(LIVE/
+      //   PARTIAL/MOCK 배지·범례)가 런칭 제품에 새어 나와 운영자를 혼란시키지 않게 한다.
+      //   로컬 개발에서만 저장된 설정을 존중한다.
+      if (typeof saved.enabled === 'boolean' && isLocalDev) state.enabled = saved.enabled;
       if (saved.mode === 'badge' || saved.mode === 'outline') state.mode = saved.mode;
     }
   } catch (e) { /* 손상된 값은 무시하고 기본값을 쓴다 */ }
