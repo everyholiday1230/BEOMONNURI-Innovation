@@ -622,10 +622,37 @@
     const [display, setDisplay] = useState('amount'); // amount | cumulative
     if (!book) return <div className="panel" style={{height:'100%'}}><div className="empty"><span className="empty__icon">📖</span><span>{t('ob_loading')}</span></div></div>;
 
-    const maxCum = Math.max(book.asks[book.asks.length-1]?.cumulative || 0, book.bids[book.bids.length-1]?.cumulative || 0);
+    /*
+       ★ 정밀도(그룹화) 드롭다운을 실제로 적용한다.
+
+         전에는 precision 상태만 있고 어디에도 쓰이지 않아, 값을 바꿔도 호가창이
+         그대로였다. 선택한 가격 단위로 호가를 버킷팅해 수량을 합치고 누적을
+         다시 계산한다(매도는 올림, 매수는 내림 — 스프레드 쪽으로 모은다).
+    */
+    const groupLevels = (levels, side) => {
+      if (!precision || precision <= 0 || !Array.isArray(levels)) return levels || [];
+      const map = new Map();
+      for (const lv of levels) {
+        const bucket = side === 'ask'
+          ? Math.ceil(lv.price / precision) * precision
+          : Math.floor(lv.price / precision) * precision;
+        const key = bucket.toFixed(8);
+        const cur = map.get(key) || { price: bucket, amount: 0 };
+        cur.amount += lv.amount;
+        map.set(key, cur);
+      }
+      const arr = Array.from(map.values()).sort((a, b) => (side === 'ask' ? a.price - b.price : b.price - a.price));
+      let c = 0;
+      for (const lv of arr) { c += lv.amount; lv.cumulative = c; }
+      return arr;
+    };
+    const gAsks = groupLevels(book.asks, 'ask');
+    const gBids = groupLevels(book.bids, 'bid');
+
+    const maxCum = Math.max(gAsks[gAsks.length-1]?.cumulative || 0, gBids[gBids.length-1]?.cumulative || 0);
     const rows = 12;
-    const asks = book.asks.slice(0, rows).reverse();
-    const bids = book.bids.slice(0, rows);
+    const asks = gAsks.slice(0, rows).reverse();
+    const bids = gBids.slice(0, rows);
     const spread = book.spread;
     const isUp = lastPrice >= prevPrice;
 
@@ -635,8 +662,8 @@
         <div key={side + '-' + i + '-' + r.price} className={`ob-row ob-row--${side}`} onClick={() => onClickPrice && onClickPrice(r.price)} title={t('ob_click_fill', { price: r.price })}>
           <div className="ob-row__depth" style={{width: `${depthPct}%`}}/>
           <span className="ob-row__price">{fmtPrice(r.price, tick)}</span>
-          <span className="ob-row__amt">{r.amount.toFixed(3)}</span>
-          <span className="ob-row__total">{r.cumulative.toFixed(2)}</span>
+          <span className="ob-row__amt">{display === 'cumulative' ? r.cumulative.toFixed(3) : r.amount.toFixed(3)}</span>
+          <span className="ob-row__total">{(r.price * r.amount).toFixed(2)}</span>
         </div>
       );
     };
