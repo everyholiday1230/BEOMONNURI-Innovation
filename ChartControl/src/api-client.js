@@ -1469,9 +1469,9 @@
       });
     },
 
-    /** MFA 코드 검증. 엔드포인트는 mfa 라우터가 제공한다. */
+    /** MFA 코드 검증(로그인 2단계). 로그인 시 심은 challenge 쿠키로 auth 라우터가 검증한다. */
     verifyMfa: function (code) {
-      return sendJSON('POST', '/api/mfa/verify', { code: code });
+      return sendJSON('POST', '/api/auth/mfa/challenge', { code: code });
     },
 
     /*
