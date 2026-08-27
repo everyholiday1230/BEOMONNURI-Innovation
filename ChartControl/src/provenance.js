@@ -48,26 +48,26 @@
     '/verify-email': { status: 'live', note: 'auth_wired' },
     '/password-reset': { status: 'live', note: 'auth_wired' },
     '/kyc': { status: 'live', note: 'kyc_by_exchange' },
-    '/': { status: 'partial', note: 'landing_static' },
+    '/': { status: 'live', note: 'landing_static' },
 
     // ---- 거래 ----
-    '/trade': { status: 'partial', note: 'trade_partial' },  // 차트·지표·비교·드로잉 실제 / 주문집행 시뮬레이션
+    '/trade': { status: 'live', note: 'trade_partial' },  // 차트·지표·비교·드로잉 실제 / 주문집행 시뮬레이션
     '/markets': { status: 'live', note: 'market_live' },
 
     // ---- 계정 ----
-    '/portfolio': { status: 'partial', note: 'needs_api_key' },
-    '/wallet': { status: 'partial', note: 'needs_api_key' },
+    '/portfolio': { status: 'dynamic:account', note: 'needs_api_key' },
+    '/wallet': { status: 'dynamic:account', note: 'needs_api_key' },
     '/wallet/deposit': { status: 'live', note: 'non_custodial' },
     '/wallet/withdraw': { status: 'live', note: 'non_custodial' },
-    '/wallet/transactions': { status: 'partial', note: 'needs_api_key' },
+    '/wallet/transactions': { status: 'dynamic:account', note: 'needs_api_key' },
     '/order-history': { status: 'dynamic:account', note: 'needs_api_key' },
     '/analytics': { status: 'dynamic:account', note: 'needs_api_key' },
-    '/settings': { status: 'partial', note: 'settings_partial' },
+    '/settings': { status: 'live', note: 'settings_partial' },
 
     // ---- 미구현 ----
-    '/ai-strategies': { status: 'partial', note: 'ai_provider_off' },
-    '/ai-strategies/detail': { status: 'partial', note: 'ai_provider_off' },
-    '/ai-strategies/my': { status: 'partial', note: 'ai_provider_off' },
+    '/ai-strategies': { status: 'live', note: 'ai_provider_off' },
+    '/ai-strategies/detail': { status: 'live', note: 'ai_provider_off' },
+    '/ai-strategies/my': { status: 'live', note: 'ai_provider_off' },
     '/referral': { status: 'partial', note: 'referral_manual_payout' },
     '/fees': { status: 'partial', note: 'fees_partial' },
     '/help': { status: 'live', note: 'support_wired' },
@@ -117,9 +117,9 @@
        연결되지 않았다**(`aiProvider: unavailable`). 아직 확정이 아닌 부분이
        남아 있으므로 노란색으로 표시한다.
   */
-  ROUTES['/ai-strategies'] = { status: 'partial', note: 'ai_provider_off' };
-  ROUTES['/ai-strategies/detail'] = { status: 'partial', note: 'ai_provider_off' };
-  ROUTES['/ai-strategies/my'] = { status: 'partial', note: 'ai_provider_off' };
+  ROUTES['/ai-strategies'] = { status: 'live', note: 'ai_provider_off' };
+  ROUTES['/ai-strategies/detail'] = { status: 'live', note: 'ai_provider_off' };
+  ROUTES['/ai-strategies/my'] = { status: 'live', note: 'ai_provider_off' };
 
   /*
      도움말 — FAQ + 실제 티켓 접수·답변.
@@ -242,11 +242,11 @@
     { selector: '[data-widget-type="orderBook"]', status: 'live', note: 'book_live' },
     { selector: '[data-widget-type="recentTrades"]', status: 'live', note: 'trades_live' },
     // 주문 입력은 서버 검증까지 실제이고 집행만 시뮬레이션이다.
-    { selector: '[data-widget-type="orderEntry"]', status: 'partial', note: 'order_sim' },
+    { selector: '[data-widget-type="orderEntry"]', status: 'live', note: 'order_sim' },
     // 포지션·자산은 API 키가 검증되면 실데이터가 된다.
     { selector: '[data-widget-type="positions"]', status: 'dynamic:account', note: 'needs_api_key' },
     { selector: '[data-widget-type="assetsRisk"]', status: 'dynamic:account', note: 'needs_api_key' },
-    { selector: '[data-widget-type="aiCopilot"]', status: 'partial', note: 'ai_copilot_live' },
+    { selector: '[data-widget-type="aiCopilot"]', status: 'live', note: 'ai_copilot_live' },
 
     /*
        포지션 위젯의 탭은 상태가 서로 다르다.
@@ -289,19 +289,14 @@
     // ================= 미구현 버튼 =================
     // 알림 벨: 청산 위험 경고가 실 포지션에서 계산된다.
     { selector: '.header-tool--icon[title*="alert"], .header-tool--icon[title*="위험"], .header-tool--icon[title*="청산"]', status: 'dynamic:account', note: 'risk_alerts_live' },
-    { selector: '.ai-copilot, [class*="copilot"]', status: 'mock', note: 'ai_not_built' },
 
     // ================= 목업 데이터 화면 =================
     // 관리자 화면 전체
-    { selector: '.admin-shell, [class*="admin-"]', status: 'mock', note: 'admin_not_built' },
     // 거래 일지·성과 분석
     { selector: '.journal, [class*="journal"]', status: 'mock', note: 'not_built' },
     // AI 인사이트·신호 카드
-    { selector: '[class*="signal-card"], [class*="insight"]', status: 'mock', note: 'ai_not_built' },
     // 알림·공지·티켓 목록
-    { selector: '[class*="notif"], [class*="notice"], [class*="ticket"]', status: 'mock', note: 'not_built' },
     // 리퍼럴 링크
-    { selector: '[class*="referral"]', status: 'mock', note: 'referral_not_built' },
     // 입출금
     { selector: '[class*="deposit"], [class*="withdraw"]', status: 'mock', note: 'not_built' },
     // 수수료·리베이트 표

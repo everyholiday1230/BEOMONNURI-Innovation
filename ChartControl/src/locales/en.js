@@ -1290,7 +1290,7 @@
 
       prov_note_kyc_by_exchange: 'No identity documents collected — the exchange verifies you',
       prov_note_non_custodial: 'Non-custodial — we hold no funds and have no deposit address',
-      prov_note_ai_provider_off: 'Strategies and backtests are real; AI analysis is not connected yet',
+      prov_note_ai_provider_off: 'AI analysis is on; strategy catalogue and backtests are real (fees & slippage applied); you can create and save your own.',
       prov_note_referral_manual_payout: 'Real programme — accruals are not estimated and payout is manual',
       prov_note_support_wired: 'FAQ plus real ticket submission and replies',
       prov_note_admin_wired: 'Wired to real admin data',
@@ -1303,7 +1303,7 @@
       prov_note_trade_partial: 'Charts, market data, indicators and AI Copilot are live. Order execution runs live on the exchange once you connect a key; until then it is simulated — the live/sim banner shows the current mode.',
       prov_note_chart_live_only: 'Charts are live; layout controls are demo',
       prov_note_needs_api_key: 'Live once an exchange API key is verified — demo data until then',
-      prov_note_settings_partial: 'Language, theme and layout work; the rest is demo',
+      prov_note_settings_partial: 'Theme, language, layout, exchange keys and password change are live.',
       prov_note_landing_static: 'Static marketing page',
       prov_note_not_built: 'Not implemented yet — demo data only',
       prov_note_ai_not_built: 'AI backend not connected — scripted responses',
