@@ -344,6 +344,10 @@
             tickSize: num(sp.tickSize, undefined),
             multiplier: num(sp.multiplier, undefined),
             maxLeverage: num(sp.maxLeverage, undefined),
+            // 수량 정밀도 — 없으면 주문 수량이 stepSize 배수로 안 맞아 거부된다.
+            stepSize: num(sp.stepSize, undefined),
+            quantityPrecision: num(sp.quantityPrecision, undefined),
+            minQty: num(sp.minQty, undefined),
             takerFeeRate: num(t.takerFeeRate, undefined),
             makerFeeRate: num(t.makerFeeRate, undefined),
             ts: num(res[0] && res[0].asOf, Date.now()),

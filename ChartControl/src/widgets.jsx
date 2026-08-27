@@ -837,7 +837,17 @@
     useEffect(() => { if (prefillSide != null) setSide(prefillSide); }, [prefillSide]);
 
     const px = parseFloat(price) || lastPrice;
-    const sz = parseFloat(size) || 0;
+    /*
+       ★★ 거래소 수량 단위(stepSize)로 스냅한다.
+
+         전에는 수량을 4자리로 그대로 보내, "quantity not a multiple of stepSize
+         0.001" 로 주문이 거부됐다. 심볼마다 최소단위가 다르므로 market.stepSize
+         배수로 내림하고 정밀도에 맞춘다. stepSize 를 모르면 건드리지 않는다.
+    */
+    const qtyStep = Number(market && market.stepSize) || 0;
+    const qtyPrec = Number.isFinite(Number(market && market.quantityPrecision)) ? Number(market.quantityPrecision) : 3;
+    const snapQty = (q) => ((!(qtyStep > 0) || !Number.isFinite(q)) ? q : Number((Math.floor(q / qtyStep) * qtyStep).toFixed(qtyPrec)));
+    const sz = snapQty(parseFloat(size) || 0);
     const totalUSDT = px * sz;
     /*
        ★★ 수수료율을 코드에 박지 않는다.
@@ -1028,8 +1038,8 @@
                       className={`pct-slider__stop ${pct === v ? 'is-active' : ''}`}
                       onClick={() => {
                         setPct(v);
-                        const newSize = (assets.availableBalance * lev * (v/100)) / px;
-                        setSize(newSize.toFixed(4));
+                        const newSize = snapQty((assets.availableBalance * lev * (v/100)) / px);
+                        setSize(newSize.toFixed(qtyPrec));
                       }}
                       title={`${v}%`}
                     />
