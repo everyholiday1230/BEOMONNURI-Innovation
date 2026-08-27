@@ -190,7 +190,9 @@ const CDN = ['https://unpkg.com', 'https://cdn.jsdelivr.net'];
 // Toss 결제 SDK(v2)는 브라우저에서 js.tosspayments.com 스크립트를 로드하고
 // *.tosspayments.com 으로 통신/결제창(iframe)을 띄운다. 결제에 필요한 정식 예외다.
 const TOSS_SCRIPT = 'https://js.tosspayments.com';
-const TOSS_ORIGINS = ['https://js.tosspayments.com', 'https://api.tosspayments.com', 'https://event.tosspayments.com', 'https://apigw.tosspayments.com'];
+// 결제 진행 중 SDK 는 log/api/event/apigw 등 여러 tosspayments·toss.im 서브도메인과
+// 통신하고 결제창을 iframe 으로 띄운다. 서브도메인이 유동적이라 와일드카드로 허용한다.
+const TOSS_ORIGINS = ['https://*.tosspayments.com', 'https://*.toss.im'];
 
 app.use('*', secureHeaders({
   contentSecurityPolicy: {
