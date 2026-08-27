@@ -33,6 +33,59 @@
   // ============================================================
   // ADMIN USER DETAIL — full profile view
   // ============================================================
+  /*
+     유저 겸직 태그 편집기 — 여러 역할/태그를 붙인다(team_leader, staff 등).
+     권한 역할(role)과 별개. 팀장 커미션은 team_leader 태그를 쓴다.
+  */
+  function UserTagsEditor({ userId }) {
+    const [tags, setTags] = React.useState(null);
+    const [input, setInput] = React.useState('');
+    const [busy, setBusy] = React.useState(false);
+    const api = window.QTApi && window.QTApi.admin;
+    const load = React.useCallback(() => {
+      if (!api || !api.getUserTags || !userId) return;
+      api.getUserTags(userId).then((r) => setTags((r && r.tags) || [])).catch(() => setTags([]));
+    }, [userId]);
+    React.useEffect(() => { load(); }, [load]);
+    const add = async (raw) => {
+      const tag = String(raw || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (!tag || !api || !api.addUserTag) return;
+      setBusy(true);
+      try { const r = await api.addUserTag(userId, tag); if (r && r.tags) setTags(r.tags); setInput(''); } catch (e) { /* noop */ }
+      setBusy(false);
+    };
+    const remove = async (tag) => {
+      if (!api || !api.removeUserTag) return;
+      setBusy(true);
+      try { const r = await api.removeUserTag(userId, tag); if (r && r.tags) setTags(r.tags); } catch (e) { /* noop */ }
+      setBusy(false);
+    };
+    if (tags === null) return null;
+    const has = (t2) => tags.indexOf(t2) !== -1;
+    return (
+      <div className="panel" style={{ padding: 14, marginTop: 12 }}>
+        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>{t('utags_title')}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {tags.length === 0 && <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{t('utags_none')}</span>}
+          {tags.map((tg) => (
+            <span key={tg} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 999, background: 'var(--color-brand-subtle)', color: 'var(--color-brand)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+              {tg}
+              <button onClick={() => remove(tg)} disabled={busy} style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['team_leader', 'staff'].map((preset) => (
+            <button key={preset} className="btn btn--xs" disabled={busy || has(preset)} onClick={() => add(preset)} style={{ fontFamily: 'var(--font-mono)' }}>+ {preset}</button>
+          ))}
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('utags_ph')} style={{ flex: 1, minWidth: 140 }} onKeyDown={(e) => { if (e.key === 'Enter') add(input); }} />
+          <button className="btn btn--xs btn--primary" disabled={busy || !input.trim()} onClick={() => add(input)}>{t('utags_add')}</button>
+        </div>
+      </div>
+    );
+  }
+  window.UserTagsEditor = UserTagsEditor;
+
   window.AdminUserDetailPage = function AdminUserDetailPage({ shellProps, userId }) {
     /*
        회원 상세.
@@ -643,6 +696,7 @@
         {tab === 'overview' && (
           <div className="grid-2-1">
             <div style={{display:'flex', flexDirection:'column', gap: 16}}>
+              <window.UserTagsEditor userId={userId}/>
               {/*
                  ★ 서버가 주는 값만 표시한다.
 

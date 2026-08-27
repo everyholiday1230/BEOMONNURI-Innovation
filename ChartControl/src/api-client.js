@@ -2575,6 +2575,17 @@
       });
     },
 
+    /* 유저 겸직 태그(team_leader 등) — 여러 개 가능. 권한 역할과 별개. */
+    getUserTags: function (id) {
+      return getJSON('', '/api/admin/users/' + encodeURIComponent(id) + '/tags');
+    },
+    addUserTag: function (id, tag) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/tags', { tag: tag });
+    },
+    removeUserTag: function (id, tag) {
+      return sendJSON('DELETE', '/api/admin/users/' + encodeURIComponent(id) + '/tags/' + encodeURIComponent(tag));
+    },
+
     /** 감사 로그. 추가만 가능하고 수정·삭제가 없다(appendOnly). */
     /*
        감사 로그 조회.
