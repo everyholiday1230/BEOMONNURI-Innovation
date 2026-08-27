@@ -571,14 +571,83 @@ body.has-hero .hero-inline-partners {
 }
 
 /* =========================================================
-   10. 오버플로우 진단 가능성 확보
-   html 과 body 양쪽에 overflow-x:hidden 이 걸려 있어 실제
-   오버플로우가 문서 스크롤로 드러나지 않고 은폐됐다.
-   body 쪽만 남겨 원인 추적이 가능하게 하고, position:sticky 가
-   깨지지 않도록 html 은 clip 을 쓰지 않는다.
+   10. 그리드/플렉스 자식의 축소 허용 (트랙 초과 방지)
+
+   그리드·플렉스 아이템의 기본값 min-width:auto 는 아이템을
+   min-content 아래로 줄지 못하게 한다. 여기에 word-break:keep-all
+   (한국어 어절 단위 유지)이 겹치면 min-content 가 커져 트랙이
+   컨테이너를 넘고, 부모의 overflow:hidden 이 잘라낸다.
+     실측(320px): .principle-grid 288px 인데 트랙 315px
+                 (.principle-cell 패딩 48px + 본문 min-content 267px)
+   히어로 컨테이너 붕괴와 동일한 원인이다.
+   ========================================================= */
+.principle-grid > *,
+.svc-grid > *,
+.intel-grid > *,
+.how-grid > *,
+.sec-grid-v4 > *,
+.case-grid-v4 > *,
+.contact-grid > *,
+.contact-info-grid > *,
+.page-hero-meta > *,
+.hero-bottom > *,
+.footer-grid > *,
+.pd-grid > *,
+.pipe-labels > *,
+.roll-row-v4 > *,
+.perf-grid > *,
+.bs-grid > *,
+.pi-grid > * {
+  min-width: 0;
+}
+
+/* 좁은 화면에서는 어절 유지보다 화면 안에 들어가는 것이 우선이다.
+   keep-all 을 유지하면서 overflow-wrap:anywhere 를 함께 주면, 브라우저는
+   가능한 한 어절 단위로 끊되 다른 방법이 없을 때만 강제 개행한다.
+   (anywhere 는 break-word 와 달리 min-content 계산에도 반영되어
+    그리드 트랙이 실제로 줄어든다.) */
+@media (max-width: 767px) {
+  .principle-cell p,
+  .principle-cell .kr,
+  .svc p,
+  .how-cell p,
+  .intel-cell p,
+  .case-card-v4 p,
+  .sec-item-v4 p,
+  .pd-cell p,
+  .pi-desc,
+  .rr-desc,
+  .ft-tag {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* =========================================================
+   11. 오버플로우 방어 + 진단 가능성 확보
+
+   기존에는 ai-frontier.css 에서 html 과 body 양쪽에
+   overflow-x:hidden 을 걸어 두 가지 문제가 있었다.
+     (1) 실제 오버플로우가 문서 가로 스크롤로 드러나지 않아 원인 진단 불가
+         (히어로 컨테이너 붕괴를 오래 못 찾은 직접적 이유)
+     (2) body 의 overflow:hidden 이 스크롤 컨테이너를 만들어
+         position:sticky 가 동작하지 않음
+
+   해결: body 선언은 제거하고, 방어는 html 한 곳에만 clip 으로 둔다.
+   clip 은 hidden 과 달리 스크롤 컨테이너를 만들지 않아 sticky 를 살린다.
+
+   진단이 필요할 때는 아래 속성으로 방어를 끄고 오버플로우를 드러낼 수 있다.
+     document.documentElement.dataset.debugOverflow = ''
+   그러면 넘치는 요소가 가로 스크롤로 노출되고, 붉은 외곽선으로 표시된다.
    ========================================================= */
 html {
   overflow-x: clip;
+}
+
+html[data-debug-overflow] {
+  overflow-x: auto;
+}
+html[data-debug-overflow] * {
+  outline: 1px solid rgba(232, 55, 92, 0.45);
 }
 
 /* =========================================================

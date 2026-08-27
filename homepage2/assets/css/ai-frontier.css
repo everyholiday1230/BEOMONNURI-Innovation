@@ -56,7 +56,12 @@ html, body {
   word-break: keep-all;
   line-break: strict;
   overflow-wrap: normal;
-  overflow-x: hidden;
+  /* overflow-x 는 여기서 선언하지 않는다.
+     html 과 body 양쪽에 hidden 을 걸면 (1) 오버플로우가 문서 가로 스크롤로
+     드러나지 않아 원인 진단이 불가능하고, (2) body 의 overflow:hidden 이
+     스크롤 컨테이너를 만들어 position:sticky 가 동작하지 않는다.
+     가로 스크롤 방어는 responsive.css 에서 html 한 곳에만 clip 으로 둔다.
+     (clip 은 hidden 과 달리 스크롤 컨테이너를 만들지 않는다.) */
 }
 
 /* 문장 흐름 우선: 의미 단위가 중간에 부자연스럽게 끊기지 않도록 통일 */
@@ -1974,11 +1979,22 @@ footer {
 /* 스팸 봇 차단용 허니포트 필드 — 화면/스크린리더/탭 이동에서 모두 제외하되
    DOM에는 남겨 자동 입력 봇만 걸리게 한다. display:none 대신 오프스크린을 사용해
    일부 봇의 'display:none 필드 건너뛰기' 회피 로직을 무력화한다. */
+/* 스팸 봇 차단 허니팟 — 사람에게는 보이지 않아야 하지만 봇에게는
+   폼 필드로 보여야 하므로 display:none 을 쓸 수 없다.
+   기존 구현은 left:-9999px 로 화면 밖에 뒀는데, 이 방식은 문서
+   레이아웃 폭을 9999px 확장시켜 오버플로우 진단을 방해했다
+   (실측: 진단 모드에서 전 15개 뷰포트에서 9999px 넘침으로 검출).
+   clip-path 기반 1px 숨김으로 바꿔 레이아웃에 영향을 주지 않게 한다. */
 .cf-botcheck {
   position: absolute;
-  left: -9999px;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
   opacity: 0;
   pointer-events: none;
 }
