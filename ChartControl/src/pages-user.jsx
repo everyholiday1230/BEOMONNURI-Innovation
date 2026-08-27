@@ -2954,6 +2954,54 @@
     );
   }
 
+  /*
+     비밀번호 변경 폼 — 로그인 상태에서 현재 비밀번호로 바로 변경(이메일 재설정 흐름 대신).
+     서버 /auth/change-password + api.changePassword 가 이미 있다.
+  */
+  function ChangePasswordForm() {
+    const [open, setOpen] = React.useState(false);
+    const [cur, setCur] = React.useState('');
+    const [pw, setPw] = React.useState('');
+    const [pw2, setPw2] = React.useState('');
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState(null);
+    const submit = async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.changePassword) return;
+      if (pw.length < 8) { setMsg({ ok: false, text: t('signup_5ca401') }); return; }
+      if (pw !== pw2) { setMsg({ ok: false, text: t('signup_dd3243') }); return; }
+      setBusy(true); setMsg(null);
+      try {
+        const r = await api.changePassword(cur, pw);
+        if (r && r.error) {
+          const code = r.error.code || '';
+          setMsg({ ok: false, text: /INVALID|WRONG|CREDENTIAL|PASSWORD/i.test(code) ? t('cp_wrong_current') : (r.error.message || t('cp_failed')) });
+        } else {
+          setMsg({ ok: true, text: t('cp_success') });
+          setCur(''); setPw(''); setPw2('');
+          setTimeout(() => setOpen(false), 1200);
+        }
+      } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('cp_failed') }); }
+      setBusy(false);
+    };
+    if (!open) {
+      return <button className="btn btn--sm" onClick={() => { setMsg(null); setOpen(true); }}>{t('set_change_password')}</button>;
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
+        <input type="password" autoComplete="current-password" placeholder={t('cp_current')} value={cur} onChange={(e) => setCur(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder={t('cp_new')} value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder={t('cp_confirm')} value={pw2} onChange={(e) => setPw2(e.target.value)} />
+        {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{msg.text}</div>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn--sm btn--primary" disabled={busy || !cur || !pw || !pw2} onClick={submit}>{t('set_change_password')}</button>
+          <button className="btn btn--sm" disabled={busy} onClick={() => { setOpen(false); setMsg(null); }}>{t('settings_19b2d1')}</button>
+        </div>
+      </div>
+    );
+  }
+  window.ChangePasswordForm = ChangePasswordForm;
+
   window.SettingsPage = function SettingsPage({ shellProps }) {
     /*
        화면 설정. 값과 변경 함수를 shellProps 로 받는다.
@@ -3122,10 +3170,8 @@
                       <div style={{marginTop:4}}>{t('set_profile_minimal')}</div>
                     </div>
                     <div style={{display:'flex', gap:8, marginTop:4}}>
-                      {/* 비밀번호 변경은 실제 API 가 있다. */}
-                      <a className="btn btn--sm" href="#/password-reset" style={{textDecoration:'none'}}>
-                        {t('set_change_password')}
-                      </a>
+                      {/* 로그인 상태에서 현재 비밀번호로 바로 변경(이메일 재설정 대신). */}
+                      <window.ChangePasswordForm/>
                       <button
                         className="btn btn--sm"
                         onClick={() => { if (window.QTAuth) window.QTAuth.logout().then(() => { window.location.hash = '/login'; }); }}
