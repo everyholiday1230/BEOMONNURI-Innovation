@@ -1038,10 +1038,12 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   ) {
     const resolved = await resolveExchangeContext(userId);
     if (!resolved.ok) {
+      console.warn(`[trading-read] ${key}: no exchange credential resolved for user ${userId} (reason=${(resolved as { reason?: string }).reason ?? 'none'})`);
       return c.json({ [key]: [], credentialStatus: 'NONE', source: 'exchange' });
     }
     try {
       const data = await read(resolved.ctx);
+      console.log(`[trading-read] ${key}: ok status=${resolved.status} count=${Array.isArray(data) ? data.length : 'n/a'}`);
       /*
          ★★ 학습 결과를 여기서 모은다.
 
@@ -1064,6 +1066,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       });
     } catch (e) {
       const detail = describeCredentialFailure(e as Error);
+      console.warn(`[trading-read] ${key}: FAILED credentialProblem=${detail.isCredentialProblem} msg=${detail.message}`);
       if (detail.isCredentialProblem) {
         return c.json({
           [key]: [],
