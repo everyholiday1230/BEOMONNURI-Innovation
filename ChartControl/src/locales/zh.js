@@ -582,6 +582,7 @@
       wal_disconnect: '断开连接',
       wal_disconnect_confirm: '删除此交易所API密钥？稍后可重新连接。',
       wal_disconnected: '已删除交易所密钥',
+      load_more: '加载更多',
       tw_numfmt: '数字格式',
       numfmt_standard: '标准 (18,240,000)',
       numfmt_compact: '紧凑 (18.24M)',

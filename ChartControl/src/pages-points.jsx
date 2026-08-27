@@ -50,6 +50,7 @@
     const [topupBusy, setTopupBusy] = useState(null); // 진행 중 패키지 id
     const [usdtInvoice, setUsdtInvoice] = useState(null); // { address, network, amount }
     const [saved, setSaved] = useState(null);         // { supported, items, saveCost }
+    const [histShown, setHistShown] = useState(25);    // 원장 내역 점진 노출 개수
 
     const load = window.React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -498,8 +499,15 @@
                       <span style={{fontFamily:'var(--font-num)'}}>{fmt(r.balanceAfter, 0)}</span>
                     ) },
                   ]}
-                  rows={data.history}
+                  rows={data.history.slice(0, histShown)}
                 />
+                {data.history.length > histShown && (
+                  <div style={{padding:'10px 12px', textAlign:'center', borderTop:'1px solid var(--color-border-subtle)'}}>
+                    <button className="btn btn--sm" onClick={() => setHistShown(histShown + 25)}>
+                      {t('load_more')} ({histShown}/{data.history.length})
+                    </button>
+                  </div>
+                )}
               </window.SectionCard>
             )}
 

@@ -1465,6 +1465,7 @@
          집계가 null 을 만나면 통계를 '—' 로 표시한다.
     */
     const [localTrades, setLocalTrades] = useState(null);
+    const [tjShown, setTjShown] = useState(25);   // 거래일지 점진 노출 개수
     useEffect(() => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.localTrades) return undefined;
@@ -1896,8 +1897,15 @@
                 </span>
               )},
             ]}
-            rows={tj}
+            rows={tj.slice(0, tjShown)}
           />
+          {tj.length > tjShown && (
+            <div style={{padding:'10px 12px', textAlign:'center', borderTop:'1px solid var(--color-border-subtle)'}}>
+              <button className="btn btn--sm" onClick={() => setTjShown(tjShown + 25)}>
+                {t('load_more')} ({tjShown}/{tj.length})
+              </button>
+            </div>
+          )}
         </window.SectionCard>
       </window.PageShell>
     );
@@ -3649,6 +3657,7 @@
   window.NotificationsPage = function NotificationsPage({ shellProps }) {
     const acct = window.useAccountData ? window.useAccountData() : { status: 'OFFLINE', isLive: false };
     const [filter, setFilter] = useState('all');
+    const [notifShown, setNotifShown] = useState(25);   // 알림 점진 노출 개수
 
     /*
        서버 알림.
@@ -3884,7 +3893,7 @@
           }
           noPadding
         >
-          {filtered.map(n => (
+          {filtered.slice(0, notifShown).map(n => (
             <div key={n.id} className={`notif-item ${n.unread ? 'is-unread' : ''}`}>
               <div className={`notif-item__icon ${n.kind}`}>
                 {n.kind === 'signal' ? <I.Sparkles size={14}/> :
@@ -3901,6 +3910,13 @@
               <div className="notif-item__time">{timeAgo(n.time)}</div>
             </div>
           ))}
+          {filtered.length > notifShown && (
+            <div style={{padding:'10px 12px', textAlign:'center'}}>
+              <button className="btn btn--sm" onClick={() => setNotifShown(notifShown + 25)}>
+                {t('load_more')} ({notifShown}/{filtered.length})
+              </button>
+            </div>
+          )}
         </window.SectionCard>
       </window.PageShell>
     );
@@ -3916,6 +3932,7 @@
 
     /** 심볼 필터. 서버에도 파라미터가 있지만 받아둔 데이터로 거른다. */
     const [symbolFilter, setSymbolFilter] = useState('all');
+    const [ordShown, setOrdShown] = useState(25);   // 주문내역 점진 노출 개수
 
     /*
        실 주문·체결이 있으면 그것을 쓴다.
@@ -4181,8 +4198,15 @@
               { key: 'fee', label: t('col_fee'), align:'right', render: r => (r.fee == null ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : <span className={r.fee < 0 ? 't-long' : undefined}>{fmt(r.fee, 4)}</span>) },
               { key: 'pnl',    label: t('col_pnl'), align:'right', render: r => r.pnl != null ? <span className={r.pnl >= 0 ? 't-long' : 't-short'} style={{fontWeight:500}}>{r.pnl >= 0 ? '+' : ''}${fmt(r.pnl)}</span> : <span style={{color:'var(--color-text-tertiary)'}}>—</span> },
             ]}
-            rows={orders}
+            rows={orders.slice(0, ordShown)}
           />
+          {orders.length > ordShown && (
+            <div style={{padding:'10px 12px', textAlign:'center', borderTop:'1px solid var(--color-border-subtle)'}}>
+              <button className="btn btn--sm" onClick={() => setOrdShown(ordShown + 25)}>
+                {t('load_more')} ({ordShown}/{orders.length})
+              </button>
+            </div>
+          )}
         </window.SectionCard>
       </window.PageShell>
     );

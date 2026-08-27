@@ -325,6 +325,7 @@
       wal_disconnect: 'Disconnect',
       wal_disconnect_confirm: 'Remove this exchange API key? You can reconnect later.',
       wal_disconnected: 'Exchange key removed',
+      load_more: 'Load more',
       tw_numfmt: 'Number Format',
       numfmt_standard: 'Standard (18,240,000)',
       numfmt_compact: 'Compact (18.24M)',

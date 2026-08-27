@@ -580,6 +580,7 @@
       wal_disconnect: '接続解除',
       wal_disconnect_confirm: 'この取引所APIキーを削除しますか？後で再接続できます。',
       wal_disconnected: '取引所キーを削除しました',
+      load_more: 'もっと見る',
       tw_numfmt: '数値表記',
       numfmt_standard: '標準 (18,240,000)',
       numfmt_compact: '短縮 (18.24M)',
