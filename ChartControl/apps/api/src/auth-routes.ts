@@ -110,9 +110,17 @@ const PreferencesUpdateSchema = z
   .object({
     theme: z.enum(['dark', 'light']).optional(),
     brand: z.string().max(32).optional(),
-    density: z.enum(['compact', 'cozy', 'comfortable']).optional(),
+    /*
+       ★ 화면이 실제로 쓰는 값과 맞춘다. 앱의 밀도 선택은 comfortable/compact/dense 이고
+         'dense' 가 빠져 있어 그 값을 저장하려 하면 400 이었다('cozy' 는 예전 값이라 남긴다).
+    */
+    density: z.enum(['compact', 'cozy', 'comfortable', 'dense']).optional(),
     longshort: z.string().max(32).optional(),
-    locale: z.enum(['ko', 'en']).optional(),
+    /*
+       ★ 등록된 사전이 en/ja/zh 인데 ko/en 만 허용해서, 일본어·중국어를 고른 이용자는
+         설정이 서버에 저장되지 않았다(400). 서비스하는 언어를 모두 받는다.
+    */
+    locale: z.enum(['ko', 'en', 'ja', 'zh']).optional(),
   })
   .strict();
 

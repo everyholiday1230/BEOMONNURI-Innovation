@@ -98,9 +98,20 @@
     }, [layout]);
 
     const save = useCallback(() => {
-      localStorage.setItem('qt.layout', JSON.stringify(layout));
+      /*
+         ★★ 최신 상태를 저장한다.
+
+           전에는 `layout` 을 클로저로 잡아 저장했다. 크기 조절이 끝나는 순간
+           호출되는 저장은 **직전 렌더의 layout** 을 쓰게 되어, 방금 바꾼 크기가
+           빠진 채 저장됐다(그래서 새로고침하면 되돌아갔다).
+           setLayout 의 갱신 함수로 현재 값을 받아 저장한다.
+      */
+      setLayout((cur) => {
+        try { localStorage.setItem('qt.layout', JSON.stringify(cur)); } catch (e) { /* 저장 실패는 무시 */ }
+        return cur;
+      });
       setDirty(false);
-    }, [layout]);
+    }, []);
 
     const reset = useCallback((newPreset = presetId) => {
       const preset = QT.LAYOUT_PRESETS[newPreset];
@@ -388,8 +399,10 @@
            ★ 크기를 바꾸면 곧바로 저장한다. 편집 모드에서는 '저장' 버튼이 있지만,
              트레이드 화면에서 바로 조절할 때는 누를 버튼이 없다 — 저장하지 않으면
              새로고침에 되돌아가서 "조절이 안 된다" 로 보인다.
+           ★ onChange(_resizing:false) 가 상태에 반영된 **뒤에** 저장해야 한다.
+             같은 틱에 저장하면 조절 중 플래그가 섞인 값이 저장될 수 있다.
         */
-        if (onResizeEnd) onResizeEnd();
+        if (onResizeEnd) setTimeout(() => onResizeEnd(), 0);
       };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);

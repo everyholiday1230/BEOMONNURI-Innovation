@@ -495,6 +495,33 @@
     },
 
     /*
+       ---- 화면 설정 (기기 간 동기화) ----
+
+       ★★ 테마·밀도·언어를 기기별 localStorage 에만 저장하고 있었다. 서버에
+         저장 경로(/account/preferences)가 이미 있는데 화면이 부르지 않아,
+         집 PC 에서 밝은 테마·한국어로 맞춰도 휴대폰에서는 기본값으로 돌아갔다.
+         즐겨찾기·차트 템플릿은 이미 서버에 저장하는데 설정만 빠져 있었다.
+
+       ★ 서버는 허용된 키만 받는다(theme/brand/density/longshort/locale).
+         알 수 없는 키를 보내면 400 이므로 여기서 걸러 보낸다.
+    */
+    preferences: function () {
+      return getJSON('', '/api/account/preferences').then(function (r) {
+        return { ok: true, preferences: (r && r.preferences) || null, version: (r && r.version) || 0 };
+      });
+    },
+
+    savePreferences: function (patch) {
+      var allowed = ['theme', 'brand', 'density', 'longshort', 'locale'];
+      var body = {};
+      allowed.forEach(function (k) {
+        if (patch && patch[k] !== undefined && patch[k] !== null && patch[k] !== '') body[k] = String(patch[k]);
+      });
+      if (!Object.keys(body).length) return Promise.resolve({ ok: true, skipped: true });
+      return sendJSON('PUT', '/api/account/preferences', body);
+    },
+
+    /*
        ---- 서버 알림 ----
 
        ★ 서버가 만드는 알림이다(주문 체결 · 문의 답변 · 포인트 변동).

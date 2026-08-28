@@ -166,6 +166,58 @@
       if (saved) { try { return { ...DEFAULT_TWEAKS, ...JSON.parse(saved) }; } catch (e) {} }
       return DEFAULT_TWEAKS;
     });
+
+    /*
+       ★★ 화면 설정을 계정에 따라다니게 한다(기기 간 동기화).
+
+         전에는 localStorage 만 썼다. 집 PC 에서 테마·밀도·언어를 맞춰도 휴대폰이나
+         다른 브라우저에서는 기본값이었다 — 즐겨찾기·차트 템플릿은 서버에 저장하는데
+         설정만 빠져 있었다.
+
+       ★ 로그인 직후 서버 값을 한 번 읽어 반영하고(기기 값보다 계정 값을 우선),
+         이후 변경은 서버에 저장한다. 서버가 없거나 실패하면 기기 저장만으로
+         계속 동작한다 — 설정이 저장되지 않는 것보다 낫다.
+    */
+    const serverLoadedRef = useRef(false);
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.preferences) return undefined;
+      const load = () => {
+        if (serverLoadedRef.current) return;
+        if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+        serverLoadedRef.current = true;
+        api.preferences()
+          .then((r) => {
+            const p = r && r.preferences;
+            if (!p) return;
+            setState((s) => ({
+              ...s,
+              ...(p.theme ? { theme: p.theme } : {}),
+              ...(p.brand ? { brand: p.brand } : {}),
+              ...(p.density ? { density: p.density } : {}),
+              ...(p.longshort ? { longshort: p.longshort } : {}),
+              ...(p.locale ? { lang: p.locale } : {}),
+            }));
+          })
+          .catch(() => { /* 서버 설정을 못 읽어도 기기 설정으로 동작한다 */ });
+      };
+      load();
+      const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
+      return () => { if (off) off(); };
+    }, []);
+
+    /* 변경을 서버에 저장한다. 서버 값을 처음 읽어오는 단계에서는 되쓰지 않는다. */
+    const pushedRef = useRef('');
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savePreferences || !serverLoadedRef.current) return;
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+      const payload = { theme: state.theme, brand: state.brand, density: state.density, longshort: state.longshort, locale: state.lang };
+      const sig = JSON.stringify(payload);
+      if (sig === pushedRef.current) return;
+      pushedRef.current = sig;
+      api.savePreferences(payload).catch(() => { /* 실패는 기기 저장으로 남는다 */ });
+    }, [state.theme, state.brand, state.density, state.longshort, state.lang]);
     useEffect(() => {
       localStorage.setItem('qt.tweaks', JSON.stringify(state));
       const root = document.documentElement;
