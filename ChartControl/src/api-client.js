@@ -2192,6 +2192,15 @@
       return '/api/admin/users/export' + (q.length ? '?' + q.join('&') : '');
     },
 
+    /** 감사 로그 CSV 내보내기 URL. 서버가 /admin/audit/export 로 파일을 준다. */
+    auditExportUrl: function (opts) {
+      opts = opts || {};
+      var q = [];
+      if (opts.action) q.push('action=' + encodeURIComponent(opts.action));
+      if (opts.limit) q.push('limit=' + opts.limit);
+      return '/api/admin/audit/export' + (q.length ? '?' + q.join('&') : '');
+    },
+
     /** 세션 강제 종료. 계정 탈취 대응에 쓴다. */
     revokeSessions: function (id, reason) {
       return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/revoke-sessions', { reason: reason || '' });

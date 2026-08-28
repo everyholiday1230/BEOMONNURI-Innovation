@@ -2145,7 +2145,15 @@
         breadcrumb={['Home','Admin','Audit']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Camera size={13}/> {t('col_export')}</button>
+            {/* ★ 감사 로그 CSV 내보내기. 전에는 onClick 이 없어 눌러도 아무 일이 없었다. */}
+            <a
+              className="btn btn--sm"
+              href={window.QTApi && window.QTApi.admin && window.QTApi.admin.auditExportUrl
+                ? window.QTApi.admin.auditExportUrl({ limit: 5000 })
+                : '/api/admin/audit/export'}
+              download
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+            ><I.Camera size={13}/> {t('col_export')}</a>
             <button
               className={`btn btn--sm ${failOnly ? 'btn--primary' : ''}`}
               onClick={() => setFailOnly((v) => !v)}
