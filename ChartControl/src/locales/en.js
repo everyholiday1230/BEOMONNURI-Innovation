@@ -186,6 +186,7 @@
       points_unit_default: 'points',
       ref_terms_points_sub: 'Points are credited when your invitee signs up — usable for AI runs and features.',
       ai_stream_error: 'AI response failed: {msg}',
+      ai_need_points: 'You need points to run the AI. Open the Points page to top up.',
       ai_cmd_applied: 'Applied to chart',
       ai_indicator_added: 'Added {name} indicator',
       ai_indicator_unsupported: 'Indicator not supported: {name}',

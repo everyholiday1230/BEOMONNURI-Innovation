@@ -441,6 +441,7 @@
       points_unit_default: 'ポイント',
       ref_terms_points_sub: '招待した人が登録するとポイントが付与されます（AI 実行や機能に使えます）。',
       ai_stream_error: 'AI 応答に失敗しました: {msg}',
+      ai_need_points: 'AI の実行にはポイントが必要です。ポイント画面でチャージしてください。',
       ai_cmd_applied: 'チャートに適用しました',
       ai_indicator_added: '{name} インジケーターを追加しました',
       ai_indicator_unsupported: '未対応のインジケーター: {name}',

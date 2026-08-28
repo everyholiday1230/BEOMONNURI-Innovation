@@ -475,10 +475,10 @@
             if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
             if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
             if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
-            if (ev.type === 'error') { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
+            if (ev.type === 'error') { setThinking(null); setStreaming(null); const insuff = (ev.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
           },
-          onError: (e) => { setThinking(null); setStreaming(null); setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]); },
+          onError: (e) => { setThinking(null); setStreaming(null); const insuff = (e && e.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]); },
           onDone: () => { setThinking(null); setStreaming(null); if (acc) setMsgs((m) => [...m, makeMsg('ai', acc)]); activeStreamRef.current = null; },
         },
       );

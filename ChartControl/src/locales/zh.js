@@ -443,6 +443,7 @@
       points_unit_default: '积分',
       ref_terms_points_sub: '受邀者注册后即发放积分，可用于 AI 运行和功能。',
       ai_stream_error: 'AI 响应失败：{msg}',
+      ai_need_points: '运行 AI 需要积分。请在积分页面充值。',
       ai_cmd_applied: '已应用到图表',
       ai_indicator_added: '已添加 {name} 指标',
       ai_indicator_unsupported: '不支持的指标：{name}',
