@@ -68,7 +68,6 @@ import { assertProductionCredentialReadiness } from './trading/credential-source
 import { createBrokerRebateReader } from './trading/broker-rebate-source';
 import { assertNoDevFixtures } from './security/dev-fixture-guard';
 import { SqliteCredentialRepo } from './db/trading-repos';
-import { SqliteOrderDraftRepo } from './db/order-draft-repo';
 import { SqliteStrategyRepo } from './db/strategy-repo';
 import { PgStrategyRepo } from './db/pg-strategy-repo';
 import { createStrategyRouter } from './strategy-routes';
@@ -2451,7 +2450,10 @@ if (env.authEnabled) {
           // Real risk-engine state. These inputs were hardcoded literals, so the daily-order, daily-loss,
           // open-position and credential gates could never fail.
           riskState: {
-            countOrdersSince: (userId, since) => new SqliteOrderDraftRepo(db).countOrdersSince(userId, since),
+            // 앱이 실제로 주문을 기록하는 저장소와 동일한 것을 센다(프로덕션=Postgres).
+            // 이전에는 항상 SQLite 를 세어, Postgres 배포에서는 빈 테이블 → 카운트 0 →
+            // 일일 주문 한도 게이트가 절대 걸리지 않았다.
+            countOrdersSince: (userId, since) => userData.orderDrafts.countOrdersSince(userId, since),
             openPositions: async (ctx) => {
               try {
                 return (await accountAdapter.getPositions(ctx)).length;
