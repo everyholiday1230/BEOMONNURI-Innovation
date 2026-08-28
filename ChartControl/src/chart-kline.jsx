@@ -919,13 +919,54 @@
         }))
         .filter((b) => Number.isFinite(b.timestamp) && b.timestamp > 0 && Number.isFinite(b.close));
 
-      dataRef.current = bars;
-      // 이 데이터가 속한 심볼/타임프레임을 기록한다.
-      dataKeyRef.current = symbol + '|' + timeframe;
-      if (bars.length === 0) return;
+      if (bars.length === 0) { dataRef.current = bars; dataKeyRef.current = symbol + '|' + timeframe; return; }
 
-      // resetData 는 loader 를 다시 호출해 init 데이터를 가져간다.
+      const key = symbol + '|' + timeframe;
+      const sameKey = dataKeyRef.current === key;
+
+      /*
+         ★★ 과거 스크롤로 불러온 이력을 보존한다.
+
+           candles 는 최근 구간(약 300개)만 담아 라이브로 자주 갱신된다. 전에는
+           그때마다 dataRef 를 통째로 갈아끼워, 과거로 스크롤해 불러온 오래된
+           캔들이 매 틱마다 지워졌다. 그래서 "과거로 계속 이동이 안 되는" 현상이
+           생겼다. 현재 candles 범위보다 **오래된** 것은 그대로 이어 붙인다.
+      */
+      let merged = bars;
+      if (sameKey && Array.isArray(dataRef.current) && dataRef.current.length) {
+        const firstNewTs = bars[0].timestamp;
+        const olderHistory = dataRef.current.filter((b) => b.timestamp < firstNewTs);
+        if (olderHistory.length) merged = olderHistory.concat(bars);
+      }
+      dataRef.current = merged;
+      dataKeyRef.current = key;
+
+      /*
+         ★★ 사용자가 과거를 보고 있으면 스크롤 위치를 유지한다.
+
+           resetData 는 로더에서 데이터를 다시 당겨오며 뷰를 최신(오른쪽 끝)으로
+           되돌린다. 라이브 갱신마다 그러면 과거를 못 본다. 갱신 전 가시 구간의
+           시작 캔들 타임스탬프를 기억해, 오른쪽 끝을 보고 있던 게 아니면 복원한다.
+      */
+      let anchorTs = null;
+      try {
+        const vr = chart.getVisibleRange && chart.getVisibleRange();
+        const dl = chart.getDataList && chart.getDataList();
+        if (vr && Array.isArray(dl) && dl.length) {
+          const to = (vr.to ?? vr.realTo);
+          const from = (vr.from ?? vr.realFrom);
+          // 오른쪽 끝(최신)을 보고 있지 않을 때만 앵커를 잡는다(라이브 관찰 중엔 그대로 둔다).
+          if (typeof to === 'number' && to < dl.length - 1 && typeof from === 'number' && dl[from]) {
+            anchorTs = dl[from].timestamp;
+          }
+        }
+      } catch (e) { /* 가시범위 조회 실패는 치명적이지 않다 */ }
+
       chart.resetData();
+
+      if (anchorTs != null) {
+        try { chart.scrollToTimestamp(anchorTs, 0); } catch (e) { /* 복원 실패는 무시 */ }
+      }
     }, [candles]);
 
     // --- 심볼 / 타임프레임 변경 ---
