@@ -240,6 +240,8 @@
   window.WidgetHost = function WidgetHost({
     widget, cols = 24, rowH = 40, gap = 6,
     isEditing, isLocked, isSelected, onChange,
+    /** 크기 조절이 끝났을 때 호출된다 — 상위가 레이아웃을 저장한다. */
+    onResizeEnd,
     onSelect, onHide, onDuplicate, onLock, onSettings, onMaximize,
     children, trackRef, label, allWidgets: _allWidgets,
     /*
@@ -331,7 +333,16 @@
 
     // ---- Resize handler ----
     const onResizeStart = useCallback((e, dir) => {
-      if (!isEditing || isLocked || widget.locked) return;
+      /*
+         ★★ 크기 조절은 편집 모드에 들어가지 않아도 된다.
+
+           전에는 `!isEditing` 이면 즉시 반환해서, 창 크기를 바꾸려면 매번
+           레이아웃 편집으로 들어가야 했다. 크기 조절은 배치를 흔들지 않는
+           국소 조작이므로 트레이드 화면에서 바로 되게 한다.
+           (창을 끌어 옮기는 것은 오조작 위험이 커서 편집 모드에 남긴다.)
+         ★ 잠긴 창은 그대로 보호한다.
+      */
+      if (isLocked || widget.locked) return;
       onSelect && onSelect(widget.id);
       const rect = trackRef.current.getBoundingClientRect();
       const cellW = (rect.width - (cols - 1) * gap) / cols;
@@ -342,7 +353,7 @@
       });
       e.preventDefault();
       e.stopPropagation();
-    }, [isEditing, isLocked, widget, cols, gap, rowH, trackRef, onSelect]);
+    }, [isLocked, widget, cols, gap, rowH, trackRef, onSelect]);
 
     useEffect(() => {
       if (!resize) return;
@@ -373,6 +384,12 @@
       const onUp = () => {
         onChange({ _resizing: false });
         setResize(null);
+        /*
+           ★ 크기를 바꾸면 곧바로 저장한다. 편집 모드에서는 '저장' 버튼이 있지만,
+             트레이드 화면에서 바로 조절할 때는 누를 버튼이 없다 — 저장하지 않으면
+             새로고침에 되돌아가서 "조절이 안 된다" 로 보인다.
+        */
+        if (onResizeEnd) onResizeEnd();
       };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
@@ -380,9 +397,15 @@
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
-    }, [resize, cols, gap, widget.minW, widget.minH, onChange]);
+    }, [resize, cols, gap, widget.minW, widget.minH, onChange, onResizeEnd]);
 
-    const showResize = isEditing && !isLocked && !widget.locked;
+    /*
+       ★ 크기 조절 손잡이는 편집 모드가 아니어도 보인다(잠긴 창은 제외).
+         트레이드 화면에서 바로 창 크기를 맞출 수 있어야 한다 — 편집 모드는
+         창을 옮기고 추가·삭제하는 배치 작업용으로 남긴다.
+       ★ 평상시에는 테두리에 가깝게(연하게) 보이도록 CSS 가 처리한다.
+    */
+    const showResize = !isLocked && !widget.locked;
     const _showControls = isEditing && (isSelected || false);
 
     /* ★ 훅을 모두 부른 뒤에 숨김을 처리한다(위 isHidden 주석 참조). */

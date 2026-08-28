@@ -280,6 +280,9 @@
   border-radius: 999px;
 }
 .widget.is-editing .resize-handle::after { opacity: 0.4; }
+/* 편집 모드가 아니어도 창에 마우스를 올리면 크기 조절 손잡이를 은근히 보여준다.
+   (조절 자체는 항상 가능하다 — 손잡이가 보이지 않으면 가능한지 알 수 없다) */
+.widget:hover .resize-handle::after { opacity: 0.22; }
 .resize-handle:hover::after { opacity: 1 !important; }
 .resize-handle--e { top: 8px; bottom: 8px; right: -3px; width: 6px; cursor: ew-resize; }
 .resize-handle--e::after { top: 30%; bottom: 30%; left: 2px; width: 2px; }

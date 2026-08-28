@@ -1770,6 +1770,7 @@
                 /* 닫기 안내의 '되살리기' 가 이것을 부른다. */
                 onOpenLibrary={() => engine.setLibraryOpen(true)}
                 onChange={(patch) => engine.updateWidget(w.id, patch)}
+                onResizeEnd={engine.save}
               >
                 <WidgetContent
                   widget={w}
@@ -1804,6 +1805,7 @@
                   orderDraft={orderDraft}
                   isBeginner={isBeginner}
                   onChange={(patch) => engine.updateWidget(w.id, patch)}
+                onResizeEnd={engine.save}
                   t={t}
                 />
               </window.WidgetHost>
