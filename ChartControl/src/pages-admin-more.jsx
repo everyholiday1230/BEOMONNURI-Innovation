@@ -86,6 +86,108 @@
   }
   window.UserTagsEditor = UserTagsEditor;
 
+  /*
+     사용자별 포인트 — 조회 + 즉시 지급/회수.
+
+     ★★ 전에는 포인트를 주려면 사용자 화면에서 ID 를 옮겨 적어 '포인트' 관리 화면으로
+       가야 했다. 사람을 보고 있는 화면에서 바로 잔액을 확인하고 지급하는 것이
+       실제 운영 흐름이다(누구에게 주는지 착각할 위험도 줄어든다).
+
+     ★ 메모를 필수로 받는다 — 왜 지급했는지 없으면 나중에 추적할 수 없다.
+     ★ 회수(revoke)는 되돌리기 어려우므로 확인을 받는다.
+  */
+  function UserPointsPanel({ userId }) {
+    const t = window.QTI18n ? window.QTI18n.t : ((k) => k);
+    const [data, setData] = React.useState(null);
+    const [err, setErr] = React.useState(null);
+    const [form, setForm] = React.useState({ amount: '', direction: 'grant', memo: '' });
+    const [busy, setBusy] = React.useState(false);
+    const [msg, setMsg] = React.useState(null);
+    const api = window.QTApi && window.QTApi.admin;
+
+    const load = React.useCallback(() => {
+      if (!api || !api.pointsOf || !userId) return;
+      api.pointsOf(userId)
+        .then((r) => { setData((r && r.data) || null); setErr(null); })
+        .catch((e) => setErr((e && e.message) || 'load failed'));
+    }, [userId]);
+    React.useEffect(() => { load(); }, [load]);
+
+    const apply = async () => {
+      const amount = Number(form.amount);
+      if (!api || !api.adjustPoints || !(amount > 0) || !form.memo.trim()) return;
+      if (form.direction === 'revoke' && typeof window.confirm === 'function'
+          && !window.confirm(t('aup_revoke_confirm'))) return;
+      setBusy(true); setMsg(null);
+      try {
+        await api.adjustPoints({ userId, amount: Math.trunc(amount), direction: form.direction, memo: form.memo.trim() });
+        setForm({ amount: '', direction: form.direction, memo: '' });
+        setMsg({ ok: true, text: t('aup_applied') });
+        load();
+      } catch (e) {
+        setMsg({ ok: false, text: (e && e.message) || t('aup_failed') });
+      }
+      setBusy(false);
+    };
+
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    const rows = (data && data.history) || [];
+
+    return (
+      <div className="panel" style={{ padding: 14, marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{t('aup_title')}</div>
+          <div style={{ fontFamily: 'var(--font-num)', fontSize: 18, fontWeight: 650 }}>
+            {data ? fmt(data.balance) : '—'}
+            <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 6 }}>{t('aup_balance')}</span>
+          </div>
+        </div>
+        {err && <div style={{ fontSize: 11.5, color: 'var(--color-danger)', marginBottom: 8 }}>{err}</div>}
+
+        {/* 지급 / 회수 */}
+        <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <input type="number" min="1" step="1" value={form.amount} placeholder={t('aup_amount')}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })} style={{ width: 120 }} />
+            <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+              <option value="grant">{t('admin_pt_grant')}</option>
+              <option value="revoke">{t('admin_pt_revoke')}</option>
+            </select>
+            <input value={form.memo} placeholder={t('aup_memo_ph')}
+              onChange={(e) => setForm({ ...form, memo: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
+            <button className="btn btn--sm btn--primary" disabled={busy || !(Number(form.amount) > 0) || !form.memo.trim()} onClick={apply}>
+              {busy ? '…' : t('admin_pt_apply')}
+            </button>
+          </div>
+          {msg && (
+            <div style={{ fontSize: 11.5, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{msg.text}</div>
+          )}
+        </div>
+
+        {/* 원장 내역 */}
+        {rows.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{t('aup_no_history')}</div>
+        ) : (
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {rows.slice(0, 40).map((h) => (
+              <div key={h.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '5px 0', borderBottom: '1px solid var(--color-border-subtle)', fontSize: 11.5 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)', minWidth: 128 }}>
+                  {h.createdAt ? new Date(h.createdAt).toLocaleString() : '—'}
+                </span>
+                <strong style={{ fontFamily: 'var(--font-num)', minWidth: 64, textAlign: 'right', color: h.delta > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                  {h.delta > 0 ? '+' : ''}{fmt(h.delta)}
+                </strong>
+                <span style={{ color: 'var(--color-text-secondary)' }}>{h.reason}</span>
+                <span style={{ color: 'var(--color-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.memo || ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  window.UserPointsPanel = UserPointsPanel;
+
   window.AdminUserDetailPage = function AdminUserDetailPage({ shellProps, userId }) {
     /*
        회원 상세.
@@ -697,6 +799,8 @@
           <div className="grid-2-1">
             <div style={{display:'flex', flexDirection:'column', gap: 16}}>
               <window.UserTagsEditor userId={userId}/>
+              {/* 포인트 — 이 사람을 보고 있는 화면에서 바로 잔액 확인·지급·회수 */}
+              <window.UserPointsPanel userId={userId}/>
               {/*
                  ★ 서버가 주는 값만 표시한다.
 
