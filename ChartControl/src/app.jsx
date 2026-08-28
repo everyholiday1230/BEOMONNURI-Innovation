@@ -2130,7 +2130,8 @@
       case 'orderEntry':
         return <window.OrderEntry
           lastPrice={props.lastPrice} market={props.market} assets={liveAssets}
-          marginMode="CROSS" leverage={20}
+          /* 기본값만 넘긴다 — 실제 값은 OrderEntry 가 이용자 선택을 저장·복원한다. */
+          marginMode="CROSS" leverage={10}
           prefillPrice={props.orderDraft?.price}
           prefillSize={props.orderDraft?.size}
           prefillSide={props.orderDraft?.side}

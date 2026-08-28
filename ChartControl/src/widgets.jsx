@@ -819,9 +819,27 @@
        ★★ 레버리지·증거금 모드는 사용자가 고르고, 이 값이 표시·증거금/청산 계산·
          주문 제출의 **단일 출처**다. 전에는 표시가 20× 로 고정돼 있고 제출은
          10× 로 폴백해서, 화면에서 20× 로 크기를 잡아도 실제 주문은 10× 로 나갔다.
+
+       ★★ 선택은 기억한다. 상위가 넘기는 값(prop)은 고정값이라, 저장이 없으면
+         이용자가 3× 로 낮춰도 새로고침하면 다시 20× 가 된다 — 다음 주문에서
+         의도와 몇 배 다른 위험을 지게 된다.
     */
-    const [lev, setLev] = useState(Math.max(1, Math.min(125, Number(leverage) || 10)));
-    const [mMode, setMMode] = useState(marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS');
+    const [lev, setLev] = useState(() => {
+      try {
+        const saved = parseInt(localStorage.getItem('qt.order.leverage') || '', 10);
+        if (Number.isFinite(saved) && saved >= 1 && saved <= 125) return saved;
+      } catch (e) { /* 저장소 접근 불가는 치명적이지 않다 */ }
+      return Math.max(1, Math.min(125, Number(leverage) || 10));
+    });
+    const [mMode, setMMode] = useState(() => {
+      try {
+        const saved = localStorage.getItem('qt.order.marginMode');
+        if (saved === 'ISOLATED' || saved === 'CROSS') return saved;
+      } catch (e) { /* 무시 */ }
+      return marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS';
+    });
+    useEffect(() => { try { localStorage.setItem('qt.order.leverage', String(lev)); } catch (e) { /* 무시 */ } }, [lev]);
+    useEffect(() => { try { localStorage.setItem('qt.order.marginMode', mMode); } catch (e) { /* 무시 */ } }, [mMode]);
     /* TP/SL 입력을 상태로 관리한다(전에는 defaultValue 라 입력값이 유실됐다). */
     const [tpVal, setTpVal] = useState('');
     const [slVal, setSlVal] = useState('');
