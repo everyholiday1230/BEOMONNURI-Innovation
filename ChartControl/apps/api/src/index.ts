@@ -1206,7 +1206,7 @@ if (env.authEnabled) {
           api: 'ok',
           // core.pool 이 있으면 Postgres 로 붙어 있다는 뜻이다(부팅 시 연결 확인됨).
           postgres: core.pool ? 'Connected' : 'Unavailable (dev store is SQLite)',
-          secretsManager: env.awsRegion ? 'Configured' : 'Not Connected',
+          secretsManager: env.awsRegion ? 'Configured' : 'Not used — secrets come from environment variables',
           // 시세 어댑터. KuCoin 으로 전환했으므로 BitMart 고정 표기는 사실과 다르다.
           marketDataSource: marketSource,
           marketDataRest: marketSource === 'mock_replay' ? 'Mock replay' : 'Connected',
