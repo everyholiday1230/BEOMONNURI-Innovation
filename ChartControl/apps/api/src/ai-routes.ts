@@ -54,6 +54,11 @@ export interface AiRouterDeps {
    */
   points?: PgPointsRepo;
   /**
+   * 운영 컨트롤 게이트(feature_flags + kill_switches). 있으면 ai_enabled 플래그와
+   * ai_provider/ai_signal_generation 킬스위치를 런타임에서 강제한다. 없으면 강제 안 함.
+   */
+  controls?: { aiEnabled(): boolean; killActive(scope: string): boolean };
+  /**
    * Build a grounded, server-verified market snapshot for the prompt (decimal strings + timestamps).
    * Returns null when no real price is available — the orchestrator then refuses price-bearing
    * proposals rather than letting the model invent a level. Wired in index.ts from buildAiMarketContext.
@@ -134,6 +139,8 @@ export function createAiRouter(d: AiRouterDeps): Hono {
     if (!csrfOk(c, a.csrfSecret)) return c.json(errBody('CSRF_FAILED', ''), 403);
     if (!hasPermission(a.user.role, 'signal.write.self')) return c.json(errBody('FORBIDDEN', ''), 403);
     if (!d.ai.available || !d.ai.provider) return c.json(errBody('AI_UNAVAILABLE', d.ai.reason ?? 'AI provider unavailable'), 503);
+    // 운영자 마스터 스위치: ai_enabled 플래그가 꺼졌거나 ai_provider 킬스위치가 켜지면 AI 중단.
+    if (d.controls && !d.controls.aiEnabled()) return c.json(errBody('AI_DISABLED', 'AI is currently turned off by the operator'), 503);
 
     // BL-11 — distributed per-user request-rate gate on the expensive model path. The key is the
     // AUTHENTICATED user id + route category only; it never contains the prompt or any PII, so the
@@ -152,6 +159,10 @@ export function createAiRouter(d: AiRouterDeps): Hono {
 
     const body = (await c.req.json().catch(() => ({}))) as { conversationId?: string; message?: string; symbol?: string; timeframe?: string; mode?: string; language?: string };
     if (!body.conversationId || !body.message) return c.json(errBody('BAD_REQUEST', 'conversationId and message required'), 400);
+    // ai_signal_generation 킬스위치: 신호 모드만 차단(일반 코파일럿은 계속 허용).
+    if (d.controls && (body as { mode?: string }).mode === 'signal' && d.controls.killActive('ai_signal_generation')) {
+      return c.json(errBody('AI_SIGNALS_DISABLED', 'AI signal generation is currently turned off by the operator'), 503);
+    }
     const owned = await d.conversations.getOwned(a.user.id, body.conversationId);
     if (!owned) return c.json(errBody('NOT_FOUND', 'conversation not found'), 404);
 

@@ -787,8 +787,18 @@ export class PgAdminRepo implements IAdminRepo {
 
   // ---- kill switches ----
   async seedKill(scope: string, target: string | null, active: boolean) {
+    /*
+       ★★ 멱등 시드. 예전 구현은 `ON CONFLICT (scope,target)` 였는데 target 이 NULL 이면
+         Postgres 는 NULL 을 서로 다르게 취급해 충돌을 못 잡았다 → 배포마다 같은 스코프가
+         새 행으로 쌓였다(스코프당 수백 행). scope+target(NULL 포함)이 이미 있으면 넣지
+         않도록 IS NOT DISTINCT FROM 으로 판정한다.
+    */
     await this.pool.query(
-      'INSERT INTO kill_switches (id,scope,target,active,version,updated_at) VALUES ($1,$2,$3,$4,0,$5) ON CONFLICT (scope,target) DO NOTHING',
+      `INSERT INTO kill_switches (id,scope,target,active,version,updated_at)
+       SELECT $1,$2,$3,$4,0,$5
+       WHERE NOT EXISTS (
+         SELECT 1 FROM kill_switches WHERE scope=$2 AND target IS NOT DISTINCT FROM $3
+       )`,
       [randomUUID(), scope, target, active, this.now()],
     );
   }

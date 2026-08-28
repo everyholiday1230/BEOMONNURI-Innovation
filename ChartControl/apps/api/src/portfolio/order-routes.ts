@@ -39,6 +39,8 @@ export interface OrderRouterDeps {
   symbolInfo: Record<string, SymbolInfo>;
   policy: TradingPolicy;
   posture: TradingPosture;
+  /** 운영 컨트롤 게이트. 있으면 global_live_trading/new_positions 킬스위치를 강제한다. */
+  controls?: { killActive(scope: string): boolean };
   /** Reference price provider (public market data only — never a private endpoint). */
   referencePrice: (symbol: string) => Promise<{ price: string; at: number } | null>;
   minNotional: string;
@@ -142,7 +144,9 @@ export function createOrderRouter(d: OrderRouterDeps): Hono {
       makerFeeRate: d.makerFeeRate,
       takerFeeRate: d.takerFeeRate,
       liveTradingEnabled: d.posture.liveTradingEnabled,
-      killSwitchActive: d.posture.killSwitchActive,
+      // global_live_trading 킬스위치를 기존 killSwitch 게이트에 접는다(env 하드킬 OR DB 킬).
+      killSwitchActive: d.posture.killSwitchActive || (d.controls?.killActive('global_live_trading') ?? false),
+      newPositionsHalted: d.controls?.killActive('new_positions') ?? false,
       tradingMode: d.posture.tradingMode,
       availableBalance: quote ? quote.available : null,
       openPositions: positions.total,

@@ -75,6 +75,7 @@ import { createTradingRouter } from './trading-routes';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
 import { createAiRouter } from './ai-routes';
+import { OperationalControls } from './ops/operational-controls';
 import { SqliteConversationRepo, SqliteUsageRepo, PgUsageRepo, PgConversationRepo } from './db/ai-repos';
 import { resolveAiProvider } from './ai/production-ai';
 import { DEFAULT_COST_CONFIG, type ToolDataSource } from '@quantumtrade/ai';
@@ -460,6 +461,7 @@ let referralRepo: PgReferralRepo | null = null;
      운영하지 않는다 — 휘발성 저장소에 부채를 기록하면 재시작 때 사라진다.
 */
 let pointsRepo: PgPointsRepo | null = null;
+let operationalControls: OperationalControls | undefined; // feature_flags+kill_switches 런타임 강제 게이트
 
 /*
    법적 문서 저장소.
@@ -1181,6 +1183,12 @@ if (env.authEnabled) {
         ['mfa', 'Phase5', 'Admin MFA (Not Implemented)', true],
       ];
       for (const [key, phase, desc, prod] of gates) await adminRepo.seedGate({ key, phase, description: desc, status: 'NOT_EXECUTED', productionRequired: prod });
+
+      // 운영 컨트롤 게이트 시작 — 이 시점부터 feature_flags(ai_enabled) + kill_switches 가
+      // 런타임에서 실제로 강제된다(15초 캐시). 관리자 화면 토글이 최대 15초 내 반영.
+      operationalControls = new OperationalControls(adminRepo);
+      await operationalControls.start();
+      console.log('[api] operational controls started — feature flags + kill switches are now enforced');
 
       /*
          시스템 상태.
@@ -1905,6 +1913,7 @@ if (env.authEnabled) {
       service: authService,
       audit: auditRepo,
       drafts: userData.orderDrafts,
+      ...(operationalControls ? { controls: operationalControls } : {}),
       portfolio: portfolioRepo,
       symbolInfo: DEFAULT_SYMBOL_INFO,
       /*
@@ -2532,6 +2541,7 @@ if (env.authEnabled) {
         '/api',
         createAiRouter({
           service: authService,
+          ...(operationalControls ? { controls: operationalControls } : {}),
           conversations: core.pool ? new PgConversationRepo(core.pool) : new SqliteConversationRepo(db),
           usage: core.pool ? new PgUsageRepo(core.pool, aiResolution.kind) : new SqliteUsageRepo(db),
           toolData: aiToolData,

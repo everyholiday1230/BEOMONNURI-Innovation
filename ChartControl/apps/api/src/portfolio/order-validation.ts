@@ -82,6 +82,8 @@ export interface ValidationContext {
   makerFeeRate: string;
   liveTradingEnabled: boolean;
   killSwitchActive: boolean;
+  /** new_positions 킬스위치. true 면 reduceOnly 가 아닌(=포지션을 새로 열거나 늘리는) 주문을 막는다. */
+  newPositionsHalted?: boolean;
   tradingMode: string;
   /** Available balance as a decimal string, or null when the account has no balance snapshot. */
   availableBalance: string | null;
@@ -281,11 +283,15 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
   if (!ctx.liveTradingEnabled) block('LIVE_TRADING_DISABLED', 'live trading is disabled in this deployment');
   add('gate.killSwitch', 'Kill switch inactive', ctx.killSwitchActive ? 'fail' : 'ok', `killSwitchActive=${ctx.killSwitchActive}`);
   if (ctx.killSwitchActive) block('KILL_SWITCH_ACTIVE', 'emergency kill switch is active');
+  // new_positions 킬스위치: 포지션을 새로 열거나 늘리는 주문만 막는다(청산/reduceOnly 는 허용).
+  const opensPosition = !(intent.reduceOnly ?? false);
+  add('gate.newPositions', 'New positions allowed', ctx.newPositionsHalted && opensPosition ? 'fail' : 'ok', `newPositionsHalted=${ctx.newPositionsHalted ?? false}`);
+  if (ctx.newPositionsHalted && opensPosition) block('NEW_POSITIONS_HALTED', 'opening new positions is halted by the operator');
 
   // `valid` describes the ORDER (would the exchange accept its shape and size). `allowed` additionally
   // requires the deployment gates. Keeping them separate is what lets the UI say "your order is fine but
   // this system will not send it" instead of blaming the user's input.
-  const orderLevelBlocking = blocking.filter((b) => b.code !== 'LIVE_TRADING_DISABLED' && b.code !== 'KILL_SWITCH_ACTIVE');
+  const orderLevelBlocking = blocking.filter((b) => b.code !== 'LIVE_TRADING_DISABLED' && b.code !== 'KILL_SWITCH_ACTIVE' && b.code !== 'NEW_POSITIONS_HALTED');
   const valid = orderLevelBlocking.length === 0;
 
   const feeRate = intent.type === 'market' ? ctx.takerFeeRate : ctx.makerFeeRate;
