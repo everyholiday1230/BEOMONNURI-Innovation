@@ -96,7 +96,7 @@ export class PgUsageRepo implements IAIUsageRepository {
       `INSERT INTO ai_runs (id,conversation_id,user_id,provider,model,prompt_version,fallback_used,status,correlation_id,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
        ON CONFLICT DO NOTHING`,
-      [randomUUID(), usage.conversationId, userId, this.providerName, usage.model, null, usage.fallbackUsed, 'ok', usage.correlationId],
+      [randomUUID(), usage.conversationId, userId, this.providerName, usage.model, '', usage.fallbackUsed, 'ok', usage.correlationId],
     ).catch(() => { /* 기록 실패가 응답을 막지 않는다 */ });
     await this.pool.query(
       `INSERT INTO ai_usage_records (id,user_id,conversation_id,correlation_id,model,fallback_used,input_tokens,output_tokens,estimated_cost_micros,at)
