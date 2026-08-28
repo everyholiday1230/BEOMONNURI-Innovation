@@ -71,7 +71,68 @@ export class SqliteUsageRepo implements IAIUsageRepository {
 
 /** pg Pool 의 최소 형태(쿼리만 쓴다). */
 interface PgPoolLike {
-  query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
+  query(text: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount?: number | null }>;
+}
+
+/*
+   ★★ PostgreSQL 대화 저장소.
+
+     대화를 SQLite 에 저장하면 (1) 컨테이너 재시작 때 사용자 대화가 사라지고,
+     (2) Postgres 의 ai_runs.conversation_id → ai_conversations 외래키를 만족하지
+     못해 AI 실행 기록(운영자 AI Ops 목록)이 저장되지 않는다. Postgres 배포에서는
+     대화·메시지를 Postgres 에 저장한다.
+*/
+export class PgConversationRepo implements IAIConversationRepository {
+  constructor(private readonly pool: PgPoolLike) {}
+
+  async createConversation(userId: string, title: string): Promise<{ id: string }> {
+    const id = randomUUID();
+    await this.pool.query(
+      'INSERT INTO ai_conversations (id,user_id,title,created_at,updated_at) VALUES ($1,$2,$3, now(), now())',
+      [id, userId, title.slice(0, 200)],
+    );
+    return { id };
+  }
+
+  async getOwned(userId: string, conversationId: string): Promise<{ id: string; userId: string } | null> {
+    const r = await this.pool.query(
+      'SELECT id,user_id FROM ai_conversations WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',
+      [conversationId, userId],
+    );
+    const row = r.rows[0] as { id: string; user_id: string } | undefined;
+    return row ? { id: row.id, userId: row.user_id } : null;
+  }
+
+  async appendMessage(userId: string, conversationId: string, msg: { role: string; content: string; redactedReasoningSummary?: string }): Promise<{ id: string }> {
+    const owned = await this.getOwned(userId, conversationId);
+    if (!owned) throw new Error('conversation not found (ownership)');
+    const id = randomUUID();
+    const summary = msg.redactedReasoningSummary ? msg.redactedReasoningSummary.slice(0, 600) : null;
+    await this.pool.query(
+      'INSERT INTO ai_messages (id,conversation_id,user_id,role,content,reasoning_summary,created_at) VALUES ($1,$2,$3,$4,$5,$6, now())',
+      [id, conversationId, userId, msg.role, msg.content, summary],
+    );
+    await this.pool.query('UPDATE ai_conversations SET updated_at=now() WHERE id=$1 AND user_id=$2', [conversationId, userId]);
+    return { id };
+  }
+
+  async listMessages(userId: string, conversationId: string): Promise<Array<{ role: string; content: string }>> {
+    const owned = await this.getOwned(userId, conversationId);
+    if (!owned) return [];
+    const r = await this.pool.query(
+      'SELECT role,content FROM ai_messages WHERE conversation_id=$1 AND user_id=$2 AND deleted_at IS NULL ORDER BY created_at ASC',
+      [conversationId, userId],
+    );
+    return r.rows as Array<{ role: string; content: string }>;
+  }
+
+  async softDelete(userId: string, conversationId: string): Promise<boolean> {
+    const r = await this.pool.query(
+      'UPDATE ai_conversations SET deleted_at=now() WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',
+      [conversationId, userId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
 }
 
 /*
