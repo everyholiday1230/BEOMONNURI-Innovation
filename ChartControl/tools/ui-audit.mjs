@@ -83,7 +83,7 @@ for (const route of routes) {
 
   /* 조작 요소 수집: 화면에 보이는 버튼/탭/토글. 링크·위험 버튼은 제외한다. */
   const controls = await page.evaluate(() => {
-    const DANGER = /delete|삭제|remove|제거|revoke|폐기|logout|로그아웃|suspend|정지|close account|withdraw|출금|kill|reset|초기화|confirm|승인|publish|게시|payout|정산|disable|비활성/i;
+    const DANGER = /delete|삭제|remove|제거|revoke|폐기|logout|로그아웃|sign ?out|suspend|정지|close account|withdraw|출금|kill|reset|초기화|confirm|승인|publish|게시|payout|정산|disable|비활성|buy|sell|long|short|매수|매도|order|주문|place|submit|pay|결제|purchase|충전|redeem|교환|consume|connect|연결|save|저장|apply|적용|grant|지급/i;
     const out = [];
     document.querySelectorAll('button, [role="tab"], .seg__opt, .oe-tab').forEach((el, i) => {
       const r = el.getBoundingClientRect();
