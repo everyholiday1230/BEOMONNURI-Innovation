@@ -1490,18 +1490,22 @@
               {tweaks.theme === 'dark' ? <I.Moon size={14}/> : <I.Sun size={14}/>}
             </button>
             {/*
-               Trade Ex — 자동맞춤(auto-fit) 실험 토글. 켜면 패널 내용이 크기에 맞춰
-               촘촘해지고(컨테이너 쿼리), Order Entry 제출 버튼이 하단에 고정되며,
-               좁은 표는 부차 열을 접는다. 기본은 꺼짐(현재 UI 그대로) — 켠 채로 두면 적용.
+               자동맞춤(auto-fit) 토글 — 켜면 패널 내용이 크기에 맞춰 촘촘해지고
+               주문 버튼이 하단에 고정되며 좁은 표는 부차 열을 접는다.
+
+               ★ 트레이드 화면에서만 보여준다. 다른 화면에는 조절할 패널 격자가 없어
+                 눌러도 아무 변화가 없었다 — 효과 없는 버튼은 고장으로 읽힌다.
             */}
-            <button
-              className={`header-tool header-tool--icon ${tweaks.autofit ? 'is-active' : ''}`}
-              onClick={() => setTweaks({ autofit: !tweaks.autofit })}
-              title={t('autofit_toggle')}
-              aria-pressed={!!tweaks.autofit}
-            >
-              <I.Expand size={14}/>
-            </button>
+            {isTradeRoute && (
+              <button
+                className={`header-tool header-tool--icon ${tweaks.autofit ? 'is-active' : ''}`}
+                onClick={() => setTweaks({ autofit: !tweaks.autofit })}
+                title={t('autofit_toggle')}
+                aria-pressed={!!tweaks.autofit}
+              >
+                <I.Expand size={14}/>
+              </button>
+            )}
             {/*
                언어 선택.
 

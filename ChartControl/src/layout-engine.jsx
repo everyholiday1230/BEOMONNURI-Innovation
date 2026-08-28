@@ -67,6 +67,31 @@
     const [ghost, setGhost] = useState(null); // {x,y,w,h,valid}
     const [libraryOpen, setLibraryOpen] = useState(false);
 
+    /*
+       ★★ 설정 패널에서 고른 레이아웃 프리셋을 실제로 반영한다.
+
+         `initialPresetId` 는 이름 그대로 **처음 한 번만** 쓰였다. 그래서 설정에서
+         'Scalper' 를 눌러도 tweaks 값만 바뀌고 화면 배치는 그대로였다 — 버튼이
+         눌리는데 아무 일도 일어나지 않는다.
+
+       ★ 첫 마운트에서는 적용하지 않는다(저장된 배치를 프리셋으로 덮어쓰면
+         이용자가 손으로 맞춘 배치가 사라진다). 이후 프리셋이 **바뀔 때만** 적용한다.
+    */
+    const presetPropRef = useRef(initialPresetId);
+    useEffect(() => {
+      if (presetPropRef.current === initialPresetId) return;
+      presetPropRef.current = initialPresetId;
+      const preset = QT.LAYOUT_PRESETS[initialPresetId];
+      if (!preset) return;
+      const next = JSON.parse(JSON.stringify(preset));
+      setLayout(next);
+      setPresetId(initialPresetId);
+      setSelectedId(null);
+      // 프리셋 적용은 되돌릴 수 있어야 한다(실수로 눌렀을 때 배치를 잃지 않게).
+      setHistory((h) => ({ past: [...h.past].slice(-30), future: [] }));
+      try { localStorage.setItem('qt.layout', JSON.stringify(next)); } catch (e) { /* 무시 */ }
+    }, [initialPresetId]);
+
     const _pushHistory = useCallback((prev) => {
       setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));
     }, []);

@@ -1283,6 +1283,9 @@
                           className={`seg__opt ${(preview ? label === '30D' : curveDays === days) ? 'is-active' : ''}`}
                           disabled={disabled}
                           aria-disabled={disabled}
+                          /* ★ 이유를 버튼마다 붙인다 — 묶음(컨테이너)에만 두면 어느 것이
+                               왜 막혔는지 알기 어렵다. */
+                          title={disabled ? t('pf_equity_range_why') : undefined}
                           onClick={preview ? undefined : () => setCurveDays(days)}
                         >{label}</button>
                       );
