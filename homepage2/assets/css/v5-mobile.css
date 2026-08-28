@@ -252,22 +252,14 @@ body.nav-open {
   /* Hero: 4-cell -> 2-cell already handled, but enforce hero-bottom layout */
   .hero h1 { font-size: clamp(56px, 10vw, 120px); }
   /* HUD: keep visible but smaller */
-  .hud {
-    top: 80px;
-    right: 20px;
-    min-width: 200px;
-    font-size: 10px;
-    padding: 12px 14px;
-  }
+  
   /* 3D Cylinder: smaller perspective */
   .partner-cylinder {
     height: 200px;
     perspective: 1000px;
   }
   /* LLM terminal: full width */
-  .llm-terminal {
-    max-width: 100%;
-  }
+  
 }
 
 /* Phone (<=700px) */
@@ -282,9 +274,9 @@ body.nav-open {
   }
   .hero h1 .stroke { -webkit-text-stroke-width: 1.5px; }
   /* Hide HUD on phones (already in v5) */
-  .hud { display: none; }
+  
   /* System bar */
-  .system-bar { display: none; }
+  
   /* Glass orbs — lighter or hide */
   #glass-orbs { display: none; }
   /* Hero canvas: keep, but Three.js may struggle — leave on for now */
@@ -302,20 +294,9 @@ body.nav-open {
 
   /* Top hero text size */
   .hero-top { font-size: 9.5px; flex-direction: column; gap: 6px; align-items: flex-start; }
-  .hero-top .live-tag { font-size: 9.5px; }
 
   /* LLM terminal */
-  .llm-terminal {
-    margin-top: 24px;
-    max-width: 100%;
-  }
-  .llm-terminal .lt-bar {
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start;
-  }
-  .llm-terminal .lt-input input { font-size: 14px; }
-  .llm-terminal .lt-suggest button { font-size: 9px; }
+  
 
   /* Sections: tighter padding */
   section { padding: 70px 0; }
@@ -482,41 +463,17 @@ body.nav-open {
   }
 
   /* Pipeline */
-  .pipe-canvas-wrap { margin-top: 20px; }
-  #pipe-canvas { height: 160px; }
-  .pipe-labels { grid-template-columns: 1fr 1fr; }
-  .pipe-labels > div {
-    border-right: 1px dashed var(--mute-line);
-    border-bottom: 1px dashed var(--mute-line);
-    padding: 14px 16px;
-  }
-  .pipe-labels > div:nth-child(2n) { border-right: 0; }
-  .pipe-labels > div:nth-last-child(-n+2) { border-bottom: 0; }
-  .pipe-labels .v { font-size: 16px; }
+  
 
   /* AI widget on phone */
-  .ai-widget {
-    width: calc(100vw - 24px);
-    right: 12px;
-    bottom: 12px;
-  }
+  
 
   /* Hide thinking strip on small phones — too noisy */
-  .thinking-strip {
-    font-size: 9.5px;
-    padding: 8px 0;
-  }
+  
 
   /* Status orb tighter */
-  .status-orb {
-    bottom: 12px;
-    left: 12px;
-    padding: 7px 10px;
-    font-size: 9px;
-  }
-  /* When AI widget is in foreground, hide status orb to avoid overlap */
-  .ai-widget.open ~ .status-orb,
-  body:has(.ai-widget.open) .status-orb {
+  
+  /* When AI widget is in foreground {
     opacity: 0.3;
   }
 

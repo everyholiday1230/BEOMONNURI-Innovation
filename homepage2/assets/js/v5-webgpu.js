@@ -35,9 +35,6 @@
     document.body.appendChild(canvas);
   }
 
-  // Update the label in system bar (Home only)
-  const labelButton = document.querySelector('.system-bar button.active .label');
-
   const NUM_PARTICLES = innerWidth < 700 ? 40 : 80;
 
   // Shared resize logic — full viewport
@@ -429,10 +426,8 @@
      ========================================================== */
   tryWebGPU().then(success => {
     if (success) {
-      if (labelButton) labelButton.textContent = 'WEBGPU · LIVE';
     } else {
       startFallback();
-      if (labelButton) labelButton.textContent = 'WEBGL2 · LIVE';
     }
   });
 })();

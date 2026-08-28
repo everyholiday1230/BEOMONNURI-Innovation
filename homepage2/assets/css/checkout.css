@@ -170,6 +170,15 @@
   color: var(--mute);
 }
 
+/* 부가세 안내 — 금액 바로 아래에 붙는 고지 문구.
+   금액과 시각적으로 묶여 보이도록 위 여백을 줄이고 아래 여백을 확보한다. */
+.co-vat-note {
+  margin: -18px 0 26px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--mute);
+}
+
 /* Result page (success / fail) */
 .co-result-card {
   max-width: 560px;

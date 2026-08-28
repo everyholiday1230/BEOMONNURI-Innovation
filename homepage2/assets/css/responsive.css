@@ -46,9 +46,6 @@
 .ci-label,
 .cf-label,
 .ft-bottom-row,
-.hud,
-.status-orb,
-.thinking-strip,
 .mobile-menu-label,
 .mobile-menu .meta-row,
 .compare-table th,
@@ -451,11 +448,10 @@ body.has-hero .hero-inline-partners {
 
   /* 4열 그리드는 2열로 (실측: 768px에서 4열은 열당 114px) */
   .footer-grid,
-  .page-hero-meta,
-  .hero-bottom,
-  .prod-detail .pd-grid,
-  .intel-grid,
-  .pipe-labels {
+.page-hero-meta,
+.hero-bottom,
+.prod-detail .pd-grid,
+.intel-grid {
     grid-template-columns: repeat(2, 1fr) !important;
   }
   .footer-grid {
@@ -576,7 +572,8 @@ body.has-hero .hero-inline-partners {
    그리드·플렉스 아이템의 기본값 min-width:auto 는 아이템을
    min-content 아래로 줄지 못하게 한다. 여기에 word-break:keep-all
    (한국어 어절 단위 유지)이 겹치면 min-content 가 커져 트랙이
-   컨테이너를 넘고, 부모의 overflow:hidden 이 잘라낸다.
+   컨테이너를 넘고,
+부모의 overflow:hidden 이 잘라낸다.
      실측(320px): .principle-grid 288px 인데 트랙 315px
                  (.principle-cell 패딩 48px + 본문 min-content 267px)
    히어로 컨테이너 붕괴와 동일한 원인이다.
@@ -593,7 +590,6 @@ body.has-hero .hero-inline-partners {
 .hero-bottom > *,
 .footer-grid > *,
 .pd-grid > *,
-.pipe-labels > *,
 .roll-row-v4 > *,
 .perf-grid > *,
 .bs-grid > *,
