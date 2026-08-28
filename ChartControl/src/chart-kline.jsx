@@ -750,6 +750,25 @@
     const overlayIdsRef = useRef(new Map());
     const maPaneRef = useRef(null);
     const volPaneRef = useRef(null);
+    /*
+       과거 캔들 로딩 상태.
+
+       ★ dataLoader 는 차트 생성 시 한 번만 등록되므로 그 안에서 symbol/timeframe
+         같은 값을 클로저로 잡으면 심볼을 바꿘 뒤에도 옛 심볼을 조회한다. 그래서
+         최신 값을 ref 로 들고 읽는다.
+       ★ 같은 구간을 반복 조회하지 않도록 요청 중 플래그와 '더 없음' 표시를 둔다.
+    */
+    const symbolRef = useRef(symbol);
+    const timeframeRef = useRef(timeframe);
+    const loadingOlderRef = useRef(false);
+    const noMoreOlderRef = useRef(false);
+    useEffect(() => {
+      symbolRef.current = symbol;
+      timeframeRef.current = timeframe;
+      // 심볼/주기가 바뀌면 '더 없음' 판정을 초기화한다 — 새 심볼은 과거가 있을 수 있다.
+      noMoreOlderRef.current = false;
+      loadingOlderRef.current = false;
+    }, [symbol, timeframe]);
 
     const [colors, setColors] = useState(readColors);
     const [hoverCandle, setHoverCandle] = useState(null);
@@ -788,14 +807,56 @@
       INSTANCES.add(chart);
       if (onChartReady) onChartReady(chart);
 
-      // 데이터는 dataRef 에서 공급한다. KLineChart 가 forward/backward 를 요청하면
-      // 우리가 가진 범위 밖이므로 빈 배열 + more:false 로 응답해 무한 요청을 막는다.
-      // 데이터는 dataRef 에서 공급한다. (히스토리 스크롤 로딩은 차트 리사이즈
-      // 회귀를 유발해 임시로 비활성화 — 안정화 후 재도입 예정.)
+      /*
+         데이터 공급.
+
+         ★★ 과거 캔들 자동 로딩. 이용자가 과거로 스크롤하거나 줌아웃하면 KLineChart 가
+           type:'backward' 로 더 달라고 요청한다. 전에는 여기서 빈 배열 + backward:false
+           로 답해 **정해진 개수(300)에서 더 이상 과거를 볼 수 없었다.**
+
+         ★ 캐시 앞쪽 병합은 live-market 의 loadOlderCandles 가 담당한다(중복 제거 포함).
+           받은 배열은 오름차순이고, 우리 dataRef 앞에 붙여 지표 계산과 순서를 맞춘다.
+
+         ★ 무한 요청 방지: 요청 중(loadingOlderRef)에는 즉시 빈 응답, 더 받을 게 없으면
+           noMoreOlderRef 를 세워 이후 backward:false 로 답한다.
+      */
       chart.setDataLoader({
         getBars: ({ type, callback }) => {
-          if (type === 'init') callback(dataRef.current.slice(), { forward: false, backward: false });
-          else callback([], { forward: false, backward: false });
+          if (type === 'init') {
+            callback(dataRef.current.slice(), { forward: false, backward: !noMoreOlderRef.current });
+            return;
+          }
+          if (type !== 'backward') { callback([], { forward: false, backward: false }); return; }
+
+          const LM = window.QTLive;
+          const first = dataRef.current[0];
+          if (noMoreOlderRef.current || loadingOlderRef.current || !first
+              || !LM || typeof LM.loadOlderCandles !== 'function') {
+            callback([], { forward: false, backward: !noMoreOlderRef.current && !!first });
+            return;
+          }
+
+          loadingOlderRef.current = true;
+          LM.loadOlderCandles(symbolRef.current, timeframeRef.current, first.time, 300)
+            .then((older) => {
+              loadingOlderRef.current = false;
+              const rows = Array.isArray(older) ? older : [];
+              if (!rows.length) {
+                // 거래소에 더 과거가 없다 — 이후로는 요청하지 않게 한다.
+                noMoreOlderRef.current = true;
+                callback([], { forward: false, backward: false });
+                return;
+              }
+              // 우리 데이터 앞에 붙인다(중복 방지: 현재 첫 캔들보다 과거만).
+              const head = rows.filter((c) => c && c.time < first.time);
+              if (head.length) dataRef.current = head.concat(dataRef.current);
+              callback(head.slice(), { forward: false, backward: head.length > 0 });
+            })
+            .catch(() => {
+              loadingOlderRef.current = false;
+              // 실패를 '더 없음' 으로 굳히지 않는다 — 일시적 오류일 수 있다.
+              callback([], { forward: false, backward: true });
+            });
         },
       });
 
