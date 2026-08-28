@@ -24,6 +24,8 @@
     { id: 'teal-magenta', name: 'Teal / Magenta', chips: ['#14B8A6', '#EC4899'] },
     { id: 'green-red', name: 'Green / Red', chips: ['#22C55E', '#EF4444'] },
     { id: 'cyan-orange', name: 'Cyan / Orange', chips: ['#06B6D4', '#F97316'] },
+    // 롱=빨강, 숏=파랑 (한국 증권사 관행). chips[0]=롱, chips[1]=숏.
+    { id: 'red-blue', name: 'Red / Blue', chips: ['#EF4444', '#3B82F6'] },
   ];
 
   window.TweaksPanel = function TweaksPanel({ tweaks, setTweaks, open, onClose, t }) {

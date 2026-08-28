@@ -295,6 +295,22 @@
   --chart-volume-dn: oklch(72% 0.17 55 / 0.35);
 }
 
+/* 롱=빨강, 숏=파랑 — 한국 증권사(키움 등) 관행. 롱(상승)이 빨강, 숏(하락)이 파랑. */
+[data-longshort="red-blue"] {
+  --trade-long-500: oklch(64% 0.22 25);
+  --trade-long-bg:  oklch(64% 0.22 25 / 0.12);
+  --trade-short-500: oklch(62% 0.18 255);
+  --trade-short-bg:  oklch(62% 0.18 255 / 0.12);
+  --color-trade-long: var(--trade-long-500);
+  --color-trade-short: var(--trade-short-500);
+  --color-trade-long-bg: var(--trade-long-bg);
+  --color-trade-short-bg: var(--trade-short-bg);
+  --chart-candle-up: var(--trade-long-500);
+  --chart-candle-dn: var(--trade-short-500);
+  --chart-volume-up: oklch(64% 0.22 25 / 0.35);
+  --chart-volume-dn: oklch(62% 0.18 255 / 0.35);
+}
+
 /* ============ LIGHT THEME ============ */
 [data-theme="light"] {
   --color-bg-app:       oklch(98% 0.003 240);

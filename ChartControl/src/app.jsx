@@ -2206,7 +2206,7 @@
   // Chart widget wrapper (with toolbar + draw tools)
   // ============================================================
   function ChartWidget({
-    market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay: _addOverlay, pushToast, t,
+    market, lastPrice, candles, timeframe, setTimeframe, overlays, updateOverlay, addOverlay: _addOverlay, removeOverlay, pushToast, t,
     /*
        ★★ 격자에서 여러 개가 동시에 살아 있을 수 있다.
 
@@ -2221,6 +2221,8 @@
     focused = true, _paneId = 'main',
   }) {
     const [activeTool, setActiveTool] = useState('cursor');
+    // 수평선 정확한 가격 직접 입력(예: BTC 80,000). 클릭으로는 정확히 못 긋는다.
+    const [hlinePrice, setHlinePrice] = useState('');
     const [showMA, setShowMA] = useState(true);
     // 지표 패널. 버튼 마크업은 그대로 두고 패널만 아래에 띄운다.
     const [indicatorsOpen, setIndicatorsOpen] = useState(false);
@@ -2565,6 +2567,46 @@
               );
             })}
             <div className="chart-drawtool-sep"/>
+            {/*
+               ★ 정확한 가격에 수평선 긋기. 클릭·드래그로는 예: BTC 80,000 처럼
+                 정확한 값을 맞출 수 없다(키움 등 국내 증권사에 있는 기능).
+                 값을 입력하고 Enter/버튼으로 그 가격에 선을 만든다.
+            */}
+            {(() => {
+              const drawAtPrice = () => {
+                const raw = String(hlinePrice).replace(/,/g, '').trim();
+                const price = parseFloat(raw);
+                if (!Number.isFinite(price) || price <= 0) return;
+                if (!_addOverlay) return;
+                const id = 'hline-' + Date.now();
+                _addOverlay({
+                  id,
+                  type: 'horizontal',
+                  source: 'user',
+                  label: (typeof price === 'number' ? price.toLocaleString() : String(price)),
+                  points: [{ time: Date.now(), price }],
+                });
+                setHlinePrice('');
+              };
+              return (
+                <div className="chart-hline-input" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={hlinePrice}
+                    onChange={(e) => setHlinePrice(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') drawAtPrice(); }}
+                    placeholder={t('hline_price_ph')}
+                    title={t('hline_price_title')}
+                    style={{ width: 84, height: 24, fontSize: 11, padding: '0 6px', borderRadius: 4, border: '1px solid var(--color-border-default)', background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}
+                  />
+                  <button className="chart-drawtool" title={t('hline_add')} onClick={drawAtPrice} disabled={!hlinePrice.trim()}>
+                    <I.Horizontal size={14}/>
+                  </button>
+                </div>
+              );
+            })()}
+            <div className="chart-drawtool-sep"/>
             <button
               className={`chart-drawtool ${magnetMode !== 'normal' ? 'is-active' : ''}`}
               title={`${t('tool_magnet')} · ${t('magnet_' + magnetMode)}`}
@@ -2602,7 +2644,27 @@
             <button
               className="chart-drawtool"
               title={t('tool_remove_all')}
-              onClick={() => actions && actions.removeAllDrawings()}
+              onClick={() => {
+                // 사용자가 직접 그린 드로잉을 지운다(차트 오버레이).
+                if (actions) actions.removeAllDrawings();
+                /*
+                   ★★ AI 가 그린 지지/저항·진입/손절 선도 함께 지운다.
+
+                     이 선들은 앱 상태(overlays, source 가 'ai-' 로 시작)로 관리되고
+                     차트가 그걸 다시 그린다. 그래서 차트에서만 지우면 곧바로
+                     되살아난다 — 앱 상태에서 지워야 실제로 사라진다.
+                     (이용자가 "휴지통 눌러도 AI 선이 안 지워진다" 고 한 원인)
+                */
+                if (removeOverlay && Array.isArray(overlays)) {
+                  overlays
+                    .filter((o) => {
+                      const s = (o && typeof o.source === 'string') ? o.source : '';
+                      // 주문·포지션 마커는 라이브 상태라 남긴다. 그 외(AI·사용자 드로잉)는 지운다.
+                      return s !== 'order' && s !== 'position-long' && s !== 'position-short';
+                    })
+                    .forEach((o) => removeOverlay(o.id));
+                }
+              }}
             >
               <I.Trash size={14}/>
             </button>
