@@ -1038,7 +1038,22 @@
         >
           <window.DataTable
             columns={[
-              { key:'id', label:'ID', render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>{r.id}</span> },
+              /*
+                 ★ ID 를 눌러서 복사할 수 있게 한다. 포인트 수동 지급·회수 화면이
+                   userId 를 요구하는데, UUID 를 손으로 옮겨 적으면 틀리기 쉽다
+                   (틀린 id 는 400 이거나 더 나쁘게 다른 사람에게 지급된다).
+              */
+              { key:'id', label:'ID', render: r => (
+                <button
+                  type="button"
+                  onClick={() => window.QTCopy && window.QTCopy(r.id)}
+                  title={t('adm_copy_user_id')}
+                  style={{
+                    fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)',
+                    background:'none', border:'none', padding:0, cursor:'copy', textAlign:'left',
+                  }}
+                >{r.id}</button>
+              ) },
               { key:'name', label: t('adm_col_name_email'), render: r => (
                 <div>
                   <div style={{fontWeight:500}}>{r.name}</div>

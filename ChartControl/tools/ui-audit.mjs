@@ -102,7 +102,8 @@ for (const route of routes) {
   controls.filter((c) => c.disabled).forEach((c) => add(route, c.label, 'DISABLED', c.title || '(no title)'));
 
   let clicked = 0;
-  for (const c of clickable.slice(0, 28)) {   // 화면당 상한 — 무한 확장 방지
+  const CAP = Number(process.env.CAP || 120);
+  for (const c of clickable.slice(0, CAP)) {   // 화면당 상한(CAP 환경변수로 조절)
     pageErrors.length = 0; consoleErrors.length = 0; serverErrors.length = 0;
 
     const before = await page.evaluate(() => ({
