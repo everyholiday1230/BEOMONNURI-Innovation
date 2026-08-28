@@ -55,7 +55,20 @@
 /en                               /                        301
 /en/                              /                        301
 
+# ── 결제 페이지(2026-08-28 제거) ──
+# 온라인 결제를 제공하지 않고 대면으로 진행하기로 해 결제 페이지 7개를 삭제했다.
+# 토스페이먼츠 심사용 예시 페이지였고 사이트 내 링크는 없었지만, URL 을 알고
+# 들어오거나 북마크가 남아 있을 수 있으므로 404 대신 문의 페이지로 안내한다.
+/checkout-private                 /contact                 301
+/checkout-agent                   /contact                 301
+/checkout-private-billing         /contact                 301
+/checkout-agent-billing           /contact                 301
+/checkout-success                 /contact                 301
+/checkout-billing-success         /contact                 301
+/checkout-fail                    /contact                 301
+
 # ── 동적 규칙(splat) — 반드시 정적 규칙 뒤에 위치 ──
+/checkout-*                       /contact                 301
 /en/products/*                    /products                301
 /en/*                             /                        301
 /products/*                       /products                301

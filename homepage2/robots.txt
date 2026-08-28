@@ -6,10 +6,10 @@
 # 결과적으로 URL 만 검색결과에 남는 상태가 될 수 있다.
 #
 # 현재 noindex 처리된 경로(크롤링은 허용, 색인은 차단):
-#   /checkout-private, /checkout-agent, /checkout-private-billing,
-#   /checkout-agent-billing, /checkout-success, /checkout-billing-success,
-#   /checkout-fail  ... meta noindex,nofollow + X-Robots-Tag
 #   /products-superchart ......... TEMP-HIDDEN(2026-08-04), meta noindex
+#
+# 결제 페이지(/checkout-*)는 2026-08-28 에 제거했다. 온라인 결제를 제공하지 않고
+# 대면으로 진행하기로 해서다. 해당 경로는 _redirects 에서 /contact 로 301 처리된다.
 
 User-agent: *
 Allow: /
