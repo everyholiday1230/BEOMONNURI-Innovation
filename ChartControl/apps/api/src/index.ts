@@ -76,7 +76,7 @@ import { createTradingRouter } from './trading-routes';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
 import { createAiRouter } from './ai-routes';
-import { SqliteConversationRepo, SqliteUsageRepo } from './db/ai-repos';
+import { SqliteConversationRepo, SqliteUsageRepo, PgUsageRepo } from './db/ai-repos';
 import { resolveAiProvider } from './ai/production-ai';
 import { DEFAULT_COST_CONFIG, type ToolDataSource } from '@quantumtrade/ai';
 import { createAdminRouter } from './admin/admin-routes';
@@ -2525,7 +2525,7 @@ if (env.authEnabled) {
         createAiRouter({
           service: authService,
           conversations: new SqliteConversationRepo(db),
-          usage: new SqliteUsageRepo(db),
+          usage: core.pool ? new PgUsageRepo(core.pool, aiResolution.kind) : new SqliteUsageRepo(db),
           toolData: aiToolData,
           costConfig: { ...DEFAULT_COST_CONFIG, dailyCostMicros: env.aiDailyUserBudgetMicros },
           csrfKey: env.csrfKey,

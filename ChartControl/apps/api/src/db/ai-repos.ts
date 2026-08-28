@@ -68,3 +68,55 @@ export class SqliteUsageRepo implements IAIUsageRepository {
     return Number(r.n);
   }
 }
+
+/** pg Pool 의 최소 형태(쿼리만 쓴다). */
+interface PgPoolLike {
+  query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
+}
+
+/*
+   ★★ PostgreSQL AI 사용량 저장소.
+
+     프로덕션은 Postgres 를 쓰는데 AI 라우터가 SqliteUsageRepo 로 사용량을 SQLite 에
+     기록하고 있었다. 그래서 운영자 화면(관리자 AI Ops — Postgres 의 ai_runs /
+     ai_usage_records 조회)에는 사용량·비용이 **항상 0** 으로 보였고, SQLite 파일은
+     재시작 때 사라졌다. Postgres 배포에서는 이 저장소로 같은 테이블에 기록한다.
+
+   ★ ai_usage_records(토큰·비용)와 ai_runs(실행 목록·개수) 둘 다 기록한다 —
+     관리자 요약은 usage_records 를, 실행 목록/카운트는 ai_runs 를 읽는다.
+*/
+export class PgUsageRepo implements IAIUsageRepository {
+  constructor(
+    private readonly pool: PgPoolLike,
+    private readonly providerName: string = 'openai',
+  ) {}
+
+  async record(userId: string, usage: AiUsage & { conversationId: string; correlationId: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ai_runs (id,conversation_id,user_id,provider,model,prompt_version,fallback_used,status,correlation_id,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+       ON CONFLICT DO NOTHING`,
+      [randomUUID(), usage.conversationId, userId, this.providerName, usage.model, null, usage.fallbackUsed, 'ok', usage.correlationId],
+    ).catch(() => { /* 기록 실패가 응답을 막지 않는다 */ });
+    await this.pool.query(
+      `INSERT INTO ai_usage_records (id,user_id,conversation_id,correlation_id,model,fallback_used,input_tokens,output_tokens,estimated_cost_micros,at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())`,
+      [randomUUID(), userId, usage.conversationId, usage.correlationId, usage.model, usage.fallbackUsed, usage.inputTokens, usage.outputTokens, usage.estimatedCostMicros],
+    ).catch(() => { /* 비치명 */ });
+  }
+
+  async dailyTokens(userId: string): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT COALESCE(SUM(input_tokens+output_tokens),0) AS n FROM ai_usage_records WHERE user_id=$1 AND at >= now() - interval '24 hours'`,
+      [userId],
+    );
+    return Number((r.rows[0] as { n: string } | undefined)?.n ?? 0);
+  }
+  async dailyCostMicros(userId: string): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT COALESCE(SUM(estimated_cost_micros),0) AS n FROM ai_usage_records WHERE user_id=$1 AND at >= now() - interval '24 hours'`,
+      [userId],
+    );
+    return Number((r.rows[0] as { n: string } | undefined)?.n ?? 0);
+  }
+}
