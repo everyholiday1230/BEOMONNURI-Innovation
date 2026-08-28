@@ -2226,58 +2226,12 @@ select:focus-visible,
 }
 
 /* =========================================================
-   MOTION CONTROL — 자동재생 애니메이션 정지/재생 (WCAG 2.2.2 / 2.3.3 / 2.3.1)
-   ai-frontier.js가 <html data-motion="on|off">를 토글하고, 화면 우하단에 실제
-   <button.bn-motion-toggle>를 동적 생성한다. 여기서는 그 버튼의 스타일과,
-   data-motion="off"일 때 CSS 자동재생 애니메이션(마퀴/티커/점멸)을 멈추는 훅을 정의한다.
+   MOTION CONTROL — 자동재생 애니메이션 정지 훅 (WCAG 2.2.2 / 2.3.3 / 2.3.1)
+   ai-frontier.js가 <html data-motion="on|off">를 토글한다.
+   기본은 자동 재생(on)이며, OS "동작 줄이기" 설정이 켜진 사용자에게만 off 가 된다.
+   화면 우하단 토글 버튼은 제거했다(2026-08-28). 아래는 off 상태에서 CSS
+   자동재생 애니메이션(마퀴/티커/점멸)을 멈추는 훅만 정의한다.
    ========================================================= */
-.bn-motion-toggle {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  font-family: var(--mono);        /* 모노스페이스 톤 */
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  color: var(--paper);             /* 잉크 #0d0d0d */
-  background: var(--bg);           /* 종이색 #f6f4ef */
-  border: 1.5px solid var(--paper);
-  border-radius: 2px;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(13, 13, 13, 0.14);
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-}
-.bn-motion-toggle:hover {
-  background: var(--paper);
-  color: var(--bg);
-}
-/* 키보드 포커스 링 — 상징색 #921230 */
-.bn-motion-toggle:focus-visible {
-  outline: 3px solid var(--acid);
-  outline-offset: 2px;
-}
-/* 정지(aria-pressed=true) 상태 시각 구분 */
-.bn-motion-toggle[aria-pressed="true"] {
-  border-color: var(--acid);
-  color: var(--acid);
-}
-.bn-motion-toggle[aria-pressed="true"]:hover {
-  background: var(--acid);
-  color: #fff;
-}
-@media (max-width: 640px) {
-  .bn-motion-toggle {
-    font-size: 10px;
-    padding: 9px 11px;
-    right: 12px;
-    bottom: 12px;
-  }
-}
 
 /* 모션 OFF: CSS 자동재생 애니메이션 정지 (마퀴/티커) */
 html[data-motion="off"] .ticker-track,

@@ -81,10 +81,6 @@
   font-size: clamp(12.5px, 0.95vw, 13.5px) !important;
 }
 
-/* 모션 토글 버튼 라벨 */
-.bn-motion-toggle {
-  font-size: clamp(12px, 0.9vw, 12.5px) !important;
-}
 
 /* =========================================================
    2. 터치 타깃 최소 크기 (WCAG 2.5.8 최소 24px / 권장 44px)
@@ -119,10 +115,6 @@ footer .footer-grid a {
   align-items: center;
 }
 
-/* 모션 토글 — 실측 118x30px */
-.bn-motion-toggle {
-  min-height: 44px;
-}
 
 /* 동의 체크박스 — 실측 13x13px. 커서도 default 였다(요구사항: 호버 시 변화) */
 .cf-consent input[type="checkbox"] {

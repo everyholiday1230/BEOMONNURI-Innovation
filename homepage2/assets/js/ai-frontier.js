@@ -69,43 +69,14 @@ const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 // 초기 렌더 시점의 모션 OFF 여부. 무거운 WebGL 초기화를 건너뛰는 게이트로 쓰인다.
 // (런타임 일시정지/재개는 각 rAF 루프가 window.BN_MOTION.isOff()를 매 프레임 확인한다.)
 const reduced = !!(window.BN_MOTION && window.BN_MOTION.isOff());
-// 매 프레임 조회용 헬퍼 — 정지 컨트롤 토글에 rAF 루프가 즉시 반응하도록 한다.
+// 매 프레임 조회용 헬퍼 — rAF 루프가 모션 상태에 즉시 반응하도록 한다.
 const motionOff = () => !!(window.BN_MOTION && window.BN_MOTION.isOff());
 
-/* ---------- 모션 정지/재생 컨트롤 (WCAG 2.2.2 Level A) ----------
-   자동 재생되는 마퀴 / 3D 실린더 회전 / 입자 애니메이션을 사용자가 멈출 수 있도록
-   진짜 <button>을 동적 생성해 화면 우하단에 고정한다. 누르면 BN_MOTION을 토글해
-   data-motion="off" (CSS animation-play-state:paused) + rAF 루프 정지를 동시에 적용하고,
-   상태는 localStorage(BN_MOTION)로 지속된다. */
-(() => {
-  const mount = () => {
-    if (!document.body || document.querySelector('.bn-motion-toggle')) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'bn-motion-toggle';
-
-    // 아이콘 span은 CSS로 색만 입히고, 상태 문구는 별도 span으로 둔다.
-    const sync = (isOff) => {
-      btn.setAttribute('aria-pressed', isOff ? 'true' : 'false');
-      // aria-pressed=true(정지됨) 상태에서는 "재생하기"가 다음 동작임을 안내한다.
-      btn.setAttribute('aria-label', isOff ? '화면 애니메이션 재생하기' : '화면 애니메이션 정지하기');
-      btn.title = isOff ? '애니메이션 재생' : '애니메이션 정지';
-      btn.textContent = isOff ? '▶ 애니메이션 재생' : '❚❚ 애니메이션 정지';
-    };
-
-    btn.addEventListener('click', () => {
-      if (window.BN_MOTION) window.BN_MOTION.toggle();
-      else sync(false);
-    });
-
-    if (window.BN_MOTION) window.BN_MOTION.subscribe(sync); // 구독 즉시 현재 상태로 초기화
-    else sync(false);
-
-    document.body.appendChild(btn);
-  };
-  if (document.body) mount();
-  else document.addEventListener('DOMContentLoaded', mount);
-})();
+/* 모션 정지/재생 토글 버튼은 제거했다(2026-08-28, 운영 요청).
+   애니메이션은 기본적으로 자동 재생한다.
+   단, OS 의 "동작 줄이기(prefers-reduced-motion: reduce)" 설정이 켜진 사용자에게는
+   BN_MOTION 게이트가 여전히 애니메이션을 끈다(WCAG 2.3.3 존중, 전정장애 배려).
+   이 판단은 OS 설정만으로 이뤄지며, 화면에는 어떤 컨트롤도 노출하지 않는다. */
 
 /* ---------- SMOOTH SCROLL ----------
    We intentionally use NATIVE scroll. CSS `scroll-behavior: smooth` is enabled
