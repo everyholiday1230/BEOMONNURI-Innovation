@@ -1106,11 +1106,15 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     const parsed = AdminAiQuerySchema.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
     if (!parsed.success) return c.json(err('BAD_REQUEST', 'invalid query'), 400);
     const q = parsed.data;
+    const runs = redact(await d.repo.searchAiRuns(q));
+    // liveModel 은 실제 최근 실행 모델을 반영한다(하드코딩 'Not Executed' 는 실행이
+    // 실제로 일어나도 항상 미실행처럼 보여 운영자를 오도했다).
+    const latestModel = (runs as Array<{ model?: string }>).find((r) => r && r.model)?.model;
     return c.json({
       provider: d.health().aiProvider ?? 'Unavailable',
-      liveModel: 'Not Executed',
+      liveModel: latestModel ?? 'Not Executed',
       summary: await d.repo.aiUsageSummary(),
-      runs: redact(await d.repo.searchAiRuns(q)),
+      runs,
       total: await d.repo.countAiRuns(q),
       readOnly: true,
       promptRedacted: true,
