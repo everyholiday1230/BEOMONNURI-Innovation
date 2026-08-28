@@ -171,7 +171,7 @@ export async function watchUserPositions(
            확인해야 하고, 그 사이에 청산될 수 있다.
          ★ 평문만 쓴다. 화면이 텍스트 노드로 렌더한다.
       */
-      message: `${p.symbol} ${p.side === 'short' ? 'SHORT' : 'LONG'} — 청산가까지 ${verdict.distancePct.toFixed(1)}% 남았습니다`,
+      message: `${p.symbol} ${p.side === 'short' ? 'SHORT' : 'LONG'} — ${verdict.distancePct.toFixed(1)}% away from liquidation`,
       correlationId: `${p.symbol}:${p.side}`,
       at: d.now ? d.now() : undefined,
     });

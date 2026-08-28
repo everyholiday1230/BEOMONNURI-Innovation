@@ -1903,7 +1903,7 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
           type: 'system',
           severity: 'info',
           // 본문을 넣지 않는다. 알림 목록은 요약이고, 내용은 티켓 화면에서 본다.
-          message: `문의에 답변이 등록되었습니다: ${String(ticket.ticket.subject).slice(0, 80)}`,
+          message: `Support replied to your inquiry: ${String(ticket.ticket.subject).slice(0, 80)}`,
           correlationId: c.req.param('id'),
         }).catch(() => { /* 알림 실패가 답변을 되돌리지 않는다 */ });
       }
@@ -2294,8 +2294,8 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
           type: 'system',
           severity: 'info',
           message: direction === 'grant'
-            ? `포인트 ${amount}이(가) 지급되었습니다: ${memo.slice(0, 60)}`
-            : `포인트 ${amount}이(가) 회수되었습니다: ${memo.slice(0, 60)}`,
+            ? `${amount} points granted: ${memo.slice(0, 60)}`
+            : `${amount} points revoked: ${memo.slice(0, 60)}`,
           correlationId: entry ? entry.id : null,
         }).catch(() => { /* 알림 실패가 원장을 되돌리지 않는다 */ });
       }
