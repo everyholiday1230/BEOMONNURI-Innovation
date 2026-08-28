@@ -1408,6 +1408,12 @@ if (env.authEnabled) {
           pointsRepo = new PgPointsRepo(core.pool);
           return pointsRepo;
         })(),
+        // 결제 대행사가 하나라도 연결되면 운영자가 포인트 구매를 켤 수 있다(스키마 가드용).
+        paymentsConfigured: Boolean(
+          (env.paypalClientId && env.paypalClientSecret) ||
+          (env.tossClientKey && env.tossSecretKey) ||
+          env.cryptoUsdtAddress,
+        ),
         legal: (() => {
           if (!core.pool) return undefined;
           legalRepo = new PgLegalRepo(core.pool);

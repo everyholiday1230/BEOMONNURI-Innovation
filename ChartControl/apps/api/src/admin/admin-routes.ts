@@ -79,6 +79,8 @@ export interface AdminRouterDeps {
   referral?: import('../db/referral-repo').PgReferralRepo;
   /** 포인트 저장소. Postgres 배포에만 주입된다. */
   points?: import('../db/points-repo').PgPointsRepo;
+  /** 결제 대행사(PayPal/Toss/USDT)가 하나라도 연결됐는지. 포인트 구매 허용 가드에 쓴다. */
+  paymentsConfigured?: boolean;
   /** 법적 문서 저장소. */
   legal?: import('../db/legal-repo').PgLegalRepo;
   /**
@@ -2195,18 +2197,19 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       // 0 포인트를 보상이라고 말할 수 없다.
       return c.json(err('BAD_REQUEST', 'referralPoints must be greater than 0 when referral rewards are paid in points'), 400);
     }
-    if (purchaseEnabled) {
+    if (purchaseEnabled && !d.paymentsConfigured) {
       /*
-         결제 대행사가 연결되지 않았다.
+         결제 대행사가 하나도 연결되지 않았을 때만 구매를 막는다.
 
-         구매를 허용하면 사용자가 결제를 시도하고 포인트를 받지 못한다.
-         결제 라우트를 만든 뒤에 이 검사를 그 조건으로 바꿔야 한다.
+         구매를 허용하면 사용자가 결제를 시도하고 포인트를 받지 못하기 때문이다.
+         과거에는 결제 라우트가 없어 무조건 막았지만, 이제 PayPal/Toss/USDT 중
+         하나라도 연결되면(=paymentsConfigured) 운영자가 구매를 켤 수 있다.
       */
       return c.json(err('NOT_CONFIGURED', 'no payment provider is connected — points cannot be sold yet'), 400);
     }
 
     const settings = await d.points.updateSettings(
-      { enabled, unitName, purchaseEnabled: false, expiryDays, referralAsPoints, referralPoints },
+      { enabled, unitName, purchaseEnabled, expiryDays, referralAsPoints, referralPoints },
       g.a.user.id,
     );
     await d.repo.recordAction({
