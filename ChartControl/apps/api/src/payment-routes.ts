@@ -65,10 +65,18 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
     });
     const baseUrl = d.publicBaseUrl || '';
     try {
+      /*
+         ★★ 복귀 주소는 **캡처(적립)를 처리하는 화면**이어야 한다.
+
+           전에는 `/#/wallet` 로 보냈는데, PayPal 승인 후 캡처를 호출하는 코드는
+           포인트 화면(pages-points.jsx)에만 있다. 그래서 결제를 승인해도 아무도
+           캡처하지 않아 **돈은 나가고 포인트는 적립되지 않는** 상태로 끝났다.
+           (입출금 화면은 비활성이라 이용자가 그 페이지에서 할 수 있는 것도 없다)
+      */
       const pp = await d.providers.paypal!.createOrder({
         orderId: order.id, amount: pkg.amount, currency: 'USD',
-        returnUrl: `${baseUrl}/#/wallet?topup=paypal&order=${order.id}`,
-        cancelUrl: `${baseUrl}/#/wallet?topup=cancel`,
+        returnUrl: `${baseUrl}/#/points?topup=paypal&order=${order.id}`,
+        cancelUrl: `${baseUrl}/#/points?topup=cancel`,
       });
       await d.orders!.attachRef(order.id, pp.providerRef);
       return c.json({ orderId: order.id, approveUrl: pp.approveUrl, provider: 'paypal' });
