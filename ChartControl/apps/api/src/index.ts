@@ -95,7 +95,7 @@ import { SimOrderProjection } from './portfolio/sim-projection';
 import { createOrderRouter } from './portfolio/order-routes';
 import { createNotificationRouter } from './notifications/notification-routes';
 import { createAnalyticsRouter } from './analytics/analytics-routes';
-import { SqliteJournalRepo } from './db/journal-repo';
+import { SqliteJournalRepo, PgJournalRepo } from './db/journal-repo';
 import { buildAiMarketContext, type TickerLike } from './ai/market-context';
 
 const env = loadEnv();
@@ -2022,7 +2022,7 @@ if (env.authEnabled) {
     // the seam a PostgreSQL implementation slots into, like the other user-data repos.
     app.route('/api', createAnalyticsRouter({
       service: authService,
-      repo: new SqliteJournalRepo(db),
+      repo: core.pool ? new PgJournalRepo(core.pool) : new SqliteJournalRepo(db),
       posture: tradingPosture,
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,

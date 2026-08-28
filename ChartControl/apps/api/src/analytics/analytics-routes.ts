@@ -176,7 +176,7 @@ export function createAnalyticsRouter(d: AnalyticsRouterDeps): Hono {
       );
     }
     const q = parsed.data;
-    const out = d.repo.list(a.user.id, q);
+    const out = await d.repo.list(a.user.id, q);
     const limit = q.limit ?? 50;
     const offset = q.offset ?? 0;
 
@@ -213,7 +213,7 @@ export function createAnalyticsRouter(d: AnalyticsRouterDeps): Hono {
     }
 
     // PnL and ROI are computed in the repository from the supplied prices — never taken from the client.
-    const row = d.repo.create(a.user.id, parsed.data, now());
+    const row = await d.repo.create(a.user.id, parsed.data, now());
     return c.json(row, 201);
   });
 
@@ -236,7 +236,7 @@ export function createAnalyticsRouter(d: AnalyticsRouterDeps): Hono {
       );
     }
 
-    const updated = d.repo.annotate(a.user.id, c.req.param('id'), parsed.data, now());
+    const updated = await d.repo.annotate(a.user.id, c.req.param('id'), parsed.data, now());
     // Another user's entry is a 404: a 403 would confirm the id exists.
     if (!updated) return c.json(err('NOT_FOUND', 'journal entry not found'), 404);
     return c.json(updated);
@@ -251,7 +251,7 @@ export function createAnalyticsRouter(d: AnalyticsRouterDeps): Hono {
     if (!canWrite(a.user)) return c.json(err('FORBIDDEN', 'permission'), 403);
     noStore(c);
 
-    return d.repo.remove(a.user.id, c.req.param('id'))
+    return (await d.repo.remove(a.user.id, c.req.param('id')))
       ? c.json({ ok: true })
       : c.json(err('NOT_FOUND', 'journal entry not found'), 404);
   });
@@ -272,7 +272,7 @@ export function createAnalyticsRouter(d: AnalyticsRouterDeps): Hono {
       );
     }
 
-    const out = d.repo.dailyPnl(a.user.id, parsed.data);
+    const out = await d.repo.dailyPnl(a.user.id, parsed.data);
     return c.json({
       ...out,
       // Buckets are UTC days. Local-day bucketing would put the same trade on different dates for

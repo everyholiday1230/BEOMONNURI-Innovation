@@ -111,12 +111,12 @@ export interface DailyPnlSummary {
 }
 
 export interface IJournalRepo {
-  list(userId: string, q: JournalQuery): JournalPage;
-  get(userId: string, id: string): JournalRow | null;
-  create(userId: string, input: CreateJournalInput, now: number): JournalRow;
-  annotate(userId: string, id: string, input: AnnotateJournalInput, now: number): JournalRow | null;
-  remove(userId: string, id: string): boolean;
-  dailyPnl(userId: string, q: { from?: number; to?: number }): DailyPnlSummary;
+  list(userId: string, q: JournalQuery): Promise<JournalPage>;
+  get(userId: string, id: string): Promise<JournalRow | null>;
+  create(userId: string, input: CreateJournalInput, now: number): Promise<JournalRow>;
+  annotate(userId: string, id: string, input: AnnotateJournalInput, now: number): Promise<JournalRow | null>;
+  remove(userId: string, id: string): Promise<boolean>;
+  dailyPnl(userId: string, q: { from?: number; to?: number }): Promise<DailyPnlSummary>;
 }
 
 /**
@@ -234,7 +234,7 @@ export class SqliteJournalRepo implements IJournalRepo {
     return { sql: clauses.join(' AND '), params };
   }
 
-  list(userId: string, q: JournalQuery): JournalPage {
+  async list(userId: string, q: JournalQuery): Promise<JournalPage> {
     const { sql, params } = this.where(userId, q);
     const limit = Math.min(Math.max(q.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
     const offset = Math.max(q.offset ?? 0, 0);
@@ -262,14 +262,14 @@ export class SqliteJournalRepo implements IJournalRepo {
     };
   }
 
-  get(userId: string, id: string): JournalRow | null {
+  async get(userId: string, id: string): Promise<JournalRow | null> {
     const r = this.db
       .prepare('SELECT * FROM trade_journal WHERE user_id = ? AND id = ?')
       .get(userId, id) as Record<string, unknown> | undefined;
     return r ? mapRow(r) : null;
   }
 
-  create(userId: string, input: CreateJournalInput, now: number): JournalRow {
+  async create(userId: string, input: CreateJournalInput, now: number): Promise<JournalRow> {
     const id = crypto.randomUUID();
     const realized = computeRealizedPnl(input.side, input.entryPrice, input.exitPrice, input.size);
     const roi = computeRoiPct(input.side, input.entryPrice, input.exitPrice, input.size);
@@ -305,7 +305,7 @@ export class SqliteJournalRepo implements IJournalRepo {
         now,
       );
 
-    const created = this.get(userId, id);
+    const created = await this.get(userId, id);
     if (!created) throw new Error('journal insert did not produce a readable row');
     return created;
   }
@@ -316,8 +316,8 @@ export class SqliteJournalRepo implements IJournalRepo {
    * Prices, size and realized PnL are deliberately NOT updatable: an entry whose PnL can be edited after
    * the fact is not a record of anything. A wrong entry is deleted and re-created.
    */
-  annotate(userId: string, id: string, input: AnnotateJournalInput, now: number): JournalRow | null {
-    const existing = this.get(userId, id);
+  async annotate(userId: string, id: string, input: AnnotateJournalInput, now: number): Promise<JournalRow | null> {
+    const existing = await this.get(userId, id);
     if (!existing) return null;
 
     const sets: string[] = [];
@@ -344,7 +344,7 @@ export class SqliteJournalRepo implements IJournalRepo {
     return this.get(userId, id);
   }
 
-  remove(userId: string, id: string): boolean {
+  async remove(userId: string, id: string): Promise<boolean> {
     const info = this.db
       .prepare('DELETE FROM trade_journal WHERE user_id = ? AND id = ?')
       .run(userId, id);
@@ -358,7 +358,7 @@ export class SqliteJournalRepo implements IJournalRepo {
    * TEXT: SQLite would coerce them to floats and reintroduce exactly the drift the string storage exists
    * to prevent.
    */
-  dailyPnl(userId: string, q: { from?: number; to?: number }): DailyPnlSummary {
+  async dailyPnl(userId: string, q: { from?: number; to?: number }): Promise<DailyPnlSummary> {
     const clauses = ['user_id = ?'];
     const params: unknown[] = [userId];
     if (q.from !== undefined) {
@@ -423,6 +423,165 @@ export class SqliteJournalRepo implements IJournalRepo {
       winCount: wins,
       lossCount: losses,
       // null when nothing is decided: 0% would claim every trade lost.
+      winRatePct: decided === 0 ? null : D(wins).div(D(decided)).mul(100).toString(),
+      from: buckets[0]?.date ?? null,
+      to: buckets[buckets.length - 1]?.date ?? null,
+    };
+  }
+}
+
+
+/** pg Pool 의 최소 형태(쿼리만 쓴다). */
+interface PgPoolLike {
+  query(text: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }>;
+}
+
+/*
+   ★★ PostgreSQL 트레이드 저널 저장소.
+
+     저널이 SqliteJournalRepo 로 SQLite 에 기록되고 있었다. 그런데 사용자는
+     Postgres 에만 존재하므로 SQLite 의 trade_journal → users 외래키가 깨져
+     **모든 저널 저장이 500(FOREIGN KEY constraint failed)** 으로 실패했고,
+     조회는 빈 SQLite 를 읽어 항상 비어 보였다(= 저널 기능 전체가 프로덕션에서
+     동작하지 않음). Postgres 배포에서는 이 저장소로 같은 테이블에 기록/조회한다.
+
+   ★ 금액 컬럼은 TEXT 십진 문자열로 저장하고 그대로 돌려준다. 집계는 decimal.js
+     (D)로 계산해 부동소수 오차를 만들지 않는다 — SqliteJournalRepo 와 동일한 규칙.
+*/
+export class PgJournalRepo implements IJournalRepo {
+  constructor(private readonly pool: PgPoolLike) {}
+
+  /** 파라미터화된 WHERE. 모든 값은 $n 바인딩이며 문자열 보간하지 않는다. */
+  private where(userId: string, q: JournalQuery): { sql: string; params: unknown[] } {
+    const clauses = ['user_id = $1'];
+    const params: unknown[] = [userId];
+    const add = (col: string, val: unknown) => { params.push(val); clauses.push(`${col} = $${params.length}`); };
+    if (q.symbol) add('symbol', q.symbol);
+    if (q.side) add('side', q.side);
+    if (q.mood) add('mood', q.mood);
+    if (q.from !== undefined) { params.push(q.from); clauses.push(`closed_at >= $${params.length}`); }
+    if (q.to !== undefined) { params.push(q.to); clauses.push(`closed_at <= $${params.length}`); }
+    return { sql: clauses.join(' AND '), params };
+  }
+
+  async list(userId: string, q: JournalQuery): Promise<JournalPage> {
+    const { sql, params } = this.where(userId, q);
+    const limit = Math.min(Math.max(q.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const offset = Math.max(q.offset ?? 0, 0);
+
+    const totalR = await this.pool.query(`SELECT COUNT(*) AS n FROM trade_journal WHERE ${sql}`, params);
+    const total = Number((totalR.rows[0] as { n: string } | undefined)?.n ?? 0);
+
+    const rowsR = await this.pool.query(
+      `SELECT * FROM trade_journal WHERE ${sql} ORDER BY closed_at DESC, id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
+    );
+    const newestR = await this.pool.query(`SELECT MAX(closed_at) AS m FROM trade_journal WHERE ${sql}`, params);
+    const m = (newestR.rows[0] as { m: string | null } | undefined)?.m;
+    return {
+      items: rowsR.rows.map(mapRow),
+      total,
+      asOf: m === null || m === undefined ? null : Number(m),
+    };
+  }
+
+  async get(userId: string, id: string): Promise<JournalRow | null> {
+    const r = await this.pool.query('SELECT * FROM trade_journal WHERE user_id = $1 AND id = $2', [userId, id]);
+    const row = r.rows[0];
+    return row ? mapRow(row) : null;
+  }
+
+  async create(userId: string, input: CreateJournalInput, now: number): Promise<JournalRow> {
+    const id = crypto.randomUUID();
+    const realized = computeRealizedPnl(input.side, input.entryPrice, input.exitPrice, input.size);
+    const roi = computeRoiPct(input.side, input.entryPrice, input.exitPrice, input.size);
+    await this.pool.query(
+      `INSERT INTO trade_journal
+         (id,user_id,symbol,side,entry_price,exit_price,size,realized_pnl,fees,roi_pct,
+          opened_at,closed_at,mood,tags,note,source,open_order_id,close_order_id,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'manual',$16,$17,$18,$18)`,
+      [
+        id, userId, input.symbol, input.side, input.entryPrice, input.exitPrice, input.size,
+        realized, input.fees ?? null, roi, input.openedAt, input.closedAt,
+        input.mood ?? null, JSON.stringify(input.tags ?? []), input.note ?? null,
+        input.openOrderId ?? null, input.closeOrderId ?? null, now,
+      ],
+    );
+    const created = await this.get(userId, id);
+    if (!created) throw new Error('journal insert did not produce a readable row');
+    return created;
+  }
+
+  async annotate(userId: string, id: string, input: AnnotateJournalInput, now: number): Promise<JournalRow | null> {
+    const existing = await this.get(userId, id);
+    if (!existing) return null;
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const add = (col: string, val: unknown) => { params.push(val); sets.push(`${col} = $${params.length}`); };
+    if (input.mood !== undefined) add('mood', input.mood);
+    if (input.tags !== undefined) add('tags', JSON.stringify(input.tags));
+    if (input.note !== undefined) add('note', input.note);
+    if (sets.length === 0) return existing;
+    params.push(now); sets.push(`updated_at = $${params.length}`);
+    params.push(userId); const uIdx = params.length;
+    params.push(id); const iIdx = params.length;
+    await this.pool.query(`UPDATE trade_journal SET ${sets.join(', ')} WHERE user_id = $${uIdx} AND id = $${iIdx}`, params);
+    return this.get(userId, id);
+  }
+
+  async remove(userId: string, id: string): Promise<boolean> {
+    const r = await this.pool.query('DELETE FROM trade_journal WHERE user_id = $1 AND id = $2', [userId, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async dailyPnl(userId: string, q: { from?: number; to?: number }): Promise<DailyPnlSummary> {
+    const clauses = ['user_id = $1'];
+    const params: unknown[] = [userId];
+    if (q.from !== undefined) { params.push(q.from); clauses.push(`closed_at >= $${params.length}`); }
+    if (q.to !== undefined) { params.push(q.to); clauses.push(`closed_at <= $${params.length}`); }
+    const r = await this.pool.query(
+      `SELECT closed_at, realized_pnl, fees FROM trade_journal WHERE ${clauses.join(' AND ')} ORDER BY closed_at ASC`,
+      params,
+    );
+    const rows = r.rows as { closed_at: string | number; realized_pnl: string; fees: string | null }[];
+
+    const byDate = new Map<string, { pnl: ReturnType<typeof D>; fees: ReturnType<typeof D>; n: number; w: number; l: number }>();
+    let totalPnl = D(0);
+    let totalFees = D(0);
+    let wins = 0;
+    let losses = 0;
+    for (const row of rows) {
+      const key = utcDateKey(Number(row.closed_at));
+      const pnl = D(row.realized_pnl);
+      const fee = row.fees === null ? D(0) : D(row.fees);
+      const bucket = byDate.get(key) ?? { pnl: D(0), fees: D(0), n: 0, w: 0, l: 0 };
+      bucket.pnl = bucket.pnl.plus(pnl);
+      bucket.fees = bucket.fees.plus(fee);
+      bucket.n += 1;
+      if (pnl.gt(0)) { bucket.w += 1; wins += 1; }
+      else if (pnl.lt(0)) { bucket.l += 1; losses += 1; }
+      byDate.set(key, bucket);
+      totalPnl = totalPnl.plus(pnl);
+      totalFees = totalFees.plus(fee);
+    }
+    const buckets: DailyPnlBucket[] = [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, b]) => ({
+        date,
+        realizedPnl: b.pnl.toString(),
+        fees: b.fees.toString(),
+        tradeCount: b.n,
+        winCount: b.w,
+        lossCount: b.l,
+      }));
+    const decided = wins + losses;
+    return {
+      buckets,
+      totalRealizedPnl: totalPnl.toString(),
+      totalFees: totalFees.toString(),
+      tradeCount: rows.length,
+      winCount: wins,
+      lossCount: losses,
       winRatePct: decided === 0 ? null : D(wins).div(D(decided)).mul(100).toString(),
       from: buckets[0]?.date ?? null,
       to: buckets[buckets.length - 1]?.date ?? null,
