@@ -131,7 +131,7 @@ export interface AdminRouterDeps {
    * operator checking whether the kill switch is engaged would have been told "yes" while live orders were
    * flowing. Injected at mount time from the environment, so no request can influence it.
    */
-  posture?: { mode: string; liveTradingEnabled: boolean; killSwitch: boolean };
+  posture?: { mode: string; tradingMode?: string; exchange?: string; liveTradingEnabled: boolean; killSwitch: boolean };
   /**
    * Reader for the operator's BitMart API Broker rebate statement.
    *
@@ -258,8 +258,15 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     return c.json({
       users,
       exchange: {
-        // Read from the deployment, not asserted. These were literals until 2026-08-03.
-        liveMode: d.posture?.mode ?? 'Unavailable',
+        /*
+           ★ 운영자가 보는 값은 **실제 거래모드**여야 한다. 전에는 리스크 게이트의
+             레거시 라벨(BITMART_LIVE_TRADE)을 그대로 보여줘서, KuCoin 으로
+             거래하는 배포인데도 대시보드에 BITMART 라고 떴다. tradingMode 를
+             우선 표시하고, 없을 때만 게이트 모드로 폴백한다.
+        */
+        liveMode: d.posture?.tradingMode ?? d.posture?.mode ?? 'Unavailable',
+        exchange: d.posture?.exchange ?? 'Unavailable',
+        riskGateMode: d.posture?.mode ?? 'Unavailable',
         privateWs: 'Not Connected',
         reconciliationMismatches: 'Unavailable',
       },

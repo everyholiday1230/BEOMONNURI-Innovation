@@ -1454,6 +1454,11 @@ if (env.authEnabled) {
         // hardcoded READ_ONLY/killSwitch-on triple.
         posture: {
           mode: env.bitmartMode,
+          // 운영자 대시보드가 실제 거래모드/거래소를 보여주게 한다(위 mode 는 리스크 게이트 라벨).
+          tradingMode: env.tradingMode,
+          exchange: /kucoin/i.test(String(env.tradingMode)) ? 'KuCoin'
+            : /bitmart/i.test(String(env.tradingMode)) ? 'BitMart'
+            : (env.tradingMode === 'MOCK' ? 'Mock (simulation)' : String(env.tradingMode)),
           liveTradingEnabled: env.bitmartLiveTradingEnabled,
           killSwitch: env.bitmartKillSwitch,
         },
