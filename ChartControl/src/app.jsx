@@ -905,7 +905,15 @@
      */
     const placeOrder = useCallback((data) => {
       if (data.hasErrors) {
-        pushToast({ title: t('toast_order_invalid'), desc: t('toast_order_invalid_desc'), variant: 'error' });
+        /*
+           ★ 막힌 **실제 이유**를 보여준다. 전에는 '입력을 확인하세요' 만 떠서,
+             화면 위 경고를 못 본 이용자는 무엇이 문제인지 알 수 없었다
+             (예: 잔고 부족 397 USDT · 발동가 필요 · 미상장 심볼).
+        */
+        const why = Array.isArray(data.errorTexts) && data.errorTexts.length
+          ? data.errorTexts.slice(0, 2).join(' · ')
+          : t('toast_order_invalid_desc');
+        pushToast({ title: t('toast_order_invalid'), desc: why, variant: 'error' });
         return;
       }
 

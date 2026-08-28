@@ -106,11 +106,14 @@ for (const route of routes) {
   for (const c of clickable.slice(0, CAP)) {   // 화면당 상한(CAP 환경변수로 조절)
     pageErrors.length = 0; consoleErrors.length = 0; serverErrors.length = 0;
 
-    const before = await page.evaluate(() => ({
+    const snapshot = () => page.evaluate(() => ({
       html: document.body.innerHTML.length,
+      text: (document.body.innerText || '').length,
       hash: location.hash,
       toasts: document.querySelectorAll('[class*="toast"]').length,
+      active: document.querySelectorAll('.is-active,[aria-pressed="true"],[aria-expanded="true"]').length,
     })).catch(() => null);
+    const before = await snapshot();
     if (!before) break;
 
     let reqCount = 0;
@@ -128,21 +131,19 @@ for (const route of routes) {
     } catch (e) { /* 클릭 실패는 아래 무반응 판정으로 잡힌다 */ }
     page.off('request', onReq);
 
-    const after = await page.evaluate(() => ({
-      html: document.body.innerHTML.length,
-      hash: location.hash,
-      toasts: document.querySelectorAll('[class*="toast"]').length,
-    })).catch(() => null);
+    const after = await snapshot();
 
     pageErrors.forEach((e) => add(route, c.label, 'JS_ERROR', e));
     consoleErrors.forEach((e) => add(route, c.label, 'CONSOLE', e));
     serverErrors.forEach((e) => add(route, c.label, 'SERVER_5XX', e));
 
     if (after) {
-      const noDom = Math.abs(after.html - before.html) < 12;
+      /* 무반응 판정을 엄격히 한다 — 패널 열림·탭 활성·토스트·본문 변화도 반응이다. */
+      const noDom = Math.abs(after.html - before.html) < 12 && Math.abs(after.text - before.text) < 4;
       const noNav = after.hash === before.hash;
       const noToast = after.toasts <= before.toasts;
-      if (noDom && noNav && noToast && reqCount === 0) {
+      const noActive = after.active === before.active;
+      if (noDom && noNav && noToast && noActive && reqCount === 0) {
         add(route, c.label, 'NO_RESPONSE', '클릭해도 화면·이동·요청·알림 변화 없음');
       }
       // 라우트가 바뀌면 원래 화면으로 되돌린다.

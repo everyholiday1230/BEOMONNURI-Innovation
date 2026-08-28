@@ -1187,7 +1187,7 @@
                 style={side !== 'long' ? { background: 'var(--color-trade-long-bg)', color:'var(--color-trade-long)', border:'1px solid var(--color-trade-long)'} : undefined}
                 onClick={() => {
                   setSide('long');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
                 }}
               >
                 ▲ {t('buy_long')}
@@ -1199,7 +1199,7 @@
                 style={side !== 'short' ? { background: 'var(--color-trade-short-bg)', color:'var(--color-trade-short)', border:'1px solid var(--color-trade-short)'} : undefined}
                 onClick={() => {
                   setSide('short');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger') });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
                 }}
               >
                 ▼ {t('sell_short')}
@@ -1939,7 +1939,16 @@
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Wallet size={14}/><span>{t('assets_risk')}</span></div>
-          <div className="panel__actions"><button className="btn btn--xs">{t('tx_kind_transfer')}</button></div>
+          {/*
+             ★ 계정 간 자금 이체(현물↔선물)는 서버·거래소 어댑터에 구현이 없다.
+               눌러도 아무 일이 없어 이용자는 고장으로 읽었다 — 준비중임을 밝히고
+               비활성으로 둔다. (거래소 앱에서는 이체가 가능하다)
+          */}
+          <div className="panel__actions">
+            <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>
+              {t('tx_kind_transfer')} <span className="qt-pending-mark">{t('sec_pending')}</span>
+            </button>
+          </div>
         </div>
         <div className="panel__body" style={{padding: '12px 16px', gap: 12}}>
           <div style={{display:'flex', flexDirection:'column', gap: 2}}>
