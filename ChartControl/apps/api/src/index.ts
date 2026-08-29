@@ -462,6 +462,7 @@ let referralRepo: PgReferralRepo | null = null;
 */
 let pointsRepo: PgPointsRepo | null = null;
 let operationalControls: OperationalControls | undefined; // feature_flags+kill_switches 런타임 강제 게이트
+let userTagsRepo: PgUserTagsRepo | null = null; // 직원(team_leader) 판별용 — 리퍼럴 포인트 지급 분기에 쓴다
 
 /*
    법적 문서 저장소.
@@ -1367,7 +1368,7 @@ if (env.authEnabled) {
 
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
-        ...(core.pool ? { userTags: new PgUserTagsRepo(core.pool) } : {}),
+        ...(core.pool ? { userTags: (userTagsRepo = new PgUserTagsRepo(core.pool)) } : {}),
 
         cookieName: env.cookieName, health, ratePerMin: env.adminRateLimitPerMin, rateLimiter,
         // 운영자가 특정 사용자에게 직접 이메일을 보낼 때 쓴다(관리자 사용자 상세).
@@ -1607,26 +1608,30 @@ if (env.authEnabled) {
             const code = await referralRepo.findCode(referralCode);
             if (!code) return;
 
-            await pointsRepo.grant({
-              userId: code.userId,
-              amount: ps.referralPoints,
-              reason: 'referral_signup',
-              refType: 'referred_user',
-              refId: userId,
-              memo: `referral signup (referrer)`,
-            });
             /*
-               초대받은 신규 가입자에게도 동일 포인트를 지급한다(양쪽 지급 — 오픈 이벤트).
-               멱등: (referee_id, referral_signup, referral_bonus, referee_id) 는 uq_points_ref 로
-               한 번만 반영된다. 실패해도 위 referrer 지급/가입은 유지된다(catch).
+               ★★ 직원(team_leader) 코드로 가입한 경우에만 신규 고객에게 포인트를 준다.
+
+                 - 직원 코드: 그 코드로 가입한 **신규 고객만** ps.referralPoints 지급.
+                   직원 본인(추천인)은 포인트가 아니라 가입 '수' 기반 현금으로 정산하므로
+                   포인트를 주지 않는다.
+                 - 일반 고객 코드: 아무에게도 포인트를 주지 않는다.
+
+               직원 여부는 'team_leader' 사용자 태그로 판정한다(관리자 사용자 상세에서 부여).
+               가입 귀속(referralRepo.attribute)은 위에서 이미 코드 종류와 무관하게 기록되므로,
+               고객 코드든 직원 코드든 '누가 누구 코드로 가입했는지' 집계는 그대로 남는다.
             */
+            const ownerTags = userTagsRepo ? await userTagsRepo.listForUser(code.userId) : [];
+            const isStaffCode = ownerTags.includes('team_leader');
+            if (!isStaffCode) return; // 고객 코드 → 포인트 지급 없음
+
+            // 신규 고객(referee)에게만 지급. 멱등: uq_points_ref 로 한 번만 반영된다.
             await pointsRepo.grant({
               userId,
               amount: ps.referralPoints,
               reason: 'referral_signup',
               refType: 'referral_bonus',
               refId: userId,
-              memo: `referral signup (referee)`,
+              memo: `referral signup (referee, staff code)`,
             });
           } catch (e) {
             console.warn('[points] 초대 보상 적립 실패 — 가입은 유지한다:', (e as Error).message);
