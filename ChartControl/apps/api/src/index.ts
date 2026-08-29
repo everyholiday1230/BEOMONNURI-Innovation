@@ -1622,7 +1622,6 @@ if (env.authEnabled) {
             */
             const ownerTags = userTagsRepo ? await userTagsRepo.listForUser(code.userId) : [];
             const isStaffCode = ownerTags.includes('team_leader');
-            console.log(`[referral-debug] owner=${code.userId} tagsRepo=${!!userTagsRepo} tags=${JSON.stringify(ownerTags)} staff=${isStaffCode}`);
             if (!isStaffCode) return; // 고객 코드 → 포인트 지급 없음
 
             // 신규 고객(referee)에게만 지급. 멱등: uq_points_ref 로 한 번만 반영된다.
