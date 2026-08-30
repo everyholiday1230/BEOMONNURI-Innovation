@@ -82,8 +82,14 @@ services:
     #   "Cannot find type definition file for 'node'" 로 실패한다(@types/node 누락).
     buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm -r build
     # ★ 마이그레이션을 기동 전에 돌린다. 표가 없으면 프로덕션 기동 검사가 막는다.
-    preDeployCommand: pnpm --filter @quantumtrade/api exec tsx scripts/migrate.ts up
-    startCommand: pnpm --filter @quantumtrade/api exec tsx src/index.ts
+    #
+    # ★★ 재시도를 감싼다. Render basic 플랜의 메모리 압박에서 tsx(esbuild)가 간헐적으로
+    #   `Assertion failed: (env) != nullptr` (exit 134) 로 죽어 배포가 실패했다. 마이그레이션은
+    #   멱등이므로 최대 3회 재시도하면 일시적 크래시를 넘겨 한 번에 배포된다.
+    preDeployCommand: bash -c 'for i in 1 2 3; do pnpm --filter @quantumtrade/api exec tsx scripts/migrate.ts up && exit 0; sleep 3; done; exit 1'
+    # ★★ 앱은 **컴파일된 JS(node dist/index.js)** 로 띄운다. 런타임 tsx(esbuild) 를 제거해
+    #   위 exit-134 크래시 경로를 없애고 기동도 빨라진다. build 단계가 dist/index.js 를 만든다.
+    startCommand: pnpm --filter @quantumtrade/api start
     healthCheckPath: /health
 
     envVars:
