@@ -1222,6 +1222,18 @@
     // 알 수 없는 라우트와 권한 없는 라우트를 같은 화면으로 처리한다.
     // 다만 사유는 구분해 보여준다 — "없는 페이지" 와 "권한 없음" 은 다른 사실이다.
     const isNotFound = !isKnownRoute || !access.allowed;
+    /*
+       ★★ 세션 만료/미로그인으로 보호된 경로에 있을 때.
+
+         예전에는 이 경우도 '404/접근불가' 화면을 렌더했다. 어두운 테마라
+         사용자에겐 **검은 화면처럼 보였고, 다시 로그인할 창구가 없어 갇혔다**
+         (토큰 만료 → 재로그인해도 안 열린다는 신고의 원인).
+
+       ★ 로그인이 필요한 경우에는 404 대신 **로그인 화면을 그 자리에 띄운다.**
+         로그인에 성공하면 auth 상태가 갱신되어 원래 경로가 곧바로 렌더된다
+         (해시를 바꾸지 않으므로 로그인 후 보던 화면으로 돌아온다).
+    */
+    const needsLogin = isKnownRoute && !access.allowed && access.reason === 'login_required';
     const blockedMessage = !isKnownRoute
       ? undefined
       : access.reason === 'login_required' ? t('access_login_required')
@@ -1245,7 +1257,9 @@
           {route.path === '/verify-email'   && <window.EmailVerifyPage    shellProps={shellProps}/>}
           {route.path === '/kyc'            && <window.KYCOnboardingPage  shellProps={shellProps}/>}
           {route.path === '/password-reset' && <window.PasswordResetPage  shellProps={shellProps}/>}
-          {isNotFound && <window.NotFoundPage shellProps={shellProps} message={blockedMessage || t('notfound_path', { path: route.path })}/>}
+          {/* 세션 만료/미로그인으로 보호된 경로 → 404 대신 로그인 화면(로그인하면 원래 화면 복귀). */}
+          {needsLogin && <window.LoginPage shellProps={shellProps}/>}
+          {isNotFound && !needsLogin && <window.NotFoundPage shellProps={shellProps} message={blockedMessage || t('notfound_path', { path: route.path })}/>}
 
           {/* Toasts still render even in auth mode */}
           <div className="toast-region">
