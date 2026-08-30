@@ -237,6 +237,9 @@ export function createAiRouter(d: AiRouterDeps): Hono {
         try { grounded = await d.groundContext(a.user.id, symbol, timeframe, (body as { chartContext?: unknown }).chartContext); } catch { grounded = null; }
       }
       let assistantText = '';
+      // 이 실행이 차트에 실제로 무언가를 그렸/신호를 냈는가. 아무것도 못 하면(예: AI 가
+      // 못 그리는 피보나치 요청) 포인트를 절반만 차감한다.
+      let producedAction = false;
       try {
         for await (const ev of orchestrator.run({
           conversationId: body.conversationId!,
@@ -253,14 +256,20 @@ export function createAiRouter(d: AiRouterDeps): Hono {
           marketType: grounded?.marketType,
         })) {
           if (ev.type === 'text') assistantText += ev.delta;
+          if (ev.type === 'command' || ev.type === 'signal') producedAction = true;
           if (ev.type === 'usage') {
             await d.usage.record(a.user.id, { ...ev.usage, conversationId: body.conversationId!, correlationId });
             // 사용량 기반 차감(멱등: 같은 실행 correlationId 는 한 번만). 실패해도 응답을 막지 않는다.
             if (meteringOn && d.points) {
               try {
-                const points = computeRunPoints(ev.usage.outputTokens);
-                const res = await d.points.spendMetered({ userId: a.user.id, amount: points, refType: 'ai_run', refId: correlationId, memo: `ai copilot · out ${ev.usage.outputTokens}tok` });
-                if (res) await stream.writeSSE({ event: 'points', data: JSON.stringify({ type: 'points', charged: res.deducted, balance: res.balanceAfter }) });
+                const full = computeRunPoints(ev.usage.outputTokens);
+                // 차트에 아무것도 못 그렸/신호 없으면 절반만 청구(최소 1).
+                const points = producedAction ? full : Math.max(1, Math.ceil(full / 2));
+                const memo = producedAction
+                  ? `ai copilot · out ${ev.usage.outputTokens}tok`
+                  : `ai copilot · out ${ev.usage.outputTokens}tok · half (no chart action)`;
+                const res = await d.points.spendMetered({ userId: a.user.id, amount: points, refType: 'ai_run', refId: correlationId, memo });
+                if (res) await stream.writeSSE({ event: 'points', data: JSON.stringify({ type: 'points', charged: res.deducted, balance: res.balanceAfter, half: !producedAction }) });
               } catch { /* 차감 실패는 비치명 */ }
             }
           }
