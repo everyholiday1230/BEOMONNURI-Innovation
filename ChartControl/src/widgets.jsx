@@ -918,6 +918,47 @@
     */
     const isSpot = window.QTMode && window.QTMode.get ? window.QTMode.get() === 'spot' : false;
 
+    /*
+       ★★ USDT(호가 통화) 금액으로 주문 — 사용자 피드백.
+
+         이용자 잔고는 USDT 인데 주문은 XRP(기초자산) 단위로만 받아서, "내 돈으로
+         XRP 를 얼마나 살 수 있는지" 를 알 수 없었다. 여기서 USDT 금액을 입력하면
+         현재가로 XRP 수량을 자동 계산하고, 최대 매수 가능 수량도 보여준다.
+
+         환산 규칙
+         --------
+         · 현물: 지불 USDT = 주문 금액(명목). 수량 = USDT / 가격.
+         · 선물: 입력 USDT = 증거금. 명목 = USDT × 레버리지. 수량 = USDT × 레버리지 / 가격.
+         최대치는 가용 잔고 기준으로 같은 식을 쓴다.
+    */
+    const availBal = Number(assets && assets.availableBalance) || 0;
+    const effLev = isSpot ? 1 : Math.max(1, lev);
+    const maxQty = (px > 0) ? snapQty((availBal * effLev) / px) : 0;
+    // 표시용: 현재 수량(sz)이 소비하는 USDT(현물=명목, 선물=증거금).
+    const quoteForSize = (px > 0) ? (px * sz) / effLev : 0;
+    const [quoteAmt, setQuoteAmt] = useState('');
+    // USDT 금액 입력 → 수량 자동 계산.
+    const applyQuoteAmount = (v) => {
+      setQuoteAmt(v);
+      const q = parseFloat(v);
+      if (!Number.isFinite(q) || q <= 0 || !(px > 0)) return;
+      const newSize = snapQty((q * effLev) / px);
+      setSize(newSize.toFixed(qtyPrec));
+    };
+    // 수량(XRP) 입력 → USDT 표시 동기화.
+    const applySizeAmount = (v) => {
+      setSize(v);
+      const s = parseFloat(v);
+      if (!Number.isFinite(s) || s <= 0 || !(px > 0)) { setQuoteAmt(''); return; }
+      setQuoteAmt(((s * px) / effLev).toFixed(2));
+    };
+    const setMaxQuote = () => {
+      if (!(availBal > 0)) return;
+      setQuoteAmt(availBal.toFixed(2));
+      setSize(maxQty.toFixed(qtyPrec));
+      setPct(100);
+    };
+
     const takerRate = market && Number.isFinite(Number(market.takerFeeRate))
       ? Number(market.takerFeeRate)
       : null;
@@ -1057,9 +1098,21 @@
               </>
             )}
             <div className="input-group">
+              <span className="input-group__label">{isSpot ? t('oe_pay_amount') : t('oe_margin_amount')}</span>
+              <input type="text" inputMode="decimal" placeholder="0.00" value={quoteAmt} onChange={e => applyQuoteAmount(e.target.value)} />
+              <span className="input-group__suffix" style={{display:'flex', alignItems:'center', gap:6}}>
+                {market.quote}
+                <button type="button" className="btn btn--xs" style={{padding:'1px 6px'}} disabled={!(availBal > 0)} onClick={setMaxQuote}>{t('oe_max')}</button>
+              </span>
+            </div>
+            <div className="input-group">
               <span className="input-group__label">{t('fld_size')}</span>
-              <input type="text" value={size} onChange={e => setSize(e.target.value)} />
+              <input type="text" value={size} onChange={e => applySizeAmount(e.target.value)} />
               <span className="input-group__suffix">{market.base}</span>
+            </div>
+            {/* 최대 매수 가능 수량 안내 — 내 USDT 로 살 수 있는 코인 수를 명확히 보여준다. */}
+            <div style={{fontSize:11, color:'var(--color-text-tertiary)', margin:'-2px 0 2px'}}>
+              {t('oe_max_buyable', { qty: fmtQty(maxQty, qtyPrec), base: market.base, quote: fmt(availBal), q: market.quote })}
             </div>
 
             <div>
@@ -1072,8 +1125,9 @@
                       className={`pct-slider__stop ${pct === v ? 'is-active' : ''}`}
                       onClick={() => {
                         setPct(v);
-                        const newSize = snapQty((assets.availableBalance * lev * (v/100)) / px);
+                        const newSize = snapQty((availBal * effLev * (v/100)) / px);
                         setSize(newSize.toFixed(qtyPrec));
+                        setQuoteAmt((availBal * (v/100)).toFixed(2));
                       }}
                       title={`${v}%`}
                     />
