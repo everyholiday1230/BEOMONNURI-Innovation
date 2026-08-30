@@ -33,7 +33,7 @@
       email_verify_0fa353: '如果没收到，请检查垃圾邮件文件夹。',
       email_verify_37a414: '重新发送',
       email_verify_455f7c: '继续 →',
-      email_verify_5eb00e: '验证码已发送至 kuri@quantumtrade.ai',
+      email_verify_5eb00e: '我们已向您的邮箱发送了验证链接。打开链接完成验证后即可登录。',
       k_y_c_onboarding_02220b: '地址证明将在下一步上传。',
       k_y_c_onboarding_03e1e5: '开始使用 →',
       k_y_c_onboarding_0f797f: '📋 资金来源 · 用途',

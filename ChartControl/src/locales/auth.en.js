@@ -70,7 +70,7 @@
       signup_9922a0: 'Already have an account?',
 
       // --- 이메일 인증 ---
-      email_verify_5eb00e: 'We sent a verification code to kuri@quantumtrade.ai',
+      email_verify_5eb00e: 'We sent a verification link to your email address. Open it to verify, then sign in.',
       email_verify_0fa353: "If it doesn't arrive, check your spam folder.",
       email_verify_37a414: 'Resend',
       email_verify_089bb3: '✓ Resent',
