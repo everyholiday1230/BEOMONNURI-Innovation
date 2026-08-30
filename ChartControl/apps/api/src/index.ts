@@ -828,9 +828,33 @@ const DEFAULT_SYMBOL_INFO: Record<string, SymbolInfo> = {
   ETHUSDT: { id: 'ETHUSDT', base: 'ETH', quote: 'USDT', contractType: 'perpetual', pricePrecision: 2, quantityPrecision: 3, tickSize: '0.01', stepSize: '0.001', minQty: '0.001', maxLeverage: 100 },
 };
 
+/*
+   ★★ 실 심볼 메타데이터 맵.
+
+     주문 검증은 심볼의 tick/step/정밀도/최소수량 메타데이터를 요구한다. 이 값이
+     없으면 게이트가 'symbol metadata unavailable' 로 주문을 막는다. 예전에는 위
+     정적 맵(BTC/ETH 2개)만 썼기 때문에 그 외 심볼(SOL, XRP 등) 주문이 전부
+     막혔다. 여기서 KuCoin 심볼 카탈로그(getSymbols)로 전 심볼 메타데이터를 채운다.
+
+   ★ 같은 객체 참조를 라우터에 넘기고 제자리에서 갱신한다 — 라우터는 d.symbolInfo[sym]
+     로 읽으므로 채워지는 즉시 반영된다. 조회 실패 시 기존 값을 유지한다(정적 폴백 포함).
+*/
+const symbolInfoMap: Record<string, SymbolInfo> = { ...DEFAULT_SYMBOL_INFO };
+async function refreshSymbolInfo(): Promise<void> {
+  try {
+    const syms = await providers.market.getSymbols();
+    for (const s of syms) symbolInfoMap[s.id] = s;
+  } catch { /* 실패 시 기존 값 유지 — 주문 게이트가 정적 폴백으로라도 동작하게 */ }
+}
+void refreshSymbolInfo();
+{
+  const t = setInterval(() => { void refreshSymbolInfo(); }, 10 * 60 * 1000);
+  if (typeof t.unref === 'function') t.unref();
+}
+
 app.post('/api/sim/order-drafts', async (c) => {
   const body = await c.req.json<{ symbol?: string }>();
-  const sym = DEFAULT_SYMBOL_INFO[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO.BTCUSDT!;
+  const sym = symbolInfoMap[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO.BTCUSDT!;
   const result = orders.createDraft(body, sym);
   if (!result.ok) return c.json(errBody('VALIDATION_FAILED', result.error), 400);
   // NOTE: the confirmation token is issued but, in a real UI flow, is only revealed after the user
@@ -1920,7 +1944,7 @@ if (env.authEnabled) {
       drafts: userData.orderDrafts,
       ...(operationalControls ? { controls: operationalControls } : {}),
       portfolio: portfolioRepo,
-      symbolInfo: DEFAULT_SYMBOL_INFO,
+      symbolInfo: symbolInfoMap,
       /*
          주문 정책은 env.tradingPolicy 한 곳에서 온다.
 
@@ -2431,7 +2455,7 @@ if (env.authEnabled) {
             : undefined,
           /* 검증 경로와 **같은** 정책을 쓴다(위 주석 참조). */
           policy: { ...env.tradingPolicy, allowedSymbols: [...env.tradingPolicy.allowedSymbols] },
-          symbolInfo: DEFAULT_SYMBOL_INFO,
+          symbolInfo: symbolInfoMap,
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
           cookieName: env.cookieName,
