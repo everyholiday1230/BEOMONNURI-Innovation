@@ -2016,7 +2016,7 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     if (target.status !== 'open') return c.json(err('CONFLICT', 'already resolved'), 409);
     // 확인 + 포인트 지급이면 신고자 원장에 적립(bug_bounty). refType/refId 로 멱등.
     if (status === 'confirmed' && points > 0 && d.points) {
-      try { await d.points.grant({ userId: target.userId, amount: points, reason: 'bug_bounty', refType: 'bug_report', refId: target.id, memo: `bug bounty · ${target.title.slice(0, 60)}` }); }
+      try { await d.points.grant({ userId: target.userId, amount: points, reason: 'event_reward', refType: 'bug_report', refId: target.id, memo: `bug bounty · ${target.title.slice(0, 60)}` }); }
       catch (e) { return c.json(err('POINTS_FAILED', (e as Error).message), 502); }
     }
     const res = await d.bugReports.resolve(target.id, { status, pointsAwarded: points, resolution: reason, resolvedBy: g.a.user.id });
