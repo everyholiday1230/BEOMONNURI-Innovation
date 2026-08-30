@@ -471,6 +471,8 @@
       sv_section_sub: '保存1件につき {cost} ポイント · シグナルや指標を保存して再利用できます',
       sv_save_current_indicators: '現在のチャート指標を保存',
       sv_empty: '保存した項目はまだありません。',
+      sv_load: 'チャートに読み込む',
+      sv_loaded: '「{name}」をチャートに読み込みました。',
       sv_delete: '削除',
       sv_kind_signal: '私の分析',
       sv_kind_indicator: '指標',

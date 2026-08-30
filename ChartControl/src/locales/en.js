@@ -216,6 +216,8 @@
       sv_section_sub: '{cost} points per save · keep your signals and indicators to reuse',
       sv_save_current_indicators: 'Save current chart indicators',
       sv_empty: 'No saved items yet.',
+      sv_load: 'Load to chart',
+      sv_loaded: 'Loaded "{name}" to the chart.',
       sv_delete: 'Delete',
       sv_kind_signal: 'My analysis',
       sv_kind_indicator: 'Indicator',

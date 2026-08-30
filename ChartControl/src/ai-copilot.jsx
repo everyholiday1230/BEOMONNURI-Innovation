@@ -400,6 +400,24 @@
     }, [loadSaved]);
 
     /*
+       저장 항목을 차트에 다시 적용한다(불러오기).
+
+       ★ 저장은 종류(kind)와 payload 를 각 고객별 DB 에 남긴다. 여기서 그 payload 로
+         드로잉/신호를 다시 그린다. 예전에는 목록만 보여주고 다시 그릴 방법이 없어
+         "불러오기" 가 사실상 없었다.
+    */
+    const applySaved = useCallback((it) => {
+      if (!it) return;
+      try {
+        if (it.kind === 'drawing' && it.payload) { applyCommand(it.payload); }
+        else if (it.kind === 'signal' && it.payload) { applySignal(it.payload); }
+        else if (it.kind === 'indicator' && it.payload && it.payload.command) { applyCommand(it.payload); }
+        setMsgs((m) => [...m, makeMsg('system', t('sv_loaded', { name: it.name || '' }), { icon: 'ok' })]);
+      } catch (e) { /* 적용 실패는 조용히 무시 — 저장 데이터가 손상됐을 수 있다 */ }
+      setSavedOpen(false);
+    }, [applyCommand, applySignal, t]);
+
+    /*
        AI 분석 사용 가능 여부.
 
        ★★ 이것을 확인하지 않아서, AI 가 **연결되지 않은 상태에서도** 사전에 박힌
@@ -738,6 +756,7 @@
               <div key={it.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
                 <span style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'var(--color-bg-elevated)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
                 <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
+                <button className="btn btn--icon btn--sm" title={t('sv_load')} onClick={() => applySaved(it)}><I.Plus size={11}/></button>
                 <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
               </div>
             ))}

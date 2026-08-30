@@ -473,6 +473,8 @@
       sv_section_sub: '每次保存 {cost} 积分 · 保存你的信号/指标以便复用',
       sv_save_current_indicators: '保存当前图表指标',
       sv_empty: '还没有保存的项目。',
+      sv_load: '加载到图表',
+      sv_loaded: '已将"{name}"加载到图表。',
       sv_delete: '删除',
       sv_kind_signal: '我的分析',
       sv_kind_indicator: '指标',
