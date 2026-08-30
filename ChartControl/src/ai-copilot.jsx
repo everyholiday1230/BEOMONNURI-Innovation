@@ -821,8 +821,8 @@
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_trendline_cmd'))}>{t('ai_chip_trendline')}</button>
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_signal_cmd'))}>{t('ai_chip_signal')}</button>
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_sr_cmd'))}>{t('ai_chip_sr')}</button>
-          {/* ★ 전에는 이 두 칩에 onClick 이 없어 눌러도 아무 일이 없었다. 자연어 요청으로 연결한다. */}
-          <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_fib_cmd'))}>{t('ai_chip_fib')}</button>
+          {/* 피보나치 칩은 제거했다 — AI 는 피보나치를 그릴 수 없다(명령이 없다). 눌러도 못 그리면서
+              포인트만 든다. 피보나치는 차트 드로잉 툴바의 수동 피보나치 도구로 그린다. */}
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_rr_cmd'))}>{t('ai_chip_rr')}</button>
         </div>
 
