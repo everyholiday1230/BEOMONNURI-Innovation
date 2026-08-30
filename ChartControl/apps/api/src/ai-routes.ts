@@ -78,6 +78,8 @@ export interface AiRouterDeps {
 
 /** Default per-user AI request budget per minute when the server does not override it. */
 const DEFAULT_AI_RATE_PER_MIN = 20;
+/** 사용자별로 남겨두는 최근 대화 수. 초과분은 새 대화 생성 시 소프트 삭제(성능·저장 관리). */
+const CONVERSATION_KEEP = 30;
 
 export function createAiRouter(d: AiRouterDeps): Hono {
   const app = new Hono();
@@ -116,7 +118,27 @@ export function createAiRouter(d: AiRouterDeps): Hono {
     if (!csrfOk(c, a.csrfSecret)) return c.json(errBody('CSRF_FAILED', ''), 403);
     const body = (await c.req.json().catch(() => ({}))) as { title?: string };
     const conv = await d.conversations.createConversation(a.user.id, body.title ?? 'Conversation');
+    /*
+       오래된 대화 정리(성능·저장 관리). 최근 CONVERSATION_KEEP 개만 남기고 나머지는
+       소프트 삭제한다. 실패해도 대화 생성을 막지 않는다. 프런트는 이 정책을 안내한다.
+    */
+    if (d.conversations.pruneOldConversations) {
+      try { await d.conversations.pruneOldConversations(a.user.id, CONVERSATION_KEEP); } catch { /* 정리 실패는 비치명 */ }
+    }
     return c.json({ id: conv.id }, 201);
+  });
+  /*
+     GET /ai/conversations — 사용자 본인의 대화 목록(최근순).
+
+     ★ 기기·브라우저가 바뀌어도 서버(각 고객별 Postgres)에서 최신 대화를 이어받게 한다.
+       예전에는 localStorage 의 대화 ID 로만 이어받아, 다른 기기에서는 매번 새로 시작했다.
+  */
+  app.get('/ai/conversations', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(errBody('UNAUTHENTICATED', ''), 401);
+    if (!d.conversations.listConversations) return c.json({ conversations: [], retentionKept: CONVERSATION_KEEP, supported: false });
+    const list = await d.conversations.listConversations(a.user.id, 50);
+    return c.json({ conversations: list, retentionKept: CONVERSATION_KEEP });
   });
   app.get('/ai/conversations/:id/messages', async (c) => {
     const a = await authed(c);

@@ -217,23 +217,42 @@
       let saved = null;
       try { saved = localStorage.getItem(CONV_KEY); } catch (e) { /* 접근 불가 */ }
       restoredRef.current = true;
-      if (!saved) return undefined;
       let cancelled = false;
-      api.aiConversationMessages(saved)
-        .then((rows) => {
-          if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
-          convRef.current = saved;
-          greetedRef.current = true; // 복원 시 인사말은 생략한다(이미 대화가 있으므로)
-          setMsgs([
-            makeMsg('system', ctxText(), { icon: 'ok' }),
-            ...rows.map((r) => makeMsg(r.role === 'assistant' ? 'ai' : (r.role === 'user' ? 'user' : 'system'), r.content || '')),
-          ]);
-        })
-        .catch(() => {
-          // 내 대화가 아니거나 사라짐 — 저장을 지우고 새 대화로 시작한다.
+      const restore = (id, persist) => api.aiConversationMessages(id).then((rows) => {
+        if (cancelled || !Array.isArray(rows) || rows.length === 0) return false;
+        convRef.current = id;
+        if (persist) { try { localStorage.setItem(CONV_KEY, id); } catch (e) { /* noop */ } }
+        greetedRef.current = true; // 복원 시 인사말 생략(이미 대화가 있으므로)
+        setMsgs([
+          makeMsg('system', ctxText(), { icon: 'ok' }),
+          ...rows.map((r) => makeMsg(r.role === 'assistant' ? 'ai' : (r.role === 'user' ? 'user' : 'system'), r.content || '')),
+        ]);
+        return true;
+      });
+      if (saved) {
+        restore(saved, false).catch(() => {
+          // 내 대화가 아니거나 사라짐 — 저장을 지우고 서버 최신 대화로 이어받기 시도.
           try { localStorage.removeItem(CONV_KEY); } catch (e) { /* noop */ }
           convRef.current = null;
+          if (api.aiListConversations) {
+            api.aiListConversations().then((r) => {
+              const list = (r && r.conversations) || [];
+              if (!cancelled && list.length > 0) return restore(list[0].id, true);
+              return false;
+            }).catch(() => { /* noop */ });
+          }
         });
+      } else if (api.aiListConversations) {
+        /*
+           ★ localStorage 에 대화 ID 가 없으면 서버(각 고객별 DB)에서 최신 대화를
+             이어받는다. 다른 기기/브라우저에서도 대화가 이어진다.
+        */
+        api.aiListConversations().then((r) => {
+          const list = (r && r.conversations) || [];
+          if (!cancelled && list.length > 0) return restore(list[0].id, true);
+          return false;
+        }).catch(() => { /* 목록 조회 실패는 새 대화로 시작 */ });
+      }
       return () => { cancelled = true; };
     }, [aiReady]);
 

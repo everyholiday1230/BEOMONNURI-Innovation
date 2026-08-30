@@ -173,6 +173,10 @@ export interface IAIConversationRepository {
   appendMessage(userId: string, conversationId: string, msg: { role: string; content: string; redactedReasoningSummary?: string }): Promise<{ id: string }>;
   listMessages(userId: string, conversationId: string): Promise<Array<{ role: string; content: string }>>;
   softDelete(userId: string, conversationId: string): Promise<boolean>;
+  /** 사용자 본인의 대화 목록(최근순). 기기가 바뀌어도 서버에서 이어받게 한다. */
+  listConversations?(userId: string, limit?: number): Promise<Array<{ id: string; title: string; updatedAt: number }>>;
+  /** 오래된 대화를 정리한다(성능). 최근 keep 개만 남기고 나머지는 소프트 삭제. 삭제 개수를 돌려준다. */
+  pruneOldConversations?(userId: string, keep: number): Promise<number>;
 }
 
 /** 7) Usage repository — token/cost accounting per user. */

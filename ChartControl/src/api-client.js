@@ -663,6 +663,16 @@
     },
 
     /**
+     * 내 대화 목록(최근순). 기기·브라우저가 바뀌어도 서버(각 고객별 DB)에서
+     * 최신 대화를 이어받는 데 쓴다. { conversations:[{id,title,updatedAt}], retentionKept }.
+     */
+    aiListConversations: function () {
+      return getJSON('', '/api/ai/conversations')
+        .then(function (r) { return { conversations: (r && r.conversations) || [], retentionKept: (r && r.retentionKept) || null }; })
+        .catch(function () { return { conversations: [], retentionKept: null }; });
+    },
+
+    /**
      * 코파일럿 SSE 스트림.
      *
      * fetch + ReadableStream 으로 서버발 이벤트를 읽는다(EventSource 는 POST 를

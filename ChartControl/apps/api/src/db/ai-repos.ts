@@ -44,6 +44,20 @@ export class SqliteConversationRepo implements IAIConversationRepository {
     const info = this.db.prepare('UPDATE ai_conversations SET deleted_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL').run(Date.now(), conversationId, userId);
     return info.changes > 0;
   }
+
+  async listConversations(userId: string, limit = 50): Promise<Array<{ id: string; title: string; updatedAt: number }>> {
+    const rows = this.db.prepare('SELECT id,title,updated_at FROM ai_conversations WHERE user_id=? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?').all(userId, Math.min(Math.max(limit, 1), 100)) as Array<{ id: string; title: string | null; updated_at: number }>;
+    return rows.map((r) => ({ id: String(r.id), title: r.title ? String(r.title) : '', updatedAt: Number(r.updated_at) }));
+  }
+
+  async pruneOldConversations(userId: string, keep: number): Promise<number> {
+    const info = this.db.prepare(
+      `UPDATE ai_conversations SET deleted_at=? WHERE user_id=? AND deleted_at IS NULL AND id NOT IN (
+         SELECT id FROM ai_conversations WHERE user_id=? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?
+       )`,
+    ).run(Date.now(), userId, userId, Math.max(keep, 1));
+    return info.changes ?? 0;
+  }
 }
 
 export class SqliteUsageRepo implements IAIUsageRepository {
@@ -132,6 +146,29 @@ export class PgConversationRepo implements IAIConversationRepository {
       [conversationId, userId],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async listConversations(userId: string, limit = 50): Promise<Array<{ id: string; title: string; updatedAt: number }>> {
+    const r = await this.pool.query(
+      'SELECT id, title, updated_at FROM ai_conversations WHERE user_id=$1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT $2',
+      [userId, Math.min(Math.max(limit, 1), 100)],
+    );
+    return r.rows.map((x) => {
+      const row = x as { id: string; title: string | null; updated_at: unknown };
+      return { id: String(row.id), title: row.title ? String(row.title) : '', updatedAt: new Date(row.updated_at as string).getTime() || 0 };
+    });
+  }
+
+  async pruneOldConversations(userId: string, keep: number): Promise<number> {
+    // 최근 keep 개만 남기고 나머지를 소프트 삭제한다(성능·저장 관리).
+    const r = await this.pool.query(
+      `UPDATE ai_conversations SET deleted_at=now()
+       WHERE user_id=$1 AND deleted_at IS NULL AND id NOT IN (
+         SELECT id FROM ai_conversations WHERE user_id=$1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT $2
+       )`,
+      [userId, Math.max(keep, 1)],
+    );
+    return r.rowCount ?? 0;
   }
 }
 
