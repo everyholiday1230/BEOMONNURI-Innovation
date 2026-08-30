@@ -2073,6 +2073,9 @@
     enableUser: function (id, reason) {
       return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/enable', { reason: reason || '' });
     },
+    verifyUserEmail: function (id, reason) {
+      return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/verify-email', { reason: reason || '' });
+    },
 
     /**
      * 2단계 인증 초기화 (기기 분실 대응).

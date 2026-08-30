@@ -1145,6 +1145,10 @@
       adm_feature_absent: '尚未开放 — 服务器还不支持这个操作。',
 
       adm_revoke_sessions: '结束全部会话',
+      adm_verify_email: '验证邮箱',
+      adm_verify_email_hint: '手动将该用户的邮箱标记为已验证（验证邮件未送达时使用）。',
+      adm_verify_email_reason: '手动验证邮箱的原因（至少4个字符）：',
+      adm_verify_email_done: '邮箱已标记为已验证，用户现在可以登录。',
       adm_revoke_hint: '让该用户在所有设备上登出。怀疑账号被盗时使用。',
       adm_revoke_reason: '为什么要结束该用户的会话？（4-500 个字符，会记入审计日志）',
       adm_revoked_done: '该用户的全部会话已结束。',

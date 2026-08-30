@@ -492,6 +492,16 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.enable', resource: 'user', resourceId: target.id, targetUserId: target.id, result: 'success', riskLevel: 'medium', ip: ip(c), reason: body.data.reason });
     return c.json({ ok: true });
   });
+  app.post('/admin/users/:id/verify-email', async (c) => {
+    const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
+    const body = UserStatusActionSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!body.success) return c.json(err('BAD_REQUEST', 'reason required'), 400);
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', ''), 404);
+    const ok = await d.repo.verifyUserEmail(target.id);
+    await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.verify_email', resource: 'user', resourceId: target.id, targetUserId: target.id, result: ok ? 'success' : 'failure', riskLevel: 'medium', ip: ip(c), reason: body.data.reason });
+    return c.json({ ok });
+  });
   app.post('/admin/users/:id/revoke-sessions', async (c) => {
     const g = await mutateGuard(c, 'admin.user.status.write'); if ('err' in g) return g.err;
     const target = await d.repo.getUser(c.req.param('id'));

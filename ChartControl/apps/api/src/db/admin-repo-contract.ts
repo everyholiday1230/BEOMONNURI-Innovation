@@ -70,6 +70,8 @@ export interface IAdminRepo {
   activeSuperAdminIds(): Promise<string[]>;
   setUserStatus(id: string, status: 'active' | 'disabled'): Promise<boolean>;
   setUserRole(id: string, role: string): Promise<boolean>;
+  /** 관리자가 사용자의 이메일 인증을 수동으로 처리한다(고객지원 — 메일이 안 오는 경우 등). */
+  verifyUserEmail(id: string): Promise<boolean>;
   revokeUserSessions(id: string): Promise<number>;
   /**
    * Clear a user's two-factor credential so they can sign in with the password
@@ -223,6 +225,7 @@ export class SqliteAdminRepoAdapter implements IAdminRepo {
   async activeSuperAdminIds() { return this.inner.activeSuperAdminIds(); }
   async setUserStatus(id: string, status: 'active' | 'disabled') { return this.inner.setUserStatus(id, status); }
   async setUserRole(id: string, role: string) { return this.inner.setUserRole(id, role); }
+  async verifyUserEmail(id: string) { return this.inner.verifyUserEmail(id); }
   async revokeUserSessions(id: string) { return this.inner.revokeUserSessions(id); }
   async clearUserMfa(id: string) { return this.inner.clearUserMfa(id); }
   async setUserEmail(input: Parameters<IAdminRepo['setUserEmail']>[0]) { return this.inner.setUserEmail(input); }
@@ -547,6 +550,10 @@ export class PgAdminRepo implements IAdminRepo {
   }
   async setUserRole(id: string, role: string) {
     const r = await this.pool.query('UPDATE users SET role=$1, updated_at=now() WHERE id=$2', [role, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+  async verifyUserEmail(id: string) {
+    const r = await this.pool.query('UPDATE users SET email_verified=true, updated_at=now() WHERE id=$1', [id]);
     return (r.rowCount ?? 0) > 0;
   }
   async revokeUserSessions(id: string) {

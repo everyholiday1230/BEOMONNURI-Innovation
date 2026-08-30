@@ -311,6 +311,28 @@
       setBusy(false);
     };
 
+    /** 이메일 인증 수동 처리 — 인증 메일이 안 오는 고객을 관리자가 직접 인증 처리한다. */
+    const verifyEmail = async () => {
+      const api = window.QTApi && window.QTApi.admin;
+      const u = detail.user;
+      if (!api || !api.verifyUserEmail || !u) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_verify_email_reason'), '');
+      if (reason === null || String(reason).trim().length < 4) {
+        if (reason !== null) setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') });
+        return;
+      }
+      setBusy(true); setActionMsg(null);
+      try {
+        await api.verifyUserEmail(u.id, reason);
+        setActionMsg({ kind: 'ok', text: t('adm_verify_email_done') });
+        load();
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
     /*
        2단계 인증 초기화.
 
@@ -733,6 +755,11 @@
             {canStatus && (
               <button className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
                 <I.Lock size={13}/> {t('adm_revoke_sessions')}
+              </button>
+            )}
+            {canStatus && !(u.email_verified || u.emailVerified) && (
+              <button className="btn btn--sm" type="button" disabled={busy} onClick={verifyEmail} title={t('adm_verify_email_hint')}>
+                <I.Check size={13}/> {t('adm_verify_email')}
               </button>
             )}
             {canStatus && u.status === 'active' && (

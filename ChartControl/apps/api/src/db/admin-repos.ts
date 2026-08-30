@@ -311,6 +311,9 @@ export class SqliteAdminRepo {
   setUserRole(id: string, role: string): boolean {
     return this.db.prepare('UPDATE users SET role=?, updated_at=? WHERE id=?').run(role, this.now(), id).changes > 0;
   }
+  verifyUserEmail(id: string): boolean {
+    return this.db.prepare('UPDATE users SET email_verified=1, updated_at=? WHERE id=?').run(this.now(), id).changes > 0;
+  }
   revokeUserSessions(id: string): number {
     return this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(id).changes;
   }
