@@ -37,6 +37,7 @@ import type {
   NormalizedOrder,
   SubmitOrderRequest,
   SubmitOutcome,
+  AccountBalance,
 } from '@quantumtrade/exchange-bitmart';
 import { KucoinSpotPrivate, type KucoinSpotPrivateConfig } from '@quantumtrade/exchange-kucoin';
 
@@ -75,6 +76,24 @@ export class KucoinSpotTradingAdapter implements IExchangeTradingAdapter {
   /** 브로커 파트너 헤더가 붙는지. 리베이트 집계 여부다. */
   get brokerAttached(): boolean {
     return this.client.brokerAttached;
+  }
+
+  /*
+     현물(Spot) 계정 잔고. 선물 계정과 **완전히 별개**다.
+
+     ★ KuCoin 은 스팟(trade)·선물 계정이 분리돼 있어 자금을 계정 간 이체해야
+       한다. 예전에는 선물 잔고만 조회해서, 스팟에만 돈이 있는 이용자가 "선물에
+       그 금액이 있다" 고 오해하거나 잔고가 안 보였다. 여기서 스팟 trade 계정을
+       직접 조회해 별도로 보여준다(GET /api/v1/accounts?type=trade).
+  */
+  async getBalances(ctx: ExchangeContext): Promise<AccountBalance[]> {
+    const rows = await this.client.getBalances(toKucoinCredential(ctx.credential));
+    return rows.map((r) => ({
+      asset: r.currency,
+      available: r.available,
+      equity: r.total,
+      used: r.holds,
+    }));
   }
 
   async submitOrder(ctx: ExchangeContext, req: SubmitOrderRequest): Promise<SubmitOutcome> {

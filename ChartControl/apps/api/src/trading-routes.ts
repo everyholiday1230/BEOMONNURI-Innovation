@@ -846,6 +846,37 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
    * 수량은 기초자산 단위다. 거래소가 주는 계약수를 그대로 쓰면 BTC 1계약
    * (0.001 BTC)을 1 BTC 로 표시한다 — 어댑터가 승수를 곱해 정규화한다.
    */
+  /*
+     GET /trading/balances/spot — 사용자 본인의 KuCoin **현물(Spot)** 잔고.
+
+     선물 잔고(/trading/balances)와 **완전히 별개 계정**이다. 예전에는 선물 잔고만
+     조회해서, 스팟에만 자금이 있는 이용자가 잔고를 못 보거나 "선물에 그 금액이
+     있다" 고 오해했다. 여기서 스팟 trade 계정을 직접 조회해 분리해서 돌려준다.
+  */
+  app.get('/trading/balances/spot', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    // 스팟 어댑터가 주입된 배포에서만 지원한다. 미주입이면 미지원을 명시(빈 배열 위장 금지).
+    const spot = d.spotTradingAdapter as (undefined | { getBalances?: (ctx: { mode: BitMartMode; credential: unknown }) => Promise<unknown[]> });
+    if (!spot || typeof spot.getBalances !== 'function') {
+      return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange', market: 'spot', supported: false });
+    }
+    const rows = await d.credRepo.listOwned(a.user.id);
+    const usable = rows.find((r) => r.connectionStatus === 'VERIFIED') ?? rows[0];
+    if (!usable) return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange', market: 'spot' });
+    try {
+      const full = await d.credRepo.getOwned(a.user.id, usable.id);
+      if (!full) return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange', market: 'spot' });
+      const credential = await d.vault.decrypt(full);
+      const balances = await spot.getBalances({ mode: d.mode, credential });
+      return c.json({ balances, credentialStatus: usable.connectionStatus, credentialId: usable.id, source: 'exchange', market: 'spot', asOf: Date.now() });
+    } catch (e) {
+      // 조회 실패를 0 으로 위장하지 않는다 — 상태를 그대로 알린다.
+      const detail = describeCredentialFailure(e as Error);
+      return c.json({ balances: [], credentialStatus: 'FAILED', source: 'exchange', market: 'spot', detail }, 200);
+    }
+  });
+
   app.get('/trading/positions', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);

@@ -1971,6 +1971,20 @@
       });
     },
 
+    // 현물(Spot) 계정 잔고 — 선물 잔고와 별개 계정. 스팟에만 자금이 있어도 여기서 보인다.
+    spotBalances: function () {
+      return getJSON('', '/api/trading/balances/spot').then(function (r) {
+        return {
+          ok: true,
+          data: (r && (r.balances || r.items)) || [],
+          credentialStatus: (r && r.credentialStatus) || null,
+          supported: !(r && r.supported === false),
+          market: 'spot',
+          asOf: (r && r.asOf) || null,
+        };
+      });
+    },
+
     positions: function () {
       return getJSON('', '/api/trading/positions').then(function (r) {
         return {

@@ -2093,6 +2093,23 @@
     const [tab, setTab] = useState('exchanges');   // exchanges | balances | deposit | withdraw
     const [connectingEx, setConnectingEx] = useState(null); // exchange 객체
 
+    /*
+       현물(Spot) 계정 잔고 — 선물 계정과 **별개**다. 예전에는 선물 잔고만 보여서
+       스팟에만 자금이 있는 이용자가 잔고를 못 보거나 혼동했다. 잔고 탭을 열 때
+       스팟 계정을 직접 조회해 별도 카드로 보여준다.
+    */
+    const [spotBal, setSpotBal] = useState(null);
+    useEffect(() => {
+      if (tab !== 'balances') return undefined;
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.spotBalances) return undefined;
+      let cancelled = false;
+      api.spotBalances()
+        .then((r) => { if (!cancelled) setSpotBal(r || { data: [] }); })
+        .catch(() => { if (!cancelled) setSpotBal({ data: [], credentialStatus: 'FAILED' }); });
+      return () => { cancelled = true; };
+    }, [tab]);
+
     return (
       <window.PageShell
         {...shellProps}
@@ -2505,6 +2522,33 @@
                         : <span style={{color:'var(--color-text-tertiary)'}}>—</span>) },
                     /* ★ 보유처는 거래소가 하나이므로 연결된 거래소를 보여준다(하드코딩 Binance·Bitget 제거). */
                     { key: 'ex',    label: t('col_held_on'), render: () => <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--color-text-tertiary)'}}>{connectedIds.length > 0 ? connectedIds.map((x) => x.toUpperCase()).join(' · ') : '—'}</span> },
+                  ]}
+                  rows={rows}
+                />
+              );
+            })()}
+          </window.SectionCard>
+        )}
+
+        {tab === 'balances' && (
+          <window.SectionCard title={t('wal_spot_title')} subtitle={t('wal_spot_sub')} noPadding>
+            {(() => {
+              if (spotBal === null) {
+                return <div style={{padding:'22px 18px', textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)'}}>{t('loading')}</div>;
+              }
+              if (spotBal.supported === false) {
+                return <div style={{padding:'22px 18px', textAlign:'center', fontSize:12.5, color:'var(--color-text-tertiary)'}}>{t('wal_spot_unsupported')}</div>;
+              }
+              const rows = (spotBal.data || []).filter((b) => Number(b.available || 0) > 0 || Number(b.equity || b.total || 0) > 0);
+              if (rows.length === 0) {
+                return <div style={{padding:'22px 18px', textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)'}}>{connectedIds.length === 0 ? t('wal_balances_connect_first') : t('wal_spot_empty')}</div>;
+              }
+              return (
+                <window.DataTable
+                  columns={[
+                    { key: 'asset', label: t('asset'), render: (r) => <strong>{r.asset}</strong> },
+                    { key: 'available', label: t('col_available'), align: 'right', render: (r) => fmt(r.available) },
+                    { key: 'total', label: t('col_total'), align: 'right', render: (r) => fmt(r.equity || r.total) },
                   ]}
                   rows={rows}
                 />
