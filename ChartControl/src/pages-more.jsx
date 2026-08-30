@@ -3027,6 +3027,35 @@
 
     const api = window.QTApi && window.QTApi.rest;
 
+    /*
+       오류 제보. 접수하면 운영자가 확인하고, 확인되면 포인트를 지급한다.
+       내 제보 이력(상태·지급 포인트)도 함께 보여준다.
+    */
+    const [bugForm, setBugForm] = useState({ title: '', body: '' });
+    const [bugBusy, setBugBusy] = useState(false);
+    const [bugMsg, setBugMsg] = useState(null);
+    const [myBugs, setMyBugs] = useState(null);
+    React.useEffect(() => {
+      if (!api || !api.bugReportList) { setMyBugs([]); return; }
+      api.bugReportList().then((r) => setMyBugs(r.reports || [])).catch(() => setMyBugs([]));
+    }, []);
+    const submitBug = async () => {
+      if (!api || !api.bugReportCreate) return;
+      const title = bugForm.title.trim();
+      const body = bugForm.body.trim();
+      if (title.length < 4 || body.length < 10) { setBugMsg({ ok: false, text: t('bug_form_invalid') }); return; }
+      setBugBusy(true); setBugMsg(null);
+      try {
+        await api.bugReportCreate({ title, body });
+        setBugForm({ title: '', body: '' });
+        setBugMsg({ ok: true, text: t('bug_submitted') });
+        api.bugReportList().then((r) => setMyBugs(r.reports || [])).catch(() => { /* noop */ });
+      } catch (e) {
+        setBugMsg({ ok: false, text: (e && e.message) || t('bug_failed') });
+      }
+      setBugBusy(false);
+    };
+
     const loadTickets = React.useCallback(() => {
       if (!api || !api.supportTickets) return;
       setTicketsError(false);
@@ -3121,6 +3150,37 @@
           <I.Search size={16}/>
           <input placeholder={t('help_center_044ef4')} value={q} onChange={e => setQ(e.target.value)}/>
         </div>
+
+        <window.SectionCard title={t('bug_report_title')} subtitle={t('bug_report_sub')}>
+          <div style={{display:'flex', flexDirection:'column', gap:8, maxWidth:640}}>
+            <input
+              placeholder={t('bug_title_ph')} value={bugForm.title} maxLength={200}
+              onChange={(e) => setBugForm((f) => ({ ...f, title: e.target.value }))}
+              style={{padding:'8px 10px', fontSize:13}}
+            />
+            <textarea
+              placeholder={t('bug_body_ph')} value={bugForm.body} maxLength={4000} rows={4}
+              onChange={(e) => setBugForm((f) => ({ ...f, body: e.target.value }))}
+              style={{padding:'8px 10px', fontSize:13, resize:'vertical'}}
+            />
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <button className="btn btn--sm btn--primary" disabled={bugBusy} onClick={submitBug}>{t('bug_submit')}</button>
+              {bugMsg && <span style={{fontSize:12, color: bugMsg.ok ? 'var(--color-success)' : 'var(--color-danger)'}}>{bugMsg.text}</span>}
+            </div>
+            {Array.isArray(myBugs) && myBugs.length > 0 && (
+              <div style={{marginTop:8, borderTop:'1px solid var(--color-border-subtle)', paddingTop:8}}>
+                <div style={{fontSize:11.5, color:'var(--color-text-secondary)', marginBottom:6}}>{t('bug_my_reports')}</div>
+                {myBugs.slice(0, 10).map((r) => (
+                  <div key={r.id} style={{display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12}}>
+                    <span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.title}</span>
+                    <span style={{fontSize:10.5, fontWeight:700, padding:'1px 6px', borderRadius:4, background:'var(--color-bg-elevated)', color: r.status==='confirmed' ? 'var(--color-success)' : r.status==='rejected' ? 'var(--color-danger)' : 'var(--color-text-secondary)'}}>{t('bug_status_' + r.status)}</span>
+                    {r.status === 'confirmed' && r.pointsAwarded > 0 && <span style={{fontSize:11, color:'var(--color-success)'}}>+{r.pointsAwarded}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </window.SectionCard>
 
         <div className="grid-4">
           {/*

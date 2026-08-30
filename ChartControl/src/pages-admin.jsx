@@ -2090,6 +2090,7 @@
           />
         </window.SectionCard>
         )}
+        {window.AdminBugReportsPanel && <window.AdminBugReportsPanel/>}
       </window.PageShell>
     );
   };

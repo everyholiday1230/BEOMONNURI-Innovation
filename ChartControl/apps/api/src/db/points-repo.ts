@@ -32,6 +32,7 @@ export type PointReason =
   | 'competition_prize'
   | 'admin_grant'
   | 'admin_revoke'
+  | 'bug_bounty'
   | 'purchase'
   | 'redeem'
   | 'refund'

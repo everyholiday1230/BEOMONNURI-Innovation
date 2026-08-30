@@ -30,7 +30,8 @@ import { PgNoticeRepo } from './db/notice-repo';
 import { PgSupportRepo } from './db/support-repo';
 import { createSupportRouter } from './support/support-routes';
 import { createAlertRouter } from './alerts/alert-routes';
-import { PgPriceAlertRepo } from './db/price-alert-repo';
+import { createBugReportRouter } from './bug-reports/bug-report-routes';
+import { PgBugReportRepo } from './db/bug-report-repo';import { PgPriceAlertRepo } from './db/price-alert-repo';
 import { runAlertSweep } from './alerts/alert-watcher';
 import { PgReferralRepo } from './db/referral-repo';
 import { createReferralRouter } from './referral/referral-routes';
@@ -1411,6 +1412,8 @@ if (env.authEnabled) {
         ...(learningRepo ? { learning: learningRepo } : {}),
         /* 고객 등급 — /admin/tiers 가 기준·분포를 읽는다. */
         ...(tierRepo ? { tiers: tierRepo } : {}),
+        /* 오류 제보 — /admin/bug-reports 목록·확인(포인트 지급). */
+        ...(core.pool ? { bugReports: new PgBugReportRepo(core.pool) } : {}),
         /*
            공지 저장소. Postgres 풀이 있을 때만 주입한다.
 
@@ -1820,6 +1823,17 @@ if (env.authEnabled) {
     app.route('/api', createAlertRouter({
       service: authService,
       ...(priceAlertRepo ? { repo: priceAlertRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+    }));
+
+    // 오류 제보(버그 리포트) — 고객 라우터. 운영자 확인 시 포인트 지급(admin 라우터).
+    app.route('/api', createBugReportRouter({
+      service: authService,
+      ...(core.pool ? { repo: new PgBugReportRepo(core.pool) } : {}),
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
       cookieName: env.cookieName,

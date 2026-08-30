@@ -87,6 +87,72 @@
   window.UserTagsEditor = UserTagsEditor;
 
   /*
+     오류 제보(버그 리포트) — 운영자 패널.
+
+     고객 제보를 상태별로 보고, 확인(포인트 지급)/반려한다. 확인 시 지급 포인트를
+     입력받아 신고자 원장에 적립한다(bug_bounty). 이미 처리된 건은 목록에서 액션이 없다.
+  */
+  function AdminBugReportsPanel() {
+    const t = window.QTI18n ? window.QTI18n.t : ((k) => k);
+    const [data, setData] = React.useState(null);
+    const [filter, setFilter] = React.useState('open');
+    const [busyId, setBusyId] = React.useState(null);
+    const api = window.QTApi && window.QTApi.admin;
+    const load = React.useCallback(() => {
+      if (!api || !api.bugReports) { setData({ reports: [], counts: {}, supported: false }); return; }
+      api.bugReports(filter || undefined).then((r) => setData(r)).catch(() => setData({ reports: [], counts: {} }));
+    }, [filter]);
+    React.useEffect(() => { load(); }, [load]);
+    const resolve = async (r, status) => {
+      if (!api || !api.resolveBugReport) return;
+      let points = 0;
+      if (status === 'confirmed') {
+        // eslint-disable-next-line no-alert
+        const p = window.prompt(t('adm_bug_points_prompt'), '1000');
+        if (p === null) return;
+        points = Math.max(0, Math.floor(Number(p) || 0));
+      }
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_bug_reason_prompt'), status === 'confirmed' ? 'Confirmed' : 'Not a bug');
+      if (reason === null || String(reason).trim().length < 4) return;
+      setBusyId(r.id);
+      try { await api.resolveBugReport(r.id, { status, points, reason: String(reason).trim() }); load(); } catch (e) { /* noop */ }
+      setBusyId(null);
+    };
+    if (!data) return null;
+    if (data.supported === false) return <div className="panel" style={{ padding: 14, marginTop: 12 }}>{t('adm_bug_unsupported')}</div>;
+    return (
+      <div className="panel" style={{ padding: 14, marginTop: 12 }}>
+        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>{t('adm_bug_title')} · {(data.counts && data.counts.open) || 0} {t('bug_status_open')}</div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {['open', 'confirmed', 'rejected'].map((s) => (
+            <button key={s} className={`btn btn--xs ${filter === s ? 'btn--primary' : ''}`} onClick={() => setFilter(s)}>{t('bug_status_' + s)}</button>
+          ))}
+        </div>
+        {(data.reports || []).length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{t('adm_bug_empty')}</div>
+        ) : (data.reports || []).map((r) => (
+          <div key={r.id} style={{ borderTop: '1px solid var(--color-border-subtle)', padding: '8px 0' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <strong style={{ fontSize: 12.5 }}>{r.title}</strong>
+              <span style={{ fontSize: 10.5, color: 'var(--color-text-tertiary)' }}>{r.email || ''}</span>
+              {r.status === 'confirmed' && r.pointsAwarded > 0 && <span style={{ fontSize: 11, color: 'var(--color-success)' }}>+{r.pointsAwarded}</span>}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--color-text-secondary)', margin: '4px 0', whiteSpace: 'pre-wrap' }}>{r.body}</div>
+            {r.status === 'open' && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn--xs btn--primary" disabled={busyId === r.id} onClick={() => resolve(r, 'confirmed')}>{t('adm_bug_confirm')}</button>
+                <button className="btn btn--xs" disabled={busyId === r.id} onClick={() => resolve(r, 'rejected')}>{t('adm_bug_reject')}</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  window.AdminBugReportsPanel = AdminBugReportsPanel;
+
+  /*
      사용자별 포인트 — 조회 + 즉시 지급/회수.
 
      ★★ 전에는 포인트를 주려면 사용자 화면에서 ID 를 옮겨 적어 '포인트' 관리 화면으로

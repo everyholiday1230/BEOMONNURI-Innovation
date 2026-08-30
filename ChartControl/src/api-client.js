@@ -750,6 +750,17 @@
     savedCreate: function (input) {
       return sendJSON('POST', '/api/me/saved', input);
     },
+    /** 오류 제보 목록(내 것). */
+    bugReportList: function () {
+      return getJSON('', '/api/me/bug-reports').then(
+        function (r) { return { ok: true, supported: !(r && r.supported === false), reports: (r && r.reports) || [] }; },
+        function () { return { ok: false, supported: false, reports: [] }; }
+      );
+    },
+    /** 오류 제보 접수. {title, body, area?}. 확인되면 관리자가 포인트를 지급한다. */
+    bugReportCreate: function (input) {
+      return sendJSON('POST', '/api/me/bug-reports', input || {});
+    },
     savedDelete: function (id) {
       return sendJSON('DELETE', '/api/me/saved/' + encodeURIComponent(id));
     },
@@ -2099,6 +2110,18 @@
     },
     verifyUserEmail: function (id, reason) {
       return sendJSON('POST', '/api/admin/users/' + encodeURIComponent(id) + '/verify-email', { reason: reason || '' });
+    },
+    /** 오류 제보 목록(운영자). status: open|confirmed|rejected 필터 선택. */
+    bugReports: function (status) {
+      var q = status ? ('?status=' + encodeURIComponent(status)) : '';
+      return getJSON('', '/api/admin/bug-reports' + q).then(
+        function (r) { return { ok: true, supported: !(r && r.supported === false), reports: (r && r.reports) || [], counts: (r && r.counts) || { open: 0, confirmed: 0, rejected: 0 } }; },
+        function () { return { ok: false, supported: false, reports: [], counts: { open: 0, confirmed: 0, rejected: 0 } }; }
+      );
+    },
+    /** 오류 제보 처리. {status:'confirmed'|'rejected', points?, reason}. 확인+포인트면 신고자에게 지급. */
+    resolveBugReport: function (id, input) {
+      return sendJSON('POST', '/api/admin/bug-reports/' + encodeURIComponent(id) + '/resolve', input || {});
     },
 
     /**

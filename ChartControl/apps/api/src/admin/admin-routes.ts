@@ -79,6 +79,8 @@ export interface AdminRouterDeps {
   referral?: import('../db/referral-repo').PgReferralRepo;
   /** 포인트 저장소. Postgres 배포에만 주입된다. */
   points?: import('../db/points-repo').PgPointsRepo;
+  /** 오류 제보 저장소. 목록·확인(포인트 지급)에 쓴다. */
+  bugReports?: import('../db/bug-report-repo').PgBugReportRepo;
   /** 결제 대행사(PayPal/Toss/USDT)가 하나라도 연결됐는지. 포인트 구매 허용 가드에 쓴다. */
   paymentsConfigured?: boolean;
   /** 법적 문서 저장소. */
@@ -1986,8 +1988,43 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
      쓰기는 ADMIN 이상만: 제도를 켜면 전원에게 코드가 발급되고, 비율 변경은
      돈이 나가는 조건이며, 지급 기록은 "실제로 보냈다" 는 주장이다.
   */
-  app.get('/admin/referral', async (c) => {
-    const g = await guard(c, 'admin.referral.read'); if ('err' in g) return g.err;
+  /*
+     오류 제보(버그 리포트) — 운영자.
+
+     목록 조회 + 확인/반려. 확인하면서 포인트를 지급하면 원장에 적립한다(bug_bounty).
+     이미 처리된 건은 다시 처리하지 않는다(open 상태만 전이). 지급은 refType/refId 로
+     멱등이라 중복 적립되지 않는다.
+  */
+  app.get('/admin/bug-reports', async (c) => {
+    const g = await guard(c, 'admin.audit.read'); if ('err' in g) return g.err;
+    if (!d.bugReports) return c.json({ reports: [], counts: { open: 0, confirmed: 0, rejected: 0 }, supported: false });
+    const status = c.req.query('status') || null;
+    const [reports, counts] = await Promise.all([d.bugReports.listAll(status, 200), d.bugReports.counts()]);
+    return c.json({ reports, counts, supported: true });
+  });
+  app.post('/admin/bug-reports/:id/resolve', async (c) => {
+    const g = await mutateGuard(c, 'admin.points.write'); if ('err' in g) return g.err;
+    if (!d.bugReports) return c.json(err('NOT_CONFIGURED', 'bug reports require the PostgreSQL backend'), 503);
+    const body = (await c.req.json().catch(() => ({}))) as { status?: string; points?: unknown; reason?: string };
+    const status = body.status === 'confirmed' ? 'confirmed' : body.status === 'rejected' ? 'rejected' : null;
+    if (!status) return c.json(err('BAD_REQUEST', 'status must be confirmed or rejected'), 400);
+    const reason = String(body.reason ?? '').trim();
+    if (reason.length < 4) return c.json(err('BAD_REQUEST', 'reason required (min 4 chars)'), 400);
+    const points = status === 'confirmed' ? Math.max(0, Math.floor(Number(body.points) || 0)) : 0;
+    const target = await d.bugReports.get(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', ''), 404);
+    if (target.status !== 'open') return c.json(err('CONFLICT', 'already resolved'), 409);
+    // 확인 + 포인트 지급이면 신고자 원장에 적립(bug_bounty). refType/refId 로 멱등.
+    if (status === 'confirmed' && points > 0 && d.points) {
+      try { await d.points.grant({ userId: target.userId, amount: points, reason: 'bug_bounty', refType: 'bug_report', refId: target.id, memo: `bug bounty · ${target.title.slice(0, 60)}` }); }
+      catch (e) { return c.json(err('POINTS_FAILED', (e as Error).message), 502); }
+    }
+    const res = await d.bugReports.resolve(target.id, { status, pointsAwarded: points, resolution: reason, resolvedBy: g.a.user.id });
+    await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: `bug_report.${status}`, resource: 'bug_report', resourceId: target.id, targetUserId: target.userId, result: 'success', riskLevel: 'low', ip: ip(c), after: { points } });
+    return c.json({ ok: res.ok, report: res.report });
+  });
+
+  app.get('/admin/referral', async (c) => {    const g = await guard(c, 'admin.referral.read'); if ('err' in g) return g.err;
     if (!d.referral) {
       return c.json({ ...err('NOT_CONFIGURED', 'referral requires the PostgreSQL backend'), supported: false, referrers: [] }, 200);
     }
