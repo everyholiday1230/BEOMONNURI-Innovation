@@ -1700,8 +1700,16 @@
                       </td>
                       <td>
                         <div className="pos-actions">
-                          <button className="btn btn--xs">TP/SL</button>
-                          <button className="btn btn--xs">{t('col_margin')}</button>
+                          {/*
+                             ★ 배선되지 않은 버튼이다. 포지션에 TP/SL 을 나중에 걸거나
+                               증거금을 조정하려면 각각 별도 엔드포인트가 필요하다
+                               (KuCoin: 포지션 TP/SL 수정, add/remove isolated margin).
+                               아직 없다 — 누르면 아무 일도 없어 사용자는 고장으로 읽는다.
+                               규칙대로 비활성 + '준비중' 으로 명확히 밝힌다.
+                               (진입과 동시 거는 TP/SL 은 주문 패널에서 이미 가능하다.)
+                          */}
+                          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span></button>
+                          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>{t('col_margin')} <span className="qt-pending-mark">{t('sec_pending')}</span></button>
                           <button className="btn btn--xs btn--danger" onClick={() => onClose && onClose(p.id)}>{t('close')}</button>
                         </div>
                       </td>
