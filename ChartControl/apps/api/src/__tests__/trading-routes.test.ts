@@ -27,7 +27,7 @@ const mockAccount: IExchangeAccountAdapter = {
   async getOrderByClientId() { return null; },
 };
 
-function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState']) {
+function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState'], extra?: Partial<Parameters<typeof createTradingRouter>[0]>) {
   const db = openDb(':memory:');
   const audit = new SqliteAuditRepository(db);
   const service = new AuthService(new SqliteUserRepository(db), new SqliteSessionRepository(db), audit, {
@@ -43,6 +43,7 @@ function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState'
     csrfKey: 'k', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'BITMART_LIVE_READ_ONLY',
     liveTradingEnabled: false, killSwitch: true,
     ...(riskState ? { riskState } : {}),
+    ...(extra ?? {}),
   }));
   return { app, db };
 }
@@ -151,11 +152,29 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     });
     expect(res.status).toBe(200);
     const b = await res.json() as { gates: { id: string; status: string }[]; dryRun: boolean; unknownInputs: string[] };
-    // Without this endpoint a user learned which gate blocked them only AFTER pressing submit.
     expect(Array.isArray(b.gates)).toBe(true);
     expect(b.gates.length).toBeGreaterThan(5);
     expect(b.dryRun).toBe(true);
     expect(Array.isArray(b.unknownInputs)).toBe(true);
+  });
+
+  it('[1b] the admin console kill switch blocks the live gate even with env kill OFF', async () => {
+    /*
+       전에는 이 라우터가 controls 를 받지 못해 관리자 콘솔의 비상정지가 실주문
+       경로에 아무 영향이 없었다. env killSwitch 를 끄고 live 를 켠 상태에서도
+       콘솔 킬(global_live_trading=active)이면 라이브 게이트가 닫혀야 한다.
+    */
+    const { app } = build(undefined, {
+      liveTradingEnabled: true,
+      killSwitch: false,
+      controls: { killActive: (scope: string) => scope === 'global_live_trading' },
+    });
+    const jar = await login(app, 'rw-kill@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as { liveGate: { allowed: boolean } };
+    expect(b.liveGate.allowed).toBe(false);
   });
 
   it('[2] a user with NO exchange key does not pass the credential gate', async () => {

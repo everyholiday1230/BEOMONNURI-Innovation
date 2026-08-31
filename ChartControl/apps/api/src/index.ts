@@ -1136,6 +1136,29 @@ if (env.authEnabled) {
           'reach users. Set either SMTP_HOST/SMTP_USER/SMTP_PASS or RESEND_API_KEY, together with ' +
           'MAIL_FROM and APP_BASE_URL.',
       );
+      /*
+         ★★ 프로덕션에서 메일이 없으면 두 가지가 조용히 무너진다:
+           1) 비밀번호 재설정·인증 메일이 한 통도 안 나간다(사용자는 복구 불가).
+           2) 아래 requireEmailVerification 이 자동으로 꺼진다 → **아무 이메일로나
+              가입해 즉시 로그인**할 수 있다(이메일 소유 확인이 사라진다).
+         이건 개발 편의가 프로덕션 보안 구멍이 된 경우다. 로그 한 줄(warn)로는
+         운영자가 못 본다 — 프로덕션에서는 크게, 반복해서 띄운다. 기동은 막지
+         않는다(막으면 더 큰 장애). 대신 이 상태를 명확히 드러낸다.
+      */
+      if (process.env.NODE_ENV === 'production') {
+         
+        console.error(
+          '\n' +
+          '████████████████████████████████████████████████████████████████\n' +
+          '█ CRITICAL: PRODUCTION IS RUNNING WITHOUT EMAIL.               █\n' +
+          '█  · Password-reset / verification mail is NOT being sent.     █\n' +
+          '█  · Email verification is AUTO-DISABLED, so anyone can sign   █\n' +
+          '█    up with any email and log in immediately.                 █\n' +
+          '█  Fix: set SMTP_HOST/SMTP_USER/SMTP_PASS or RESEND_API_KEY,   █\n' +
+          '█  plus MAIL_FROM and APP_BASE_URL, then redeploy.             █\n' +
+          '████████████████████████████████████████████████████████████████\n',
+        );
+      }
     } else {
        
       console.log(
@@ -2528,6 +2551,11 @@ if (env.authEnabled) {
           mode: env.bitmartMode as 'BITMART_LIVE_READ_ONLY',
           liveTradingEnabled: env.bitmartLiveTradingEnabled,
           killSwitch: env.bitmartKillSwitch,
+          /*
+             관리자 콘솔의 런타임 킬스위치를 실주문 경로에 실제로 강제한다.
+             없으면(개발·테스트) 부팅 env 만으로 판단한다.
+          */
+          ...(operationalControls ? { controls: operationalControls } : {}),
           /*
              실주문을 여는 **실제** 조건. 안내 문구가 이 값으로 만들어진다.
 

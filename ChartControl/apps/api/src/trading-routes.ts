@@ -121,6 +121,17 @@ export interface TradingRouterDeps {
   };
   killSwitch: boolean; // BITMART_EMERGENCY_KILL_SWITCH (default true)
   /**
+   * 런타임 운영 컨트롤 — 관리자 콘솔의 킬스위치를 실제로 강제한다.
+   *
+   * ★★ 없으면 관리자 콘솔의 '비상정지'가 실주문 경로에 아무 영향이 없다. 전에는
+   *   이 라우터가 부팅 시점 env(killSwitch)만 봐서, 관리자가 콘솔에서 끄더라도
+   *   재배포 전까지 실주문이 계속 나갔다. DB 기반 스코프(global_live_trading /
+   *   new_positions)를 OR 로 합쳐, 하나라도 active 면 막는다(fail-safe).
+   *
+   * ★ 구조적 타입만 요구한다 — OperationalControls 구현에 결합하지 않는다.
+   */
+  controls?: { killActive(scope: string): boolean };
+  /**
    * Futures transaction history reader (gap G5).
    *
    * A narrow optional dependency rather than a widening of `IExchangeAccountAdapter`: only the BitMart
@@ -375,7 +386,17 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         referencePrice: body.referencePrice as string | undefined,
         policy: d.policy,
         liveTradingEnabled: d.liveTradingEnabled,
-        emergencyKillSwitch: d.killSwitch,
+        /*
+           ★★ 비상정지 = 부팅 env(killSwitch) **또는** 관리자 콘솔의 런타임 킬스위치.
+
+             둘 중 하나라도 켜지면 막는다(fail-safe). 관리자가 콘솔에서 누른
+             global_live_trading / new_positions 킬이 실주문 경로에 실제로 반영되게
+             한다 — 전에는 이 라우터가 controls 를 받지 못해 콘솔 스위치가 무력했다.
+        */
+        emergencyKillSwitch:
+          d.killSwitch
+          || (d.controls?.killActive('global_live_trading') ?? false)
+          || (d.controls?.killActive('new_positions') ?? false),
         userStatus,
         previewExpired: false,
         confirmationTokenValid,
