@@ -79,6 +79,10 @@
   <script src="vendor/react/react-dom.development.js" crossorigin="anonymous"></script>
   <script src="vendor/babel/babel.min.js" crossorigin="anonymous"></script>
 
+  <!-- 전역 에러 바운더리. React 뒤·앱보다 먼저 로드되어야 한다.
+       렌더 중 예외 하나로 앱 전체가 검은 화면이 되는 것을 막고 복구 UI를 띄운다. -->
+  <script src="src/error-boundary.js"></script>
+
   <!-- i18n. 사전보다 먼저 로드되어야 register 가 동작한다.
        언어 추가: src/locales/<code>.js 를 만들고 아래에 한 줄 추가.
        지원 언어 목록·언어 선택 UI는 등록된 것에서 자동 산출되므로 코드 수정 불필요. -->
@@ -231,7 +235,12 @@
     function tryMount(retries = 0) {
       if (window.App && window.MarketWatch && window.SymbolHeader && window.ChartCanvas && window.AICopilot && window.useLayoutEngine && window.WidgetHost && window.TweaksPanel && window.Icons && window.PresetRibbon && window.WidgetLibrary && window.LayoutEditToolbar && window.PageShell && window.MarketsPage && window.AdminDashboardPage && window.LoginPage && window.SignupPage && window.LandingPage && window.KYCOnboardingPage && window.NotFoundPage && window.DepositPage && window.WithdrawPage && window.TransactionHistoryPage && window.StrategyDetailPage && window.ReferralPage && window.FeeRebatePage && window.HelpCenterPage && window.AdminUserDetailPage && window.AdminKYCQueuePage && window.AdminBroadcastPage && window.AdminNoticeEditorPage && window.AdminAssetsHiFiPage) {
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<window.App/>);
+        // 전역 에러 바운더리로 감싼다 — 렌더 중 예외가 앱 전체를 검은 화면으로
+        // 만들지 않고 복구 UI를 띄운다. 바운더리 로드 실패 시에는 그냥 App 을 띄운다.
+        const Boundary = window.AppErrorBoundary;
+        root.render(Boundary
+          ? React.createElement(Boundary, null, React.createElement(window.App))
+          : React.createElement(window.App));
       } else if (retries < 60) {
         setTimeout(() => tryMount(retries + 1), 100);
       } else {

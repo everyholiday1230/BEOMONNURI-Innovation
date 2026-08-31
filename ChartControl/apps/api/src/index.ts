@@ -258,6 +258,58 @@ app.get('/health/live', (c) => c.json({ status: 'ok', uptimeMs: Math.round(proce
 app.get('/health/ready', (c) =>
   c.json({ status: 'ok', version: process.env.GIT_SHA ?? 'dev', dataMode: env.dataMode, tradingMode: env.tradingMode, liveTradingEnabled: env.liveOrdersEnabled }),
 );
+
+/*
+   클라이언트 오류 싱크.
+
+   ★ 왜 필요한가: 프론트엔드에 전역 에러 바운더리를 넣었다(src/error-boundary.js).
+     이용자 화면이 렌더 예외로 검은 화면이 되면 바운더리가 여기로 보고한다.
+     이게 없으면 "누구 화면이 어디서 깨졌는지"를 알 방법이 "검은 화면이에요"
+     라는 말뿐이다 — 원인을 못 고친다.
+
+   ★ 공개 엔드포인트다(로그인 전에도 깨질 수 있다). 그래서:
+     · 본문 크기를 강하게 제한한다(로그 폭탄 방지).
+     · IP 기준으로 분당 몇 건만 받는다(있으면 rateLimiter, 없으면 그냥 로그).
+     · 응답은 항상 204 — 공격자에게 정보를 주지 않고, 클라이언트도 재시도하지 않는다.
+   ★ 저장은 서버 로그로 충분하다. 별도 저장소를 만들지 않는다 — 운영자가
+     로그 집계로 본다. PII 를 저장하지 않기 위해서도 로그 한 줄이 낫다.
+*/
+const clientErrorHits = new Map<string, { n: number; resetAt: number }>();
+app.post('/api/ops/client-error', async (c) => {
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const now = Date.now();
+  const slot = clientErrorHits.get(ip);
+  if (!slot || now >= slot.resetAt) {
+    clientErrorHits.set(ip, { n: 1, resetAt: now + 60_000 });
+  } else if (slot.n >= 30) {
+    return c.body(null, 204); // 조용히 버린다 — 폭주 방지
+  } else {
+    slot.n += 1;
+  }
+
+  let raw = '';
+  try {
+    raw = await c.req.text();
+  } catch {
+    return c.body(null, 204);
+  }
+  if (raw.length > 8_000) raw = `${raw.slice(0, 8_000)}…[truncated]`;
+
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    parsed = { message: raw };
+  }
+
+  // 한 줄로 남긴다. 스택은 앞부분만 — 로그를 읽을 수 있어야 한다.
+  const msg = String(parsed.message ?? '').slice(0, 500);
+  const url = String(parsed.url ?? '').slice(0, 200);
+  const stack = String(parsed.stack ?? '').split('\n').slice(0, 4).join(' | ').slice(0, 800);
+  console.error(`[client-error] ip=${ip} url=${url} msg=${JSON.stringify(msg)} stack=${JSON.stringify(stack)}`);
+
+  return c.body(null, 204);
+});
 app.get('/ready', (c) => {
   // 스트림이 끊겨도 status 는 ok 다 — REST 경로가 살아 있으면 트래픽을 받을 수 있고,
   // 로드밸런서가 인스턴스를 빼버리면 오히려 전면 장애가 된다.
