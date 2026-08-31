@@ -108,13 +108,23 @@ export function describeAction(s: LearningSample): string {
   if (s.leverage) parts.push(`leverage ${s.leverage}x`);
   if (s.marginMode) parts.push(`${s.marginMode} margin`);
   if (s.reduceOnly) parts.push('reduce-only');
-  if (s.stopPrice) parts.push(`stop at ${s.stopPrice}`);
+  /*
+     ★ 두 값의 뜻이 다르다. 섞어 쓰면 학습 문장이 정반대가 된다.
+         stopPrice     조건부 **진입** 가격 ("여기 닿으면 들어간다")
+         stopLossPrice 브래킷 **손절** 가격 ("여기 닿으면 닫는다")
+  */
+  if (s.stopPrice) parts.push(`trigger entry at ${s.stopPrice}`);
+  if (s.stopLossPrice) parts.push(`stop loss at ${s.stopLossPrice}`);
   if (s.takeProfitPrice) parts.push(`take profit at ${s.takeProfitPrice}`);
   /*
      ★ 보호 주문이 없으면 그것도 사실로 적는다.
        "손절 없이 들어갔다" 는 학습해야 할 행동이다.
+
+     ★ 판단 기준은 손절가(stopLossPrice)다. 조건부 진입가(stopPrice)가 있다고
+       해서 보호가 걸린 것이 아니다 — 전에는 이 둘을 한 값으로 봐서, 조건부
+       진입 주문이 "손절을 걸었다" 로 기록됐다.
   */
-  if (!s.stopPrice) parts.push('no stop attached');
+  if (!s.stopLossPrice) parts.push('no stop attached');
   return parts.join(', ');
 }
 

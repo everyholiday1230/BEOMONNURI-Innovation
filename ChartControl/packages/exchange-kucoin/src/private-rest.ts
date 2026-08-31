@@ -146,6 +146,26 @@ export interface KucoinSubmitRequest {
   stopDirection?: 'up' | 'down';
   /** 발동 기준가. TP=최종거래가, IP=지수가, MP=마크가(기본). */
   stopPriceType?: 'TP' | 'IP' | 'MP';
+  /*
+     ★★ 브래킷 TP/SL — 진입 주문에 익절·손절을 **함께** 붙인다.
+
+       KuCoin 선물은 이것을 전용 엔드포인트로 제공한다:
+         POST /api/v1/st-orders  (triggerStopUpPrice / triggerStopDownPrice)
+       "다른 기능은 일반 주문과 완전히 동일하다" 고 문서가 명시한다.
+
+     ★ 여기서는 **의미(익절/손절)** 로 받는다. 거래소 필드는 방향(위/아래)이라
+       long/short 에 따라 대응이 뒤바뀐다:
+
+         long  : 익절 = 위(Up),  손절 = 아래(Down)
+         short : 익절 = 아래(Down), 손절 = 위(Up)
+
+       호출자가 이 변환을 하게 하면 한쪽이라도 헷갈리는 순간 **손절 자리에 익절이
+       걸린다**(= 손실이 무한히 열린다). 그래서 변환은 이 함수 안에서만 한다.
+  */
+  /** 익절 가격. 도달하면 포지션을 청산한다. */
+  takeProfitPrice?: string;
+  /** 손절 가격. 도달하면 포지션을 청산한다. */
+  stopLossPrice?: string;
 }
 
 export interface KucoinSubmitResult {
@@ -155,6 +175,40 @@ export interface KucoinSubmitResult {
   contractsSent: string;
   /** 브로커 파트너 헤더가 붙었는지. 리베이트 집계 여부다. */
   brokerAttached: boolean;
+  /**
+   * 실제로 사용한 엔드포인트.
+   *
+   * ★ 'st-orders' 면 TP/SL 이 **거래소에 함께 등록됐다**, 'orders' 면 붙지 않았다.
+   *   화면이 "보호가 걸렸다" 고 말해도 되는지를 이 값으로만 판단해야 한다 —
+   *   요청에 TP/SL 을 담았다는 사실은 등록됐다는 뜻이 아니다.
+   */
+  endpoint: 'orders' | 'st-orders';
+  /** 거래소에 등록한 익절가. 등록하지 않았으면 null. */
+  takeProfitPrice: string | null;
+  /** 거래소에 등록한 손절가. 등록하지 않았으면 null. */
+  stopLossPrice: string | null;
+}
+
+/**
+ * 브래킷 가격(익절·손절) 검사.
+ *
+ * ★ 빈 값은 "설정하지 않았다"(null) 로 본다. 숫자가 아니거나 0 이하면 **던진다** —
+ *   조용히 버리면 이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다.
+ *
+ * ★ 문자열 원본을 함께 돌려준다. Number 로 왕복하면 지수표기(1e-7)나 정밀도
+ *   손실이 생겨 거래소가 거부하거나 다른 가격으로 걸린다.
+ */
+function normalizeBracketPrice(
+  raw: string | undefined,
+  field: string,
+): { raw: string; num: number } | null {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const text = String(raw).trim();
+  const num = Number(text);
+  if (!Number.isFinite(num) || num <= 0) {
+    throw new KucoinApiError(`${field} 가 올바르지 않다: ${text}`, { code: 'INVALID_BRACKET_PRICE' });
+  }
+  return { raw: text, num };
 }
 
 interface KucoinEnvelope<T> {
@@ -630,10 +684,89 @@ export class KucoinFuturesPrivate {
       body.stopPriceType = req.stopPriceType || 'MP';
     }
 
+    /*
+       ★★ 브래킷 TP/SL. 있으면 /api/v1/st-orders 로 보낸다.
+
+         일반 /api/v1/orders 는 triggerStopUpPrice / triggerStopDownPrice 를
+         **조용히 무시한다.** 그러면 진입만 되고 보호는 없는데 화면은 "TP/SL 설정
+         완료" 로 보인다 — 가장 위험한 실패 방식이다. 그래서 엔드포인트를 바꾸고,
+         무엇을 등록했는지 결과에 담아 호출자가 확인할 수 있게 한다.
+    */
+    const tp = normalizeBracketPrice(req.takeProfitPrice, 'takeProfitPrice');
+    const sl = normalizeBracketPrice(req.stopLossPrice, 'stopLossPrice');
+    let endpoint: 'orders' | 'st-orders' = 'orders';
+
+    if (tp !== null || sl !== null) {
+      /*
+         ★ 발동(조건부) 진입과 브래킷을 섞지 않는다.
+
+           st-orders 는 진입 조건(stop/stopPrice)을 문서화하지 않는다. 두 기능을
+           한 요청에 섞으면 거래소가 어느 쪽을 무시하는지 알 수 없고, 무시된 쪽이
+           손절이면 무방비 포지션이 남는다. 추측하지 않고 거부한다.
+      */
+      if (req.stopPrice) {
+        throw new KucoinApiError(
+          '발동(조건부) 진입 주문에는 TP/SL 을 함께 걸 수 없다. 진입 후 별도로 설정한다.',
+          { code: 'TPSL_WITH_TRIGGER_UNSUPPORTED' },
+        );
+      }
+
+      /*
+         ★★ 익절·손절이 진입가를 기준으로 올바른 쪽에 있어야 한다.
+
+           long 인데 익절이 진입가보다 낮으면 주문하는 즉시 익절이 발동해
+           손실로 닫힌다. 이런 요청은 이용자가 방향을 착각한 것이다 —
+           보정하지 않고 거부한다(보정하면 이용자가 지정하지 않은 가격에 닫힌다).
+
+         ★ 지정가 주문일 때만 진입가를 안다. 시장가면 진입가를 모르므로
+           TP·SL 의 상대 순서만 검사한다(long: TP > SL).
+      */
+      const longSide = req.side !== 'short';
+      if (tp !== null && sl !== null) {
+        const ok = longSide ? tp.num > sl.num : tp.num < sl.num;
+        if (!ok) {
+          throw new KucoinApiError(
+            longSide
+              ? `long 은 익절이 손절보다 높아야 한다: tp=${tp.raw} sl=${sl.raw}`
+              : `short 은 익절이 손절보다 낮아야 한다: tp=${tp.raw} sl=${sl.raw}`,
+            { code: 'TPSL_INVERTED' },
+          );
+        }
+      }
+      const entry = req.type === 'limit' ? Number(req.price) : NaN;
+      if (Number.isFinite(entry) && entry > 0) {
+        if (tp !== null && (longSide ? tp.num <= entry : tp.num >= entry)) {
+          throw new KucoinApiError(
+            `익절가가 진입가의 반대쪽이다: entry=${req.price} tp=${tp.raw} (${longSide ? 'long' : 'short'})`,
+            { code: 'TAKE_PROFIT_WRONG_SIDE' },
+          );
+        }
+        if (sl !== null && (longSide ? sl.num >= entry : sl.num <= entry)) {
+          throw new KucoinApiError(
+            `손절가가 진입가의 반대쪽이다: entry=${req.price} sl=${sl.raw} (${longSide ? 'long' : 'short'})`,
+            { code: 'STOP_LOSS_WRONG_SIDE' },
+          );
+        }
+      }
+
+      /*
+         의미(익절/손절) → 거래소 필드(위/아래) 변환. 여기 한 곳에서만 한다.
+           long  : 익절=Up,  손절=Down
+           short : 익절=Down, 손절=Up
+      */
+      const up = longSide ? tp : sl;
+      const down = longSide ? sl : tp;
+      if (up !== null) body.triggerStopUpPrice = up.raw;
+      if (down !== null) body.triggerStopDownPrice = down.raw;
+      // 발동 기준가. 마크가(MP)가 기본이다 — 최종거래가는 순간 이상치에 발동한다.
+      body.stopPriceType = req.stopPriceType || 'MP';
+      endpoint = 'st-orders';
+    }
+
     const d = await this.request<{ orderId?: string; clientOid?: string }>(
       user,
       'POST',
-      '/api/v1/orders',
+      endpoint === 'st-orders' ? '/api/v1/st-orders' : '/api/v1/orders',
       { body },
     );
 
@@ -642,6 +775,9 @@ export class KucoinFuturesPrivate {
       clientOid: String(d?.clientOid ?? req.clientOid),
       contractsSent: String(contracts),
       brokerAttached: this.brokerAttached,
+      endpoint,
+      takeProfitPrice: endpoint === 'st-orders' && tp !== null ? tp.raw : null,
+      stopLossPrice: endpoint === 'st-orders' && sl !== null ? sl.raw : null,
     };
   }
 

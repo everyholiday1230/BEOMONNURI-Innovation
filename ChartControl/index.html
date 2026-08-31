@@ -201,6 +201,9 @@
 
   <!-- JSX components -->
   <script type="text/babel" src="src/icons.jsx"></script>
+  <!-- 오버레이 실시간 라벨(진입가 대비 손익% 등). 두 차트 엔진이 공유하므로
+       둘보다 먼저 로드돼야 한다. -->
+  <script src="src/chart-overlay-live.js"></script>
   <script type="text/babel" src="src/chart-canvas.jsx"></script>
   <script type="text/babel" src="src/chart-kline.jsx"></script>
   <script src="src/chart-actions.js"></script>

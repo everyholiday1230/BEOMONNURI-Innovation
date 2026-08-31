@@ -64,6 +64,13 @@ export interface DecisionInput {
   reduceOnly?: boolean;
   stopPrice?: string | number | null;
   takeProfitPrice?: string | number | null;
+  /**
+   * 브래킷 손절가 — "이 가격에 닿으면 닫는다".
+   *
+   * ★ stopPrice(조건부 **진입**가)와 뜻이 정반대다. 섞으면 학습 문장이
+   *   반대로 만들어진다. 그래서 칼럼도 따로 쓴다(0039).
+   */
+  stopLossPrice?: string | number | null;
   uiContext?: UiContext | null;
   marketSnapshot?: Record<string, unknown> | null;
   accountSnapshot?: Record<string, unknown> | null;
@@ -177,13 +184,15 @@ export class PgLearningRepo {
         `INSERT INTO trade_decisions (
            id, user_id, subject_key, market, execution_mode, symbol, side, order_type,
            price, quantity, leverage, margin_mode, reduce_only, stop_price, take_profit_price,
+           stop_loss_price,
            ui_context, market_snapshot, account_snapshot, risk_snapshot,
            submit_status, submit_reason, client_order_id, exchange_order_id, correlation_id
          ) VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,
            $9,$10,$11,$12,$13,$14,$15,
-           $16,$17,$18,$19,
-           $20,$21,$22,$23,$24
+           $16,
+           $17,$18,$19,$20,
+           $21,$22,$23,$24,$25
          )`,
         [
           id, input.userId, subject, input.market, input.executionMode,
@@ -191,6 +200,12 @@ export class PgLearningRepo {
           num(input.price), num(input.quantity), num(input.leverage),
           input.marginMode ?? null, input.reduceOnly === true,
           num(input.stopPrice), num(input.takeProfitPrice),
+          /*
+             ★ 브래킷 손절가는 stop_price 와 **다른 칼럼**이다.
+               stop_price 는 "이 가격에 진입한다"(조건부 진입), 이쪽은 "이 가격에
+               닫는다"(보호). 한 칼럼에 넣으면 학습 문장이 정반대로 만들어진다.
+          */
+          num(input.stopLossPrice),
           json(input.uiContext), json(input.marketSnapshot),
           json(input.accountSnapshot), json(input.riskSnapshot),
           input.submitStatus, input.submitReason ?? null,
@@ -371,7 +386,7 @@ export class PgLearningRepo {
       `SELECT
          d.id, d.subject_key, d.market, d.execution_mode, d.symbol, d.side,
          d.order_type, d.price, d.quantity, d.leverage, d.margin_mode, d.reduce_only,
-         d.stop_price, d.take_profit_price,
+         d.stop_price, d.take_profit_price, d.stop_loss_price,
          d.ui_context, d.market_snapshot, d.account_snapshot, d.risk_snapshot,
          d.submit_status, d.submit_reason, d.decided_at,
          o.outcome_kind, o.entry_price, o.exit_price, o.filled_quantity, o.fees,
@@ -399,6 +414,7 @@ export class PgLearningRepo {
       reduceOnly: row.reduce_only === true,
       stopPrice: row.stop_price === null ? null : String(row.stop_price),
       takeProfitPrice: row.take_profit_price === null ? null : String(row.take_profit_price),
+      stopLossPrice: row.stop_loss_price === null || row.stop_loss_price === undefined ? null : String(row.stop_loss_price),
       uiContext: (row.ui_context as UiContext | null) ?? null,
       marketSnapshot: (row.market_snapshot as Record<string, unknown> | null) ?? null,
       accountSnapshot: (row.account_snapshot as Record<string, unknown> | null) ?? null,
@@ -516,6 +532,8 @@ export interface LearningSample {
   reduceOnly: boolean;
   stopPrice: string | null;
   takeProfitPrice: string | null;
+  /** 브래킷 손절가. stopPrice(조건부 진입가)와 뜻이 다르다. */
+  stopLossPrice: string | null;
   uiContext: UiContext | null;
   marketSnapshot: Record<string, unknown> | null;
   accountSnapshot: Record<string, unknown> | null;

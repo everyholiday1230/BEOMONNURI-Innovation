@@ -345,12 +345,29 @@
       for (const ov of overlays) {
         if (ov.hidden) continue;
         const src = ov.source || 'user';
+        /*
+           ★★ 라벨은 그리는 순간에 만든다.
+
+             진입가 선의 손익%를 데이터에 문자열로 굳혀 두면 가격이 움직여도
+             숫자가 그대로 남아, 이용자가 옛 손익을 현재 손익으로 읽는다.
+             계산은 QTOverlayLive 한 곳에만 둔다 — 엔진이 둘이라 각자 계산하면
+             두 화면이 서로 다른 손익을 보여주게 된다.
+        */
+        const ovLabel = window.QTOverlayLive
+          ? window.QTOverlayLive.labelFor(ov, lastPrice)
+          : ov.label;
         let color = colors.ai;
         if (src === 'ai-approved') color = colors.approved;
         else if (src === 'ai-draft') color = colors.ai;
         else if (src === 'order') color = colors.pending;
         else if (src === 'position-long') color = colors.long;
         else if (src === 'position-short') color = colors.short;
+        /*
+           작성 중인 TP/SL 선. 익절은 롱색(수익), 손절은 숏색(손실)으로 둔다 —
+           방향(롱/숏)이 아니라 **결과**를 나타내는 색이어야 한다.
+        */
+        else if (src === 'draft-tp') color = colors.long;
+        else if (src === 'draft-sl') color = colors.short;
         else if (src === 'user') color = getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary').trim();
 
         ctx.strokeStyle = color;
@@ -381,7 +398,7 @@
           drawHandle(ctx, x1, y1, color);
           drawHandle(ctx, x2, y2, color);
           // Label pill
-          if (ov.label) drawTag(ctx, ov.label, x1 + 6, y1 - 14, colors, color, ov.source);
+          if (ovLabel) drawTag(ctx, ovLabel, x1 + 6, y1 - 14, colors, color, ov.source);
         }
         else if (ov.type === 'horizontal' && ov.points?.[0]) {
           /*
@@ -412,10 +429,10 @@
           // 화면 밖 선은 끌어서 옮길 수 없다 — 손잡이를 그리지 않는다.
           if (!outside) drawHandle(ctx, scales.plotX + scales.plotW - 24, y, color);
           drawPriceLabel(ctx, ov.points[0].price, y, scales, color);
-          if (ov.label) {
+          if (ovLabel) {
             // 위쪽 밖이면 라벨이 잘리므로 선 아래에 붙인다.
             const labelY = rawY < top ? y + 4 : y - 14;
-            drawTag(ctx, ov.label, scales.plotX + 8, labelY, colors, color, ov.source);
+            drawTag(ctx, ovLabel, scales.plotX + 8, labelY, colors, color, ov.source);
           }
         }
         else if (ov.type === 'entry-zone' && ov.priceHi != null && ov.priceLo != null) {
@@ -432,7 +449,7 @@
           ctx.moveTo(scales.plotX, yLo); ctx.lineTo(scales.plotX + scales.plotW, yLo); ctx.stroke();
           drawPriceLabel(ctx, ov.priceHi, yHi, scales, color);
           drawPriceLabel(ctx, ov.priceLo, yLo, scales, color);
-          if (ov.label) drawTag(ctx, ov.label, scales.plotX + 8, (yHi + yLo) / 2 - 8, colors, color, ov.source);
+          if (ovLabel) drawTag(ctx, ovLabel, scales.plotX + 8, (yHi + yLo) / 2 - 8, colors, color, ov.source);
           // handle in the middle right
           drawHandle(ctx, scales.plotX + scales.plotW - 8, yHi, color);
           drawHandle(ctx, scales.plotX + scales.plotW - 8, yLo, color);
@@ -477,7 +494,11 @@
         // Price label
         drawPriceLabel(ctx, cursor.price, cursor.y, scales, colors.textPri, true);
       }
-    }, [overlays, cursor, scales, derived, colors, size, setupCanvas, candles]);
+        /*
+       ★ lastPrice 를 의존성에 넣는다 — 진입가 선의 손익% 라벨이 시세와 함께
+         갱신돼야 한다. 빼면 라벨이 처음 값에 멈춘다.
+    */
+    }, [overlays, cursor, scales, derived, colors, size, setupCanvas, candles, lastPrice]);
 
     function drawHandle(ctx, x, y, color) {
       ctx.setLineDash([]);

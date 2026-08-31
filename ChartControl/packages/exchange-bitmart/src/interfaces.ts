@@ -31,6 +31,15 @@ export interface NormalizedOrder {
   reduceOnly?: boolean;
   createdAt: number;
   updatedAt: number;
+  /**
+   * 거래소에 **실제로 등록된** 브래킷 익절가. 등록하지 않았으면 null/undefined.
+   *
+   * ★ 요청에 담았다는 사실과 등록됐다는 사실은 다르다. 화면이 "보호가 걸렸다" 고
+   *   말해도 되는지는 이 값으로만 판단한다.
+   */
+  takeProfitPrice?: string | null;
+  /** 거래소에 실제로 등록된 브래킷 손절가. */
+  stopLossPrice?: string | null;
 }
 export interface SubmitOrderRequest {
   clientOrderId: string;
@@ -54,6 +63,19 @@ export interface SubmitOrderRequest {
   stopDirection?: 'up' | 'down';
   /** 발동 기준가 종류. TP=최종거래가, IP=지수가, MP=마크가(기본). */
   stopPriceType?: 'TP' | 'IP' | 'MP';
+  /**
+   * 브래킷 익절가 — 진입 주문에 함께 등록한다.
+   *
+   * ★ 거래소 필드는 방향(위/아래)이지만 여기서는 **의미**로 받는다. long/short 에
+   *   따라 대응이 뒤바뀌므로, 변환은 거래소 클라이언트 한 곳에서만 한다.
+   *   상위에서 변환하면 한 번 뒤집히는 순간 손절 자리에 익절이 걸린다.
+   *
+   * ★ 어댑터가 이 값을 지원하지 않으면 **주문을 거부해야 한다.** 조용히 무시하면
+   *   이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다.
+   */
+  takeProfitPrice?: string;
+  /** 브래킷 손절가. takeProfitPrice 와 같은 규칙이 적용된다. */
+  stopLossPrice?: string;
 }
 export type SubmitOutcome =
   | { status: 'ACCEPTED'; order: NormalizedOrder }

@@ -337,12 +337,14 @@ test.describe('[U2] trading workspace widgets', () => {
     expect(Number(await chart.getAttribute('data-engine-bar-count'))).toBeGreaterThan(0);
   });
 
-  test('[U2-6] connection cluster reports measured latency and data age', async ({ page }) => {
-    await page.goto('/trade');
-    await expect(page.locator('[data-testid="conn-latency"]')).toContainText('ms');
-    await expect(page.locator('[data-testid="conn-freshness"]')).toContainText('s');
-    await expect(page.locator('[data-testid="data-mode-badge"]')).toBeVisible();
-  });
+  /*
+     [U2-6] 삭제 — 헤더의 연결 클러스터(WS 상태 / 지연 ms / 데이터 신선도 / 데이터 모드 배지)를
+     운영 요청으로 제거했다(ad1ec0d). 그 뒤로 이 테스트는 존재하지 않는 testid
+     (conn-latency / conn-freshness / data-mode-badge)를 기다리다 실패만 하고 있었다.
+     UI 를 되살릴 게 아니면 테스트도 남겨둘 이유가 없다. 신선도 값 자체는
+     window.QTLive.getDataAgeMs() 로 여전히 얻을 수 있으니, 표시를 다시 넣을 때
+     이 테스트도 함께 되살린다.
+  */
 
   test('[U2-7] symbol header exposes v2 identity, price, 24h meta and funding countdown', async ({ page }) => {
     await page.goto('/trade');

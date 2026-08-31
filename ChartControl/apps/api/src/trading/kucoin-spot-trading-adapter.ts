@@ -115,6 +115,29 @@ export class KucoinSpotTradingAdapter implements IExchangeTradingAdapter {
       return { status: 'REJECTED', reason: 'reduceOnly is not applicable to spot orders' };
     }
 
+    /*
+       ★★ 현물에는 진입 주문에 붙이는 브래킷 TP/SL 이 없다.
+
+         KuCoin 이 현물에 제공하는 것은 OCO(/api/v3/oco/order)뿐이고, 그것은
+         **이미 보유한 물량**에 걸는 청산 주문이다. 진입과 동시에 익절·손절을
+         등록하는 경로는 없다(선물의 /api/v1/st-orders 에 해당하는 것이 없다).
+
+       ★ 그래서 조용히 버리지 않고 거부한다. 버리면 이용자는 손절이 걸린 줄 알고
+         화면을 떠나고, 실제로는 무방비 상태로 남는다 — 이 기능에서 가장 위험한
+         실패 방식이다. 매수 후 OCO 로 따로 걸어야 한다.
+    */
+    const bracket = req as { takeProfitPrice?: string; stopLossPrice?: string };
+    const hasBracket =
+      (bracket.takeProfitPrice !== undefined && String(bracket.takeProfitPrice).trim() !== '') ||
+      (bracket.stopLossPrice !== undefined && String(bracket.stopLossPrice).trim() !== '');
+    if (hasBracket) {
+      this.audit('spot.order.blocked', { clientOrderId: req.clientOrderId, reason: 'bracket_tpsl_unsupported' });
+      return {
+        status: 'REJECTED',
+        reason: 'spot orders cannot carry take-profit/stop-loss at entry — buy first, then place an OCO exit',
+      };
+    }
+
     this.audit('spot.order.submitting', {
       clientOrderId: req.clientOrderId,
       symbol: req.symbol,

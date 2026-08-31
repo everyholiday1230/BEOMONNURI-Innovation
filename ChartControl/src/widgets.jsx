@@ -772,7 +772,7 @@
   // ORDER ENTRY
   // ============================================================
   window.OrderEntry = function OrderEntry({
-    lastPrice, market, assets, marginMode, leverage, prefillPrice, prefillSize, prefillSide, tpsl, onPlaceOrder, isBeginner, t
+    lastPrice, market, assets, marginMode, leverage, prefillPrice, prefillSize, prefillSide, tpsl, bracket, onBracketChange, onPlaceOrder, isBeginner, t
   }) {
     const [side, setSide] = useState(prefillSide || 'long'); // long | short
     const [orderType, setOrderType] = useState('limit');
@@ -814,7 +814,6 @@
     const [reduceOnly, setReduceOnly] = useState(false);
     const [postOnly, setPostOnly] = useState(false);
     const [tif, setTif] = useState('GTC');
-    const [enableTpsl] = useState(false); // TP/SL 브래킷 주문 준비 전까지 항상 꺼둔다(오해 방지).
     /*
        ★★ 레버리지·증거금 모드는 사용자가 고르고, 이 값이 표시·증거금/청산 계산·
          주문 제출의 **단일 출처**다. 전에는 표시가 20× 로 고정돼 있고 제출은
@@ -840,9 +839,25 @@
     });
     useEffect(() => { try { localStorage.setItem('qt.order.leverage', String(lev)); } catch (e) { /* 무시 */ } }, [lev]);
     useEffect(() => { try { localStorage.setItem('qt.order.marginMode', mMode); } catch (e) { /* 무시 */ } }, [mMode]);
-    /* TP/SL 입력을 상태로 관리한다(전에는 defaultValue 라 입력값이 유실됐다). */
-    const [tpVal, setTpVal] = useState('');
-    const [slVal, setSlVal] = useState('');
+    /*
+       ★★ TP/SL 값은 **상위(앱)** 가 들고 있다.
+
+         차트에서 손절선을 드래그하는 것과 이 칸에 숫자를 넣는 것은 같은 값을
+         고치는 두 가지 방법이다. 값을 두 곳에 두면 반드시 어긋나고, 그때
+         "화면에 보이는 손절가" 와 "실제로 나가는 손절가" 가 달라진다.
+
+       ★ 상위가 넘겨주지 않는 화면(미리보기·단독 렌더)에서는 자체 상태를 쓴다 —
+         props 가 없다고 기능이 사라지면 안 된다.
+    */
+    const localBracket = useState({ on: false, tp: '', sl: '' });
+    const bracketState = (bracket && typeof bracket === 'object') ? bracket : localBracket[0];
+    const setBracketState = onBracketChange || localBracket[1];
+    const tpslOn = Boolean(bracketState.on);
+    const tpVal = bracketState.tp || '';
+    const slVal = bracketState.sl || '';
+    const setTpslOn = (v) => setBracketState({ ...bracketState, on: Boolean(v) });
+    const setTpVal = (v) => setBracketState({ ...bracketState, tp: v });
+    const setSlVal = (v) => setBracketState({ ...bracketState, sl: v });
 
     // Re-sync when parent prefill changes
     useEffect(() => {
@@ -934,8 +949,6 @@
     const availBal = Number(assets && assets.availableBalance) || 0;
     const effLev = isSpot ? 1 : Math.max(1, lev);
     const maxQty = (px > 0) ? snapQty((availBal * effLev) / px) : 0;
-    // 표시용: 현재 수량(sz)이 소비하는 USDT(현물=명목, 선물=증거금).
-    const quoteForSize = (px > 0) ? (px * sz) / effLev : 0;
     const [quoteAmt, setQuoteAmt] = useState('');
     // USDT 금액 입력 → 수량 자동 계산.
     const applyQuoteAmount = (v) => {
@@ -958,6 +971,72 @@
       setSize(maxQty.toFixed(qtyPrec));
       setPct(100);
     };
+
+    /*
+       ★★ 브래킷 TP/SL 값과 방향 검사.
+
+         거래소에 나가는 값은 **가격**이다. % 는 입력을 돕는 수단일 뿐이므로
+         여기서 가격으로 확정하고, 그 가격만 주문에 실린다 — % 를 그대로 보내면
+         서버·거래소가 각자 기준가로 환산해 서로 다른 가격에 걸린다.
+
+       ★ 방향은 **진입 방향에 따라 반대**다:
+           long  : 익절 > 진입가 > 손절
+           short : 익절 < 진입가 < 손절
+         이 패널은 아래의 매수/매도 버튼으로 방향이 결정되므로, 두 방향 각각에
+         대해 값이 맞는지 따로 판정한다. 맞지 않는 쪽 버튼은 비활성으로 두고
+         이유를 적는다 — 눌러서 거부당하는 것보다 먼저 알려주는 것이 낫다.
+    */
+    const tpNum = tpslOn ? snapPrice(parseFloat(tpVal)) : NaN;
+    const slNum = tpslOn ? snapPrice(parseFloat(slVal)) : NaN;
+    const hasTp = Number.isFinite(tpNum) && tpNum > 0;
+    const hasSl = Number.isFinite(slNum) && slNum > 0;
+    const bracketActive = tpslOn && !isSpot && (hasTp || hasSl);
+    /** 이 방향으로 주문할 수 없는 이유. 없으면 null. */
+    const bracketBlockFor = (dir) => {
+      if (!bracketActive || !(px > 0)) return null;
+      const long = dir === 'long';
+      if (hasTp && (long ? tpNum <= px : tpNum >= px)) {
+        return t(long ? 'oe_err_tp_long' : 'oe_err_tp_short');
+      }
+      if (hasSl && (long ? slNum >= px : slNum <= px)) {
+        return t(long ? 'oe_err_sl_long' : 'oe_err_sl_short');
+      }
+      return null;
+    };
+    /*
+       예상 손익. 진입가와 TP/SL 가격의 차이 × 수량이다.
+
+       ★ ROE(증거금 대비)는 레버리지를 곱한다 — 가격이 2% 움직여도 10배면 20% 다.
+         이 차이를 보여주지 않으면 이용자는 손절 폭을 실제보다 작게 인식한다.
+    */
+    const tpPnl = (bracketActive && hasTp && sz > 0) ? (side === 'short' ? (px - tpNum) : (tpNum - px)) * sz : null;
+    const slPnl = (bracketActive && hasSl && sz > 0) ? (side === 'short' ? (px - slNum) : (slNum - px)) * sz : null;
+    const roeOf = (pnl) => ((pnl === null || !(px > 0) || !(sz > 0)) ? null : (pnl / ((px * sz) / effLev)) * 100);
+    /** 진입가 기준 % 로 TP/SL 가격을 채운다. 방향은 side 와 종류로 정한다. */
+    const applyBracketPct = (kind, pctChange) => {
+      if (!(px > 0)) return;
+      const long = side !== 'short';
+      const up = kind === 'tp' ? long : !long;
+      const target = snapPrice(px * (1 + (up ? 1 : -1) * (pctChange / 100)));
+      const text = pricePrec > 0 ? target.toFixed(pricePrec) : String(target);
+      if (kind === 'tp') setTpVal(text); else setSlVal(text);
+    };
+    /*
+       주문에 실리는 브래킷 값.
+
+       ★ 기본값을 만들지 않는다. 전에는 빈 칸이면 px*1.02 / px*0.98 을 넣어
+         보냈다 — 이용자가 지정하지 않은 가격에 포지션이 닫힌다는 뜻이다.
+         입력한 것만 보내고, 없으면 그 자리는 비운다.
+
+       ★ 문자열로 넘긴다. 소수 자릿수를 tickSize 에 맞춰 확정해야 거래소가
+         거부하지 않는다.
+    */
+    const bracketOut = bracketActive
+      ? {
+        tp: hasTp ? (pricePrec > 0 ? tpNum.toFixed(pricePrec) : String(tpNum)) : null,
+        sl: hasSl ? (pricePrec > 0 ? slNum.toFixed(pricePrec) : String(slNum)) : null,
+      }
+      : null;
 
     const takerRate = market && Number.isFinite(Number(market.takerFeeRate))
       ? Number(market.takerFeeRate)
@@ -1114,6 +1193,23 @@
             <div style={{fontSize:11, color:'var(--color-text-tertiary)', margin:'-2px 0 2px'}}>
               {t('oe_max_buyable', { qty: fmtQty(maxQty, qtyPrec), base: market.base, quote: fmt(availBal), q: market.quote })}
             </div>
+            {/*
+               ★★ 두 칸이 같은 주문의 두 표현임을 항상 보여준다.
+
+                 "XRP 를 몇 개 사는지" 와 "USDT 가 얼마 나가는지" 중 하나만 보이면
+                 이용자는 나머지를 머리로 계산해야 한다. 선물은 여기에 레버리지가
+                 끼어서(증거금 ≠ 명목) 더 헷갈린다 — 그래서 셋을 함께 적는다.
+            */}
+            {sz > 0 && px > 0 && (
+              <div style={{fontSize:11, color:'var(--color-text-secondary)', margin:'-2px 0 2px'}}>
+                {isSpot
+                  ? t('oe_equiv_spot', { q: fmt((px * sz)), quote: market.quote, qty: fmtQty(sz, qtyPrec), base: market.base })
+                  : t('oe_equiv_futures', {
+                    margin: fmt((px * sz) / effLev), notional: fmt(px * sz),
+                    quote: market.quote, qty: fmtQty(sz, qtyPrec), base: market.base, lev: effLev,
+                  })}
+              </div>
+            )}
 
             <div>
               <div className="pct-slider">
@@ -1151,28 +1247,91 @@
                 {t('oe_post_only')}
               </label>
               {/*
-                 ★ TP/SL(진입 주문에 손절·익절을 붙이는 브래킷 주문)은 아직 거래소로
-                   전송되지 않는다. 값을 받아 두면 "보호가 걸렸다" 고 오해하지만
-                   실제로는 아무 주문도 나가지 않는다. 그래서 켜지 않고 '준비중' 으로
-                   명확히 표시한다 — 진입 후 발동(트리거) 주문으로 손절을 직접 걸 수 있다.
+                 ★★ TP/SL(브래킷) — 진입 주문에 익절·손절을 함께 등록한다.
+
+                   선물은 거래소가 지원한다(POST /api/v1/st-orders). 현물에는 그
+                   경로가 없다 — OCO 는 이미 보유한 물량에 거는 것이므로 진입과
+                   동시에 걸 수 없다. 그래서 현물에서는 켜지 못하게 하고 이유를
+                   적는다. 켤 수 있게 두고 조용히 버리면 이용자는 손절이 걸린 줄
+                   알고 화면을 떠난다 — 이 기능에서 가장 위험한 실패 방식이다.
               */}
-              <label className="chk chk--disabled" title={t('adm_feature_absent')}>
-                <input type="checkbox" checked={false} disabled/>
+              <label
+                className={`chk ${isSpot ? 'chk--disabled' : ''}`}
+                title={isSpot ? t('oe_tpsl_spot_note') : undefined}
+              >
+                <input
+                  type="checkbox"
+                  checked={tpslOn && !isSpot}
+                  disabled={isSpot}
+                  onChange={e => setTpslOn(e.target.checked)}
+                />
                 <span className="chk__box"><I.Check size={10}/></span>
-                TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span>
+                TP/SL
               </label>
             </div>
 
-            {enableTpsl && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 6}}>
-                <div className="input-group">
-                  <span className="input-group__label">{t('fld_tp')}</span>
-                  <input type="text" value={tpVal} onChange={(e) => setTpVal(e.target.value)} placeholder={tpsl?.tp?.[0] ? tpsl.tp[0].toFixed(1) : (px * 1.02).toFixed(1)} />
+            {isSpot && tpslOn && (
+              <div className="auth-alert auth-alert--info">
+                <I.Info size={12}/>
+                <div>{t('oe_tpsl_spot_note')}</div>
+              </div>
+            )}
+
+            {tpslOn && !isSpot && (
+              <div style={{display:'grid', gap: 6}}>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 6}}>
+                  <div className="input-group">
+                    <span className="input-group__label">{t('fld_tp')}</span>
+                    <input type="text" inputMode="decimal" value={tpVal}
+                      onChange={(e) => setTpVal(e.target.value)}
+                      placeholder={tpsl?.tp?.[0] ? Number(tpsl.tp[0]).toFixed(pricePrec) : ''} />
+                    <span className="input-group__suffix">{market.quote}</span>
+                  </div>
+                  <div className="input-group">
+                    <span className="input-group__label">{t('fld_sl')}</span>
+                    <input type="text" inputMode="decimal" value={slVal}
+                      onChange={(e) => setSlVal(e.target.value)}
+                      placeholder={tpsl?.sl ? Number(tpsl.sl).toFixed(pricePrec) : ''} />
+                    <span className="input-group__suffix">{market.quote}</span>
+                  </div>
                 </div>
-                <div className="input-group">
-                  <span className="input-group__label">{t('fld_sl')}</span>
-                  <input type="text" value={slVal} onChange={(e) => setSlVal(e.target.value)} placeholder={tpsl?.sl ? tpsl.sl.toFixed(1) : (px * 0.98).toFixed(1)}/>
+                {/*
+                   ★ % 는 입력을 돕는 수단이고, 주문에 실리는 것은 **가격**이다.
+                     % 를 그대로 보내면 서버·거래소가 각자 기준가로 환산해
+                     서로 다른 가격에 걸린다.
+                */}
+                <div style={{display:'flex', gap: 4, alignItems:'center', flexWrap:'wrap'}}>
+                  <span style={{fontSize:10, color:'var(--color-text-tertiary)', minWidth: 26}}>{t('fld_tp')}</span>
+                  {[1, 2, 5, 10].map(p => (
+                    <button key={`tp${p}`} type="button" className="btn btn--xs" style={{padding:'1px 6px'}}
+                      onClick={() => applyBracketPct('tp', p)}>+{p}%</button>
+                  ))}
+                  <span style={{fontSize:10, color:'var(--color-text-tertiary)', minWidth: 26, marginLeft: 6}}>{t('fld_sl')}</span>
+                  {[1, 2, 5, 10].map(p => (
+                    <button key={`sl${p}`} type="button" className="btn btn--xs" style={{padding:'1px 6px'}}
+                      onClick={() => applyBracketPct('sl', p)}>-{p}%</button>
+                  ))}
                 </div>
+                {/*
+                   예상 손익. 레버리지를 반영한 ROE 를 함께 보여준다 — 가격 2% 는
+                   10배에서 20% 다. 이 차이를 감추면 손절 폭을 실제보다 작게 읽는다.
+                */}
+                {(tpPnl !== null || slPnl !== null) && (
+                  <div className="oe-summary">
+                    {tpPnl !== null && (
+                      <div className="oe-summary__row">
+                        <span>{t('oe_tp_pnl')}</span>
+                        <strong className="t-long">+{fmt(Math.abs(tpPnl))} USDT ({fmt(Math.abs(roeOf(tpPnl)), 1)}%)</strong>
+                      </div>
+                    )}
+                    {slPnl !== null && (
+                      <div className="oe-summary__row">
+                        <span>{t('oe_sl_pnl')}</span>
+                        <strong className="t-short">-{fmt(Math.abs(slPnl))} USDT ({fmt(Math.abs(roeOf(slPnl)), 1)}%)</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1235,25 +1394,25 @@
 
             <div className="oe-buttons">
               <button
-                disabled={symbolUnlisted || !modeCanOrder || stopMissing}
-                title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined)}
+                disabled={symbolUnlisted || !modeCanOrder || stopMissing || Boolean(bracketBlockFor('long'))}
+                title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('long') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 className={`btn btn--long btn--lg ${side!=='long' ? 'btn--outline' : ''}`}
                 style={side !== 'long' ? { background: 'var(--color-trade-long-bg)', color:'var(--color-trade-long)', border:'1px solid var(--color-trade-long)'} : undefined}
                 onClick={() => {
                   setSide('long');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*1.02)], sl: parseFloat(slVal) || (px*0.98) } : null, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'long', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, bracket: bracketOut, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
                 }}
               >
                 ▲ {t('buy_long')}
               </button>
               <button
-                disabled={symbolUnlisted || !modeCanOrder || stopMissing}
-                title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined)}
+                disabled={symbolUnlisted || !modeCanOrder || stopMissing || Boolean(bracketBlockFor('short'))}
+                title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('short') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 className={`btn btn--short btn--lg ${side!=='short' ? 'btn--outline' : ''}`}
                 style={side !== 'short' ? { background: 'var(--color-trade-short-bg)', color:'var(--color-trade-short)', border:'1px solid var(--color-trade-short)'} : undefined}
                 onClick={() => {
                   setSide('short');
-                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, tpsl: enableTpsl ? { tp: [parseFloat(tpVal) || (px*0.98)], sl: parseFloat(slVal) || (px*1.02) } : null, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
+                  if (onPlaceOrder) onPlaceOrder({ side: 'short', type: orderType, stopPrice: orderType === 'trigger' ? String(snapPrice(parseFloat(stopPrice))) : undefined, stopDirection: orderType === 'trigger' ? ((parseFloat(stopPrice) || 0) >= lastPrice ? 'up' : 'down') : undefined, price: px, size: sz, totalUSDT, fee, requiredMargin, estLiq, tif, reduceOnly, postOnly, leverage: lev, marginMode: mMode, bracket: bracketOut, hasErrors: errors.some(e => e.level === 'danger'), errorTexts: errors.filter(e => e.level === 'danger').map(e => e.text) });
                 }}
               >
                 ▼ {t('sell_short')}

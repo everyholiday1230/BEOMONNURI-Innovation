@@ -29,6 +29,7 @@ const base: LearningSample = {
   reduceOnly: false,
   stopPrice: null,
   takeProfitPrice: null,
+  stopLossPrice: null,
   uiContext: null,
   marketSnapshot: null,
   accountSnapshot: null,
@@ -79,9 +80,22 @@ describe('LEARN-01 판단 근거를 있는 그대로 옮긴다', () => {
          모델은 그 위험한 습관을 관찰할 수 없다.
     */
     expect(describeAction(base)).toContain('no stop attached');
-    const withStop: LearningSample = { ...base, stopPrice: '58000' };
-    expect(describeAction(withStop)).toContain('stop at 58000');
+    const withStop: LearningSample = { ...base, stopLossPrice: '58000' };
+    expect(describeAction(withStop)).toContain('stop loss at 58000');
     expect(describeAction(withStop)).not.toContain('no stop attached');
+  });
+
+  it('[3b] ★★ 조건부 진입가는 손절이 아니다', () => {
+    /*
+       stopPrice 는 "이 가격에 닿으면 **들어간다**" 다. 전에는 이 값이 있으면
+       'stop at ...' 으로 적히고 'no stop attached' 가 사라져서, 보호 없이
+       들어간 주문이 학습 데이터에서 "손절을 걸었다" 로 남았다.
+    */
+    const triggerEntry: LearningSample = { ...base, stopPrice: '58000' };
+    const line = describeAction(triggerEntry);
+    expect(line).toContain('trigger entry at 58000');
+    // 진입 조건이 있어도 보호는 없다 — 그 사실이 남아야 한다.
+    expect(line).toContain('no stop attached');
   });
 
   it('[4] 숫자를 부동소수로 바꾸지 않는다', () => {

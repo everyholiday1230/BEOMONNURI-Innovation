@@ -1810,6 +1810,23 @@
       }
 
       /*
+         ★★ 브래킷 TP/SL — 진입 주문에 익절·손절을 함께 등록한다.
+
+           KuCoin **선물**은 거래소가 지원한다(서버가 /api/v1/st-orders 로 보낸다).
+           현물에는 이 경로가 없어 서버가 거부한다 — 그 거부를 화면이 그대로
+           보여줘야 한다. 조용히 빼고 보내면 이용자는 보호가 걸린 줄 알고 떠난다.
+
+         ★ 의미(익절/손절)로만 보낸다. 위/아래 변환은 서버·거래소 클라이언트가
+           한다 — 변환 지점이 둘이면 어긋나는 날 손절 자리에 익절이 걸린다.
+      */
+      if (o.takeProfitPrice !== undefined && o.takeProfitPrice !== null && o.takeProfitPrice !== '') {
+        body.takeProfitPrice = decStr(o.takeProfitPrice);
+      }
+      if (o.stopLossPrice !== undefined && o.stopLossPrice !== null && o.stopLossPrice !== '') {
+        body.stopLossPrice = decStr(o.stopLossPrice);
+      }
+
+      /*
          ★ 현물에는 레버리지·증거금 모드·감소전용이 없다.
 
            보내면 거래소가 거부하거나(레버리지) 조용히 무시된다. 무시되는 쪽이

@@ -356,8 +356,19 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         price: body.price as string | undefined,
         quantity: String(body.quantity ?? '0'),
         leverage: Number(body.leverage ?? 1),
-        stopLoss: body.stopLoss as string | undefined,
-        takeProfit: body.takeProfit as string | undefined,
+        /*
+           ★★ 위험 게이트가 보는 손절·익절은 **브래킷 값과 같은 것**이다.
+
+             전에는 body.stopLoss / body.takeProfit 만 읽었다. 화면은 그 이름을
+             보내지 않으므로 slDir·tpDir 게이트가 항상 "설정 안 됨" 으로 남았다 —
+             방향이 뒤집힌 손절도 게이트를 통과했다.
+
+           ★ 이름을 하나로 합치지 않고 둘 다 받는다. 화면이 쓰는 이름
+             (takeProfitPrice/stopLossPrice)은 어댑터로도 그대로 가야 하고,
+             기존 호출자(body.stopLoss)를 깨뜨릴 이유는 없다.
+        */
+        stopLoss: (body.stopLoss ?? body.stopLossPrice) as string | undefined,
+        takeProfit: (body.takeProfit ?? body.takeProfitPrice) as string | undefined,
         riskReward: body.riskReward as string | undefined,
         maxEstLoss: body.maxEstLoss as string | undefined,
         positionValue: body.positionValue as string | undefined,
@@ -1336,6 +1347,12 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         reduceOnly: b.reduceOnly === true,
         stopPrice: (b.stopPrice as string | number | undefined) ?? null,
         takeProfitPrice: (b.takeProfitPrice as string | number | undefined) ?? null,
+        /*
+           ★ 브래킷 손절가는 stopPrice 와 다른 칼럼에 남긴다. stopPrice 는
+             조건부 **진입**가다 — 한 칼럼에 넣으면 "손절 없이 들어갔다" 라는
+             사실 판정이 뒤집힌다.
+        */
+        stopLossPrice: (b.stopLossPrice as string | number | undefined) ?? null,
         uiContext,
         marketSnapshot,
         accountSnapshot: args.riskState
@@ -1535,6 +1552,25 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         */
         ...(body.limitPrice !== undefined && body.limitPrice !== null && String(body.limitPrice) !== ''
           ? { limitPrice: String(body.limitPrice) }
+          : {}),
+        /*
+           ★★ 브래킷 TP/SL — 진입 주문에 익절·손절을 함께 등록한다.
+
+             선물은 거래소가 지원한다(POST /api/v1/st-orders). 값을 조용히 버리면
+             이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다 — 그래서 그대로
+             넘기고, 지원하지 않는 시장(현물)에서는 어댑터가 **거부**한다.
+
+           ★ 의미(익절/손절)로만 넘긴다. 위/아래 변환은 거래소 클라이언트 한 곳에서
+             한다 — 변환 지점이 둘이면 어긋나는 날 손절 자리에 익절이 걸린다.
+
+           ★ 방향·순서 검증도 어댑터/클라이언트가 한다. 여기서 기본값을 채우지
+             않는다 — "기본 손절가" 라는 것은 존재하지 않는다.
+        */
+        ...(body.takeProfitPrice !== undefined && body.takeProfitPrice !== null && String(body.takeProfitPrice) !== ''
+          ? { takeProfitPrice: String(body.takeProfitPrice) }
+          : {}),
+        ...(body.stopLossPrice !== undefined && body.stopLossPrice !== null && String(body.stopLossPrice) !== ''
+          ? { stopLossPrice: String(body.stopLossPrice) }
           : {}),
       } as never);
 

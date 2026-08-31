@@ -117,6 +117,15 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
           stopPrice: req.stopPrice,
           stopDirection: req.stopDirection,
           stopPriceType: req.stopPriceType,
+          /*
+             ★★ 브래킷 TP/SL 을 그대로 넘긴다.
+
+               의미(익절/손절) → 거래소 필드(위/아래) 변환은 클라이언트가 한다.
+               여기서 방향을 계산하면 변환 지점이 둘이 되고, 둘이 어긋나면
+               손절 자리에 익절이 걸린다.
+          */
+          takeProfitPrice: req.takeProfitPrice,
+          stopLossPrice: req.stopLossPrice,
         },
         multiplier,
       );
@@ -127,6 +136,13 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
         contractsSent: result.contractsSent,
         // 리베이트가 집계되지 않는 주문은 수익이 0 이다. 기록으로 남긴다.
         brokerAttached: result.brokerAttached,
+        /*
+           ★ 어느 엔드포인트로 나갔는지 남긴다. TP/SL 을 요청했는데 endpoint 가
+             'orders' 면 보호가 붙지 않은 것이다 — 사후에 반드시 구분해야 한다.
+        */
+        endpoint: result.endpoint,
+        takeProfitPrice: result.takeProfitPrice,
+        stopLossPrice: result.stopLossPrice,
       });
 
       const order: NormalizedOrder = {
@@ -144,6 +160,12 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
         reduceOnly: req.reduceOnly,
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        /*
+           ★ 요청값이 아니라 **클라이언트가 등록했다고 보고한 값**을 넣는다.
+             요청을 그대로 반사하면 등록되지 않았을 때도 화면이 "보호됨" 으로 보인다.
+        */
+        takeProfitPrice: result.takeProfitPrice,
+        stopLossPrice: result.stopLossPrice,
       };
       return { status: 'ACCEPTED', order };
     } catch (e) {

@@ -195,6 +195,13 @@
       case 'order': return colors.pending;
       case 'position-long': return colors.long;
       case 'position-short': return colors.short;
+      /*
+         작성 중인 TP/SL 선. 익절=이익색, 손절=손실색이다 — 진입 방향이 아니라
+         **결과**를 나타내는 색이어야 한다. 아직 거래소에 나가지 않았으므로
+         점선으로 그린다(오버레이 style.dashed).
+      */
+      case 'draft-tp': return colors.long;
+      case 'draft-sl': return colors.short;
       case 'user': return colors.textPri;
       default: return colors.ai;
     }
@@ -248,7 +255,20 @@
     const src = ext.source || 'user';
     const color = colorForSource(src, colors);
     const dashed = Boolean(ext.dashed) || src === 'ai-draft';
-    return { ext, colors, src, color, dashed, label: ext.label, width: ext.width || 1.5 };
+    /*
+       ★★ 라벨은 **그리는 순간에** 만든다.
+
+         진입가 선의 손익%를 오버레이 데이터에 문자열로 굳혀 두면, 그 숫자는
+         값을 불러온 순간의 손익이다. 가격이 움직여도 그대로 남아 이용자는 옛
+         손익을 현재 손익으로 읽는다. QTOverlayLive 가 최신가로 다시 만든다.
+
+       ★ 헬퍼가 없으면(로드 실패) 원래 라벨을 쓴다 — 선이 사라지면 더 나쁘다.
+    */
+    const LV = window.QTOverlayLive;
+    const label = LV
+      ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol })
+      : ext.label;
+    return { ext, colors, src, color, dashed, label, width: ext.width || 1.5 };
   }
 
   /** 태그(라벨 알약). ChartCanvas drawTag 의 시각을 재현한다. */
@@ -727,7 +747,7 @@
     timeframe = '15m',
     symbol = 'BTC/USDT',
     overlays = [],
-    _lastPrice,
+    lastPrice,
     onOverlayChange,
     onOverlayHover,
     _activeTool = 'cursor',
@@ -743,6 +763,15 @@
     const hostRef = useRef(null);
     const chartRef = useRef(null);
     const dataRef = useRef([]);
+    /*
+       ★★ 최신가를 심볼별로 등록한다 — 오버레이 렌더러가 **그리는 순간** 읽는다.
+
+         이렇게 하면 진입가 선의 손익%가 시세와 함께 갱신되면서도, 오버레이
+         배열을 매 틱마다 새로 만들 필요가 없다(= 드래그 중에 선이 튕기지 않는다).
+    */
+    useEffect(() => {
+      if (window.QTOverlayLive) window.QTOverlayLive.setPrice(symbol, lastPrice);
+    }, [symbol, lastPrice]);
     // dataRef 가 어떤 심볼/타임프레임의 데이터인지 표시한다. 심볼 전환 시
     // 이전 심볼 캔들이 새 심볼 라벨 아래 잠깐 보이는(깜빡임) 문제를 막는다.
     const dataKeyRef = useRef('');
@@ -1058,6 +1087,12 @@
           width: ov.width,
           decimals,
           colors,
+          /*
+             실시간 라벨용 원본. 문자열이 아니라 계산에 필요한 값만 담는다
+             (위 renderInfo 주석 참고).
+          */
+          live: ov.live,
+          symbol: ov.symbol,
         };
 
         const existing = known.get(ov.id);

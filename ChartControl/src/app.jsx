@@ -670,34 +670,16 @@
     const [prevPrice, setPrevPrice] = useState(market.price);
     const [orderBook, setOrderBook] = useState(() => QT.generateOrderBook(market.price));
     const [trades, setTrades] = useState(() => QT.generateTrades(market.price, 60));
-    const [conn, setConn] = useState('live');
-    const [latency, setLatency] = useState(34);
-
     /*
-       데이터 신선도.
+       ★ conn / latency 는 **쓰기만** 한다.
 
-       1초마다 다시 계산한다. 고정 표시('0s')면 스트림이 죽어도 사용자는
-       실시간이라고 믿고, 그 가격으로 주문하면 옛 값에 체결된다.
-       null = 아직 데이터를 받은 적 없다 → '—'. 0s 로 채우지 않는다.
+         헤더의 WS·지연·데이터 신선도 클러스터를 제거한 뒤(ad1ec0d) 읽는 곳이 없어졌다.
+         스트림 구독은 그대로 두되(연결 상태 콜백을 끊으면 스트림 배선이 바뀐다) 값을
+         받는 변수는 두지 않는다 — 안 읽는 변수를 남겨두면 lint 가 CI 를 막는다.
+         신선도 표시를 다시 넣을 때는 window.QTLive.getDataAgeMs() 로 되살린다.
     */
-    const [dataAgeMs, setDataAgeMs] = useState(null);
-    useEffect(() => {
-      const read = () => setDataAgeMs(
-        window.QTLive && window.QTLive.getDataAgeMs ? window.QTLive.getDataAgeMs() : null,
-      );
-      read();
-      const id = setInterval(read, 1000);
-      return () => clearInterval(id);
-    }, []);
-
-    const dataAgeLabel = (() => {
-      if (dataAgeMs === null) return '—';
-      const sec = Math.floor(dataAgeMs / 1000);
-      if (sec < 60) return sec + 's';
-      const min = Math.floor(sec / 60);
-      if (min < 60) return min + 'm';
-      return Math.floor(min / 60) + 'h';
-    })();
+    const [, setConn] = useState('live');
+    const [, setLatency] = useState(34);
 
     useEffect(() => {
       const offTick = QT.stream.on('tick', (s) => {
@@ -744,6 +726,18 @@
     const updateOverlay = useCallback((id, patch) => setOverlays(prev => prev.map(o => o.id === id ? { symbol: o.symbol, ...patch } : o)), []);
     const removeOverlay = useCallback((id) => setOverlays(prev => prev.filter(o => o.id !== id)), []);
     const clearAIOverlays = useCallback(() => setOverlays(prev => prev.filter(o => o.source !== 'ai-draft' && o.source !== 'ai-approved')), []);
+
+    /*
+       ★★ 작성 중인 주문의 TP/SL — 주문 패널과 차트가 **같은 값**을 본다.
+
+         이 값을 두 곳에 따로 두면 반드시 어긋난다. 차트에서 손절선을 내렸는데
+         패널이 옛 값을 보내면 이용자가 본 것과 다른 가격에 손절이 걸린다.
+         그래서 여기 한 곳에만 두고, 패널·차트 모두 여기에 쓰고 여기서 읽는다.
+
+       ★ 값은 문자열이다. 입력 중인 '1.9' 같은 상태를 숫자로 바꾸면 커서가 튀고
+         소수점 입력이 막힌다.
+    */
+    const [orderBracket, setOrderBracket] = useState({ on: false, tp: '', sl: '' });
 
     /*
        실제 주문·포지션을 차트 선으로 그린다.
@@ -813,6 +807,7 @@
           const px = num(p.entryPrice);
           // 진입가를 모르면 선을 그리지 않는다. 0 으로 그리면 Y축이 망가진다.
           if (!px) return;
+          const lev = Number(p.leverage);
           next.push({
             id: `pos-${p.id}`,
             type: 'horizontal',
@@ -820,6 +815,25 @@
             symbol: String(p.symbol || '').toUpperCase(),
             points: [{ price: px, time: Date.now() }],
             label: `${t('chart_ov_entry')} · ${p.side === 'long' ? t('side_long') : t('side_short')} ${p.size}`,
+            /*
+               ★★ 실시간 손익%를 그리기 위한 원본 값.
+
+                 라벨을 여기서 완성해 버리면 그 문자열은 **불러온 순간의 값**으로
+                 굳는다. 가격이 움직여도 숫자가 그대로 남아 이용자는 옛 손익을
+                 현재 손익으로 읽는다. 그래서 계산에 필요한 값만 남기고, 라벨은
+                 현재가가 바뀔 때마다 다시 만든다(아래 visibleOverlays).
+
+               ★ 레버리지를 모르면 null 로 둔다. 1 로 가정하면 ROE 가 실제보다
+                 몇 배 작게 보인다 — 손실을 과소평가하게 만드는 방향의 거짓이다.
+            */
+            live: {
+              kind: 'position',
+              symbol: String(p.symbol || '').toUpperCase(),
+              entry: px,
+              side: p.side === 'short' ? 'short' : 'long',
+              size: p.size,
+              leverage: Number.isFinite(lev) && lev > 0 ? lev : null,
+            },
           });
         });
 
@@ -843,9 +857,77 @@
     // 차트/위젯에 넘길 오버레이. 심볼이 지정되지 않은 것(구버전 저장분)은
     // 어느 심볼에서도 가격축을 망치지 않도록 현재 심볼에서만 보여준다.
     const visibleOverlays = useMemo(
-      () => overlays.filter(o => !o.symbol || o.symbol === activeSymbolKey),
-      [overlays, activeSymbolKey]
+      () => {
+        const base = overlays.filter(o => !o.symbol || o.symbol === activeSymbolKey);
+
+        /*
+           ★★ 작성 중인 주문의 TP/SL 선. 드래그로 옮길 수 있다.
+
+             아직 거래소에 나가지 않은 값이므로 **점선**으로 그린다 — 실선으로
+             그리면 이미 걸린 보호 주문으로 읽는다.
+
+           ★ 값이 없으면 선을 만들지 않는다. 기본 위치(예: ±2%)에 선을 띄우면
+             이용자가 지정하지 않은 가격이 화면에 진짜처럼 보인다.
+
+           ★ 라벨의 "현재가 대비 %" 는 여기서 문자열로 굳히지 않는다. 굳히면
+             가격이 움직여도 숫자가 그대로 남는다 — QTOverlayLive 가 그리는
+             순간에 만든다(live.kind='away'). 배열이 매 틱마다 새로 만들어지지
+             않아야 드래그 중에 선이 튕기지 않는다는 이유도 있다.
+        */
+        if (!orderBracket.on) return base;
+
+        const draft = [];
+        const mk = (kind, raw) => {
+          const price = Number(raw);
+          if (!Number.isFinite(price) || price <= 0) return;
+          draft.push({
+            id: `draft-${kind}`,
+            type: 'horizontal',
+            source: kind === 'tp' ? 'draft-tp' : 'draft-sl',
+            symbol: activeSymbolKey,
+            points: [{ price, time: Date.now() }],
+            style: { dashed: true },
+            label: kind === 'tp' ? t('fld_tp') : t('fld_sl'),
+            live: { kind: 'away', symbol: activeSymbolKey, price },
+          });
+        };
+        mk('tp', orderBracket.tp);
+        mk('sl', orderBracket.sl);
+
+        return draft.length ? [...base, ...draft] : base;
+      },
+      [overlays, activeSymbolKey, orderBracket, t]
     );
+
+    /*
+       오버레이 드래그 결과 반영.
+
+       ★★ 작성 중인 TP/SL 선(draft-*)은 overlays 상태에 없다 — 주문 패널의 값에서
+         파생된 선이다. 그래서 여기서 갈라내 orderBracket 을 고친다. 갈라내지
+         않으면 드래그한 선이 overlays 에 새로 생기고, 패널 값은 그대로 남아
+         **화면에 보이는 손절가와 실제로 나가는 손절가가 달라진다.**
+    */
+    const handleOverlayChange = useCallback((id, ov) => {
+      if (id === 'draft-tp' || id === 'draft-sl') {
+        const price = ov && ov.points && ov.points[0] ? Number(ov.points[0].price) : NaN;
+        if (!Number.isFinite(price) || price <= 0) return;
+        const key = id === 'draft-tp' ? 'tp' : 'sl';
+        /*
+           표시 자리수를 심볼 tickSize 에 맞춘다.
+
+           ★ 드래그한 좌표는 소수 12자리까지 나온다. 그대로 입력칸에 넣으면
+             읽을 수 없고, 거래소도 tickSize 배수가 아니라며 거부한다.
+             tickSize 를 모르면 자리수를 강제하지 않는다(주문 패널이 스냅한다).
+        */
+        const F = window.QTFmt;
+        const tick = (F && F.tickSizeFor) ? F.tickSizeFor(activeSymbolKey) : null;
+        const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
+        const text = decimals === null ? String(price) : price.toFixed(decimals);
+        setOrderBracket((prev) => ({ ...prev, on: true, [key]: text }));
+        return;
+      }
+      updateOverlay(id, ov);
+    }, [updateOverlay, activeSymbolKey]);
 
     // AI signal state (Flow 5)
     const [currentSignal, setCurrentSignal] = useState(null);
@@ -1016,6 +1098,18 @@
             marginMode: orderPreview.marginMode ? String(orderPreview.marginMode).toLowerCase() : undefined,
             stopPrice: orderPreview.type === 'trigger' ? orderPreview.stopPrice : undefined,
             stopDirection: orderPreview.type === 'trigger' ? orderPreview.stopDirection : undefined,
+            /*
+               ★★ 브래킷 TP/SL. 사용자가 입력한 값을 그대로 실어 보낸다.
+
+                 여기서 빠뜨리면 진입만 나가고 보호는 없는데 화면에는 "TP/SL 설정"
+                 이 남는다 — 이 기능에서 가장 위험한 실패 방식이다.
+
+               ★ orderPreview.bracket 은 주문 패널이 만든 **스칼라 두 값**이다.
+                 AI 초안의 tpsl(tp 가 배열)과 형태가 다르다 — 거래소에는 익절을
+                 하나만 등록할 수 있어서 패널에서 하나로 확정한다.
+            */
+            takeProfitPrice: orderPreview.bracket ? orderPreview.bracket.tp : undefined,
+            stopLossPrice: orderPreview.bracket ? orderPreview.bracket.sl : undefined,
             reduceOnly: orderPreview.reduceOnly,
             postOnly: orderPreview.postOnly,
             tif: orderPreview.tif,
@@ -1868,8 +1962,14 @@
                   */
                   allOverlays={overlays}
                   addOverlay={addOverlay}
-                  updateOverlay={updateOverlay}
+                  /*
+                     ★ 작성 중인 TP/SL 선의 드래그를 갈라내는 래퍼를 넘긴다.
+                       updateOverlay 를 그대로 넘기면 드래그한 값이 주문에 반영되지 않는다.
+                  */
+                  updateOverlay={handleOverlayChange}
                   removeOverlay={removeOverlay}
+                  orderBracket={orderBracket}
+                  onBracketChange={setOrderBracket}
                   onSelectMarket={setMarket}
                   onPlaceOrder={placeOrder}
                   onClickPrice={handleClickPrice}
@@ -2158,6 +2258,12 @@
           prefillSize={props.orderDraft?.size}
           prefillSide={props.orderDraft?.side}
           tpsl={props.orderDraft?.tpsl}
+          /*
+             ★ TP/SL 은 상위(앱)가 들고 있다. 차트에서 드래그한 값과 패널 입력이
+               같은 한 곳을 보게 하려는 것이다 — 두 곳에 두면 반드시 어긋난다.
+          */
+          bracket={props.orderBracket}
+          onBracketChange={props.onBracketChange}
           onPlaceOrder={props.onPlaceOrder}
           isBeginner={props.isBeginner}
           t={props.t}
