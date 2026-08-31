@@ -865,21 +865,45 @@
             return;
           }
 
+          /*
+             ★★ 커서는 **timestamp** 다.
+
+               dataRef 의 캔들은 {timestamp, open, ...} 형식이다(아래 병합 effect 가
+               그렇게 만든다). 전에는 여기서 `first.time` 을 읽었는데 그 필드는
+               존재하지 않아 undefined 였다. loadOlderCandles 는 beforeTs 가 falsy 면
+               **즉시 빈 배열**을 돌려주므로(live-market.js), 첫 backward 요청에서
+               바로 "더 없음"으로 굳어 과거 로딩이 영구히 멈췄다. (사용자 제보의 원인)
+          */
           loadingOlderRef.current = true;
-          LM.loadOlderCandles(symbolRef.current, timeframeRef.current, first.time, 300)
+          LM.loadOlderCandles(symbolRef.current, timeframeRef.current, first.timestamp, 300)
             .then((older) => {
               loadingOlderRef.current = false;
               const rows = Array.isArray(older) ? older : [];
-              if (!rows.length) {
+              /*
+                 ★ loadOlderCandles 는 {time, ...} 형식을 돌려준다. klinecharts 와
+                   dataRef 는 {timestamp, ...} 를 쓴다. 여기서 변환하지 않으면
+                   과거 캔들이 timestamp 없이 들어가 화면에서 사라지거나 어긋난다.
+              */
+              const head = rows
+                .map((c) => ({
+                  timestamp: Number(c.time),
+                  open: Number(c.open),
+                  high: Number(c.high),
+                  low: Number(c.low),
+                  close: Number(c.close),
+                  volume: Number(c.volume) || 0,
+                }))
+                .filter((b) => Number.isFinite(b.timestamp) && b.timestamp < first.timestamp && Number.isFinite(b.close));
+
+              if (!head.length) {
                 // 거래소에 더 과거가 없다 — 이후로는 요청하지 않게 한다.
                 noMoreOlderRef.current = true;
                 callback([], { forward: false, backward: false });
                 return;
               }
-              // 우리 데이터 앞에 붙인다(중복 방지: 현재 첫 캔들보다 과거만).
-              const head = rows.filter((c) => c && c.time < first.time);
-              if (head.length) dataRef.current = head.concat(dataRef.current);
-              callback(head.slice(), { forward: false, backward: head.length > 0 });
+              // 우리 데이터 앞에 붙인다(이미 first.timestamp 보다 과거만 남겼다).
+              dataRef.current = head.concat(dataRef.current);
+              callback(head.slice(), { forward: false, backward: true });
             })
             .catch(() => {
               loadingOlderRef.current = false;
