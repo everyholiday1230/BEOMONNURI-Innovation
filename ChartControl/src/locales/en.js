@@ -56,6 +56,8 @@
       oe_equiv_futures: 'Margin {margin} {quote} × {lev}x → position {notional} {quote} = {qty} {base}',
       fld_tp: 'TP',
       fld_sl: 'SL',
+      login_google: 'Continue with Google',
+      login_google_failed: 'Google sign-in did not complete ({reason}). Please try again or use your email and password.',
       err_boundary_title: 'This screen could not be displayed',
       err_boundary_body: 'This may be temporary. Try the steps below in order. If it keeps happening, your saved settings may be corrupted.',
       err_boundary_retry: 'Try again',

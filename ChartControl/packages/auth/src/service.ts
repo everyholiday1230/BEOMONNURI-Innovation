@@ -166,8 +166,91 @@ export class AuthService {
     return { ok: true, user: toPublicUser(user) };
   }
 
-  async login(input: unknown, ctx: RequestCtx = {}): Promise<LoginResult> {
-    const parsed = LoginInputSchema.safeParse(input);
+  /**
+   * 외부 신원 제공자(구글 등)로 로그인·가입.
+   *
+   * ★★ 왜 서비스 안에 두는가
+   *
+   *   세션 발급·회전·감사기록·비활성 계정 차단이 login() 한 곳에만 있다. OAuth
+   *   라우트가 세션을 직접 만들면 그 규칙이 두 곳으로 갈리고, 언젠가 한쪽만
+   *   고쳐진다(예: 정지된 계정이 구글 로그인으로는 들어와진다).
+   *
+   * ★★ 이메일은 **제공자가 소유를 확인한 것만** 넘겨야 한다.
+   *
+   *   호출자가 `email_verified` 를 확인한 뒤 부른다. 확인되지 않은 주소를 넘기면
+   *   남의 이메일로 계정을 가로챌 수 있다(같은 주소의 기존 계정에 붙는다).
+   *
+   * ★ 비밀번호 없는 계정을 만든다. password_hash 는 NOT NULL 이므로 **검증에
+   *   절대 통과할 수 없는 무작위 값**을 넣는다. 그래서 이 계정은 비밀번호
+   *   로그인이 불가능하고, 쓰려면 비밀번호 재설정을 거쳐야 한다.
+   *
+   * ★ 이미 있는 이메일이면 그 계정으로 로그인시킨다(계정을 새로 만들지 않는다).
+   *   같은 사람이 비밀번호로 가입했다가 구글로 들어오는 경우가 정상 경로다.
+   */
+  async loginWithVerifiedEmail(
+    rawEmail: string,
+    provider: string,
+    ctx: RequestCtx = {},
+  ): Promise<LoginResult> {
+    const email = String(rawEmail || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      return { ok: false, code: 'INVALID_CREDENTIALS', error: 'invalid credentials' };
+    }
+
+    let user = await this.users.findByEmail(email);
+    if (!user) {
+      const t0 = this.now();
+      const fresh: User = {
+        id: randomUUID(),
+        email,
+        // 절대 검증에 통과하지 않는 값. 비밀번호 로그인 경로를 막는다.
+        passwordHash: `federated:${provider}:${randomUUID()}${randomUUID()}`,
+        role: 'user',
+        status: 'active',
+        mfaEnabled: false,
+        // 제공자가 소유를 확인했다. 다시 확인시키지 않는다.
+        emailVerified: true,
+        createdAt: t0,
+        updatedAt: t0,
+      };
+      await this.users.create(fresh);
+      await this.log('auth.register', fresh.id, ctx, 'success', { email, provider });
+      user = fresh;
+    }
+
+    /*
+       ★ 정지·삭제된 계정은 여기서도 막는다. 비밀번호 경로에만 검사가 있으면
+         정지된 이용자가 구글로 우회해 들어온다.
+    */
+    if (user.status !== 'active') {
+      await this.log('auth.login', user.id, ctx, 'disabled', { email, provider });
+      return { ok: false, code: 'DISABLED', error: 'account is not active' };
+    }
+
+    const t = this.now();
+    // 세션 ID 회전 — 비밀번호 로그인과 동일하게 매번 새 토큰, 해시만 저장한다.
+    const rawToken = newSessionId();
+    const session: Session = {
+      id: hashToken(rawToken),
+      userId: user.id,
+      csrfSecret: newCsrfSecret(),
+      createdAt: t,
+      expiresAt: computeExpiry(t, t, this.timing),
+      ip: ctx.ip,
+      userAgent: ctx.userAgent?.slice(0, 200),
+    };
+    await this.sessions.create(session);
+    await this.log('auth.login', user.id, ctx, 'success', { email, provider });
+    return {
+      ok: true,
+      user: toPublicUser(user),
+      sessionId: rawToken,
+      csrfSecret: session.csrfSecret,
+      expiresAt: session.expiresAt,
+    };
+  }
+
+  async login(input: unknown, ctx: RequestCtx = {}): Promise<LoginResult> {    const parsed = LoginInputSchema.safeParse(input);
     if (!parsed.success) return { ok: false, code: 'INVALID_CREDENTIALS', error: 'invalid credentials' };
     const { email, password } = parsed.data;
 

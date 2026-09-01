@@ -346,6 +346,13 @@ app.get('/api/config', (c) =>
     // guessing a value; this is a read-only mirror of BITMART_EMERGENCY_KILL_SWITCH.
     killSwitchActive: env.bitmartKillSwitch,
     /*
+       구글 로그인 사용 가능 여부.
+
+       ★ 화면이 이 값으로 '구글로 계속하기' 버튼을 보이거나 숨긴다. 설정이 없는
+         배포에서 버튼을 띄우면 눌러도 아무 일이 없다(라우트 자체가 없다).
+    */
+    googleLogin: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && env.publicBaseUrl),
+    /*
        서버가 강제하는 주문 상한.
 
        ★★ 화면은 레버리지를 최대 125× 까지 고르게 하지만, 서버 정책이 그보다 낮으면
@@ -1679,6 +1686,26 @@ if (env.authEnabled) {
         corsOrigins: env.corsOrigins,
         cookieName: env.cookieName,
         cookieDomain: env.cookieDomain,
+        /*
+           구글 로그인.
+
+           ★ 세 값이 모두 있어야 등록한다. 하나라도 없으면 라우트를 만들지 않고,
+             화면도 버튼을 숨긴다(/api/config 의 googleLogin) — 눌러도 안 되는
+             버튼을 두지 않기 위해서다.
+
+           ★ redirect_uri 는 구글 콘솔에 등록한 값과 **정확히** 같아야 한다.
+             publicBaseUrl 에서 만들어 한 곳에서만 정한다.
+        */
+        ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && env.publicBaseUrl
+          ? {
+            google: {
+              clientId: process.env.GOOGLE_CLIENT_ID,
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+              redirectUri: `${env.publicBaseUrl.replace(/\/$/, '')}/api/auth/google/callback`,
+              appRedirect: `${env.publicBaseUrl.replace(/\/$/, '')}/index.html`,
+            },
+          }
+          : {}),
         /*
            리퍼럴 귀속.
 

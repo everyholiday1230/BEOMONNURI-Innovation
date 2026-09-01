@@ -179,3 +179,83 @@ describe('이메일 인증 필수 (requireEmailVerification)', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+/* ============================================================
+   외부 신원 제공자 로그인 (구글)
+   ------------------------------------------------------------
+   ★★ 이 경로가 비밀번호 경로의 보호를 우회하면 안 된다. 특히:
+     · 정지된 계정이 구글로는 들어와지는 것
+     · 비밀번호 없는 계정에 비밀번호로 로그인되는 것
+     · 같은 이메일로 계정이 두 개 생기는 것
+   ============================================================ */
+describe('loginWithVerifiedEmail (federated)', () => {
+  it('[1] 처음 오는 이메일이면 계정을 만들고 세션을 준다', async () => {
+    const { service, users } = svc();
+    const r = await service.loginWithVerifiedEmail('New.User@Gmail.com', 'google');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.sessionId).toBeTruthy();
+    expect(r.csrfSecret).toBeTruthy();
+    // 이메일은 소문자로 정규화된다 — 대소문자로 계정이 갈리면 안 된다.
+    expect(r.user.email).toBe('new.user@gmail.com');
+    expect(await users.findByEmail('new.user@gmail.com')).toBeTruthy();
+  });
+
+  it('[2] 제공자가 확인한 주소이므로 이메일 인증됨으로 만든다', async () => {
+    const { service, users } = svc();
+    await service.loginWithVerifiedEmail('v@gmail.com', 'google');
+    const u = await users.findByEmail('v@gmail.com');
+    expect(u!.emailVerified).toBe(true);
+  });
+
+  it('[3] ★★ 두 번 로그인해도 계정은 하나다 (중복 가입 없음)', async () => {
+    const { service, users } = svc();
+    const a = await service.loginWithVerifiedEmail('same@gmail.com', 'google');
+    const b = await service.loginWithVerifiedEmail('same@gmail.com', 'google');
+    expect(a.ok && b.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(b.user.id).toBe(a.user.id);
+    // 세션은 매번 새로 발급된다(세션 ID 회전).
+    expect(b.sessionId).not.toBe(a.sessionId);
+    expect(await users.findByEmail('same@gmail.com')).toBeTruthy();
+  });
+
+  it('[4] ★★ 비밀번호로 만든 기존 계정에 붙는다 (계정을 새로 만들지 않는다)', async () => {
+    const { service } = svc();
+    const reg = await service.register({ email: 'both@gmail.com', password: 'longenough123' });
+    expect(reg.ok).toBe(true);
+    const r = await service.loginWithVerifiedEmail('both@gmail.com', 'google');
+    expect(r.ok).toBe(true);
+    if (!r.ok || !reg.ok) return;
+    expect(r.user.id).toBe(reg.user.id);
+  });
+
+  it('[5] ★★ 구글로 만든 계정은 비밀번호 로그인이 불가능하다', async () => {
+    const { service, users } = svc();
+    await service.loginWithVerifiedEmail('nopw@gmail.com', 'google');
+    const u = await users.findByEmail('nopw@gmail.com');
+    // 저장된 값이 scrypt 형식이 아니므로 어떤 비밀번호도 검증에 통과할 수 없다.
+    expect(u!.passwordHash.startsWith('scrypt$')).toBe(false);
+    const attempt = await service.login({ email: 'nopw@gmail.com', password: 'anything-at-all' });
+    expect(attempt.ok).toBe(false);
+  });
+
+  it('[6] ★★ 정지된 계정은 구글로도 들어올 수 없다', async () => {
+    const { service, users } = svc();
+    const first = await service.loginWithVerifiedEmail('banned@gmail.com', 'google');
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const u = await users.findByEmail('banned@gmail.com');
+    await users.setStatus(u!.id, 'disabled');
+    const again = await service.loginWithVerifiedEmail('banned@gmail.com', 'google');
+    expect(again.ok).toBe(false);
+    if (again.ok) return;
+    expect(again.code).toBe('DISABLED');
+  });
+
+  it('[7] 이메일 형식이 아니면 거부한다', async () => {
+    const { service } = svc();
+    expect((await service.loginWithVerifiedEmail('', 'google')).ok).toBe(false);
+    expect((await service.loginWithVerifiedEmail('not-an-email', 'google')).ok).toBe(false);
+  });
+});

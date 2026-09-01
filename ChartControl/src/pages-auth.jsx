@@ -249,6 +249,22 @@
     // 서버가 돌려준 오류 문구. 마크업은 그대로 두고 이 값만 표시한다.
     const [authError, setAuthError] = useState('');
 
+    /*
+       구글 로그인 사용 가능 여부 + 실패 사유.
+
+       ★ 서버 설정(/api/config 의 googleLogin)이 켜져 있을 때만 버튼을 보여준다.
+         설정이 없으면 서버에 라우트가 없으므로 눌러도 아무 일이 없다.
+
+       ★ 실패는 콜백이 #/login?oauth_error=... 로 돌려보낸다. 그 값을 읽어
+         이용자에게 이유를 보여준다 — 조용히 로그인 화면으로 되돌리면 왜 안
+         됐는지 알 수 없다.
+    */
+    const serverCfg = (window.QTApi && window.QTApi.useConfig) ? window.QTApi.useConfig() : null;
+    const googleOn = Boolean(serverCfg && serverCfg.googleLogin);    const oauthError = (() => {
+      const m = String(window.location.hash || '').match(/[?&]oauth_error=([^&]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    })();
+
     /**
      * 로그인.
      *
@@ -367,6 +383,36 @@
               <button type="button" className="btn" style={{flex:1}}>GitHub</button>
             </div>
             */}
+
+            {/*
+               ★★ 구글 로그인.
+
+                 서버가 설정돼 있을 때만(/api/config 의 googleLogin) 보여준다.
+                 설정이 없으면 라우트 자체가 없으므로, 버튼을 띄워도 눌러야 아무
+                 일이 없다 — 예전 소셜 버튼 3개가 만든 문제가 그것이다.
+
+               ★ fetch 가 아니라 전체 페이지 이동이다. OAuth 는 구글 도메인으로
+                 나갔다가 돌아오는 흐름이라 XHR 로는 할 수 없다.
+            */}
+            {googleOn && (
+              <>
+                <div className="auth-divider"><span>{t('login_46bed0')}</span></div>
+                <button
+                  type="button"
+                  className="btn btn--lg"
+                  style={{ width: '100%' }}
+                  onClick={() => { window.location.href = '/api/auth/google/start'; }}
+                >
+                  {t('login_google')}
+                </button>
+              </>
+            )}
+
+            {oauthError && (
+              <div className="auth-alert auth-alert--warn" style={{ marginTop: 8 }}>
+                <div>{t('login_google_failed', { reason: oauthError })}</div>
+              </div>
+            )}
 
             <div className="auth-row-center">
               {t('login_68a92d')} <a href="#/signup" style={{color:'var(--color-brand)', marginLeft: 4}}>{t('login_49f561')}</a>

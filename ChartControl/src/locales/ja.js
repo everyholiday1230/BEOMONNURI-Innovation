@@ -56,6 +56,8 @@
       oe_equiv_futures: '証拠金 {margin} {quote} × {lev}倍 → 建玉 {notional} {quote} = {qty} {base}',
       fld_tp: '利確',
       fld_sl: '損切り',
+      login_google: 'Google で続行',
+      login_google_failed: 'Google ログインが完了しませんでした（{reason}）。もう一度お試しか、メールとパスワードでログインしてください。',
       err_boundary_title: '画面を表示できませんでした',
       err_boundary_body: '一時的な問題の可能性があります。下の手順を順に試してください。繰り返す場合は保存された設定が壊れている可能性があります。',
       err_boundary_retry: '再試行',

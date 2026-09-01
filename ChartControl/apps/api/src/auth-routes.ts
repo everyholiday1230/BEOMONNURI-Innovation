@@ -19,7 +19,7 @@ import {
 } from './db/chart-template-repo';
 import type { IPreferencesRepo } from './db/preferences-repo';
 import type { RateLimiter } from './security/rate-limiter';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 const SESSION = 'qt_session';
 const CSRF = 'qt_csrf';
@@ -49,6 +49,20 @@ interface RouterDeps {
   csrfKey: string;
   secureCookies: boolean;
   corsOrigins: string[];
+  /**
+   * 구글 로그인 설정 (선택).
+   *
+   * ★ 없으면 구글 라우트를 아예 등록하지 않는다. 등록해 두고 503 을 주면 화면에
+   *   버튼이 보이는데 눌러도 안 되는 상태가 된다.
+   */
+  google?: {
+    clientId: string;
+    clientSecret: string;
+    /** 구글 콘솔에 등록한 것과 **정확히 같은** 값이어야 한다. */
+    redirectUri: string;
+    /** 로그인 성공 후 돌아갈 앱 주소(해시 라우트 포함). */
+    appRedirect: string;
+  };
   /**
    * 리퍼럴 귀속 훅 (선택).
    *
@@ -293,6 +307,128 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     setCookie(c, CSRF, csrfTokenFor(r.csrfSecret, csrfKey), { ...base, httpOnly: false });
     return c.json({ user: r.user, csrfToken: csrfTokenFor(r.csrfSecret, csrfKey) });
   });
+
+  /* ============================================================
+     구글 로그인 (OAuth 2.0 Authorization Code, 기밀 클라이언트)
+     ------------------------------------------------------------
+     흐름
+       1) GET /auth/google/start     → 구글 동의 화면으로 리다이렉트
+       2) 구글이 code 와 state 를 붙여 /auth/google/callback 으로 돌려보낸다
+       3) 서버가 code 를 토큰으로 교환(서버↔구글, client_secret 사용)
+       4) id_token 에서 이메일을 읽어 세션을 만든다
+
+     ★★ state 로 CSRF 를 막는다
+       state 를 만들어 **HttpOnly 쿠키**에 넣고, 콜백에서 쿼리의 state 와 대조한다.
+       이게 없으면 공격자가 자기 code 로 콜백을 호출해 피해자 브라우저를 자기
+       계정에 로그인시킬 수 있다(로그인 CSRF).
+
+     ★★ 서명 검증을 왜 따로 하지 않는가
+       id_token 을 **우리가 직접** 구글 토큰 엔드포인트에 client_secret 으로
+       인증해서 받는다(TLS). 즉 출처가 구글임이 전송 채널로 보장된다. 그래도
+       aud(우리 client_id)·iss(구글)·exp·email_verified 는 반드시 확인한다 —
+       다른 앱용 토큰이나 만료 토큰, 소유 미확인 주소를 받지 않기 위해서다.
+
+     ★ 설정이 없으면 이 라우트는 등록되지 않는다(위 deps.google).
+     ============================================================ */
+  if (deps.google) {
+    const g = deps.google;
+    const STATE_COOKIE = 'qt_oauth_state';
+
+    app.get('/auth/google/start', async (c) => {
+      const state = randomBytes(24).toString('base64url');
+      /*
+         ★ state 는 HttpOnly 쿠키에 둔다. 화면 스크립트가 읽을 필요가 없고,
+           읽히면 CSRF 방어가 무의미해진다. 10분이면 충분하다.
+      */
+      setCookie(c, STATE_COOKIE, state, { ...base, httpOnly: true, maxAge: 600 });
+
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      url.searchParams.set('client_id', g.clientId);
+      url.searchParams.set('redirect_uri', g.redirectUri);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('scope', 'openid email');
+      url.searchParams.set('state', state);
+      // 이미 동의한 사용자는 화면을 다시 보지 않는다.
+      url.searchParams.set('prompt', 'select_account');
+      return c.redirect(url.toString(), 302);
+    });
+
+    app.get('/auth/google/callback', async (c) => {
+      /** 실패는 앱의 로그인 화면으로 돌려보낸다 — 흰 화면에 JSON 을 남기지 않는다. */
+      const fail = (reason: string) => {
+        deleteCookie(c, STATE_COOKIE, { path: '/' });
+        const u = new URL(g.appRedirect);
+        u.hash = `/login?oauth_error=${encodeURIComponent(reason)}`;
+        return c.redirect(u.toString(), 302);
+      };
+
+      const code = c.req.query('code');
+      const state = c.req.query('state');
+      const expected = getCookie(c, STATE_COOKIE);
+      if (c.req.query('error')) return fail(String(c.req.query('error')).slice(0, 40));
+      if (!code || !state || !expected || state !== expected) return fail('state_mismatch');
+      // 한 번 쓴 state 는 즉시 버린다(재사용 방지).
+      deleteCookie(c, STATE_COOKIE, { path: '/' });
+
+      let payload: { aud?: string; iss?: string; exp?: number; email?: string; email_verified?: boolean | string };
+      try {
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: g.clientId,
+            client_secret: g.clientSecret,
+            redirect_uri: g.redirectUri,
+            grant_type: 'authorization_code',
+          }).toString(),
+        });
+        if (!res.ok) return fail('token_exchange_failed');
+        const tok = (await res.json()) as { id_token?: string };
+        if (!tok.id_token) return fail('no_id_token');
+        const part = tok.id_token.split('.')[1];
+        if (!part) return fail('malformed_id_token');
+        payload = JSON.parse(Buffer.from(part, 'base64url').toString('utf8'));
+      } catch {
+        return fail('token_exchange_error');
+      }
+
+      // 이 토큰이 **우리 앱** 것인지. 다른 앱의 토큰을 받아주면 안 된다.
+      if (payload.aud !== g.clientId) return fail('aud_mismatch');
+      const iss = String(payload.iss ?? '');
+      if (iss !== 'accounts.google.com' && iss !== 'https://accounts.google.com') return fail('iss_mismatch');
+      if (typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return fail('token_expired');
+
+      /*
+         ★★ 소유가 확인된 주소만 받는다. email_verified 가 아니면 남의 주소로
+           기존 계정을 가로챌 수 있다(같은 이메일의 계정에 붙기 때문이다).
+      */
+      const verified = payload.email_verified === true || payload.email_verified === 'true';
+      if (!payload.email || !verified) return fail('email_not_verified');
+
+      const r = await service.loginWithVerifiedEmail(payload.email, 'google', ctxOf(c));
+      if (!r.ok) return fail(r.code === 'DISABLED' ? 'account_disabled' : 'login_failed');
+
+      /*
+         ★ MFA 가 켜진 계정은 비밀번호 경로와 같은 규칙을 적용한다 — 구글로
+           들어오면 2단계를 건너뛸 수 있으면 안 된다.
+      */
+      if (deps.mfa && (await deps.mfa.isEnabled(r.user.id))) {
+        await service.logout(r.sessionId, ctxOf(c));
+        const pending = await deps.mfa.startChallenge(r.user.id);
+        setCookie(c, deps.mfa.cookie, pending, { ...base, httpOnly: true, maxAge: Math.floor(deps.mfa.ttlMs / 1000) });
+        const u = new URL(g.appRedirect);
+        u.hash = '/login?mfa=1';
+        return c.redirect(u.toString(), 302);
+      }
+
+      setCookie(c, sessionCookie, r.sessionId, { ...base, httpOnly: true });
+      setCookie(c, CSRF, csrfTokenFor(r.csrfSecret, csrfKey), { ...base, httpOnly: false });
+      const u = new URL(g.appRedirect);
+      u.hash = '/trade';
+      return c.redirect(u.toString(), 302);
+    });
+  }
 
   app.post('/auth/logout', async (c) => {
     const a = await authed(c);

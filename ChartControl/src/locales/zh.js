@@ -60,6 +60,8 @@
       oe_equiv_futures: '保证金 {margin} {quote} × {lev}倍 → 仓位 {notional} {quote} = {qty} {base}',
       fld_tp: '止盈',
       fld_sl: '止损',
+      login_google: '使用 Google 继续',
+      login_google_failed: 'Google 登录未完成（{reason}）。请重试或使用邮箱和密码登录。',
       err_boundary_title: '无法显示此页面',
       err_boundary_body: '这可能是暂时的问题。请按顺序尝试下面的操作。如果持续出现，可能是保存的设置已损坏。',
       err_boundary_retry: '重试',
