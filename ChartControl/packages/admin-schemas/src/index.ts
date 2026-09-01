@@ -20,6 +20,34 @@ export const UserStatusActionSchema = z.object({
 export const RoleChangeSchema = z.object({
   newRole: z.enum(['USER', 'PRO_USER', 'SUPPORT', 'ANALYST', 'ADMIN', 'SUPER_ADMIN']),
   reason: Reason,
+  /*
+     ★★ 재인증 확인.
+
+       역할 변경은 **권한 상승 경로**다(USER → SUPER_ADMIN 도 가능). 삭제·이메일
+       변경·킬스위치는 모두 재인증을 요구했는데 역할 변경만 CSRF 로 끝났다.
+       관리자 세션이 탈취되면 그 세션 하나로 조용히 최고 권한 계정을 만들 수 있다.
+  */
+  reauth: z.boolean(),
+}).strict();
+
+/**
+ * 직원 계정 생성.
+ *
+ * ★★ 왜 별도 경로인가: 지금까지 직원 계정을 만드는 방법은 "직원이 고객으로
+ *   가입한 뒤 관리자가 역할을 올리는" 것뿐이었다. 그 사이 그 계정은 고객으로
+ *   집계되고(리퍼럴·통계), 어떤 계정이 직원인지 기록이 남지 않는다.
+ *
+ * ★ 역할은 **직원 역할만** 허용한다. 여기서 SUPER_ADMIN 을 만들 수 있게 하면
+ *   계정 생성 한 번으로 최고 권한이 생긴다 — 승격은 기존 역할 변경 경로(재인증·
+ *   마지막 SUPER_ADMIN 보호·감사기록)를 그대로 거치게 한다.
+ */
+export const StaffCreateSchema = z.object({
+  email: z.string().email().max(254),
+  role: z.enum(['SUPPORT', 'ANALYST', 'ADMIN']),
+  /** 표시용 이름(감사 추적을 사람이 읽을 수 있게 한다). */
+  name: z.string().max(80).optional(),
+  reason: Reason,
+  reauth: z.boolean(),
 }).strict();
 
 export const IncidentCreateSchema = z.object({
@@ -296,6 +324,7 @@ export const AiPolicyUpdateSchema = z.object({
 }).strict();
 
 export type RoleChangeInput = z.infer<typeof RoleChangeSchema>;
+export type StaffCreateInput = z.infer<typeof StaffCreateSchema>;
 export type KillSwitchUpdateInput = z.infer<typeof KillSwitchUpdateSchema>;
 export type ReleaseGateUpdateInput = z.infer<typeof ReleaseGateUpdateSchema>;
 export type IncidentCreateInput = z.infer<typeof IncidentCreateSchema>;

@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { InMemoryRateLimiter, type RateLimiter } from '../security/rate-limiter';
 import { getCookie } from 'hono/cookie';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { AuthService, verifyCsrf, originAllowed, normalizeRole, type MailProvider } from '@quantumtrade/auth';
 import {
   hasAdminPermission, isAdminRole, type AdminPermission, ADMIN_PERMISSIONS,
@@ -13,7 +13,7 @@ import {
   FeatureFlagUpdateSchema, KillSwitchUpdateSchema, ReleaseGateUpdateSchema, AuditQuerySchema, ExportRequestSchema,
   AdminOrderQuerySchema, AdminPositionQuerySchema, AdminAiQuerySchema,
   NoQuerySchema, AdminUnlockSchema, LockoutQuerySchema, ADMIN_REPORT_TYPES, ReportGenerateSchema,
-  UserDeleteSchema, UserEmailChangeSchema,
+  UserDeleteSchema, UserEmailChangeSchema, StaffCreateSchema,
   ReportQuerySchema, GatewayActionSchema, IncidentAckSchema, AiPolicyUpdateSchema,
   BrokerRebateQuerySchema,
 } from '@quantumtrade/admin-schemas';
@@ -1004,6 +1004,14 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     const g = await mutateGuard(c, 'admin.role.write'); if ('err' in g) return g.err;
     const body = RoleChangeSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success) return c.json(err('BAD_REQUEST', 'invalid role change'), 400);
+    /*
+       ★★ 역할 변경은 권한 상승 경로다 — 재인증을 요구한다.
+
+         전에는 CSRF 만 통과하면 됐다. 관리자 세션이 탈취되면 그 세션 하나로
+         조용히 SUPER_ADMIN 계정을 만들 수 있었다. 삭제·이메일 변경·킬스위치는
+         이미 재인증을 요구하고 있었는데 이 경로만 빠져 있었다.
+    */
+    if (!body.data.reauth) return c.json(err('STEP_UP_REQUIRED', 'changing a role requires re-authentication'), 403);
     const target = await d.repo.getUser(c.req.param('id'));
     if (!target) return c.json(err('NOT_FOUND', ''), 404);
     const reqRole = { actorRole: g.a.user.role, actorUserId: g.a.user.id, targetUserId: target.id, targetCurrentRole: target.role, newRole: body.data.newRole };
@@ -1017,6 +1025,113 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     const revoked = await d.repo.revokeUserSessions(target.id); // role change → re-auth
     await d.repo.recordAction({ actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.role.change', resource: 'user', resourceId: target.id, targetUserId: target.id, result: 'success', riskLevel: 'high', ip: ip(c), reason: body.data.reason, before: { role: target.role }, after: { role: body.data.newRole, sessionsRevoked: revoked } });
     return c.json({ ok: true });
+  });
+
+  /*
+     ---------- 직원 계정 생성 ----------
+
+     ★★ 왜 필요한가
+
+       지금까지 직원 계정을 만드는 방법은 "직원이 고객으로 가입한 뒤 관리자가
+       역할을 올리는" 것뿐이었다. 그 사이 그 계정은 고객으로 집계되고(리퍼럴
+       단계·가입 통계), 나중에 "이 계정이 왜 관리자인가" 를 설명할 기록이 없다.
+
+     ★★ 안전장치를 겹쳐 둔다
+
+       · admin.role.write 권한 (역할을 부여하는 행위이므로 같은 권한을 쓴다)
+       · reauth — 방금 본인 확인을 했다는 표시
+       · 4~500자 사유 — 감사기록에 남는다
+       · 역할은 **직원 역할만**(SUPPORT·ANALYST·ADMIN). SUPER_ADMIN 은 여기서
+         만들 수 없다 — 계정 생성 한 번으로 최고 권한이 생기면 안 된다.
+         승격이 필요하면 기존 역할 변경 경로(마지막 SUPER_ADMIN 보호·감사)를 거친다.
+       · 임시 비밀번호는 서버가 만든다(사람이 정하면 약해진다). **응답에 한 번만**
+         돌려주고 어디에도 저장·로그하지 않는다.
+       · staff 태그를 붙여 고객 통계와 구분한다.
+  */
+  app.post('/admin/users', async (c) => {
+    const g = await mutateGuard(c, 'admin.role.write'); if ('err' in g) return g.err;
+
+    const b = StaffCreateSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!b.success) {
+      return c.json(err('VALIDATION_FAILED', 'email, a staff role, a reason (4-500 chars) and a reauth acknowledgement are required'), 422);
+    }
+    if (!b.data.reauth) return c.json(err('STEP_UP_REQUIRED', 'creating a staff account requires re-authentication'), 403);
+
+    /*
+       ★ 부여하려는 역할을 **행위자가 부여할 수 있는지** 기존 규칙으로 확인한다.
+         여기서 따로 판단하면 역할 변경 경로와 규칙이 갈린다(ADMIN 이 ADMIN 을
+         만들 수 있는지 같은 판단이 두 곳에 생긴다).
+    */
+    const dec = canAssignRole({
+      actorRole: g.a.user.role,
+      actorUserId: g.a.user.id,
+      targetUserId: 'new',
+      targetCurrentRole: 'USER',
+      newRole: b.data.role,
+    });
+    if (!dec.allowed) {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.staff.create', resource: 'user',
+        resourceId: 'new', result: 'failure', riskLevel: 'high', ip: ip(c), reason: dec.reason,
+      });
+      return c.json(err('FORBIDDEN', dec.reason ?? ''), 403);
+    }
+
+    /*
+       ★ 임시 비밀번호. 서버가 만든다.
+
+         32바이트 무작위를 base64url 로 담아 길이·엔트로피를 충분히 확보한다.
+         비밀번호 정책(최소 10자)을 여유롭게 넘는다.
+    */
+    const tempPassword = randomBytes(24).toString('base64url');
+
+    const reg = await d.service.register({ email: b.data.email, password: tempPassword }, { ip: ip(c) ?? undefined });
+    if (!reg.ok) {
+      /*
+         ★ 이미 있는 주소면 그 사실을 알린다. 관리자 화면이므로 열거 위험이 없고,
+           운영자는 "이미 계정이 있으니 역할만 올리면 된다" 는 것을 알아야 한다.
+      */
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.staff.create', resource: 'user',
+        resourceId: 'new', result: 'failure', riskLevel: 'medium', ip: ip(c), reason: reg.code,
+      });
+      return c.json(err(reg.code, reg.error), reg.code === 'EMAIL_TAKEN' ? 409 : 400);
+    }
+
+    // 고객으로 만들어진 계정을 직원 역할로 올린다.
+    await d.repo.setUserRole(reg.user.id, b.data.role);
+
+    /*
+       ★ staff 태그. 리퍼럴·가입 통계에서 직원을 고객과 섞지 않기 위한 표식이다.
+         태그 저장소가 없는 배포(SQLite)에서는 건너뛴다 — 계정 생성 자체를
+         막을 이유는 아니다.
+    */
+    let tags: string[] = [];
+    if (d.userTags) {
+      try {
+        await d.userTags.add(reg.user.id, 'staff', g.a.user.id);
+        tags = await d.userTags.listForUser(reg.user.id);
+      } catch { /* 태그 실패가 계정 생성을 되돌리지는 않는다 */ }
+    }
+
+    await d.repo.recordAction({
+      actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.staff.create', resource: 'user',
+      resourceId: reg.user.id, targetUserId: reg.user.id, result: 'success', riskLevel: 'high', ip: ip(c),
+      reason: b.data.reason,
+      // ★ 임시 비밀번호는 감사기록에도 남기지 않는다.
+      after: { email: b.data.email, role: b.data.role, name: b.data.name ?? null, tags },
+    });
+
+    return c.json({
+      ok: true,
+      user: { id: reg.user.id, email: b.data.email, role: b.data.role, tags },
+      /*
+         ★★ 이 값은 지금 이 응답에서만 볼 수 있다. 저장하지 않는다.
+           직원에게 전달한 뒤 첫 로그인에서 바로 바꾸게 해야 한다.
+      */
+      tempPassword,
+      mustChangePassword: true,
+    }, 201);
   });
 
   // ---------- 유저 겸직 태그 (team_leader 등) — 여러 개 가능 ----------

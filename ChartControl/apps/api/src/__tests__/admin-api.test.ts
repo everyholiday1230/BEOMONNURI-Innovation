@@ -69,7 +69,7 @@ describe('Phase 5 Admin API security', () => {
     const { app, db } = build();
     const support = await mkUser(app, db, 'sup@ex.com', 'SUPPORT');
     const target = await mkUser(app, db, 't1@ex.com', 'user');
-    const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/role`, { jar: support.jar, csrf: true, body: { newRole: 'ANALYST', reason: 'promote please' } });
+    const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/role`, { jar: support.jar, csrf: true, body: { newRole: 'ANALYST', reauth: true, reason: 'promote please' } });
     expect(res.status).toBe(403);
   });
 
@@ -77,15 +77,92 @@ describe('Phase 5 Admin API security', () => {
     const { app, db } = build();
     const admin = await mkUser(app, db, 'adm@ex.com', 'ADMIN');
     const target = await mkUser(app, db, 't2@ex.com', 'user');
-    const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/role`, { jar: admin.jar, csrf: true, body: { newRole: 'SUPER_ADMIN', reason: 'escalate attempt' } });
+    const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/role`, { jar: admin.jar, csrf: true, body: { newRole: 'SUPER_ADMIN', reauth: true, reason: 'escalate attempt' } });
     expect(res.status).toBe(403);
   });
 
   it('[4] self role change denied', async () => {
     const { app, db } = build();
     const admin = await mkUser(app, db, 'adm2@ex.com', 'ADMIN');
-    const res = await rq(app, 'PATCH', `/api/admin/users/${admin.id}/role`, { jar: admin.jar, csrf: true, body: { newRole: 'ANALYST', reason: 'self change' } });
+    const res = await rq(app, 'PATCH', `/api/admin/users/${admin.id}/role`, { jar: admin.jar, csrf: true, body: { newRole: 'ANALYST', reauth: true, reason: 'self change' } });
     expect(res.status).toBe(403);
+  });
+
+  /*
+     직원 계정 생성 (POST /admin/users).
+
+     ★★ 전에는 직원 계정을 만드는 경로가 없어서, 직원이 고객으로 가입한 뒤
+       관리자가 역할을 올리는 방법밖에 없었다(고객 통계에 섞이고 기록도 없다).
+  */
+  it('[4a] ★★ 직원 계정을 만들면 직원 역할과 1회용 임시 비밀번호가 함께 온다', async () => {
+    const { app, db } = build();
+    const sa = await mkUser(app, db, 'sa-staff@ex.com', 'SUPER_ADMIN');
+    const res = await rq(app, 'POST', '/api/admin/users', {
+      jar: sa.jar, csrf: true,
+      body: { email: 'newstaff@ex.com', role: 'SUPPORT', reauth: true, reason: 'new support hire' },
+    });
+    expect(res.status).toBe(201);
+    const b = await res.json() as { user: { role: string; email: string }; tempPassword: string; mustChangePassword: boolean };
+    expect(b.user.role).toBe('SUPPORT');
+    expect(b.user.email).toBe('newstaff@ex.com');
+    // 임시 비밀번호는 사람이 정하지 않는다 — 충분히 길어야 한다.
+    expect(b.tempPassword.length).toBeGreaterThanOrEqual(24);
+    expect(b.mustChangePassword).toBe(true);
+  });
+
+  it('[4b] 만든 계정으로 실제 로그인이 된다 (임시 비밀번호가 진짜다)', async () => {
+    const { app, db } = build();
+    const sa = await mkUser(app, db, 'sa-staff2@ex.com', 'SUPER_ADMIN');
+    const created = await (await rq(app, 'POST', '/api/admin/users', {
+      jar: sa.jar, csrf: true,
+      body: { email: 'loginstaff@ex.com', role: 'ANALYST', reauth: true, reason: 'analyst hire' },
+    })).json() as { tempPassword: string };
+    const login = await rq(app, 'POST', '/api/auth/login', {
+      body: { email: 'loginstaff@ex.com', password: created.tempPassword },
+    });
+    expect(login.status).toBe(200);
+  });
+
+  it('[4c] ★★ 재인증 없이는 직원 계정을 만들 수 없다', async () => {
+    const { app, db } = build();
+    const sa = await mkUser(app, db, 'sa-staff3@ex.com', 'SUPER_ADMIN');
+    const res = await rq(app, 'POST', '/api/admin/users', {
+      jar: sa.jar, csrf: true,
+      body: { email: 'noreauth@ex.com', role: 'SUPPORT', reauth: false, reason: 'no reauth given' },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('[4d] ★★ 이 경로로 SUPER_ADMIN 은 만들 수 없다 (계정 생성 한 번으로 최고 권한 금지)', async () => {
+    const { app, db } = build();
+    const sa = await mkUser(app, db, 'sa-staff4@ex.com', 'SUPER_ADMIN');
+    const res = await rq(app, 'POST', '/api/admin/users', {
+      jar: sa.jar, csrf: true,
+      body: { email: 'wannabe@ex.com', role: 'SUPER_ADMIN', reauth: true, reason: 'try to create super' },
+    });
+    // 스키마가 직원 역할만 허용한다.
+    expect(res.status).toBe(422);
+  });
+
+  it('[4e] SUPPORT 는 직원 계정을 만들 수 없다 (권한 없음)', async () => {
+    const { app, db } = build();
+    const support = await mkUser(app, db, 'sup-create@ex.com', 'SUPPORT');
+    const res = await rq(app, 'POST', '/api/admin/users', {
+      jar: support.jar, csrf: true,
+      body: { email: 'x@ex.com', role: 'SUPPORT', reauth: true, reason: 'should be denied' },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('[4f] 이미 있는 주소면 409 로 알린다 (역할만 올리면 된다는 뜻)', async () => {
+    const { app, db } = build();
+    const sa = await mkUser(app, db, 'sa-staff5@ex.com', 'SUPER_ADMIN');
+    await mkUser(app, db, 'dup@ex.com', 'user');
+    const res = await rq(app, 'POST', '/api/admin/users', {
+      jar: sa.jar, csrf: true,
+      body: { email: 'dup@ex.com', role: 'SUPPORT', reauth: true, reason: 'duplicate address' },
+    });
+    expect(res.status).toBe(409);
   });
 
   it('[5] cannot disable the last SUPER_ADMIN', async () => {
@@ -483,7 +560,7 @@ describe('Phase 5 Admin API security', () => {
     const target = await mkUser(app, db, 'cap2-target@ex.com', 'user');
     // ADMIN advertises no `assignPrivileged` capability — and the mutation is genuinely refused.
     const res = await rq(app, 'PATCH', `/api/admin/users/${target.id}/role`, {
-      jar: admin.jar, csrf: true, body: { newRole: 'SUPER_ADMIN', reason: 'escalation attempt' },
+      jar: admin.jar, csrf: true, body: { newRole: 'SUPER_ADMIN', reauth: true, reason: 'escalation attempt' },
     });
     expect(res.status).toBe(403);
   });
