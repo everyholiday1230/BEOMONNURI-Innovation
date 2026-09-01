@@ -132,6 +132,14 @@ export interface TradingRouterDeps {
    */
   controls?: { killActive(scope: string): boolean };
   /**
+   * 실주문 멱등성 저장소. 없으면 프로세스 메모리로 떨어진다.
+   *
+   * ★★ 프로덕션에서는 반드시 주입한다. 메모리 저장소는 재시작하면 비고, 인스턴스
+   *   사이에 공유되지 않는다 — 같은 키의 재시도가 거래소로 다시 나가 **중복
+   *   주문**이 된다.
+   */
+  idempotencyStore?: import('./trading/idempotency').IdempotencyStore;
+  /**
    * Futures transaction history reader (gap G5).
    *
    * A narrow optional dependency rather than a widening of `IExchangeAccountAdapter`: only the BitMart
@@ -277,7 +285,15 @@ function localizeGateReasons(
 
 export function createTradingRouter(d: TradingRouterDeps): Hono {
   const app = new Hono();
-  const idem = new IdempotencyService(new MemoryIdempotencyStore());
+  /*
+     ★★ 실주문 멱등성 저장소.
+
+       주입되면 그것을 쓴다(프로덕션 = PostgreSQL). 없으면 메모리로 떨어진다
+       (개발·테스트). 메모리는 프로세스 안에서만 유효하므로 **재시작·다중
+       인스턴스에서 중복 주문을 막지 못한다** — 그래서 실주문이 열려 있는데
+       저장소가 메모리면 부팅 때 경고한다(index.ts).
+  */
+  const idem = new IdempotencyService(d.idempotencyStore ?? new MemoryIdempotencyStore());
 
   const authed = async (c: Context) => {
     const raw = getCookie(c, d.cookieName);
@@ -1433,6 +1449,10 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!idemKey) return c.json(err('BAD_REQUEST', 'Idempotency-Key header required'), 400);
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const symbol = String(body.symbol ?? 'BTCUSDT');
+    /*
+       ★ 사용자·용도를 함께 넘긴다. DB 저장소가 컬럼으로 요구하고, 키에서
+         파싱하면 키 형식이 바뀌는 날 엉뚱한 사용자에게 기록이 붙는다.
+    */
     const { result } = await idem.run(`${a.user.id}:${idemKey}`, async () => {
       // Real state, not literals. These were hardcoded, which made every state-dependent gate pass.
       const { st, input } = await buildRiskInput(
@@ -1663,7 +1683,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           (activeAdapter as { brokerAttached?: boolean } | undefined)?.brokerAttached,
         ),
       };
-    });
+    }, { userId: a.user.id, scope: 'trading.orders.submit' });
     return c.json(result);
   });
 

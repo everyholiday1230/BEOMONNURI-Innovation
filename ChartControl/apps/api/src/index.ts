@@ -54,6 +54,7 @@ import { PgEquitySnapshotRepo } from './db/equity-snapshot-repo';
 import { PgLearningRepo } from './db/learning-repo';
 import { PgCredentialRepo } from './db/pg-credential-repo';
 import { PgTierRepo } from './db/pg-tier-repo';
+import { PgIdempotencyStore } from './db/idempotency-repo';
 import { PgChartTemplateRepo } from './db/chart-template-repo';
 import { RiskWatchLoop } from './trading/risk-watch-loop';
 
@@ -2558,6 +2559,15 @@ if (env.authEnabled) {
           liveTradingEnabled: env.bitmartLiveTradingEnabled,
           killSwitch: env.bitmartKillSwitch,
           /*
+             ★★ 실주문 멱등성을 DB 에 둔다.
+
+               메모리 저장소는 재시작하면 비고 인스턴스 사이에 공유되지 않는다 —
+               같은 키의 재시도가 거래소로 다시 나가 중복 주문이 된다.
+               PostgreSQL 이 없는 배포(개발·테스트)에서는 라우터가 메모리로
+               떨어지고, 그 상태로 실주문이 열려 있으면 아래에서 경고한다.
+          */
+          ...(core.pool ? { idempotencyStore: new PgIdempotencyStore(core.pool) } : {}),
+          /*
              관리자 콘솔의 런타임 킬스위치를 실주문 경로에 실제로 강제한다.
              없으면(개발·테스트) 부팅 env 만으로 판단한다.
           */
@@ -2679,6 +2689,19 @@ if (env.authEnabled) {
         if (env.bitmartKillSwitch) blockers.push('EMERGENCY_KILL_SWITCH is not "false"');
         if (blockers.length === 0) {
           console.log('[api] LIVE ORDERS: ARMED — real orders can reach the exchange.');
+          /*
+             ★★ 실주문이 열렸는데 멱등성이 메모리면 중복 주문이 가능하다.
+
+               재시작·다중 인스턴스에서 같은 Idempotency-Key 재시도가 그대로
+               거래소로 나간다. 이건 돈이 두 번 나가는 경로이므로 크게 알린다.
+          */
+          if (!core.pool) {
+            console.error(
+              '[api] ★ CRITICAL: live orders are ARMED but order idempotency is IN-MEMORY '
+              + '(no PostgreSQL). A retry after a restart, or on another instance, can place a '
+              + 'DUPLICATE order. Configure DATABASE_URL before trading live.',
+            );
+          }
           /*
              ★ env 가 열려 있어도 관리자 콘솔의 런타임 킬스위치가 막을 수 있다.
                그 스위치는 기본 ACTIVE(차단)로 시드된다 — 몰라서 "또 안 된다" 가
