@@ -1,12 +1,57 @@
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
+/*
+   ★ 금액 비교에 십진수를 쓴다. 문자열 비교(NUMERIC "9.99000000" vs "9.99")로
+     정상 결제가 실패 처리되던 버그를 막는다.
+*/
+import { D } from '@quantumtrade/domain';
 import type { PgPointOrderRepo } from './db/point-order-repo';
 import type { PgPointsRepo } from './db/points-repo';
 import { type PaymentProviders, POINT_PACKAGES, findPackage } from './payments/providers';
 
 const CSRF = 'qt_csrf';
 const err = (code: string, message: string) => ({ error: { code, message } });
+
+/**
+ * 결제 확인 응답이 우리 주문과 **같은 결제**인지 판정한다.
+ *
+ * ★★ 왜 별도 함수인가: 이 판정이 틀리면 고객은 청구당하고 포인트는 못 받는다.
+ *   HTTP·DB 없이 단위 테스트로 고정할 수 있어야 한다.
+ *
+ * ★★ 금액은 십진수로 비교한다. 문자열 비교는 안 된다 —
+ *   point_orders.amount 는 NUMERIC(24,8) 이라 pg 가 "9.99000000" 을 주고
+ *   PayPal 은 "9.99" 를 준다. 전에는 문자열 `!==` 라서 **정상 결제가 항상
+ *   불일치**로 처리됐고, 그 시점엔 이미 청구가 끝난 뒤였다.
+ *
+ * ★ 제공자가 주지 않은 값(undefined)은 대조하지 않는다. 없는 값을 불일치로
+ *   보면 정상 결제를 실패로 뒤집는다.
+ */
+export function capturedPaymentMatches(
+  cap: { ok: boolean; customId?: string; amount?: string; currency?: string },
+  order: { id: string; amount: string; currency: string },
+): { match: boolean; reason: string | null } {
+  if (!cap.ok) return { match: false, reason: 'provider reported not completed' };
+  if (cap.customId !== undefined && cap.customId !== order.id) {
+    return { match: false, reason: `custom_id ${cap.customId} != order ${order.id}` };
+  }
+  if (cap.amount !== undefined && String(cap.amount).trim() !== '') {
+    let equal = false;
+    try {
+      equal = D(String(cap.amount)).eq(D(String(order.amount)));
+    } catch {
+      return { match: false, reason: `unparseable amount ${cap.amount}` };
+    }
+    if (!equal) return { match: false, reason: `amount ${cap.amount} != ${order.amount}` };
+  }
+  if (cap.currency !== undefined && String(cap.currency).trim() !== '') {
+    // 같은 숫자라도 통화가 다르면 다른 금액이다 (9.99 USD ≠ 9.99 EUR).
+    if (String(cap.currency).toUpperCase() !== String(order.currency).toUpperCase()) {
+      return { match: false, reason: `currency ${cap.currency} != ${order.currency}` };
+    }
+  }
+  return { match: true, reason: null };
+}
 
 export interface PaymentRouterDeps {
   service: AuthService;
@@ -101,8 +146,21 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
     }
     try {
       const cap = await d.providers.paypal!.capture(order.providerRef);
-      // 서버가 PayPal 로부터 직접 확인한 결과 + 금액/주문 대조.
-      if (!cap.ok || cap.customId !== order.id || (cap.amount && cap.amount !== order.amount)) {
+      /*
+         서버가 PayPal 로부터 직접 확인한 결과 + 주문/금액/통화 대조.
+         판정은 capturedPaymentMatches 한 곳에서만 한다(위 주석 참고).
+      */
+      const verdict = capturedPaymentMatches(cap, order);
+      if (!verdict.match) {
+        /*
+           ★ 이 시점에는 capture() 가 이미 고객에게 청구를 끝냈다. 그래서 왜
+             막았는지 반드시 로그로 남긴다 — 없으면 "돈은 나갔는데 포인트가
+             없다" 는 문의를 추적할 수 없다.
+        */
+         
+        console.error(
+          `[payment] paypal capture rejected order=${order.id} status=${cap.status} reason=${verdict.reason}`,
+        );
         await d.orders!.markFailed(order.id);
         return c.json(err('PAYMENT_NOT_COMPLETED', `status=${cap.status}`), 402);
       }

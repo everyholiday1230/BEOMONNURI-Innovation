@@ -6,6 +6,7 @@ import { createIsolatedTestDatabase } from './helpers/pg-test-db';
 import { PgPointsRepo } from '../db/points-repo';
 import { PgPointOrderRepo } from '../db/point-order-repo';
 import { CryptoInvoiceProvider, resolvePaymentProviders, findPackage, POINT_PACKAGES } from '../payments/providers';
+import { capturedPaymentMatches } from '../payment-routes';
 
 // ---- Pure unit tests (no DB) ----
 describe('payment providers (pure)', () => {
@@ -91,5 +92,62 @@ d('PgPointOrderRepo (idempotent top-up)', () => {
     const found = await orders.findByRef('usdt', 'inv-2');
     expect(found?.id).toBe(order.id);
     expect(found?.points).toBe(55_000);
+  });
+});
+
+/*
+   PayPal 결제 확인 대조 — 고객이 청구당하고 포인트를 못 받는 실패를 막는다.
+
+   ★★ 실제로 있었던 버그: point_orders.amount 는 NUMERIC(24,8) 이라 pg 가
+     "9.99000000" 을 돌려주는데 PayPal 은 "9.99" 를 준다. 문자열 `!==` 비교라
+     **정상 결제가 항상 불일치**로 처리됐다. 그 시점에는 capture() 가 이미 청구를
+     끝냈으므로 돈은 나가고 주문은 실패, 포인트는 미지급이었다.
+*/
+describe('capturedPaymentMatches — 결제 확인 대조', () => {
+  const order = { id: 'ord_1', amount: '9.99000000', currency: 'USD' };
+
+  it('★★ NUMERIC 자리수 차이를 같은 금액으로 본다 (9.99 == 9.99000000)', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_1', amount: '9.99', currency: 'USD' }, order);
+    expect(v.match).toBe(true);
+  });
+
+  it('정수 표기도 같은 금액으로 본다 (10 == 10.00000000)', () => {
+    const v = capturedPaymentMatches(
+      { ok: true, customId: 'ord_1', amount: '10' },
+      { id: 'ord_1', amount: '10.00000000', currency: 'USD' },
+    );
+    expect(v.match).toBe(true);
+  });
+
+  it('실제로 다른 금액은 거부한다', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_1', amount: '1.99', currency: 'USD' }, order);
+    expect(v.match).toBe(false);
+    expect(v.reason).toMatch(/amount/);
+  });
+
+  it('통화가 다르면 거부한다 — 같은 숫자라도 다른 금액이다', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_1', amount: '9.99', currency: 'EUR' }, order);
+    expect(v.match).toBe(false);
+    expect(v.reason).toMatch(/currency/);
+  });
+
+  it('다른 주문의 결제는 거부한다', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_OTHER', amount: '9.99' }, order);
+    expect(v.match).toBe(false);
+    expect(v.reason).toMatch(/custom_id/);
+  });
+
+  it('제공자가 미완료라고 하면 거부한다', () => {
+    expect(capturedPaymentMatches({ ok: false, customId: 'ord_1', amount: '9.99' }, order).match).toBe(false);
+  });
+
+  it('제공자가 생략한 값은 대조하지 않는다 — 없는 값으로 정상 결제를 뒤집지 않는다', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_1' }, order);
+    expect(v.match).toBe(true);
+  });
+
+  it('숫자로 못 읽는 금액은 통과시키지 않는다', () => {
+    const v = capturedPaymentMatches({ ok: true, customId: 'ord_1', amount: 'abc' }, order);
+    expect(v.match).toBe(false);
   });
 });

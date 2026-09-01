@@ -1186,7 +1186,19 @@
         return { symbol: c.symbol, tf: c.tf };
       });
       if (symbols.length || candles.length) {
-        send({ op: 'subscribe', symbols: symbols, candles: candles });
+        /*
+           ★★ market 을 반드시 함께 보낸다.
+
+             재연결 복원 경로에서 이 필드가 빠져 있었다. 서버(ws-gateway)는 새
+             세션의 기본값을 'futures' 로 두므로, 현물 이용자가 재연결되면
+             **선물 시세를 받는다.** 선물 티커에는 시장 표식이 없어 화면은 그것을
+             현물 가격으로 기록하고, 이용자는 그 값을 보고 주문한다 — 다른 상품의
+             가격으로 주문하는 사고다.
+
+           ★ 최초 subscribe(아래 두 곳)는 market 을 보내고 있었다. 즉 재연결
+             경로만의 회귀였다. 세 곳이 같은 값을 쓰게 한다.
+        */
+        send({ op: 'subscribe', market: currentMarket(), symbols: symbols, candles: candles });
       }
     }
 
