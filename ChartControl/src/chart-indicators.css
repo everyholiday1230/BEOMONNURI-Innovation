@@ -182,3 +182,47 @@
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 지표 프리셋 저장/불러오기 ─────────────────────────────────
+   차트가 마운트된 화면에서만 켜둔 지표를 읽을 수 있으므로, 저장 버튼은
+   저장 페이지가 아니라 이 패널에 둔다. */
+.chart-ind-panel__presets {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.chart-ind-panel__presets .btn { flex: 1; font-size: 11px; }
+.chart-ind-panel__msg {
+  padding: 5px 9px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.chart-ind-panel__msg.is-ok { color: var(--color-success, #16a34a); }
+.chart-ind-panel__msg.is-err { color: var(--color-danger, #dc2626); }
+.chart-ind-panel__preset-list {
+  max-height: 160px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.chart-ind-panel__preset-empty {
+  padding: 9px 10px;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+}
+.chart-ind-panel__preset-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.chart-ind-panel__preset-row:last-child { border-bottom: 0; }
+.chart-ind-panel__preset-name {
+  flex: 1;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-ind-panel__preset-row .btn { font-size: 10.5px; }

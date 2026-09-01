@@ -207,6 +207,13 @@
     };
 
     // 현재 차트에 켜둔 지표를 저장(포인트 차감). ChartKlineUtil 브리지에서 활성 지표를 읽는다.
+    /* 차트가 실제로 마운트돼 있는지. 없으면 지표를 읽을 방법이 없다. */
+    const hasChart = Boolean(
+      window.ChartKlineUtil
+      && typeof window.ChartKlineUtil.instances === 'function'
+      && window.ChartKlineUtil.instances().length > 0,
+    );
+
     const saveCurrentIndicators = async () => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.savedCreate) return;
@@ -391,7 +398,27 @@
             {saved && saved.supported && (
               <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 100, glob: (saved.saveCost && saved.saveCost.global) || 300 })}>
                 <div style={{marginBottom:10}}>
-                  <button className="btn btn--sm" onClick={saveCurrentIndicators}>{t('sv_save_current_indicators')}</button>
+                  {/*
+                     ★★ 이 버튼은 여기서 절대 동작할 수 없다.
+                       saveCurrentIndicators 는 ChartKlineUtil.listIndicators() 로
+                       "켜둔 지표"를 읽는데, 그 함수는 마운트된 차트 인스턴스만
+                       훑는다. 이 페이지에는 차트가 없으니 항상 빈 배열 → 저장 불가.
+                       실제로 프로덕션 saved_items 가 0행이었던 이유다.
+                       그래서 저장은 차트의 지표 패널로 옮겼고, 여기서는 눌리지
+                       않게 하고 어디로 가야 하는지 알려준다. */}
+                  <button
+                    className="btn btn--sm"
+                    onClick={saveCurrentIndicators}
+                    disabled={!hasChart}
+                    title={hasChart ? t('sv_save_current_indicators') : t('sv_save_on_chart_hint')}
+                  >
+                    {t('sv_save_current_indicators')}
+                  </button>
+                  {!hasChart && (
+                    <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                      {t('sv_save_on_chart_hint')}
+                    </span>
+                  )}
                 </div>
                 {saved.items.length === 0 ? (
                   <div style={{padding:'10px 12px', fontSize:12.5, color:'var(--color-text-secondary)'}}>{t('sv_empty')}</div>

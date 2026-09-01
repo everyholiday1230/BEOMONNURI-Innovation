@@ -357,6 +357,12 @@
 
     // AI 가 만든 선/신호를 저장한다(포인트 차감). 저장소는 PG(/me/saved).
     const [savingId, setSavingId] = useState(null);
+    /*
+       ★ saveProposal 은 loadSaved 보다 위에 선언돼 있다. deps 배열에 loadSaved 를
+         직접 넣으면 렌더 중 아직 초기화되지 않은 const 를 읽어(TDZ) 앱이 죽는다.
+         그래서 ref 로 건넨다.
+    */
+    const loadSavedRef = useRef(null);
     const saveProposal = useCallback(async (msgId, savable) => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.savedCreate || !savable) return;
@@ -372,6 +378,8 @@
         });
         if (r && r.ok !== false) {
           setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, saved: true, savedNote: t('sv_saved_ok', { n: (r && r.charged) || 0 }) } : x)));
+          // ★ 저장 직후 목록을 다시 읽는다. 안 하면 방금 저장한 항목이 목록에 없다.
+          if (loadSavedRef.current) loadSavedRef.current();
         } else {
           setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: (r && r.message) || t('sv_save_failed') } : x)));
         }
@@ -385,11 +393,22 @@
     // CCAI Copilot 안에서 저장된 항목(신호/지표/드로잉)을 본다.
     const [savedOpen, setSavedOpen] = useState(false);
     const [savedItems, setSavedItems] = useState(null);
+    const [savedError, setSavedError] = useState(false);
     const loadSaved = useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.savedList) { setSavedItems([]); return; }
-      api.savedList().then((r) => setSavedItems((r && r.items) || [])).catch(() => setSavedItems([]));
+      /*
+         ★ 조회 실패를 빈 목록으로 두면 "저장된 게 없다"고 보인다. 저장한 게
+           사라진 것처럼 보이는 게 제일 나쁜 오해라, 실패는 실패로 알린다.
+           (null = 오류 상태, [] = 정말 없음)
+      */
+      api.savedList().then((r) => {
+        if (r && r.ok === false) { setSavedItems(null); setSavedError(true); return; }
+        setSavedError(false);
+        setSavedItems((r && r.items) || []);
+      }).catch(() => { setSavedItems(null); setSavedError(true); });
     }, []);
+    useEffect(() => { loadSavedRef.current = loadSaved; }, [loadSaved]);
     const toggleSaved = useCallback(() => {
       setSavedOpen((o) => { const n = !o; if (n) loadSaved(); return n; });
     }, [loadSaved]);
@@ -748,7 +767,12 @@
 
         {savedOpen && (
           <div style={{margin:'0 0 6px', border:'1px solid var(--color-border-subtle)', borderRadius:6, background:'var(--color-bg-surface)', maxHeight:180, overflowY:'auto'}}>
-            {savedItems === null ? (
+            {savedItems === null && savedError ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>
+                {t('sv_list_failed')}{' '}
+                <button type="button" className="btn btn--sm" onClick={loadSaved}>{t('sv_retry')}</button>
+              </div>
+            ) : savedItems === null ? (
               <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>…</div>
             ) : savedItems.length === 0 ? (
               <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('sv_empty')}</div>

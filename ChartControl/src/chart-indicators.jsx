@@ -373,6 +373,98 @@
       setTimeout(syncFromChart, 0);
     }, [active, getChart, syncFromChart]);
 
+    /*
+       ★★ 지표 프리셋 저장/불러오기는 **여기**에 있어야 한다.
+
+         원래는 저장 페이지(pages-points.jsx)에 "현재 지표 저장" 버튼이 있었다.
+         그 버튼은 window.ChartKlineUtil.listIndicators() 로 켜둔 지표를 읽는데,
+         그 함수는 **마운트된 차트 인스턴스**만 훑는다(INSTANCES). 저장 페이지에는
+         차트가 없으니 언제나 빈 배열이었다 → "켜둔 지표가 없습니다" → 저장 불가.
+         그래서 프로덕션 saved_items 테이블이 0행이었다(실측). 즉 저장 기능이
+         존재하는 것처럼 보였을 뿐, 누구도 한 번도 저장할 수 없었다.
+
+         지표는 차트에 있다. 그러니 저장 버튼도 차트에 있어야 한다.
+    */
+    const [saveMsg, setSaveMsg] = useState(null);
+    const [presets, setPresets] = useState(null); // null = 아직 모름, [] = 없음
+    const [presetsOpen, setPresetsOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+
+    const loadPresets = useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedList) { setPresets([]); return; }
+      api.savedList('indicator').then((r) => {
+        // ★ 조회 실패를 "없음"으로 표시하지 않는다. 그러면 저장한 게 사라진 것처럼 보인다.
+        if (r && r.ok === false) { setPresets(null); setSaveMsg({ ok: false, text: t('sv_list_failed') }); return; }
+        setPresets((r && r.items) || []);
+      }).catch(() => { setPresets(null); setSaveMsg({ ok: false, text: t('sv_list_failed') }); });
+    }, []);
+
+    const savePreset = useCallback(async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedCreate) return;
+      // 차트에서 직접 읽는다 — 이 패널은 차트와 같은 화면에 있으므로 항상 실제 값이다.
+      const inds = [...active.entries()].map(([name, paneId]) => ({
+        name, paneId, calcParams: (params.get(name) || []).slice(),
+      }));
+      if (inds.length === 0) { setSaveMsg({ ok: false, text: t('sv_no_indicators') }); return; }
+      setBusy(true);
+      setSaveMsg(null);
+      try {
+        const r = await api.savedCreate({
+          kind: 'indicator', scope: 'global',
+          name: t('sv_indicator_preset_name', { n: inds.length }),
+          payload: { indicators: inds },
+        });
+        if (r && r.ok !== false) {
+          setSaveMsg({ ok: true, text: t('sv_saved_ok', { n: (r && r.charged) || 0 }) });
+          loadPresets(); // ★ 저장 직후 목록을 새로 읽는다. 안 하면 방금 저장한 게 안 보인다.
+        } else setSaveMsg({ ok: false, text: (r && r.message) || t('sv_save_failed') });
+      } catch (e) {
+        setSaveMsg({ ok: false, text: e && e.status === 402 ? t('sv_need_points') : ((e && e.message) || t('sv_save_failed')) });
+      }
+      setBusy(false);
+    }, [active, params, loadPresets]);
+
+    /** 저장된 프리셋을 차트에 적용한다. 켜져 있던 지표는 먼저 내린다. */
+    const applyPreset = useCallback((item) => {
+      const chart = getChart && getChart();
+      if (!chart) return;
+      const list = (item && item.payload && item.payload.indicators) || [];
+      if (!Array.isArray(list) || list.length === 0) { setSaveMsg({ ok: false, text: t('sv_preset_empty') }); return; }
+      for (const [name, paneId] of active.entries()) {
+        try { chart.removeIndicator({ paneId, name }); } catch (e) { /* noop */ }
+      }
+      let applied = 0;
+      for (const ind of list) {
+        const nm = ind && ind.name;
+        if (!nm) continue;
+        try {
+          const onCandle = ind.paneId === 'candle_pane';
+          chart.createIndicator({ name: nm, ...(onCandle ? { paneId: 'candle_pane' } : {}) }, onCandle);
+          if (Array.isArray(ind.calcParams) && ind.calcParams.length) {
+            chart.overrideIndicator({ name: nm, calcParams: ind.calcParams.slice() });
+            setCalc(nm, ind.calcParams.slice());
+          }
+          applied += 1;
+        } catch (e) { /* 개별 지표 실패는 나머지를 막지 않는다 */ }
+      }
+      // ★ 요청한 개수가 아니라 **실제로 올라간 개수**를 알린다.
+      setSaveMsg({ ok: applied > 0, text: t('sv_preset_applied', { n: applied, total: list.length }) });
+      setPresetsOpen(false);
+      setTimeout(syncFromChart, 0);
+    }, [active, getChart, syncFromChart]);
+
+    const deletePreset = useCallback((id) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.savedDelete) return;
+      api.savedDelete(id).then(loadPresets).catch(() => setSaveMsg({ ok: false, text: t('sv_delete_failed') }));
+    }, [loadPresets]);
+
+    const togglePresets = useCallback(() => {
+      setPresetsOpen((o) => { const n = !o; if (n) loadPresets(); return n; });
+    }, [loadPresets]);
+
     const groups = Object.keys(filtered);
     const totalShown = groups.reduce((n, g) => n + filtered[g].length, 0);
 
@@ -392,6 +484,55 @@
           />
           <span className="chart-ind-panel__count">{active.size}/{all.length}</span>
         </div>
+
+        {/* 프리셋 저장/불러오기 — 차트와 같은 화면이라 켜둔 지표를 실제로 읽을 수 있다. */}
+        <div className="chart-ind-panel__presets">
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={savePreset}
+            disabled={busy || active.size === 0}
+            title={active.size === 0 ? t('sv_no_indicators') : t('sv_save_preset')}
+          >
+            {t('sv_save_preset')}{active.size > 0 ? ' (' + active.size + ')' : ''}
+          </button>
+          <button
+            type="button"
+            className={'btn btn--sm' + (presetsOpen ? ' is-active' : '')}
+            onClick={togglePresets}
+            aria-expanded={presetsOpen}
+          >
+            {t('sv_my_presets')}{Array.isArray(presets) ? ' · ' + presets.length : ''}
+          </button>
+        </div>
+
+        {saveMsg && (
+          <div
+            role="status"
+            className={'chart-ind-panel__msg' + (saveMsg.ok ? ' is-ok' : ' is-err')}
+          >
+            {saveMsg.text}
+          </div>
+        )}
+
+        {presetsOpen && (
+          <div className="chart-ind-panel__preset-list">
+            {presets === null ? (
+              <div className="chart-ind-panel__preset-empty">
+                {t('sv_list_failed')}{' '}
+                <button type="button" className="btn btn--sm" onClick={loadPresets}>{t('sv_retry')}</button>
+              </div>
+            ) : presets.length === 0 ? (
+              <div className="chart-ind-panel__preset-empty">{t('sv_empty')}</div>
+            ) : presets.map((it) => (
+              <div key={it.id} className="chart-ind-panel__preset-row">
+                <span className="chart-ind-panel__preset-name">{it.name}</span>
+                <button type="button" className="btn btn--sm" onClick={() => applyPreset(it)}>{t('sv_load')}</button>
+                <button type="button" className="btn btn--sm" onClick={() => deletePreset(it.id)}>{t('sv_delete')}</button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="chart-ind-panel__body">
           {totalShown === 0 && <div className="chart-ind-panel__empty">{t('no_match')}</div>}
