@@ -1753,6 +1753,7 @@
       na_dep_crumb: 'Deposits',
       na_dep_panel_title: 'We do not receive deposits',
       na_dep_reason: 'This platform is non-custodial. Customers deposit into their own exchange account, and we trade it through the API keys they connected. There is no deposit address belonging to us, so there is no confirmation queue to monitor.',
+      na_asset_unavailable: 'This screen could not load. It is not showing wallet balances because this platform holds no customer funds — do not treat any figure here as an asset total.',
       na_dep_p1: 'We hold no wallet and no keys, so no transaction is ever sent to us.',
       na_dep_p2: 'On-chain confirmations are tracked by the exchange, which is where the funds land.',
       na_dep_p3: 'A deposit that has not arrived is a question for the exchange, not for us — we cannot see the chain.',

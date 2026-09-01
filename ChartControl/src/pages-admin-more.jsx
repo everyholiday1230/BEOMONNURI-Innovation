@@ -2601,8 +2601,30 @@
     const backend = window.QTLive && window.QTLive.isBackendPresent
       ? window.QTLive.isBackendPresent() : null;
     // 판정 중(null)도 실서비스로 본다 — 없는 자산을 보여주는 위험이 더 크다.
-    if (backend !== false && window.AdminAssetsPage) {
-      return <window.AdminAssetsPage shellProps={shellProps}/>;
+    if (backend !== false) {
+      /*
+         ★★ 실서비스에서는 목업으로 **절대** 떨어지지 않는다.
+
+           전에는 `backend !== false && window.AdminAssetsPage` 였다. 즉 그 전역이
+           어떤 이유로든 없으면(스크립트 로드 실패 등) 조건이 거짓이 되어 아래
+           목업으로 내려갔다 — 프로덕션에서 "콜드월렛 $28.4M · 준비금 112%" 가
+           그대로 표시된다는 뜻이다. 존재하지 않는 자산이고, 그 수치가 보고·회계·
+           고객 응대에 들어가면 되돌리기 어렵다.
+
+           그래서 실서비스 판정이면 목업 대신 **아무것도 없다는 사실**을 보여준다.
+      */
+      if (window.AdminAssetsPage) return <window.AdminAssetsPage shellProps={shellProps}/>;
+      return (
+        <window.PageShell
+          {...shellProps}
+          title={t('adm_assets_withdrawals')}
+          breadcrumb={['Home', 'Admin', 'Assets']}
+        >
+          <div style={{ padding: '14px 16px', fontSize: 12.5, color: 'var(--color-danger, #dc2626)' }}>
+            {t('na_asset_unavailable')}
+          </div>
+        </window.PageShell>
+      );
     }
 
     return (
