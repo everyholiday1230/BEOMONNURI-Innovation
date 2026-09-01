@@ -342,6 +342,24 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const marketDataStatus = d.riskState?.marketDataStatus?.(symbol) ?? 'UNAVAILABLE';
     if (!d.riskState?.marketDataStatus) unknown.push('marketDataStatus');
 
+    /*
+       ★★ 일일 실현손실은 **아직 출처가 없다.** 그 사실을 반드시 보고한다.
+
+         아래 buildRiskInput 은 dailyLossSoFar 에 '0' 을 넣는다. 그러면
+         risk-engine 의 일일손실 한도 게이트가 `0 <= 한도` 로 **항상 통과**한다.
+         주석에는 "unknown 으로 보고한다" 고 적혀 있었지만 실제로는 아무 곳에도
+         보고되지 않았다 — 운영자와 이용자 모두 손실 한도가 지켜지고 있다고
+         믿게 되는, 사실과 다른 상태였다.
+
+       ★ 여기서 게이트를 강제로 실패시키지는 않는다. 그러면 손실 데이터가 없는
+         모든 이용자의 주문이 막힌다(지금 라이브 서비스다). 대신 unknownInputs 에
+         담아 화면·감사기록·학습기록에 '모른다' 는 사실이 남게 한다.
+
+       ★ 제대로 고치려면 trade_journal 의 dailyPnl(userId, {from,to}) 을 이
+         라우터에 주입해 오늘자 실현손실을 읽어야 한다. 그건 별도 작업이다.
+    */
+    unknown.push('dailyLossSoFar');
+
     void userStatus;
     return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, openPositions, marketDataStatus, unknown };
   }
@@ -406,7 +424,11 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         credentialStatus: st.credentialStatus,
         futureTradePermissionVerified: st.futureTradePermissionVerified,
         dailyOrderCount: st.dailyOrderCount,
-        // No per-user realized-loss source exists yet; reported as unknown rather than as 0.
+        /*
+           ★ 출처가 없다. 이 값이 '0' 이면 일일손실 게이트가 항상 통과한다는 뜻이고,
+             그 사실은 resolveRiskState 에서 unknownInputs('dailyLossSoFar') 로
+             보고된다. 여기서 조용히 0 을 넣고 끝내지 않는다.
+        */
         dailyLossSoFar: '0',
         openPositions: st.openPositions,
         marketDataStatus: st.marketDataStatus,

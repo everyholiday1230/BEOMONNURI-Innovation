@@ -30,6 +30,8 @@ import type {
   SubmitOutcome,
 } from '@quantumtrade/exchange-bitmart';
 import { KucoinFuturesPrivate, type KucoinPrivateConfig } from '@quantumtrade/exchange-kucoin';
+/* 수량 계산에 십진수를 쓴다 — 승수 곱셈을 부동소수로 하면 자리수가 어긋난다. */
+import { D } from '@quantumtrade/domain';
 
 import { toKucoinCredential, type MultiplierLookup } from './kucoin-account-adapter';
 
@@ -130,10 +132,27 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
         multiplier,
       );
 
+      /*
+         ★★ 실제로 거래소에 나간 기초자산 수량 = 보낸 계약 수 × 승수.
+
+           요청 수량은 계약 단위로 **내림**된다(계약은 정수다). 그래서 요청값과
+           실제 주문량이 다를 수 있다. 화면·주문내역에는 실제 나간 값을 써야 한다.
+      */
+      const submittedQuantity = D(result.contractsSent).mul(D(String(multiplier))).toString();
+      const droppedQuantity = D(req.quantity).minus(D(submittedQuantity));
+
       this.audit('order.accepted', {
         clientOrderId: result.clientOid,
         orderId: result.orderId,
         contractsSent: result.contractsSent,
+        /*
+           ★ 요청 수량과 실제 나간 수량을 함께 남긴다. 내림으로 버려진 양이
+             있으면 그 사실이 기록에 있어야 한다 — 조용히 줄이면 나중에
+             "내가 주문한 수량과 다르다" 는 문의를 추적할 수 없다.
+        */
+        requestedQuantity: req.quantity,
+        submittedQuantity,
+        droppedQuantity: droppedQuantity.isZero() ? undefined : droppedQuantity.toString(),
         // 리베이트가 집계되지 않는 주문은 수익이 0 이다. 기록으로 남긴다.
         brokerAttached: result.brokerAttached,
         /*
@@ -152,7 +171,19 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
         side: req.side,
         type: req.type,
         price: req.price,
-        quantity: req.quantity,
+        /*
+           ★★ **실제로 거래소에 나간 수량**을 넣는다. 요청값이 아니다.
+
+             KuCoin 선물은 계약 수(정수)로만 주문한다. 그래서 요청 수량은 승수
+             단위로 **내림**된다(0.0035 BTC → 3계약 = 0.003 BTC). 전에는 여기에
+             req.quantity 를 그대로 넣어서, 화면·주문내역이 실제보다 **큰 수량**을
+             보여줬다. 이용자는 자기가 0.0035 를 들고 있다고 믿고 손익과 청산가를
+             계산한다 — 실제 포지션과 다른 숫자다.
+
+           ★ 내림으로 버려진 양이 있으면 감사기록에 남긴다(아래). 조용히 줄이는
+             것과 줄었다고 말하는 것은 다르다.
+        */
+        quantity: submittedQuantity,
         // 제출 응답에는 체결량이 없다. 0 으로 두고 조회로 갱신한다 —
         // 추측한 체결량을 화면에 띄우면 사용자가 그 값을 믿는다.
         filledQuantity: '0',

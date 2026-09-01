@@ -161,3 +161,51 @@ describe('BRACKET-SPOT 현물은 진입 첨부 브래킷이 없다', () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe('QTY-TRUTH 주문 수량은 실제로 나간 값이어야 한다', () => {
+  /*
+     ★★ KuCoin 선물은 계약(정수)로만 주문한다. 요청 수량은 승수 단위로 내림된다.
+       전에는 NormalizedOrder.quantity 에 요청값을 그대로 반사해서, 화면과
+       주문내역이 실제보다 **큰 수량**을 보여줬다. 이용자는 그 값으로 손익과
+       청산가를 계산한다.
+  */
+  it('[1] ★★ 내림이 일어나면 실제 나간 수량을 보고한다 (요청값 반사 금지)', async () => {
+    const { impl } = capture();
+    // 승수 0.001 → 0.0035 요청은 3계약(0.003)만 나간다.
+    const a = new KucoinTradingAdapter({
+      fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 0.001,
+    });
+    const out = await a.submitOrder(CTX, {
+      ...REQ, symbol: 'BTCUSDT', quantity: '0.0035', price: '64000',
+    } as never);
+    if (out.status !== 'ACCEPTED') throw new Error('expected ACCEPTED, got ' + out.status);
+    expect(out.order.quantity).toBe('0.003');
+    expect(out.order.quantity).not.toBe('0.0035');
+  });
+
+  it('[2] 내림이 없으면 요청 수량과 같다', async () => {
+    const { impl } = capture();
+    const a = new KucoinTradingAdapter({
+      fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 0.001,
+    });
+    const out = await a.submitOrder(CTX, {
+      ...REQ, symbol: 'BTCUSDT', quantity: '0.003', price: '64000',
+    } as never);
+    if (out.status !== 'ACCEPTED') throw new Error('expected ACCEPTED');
+    expect(out.order.quantity).toBe('0.003');
+  });
+
+  it('[3] 버려진 수량을 감사기록에 남긴다', async () => {
+    const { impl } = capture();
+    const onAudit = vi.fn();
+    const a = new KucoinTradingAdapter({
+      fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 0.001, onAudit,
+    });
+    await a.submitOrder(CTX, { ...REQ, symbol: 'BTCUSDT', quantity: '0.0035', price: '64000' } as never);
+    const accepted = onAudit.mock.calls.find((c) => c[0] === 'order.accepted');
+    const detail = accepted![1] as { requestedQuantity?: string; submittedQuantity?: string; droppedQuantity?: string };
+    expect(detail.requestedQuantity).toBe('0.0035');
+    expect(detail.submittedQuantity).toBe('0.003');
+    expect(detail.droppedQuantity).toBe('0.0005');
+  });
+});
