@@ -56,6 +56,7 @@
       oe_equiv_futures: 'Margin {margin} {quote} × {lev}x → position {notional} {quote} = {qty} {base}',
       fld_tp: 'TP',
       fld_sl: 'SL',
+      oe_err_no_exchange: 'Connect your exchange account first — orders run on your own exchange, so we need your API keys before you can trade.',
       ref_rebate_pending_title: 'Rebate sharing has not started',
       ref_rebate_pending_body: 'Inviting friends is tracked from today, but there is no rebate share to pay out yet — so no rate, payout threshold or settlement date is promised here. If a points reward is running, it is shown above. We will state the terms here before any sharing begins.',
       login_google: 'Continue with Google',

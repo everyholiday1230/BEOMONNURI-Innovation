@@ -56,6 +56,7 @@
       oe_equiv_futures: '証拠金 {margin} {quote} × {lev}倍 → 建玉 {notional} {quote} = {qty} {base}',
       fld_tp: '利確',
       fld_sl: '損切り',
+      oe_err_no_exchange: 'まず取引所アカウントを接続してください。注文はお客様自身の取引所で実行されるため、取引にはAPIキーが必要です。',
       ref_rebate_pending_title: 'リベート分配はまだ開始していません',
       ref_rebate_pending_body: '友達の招待は今日から記録されますが、分配できるリベートはまだありません。そのため料率・支払い下限・精算日はここでは約束しません。ポイント特典が実施中の場合は上に表示されます。分配を始める前に、条件をここに明記します。',
       login_google: 'Google で続行',

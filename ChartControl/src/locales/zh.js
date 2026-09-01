@@ -60,6 +60,7 @@
       oe_equiv_futures: '保证金 {margin} {quote} × {lev}倍 → 仓位 {notional} {quote} = {qty} {base}',
       fld_tp: '止盈',
       fld_sl: '止损',
+      oe_err_no_exchange: '请先连接交易所账户。订单在您自己的交易所执行，因此交易前需要您的 API 密钥。',
       ref_rebate_pending_title: '返佣分成尚未开始',
       ref_rebate_pending_body: '邀请好友从今天开始记录，但目前还没有可分配的返佣，因此这里不承诺比例、起付金额或结算日期。如果有积分奖励，会显示在上方。开始分成之前，我们会在这里写明条件。',
       login_google: '使用 Google 继续',

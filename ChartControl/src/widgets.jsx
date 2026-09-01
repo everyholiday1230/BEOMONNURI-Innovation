@@ -1081,7 +1081,26 @@
     if (symbolUnlisted) errors.push({ level: 'danger', text: t('oe_err_not_listed') });
     if (sz <= 0) errors.push({ level: 'warn', text: t('oe_err_no_size') });
     if (totalUSDT < 5) errors.push({ level: 'warn', text: t('oe_err_min_notional') });
-    if (requiredMargin > assets.availableBalance) errors.push({ level: 'danger', text: t('oe_err_insufficient', { amount: fmt(requiredMargin - assets.availableBalance) }) });
+    /*
+       ★★ 잔고 부족과 "거래소를 아직 연결하지 않았다" 는 다른 문제다.
+
+         키를 연결하지 않으면 가용 잔고가 0 이므로 아래 검사가 항상 걸리고,
+         신규 이용자는 첫 화면에서 "잔고가 321.47 USDT 부족합니다" 를 본다.
+         자기 돈에 문제가 있는 것처럼 읽히지만 실제 원인은 연결이 없는 것이다 —
+         무엇을 해야 하는지도 알 수 없다. 가입 직후 이탈하는 지점이다.
+
+       ★ 그래서 연결이 없으면 그 사실을 먼저 말하고 갈 곳(지갑)을 알려준다.
+         잔고 부족 문구는 실제로 연결된 뒤에만 의미가 있다.
+    */
+    const acctLive = Boolean(window.QTAccount && window.QTAccount.isLive && window.QTAccount.isLive());
+    /* 미리보기(백엔드 없음)에서는 목업 잔고로 흐름을 보여주므로 이 안내를 띄우지 않는다. */
+    const needsExchange = !acctLive && Boolean(window.QTMockPolicy && !window.QTMockPolicy.allowMockData());
+
+    if (needsExchange) {
+      errors.push({ level: 'danger', text: t('oe_err_no_exchange'), cta: '#/wallet' });
+    } else if (requiredMargin > assets.availableBalance) {
+      errors.push({ level: 'danger', text: t('oe_err_insufficient', { amount: fmt(requiredMargin - assets.availableBalance) }) });
+    }
     if (Math.abs(priceDev) > 3) errors.push({ level: 'warn', text: t('oe_err_price_dev', { pct: `${priceDev >= 0 ? '+' : ''}${priceDev.toFixed(2)}` }) });
     if (lev > 50) errors.push({ level: 'warn', text: t('oe_err_high_leverage', { lev: lev }) });
 
@@ -1366,7 +1385,21 @@
             {errors.map((err, i) => (
               <div key={i} className={`oe-warn ${err.level==='danger'?'oe-warn--danger':''}`}>
                 <span className="oe-warn__icon"><I.Alert size={12}/></span>
-                <span>{err.text}</span>
+                <span>
+                  {err.text}
+                  {/*
+                     ★ 갈 곳이 있으면 링크를 붙인다. 문장만 주면 이용자가 연결
+                       화면을 스스로 찾아야 한다 — 그게 원래 문제였다.
+                  */}
+                  {err.cta && (
+                    <>
+                      {' '}
+                      <a href={err.cta} style={{color:'var(--color-brand)', fontWeight:600}}>
+                        {t('acct_connect_cta')}
+                      </a>
+                    </>
+                  )}
+                </span>
               </div>
             ))}
 
