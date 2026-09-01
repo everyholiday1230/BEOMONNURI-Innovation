@@ -22,6 +22,18 @@ describe('payment providers (pure)', () => {
     expect(p.crypto).toBeTruthy();
   });
 
+  it('★ Toss is no longer offered even when its keys are present (심사 탈락, 운영 결정)', () => {
+    /*
+       토스 자격증명이 환경에 남아 있어도 제공자를 만들지 않는다. 이 값이 truthy 가
+       되면 결제 화면에 토스 버튼이 다시 뜨고(supported.toss), 이용자가 쓸 수 없는
+       수단으로 결제를 시도한다.
+    */
+    const p = resolvePaymentProviders({
+      tossClientKey: 'ck_test', tossSecretKey: 'sk_test',
+    } as Parameters<typeof resolvePaymentProviders>[0]);
+    expect(p.toss).toBeUndefined();
+  });
+
   it('CryptoInvoiceProvider.verifyWebhook accepts a correct HMAC and rejects a wrong one', () => {
     const secret = 'test-webhook-secret';
     const c = new CryptoInvoiceProvider({ webhookSecret: secret });

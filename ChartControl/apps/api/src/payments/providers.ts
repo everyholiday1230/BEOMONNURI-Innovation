@@ -168,9 +168,23 @@ export function resolvePaymentProviders(env: {
       mode: env.paypalMode === 'live' ? 'live' : 'sandbox',
     });
   }
-  if (env.tossClientKey && env.tossSecretKey) {
-    out.toss = new TossProvider({ clientKey: env.tossClientKey, secretKey: env.tossSecretKey });
-  }
+  /*
+     ★★ 토스는 더 이상 제공하지 않는다 (심사 탈락, 운영 결정).
+
+       제공자를 만들지 않으므로 /me/topup/toss/* 라우트가 503 을 주고, 화면도
+       결제 수단 목록에서 토스를 감춘다(pages-points.jsx 가 이 값을 본다).
+
+     ★ 왜 코드를 통째로 지우지 않는가
+       · point_orders.provider 에 'toss' CHECK 제약과 **과거 주문 행**이 남아 있다
+         (migration 0034). 타입에서 'toss' 를 빼면 지난 결제 이력을 읽을 수 없다.
+       · 다른 국내 PG(네이버페이 등)로 재신청할 계획이 있어, 붙일 자리를 남겨 둔다.
+       그래서 TossProvider 클래스와 타입은 남기고 **연결만 끊는다.**
+
+     ★ 되살리는 방법: 아래 두 줄의 주석을 풀고 TOSS_CLIENT_KEY/TOSS_SECRET_KEY 를 넣는다.
+  */
+  // if (env.tossClientKey && env.tossSecretKey) {
+  //   out.toss = new TossProvider({ clientKey: env.tossClientKey, secretKey: env.tossSecretKey });
+  // }
   if (env.cryptoWebhookSecret) {
     out.crypto = new CryptoInvoiceProvider({
       webhookSecret: env.cryptoWebhookSecret,
