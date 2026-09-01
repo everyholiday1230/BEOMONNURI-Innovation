@@ -200,3 +200,58 @@ describe('주문 취소', () => {
     expect(r.canceled).toEqual(['o1', 'o2']);
   });
 });
+
+describe('마진 모드 — 주문이 거부되던 실제 원인', () => {
+  /*
+     ★★ 고객 주문이 이 사유로 계속 거부됐다(trade_decisions 기록):
+         "The order's margin mode does not match the selected one."
+
+       원인: ISOLATED 를 고른 이용자에게는 marginMode 를 **아예 보내지 않았다.**
+       그러면 KuCoin 이 자기 기본값으로 처리하고, 그 값이 심볼 설정과 다르면
+       거부한다. 보내지 않는 것은 "아무 값" 이 아니라 "거래소 기본값" 이다.
+  */
+  it('★★ isolated 도 명시해서 보낸다 (예전에는 아무 것도 안 보냈다)', async () => {
+    const { impl, calls } = captureFetch();
+    const c = new KucoinFuturesPrivate({ fetchImpl: impl });
+    await c.submitOrder(
+      USER,
+      { clientOid: 'c-1', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.01', leverage: 5, marginMode: 'isolated' },
+      0.001,
+    );
+    expect((calls[0]!.body as { marginMode?: string }).marginMode).toBe('ISOLATED');
+  });
+
+  it('cross 는 CROSS 로 보낸다', async () => {
+    const { impl, calls } = captureFetch();
+    const c = new KucoinFuturesPrivate({ fetchImpl: impl });
+    await c.submitOrder(
+      USER,
+      { clientOid: 'c-2', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.01', leverage: 5, marginMode: 'cross' },
+      0.001,
+    );
+    expect((calls[0]!.body as { marginMode?: string }).marginMode).toBe('CROSS');
+  });
+
+  it('마진 모드를 주지 않아도 값이 비지 않는다 (기본 ISOLATED)', async () => {
+    const { impl, calls } = captureFetch();
+    const c = new KucoinFuturesPrivate({ fetchImpl: impl });
+    await c.submitOrder(
+      USER,
+      { clientOid: 'c-3', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.01', leverage: 5 },
+      0.001,
+    );
+    expect((calls[0]!.body as { marginMode?: string }).marginMode).toBe('ISOLATED');
+  });
+
+  it('getMarginMode 는 거래소 설정을 읽는다', async () => {
+    const { impl } = captureFetch({ symbol: 'XBTUSDTM', marginMode: 'CROSS' });
+    const c = new KucoinFuturesPrivate({ fetchImpl: impl });
+    expect(await c.getMarginMode(USER, 'BTCUSDT')).toBe('cross');
+  });
+
+  it('getMarginMode 는 실패해도 던지지 않는다 (주문을 막지 않는다)', async () => {
+    const impl = (async () => { throw new Error('network'); }) as unknown as typeof fetch;
+    const c = new KucoinFuturesPrivate({ fetchImpl: impl });
+    expect(await c.getMarginMode(USER, 'BTCUSDT')).toBeNull();
+  });
+});

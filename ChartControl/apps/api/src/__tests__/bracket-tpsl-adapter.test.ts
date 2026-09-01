@@ -39,17 +39,30 @@ const REQ = {
 function capture(body: unknown = { orderId: 'o1', clientOid: 'c1' }) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
   const impl = (async (url: URL | string, init?: RequestInit) => {
-    calls.push({
-      url: String(url),
-      body: init?.body ? JSON.parse(String(init.body)) : {},
-    });
+    const u = String(url);
+    calls.push({ url: u, body: init?.body ? JSON.parse(String(init.body)) : {} });
+    /*
+       ★ 어댑터는 주문 전에 마진 모드를 조회한다(거래소 설정과 맞추기 위해).
+         그래서 calls[0] 은 더 이상 주문이 아니다 — 조회에도 응답하고,
+         주문 호출은 orderCall() 로 찾는다.
+    */
+    if (u.includes('/position/getMarginMode')) {
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({ code: '200000', data: { symbol: 'XRPUSDTM', marginMode: 'ISOLATED' } }),
+      } as unknown as Response;
+    }
     return {
       ok: true,
       status: 200,
       text: async () => JSON.stringify({ code: '200000', data: body }),
     } as unknown as Response;
   }) as unknown as typeof fetch;
-  return { impl, calls };
+  /** 주문(또는 st-orders) 호출. 없으면 undefined. */
+  const orderCall = () => calls.find((c) => /\/api\/v1\/(st-)?orders/.test(c.url));
+  /** 거래소로 나간 주문 요청만 센다(마진 모드 조회는 제외). */
+  const orderCalls = () => calls.filter((c) => /\/api\/v1\/(st-)?orders/.test(c.url));
+  return { impl, calls, orderCall, orderCalls };
 }
 
 /** XRP 는 1계약 = 1 XRP. */
@@ -57,31 +70,31 @@ const multiplierOf = () => 1;
 
 describe('BRACKET-FUT 선물 브래킷 TP/SL', () => {
   it('[1] ★★ TP/SL 이 있으면 st-orders 로 나간다 — 일반 경로는 이 필드를 무시한다', async () => {
-    const { impl, calls } = capture();
+    const { impl, orderCall } = capture();
     const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf });
     const out = await a.submitOrder(CTX, {
       ...REQ, takeProfitPrice: '2.4000', stopLossPrice: '1.8000',
     } as never);
     expect(out.status).toBe('ACCEPTED');
-    expect(calls[0]!.url).toContain('/api/v1/st-orders');
+    expect(orderCall()!.url).toContain('/api/v1/st-orders');
   });
 
   it('[2] ★★ long 의 익절은 위, 손절은 아래로 매핑된다', async () => {
-    const { impl, calls } = capture();
+    const { impl, orderCall } = capture();
     const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf });
     await a.submitOrder(CTX, { ...REQ, takeProfitPrice: '2.4000', stopLossPrice: '1.8000' } as never);
-    expect(calls[0]!.body.triggerStopUpPrice).toBe('2.4000');
-    expect(calls[0]!.body.triggerStopDownPrice).toBe('1.8000');
+    expect(orderCall()!.body.triggerStopUpPrice).toBe('2.4000');
+    expect(orderCall()!.body.triggerStopDownPrice).toBe('1.8000');
   });
 
   it('[3] ★★ short 은 반대다 — 뒤집히면 손절 자리에 익절이 걸린다', async () => {
-    const { impl, calls } = capture();
+    const { impl, orderCall } = capture();
     const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf });
     await a.submitOrder(CTX, {
       ...REQ, side: 'short', takeProfitPrice: '1.8000', stopLossPrice: '2.4000',
     } as never);
-    expect(calls[0]!.body.triggerStopDownPrice).toBe('1.8000');
-    expect(calls[0]!.body.triggerStopUpPrice).toBe('2.4000');
+    expect(orderCall()!.body.triggerStopDownPrice).toBe('1.8000');
+    expect(orderCall()!.body.triggerStopUpPrice).toBe('2.4000');
   });
 
   it('[4] ★★ 주문 결과에는 "등록된" 값만 실린다', async () => {
@@ -96,21 +109,22 @@ describe('BRACKET-FUT 선물 브래킷 TP/SL', () => {
   });
 
   it('[5] TP/SL 이 없으면 일반 주문 경로 그대로다', async () => {
-    const { impl, calls } = capture();
+    const { impl, orderCall } = capture();
     const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf });
     const out = await a.submitOrder(CTX, { ...REQ } as never);
-    expect(calls[0]!.url).not.toContain('st-orders');
+    expect(orderCall()!.url).not.toContain('st-orders');
     if (out.status !== 'ACCEPTED') throw new Error('expected ACCEPTED');
     expect(out.order.stopLossPrice).toBeNull();
   });
 
   it('[6] 방향이 뒤집힌 요청은 REJECTED 로 돌아온다 (주문은 나가지 않는다)', async () => {
-    const { impl, calls } = capture();
+    const { impl, orderCalls } = capture();
     const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf });
     // long 인데 익절(1.8)이 진입가(2.0)보다 낮다 → 즉시 손실로 닫힌다.
     const out = await a.submitOrder(CTX, { ...REQ, takeProfitPrice: '1.8000' } as never);
     expect(out.status).toBe('REJECTED');
-    expect(calls).toHaveLength(0);
+    // 거래소로 주문이 나가지 않아야 한다(마진 모드 조회는 있을 수 있다).
+    expect(orderCalls()).toHaveLength(0);
   });
 
   it('[7] 감사기록에 어느 엔드포인트로 나갔는지 남는다', async () => {
@@ -207,5 +221,69 @@ describe('QTY-TRUTH 주문 수량은 실제로 나간 값이어야 한다', () =
     expect(detail.requestedQuantity).toBe('0.0035');
     expect(detail.submittedQuantity).toBe('0.003');
     expect(detail.droppedQuantity).toBe('0.0005');
+  });
+});
+
+describe('MARGIN-ALIGN 주문 마진 모드를 거래소 설정에 맞춘다', () => {
+  /*
+     ★★ 실제 장애: 이용자가 화면에서 ISOLATED 를 골랐지만 거래소의 그 심볼은
+       CROSS 였다. KuCoin 은 불일치를 거부한다 —
+       "The order's margin mode does not match the selected one."
+       고객은 "매매가 안 된다" 고만 알 수 있었다.
+  */
+  function captureWithMode(mode: string | null) {
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const impl = (async (url: URL | string, init?: RequestInit) => {
+      const u = String(url);
+      calls.push({ url: u, body: init?.body ? JSON.parse(String(init.body)) : {} });
+      // 마진 모드 조회 요청이면 설정값을 돌려준다.
+      if (u.includes('/position/getMarginMode')) {
+        if (mode === null) return { ok: false, status: 500, text: async () => '{}' } as unknown as Response;
+        return {
+          ok: true, status: 200,
+          text: async () => JSON.stringify({ code: '200000', data: { symbol: 'XRPUSDTM', marginMode: mode } }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({ code: '200000', data: { orderId: 'o1', clientOid: 'c1' } }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { impl, calls };
+  }
+  const orderBody = (calls: { url: string; body: Record<string, unknown> }[]) =>
+    calls.find((c) => c.url.includes('/api/v1/orders'))?.body ?? {};
+
+  it('[1] ★★ 거래소가 CROSS 면 이용자가 ISOLATED 를 골랐어도 CROSS 로 보낸다', async () => {
+    const { impl, calls } = captureWithMode('CROSS');
+    const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 1 });
+    const out = await a.submitOrder(CTX, { ...REQ, marginMode: 'isolated' } as never);
+    expect(out.status).toBe('ACCEPTED');
+    expect(orderBody(calls).marginMode).toBe('CROSS');
+  });
+
+  it('[2] 거래소가 ISOLATED 면 ISOLATED 로 보낸다', async () => {
+    const { impl, calls } = captureWithMode('ISOLATED');
+    const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 1 });
+    await a.submitOrder(CTX, { ...REQ, marginMode: 'cross' } as never);
+    expect(orderBody(calls).marginMode).toBe('ISOLATED');
+  });
+
+  it('[3] 조회가 실패하면 이용자 선택으로 진행한다 (주문을 막지 않는다)', async () => {
+    const { impl, calls } = captureWithMode(null);
+    const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 1 });
+    const out = await a.submitOrder(CTX, { ...REQ, marginMode: 'cross' } as never);
+    expect(out.status).toBe('ACCEPTED');
+    expect(orderBody(calls).marginMode).toBe('CROSS');
+  });
+
+  it('[4] 정렬이 일어나면 감사기록에 남는다', async () => {
+    const { impl } = captureWithMode('CROSS');
+    const onAudit = vi.fn();
+    const a = new KucoinTradingAdapter({ fetchImpl: impl, liveEnabled: () => true, multiplierOf: () => 1, onAudit });
+    await a.submitOrder(CTX, { ...REQ, marginMode: 'isolated' } as never);
+    const ev = onAudit.mock.calls.find((c) => c[0] === 'order.margin_mode_aligned');
+    expect(ev).toBeTruthy();
+    expect(ev![1]).toMatchObject({ requested: 'isolated', exchange: 'cross' });
   });
 });

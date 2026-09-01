@@ -669,7 +669,21 @@ export class KucoinFuturesPrivate {
     if (req.reduceOnly) body.reduceOnly = true;
     if (req.postOnly) body.postOnly = true;
     if (req.timeInForce) body.timeInForce = req.timeInForce.toUpperCase();
-    if (req.marginMode === 'cross') body.marginMode = 'CROSS';
+    /*
+       ★★ 마진 모드는 **항상 명시**한다.
+
+         전에는 `if (req.marginMode === 'cross') body.marginMode = 'CROSS'` 였다.
+         즉 ISOLATED 를 고른 이용자에게는 아무 것도 보내지 않았고, KuCoin 은
+         자기 기본값으로 처리했다. 그 값이 그 심볼에 설정된 모드와 다르면
+         주문이 이렇게 거부된다:
+
+           "The order's margin mode does not match the selected one."
+
+         실제로 이 오류로 고객 주문이 계속 실패했다(trade_decisions 기록으로 확인).
+         보내지 않는 것은 "아무 값" 이 아니라 "거래소 기본값" 이라서, 사용자가
+         고른 것과 조용히 달라진다.
+    */
+    body.marginMode = req.marginMode === 'cross' ? 'CROSS' : 'ISOLATED';
     /*
        ★★ 발동(스톱) 주문. stopPrice 가 있으면 KuCoin 발동 주문 경로로 보낸다.
 
@@ -779,6 +793,38 @@ export class KucoinFuturesPrivate {
       takeProfitPrice: endpoint === 'st-orders' && tp !== null ? tp.raw : null,
       stopLossPrice: endpoint === 'st-orders' && sl !== null ? sl.raw : null,
     };
+  }
+
+  /**
+   * 심볼의 마진 모드 조회. `GET /api/v2/position/getMarginMode`
+   *
+   * ★★ 왜 필요한가
+   *
+   *   KuCoin 은 주문의 marginMode 가 **그 심볼에 설정된 모드와 같아야** 받아준다.
+   *   다르면 "The order's margin mode does not match the selected one" 으로 거부한다.
+   *   우리 화면의 CROSS/ISOLATED 토글은 이용자 선택일 뿐이고, 거래소에 설정된
+   *   값과 다를 수 있다 — 그 상태로 주문하면 계속 실패한다(실제로 그랬다).
+   *
+   * ★ 조회에 실패하면 **던지지 않고 null** 을 돌려준다. 마진 모드를 모르는 것이
+   *   주문을 막을 이유는 아니다 — 호출자가 이용자 선택으로 진행하면 된다.
+   */
+  async getMarginMode(user: UserCredentials, symbol: string): Promise<'cross' | 'isolated' | null> {
+    const exSymbol = toKucoinSymbol(symbol);
+    if (!exSymbol) return null;
+    try {
+      const d = await this.request<{ symbol?: string; marginMode?: string }>(
+        user,
+        'GET',
+        '/api/v2/position/getMarginMode',
+        { query: { symbol: exSymbol } },
+      );
+      const m = String(d?.marginMode ?? '').toUpperCase();
+      if (m === 'CROSS') return 'cross';
+      if (m === 'ISOLATED') return 'isolated';
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**

@@ -101,9 +101,37 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
       brokerAttached: this.brokerAttached,
     });
 
+    /*
+       ★★ 주문의 마진 모드를 **거래소에 설정된 값**에 맞춘다.
+
+         KuCoin 은 주문의 marginMode 가 그 심볼의 설정과 다르면 거부한다
+         ("The order's margin mode does not match the selected one"). 우리 화면의
+         CROSS/ISOLATED 토글은 이용자 선택일 뿐이라 거래소 설정과 어긋날 수 있고,
+         그 상태에서는 **주문이 계속 실패한다** — 고객 기록(trade_decisions)에서
+         이 사유로만 4건이 연속 거부된 것을 확인했다.
+
+       ★ 그래서 주문 직전에 실제 모드를 읽어 그것으로 보낸다. 조회가 실패하면
+         (null) 이용자 선택을 그대로 쓴다 — 모른다고 주문을 막지는 않는다.
+
+       ★ 거래소 설정을 우리가 바꾸지는 않는다. 마진 모드 변경은 기존 포지션의
+         위험 계산을 바꾸는 행위라, 이용자가 거래소에서 직접 정할 일이다.
+         우리가 조용히 바꾸면 이용자가 의도하지 않은 조건으로 포지션을 갖게 된다.
+    */
+    const cred = toKucoinCredential(ctx.credential);
+    const exchangeMode = await this.client.getMarginMode(cred, req.symbol);
+    const effectiveMarginMode = exchangeMode ?? req.marginMode;
+    if (exchangeMode && exchangeMode !== req.marginMode) {
+      this.audit('order.margin_mode_aligned', {
+        clientOrderId: req.clientOrderId,
+        symbol: req.symbol,
+        requested: req.marginMode,
+        exchange: exchangeMode,
+      });
+    }
+
     try {
       const result = await this.client.submitOrder(
-        toKucoinCredential(ctx.credential),
+        cred,
         {
           clientOid: req.clientOrderId,
           symbol: req.symbol,
@@ -115,7 +143,7 @@ export class KucoinTradingAdapter implements IExchangeTradingAdapter {
           reduceOnly: req.reduceOnly,
           postOnly: req.postOnly,
           timeInForce: req.timeInForce,
-          marginMode: req.marginMode,
+          marginMode: effectiveMarginMode,
           stopPrice: req.stopPrice,
           stopDirection: req.stopDirection,
           stopPriceType: req.stopPriceType,

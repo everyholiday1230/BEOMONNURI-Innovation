@@ -37,7 +37,12 @@ function fakeFetch(handler?: (url: string, init?: RequestInit) => Response | Pro
     if (handler) return handler(String(input), init);
     return new Response(JSON.stringify({ code: '200000', data: { orderId: 'oid', clientOid: REQ.clientOrderId } }), { status: 200 });
   });
-  return { impl: impl as unknown as typeof fetch, calls };
+  /*
+     ★ 어댑터는 주문 전에 마진 모드를 조회한다(거래소 설정과 맞추기 위해).
+       "주문이 나갔는가" 를 세려면 그 조회를 빼고 세야 한다.
+  */
+  const orderCalls = () => calls.filter((c) => /\/api\/v1\/(st-)?orders/.test(c));
+  return { impl: impl as unknown as typeof fetch, calls, orderCalls };
 }
 
 function make(opts: {
@@ -74,18 +79,18 @@ describe('실주문 잠금', () => {
   it('킬스위치를 런타임에 눌러도 즉시 반영된다', async () => {
     // 부팅 시점 값을 캐시하면 킬스위치가 무력해진다. 매 호출마다 확인해야 한다.
     let allowed = true;
-    const { impl, calls } = fakeFetch();
+    const { impl, orderCalls } = fakeFetch();
     const a = make({ live: () => allowed, multiplier: 0.001, fetchImpl: impl });
 
     const first = await a.submitOrder(CTX, REQ);
     expect(first.status).toBe('ACCEPTED');
-    expect(calls).toHaveLength(1);
+    expect(orderCalls()).toHaveLength(1);
 
     allowed = false; // 킬스위치 ON
     const second = await a.submitOrder(CTX, { ...REQ, clientOrderId: 'qt-test-2' });
     expect(second.status).toBe('REJECTED');
-    // 두 번째 요청은 나가지 않아야 한다.
-    expect(calls).toHaveLength(1);
+    // 두 번째 주문은 거래소로 나가지 않아야 한다.
+    expect(orderCalls()).toHaveLength(1);
   });
 
   it('취소도 잠금을 따른다', async () => {
