@@ -56,6 +56,8 @@
       oe_equiv_futures: 'Margin {margin} {quote} × {lev}x → position {notional} {quote} = {qty} {base}',
       fld_tp: 'TP',
       fld_sl: 'SL',
+      ref_rebate_pending_title: 'Rebate sharing has not started',
+      ref_rebate_pending_body: 'Inviting friends is tracked from today, but there is no rebate share to pay out yet — so no rate, payout threshold or settlement date is promised here. If a points reward is running, it is shown above. We will state the terms here before any sharing begins.',
       login_google: 'Continue with Google',
       login_google_failed: 'Google sign-in did not complete ({reason}). Please try again or use your email and password.',
       err_boundary_title: 'This screen could not be displayed',

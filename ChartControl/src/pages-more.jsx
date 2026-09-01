@@ -2033,6 +2033,16 @@
     const referralLink = refOn ? ref.link : null;
     const refSum = (ref && ref.summary) || null;
     const refSet = (ref && ref.settings) || null;
+    /*
+       ★★ 리베이트 분배가 **실제로** 시작됐는지.
+
+         서버는 enabled:true 를 항상 준다(제도 자체는 존재한다는 뜻). 하지만 분배
+         비율이 0 이면 받는 것이 없다 — 그 상태에서 지급 조건·통화·정산일을
+         설명하면 "0% 를 매월 1일에 지급한다" 같은 말이 된다.
+
+       ★ 비율이 0 보다 클 때만 지급 안내를 보여준다.
+    */
+    const rebateLive = Boolean(refSet && Number(refSet.sharePct) > 0);
     /* 포인트 보상(있으면). 현금 배분(sharePct) 대신 이걸 우선 표시한다. */
     const refPoints = (ref && ref.pointsReward) || null;
 
@@ -2194,7 +2204,7 @@
            잔액이 자동으로 쌓이고 지갑에 입금될 것으로 기대한다 — 우리는
            비수탁이라 사용자 계정에 돈을 넣을 방법이 없다.
         */}
-        {refLive && refOn && (
+        {refLive && refOn && rebateLive && (
           <div style={{
             padding:'14px 16px', borderRadius:8, fontSize:12.5, lineHeight:1.85,
             background:'color-mix(in srgb, var(--color-warning) 10%, transparent)',
@@ -2213,6 +2223,35 @@
                 <strong>{t('ref_operator_note')}</strong> {refSet.payoutNote}
               </div>
             )}
+          </div>
+        )}
+
+        {/*
+           ★★ 리베이트 분배가 아직 시작되지 않았을 때(sharePct = 0).
+
+             전에는 이 상태에서도 위 안내가 그대로 떴다. 그 결과 화면이 서로
+             모순되는 말을 했다:
+               · "당신은 거래소가 우리에게 주는 금액의 **0%** 를 받습니다"
+               · "**0.00 USDT** 를 넘으면 지급합니다"
+               · "매월 1일 정산 · **지갑으로 USDT 지급**" ↔ "우리에게는 지급할
+                 지갑이 없습니다" (같은 화면의 다른 줄)
+               · "친구가 **KYC** 를 완료하면" ↔ KYC 기능은 존재하지 않는다
+             0% 를 준다고 적는 것은 약속이 아니라 혼란이고, 없는 KYC·지갑·월 정산을
+             말하는 것은 지키지 못할 약속이다.
+
+           ★ 그래서 분배가 실제로 켜질 때까지는 **지금 사실인 것만** 말한다:
+             제도가 준비 중이라는 것, 그리고 포인트 보상이 켜져 있으면 그 내용.
+        */}
+        {refLive && refOn && !rebateLive && (
+          <div style={{
+            padding:'14px 16px', borderRadius:8, fontSize:12.5, lineHeight:1.8,
+            background:'var(--color-bg-surface)', border:'1px solid var(--color-border-subtle)',
+            color:'var(--color-text-secondary)',
+          }}>
+            <div style={{fontWeight:600, marginBottom:4, color:'var(--color-text-primary)'}}>
+              {t('ref_rebate_pending_title')}
+            </div>
+            <div>{t('ref_rebate_pending_body')}</div>
           </div>
         )}
 
@@ -2237,7 +2276,7 @@
              다음 단계를 목표로 활동하는데 그 단계가 존재하지 않는다.
              제도가 켜져 있으면 현재 조건 하나만, 꺼져 있으면 원래 표를 둔다.
           */}
-          {refLive && refOn ? (
+          {refLive && refOn && rebateLive ? (
             <window.SectionCard title={t('referral_a0193f')}>
               <div style={{display:'flex', flexDirection:'column', gap:10}}>
                 <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'var(--color-brand-subtle)', borderRadius:4, border:'1px solid var(--color-brand)'}}>
@@ -2319,14 +2358,34 @@
                 <li>{t('ref_step_1')}</li>
                 <li>{t('ref_step_2')}</li>
                 <li>{t('ref_step_3')}</li>
-                <li>{t('ref_step_4')}</li>
-                <li>{t('ref_step_5', { min: refSet ? fmt(refSet.minPayout, 2) : 0, cur: refSet ? refSet.payoutCurrency : '' })}</li>
+                {/*
+                   ★ 리베이트 수익·지급 단계는 분배가 실제로 켜졌을 때만 말한다.
+                     비율이 0 이면 "거래하면 우리가 리베이트를 받고, 당신 몫을
+                     0.00 USDT 넘을 때 보낸다" 가 되어 아무 의미가 없다.
+                */}
+                {rebateLive && <li>{t('ref_step_4')}</li>}
+                {rebateLive && <li>{t('ref_step_5', { min: refSet ? fmt(refSet.minPayout, 2) : 0, cur: refSet ? refSet.payoutCurrency : '' })}</li>}
               </ol>
             ) : (
+              /*
+                 ★★ 목업 3단계를 제거했다.
+
+                   원래 여기에 이런 문구가 있었다:
+                     · "친구가 링크로 가입하고 **KYC 를 완료**하면" — KYC 기능은 없다
+                     · "**매월 1일 정산 · 지갑으로 USDT 입금**" — 자동 지급 수단이
+                       없고, 비수탁이라 입금할 지갑 자체가 없다
+                   제도가 아직 안 켜진 배포(서버 미연결 포함)에서 이 목업이 그대로
+                   떠서, 위쪽의 정직한 고지("우리에게는 지급할 지갑이 없다")와
+                   같은 화면에서 정면으로 어긋났다. 한 화면이 두 가지를 말하면
+                   이용자는 유리한 쪽을 믿는다.
+
+                 ★ 그래서 상태와 무관하게 **사실인 단계만** 보여준다. 공유하고,
+                   그 코드로 가입하면 귀속된다 — 여기까지가 지금 실제로 일어나는
+                   일이다. 수익 분배 단계는 위에서 rebateLive 일 때만 붙는다.
+              */
               <ol style={{margin: 0, paddingLeft: 20, fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.8}}>
-                <li>{t('referral_047382')}</li>
-                <li>{t('referral_c57b53')}</li>
-                <li>{t('referral_5f1706')}</li>
+                <li>{t('ref_step_1')}</li>
+                <li>{t('ref_step_2')}</li>
               </ol>
             )}
 
