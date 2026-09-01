@@ -380,6 +380,16 @@
       */
       if (isLocked || widget.locked) return;
       onSelect && onSelect(widget.id);
+      /*
+         ★★ 크기를 조절한 창도 맨 위로 올린다.
+
+           전에는 raise 가 **드래그에만** 걸려 있었다. 그래서 창을 좌우로 늘리면
+           방금 만진 창이 옆 패널(코파일럿 등) **아래로 깔린 채** 커졌다 —
+           늘린 부분이 가려져서 무엇을 만졌는지 보이지 않는다.
+
+           마지막에 만진 창이 위에 온다는 규칙은 옮길 때든 늘릴 때든 같아야 한다.
+      */
+      onRaise && onRaise(widget.id);
       const rect = trackRef.current.getBoundingClientRect();
       const cellW = (rect.width - (cols - 1) * gap) / cols;
       const cellH = rowH;
@@ -389,7 +399,7 @@
       });
       e.preventDefault();
       e.stopPropagation();
-    }, [isLocked, widget, cols, gap, rowH, trackRef, onSelect]);
+    }, [isLocked, widget, cols, gap, rowH, trackRef, onSelect, onRaise]);
 
     useEffect(() => {
       if (!resize) return;
