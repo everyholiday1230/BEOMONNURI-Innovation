@@ -68,6 +68,7 @@ import { RiskWatchLoop } from './trading/risk-watch-loop';
 let riskWatch: RiskWatchLoop | null = null;
 import { assertProductionCredentialReadiness } from './trading/credential-source';
 import { createBrokerRebateReader } from './trading/broker-rebate-source';
+import { createKucoinRebateReader } from './trading/kucoin-rebate-source';
 import { assertNoDevFixtures } from './security/dev-fixture-guard';
 import { SqliteCredentialRepo } from './db/trading-repos';
 import { SqliteStrategyRepo } from './db/strategy-repo';
@@ -1462,10 +1463,36 @@ if (env.authEnabled) {
         };
       };
 
-      // G10 — operator rebate statement reader. Constructed once at mount time; `undefined` when this
-      // deployment has no operator BitMart credential. Never throws: a missing broker key must not stop
-      // the API from starting, it must make one admin endpoint report NOT_CONFIGURED.
-      const brokerRebates = createBrokerRebateReader({
+      /*
+         G10 — 운영자 리베이트(수익) 조회.
+
+         ★★ **KuCoin 을 먼저 본다.** 수익은 KuCoin 이 준다(브로커 리베이트).
+           전에는 BitMart 만 조회했는데, BitMart 는 2026-08-26 로 거래를 종료했고
+           프로덕션에 BITMART_ACCESS_KEY 도 없어서 수익 화면이 항상
+           NOT_CONFIGURED 였다 — 즉 얼마 벌었는지 확인할 방법이 없었다.
+
+         ★ BitMart 리더는 폴백으로 남긴다. 과거 정산을 조회해야 할 수 있고,
+           지우면 그 이력을 볼 수단이 없어진다.
+
+         ★ 둘 다 없으면 undefined — 해당 관리자 엔드포인트만 NOT_CONFIGURED 가
+           되고 API 기동은 막지 않는다.
+      */
+      const kucoinRebates = createKucoinRebateReader({
+        brokerId: env.kucoinBrokerName || env.bitmartBrokerId,
+        operator: {
+          apiKey: env.kucoinOperatorKey,
+          apiSecret: env.kucoinOperatorSecret,
+          passphrase: env.kucoinOperatorPassphrase,
+        },
+        broker: {
+          partner: env.kucoinBrokerPartner,
+          key: env.kucoinBrokerKey,
+          name: env.kucoinBrokerName,
+        },
+        ...(env.kucoinBrokerRest ? { restBase: env.kucoinBrokerRest } : {}),
+      });
+
+      const brokerRebates = kucoinRebates ?? createBrokerRebateReader({
         brokerId: env.bitmartBrokerId,
         isProduction: process.env.NODE_ENV === 'production',
         ...(process.env.BITMART_CREDENTIAL_SOURCE ? { source: process.env.BITMART_CREDENTIAL_SOURCE } : {}),
@@ -1475,7 +1502,13 @@ if (env.authEnabled) {
         ...(env.awsRegion ? { region: env.awsRegion } : {}),
       });
       console.log(
-        `[api] broker rebate reader: ${brokerRebates ? `configured (brokerId=${env.bitmartBrokerId})` : 'not configured (no operator BitMart credential)'}`,
+        `[api] broker rebate reader: ${
+          kucoinRebates
+            ? `kucoin (broker=${env.kucoinBrokerName})`
+            : brokerRebates
+              ? `bitmart fallback (brokerId=${env.bitmartBrokerId}) — NOTE: BitMart stopped trading 2026-08-26`
+              : 'not configured — operator revenue cannot be read'
+        }`,
       );
 
 
