@@ -3746,7 +3746,41 @@
       };
       load();
       const off = (window.QTAuth && window.QTAuth.subscribe) ? window.QTAuth.subscribe(load) : null;
-      return () => { cancelled = true; if (off) off(); };
+      /*
+         ★★ 주기적으로 다시 읽는다.
+
+           전에는 마운트할 때와 로그인 상태가 바뀔 때만 읽었다. 그래서 체결 알림·
+           문의 답변·포인트 지급 알림이 **이 화면을 다시 열기 전까지 나타나지
+           않았다.** 사용자는 "알림이 안 온다" 고 느낀다. 서버도 폴링 모델
+           (delivery=POLL)로 배포돼 있으므로 클라이언트가 물어봐야 한다.
+
+         ★ 탭이 숨겨져 있으면 쉰다. 보이지 않는 화면을 위해 계속 요청하면 서버
+           비용만 늘고 레이트리밋을 먹는다. 다시 보이는 순간 즉시 한 번 읽어
+           밀린 알림을 바로 채운다.
+      */
+      const POLL_MS = 20000;
+      let timer = null;
+      const stopPoll = () => { if (timer) { clearInterval(timer); timer = null; } };
+      const startPoll = () => {
+        stopPoll();
+        timer = setInterval(() => {
+          if (document.visibilityState === 'hidden') return;
+          load();
+        }, POLL_MS);
+      };
+      const onVisibility = () => {
+        if (document.visibilityState === 'hidden') { stopPoll(); return; }
+        load();
+        startPoll();
+      };
+      startPoll();
+      document.addEventListener('visibilitychange', onVisibility);
+      return () => {
+        cancelled = true;
+        if (off) off();
+        stopPoll();
+        document.removeEventListener('visibilitychange', onVisibility);
+      };
     }, []);
 
     /*

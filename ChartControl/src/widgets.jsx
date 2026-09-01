@@ -2242,9 +2242,19 @@
 
           <div style={{fontSize: 10, color:'var(--color-text-tertiary)', borderTop:'1px solid var(--color-border-subtle)', paddingTop: 8, display:'flex', justifyContent:'space-between'}}>
             <span>{t('mg_pnl_basis')}</span>
+            {/*
+               ★ 손익 기준 전환은 배선되지 않았다. 두 버튼 다 onClick 이 없고
+                 'Mark' 에 is-active 가 **하드코딩**돼 있어서, 눌러도 전환되지
+                 않는데 선택된 것처럼 보였다. 게다가 is-active 가 붙어 있으면
+                 미구현 안내(pending-actions.js)도 "배선된 버튼" 으로 보고 건너뛴다
+                 — 조용히 죽은 버튼이 된다.
+
+                 표시되는 손익은 실제로 마크가 기준이다(거래소 관례). 전환 기능을
+                 만들기 전까지는 비활성으로 두고 이유를 밝힌다.
+            */}
             <div className="seg">
-              <button className="seg__opt is-active" style={{height:18, padding:'0 6px', fontSize:10}}>{t('col_mark')}</button>
-              <button className="seg__opt" style={{height:18, padding:'0 6px', fontSize:10}}>{t('ai_ctx_last')}</button>
+              <button className="seg__opt is-active" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('col_mark')}</button>
+              <button className="seg__opt" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('ai_ctx_last')}</button>
             </div>
           </div>
         </div>
