@@ -1137,23 +1137,24 @@ if (env.authEnabled) {
           'MAIL_FROM and APP_BASE_URL.',
       );
       /*
-         ★★ 프로덕션에서 메일이 없으면 두 가지가 조용히 무너진다:
-           1) 비밀번호 재설정·인증 메일이 한 통도 안 나간다(사용자는 복구 불가).
-           2) 아래 requireEmailVerification 이 자동으로 꺼진다 → **아무 이메일로나
-              가입해 즉시 로그인**할 수 있다(이메일 소유 확인이 사라진다).
-         이건 개발 편의가 프로덕션 보안 구멍이 된 경우다. 로그 한 줄(warn)로는
-         운영자가 못 본다 — 프로덕션에서는 크게, 반복해서 띄운다. 기동은 막지
-         않는다(막으면 더 큰 장애). 대신 이 상태를 명확히 드러낸다.
+         ★★ 프로덕션에서 메일이 없으면 **비밀번호 재설정이 불가능하다.**
+
+           이메일 인증은 이제 기본 꺼짐(운영 결정)이므로 가입·로그인은 정상이다.
+           문제는 복구다: 비밀번호를 잊은 이용자는 재설정 메일을 받지 못하고,
+           운영자가 관리자 콘솔에서 직접 재설정해 주는 수밖에 없다.
+           로그 한 줄(warn)로는 운영자가 못 본다 — 프로덕션에서는 크게 띄운다.
+           기동은 막지 않는다(막으면 더 큰 장애).
       */
       if (process.env.NODE_ENV === 'production') {
          
         console.error(
           '\n' +
           '████████████████████████████████████████████████████████████████\n' +
-          '█ CRITICAL: PRODUCTION IS RUNNING WITHOUT EMAIL.               █\n' +
-          '█  · Password-reset / verification mail is NOT being sent.     █\n' +
-          '█  · Email verification is AUTO-DISABLED, so anyone can sign   █\n' +
-          '█    up with any email and log in immediately.                 █\n' +
+          '█ WARNING: PRODUCTION IS RUNNING WITHOUT EMAIL.                █\n' +
+          '█  · Password-reset mail is NOT being sent. A user who forgets █\n' +
+          '█    their password cannot recover it without an operator.     █\n' +
+          '█  · Email verification is OFF by default, so signup/login     █\n' +
+          '█    still work (REQUIRE_EMAIL_VERIFICATION=true to enable).   █\n' +
           '█  Fix: set SMTP_HOST/SMTP_USER/SMTP_PASS or RESEND_API_KEY,   █\n' +
           '█  plus MAIL_FROM and APP_BASE_URL, then redeploy.             █\n' +
           '████████████████████████████████████████████████████████████████\n',
@@ -1203,20 +1204,25 @@ if (env.authEnabled) {
       // the boot output rather than discovered from a support ticket.
       mail: mailProvider,
       /*
-         ★★ 이메일 인증을 로그인 필수로 만든다.
+         ★★ 이메일 인증은 **기본 꺼짐**이다 (운영 결정).
 
-           비밀번호 재설정이 이메일로 가는 서비스라, 인증되지 않은(=소유 확인 안 된)
-           주소로는 계정을 되찾을 수 없다. 그래서 최초 로그인 전에 이메일 소유를
-           확인한다. 인증 안 된 계정이 로그인하면 EMAIL_NOT_VERIFIED 로 막고
-           인증 메일을 다시 보낸다. 관리자(SUPER_ADMIN·ADMIN)는 예외(서비스에서 제외).
+           로그인 시 이메일 인증을 요구하지 않는다. 가입하면 바로 쓸 수 있다.
 
-           REQUIRE_EMAIL_VERIFICATION=false 로 끌 수 있다(기본 켜짐). 메일 발송이
-           설정돼 있어야 의미가 있다 — SMTP/Resend 가 없으면 아무도 인증을 못 해
-           로그인이 막히므로, 메일 provider 가 없으면(싱크) 자동으로 요구를 끈다.
+         ★ 이 선택의 대가를 분명히 적어 둔다:
+             · 남의 이메일 주소로도 가입할 수 있다(주소 소유가 확인되지 않는다).
+             · 비밀번호를 잊으면 **이메일로만** 되찾을 수 있는데, 그 주소가
+               본인 것인지 확인된 적이 없다. 메일 발송이 설정돼 있지 않으면
+               되찾을 방법이 아예 없다(운영자가 관리자 콘솔에서 재설정해야 한다).
+             · 리퍼럴 단계 통계의 '이메일 인증' 칸은 채워지지 않는다.
+
+         ★ 되돌리는 방법: REQUIRE_EMAIL_VERIFICATION=true. 메일(SMTP/Resend)이
+           설정된 뒤에 켜는 것이 맞다 — 메일 없이 켜면 아무도 로그인할 수 없다.
+
+         ★ 전에는 "기본 켜짐 + 메일이 싱크면 자동으로 끔" 이었다. 그 자동 해제는
+           운영자에게 보이지 않았고(로그 한 줄), 켜 놓았다고 믿는 상태와 실제가
+           달랐다. 이제 값 하나로만 결정된다 — 숨은 조건을 없앤다.
       */
-      requireEmailVerification:
-        (process.env.REQUIRE_EMAIL_VERIFICATION ?? 'true') !== 'false'
-        && mailProvider.name !== 'mail-sink-dev',
+      requireEmailVerification: (process.env.REQUIRE_EMAIL_VERIFICATION ?? 'false') === 'true',
     });
     const resource = new ResourceRepo(db);
 

@@ -553,7 +553,25 @@
       })
         .then(() => {
           setLoading(false);
-          window.location.hash = '/verify-email';
+          /*
+             ★★ 가입 직후 바로 쓸 수 있게 한다.
+
+               이메일 인증이 꺼져 있으므로(운영 결정) '/verify-email' 로 보내면
+               아무도 통과할 수 없는 안내 화면에서 끝난다 — 메일이 오지 않는데
+               "메일을 확인하세요" 라고 말하는 셈이다. 그래서 같은 자격으로 바로
+               로그인시키고 거래 화면으로 보낸다.
+
+             ★ 자동 로그인이 실패하면(레이트리밋·MFA 등) 로그인 화면으로 보낸다.
+               가입은 이미 성공했으므로 실패로 되돌리지 않는다.
+          */
+          window.QTApi.auth.login(form.email, form.pw)
+            .then(() => {
+              if (window.QTAuth && window.QTAuth.refresh) {
+                try { window.QTAuth.refresh(); } catch (e) { /* 무시 */ }
+              }
+              window.location.hash = '/trade';
+            })
+            .catch(() => { window.location.hash = '/login'; });
         })
         .catch((err) => {
           setLoading(false);
