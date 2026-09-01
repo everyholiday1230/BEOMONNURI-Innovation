@@ -771,11 +771,14 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
     }
 
     /*
-       ★ 이메일 대조. 대소문자만 무시하고 그 밖은 정확히 같아야 한다.
-         틀리면 실패로 기록한다 — 잘못된 대상을 지우려 한 시도 자체가 기록될
-         가치가 있다.
+       ★ 이메일 대조는 **보냈을 때만** 한다(이제 선택 항목이다). 보냈으면
+         대소문자만 무시하고 그 밖은 정확히 같아야 하고, 틀리면 실패로 기록한다 —
+         잘못된 대상을 지우려 한 시도 자체가 기록될 가치가 있다.
+         보내지 않았으면 아래 감사기록에 그 사실을 남긴다.
     */
-    if (String(b.data.confirmEmail).trim().toLowerCase() !== String(target.email).trim().toLowerCase()) {
+    const emailConfirmed = b.data.confirmEmail !== undefined;
+    if (emailConfirmed
+        && String(b.data.confirmEmail).trim().toLowerCase() !== String(target.email).trim().toLowerCase()) {
       await d.repo.recordAction({
         actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.delete',
         resource: 'user', resourceId: target.id, targetUserId: target.id,
@@ -808,6 +811,9 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       result: 'success', riskLevel: 'high', ip: ip(c), reason: b.data.reason,
       before: { email: target.email, role: target.role, status: target.status },
       after: {
+        // ★ 이메일 확인을 거쳤는지 남긴다. 나중에 "왜 이 계정이 지워졌나" 를 볼 때
+        //   어느 절차를 거쳤는지가 기록에 있어야 한다.
+        emailConfirmed,
         retainedConsents: result.retainedConsents,
         retainedOrders: result.retainedOrders,
         retentionNote: 'consent and order records moved to separate retention (5 years per privacy policy 1)',

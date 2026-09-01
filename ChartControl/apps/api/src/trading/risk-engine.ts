@@ -119,9 +119,44 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     !notionalCapped || !Number.isFinite(notional) || notional <= notionalCap,
     notionalCapped ? `${i.positionValue ?? '?'} ≤ ${i.policy.maxOrderNotional}` : 'no operator cap — exchange risk limit applies',
   );
-  add('policy.dailyOrders', 'Daily order count within limit', i.dailyOrderCount < i.policy.dailyOrderLimit, `${i.dailyOrderCount} < ${i.policy.dailyOrderLimit}`);
-  add('policy.dailyLoss', 'Daily loss within limit', num(i.dailyLossSoFar) <= num(i.policy.dailyLossLimit), `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}`);
-  add('policy.openPositions', 'Open positions within limit', i.openPositions < i.policy.maxOpenPositions, `${i.openPositions} < ${i.policy.maxOpenPositions}`);
+  /*
+     ★★ 일일 주문 수 · 일일 손실 · 동시 포지션 수: 기본은 **제한 없음** 이다.
+
+       이건 비수탁 도구다. 고객의 거래소 계정, 고객의 돈, 고객의 위험이다. 포지션을
+       몇 개 열지, 하루에 몇 번 매매할지, 얼마까지 잃을지를 우리가 정할 근거가 없다.
+       레버리지·주문금액 상한을 이미 '거래소를 따른다' 로 둔 것과 같은 이유다.
+
+     ★ 게다가 이 세 게이트는 막지도 못하면서 막는 척했다. dailyLossSoFar 는 '0' 으로
+       고정돼 있어 언제나 통과했고, openPositions 는 조회 실패를 0 으로 취급해
+       무제한 통과했다. 그런 상태의 상한은 안전장치가 아니라 착각을 만드는 표시다.
+
+     ★★ 0(또는 빈 값)이면 검사하지 않고, 이유를 그대로 밝힌다. 운영자가 값을 넣으면
+       그때만 적용된다. 다만 값을 넣더라도 위 두 입력이 실제 값이 되기 전까지는
+       일일 손실 게이트를 신뢰할 수 없다 — 그래서 unknownInputs 로 함께 보고한다.
+  */
+  const orderCap = Number(i.policy.dailyOrderLimit);
+  const orderCapped = Number.isFinite(orderCap) && orderCap > 0;
+  add(
+    'policy.dailyOrders', 'Daily order count within limit',
+    !orderCapped || i.dailyOrderCount < orderCap,
+    orderCapped ? `${i.dailyOrderCount} < ${orderCap}` : 'no operator cap — the customer sets their own pace',
+  );
+
+  const lossCap = num(i.policy.dailyLossLimit);
+  const lossCapped = Number.isFinite(lossCap) && lossCap > 0;
+  add(
+    'policy.dailyLoss', 'Daily loss within limit',
+    !lossCapped || num(i.dailyLossSoFar) <= lossCap,
+    lossCapped ? `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}` : 'no operator cap — the customer bears their own risk',
+  );
+
+  const posCap = Number(i.policy.maxOpenPositions);
+  const posCapped = Number.isFinite(posCap) && posCap > 0;
+  add(
+    'policy.openPositions', 'Open positions within limit',
+    !posCapped || i.openPositions < posCap,
+    posCapped ? `${i.openPositions} < ${posCap}` : 'no operator cap — exchange margin rules apply',
+  );
   if (i.price && i.referencePrice) {
     const dev = Math.abs((num(i.price) - num(i.referencePrice)) / num(i.referencePrice)) * 100;
     add('policy.priceDeviation', 'Price deviation within limit', dev <= i.policy.priceDeviationLimitPct, `${dev.toFixed(2)}% ≤ ${i.policy.priceDeviationLimitPct}%`);

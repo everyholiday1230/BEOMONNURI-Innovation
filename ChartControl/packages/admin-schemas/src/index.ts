@@ -209,7 +209,18 @@ export const NoQuerySchema = z.object({}).strict();
 export const UserDeleteSchema = z.object({
   reason: Reason,
   reauth: z.boolean(),
-  confirmEmail: z.string().min(3).max(320),
+  /*
+     ★ 이메일 입력은 **선택**이다.
+
+       운영자(SUPER_ADMIN)만 삭제할 수 있고, 재인증과 사유(4자 이상)를 이미
+       요구한다. 거기에 이메일 타이핑까지 요구하니 실제 운영에서 걸림돌이었다.
+       그래서 요구를 없앴다.
+
+     ★★ 다만 **보내면 반드시 대조한다.** 선택으로 바꾼다고 검증을 버리면,
+       값을 보내는 다른 클라이언트에서 오타가 조용히 통과한다. 보내지 않으면
+       확인 절차를 생략한 것으로 감사기록에 남긴다.
+  */
+  confirmEmail: z.string().min(3).max(320).optional(),
 }).strict();
 
 /**

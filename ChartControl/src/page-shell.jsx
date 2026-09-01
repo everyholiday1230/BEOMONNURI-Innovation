@@ -109,8 +109,28 @@
     trading: 'nav_section_trading',
     market: 'nav_section_market',
     account: 'nav_section_account',
+    ops: 'nav_section_ops',
     admin: 'nav_section_admin',
+    super: 'nav_section_super',
   };
+
+  /*
+     ★★ 운영 메뉴를 권한 등급별로 나눈다: OPS → ADMIN → SUPER.
+
+       전에는 운영 메뉴 전부가 'admin' 한 섹션에 섞여 있었다. 그러면 어떤 화면이
+       어느 등급의 권한을 요구하는지 화면상 알 수 없다. 직원(OPS)과 관리자(ADMIN)와
+       최고관리자(SUPER)가 각각 무엇을 볼 수 있는지가 드러나야, 권한을 잘못 준 것을
+       눈으로 발견할 수 있다.
+
+     ★ 등급은 항목의 roles 목록에서 **가장 낮은 등급**으로 정한다. 화면에 별도
+       필드를 두면 roles 와 어긋날 수 있고, 어긋나면 라벨이 거짓말을 한다.
+  */
+  const OPERATOR_TIERS = ['ops', 'admin', 'super'];
+  const tierOfItem = (it) => OPERATOR_TIERS.find((r) => it.roles.includes(r)) || 'admin';
+
+  /** 섹션 표시 순서. 여기 없는 섹션은 뒤에 원래 순서대로 붙는다. */
+  const SECTION_ORDER = ['trading', 'market', 'account', 'ops', 'admin', 'super'];
+  const BADGE_BY_SECTION = { ops: 'OPS', admin: 'ADMIN', super: 'SUPER' };
 
   // ============================================================
   // ROUTE HELPERS
@@ -165,12 +185,17 @@
       const path = String(it.route || '').split('?')[0];
       return window.QTAccess.canAccess(path, role).allowed;
     });
-    // Group by section
-    const grouped = {};
+    // Group by section — 운영 메뉴는 등급(ops/admin/super)으로 쪼갠다.
+    const rawGrouped = {};
     items.forEach(it => {
-      grouped[it.section] = grouped[it.section] || [];
-      grouped[it.section].push(it);
+      const sec = it.section === 'admin' ? tierOfItem(it) : it.section;
+      rawGrouped[sec] = rawGrouped[sec] || [];
+      rawGrouped[sec].push(it);
     });
+    // 정해진 순서로 다시 담는다(객체 키 순서가 곧 화면 순서다).
+    const grouped = {};
+    SECTION_ORDER.forEach((sec) => { if (rawGrouped[sec]) grouped[sec] = rawGrouped[sec]; });
+    Object.keys(rawGrouped).forEach((sec) => { if (!grouped[sec]) grouped[sec] = rawGrouped[sec]; });
 
     const isActive = (route) => {
       const routePath = route.split('?')[0];
@@ -287,7 +312,9 @@
                 <div className="sb-section" key={section}>
                   <div className="sb-section__label">
                     {t(SECTION_LABEL_KEYS[section])}
-                    {section === 'admin' && <span className="sb-section__badge">ADMIN</span>}
+                    {BADGE_BY_SECTION[section] && (
+                      <span className="sb-section__badge">{BADGE_BY_SECTION[section]}</span>
+                    )}
                   </div>
                   {grouped[section].map(it => {
                     const Icon = I[it.icon] || I.Grid;

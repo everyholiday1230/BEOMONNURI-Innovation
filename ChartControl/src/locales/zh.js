@@ -893,6 +893,8 @@
       nav_section_market: '行情',
       nav_section_account: '账户',
       nav_section_admin: '管理',
+      nav_section_ops: '运营',
+      nav_section_super: '所有者',
       nav_open_menu: '打开导航菜单',
       nav_expand: '展开菜单',
       nav_collapse: '收起',
@@ -1219,6 +1221,7 @@
            就会直接变成一次删除。
       */
       adm_delete_confirm_email: '此操作无法撤销。请输入该账号的邮箱以确认：{email}',
+      adm_delete_confirm: '确定删除该账户？此操作无法撤销。\n\n{email}',
       adm_delete_email_mismatch: '邮箱与该账号不一致，没有删除任何内容。',
       adm_delete_reason: '为什么要删除该账号？（4-500 个字符，将永久保存）',
       adm_delete_done: '账号已删除。{c} 条同意记录和 {o} 笔委托已转入单独留存 5 年。',

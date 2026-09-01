@@ -458,9 +458,15 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     */
     maxOrderNotional: (env.TRADE_MAX_ORDER_NOTIONAL ?? '').trim(),
     maxLeverage: positiveInt(env.TRADE_MAX_LEVERAGE, 0),
-    maxOpenPositions: positiveInt(env.TRADE_MAX_OPEN_POSITIONS, 5),
-    dailyOrderLimit: positiveInt(env.TRADE_DAILY_ORDER_LIMIT, 50),
-    dailyLossLimit: (env.TRADE_DAILY_LOSS_LIMIT ?? '1000').trim(),
+    /*
+       ★★ 기본 0 = 제한 없음. maxLeverage·maxOrderNotional 과 같은 기준이다.
+
+         비수탁 도구에서 고객의 매매 횟수·포지션 수·손실 한도를 우리가 정할 근거가
+         없다. 운영자가 명시적으로 값을 넣을 때만 상한이 걸린다.
+    */
+    maxOpenPositions: positiveInt(env.TRADE_MAX_OPEN_POSITIONS, 0),
+    dailyOrderLimit: positiveInt(env.TRADE_DAILY_ORDER_LIMIT, 0),
+    dailyLossLimit: (env.TRADE_DAILY_LOSS_LIMIT ?? '').trim(),
     priceDeviationLimitPct: positiveInt(env.TRADE_PRICE_DEVIATION_PCT, 5),
   } as const;
   return {

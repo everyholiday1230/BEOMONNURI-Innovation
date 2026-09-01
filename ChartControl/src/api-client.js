@@ -2212,12 +2212,17 @@
      * ★ `RETENTION_UNAVAILABLE` 은 "보관할 곳이 없어서 **지우지 않았다**" 는
      *   뜻이다(HTTP 200 이지만 error 봉투). 성공으로 읽으면 안 된다.
      */
-    deleteUser: function (id, reason, confirmEmail, reauth) {
-      return sendJSON('DELETE', '/api/admin/users/' + encodeURIComponent(id), {
-        reason: reason || '',
-        confirmEmail: confirmEmail || '',
-        reauth: reauth === true,
-      });
+    /*
+       회원 삭제. SUPER_ADMIN 전용, 되돌릴 수 없다.
+
+       ★ confirmEmail 은 선택이다. 빈 문자열을 보내면 서버가 대조에 실패하므로
+         **값이 있을 때만** 넣는다. (예전에는 항상 보내서, 이메일을 안 받으면
+         '' 이 대조에 걸려 삭제가 실패했다.)
+    */
+    deleteUser: function (id, reason, reauth, confirmEmail) {
+      var body = { reason: reason || '', reauth: reauth === true };
+      if (confirmEmail) body.confirmEmail = confirmEmail;
+      return sendJSON('DELETE', '/api/admin/users/' + encodeURIComponent(id), body);
     },
 
     /*

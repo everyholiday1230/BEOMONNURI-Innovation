@@ -1003,6 +1003,8 @@
       nav_section_market: "Markets",
       nav_section_account: "Account",
       nav_section_admin: "Admin",
+      nav_section_ops: 'Operations',
+      nav_section_super: 'Owner',
 
       // --- 주문 입력 검증 / 위젯 ---
       oe_err_no_size: 'Enter an order size.',
@@ -1291,6 +1293,7 @@
       adm_delete_user: 'Delete this account',
       adm_delete_explain: 'Deletes the account, its exchange links, settings and AI history. Consent records and order history are moved to separate retention for 5 years and then destroyed, as our privacy policy states. The account itself cannot be restored.',
       adm_delete_confirm_email: 'This cannot be undone. Type the account email to confirm: {email}',
+      adm_delete_confirm: 'Delete this account? This cannot be undone.\n\n{email}',
       adm_delete_email_mismatch: 'That email does not match this account. Nothing was deleted.',
       adm_delete_reason: 'Why is this account being deleted? (4-500 characters, recorded permanently)',
       adm_delete_done: 'Account deleted. {c} consent record(s) and {o} order(s) were moved to separate retention for 5 years.',

@@ -492,13 +492,16 @@
       const target = detail.user;
       if (!api || !api.deleteUser || !target) return;
 
+      /*
+         ★ 이메일을 직접 타이핑하게 하던 절차를 없앴다.
+
+           삭제는 SUPER_ADMIN 만 할 수 있고, 아래에서 사유(4자 이상)를 받고
+           서버가 재인증까지 다시 확인한다. 그 위에 이메일 타이핑까지 요구하니
+           실제 운영에서 걸림돌이었다. 대신 **누구를 지우는지 확인창에 이메일을
+           그대로 보여준다** — 대상을 착각하는 것이 진짜 위험이기 때문이다.
+      */
       // eslint-disable-next-line no-alert
-      const typed = window.prompt(t('adm_delete_confirm_email', { email: target.email }), '');
-      if (typed === null) return;
-      if (String(typed).trim().toLowerCase() !== String(target.email).trim().toLowerCase()) {
-        setActionMsg({ kind: 'warn', text: t('adm_delete_email_mismatch') });
-        return;
-      }
+      if (!window.confirm(t('adm_delete_confirm', { email: target.email }))) return;
       // eslint-disable-next-line no-alert
       const reason = window.prompt(t('adm_delete_reason'), '');
       if (reason === null || String(reason).trim().length < 4) {
@@ -508,7 +511,7 @@
 
       setBusy(true); setActionMsg(null);
       try {
-        const r = await api.deleteUser(target.id, reason, typed, true);
+        const r = await api.deleteUser(target.id, reason, true);
         // ★ 200 이어도 error 가 들어 있을 수 있다(RETENTION_UNAVAILABLE).
         if (r && r.error) {
           setActionMsg({

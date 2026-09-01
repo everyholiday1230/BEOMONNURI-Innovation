@@ -770,6 +770,48 @@ describe('ADM-USER-DELETE DELETE /admin/users/:id', () => {
     expect(still.status).toBe(200);
   });
 
+  /*
+     ★★ 이메일 타이핑은 이제 **선택**이다.
+
+       운영자(SUPER_ADMIN)만 지울 수 있고 재인증과 사유를 이미 요구한다.
+       그 위에 이메일 타이핑까지 요구하니 실제 운영에서 걸림돌이었다.
+       요구는 없앴지만, **보내면 반드시 대조한다**([D4] 가 계속 통과해야 한다).
+  */
+  it('[D6] ★ 이메일을 보내지 않아도 삭제된다 (SUPER + 재인증 + 사유는 그대로)', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd6-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd6-target@ex.com', 'user');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true,
+      body: { reason: 'user requested account deletion', reauth: true },
+    });
+    // SQLite 개발 DB 는 분리 보관이 없어 RETENTION_UNAVAILABLE 를 낼 수 있다.
+    // 어느 쪽이든 **확인 이메일이 없다는 이유로 거부되지는 않아야** 한다.
+    expect(res.status).not.toBe(400);
+    expect(res.status).not.toBe(422);
+  });
+
+  it('[D7] 이메일을 생략해도 재인증은 여전히 필요하다', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd7-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd7-target@ex.com', 'user');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true,
+      body: { reason: 'user requested account deletion', reauth: false },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('[D8] 이메일을 생략해도 사유는 여전히 필요하다', async () => {
+    const { app, db } = build();
+    const su = await mkUser(app, db, 'd8-super@ex.com', 'SUPER_ADMIN');
+    const target = await mkUser(app, db, 'd8-target@ex.com', 'user');
+    const res = await rq(app, 'DELETE', `/api/admin/users/${target.id}`, {
+      jar: su.jar, csrf: true, body: { reason: 'x', reauth: true },
+    });
+    expect(res.status).toBe(422);
+  });
+
   it('[D5] ★ 운영자 계정과 자기 자신은 이 경로로 지우지 않는다', async () => {
     const { app, db } = build();
     const su = await mkUser(app, db, 'd5-super@ex.com', 'SUPER_ADMIN');

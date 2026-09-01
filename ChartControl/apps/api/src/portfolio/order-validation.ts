@@ -195,9 +195,19 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
     add('notional.min', 'Order notional meets the minimum', meetsMin ? 'ok' : 'fail', `${notional} ≥ ${ctx.minNotional}`);
     if (!meetsMin) block('BELOW_MIN_NOTIONAL', `order notional must be at least ${ctx.minNotional}`);
 
-    const withinCap = D(notional).lte(D(ctx.policy.maxOrderNotional));
-    add('policy.notional', 'Order notional within cap', withinCap ? 'ok' : 'fail', `${notional} ≤ ${ctx.policy.maxOrderNotional}`);
-    if (!withinCap) block('NOTIONAL_ABOVE_CAP', `order notional exceeds the cap of ${ctx.policy.maxOrderNotional}`);
+    /*
+       ★★ 빈 값·0 = 상한 없음. 그런데 예전 코드는 D(maxOrderNotional) 을 무조건
+         호출했다. 프로덕션 설정이 바로 빈 값(TRADE_MAX_ORDER_NOTIONAL='')이라
+         D('') 가 DecimalError 를 던진다 — 상한을 풀어둔 설정이 오히려 예외를
+         만드는 셈이다. risk-engine 쪽과 같은 규칙으로 맞춘다.
+    */
+    const capRaw = String(ctx.policy.maxOrderNotional ?? '').trim();
+    const capNum = capRaw === '' ? 0 : Number(capRaw);
+    const notionalCapped = Number.isFinite(capNum) && capNum > 0;
+    const withinCap = !notionalCapped || D(notional).lte(D(capRaw));
+    add('policy.notional', 'Order notional within cap', withinCap ? 'ok' : 'fail',
+      notionalCapped ? `${notional} ≤ ${capRaw}` : 'no operator cap — exchange risk limit applies');
+    if (!withinCap) block('NOTIONAL_ABOVE_CAP', `order notional exceeds the cap of ${capRaw}`);
   } else {
     add('notional.min', 'Order notional meets the minimum', 'fail', 'notional not computable');
     block('NOTIONAL_NOT_COMPUTABLE', 'order notional could not be computed');
@@ -248,12 +258,28 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
   }
 
   // ---- counts ---------------------------------------------------------------
-  const posOk = ctx.openPositions < ctx.policy.maxOpenPositions;
-  add('policy.openPositions', 'Open positions within limit', posOk ? 'ok' : 'fail', `${ctx.openPositions} < ${ctx.policy.maxOpenPositions}`);
+  /*
+     ★★ 0(또는 미설정) = 제한 없음. maxLeverage·maxOrderNotional 과 같은 규칙이다.
+
+       비수탁 도구에서 고객의 포지션 수·매매 횟수를 우리가 정할 근거가 없다.
+       운영자가 명시적으로 값을 넣을 때만 상한이 걸린다.
+
+     ★★ 여기가 실제로 주문을 **막는** 경로다. 0 을 '제한 없음' 으로 다루지 않으면
+       `0 < 0` 이 거짓이 되어 **모든 주문이 차단된다.** 상한을 없애려고 값을 0 으로
+       둔 순간 서비스가 멈추는 셈이다 — 그래서 이 분기가 반드시 필요하다.
+  */
+  const posCap = Number(ctx.policy.maxOpenPositions);
+  const posCapped = Number.isFinite(posCap) && posCap > 0;
+  const posOk = !posCapped || ctx.openPositions < posCap;
+  add('policy.openPositions', 'Open positions within limit', posOk ? 'ok' : 'fail',
+    posCapped ? `${ctx.openPositions} < ${posCap}` : 'no operator cap — exchange margin rules apply');
   if (!posOk) block('TOO_MANY_OPEN_POSITIONS', 'open position limit reached');
 
-  const dayOk = ctx.dailyOrderCount < ctx.policy.dailyOrderLimit;
-  add('policy.dailyOrders', 'Daily order count within limit', dayOk ? 'ok' : 'fail', `${ctx.dailyOrderCount} < ${ctx.policy.dailyOrderLimit}`);
+  const dayCap = Number(ctx.policy.dailyOrderLimit);
+  const dayCapped = Number.isFinite(dayCap) && dayCap > 0;
+  const dayOk = !dayCapped || ctx.dailyOrderCount < dayCap;
+  add('policy.dailyOrders', 'Daily order count within limit', dayOk ? 'ok' : 'fail',
+    dayCapped ? `${ctx.dailyOrderCount} < ${dayCap}` : 'no operator cap — the customer sets their own pace');
   if (!dayOk) block('DAILY_ORDER_LIMIT_REACHED', 'daily order limit reached');
 
   // ---- risk/reward advisory -------------------------------------------------
