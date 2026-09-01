@@ -494,6 +494,7 @@
       sv_section_sub: '保存1件につき {cost} ポイント · シグナルや指標を保存して再利用できます',
       sv_save_current_indicators: '現在のチャート指標を保存',
       sv_empty: '保存した項目はまだありません。',
+      list_load_failed: 'この一覧を読み込めませんでした。空ではなく、取得に失敗しています。',
       sv_save_on_chart_hint: 'チャートを開き、使いたい指標をオンにしてから、指標パネルで保存してください。',
       sv_save_preset: 'この指標を保存',
       sv_my_presets: '保存した設定',

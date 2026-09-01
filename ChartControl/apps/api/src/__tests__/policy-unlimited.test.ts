@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateOrderIntent } from '../portfolio/order-validation';
+import { runRiskEngine } from '../trading/risk-engine';
 import type { SymbolInfo } from '@quantumtrade/schemas';
 
 /*
@@ -96,5 +97,51 @@ describe('POLICY-UNLIMITED 상한 0 은 제한 없음이다 (전면 차단이 �
     );
     expect(gate(r, 'policy.openPositions')!.status).toBe('ok');
     expect(gate(r, 'policy.dailyOrders')!.status).toBe('ok');
+  });
+});
+
+/*
+   DAILY-LOSS-HONEST — 설정된 한도가 작동할 수 없으면 통과로 보고하지 않는다.
+
+   ★★ dailyLossSoFar 는 아직 '0' 으로 고정돼 있다(측정 경로가 없다). 그 상태에서
+     운영자가 한도를 걸면 `0 <= 한도` 가 언제나 참이라 게이트가 영원히 통과한다.
+     운영자는 한도를 걸었다고 믿지만 실제로는 아무 것도 막지 않는다 — 이 착각이
+     리스크 게이트에서 가장 위험한 실패다. 그래서 측정 불가 + 한도 설정 상태는
+     통과가 아니라 거부로 처리한다.
+*/
+describe('DAILY-LOSS-HONEST 측정 못 하는 한도는 ok 로 보고하지 않는다', () => {
+  const gates = (policy: Record<string, unknown>, known?: boolean) => {
+    const out = runRiskEngine({
+      mode: 'MOCK',
+      symbol: { id: 'BTCUSDT', base: 'BTC', quote: 'USDT', contractType: 'perpetual',
+        pricePrecision: 1, quantityPrecision: 3, tickSize: '0.1', stepSize: '0.001',
+        minQty: '0.001', maxLeverage: 125 },
+      side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5,
+      policy: {
+        allowedSymbols: ['*'], maxOrderNotional: '', maxLeverage: 0,
+        maxOpenPositions: 0, dailyOrderLimit: 0, dailyLossLimit: '',
+        priceDeviationLimitPct: 5, ...policy,
+      },
+      dailyOrderCount: 0, openPositions: 0, dailyLossSoFar: '0',
+      ...(known === undefined ? {} : { dailyLossKnown: known }),
+    } as unknown as Parameters<typeof runRiskEngine>[0]);
+    return (Array.isArray(out) ? out : out.gates).find((g: { id: string }) => g.id === 'policy.dailyLoss');
+  };
+
+  it('[1] 한도 없음 → ok, 이유를 밝힌다', () => {
+    const g = gates({});
+    expect(g!.status).toBe('ok');
+    expect(g!.detail).toContain('no operator cap');
+  });
+
+  it('[2] ★★ 한도 설정 + 측정 불가 → fail (통과로 위장하지 않는다)', () => {
+    const g = gates({ dailyLossLimit: '200' });
+    expect(g!.status).toBe('fail');
+    expect(g!.detail).toContain('not measured');
+  });
+
+  it('[3] 한도 설정 + 측정 가능 + 한도 안쪽 → ok', () => {
+    const g = gates({ dailyLossLimit: '200' }, true);
+    expect(g!.status).toBe('ok');
   });
 });

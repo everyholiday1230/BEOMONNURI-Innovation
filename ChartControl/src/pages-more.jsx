@@ -1769,6 +1769,7 @@
     const [items, setItems] = React.useState(null);
     const [cost, setCost] = React.useState({ strategy: 300, indicator: 100 });
     const [supported, setSupported] = React.useState(true);
+    const [loadError, setLoadError] = React.useState(false);
     const [busy, setBusy] = React.useState(false);
     const [form, setForm] = React.useState({ kind: 'strategy', name: '', symbol: 'BTCUSDT', timeframe: '1h' });
     const [msg, setMsg] = React.useState(null);
@@ -1782,7 +1783,8 @@
           setItems((r && r.items) || []);
           if (r && r.saveCost) setCost(r.saveCost);
         })
-        .catch(() => setItems([]));
+        // ★ 조회 실패를 빈 목록으로 두면 "저장한 전략이 없다" 로 보인다. 오류는 오류로 알린다.
+        .catch(() => { setItems(null); setLoadError(true); });
     }, []);
     React.useEffect(() => { load(); }, [load]);
 
@@ -1826,7 +1828,9 @@
           </button>
         </div>
         {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)', marginBottom: 8 }}>{msg.text}</div>}
-        {items === null ? null : items.length === 0 ? (
+        {loadError ? (
+          <div style={{padding:'8px 10px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>{t('list_load_failed')}</div>
+        ) : items === null ? null : items.length === 0 ? (
           <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>{t('us_empty')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -3094,9 +3098,13 @@
     const [bugBusy, setBugBusy] = useState(false);
     const [bugMsg, setBugMsg] = useState(null);
     const [myBugs, setMyBugs] = useState(null);
+    const [bugsError, setBugsError] = useState(false);
     React.useEffect(() => {
       if (!api || !api.bugReportList) { setMyBugs([]); return; }
-      api.bugReportList().then((r) => setMyBugs(r.reports || [])).catch(() => setMyBugs([]));
+      // ★ 실패를 빈 목록으로 두면 "제보한 적 없다" 로 보인다.
+      api.bugReportList()
+        .then((r) => { if (r && r.ok === false) { setMyBugs(null); setBugsError(true); return; } setBugsError(false); setMyBugs(r.reports || []); })
+        .catch(() => { setMyBugs(null); setBugsError(true); });
     }, []);
     const submitBug = async () => {
       if (!api || !api.bugReportCreate) return;
@@ -3226,6 +3234,7 @@
               <button className="btn btn--sm btn--primary" disabled={bugBusy} onClick={submitBug}>{t('bug_submit')}</button>
               {bugMsg && <span style={{fontSize:12, color: bugMsg.ok ? 'var(--color-success)' : 'var(--color-danger)'}}>{bugMsg.text}</span>}
             </div>
+            {bugsError && <div style={{padding:'8px 10px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>{t('list_load_failed')}</div>}
             {Array.isArray(myBugs) && myBugs.length > 0 && (
               <div style={{marginTop:8, borderTop:'1px solid var(--color-border-subtle)', paddingTop:8}}>
                 <div style={{fontSize:11.5, color:'var(--color-text-secondary)', marginBottom:6}}>{t('bug_my_reports')}</div>

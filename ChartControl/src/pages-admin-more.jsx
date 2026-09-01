@@ -39,12 +39,16 @@
   */
   function UserTagsEditor({ userId }) {
     const [tags, setTags] = React.useState(null);
+    const [tagsError, setTagsError] = React.useState(false);
     const [input, setInput] = React.useState('');
     const [busy, setBusy] = React.useState(false);
     const api = window.QTApi && window.QTApi.admin;
     const load = React.useCallback(() => {
       if (!api || !api.getUserTags || !userId) return;
-      api.getUserTags(userId).then((r) => setTags((r && r.tags) || [])).catch(() => setTags([]));
+      // ★ 실패를 빈 목록으로 두면 태그가 없는 회원으로 보인다 — 운영자가 잘못 판단한다.
+      api.getUserTags(userId)
+        .then((r) => { setTagsError(false); setTags((r && r.tags) || []); })
+        .catch(() => { setTags(null); setTagsError(true); });
     }, [userId]);
     React.useEffect(() => { load(); }, [load]);
     const add = async (raw) => {
@@ -60,6 +64,8 @@
       try { const r = await api.removeUserTag(userId, tag); if (r && r.tags) setTags(r.tags); } catch (e) { /* noop */ }
       setBusy(false);
     };
+    // ★ 조회 실패는 "태그 없음" 이 아니다. 운영자가 잘못 판단하지 않게 밝힌다.
+    if (tagsError) return <div style={{padding:'8px 10px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>{t('list_load_failed')}</div>;
     if (tags === null) return null;
     const has = (t2) => tags.indexOf(t2) !== -1;
     return (
@@ -1673,6 +1679,7 @@
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
     const [recent, setRecent] = useState(null);
+    const [recentError, setRecentError] = useState(false);
     const [schedAt, setSchedAt] = useState('');
     const [pinned, setPinned] = useState(false);
     /*
@@ -1689,7 +1696,10 @@
 
     const loadRecent = React.useCallback(() => {
       if (!api || !api.notices) return;
-      api.notices(10).then((r) => setRecent(r.data || [])).catch(() => setRecent([]));
+      // ★ 실패를 빈 목록으로 두면 공지가 없는 것처럼 보인다.
+      api.notices(10)
+        .then((r) => { setRecentError(false); setRecent(r.data || []); })
+        .catch(() => { setRecent(null); setRecentError(true); });
     }, [api]);
     useEffect(() => { if (isLive) loadRecent(); }, [isLive, loadRecent]);
 
@@ -1960,7 +1970,7 @@
 
             <window.SectionCard title={t('admin_broadcast_f1f368')}>
               {isLive ? (
-                Array.isArray(recent) && recent.length > 0 ? recent.map((n) => (
+                recentError ? <div style={{padding:'8px 10px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>{t('list_load_failed')}</div> : Array.isArray(recent) && recent.length > 0 ? recent.map((n) => (
                   <div key={n.id} style={{padding: 8, fontSize: 12, borderBottom: '1px solid var(--color-border-subtle)'}}>
                     <div>{n.title}</div>
                     {/*
@@ -2256,6 +2266,7 @@
          받지 못한 상태로 남는다.
     */
     const [list, setList] = useState(null);
+    const [listError, setListError] = useState(false);
     const [detail, setDetail] = useState(null);
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
@@ -2268,7 +2279,8 @@
       if (!api || !api.tickets) return Promise.resolve(null);
       return api.tickets({ limit: 100 })
         .then((r) => { setList(r.data || []); return r.data || []; })
-        .catch(() => { setList([]); return []; });
+        // ★★ 실패를 빈 목록으로 두면 "고객 문의 없음" 으로 보인다 — 문의를 놓친다.
+        .catch(() => { setList(null); setListError(true); return []; });
     }, [api]);
 
     const loadDetail = React.useCallback((id) => {
@@ -2388,7 +2400,7 @@
             color:'var(--color-text-secondary)',
           }}>
             <div style={{fontWeight:600, marginBottom:5, color:'var(--color-text-primary)'}}>
-              {list === null ? t('cs_loading') : (ticketId ? t('cs_not_found') : t('cs_none_yet'))}
+              {listError ? t('list_load_failed') : list === null ? t('cs_loading') : (ticketId ? t('cs_not_found') : t('cs_none_yet'))}
             </div>
             <div>{list === null ? t('cs_loading_sub') : (ticketId ? t('cs_not_found_sub') : t('cs_none_yet_sub'))}</div>
           </div>

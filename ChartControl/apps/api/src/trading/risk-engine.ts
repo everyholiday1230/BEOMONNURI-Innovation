@@ -44,6 +44,15 @@ export interface RiskEngineInput {
   exchangeConnectivityHealthy: boolean;
   dailyOrderCount: number;
   dailyLossSoFar: string;
+  /*
+     ★★ dailyLossSoFar 가 **실제로 측정된 값인지** 여부.
+
+       이 값은 현재 '0' 으로 고정돼 있다(측정 경로가 아직 없다). 그 상태에서
+       운영자가 일일 손실 한도를 설정하면 `0 <= 한도` 가 언제나 참이므로 게이트가
+       영원히 통과한다 — 한도를 걸었다고 믿는데 실제로는 아무 것도 막지 않는다.
+       그 착각이 이 게이트의 가장 큰 위험이라, 측정 여부를 명시적으로 받는다.
+  */
+  dailyLossKnown?: boolean;
   openPositions: number;
 }
 
@@ -144,11 +153,25 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
 
   const lossCap = num(i.policy.dailyLossLimit);
   const lossCapped = Number.isFinite(lossCap) && lossCap > 0;
-  add(
-    'policy.dailyLoss', 'Daily loss within limit',
-    !lossCapped || num(i.dailyLossSoFar) <= lossCap,
-    lossCapped ? `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}` : 'no operator cap — the customer bears their own risk',
-  );
+  const lossKnown = i.dailyLossKnown === true;
+  if (!lossCapped) {
+    add('policy.dailyLoss', 'Daily loss within limit', true,
+      'no operator cap — the customer bears their own risk');
+  } else if (!lossKnown) {
+    /*
+       ★★ 한도는 설정됐는데 오늘 손실을 측정할 수 없다 → **통과시키지 않는다.**
+
+         한도를 건 운영자의 의도는 "이만큼 잃으면 멈춰라" 다. 측정값이 없다고
+         조용히 통과시키면 그 의도가 무력화되고, 화면에는 'ok' 로 찍혀 보호받는
+         것처럼 보인다. 막는 쪽이 시끄럽지만 정직하다 — 한도를 지우면 즉시 풀린다.
+    */
+    add('policy.dailyLoss', 'Daily loss within limit', false,
+      `cap ${i.policy.dailyLossLimit} is set but today's realised loss is not measured — refusing rather than reporting a cap that cannot fire`);
+  } else {
+    add('policy.dailyLoss', 'Daily loss within limit',
+      num(i.dailyLossSoFar) <= lossCap,
+      `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}`);
+  }
 
   const posCap = Number(i.policy.maxOpenPositions);
   const posCapped = Number.isFinite(posCap) && posCap > 0;

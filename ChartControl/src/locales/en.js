@@ -239,6 +239,7 @@
       sv_section_sub: '{cost} points per save · keep your signals and indicators to reuse',
       sv_save_current_indicators: 'Save current chart indicators',
       sv_empty: 'No saved items yet.',
+      list_load_failed: 'Could not load this list. It is not empty — the request failed.',
       sv_save_on_chart_hint: 'Open the chart, turn on the indicators you want, then save them from the Indicators panel.',
       sv_save_preset: 'Save these indicators',
       sv_my_presets: 'My presets',

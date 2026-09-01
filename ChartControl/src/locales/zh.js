@@ -496,6 +496,7 @@
       sv_section_sub: '每次保存 {cost} 积分 · 保存你的信号/指标以便复用',
       sv_save_current_indicators: '保存当前图表指标',
       sv_empty: '还没有保存的项目。',
+      list_load_failed: '无法加载该列表。并非没有数据，而是请求失败。',
       sv_save_on_chart_hint: '请打开图表，开启需要的指标，然后在指标面板中保存。',
       sv_save_preset: '保存当前指标',
       sv_my_presets: '我的预设',

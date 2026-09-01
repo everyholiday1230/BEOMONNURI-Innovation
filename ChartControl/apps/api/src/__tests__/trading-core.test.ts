@@ -75,6 +75,15 @@ describe('server risk engine', () => {
     policy: POLICY, liveTradingEnabled: true, emergencyKillSwitch: false, credentialStatus: 'VERIFIED',
     futureTradePermissionVerified: true, userStatus: 'active', previewExpired: false, confirmationTokenValid: true,
     idempotencyKeyValid: true, exchangeConnectivityHealthy: true, dailyOrderCount: 0, dailyLossSoFar: '0', openPositions: 0,
+    /*
+       ★★ POLICY 는 일일 손실 한도 1000 을 걸어 두었다. 그런데 dailyLossSoFar 는
+         측정값이 아니라 고정된 '0' 이다. 예전에는 `0 <= 1000` 이 참이라 이 테스트가
+         통과했는데, 그건 **한도가 아무 것도 막지 못하는 상태를 통과로 본 것**이었다.
+         이제 엔진은 "한도는 있는데 측정할 수 없다" 를 거부로 다룬다. 그래서 이
+         테스트는 측정 가능함을 명시해야 한다 — 그게 이 테스트가 원래 검사하려던
+         상황(깨끗한 주문)이다.
+    */
+    dailyLossKnown: true,
   };
   it('passes a clean live order and the live gate allows', () => {
     const r = runRiskEngine(base);
