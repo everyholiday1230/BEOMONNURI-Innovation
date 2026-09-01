@@ -37,8 +37,19 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LEGAL_KINDS, type LegalKind, type PgLegalRepo } from '../db/legal-repo';
 
-/** 문서를 등록할 언어. 화면 언어(en·ja·zh)와 사업자 소재지 언어(ko). */
-export const SEED_LOCALES = ['ko', 'en', 'ja', 'zh'] as const;
+/**
+ * 문서를 등록할 언어. 화면 언어와 동일하게 유지한다(en·ja·zh).
+ *
+ * ★★ 한국어(ko)를 제외했다 (운영 결정).
+ *
+ *   화면 언어에 한국어가 없으므로(src/locales 에 ko 사전이 없다) 약관만 한국어로
+ *   내보내면 서비스 언어와 문서 언어가 어긋난다. 나중에 한국어를 지원하게 되면
+ *   화면 사전과 함께 여기에 'ko' 를 다시 넣고 docs/legal/*-ko.md 를 되살린다.
+ *
+ * ★ 이미 공개된 한국어 문서 행은 이 목록에서 빼도 **DB 에 남는다.** 파일이
+ *   없으면 새로 시딩되지 않을 뿐이다 — 기존 행 정리는 운영자가 별도로 한다.
+ */
+export const SEED_LOCALES = ['en', 'ja', 'zh'] as const;
 
 export interface LegalSeedOptions {
   /** 공개까지 진행할지. 기본 false — 초안만 만든다. */

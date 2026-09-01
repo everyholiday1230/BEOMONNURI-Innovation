@@ -132,32 +132,32 @@ describe('법적 문서 시딩', () => {
   */
   it('★ 같은 버전 초안이 이미 있으면, 새로 만들지 않고 그 초안을 공개한다', async () => {
     const { repo, rows } = stubRepo([
-      { id: 'draft-terms-ko', kind: 'terms', locale: 'ko', version: 'v1', title: 't', body: 'b', publishedAt: null },
+      { id: 'draft-terms-en', kind: 'terms', locale: 'en', version: 'v1', title: 't', body: 'b', publishedAt: null },
     ]);
     const r = await seedLegalDocuments(repo, { ...base, version: 'v1', publish: true, companyInfo: '' });
     /* 새 문서를 만들지 않는다 — 재배포마다 초안이 쌓이면 관리자 화면을 쓸 수 없다. */
-    expect(r.created).not.toContain('terms/ko');
-    expect(rows.filter((x) => x.kind === 'terms' && x.locale === 'ko')).toHaveLength(1);
+    expect(r.created).not.toContain('terms/en');
+    expect(rows.filter((x) => x.kind === 'terms' && x.locale === 'en')).toHaveLength(1);
     /* 그러나 공개는 된다. */
-    expect(rows.find((x) => x.id === 'draft-terms-ko')?.publishedAt).not.toBeNull();
-    expect(r.published.some((x) => x.startsWith('terms/ko'))).toBe(true);
+    expect(rows.find((x) => x.id === 'draft-terms-en')?.publishedAt).not.toBeNull();
+    expect(r.published.some((x) => x.startsWith('terms/en'))).toBe(true);
   });
 
   it('공개를 요청하지 않았으면 기존 초안을 건드리지 않는다', async () => {
     const { repo, rows } = stubRepo([
-      { id: 'draft-terms-ko', kind: 'terms', locale: 'ko', version: 'v1', title: 't', body: 'b', publishedAt: null },
+      { id: 'draft-terms-en', kind: 'terms', locale: 'en', version: 'v1', title: 't', body: 'b', publishedAt: null },
     ]);
     const r = await seedLegalDocuments(repo, { ...base, version: 'v1', publish: false, companyInfo: '' });
-    expect(rows.find((x) => x.id === 'draft-terms-ko')?.publishedAt).toBeNull();
-    expect(r.skipped.some((x) => x.startsWith('terms/ko'))).toBe(true);
+    expect(rows.find((x) => x.id === 'draft-terms-en')?.publishedAt).toBeNull();
+    expect(r.skipped.some((x) => x.startsWith('terms/en'))).toBe(true);
   });
 
   it('이미 공개된 종류·언어는 다시 공개하지 않는다', async () => {
     const { repo } = stubRepo([
-      { id: 'old', kind: 'terms', locale: 'ko', version: 'old-1', title: 't', body: 'b', publishedAt: 1 },
+      { id: 'old', kind: 'terms', locale: 'en', version: 'old-1', title: 't', body: 'b', publishedAt: 1 },
     ]);
     const r = await seedLegalDocuments(repo, { ...base, publish: true, companyInfo: '상호: 테스트' });
-    expect(r.published).not.toContain('terms/ko');
-    expect(r.skipped.some((x) => x.startsWith('terms/ko'))).toBe(true);
+    expect(r.published).not.toContain('terms/en');
+    expect(r.skipped.some((x) => x.startsWith('terms/en'))).toBe(true);
   });
 });
