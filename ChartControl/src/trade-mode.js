@@ -35,21 +35,22 @@
     spot: {
       id: 'spot',
       /*
-         ★ 현물은 **시세만** 지원한다.
+         ★ 현물은 시세와 **주문 모두** 지원한다.
 
-           KuCoin 현물 공개 API(api.kucoin.com)로 심볼·캔들·티커를 받는다.
-           그래서 차트는 정상적으로 그려진다. 하지만 주문을 내는 어댑터는 아직
-           없으므로 orderPath 는 null 이다.
+           시세: KuCoin 현물 공개 API(api.kucoin.com)로 심볼·캔들·티커를 받는다.
+           주문: KucoinSpotTradingAdapter → api.kucoin.com `/api/v1/hf/orders`.
+                 선물과는 **다른 어댑터·다른 호스트**다. 어느 쪽으로 나가는지는
+                 요청의 `market` 필드가 정한다.
 
-         ★★ available 을 켜면서 orderPath 를 null 로 두는 이유
+         ★★ 이 주석은 한때 "현물은 시세만 지원하고 orderPath 는 null 이다" 라고
+           적혀 있었는데, 바로 아래 값은 그때도 'live' 였다. 실제로 고객의 현물
+           주문이 거래소까지 가서 거부된 기록이 있다(Balance insufficient!).
+           주석이 코드와 반대를 말하고 있었던 것이다. 이 상태가 위험한 이유는,
+           읽는 사람이 "현물은 주문이 안 나간다" 고 믿고 판단하거나 orderPath 를
+           null 로 "되돌려" 현물 거래를 끊어버릴 수 있기 때문이다.
 
-           모드를 고를 수는 있어야 한다(차트를 보려면). 그러나 주문 경로가
-           null 이면 주문 제출은 반드시 막힌다 — getOrderPath() 한 곳만 보고
-           판단하기 때문에, 화면이 실수로 주문 버튼을 열어도 나가지 않는다.
-           "볼 수는 있지만 낼 수는 없다" 를 코드 구조로 보장한다.
-
-           반대로 available:false 로 두면 차트조차 볼 수 없다. 그래서 두 가지를
-           분리했다: 시세 지원(available)과 주문 지원(orderPath).
+         ★ available(시세 지원)과 orderPath(주문 지원)는 여전히 별개 개념이다.
+           orderPath 가 null 이면 주문은 getOrderPath() 한 곳에서 반드시 막힌다.
       */
       available: true,
       reasonKey: null,
