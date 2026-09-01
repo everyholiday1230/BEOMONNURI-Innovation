@@ -91,6 +91,18 @@ export interface TradingRouterDeps {
   spotTradingAdapter?: IExchangeTradingAdapter;
   policy: TradingPolicy;
   symbolInfo: Record<string, SymbolInfo>;
+  /*
+     ★★ 현물 심볼 메타데이터. 선물과 **반드시 분리**해야 한다.
+
+       symbolInfo 는 선물 카탈로그로 채워진다. 현물 주문을 그 값으로 검증하면
+       규격이 틀린다(실측):
+         · 현물에만 있는 심볼 559개 → "symbol metadata unavailable" 로 주문 차단
+         · 겹치는 심볼도 최소수량이 다르다. ACEUSDT 선물 minQty=0.1 / 현물 10,
+           AAVEUSDT 선물 0.01 / 현물 0.001. 선물 기준으로 통과시키면 거래소가
+           거부하고, 반대로 멀쩡한 주문을 우리가 막는다.
+       선물 수량은 '계약 수', 현물은 '코인 수' 라 애초에 단위가 다르다.
+  */
+  spotSymbolInfo?: Record<string, SymbolInfo>;
   csrfKey: string;
   corsOrigins: string[];
   cookieName: string;
@@ -390,12 +402,15 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   ) {
     const symbol = String(body.symbol ?? 'BTCUSDT');
     const st = await resolveRiskState(userId, userStatus, symbol);
+    // ★ 현물 주문은 현물 규격으로 검증한다. 선물 규격을 쓰면 단위가 달라 틀린다.
+    const isSpot = body.market === 'spot';
+    const metaSource = isSpot && d.spotSymbolInfo ? d.spotSymbolInfo : d.symbolInfo;
     return {
       st,
       symbolId: symbol,
       input: {
         mode: d.mode,
-        symbol: d.symbolInfo[symbol],
+        symbol: metaSource[symbol],
         side: (body.side as 'long' | 'short') ?? 'long',
         orderType: (body.orderType as 'market' | 'limit') ?? 'limit',
         price: body.price as string | undefined,

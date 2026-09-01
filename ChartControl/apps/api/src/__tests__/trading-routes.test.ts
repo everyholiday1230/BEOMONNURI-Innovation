@@ -279,3 +279,75 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     expect(Array.isArray(b.unknownInputs)).toBe(true);
   });
 });
+
+/*
+   SPOT-META — 현물 주문은 현물 규격으로 검증해야 한다.
+
+   ★★ 프로덕션 실측으로 드러난 문제:
+     symbolInfo 는 선물 카탈로그로 채워지는데 현물 주문도 그것으로 검증했다.
+       · 현물 1006개 중 559개는 선물에 없다 → 'symbol metadata unavailable' 로
+         주문이 막혔다. 고객 기록에도 이 사유의 차단이 남아 있다.
+       · 겹치는 심볼조차 최소수량이 다르다(ACEUSDT 선물 0.1 / 현물 10).
+         선물 수량은 계약 수, 현물은 코인 수라 단위 자체가 다르다.
+     그래서 멀쩡한 현물 주문을 막거나, 반대로 거래소가 거부할 주문을 통과시켰다.
+*/
+describe('SPOT-META 현물 주문은 현물 심볼 규격을 쓴다', () => {
+  const SPOT_ONLY: Record<string, SymbolInfo> = {
+    // 선물(SYM)에는 없고 현물에만 있는 심볼.
+    ACXUSDT: {
+      id: 'ACXUSDT', base: 'ACX', quote: 'USDT', contractType: 'spot',
+      pricePrecision: 4, quantityPrecision: 2, tickSize: '0.0001', stepSize: '0.01',
+      minQty: '0.01', maxLeverage: 1,
+    },
+  };
+  const gatesOf = (b: { gates: { id: string; status: string }[] }, id: string) =>
+    b.gates.find((g) => g.id === id);
+
+  it('[1] ★★ 현물에만 있는 심볼도 메타데이터 게이트를 통과한다', async () => {
+    const { app } = build(undefined, {
+      spotSymbolInfo: SPOT_ONLY,
+      policy: { ...POLICY, allowedSymbols: ['ACXUSDT'] },
+    });
+    const jar = await login(app, 'spotmeta1@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { market: 'spot', symbol: 'ACXUSDT', side: 'long', orderType: 'limit', price: '0.5000', quantity: '10', leverage: 1 },
+    })).json() as { gates: { id: string; status: string }[] };
+    expect(gatesOf(b, 'metadata')!.status).not.toBe('fail');
+  });
+
+  it('[2] 현물 맵이 없으면 막는다 — 선물 규격으로 몰래 통과시키지 않는다', async () => {
+    const { app } = build(undefined, { policy: { ...POLICY, allowedSymbols: ['ACXUSDT'] } });
+    const jar = await login(app, 'spotmeta2@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { market: 'spot', symbol: 'ACXUSDT', side: 'long', orderType: 'limit', price: '0.5000', quantity: '10', leverage: 1 },
+    })).json() as { gates: { id: string; status: string }[] };
+    expect(gatesOf(b, 'metadata')!.status).toBe('fail');
+  });
+
+  it('[3] 선물 주문은 계속 선물 규격을 쓴다 (현물 맵이 있어도)', async () => {
+    const { app } = build(undefined, { spotSymbolInfo: SPOT_ONLY });
+    const jar = await login(app, 'spotmeta3@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { market: 'futures', symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as { gates: { id: string; status: string }[] };
+    expect(gatesOf(b, 'metadata')!.status).not.toBe('fail');
+  });
+
+  it('[4] ★ 최소수량은 현물 기준으로 본다 — 선물 기준이면 판정이 뒤바뀐다', async () => {
+    // 현물 minQty 10 / 선물 minQty 0.001 인 심볼을 만들어, 수량 1 이 현물에서는
+    // 미달이어야 한다. 선물 규격을 쓰면 통과해버린다(그게 버그였다).
+    const spot: Record<string, SymbolInfo> = {
+      BTCUSDT: { ...SYM.BTCUSDT!, contractType: 'spot', minQty: '10', stepSize: '1' },
+    };
+    const { app } = build(undefined, { spotSymbolInfo: spot });
+    const jar = await login(app, 'spotmeta4@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { market: 'spot', symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '1', leverage: 1 },
+    })).json() as { gates: { id: string; status: string }[] };
+    expect(gatesOf(b, 'minQty')!.status).toBe('fail');
+  });
+});

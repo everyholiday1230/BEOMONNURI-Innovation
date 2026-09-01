@@ -914,6 +914,31 @@ void refreshSymbolInfo();
   if (typeof t.unref === 'function') t.unref();
 }
 
+/*
+   ★★ 현물 심볼 메타데이터는 **따로** 채운다.
+
+     위 symbolInfoMap 은 선물 카탈로그다. 현물 주문을 그것으로 검증하면 규격이
+     틀린다(프로덕션 실측): 현물 1006개 중 559개는 선물에 없어서 'symbol metadata
+     unavailable' 로 주문이 막혔고, 겹치는 심볼조차 최소수량이 달랐다
+     (ACEUSDT 선물 0.1 / 현물 10). 선물 수량은 계약 수, 현물은 코인 수다.
+
+   ★ 실패하면 비워두지 않고 기존 값을 유지한다. 다만 빈 맵인 동안 현물 주문은
+     메타데이터 게이트에서 막힌다 — 잘못된 규격으로 통과시키는 것보다 안전하다.
+*/
+const spotSymbolInfoMap: Record<string, SymbolInfo> = {};
+async function refreshSpotSymbolInfo(): Promise<void> {
+  if (!providers.spot) return;
+  try {
+    const syms = (await providers.spot.getSymbols()) as SymbolInfo[];
+    for (const sym of syms) spotSymbolInfoMap[sym.id] = sym;
+  } catch { /* 실패 시 기존 값 유지 */ }
+}
+void refreshSpotSymbolInfo();
+{
+  const t = setInterval(() => { void refreshSpotSymbolInfo(); }, 10 * 60 * 1000);
+  if (typeof t.unref === 'function') t.unref();
+}
+
 app.post('/api/sim/order-drafts', async (c) => {
   const body = await c.req.json<{ symbol?: string }>();
   const sym = symbolInfoMap[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO.BTCUSDT!;
@@ -2612,6 +2637,7 @@ if (env.authEnabled) {
           /* 검증 경로와 **같은** 정책을 쓴다(위 주석 참조). */
           policy: { ...env.tradingPolicy, allowedSymbols: [...env.tradingPolicy.allowedSymbols] },
           symbolInfo: symbolInfoMap,
+          spotSymbolInfo: spotSymbolInfoMap,
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
           cookieName: env.cookieName,
