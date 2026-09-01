@@ -2658,6 +2658,48 @@ if (env.authEnabled) {
       }
 
       console.log(`[api] trading mounted (mode=${env.bitmartMode}, live=${env.bitmartLiveTradingEnabled}, killSwitch=${env.bitmartKillSwitch})`);
+      /*
+         ★★ 실주문이 나갈 수 있는 상태인지 **부팅 때 분명히 말한다.**
+
+           실주문에는 세 조건이 모두 필요하고 셋 다 기본값이 '막힘'이다. 그래서
+           운영자가 FEATURE_LIVE_ORDERS_ENABLED 만 켜 놓고 "주문이 왜 안 되지"
+           하는 상황이 생긴다 — /health/ready 의 liveTradingEnabled 는 **다른**
+           플래그(FEATURE_LIVE_ORDERS_ENABLED)라서 true 로 보이지만, 주문 경로가
+           보는 값은 아래 세 개다.
+
+           막혀 있으면 무엇을 어떻게 바꿔야 하는지 그대로 적는다. 로그를 읽는
+           사람이 추측하지 않아도 되게 한다.
+      */
+      {
+        const blockers: string[] = [];
+        if (env.bitmartMode !== 'BITMART_LIVE_TRADE') {
+          blockers.push(`LIVE_EXECUTION_MODE=${env.bitmartMode} (needs BITMART_LIVE_TRADE)`);
+        }
+        if (!env.bitmartLiveTradingEnabled) blockers.push('LIVE_TRADING_ENABLED is not "true"');
+        if (env.bitmartKillSwitch) blockers.push('EMERGENCY_KILL_SWITCH is not "false"');
+        if (blockers.length === 0) {
+          console.log('[api] LIVE ORDERS: ARMED — real orders can reach the exchange.');
+          /*
+             ★ env 가 열려 있어도 관리자 콘솔의 런타임 킬스위치가 막을 수 있다.
+               그 스위치는 기본 ACTIVE(차단)로 시드된다 — 몰라서 "또 안 된다" 가
+               되지 않게 여기서 현재 상태를 함께 알린다.
+          */
+          if (operationalControls) {
+            const dbKills = ['global_live_trading', 'new_positions']
+              .filter((s) => operationalControls!.killActive(s));
+            if (dbKills.length) {
+              console.warn(
+                `[api] LIVE ORDERS BLOCKED by admin kill switch: ${dbKills.join(', ')} — `
+                + 'turn them off in the admin console (they are seeded ACTIVE on purpose).',
+              );
+            }
+          }
+        } else {
+          console.warn(
+            `[api] LIVE ORDERS BLOCKED — orders will NOT reach the exchange. Blocking: ${blockers.join(' | ')}`,
+          );
+        }
+      }
     } catch (e) {
        
       console.error('[api] trading init failed; trading endpoints disabled:', (e as Error).message);
