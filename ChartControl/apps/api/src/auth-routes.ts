@@ -346,6 +346,25 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', 'not logged in'), 401);
     if (!(await csrfGuard(c, a.csrfSecret))) return c.json(err('CSRF_FAILED', 'csrf'), 403);
+    /*
+       ★★ 재발송에도 한도를 둔다.
+
+         전에는 인증 세션만 있으면 무제한으로 부를 수 있었다. 그러면 자기
+         주소로 메일을 계속 보내 **발송 비용**을 태우고(제공자 과금), 발송
+         도메인의 평판을 떨어뜨려 다른 이용자의 인증 메일까지 스팸으로 분류되게
+         만들 수 있다. 계정당 한도라서 정상 이용자(한두 번 다시 보내기)는
+         걸리지 않는다.
+
+       ★ 레이트리미터가 없는 배포에서는 통과시킨다 — 한도 장치가 없다고
+         인증 메일 재발송 자체를 막으면 가입이 완결되지 않는다.
+    */
+    if (deps.rateLimiter) {
+      const dec = await deps.rateLimiter.allow(`verify-email:user:${a.user.id}`, 5, 600_000);
+      if (!dec.ok) {
+        c.header('Retry-After', String(Math.max(1, Math.ceil(dec.retryAfterMs / 1000))));
+        return c.json(err('RATE_LIMITED', 'too many verification emails requested'), 429);
+      }
+    }
     await service.requestEmailVerification(a.user.id, ctxOf(c));
     return c.json({ ok: true }); // generic
   });
