@@ -775,6 +775,8 @@
     // dataRef 가 어떤 심볼/타임프레임의 데이터인지 표시한다. 심볼 전환 시
     // 이전 심볼 캔들이 새 심볼 라벨 아래 잠깐 보이는(깜빡임) 문제를 막는다.
     const dataKeyRef = useRef('');
+    /* 마지막으로 차트에 실은 데이터의 지문. 같으면 resetData 를 건너뛴다. */
+    const dataFingerprintRef = useRef('');
     /** 우리 overlay.id -> KLineChart overlay id */
     const overlayIdsRef = useRef(new Map());
     const maPaneRef = useRef(null);
@@ -866,6 +868,41 @@
           }
 
           /*
+             ★★ 이용자가 **실제로 과거를 보고 있을 때만** 불러온다.
+
+               이게 없으면 무한 증식한다. 실측한 고리는 이렇다:
+
+                 시세 1틱 → candles 배열이 새로 생김 → 아래 effect 가 resetData()
+                 → resetData 직후 klinecharts 가 곧바로 backward 를 요청
+                 → 300개 앞에 붙음 → 다음 틱에 또 resetData → 또 300개 …
+
+               초당 300개씩 과거로 뻗어나가서, 20초에 3,820 → 5,020개가 됐다.
+               데이터 구간이 매초 바뀌므로 Y축 범위와 오버레이(진입선·TP/SL 점선)가
+               계속 튀었다 — 이용자가 본 "차트가 계속 바뀐다, 점선이 생겼다
+               없어졌다" 가 바로 이 현상이다.
+
+             ★ 판정: 보이는 구간의 시작이 데이터 앞쪽 근처(20봉 이내)일 때만
+               과거를 요청한다. resetData 직후에는 최신(오른쪽 끝)을 보고 있으므로
+               자동 요청이 일어나지 않는다. 이용자가 왼쪽으로 스크롤하면 걸린다.
+
+             ★ 가시범위를 못 읽으면 **불러오지 않는다**. 모르는 상태에서 불러오면
+               위 무한 고리로 되돌아간다 — 스크롤이 한 번 안 되는 것보다 나쁘다.
+          */
+          let nearLeftEdge = false;
+          try {
+            const chartNow = chartRef.current;
+            const vr = chartNow && chartNow.getVisibleRange && chartNow.getVisibleRange();
+            const from = vr ? (vr.from ?? vr.realFrom) : null;
+            if (typeof from === 'number') nearLeftEdge = from <= 20;
+          } catch (e) { /* 못 읽으면 아래에서 막는다 */ }
+
+          if (!nearLeftEdge) {
+            // 더 있다는 사실은 알려주되(스크롤하면 다시 물어본다) 지금은 주지 않는다.
+            callback([], { forward: false, backward: true });
+            return;
+          }
+
+          /*
              ★★ 커서는 **timestamp** 다.
 
                dataRef 의 캔들은 {timestamp, open, ...} 형식이다(아래 병합 effect 가
@@ -916,6 +953,68 @@
       chart.setSymbol({ ticker: symbol, pricePrecision: decimals, volumePrecision: 3 });
       chart.setPeriod(periodFor(timeframe));
 
+      /*
+         ★★ 과거 이력은 **우리가 직접** 불러온다.
+
+           klinecharts 의 backward 콜백에만 의지하면 안 된다는 것을 실측으로
+           확인했다: 이용자가 왼쪽 끝(from=0)까지 끌어도 라이브러리가 backward 를
+           다시 요청하지 않아 과거가 더 붙지 않았다. (앞서 "과거 로딩이 된다" 고
+           본 것은 실은 resetData ↔ backward 무한 고리가 데이터를 늘리고 있던
+           것이고, 그 고리를 막자 로딩도 함께 멈춘 것이다.)
+
+           그래서 가시 구간을 주기적으로 보고, 왼쪽 끝에 가까워지면 우리가 가져와
+           앞에 붙인다. 라이브러리 내부 판단에 의존하지 않아 동작이 예측 가능하다.
+
+         ★ 안전장치
+           · 요청 중이면 겹쳐 부르지 않는다.
+           · 거래소가 더 줄 게 없으면 다시 묻지 않는다.
+           · 왼쪽 끝 근처가 아니면 아무 것도 하지 않는다 — 무한 증식을 막는 핵심.
+           · 붙인 뒤 스크롤 위치를 되돌려 보던 자리를 유지한다.
+      */
+      const historyTimer = setInterval(() => {
+        const ch = chartRef.current;
+        const LM = window.QTLive;
+        if (!ch || loadingOlderRef.current || noMoreOlderRef.current) return;
+        if (!LM || typeof LM.loadOlderCandles !== 'function') return;
+        const first = dataRef.current[0];
+        if (!first) return;
+
+        let from = null;
+        try {
+          const vr = ch.getVisibleRange && ch.getVisibleRange();
+          from = vr ? (vr.from ?? vr.realFrom) : null;
+        } catch (e) { return; }
+        if (typeof from !== 'number' || from > 20) return;
+
+        loadingOlderRef.current = true;
+        const anchorTs = first.timestamp;
+        LM.loadOlderCandles(symbolRef.current, timeframeRef.current, anchorTs, 300)
+          .then((older) => {
+            loadingOlderRef.current = false;
+            const head = (Array.isArray(older) ? older : [])
+              .map((c) => ({
+                timestamp: Number(c.time),
+                open: Number(c.open),
+                high: Number(c.high),
+                low: Number(c.low),
+                close: Number(c.close),
+                volume: Number(c.volume) || 0,
+              }))
+              .filter((b) => Number.isFinite(b.timestamp) && b.timestamp < anchorTs && Number.isFinite(b.close));
+
+            if (!head.length) { noMoreOlderRef.current = true; return; }
+            dataRef.current = head.concat(dataRef.current);
+            /* 지문을 무효화한다 — 안 하면 아래 effect 가 "같다" 며 건너뛰어 화면에 안 나온다. */
+            dataFingerprintRef.current = '';
+            try {
+              chartRef.current.resetData();
+              chartRef.current.scrollToTimestamp(anchorTs, 0);
+            } catch (e) { /* 복원 실패는 치명적이지 않다 */ }
+          })
+          .catch(() => { loadingOlderRef.current = false; });
+      }, 700);
+
+
       const onCrosshair = (data) => {
         // data.dataIndex 가 있으면 그 캔들, 없으면(차트 밖) null 로 최신 캔들 표시
         const idx = data && typeof data.dataIndex === 'number' ? data.dataIndex : null;
@@ -924,6 +1023,8 @@
       chart.subscribeAction('onCrosshairChange', onCrosshair);
 
       return () => {
+        // 과거 이력 폴링을 멈춘다 — 남겨두면 파괴된 차트를 계속 건드린다.
+        clearInterval(historyTimer);
         try {
           chart.unsubscribeAction('onCrosshairChange', onCrosshair);
         } catch (e) { /* noop */ }
@@ -993,6 +1094,23 @@
       }
       dataRef.current = merged;
       dataKeyRef.current = key;
+
+      /*
+         ★★ 내용이 그대로면 resetData 를 부르지 않는다.
+
+           resetData 는 데이터를 통째로 다시 싣고 뷰를 흔든다. candles 배열은 매
+           틱마다 **새 배열 객체**로 만들어지지만(app.jsx 의 useMemo 가 market.price
+           에 의존한다) 내용은 대개 같거나 마지막 봉만 다르다. 그런데도 매번
+           resetData 를 부르면 차트가 초당 한 번씩 다시 그려지고 뷰가 튄다.
+
+         ★ 지문으로 비교한다: 봉 개수 + 첫 타임스탬프 + 마지막 타임스탬프 +
+           마지막 종가. 마지막 봉 값이 바뀌면 지문도 바뀌므로 실시간 갱신은
+           그대로 반영된다. 완전히 같을 때만 건너뛴다.
+      */
+      const lastBar = merged[merged.length - 1];
+      const fingerprint = `${merged.length}|${merged[0].timestamp}|${lastBar.timestamp}|${lastBar.close}|${lastBar.high}|${lastBar.low}|${lastBar.volume}`;
+      if (sameKey && dataFingerprintRef.current === fingerprint) return;
+      dataFingerprintRef.current = fingerprint;
 
       /*
          ★★ 사용자가 과거를 보고 있으면 스크롤 위치를 유지한다.
