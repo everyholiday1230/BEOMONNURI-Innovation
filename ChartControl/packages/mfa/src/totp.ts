@@ -20,8 +20,21 @@ export function generateTotpSecret(bytes = 20): string {
   return base32Encode(randomBytes(bytes));
 }
 
-/** otpauth:// URI for QR provisioning (issuer + account label). Secret shown ONCE at setup. */
-export function otpauthUri(secretBase32: string, account: string, issuer = 'QuantumTrade AI'): string {
+/**
+ * otpauth:// URI for QR provisioning (issuer + account label). Secret shown ONCE at setup.
+ *
+ * ★★ issuer 는 인증 앱 목록에 **그대로 표시되는 이름**이다. 기본값이 옛 제품명
+ *   'QuantumTrade AI' 로 박혀 있어서, 이용자의 Google Authenticator 에는
+ *   지금도 존재하지 않는 브랜드가 남았다. 한 번 등록되면 이용자가 직접 지우고
+ *   다시 등록해야 바뀌므로, 기본값을 현재 브랜드로 맞춘다.
+ *
+ * ★ 환경변수로 덮을 수 있게 둔다 — 브랜드가 또 바뀔 때 코드를 고치지 않는다.
+ */
+export function otpauthUri(
+  secretBase32: string,
+  account: string,
+  issuer = process.env.MFA_ISSUER || process.env.BRAND_NAME || 'ChartControl AI',
+): string {
   const label = encodeURIComponent(`${issuer}:${account}`);
   const params = new URLSearchParams({ secret: secretBase32, issuer, algorithm: 'SHA1', digits: '6', period: '30' });
   return `otpauth://totp/${label}?${params.toString()}`;

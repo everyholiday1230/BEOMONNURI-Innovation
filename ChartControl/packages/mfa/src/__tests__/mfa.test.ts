@@ -30,7 +30,14 @@ describe('TOTP (RFC 6238)', () => {
     const uri = otpauthUri(secret, 'admin@qt.local');
     expect(uri.startsWith('otpauth://totp/')).toBe(true);
     expect(uri).toContain(`secret=${secret}`);
-    expect(uri).toContain('issuer=QuantumTrade+AI');
+    /*
+       ★ issuer 는 인증 앱 목록에 그대로 보이는 이름이다. 옛 제품명이 아니라
+         현재 브랜드여야 한다(MFA_ISSUER/BRAND_NAME 으로 덮을 수 있다).
+    */
+    expect(uri).toContain('issuer=ChartControl+AI');
+
+    // 명시적으로 넘긴 issuer 가 우선한다.
+    expect(otpauthUri(secret, 'admin@qt.local', 'Acme')).toContain('issuer=Acme');
   });
 
   it('verifies the current code and rejects a wrong one', () => {

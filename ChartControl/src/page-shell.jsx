@@ -73,12 +73,18 @@
     { section: 'account', labelKey: 'nav_notifications',  icon: 'Bell',        route: '/notifications',  roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_referral',       icon: 'Share',       route: '/referral',       roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_points',         icon: 'Zap',         route: '/points',         roles: ['user','ops','admin','super'] },
-    { section: 'account', labelKey: 'nav_fees_rebates', icon: 'Zap',         route: '/fees',           roles: ['ops','admin','super'] },
     { section: 'account', labelKey: 'nav_settings',       icon: 'Cog',         route: '/settings',       roles: ['user','ops','admin','super'] },
     { section: 'account', labelKey: 'nav_help',           icon: 'Info',        route: '/help',           roles: ['user','ops','admin','super'] },
 
     // ---------- ADMIN ITEMS ----------
     { section: 'admin',   labelKey: 'nav_admin_home',     icon: 'LayoutIcon',  route: '/admin',            roles: ['ops','admin','super'] },
+    /*
+       ★ 수수료·리베이트는 **운영자 전용**이다(라우트도 auth.role !== 'user' 로 막혀 있다).
+         전에는 '계정' 섹션에 있어서 고객 메뉴(포트폴리오·지갑·포인트) 사이에 섞여
+         보였다 — 운영자에게도 이게 내 정산인지 회사 수익인지 헷갈리는 자리다.
+         운영자 섹션으로 옮겨 ADMIN 배지 아래에 둔다.
+    */
+    { section: 'admin',   labelKey: 'nav_fees_rebates',   icon: 'Zap',         route: '/fees',             roles: ['ops','admin','super'] },
     { section: 'admin',   labelKey: 'nav_users',          icon: 'User',        route: '/admin/users',      roles: ['ops','admin','super'] },
     { section: 'admin',   labelKey: 'nav_kyc_queue',      icon: 'Camera',      route: '/admin/kyc',        roles: ['ops','admin','super'] },
     { section: 'admin',   labelKey: 'nav_trade_monitor',  icon: 'Chart',       route: '/admin/trades',     roles: ['ops','admin','super'] },
