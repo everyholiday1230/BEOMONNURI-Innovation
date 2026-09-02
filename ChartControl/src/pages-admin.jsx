@@ -1980,6 +1980,41 @@
       return Math.floor(sec / 86400) + 'd ' + Math.floor((sec % 86400) / 3600) + 'h';
     })();
 
+    /*
+       ★★ 운영 오류 목록.
+
+         이 서비스는 장애를 **고객 신고로만** 알 수 있었다. 서버 예외는 어디에도
+         쌓이지 않았고 클라이언트 오류는 console.error 로만 남았다. 이제 서버가
+         ops_errors 에 모아주므로, 시스템 상태 화면에서 함께 본다.
+
+       ★ 조회 실패를 빈 목록으로 두지 않는다 — "오류가 없다" 로 읽히면
+         관측 장치를 만든 의미가 사라진다.
+    */
+    const [opsErr, setOpsErr] = useState(null);      // null = 아직 모름
+    const [opsErrState, setOpsErrState] = useState('loading'); // loading | ok | failed | unsupported
+    useEffect(() => {
+      const api = window.QTApi && window.QTApi.admin;
+      if (!api || !api.opsErrors) { setOpsErrState('unsupported'); return undefined; }
+      let cancelled = false;
+      api.opsErrors(30).then((r) => {
+        if (cancelled) return;
+        if (!r || r.ok === false) { setOpsErrState('failed'); return; }
+        if (r.supported === false) { setOpsErrState('unsupported'); return; }
+        setOpsErr(r);
+        setOpsErrState('ok');
+      });
+      return () => { cancelled = true; };
+    }, [_adm.version]);
+
+    const agoText = (ms) => {
+      const d = Date.now() - Number(ms);
+      if (!Number.isFinite(d) || d < 0) return '—';
+      if (d < 60000) return Math.floor(d / 1000) + 's';
+      if (d < 3600000) return Math.floor(d / 60000) + 'm';
+      if (d < 86400000) return Math.floor(d / 3600000) + 'h';
+      return Math.floor(d / 86400000) + 'd';
+    };
+
     return (
       <window.PageShell
         {...shellProps}
@@ -2090,6 +2125,67 @@
           />
         </window.SectionCard>
         )}
+        {/*
+           운영 오류 (관측).
+
+           ★★ 이 목록이 없으면 오류를 서버가 모아도 아무도 보지 못한다. 알림 메일은
+             '새 오류' 만 알려주므로, "지금 무엇이 몇 번 깨지고 있는가" 는 여기서 본다.
+           ★ 같은 원인은 지문으로 한 줄로 묶이고 누적 횟수를 보여준다 — 폭주해도
+             목록을 읽을 수 있어야 한다.
+        */}
+        <window.SectionCard
+          title={t('ops_err_title')}
+          subtitle={opsErrState === 'ok' && opsErr && opsErr.summary
+            ? t('ops_err_subtitle', { d: opsErr.summary.distinct, n: opsErr.summary.total })
+            : t('ops_err_subtitle_plain')}
+          noPadding
+        >
+          {opsErrState === 'loading' && (
+            <div style={{ padding: '10px 12px', fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>…</div>
+          )}
+          {opsErrState === 'failed' && (
+            <div style={{ padding: '10px 12px', fontSize: 11.5, color: 'var(--color-danger, #dc2626)' }}>
+              {t('ops_err_failed')}
+            </div>
+          )}
+          {opsErrState === 'unsupported' && (
+            <div style={{ padding: '10px 12px', fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>
+              {t('ops_err_unsupported')}
+            </div>
+          )}
+          {opsErrState === 'ok' && opsErr && opsErr.errors.length === 0 && (
+            <div style={{ padding: '10px 12px', fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>
+              {t('ops_err_none')}
+            </div>
+          )}
+          {opsErrState === 'ok' && opsErr && opsErr.errors.length > 0 && (
+            <window.DataTable
+              columns={[
+                { key: 'source',
+                  label: t('ops_err_col_source'),
+                  render: (r) => (
+                    <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--color-bg-elevated)' }}>
+                      {r.source === 'server' ? 'API' : 'UI'}
+                    </span>
+                  ) },
+                { key: 'message',
+                  label: t('ops_err_col_message'),
+                  render: (r) => (
+                    <span title={r.stack || ''} style={{ fontSize: 11.5 }}>
+                      {String(r.message).slice(0, 120)}
+                      {r.url ? <span style={{ color: 'var(--color-text-tertiary)' }}>{' · ' + String(r.url).slice(0, 60)}</span> : null}
+                    </span>
+                  ) },
+                { key: 'seenCount', label: t('ops_err_col_count'), align: 'right',
+                  render: (r) => <span style={{ fontFamily: 'var(--font-num)' }}>{r.seenCount}</span> },
+                { key: 'lastSeenAt', label: t('ops_err_col_last'), align: 'right',
+                  render: (r) => <span style={{ fontFamily: 'var(--font-num)' }}>{agoText(r.lastSeenAt)}</span> },
+              ]}
+              rows={opsErr.errors}
+            />
+          )}
+        </window.SectionCard>
+
         {window.AdminBugReportsPanel && <window.AdminBugReportsPanel/>}
       </window.PageShell>
     );

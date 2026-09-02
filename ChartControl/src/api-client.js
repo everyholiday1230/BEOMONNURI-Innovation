@@ -2333,6 +2333,27 @@
       return getJSON('', '/api/admin/security/summary').then(function (r) { return { ok: true, data: r }; });
     },
 
+    /*
+       운영 오류 목록(관측).
+
+       ★ 실패를 빈 목록으로 바꾸지 않는다. "조회 실패" 와 "오류 없음" 은 정반대
+         사실이고, 후자로 보이면 관측 장치를 만든 의미가 사라진다.
+    */
+    opsErrors: function (limit) {
+      var q = limit ? '?limit=' + encodeURIComponent(limit) : '';
+      return getJSON('', '/api/admin/ops/errors' + q).then(
+        function (r) {
+          return {
+            ok: true,
+            supported: !(r && r.supported === false),
+            errors: (r && r.errors) || [],
+            summary: (r && r.summary) || null,
+          };
+        },
+        function (e) { return { ok: false, supported: false, errors: [], summary: null, status: e && e.status }; },
+      );
+    },
+
     /** 사건(인시던트) 목록. */
     incidents: function () {
       return getJSON('', '/api/admin/incidents').then(function (r) {

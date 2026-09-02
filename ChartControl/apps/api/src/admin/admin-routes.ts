@@ -75,6 +75,11 @@ export interface AdminRouterDeps {
   tiers?: import('../db/pg-tier-repo').PgTierRepo;
   /** 고객 지원 티켓 저장소. Postgres 배포에만 주입된다. */
   support?: import('../db/support-repo').PgSupportRepo;
+  /*
+     ★ 운영 오류 기록. 없으면(PG 미구성) 조회는 supported:false 로 답한다 —
+       빈 목록을 돌려주면 "오류가 없다" 로 읽혀 관측 장치를 만든 의미가 사라진다.
+  */
+  opsErrors?: import('../ops/error-store').PgOpsErrorStore;
   /** 리퍼럴 저장소. Postgres 배포에만 주입된다. */
   referral?: import('../db/referral-repo').PgReferralRepo;
   /** 포인트 저장소. Postgres 배포에만 주입된다. */
@@ -1836,6 +1841,31 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
    * 운영자(SUPPORT/ANALYST)도 읽을 수 있다 — 고객 문의에 답하려면 어떤 공지가
    * 나갔는지 알아야 한다. 쓰기는 관리자 이상만 가능하다.
    */
+  /*
+     운영 오류 목록.
+
+     ★★ 이 화면이 없으면 오류를 DB 에 쌓아도 아무도 보지 못한다. 알림 메일은
+       새 오류만 알려주므로, "지금 무엇이 몇 번 깨지고 있는가" 는 여기서 본다.
+
+     ★ 권한은 admin.incident.read — 장애 정보는 고객 응대에도 필요하므로
+       지원 인력도 본다. 되돌릴 수 없는 작업이 없는 읽기 전용 경로다.
+
+     ★★ 저장소가 없으면 빈 목록이 아니라 supported:false 로 답한다.
+       "조회할 수 없다" 와 "오류가 없다" 는 정반대 사실이다.
+  */
+  app.get('/admin/ops/errors', async (c) => {
+    const g = await guard(c, 'admin.incident.read'); if ('err' in g) return g.err;
+    if (!d.opsErrors) {
+      return c.json({ supported: false, errors: [], summary: null, reason: 'error monitoring requires the PostgreSQL backend' });
+    }
+    const limit = Number(c.req.query('limit') ?? 50);
+    const [errors, summary] = await Promise.all([
+      d.opsErrors.recent(limit),
+      d.opsErrors.summary(),
+    ]);
+    return c.json({ supported: true, errors, summary });
+  });
+
   app.get('/admin/notices', async (c) => {
     const g = await guard(c, 'admin.notice.read'); if ('err' in g) return g.err;
     if (!d.notices) {

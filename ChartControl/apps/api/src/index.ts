@@ -41,6 +41,8 @@ import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
+import { PgOpsErrorStore } from './ops/error-store';
+import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
 import { createUserStrategyRouter } from './user-strategy-routes';
 import { PgUserStrategyRepo } from './db/user-strategy-repo';
 import { PgUserTagsRepo } from './db/user-tags-repo';
@@ -146,6 +148,33 @@ const aiResolution = await resolveAiProvider({
 });
 
 const app = new Hono();
+
+/*
+   ★★ 오류 관측 장치.
+
+     `app` 은 모듈 최상위에서 만들어지지만 저장소(PG)는 부팅 뒤에 준비된다.
+     그래서 홀더에 담아두고, 준비되면 채운다. 준비되기 전의 오류는 기록되지
+     않고 로그로만 남는다 — 없는 저장소에 쓰려다 부팅을 깨뜨리는 것보다 낫다.
+*/
+let opsErrorAlerter: ErrorAlerterDeps | null = null;
+
+/*
+   ★★ 처리되지 않은 서버 예외를 여기서 한 번에 잡는다.
+
+     지금까지 이 핸들러가 **없었다.** 라우트에서 던진 예외는 Hono 기본 처리로
+     500 이 나가고 어디에도 쌓이지 않았다. 즉 서버가 실패해도 고객이 신고할
+     때까지 아무도 몰랐다.
+
+   ★ 응답 본문에는 예외 메시지를 넣지 않는다. 내부 사정(쿼리·경로·키 이름)이
+     새어나가고, 고객에게는 아무 도움이 되지 않는다. 상관관계 ID만 준다.
+*/
+app.onError((e, c) => {
+  const path = new URL(c.req.url).pathname;
+  // ★ 실제 처리는 handleServerError 에 있다 — 인라인으로 두면 검증할 수 없다.
+  const out = handleServerError(opsErrorAlerter, e, { method: c.req.method, path }, () => randomUUID().slice(0, 8));
+  console.error(`[server-error] cid=${out.correlationId} ${c.req.method} ${path} :: ${(e as Error).message}`);
+  return c.json(out.body, 500);
+});
 
 // ---- security middleware ----
 
@@ -309,6 +338,20 @@ app.post('/api/ops/client-error', async (c) => {
   const url = String(parsed.url ?? '').slice(0, 200);
   const stack = String(parsed.stack ?? '').split('\n').slice(0, 4).join(' | ').slice(0, 800);
   console.error(`[client-error] ip=${ip} url=${url} msg=${JSON.stringify(msg)} stack=${JSON.stringify(stack)}`);
+
+  /*
+     ★★ 로그로만 남기면 아무도 보지 않는다 — 실제로 이 싱크가 그런 상태였다.
+       같은 내용을 ops_errors 에 모으고, 새 오류는 운영자에게 알린다.
+
+     ★ await 하지 않는다. 고객 화면이 오류를 보고하는 요청이 우리 DB 응답을
+       기다릴 이유가 없다. 기록 실패는 captureError 안에서 삼켜진다.
+  */
+  void captureError(opsErrorAlerter, {
+    source: 'client',
+    message: msg || '(빈 메시지)',
+    stack: stack || undefined,
+    url: url || undefined,
+  });
 
   return c.body(null, 204);
 });
@@ -1163,6 +1206,37 @@ if (env.authEnabled) {
     const smtpProvider = smtpFromEnv();
     const resendProvider = smtpProvider ? null : resendFromEnv();
     const mailProvider = smtpProvider ?? resendProvider ?? new MailSink();
+
+    /*
+       ★★ 오류 관측 장치를 여기서 켠다(메일러와 DB 풀이 모두 준비된 지점).
+
+         받는 사람은 OPS_ALERT_EMAIL, 없으면 MAIL_FROM 으로 보낸다 — 운영자가
+         env 하나를 잊었다고 알림이 조용히 꺼지면 관측 장치를 만든 의미가 없다.
+         둘 다 없으면 기록만 하고 알림은 보내지 않으며, 그 사실을 경고로 남긴다.
+
+       ★ PG 가 없으면(로컬 SQLite) 저장소를 만들지 않는다. 기록은 로그로만 남는다.
+    */
+    if (core.pool) {
+      const alertTo = (process.env.OPS_ALERT_EMAIL ?? process.env.MAIL_FROM ?? '').trim();
+      opsErrorAlerter = {
+        store: new PgOpsErrorStore(core.pool),
+        mail: mailProvider,
+        to: alertTo,
+        appBaseUrl: env.publicBaseUrl,
+        environment: env.tradingMode === 'MOCK' ? 'dev' : 'prod',
+      };
+      console.log(
+        `[api] error monitoring: on (alerts ${alertTo ? `→ ${alertTo}` : 'OFF — set OPS_ALERT_EMAIL'})`,
+      );
+      if (!alertTo) {
+        console.warn(
+          '[api] OPS_ALERT_EMAIL and MAIL_FROM are both unset — errors are recorded but nobody is told. ' +
+            'Outages will still be discovered by customer reports.',
+        );
+      }
+    } else {
+      console.warn('[api] error monitoring: recording DISABLED (no PostgreSQL pool) — errors go to logs only.');
+    }
     if (smtpProvider === null && resendProvider === null) {
        
       console.warn(
@@ -1569,6 +1643,8 @@ if (env.authEnabled) {
            주입하지 않으면 라우트가 503 을 낸다 — 빈 목록을 주면 "공지가 없다" 는
            거짓이 되고, 작성 시도가 조용히 성공한 것처럼 보인다.
         */
+        // 운영 오류 조회(읽기 전용). 알림 쪽과 같은 테이블을 본다.
+        ...(core.pool ? { opsErrors: new PgOpsErrorStore(core.pool) } : {}),
         notices: (() => {
           if (!core.pool) return undefined;
           // 사용자용 라우트(/api/notices)도 같은 인스턴스를 쓴다.
