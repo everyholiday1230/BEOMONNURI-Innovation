@@ -608,6 +608,15 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
              화면이 '확인되지 않음' 으로 표시한다.
         */
         permissions: [],
+        /*
+           마지막 사용 시각.
+
+           ★★ null 은 "쓰인 적 없음" 이 아니라 **"기록이 없음"** 이다. 이 값은
+             지금부터 기록되기 시작하므로, 그 전에 쓰인 키는 null 로 남는다.
+             화면이 그 둘을 다르게 말해야 한다 — "쓰인 적 없음" 이라고 단정하면
+             실제로 거래에 쓰인 키를 안 쓰인 것처럼 보여주게 된다.
+        */
+        lastUsedAt: r.lastUsedAt ?? null,
       })),
       exchange: d.exchangeId,
     });
@@ -1040,6 +1049,20 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const full = await d.credRepo.getOwned(userId, usable.id);
     if (!full) return { ok: false, reason: 'NONE' };
     const credential = await d.vault.decrypt(full);
+    /*
+       ★★ 이 키를 실제로 쓴다는 사실을 기록한다.
+
+         "Last used" 열이 지갑 화면에 있는데 이 값이 어디에서도 기록되지 않아
+         모든 키가 영원히 "—" 였다 — 주문 18건을 낸 키까지 그랬다. 고객이
+         **키가 몰래 쓰이는지** 확인하는 필드가 무의미했다.
+
+         여기에 두는 이유: 잔고·포지션·주문이 모두 이 함수를 지난다. 각 라우트에
+         흩어 놓으면 새 라우트가 빠뜨린다.
+
+       ★ await 하지 않는다. 사용 기록 때문에 주문이 느려지거나 실패하면 안 된다.
+         구현이 예외를 삼키므로 떠 있는 거부를 만들지도 않는다.
+    */
+    void d.credRepo.markUsed(usable.id);
     return {
       ok: true,
       ctx: { mode: d.mode, credential },

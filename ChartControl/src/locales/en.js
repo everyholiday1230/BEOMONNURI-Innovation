@@ -429,6 +429,7 @@
       wal_add_key: 'Add Key',
       wal_col_label_exchange: 'Label / Exchange',
       wal_col_last_used: 'Last used',
+      wal_col_last_used_none: 'Not recorded yet',
       set_ch_inapp: 'In-app',
       notif_prefs_note: 'The in-app list is filtered by these settings; email preferences are saved on this device. SMS and push are not available yet.',
       acct_req_confirm: 'This sends a request to our support team, who will process it. Continue?',

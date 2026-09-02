@@ -684,6 +684,7 @@
       wal_add_key: 'キーを追加',
       wal_col_label_exchange: 'ラベル / 取引所',
       wal_col_last_used: '最終利用',
+      wal_col_last_used_none: '記録なし',
       set_ch_inapp: 'アプリ内',
       notif_prefs_note: 'アプリ内の一覧はこの設定で絞り込まれ、メール設定はこの端末に保存されます。SMS・プッシュは未提供です。',
       acct_req_confirm: 'サポートチームへ要請を送信し、担当者が処理します。続行しますか？',

@@ -11,6 +11,19 @@ export interface CredentialRow extends EncryptedCredential {
   permissionsVerified: boolean;
   ipWhitelistConfirmed: boolean;
   connectionStatus: string;
+  /*
+     ★★ 이 키가 **마지막으로 실제 쓰인** 시각(ms). 모르면 null.
+
+       지갑 화면에 "Last used" 열이 있는데 이 값이 어디에서도 기록되지 않아
+       모든 키가 영원히 "—" 로 보였다 — 주문 18건을 낸 키까지 그랬다.
+       "마지막 사용" 은 고객이 **키가 몰래 쓰이는지 확인하는 필드**다. 쓰이는
+       키를 "—" 로 보여주면 그 확인이 무의미해지고, 오히려 "안 쓰이는 중" 이라고
+       말하는 셈이다.
+
+       null 과 "쓰인 적 없음" 을 화면에서 구분한다 — 기록 이전에 쓰인 키가
+       있으므로(실서비스에 이미 있다) "없음" 으로 단정하지 않는다.
+  */
+  lastUsedAt: number | null;
 }
 
 /**
@@ -26,6 +39,13 @@ export interface CredentialStore {
   getOwned(userId: string, id: string): Promise<CredentialRow | null>;
   listOwned(userId: string): Promise<CredentialRow[]>;
   setVerified(userId: string, id: string, status: string, permissionsVerified: boolean): Promise<void>;
+  /*
+     이 키로 거래소를 실제 호출했음을 기록한다.
+
+     ★ 실패해도 호출자를 막지 않는다 — 사용 기록이 주문을 실패시키면 안 된다.
+       그래서 반환값이 없고, 구현이 삼킨다(단, 삼킬 때 로그를 남긴다).
+  */
+  markUsed(id: string): Promise<void>;
   revoke(userId: string, id: string): Promise<boolean>;
 }
 
@@ -61,6 +81,21 @@ export class SqliteCredentialRepo implements CredentialStore {
     this.db.prepare('UPDATE exchange_credentials SET connection_status=?, permissions_verified=?, last_verified_at=?, updated_at=? WHERE id=? AND user_id=?')
       .run(status, permissionsVerified ? 1 : 0, Date.now(), Date.now(), id, userId);
   }
+  /*
+     사용 기록.
+
+     ★★ 절대 예외를 밖으로 내지 않는다. 사용 기록 실패가 주문을 실패시키면
+       부작용이 원래 목적보다 커진다. 다만 조용히 삼키지도 않는다 — 삼킨 사실을
+       로그로 남겨야 "기록이 왜 비었나" 를 나중에 알 수 있다.
+  */
+  async markUsed(id: string): Promise<void> {
+    try {
+      this.db.prepare('UPDATE exchange_credentials SET last_used_at=?, updated_at=? WHERE id=? AND revoked_at IS NULL')
+        .run(Date.now(), Date.now(), id);
+    } catch (e) {
+      console.warn('[cred] markUsed 실패 — 사용 기록만 누락되고 주문은 계속한다:', (e as Error).message);
+    }
+  }
   async revoke(userId: string, id: string): Promise<boolean> {
     const info = this.db.prepare('UPDATE exchange_credentials SET revoked_at=? WHERE id=? AND user_id=? AND revoked_at IS NULL').run(Date.now(), id, userId);
     return info.changes > 0;
@@ -74,6 +109,8 @@ function map(r: Record<string, unknown>): CredentialRow {
     encryptedSecretKey: String(r.encrypted_secret_key), encryptedMemo: String(r.encrypted_memo),
     wrappedDek: String(r.wrapped_dek), encryptionKeyVersion: String(r.encryption_key_version), algo: String(r.algo),
     permissionsVerified: !!r.permissions_verified, ipWhitelistConfirmed: !!r.ip_whitelist_confirmed, connectionStatus: String(r.connection_status),
+    // ★ 없으면 null 이다. 0 으로 바꾸면 "1970년에 쓰임" 이 된다.
+    lastUsedAt: r.last_used_at === null || r.last_used_at === undefined ? null : Number(r.last_used_at),
   };
 }
 

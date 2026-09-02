@@ -99,6 +99,27 @@ export class PgCredentialRepo {
     );
   }
 
+  /*
+     사용 기록.
+
+     ★★ 예외를 밖으로 내지 않는다 — 사용 기록 실패가 주문을 실패시키면 안 된다.
+       그래도 조용히 넘기지 않고 로그를 남긴다.
+
+     ★ user_id 조건을 두지 않는다. 호출자는 이미 소유권을 확인한 뒤(getOwned)
+       이 키를 쓰고 있고, 여기서 다시 조건을 걸면 인자를 하나 더 옮겨야 한다.
+       revoked_at IS NULL 만은 유지한다 — 폐기된 키를 쓴 기록은 남기지 않는다.
+  */
+  async markUsed(id: string): Promise<void> {
+    try {
+      await this.pool.query(
+        'UPDATE exchange_credentials SET last_used_at = now(), updated_at = now() WHERE id = $1 AND revoked_at IS NULL',
+        [id],
+      );
+    } catch (e) {
+      console.warn('[cred] markUsed 실패 — 사용 기록만 누락되고 주문은 계속한다:', (e as Error).message);
+    }
+  }
+
   async revoke(userId: string, id: string): Promise<boolean> {
     const r = await this.pool.query(
       'UPDATE exchange_credentials SET revoked_at = now(), updated_at = now() WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL',
@@ -129,5 +150,8 @@ function mapRow(r: Record<string, unknown>): CredentialRow {
     permissionsVerified: r.permissions_verified === true,
     ipWhitelistConfirmed: r.ip_whitelist_confirmed === true,
     connectionStatus: String(r.connection_status),
+    // ★ 없으면 null. 0 으로 떨어뜨리면 "1970년에 쓰임" 이 된다.
+    lastUsedAt: r.last_used_at instanceof Date ? r.last_used_at.getTime()
+      : r.last_used_at === null || r.last_used_at === undefined ? null : Number(new Date(String(r.last_used_at)).getTime()),
   };
 }

@@ -686,6 +686,7 @@
       wal_add_key: '添加密钥',
       wal_col_label_exchange: '名称 / 交易所',
       wal_col_last_used: '最近使用',
+      wal_col_last_used_none: '尚未记录',
       set_ch_inapp: '站内',
       notif_prefs_note: '站内列表按此设置过滤，邮件偏好保存在本设备。短信与推送暂未提供。',
       acct_req_confirm: '将向支持团队发送请求并由其处理。是否继续？',

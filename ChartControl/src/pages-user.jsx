@@ -3444,8 +3444,22 @@
                           )}
                       </div>
                       <div style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-text-tertiary)'}}>
-                        {/* 마지막 사용 시각을 기록하지 않는다. 모르는 것을 '방금' 으로 쓰지 않는다. */}
-                        {k.lastUsed ? timeAgo(new Date(k.lastUsed).getTime()) : '—'}
+                        {/*
+                           마지막 사용 시각.
+
+                           ★★ 예전에는 이 값이 **어디에서도 기록되지 않았다**(코드 전체에 쓰기 0곳).
+                             그런데 열은 있었고, 값이 없으면 '—' 를 찍었다. 주문 18건을 낸 키도
+                             '—' 였다. "마지막 사용" 은 고객이 **키가 몰래 쓰이는지** 확인하는
+                             필드인데, 실제로 쓰이는 키를 '—' 로 보여주면 그 확인이 무의미해지고
+                             오히려 "안 쓰이는 중" 이라고 말하는 셈이 된다.
+
+                           ★ 이제 서버가 기록한다. 다만 기록 시작 이전에 쓰인 키는 여전히 null 이니
+                             '쓰인 적 없음' 이 아니라 '기록 없음' 이라고 말한다 — 모르는 것을
+                             단정하지 않는다.
+                        */}
+                        {k.lastUsedAt
+                          ? timeAgo(new Date(k.lastUsedAt).getTime())
+                          : t('wal_col_last_used_none')}
                       </div>
                       <div style={{display:'inline-flex', gap:4}}>
                         <button className="tbl-action">{t('col_edit')}</button>
