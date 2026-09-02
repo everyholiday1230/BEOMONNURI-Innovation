@@ -2544,6 +2544,8 @@
           supported: !(r && r.supported === false),
           settings: (r && r.settings) || null,
           referrers: (r && r.referrers) || [],
+          /* ★ 이 설정으로 실제 보상이 지급되는지. 화면이 어긋남을 경고하는 데 쓴다. */
+          rewardReality: (r && r.rewardReality) || null,
         };
       });
     },

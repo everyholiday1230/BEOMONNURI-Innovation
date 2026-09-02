@@ -2194,6 +2194,39 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
          대시보드에서 실제 수령액을 확인한 뒤 운영자가 산정해 입력한다.
       */
       disclosures: { accrualComputed: false, autoPayout: false },
+      /*
+         ★★ 이 설정으로 **실제로 보상이 지급되는가**.
+
+           payoutNote 는 운영자가 자유롭게 쓰는 문구이고 화면에 그대로 나간다.
+           그런데 포인트 지급 조건은 코드에 있고, 운영자는 그 조건을 볼 수 없었다.
+           실제로 프로덕션에서 이렇게 어긋나 있었다:
+
+             안내 문구: "추천인과 신규 회원 **양쪽** 2,000 포인트"
+             코드 동작: team_leader 태그가 붙은 직원 코드일 때 **신규 회원만** 지급.
+                        일반 고객 코드는 아무에게도 지급하지 않는다.
+             team_leader 보유자: 0명 → 어떤 경우에도 지급되지 않음
+
+           지킬 수 없는 약속이 노출되는 것을 막으려면 운영자가 그 사실을 볼 수
+           있어야 한다. 그래서 판단 근거를 그대로 돌려준다 — 문구를 대신 고치지
+           않는다(마케팅 문구는 운영자의 결정이다).
+      */
+      rewardReality: await (async () => {
+        const ps = d.points ? await d.points.getSettings().catch(() => null) : null;
+        const staff = d.userTags ? await d.userTags.listUsersByTag('team_leader').catch(() => []) : [];
+        const pointsOn = Boolean(ps && ps.enabled && ps.referralAsPoints && ps.referralPoints > 0);
+        return {
+          pointsEnabled: pointsOn,
+          pointsPerSignup: ps ? ps.referralPoints : 0,
+          /** 포인트는 **신규 회원에게만** 지급된다. 추천인에게는 지급되지 않는다. */
+          paidTo: pointsOn ? 'referee_only' : 'nobody',
+          /** 직원 코드(team_leader)일 때만 지급된다. */
+          requiresStaffCode: true,
+          staffCodeOwners: staff.length,
+          /** 지금 설정으로 실제 지급이 일어날 수 있는가. */
+          anyRewardPossible: pointsOn && staff.length > 0,
+          cashSharePct: Number(settings.sharePct ?? 0),
+        };
+      })(),
     });
   });
 

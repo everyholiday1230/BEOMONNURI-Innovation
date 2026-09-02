@@ -710,6 +710,43 @@
                     </div>
                   </div>
 
+                  {/*
+                     ★★ 이 설정으로 **실제로 보상이 지급되는가**.
+
+                       payoutNote 는 여기서 쓴 글이 고객 화면에 그대로 나간다.
+                       그런데 지급 조건은 코드에 있고 운영자는 볼 수 없었다.
+                       프로덕션에서 실제로 어긋나 있었다: 문구는 "양쪽 2,000 포인트",
+                       코드는 직원(team_leader) 코드일 때 신규 회원만 지급, 그리고
+                       team_leader 보유자가 0명이라 아무에게도 지급되지 않았다.
+
+                       지킬 수 없는 약속을 쓰지 않도록 사실을 옆에 붙여 둔다.
+                  */}
+                  {data && data.rewardReality && (
+                    <div style={{
+                      padding:'9px 11px', borderRadius:6, fontSize:11.5, lineHeight:1.8,
+                      background: data.rewardReality.anyRewardPossible
+                        ? 'var(--color-bg-elevated)'
+                        : 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+                      border: '1px solid ' + (data.rewardReality.anyRewardPossible
+                        ? 'var(--color-border-subtle)' : 'var(--color-danger)'),
+                      color: data.rewardReality.anyRewardPossible
+                        ? 'var(--color-text-secondary)' : 'var(--color-danger)',
+                    }}>
+                      <div style={{fontWeight:700, marginBottom:3}}>
+                        {data.rewardReality.anyRewardPossible ? t('adm_ref_reality_ok') : t('adm_ref_reality_none')}
+                      </div>
+                      <div>{t('adm_ref_reality_points', {
+                        n: data.rewardReality.pointsPerSignup,
+                        on: data.rewardReality.pointsEnabled ? t('adm_ref_reality_on') : t('adm_ref_reality_off'),
+                      })}</div>
+                      <div>{t('adm_ref_reality_referee_only')}</div>
+                      <div>{t('adm_ref_reality_staff', { n: data.rewardReality.staffCodeOwners })}</div>
+                      {!data.rewardReality.anyRewardPossible && (
+                        <div style={{marginTop:4, fontWeight:600}}>{t('adm_ref_reality_fix')}</div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5}}>
                       {t('adm_ref_note')}
