@@ -1982,6 +1982,15 @@
         token_exchange_failed: { key: 'fast_api_token_failed', ok: false },
         key_issue_failed: { key: 'fast_api_key_failed', ok: false },
         unreachable: { key: 'fast_api_unreachable', ok: false },
+        /*
+           ★★ 40503(권한 불일치)을 원인별로 나눈다.
+
+             예전에는 일반 오류 하나로 뭉개서, 고객이 몇 번 다시 시도하다 포기했다
+             (프로덕션 로그에 이 실패가 6건 남아 있었다). 무엇을 해야 하는지
+             말해주지 않는 오류는 없는 것과 같다.
+        */
+        futures_not_enabled: { key: 'fast_api_err_futures_not_enabled', ok: false },
+        permission_mismatch: { key: 'fast_api_err_permission_mismatch', ok: false },
       };
       setOauthResult(MAP[reason] || { key: 'fast_api_token_failed', ok: false });
 

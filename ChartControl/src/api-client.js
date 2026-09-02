@@ -1619,8 +1619,17 @@
      *   화면은 /api/config 의 kucoinOauthAvailable 로 미리 판단해 버튼 자체를
      *   보이지 않게 한다.
      */
-    startKucoinOauth: function () {
-      return sendJSON('POST', '/api/exchanges/kucoin/oauth/start');
+    /*
+       ★★ markets 로 **고객이 고른 시장만** 권한을 요청한다.
+         'spot' | 'futures' | 'both'.
+
+         예전에는 현물·선물 권한을 항상 함께 요구했다. KuCoin 은 요청 권한이
+         이용자가 승인한 것과 맞아야 하고, 선물 권한은 계정에 선물 거래가 먼저
+         활성화돼 있어야 한다. 안 맞으면 40503 으로 연결이 실패한다 — 현물만
+         쓰려는 고객이 쓰지도 않을 권한 때문에 막혔다.
+    */
+    startKucoinOauth: function (markets) {
+      return sendJSON('POST', '/api/exchanges/kucoin/oauth/start', { markets: markets || 'both' });
     },
 
     sessions: function () {

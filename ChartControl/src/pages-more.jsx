@@ -68,6 +68,11 @@
     })();
     const [fastApiBusy, setFastApiBusy] = useState(false);
     const [fastApiErr, setFastApiErr] = useState(null);
+    /*
+       ★ 기본값 'both'. 대부분은 둘 다 쓰고, 선물 미활성 계정만 'spot' 을 고르면 된다.
+         기본을 'spot' 으로 두면 선물을 쓰려는 고객이 나중에 다시 승인해야 한다.
+    */
+    const [fastApiMarkets, setFastApiMarkets] = useState('both');
 
     /*
        인증 시작.
@@ -79,13 +84,20 @@
        ★ 같은 탭에서 이동한다. 새 탭으로 열면 승인 후 돌아온 화면이 원래 탭과
          달라서 이용자가 두 화면 중 어느 것이 맞는지 헷갈린다.
     */
-    const startFastApi = async () => {
+    const startFastApi = async (markets) => {
       // ★ QTApi.auth 에 있다(QTApi.exchanges 는 목록 조회 함수다).
       const api = window.QTApi && window.QTApi.auth;
       if (!api || !api.startKucoinOauth) return;
       setFastApiBusy(true); setFastApiErr(null);
       try {
-        const r = await api.startKucoinOauth();
+        /*
+           ★★ 고객이 고른 시장만 권한을 요청한다.
+
+             예전에는 현물·선물을 항상 함께 요구해서, 선물을 켜지 않은 계정은
+             40503 으로 연결이 실패했다(프로덕션 로그 6건). 쓰지도 않을 권한
+             때문에 막히는 것은 고객에게 설명할 수 없는 실패다.
+        */
+        const r = await api.startKucoinOauth(markets || fastApiMarkets);
         if (r && r.url) {
           window.location.href = r.url;
           return; // 이동한다 — 아래 상태 정리는 실행되지 않는다.
@@ -245,6 +257,36 @@
                     <div style={{fontSize:11, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
                       {t('fast_api_scopes')}
                     </div>
+                    {/*
+                       ★★ 어느 시장을 쓸지 **고객이 고른다.**
+
+                         예전에는 현물·선물 권한을 항상 함께 요구했다. KuCoin 은
+                         선물 권한을 그 계정에 선물 거래가 활성화된 뒤에만 내주므로,
+                         선물을 안 쓰는 고객은 쓰지도 않을 권한 때문에 연결이 실패했다
+                         (40503, 프로덕션 로그 6건). 고른 것만 요구한다.
+                    */}
+                    <div style={{display:'flex', flexDirection:'column', gap:5}}>
+                      <div style={{fontSize:11.5, fontWeight:600}}>{t('fast_api_markets_q')}</div>
+                      {[
+                        ['both', t('fast_api_markets_both')],
+                        ['futures', t('fast_api_markets_futures')],
+                        ['spot', t('fast_api_markets_spot')],
+                      ].map(([val, label]) => (
+                        <label key={val} style={{display:'flex', alignItems:'center', gap:6, fontSize:11.5, cursor:'pointer'}}>
+                          <input
+                            type="radio"
+                            name="fastApiMarkets"
+                            value={val}
+                            checked={fastApiMarkets === val}
+                            onChange={() => setFastApiMarkets(val)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                      <div style={{fontSize:10.5, color:'var(--color-text-tertiary)'}}>
+                        {t('fast_api_markets_note')}
+                      </div>
+                    </div>
                     {fastApiErr && (
                       <div style={{fontSize:11.5, color:'var(--color-warning)'}}>{fastApiErr}</div>
                     )}
@@ -252,7 +294,7 @@
                       className="btn btn--sm btn--primary"
                       type="button"
                       disabled={fastApiBusy}
-                      onClick={startFastApi}
+                      onClick={() => startFastApi(fastApiMarkets)}
                     >
                       {fastApiBusy ? t('sec_loading') : t('fast_api_connect')}
                     </button>

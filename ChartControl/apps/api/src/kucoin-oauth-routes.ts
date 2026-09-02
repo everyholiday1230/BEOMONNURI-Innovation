@@ -73,15 +73,48 @@ const STATE_TTL_MS = 10 * 60_000;
        API_WITHDRAW_OAUTH — **출금. 우리는 입출금을 취급하지 않는다(약관 제2조).**
                             false 로 고정한다.
 */
-const AUTH_GROUPS = Object.freeze({
-  API_COMMON: true,
-  API_SPOT: true,
-  API_FUTURES: true,
-  API_MARGIN: false,
-  API_EARN: false,
-  API_TRANSFER: false,
-  API_WITHDRAW_OAUTH: false,
-});
+export type OauthMarkets = 'spot' | 'futures' | 'both';
+
+/** 문자열을 시장 선택으로 바꾼다. 모르는 값은 'both' 로 두지 않고 **가장 좁은** 쪽으로. */
+export function normalizeMarkets(raw: unknown): OauthMarkets {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (v === 'spot' || v === 'futures' || v === 'both') return v;
+  /*
+     ★★ 모르는 값은 'spot' 이다. 'both' 로 떨어지면 요청하지 않은 권한이 조용히
+       넓어지고, 선물 미활성 계정에서는 40503 으로 연결이 아예 실패한다.
+       권한은 넓히는 쪽이 아니라 좁히는 쪽으로 실패해야 한다.
+  */
+  return 'spot';
+}
+
+/*
+   고객이 고른 시장에 맞는 권한만 요구한다.
+
+   ★★ 예전에는 API_COMMON·API_SPOT·API_FUTURES 를 **항상 함께** 요구했다.
+
+     KuCoin 은 authGroupMap 이 이용자가 실제로 허가한 권한과 맞아야 하고,
+     API_FUTURES 는 그 계정에 선물 거래가 **먼저 활성화**돼 있어야 한다. 안 맞으면
+     code=40503 으로 키 발급이 실패한다. 프로덕션 로그에 이 실패가 6건 남아 있었고
+     (계정 3개), 고객 화면에는 원인을 알 수 없는 일반 오류만 떴다.
+
+     현물만 쓰려는 고객이나 선물을 아직 켜지 않은 고객은, 쓰지도 않을 권한 때문에
+     연결 자체를 못 했다.
+
+   ★ API_COMMON 은 항상 필요하다(잔고·포지션 조회). 없으면 화면에 아무 것도 못 띄운다.
+   ★ 출금(API_WITHDRAW_OAUTH)은 어떤 선택으로도 켜지지 않는다. 우리는 입출금을
+     취급하지 않는다(약관 제2조).
+*/
+export function authGroupsFor(markets: OauthMarkets): Readonly<Record<string, boolean>> {
+  return Object.freeze({
+    API_COMMON: true,
+    API_SPOT: markets === 'spot' || markets === 'both',
+    API_FUTURES: markets === 'futures' || markets === 'both',
+    API_MARGIN: false,
+    API_EARN: false,
+    API_TRANSFER: false,
+    API_WITHDRAW_OAUTH: false,
+  });
+}
 
 export interface KucoinOauthDeps {
   service: AuthService;
@@ -212,10 +245,19 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
     */
     const state = randomBytes(24).toString('base64url');
 
+    /*
+       ★★ 고객이 고른 시장을 **state 와 함께 서버에 저장**한다.
+
+         콜백에서 쿼리로 다시 받으면 고객이 주소를 고쳐 권한을 넓힐 수 있다.
+         state 는 이미 CSRF 방어로 검증하므로, 선택을 여기 묶어 두면 조작이 불가능하다.
+    */
+    const body = (await c.req.json().catch(() => ({}))) as { markets?: unknown };
+    const markets = normalizeMarkets(body.markets);
+
     await d.pool.query(
-      `INSERT INTO kucoin_oauth_states (state, user_id, session_hash, expires_at)
-       VALUES ($1, $2, $3, now() + ($4 || ' milliseconds')::interval)`,
-      [state, a.user.id, sessionHash(c), String(STATE_TTL_MS)],
+      `INSERT INTO kucoin_oauth_states (state, user_id, session_hash, expires_at, markets)
+       VALUES ($1, $2, $3, now() + ($4 || ' milliseconds')::interval, $5)`,
+      [state, a.user.id, sessionHash(c), String(STATE_TTL_MS), markets],
     );
 
     /*
@@ -232,7 +274,7 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
       + '&scope=OAUTH_CREATE_API'
       + `&state=${encodeURIComponent(state)}`;
 
-    return c.json({ url, expiresInMs: STATE_TTL_MS });
+    return c.json({ url, expiresInMs: STATE_TTL_MS, markets });
   });
 
   /*
@@ -269,10 +311,10 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
       `UPDATE kucoin_oauth_states
           SET used_at = now()
         WHERE state = $1 AND used_at IS NULL AND expires_at > now()
-      RETURNING user_id, session_hash`,
+      RETURNING user_id, session_hash, markets`,
       [state],
     );
-    const row = claimed.rows[0] as { user_id: string; session_hash: string } | undefined;
+    const row = claimed.rows[0] as { user_id: string; session_hash: string; markets?: string } | undefined;
     if (!row) return back('invalid_state');
 
     /*
@@ -313,8 +355,14 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
               그래서 배포 환경에서 재배포 없이 조정할 수 있게 env 로 뺀다.
               단, 출금(API_WITHDRAW_OAUTH)은 어떤 override 로도 켜지 않는다.
       */
+      /*
+         ★ 고객이 고른 시장에서 권한을 만든다. env override 는 운영자가 전체를
+           좁히는 용도로만 남긴다 — 넓히는 쪽으로는 쓰지 않는다.
+         ★ 출금은 어떤 경로로도 켜지지 않는다.
+      */
+      const markets = normalizeMarkets(row.markets);
       const authGroupMap = {
-        ...AUTH_GROUPS,
+        ...authGroupsFor(markets),
         ...(d.authGroups || {}),
         API_WITHDRAW_OAUTH: false,
       };
@@ -351,6 +399,15 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
            문서가 밝힌 실패 사유(중복 apiName·키 개수 상한) 외의 경우도 있으므로,
            화면에는 일반 안내(key_issue_failed)를 주되 서버 로그로 실제 원인을 본다.
         */
+        /*
+           ★★ 40503(risk validation)은 원인이 분명하다: 요청한 권한이 이용자가
+             승인한 것과 맞지 않는다. 대개 **선물이 활성화되지 않은 계정에
+             API_FUTURES 를 요구**한 경우다. 일반 오류로 뭉개면 고객은 몇 번
+             다시 시도하다 포기한다 — 실제로 이 실패가 6건 남아 있었다.
+        */
+        if (String(keyBody?.code ?? '') === '40503') {
+          return back(markets === 'spot' ? 'permission_mismatch' : 'futures_not_enabled');
+        }
         return back('key_issue_failed');
       }
 
