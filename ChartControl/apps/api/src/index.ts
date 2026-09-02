@@ -41,6 +41,7 @@ import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
+import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import { PgOpsErrorStore } from './ops/error-store';
 import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
 import { createUserStrategyRouter } from './user-strategy-routes';
@@ -388,7 +389,7 @@ app.get('/api/config', (c) =>
     liveOrdersEnabled: env.liveOrdersEnabled, // false in Phase 1
     // The client MUST be able to block the order CTA on the emergency kill switch rather than
     // guessing a value; this is a read-only mirror of BITMART_EMERGENCY_KILL_SWITCH.
-    killSwitchActive: env.bitmartKillSwitch,
+    killSwitchActive: env.emergencyKillSwitch,
     /*
        구글 로그인 사용 가능 여부.
 
@@ -865,8 +866,8 @@ app.post('/api/ai/analyze', async (c) => {
       getAvailableBalance: () => userCtx.availableBalance,
       source: env.dataMode === 'MOCK_REPLAY' ? 'MOCK' : 'SNAPSHOT',
       tradingMode: env.tradingMode,
-      liveTradingEnabled: env.liveOrdersEnabled && env.bitmartLiveTradingEnabled,
-      killSwitchActive: env.bitmartKillSwitch,
+      liveTradingEnabled: env.liveOrdersEnabled && env.liveTradingEnabled,
+      killSwitchActive: env.emergencyKillSwitch,
     },
   );
 
@@ -1350,7 +1351,12 @@ if (env.authEnabled) {
       await adminRepo.seedMockGateway();
       await adminRepo.seedAiPolicy();
       // Seed kill switches (live-trading scopes default ACTIVE/blocked — fail-closed).
-      for (const s of ['global_live_trading', 'bitmart_live_trading', 'new_positions'] as const) await adminRepo.seedKill(s, null, true);
+      /*
+         ★ 거래소 중립 스코프(exchange_live_trading)를 함께 시드한다. 옛
+           bitmart_live_trading 은 이미 켜져 있는 배포의 차단이 풀리지 않도록 남긴다 —
+           둘 중 하나라도 켜져 있으면 주문이 막힌다(fail-closed).
+      */
+      for (const s of ['global_live_trading', 'exchange_live_trading', 'bitmart_live_trading', 'new_positions'] as const) await adminRepo.seedKill(s, null, true);
       for (const s of ['ai_provider', 'ai_signal_generation', 'ai_order_draft'] as const) await adminRepo.seedKill(s, null, false);
       // Seed feature flags (safe defaults).
       await adminRepo.seedFlag('ai_enabled', env.aiEnabled, 'AI copilot enabled');
@@ -1717,14 +1723,14 @@ if (env.authEnabled) {
         // The real posture, so /admin/overview reports what this deployment actually does rather than a
         // hardcoded READ_ONLY/killSwitch-on triple.
         posture: {
-          mode: env.bitmartMode,
+          mode: env.liveExecutionMode,
           // 운영자 대시보드가 실제 거래모드/거래소를 보여주게 한다(위 mode 는 리스크 게이트 라벨).
           tradingMode: env.tradingMode,
           exchange: /kucoin/i.test(String(env.tradingMode)) ? 'KuCoin'
             : /bitmart/i.test(String(env.tradingMode)) ? 'BitMart'
             : (env.tradingMode === 'MOCK' ? 'Mock (simulation)' : String(env.tradingMode)),
-          liveTradingEnabled: env.bitmartLiveTradingEnabled,
-          killSwitch: env.bitmartKillSwitch,
+          liveTradingEnabled: env.liveTradingEnabled,
+          killSwitch: env.emergencyKillSwitch,
         },
         // G10: operator rebate statement. `undefined` when no operator BitMart credential is
         // configured, which the route reports as NOT_CONFIGURED rather than as an empty statement.
@@ -1936,8 +1942,8 @@ if (env.authEnabled) {
       // MOCK until a real provider read is verified end-to-end. Never promoted by a request parameter.
       source: (env.tradingMode === 'MOCK' ? 'MOCK' : 'SNAPSHOT') as 'MOCK' | 'SNAPSHOT' | 'LIVE',
       tradingMode: env.tradingMode,
-      liveTradingEnabled: env.liveOrdersEnabled && env.bitmartLiveTradingEnabled,
-      killSwitchActive: env.bitmartKillSwitch,
+      liveTradingEnabled: env.liveOrdersEnabled && env.liveTradingEnabled,
+      killSwitchActive: env.emergencyKillSwitch,
     };
     /*
        고객 지원 티켓 (사용자용).
@@ -2510,7 +2516,7 @@ if (env.authEnabled) {
 
     // Phase 3 — BitMart trading (additive). Read-only by default; live disabled + kill switch on.
     try {
-      const kek = env.bitmartKek ?? Buffer.alloc(32, 7).toString('base64'); // dev-only fixed KEK when unset
+      const kek = env.credentialKek ?? Buffer.alloc(32, 7).toString('base64'); // dev-only fixed KEK when unset
       const vault = new CredentialVault(new LocalKekProvider(kek));
       // brokerId: attribution for the BitMart Broker Program. Every relayed order must carry it or
       // the fill earns no rebate, so it is wired at the single place the adapter is constructed.
@@ -2674,7 +2680,7 @@ if (env.authEnabled) {
                   }).getCachedSymbol?.(symbol)?.multiplier,
                 // 함수로 넘긴다 — 부팅 시점 값을 캡처하면 킬스위치가 무력해진다.
                 liveEnabled: () =>
-                  env.liveOrdersEnabled && env.bitmartLiveTradingEnabled && !env.bitmartKillSwitch,
+                  env.liveOrdersEnabled && env.liveTradingEnabled && !env.emergencyKillSwitch,
                 onAudit: (event, detail) => {
                   // 실주문은 반드시 기록을 남긴다. 나중에 "누가 언제 무엇을" 확인해야 한다.
                    
@@ -2704,7 +2710,7 @@ if (env.authEnabled) {
                   name: env.kucoinBrokerSpotName,
                 },
                 liveEnabled: () =>
-                  env.liveOrdersEnabled && env.bitmartLiveTradingEnabled && !env.bitmartKillSwitch,
+                  env.liveOrdersEnabled && env.liveTradingEnabled && !env.emergencyKillSwitch,
                 onAudit: (event, detail) => {
                   console.log(`[order-audit] ${event} ${JSON.stringify(detail)}`);
                 },
@@ -2717,9 +2723,9 @@ if (env.authEnabled) {
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
           cookieName: env.cookieName,
-          mode: env.bitmartMode as 'BITMART_LIVE_READ_ONLY',
-          liveTradingEnabled: env.bitmartLiveTradingEnabled,
-          killSwitch: env.bitmartKillSwitch,
+          mode: env.liveExecutionMode as 'BITMART_LIVE_READ_ONLY',
+          liveTradingEnabled: env.liveTradingEnabled,
+          killSwitch: env.emergencyKillSwitch,
           /*
              ★★ 실주문 멱등성을 DB 에 둔다.
 
@@ -2747,11 +2753,11 @@ if (env.authEnabled) {
           liveGateEnv: {
             modeVar: 'BITMART_MODE',
             modeRequired: 'BITMART_LIVE_TRADE',
-            modeActual: env.bitmartMode,
+            modeActual: env.liveExecutionMode,
             flags: [
-              { name: 'BITMART_LIVE_TRADING_ENABLED', value: env.bitmartLiveTradingEnabled },
+              { name: 'BITMART_LIVE_TRADING_ENABLED', value: env.liveTradingEnabled },
               { name: 'FEATURE_LIVE_ORDERS_ENABLED', value: env.liveOrdersEnabled },
-              { name: 'BITMART_EMERGENCY_KILL_SWITCH=false', value: !env.bitmartKillSwitch },
+              { name: 'BITMART_EMERGENCY_KILL_SWITCH=false', value: !env.emergencyKillSwitch },
             ],
           },
           // Same adapter instance: transaction history is a Read-only call and must carry the same broker
@@ -2829,7 +2835,7 @@ if (env.authEnabled) {
         console.log(`[api] KuCoin Fast API (OAuth) NOT mounted — ${why}`);
       }
 
-      console.log(`[api] trading mounted (mode=${env.bitmartMode}, live=${env.bitmartLiveTradingEnabled}, killSwitch=${env.bitmartKillSwitch})`);
+      console.log(`[api] trading mounted (mode=${env.liveExecutionMode}, live=${env.liveTradingEnabled}, killSwitch=${env.emergencyKillSwitch})`);
       /*
          ★★ 실주문이 나갈 수 있는 상태인지 **부팅 때 분명히 말한다.**
 
@@ -2844,11 +2850,33 @@ if (env.authEnabled) {
       */
       {
         const blockers: string[] = [];
-        if (env.bitmartMode !== 'BITMART_LIVE_TRADE') {
-          blockers.push(`LIVE_EXECUTION_MODE=${env.bitmartMode} (needs BITMART_LIVE_TRADE)`);
+        if (env.liveExecutionMode !== 'BITMART_LIVE_TRADE') {
+          blockers.push(`LIVE_EXECUTION_MODE=${env.liveExecutionMode} (needs BITMART_LIVE_TRADE)`);
         }
-        if (!env.bitmartLiveTradingEnabled) blockers.push('LIVE_TRADING_ENABLED is not "true"');
-        if (env.bitmartKillSwitch) blockers.push('EMERGENCY_KILL_SWITCH is not "false"');
+        if (!env.liveTradingEnabled) blockers.push('LIVE_TRADING_ENABLED is not "true"');
+        if (env.emergencyKillSwitch) blockers.push('EMERGENCY_KILL_SWITCH is not "false"');
+
+        /*
+           ★★ 옛 BITMART_* 이름을 쓰고 있으면 알린다.
+
+             이 값들은 BitMart 가 아니라 **지금 붙어 있는 KuCoin 실주문**을 통제한다.
+             이름 때문에 "BitMart 설정이니 지워도 된다" 고 판단하면 거래가 멈추거나,
+             반대로 막았다고 믿는데 열려 있게 된다. 거래소를 더 붙이기 전에 정리해야
+             하므로, 조용히 넘기지 않고 부팅마다 이름을 짚어 준다.
+        */
+        const deprecatedEnv = [
+          ['BITMART_MODE', 'LIVE_EXECUTION_MODE'],
+          ['BITMART_LIVE_TRADING_ENABLED', 'LIVE_TRADING_ENABLED'],
+          ['BITMART_EMERGENCY_KILL_SWITCH', 'EMERGENCY_KILL_SWITCH'],
+          ['BITMART_DEV_KEK', 'CREDENTIAL_KEK'],
+        ].filter(([oldName, newName]) => process.env[oldName!] !== undefined && process.env[newName!] === undefined);
+        if (deprecatedEnv.length > 0) {
+          console.warn(
+            '[api] deprecated env names in use — these control the CURRENTLY CONNECTED exchange '
+            + '(KuCoin), not BitMart. Rename before adding another exchange: '
+            + deprecatedEnv.map(([o, n]) => `${o} → ${n}`).join(', '),
+          );
+        }
         if (blockers.length === 0) {
           console.log('[api] LIVE ORDERS: ARMED — real orders can reach the exchange.');
           /*
@@ -2870,7 +2898,9 @@ if (env.authEnabled) {
                되지 않게 여기서 현재 상태를 함께 알린다.
           */
           if (operationalControls) {
-            const dbKills = ['global_live_trading', 'new_positions']
+            // ★ 강제되는 스코프 전부를 알린다. 목록이 코드와 어긋나면 운영자가
+            //   "막았는데 왜 나가지" 또는 "안 막았는데 왜 안 나가지" 를 겪는다.
+            const dbKills = ORDER_BLOCKING_KILL_SCOPES
               .filter((s) => operationalControls!.killActive(s));
             if (dbKills.length) {
               console.warn(
@@ -2932,8 +2962,8 @@ if (env.authEnabled) {
                 getAvailableBalance: () => null,
                 source: env.dataMode === 'MOCK_REPLAY' ? 'MOCK' : 'SNAPSHOT',
                 tradingMode: env.tradingMode,
-                liveTradingEnabled: env.liveOrdersEnabled && env.bitmartLiveTradingEnabled,
-                killSwitchActive: env.bitmartKillSwitch,
+                liveTradingEnabled: env.liveOrdersEnabled && env.liveTradingEnabled,
+                killSwitchActive: env.emergencyKillSwitch,
               },
             );
             if (!built.ok) return null;

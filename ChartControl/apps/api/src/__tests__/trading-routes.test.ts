@@ -177,6 +177,56 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     expect(b.liveGate.allowed).toBe(false);
   });
 
+  /*
+     ★★ 'bitmart_live_trading' 킬스위치는 관리자 화면에서 켤 수 있었지만
+       **주문 경로가 검사하지 않았다.** 검사 대상을 이름으로 나열했고 그 목록에서
+       빠져 있었다. 즉 운영자가 거래를 멈췄다고 믿는 동안 실주문이 계속 나갔다.
+       이제 ORDER_BLOCKING_KILL_SCOPES 를 근거로 검사한다.
+  */
+  it('[1c] ★★ 거래소 킬스위치(exchange_live_trading)가 실주문을 막는다', async () => {
+    const { app } = build(undefined, {
+      liveTradingEnabled: true,
+      killSwitch: false,
+      controls: { killActive: (scope: string) => scope === 'exchange_live_trading' },
+    });
+    const jar = await login(app, 'rw-kill-ex@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as { liveGate: { allowed: boolean } };
+    expect(b.liveGate.allowed).toBe(false);
+  });
+
+  it('[1d] ★★ 옛 이름(bitmart_live_trading)도 실주문을 막는다 — 예전에는 무력했다', async () => {
+    const { app } = build(undefined, {
+      liveTradingEnabled: true,
+      killSwitch: false,
+      controls: { killActive: (scope: string) => scope === 'bitmart_live_trading' },
+    });
+    const jar = await login(app, 'rw-kill-old@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as { liveGate: { allowed: boolean } };
+    expect(b.liveGate.allowed).toBe(false);
+  });
+
+  it('[1e] 어떤 킬스위치도 꺼져 있으면 라이브 게이트가 열린다', async () => {
+    const { app } = build(undefined, {
+      liveTradingEnabled: true,
+      killSwitch: false,
+      controls: { killActive: () => false },
+    });
+    const jar = await login(app, 'rw-kill-none@ex.com');
+    const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as { liveGate: { allowed: boolean }; gates: { id: string; status: string }[] };
+    // 킬스위치 때문에 막히지 않아야 한다(다른 게이트로 막히는 것은 이 검사의 대상이 아니다).
+    const kill = b.gates.find((g) => g.id.includes('kill') || g.id.includes('emergency'));
+    if (kill) expect(kill.status).not.toBe('fail');
+  });
+
   it('[2] a user with NO exchange key does not pass the credential gate', async () => {
     const { app } = build();
     const jar = await login(app, 'rw2@ex.com');

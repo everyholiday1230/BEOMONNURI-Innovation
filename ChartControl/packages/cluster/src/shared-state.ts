@@ -78,7 +78,12 @@ export class RedisSharedState implements SharedStateStore {
  * Fail-closed reader for live-trading kill switches. Live scopes default to BLOCKED (active) whenever
  * the shared store read fails (Redis outage). Non-live scopes default to their provided safe default.
  */
-export const LIVE_TRADING_SCOPES = new Set(['global_live_trading', 'bitmart_live_trading', 'new_positions']);
+/*
+   ★ 거래소 중립 이름(exchange_live_trading)과 옛 이름(bitmart_live_trading)을
+     모두 포함한다. 조회 실패 시 안전 기본값(차단)을 적용할 대상이므로, 새 이름이
+     빠지면 새 스코프가 조회 실패 때 **열린 채로** 남는다.
+*/
+export const LIVE_TRADING_SCOPES = new Set(['global_live_trading', 'exchange_live_trading', 'bitmart_live_trading', 'new_positions']);
 
 export async function readKillSwitchFailClosed(
   store: SharedStateStore,

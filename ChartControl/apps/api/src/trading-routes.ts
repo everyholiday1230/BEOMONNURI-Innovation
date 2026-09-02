@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
+import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import type { BitMartMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
 import { CredentialVault } from './trading/credential-vault';
 // 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
@@ -438,14 +439,17 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         /*
            ★★ 비상정지 = 부팅 env(killSwitch) **또는** 관리자 콘솔의 런타임 킬스위치.
 
-             둘 중 하나라도 켜지면 막는다(fail-safe). 관리자가 콘솔에서 누른
-             global_live_trading / new_positions 킬이 실주문 경로에 실제로 반영되게
-             한다 — 전에는 이 라우터가 controls 를 받지 못해 콘솔 스위치가 무력했다.
+             둘 중 하나라도 켜지면 막는다(fail-safe). 전에는 이 라우터가 controls 를
+             받지 못해 콘솔 스위치가 무력했다.
+
+           ★★ 검사 대상을 이름으로 나열하지 않고 ORDER_BLOCKING_KILL_SCOPES 를 쓴다.
+             나열하던 시절 'bitmart_live_trading' 이 목록에서 빠져 **켜도 주문이
+             나갔다.** 목록을 한 곳에서 가져오면 스코프를 추가할 때 강제 경로가
+             함께 따라온다.
         */
         emergencyKillSwitch:
           d.killSwitch
-          || (d.controls?.killActive('global_live_trading') ?? false)
-          || (d.controls?.killActive('new_positions') ?? false),
+          || ORDER_BLOCKING_KILL_SCOPES.some((sc) => d.controls?.killActive(sc) ?? false),
         userStatus,
         previewExpired: false,
         confirmationTokenValid,

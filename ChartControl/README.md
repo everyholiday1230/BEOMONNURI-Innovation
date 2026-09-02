@@ -113,7 +113,20 @@ DB kill_switches            = global_live_trading · bitmart_live_trading · new
 
 부팅 로그가 **왜 막혀 있는지** 정확히 출력한다. 막힌 이유를 추측하지 말고 로그를 볼 것.
 
-> **이름 정리 필요**: `BITMART_*` / `bitmart_live_trading` 이 실제로는 KuCoin 을 통제한다. 거래소를 추가하기 전에 거래소 중립 이름으로 바꿔야 한다. 지금 상태로 BitGet 을 붙이면 어느 변수가 어느 거래소를 켜는지 알 수 없게 된다.
+> **이름**: 이 값들은 BitMart 가 아니라 **지금 붙어 있는 거래소(KuCoin)** 를 통제한다. 거래소 중립 이름을 쓰고, 옛 이름은 폴백으로만 남아 있다:
+>
+> | 쓸 이름 | 옛 이름(폴백) |
+> |---|---|
+> | `LIVE_EXECUTION_MODE` | `BITMART_MODE` |
+> | `LIVE_TRADING_ENABLED` | `BITMART_LIVE_TRADING_ENABLED` |
+> | `EMERGENCY_KILL_SWITCH` | `BITMART_EMERGENCY_KILL_SWITCH` |
+> | `CREDENTIAL_KEK` | `BITMART_DEV_KEK` — **모든 거래소의 고객 API 키를 감싸는 키다.** BitMart 전용으로 착각해 지우면 저장된 자격증명을 복호화할 수 없다 |
+>
+> 옛 이름을 쓰고 있으면 부팅 로그가 이름을 짚어 경고한다.
+>
+> 킬스위치 스코프도 `exchange_live_trading` 으로 바뀌었다. 옛 `bitmart_live_trading` 은 계속 강제되므로(둘 중 하나라도 켜지면 차단) 이미 켜둔 차단이 풀리지 않는다.
+>
+> `BITMART_REST_BASE` · `BITMART_WS_*` · `BITMART_BROKER_ID` 는 **정말로 BitMart 전용**이라 이름이 맞다.
 
 ---
 
@@ -214,7 +227,7 @@ npx eslint . && pnpm -r typecheck && pnpm --filter @quantumtrade/api exec vitest
 | 항목 | 영향 |
 |---|---|
 | React 개발 빌드 + 런타임 Babel | 첫 화면 로딩이 느리다 |
-| `BITMART_*` 이름이 KuCoin 을 통제 | 거래소 추가 시 혼란 |
+| 모드 값이 `BITMART_LIVE_TRADE` | 값 이름만 거래소 이름이다(env 이름·내부 식별자·킬스위치는 정리됨). 58곳에 퍼져 있어 별도로 옮긴다 |
 | `dailyLossSoFar` 측정 경로 없음 | 일일 손실 한도를 실제로 걸 수 없다 |
 | 과거 AI 대화 선택 UI 없음 | 저장·자동복원은 되지만 목록에서 고를 수 없다 |
 | e2e 하네스가 없는 패키지를 참조 | `@quantumtrade/web` — e2e 가 돌지 않는다 |

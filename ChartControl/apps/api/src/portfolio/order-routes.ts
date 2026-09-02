@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, hasPermission, type IAuditRepository, type PublicUser } from '@quantumtrade/auth';
+import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import type { SymbolInfo } from '@quantumtrade/schemas';
 import type { IOrderDraftRepo } from '../db/order-draft-repo';
 import type { PortfolioReadRepo } from './portfolio-routes';
@@ -144,8 +145,20 @@ export function createOrderRouter(d: OrderRouterDeps): Hono {
       makerFeeRate: d.makerFeeRate,
       takerFeeRate: d.takerFeeRate,
       liveTradingEnabled: d.posture.liveTradingEnabled,
-      // global_live_trading 킬스위치를 기존 killSwitch 게이트에 접는다(env 하드킬 OR DB 킬).
-      killSwitchActive: d.posture.killSwitchActive || (d.controls?.killActive('global_live_trading') ?? false),
+      /*
+         ★★ 주문을 막는 킬스위치를 **한 곳의 목록**으로 검사한다.
+
+           예전에는 여기서 'global_live_trading' 하나만 직접 이름으로 봤다. 그래서
+           'bitmart_live_trading' 은 시드만 되고 **아무도 검사하지 않았다** —
+           관리자 화면에서 켤 수 있었지만 주문은 그대로 나갔다. 운영자가 거래를
+           멈췄다고 믿는 동안 실주문이 계속 나가는 상태였다.
+
+           ORDER_BLOCKING_KILL_SCOPES 를 근거로 삼으면, 다음에 스코프를 추가할 때
+           강제 경로가 함께 따라온다. new_positions 는 의미가 달라(감소 주문은 허용)
+           아래에서 따로 본다.
+      */
+      killSwitchActive: d.posture.killSwitchActive
+        || ORDER_BLOCKING_KILL_SCOPES.some((sc) => sc !== 'new_positions' && (d.controls?.killActive(sc) ?? false)),
       newPositionsHalted: d.controls?.killActive('new_positions') ?? false,
       tradingMode: d.posture.tradingMode,
       availableBalance: quote ? quote.available : null,

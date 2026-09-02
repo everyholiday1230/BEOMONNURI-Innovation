@@ -36,9 +36,9 @@ export interface ApiEnv {
   csrfKey: string;
   cookieName: string;
   cookieDomain?: string;
-  bitmartMode: string;
-  bitmartLiveTradingEnabled: boolean;
-  bitmartKillSwitch: boolean;
+  liveExecutionMode: string;
+  liveTradingEnabled: boolean;
+  emergencyKillSwitch: boolean;
   /**
    * 서버가 강제하는 주문 상한. 검증 경로와 제출 경로가 **같은 값**을 써야 한다.
    * `allowedSymbols: '*'` 는 심볼 제한 없음(상한만으로 방어).
@@ -53,7 +53,7 @@ export interface ApiEnv {
     dailyLossLimit: string;
     priceDeviationLimitPct: number;
   };
-  bitmartKek?: string;
+  credentialKek?: string;
 
   // --- KuCoin (현재 운영 거래소) ---
   kucoinFuturesRest: string;
@@ -521,16 +521,23 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
          없는 별칭을 함께 받는다. 새 이름이 있으면 그것을 쓰고, 없으면 옛 이름을
          본다(기존 배포가 깨지지 않게).
     */
-    bitmartMode: pickEnum(
+    liveExecutionMode: pickEnum(
       env.LIVE_EXECUTION_MODE ?? env.BITMART_MODE,
       ['BITMART_LIVE_READ_ONLY', 'BITMART_LIVE_SHADOW', 'BITMART_LIVE_TRADE'] as const,
       'BITMART_LIVE_READ_ONLY',
     ),
-    bitmartLiveTradingEnabled:
+    liveTradingEnabled:
       (env.LIVE_TRADING_ENABLED ?? env.BITMART_LIVE_TRADING_ENABLED) === 'true',
     // 기본값 true(차단). 'false' 라고 **명시**할 때만 열린다.
-    bitmartKillSwitch: (env.EMERGENCY_KILL_SWITCH ?? env.BITMART_EMERGENCY_KILL_SWITCH) !== 'false',
-    bitmartKek: env.BITMART_DEV_KEK,
+    emergencyKillSwitch: (env.EMERGENCY_KILL_SWITCH ?? env.BITMART_EMERGENCY_KILL_SWITCH) !== 'false',
+    /*
+       ★★ 자격증명 암호화 키(KEK). 이름이 BITMART_DEV_KEK 였지만 이 키는
+         **모든 거래소의 고객 API 키**를 감싼다(KuCoin 포함). 이름을 보고
+         "BitMart 용이니 지워도 된다" 고 판단하면 저장된 자격증명을 전부 복호화할
+         수 없게 된다 — 고객이 키를 다시 등록해야 하고, 그 사이 거래가 멈춘다.
+         그래서 거래소 이름이 없는 CREDENTIAL_KEK 를 우선 읽고, 없으면 옛 이름을 본다.
+    */
+    credentialKek: env.CREDENTIAL_KEK ?? env.BITMART_DEV_KEK,
 
     kucoinFuturesRest: env.KUCOIN_FUTURES_REST ?? 'https://api-futures.kucoin.com',
     kucoinSpotRest: env.KUCOIN_SPOT_REST ?? 'https://api.kucoin.com',
