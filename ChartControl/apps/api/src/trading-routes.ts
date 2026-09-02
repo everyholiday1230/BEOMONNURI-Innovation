@@ -336,6 +336,22 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
    * Where a value cannot be determined it is resolved to the SAFE side and the fact is reported, never to a
    * silent pass. An unknown open-position count must not satisfy a position limit.
    */
+  /*
+     ★★ 어떤 리스크 입력이 배선됐는지 부팅 때 한 줄로 남긴다.
+
+       dailyLossSoFar 가 계속 "미측정" 으로 나오는데 원인을 좁힐 수 없었다 —
+       배선이 빠진 것인지, 조회가 실패한 것인지, 배포된 번들이 오래된 것인지
+       바깥에서 구분할 방법이 없었다. 게이트가 무엇을 근거로 판정하는지는
+       운영자가 늘 알아야 하는 정보이므로 임시 진단이 아니라 상시 로그로 둔다.
+  */
+  console.log(
+    '[api] risk inputs wired: '
+    + `orders=${Boolean(d.riskState?.countOrdersSince)} `
+    + `positions=${Boolean(d.riskState?.openPositions)} `
+    + `marketData=${Boolean(d.riskState?.marketDataStatus)} `
+    + `dailyLoss=${Boolean(d.riskState?.dailyRealizedLoss)}`,
+  );
+
   async function resolveRiskState(
     userId: string,
     userStatus: string,
