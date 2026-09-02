@@ -287,6 +287,35 @@
                         {t('fast_api_markets_note')}
                       </div>
                     </div>
+
+                    {/*
+                       ★★ KuCoin 승인 화면에서 **무엇을 체크해야 하는지** 그대로 보여준다.
+
+                         40503 의 실제 원인이 여기다. KuCoin 은 우리가 요청한 권한과
+                         고객이 승인 화면에서 실제로 체크한 항목이 맞아야 키를 내준다.
+                         맞추지 못하면 실패하는데, 화면은 그동안 "무엇을 체크하라" 를
+                         말하지 않았다. 프로덕션에서 6번 실패한 원인이다.
+
+                       ★ 목록은 위 선택에 따라 바뀐다. 고정 문구로 두면 "현물만" 을
+                         고른 고객에게 선물을 체크하라고 말하게 된다.
+                    */}
+                    <div style={{
+                      padding:'8px 10px', borderRadius:6, fontSize:11, lineHeight:1.75,
+                      background:'var(--color-bg-elevated)', border:'1px solid var(--color-border-subtle)',
+                    }}>
+                      <div style={{fontWeight:600, marginBottom:3}}>{t('fast_api_tick_title')}</div>
+                      <ul style={{margin:'0 0 4px 16px', padding:0}}>
+                        <li>{t('fast_api_tick_common')}</li>
+                        {(fastApiMarkets === 'spot' || fastApiMarkets === 'both') && <li>{t('fast_api_tick_spot')}</li>}
+                        {(fastApiMarkets === 'futures' || fastApiMarkets === 'both') && <li>{t('fast_api_tick_futures')}</li>}
+                      </ul>
+                      <div style={{color:'var(--color-danger, #dc2626)', fontWeight:600}}>
+                        {t('fast_api_tick_no_withdraw')}
+                      </div>
+                      <div style={{color:'var(--color-text-tertiary)', marginTop:3}}>
+                        {t('fast_api_tick_why')}
+                      </div>
+                    </div>
                     {fastApiErr && (
                       <div style={{fontSize:11.5, color:'var(--color-warning)'}}>{fastApiErr}</div>
                     )}
