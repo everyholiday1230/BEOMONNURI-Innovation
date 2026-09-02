@@ -425,22 +425,17 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!d.riskState?.marketDataStatus) unknown.push('marketDataStatus');
 
     /*
-       ★★ 일일 실현손실은 **아직 출처가 없다.** 그 사실을 반드시 보고한다.
+       ★★ 예전에는 여기서 dailyLossSoFar 를 **무조건** unknown 에 넣었다.
 
-         아래 buildRiskInput 은 dailyLossSoFar 에 '0' 을 넣는다. 그러면
-         risk-engine 의 일일손실 한도 게이트가 `0 <= 한도` 로 **항상 통과**한다.
-         주석에는 "unknown 으로 보고한다" 고 적혀 있었지만 실제로는 아무 곳에도
-         보고되지 않았다 — 운영자와 이용자 모두 손실 한도가 지켜지고 있다고
-         믿게 되는, 사실과 다른 상태였다.
+         그때는 출처가 없었으니 맞는 보고였다. 그런데 위에서 trade_journal 기반
+         실측을 붙인 뒤에도 이 줄이 남아, 측정이 성공해도 계속 "모른다" 로
+         보고됐다. 실제로 프로덕션에서 그 상태를 겪었고, 배선·조회·번들을 차례로
+         의심하다 이 한 줄을 찾는 데 오래 걸렸다.
 
-       ★ 여기서 게이트를 강제로 실패시키지는 않는다. 그러면 손실 데이터가 없는
-         모든 이용자의 주문이 막힌다(지금 라이브 서비스다). 대신 unknownInputs 에
-         담아 화면·감사기록·학습기록에 '모른다' 는 사실이 남게 한다.
-
-       ★ 제대로 고치려면 trade_journal 의 dailyPnl(userId, {from,to}) 을 이
-         라우터에 주입해 오늘자 실현손실을 읽어야 한다. 그건 별도 작업이다.
+       ★ 무조건 보고는 위 조건부 보고(측정값이 null 일 때만)로 대체됐다.
+         출처가 생기면 그 사실을 알리던 코드도 함께 지워야 한다 — 남으면
+         "고쳤는데 고쳐지지 않은" 것처럼 보인다.
     */
-    unknown.push('dailyLossSoFar');
 
     void userStatus;
     return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, openPositions, marketDataStatus, unknown };
