@@ -1420,16 +1420,51 @@
       }
       return applied;
     },
+    /*
+       지표 제거.
+
+       ★★ 예전에는 `paneId: this._aiInd.get(name) || 'candle_pane'` 로 지웠고,
+         호출이 예외를 던지지 않으면 removed = true 를 돌려줬다.
+
+         RSI·MACD 처럼 **별도 pane 에 올라가는 지표**는 _aiInd 에 기록이 없으면
+         candle_pane 으로 지우려 하고, 그 pane 에는 그 지표가 없으므로 아무 일도
+         일어나지 않는다. 그런데 예외도 나지 않아 **true 를 돌려줬다.**
+         실측: addIndicator('RSI') 후 removeIndicator('RSI') → true, 그런데 RSI 는
+         그대로 남아 있었다.
+
+         AI 코파일럿이 이 함수를 쓴다. 즉 AI 가 "RSI 를 지웠습니다" 라고 답하면서
+         화면에는 그대로 남는 상태였다.
+
+       ★ 그래서 **실제 지표 목록에서 pane 을 찾아** 지우고, 지운 뒤 목록을 다시 읽어
+         정말 사라졌는지로 성공을 판정한다. 요청이 아니라 결과를 보고한다.
+    */
     removeIndicator(name) {
       const raw = String(name || '').toUpperCase();
       const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
-      const paneId = this._aiInd.get(kName);
-      let removed = false;
       for (const chart of INSTANCES) {
-        try { chart.removeIndicator({ paneId: paneId || 'candle_pane', name: kName }); removed = true; } catch (e) { /* noop */ }
+        let panes = [];
+        try {
+          panes = chart.getIndicators()
+            .filter((i) => String(i.name).toUpperCase() === kName)
+            .map((i) => i.paneId);
+        } catch (e) { /* 목록을 못 읽으면 아래 폴백으로 시도한다 */ }
+        // 기록된 pane 과 candle_pane 도 함께 시도한다(목록 조회가 실패한 경우 대비).
+        const recorded = this._aiInd.get(kName);
+        if (recorded && panes.indexOf(recorded) < 0) panes.push(recorded);
+        if (panes.length === 0) panes = ['candle_pane'];
+        for (const paneId of panes) {
+          try { chart.removeIndicator({ paneId, name: kName }); } catch (e) { /* noop */ }
+        }
       }
       this._aiInd.delete(kName);
-      return removed;
+      // ★ 결과 확인: 어느 차트에도 남아 있지 않을 때만 성공이다.
+      let stillThere = false;
+      for (const chart of INSTANCES) {
+        try {
+          if (chart.getIndicators().some((i) => String(i.name).toUpperCase() === kName)) stillThere = true;
+        } catch (e) { stillThere = true; /* 확인 불가 → 성공이라고 말하지 않는다 */ }
+      }
+      return !stillThere;
     },
     listIndicators() {
       const out = [];

@@ -106,7 +106,7 @@
       admin_risk_a1edf2: '持仓敞口 · 强平队列 · 市场风险',
       admin_trades_bc077b: '实时委托 · 成交 · 异常检测',
       admin_user_detail_0057bd: 'KYC 材料',
-      admin_user_detail_04f2aa: '重置密码',
+      admin_user_detail_04f2aa: '发送重置链接',
       admin_user_detail_106e43: '搜索 · 筛选 · 导出 CSV',
       admin_user_detail_12614e: '时间轴 · 汇总视图',
       admin_user_detail_170f7b: '注册时间',

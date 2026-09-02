@@ -117,7 +117,7 @@
       admin_trades_bc077b: "リアルタイム注文 · 約定 · 異常取引の検知",
 
       admin_user_detail_0057bd: "本人確認書類",
-      admin_user_detail_04f2aa: "パスワードのリセット",
+      admin_user_detail_04f2aa: 'リセットリンクを送信',
       admin_user_detail_106e43: "検索 · 絞り込み · CSV 書き出し",
       admin_user_detail_12614e: "タイムライン · 集計ビュー",
       admin_user_detail_170f7b: "登録日",

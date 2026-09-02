@@ -1323,9 +1323,9 @@
       strat_buy_and_hold_desc: 'Buys at the start of the window and holds to the end. This is a reference line, not a strategy — if a rule set cannot beat this, its complexity is not earning anything.',
       // --- 관리자: 비밀번호 재설정 발송 ---
       adm_pwreset_reason: 'Why are you sending a password reset link? (4-500 characters, recorded in the audit log)',
-      adm_pwreset_sent: 'A reset link was emailed to the user. We cannot see the token — only they can use it.',
+      adm_pwreset_sent: 'A reset link was emailed to the user, valid for 1 hour. We cannot see the token — only they can use it. If they do not use it in time, send another.',
       adm_pwreset_mail_absent: 'Nothing was sent. Email is not configured on this deployment, so no reset link can reach the user. Do not tell them a link is on the way.',
-      adm_pwreset_hint: 'Sends the same reset link the user would request themselves. We never create a temporary password — an admin must not know a user\u2019s password.',
+      adm_pwreset_hint: 'Sends the same reset link the user would request themselves, valid for 1 hour. It does NOT change their password — their current one keeps working until they use the link. We never create a temporary password; an admin must not know a user\u2019s password.',
       // --- 관리자: 회원 삭제 (분리 보관) ---
       adm_danger_zone: 'Danger zone',
       adm_danger_zone_sub: 'These actions cannot be undone.',

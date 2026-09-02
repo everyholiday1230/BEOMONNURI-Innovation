@@ -53,7 +53,7 @@
       admin_user_detail_63c279: 'Reason',
       admin_user_detail_96330a: 'Message',
       admin_user_detail_941ad1: 'Send email',
-      admin_user_detail_04f2aa: 'Reset password',
+      admin_user_detail_04f2aa: 'Email a reset link',
       admin_user_detail_e03d2f: 'Reset 2FA',
       admin_user_detail_82d3e7: 'Suspend account',
       admin_user_detail_94cd06: '⚠ Suspend account',
