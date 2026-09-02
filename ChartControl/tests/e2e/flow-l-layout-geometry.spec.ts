@@ -97,7 +97,7 @@ async function assertShellGeometry(page: Page, vw: number, vh: number): Promise<
 for (const vp of VIEWPORTS) {
   test(`trading layout geometry is sound at ${vp.name}`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="chart-mount"]')).toHaveAttribute('data-chart-state', 'ready');
     await assertShellGeometry(page, vp.width, vp.height);
   });
@@ -105,7 +105,7 @@ for (const vp of VIEWPORTS) {
 
 test('layout survives a runtime resize', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator('[data-testid="chart-mount"]')).toHaveAttribute('data-chart-state', 'ready');
   await assertShellGeometry(page, 1920, 1080);
 
@@ -120,7 +120,7 @@ test('layout survives a runtime resize', async ({ page }) => {
 
 test('layout geometry holds in both themes', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator('[data-testid="chart-mount"]')).toHaveAttribute('data-chart-state', 'ready');
 
   for (const expected of ['light', 'dark']) {
@@ -132,7 +132,7 @@ test('layout geometry holds in both themes', async ({ page }) => {
 
 test('layout geometry holds in both locales', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator('[data-testid="chart-mount"]')).toHaveAttribute('data-chart-state', 'ready');
 
   await page.getByRole('button', { name: 'toggle language' }).click();
@@ -150,7 +150,7 @@ test('layout geometry holds with reduced motion', async ({ browser }) => {
     reducedMotion: 'reduce',
   });
   const page = await context.newPage();
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator('[data-testid="chart-mount"]')).toHaveAttribute('data-chart-state', 'ready');
   await assertShellGeometry(page, 1366, 768);
   await context.close();
@@ -158,7 +158,7 @@ test('layout geometry holds with reduced motion', async ({ browser }) => {
 
 test('layout edit mode keeps the grid and its widgets measurable', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.goto('/trade/layout');
+  await page.goto('/#/trade/layout');
   await expect(page.locator('.widget-grid')).toBeVisible();
 
   const grid = await boxOf(page, '.widget-grid');

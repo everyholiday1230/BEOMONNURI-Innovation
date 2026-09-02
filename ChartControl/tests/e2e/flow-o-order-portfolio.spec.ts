@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
  */
 
 async function fillValidOrder(page: import('@playwright/test').Page) {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator('[data-testid="order-entry"]')).toBeVisible();
   // The price is seeded from the live ticker; wait for it so derived assertions (TP/SL direction,
   // deviation) are computed against a real number rather than an empty field.
@@ -20,7 +20,7 @@ async function fillValidOrder(page: import('@playwright/test').Page) {
 
 test.describe('[U3] order entry — full mock spec', () => {
   test('[U3-1] every mock §5.5 control is present', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     for (const id of [
       'oe-margin-cross',
       'oe-margin-isolated',
@@ -46,7 +46,7 @@ test.describe('[U3] order entry — full mock spec', () => {
   });
 
   test('[U3-2] margin mode, side and order type are real toggles', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-margin-cross"]').click();
     await expect(page.locator('[data-testid="oe-margin-cross"]')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('[data-testid="oe-side-short"]').click();
@@ -69,7 +69,7 @@ test.describe('[U3] order entry — full mock spec', () => {
   });
 
   test('[U3-4] invalid quantity blocks preview and is announced', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0');
     await expect(page.locator('[data-testid="oe-qty-err"]')).toBeVisible();
     await expect(page.locator('[data-testid="oe-qty"]')).toHaveAttribute('aria-invalid', 'true');
@@ -89,7 +89,7 @@ test.describe('[U3] order entry — full mock spec', () => {
   test('[U3-6] balance is reported as unavailable (not zero) and the % sizer is disabled with a reason', async ({
     page,
   }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="oe-available-unavailable"]')).toBeVisible();
     const pct = page.locator('[data-testid="oe-pct-50"]');
     await expect(pct).toBeDisabled();
@@ -105,7 +105,7 @@ test.describe('[U3] order entry — full mock spec', () => {
   });
 
   test('[U3-7b] an active kill switch is always surfaced, and never hidden', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const notice = page.locator('[data-testid="oe-killswitch-notice"]');
     const active = await page.evaluate(async () => (await (await fetch('/api/config')).json()).killSwitchActive);
     if (active) {
@@ -116,7 +116,7 @@ test.describe('[U3] order entry — full mock spec', () => {
   });
 
   test('[U3-8] post-only and TIF are disabled with the server-unsupported reason', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="oe-post-only"]')).toBeDisabled();
     await page.locator('[data-testid="oe-type-advanced"]').click();
     await expect(page.locator('[data-testid="oe-tif-GTC"]')).toBeDisabled();
@@ -211,7 +211,7 @@ test.describe('[U3] order entry — full mock spec', () => {
 
 test.describe('[U4] orders, positions and history', () => {
   test('[U4-1] all five tabs exist with count badges', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     for (const tab of ['positions', 'openOrders', 'orderHistory', 'tradeHistory', 'aiSignals']) {
       await expect(page.locator(`[data-testid="pos-tab-${tab}"]`)).toBeVisible();
       await expect(page.locator(`[data-testid="pos-count-${tab}"]`)).toBeVisible();
@@ -219,7 +219,7 @@ test.describe('[U4] orders, positions and history', () => {
   });
 
   test('[U4-2] each tab renders either rows or an explicit empty state', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     for (const tab of ['positions', 'openOrders', 'orderHistory', 'tradeHistory', 'aiSignals']) {
       await page.locator(`[data-testid="pos-tab-${tab}"]`).click();
       const table = page.locator('table');
@@ -232,14 +232,14 @@ test.describe('[U4] orders, positions and history', () => {
     page,
   }) => {
     // create one simulated order first
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await page.locator('[data-testid="oe-final-confirm"]').check();
     await page.locator('[data-testid="oe-submit"]').click();
     await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
 
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="positions-table"]')).toBeVisible({ timeout: 10_000 });
     const headers = await page.locator('[data-testid="positions-table"] th').allInnerTexts();
     expect(headers.length).toBeGreaterThanOrEqual(10);
@@ -253,14 +253,14 @@ test.describe('[U4] orders, positions and history', () => {
   });
 
   test('[U4-4] destructive position actions are disabled with a reason (no cancel/close API)', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await page.locator('[data-testid="oe-final-confirm"]').check();
     await page.locator('[data-testid="oe-submit"]').click();
     await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
 
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     const close = page.locator('[data-testid="pos-act-close"]').first();
     await expect(close).toBeVisible({ timeout: 10_000 });
     await expect(close).toBeDisabled();
@@ -268,7 +268,7 @@ test.describe('[U4] orders, positions and history', () => {
   });
 
   test('[U4-5] filters and refresh work; symbol filter narrows the rows', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="orders-filter-symbol"]')).toBeVisible();
     await expect(page.locator('[data-testid="orders-filter-side"]')).toBeVisible();
     await page.locator('[data-testid="orders-filter-symbol"]').selectOption('ETHUSDT');
@@ -277,14 +277,14 @@ test.describe('[U4] orders, positions and history', () => {
   });
 
   test('[U4-6] order detail opens and closes', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await page.locator('[data-testid="oe-final-confirm"]').check();
     await page.locator('[data-testid="oe-submit"]').click();
     await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
 
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await page.locator('[data-testid="pos-tab-orderHistory"]').click();
     await page.locator('[data-testid="order-detail"]').first().click();
     const dlg = page.locator('[data-testid="order-detail-dialog"]');
@@ -296,7 +296,7 @@ test.describe('[U4] orders, positions and history', () => {
 
 test.describe('[U5] assets and notifications', () => {
   test('[U5-1] assets report unavailable instead of faking zero balances', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     const panel = page.locator('[data-testid="assets-risk"]');
     // Prompt 5 / B5 added GET /api/account/summary, so an anonymous visitor is now reported as
     // SIGN_IN_REQUIRED rather than BACKEND_REQUIRED. The status changed because the system's capability
@@ -312,19 +312,19 @@ test.describe('[U5] assets and notifications', () => {
   });
 
   test('[U5-2] transfer-like actions are disabled with a reason', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="assets-add-margin"]')).toBeDisabled();
     await expect(page.locator('[data-testid="assets-calculator"]')).toBeDisabled();
   });
 
   test('[U5-3] derived exposure is labelled as simulated, not as a wallet balance', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="assets-derived-note"]')).toBeVisible();
     await expect(page.locator('[data-testid="assets-exposure"]')).toBeVisible();
   });
 
   test('[U5-4] a simulated fill produces a notification with an unread badge', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await page.locator('[data-testid="oe-final-confirm"]').check();
@@ -339,14 +339,14 @@ test.describe('[U5] assets and notifications', () => {
   });
 
   test('[U5-5] notifications state its local-only scope', async ({ page }) => {
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notif-local-note"]')).toBeVisible();
   });
 });
 
 test.describe('[U6] AI market context', () => {
   test('[U6-1] the AI panel shows the real last price in its context chips', async ({ page }) => {
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     const chip = page.locator('[data-testid="ai-ctx-last"]');
     await expect(chip).toBeVisible();
     await expect(chip).not.toContainText('—', { timeout: 15_000 });
@@ -357,7 +357,7 @@ test.describe('[U6] AI market context', () => {
   });
 
   test('[U6-2] the request carries no price at all — the server reads the ticker itself', async ({ page }) => {
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     const bodies: string[] = [];
     page.on('request', (r) => {
       if (r.url().includes('/api/ai/')) bodies.push(r.postData() ?? '');
@@ -387,7 +387,7 @@ test.describe('[U6] AI market context', () => {
   });
 
   test('[U6-3] the state bar and quick prompts exist and the composer is a textarea', async ({ page }) => {
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     await expect(page.locator('[data-testid="ai-state-bar"]')).toBeVisible();
     await expect(page.locator('[data-testid="ai-context-chips"]')).toBeVisible();
     await expect(page.locator('[data-testid="ai-quick"]')).toBeVisible();
@@ -395,7 +395,7 @@ test.describe('[U6] AI market context', () => {
   });
 
   test('[U6-4] conversation history keeps user and AI turns', async ({ page }) => {
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     await page.locator('[data-testid="ai-composer"]').fill('first question');
     await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
     await page.locator('[data-testid="ai-send"]').click();
@@ -411,7 +411,7 @@ test.describe('[U6] AI market context', () => {
     page.on('request', (r) => {
       if (r.url().includes('/api/sim/orders/confirm')) confirms++;
     });
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     await page.locator('[data-testid="ai-composer"]').fill('give me a signal');
     await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
     await page.locator('[data-testid="ai-send"]').click();
@@ -427,7 +427,7 @@ test.describe('[U6] AI market context', () => {
   });
 
   test('[U6-6] the signal-save action states its real precondition (a signed-in session)', async ({ page }) => {
-    await page.goto('/trade/ai');
+    await page.goto('/#/trade/ai');
     await page.locator('[data-testid="ai-composer"]').fill('give me a signal');
     await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
     await page.locator('[data-testid="ai-send"]').click();

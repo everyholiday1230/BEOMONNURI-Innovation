@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Closure §2A/2B: AI overlays render in the Signal Layers panel and support real interactions;
 // editing an overlay price marks it user-edited (synced into the Signal Card panel).
 test('AI overlays: create, edit (user-edited), lock, hide, delete', async ({ page }) => {
-  await page.goto('/trade/ai');
+  await page.goto('/#/trade/ai');
   const copilot = page.locator('[data-widget-type="aiCopilot"]').first();
   await copilot.locator('[data-testid="ai-composer"]').fill('추세 분석');
   await copilot.locator('[data-testid="ai-send"]').click();

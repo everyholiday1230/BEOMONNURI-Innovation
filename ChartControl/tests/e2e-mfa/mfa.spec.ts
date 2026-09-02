@@ -37,8 +37,8 @@ async function apiEnroll(ctx: APIRequestContext, email: string): Promise<string>
 }
 async function uiLogin(page: Page, email: string) {
   await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(PW);
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(PW);
   await page.getByRole('button', { name: '로그인' }).click();
 }
 

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Closure §2C/§3: approve → create draft → preview → Risk Check (ALL CLEAR) → final confirm →
 // simulated submit → success toast → mock position reflected in the Positions widget.
 test('signal→order: risk clear, submit, toast, position reflected', async ({ page }) => {
-  await page.goto('/trade/ai');
+  await page.goto('/#/trade/ai');
   const copilot = page.locator('[data-widget-type="aiCopilot"]').first();
   await copilot.locator('[data-testid="ai-composer"]').fill('추세 분석');
   await copilot.locator('[data-testid="ai-send"]').click();

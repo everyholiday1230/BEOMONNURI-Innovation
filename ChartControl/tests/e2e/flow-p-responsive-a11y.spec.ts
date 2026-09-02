@@ -98,7 +98,7 @@ test.describe('[U7] responsive layout', () => {
 
   test('[U7-2] mobile stacks the grid into a single column', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/trade/order');
+    await page.goto('/#/trade/order');
     await expect(page.locator('[data-testid="order-entry"]')).toBeVisible();
     const lefts = await page.locator('.panel').evaluateAll((els) =>
       [...new Set(els.map((e) => Math.round(e.getBoundingClientRect().left)))],
@@ -108,7 +108,7 @@ test.describe('[U7] responsive layout', () => {
 
   test('[U7-3] desktop keeps the 24-column track', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const cols = await page.locator('.widget-grid').evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length);
     expect(cols).toBe(24);
   });
@@ -150,7 +150,7 @@ test.describe('[U7] theme and locale', () => {
   }
 
   test('[U7-5] theme toggle switches and persists across a reload', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const before = await page.evaluate(() => document.documentElement.dataset.theme);
     await page.locator('[data-testid="theme-toggle"]').click();
     const after = await page.evaluate(() => document.documentElement.dataset.theme);
@@ -161,7 +161,7 @@ test.describe('[U7] theme and locale', () => {
   });
 
   test('[U7-6] locale toggle switches the document language, translates the UI and persists', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const beforeLang = await page.evaluate(() => document.documentElement.lang);
     await page.locator('[data-testid="locale-toggle"]').click();
     const afterLang = await page.evaluate(() => document.documentElement.lang);
@@ -172,7 +172,7 @@ test.describe('[U7] theme and locale', () => {
   });
 
   test('[U7-7] the English locale exposes no Korean text and no raw i18n keys', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const lang = await page.evaluate(() => document.documentElement.lang);
     if (lang !== 'en') await page.locator('[data-testid="locale-toggle"]').click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
@@ -191,7 +191,7 @@ test.describe('[U7] theme and locale', () => {
   test('[U7-8] both themes keep the trade grid measurable', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     for (const _ of [0, 1]) {
-      await page.goto('/trade');
+      await page.goto('/#/trade');
       await expect(page.locator('[data-testid="order-entry"]')).toBeVisible();
       const g = await geometry(page);
       expect(g.grid!.w).toBeGreaterThan(1000);
@@ -212,7 +212,7 @@ test.describe('[U7] accessibility', () => {
   });
 
   test('[U7-10] all interactive controls have an accessible name', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const unnamed = await page.evaluate(() => {
       const bad: string[] = [];
       for (const el of document.querySelectorAll('button, a[href], input, select, textarea')) {
@@ -233,14 +233,14 @@ test.describe('[U7] accessibility', () => {
   });
 
   test('[U7-11] the order form marks invalid fields with aria-invalid and role=alert', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0');
     await expect(page.locator('[data-testid="oe-qty"]')).toHaveAttribute('aria-invalid', 'true');
     await expect(page.locator('[data-testid="oe-qty-err"]')).toHaveAttribute('role', 'alert');
   });
 
   test('[U7-12] the whole order flow is reachable with the keyboard only', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').focus();
     await page.keyboard.type('0.010');
     // Walk forward within the order-entry panel only; the grid contains other panels' controls too.
@@ -263,7 +263,7 @@ test.describe('[U7] accessibility', () => {
   });
 
   test('[U7-13] tables carry a caption and scoped headers', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await page.locator('[data-testid="pos-tab-openOrders"]').click();
     const tables = await page.locator('table').count();
     if (tables > 0) {
@@ -275,7 +275,7 @@ test.describe('[U7] accessibility', () => {
   test('[U7-14] mobile touch targets meet the minimum size', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     // The order entry is the densest control cluster; below 768px it is its own view.
-    await page.goto('/trade/order');
+    await page.goto('/#/trade/order');
     await expect(page.locator('[data-testid="order-entry"]')).toBeVisible();
     const tiny = await page.evaluate(() => {
       const bad: string[] = [];
@@ -291,11 +291,11 @@ test.describe('[U7] accessibility', () => {
   });
 
   test('[U7-15] a route crash is contained by the boundary, shell stays usable', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     // The boundary is exercised at the widget level by widgets.test.tsx; here we only assert the
     // shell landmarks survive a route change into a heavy page and back.
-    await page.goto('/portfolio');
-    await page.goto('/trade');
+    await page.goto('/#/portfolio');
+    await page.goto('/#/trade');
     await expect(page.locator('.app-header')).toBeVisible();
     await expect(page.locator('main#main')).toBeVisible();
   });

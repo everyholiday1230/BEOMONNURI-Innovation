@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Flow B: AI prompt → streaming → chart overlay commands → signal proposal.
 test('AI copilot streams a validated signal', async ({ page }) => {
-  await page.goto('/trade/ai');
+  await page.goto('/#/trade/ai');
   const copilot = page.locator('[data-widget-type="aiCopilot"]').first();
   await expect(copilot).toBeVisible();
 

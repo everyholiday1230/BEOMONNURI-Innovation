@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Closure §6.13/§6.14 + §6.2: theme switch, language switch, symbol + timeframe change.
 test('theme + language switch and symbol/timeframe change', async ({ page }) => {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   const html = page.locator('html');
 
   // Theme toggle flips data-theme.

@@ -43,18 +43,18 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
   test('[U7-BN-1] visible at 360x800, 390x844 and 767px; absent at 768px', async ({ page }) => {
     for (const vp of [MOBILE, MOBILE_TALL, { width: 767, height: 800 }]) {
       await page.setViewportSize(vp);
-      await page.goto('/trade');
+      await page.goto('/#/trade');
       await expect(page.locator(BAR), `bar at ${vp.width}px`).toBeVisible();
     }
     // 768px is the tablet breakpoint: the bar must be gone, not merely off-screen.
     await page.setViewportSize({ width: 768, height: 1024 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator(BAR)).toBeHidden();
   });
 
   test('[U7-BN-2] exactly five primary destinations, each with an accessible name', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const links = page.locator(`${BAR} a`);
     await expect(links).toHaveCount(5);
     for (const id of ITEMS) {
@@ -67,7 +67,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-3] anchored to the bottom edge, no horizontal overflow, content not covered', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const m = await page.evaluate(() => {
       const bar = document.querySelector('[data-testid="bottom-nav"]') as HTMLElement | null;
       const route = document.querySelector('.app-route') as HTMLElement | null;
@@ -92,7 +92,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-4] every target meets 44x44', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const small = await page.evaluate(() => {
       const out: string[] = [];
       for (const a of document.querySelectorAll('[data-testid="bottom-nav"] a')) {
@@ -109,7 +109,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
   test('[U7-BN-5] each destination navigates, sets aria-current and renders its own view', async ({ page }) => {
     const w = watch(page);
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
 
     const expectations: Record<(typeof ITEMS)[number], { url: RegExp; probe: string }> = {
       markets: { url: /\/markets$/, probe: '[data-testid="markets-page"]' },
@@ -135,7 +135,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-6] the chart view renders a real, non-zero chart with real bars', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const mount = page.locator('[data-testid="chart-mount"]');
     await expect(mount).toBeVisible();
     await expect(mount).toHaveAttribute('data-chart-state', 'ready', { timeout: 20_000 });
@@ -162,7 +162,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-7] the selected view survives a reload and browser back/forward', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="bnav-order"]').click();
     await expect(page).toHaveURL(/\/trade\/order$/);
 
@@ -182,7 +182,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-8] keyboard reaches the bar and focus is visible', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const first = page.locator('[data-testid="bnav-markets"]');
     await first.focus();
     await expect(first).toBeFocused();
@@ -212,7 +212,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
           },
           [theme, locale],
         );
-        await page.goto('/trade');
+        await page.goto('/#/trade');
         await expect(page.locator(BAR)).toBeVisible();
         await expect(page.locator(`${BAR} a`)).toHaveCount(5);
         // The seeded preference must actually be the one in effect.
@@ -229,7 +229,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-10] desktop is unaffected: no bottom bar, 24-column grid intact', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator(BAR)).toBeHidden();
     const cols = await page
       .locator('.widget-grid')
@@ -242,7 +242,7 @@ test.describe('[U7-BN] mobile bottom navigation', () => {
 
   test('[U7-BN-11] resizing across the boundary leaves exactly one navigation live', async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator(BAR)).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.locator(BAR)).toBeHidden();

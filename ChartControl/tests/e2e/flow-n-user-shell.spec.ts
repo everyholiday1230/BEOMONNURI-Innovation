@@ -69,7 +69,7 @@ test.describe('[U0] shell, routing and navigation', () => {
   });
 
   test('[U0-2] every primary nav item resolves to a live route and marks itself active', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const links = page.locator('[data-testid="desktop-nav"] a');
     const count = await links.count();
     expect(count).toBeGreaterThanOrEqual(8);
@@ -84,13 +84,13 @@ test.describe('[U0] shell, routing and navigation', () => {
   });
 
   test('[U0-3] no dead links anywhere in the shell', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     expect(await page.locator('a[href="#"]').count()).toBe(0);
     expect(await page.locator('a[href=""]').count()).toBe(0);
   });
 
   test('[U0-4] unknown route renders the 404 screen and can navigate back', async ({ page }) => {
-    await page.goto('/definitely-not-a-route');
+    await page.goto('/#/definitely-not-a-route');
     await expect(page.locator('[data-testid="not-found"]')).toBeVisible();
     await page.locator('[data-testid="not-found"] button').click();
     await expect(page.locator('.trade-body')).toBeVisible();
@@ -98,7 +98,7 @@ test.describe('[U0] shell, routing and navigation', () => {
 
   test('[U0-5] mobile: burger opens a modal drawer with focus trap, Escape and backdrop close', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="desktop-nav"]')).toBeHidden();
     const burger = page.locator('[data-testid="burger"]');
     await expect(burger).toBeVisible();
@@ -128,14 +128,14 @@ test.describe('[U0] shell, routing and navigation', () => {
 
   test('[U0-6] mobile navigation reaches a route', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="burger"]').click();
     await page.locator('[data-testid="mnav-portfolio"]').click();
     await expect(page.locator('[data-testid="portfolio-page"]')).toBeVisible();
   });
 
   test('[U0-7] account menu is a keyboard-dismissable popup that routes', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="account-menu-trigger"]').click();
     await expect(page.locator('[data-testid="account-menu"]')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -146,7 +146,7 @@ test.describe('[U0] shell, routing and navigation', () => {
   });
 
   test('[U0-8] the skip link is the first tab stop and moves focus to main', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     // `goto` resolves on `load`, which can precede React's first commit; pressing Tab before the
     // shell exists leaves focus on <body> and says nothing about tab ORDER, which is what this
     // asserts. Wait for the link to be in the DOM first.
@@ -159,7 +159,7 @@ test.describe('[U0] shell, routing and navigation', () => {
   });
 
   test('[U0-9] deposit and unimplemented actions are disabled with a reason, not silent no-ops', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const deposit = page.locator('[data-testid="deposit-btn"]');
     await expect(deposit).toBeDisabled();
     expect(await deposit.getAttribute('title')).toBeTruthy();
@@ -168,7 +168,7 @@ test.describe('[U0] shell, routing and navigation', () => {
 
 test.describe('[U1] symbol search and favourites', () => {
   test('[U1-1] search filters, keyboard-selects and syncs the whole workspace', async ({ page }) => {
-    await page.goto('/markets');
+    await page.goto('/#/markets');
     const input = page.locator('[data-testid="mw-search"]');
     await input.fill('eth');
     await expect(page.locator('[data-testid="mw-row-ETHUSDT"]')).toBeVisible();
@@ -179,7 +179,7 @@ test.describe('[U1] symbol search and favourites', () => {
 
   test('[U1-2] header combobox: ArrowDown/Enter selects, Escape closes', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const combo = page.locator('.header-search [data-testid="symbol-search-input"]');
     await combo.fill('eth');
     await expect(page.locator('[data-testid="symbol-search-popup"]')).toBeVisible();
@@ -201,7 +201,7 @@ test.describe('[U1] symbol search and favourites', () => {
 
   test('[U1-2b] the pending window exposes no selectable option, so Enter cannot commit a stale pick', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     // Seed a "recent" entry, which is what the dropdown shows for an EMPTY query.
     const combo = page.locator('.header-search [data-testid="symbol-search-input"]');
     await combo.fill('eth');
@@ -227,13 +227,13 @@ test.describe('[U1] symbol search and favourites', () => {
   });
 
   test('[U1-3] no results renders an explicit empty state', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('.header-search [data-testid="symbol-search-input"]').fill('zzzznotasymbol');
     await expect(page.locator('[data-testid="search-no-results"]')).toBeVisible();
   });
 
   test('[U1-4] favourite toggles, appears in the favourites tab and survives a reload', async ({ page }) => {
-    await page.goto('/markets');
+    await page.goto('/#/markets');
     const star = page.locator('[data-testid="mw-star-BTCUSDT"]');
     await expect(star).toHaveAttribute('aria-pressed', 'false');
     await star.click();
@@ -254,14 +254,14 @@ test.describe('[U1] symbol search and favourites', () => {
   });
 
   test('[U1-5] favourites are stored under a namespaced, versioned key', async ({ page }) => {
-    await page.goto('/markets');
+    await page.goto('/#/markets');
     await page.locator('[data-testid="mw-star-ETHUSDT"]').click();
     const keys = await page.evaluate(() => Object.keys(window.localStorage));
     expect(keys.some((k) => /^qt\.favorites\.v1:/.test(k))).toBe(true);
   });
 
   test('[U1-6] the empty favourites tab explains itself', async ({ page }) => {
-    await page.goto('/markets');
+    await page.goto('/#/markets');
     await page.locator('[data-testid="mw-tab-favorites"]').click();
     await expect(page.locator('.wstate')).toBeVisible();
   });
@@ -269,7 +269,7 @@ test.describe('[U1] symbol search and favourites', () => {
 
 test.describe('[U2] trading workspace widgets', () => {
   test('[U2-1] the trade grid renders every mock widget with non-zero geometry', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="market-watch"]')).toBeVisible();
     await expect(page.locator('[data-testid="order-book"]')).toBeVisible();
     await expect(page.locator('[data-testid="recent-trades"]')).toBeVisible();
@@ -291,7 +291,7 @@ test.describe('[U2] trading workspace widgets', () => {
   });
 
   test('[U2-2] order book shows depth, a mid row with last+spread, and a precision control', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="ob-mid"]')).toBeVisible();
     await expect(page.locator('[data-testid="ob-precision"]')).toBeVisible();
     const depths = await page.locator('.ob-row__depth').count();
@@ -302,7 +302,7 @@ test.describe('[U2] trading workspace widgets', () => {
   });
 
   test('[U2-3] clicking an order-book row prefills the order price', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const row = page.locator('.ob-row--bid').first();
     const shown = (await row.innerText()).split('\n')[0]!.replace(/[^\d.]/g, '');
     await row.click();
@@ -312,7 +312,7 @@ test.describe('[U2] trading workspace widgets', () => {
   });
 
   test('[U2-4] recent trades carry a time column', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const rows = page.locator('[data-testid="rt-row"]');
     await expect(rows.first()).toBeVisible({ timeout: 15_000 });
     await expect(rows.first().locator('.rt-row__time')).not.toBeEmpty();
@@ -321,7 +321,7 @@ test.describe('[U2] trading workspace widgets', () => {
   test('[U2-5] chart reports real bars via the v10 DataLoader and reloads on symbol/timeframe change', async ({
     page,
   }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const chart = page.locator('[data-chart-state]');
     await expect(chart).toHaveAttribute('data-chart-state', 'ready', { timeout: 15_000 });
     const bars = Number(await chart.getAttribute('data-bar-count'));
@@ -347,7 +347,7 @@ test.describe('[U2] trading workspace widgets', () => {
   */
 
   test('[U2-7] symbol header exposes v2 identity, price, 24h meta and funding countdown', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await expect(page.locator('[data-testid="symbol-price"]')).not.toBeEmpty();
     await expect(page.locator('[data-testid="symbol-change"]')).not.toBeEmpty();
     for (const id of ['meta-mark', 'meta-index', 'meta-high', 'meta-low', 'meta-vol', 'meta-funding']) {
@@ -357,7 +357,7 @@ test.describe('[U2] trading workspace widgets', () => {
   });
 
   test('[U2-8] the symbol switcher in the header changes the market', async ({ page }) => {
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="symbol-switch"]').click();
     await page.locator('[data-testid="symbol-switcher"] [data-testid="symbol-search-input"]').fill('eth');
     await page.locator('[data-testid="search-option-ETHUSDT"]').click();

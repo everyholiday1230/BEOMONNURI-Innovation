@@ -21,17 +21,17 @@ async function signIn(page: Page): Promise<string> {
   // Sign up. Both the signup and the login screen label their primary button "Sign in"
   // (`action.signIn` / `nav.login` resolve to the same string), so the button is located by position
   // within the form rather than by an ambiguous accessible name.
-  await page.goto('/signup');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
-  await page.getByLabel('confirm').fill(password);
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect(page.getByTestId('signup-ok')).toBeVisible({ timeout: 20_000 });
 
   // Log in explicitly so the session is deterministic regardless of whether signup auto-authenticates.
-  await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
+  await page.goto('/#/login');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
 
   // Prove the session really exists before any assertion depends on it.
@@ -72,7 +72,7 @@ test.describe('[B2] favourites persistence', () => {
   test('[B2-1] a favourite written by the UI is stored server-side, not just in localStorage', async ({ page }) => {
     await signIn(page);
     // The Market Watch widget renders a star per row (`mw-star-*`); the symbol header has one too.
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     const star = page.locator('[data-testid^="mw-star-"], [data-testid="symbol-favorite"]').first();
     await expect(star).toBeVisible({ timeout: 20_000 });
     await star.click();
@@ -133,7 +133,7 @@ test.describe('[B2] favourites persistence', () => {
     expect('symbols' in res && res.symbols).toEqual(['ETHUSDT']);
     // …and the client adopted the server set into its cache (proving `loadFromServer` ran, not that the
     // value merely survived in localStorage — it was cleared above).
-    await page.goto('/markets');
+    await page.goto('/#/markets');
     await expect
       .poll(
         async () =>

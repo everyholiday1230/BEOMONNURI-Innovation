@@ -11,15 +11,15 @@ import { test, expect, type Page } from '@playwright/test';
 async function signIn(page: Page): Promise<string> {
   const email = `b6-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@ex.com`;
   const password = 'e2e-fixture-not-a-secret'; // low-entropy test fixture (min-10 policy); intentionally not secret-shaped
-  await page.goto('/signup');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
-  await page.getByLabel('confirm').fill(password);
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect(page.getByTestId('signup-ok')).toBeVisible({ timeout: 20_000 });
-  await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
+  await page.goto('/#/login');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect
     .poll(async () => page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).status), {
@@ -37,7 +37,7 @@ async function serverNotifications(page: Page): Promise<{ status: number; body: 
 }
 
 async function placeSimulatedOrder(page: Page): Promise<void> {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await page.locator('[data-testid="oe-qty"]').fill('0.010');
   await page.locator('[data-testid="oe-preview"]').click();
   await page.locator('[data-testid="oe-final-confirm"]').check();
@@ -56,7 +56,7 @@ test.describe('[B6] notifications', () => {
     page.on('response', (r) => {
       if (r.status() === 401 && /\/api\/notifications/.test(r.url())) unauthorized.push(r.url());
     });
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notifications-page"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-testid="notif-server-signin"]')).toBeVisible();
     // The local section still exists and is labelled as session-only.
@@ -88,7 +88,7 @@ test.describe('[B6] notifications', () => {
     expect(body.source).toBe('MOCK');
 
     // Then the UI, after a FULL reload — a store-only implementation would show nothing here.
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notif-server-item"]').first()).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-testid="notif-server-unread-count"]')).toContainText('1');
   });
@@ -96,7 +96,7 @@ test.describe('[B6] notifications', () => {
   test('[B6-4] marking read persists across a reload and is idempotent', async ({ page }) => {
     await signIn(page);
     await placeSimulatedOrder(page);
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notif-server-item"]').first()).toBeVisible({ timeout: 20_000 });
 
     await page.locator('[data-testid="notif-server-mark-read"]').first().click();
@@ -115,7 +115,7 @@ test.describe('[B6] notifications', () => {
   test('[B6-5] read-all clears the server unread count', async ({ page }) => {
     await signIn(page);
     await placeSimulatedOrder(page);
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notif-server-item"]').first()).toBeVisible({ timeout: 20_000 });
     await page.locator('[data-testid="notif-server-mark-all"]').click();
     await expect(page.locator('[data-testid="notif-server-unread-count"]')).toContainText('0', { timeout: 20_000 });
@@ -126,7 +126,7 @@ test.describe('[B6] notifications', () => {
   test('[B6-6] server and local notifications are shown as separate lists', async ({ page }) => {
     await signIn(page);
     await placeSimulatedOrder(page);
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     // Merging them would make "mark all read" a lie for half the list.
     await expect(page.locator('[data-testid="notif-server-section"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-testid="notif-local-section"]')).toBeVisible();
@@ -162,7 +162,7 @@ test.describe('[B6] notifications', () => {
       await t.json();
     });
     await placeSimulatedOrder(page);
-    await page.goto('/notifications');
+    await page.goto('/#/notifications');
     await expect(page.locator('[data-testid="notif-server-item"]').first()).toBeVisible({ timeout: 20_000 });
     // No element was created from any notification body.
     const injected = await page.locator('[data-testid="notif-server-list"] img, [data-testid="notif-server-list"] script').count();

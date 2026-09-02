@@ -6,16 +6,16 @@ test('register → login → session → logout', async ({ page }) => {
   const email = `e2e_${Date.now()}@ex.com`;
   const password = 'e2e-password-123';
 
-  await page.goto('/signup');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
-  await page.getByLabel('confirm').fill(password);
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
   await page.locator('.card button.btn--primary').click();
   await expect(page.getByTestId('signup-ok')).toBeVisible();
 
-  await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
+  await page.goto('/#/login');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.locator('.card button.btn--primary').click();
 
   const loggedIn = page.getByTestId('auth-logged-in');

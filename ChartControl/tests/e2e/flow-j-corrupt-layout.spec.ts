@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Closure §6.12: corrupted layout storage recovers safely (loadLayoutSafe → preset), no crash.
 test('corrupted layout in localStorage recovers without crashing', async ({ page }) => {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   // Seed corrupted layout data, then reload.
   await page.evaluate(() => {
     localStorage.setItem('qt.layout.v1', '{ this is not valid json ]]');

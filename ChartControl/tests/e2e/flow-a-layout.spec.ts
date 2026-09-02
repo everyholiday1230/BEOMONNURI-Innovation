@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Flow A: Layout edit → move → resize → save → refresh → restore.
 test('layout edit persists across refresh', async ({ page }) => {
-  await page.goto('/trade/layout');
+  await page.goto('/#/trade/layout');
   await expect(page.getByText('레이아웃 편집')).toBeVisible();
 
   // Switch to a preset, then save.

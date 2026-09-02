@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Flow D: market-data/BFF disconnect → error/stale status → reconnect → live.
 // Forces the failure by aborting the /api/config request via route interception, then restores it.
 test('connection indicator reflects disconnect → reconnect', async ({ page }) => {
-  await page.goto('/status');
+  await page.goto('/#/status');
   await expect(page.getByText('BFF connection')).toBeVisible();
 
   // Force disconnect: abort the config request, reload → the status card shows the safe error state.

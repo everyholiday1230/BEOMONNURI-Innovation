@@ -22,9 +22,17 @@ const withWebkit = process.env.PW_WEBKIT === '1';
 // starts, the database is a throwaway file, and server reuse is off unless explicitly opted into.
 // ---------------------------------------------------------------------------
 const API_PORT = port('E2E_API_PORT', 8787);
-const WEB_PORT = port('E2E_WEB_PORT', 5173);
 const API_URL = `http://127.0.0.1:${API_PORT}`;
-const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${WEB_PORT}`;
+/*
+   ★★ 프론트엔드는 **API 서버가 직접 서빙한다**(apps/api/src/static-web.ts 가
+     index.html·src·vendor·web-dist 를 연다). 별도 웹 서버가 없다.
+
+     예전 설정은 `pnpm --filter @quantumtrade/web dev` 로 Vite 앱을 띄우려 했는데
+     그 패키지는 존재하지 않는다. 그래서 두 번째 webServer 가 즉시 죽고
+     "Process from config.webServer exited early" 로 **e2e 가 시작조차 못 했다.**
+     검증 수단이 통째로 돌지 않는 상태였다.
+*/
+const BASE_URL = process.env.E2E_BASE_URL ?? API_URL;
 const GIT_SHA = buildSha();
 const SQLITE_PATH = process.env.E2E_SQLITE_PATH ?? ephemeralSqlitePath('user');
 
@@ -72,7 +80,8 @@ export default defineConfig({
         // covers port 5173. This suite runs on a dynamic port, so a browser-side mutation would be a 403
         // for the wrong reason. The admin suite already does this; the user suite needed it once a test
         // began issuing mutations from page context (B2 favourites/preferences).
-        CORS_ALLOWED_ORIGINS: `http://localhost:${WEB_PORT},http://127.0.0.1:${WEB_PORT}`,
+        // ★ 브라우저가 API 오리진에서 요청하므로 그 오리진을 허용한다(BASE_URL = API_URL).
+        CORS_ALLOWED_ORIGINS: `http://127.0.0.1:${API_PORT},http://localhost:${API_PORT}`,
         // Batch 1: the login/MFA distributed rate limiter is now on the real HTTP path; a test suite
         // hammers login from one IP, so raise the budget here exactly as the admin suite raises its own
         // (real limits are exercised by the dedicated rate-limit unit/integration tests, not the flows).
@@ -82,28 +91,21 @@ export default defineConfig({
         GIT_SHA,
       },
     },
-    {
-      command: 'pnpm --filter @quantumtrade/web dev',
-      cwd: repoRoot,
-      url: BASE_URL,
-      timeout: 60_000,
-      reuseExistingServer: reuseExistingServer(),
-      // Port via env: pnpm swallows a forwarded `-- --port` flag (Phase 7 §5).
-      // DEV_API_PROXY_TARGET (server-only) points the dev proxy at this suite's API.
-      // VITE_API_BASE_URL is deliberately NOT set: it would be inlined into the client bundle,
-      // making browser calls cross-origin so the SameSite session cookie is dropped.
-      env: { DEV_API_PROXY_TARGET: API_URL, VITE_DEV_PORT: String(WEB_PORT) },
-    },
   ],
 });
 
 // Exported so the env-guard spec can assert against exactly what this config launched.
-export const isolation = { API_PORT, WEB_PORT, API_URL, BASE_URL, GIT_SHA, SQLITE_PATH };
+export const isolation = { API_PORT, API_URL, BASE_URL, GIT_SHA, SQLITE_PATH };
 
-// Used by global-setup.ts (kept here so there is a single source of truth for the ports).
+/*
+   Used by global-setup.ts (kept here so there is a single source of truth for the ports).
+
+   ★ 확인할 포트는 API 하나다. 프론트엔드를 그 서버가 함께 서빙하므로 별도 웹 포트가
+     없다. 예전에는 5173(Vite)도 비어 있는지 확인했는데, 아무도 쓰지 않는 포트를
+     검사하면 무관한 프로세스 때문에 e2e 가 실패한다.
+*/
 export const portsToCheck: Array<[number, string]> = [
-  [API_PORT, 'BFF / API'],
-  [WEB_PORT, 'web app (Vite)'],
+  [API_PORT, 'BFF / API (frontend included)'],
 ];
 
 export { assertPortFree };

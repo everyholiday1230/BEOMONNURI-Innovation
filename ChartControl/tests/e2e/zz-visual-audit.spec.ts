@@ -61,7 +61,7 @@ test('[VIS] capture and measure every screen across viewport/theme/locale', asyn
   for (const locale of ['ko', 'en'] as const) {
     for (const theme of ['dark', 'light'] as const) {
       // Seed the persisted preference slot so the very first paint already uses this combination.
-      await page.goto('/trade');
+      await page.goto('/#/trade');
       await page.evaluate(
         ([t, l]) => {
           const key = Object.keys(localStorage).find((k) => k.startsWith('qt.prefs.v')) ?? 'qt.prefs.v1:anon';

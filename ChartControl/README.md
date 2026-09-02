@@ -239,7 +239,7 @@ npx eslint . && pnpm -r typecheck && pnpm --filter @quantumtrade/api exec vitest
 | 모드 값이 `BITMART_LIVE_TRADE` | 값 이름만 거래소 이름이다(env 이름·내부 식별자·킬스위치는 정리됨). 58곳에 퍼져 있어 별도로 옮긴다 |
 | `dailyLossSoFar` 측정 경로 없음 | 일일 손실 한도를 실제로 걸 수 없다 |
 | 과거 AI 대화 선택 UI 없음 | 저장·자동복원은 되지만 목록에서 고를 수 없다 |
-| e2e 하네스가 없는 패키지를 참조 | `@quantumtrade/web` — e2e 가 돌지 않는다 |
+| e2e | 하네스는 고쳐서 실행된다. 스펙 24개는 구조가 다른 예전 앱 기준(`data-testid` 0개, 없는 라우트 참조) — [docs/e2e-status.md](docs/e2e-status.md) |
 | 마이그레이션 드리프트 | 운영 전용 표 33개 — 개발(SQLite)에서 그만큼 기능이 꺼진다. 기록·점검: [docs/schema-drift.md](docs/schema-drift.md), `pnpm check:schema-drift` |
 | `src/widgets.jsx` 111KB · `src/pages-user.jsx` 4295행 | 수정 위험이 크다 |
 

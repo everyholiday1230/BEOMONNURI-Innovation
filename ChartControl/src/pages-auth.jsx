@@ -337,11 +337,11 @@
           <form onSubmit={submit} className="auth-form">
             <div className="input-group">
               <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
-              <input type="email" placeholder={t('fld_email_ph')} value={email} onChange={e => setEmail(e.target.value)} required autoFocus/>
+              <input aria-label={t('fld_email')} type="email" placeholder={t('fld_email_ph')} value={email} onChange={e => setEmail(e.target.value)} required autoFocus/>
             </div>
             <div className="input-group">
               <span className="input-group__label"><I.Lock size={11}/> {t('fld_password')}</span>
-              <input type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} required/>
+              <input aria-label={t('fld_password')} type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} required/>
             </div>
 
             <div className="auth-row-between">
@@ -646,12 +646,12 @@
         <form onSubmit={submit} className="auth-form">
           <div className="input-group">
             <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
-            <input type="email" placeholder={t('fld_email_ph')} value={form.email} onChange={e => setForm({...form, email: e.target.value})} required autoFocus/>
+            <input aria-label={t('fld_email')} type="email" placeholder={t('fld_email_ph')} value={form.email} onChange={e => setForm({...form, email: e.target.value})} required autoFocus/>
           </div>
 
           <div className="input-group">
             <span className="input-group__label"><I.Lock size={11}/> {t('fld_password')}</span>
-            <input type="password" placeholder={t('signup_10c83d')} value={form.pw} onChange={e => setForm({...form, pw: e.target.value})} required/>
+            <input aria-label={t('fld_password')} type="password" placeholder={t('signup_10c83d')} value={form.pw} onChange={e => setForm({...form, pw: e.target.value})} required/>
           </div>
 
           {form.pw && (
@@ -667,12 +667,12 @@
 
           <div className="input-group">
             <span className="input-group__label"><I.Lock size={11}/> {t('fld_confirm')}</span>
-            <input type="password" placeholder={t('signup_711154')} value={form.pw2} onChange={e => setForm({...form, pw2: e.target.value})} required/>
+            <input aria-label={t('fld_confirm')} type="password" placeholder={t('signup_711154')} value={form.pw2} onChange={e => setForm({...form, pw2: e.target.value})} required/>
           </div>
 
           <div className="input-group">
             <span className="input-group__label"><I.Globe size={11}/> {t('fld_country')}</span>
-            <select value={form.country} onChange={e => setForm({...form, country: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
+            <select aria-label={t('fld_country')} value={form.country} onChange={e => setForm({...form, country: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
               {countryOptions()}
             </select>
           </div>
@@ -1010,12 +1010,12 @@
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_9334ed')}</div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 10}}>
                 <div className="input-group"><span className="input-group__label">{t('fld_first_name')}</span><input value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})}/></div>
-                <div className="input-group"><span className="input-group__label">{t('fld_last_name')}</span><input value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_last_name')}</span><input aria-label={t('fld_first_name')} value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})}/></div>
               </div>
-              <div className="input-group"><span className="input-group__label">{t('k_y_c_onboarding_31fbff')}</span><input type="date" value={form.birth} onChange={e => setForm({...form, birth: e.target.value})}/></div>
+              <div className="input-group"><span className="input-group__label">{t('k_y_c_onboarding_31fbff')}</span><input aria-label={t('fld_last_name')} type="date" value={form.birth} onChange={e => setForm({...form, birth: e.target.value})}/></div>
               <div className="input-group">
                 <span className="input-group__label">{t('k_y_c_onboarding_ff63ca')}</span>
-                <select value={form.nationality} onChange={e => setForm({...form, nationality: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
+                <select aria-label={t('k_y_c_onboarding_ff63ca')} value={form.nationality} onChange={e => setForm({...form, nationality: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
                   {countryOptions()}
                 </select>
               </div>
@@ -1027,8 +1027,8 @@
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_ebce71')}</div>
               <div className="input-group"><span className="input-group__label">{t('fld_address')}</span><input placeholder={t('k_y_c_onboarding_dad291')} value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></div>
               <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap: 10}}>
-                <div className="input-group"><span className="input-group__label">{t('fld_city')}</span><input value={form.city} onChange={e => setForm({...form, city: e.target.value})}/></div>
-                <div className="input-group"><span className="input-group__label">{t('fld_postal')}</span><input value={form.postal} onChange={e => setForm({...form, postal: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_city')}</span><input aria-label={t('fld_address')} value={form.city} onChange={e => setForm({...form, city: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_postal')}</span><input aria-label={t('fld_city')} value={form.postal} onChange={e => setForm({...form, postal: e.target.value})}/></div>
               </div>
               <div className="auth-alert auth-alert--info">
                 <I.Info size={12}/>
@@ -1075,7 +1075,7 @@
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_0f797f')}</div>
               <div className="input-group">
                 <span className="input-group__label">{t('k_y_c_onboarding_f01127')}</span>
-                <select value={form.source} onChange={e => setForm({...form, source: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
+                <select aria-label={t('k_y_c_onboarding_f01127')} value={form.source} onChange={e => setForm({...form, source: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
                   <option value="">{t('k_y_c_onboarding_c22557')}</option>
                   <option value="salary">{t('k_y_c_onboarding_edd43e')}</option>
                   <option value="business">{t('k_y_c_onboarding_7fb985')}</option>
@@ -1087,7 +1087,7 @@
               </div>
               <div className="input-group">
                 <span className="input-group__label">{t('k_y_c_onboarding_898ed0')}</span>
-                <select value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
+                <select aria-label={t('k_y_c_onboarding_898ed0')} value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
                   <option value="">{t('k_y_c_onboarding_c22557')}</option>
                   <option value="hedge">{t('k_y_c_onboarding_5d5aea')}</option>
                   <option value="speculation">{t('k_y_c_onboarding_e18ea9')}</option>
@@ -1202,7 +1202,7 @@
             <>
               <div className="input-group">
                 <span className="input-group__label"><I.User size={11}/> {t('fld_email')}</span>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoFocus/>
+                <input aria-label={t('fld_email')} type="email" value={email} onChange={e => setEmail(e.target.value)} autoFocus/>
               </div>
               {resetError && (
                 <div className="auth-alert auth-alert--danger">
@@ -1237,7 +1237,7 @@
                 <div style={{textAlign:'center', fontSize:12.5, color:'var(--color-text-secondary)', marginBottom:8}}>{t('pwreset_new_hint')}</div>
                 <div className="input-group">
                   <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw')}</span>
-                  <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoFocus/>
+                  <input aria-label={t('pwreset_new_pw')} type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoFocus/>
                   {/*
                      ★★ 규칙을 **입력 전에** 알린다.
 
@@ -1251,7 +1251,7 @@
                 </div>
                 <div className="input-group">
                   <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw2')}</span>
-                  <input type="password" value={newPw2} onChange={e => setNewPw2(e.target.value)}/>
+                  <input aria-label={t('pwreset_new_pw2')} type="password" value={newPw2} onChange={e => setNewPw2(e.target.value)}/>
                 </div>
                 {resetError && (
                   <div className="auth-alert auth-alert--danger"><I.Alert size={12}/><div>{resetError}</div></div>

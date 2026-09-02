@@ -11,15 +11,15 @@ import { test, expect, type Page } from '@playwright/test';
 async function signIn(page: Page): Promise<string> {
   const email = `b4-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@ex.com`;
   const password = 'e2e-fixture-not-a-secret'; // low-entropy test fixture (min-10 policy); intentionally not secret-shaped
-  await page.goto('/signup');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
-  await page.getByLabel('confirm').fill(password);
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect(page.getByTestId('signup-ok')).toBeVisible({ timeout: 20_000 });
-  await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
+  await page.goto('/#/login');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect
     .poll(async () => page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).status), {
@@ -125,7 +125,7 @@ test.describe('[B4] order validation contract', () => {
 
   test('[B4-7] the order preview shows the server verdict and its blocking reasons', async ({ page }) => {
     await signIn(page);
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
 
@@ -142,7 +142,7 @@ test.describe('[B4] order validation contract', () => {
     page.on('response', (r) => {
       if (r.status() === 401 && /\/api\/orders\/(validate|draft)/.test(r.url())) unauthorized.push(r.url());
     });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await expect(page.locator('[data-testid="server-validation"]')).toBeVisible({ timeout: 20_000 });
@@ -159,7 +159,7 @@ test.describe('[B4] order validation contract', () => {
     await signIn(page);
     await post(page, '/api/orders/validate', goodIntent);
     await post(page, '/api/orders/draft', goodIntent, { 'idempotency-key': `e2e-live-probe-${Date.now()}` });
-    await page.goto('/trade');
+    await page.goto('/#/trade');
     await page.locator('[data-testid="oe-qty"]').fill('0.010');
     await page.locator('[data-testid="oe-preview"]').click();
     await expect(page.locator('[data-testid="server-validation"]')).toBeVisible({ timeout: 20_000 });

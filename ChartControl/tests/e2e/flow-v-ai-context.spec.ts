@@ -10,7 +10,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 /** Returns the copilot widget scope, matching the locator the existing AI specs use. */
 async function openCopilot(page: Page) {
-  await page.goto('/trade/ai');
+  await page.goto('/#/trade/ai');
   const copilot = page.locator('[data-widget-type="aiCopilot"]').first();
   await expect(copilot).toBeVisible({ timeout: 20_000 });
   return copilot;

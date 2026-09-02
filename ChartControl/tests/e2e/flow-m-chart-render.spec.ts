@@ -91,7 +91,7 @@ test('chart loads real mock-replay candles and reports them', async ({ page }) =
     if (r.url().includes('/api/market/candles')) candleResponses.push(r.status());
   });
 
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await waitForChartReady(page);
 
   // The data request actually happened and succeeded.
@@ -124,7 +124,7 @@ test('chart loads real mock-replay candles and reports them', async ({ page }) =
 });
 
 test('chart canvas contains actual rendered candles, not just a background', async ({ page }) => {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await waitForChartReady(page);
 
   const canvas = page.locator(`${CHART} canvas`).first();
@@ -141,7 +141,7 @@ test('chart canvas contains actual rendered candles, not just a background', asy
 
 test('changing the symbol reloads the chart data', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await waitForChartReady(page);
   const before = await chartStatus(page);
 
@@ -163,7 +163,7 @@ test('changing the symbol reloads the chart data', async ({ page }) => {
 
 test('changing the timeframe reloads the chart data', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await waitForChartReady(page);
   const before = await chartStatus(page);
 
@@ -190,7 +190,7 @@ test('empty feed renders the chart empty state instead of a blank canvas', async
     });
   });
 
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator(CHART)).toHaveAttribute('data-chart-state', 'empty');
   await expect(page.locator(CHART)).toHaveAttribute('data-bar-count', '0');
   await expect(page.locator(CHART)).toHaveAttribute('data-engine-bar-count', '0');
@@ -203,7 +203,7 @@ test('failing feed renders the chart error state', async ({ page }) => {
     route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"upstream down"}' }),
   );
 
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator(CHART)).toHaveAttribute('data-chart-state', 'error');
   await expect(page.getByTestId('chart-state')).toBeVisible();
   await expect(page.getByTestId('chart-state')).toContainText('불러오지 못했습니다');
@@ -229,7 +229,7 @@ test('impossible OHLC on the wire is rejected by the schema, surfacing the error
     });
   });
 
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await expect(page.locator(CHART)).toHaveAttribute('data-chart-state', 'error');
   await expect(page.locator(CHART)).toHaveAttribute('data-bar-count', '0');
   await expect(page.getByTestId('chart-state')).toBeVisible();
@@ -265,7 +265,7 @@ test('out-of-order and duplicate candles are sorted and de-duplicated before ren
     });
   });
 
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await waitForChartReady(page);
   const s = await chartStatus(page);
   expect(s.barCount).toBe(2);

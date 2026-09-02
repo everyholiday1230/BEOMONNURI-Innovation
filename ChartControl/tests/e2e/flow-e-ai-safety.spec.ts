@@ -16,7 +16,7 @@ test('invalid AI output is rejected and the chart keeps working', async ({ page 
     }),
   );
 
-  await page.goto('/trade/ai');
+  await page.goto('/#/trade/ai');
   const copilot = page.locator('[data-widget-type="aiCopilot"]').first();
   await copilot.locator('[data-testid="ai-composer"]').fill('추세 분석');
   await copilot.locator('[data-testid="ai-send"]').click();

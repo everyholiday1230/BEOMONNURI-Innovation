@@ -14,16 +14,16 @@ import { test, expect, type Page } from '@playwright/test';
 async function signIn(page: Page): Promise<string> {
   const email = `b3-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@ex.com`;
   const password = 'e2e-fixture-not-a-secret'; // low-entropy test fixture (min-10 policy); intentionally not secret-shaped
-  await page.goto('/signup');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
-  await page.getByLabel('confirm').fill(password);
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect(page.getByTestId('signup-ok')).toBeVisible({ timeout: 20_000 });
 
-  await page.goto('/login');
-  await page.getByLabel('email').fill(email);
-  await page.getByLabel('password').fill(password);
+  await page.goto('/#/login');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.locator('button.btn--primary').first().click();
   await expect
     .poll(async () => page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).status), {
@@ -43,7 +43,7 @@ async function readModel(page: Page, path: string): Promise<{ status: number; bo
 
 /** Create one simulated order through the order-entry UI. */
 async function placeSimulatedOrder(page: Page): Promise<void> {
-  await page.goto('/trade');
+  await page.goto('/#/trade');
   await page.locator('[data-testid="oe-qty"]').fill('0.010');
   await page.locator('[data-testid="oe-preview"]').click();
   await page.locator('[data-testid="oe-final-confirm"]').check();
@@ -61,7 +61,7 @@ test.describe('[B3] server-backed orders / trades / positions read model', () =>
   });
 
   test('[B3-2] an anonymous visitor sees the local simulation, clearly labelled', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     const panel = page.locator('[data-testid="orders-panel"]');
     await expect(panel).toBeVisible({ timeout: 20_000 });
     // The panel must state which source it is rendering; a table with no provenance is the defect this
@@ -109,7 +109,7 @@ test.describe('[B3] server-backed orders / trades / positions read model', () =>
     expect(positions.items[0]!.unrealizedPnl).toBeNull();
 
     // Now the UI, which must be reading that same source.
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     const panel = page.locator('[data-testid="orders-panel"]');
     await expect(panel).toHaveAttribute('data-source', 'server', { timeout: 20_000 });
     await expect(page.locator('[data-testid="positions-table"]')).toBeVisible({ timeout: 20_000 });
@@ -168,7 +168,7 @@ test.describe('[B3] server-backed orders / trades / positions read model', () =>
     page.on('response', (r) => {
       if (r.status() === 401 && /\/api\/(orders|trades|positions|account)/.test(r.url())) unauthorized.push(r.url());
     });
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="orders-panel"]')).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(1500);
     // A predictable 401 is a request that should not have been made, not an error to be swallowed.
@@ -193,14 +193,14 @@ test.describe('[B5] account read model and validation-only position contracts', 
   });
 
   test('[B5-2] the assets widget distinguishes sign-in-required from no-data-source', async ({ page }) => {
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     const panel = page.locator('[data-testid="assets-risk"]');
     await expect(panel).toBeVisible({ timeout: 20_000 });
     // Anonymous: the backend EXISTS, so reporting BACKEND_REQUIRED would misstate the system.
     await expect(panel).toHaveAttribute('data-account-status', 'SIGN_IN_REQUIRED');
 
     await signIn(page);
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="assets-risk"]')).toHaveAttribute('data-account-status', 'OK', {
       timeout: 20_000,
     });
@@ -215,7 +215,7 @@ test.describe('[B5] account read model and validation-only position contracts', 
       })
       .toBe(1);
 
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="position-row"]').first()).toBeVisible({ timeout: 20_000 });
 
     // Executing a close is still impossible and its control stays disabled.
@@ -242,7 +242,7 @@ test.describe('[B5] account read model and validation-only position contracts', 
     });
     await signIn(page);
     await placeSimulatedOrder(page);
-    await page.goto('/portfolio');
+    await page.goto('/#/portfolio');
     await expect(page.locator('[data-testid="orders-panel"]')).toBeVisible({ timeout: 20_000 });
     await page.locator('[data-testid="pos-act-close-draft"]').first().click();
     await expect(page.locator('[data-testid="close-draft-dialog"]')).toBeVisible({ timeout: 20_000 });
