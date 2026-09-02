@@ -1083,6 +1083,8 @@
       // --- 주문 입력 검증 / 위젯 ---
       oe_err_no_size: 'Enter an order size.',
       oe_err_min_notional: 'Minimum order value is 5 USDT',
+      oe_err_below_min_qty: 'Minimum order size for {symbol} is {min} — you entered {entered}.',
+      oe_err_qty_snapped_zero: '{symbol} trades in steps of {step}. {entered} rounds down to zero — enter at least {min}.',
       oe_err_insufficient: 'Insufficient balance: {amount} USDT short',
       oe_err_price_dev: '{pct}% away from the last price',
       oe_err_high_leverage: 'High leverage warning: {lev}× carries significant liquidation risk',

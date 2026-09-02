@@ -1079,7 +1079,47 @@
       return Boolean(symbolKey) && !window.QTLive.isLive(symbolKey);
     })();
     if (symbolUnlisted) errors.push({ level: 'danger', text: t('oe_err_not_listed') });
-    if (sz <= 0) errors.push({ level: 'warn', text: t('oe_err_no_size') });
+    /*
+       ★★ 수량 0 은 경고가 아니라 **오류**다.
+
+         예전에는 'warn' 이라서 제출을 막지 않았다. 수량 0 짜리 주문은 성공할 수
+         없다 — 경고로 두면 고객이 눌러보고 거래소 거부를 받는다.
+    */
+    if (sz <= 0 && !(parseFloat(size) > 0)) errors.push({ level: 'danger', text: t('oe_err_no_size') });
+    /*
+       ★★ 최소수량을 **미리** 말한다.
+
+         실서비스 기록(08-30 09:44): 고객이 XRPUSDT 에 0.1(최소 10), DOGEUSDT 에
+         0.1(최소 100)을 넣어 주문이 차단됐다. 우리는 그 최소값을 **알고 있었다** —
+         서버가 minQty 를 내려주고 이 폼이 받고 있었는데, 아무도 비교하지 않았다.
+         고객은 눌러보고서야 알았다.
+
+       ★ 최소값과 **입력값을 함께** 보여준다. "최소 10" 만으로는 자기가 얼마를
+         넣었는지 헷갈린다(0.1 과 10 은 자리수만 다르다).
+    */
+    const minQtyNum = Number(market && market.minQty) || 0;
+    const enteredQty = parseFloat(size);
+    if (minQtyNum > 0 && Number.isFinite(enteredQty) && enteredQty > 0) {
+      if (sz <= 0) {
+        /*
+           ★★ 입력은 양수인데 단위 스냅 결과가 0 이 되는 경우다. 조용히 0 으로
+             바꿔 보내면 고객은 자기가 넣은 값이 사라진 것을 모른다. 무슨 일이
+             일어났는지 그대로 말한다.
+        */
+        errors.push({ level: 'danger', text: t('oe_err_qty_snapped_zero', {
+          /*
+             ★ 이 위젯의 market 에는 symbol 필드가 없을 수 있다(base+quote 로 온다).
+               symbolKey 를 쓴다 — 빈 이름으로 "  trades in steps of" 라고 말하면
+               어느 종목인지 알 수 없다.
+          */
+          symbol: symbolKey, step: String(qtyStep || minQtyNum), entered: String(enteredQty), min: String(minQtyNum),
+        }) });
+      } else if (sz < minQtyNum) {
+        errors.push({ level: 'danger', text: t('oe_err_below_min_qty', {
+          symbol: symbolKey, min: String(minQtyNum), entered: String(enteredQty),
+        }) });
+      }
+    }
     if (totalUSDT < 5) errors.push({ level: 'warn', text: t('oe_err_min_notional') });
     /*
        ★★ 잔고 부족과 "거래소를 아직 연결하지 않았다" 는 다른 문제다.

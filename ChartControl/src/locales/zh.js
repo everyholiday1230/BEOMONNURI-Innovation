@@ -2260,6 +2260,8 @@
       nav_pin_reset: '恢复默认',
       oe_err_high_leverage: '高杠杆警告：{lev}× 会显著提高被强平的风险',
       oe_err_min_notional: '最小下单金额为 5 USDT',
+      oe_err_below_min_qty: '{symbol} 的最小下单数量为 {min}（您输入了 {entered}）。',
+      oe_err_qty_snapped_zero: '{symbol} 以 {step} 为步长交易。{entered} 向下取整为 0 — 请至少输入 {min}。',
       oe_err_no_size: '请输入下单数量。',
       oe_limit_help_a: '',
       oe_limit_help_em: '限价单',

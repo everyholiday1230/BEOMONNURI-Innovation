@@ -216,6 +216,24 @@
       m.tickSize = r.tickSize;
       m.multiplier = r.multiplier;
       m.maxLeverage = r.maxLeverage;
+      /*
+         ★★ 수량 규격을 **여기서 복사하지 않아** 주문 폼이 최소수량을 몰랐다.
+
+           tickSize·multiplier·maxLeverage 는 옮기는데 stepSize·minQty·
+           quantityPrecision 은 빠져 있었다. 서버는 이 값들을 내려주고
+           (api-client 의 markets() 가 /symbols 와 병합한다) 폼도 읽을 준비가
+           돼 있었는데, 이 한 곳에서 끊겨 있었다.
+
+           실서비스 결과(08-30 09:44): 고객이 XRPUSDT 에 0.1(최소 10),
+           DOGEUSDT 에 0.1(최소 100)을 넣어 주문이 차단됐다. 폼은 최소값을
+           알 수 없어 아무 경고도 못 했고, 고객은 눌러보고서야 알았다.
+
+         ★ stepSize 가 없으면 수량 스냅(snapQty)도 동작하지 않는다. 즉 이 누락은
+           경고만 막은 게 아니라 **자동 보정까지** 막고 있었다.
+      */
+      m.stepSize = r.stepSize;
+      m.minQty = r.minQty;
+      m.quantityPrecision = r.quantityPrecision;
       m.takerFeeRate = r.takerFeeRate;
       m.makerFeeRate = r.makerFeeRate;
 

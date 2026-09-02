@@ -2270,6 +2270,8 @@
       nav_pin_reset: '初期状態に戻す',
       oe_err_high_leverage: '高レバレッジ警告: {lev}× はロスカットの危険が大きくなります',
       oe_err_min_notional: '注文金額は 5 USDT 以上にしてください',
+      oe_err_below_min_qty: '{symbol} の最小発注数量は {min} です（入力: {entered}）。',
+      oe_err_qty_snapped_zero: '{symbol} は {step} 単位で取引されます。{entered} は切り捨てで 0 になります — {min} 以上を入力してください。',
       oe_err_no_size: '注文数量を入力してください。',
       oe_limit_help_a: '',
       oe_limit_help_em: '指値注文',
