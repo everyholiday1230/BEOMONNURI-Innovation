@@ -41,7 +41,6 @@ import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
-import { D } from '@quantumtrade/domain';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import { PgOpsErrorStore } from './ops/error-store';
 import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
@@ -2819,12 +2818,28 @@ if (env.authEnabled) {
                ★ 이익이면 손실 0 이다(음수 손실은 한도를 우회하는 값이 된다).
             */
             dailyRealizedLoss: async (userId, dayStartMs) => {
-              if (!journalRepo) return null;
+              if (!journalRepo) {
+                console.warn('[api] dailyRealizedLoss: journal repo not wired — daily loss cap cannot be enforced');
+                return null;
+              }
               try {
                 const sum = await journalRepo.dailyPnl(userId, { from: dayStartMs, to: Date.now() });
-                const pnl = D(String(sum.totalRealizedPnl));
-                return pnl.lt(0) ? pnl.negated().toString() : '0';
-              } catch {
+                /*
+                   ★★ 십진 문자열을 **문자열로** 다룬다. Decimal 라이브러리도, 부동소수도
+                     쓰지 않는다. 손익 합계는 이미 문자열이고, 필요한 것은 부호 판별과
+                     음수 기호 제거뿐이다. 계산을 끼워 넣을 이유가 없다.
+
+                   ★ 이익이거나 0 이면 손실은 '0' 이다. 음수 손실을 돌려주면
+                     `loss <= cap` 이 더 헐거워져 한도가 사실상 사라진다.
+                */
+                const raw = String(sum.totalRealizedPnl ?? '0').trim();
+                return raw.startsWith('-') ? raw.slice(1) : '0';
+              } catch (e) {
+                /*
+                   ★ 조용히 삼키지 않는다. 여기서 null 이 나오면 한도를 설정한 운영자의
+                     주문이 전부 막히므로, 왜 막혔는지가 로그에 있어야 한다.
+                */
+                console.warn(`[api] dailyRealizedLoss failed: ${(e as Error).message}`);
                 return null;
               }
             },
