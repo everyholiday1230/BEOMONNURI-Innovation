@@ -2539,7 +2539,15 @@ if (env.authEnabled) {
       }
     };
      
-    console.log(`[api] auth + mfa mounted (sqlite=${env.sqlitePath}, secureCookies=${env.secureCookies})`);
+    /*
+       ★ 실제 저장소를 적는다. 예전에는 backend 가 postgres 여도 `sqlite=...` 를
+         무조건 찍어서, 로그 두 줄이 서로 어긋나 보였다. 원인을 추적할 때 로그가
+         사실과 달라 보이면 그 자체가 시간을 잡아먹는다(실제로 겪었다).
+    */
+    console.log(
+      `[api] auth + mfa mounted (store=${core.pool ? 'postgres' : `sqlite:${env.sqlitePath}`}, `
+      + `secureCookies=${env.secureCookies})`,
+    );
 
     // Phase 3 — BitMart trading (additive). Read-only by default; live disabled + kill switch on.
     try {
