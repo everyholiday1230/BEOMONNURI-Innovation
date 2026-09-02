@@ -472,9 +472,28 @@ export function createAuthRouter(deps: RouterDeps): Hono {
     if (!(await csrfGuard(c, a.csrfSecret))) return c.json(err('CSRF_FAILED', 'csrf'), 403);
     const parsed = await readJson(c);
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid body'), 400);
-    const b = parsed.body as { oldPassword?: string; newPassword?: string };
-    const r = await service.changePassword(a.user.id, b.oldPassword ?? '', b.newPassword ?? '', ctxOf(c));
-    return r.ok ? c.json({ ok: true }) : c.json(err('INVALID', r.error ?? 'failed'), 400);
+    /*
+       ★★ 필드 이름이 어긋나 **비밀번호 변경이 전혀 동작하지 않았다.**
+
+         서버는 oldPassword 를 읽는데 화면(api-client)은 currentPassword 를 보냈다.
+         그래서 현재 비밀번호가 항상 빈 문자열로 들어가 무엇을 입력해도
+         'invalid credentials' 였다. 고객에게는 "현재 비밀번호가 맞는데 왜 틀렸다고
+         하나" 로 보인다.
+
+       ★ 양쪽 이름을 모두 받는다. 화면만 고치면 예전 화면이 캐시된 브라우저에서
+         계속 실패하고, 서버만 고치면 다른 호출자가 깨진다.
+    */
+    const b = parsed.body as { oldPassword?: string; currentPassword?: string; newPassword?: string };
+    const current = b.oldPassword ?? b.currentPassword ?? '';
+    const r = await service.changePassword(a.user.id, current, b.newPassword ?? '', ctxOf(c));
+    /*
+       ★ 실패 사유를 구분해서 돌려준다. 전에는 전부 INVALID 였고, 새 비밀번호가
+         짧아서 실패했는데도 화면이 '현재 비밀번호가 틀렸다' 로 안내했다.
+    */
+    if (r.ok) return c.json({ ok: true });
+    const reason = String(r.error ?? 'failed');
+    const code = reason.startsWith('PASSWORD_TOO_SHORT') ? 'PASSWORD_TOO_SHORT' : 'INVALID';
+    return c.json(err(code, reason), 400);
   });
 
   // email verification

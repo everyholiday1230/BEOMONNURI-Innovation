@@ -133,7 +133,7 @@
       password_reset_d09993: '邮件已发送',
       password_reset_d196c8: '我们会把重置链接发送到你注册时使用的邮箱',
       pwreset_link_sent: '重置链接已发送至 {email}。',
-      signup_10c83d: '至少 8 位，需包含大写字母、数字和符号',
+      signup_10c83d: '至少 10 个字符',
       signup_1ff941: '账号',
       signup_2179da: '一般',
       signup_21e2e3: '接收营销邮件（可选）',

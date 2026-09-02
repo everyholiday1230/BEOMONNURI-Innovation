@@ -3060,14 +3060,38 @@
     const submit = async () => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.changePassword) return;
-      if (pw.length < 8) { setMsg({ ok: false, text: t('signup_5ca401') }); return; }
+      /*
+         ★★ 서버 규칙과 **같은 숫자**를 쓴다(최소 10자).
+
+           예전에는 여기서 8자로 검사해서, 8~9자를 넣으면 화면은 통과시키고 서버가
+           거부했다. 고객에게는 "형식은 맞다고 했는데 왜 안 되나" 로 보인다.
+           경계 숫자를 두 곳에 다르게 두면 반드시 이런 틈이 생긴다.
+      */
+      if (pw.length < 10) { setMsg({ ok: false, text: t('pwreset_too_short') }); return; }
       if (pw !== pw2) { setMsg({ ok: false, text: t('signup_dd3243') }); return; }
       setBusy(true); setMsg(null);
       try {
         const r = await api.changePassword(cur, pw);
+        /*
+           ★ 서버 오류를 영어 원문으로 뿌리지 않는다. 예전에는
+             'password too short (min 10)' 이 그대로 화면에 나와 번역도 안 됐다.
+        */
         if (r && r.error) {
           const code = r.error.code || '';
-          setMsg({ ok: false, text: /INVALID|WRONG|CREDENTIAL|PASSWORD/i.test(code) ? t('cp_wrong_current') : (r.error.message || t('cp_failed')) });
+          const raw = String(r.error.message || '');
+          /*
+             ★★ "새 비밀번호가 짧다" 와 "현재 비밀번호가 틀렸다" 를 구분한다.
+
+               예전에는 코드에 PASSWORD 가 들어가면 전부 '현재 비밀번호가 틀렸다' 로
+               안내했다. 그래서 새 비밀번호가 짧아서 실패했는데도 고객은 현재
+               비밀번호를 의심하며 계속 다시 입력했다.
+          */
+          const tooShort = /PASSWORD_TOO_SHORT/i.test(code) || /PASSWORD_TOO_SHORT/i.test(raw);
+          setMsg({
+            ok: false,
+            text: tooShort ? t('pwreset_too_short')
+              : (/INVALID|WRONG|CREDENTIAL/i.test(code) ? t('cp_wrong_current') : (raw || t('cp_failed'))),
+          });
         } else {
           setMsg({ ok: true, text: t('cp_success') });
           setCur(''); setPw(''); setPw2('');
@@ -3084,6 +3108,8 @@
         <input type="password" autoComplete="current-password" placeholder={t('cp_current')} value={cur} onChange={(e) => setCur(e.target.value)} />
         <input type="password" autoComplete="new-password" placeholder={t('cp_new')} value={pw} onChange={(e) => setPw(e.target.value)} />
         <input type="password" autoComplete="new-password" placeholder={t('cp_confirm')} value={pw2} onChange={(e) => setPw2(e.target.value)} />
+        {/* ★ 규칙을 입력 전에 알린다 — 제출 후 오류로 배우게 하지 않는다. */}
+        <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('pw_rule_hint')}</div>
         {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{msg.text}</div>}
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn--sm btn--primary" disabled={busy || !cur || !pw || !pw2} onClick={submit}>{t('set_change_password')}</button>

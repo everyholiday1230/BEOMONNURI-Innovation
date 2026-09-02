@@ -51,7 +51,7 @@
       signup_1ff941: 'Account',
       signup_32b217: 'Email',
       signup_d284fa: 'KYC',
-      signup_10c83d: 'At least 8 characters with uppercase, number and symbol',
+      signup_10c83d: 'At least 10 characters',
       signup_711154: 'Re-enter password',
       signup_5ca401: 'Password must be at least 8 characters',
       signup_dd3243: 'Passwords do not match',

@@ -139,7 +139,7 @@
       password_reset_d196c8: "ご登録のメールアドレスに再設定リンクをお送りします",
       pwreset_link_sent: "{email} に再設定リンクを送信しました。",
 
-      signup_10c83d: "8文字以上、大文字・数字・記号を含む",
+      signup_10c83d: '10文字以上',
       signup_1ff941: "アカウント作成",
       signup_2179da: "普通",
       signup_21e2e3: "マーケティングメールの受信（任意）",

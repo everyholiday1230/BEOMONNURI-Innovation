@@ -496,6 +496,7 @@
       sv_section_sub: '每次保存 {cost} 积分 · 保存你的信号/指标以便复用',
       sv_save_current_indicators: '保存当前图表指标',
       sv_empty: '还没有保存的项目。',
+      pw_rule_hint: '至少 10 个字符。无需大写字母、数字或符号 \u2014 我们只检查长度。',
       adm_ref_reality_ok: '按当前设置，奖励可以实际发放。',
       adm_ref_reality_none: '按当前设置，任何人都不会获得奖励。',
       adm_ref_reality_points: '邀请积分: {on} \u2014 每次注册 {n} 积分。',

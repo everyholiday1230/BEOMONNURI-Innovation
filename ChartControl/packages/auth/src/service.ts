@@ -92,7 +92,18 @@ export interface AuthServiceOptions {
   requireEmailVerification?: boolean;
 }
 
-const MIN_PASSWORD = 10;
+/*
+   ★★ 비밀번호 최소 길이. **여기가 유일한 출처**다.
+
+     화면 세 곳(가입·재설정·변경)이 각자 8 을 박아 두어, 8~9자는 화면을 통과하고
+     서버가 거부했다. 고객에게는 "형식이 맞다는데 왜 안 되나" 로 보인다.
+     경계 숫자를 여러 곳에 두면 반드시 이런 틈이 생긴다.
+
+   ★ 복잡도(대문자·숫자·기호)는 요구하지 않는다. 길이만 본다 — 화면 안내도
+     그렇게 말해야 한다(예전 가입 화면은 "8자 이상, 대문자·숫자·기호"라고 적어
+     두 가지가 모두 틀렸다).
+*/
+export const MIN_PASSWORD = 10;
 const PW_OK = (pw: string) => typeof pw === 'string' && pw.length >= MIN_PASSWORD;
 
 /**
@@ -399,7 +410,7 @@ export class AuthService {
       await this.log('auth.password.change', userId, ctx, 'failure');
       return { ok: false, error: 'invalid credentials' };
     }
-    if (!PW_OK(newPassword)) return { ok: false, error: 'password too short (min 10)' };
+    if (!PW_OK(newPassword)) return { ok: false, error: `PASSWORD_TOO_SHORT:${MIN_PASSWORD}` };
     await this.users.setPasswordHash(userId, hashPassword(newPassword));
     await this.sessions.deleteByUser(userId); // policy: invalidate all sessions on password change
     await this.log('auth.password.change', userId, ctx, 'success');
@@ -450,7 +461,7 @@ export class AuthService {
   }
   async resetPassword(rawToken: string, newPassword: string, ctx: RequestCtx = {}): Promise<{ ok: boolean; error?: string }> {
     if (!this.resetTokens) return { ok: false, error: 'unavailable' };
-    if (!PW_OK(newPassword)) return { ok: false, error: 'password too short (min 10)' };
+    if (!PW_OK(newPassword)) return { ok: false, error: `PASSWORD_TOO_SHORT:${MIN_PASSWORD}` };
     const rec = await this.resetTokens.findByHash(hashToken(rawToken));
     if (!rec || rec.usedAt || rec.expiresAt < this.now()) {
       await this.log('auth.password.reset', rec?.userId ?? null, ctx, 'failure');

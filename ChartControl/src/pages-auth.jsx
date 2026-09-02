@@ -560,7 +560,11 @@
     }, [refCode]);
     const [loading, setLoading] = useState(false);
     const errors = [];
-    if (form.pw && form.pw.length < 8) errors.push(t('signup_5ca401'));
+    /*
+       ★★ 서버와 같은 숫자(최소 10자). 예전에는 8자로 검사해 8~9자를 통과시켰고,
+         서버가 거부해서 고객은 "형식이 맞다고 했는데 왜 안 되나" 를 겪었다.
+    */
+    if (form.pw && form.pw.length < 10) errors.push(t('pwreset_too_short'));
     if (form.pw2 && form.pw !== form.pw2) errors.push(t('signup_dd3243'));
 
     // password strength
@@ -1234,6 +1238,16 @@
                 <div className="input-group">
                   <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw')}</span>
                   <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} autoFocus/>
+                  {/*
+                     ★★ 규칙을 **입력 전에** 알린다.
+
+                       예전에는 짧게 넣고 제출한 뒤에야 "최소 10자" 오류를 봤다.
+                       규칙을 나중에 알려주는 것은 고객에게 실패를 한 번 겪게 한 뒤
+                       가르치는 것이다. 실제로 이 지점에서 막힌다는 보고를 받았다.
+                  */}
+                  <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>
+                    {t('pw_rule_hint')}
+                  </div>
                 </div>
                 <div className="input-group">
                   <span className="input-group__label"><I.Lock size={11}/> {t('pwreset_new_pw2')}</span>

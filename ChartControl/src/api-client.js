@@ -1523,7 +1523,13 @@
     },
 
     changePassword: function (currentPassword, newPassword) {
+      /*
+         ★★ 서버가 읽는 이름은 oldPassword 다. 예전에는 currentPassword 만 보내서
+           현재 비밀번호가 항상 빈 값으로 들어가 **변경이 전혀 되지 않았다.**
+           서버도 두 이름을 모두 받게 고쳤지만, 보내는 쪽도 정확한 이름을 쓴다.
+      */
       return sendJSON('POST', '/api/auth/change-password', {
+        oldPassword: currentPassword,
         currentPassword: currentPassword,
         newPassword: newPassword,
       });

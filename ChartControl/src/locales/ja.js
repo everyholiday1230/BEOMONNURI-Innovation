@@ -494,6 +494,7 @@
       sv_section_sub: '保存1件につき {cost} ポイント · シグナルや指標を保存して再利用できます',
       sv_save_current_indicators: '現在のチャート指標を保存',
       sv_empty: '保存した項目はまだありません。',
+      pw_rule_hint: '10文字以上。大文字・数字・記号は不要です \u2014 長さのみを確認します。',
       adm_ref_reality_ok: 'この設定なら報酬は実際に支払われます。',
       adm_ref_reality_none: 'この設定では誰にも報酬が支払われません。',
       adm_ref_reality_points: '招待ポイント: {on} \u2014 登録1件あたり {n} ポイント。',

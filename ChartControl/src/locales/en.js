@@ -239,6 +239,7 @@
       sv_section_sub: '{cost} points per save · keep your signals and indicators to reuse',
       sv_save_current_indicators: 'Save current chart indicators',
       sv_empty: 'No saved items yet.',
+      pw_rule_hint: 'At least 10 characters. No uppercase, number or symbol is required \u2014 length is what we check.',
       adm_ref_reality_ok: 'With these settings a reward can actually be paid.',
       adm_ref_reality_none: 'With these settings NO reward will be paid to anyone.',
       adm_ref_reality_points: 'Referral points: {on} \u2014 {n} points per signup.',

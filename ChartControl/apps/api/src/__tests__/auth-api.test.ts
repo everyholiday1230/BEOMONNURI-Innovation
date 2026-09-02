@@ -249,3 +249,57 @@ describe('Phase 2 closure — auth security & isolation (sqlite :memory:)', () =
     expect(blob).not.toMatch(/qt_csrf|password_hash/);
   });
 });
+
+/*
+   PW-CHANGE — 비밀번호 변경 계약.
+
+   ★★ 이 경로는 **전혀 동작하지 않았다.** 서버는 oldPassword 를 읽는데 화면은
+     currentPassword 를 보냈다. 현재 비밀번호가 항상 빈 문자열로 들어가 무엇을
+     입력해도 'invalid credentials' 였다 — 고객에게는 "맞는 비밀번호인데 왜
+     틀렸다고 하나" 로 보인다. 필드 이름 하나가 기능 하나를 죽인 경우다.
+
+   ★★ 그리고 실패 사유가 구분되지 않았다. 새 비밀번호가 짧아서 실패했는데도
+     화면은 '현재 비밀번호가 틀렸다' 로 안내했고, 고객은 엉뚱한 곳을 고쳤다.
+*/
+describe('PW-CHANGE 비밀번호 변경', () => {
+  const PW = 'TenChars10';
+  const setup = async () => {
+    const { app } = build();
+    const email = `pwc${Math.random().toString(36).slice(2, 8)}@ex.com`;
+    const jar = await registerAndLogin(app, email, PW);
+    return { app, jar, email };
+  };
+  const change = (app: App, jar: Record<string, string>, body: Record<string, unknown>) =>
+    req(app, 'POST', '/auth/change-password', { jar, csrf: true, body });
+
+  it('[P1] ★★ oldPassword 로 실제 변경된다', async () => {
+    const { app, jar } = await setup();
+    expect((await change(app, jar, { oldPassword: PW, newPassword: 'BrandNewPw11' })).status).toBe(200);
+  });
+
+  it('[P2] ★ currentPassword 라는 이름으로도 받는다 — 캐시된 예전 화면이 계속 실패하면 안 된다', async () => {
+    const { app, jar } = await setup();
+    expect((await change(app, jar, { currentPassword: PW, newPassword: 'BrandNewPw11' })).status).toBe(200);
+  });
+
+  it('[P3] ★★ 짧은 새 비밀번호는 PASSWORD_TOO_SHORT 로 구분된다 (현재 비번 오류와 섞이지 않는다)', async () => {
+    const { app, jar } = await setup();
+    const r = await change(app, jar, { oldPassword: PW, newPassword: 'short' });
+    expect(r.status).toBe(400);
+    expect(((await r.json()) as { error: { code: string } }).error.code).toBe('PASSWORD_TOO_SHORT');
+  });
+
+  it('[P4] 현재 비밀번호가 틀리면 INVALID 다', async () => {
+    const { app, jar } = await setup();
+    const r = await change(app, jar, { oldPassword: 'WrongPassword1', newPassword: 'BrandNewPw11' });
+    expect(r.status).toBe(400);
+    expect(((await r.json()) as { error: { code: string } }).error.code).toBe('INVALID');
+  });
+
+  it('[P5] 변경 후 새 비밀번호로만 로그인된다 — 실제로 바뀌었는지 확인한다', async () => {
+    const { app, jar, email } = await setup();
+    expect((await change(app, jar, { oldPassword: PW, newPassword: 'BrandNewPw11' })).status).toBe(200);
+    expect((await req(app, 'POST', '/auth/login', { body: { email, password: 'BrandNewPw11' } })).status).toBe(200);
+    expect((await req(app, 'POST', '/auth/login', { body: { email, password: PW } })).status).not.toBe(200);
+  });
+});
