@@ -209,6 +209,61 @@
        불러와 이어 붙인다. id 가 이 사용자 것이 아니면(다른 로그인) 서버가 404 →
        저장을 지우고 새로 시작한다. AI 가 준비된 뒤에만 시도한다.
     */
+    /*
+       ★★ 과거 대화 목록.
+
+         대화는 서버에 저장되고 마운트 시 **가장 최근 것 하나**가 자동 복원됐다.
+         그런데 aiListConversations() 는 목록 전체를 돌려주는데도 화면은 list[0]
+         만 썼다 — 즉 어제 하던 대화로 돌아갈 방법이 없었다. 저장·복원 기능이
+         있는데 고를 수 없어서 없는 것처럼 보였다.
+
+       ★ null = 아직 모름, [] = 정말 없음, convError = 조회 실패.
+         조회 실패를 빈 목록으로 두면 "대화가 없다" 로 읽힌다.
+    */
+    const [convOpen, setConvOpen] = useState(false);
+    const [convList, setConvList] = useState(null);
+    const [convError, setConvError] = useState(false);
+    const [convBusy, setConvBusy] = useState(null);
+
+    /** 대화 하나를 화면에 올린다. 마운트 복원과 목록 선택이 같은 경로를 쓴다. */
+    const restoreConversation = useCallback(async (id, persist) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiConversationMessages || !id) return false;
+      const rows = await api.aiConversationMessages(id);
+      if (!Array.isArray(rows) || rows.length === 0) return false;
+      convRef.current = id;
+      if (persist) { try { localStorage.setItem(CONV_KEY, id); } catch (e) { /* noop */ } }
+      greetedRef.current = true; // 복원 시 인사말 생략(이미 대화가 있다)
+      setMsgs([
+        makeMsg('system', ctxText(), { icon: 'ok' }),
+        ...rows.map((r) => makeMsg(r.role === 'assistant' ? 'ai' : (r.role === 'user' ? 'user' : 'system'), r.content || '')),
+      ]);
+      return true;
+    }, []);
+
+    const loadConversations = useCallback(() => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiListConversations) { setConvList([]); return; }
+      api.aiListConversations().then((r) => {
+        if (r && r.ok === false) { setConvList(null); setConvError(true); return; }
+        setConvError(false);
+        setConvList((r && r.conversations) || []);
+      }).catch(() => { setConvList(null); setConvError(true); });
+    }, []);
+
+    const toggleConversations = useCallback(() => {
+      setConvOpen((o) => { const n = !o; if (n) loadConversations(); return n; });
+    }, [loadConversations]);
+
+    const pickConversation = useCallback(async (id) => {
+      setConvBusy(id);
+      try {
+        const ok = await restoreConversation(id, true);
+        if (ok) setConvOpen(false);
+      } catch (e) { /* 실패는 아래 목록에 남는다 */ }
+      setConvBusy(null);
+    }, [restoreConversation]);
+
     const restoredRef = useRef(false);
     useEffect(() => {
       if (restoredRef.current || !aiReady) return;
@@ -218,17 +273,13 @@
       try { saved = localStorage.getItem(CONV_KEY); } catch (e) { /* 접근 불가 */ }
       restoredRef.current = true;
       let cancelled = false;
-      const restore = (id, persist) => api.aiConversationMessages(id).then((rows) => {
-        if (cancelled || !Array.isArray(rows) || rows.length === 0) return false;
-        convRef.current = id;
-        if (persist) { try { localStorage.setItem(CONV_KEY, id); } catch (e) { /* noop */ } }
-        greetedRef.current = true; // 복원 시 인사말 생략(이미 대화가 있으므로)
-        setMsgs([
-          makeMsg('system', ctxText(), { icon: 'ok' }),
-          ...rows.map((r) => makeMsg(r.role === 'assistant' ? 'ai' : (r.role === 'user' ? 'user' : 'system'), r.content || '')),
-        ]);
-        return true;
-      });
+      /*
+         ★ 마운트 복원과 목록 선택이 **같은 함수**를 쓴다. 예전에는 이 안에만
+           복원 로직이 있어서 목록에서 고르는 기능을 붙일 수 없었다.
+           cancelled 검사만 여기서 덧붙인다(마운트 해제 후 setState 방지).
+      */
+      const restore = (id, persist) => restoreConversation(id, persist)
+        .then((ok) => (cancelled ? false : ok));
       if (saved) {
         restore(saved, false).catch(() => {
           // 내 대화가 아니거나 사라짐 — 저장을 지우고 서버 최신 대화로 이어받기 시도.
@@ -749,6 +800,17 @@
           <span className="ai-ctx-chip" role="button" tabIndex={0} style={{cursor:'pointer'}} onClick={toggleSaved} title={t('sv_section_title')}>
             <I.Save size={10}/> {t('ai_saved_view')}{Array.isArray(savedItems) ? ' · ' + savedItems.length : ''}
           </span>
+          {/* 과거 대화 — 저장·자동복원은 되는데 고를 방법이 없었다. */}
+          <span
+            className="ai-ctx-chip"
+            role="button"
+            tabIndex={0}
+            style={{cursor:'pointer'}}
+            onClick={toggleConversations}
+            title={t('ai_conv_title')}
+          >
+            <I.Book size={10}/> {t('ai_conv_view')}{Array.isArray(convList) ? ' · ' + convList.length : ''}
+          </span>
           <span className="ai-ctx-chip">{t('ai_ctx_last')} · <strong>{fmt(context.price, 1)}</strong></span>
           {/*
              ★ 지표 목록을 코드에 박지 않는다.
@@ -764,6 +826,39 @@
           <span className="ai-ctx-chip">{t('ai_ctx_range')} · <strong>{t('ai_ctx_bars', { n: context.candles.length })}</strong></span>
           <span className="ai-ctx-chip" style={{color:'var(--color-warning)'}}>{t('ai_not_advice')}</span>
         </div>
+
+        {convOpen && (
+          <div style={{margin:'0 0 6px', border:'1px solid var(--color-border-subtle)', borderRadius:6, background:'var(--color-bg-surface)', maxHeight:180, overflowY:'auto'}}>
+            {convError ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>
+                {t('ai_conv_failed')}{' '}
+                <button type="button" className="btn btn--sm" onClick={loadConversations}>{t('sv_retry')}</button>
+              </div>
+            ) : convList === null ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>…</div>
+            ) : convList.length === 0 ? (
+              <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('ai_conv_none')}</div>
+            ) : convList.map((cv) => {
+              const mine = convRef.current === cv.id;
+              return (
+                <div key={cv.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
+                  <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {cv.title || t('ai_conv_untitled')}
+                    {mine && <span style={{marginLeft:6, fontSize:10, color:'var(--color-text-tertiary)'}}>{t('ai_conv_current')}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    disabled={convBusy === cv.id || mine}
+                    onClick={() => pickConversation(cv.id)}
+                  >
+                    {convBusy === cv.id ? '…' : t('ai_conv_open')}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {savedOpen && (
           <div style={{margin:'0 0 6px', border:'1px solid var(--color-border-subtle)', borderRadius:6, background:'var(--color-bg-surface)', maxHeight:180, overflowY:'auto'}}>
