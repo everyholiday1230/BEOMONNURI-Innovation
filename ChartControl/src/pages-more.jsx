@@ -304,13 +304,21 @@
                       background:'var(--color-bg-elevated)', border:'1px solid var(--color-border-subtle)',
                     }}>
                       <div style={{fontWeight:600, marginBottom:3}}>{t('fast_api_tick_title')}</div>
-                      <ul style={{margin:'0 0 4px 16px', padding:0}}>
-                        <li>{t('fast_api_tick_common')}</li>
-                        {(fastApiMarkets === 'spot' || fastApiMarkets === 'both') && <li>{t('fast_api_tick_spot')}</li>}
-                        {(fastApiMarkets === 'futures' || fastApiMarkets === 'both') && <li>{t('fast_api_tick_futures')}</li>}
-                      </ul>
+                      <div style={{marginBottom:4}}>{t('fast_api_tick_all_but_withdraw')}</div>
                       <div style={{color:'var(--color-danger, #dc2626)', fontWeight:600}}>
                         {t('fast_api_tick_no_withdraw')}
+                      </div>
+                      {/*
+                         ★★ 체크를 넉넉히 해도 **키가 강해지지 않는다** 는 사실을 함께 적는다.
+
+                           키의 실제 권한은 우리가 발급 요청에 보내는 authGroupMap 이고,
+                           그건 위에서 고객이 고른 시장으로만 만든다(마진·예치·이체는
+                           어떤 선택에서도 false). 승인 화면의 체크는 '동의 한도' 이지
+                           키의 권한이 아니다. 이 구분을 적지 않으면 고객은 "전부
+                           체크하라니 위험한가" 로 읽고 멈춘다.
+                      */}
+                      <div style={{color:'var(--color-text-tertiary)', marginTop:3}}>
+                        {t('fast_api_tick_key_scope')}
                       </div>
                       <div style={{color:'var(--color-text-tertiary)', marginTop:3}}>
                         {t('fast_api_tick_why')}
