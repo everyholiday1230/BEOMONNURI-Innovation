@@ -317,7 +317,19 @@ export const EXCHANGES: readonly Exchange[] = Object.freeze(parsed);
      환경변수로 열지 않는다 — 어댑터 없는 거래소를 env 로 켜면 사용자가
      동작하지 않는 키를 등록하게 된다. 코드에 어댑터가 추가될 때 함께 고친다.
 */
-export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin', 'bitmart']);
+/*
+   ★★ BitMart 를 뺐다. **2026-08-26 01:00 UTC 에 거래를 종료했다.**
+
+     그런데 연결 가능 목록에 남아 있어서, 고객 지갑 화면에 파트너 거래소로
+     노출되고 가입 링크(https://www.bitmart.com/invite/...)와 "Connect API" 까지
+     제공됐다. 고객이 문 닫은 거래소에 가입해 키를 만들어 넣는 경로였다 —
+     그 키로는 아무 주문도 나가지 않고, 고객은 이유를 알 수 없다.
+
+   ★ 카탈로그에서 지우지는 않는다. 어댑터 코드도 남아 있고(폴백), 과거 연결
+     기록과 리베이트 조회가 그 id 를 참조한다. '연결을 권하지 않는다' 와
+     '존재하지 않는다' 는 다른 사실이다.
+*/
+export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin']);
 
 /** 어댑터가 있고 협약된 거래소인가. */
 export function isConnectable(id: string): boolean {

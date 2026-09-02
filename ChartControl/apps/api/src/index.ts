@@ -450,7 +450,19 @@ app.get('/api/config', (c) =>
     brandShortName: env.brandShortName,
     // 비어 있으면 화면이 이메일 문의 경로를 감춘다.
     supportEmail: env.supportEmail,
-    exchangeSignupUrl: env.kucoinReferralUrl,
+    /*
+       ★★ 거래소 가입/키 발급 링크. 비어 있으면 화면이 그 안내를 감춘다.
+
+         KUCOIN_REFERRAL_URL 환경변수가 설정되지 않아 이 값이 **빈 문자열**이었고,
+         그래서 입금·출금 화면에서 "키를 어디서 만드나" 안내가 사라져 있었다.
+         실제 신호로 확인했다: 한 고객이 7번 로그인하고도 거래소 키를 끝내 연결하지
+         못했다(가입 15 → 키 연결 3 → 주문 1).
+
+       ★ 그런데 같은 링크가 **카탈로그에 이미 있다**(협약 확정된 추천 링크).
+         운영자가 같은 값을 env 에 또 넣어야 하는 구조가 애초에 문제였다.
+         env 가 있으면 그것을 쓰고, 없으면 카탈로그의 확정 링크로 폴백한다.
+    */
+    exchangeSignupUrl: env.kucoinReferralUrl || (getConfirmedReferrals().urls.kucoin ?? ''),
     /*
        거래소별 추천 가입 링크.
 

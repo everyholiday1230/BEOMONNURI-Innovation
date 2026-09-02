@@ -275,7 +275,15 @@ describe('EXG-03 GET /api/v1/exchanges/:id', () => {
     }
     expect(parsed.data.id).toBe('bitmart');
     expect(parsed.data.required).toContain('memo');
-    expect(parsed.data.connectable).toBe(true);
+    /*
+       ★★ BitMart 는 **연결 불가**다. 2026-08-26 01:00 UTC 에 거래를 종료했다.
+
+         이 검사는 connectable=true 를 기대하고 있었고, 그래서 "문 닫은 거래소를
+         고객에게 권하는 상태" 를 테스트가 지키고 있었다. 카탈로그에는 남지만
+         (과거 연결 기록·리베이트 조회가 이 id 를 쓴다) 새로 연결하도록
+         권하지는 않는다.
+    */
+    expect(parsed.data.connectable).toBe(false);
   });
 
   it('[2] an unknown id is a 404 with a correlation id', async () => {
