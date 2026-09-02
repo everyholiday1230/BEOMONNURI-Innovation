@@ -736,7 +736,7 @@
                ★ 원래 이 두 버튼은 onClick 이 없어 눌러도 아무 일이 없었다.
                  마크업·클래스는 그대로 두고 동작만 붙였다.
             */}
-            <button
+            <button aria-label={collapsed ? t('ai_expand') : t('ai_collapse')}
               className="btn btn--icon"
               title={collapsed ? t('ai_expand') : t('ai_collapse')}
               aria-expanded={!collapsed}
@@ -749,7 +749,7 @@
                  둘 다 잘리거나, 펼치려다 대화를 지운다.
             */}
             {!collapsed && (
-              <button
+              <button aria-label={t('ai_clear_chat')}
                 className="btn btn--icon"
                 title={t('ai_clear_chat')}
                 onClick={() => {
@@ -887,8 +887,8 @@
               <div key={it.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
                 <span style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'var(--color-bg-elevated)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
                 <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
-                <button className="btn btn--icon btn--sm" title={t('sv_load')} onClick={() => applySaved(it)}><I.Plus size={11}/></button>
-                <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
+                <button aria-label={t('sv_load')} className="btn btn--icon btn--sm" title={t('sv_load')} onClick={() => applySaved(it)}><I.Plus size={11}/></button>
+                <button aria-label={t('sv_delete')} className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
               </div>
             ))}
           </div>
@@ -977,7 +977,7 @@
                없어, 긴 응답이 돌면 사용자가 기다리거나 새로고침할 수밖에 없었다.
           */}
           {(thinking || streaming) ? (
-            <button
+            <button aria-label={t('ai_stop')}
               className="ai-input__send"
               title={t('ai_stop')}
               onClick={() => {
@@ -1014,7 +1014,7 @@
               <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined, borderTopColor: l.dashed ? l.color : undefined}}/>
               <span className="ai-layer__name">{l.label || l.name}</span>
               <span className="ai-layer__count">{l.count}</span>
-              <button className="ai-layer__eye" title={t('ai_toggle')}><I.Eye size={12}/></button>
+              <button aria-label={t('ai_toggle')} className="ai-layer__eye" title={t('ai_toggle')}><I.Eye size={12}/></button>
             </div>
           ))}
         </div>

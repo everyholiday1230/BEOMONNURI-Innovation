@@ -865,7 +865,7 @@
             {/* 사용자 목록 CSV 내보내기는 목록 화면(/admin/users)에 있다 — 여기 중복 버튼은 없앤다. */}
             {/* 세션 종료 — 서버 API 가 있는데 화면에 없었다. */}
             {canStatus && (
-              <button className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
+              <button aria-label={t('adm_revoke_hint')} className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
                 <I.Lock size={13}/> {t('adm_revoke_sessions')}
               </button>
             )}
@@ -889,7 +889,7 @@
               </label>
             )}
             {canStatus && !(u.email_verified || u.emailVerified) && (
-              <button className="btn btn--sm" type="button" disabled={busy} onClick={verifyEmail} title={t('adm_verify_email_hint')}>
+              <button aria-label={t('adm_verify_email_hint')} className="btn btn--sm" type="button" disabled={busy} onClick={verifyEmail} title={t('adm_verify_email_hint')}>
                 <I.Check size={13}/> {t('adm_verify_email')}
               </button>
             )}
@@ -1060,7 +1060,7 @@
                   ].map(([key, icon]) => {
                     const Ic = I[icon] || I.Grid;
                     return (
-                      <button
+                      <button aria-label={t('adm_feature_absent')}
                         key={key}
                         className="btn btn--sm"
                         type="button"
@@ -1075,7 +1075,7 @@
                   })}
                   {/* ★ 이메일(로그인 식별자) 변경 — 실제 API. 오타로 잠긴 계정을 되살리는 수단. */}
                   {canStatus && (
-                    <button
+                    <button aria-label={t('adm_email_hint')}
                       className="btn btn--sm"
                       type="button"
                       style={{justifyContent:'flex-start'}}
@@ -1088,7 +1088,7 @@
                   )}
                   {/* ★ 비밀번호 재설정 링크 발송 — 실제 API. 임시 비밀번호를 만들지 않는다. */}
                   {canStatus && (
-                    <button
+                    <button aria-label={t('adm_pwreset_hint')}
                       className="btn btn--sm"
                       type="button"
                       style={{justifyContent:'flex-start'}}
@@ -1105,7 +1105,7 @@
                        일반 회원에게만 보인다(운영자 계정은 서버가 거부한다).
                   */}
                   {canStatus && !['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'ANALYST'].includes(String(u.role || '').toUpperCase()) && (
-                    <button
+                    <button aria-label={Number(u.mfa_enabled) ? t('adm_reset_mfa_hint') : t('adm_reset_mfa_off')}
                       className="btn btn--sm"
                       type="button"
                       style={{justifyContent:'flex-start'}}

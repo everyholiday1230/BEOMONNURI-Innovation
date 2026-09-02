@@ -253,7 +253,7 @@
            위에 고정하면 어느 스크롤 위치에서도 누를 수 있다.
         */}
         <div className="app-sidebar-v2__head">
-          <button
+          <button aria-label={collapsed ? t('nav_expand') : t('nav_collapse')}
             className="sb-item-v2 sb-item-v2--sm"
             onClick={onToggleCollapsed}
             title={collapsed ? t('nav_expand') : t('nav_collapse')}
@@ -297,7 +297,7 @@
                  빈 레일은 고장으로 보인다. 펼치라는 안내를 아이콘으로 준다.
               */}
               {railItems.length === 0 && (
-                <button
+                <button aria-label={t('nav_no_pins_hint')}
                   className="sb-item-v2"
                   onClick={onToggleCollapsed}
                   title={t('nav_no_pins_hint')}
@@ -340,7 +340,7 @@
                            별도 버튼으로 두고, 클릭이 링크로 전파되지 않게 막는다 —
                            고정하려다 화면이 이동하면 흐름이 끊긴다.
                         */}
-                        <button
+                        <button aria-label={isPin ? t('nav_unpin') : t('nav_pin')}
                           className={`sb-pin ${isPin ? 'is-on' : ''}`}
                           aria-pressed={isPin}
                           title={isPin ? t('nav_unpin') : t('nav_pin')}

@@ -534,16 +534,16 @@
         {/* Widget controls popover (top-right) */}
         {isEditing && (
           <div className="widget-controls" onClick={e => e.stopPropagation()}>
-            <button className="widget-controls__btn" onMouseDown={onDragStart} title={t('lay_drag')}><I.Drag size={11}/></button>
+            <button aria-label={t('lay_drag')} className="widget-controls__btn" onMouseDown={onDragStart} title={t('lay_drag')}><I.Drag size={11}/></button>
             <div className="widget-controls__sep"/>
-            <button className="widget-controls__btn" onClick={() => onLock && onLock(widget.id)} title={widget.locked ? t('lay_unlock') : t('lock')}>
+            <button aria-label={widget.locked ? t('lay_unlock') : t('lock')} className="widget-controls__btn" onClick={() => onLock && onLock(widget.id)} title={widget.locked ? t('lay_unlock') : t('lock')}>
               {widget.locked ? <I.Lock size={11}/> : <I.Unlock size={11}/>}
             </button>
-            <button className="widget-controls__btn" onClick={() => onSettings && onSettings(widget.id)} title={t('chart_settings')}><I.Cog size={11}/></button>
-            <button className="widget-controls__btn" onClick={() => onDuplicate && onDuplicate(widget.id)} title={t('lay_duplicate')}><I.Layers size={11}/></button>
-            <button className="widget-controls__btn" onClick={() => onMaximize && onMaximize(widget.id)} title={t('lay_maximize')}><I.Expand size={11}/></button>
+            <button aria-label={t('chart_settings')} className="widget-controls__btn" onClick={() => onSettings && onSettings(widget.id)} title={t('chart_settings')}><I.Cog size={11}/></button>
+            <button aria-label={t('lay_duplicate')} className="widget-controls__btn" onClick={() => onDuplicate && onDuplicate(widget.id)} title={t('lay_duplicate')}><I.Layers size={11}/></button>
+            <button aria-label={t('lay_maximize')} className="widget-controls__btn" onClick={() => onMaximize && onMaximize(widget.id)} title={t('lay_maximize')}><I.Expand size={11}/></button>
             <div className="widget-controls__sep"/>
-            <button className="widget-controls__btn is-danger" onClick={() => onHide && onHide(widget.id)} title={t('lay_hide')}><I.EyeOff size={11}/></button>
+            <button aria-label={t('lay_hide')} className="widget-controls__btn is-danger" onClick={() => onHide && onHide(widget.id)} title={t('lay_hide')}><I.EyeOff size={11}/></button>
           </div>
         )}
 
@@ -642,7 +642,7 @@
             <I.EyeOff size={12}/>
             {t('lay_hidden_widgets')} <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontSize: 10}}>{hidden.length}</span>
           </div>
-          <button className="btn btn--icon" onClick={onClose} title={t('close')}><I.X size={12}/></button>
+          <button aria-label={t('close')} className="btn btn--icon" onClick={onClose} title={t('close')}><I.X size={12}/></button>
         </div>
         <div className="widget-library__body">
           {hidden.length === 0 ? (
@@ -714,7 +714,7 @@
         </div>
 
         <div className="layout-toolbar__actions">
-          <button
+          <button aria-label={t('lay_library_title')}
             className={`btn btn--sm ${engine.libraryOpen ? 'btn--primary' : ''}`}
             onClick={() => engine.setLibraryOpen(!engine.libraryOpen)}
             title={t('lay_library_title')}
@@ -727,10 +727,10 @@
 
           <div style={{width:1, height: 20, background:'var(--color-border-subtle)'}}/>
 
-          <button className="btn btn--sm btn--ghost" onClick={engine.undo} disabled={!engine.history.past.length} title={t('lay_undo_hint')}>
+          <button aria-label={t('lay_undo_hint')} className="btn btn--sm btn--ghost" onClick={engine.undo} disabled={!engine.history.past.length} title={t('lay_undo_hint')}>
             <I.Undo size={13}/> {t('undo')}
           </button>
-          <button className="btn btn--sm btn--ghost" onClick={engine.redo} disabled={!engine.history.future.length} title={t('lay_redo_hint')}>
+          <button aria-label={t('lay_redo_hint')} className="btn btn--sm btn--ghost" onClick={engine.redo} disabled={!engine.history.future.length} title={t('lay_redo_hint')}>
             <I.Redo size={13}/> {t('redo')}
           </button>
 
@@ -739,7 +739,7 @@
           <button className="btn btn--sm btn--ghost" onClick={() => engine.setIsLocked(v => !v)}>
             {engine.isLocked ? <I.Lock size={13}/> : <I.Unlock size={13}/>} {engine.isLocked ? t('lay_locked') : t('lock')}
           </button>
-          <button className="btn btn--sm" onClick={() => engine.reset(engine.presetId)} title={t('lay_reset_hint')}>
+          <button aria-label={t('lay_reset_hint')} className="btn btn--sm" onClick={() => engine.reset(engine.presetId)} title={t('lay_reset_hint')}>
             <I.Refresh size={13}/> {t('reset')}
           </button>
           <button className="btn btn--sm" onClick={onSaveAs}>{t('save_as')}</button>

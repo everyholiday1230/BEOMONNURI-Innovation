@@ -487,7 +487,7 @@
 
         {/* 프리셋 저장/불러오기 — 차트와 같은 화면이라 켜둔 지표를 실제로 읽을 수 있다. */}
         <div className="chart-ind-panel__presets">
-          <button
+          <button aria-label={active.size === 0 ? t('sv_no_indicators') : t('sv_save_preset')}
             type="button"
             className="btn btn--sm"
             onClick={savePreset}

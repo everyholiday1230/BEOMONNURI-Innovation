@@ -200,7 +200,7 @@
             <span>{t('market_watch')}</span>
           </div>
           <div className="panel__actions">
-            <button className="btn btn--icon" title={t('notifications_f53a6e')}><I.Filter size={14}/></button>
+            <button aria-label={t('notifications_f53a6e')} className="btn btn--icon" title={t('notifications_f53a6e')}><I.Filter size={14}/></button>
             <button className="btn btn--icon"><I.More size={14}/></button>
           </div>
         </div>
@@ -500,7 +500,7 @@
         {/* GROUP 4: Actions */}
         <div className="sh-actions">
           {/* ★ 가격 알림 — 이 종목의 알림을 만들고 관리한다(실제 구현). */}
-          <button className="btn btn--xs" title={t('alert_title')} onClick={() => setAlertOpen(true)}>
+          <button aria-label={t('alert_title')} className="btn btn--xs" title={t('alert_title')} onClick={() => setAlertOpen(true)}>
             {window.Icons?.Bell ? <window.Icons.Bell size={11}/> : '🔔'}
           </button>
           {alertOpen && (
@@ -520,7 +520,7 @@
                라우터가 이미 ?symbol= 을 읽으므로(app.jsx marketFromQuery)
                받는 사람은 같은 종목 화면으로 들어온다.
           */}
-          <button
+          <button aria-label={t('sh_share_link')}
             className="btn btn--xs"
             title={t('sh_share_link')}
             onClick={() => {
@@ -545,7 +545,7 @@
             {window.Icons?.Share ? <window.Icons.Share size={11}/> : '↗'}
           </button>
           <div style={{position: 'relative'}}>
-            <button
+            <button aria-label={t('wg_more')}
               ref={moreBtnRef}
               className="btn btn--xs"
               title={t('wg_more')}
@@ -710,7 +710,7 @@
                    무엇으로 바뀌는지 알려주는 것이 이 버튼의 목적이므로,
                    **다음 상태**를 사람이 읽는 말로 보여준다.
               */}
-              <button
+              <button aria-label={display === 'amount' ? t('ob_show_cum') : t('ob_show_size')}
                 className="btn btn--icon"
                 onClick={() => setDisplay(display === 'amount' ? 'cumulative' : 'amount')}
                 title={display === 'amount' ? t('ob_show_cum') : t('ob_show_size')}
@@ -719,16 +719,16 @@
               </button>
             </div>
             <div className="ob-side-toggle">
-              <button className={`ob-side-btn ${mode==='both'?'is-active':''}`} onClick={() => setMode('both')} title={t('ob_both')}>
+              <button aria-label={t('ob_both')} className={`ob-side-btn ${mode==='both'?'is-active':''}`} onClick={() => setMode('both')} title={t('ob_both')}>
                 <div style={{display:'flex', flexDirection:'column', gap: 1}}>
                   <span style={{width:8, height:2, background:'var(--color-trade-short)'}}/>
                   <span style={{width:8, height:2, background:'var(--color-trade-long)'}}/>
                 </div>
               </button>
-              <button className={`ob-side-btn ${mode==='buy'?'is-active':''}`} onClick={() => setMode('buy')} title={t('ob_bids_only')}>
+              <button aria-label={t('ob_bids_only')} className={`ob-side-btn ${mode==='buy'?'is-active':''}`} onClick={() => setMode('buy')} title={t('ob_bids_only')}>
                 <span style={{width:8, height:2, background:'var(--color-trade-long)'}}/>
               </button>
-              <button className={`ob-side-btn ${mode==='sell'?'is-active':''}`} onClick={() => setMode('sell')} title={t('ob_asks_only')}>
+              <button aria-label={t('ob_asks_only')} className={`ob-side-btn ${mode==='sell'?'is-active':''}`} onClick={() => setMode('sell')} title={t('ob_asks_only')}>
                 <span style={{width:8, height:2, background:'var(--color-trade-short)'}}/>
               </button>
             </div>
@@ -1108,7 +1108,7 @@
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Wallet size={14}/><span>{t('order_entry')}</span></div>
-          <div className="panel__actions">{/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}<button className="btn btn--icon" disabled title={t('adm_feature_absent')}><I.More size={12}/></button></div>
+          <div className="panel__actions">{/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}<button aria-label={t('adm_feature_absent')} className="btn btn--icon" disabled title={t('adm_feature_absent')}><I.More size={12}/></button></div>
         </div>
 
         <div className="panel__body" style={{padding: 0}}>
@@ -1143,7 +1143,7 @@
             <button className={`oe-tab ${orderType==='market'?'is-active':''}`} onClick={() => setOrderType('market')}>{t('market')}</button>
             <button className={`oe-tab ${orderType==='trigger'?'is-active':''}`} onClick={() => setOrderType('trigger')}>{t('trigger')}</button>
             {!isBeginner && (
-              <button className="oe-tab" disabled title={t('adm_feature_absent')}>
+              <button aria-label={t('adm_feature_absent')} className="oe-tab" disabled title={t('adm_feature_absent')}>
                 {t('advanced')} <span className="qt-pending-mark">{t('sec_pending')}</span>
               </button>
             )}
@@ -1426,7 +1426,7 @@
             )}
 
             <div className="oe-buttons">
-              <button
+              <button aria-label={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('long') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 disabled={symbolUnlisted || !modeCanOrder || stopMissing || Boolean(bracketBlockFor('long'))}
                 title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('long') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 className={`btn btn--long btn--lg ${side!=='long' ? 'btn--outline' : ''}`}
@@ -1438,7 +1438,7 @@
               >
                 ▲ {t('buy_long')}
               </button>
-              <button
+              <button aria-label={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('short') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 disabled={symbolUnlisted || !modeCanOrder || stopMissing || Boolean(bracketBlockFor('short'))}
                 title={symbolUnlisted ? t('oe_err_not_listed') : stopMissing ? t('oe_err_stop_required') : (bracketBlockFor('short') || (!modeCanOrder && modeBlockKey ? t(modeBlockKey) : undefined))}
                 className={`btn btn--short btn--lg ${side!=='short' ? 'btn--outline' : ''}`}
@@ -1666,7 +1666,7 @@
               <span className="chk__box"><I.Check size={10}/></span>
               {t('symbol_only')}
             </label>
-            <button
+            <button aria-label={acct.isLive ? t('close_all_hint') : t('cancel_needs_live')}
               className="btn btn--xs btn--danger"
               style={{whiteSpace:'nowrap'}}
               onClick={cancelAll}
@@ -1741,8 +1741,8 @@
                                규칙대로 비활성 + '준비중' 으로 명확히 밝힌다.
                                (진입과 동시 거는 TP/SL 은 주문 패널에서 이미 가능하다.)
                           */}
-                          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span></button>
-                          <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>{t('col_margin')} <span className="qt-pending-mark">{t('sec_pending')}</span></button>
+                          <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span></button>
+                          <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>{t('col_margin')} <span className="qt-pending-mark">{t('sec_pending')}</span></button>
                           <button className="btn btn--xs btn--danger" onClick={() => onClose && onClose(p.id)}>{t('close')}</button>
                         </div>
                       </td>
@@ -1803,7 +1803,7 @@
                       <span className={`badge ${o.status==='partial'?'badge--warning':'badge--neutral'}`}>{o.status}</span>
                     </td>
                     <td>
-                      <button
+                      <button aria-label={o.isLive ? t('cancel_order') : t('cancel_needs_live')}
                         className="btn btn--xs btn--danger"
                         onClick={() => cancelOrder(o)}
                         disabled={canceling === o.id || !o.isLive}
@@ -2199,7 +2199,7 @@
                비활성으로 둔다. (거래소 앱에서는 이체가 가능하다)
           */}
           <div className="panel__actions">
-            <button className="btn btn--xs" disabled title={t('adm_feature_absent')}>
+            <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>
               {t('tx_kind_transfer')} <span className="qt-pending-mark">{t('sec_pending')}</span>
             </button>
           </div>
@@ -2263,7 +2263,7 @@
             {/* 증거금 추가는 선물에만 있다. */}
             {/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}
             {!assetsIsSpot && (
-              <button className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
+              <button aria-label={t('adm_feature_absent')} className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
                 {t('mg_add')} <span className="qt-pending-mark">{t('sec_pending')}</span>
               </button>
             )}
@@ -2286,8 +2286,8 @@
                  만들기 전까지는 비활성으로 두고 이유를 밝힌다.
             */}
             <div className="seg">
-              <button className="seg__opt is-active" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('col_mark')}</button>
-              <button className="seg__opt" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('ai_ctx_last')}</button>
+              <button aria-label={t('adm_feature_absent')} className="seg__opt is-active" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('col_mark')}</button>
+              <button aria-label={t('adm_feature_absent')} className="seg__opt" disabled title={t('adm_feature_absent')} style={{height:18, padding:'0 6px', fontSize:10}}>{t('ai_ctx_last')}</button>
             </div>
           </div>
         </div>
@@ -2397,7 +2397,7 @@
                이 위젯은 심볼을 못 바꾸는 자리(전략 카드 등)에도 쓰인다.
             */}
             {onPickSymbol ? (
-              <button
+              <button aria-label={t('mc_pick_symbol')}
                 type="button"
                 className="btn btn--ghost btn--xs"
                 style={{padding:'0 4px', fontWeight:700}}
@@ -2430,7 +2430,7 @@
             )}
           </div>
           <div className="panel__actions">
-            <button className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>
+            <button aria-label={t('mc_expand')} className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>
           </div>
         </div>
         )}

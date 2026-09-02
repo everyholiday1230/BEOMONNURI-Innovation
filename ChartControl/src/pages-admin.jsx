@@ -599,7 +599,7 @@
         title={t('adm_ref_title')}
         subtitle={t('adm_ref_subtitle')}
         breadcrumb={['Home','Admin','Referral']}
-        actions={<button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>}
+        actions={<button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>}
       >
         {!isLive ? (
           <window.NotApplicablePanel
@@ -983,7 +983,7 @@
               </a>
             )}
             {/* 초대 기능은 서버 API 가 없다 — 누를 수 있는 것처럼 두지 않는다. */}
-            <button className="btn btn--sm" disabled title={t('adm_feature_absent')}>
+            <button aria-label={t('adm_feature_absent')} className="btn btn--sm" disabled title={t('adm_feature_absent')}>
               <I.Plus size={13}/> {t('adm_invite_user')}
               <span className="qt-pending-mark">{t('sec_pending')}</span>
             </button>
@@ -1090,7 +1090,7 @@
                    (틀린 id 는 400 이거나 더 나쁘게 다른 사람에게 지급된다).
               */
               { key:'id', label:'ID', render: r => (
-                <button
+                <button aria-label={t('adm_copy_user_id')}
                   type="button"
                   onClick={() => window.QTCopy && window.QTCopy(r.id)}
                   title={t('adm_copy_user_id')}
@@ -1136,7 +1136,7 @@
                      ★ 그래서 버튼을 지우지 않고(디자인 불가침) 왜 동작하지 않는지
                        말한다. 조용히 아무 일도 안 하는 것보다 정직하다.
                   */}
-                  <button
+                  <button aria-label={t('adm_kyc_not_collected')}
                     className="tbl-action"
                     style={{marginLeft:3, opacity: 0.6}}
                     title={t('adm_kyc_not_collected')}
@@ -1272,7 +1272,7 @@
             <span style={{padding:'2px 8px', background: isLive ? 'oklch(78% 0.14 145 / 0.14)' : 'var(--color-bg-input)', color: isLive ? 'var(--color-success)' : 'var(--color-text-tertiary)', borderRadius:3, fontFamily:'var(--font-mono)', fontSize:10, fontWeight:700, letterSpacing:'0.06em'}}>
               {isLive ? '● ' + t('adm_badge_live') : '○ ' + t('adm_badge_mock')}
             </span>
-            <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>
+            <button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>
           </>
         }
       >
@@ -1462,7 +1462,7 @@
           title={t('admin_aiops_title')}
           subtitle={t('aiops_subtitle', { provider: provider || '—' })}
           breadcrumb={['Home','Admin','AI Ops']}
-          actions={<button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
+          actions={<button aria-label={t('refresh')} className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
         >
           {/* 실행 여부를 먼저 명확히 한다. */}
           <div style={{
@@ -2069,7 +2069,7 @@
           ? t('admin_system_subtitle', { ok: okCount, total: checked })
           : `${okCount}/${system.length} services healthy · WebSocket · DB · API · Batch`}
         breadcrumb={['Home','Admin','System']}
-        actions={<button className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
+        actions={<button aria-label={t('refresh')} className="btn btn--sm" onClick={() => { if (window.QTAdmin) window.QTAdmin.refresh(); }} title={t('refresh')}><I.Refresh size={13}/></button>}
       >
         {/*
            KPI.
@@ -2300,7 +2300,7 @@
               download
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
             ><I.Camera size={13}/> {t('col_export')}</a>
-            <button
+            <button aria-label={failOnly ? t('adm_audit_fail_on') : t('adm_audit_fail_off')}
               className={`btn btn--sm ${failOnly ? 'btn--primary' : ''}`}
               onClick={() => setFailOnly((v) => !v)}
               title={failOnly ? t('adm_audit_fail_on') : t('adm_audit_fail_off')}

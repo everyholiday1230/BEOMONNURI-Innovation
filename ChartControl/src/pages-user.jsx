@@ -198,7 +198,7 @@
                 <I.Grid size={11}/> {t('mk_heatmap')}
               </button>
             </div>
-            <button
+            <button aria-label={favOnly ? t('mk_fav_only_on') : t('mk_fav_only_off')}
               className={`btn btn--sm ${favOnly ? 'btn--primary' : ''}`}
               onClick={() => setFavOnly((v) => !v)}
               /*
@@ -361,7 +361,7 @@
                 { key: 'act',   label: '', align: 'right', width: 100, render: r => unlisted(r) ? (
                   /* ★ 버튼을 지우지 않는다(UI 계약). 비활성으로 두고 이유를 알린다.
                        누르게 두면 주문 패널까지 가서야 거래할 수 없음을 알게 된다. */
-                  <button className="btn btn--xs" disabled title={t(r.unavailableReasonKey || 'market_not_listed')}>{t('nav_trade')}</button>
+                  <button aria-label={t(r.unavailableReasonKey || 'market_not_listed')} className="btn btn--xs" disabled title={t(r.unavailableReasonKey || 'market_not_listed')}>{t('nav_trade')}</button>
                 ) : (
                   <a className="btn btn--xs btn--primary" href={`#/trade?symbol=${r.base}${r.quote}`}>{t('nav_trade')}</a>
                 ) },
@@ -622,15 +622,15 @@
                      두지 않고 '준비중' 으로 명확히 표시한다. 폼을 붙이면 disabled 를
                      떼고 onClick 으로 생성 흐름을 연결하면 된다.
                 */}
-                <button className="btn btn--sm" disabled title={t('sec_pending')}>
+                <button aria-label={t('sec_pending')} className="btn btn--sm" disabled title={t('sec_pending')}>
                   <I.Plus size={12}/> {t('strat_create')} <span className="qt-pending-mark">{t('sec_pending')}</span>
                 </button>
-                <button className="btn btn--sm btn--primary" disabled title={t('sec_pending')}>
+                <button aria-label={t('sec_pending')} className="btn btn--sm btn--primary" disabled title={t('sec_pending')}>
                   <I.Sparkles size={12}/> {t('strat_ai_generate')} <span className="qt-pending-mark">{t('sec_pending')}</span>
                 </button>
               </>
             ) : (
-              <button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
+              <button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
             )}
           </>
         }
@@ -810,7 +810,7 @@
                 <div style={{display:'flex', gap:6}}>
                   {isLive ? (
                     <>
-                      <button
+                      <button aria-label={t('strat_backtest_hint')}
                         className="btn btn--xs" style={{flex:1}}
                         disabled={busyId === s.id}
                         onClick={() => runBacktest(s.id)}
@@ -1167,7 +1167,7 @@
             {false && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('an_export_report')}</button>
             )}
-            <button
+            <button aria-label={t('acct_refresh')}
               className="btn btn--sm"
               title={t('acct_refresh')}
               onClick={() => { if (window.QTAccount) window.QTAccount.refresh(); }}
@@ -1278,7 +1278,7 @@
                       // 미리보기에서는 원본처럼 30D 가 활성이고 전부 눌린다.
                       const disabled = !preview && known < 2;
                       return (
-                        <button
+                        <button aria-label={disabled ? t('pf_equity_range_why') : undefined}
                           key={label}
                           className={`seg__opt ${(preview ? label === '30D' : curveDays === days) ? 'is-active' : ''}`}
                           disabled={disabled}
@@ -2458,12 +2458,12 @@
                           <button className="btn btn--sm btn--primary" style={{flex:1}} onClick={() => setConnectingEx(ex)}>
                             <I.Check size={11}/> {t('wal_ex_connected')}
                           </button>
-                          <button className="btn btn--sm" style={{marginLeft:4}} title={t('wal_disconnect')} onClick={() => disconnectEx(ex)}>
+                          <button aria-label={t('wal_disconnect')} className="btn btn--sm" style={{marginLeft:4}} title={t('wal_disconnect')} onClick={() => disconnectEx(ex)}>
                             {t('wal_disconnect')}
                           </button>
                         </>
                       ) : (
-                        <button
+                        <button aria-label={notReady ? t('ex_not_partnered_hint') : undefined}
                           className="btn btn--sm"
                           style={{flex:1}}
                           disabled={ex.status === 'coming-soon' || notReady}
@@ -3582,7 +3582,7 @@
                     */}
                     <div className="seg" style={{width:'100%'}}>
                       {['1m','5m','15m','30m','1H','4H','1D'].map(tf => (
-                        <button key={tf} className="seg__opt" style={{flex:1}} disabled title={t('set_default_tf_pending')}>{tf}</button>
+                        <button aria-label={t('set_default_tf_pending')} key={tf} className="seg__opt" style={{flex:1}} disabled title={t('set_default_tf_pending')}>{tf}</button>
                       ))}
                     </div>
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', marginTop:4}}>{t('set_default_tf_pending')}</div>

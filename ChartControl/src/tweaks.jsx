@@ -62,7 +62,7 @@
             <span>{t('tweaks')}</span>
             <span style={{fontSize: 10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontWeight: 400, letterSpacing:'0.03em'}}>LIVE</span>
           </div>
-          <button className="btn btn--icon" onClick={onClose} title={t('close')}>
+          <button aria-label={t('close')} className="btn btn--icon" onClick={onClose} title={t('close')}>
             <I.X size={14}/>
           </button>
         </div>

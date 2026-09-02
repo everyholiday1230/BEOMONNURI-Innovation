@@ -995,7 +995,7 @@
                  누를 수 있게 두면 OTP 를 넣고 "접수됨" 을 보고 기다린다.
                  처리할 수 없는 요청을 접수하는 것처럼 보이면 안 된다.
               */}
-              <button
+              <button aria-label={isRealService ? t('withdraw_at_exchange_hint') : undefined}
                 className="btn btn--primary btn--lg"
                 disabled={isRealService || !address || !amount || parseFloat(amount) < fee}
                 title={isRealService ? t('withdraw_at_exchange_hint') : undefined}
@@ -1807,7 +1807,7 @@
               <div className="input-group"><span className="input-group__label">{t('fld_position_size')}</span><input aria-label={t('fld_position_size')} defaultValue="100" disabled/><span className="input-group__suffix">USDT</span></div>
               <div className="input-group"><span className="input-group__label">{t('fld_max_concurrent')}</span><input aria-label={t('fld_max_concurrent')} defaultValue="3" disabled/><span className="input-group__suffix">positions</span></div>
               <div className="input-group"><span className="input-group__label">{t('fld_stop_copy_dd')}</span><input aria-label={t('fld_stop_copy_dd')} defaultValue="10" disabled/><span className="input-group__suffix">%</span></div>
-              <button className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
+              <button aria-label={t('bt_autocopy_absent')} className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
             </div>
           </window.SectionCard>
         )}

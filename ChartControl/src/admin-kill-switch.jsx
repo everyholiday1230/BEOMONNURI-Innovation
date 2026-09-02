@@ -163,7 +163,7 @@
                   <div style={{ fontSize: 10.5, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{k.reason}</div>
                 ) : null}
               </span>
-              <button
+              <button aria-label={canWrite ? undefined : t('ks_read_only')}
                 type="button"
                 className="btn btn--sm"
                 disabled={!canWrite || busyId === k.id}

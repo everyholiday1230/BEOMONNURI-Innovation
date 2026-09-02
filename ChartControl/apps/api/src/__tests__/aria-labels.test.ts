@@ -81,6 +81,38 @@ describe('ARIA-LABELS 입력칸 접근성 이름', () => {
     expect(hardcoded, `하드코딩된 aria-label:\n${hardcoded.join('\n')}`).toEqual([]);
   });
 
+  /*
+     ★★ 아이콘 버튼도 접근성 이름이 필요하다.
+
+       헤더 버튼들은 `title` 만 갖고 있었다. title 은 접근성 이름으로 **쓰이지
+       않는다** — 요소 안 텍스트가 이기고, 없으면 이름 없는 버튼이 된다. 계정
+       버튼은 안에 이니셜 한 글자가 있어 접근성 이름이 "A" 였다. 스크린리더
+       사용자에게는 "A 버튼" 이고, e2e 도 계정·로그아웃 흐름을 찾을 수 없었다.
+  */
+  it('[4] title 만 있고 aria-label 이 없는 버튼이 없다', () => {
+    const missing: string[] = [];
+    for (const f of files) {
+      const text = readFileSync(join(SRC, f), 'utf8');
+      const re = /<button[\s>]/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        let depth = 0;
+        let end = -1;
+        for (let i = m.index; i < text.length; i += 1) {
+          const ch = text[i];
+          if (ch === '{') depth += 1;
+          else if (ch === '}') depth -= 1;
+          else if (ch === '>' && depth === 0) { end = i; break; }
+        }
+        const tag = text.slice(m.index, end === -1 ? m.index + 300 : end + 1);
+        if (!/title\s*=\s*\{[^}]*\bt\(/.test(tag)) continue;
+        if (/aria-label\s*=/.test(tag)) continue;
+        missing.push(`${f}: ${tag.replace(/\s+/g, ' ').slice(0, 90)}`);
+      }
+    }
+    expect(missing, `title 만 있는 버튼:\n${missing.join('\n')}`).toEqual([]);
+  });
+
   it('[3] 인증 화면 입력칸은 모두 라벨이 있다 — e2e 가 여기에 의존한다', () => {
     const auth = readFileSync(join(SRC, 'pages-auth.jsx'), 'utf8');
     const tags = inputTags(auth).filter((t) => !skip(t));

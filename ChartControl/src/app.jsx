@@ -79,7 +79,7 @@
     );
     if (!auth.user) {
       return (
-        <button className="header-tool header-tool--icon" title={t('profile_sign_in')} onClick={() => pushRoute('/login')}>{avatar}</button>
+        <button aria-label={t('profile_sign_in')} className="header-tool header-tool--icon" title={t('profile_sign_in')} onClick={() => pushRoute('/login')}>{avatar}</button>
       );
     }
     const go = (route) => { setOpen(false); pushRoute(route); };
@@ -90,7 +90,14 @@
     };
     return (
       <div ref={ref} style={{position:'relative', display:'inline-flex'}}>
-        <button className="header-tool header-tool--icon" aria-haspopup="true" aria-expanded={open}
+        {/*
+           ★★ aria-label 에 **이메일까지** 넣는다. title 은 접근성 이름으로 쓰이지
+             않는다 — 버튼 안에 이니셜 한 글자가 있어 접근성 이름이 "A" 였다.
+             스크린리더 사용자에게 "A 버튼" 이고, 무엇을 하는지 알 수 없었다.
+        */}
+        <button
+          aria-label={t('profile_signed_in_as', { email: auth.user.email })}
+          className="header-tool header-tool--icon" aria-haspopup="true" aria-expanded={open}
           title={t('profile_signed_in_as', { email: auth.user.email })}
           onClick={() => setOpen((o) => !o)}>{avatar}</button>
         {open && (
@@ -1465,7 +1472,7 @@
             {['spot','futures','paper'].map(m => {
               const avail = window.QTMode ? window.QTMode.isAvailable(m) : m === 'futures';
               return (
-                <button
+                <button aria-label={avail ? t('mode_switch_to', { mode: t('mode_' + m) }) : t(window.QTMode ? window.QTMode.reasonKeyFor(m) : 'feature_pending')}
                   key={m}
                   className={`seg__opt ${tradeMode === m ? 'is-active' : ''} ${!avail ? 'seg__opt--pending' : ''}`}
                   onClick={() => {
@@ -1574,7 +1581,9 @@
               빨간 점을 항상 켜두면 의미가 없다 — 실제 위험이 있을 때만 켠다.
               위험이 없으면 점을 숨겨서, 점이 보일 때 사용자가 반응하게 만든다.
             */}
-            <button
+            <button aria-label={riskAlerts.length
+                ? t('risk_bell_active', { count: riskAlerts.length })
+                : t('risk_bell_idle')}
               className="header-tool header-tool--icon"
               title={riskAlerts.length
                 ? t('risk_bell_active', { count: riskAlerts.length })
@@ -1602,7 +1611,7 @@
                 <span style={{position:'absolute', top:4, right:4, width:6, height:6, borderRadius:999, background: riskAlerts.some(a=>a.level==='danger') ? 'var(--color-danger)' : 'var(--color-warning)'}}/>
               )}
             </button>
-            <button className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title={t('toggle_theme')}>
+            <button aria-label={t('toggle_theme')} className="header-tool header-tool--icon" onClick={() => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' })} title={t('toggle_theme')}>
               {tweaks.theme === 'dark' ? <I.Moon size={14}/> : <I.Sun size={14}/>}
             </button>
             {/*
@@ -1613,7 +1622,7 @@
                  눌러도 아무 변화가 없었다 — 효과 없는 버튼은 고장으로 읽힌다.
             */}
             {isTradeRoute && (
-              <button
+              <button aria-label={t('autofit_toggle')}
                 className={`header-tool header-tool--icon ${tweaks.autofit ? 'is-active' : ''}`}
                 onClick={() => setTweaks({ autofit: !tweaks.autofit })}
                 title={t('autofit_toggle')}
@@ -1634,7 +1643,7 @@
                  여기에 자동으로 나타난다 — 이 파일을 고칠 필요가 없다.
             */}
             <div className="qt-langwrap">
-              <button
+              <button aria-label={t('lang_switch_title')}
                 className="header-tool"
                 title={t('lang_switch_title')}
                 aria-haspopup="listbox"
@@ -1724,7 +1733,7 @@
                ★ 되살릴 때는 이 주석만 풀면 된다(문구 키 deposit·deposit_hint·
                  deposit_needs_key·deposit_at_exchange 는 사전에 그대로 있다).
 
-            <button
+            <button aria-label={t('deposit_hint')}
               className="btn btn--sm btn--primary"
               title={t('deposit_hint')}
               onClick={() => {
@@ -1769,11 +1778,11 @@
             onNavigate={(r, e) => { if (e) e.preventDefault(); pushRoute(r); }}
             extraTools={
               <>
-                <button className="sb-item-v2" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })} title={t('layout_edit')}>
+                <button aria-label={t('layout_edit')} className="sb-item-v2" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })} title={t('layout_edit')}>
                   <span className="sb-item-v2__icon"><I.LayoutIcon size={15}/></span>
                   {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('layout_edit')}</span>}
                 </button>
-                <button className="sb-item-v2" onClick={() => setTweaksOpen(v => !v)} title={t('tweaks')}>
+                <button aria-label={t('tweaks')} className="sb-item-v2" onClick={() => setTweaksOpen(v => !v)} title={t('tweaks')}>
                   <span className="sb-item-v2__icon"><I.Cog size={15}/></span>
                   {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('tweaks')}</span>}
                 </button>
@@ -2059,7 +2068,7 @@
 
         {/* Tweaks toggle button (floating) */}
         {!tweaksOpen && (
-          <button
+          <button aria-label={t('open_tweaks')}
             onClick={() => setTweaksOpen(true)}
             style={{
               position: 'fixed', bottom: 20, right: 20, zIndex: 100,
@@ -2523,7 +2532,7 @@
             ))}
           </div>
           <div className="chart-tool-wrap">
-            <button
+            <button aria-label={supportsIndicators ? t('indicators') : t('indicators_unavailable')}
               className={`chart-tool ${indicatorsOpen ? 'is-active' : ''}`}
               onClick={() => supportsIndicators && setIndicatorsOpen(o => !o)}
               title={supportsIndicators ? t('indicators') : t('indicators_unavailable')}
@@ -2547,7 +2556,7 @@
           </div>
           {/* 심볼 비교. 비교선은 상대 변화로 정규화해 그린다 (chart-compare.jsx). */}
           <div className="chart-tool-wrap">
-            <button
+            <button aria-label={supportsCompare ? t('chart_compare') : t('feature_pending')}
               className={`chart-tool ${compareOpen ? 'is-active' : ''}`}
               title={supportsCompare ? t('chart_compare') : t('feature_pending')}
               aria-expanded={compareOpen}
@@ -2573,7 +2582,7 @@
             )}
           </div>
           <div className="chart-tool-wrap">
-            <button
+            <button aria-label={t('chart_templates')}
               className={`chart-tool ${templatesOpen ? 'is-active' : ''}`}
               title={t('chart_templates')}
               aria-expanded={templatesOpen}
@@ -2593,7 +2602,7 @@
             )}
           </div>
           <div className="chart-toolbar__sep"/>
-          <button
+          <button aria-label={t('chart_ai_analyze')}
             className="chart-tool"
             style={{color:'var(--color-ai)'}}
             title={t('chart_ai_analyze')}
@@ -2611,14 +2620,14 @@
           <div style={{marginLeft:'auto', display:'inline-flex', gap: 2}}>
             {/* Replay 는 과거 재생 기능이라 설계가 필요하다. 지금은 "최신 캔들로 이동"으로
                 실제 동작을 준다 — 죽은 버튼으로 두지 않되 없는 기능을 있다고 하지 않는다. */}
-            <button
+            <button aria-label={t('chart_scroll_latest')}
               className="chart-tool"
               title={t('chart_scroll_latest')}
               onClick={() => actions && actions.scrollToLatest()}
             >
               <I.Refresh size={12}/>
             </button>
-            <button
+            <button aria-label={t('chart_screenshot')}
               className="chart-tool"
               title={t('chart_screenshot')}
               onClick={() => actions && actions.screenshot({
@@ -2628,7 +2637,7 @@
             >
               <I.Camera size={12}/>
             </button>
-            <button
+            <button aria-label={t('chart_fullscreen')}
               className={`chart-tool ${isFull ? 'is-active' : ''}`}
               title={t('chart_fullscreen')}
               aria-pressed={isFull}
@@ -2637,7 +2646,7 @@
               <I.Expand size={12}/>
             </button>
             <div className="chart-tool-wrap">
-              <button
+              <button aria-label={t('chart_settings')}
                 className={`chart-tool ${settingsOpen ? 'is-active' : ''}`}
                 title={t('chart_settings')}
                 aria-expanded={settingsOpen}
@@ -2674,7 +2683,7 @@
             ].map(tool => {
               const available = !window.ChartActions || window.ChartActions.isDrawToolAvailable(tool.id);
               return (
-                <button
+                <button aria-label={available ? t(tool.key) : `${t(tool.key)} — ${t('draw_tool_unavailable')}`}
                   key={tool.id}
                   className={`chart-drawtool ${activeTool===tool.id?'is-active':''}`}
                   onClick={() => pickTool(tool.id)}
@@ -2720,14 +2729,14 @@
                     title={t('hline_price_title')}
                     style={{ width: 84, height: 24, fontSize: 11, padding: '0 6px', borderRadius: 4, border: '1px solid var(--color-border-default)', background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}
                   />
-                  <button className="chart-drawtool" title={t('hline_add')} onClick={drawAtPrice} disabled={!hlinePrice.trim()}>
+                  <button aria-label={t('hline_add')} className="chart-drawtool" title={t('hline_add')} onClick={drawAtPrice} disabled={!hlinePrice.trim()}>
                     <I.Horizontal size={14}/>
                   </button>
                 </div>
               );
             })()}
             <div className="chart-drawtool-sep"/>
-            <button
+            <button aria-label={`${t('tool_magnet')} · ${t('magnet_' + magnetMode)}`}
               className={`chart-drawtool ${magnetMode !== 'normal' ? 'is-active' : ''}`}
               title={`${t('tool_magnet')} · ${t('magnet_' + magnetMode)}`}
               aria-pressed={magnetMode !== 'normal'}
@@ -2735,7 +2744,7 @@
             >
               <I.Magnet size={14}/>
             </button>
-            <button
+            <button aria-label={t('tool_lock')}
               className={`chart-drawtool ${drawingsLocked ? 'is-active' : ''}`}
               title={t('tool_lock')}
               aria-pressed={drawingsLocked}
@@ -2748,7 +2757,7 @@
             >
               <I.Lock size={14}/>
             </button>
-            <button
+            <button aria-label={t('tool_hide')}
               className={`chart-drawtool ${drawingsHidden ? 'is-active' : ''}`}
               title={t('tool_hide')}
               aria-pressed={drawingsHidden}
@@ -2761,7 +2770,7 @@
             >
               <I.EyeOff size={14}/>
             </button>
-            <button
+            <button aria-label={t('tool_remove_all')}
               className="chart-drawtool"
               title={t('tool_remove_all')}
               onClick={() => {
@@ -3208,7 +3217,7 @@
                   검증 전에 확인하면 서버가 계산한 수수료·청산가를 보지 않은 채
                   주문하는 셈이다. 백엔드가 없는 정적 프리뷰에서는 그대로 진행한다.
                 */}
-                <button
+                <button aria-label={Boolean(window.QTApi && window.QTApi.orders) && !shown.verified ? t('op_verifying') : undefined}
                   className={`btn btn--${order.side}`}
                   onClick={onConfirm}
                   style={{minWidth: 180}}

@@ -257,7 +257,7 @@
         title={t('pt_title', { unit })}
         subtitle={t('pt_subtitle')}
         breadcrumb={['Home', t('pt_title', { unit })]}
-        actions={<button className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>}
+        actions={<button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={13}/></button>}
       >
         {!live ? (
           <window.NotApplicablePanel
@@ -406,7 +406,7 @@
                        실제로 프로덕션 saved_items 가 0행이었던 이유다.
                        그래서 저장은 차트의 지표 패널로 옮겼고, 여기서는 눌리지
                        않게 하고 어디로 가야 하는지 알려준다. */}
-                  <button
+                  <button aria-label={hasChart ? t('sv_save_current_indicators') : t('sv_save_on_chart_hint')}
                     className="btn btn--sm"
                     onClick={saveCurrentIndicators}
                     disabled={!hasChart}
@@ -436,8 +436,8 @@
                             {dl < 0 ? t('sv_expired') : t('sv_days_left', { n: dl })}
                           </span>
                         )}
-                        <button className="btn btn--sm" title={t('sv_extend_hint', { n: (saved.extendCost || 50) })} onClick={() => extendSaved(it.id)}>{t('sv_extend', { n: (saved.extendCost || 50) })}</button>
-                        <button className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSaved(it.id)}><I.Trash size={12}/></button>
+                        <button aria-label={t('sv_extend_hint', { n: (saved.extendCost || 50) })} className="btn btn--sm" title={t('sv_extend_hint', { n: (saved.extendCost || 50) })} onClick={() => extendSaved(it.id)}>{t('sv_extend', { n: (saved.extendCost || 50) })}</button>
+                        <button aria-label={t('sv_delete')} className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSaved(it.id)}><I.Trash size={12}/></button>
                       </div>
                       );
                     })}
@@ -488,7 +488,7 @@
                         <div style={{display:'flex', alignItems:'center', gap:8, marginTop:'auto'}}>
                           <strong style={{fontFamily:'var(--font-num)', fontSize:15}}>{fmt(item.cost, 0)}</strong>
                           <span style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{unit}</span>
-                          <button
+                          <button aria-label={affordable ? undefined : t('pt_not_enough', { unit })}
                             className="btn btn--sm btn--primary"
                             style={{marginLeft:'auto'}}
                             disabled={busyId === item.id || !affordable}
