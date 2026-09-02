@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>내 작업 · 범온누리 에듀</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 60px}
+  .head{display:flex;align-items:center;justify-content:space-between;margin:8px 0 24px}
+  .greet{font-size:22px;font-weight:800}
+  .greet small{display:block;font-size:13px;color:var(--mute);font-weight:500;margin-top:2px}
+  h2.sec{font-size:15px;color:var(--mute);margin:26px 0 12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .tmpl,.proj{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;cursor:pointer;transition:.15s;box-shadow:var(--shadow)}
+  .tmpl:hover,.proj:hover{transform:translateY(-2px);border-color:var(--accent)}
+  .tmpl .emoji{font-size:32px}
+  .tmpl .t{font-weight:700;margin-top:10px}
+  .tmpl .d{font-size:13px;color:var(--mute);margin-top:2px}
+  .proj .pt{font-weight:700;font-size:16px}
+  .proj .pm{font-size:12.5px;color:var(--mute);margin-top:6px}
+  .empty{color:var(--mute);font-size:14px;padding:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="greet">안녕하세요, <span id="who">학생</span>님 👋<small id="cls"></small></div>
+    <button class="btn line sm" id="logout">나가기</button>
+  </div>
+
+  <h2 class="sec">이어서 만들기</h2>
+  <div class="grid" id="projects"><div class="empty">불러오는 중…</div></div>
+
+  <h2 class="sec">새로 만들기 — 템플릿을 골라보세요</h2>
+  <div class="grid" id="templates"><div class="empty">불러오는 중…</div></div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+const token=EB.tok.getStudent();
+if(!token){ location.href='/'; }
+document.getElementById('who').textContent=localStorage.getItem('eb_student_name')||'학생';
+document.getElementById('cls').textContent=localStorage.getItem('eb_class_name')||'';
+
+document.getElementById('logout').addEventListener('click',()=>{
+  EB.tok.clearStudent(); localStorage.removeItem('eb_project_id'); location.href='/';
+});
+
+function openProject(id){ localStorage.setItem('eb_project_id',id); location.href='/builder.html'; }
+
+async function loadProjects(){
+  try{
+    const r=await EB.api('GET','/api/projects',undefined,token);
+    const box=document.getElementById('projects');
+    if(!r.projects.length){ box.innerHTML='<div class="empty">아직 만든 작업이 없어요. 아래에서 템플릿을 골라 시작해보세요!</div>'; return; }
+    box.innerHTML='';
+    r.projects.forEach(p=>{
+      const el=document.createElement('div'); el.className='proj';
+      const when=new Date(p.updated_at*1000).toLocaleDateString('ko-KR');
+      el.innerHTML='<div class="pt">'+EB.esc(p.title)+'</div><div class="pm">'+(p.published?'🌐 공개됨 · ':'')+'수정 '+when+'</div>';
+      el.onclick=()=>openProject(p.id);
+      box.appendChild(el);
+    });
+  }catch(e){ document.getElementById('projects').innerHTML='<div class="empty">불러오기 실패: '+EB.esc(e.message)+'</div>'; }
+}
+
+async function loadTemplates(){
+  try{
+    const r=await EB.api('GET','/api/templates');
+    const box=document.getElementById('templates'); box.innerHTML='';
+    r.templates.forEach(t=>{
+      const el=document.createElement('div'); el.className='tmpl';
+      el.innerHTML='<div class="emoji">'+EB.esc(t.emoji)+'</div><div class="t">'+EB.esc(t.name)+'</div><div class="d">'+EB.esc(t.desc)+'</div>';
+      el.onclick=async ()=>{
+        el.style.opacity='.5';
+        try{
+          const p=await EB.api('POST','/api/projects',{template_id:t.id,title:t.name==='빈 페이지'?'내 홈페이지':t.name},token);
+          openProject(p.id);
+        }catch(e){ EB.toast(e.message); el.style.opacity='1'; }
+      };
+      box.appendChild(el);
+    });
+  }catch(e){ document.getElementById('templates').innerHTML='<div class="empty">불러오기 실패: '+EB.esc(e.message)+'</div>'; }
+}
+
+loadProjects(); loadTemplates();
+</script>
+</body>
+</html>

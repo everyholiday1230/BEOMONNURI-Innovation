@@ -3251,6 +3251,17 @@ if (webRoot) {
     if (!item.exists) {
        
       console.warn(`[api] static target missing: ${item.path}`);
+      /*
+         ★★ web-dist 가 없으면 화면이 **통째로** 비어 보인다(index.html 이 그 안의
+           파일들을 참조한다). 다른 누락과 달리 이건 서비스가 안 되는 상태이므로
+           경고 한 줄로 흘리지 않고 무엇을 해야 하는지 함께 알린다.
+      */
+      if (item.path.endsWith('web-dist')) {
+        console.error(
+          '[api] ★ web-dist is MISSING — every screen will be blank. '
+          + 'Run `node scripts/build-web.mjs` (or `pnpm build`) before serving.',
+        );
+      }
     }
   }
 } else {

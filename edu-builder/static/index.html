@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>범온누리 에듀 · AI와 함께 만드는 나의 홈페이지</title>
+<meta name="description" content="코드를 몰라도 괜찮아요. AI와 대화하며 나만의 홈페이지를 만들어보세요.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  .hero{max-width:720px;text-align:center;padding:20px}
+  .hero h1{font-size:clamp(30px,6vw,46px);line-height:1.2;letter-spacing:-.02em;margin:18px 0 12px}
+  .hero p.lead{font-size:clamp(16px,2.4vw,19px);color:var(--mute);margin:0 0 28px}
+  .join-card{max-width:420px;width:100%;padding:28px;margin:0 auto}
+  .join-card h2{margin:0 0 4px;font-size:20px}
+  .join-card .muted{font-size:14px;margin-bottom:18px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:13px;font-weight:700;color:var(--mute);margin-bottom:6px}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:30px 0 8px;text-align:left}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .step .n{font-size:12px;font-weight:800;color:var(--accent)}
+  .step .t{font-weight:700;margin-top:4px}
+  .step .d{font-size:13px;color:var(--mute)}
+  .foot{margin-top:26px;font-size:13px}
+  @media(max-width:560px){.steps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="center-wrap">
+  <div class="stack" style="align-items:center;width:100%;max-width:720px">
+    <div class="hero">
+      <div class="brand-row" style="justify-content:center"><span class="brand-dot"></span> 범온누리 에듀</div>
+      <h1>코드를 몰라도,<br>AI와 대화하며 홈페이지를 만들어요</h1>
+      <p class="lead">"제목을 우리 가게로 바꿔줘", "사진 넣어줘" 처럼 말만 하면<br>AI가 바로 만들어드려요. 어려우면 선생님이 도와줘요.</p>
+    </div>
+
+    <div class="join-card card">
+      <h2>수업 참여하기</h2>
+      <div class="muted">선생님께 받은 <b>반 코드</b>를 입력하세요.</div>
+      <form id="joinForm" class="stack">
+        <div class="field">
+          <label for="code">반 코드</label>
+          <input class="input" id="code" placeholder="예: ABC123" autocomplete="off" maxlength="8" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700">
+        </div>
+        <div class="field">
+          <label for="name">이름</label>
+          <input class="input" id="name" placeholder="이름을 입력하세요" autocomplete="off" maxlength="20">
+        </div>
+        <button class="btn" id="joinBtn" type="submit">참여하기 →</button>
+      </form>
+    </div>
+
+    <div class="steps">
+      <div class="step"><div class="n">STEP 1</div><div class="t">템플릿 고르기</div><div class="d">카페·포트폴리오 등 마음에 드는 걸 골라요.</div></div>
+      <div class="step"><div class="n">STEP 2</div><div class="t">AI와 대화</div><div class="d">원하는 내용을 말하면 바로 바뀌어요.</div></div>
+      <div class="step"><div class="n">STEP 3</div><div class="t">공개하기</div><div class="d">완성한 홈페이지를 친구에게 공유해요.</div></div>
+    </div>
+
+    <div class="foot muted">선생님이신가요? <a href="/admin.html">관리자 로그인 →</a></div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+  // 이미 참여한 학생이면 빌더로
+  if(EB.tok.getStudent()){ location.href='/build.html'; }
+
+  const form=document.getElementById('joinForm');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const code=document.getElementById('code').value.trim().toUpperCase();
+    const name=document.getElementById('name').value.trim();
+    if(!code||!name){ EB.toast('반 코드와 이름을 입력해주세요.'); return; }
+    const btn=document.getElementById('joinBtn');
+    btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 참여 중...';
+    try{
+      const r=await EB.api('POST','/api/auth/join',{code,name});
+      EB.tok.setStudent(r.token);
+      localStorage.setItem('eb_student_name',r.name);
+      localStorage.setItem('eb_class_name',r.class_name);
+      location.href='/build.html';
+    }catch(err){
+      EB.toast(err.message);
+      btn.disabled=false; btn.textContent='참여하기 →';
+    }
+  });
+</script>
+</body>
+</html>

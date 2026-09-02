@@ -80,7 +80,10 @@ services:
     #   devDependencies 를 건너뛴다. 그런데 빌드(tsc·tsup)도, 마이그레이션·기동
     #   (tsx)도 모두 devDependency 다. 이 플래그가 없으면 빌드가
     #   "Cannot find type definition file for 'node'" 로 실패한다(@types/node 누락).
-    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm -r build
+    # ★★ build-web 은 JSX 를 미리 컴파일한다. 이 단계가 실패하면 배포가 실패하고
+    #    Render 는 **이전 버전을 그대로 유지**한다 — index.html 이 없는 web-dist 를
+    #    가리킨 채 배포되어 화면이 통째로 비는 것보다 안전하다.
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm -r build && node scripts/build-web.mjs
     # ★ 마이그레이션을 기동 전에 돌린다. 표가 없으면 프로덕션 기동 검사가 막는다.
     #
     # ★★ 재시도를 감싼다. Render basic 플랜의 메모리 압박에서 tsx(esbuild)가 간헐적으로

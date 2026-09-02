@@ -37,3 +37,7 @@ terraform.tfvars
 
 # IR 화면 캡처 — 재생성 가능(tools/ir-screenshots.mjs)하고 용량이 크므로 커밋하지 않는다.
 docs/ir-screenshots/
+
+# 빌드가 만드는 화면 코드. 커밋하지 않는다 —
+# 오래된 산출물이 새 원본을 조용히 덮어쓰는 것이 가장 찾기 어려운 사고다.
+web-dist/

@@ -1,0 +1,13 @@
+# edu-builder — 코드 없이 AI와 대화하며 홈페이지를 만드는 웹 교육 서비스
+# Python 3.11+ 권장
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+python-multipart==0.0.20
+pydantic==2.10.4
+httpx==0.28.1
+
+# OpenAI 연동 (키가 없으면 mock 어댑터가 대신 동작하므로 실행에는 필수 아님)
+openai==1.59.6

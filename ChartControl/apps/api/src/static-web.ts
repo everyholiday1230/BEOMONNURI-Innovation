@@ -37,7 +37,11 @@ import type { Context, Hono } from 'hono';
  * 루트를 통째로 열면 .env, .data/*.db, node_modules 까지 HTTP 로 노출된다.
  * 유출 사고가 나는 전형적 경로라서 명시한 것만 연다.
  */
-export const STATIC_DIRS = ['src', 'vendor', 'design-library'] as const;
+/*
+   ★ web-dist 는 빌드가 만든 컴파일 결과다(scripts/build-web.mjs). 화면 코드가
+     여기서 나가므로 반드시 열어야 한다 — 빠지면 모든 화면이 404 로 비어 보인다.
+*/
+export const STATIC_DIRS = ['src', 'vendor', 'design-library', 'web-dist'] as const;
 
 /** 루트에서 직접 서빙할 개별 파일. */
 /*
