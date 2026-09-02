@@ -42,7 +42,8 @@
     "seed:dev": "pnpm --filter @quantumtrade/api seed:dev",
     "e2e:isolated": "bash scripts/phase7-e2e-isolated.sh",
     "test:security-scan": "bash scripts/phase7-security-scan.sh",
-    "build:web": "node scripts/build-web.mjs"
+    "build:web": "node scripts/build-web.mjs",
+    "check:schema-drift": "node scripts/schema-drift.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.9.0",
