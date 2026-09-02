@@ -104,6 +104,15 @@ export interface TradingRouterDeps {
   policy: TradingPolicy;
   symbolInfo: Record<string, SymbolInfo>;
   /*
+     테이커 수수료율(문자열, 예 '0.0006').
+
+     ★ 잔고 게이트가 필요 금액에 더한다. 딱 맞는 잔고로는 주문이 나가지 않는데,
+       그 사실을 우리가 미리 알려주지 않으면 고객은 거래소 거부를 받고 나서야 안다.
+     ★ 없으면 수수료를 0 으로 두고 계산한다 — 없는 값을 지어내지 않는다.
+       그러면 게이트가 약간 낙관적이 되지만, 최종 판단자는 거래소다.
+  */
+  takerFeeRate?: string;
+  /*
      ★★ 현물 심볼 메타데이터. 선물과 **반드시 분리**해야 한다.
 
        symbolInfo 는 선물 카탈로그로 채워진다. 현물 주문을 그 값으로 검증하면
@@ -363,10 +372,65 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     + `dailyLoss=${Boolean(d.riskState?.dailyRealizedLoss)}`,
   );
 
+  /*
+     주문에 쓸 수 있는 견적통화(USDT) 잔고.
+
+     ★★ 이 조회가 없어서 고객이 **거래소까지 갔다 와서** 실패를 알았다. 실서비스
+       기록: 09-01 14:54 현물 XRPUSDT 매수가 'Balance insufficient!' 로 거부됐다.
+       잔고는 조회할 수 있었는데 주문 전에 보지 않았고, 고객이 받은 문구는 거래소
+       원문이라 얼마가 부족한지도 알 수 없었다.
+
+     ★★ 현물과 선물은 **다른 지갑**이다(KuCoin 은 분리돼 있다). 선물 잔고로 현물
+       주문을 판단하면 "돈이 없다" 를 거꾸로 말한다.
+
+     ★ 알 수 없으면 null 이다. 0 을 돌려주면 잔고가 충분한 고객의 주문을 우리가
+       막는다 — 거래소가 막는 것보다 나쁘다. 고객은 돈이 있는데 쓸 수 없다.
+  */
+  async function readAvailableQuote(
+    ctx: ExchangeContext,
+    market: 'spot' | 'futures',
+  ): Promise<string | null> {
+    const source = market === 'spot'
+      ? (d.spotTradingAdapter as undefined | { getBalances?: (c: ExchangeContext) => Promise<unknown[]> })
+      : (d.accountAdapter as undefined | { getBalances?: (c: ExchangeContext) => Promise<unknown[]> });
+    if (!source || typeof source.getBalances !== 'function') return null;
+    let rows: unknown[];
+    try {
+      rows = await source.getBalances(ctx);
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+    /*
+       ★ USDT 항목만 센다. 여러 통화를 더하면 숫자가 의미를 잃는다
+         (1 BTC + 1 USDT = 2 ?). 주문 견적통화가 USDT 다.
+    */
+    const usdt = rows.filter((b) => String((b as { asset?: unknown }).asset ?? '').toUpperCase() === 'USDT');
+    /*
+       ★★ USDT 항목이 없는 것은 "0" 이 아니다. 거래소가 잔고 0 인 자산을 응답에서
+         빼는 경우가 있고, 조회 범위가 달랐을 수도 있다. 0 이라고 단정하면 잔고가
+         있는 고객의 주문을 막는다.
+    */
+    if (usdt.length === 0) return null;
+    let total = 0;
+    for (const b of usdt) {
+      const v = Number((b as { available?: unknown }).available);
+      // ★ 한 항목이라도 못 읽으면 합계는 거짓이다. 부분 합을 진짜처럼 쓰지 않는다.
+      if (!Number.isFinite(v)) return null;
+      total += v;
+    }
+    return String(total);
+  }
+
   async function resolveRiskState(
     userId: string,
     userStatus: string,
     symbol: string,
+    /*
+       ★ 현물과 선물은 잔고가 **다른 계정**에 있다(KuCoin 은 지갑이 분리돼 있다).
+         어느 쪽 주문인지 모르면 엉뚱한 잔고를 보고 "돈이 없다" 고 말하게 된다.
+    */
+    market: 'spot' | 'futures',
   ): Promise<{
     credentialStatus: 'VERIFIED' | 'FAILED' | 'NONE';
     futureTradePermissionVerified: boolean;
@@ -374,6 +438,13 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     /** 오늘 실현손실(양수 = 손실). null = 측정 불가 — 0 과 구분해야 한다. */
     dailyLossSoFar: string | null;
     openPositions: number;
+    /*
+       주문에 쓸 수 있는 견적통화 잔고. null = 측정 불가 — **0 과 구분해야 한다.**
+
+       ★★ 0 으로 떨어뜨리면 조회가 잠깐 실패했을 때 잔고가 충분한 고객의 주문을
+         우리가 막는다. 거래소가 막는 것보다 나쁘다 — 고객은 돈이 있는데 못 쓴다.
+    */
+    availableQuote: string | null;
     marketDataStatus: 'LIVE' | 'STALE' | 'UNAVAILABLE';
     unknown: string[];
   }> {
@@ -432,6 +503,27 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       unknown.push('openPositions');
     }
 
+    /*
+       주문에 쓸 수 있는 잔고.
+
+       ★★ 실서비스 기록(09-01 14:54): 현물 XRPUSDT 매수가 거래소에서
+         'Balance insufficient!' 로 거부됐다. 우리는 잔고를 조회할 수 있었는데
+         **주문 전에 보지 않았다.** 고객은 거래소까지 갔다 와서야 실패를 알았고,
+         받은 문구는 거래소 원문이라 얼마가 부족한지도 알 수 없었다.
+
+       ★ 조회 실패는 null 로 남긴다. 0 으로 만들면 우리가 고객 돈을 막는다.
+    */
+    let availableQuote: string | null = null;
+    if (verified) {
+      try {
+        const cred = await d.vault.decrypt((await d.credRepo.getOwned(userId, verified.id))!);
+        availableQuote = await readAvailableQuote({ mode: 'LIVE_READ_ONLY', credential: cred }, market);
+      } catch {
+        availableQuote = null;
+      }
+    }
+    if (availableQuote === null && verified) unknown.push('availableQuote');
+
     const marketDataStatus = d.riskState?.marketDataStatus?.(symbol) ?? 'UNAVAILABLE';
     if (!d.riskState?.marketDataStatus) unknown.push('marketDataStatus');
 
@@ -449,7 +541,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     */
 
     void userStatus;
-    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, openPositions, marketDataStatus, unknown };
+    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, openPositions, availableQuote, marketDataStatus, unknown };
   }
 
   /** Builds the risk-engine input from a request body plus resolved real state. */
@@ -461,9 +553,9 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     idempotencyKeyValid: boolean,
   ) {
     const symbol = String(body.symbol ?? 'BTCUSDT');
-    const st = await resolveRiskState(userId, userStatus, symbol);
     // ★ 현물 주문은 현물 규격으로 검증한다. 선물 규격을 쓰면 단위가 달라 틀린다.
     const isSpot = body.market === 'spot';
+    const st = await resolveRiskState(userId, userStatus, symbol, isSpot ? 'spot' : 'futures');
     const metaSource = isSpot && d.spotSymbolInfo ? d.spotSymbolInfo : d.symbolInfo;
     /*
        ★★ 규격이 없을 때 **누구의 문제인지** 판단한다.
@@ -544,6 +636,15 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         dailyLossSoFar: st.dailyLossSoFar ?? '0',
         dailyLossKnown: st.dailyLossSoFar !== null,
         openPositions: st.openPositions,
+        /*
+           잔고 게이트 입력.
+
+           ★ 현물/선물에 따라 필요 금액 계산이 다르고, 수수료도 더해야 한다 —
+             딱 맞는 잔고로는 주문이 나가지 않는다.
+        */
+        availableQuote: st.availableQuote,
+        isSpot,
+        takerFeeRate: d.takerFeeRate,
         marketDataStatus: st.marketDataStatus,
       },
     };

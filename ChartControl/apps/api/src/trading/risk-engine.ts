@@ -36,6 +36,18 @@ export interface RiskEngineInput {
   riskReward?: string;
   maxEstLoss?: string;
   positionValue?: string;
+  /*
+     주문에 쓸 수 있는 견적통화 잔고. **null = 측정 불가**(0 과 다르다).
+
+     ★★ 이 값이 없어서 고객이 거래소까지 갔다 와서 실패를 알았다. 실서비스 기록:
+       09-01 14:54 현물 XRPUSDT 매수가 'Balance insufficient!' 로 거부됐다.
+       우리는 잔고를 조회할 수 있었는데 주문 전에 보지 않았다.
+  */
+  availableQuote?: string | null;
+  /** 현물인가. 필요 금액 계산이 다르다(현물은 전액, 선물은 증거금). */
+  isSpot?: boolean;
+  /** 수수료율(테이커). 필요 금액에 더한다 — 딱 맞는 잔고로는 주문이 안 나간다. */
+  takerFeeRate?: string;
   marketDataStatus: string;
   referencePrice?: string; // current mark/last for deviation check
   policy: TradingPolicy;
@@ -93,6 +105,12 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   const gates: RiskGate[] = [...base.gates];
   const add = (id: string, label: string, ok: boolean, detail: string) =>
     gates.push({ id, label, status: ok ? 'ok' : 'fail', detail });
+  /*
+     ★ 기존 add 는 boolean 이라 ok/fail 뿐이다. 잔고 게이트는 **모른다(warn)** 가
+       필요하다 — 모르는 것을 ok 나 fail 로 적으면 둘 다 거짓말이 된다.
+  */
+  const add2 = (id: string, label: string, status: RiskGate['status'], detail: string) =>
+    gates.push({ id, label, status, detail });
 
   // 2) live policy limits.
   const symbolAllowed =
@@ -137,6 +155,56 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     !notionalCapped || !Number.isFinite(notional) || notional <= notionalCap,
     notionalCapped ? `${i.positionValue ?? '?'} ≤ ${i.policy.maxOrderNotional}` : 'no operator cap — exchange risk limit applies',
   );
+  /*
+     ★★ 잔고로 이 주문을 낼 수 있는가.
+
+       이 게이트가 없어서 고객이 **거래소까지 갔다 와서** 실패를 알았다. 실서비스
+       기록: 09-01 14:54 현물 XRPUSDT 매수 → 거래소가 'Balance insufficient!'.
+       우리는 잔고를 조회할 수 있었는데 보지 않았고, 고객이 받은 문구는 거래소
+       원문이라 **얼마가 부족한지도 알 수 없었다.**
+
+     ★★ 측정 불가(null)를 거부로 다루지 않는다. 조회가 잠깐 실패했을 때 잔고가
+       충분한 고객의 주문을 우리가 막으면, 거래소가 막는 것보다 나쁘다 — 고객은
+       돈이 있는데 쓸 수 없다. 그래서 'warn' 으로 사실만 밝히고 통과시킨다.
+       거래소가 최종 판단자이므로 우리가 모를 때는 거래소에 맡긴다.
+
+     ★ 필요 금액은 현물과 선물이 다르다.
+         현물 매수: 명목 전액이 필요하다(레버리지가 없다).
+         선물: 명목 / 레버리지 = 개시증거금.
+       둘 다 수수료를 더한다 — 딱 맞는 잔고로는 주문이 나가지 않는다.
+  */
+  {
+    const avail = i.availableQuote === null || i.availableQuote === undefined ? null : num(i.availableQuote);
+    const lev = i.isSpot ? 1 : (Number.isFinite(i.leverage) && i.leverage > 0 ? i.leverage : 1);
+    const feeRate = num(i.takerFeeRate);
+    const margin = Number.isFinite(notional) ? notional / lev : NaN;
+    const fee = Number.isFinite(notional) && Number.isFinite(feeRate) ? notional * feeRate : 0;
+    const need = Number.isFinite(margin) ? margin + fee : NaN;
+    const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(4).replace(/\.?0+$/, '') : '?');
+
+    if (avail === null) {
+      /*
+         ★ "모른다" 를 그대로 말한다. 'ok' 로 적으면 검사한 것처럼 보이고,
+           'fail' 로 적으면 우리가 고객 돈을 막는다.
+      */
+      add2('funds.available', 'Balance covers this order', 'warn',
+        i.availableQuote === undefined
+          ? 'balance not checked on this deployment — the exchange will decide'
+          : 'could not read your balance — the exchange will decide');
+    } else if (!Number.isFinite(need)) {
+      add2('funds.available', 'Balance covers this order', 'warn', `balance ${fmt(avail)} — order size unknown, cannot compare`);
+    } else if (avail >= need) {
+      add2('funds.available', 'Balance covers this order', 'ok',
+        `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) ≤ have ${fmt(avail)}`);
+    } else {
+      /*
+         ★★ 부족한 **금액**을 말한다. "잔고 부족" 만으로는 고객이 얼마를 넣어야
+           하는지 모른다 — 거래소 원문이 정확히 그래서 쓸모없었다.
+      */
+      add2('funds.available', 'Balance covers this order', 'fail',
+        `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) but have ${fmt(avail)} — short by ${fmt(need - avail)}`);
+    }
+  }
   /*
      ★★ 일일 주문 수 · 일일 손실 · 동시 포지션 수: 기본은 **제한 없음** 이다.
 

@@ -78,9 +78,26 @@ test('order validation returns the full gate list with its reasoning', async ({ 
 
   // 돈에 직접 영향을 주는 게이트가 목록에 있어야 한다.
   const ids = gates.map((g) => g.id);
-  for (const required of ['policy.leverage', 'policy.notional', 'policy.dailyLoss', 'policy.openPositions']) {
+  for (const required of [
+    'policy.leverage', 'policy.notional', 'policy.dailyLoss', 'policy.openPositions',
+    /*
+       ★★ 잔고 게이트. 예전에는 목록에 **아예 없었다** — "이 주문을 낼 돈이
+         있는가" 라는 가장 기본적인 질문이 빠져 있었고, 그래서 고객이 거래소까지
+         갔다 와서 'Balance insufficient!' 를 받았다(실서비스 09-01 14:54).
+    */
+    'funds.available',
+  ]) {
     expect(ids, `${required} 게이트가 응답에 없다`).toContain(required);
   }
+
+  /*
+     ★★ 키가 없는 계정은 잔고를 읽을 수 없다. 그때 'ok' 나 'fail' 이 아니라
+       **'warn'(모른다)** 이어야 한다. 모르는 것을 ok 로 적으면 검사한 것처럼
+       보이고, fail 로 적으면 우리가 고객 돈을 막는다.
+  */
+  const fundsGate = gates.find((g) => g.id === 'funds.available')!;
+  expect(fundsGate.status).toBe('warn');
+  expect(fundsGate.detail).toMatch(/exchange will decide|not checked/i);
 
   /*
      ★★ 모든 게이트가 **판단 근거(detail)** 를 갖는다. 근거 없는 'ok' 는

@@ -2908,6 +2908,13 @@ if (env.authEnabled) {
            mock 배포(2건)와 폴백(2건)을 구분할 수 없다.
       */
       catalogueReady: (market: 'spot' | 'futures') => (market === 'spot' ? spotCatalogue.loaded : symbolCatalogue.loaded),
+      /*
+         ★ 잔고 게이트가 필요 금액에 더한다. 딱 맞는 잔고로는 주문이 나가지 않는데,
+           그 사실을 미리 말해주지 않으면 고객은 거래소 거부를 받고 나서야 안다.
+         ★ KuCoin 테이커 기본값이다. 고객 등급 할인은 반영되지 않아 약간 보수적인데,
+           그 방향이 안전하다 — "충분하다" 고 잘못 말하는 쪽이 더 위험하다.
+      */
+      takerFeeRate: '0.0006',
           spotSymbolInfo: spotSymbolInfoMap,
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
