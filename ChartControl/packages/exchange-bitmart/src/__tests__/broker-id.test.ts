@@ -99,7 +99,7 @@ describe('BRK-03 the adapter transmits the header', () => {
   it('[1] signed GET (balances) sends the broker id', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: [] })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, brokerId: BROKER });
-    await a.getBalances(ctx('BITMART_LIVE_READ_ONLY'));
+    await a.getBalances(ctx('LIVE_READ_ONLY'));
     expect(headersOf(fetchImpl)[BROKER_ID_HEADER]).toBe(BROKER);
   });
 
@@ -109,7 +109,7 @@ describe('BRK-03 the adapter transmits the header', () => {
     ) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, brokerId: BROKER });
 
-    const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), {
+    const out = await a.submitOrder(ctx('LIVE_TRADE'), {
       clientOrderId: 'c1',
       symbol: 'BTCUSDT',
       side: 'long',
@@ -128,14 +128,14 @@ describe('BRK-03 the adapter transmits the header', () => {
   it('[3] cancelOrder also carries attribution', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: {} })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, brokerId: BROKER });
-    await a.cancelOrder(ctx('BITMART_LIVE_TRADE'), 'BTCUSDT', 'c1');
+    await a.cancelOrder(ctx('LIVE_TRADE'), 'BTCUSDT', 'c1');
     expect(headersOf(fetchImpl)[BROKER_ID_HEADER]).toBe(BROKER);
   });
 
   it('[4] an adapter with no broker id sends no such header', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: [] })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    await a.getBalances(ctx('BITMART_LIVE_READ_ONLY'));
+    await a.getBalances(ctx('LIVE_READ_ONLY'));
     expect(BROKER_ID_HEADER in headersOf(fetchImpl)).toBe(false);
   });
 
@@ -146,7 +146,7 @@ describe('BRK-03 the adapter transmits the header', () => {
     const now = () => 1_700_000_000_000;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, brokerId: BROKER, now });
 
-    await a.getOpenOrders(ctx('BITMART_LIVE_READ_ONLY'), 'BTCUSDT');
+    await a.getOpenOrders(ctx('LIVE_READ_ONLY'), 'BTCUSDT');
 
     const mock = fetchImpl as unknown as ReturnType<typeof vi.fn>;
     const url = String(mock.mock.calls[0]?.[0]);
@@ -159,7 +159,7 @@ describe('BRK-03 the adapter transmits the header', () => {
   it('[6] a mode that does not transmit sends nothing at all', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: {} })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, brokerId: BROKER });
-    const out = await a.submitOrder(ctx('BITMART_LIVE_SHADOW'), {
+    const out = await a.submitOrder(ctx('LIVE_SHADOW'), {
       clientOrderId: 'c9',
       symbol: 'BTCUSDT',
       side: 'long',

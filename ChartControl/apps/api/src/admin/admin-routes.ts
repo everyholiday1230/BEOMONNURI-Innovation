@@ -269,7 +269,7 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       exchange: {
         /*
            ★ 운영자가 보는 값은 **실제 거래모드**여야 한다. 전에는 리스크 게이트의
-             레거시 라벨(BITMART_LIVE_TRADE)을 그대로 보여줘서, KuCoin 으로
+             레거시 라벨(LIVE_TRADE)을 그대로 보여줘서, KuCoin 으로
              거래하는 배포인데도 대시보드에 BITMART 라고 떴다. tradingMode 를
              우선 표시하고, 없을 때만 게이트 모드로 폴백한다.
         */

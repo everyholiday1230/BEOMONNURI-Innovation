@@ -55,7 +55,7 @@ export async function runStageAReadOnly(opts: StageAProbeOptions): Promise<Stage
     restBase: opts.restBase,
     brokerId: opts.brokerId ?? BITMART_BROKER_ID,
   });
-  const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential };
+  const ctx: ExchangeContext = { mode: 'LIVE_READ_ONLY', credential };
 
   const results: StageAItemResult[] = [];
   const run = async (item: string, fn: () => Promise<unknown>) => {

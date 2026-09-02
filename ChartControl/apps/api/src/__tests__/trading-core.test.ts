@@ -69,7 +69,7 @@ describe('idempotency service', () => {
 
 describe('server risk engine', () => {
   const base = {
-    mode: 'BITMART_LIVE_TRADE' as const, symbol: SYM, side: 'long' as const, orderType: 'limit' as const,
+    mode: 'LIVE_TRADE' as const, symbol: SYM, side: 'long' as const, orderType: 'limit' as const,
     price: '68000.0', quantity: '0.100', leverage: 20, stopLoss: '67000.0', takeProfit: '70000.0',
     riskReward: '2', maxEstLoss: '100', positionValue: '6800', marketDataStatus: 'LIVE', referencePrice: '68010.0',
     policy: POLICY, liveTradingEnabled: true, emergencyKillSwitch: false, credentialStatus: 'VERIFIED',

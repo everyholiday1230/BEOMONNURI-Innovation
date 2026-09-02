@@ -1,5 +1,5 @@
 import { evaluateRiskGates, type RiskGate } from '@quantumtrade/domain';
-import { evaluateLiveTradingGate, type BitMartMode, type GateResult } from '@quantumtrade/exchange-bitmart';
+import { evaluateLiveTradingGate, type ExecutionMode, type GateResult } from '@quantumtrade/exchange-bitmart';
 import type { SymbolInfo } from '@quantumtrade/schemas';
 
 /**
@@ -17,7 +17,7 @@ export interface TradingPolicy {
 }
 
 export interface RiskEngineInput {
-  mode: BitMartMode;
+  mode: ExecutionMode;
   symbol: SymbolInfo | undefined;
   side: 'long' | 'short';
   orderType: 'market' | 'limit';

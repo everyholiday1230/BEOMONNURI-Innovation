@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { normalizeExecutionMode } from '@quantumtrade/exchange-bitmart';
 import {
   DATA_MODES,
   TRADING_MODES,
@@ -521,11 +522,16 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
          없는 별칭을 함께 받는다. 새 이름이 있으면 그것을 쓰고, 없으면 옛 이름을
          본다(기존 배포가 깨지지 않게).
     */
-    liveExecutionMode: pickEnum(
-      env.LIVE_EXECUTION_MODE ?? env.BITMART_MODE,
-      ['BITMART_LIVE_READ_ONLY', 'BITMART_LIVE_SHADOW', 'BITMART_LIVE_TRADE'] as const,
-      'BITMART_LIVE_READ_ONLY',
-    ),
+    /*
+       ★★ 새 값(LIVE_TRADE)과 옛 값(BITMART_LIVE_TRADE)을 **모두** 받는다.
+
+         프로덕션 env 는 LIVE_EXECUTION_MODE=BITMART_LIVE_TRADE 다. 옛 값을 거부하면
+         알 수 없는 값 → 기본값 LIVE_READ_ONLY 로 떨어져 **배포하는 순간 실주문이
+         멈춘다.** 이름을 바꾸는 일이 거래를 멈춰서는 안 된다.
+
+       ★ 알 수 없는 값은 가장 안전한 모드로 떨어진다 — 오타가 실주문을 켜지 못한다.
+    */
+    liveExecutionMode: normalizeExecutionMode(env.LIVE_EXECUTION_MODE ?? env.BITMART_MODE),
     liveTradingEnabled:
       (env.LIVE_TRADING_ENABLED ?? env.BITMART_LIVE_TRADING_ENABLED) === 'true',
     // 기본값 true(차단). 'false' 라고 **명시**할 때만 열린다.

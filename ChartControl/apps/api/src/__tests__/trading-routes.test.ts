@@ -40,7 +40,7 @@ function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState'
   app.route('/api', createTradingRouter({
     service, vault: new CredentialVault(new LocalKekProvider(randomBytes(32).toString('base64'))),
     credRepo: new SqliteCredentialRepo(db), accountAdapter: mockAccount, exchangeId: 'bitmart', policy: POLICY, symbolInfo: SYM,
-    csrfKey: 'k', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'BITMART_LIVE_READ_ONLY',
+    csrfKey: 'k', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'LIVE_READ_ONLY',
     liveTradingEnabled: false, killSwitch: true,
     ...(riskState ? { riskState } : {}),
     ...(extra ?? {}),
@@ -104,7 +104,7 @@ describe('Phase 3 trading routes', () => {
     const st = await (await reqA(app, 'GET', '/api/trading/connection-status', { jar })).json() as { liveTradingEnabled: boolean; emergencyKillSwitch: boolean; mode: string };
     expect(st.liveTradingEnabled).toBe(false);
     expect(st.emergencyKillSwitch).toBe(true);
-    expect(st.mode).toBe('BITMART_LIVE_READ_ONLY');
+    expect(st.mode).toBe('LIVE_READ_ONLY');
   });
 
   it('order submit is SHADOW/blocked — never transmitted; idempotent', async () => {

@@ -42,6 +42,7 @@ import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
+import { isLegacyModeName } from '@quantumtrade/exchange-bitmart';
 import { PgOpsErrorStore } from './ops/error-store';
 import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
 import { createUserStrategyRouter } from './user-strategy-routes';
@@ -2758,7 +2759,7 @@ if (env.authEnabled) {
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,
           cookieName: env.cookieName,
-          mode: env.liveExecutionMode as 'BITMART_LIVE_READ_ONLY',
+          mode: env.liveExecutionMode as 'LIVE_READ_ONLY',
           liveTradingEnabled: env.liveTradingEnabled,
           killSwitch: env.emergencyKillSwitch,
           /*
@@ -2787,7 +2788,7 @@ if (env.authEnabled) {
           */
           liveGateEnv: {
             modeVar: 'BITMART_MODE',
-            modeRequired: 'BITMART_LIVE_TRADE',
+            modeRequired: 'LIVE_TRADE',
             modeActual: env.liveExecutionMode,
             flags: [
               { name: 'BITMART_LIVE_TRADING_ENABLED', value: env.liveTradingEnabled },
@@ -2923,8 +2924,8 @@ if (env.authEnabled) {
       */
       {
         const blockers: string[] = [];
-        if (env.liveExecutionMode !== 'BITMART_LIVE_TRADE') {
-          blockers.push(`LIVE_EXECUTION_MODE=${env.liveExecutionMode} (needs BITMART_LIVE_TRADE)`);
+        if (env.liveExecutionMode !== 'LIVE_TRADE') {
+          blockers.push(`LIVE_EXECUTION_MODE=${env.liveExecutionMode} (needs LIVE_TRADE)`);
         }
         if (!env.liveTradingEnabled) blockers.push('LIVE_TRADING_ENABLED is not "true"');
         if (env.emergencyKillSwitch) blockers.push('EMERGENCY_KILL_SWITCH is not "false"');
@@ -2943,6 +2944,18 @@ if (env.authEnabled) {
           ['BITMART_EMERGENCY_KILL_SWITCH', 'EMERGENCY_KILL_SWITCH'],
           ['BITMART_DEV_KEK', 'CREDENTIAL_KEK'],
         ].filter(([oldName, newName]) => process.env[oldName!] !== undefined && process.env[newName!] === undefined);
+        /*
+           ★ 값 자체가 옛 이름인 경우도 알린다. env **이름**은 새것이어도
+             값이 BITMART_LIVE_TRADE 이면 정리 대상이다 — 정규화가 받아주므로
+             동작은 하지만, 다음 거래소를 붙일 때 혼란의 원인이 된다.
+        */
+        const rawMode = process.env.LIVE_EXECUTION_MODE ?? process.env.BITMART_MODE;
+        if (isLegacyModeName(rawMode)) {
+          console.warn(
+            `[api] LIVE_EXECUTION_MODE uses the old exchange-named value "${rawMode}" `
+            + `— it is accepted and normalised to "${env.liveExecutionMode}", but rename it.`,
+          );
+        }
         if (deprecatedEnv.length > 0) {
           console.warn(
             '[api] deprecated env names in use — these control the CURRENTLY CONNECTED exchange '

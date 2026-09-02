@@ -1,4 +1,4 @@
-import type { BitMartMode } from './modes';
+import type { ExecutionMode } from './modes';
 
 /** Normalized (vendor-neutral) trading domain types. Money is decimal STRING (never JS number). */
 export interface AccountBalance {
@@ -83,7 +83,7 @@ export type SubmitOutcome =
   | { status: 'SUBMIT_UNKNOWN'; clientOrderId: string; reason: string }; // timeout/ambiguous → reconcile
 
 export interface ExchangeContext {
-  mode: BitMartMode;
+  mode: ExecutionMode;
   credential: { accessKey: string; secretKey: string; memo: string };
 }
 

@@ -470,7 +470,7 @@ describe('Phase 5 Admin API security', () => {
       .run(...names.map((n) => values[n]));
     db.prepare(
       'INSERT INTO exchange_connections (id,user_id,credential_id,mode,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)',
-    ).run('conn1', owner.id, 'cred-abcd1234', 'BITMART_LIVE_READ_ONLY', 'connected', 1000, 2000);
+    ).run('conn1', owner.id, 'cred-abcd1234', 'LIVE_READ_ONLY', 'connected', 1000, 2000);
 
     const res = await rq(app, 'GET', '/api/admin/exchange-connections', { jar: sa.jar });
     expect(res.status).toBe(200);
@@ -569,7 +569,7 @@ describe('Phase 5 Admin API security', () => {
 /**
  * Added 2026-08-03.
  *
- * `/admin/overview` reported `liveMode:'BITMART_LIVE_READ_ONLY'`, `liveTradingEnabled:false` and
+ * `/admin/overview` reported `liveMode:'LIVE_READ_ONLY'`, `liveTradingEnabled:false` and
  * `killSwitch:true` as **hardcoded literals**. An operator opening the dashboard to check whether the kill
  * switch was engaged would have been told "yes" regardless of the deployment's actual configuration. And
  * the endpoint returned no user counts at all, so a dashboard could only have invented them.
@@ -588,7 +588,7 @@ describe('ADM-POSTURE — the dashboard reports the real deployment posture', ()
   });
 
   it('[2] a read-only deployment is reported as read-only', async () => {
-    const { app, db } = build({ mode: 'BITMART_LIVE_READ_ONLY', liveTradingEnabled: false, killSwitch: true });
+    const { app, db } = build({ mode: 'LIVE_READ_ONLY', liveTradingEnabled: false, killSwitch: true });
     const { jar } = await mkUser(app, db, 'p2@ex.com', 'SUPER_ADMIN');
     const b = await (await rq(app, 'GET', '/api/admin/overview', { jar })).json() as { trading: { killSwitch: unknown } };
     expect(b.trading.killSwitch).toBe(true);

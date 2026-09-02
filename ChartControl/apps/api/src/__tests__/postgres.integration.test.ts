@@ -49,7 +49,7 @@ describe.skipIf(!URL)('PostgreSQL integration (real)', () => {
     const insertOrder = (coid: string) =>
       pool.query(
         `INSERT INTO orders (internal_order_id,user_id,client_order_id,symbol,side,type,quantity,status,mode,created_at,updated_at)
-         VALUES ($1,$2,$3,'BTCUSDT','long','market','0.001','SUBMITTING','BITMART_LIVE_SHADOW',now(),now())`,
+         VALUES ($1,$2,$3,'BTCUSDT','long','market','0.001','SUBMITTING','LIVE_SHADOW',now(),now())`,
         [randomUUID(), u.id, coid],
       );
     await insertOrder('dup-coid');

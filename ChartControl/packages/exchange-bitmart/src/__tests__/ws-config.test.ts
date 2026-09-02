@@ -39,7 +39,7 @@ describe('BitMartPrivateStreamAdapter construction (fail-closed on demo)', () =>
   });
   it('connect without a socket factory / credentials is Not Executed (fail-closed), not faked', async () => {
     const a = new BitMartPrivateStreamAdapter({ url: BITMART_WS_PRIVATE_DEFAULT });
-    await expect(a.connect({ mode: 'BITMART_LIVE_READ_ONLY', credential: { accessKey: '', secretKey: '', memo: '' } }, () => {})).rejects.toThrow(/Not Executed|fail-closed/i);
+    await expect(a.connect({ mode: 'LIVE_READ_ONLY', credential: { accessKey: '', secretKey: '', memo: '' } }, () => {})).rejects.toThrow(/Not Executed|fail-closed/i);
     expect(a.connected).toBe(false);
   });
 });

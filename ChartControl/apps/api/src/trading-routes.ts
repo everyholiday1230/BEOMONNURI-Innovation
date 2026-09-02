@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
-import type { BitMartMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
+import type { ExecutionMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
 import { CredentialVault } from './trading/credential-vault';
 // 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
 import { attributeRealizedPnl, buildOrderOutcomes } from './learning/outcome-collector';
@@ -107,7 +107,7 @@ export interface TradingRouterDeps {
   csrfKey: string;
   corsOrigins: string[];
   cookieName: string;
-  mode: BitMartMode; // deployment mode (default READ_ONLY)
+  mode: ExecutionMode; // deployment mode (default READ_ONLY)
   liveTradingEnabled: boolean; // BITMART_LIVE_TRADING_ENABLED (default false)
   /*
      실주문을 열기 위해 실제로 필요한 환경변수들.
@@ -262,7 +262,7 @@ function describeCredentialFailure(e: Error): { message: string; isCredentialPro
  *   BitMart 전용이다. KuCoin 으로 전환한 뒤에도 사용자와 운영자는 이런 문구를
  *   받고 있었다:
  *
- *     "mode BITMART_LIVE_READ_ONLY does not permit live orders"
+ *     "mode LIVE_READ_ONLY does not permit live orders"
  *     "BITMART_LIVE_TRADING_ENABLED is false"
  *
  *   둘 다 거짓이다. 사용자는 BitMart 를 쓰지 않고, 두 번째 환경변수는 이
@@ -411,7 +411,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (d.riskState?.openPositions && verified) {
       try {
         const cred = await d.vault.decrypt((await d.credRepo.getOwned(userId, verified.id))!);
-        const n = await d.riskState.openPositions({ mode: 'BITMART_LIVE_READ_ONLY', credential: cred });
+        const n = await d.riskState.openPositions({ mode: 'LIVE_READ_ONLY', credential: cred });
         if (n === null) unknown.push('openPositions');
         else openPositions = n;
       } catch {
@@ -635,7 +635,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!row) return c.json(err('NOT_FOUND', 'credential not found'), 404); // ownership
     try {
       const cred = await d.vault.decrypt(row); // server-side only
-      const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential: cred };
+      const ctx: ExchangeContext = { mode: 'LIVE_READ_ONLY', credential: cred };
       await d.accountAdapter.getBalances(ctx); // Read-Only probe (no order permission needed)
       await d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
       return c.json({ id: row.id, connectionStatus: 'VERIFIED', permissionsVerified: true });
@@ -705,7 +705,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       const row = await d.credRepo.getOwned(a.user.id, verified.id);
       if (!row) return c.json(err('NOT_FOUND', 'credential not found'), 404);
       const credential = await d.vault.decrypt(row); // server-side only; never leaves this process
-      const ctx: ExchangeContext = { mode: 'BITMART_LIVE_READ_ONLY', credential };
+      const ctx: ExchangeContext = { mode: 'LIVE_READ_ONLY', credential };
       const items = await d.transactionSource.getTransactionHistory(ctx, parsed.data);
 
       /*
@@ -870,7 +870,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       // `mode` 는 BitMart 시절 표기를 유지한다(기존 소비자 호환).
       mode: d.mode,
       /*
-         중립 표기. KuCoin 배포에서 'BITMART_LIVE_READ_ONLY' 를 그대로 보여주면
+         중립 표기. KuCoin 배포에서 'LIVE_READ_ONLY' 를 그대로 보여주면
          사용자가 어느 거래소에 연결됐는지 오해한다. 접두사를 떼고 접근 수준만 남긴다.
       */
       exchange: d.exchangeId,
@@ -997,7 +997,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     // 스팟 어댑터가 주입된 배포에서만 지원한다. 미주입이면 미지원을 명시(빈 배열 위장 금지).
-    const spot = d.spotTradingAdapter as (undefined | { getBalances?: (ctx: { mode: BitMartMode; credential: unknown }) => Promise<unknown[]> });
+    const spot = d.spotTradingAdapter as (undefined | { getBalances?: (ctx: { mode: ExecutionMode; credential: unknown }) => Promise<unknown[]> });
     if (!spot || typeof spot.getBalances !== 'function') {
       return c.json({ balances: [], credentialStatus: 'NONE', source: 'exchange', market: 'spot', supported: false });
     }
@@ -1598,7 +1598,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
              모드 표시.
 
              ★ d.mode 는 BitMart 시절 열거값이다. 그대로 내보내면 KuCoin 사용자가
-               "BITMART_LIVE_READ_ONLY" 를 보게 된다 — 자기가 쓰지 않는 거래소다.
+               "LIVE_READ_ONLY" 를 보게 된다 — 자기가 쓰지 않는 거래소다.
                실제 거래소를 함께 알려준다.
           */
           mode: d.mode,

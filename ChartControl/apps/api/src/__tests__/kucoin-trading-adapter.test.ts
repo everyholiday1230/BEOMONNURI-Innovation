@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { KucoinTradingAdapter } from '../trading/kucoin-trading-adapter';
 
 const CTX = {
-  mode: 'BITMART_LIVE_READ_ONLY' as never,
+  mode: 'LIVE_READ_ONLY' as never,
   credential: { accessKey: 'k', secretKey: 'cw==', memo: 'p' },
 };
 

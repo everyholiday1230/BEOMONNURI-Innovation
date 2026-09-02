@@ -21,7 +21,7 @@ import { KucoinTradingAdapter } from '../trading/kucoin-trading-adapter';
 import { KucoinSpotTradingAdapter } from '../trading/kucoin-spot-trading-adapter';
 
 const CTX = {
-  mode: 'BITMART_LIVE_READ_ONLY',
+  mode: 'LIVE_READ_ONLY',
   credential: { accessKey: 'k', secretKey: 'cw==', memo: 'p' },
 } as never;
 

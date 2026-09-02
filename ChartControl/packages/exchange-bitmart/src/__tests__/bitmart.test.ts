@@ -42,7 +42,7 @@ describe('BitMart signature', () => {
 
 describe('live trading gate', () => {
   const base = {
-    mode: 'BITMART_LIVE_TRADE' as const, liveTradingEnabled: true, emergencyKillSwitch: false,
+    mode: 'LIVE_TRADE' as const, liveTradingEnabled: true, emergencyKillSwitch: false,
     credentialStatus: 'VERIFIED', futureTradePermissionVerified: true, userStatus: 'active',
     riskCheckPassed: true, previewExpired: false, confirmationTokenValid: true, idempotencyKeyValid: true,
     marketDataStale: false, exchangeConnectivityHealthy: true, symbol: 'BTCUSDT', allowedSymbols: ['BTCUSDT'],
@@ -53,13 +53,13 @@ describe('live trading gate', () => {
   it('DEFAULT config (flag off / kill switch on) blocks', () => {
     expect(evaluateLiveTradingGate({ ...base, liveTradingEnabled: false }).allowed).toBe(false);
     expect(evaluateLiveTradingGate({ ...base, emergencyKillSwitch: true }).allowed).toBe(false);
-    expect(evaluateLiveTradingGate({ ...base, mode: 'BITMART_LIVE_SHADOW' }).allowed).toBe(false);
+    expect(evaluateLiveTradingGate({ ...base, mode: 'LIVE_SHADOW' }).allowed).toBe(false);
     expect(evaluateLiveTradingGate({ ...base, symbol: 'DOGEUSDT' }).allowed).toBe(false);
   });
   it('read-only/shadow never permit mutation transmission', () => {
-    expect(isOrderMutationAllowed('BITMART_LIVE_READ_ONLY')).toBe(false);
-    expect(isOrderMutationAllowed('BITMART_LIVE_SHADOW')).toBe(false);
-    expect(isOrderMutationAllowed('BITMART_LIVE_TRADE')).toBe(true);
+    expect(isOrderMutationAllowed('LIVE_READ_ONLY')).toBe(false);
+    expect(isOrderMutationAllowed('LIVE_SHADOW')).toBe(false);
+    expect(isOrderMutationAllowed('LIVE_TRADE')).toBe(true);
   });
 });
 
@@ -70,14 +70,14 @@ describe('Futures adapter (mock fetch)', () => {
   it('READ_ONLY balances via signed GET', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: [{ currency: 'USDT', available_balance: '1000', equity: '1200', frozen_balance: '200' }] })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    const bal = await a.getBalances(ctx('BITMART_LIVE_READ_ONLY'));
+    const bal = await a.getBalances(ctx('LIVE_READ_ONLY'));
     expect(bal[0]!.available).toBe('1000');
   });
 
   it('SHADOW submitOrder does NOT transmit (REJECTED, fetch never called)', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: {} })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    const out = await a.submitOrder(ctx('BITMART_LIVE_SHADOW'), { clientOrderId: 'c1', symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.001' });
+    const out = await a.submitOrder(ctx('LIVE_SHADOW'), { clientOrderId: 'c1', symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.001' });
     expect(out.status).toBe('REJECTED');
     expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
@@ -85,14 +85,14 @@ describe('Futures adapter (mock fetch)', () => {
   it('TRADE 4xx → REJECTED (terminal, no reconcile)', async () => {
     const fetchImpl = vi.fn(async () => res(400, { message: 'bad' }, false)) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), { clientOrderId: 'c2', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
+    const out = await a.submitOrder(ctx('LIVE_TRADE'), { clientOrderId: 'c2', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
     expect(out.status).toBe('REJECTED');
   });
 
   it('TRADE timeout → SUBMIT_UNKNOWN (never auto-retry)', async () => {
     const fetchImpl = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch; // never resolves
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl, timeoutMs: 30 });
-    const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), { clientOrderId: 'c3', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
+    const out = await a.submitOrder(ctx('LIVE_TRADE'), { clientOrderId: 'c3', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
     expect(out.status).toBe('SUBMIT_UNKNOWN');
     if (out.status === 'SUBMIT_UNKNOWN') expect(out.clientOrderId).toBe('c3');
   });
@@ -100,14 +100,14 @@ describe('Futures adapter (mock fetch)', () => {
   it('TRADE 429 → SUBMIT_UNKNOWN (ambiguous, reconcile)', async () => {
     const fetchImpl = vi.fn(async () => res(429, {}, false)) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), { clientOrderId: 'c4', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
+    const out = await a.submitOrder(ctx('LIVE_TRADE'), { clientOrderId: 'c4', symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' });
     expect(out.status).toBe('SUBMIT_UNKNOWN');
   });
 
   it('getOrderByClientId reconciles a SUBMIT_UNKNOWN order', async () => {
     const fetchImpl = vi.fn(async () => res(200, { data: { client_order_id: 'c3', order_id: '999', symbol: 'BTCUSDT', state: 4, size: '0.001', filled_size: '0.001' } })) as unknown as typeof fetch;
     const a = new BitMartFuturesAdapter({ restBase: 'https://x', fetchImpl });
-    const o = await a.getOrderByClientId(ctx('BITMART_LIVE_READ_ONLY'), 'c3');
+    const o = await a.getOrderByClientId(ctx('LIVE_READ_ONLY'), 'c3');
     expect(o?.exchangeOrderId).toBe('999');
     expect(o?.status).toBe('FILLED');
   });

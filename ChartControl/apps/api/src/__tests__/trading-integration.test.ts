@@ -20,7 +20,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     const { a, fetchImpl } = adapterWith(async () => res(200, { data: {} }));
     const s = svc(a);
     const coid = newClientOrderId();
-    const rec = await s.submit(ctx('BITMART_LIVE_SHADOW'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-shadow');
+    const rec = await s.submit(ctx('LIVE_SHADOW'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-shadow');
     expect(rec.state).toBe('REJECTED');
     expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
   });
@@ -33,7 +33,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     });
     const s = svc(a);
     const coid = newClientOrderId();
-    const rec = await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-t1');
+    const rec = await s.submit(ctx('LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-t1');
     expect(rec.events.map((e) => e.to)).toContain('SUBMIT_UNKNOWN');
     expect(rec.events.map((e) => e.to)).toContain('RECONCILING');
     expect(rec.state).toBe('REJECTED');
@@ -50,7 +50,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     });
     const s = svc(a);
     const coid = newClientOrderId();
-    const rec = await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-t2');
+    const rec = await s.submit(ctx('LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-t2');
     expect(rec.state).toBe('FILLED');
     expect(rec.exchangeOrderId).toBe('555');
   });
@@ -62,7 +62,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
       return res(200, {});
     });
     const s = svc(a);
-    const rec = await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', { clientOrderId: newClientOrderId(), symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-429');
+    const rec = await s.submit(ctx('LIVE_TRADE'), 'userA', { clientOrderId: newClientOrderId(), symbol: 'BTCUSDT', side: 'long', type: 'market', quantity: '0.001' }, 'idem-429');
     expect(rec.state).toBe('OPEN');
   });
 
@@ -75,8 +75,8 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     const s = svc(a);
     const coid = newClientOrderId();
     const req = { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long' as const, type: 'market' as const, quantity: '0.001' };
-    const r1 = await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', req, 'idem-dup');
-    const r2 = await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', req, 'idem-dup');
+    const r1 = await s.submit(ctx('LIVE_TRADE'), 'userA', req, 'idem-dup');
+    const r2 = await s.submit(ctx('LIVE_TRADE'), 'userA', req, 'idem-dup');
     expect(submits).toBe(1);
     expect(r1).toBe(r2);
   });
@@ -85,7 +85,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     const { a } = adapterWith(async (url) => (url.includes('submit-order') ? res(200, { data: { order_id: '9' } }) : res(200, {})));
     const s = svc(a);
     const coid = newClientOrderId();
-    await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.002' }, 'idem-pf');
+    await s.submit(ctx('LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.002' }, 'idem-pf');
     // ACCEPTED → OPEN → PARTIALLY_FILLED → FILLED
     expect(s.applyOrderEvent(coid, 1, 'e1', 'OPEN')).toBe(true);
     expect(s.applyOrderEvent(coid, 2, 'e2', 'PARTIALLY_FILLED', '0.001')).toBe(true);
@@ -100,7 +100,7 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     const { a } = adapterWith(async (url) => (url.includes('submit-order') ? res(200, { data: { order_id: '10' } }) : res(200, {})));
     const s = svc(a);
     const coid = newClientOrderId();
-    await s.submit(ctx('BITMART_LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.001' }, 'idem-race');
+    await s.submit(ctx('LIVE_TRADE'), 'userA', { clientOrderId: coid, symbol: 'BTCUSDT', side: 'long', type: 'limit', price: '68000', quantity: '0.001' }, 'idem-race');
     s.applyOrderEvent(coid, 1, 'e1', 'OPEN');
     // cancel requested locally
     s.get(coid)!.state = 'CANCEL_PENDING';
@@ -120,13 +120,13 @@ describe('Phase 3 trading — forced scenarios (mock adapter)', () => {
     const req = { clientOrderId: newClientOrderId(), symbol: 'BTCUSDT', side: 'long' as const, type: 'market' as const, quantity: '0.001' };
     // 3 failing submits (5xx) → each is ambiguous SUBMIT_UNKNOWN and trips the breaker one step.
     for (let i = 0; i < 3; i++) {
-      const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), req);
+      const out = await a.submitOrder(ctx('LIVE_TRADE'), req);
       expect(out.status).toBe('SUBMIT_UNKNOWN'); // 5xx is ambiguous — never assumed failed, never blind-resubmit
     }
     expect(breaker.canRequest()).toBe(false); // circuit OPEN
     const attemptsBefore = submitAttempts;
     // Next submit fails fast via the open circuit — NO network call — and is still SUBMIT_UNKNOWN (safe).
-    const out = await a.submitOrder(ctx('BITMART_LIVE_TRADE'), req);
+    const out = await a.submitOrder(ctx('LIVE_TRADE'), req);
     expect(out.status).toBe('SUBMIT_UNKNOWN');
     expect(submitAttempts).toBe(attemptsBefore); // fail-fast: no new network submit attempt
   });

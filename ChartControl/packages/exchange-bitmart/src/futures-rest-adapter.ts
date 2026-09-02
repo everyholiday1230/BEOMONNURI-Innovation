@@ -165,13 +165,13 @@ export class BitMartFuturesAdapter implements IExchangeAccountAdapter, IExchange
   }
 
   async cancelOrder(ctx: ExchangeContext, symbol: string, clientOrderId: string): Promise<{ ok: boolean }> {
-    if (ctx.mode === 'BITMART_LIVE_READ_ONLY') return { ok: false };
-    if (ctx.mode === 'BITMART_LIVE_SHADOW') return { ok: true }; // shadow: no transmit
+    if (ctx.mode === 'LIVE_READ_ONLY') return { ok: false };
+    if (ctx.mode === 'LIVE_SHADOW') return { ok: true }; // shadow: no transmit
     await this.signedPost(ctx, '/contract/private/cancel-order', { symbol, client_order_id: clientOrderId });
     return { ok: true };
   }
   async modifyOrder(ctx: ExchangeContext, symbol: string, clientOrderId: string, changes: { price?: string; quantity?: string }): Promise<{ ok: boolean }> {
-    if (ctx.mode !== 'BITMART_LIVE_TRADE') return { ok: ctx.mode === 'BITMART_LIVE_SHADOW' };
+    if (ctx.mode !== 'LIVE_TRADE') return { ok: ctx.mode === 'LIVE_SHADOW' };
     await this.signedPost(ctx, '/contract/private/modify-limit-order', { symbol, client_order_id: clientOrderId, ...changes });
     return { ok: true };
   }
