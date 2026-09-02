@@ -1351,12 +1351,33 @@ if (env.authEnabled) {
       await adminRepo.seedMockGateway();
       await adminRepo.seedAiPolicy();
       // Seed kill switches (live-trading scopes default ACTIVE/blocked — fail-closed).
+      for (const s of ['global_live_trading', 'bitmart_live_trading', 'new_positions'] as const) await adminRepo.seedKill(s, null, true);
+
       /*
-         ★ 거래소 중립 스코프(exchange_live_trading)를 함께 시드한다. 옛
-           bitmart_live_trading 은 이미 켜져 있는 배포의 차단이 풀리지 않도록 남긴다 —
-           둘 중 하나라도 켜져 있으면 주문이 막힌다(fail-closed).
+         ★★ 거래소 중립 스코프(exchange_live_trading)는 **옛 스코프의 현재 값을 물려받는다.**
+
+           이름을 바꾸는 일이 운영 태세를 바꿔서는 안 된다. 새 스코프를 기본값
+           true(차단)로 시드하면, 이제 그것이 실제로 강제되므로 **배포하는 순간
+           거래가 멈춘다.** 운영자는 아무 것도 바꾸지 않았는데 고객 주문이 막힌다.
+           반대로 옛 스코프가 켜져 있는(차단) 배포에서 새 것을 false 로 시드하면
+           차단 의도가 조용히 약해진다.
+
+           그래서 옛 스코프가 있으면 그 값을 그대로 복사하고, 없으면(신규 설치)
+           안전 기본값 true 를 쓴다.
       */
-      for (const s of ['global_live_trading', 'exchange_live_trading', 'bitmart_live_trading', 'new_positions'] as const) await adminRepo.seedKill(s, null, true);
+      {
+        const kills = (await adminRepo.listKill()) as { scope?: string; active?: number | boolean }[];
+        const existing = kills.find((k) => k.scope === 'exchange_live_trading');
+        if (!existing) {
+          const old = kills.find((k) => k.scope === 'bitmart_live_trading');
+          const inherited = old === undefined ? true : Boolean(Number(old.active));
+          await adminRepo.seedKill('exchange_live_trading', null, inherited);
+          console.log(
+            `[api] kill switch 'exchange_live_trading' seeded active=${inherited} `
+            + `(${old === undefined ? 'no predecessor — safe default' : "inherited from 'bitmart_live_trading'"})`,
+          );
+        }
+      }
       for (const s of ['ai_provider', 'ai_signal_generation', 'ai_order_draft'] as const) await adminRepo.seedKill(s, null, false);
       // Seed feature flags (safe defaults).
       await adminRepo.seedFlag('ai_enabled', env.aiEnabled, 'AI copilot enabled');
