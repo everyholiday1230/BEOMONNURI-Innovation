@@ -207,7 +207,7 @@
         <div className="panel__body" style={{padding: 0}}>
           <div className="mw-search">
             <I.Search size={12}/>
-            <input placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)} />
+            <input aria-label={t('wl_search_ph')} placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)} />
             {q ? <button onClick={() => setQ('')} style={{color:'var(--color-text-tertiary)'}}><I.X size={12}/></button> : <kbd>/</kbd>}
           </div>
           <div className="mw-tabs">
@@ -696,7 +696,7 @@
           </div>
           <div className="ob-controls">
             <div style={{display:'inline-flex', alignItems:'center', gap: 6}}>
-              <select value={precision} onChange={e => setPrecision(parseFloat(e.target.value))} className="input" style={{height:22, padding:'0 6px', fontSize: 11, width: 60}}>
+              <select aria-label={t('a11y_price_precision')} value={precision} onChange={e => setPrecision(parseFloat(e.target.value))} className="input" style={{height:22, padding:'0 6px', fontSize: 11, width: 60}}>
                 <option value="0.01">0.01</option>
                 <option value="0.1">0.1</option>
                 <option value="1">1</option>
@@ -1129,7 +1129,7 @@
               </div>
               <div className="oe-margin__group">
                 <span className="oe-lev">
-                  <input type="number" min="1" max={symMaxLev} step="1" value={lev}
+                  <input aria-label={t('a11y_leverage')} type="number" min="1" max={symMaxLev} step="1" value={lev}
                     onChange={(e) => { const n = parseInt(e.target.value, 10); setLev(Number.isFinite(n) ? Math.max(1, Math.min(symMaxLev, n)) : 1); }}
                     style={{ width: 34, background: 'transparent', border: 'none', color: 'inherit', font: 'inherit', textAlign: 'right', outline: 'none', padding: 0 }}
                     aria-label={t('calc_leverage')} />×
@@ -1167,7 +1167,7 @@
             {orderType !== 'market' && (
               <div className="input-group">
                 <span className="input-group__label">{t('fld_price')}</span>
-                <input type="text" value={price} onChange={e => { needsPriceSyncRef.current = false; setPrice(e.target.value); }} />
+                <input aria-label={t('fld_price')} type="text" value={price} onChange={e => { needsPriceSyncRef.current = false; setPrice(e.target.value); }} />
                 <span className="input-group__suffix">USDT</span>
               </div>
             )}
@@ -1175,7 +1175,7 @@
               <>
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_trigger')}</span>
-                  <input
+                  <input aria-label={t('fld_trigger')}
                     type="text"
                     value={stopPrice}
                     placeholder={lastPrice ? String((lastPrice * 0.99).toFixed(1)) : ''}
@@ -1197,7 +1197,7 @@
             )}
             <div className="input-group">
               <span className="input-group__label">{isSpot ? t('oe_pay_amount') : t('oe_margin_amount')}</span>
-              <input type="text" inputMode="decimal" placeholder="0.00" value={quoteAmt} onChange={e => applyQuoteAmount(e.target.value)} />
+              <input aria-label={isSpot ? t('oe_pay_amount') : t('oe_margin_amount')} type="text" inputMode="decimal" placeholder="0.00" value={quoteAmt} onChange={e => applyQuoteAmount(e.target.value)} />
               <span className="input-group__suffix" style={{display:'flex', alignItems:'center', gap:6}}>
                 {market.quote}
                 <button type="button" className="btn btn--xs" style={{padding:'1px 6px'}} disabled={!(availBal > 0)} onClick={setMaxQuote}>{t('oe_max')}</button>
@@ -1205,7 +1205,7 @@
             </div>
             <div className="input-group">
               <span className="input-group__label">{t('fld_size')}</span>
-              <input type="text" value={size} onChange={e => applySizeAmount(e.target.value)} />
+              <input aria-label={t('fld_size')} type="text" value={size} onChange={e => applySizeAmount(e.target.value)} />
               <span className="input-group__suffix">{market.base}</span>
             </div>
             {/* 최대 매수 가능 수량 안내 — 내 USDT 로 살 수 있는 코인 수를 명확히 보여준다. */}
@@ -1301,14 +1301,14 @@
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 6}}>
                   <div className="input-group">
                     <span className="input-group__label">{t('fld_tp')}</span>
-                    <input type="text" inputMode="decimal" value={tpVal}
+                    <input aria-label={t('fld_tp')} type="text" inputMode="decimal" value={tpVal}
                       onChange={(e) => setTpVal(e.target.value)}
                       placeholder={tpsl?.tp?.[0] ? Number(tpsl.tp[0]).toFixed(pricePrec) : ''} />
                     <span className="input-group__suffix">{market.quote}</span>
                   </div>
                   <div className="input-group">
                     <span className="input-group__label">{t('fld_sl')}</span>
-                    <input type="text" inputMode="decimal" value={slVal}
+                    <input aria-label={t('fld_sl')} type="text" inputMode="decimal" value={slVal}
                       onChange={(e) => setSlVal(e.target.value)}
                       placeholder={tpsl?.sl ? Number(tpsl.sl).toFixed(pricePrec) : ''} />
                     <span className="input-group__suffix">{market.quote}</span>
@@ -2048,7 +2048,7 @@
                 </div>
                 <div className="input-group">
                   <span className="input-group__label">{t('alert_target')}</span>
-                  <input type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00"/>
+                  <input aria-label={t('alert_target')} type="number" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="0.00"/>
                 </div>
                 <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--color-text-secondary)', cursor:'pointer'}}>
                   <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)}/>
@@ -2127,19 +2127,19 @@
             </div>
             <div className="input-group">
               <span className="input-group__label">{t('calc_entry')}</span>
-              <input type="number" inputMode="decimal" value={entry} onChange={e => setEntry(e.target.value)} placeholder="0.00"/>
+              <input aria-label={t('calc_entry')} type="number" inputMode="decimal" value={entry} onChange={e => setEntry(e.target.value)} placeholder="0.00"/>
             </div>
             <div className="input-group">
               <span className="input-group__label">{t('calc_qty')}</span>
-              <input type="number" inputMode="decimal" value={qty} onChange={e => setQty(e.target.value)} placeholder="0.00"/>
+              <input aria-label={t('calc_qty')} type="number" inputMode="decimal" value={qty} onChange={e => setQty(e.target.value)} placeholder="0.00"/>
             </div>
             <div className="input-group">
               <span className="input-group__label">{t('calc_leverage')}</span>
-              <input type="number" inputMode="decimal" value={lev} onChange={e => setLev(e.target.value)} placeholder="10"/>
+              <input aria-label={t('calc_leverage')} type="number" inputMode="decimal" value={lev} onChange={e => setLev(e.target.value)} placeholder="10"/>
             </div>
             <div className="input-group">
               <span className="input-group__label">{t('calc_exit')}</span>
-              <input type="number" inputMode="decimal" value={exit} onChange={e => setExit(e.target.value)} placeholder={t('calc_exit_ph')}/>
+              <input aria-label={t('calc_exit')} type="number" inputMode="decimal" value={exit} onChange={e => setExit(e.target.value)} placeholder={t('calc_exit_ph')}/>
             </div>
 
             <div style={{marginTop:4}}>

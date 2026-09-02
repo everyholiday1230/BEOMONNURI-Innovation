@@ -2716,7 +2716,7 @@
                     value={hlinePrice}
                     onChange={(e) => setHlinePrice(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') drawAtPrice(); }}
-                    placeholder={t('hline_price_ph')}
+                    aria-label={t('a11y_hline_price')} placeholder={t('hline_price_ph')}
                     title={t('hline_price_title')}
                     style={{ width: 84, height: 24, fontSize: 11, padding: '0 6px', borderRadius: 4, border: '1px solid var(--color-border-default)', background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}
                   />

@@ -106,7 +106,7 @@
         if (sym && out.indexOf(sym) === -1) out.push(sym);
         if (out.length >= 60) break;
       }
-      // 활성 종목이 목록에 없어도 넣는다 — 없으면 <select> 가 다른 값을 보여준다.
+      // 활성 종목이 목록에 없어도 넣는다 — 없으면 <select aria-label={t('a11y_symbol')}> 가 다른 값을 보여준다.
       if (activeSymbol && out.indexOf(activeSymbol) === -1) out.unshift(activeSymbol);
       return out;
     }, [markets && markets.rows, markets && markets.market, activeSymbol]);

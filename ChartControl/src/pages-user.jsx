@@ -278,7 +278,7 @@
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
                 <I.Search size={12}/>
-                <input placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)}/>
+                <input aria-label={t('wl_search_ph')} placeholder={t('wl_search_ph')} value={q} onChange={e => setQ(e.target.value)}/>
               </div>
               <div className="seg">
                 {[['All','mk_f_all'],['Favorites','mk_f_favorites'],['Gainers','mk_f_gainers'],['Losers','mk_f_losers'],['New','mk_f_new']].map(([id, k]) => (
@@ -728,7 +728,7 @@
                   ))}
                 </div>
               )}
-              <select className="input" style={{height:28, fontSize:11, width: 130}} value={sort} onChange={e => setSort(e.target.value)}>
+              <select aria-label={t('a11y_sort_by')} className="input" style={{height:28, fontSize:11, width: 130}} value={sort} onChange={e => setSort(e.target.value)}>
                 <option value="pnl">{t('strat_sort_pnl')}</option>
                 <option value="sharpe">{t('strat_sort_sharpe')}</option>
                 <option value="winRate">{t('strat_sort_win')}</option>
@@ -2865,7 +2865,7 @@
               {!enroll ? (
                 <>
                   <div style={dim}>{t('sec_enable_step1')}</div>
-                  <input
+                  <input aria-label={t('settings_819738')}
                     className="input" type="password" autoComplete="current-password"
                     placeholder={t('settings_819738')}
                     value={pw} onChange={(e) => setPw(e.target.value)}
@@ -2926,7 +2926,7 @@
                       <a className="btn btn--xs" href={enroll.otpauthUri}>{t('sec_open_app')}</a>
                     )}
                   </div>
-                  <input
+                  <input aria-label={t('sec_code_placeholder')}
                     className="input" type="text" inputMode="numeric" autoComplete="one-time-code"
                     placeholder={t('sec_code_placeholder')}
                     value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -2947,12 +2947,12 @@
             <div style={{borderTop:'1px solid var(--color-border-subtle)', paddingTop:12, display:'flex', flexDirection:'column', gap:8}}>
               {/* ★ 끄는 것이 위험하다는 사실을 말한다. 조용히 끄게 하지 않는다. */}
               <div style={{fontSize:11, color:'var(--color-warning)'}}>{t('sec_disable_warn')}</div>
-              <input
+              <input aria-label={t('settings_819738')}
                 className="input" type="password" autoComplete="current-password"
                 placeholder={t('settings_819738')}
                 value={pw} onChange={(e) => setPw(e.target.value)}
               />
-              <input
+              <input aria-label={t('sec_code_placeholder')}
                 className="input" type="text" inputMode="numeric" autoComplete="one-time-code"
                 placeholder={t('sec_code_placeholder')}
                 value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -3105,9 +3105,9 @@
     }
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
-        <input type="password" autoComplete="current-password" placeholder={t('cp_current')} value={cur} onChange={(e) => setCur(e.target.value)} />
-        <input type="password" autoComplete="new-password" placeholder={t('cp_new')} value={pw} onChange={(e) => setPw(e.target.value)} />
-        <input type="password" autoComplete="new-password" placeholder={t('cp_confirm')} value={pw2} onChange={(e) => setPw2(e.target.value)} />
+        <input aria-label={t('cp_current')} type="password" autoComplete="current-password" placeholder={t('cp_current')} value={cur} onChange={(e) => setCur(e.target.value)} />
+        <input aria-label={t('cp_new')} type="password" autoComplete="new-password" placeholder={t('cp_new')} value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input aria-label={t('cp_confirm')} type="password" autoComplete="new-password" placeholder={t('cp_confirm')} value={pw2} onChange={(e) => setPw2(e.target.value)} />
         {/* ★ 규칙을 입력 전에 알린다 — 제출 후 오류로 배우게 하지 않는다. */}
         <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('pw_rule_hint')}</div>
         {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{msg.text}</div>}
@@ -3348,7 +3348,7 @@
                   <div style={{display:'flex', flexDirection:'column', gap:10, marginTop:16}}>
                     <div className="input-group">
                       <span className="input-group__label">{t('settings_3c3776')}</span>
-                      <input value={USER.email} readOnly disabled/>
+                      <input aria-label={t('settings_3c3776')} value={USER.email} readOnly disabled/>
                     </div>
                     <div style={{fontSize:11.5, lineHeight:1.7, color:'var(--color-text-tertiary)'}}>
                       <div>{t('set_email_locked')}</div>
@@ -3366,10 +3366,10 @@
                 ) : (
                   <>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12, marginTop: 16}}>
-                      <div className="input-group"><span className="input-group__label">{t('settings_9aa18e')}</span><input defaultValue={USER.name}/></div>
-                      <div className="input-group"><span className="input-group__label">{t('settings_3c3776')}</span><input defaultValue={USER.email}/></div>
-                      <div className="input-group"><span className="input-group__label">{t('settings_84b6d0')}</span><input defaultValue="Republic of Korea"/></div>
-                      <div className="input-group"><span className="input-group__label">{t('settings_76245e')}</span><input defaultValue="Asia/Seoul (UTC+9)"/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_9aa18e')}</span><input aria-label={t('settings_9aa18e')} defaultValue={USER.name}/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_3c3776')}</span><input aria-label={t('settings_3c3776')} defaultValue={USER.email}/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_84b6d0')}</span><input aria-label={t('settings_84b6d0')} defaultValue="Republic of Korea"/></div>
+                      <div className="input-group"><span className="input-group__label">{t('settings_76245e')}</span><input aria-label={t('settings_76245e')} defaultValue="Asia/Seoul (UTC+9)"/></div>
                     </div>
                     <div style={{marginTop:16, display:'flex', gap:8, justifyContent:'flex-end'}}>
                       <button className="btn btn--sm">{t('settings_19b2d1')}</button>
@@ -3561,10 +3561,7 @@
                        ★ 이제 tweaks.presetId 를 직접 읽고 쓴다. Tweaks 패널과
                          같은 값을 보므로 두 화면이 어긋나지 않는다.
                     */}
-                    <select
-                      className="input"
-                      style={{width: '100%'}}
-                      value={tw.presetId}
+                    <select aria-label={t('a11y_layout_preset')} className="input" style={{width: '100%'}} value={tw.presetId}
                       onChange={(e) => setTw({ presetId: e.target.value })}
                     >
                       {Object.values((window.QT && window.QT.LAYOUT_PRESETS) || {}).map((p) => (
@@ -4260,10 +4257,7 @@
         actions={
           <>
             {/* 심볼 목록을 실제 주문에서 만든다. 없는 심볼을 고르면 빈 표가 된다. */}
-            <select
-              className="input"
-              style={{height:28, fontSize:11, width:140}}
-              value={symbolFilter}
+            <select aria-label={t('a11y_symbol_filter')} className="input" style={{height:28, fontSize:11, width:140}} value={symbolFilter}
               onChange={(e) => setSymbolFilter(e.target.value)}
             >
               <option value="all">{t('oh_all_symbols')}</option>

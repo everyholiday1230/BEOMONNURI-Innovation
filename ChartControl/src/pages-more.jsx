@@ -480,23 +480,23 @@
 
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_label')}</span>
-                  <input value={form.label} onChange={e => setForm({...form, label: e.target.value})}/>
+                  <input aria-label={t('fld_label')} value={form.label} onChange={e => setForm({...form, label: e.target.value})}/>
                 </div>
 
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_api_key')}</span>
-                  <input type="password" placeholder={t('exchange_connect_wizard_267402')} value={form.apiKey} onChange={e => setForm({...form, apiKey: e.target.value})}/>
+                  <input aria-label={t('fld_api_key')} type="password" placeholder={t('exchange_connect_wizard_267402')} value={form.apiKey} onChange={e => setForm({...form, apiKey: e.target.value})}/>
                 </div>
 
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_api_secret')}</span>
-                  <input type="password" placeholder={t('exchange_connect_wizard_344324')} value={form.apiSecret} onChange={e => setForm({...form, apiSecret: e.target.value})}/>
+                  <input aria-label={t('fld_api_secret')} type="password" placeholder={t('exchange_connect_wizard_344324')} value={form.apiSecret} onChange={e => setForm({...form, apiSecret: e.target.value})}/>
                 </div>
 
                 {exchange.required.includes('passphrase') && (
                   <div className="input-group">
                     <span className="input-group__label">{t('fld_passphrase')}</span>
-                    <input type="password" placeholder={t('exchange_connect_wizard_ad0627')} value={form.passphrase} onChange={e => setForm({...form, passphrase: e.target.value})}/>
+                    <input aria-label={t('fld_passphrase')} type="password" placeholder={t('exchange_connect_wizard_ad0627')} value={form.passphrase} onChange={e => setForm({...form, passphrase: e.target.value})}/>
                   </div>
                 )}
 
@@ -963,12 +963,12 @@
 
               <div className="input-group">
                 <span className="input-group__label">{t('fld_address')}</span>
-                <input placeholder={t('wd_address_placeholder', { network })} value={address} onChange={e => setAddress(e.target.value)}/>
+                <input aria-label={t('fld_address')} placeholder={t('wd_address_placeholder', { network })} value={address} onChange={e => setAddress(e.target.value)}/>
               </div>
 
               <div className="input-group">
                 <span className="input-group__label">{t('fld_amount')}</span>
-                <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}/>
+                <input aria-label={t('fld_amount')} type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}/>
                 <span className="input-group__suffix">{asset}</span>
               </div>
 
@@ -1073,7 +1073,7 @@
                 </div>
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_2fa_code')}</span>
-                  <input type="text" maxLength={6} placeholder={t('withdraw_403732')} value={otp} onChange={e => setOtp(e.target.value)}/>
+                  <input aria-label={t('fld_2fa_code')} type="text" maxLength={6} placeholder={t('withdraw_403732')} value={otp} onChange={e => setOtp(e.target.value)}/>
                 </div>
               </div>
               <div className="modal__footer">
@@ -1237,7 +1237,7 @@
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
                 <I.Search size={12}/>
-                <input placeholder={t('transaction_history_adb142')} value={q} onChange={e => setQ(e.target.value)}/>
+                <input aria-label={t('transaction_history_adb142')} placeholder={t('transaction_history_adb142')} value={q} onChange={e => setQ(e.target.value)}/>
               </div>
               <div className="seg">
                 {['all','deposit','withdraw','transfer','trade','fee','rebate'].map(f => (
@@ -1630,14 +1630,14 @@
               <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 12}}>
                 <div className="input-group">
                   <span className="input-group__label">{t('fld_symbol')}</span>
-                  <input
+                  <input aria-label={t('fld_symbol')}
                     value={btForm.symbol}
                     onChange={(e) => setBtForm({ ...btForm, symbol: e.target.value.toUpperCase() })}
                   />
                 </div>
                 <div className="input-group">
                   <span className="input-group__label">{t('bt_timeframe')}</span>
-                  <select
+                  <select aria-label={t('bt_timeframe')}
                     className="input"
                     value={btForm.timeframe}
                     onChange={(e) => setBtForm({ ...btForm, timeframe: e.target.value })}
@@ -1647,7 +1647,7 @@
                 </div>
                 <div className="input-group">
                   <span className="input-group__label">{t('bt_bars')}</span>
-                  <input
+                  <input aria-label={t('bt_bars')}
                     value={btForm.bars}
                     onChange={(e) => setBtForm({ ...btForm, bars: e.target.value.replace(/[^0-9]/g, '') })}
                   />
@@ -1665,9 +1665,7 @@
                        값이 없는 것과 자리를 잘못 찾은 것은 화면에서 똑같이 보이므로,
                        실제 응답을 확인하고 나서야 드러났다.
                   */}
-                  <input
-                    readOnly
-                    value={bt && bt.window && bt.window.fromTime
+                  <input aria-label={t('a11y_backtest_window')} readOnly value={bt && bt.window && bt.window.fromTime
                       ? `${new Date(bt.window.fromTime).toISOString().slice(0,10)} → ${new Date(bt.window.toTime).toISOString().slice(0,10)}`
                       : t('dash')}
                   />
@@ -1806,9 +1804,9 @@
                   <span className="switch__track"><span className="switch__thumb"/></span>
                 </label>
               </div>
-              <div className="input-group"><span className="input-group__label">{t('fld_position_size')}</span><input defaultValue="100" disabled/><span className="input-group__suffix">USDT</span></div>
-              <div className="input-group"><span className="input-group__label">{t('fld_max_concurrent')}</span><input defaultValue="3" disabled/><span className="input-group__suffix">positions</span></div>
-              <div className="input-group"><span className="input-group__label">{t('fld_stop_copy_dd')}</span><input defaultValue="10" disabled/><span className="input-group__suffix">%</span></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_position_size')}</span><input aria-label={t('fld_position_size')} defaultValue="100" disabled/><span className="input-group__suffix">USDT</span></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_max_concurrent')}</span><input aria-label={t('fld_max_concurrent')} defaultValue="3" disabled/><span className="input-group__suffix">positions</span></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_stop_copy_dd')}</span><input aria-label={t('fld_stop_copy_dd')} defaultValue="10" disabled/><span className="input-group__suffix">%</span></div>
               <button className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
             </div>
           </window.SectionCard>
@@ -1893,13 +1891,13 @@
       <div className="panel" style={{ marginTop: 16, padding: 16 }}>
         <div style={{ fontWeight: 600, marginBottom: 10 }}>{t('us_title')}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-          <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+          <select aria-label={t('a11y_kind')} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
             <option value="strategy">{t('us_kind_strategy')}</option>
             <option value="indicator">{t('us_kind_indicator')}</option>
           </select>
-          <input placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
-          <input placeholder={t('us_symbol_ph')} value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} style={{ width: 120 }} />
-          <select value={form.timeframe} onChange={(e) => setForm({ ...form, timeframe: e.target.value })}>
+          <input aria-label={t('us_name_ph')} placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
+          <input aria-label={t('us_symbol_ph')} placeholder={t('us_symbol_ph')} value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} style={{ width: 120 }} />
+          <select aria-label={t('a11y_timeframe')} value={form.timeframe} onChange={(e) => setForm({ ...form, timeframe: e.target.value })}>
             {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => <option key={tf} value={tf}>{tf}</option>)}
           </select>
           <button className="btn btn--sm btn--primary" disabled={busy} onClick={create}>
@@ -3294,18 +3292,18 @@
       >
         <div className="input-group" style={{maxWidth: 600, margin: '0 auto', height: 44, fontSize: 14}}>
           <I.Search size={16}/>
-          <input placeholder={t('help_center_044ef4')} value={q} onChange={e => setQ(e.target.value)}/>
+          <input aria-label={t('help_center_044ef4')} placeholder={t('help_center_044ef4')} value={q} onChange={e => setQ(e.target.value)}/>
         </div>
 
         <window.SectionCard title={t('bug_report_title')} subtitle={t('bug_report_sub')}>
           <div style={{display:'flex', flexDirection:'column', gap:8, maxWidth:640}}>
             <input
-              placeholder={t('bug_title_ph')} value={bugForm.title} maxLength={200}
+              aria-label={t('bug_title_ph')} placeholder={t('bug_title_ph')} value={bugForm.title} maxLength={200}
               onChange={(e) => setBugForm((f) => ({ ...f, title: e.target.value }))}
               style={{padding:'8px 10px', fontSize:13}}
             />
             <textarea
-              placeholder={t('bug_body_ph')} value={bugForm.body} maxLength={4000} rows={4}
+              aria-label={t('bug_body_ph')} placeholder={t('bug_body_ph')} value={bugForm.body} maxLength={4000} rows={4}
               onChange={(e) => setBugForm((f) => ({ ...f, body: e.target.value }))}
               style={{padding:'8px 10px', fontSize:13, resize:'vertical'}}
             />
@@ -3399,14 +3397,14 @@
             <div style={{display:'flex', flexDirection:'column', gap:10, maxWidth:720}}>
               <div className="input-group">
                 <span className="input-group__label">{t('help_subject')}</span>
-                <input
+                <input aria-label={t('help_subject_ph')}
                   value={form.subject}
                   maxLength={200}
                   onChange={e => setForm({ ...form, subject: e.target.value })}
                   placeholder={t('help_subject_ph')}
                 />
               </div>
-              <textarea
+              <textarea aria-label={t('help_body_ph')}
                 value={form.body}
                 maxLength={10000}
                 onChange={e => setForm({ ...form, body: e.target.value })}
@@ -3513,7 +3511,7 @@
                   </div>
                 ))}
                 <div style={{borderTop:'1px solid var(--color-border-subtle)', paddingTop:10}}>
-                  <textarea
+                  <textarea aria-label={t('help_reply_ph')}
                     value={reply} onChange={e => setReply(e.target.value)}
                     placeholder={t('help_reply_ph')}
                     style={{width:'100%', minHeight:80, padding:9, background:'var(--color-bg-input)', border:'1px solid var(--color-border-default)', borderRadius:6, color:'var(--color-text-primary)', fontSize:12.5, fontFamily:'var(--font-sans)', resize:'vertical', outline:'none'}}

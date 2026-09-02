@@ -84,7 +84,7 @@
           {['team_leader', 'staff'].map((preset) => (
             <button key={preset} className="btn btn--xs" disabled={busy || has(preset)} onClick={() => add(preset)} style={{ fontFamily: 'var(--font-mono)' }}>+ {preset}</button>
           ))}
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('utags_ph')} style={{ flex: 1, minWidth: 140 }} onKeyDown={(e) => { if (e.key === 'Enter') add(input); }} />
+          <input aria-label={t('utags_ph')} value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('utags_ph')} style={{ flex: 1, minWidth: 140 }} onKeyDown={(e) => { if (e.key === 'Enter') add(input); }} />
           <button className="btn btn--xs btn--primary" disabled={busy || !input.trim()} onClick={() => add(input)}>{t('utags_add')}</button>
         </div>
       </div>
@@ -219,13 +219,13 @@
         {/* 지급 / 회수 */}
         <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <input type="number" min="1" step="1" value={form.amount} placeholder={t('aup_amount')}
+            <input aria-label={t('aup_amount')} type="number" min="1" step="1" value={form.amount} placeholder={t('aup_amount')}
               onChange={(e) => setForm({ ...form, amount: e.target.value })} style={{ width: 120 }} />
-            <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+            <select aria-label={t('a11y_direction')} value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
               <option value="grant">{t('admin_pt_grant')}</option>
               <option value="revoke">{t('admin_pt_revoke')}</option>
             </select>
-            <input value={form.memo} placeholder={t('aup_memo_ph')}
+            <input aria-label={t('aup_memo_ph')} value={form.memo} placeholder={t('aup_memo_ph')}
               onChange={(e) => setForm({ ...form, memo: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
             <button className="btn btn--sm btn--primary" disabled={busy || !(Number(form.amount) > 0) || !form.memo.trim()} onClick={apply}>
               {busy ? '…' : t('admin_pt_apply')}
@@ -799,9 +799,9 @@
             <div className="modal__body" style={{display:'flex', flexDirection:'column', gap:10}}>
               <div className="input-group">
                 <span className="input-group__label">{t('adm_email_subject')}</span>
-                <input type="text" maxLength={200} value={emailModal.subject} onChange={e => setEmailModal((m) => ({ ...m, subject: e.target.value }))}/>
+                <input aria-label={t('adm_email_subject')} type="text" maxLength={200} value={emailModal.subject} onChange={e => setEmailModal((m) => ({ ...m, subject: e.target.value }))}/>
               </div>
-              <textarea
+              <textarea aria-label={t('adm_email_body_ph')}
                 value={emailModal.body}
                 maxLength={10000}
                 onChange={e => setEmailModal((m) => ({ ...m, body: e.target.value }))}
@@ -1288,7 +1288,7 @@
           >
             {canStatus && (
               <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:14}}>
-                <textarea
+                <textarea aria-label={t('adm_note_placeholder')}
                   className="input"
                   rows={3}
                   maxLength={4000}
@@ -1390,7 +1390,7 @@
                 </div>
                 <div className="input-group" style={{marginTop: 12}}>
                   <span className="input-group__label">{t('admin_user_detail_63c279')}</span>
-                  <select style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
+                  <select aria-label={t('admin_user_detail_63c279')} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
                     <option>{t('admin_user_detail_2d003e')}</option>
                     <option>{t('admin_user_detail_a1d12d')}</option>
                     <option>{t('admin_user_detail_a74a3f')}</option>
@@ -1400,7 +1400,7 @@
                 </div>
                 <div className="input-group" style={{marginTop: 8}}>
                   <span className="input-group__label">{t('fld_note')}</span>
-                  <input placeholder={t('admin_user_detail_f35682')}/>
+                  <input aria-label={t('fld_note')} placeholder={t('admin_user_detail_f35682')}/>
                 </div>
                 <div className="auth-alert auth-alert--warning" style={{marginTop: 12}}>
                   <I.Info size={12}/>
@@ -1873,12 +1873,12 @@
 
               <div className="input-group">
                 <span className="input-group__label">{t('admin_broadcast_078b3a')}</span>
-                <input value={subject} onChange={e => setSubject(e.target.value)} placeholder={t('admin_broadcast_a7bc1f')}/>
+                <input aria-label={t('admin_broadcast_078b3a')} value={subject} onChange={e => setSubject(e.target.value)} placeholder={t('admin_broadcast_a7bc1f')}/>
               </div>
 
               <div>
                 <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: 6}}>{t('admin_broadcast_c67b87')}</div>
-                <textarea
+                <textarea aria-label={t('admin_broadcast_1a8f0f')}
                   value={body} onChange={e => setBody(e.target.value)}
                   placeholder={t('admin_broadcast_1a8f0f')}
                   style={{width:'100%', minHeight: 200, padding: 10, background:'var(--color-bg-input)', border: '1px solid var(--color-border-default)', borderRadius: 4, color: 'var(--color-text-primary)', fontSize: 12, fontFamily: 'var(--font-sans)', resize:'vertical', outline: 'none'}}
@@ -1895,12 +1895,12 @@
                   /* 날짜·시간을 따로 받으면 조합 로직이 필요하고 시간대 실수가 난다. */
                   <div className="input-group">
                     <span className="input-group__label">{t('bc_publish_at')}</span>
-                    <input type="datetime-local" value={schedAt} onChange={e => setSchedAt(e.target.value)}/>
+                    <input aria-label={t('bc_publish_at')} type="datetime-local" value={schedAt} onChange={e => setSchedAt(e.target.value)}/>
                   </div>
                 ) : (
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-                  <div className="input-group"><span className="input-group__label">{t('fld_date')}</span><input type="date"/></div>
-                  <div className="input-group"><span className="input-group__label">{t('fld_time_utc')}</span><input type="time"/></div>
+                  <div className="input-group"><span className="input-group__label">{t('fld_date')}</span><input aria-label={t('fld_date')} type="date"/></div>
+                  <div className="input-group"><span className="input-group__label">{t('fld_time_utc')}</span><input aria-label={t('fld_time_utc')} type="time"/></div>
                 </div>
                 )
               )}
@@ -1942,7 +1942,7 @@
               {isLive && popup && (
                 <div className="input-group">
                   <span className="input-group__label">{t('bc_severity')}</span>
-                  <select className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
+                  <select aria-label={t('bc_severity')} className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
                     <option value="info">{t('bc_sev_info')}</option>
                     <option value="warning">{t('bc_sev_warning')}</option>
                     <option value="critical">{t('bc_sev_critical')}</option>
@@ -2157,7 +2157,7 @@
         <div className="grid-2-1">
           <div style={{display:'flex', flexDirection:'column', gap: 12}}>
             <div className="input-group" style={{height: 44, fontSize: 14}}>
-              <input placeholder={t('admin_notice_editor_a2ee94')} value={title} onChange={e => setTitle(e.target.value)}/>
+              <input aria-label={t('admin_notice_editor_a2ee94')} placeholder={t('admin_notice_editor_a2ee94')} value={title} onChange={e => setTitle(e.target.value)}/>
             </div>
 
             <div style={{display:'flex', gap: 12, alignItems:'center'}}>
@@ -2198,7 +2198,7 @@
               {popup && (
                 <div className="input-group" style={{flex:1, minWidth:260}}>
                   <span className="input-group__label">{t('bc_severity')}</span>
-                  <select className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
+                  <select aria-label={t('bc_severity')} className="input" value={severity} onChange={e => setSeverity(e.target.value)}>
                     <option value="info">{t('bc_sev_info')}</option>
                     <option value="warning">{t('bc_sev_warning')}</option>
                     <option value="critical">{t('bc_sev_critical')}</option>
@@ -2208,7 +2208,7 @@
             </div>
 
             {!preview && (
-              <textarea
+              <textarea aria-label={t('admin_notice_editor_c3d57e')}
                 value={body} onChange={e => setBody(e.target.value)}
                 placeholder={t('admin_notice_editor_c3d57e')}
                 style={{width:'100%', minHeight: 400, padding: 14, background:'var(--color-bg-input)', border: '1px solid var(--color-border-default)', borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 13, fontFamily: 'var(--font-sans)', resize:'vertical', outline: 'none', lineHeight: 1.7}}
@@ -2270,7 +2270,7 @@
               <label style={{display:'flex', flexDirection:'column', gap: 4}}>
                 <span style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('notice_publish_at')}</span>
                 <div className="input-group" style={{height: 34}}>
-                  <input type="datetime-local" value={publishAt} onChange={e => setPublishAt(e.target.value)}/>
+                  <input aria-label={t('notice_publish_at')} type="datetime-local" value={publishAt} onChange={e => setPublishAt(e.target.value)}/>
                 </div>
                 <span style={{fontSize:10, color:'var(--color-text-tertiary)'}}>{t('notice_publish_at_hint')}</span>
               </label>
@@ -2278,7 +2278,7 @@
               <label style={{display:'flex', flexDirection:'column', gap: 4}}>
                 <span style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('notice_expires_at')}</span>
                 <div className="input-group" style={{height: 34}}>
-                  <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}/>
+                  <input aria-label={t('notice_expires_at')} type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}/>
                 </div>
                 <span style={{fontSize:10, color:'var(--color-text-tertiary)'}}>{t('notice_expires_at_hint')}</span>
               </label>
@@ -2537,7 +2537,7 @@
             </div>
 
             <div style={{padding: 12, borderTop: '1px solid var(--color-border-subtle)'}}>
-              <textarea
+              <textarea aria-label={t('admin_c_s_ticket_a6c22d')}
                 value={reply} onChange={e => setReply(e.target.value)}
                 placeholder={t('admin_c_s_ticket_a6c22d')}
                 style={{width:'100%', minHeight: 80, padding: 8, background:'var(--color-bg-input)', border: '1px solid var(--color-border-default)', borderRadius: 4, color: 'var(--color-text-primary)', fontSize: 12, fontFamily: 'var(--font-sans)', resize:'vertical', outline: 'none'}}

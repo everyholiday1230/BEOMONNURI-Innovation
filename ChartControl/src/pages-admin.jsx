@@ -687,7 +687,7 @@
                   <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10}}>
                     <div className="input-group">
                       <span className="input-group__label">{t('adm_ref_share')}</span>
-                      <input
+                      <input aria-label={t('adm_ref_share')}
                         type="number" min="0" max="100" step="0.5"
                         value={form.sharePct} disabled={!canWrite}
                         onChange={(e) => setForm({ ...form, sharePct: e.target.value })}
@@ -695,7 +695,7 @@
                     </div>
                     <div className="input-group">
                       <span className="input-group__label">{t('adm_ref_min')}</span>
-                      <input
+                      <input aria-label={t('adm_ref_min')}
                         type="number" min="0" step="0.01"
                         value={form.minPayout} disabled={!canWrite}
                         onChange={(e) => setForm({ ...form, minPayout: e.target.value })}
@@ -703,7 +703,7 @@
                     </div>
                     <div className="input-group">
                       <span className="input-group__label">{t('adm_ref_currency')}</span>
-                      <input
+                      <input aria-label={t('adm_ref_currency')}
                         value={form.payoutCurrency} disabled={!canWrite} maxLength={10}
                         onChange={(e) => setForm({ ...form, payoutCurrency: e.target.value.toUpperCase() })}
                       />
@@ -751,7 +751,7 @@
                     <div style={{fontSize:11, color:'var(--color-text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5}}>
                       {t('adm_ref_note')}
                     </div>
-                    <textarea
+                    <textarea aria-label={t('adm_ref_note_ph')}
                       value={form.payoutNote} disabled={!canWrite} maxLength={1000}
                       placeholder={t('adm_ref_note_ph')}
                       onChange={(e) => setForm({ ...form, payoutNote: e.target.value })}
@@ -828,7 +828,7 @@
                   <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:10}}>
                     <div className="input-group">
                       <span className="input-group__label">{t('ref_col_amount')} ({settings ? settings.payoutCurrency : ''})</span>
-                      <input
+                      <input aria-label={t('ref_col_amount')}
                         type="number" min="0" step="0.00000001"
                         value={pay.amount}
                         onChange={(e) => setPay({ ...pay, amount: e.target.value })}
@@ -836,7 +836,7 @@
                     </div>
                     <div className="input-group">
                       <span className="input-group__label">{t('ref_col_method')}</span>
-                      <input
+                      <input aria-label={t('adm_ref_method_ph')}
                         value={pay.method}
                         placeholder={t('adm_ref_method_ph')}
                         onChange={(e) => setPay({ ...pay, method: e.target.value })}
@@ -845,7 +845,7 @@
                   </div>
                   <div className="input-group">
                     <span className="input-group__label">{t('ref_col_reference')}</span>
-                    <input
+                    <input aria-label={t('adm_ref_ref_ph')}
                       value={pay.reference}
                       placeholder={t('adm_ref_ref_ph')}
                       onChange={(e) => setPay({ ...pay, reference: e.target.value })}
@@ -1069,9 +1069,9 @@
             <>
               <div className="input-group" style={{width: 240, height: 30}}>
                 <I.Search size={12}/>
-                <input placeholder={t('admin_users_3fefdf')} value={q} onChange={e => setQ(e.target.value)}/>
+                <input aria-label={t('admin_users_3fefdf')} placeholder={t('admin_users_3fefdf')} value={q} onChange={e => setQ(e.target.value)}/>
               </div>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input" style={{height:28, fontSize:11, width:140}}>
+              <select aria-label={t('a11y_status_filter')} value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input" style={{height:28, fontSize:11, width:140}}>
                 <option value="all">{t('adm_all_statuses')}</option>
                 <option value="active">{t('col_active')}</option>
                 <option value="pending">{t('col_pending')}</option>
@@ -3286,16 +3286,16 @@
               <window.SectionCard title={t('admin_pt_adjust')} subtitle={t('admin_pt_adjust_sub')}>
                 <div style={{display:'grid', gap:10, maxWidth:560}}>
                   <label style={{fontSize:11.5}}>{t('admin_pt_user_id')}
-                    <input className="input" style={{marginTop:4}} value={adj.userId}
+                    <input aria-label={t('admin_pt_user_id')} className="input" style={{marginTop:4}} value={adj.userId}
                       onChange={e => setAdj({...adj, userId: e.target.value})} placeholder="usr_..."/>
                   </label>
                   <div style={{display:'flex', gap:8}}>
                     <label style={{fontSize:11.5, flex:1}}>{t('admin_pt_amount')}
-                      <input className="input" style={{marginTop:4}} type="number" min="1" step="1" value={adj.amount}
+                      <input aria-label={t('admin_pt_amount')} className="input" style={{marginTop:4}} type="number" min="1" step="1" value={adj.amount}
                         onChange={e => setAdj({...adj, amount: e.target.value})}/>
                     </label>
                     <label style={{fontSize:11.5, flex:1}}>{t('admin_pt_direction')}
-                      <select className="input" style={{marginTop:4}} value={adj.direction}
+                      <select aria-label={t('admin_pt_direction')} className="input" style={{marginTop:4}} value={adj.direction}
                         onChange={e => setAdj({...adj, direction: e.target.value})}>
                         <option value="grant">{t('admin_pt_grant')}</option>
                         <option value="revoke">{t('admin_pt_revoke')}</option>
@@ -3303,7 +3303,7 @@
                     </label>
                   </div>
                   <label style={{fontSize:11.5}}>{t('admin_pt_memo')}
-                    <input className="input" style={{marginTop:4}} value={adj.memo}
+                    <input aria-label={t('admin_pt_memo')} className="input" style={{marginTop:4}} value={adj.memo}
                       onChange={e => setAdj({...adj, memo: e.target.value})} placeholder={t('admin_pt_memo_ph')}/>
                   </label>
                   <div style={{fontSize:11, color:'var(--color-text-tertiary)', lineHeight:1.7}}>{t('admin_pt_adjust_note')}</div>
@@ -3441,7 +3441,7 @@
                 <div style={{display:'grid', gap:10, maxWidth:760}}>
                   <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
                     <label style={{fontSize:11.5, flex:'1 1 140px'}}>{t('admin_legal_kind')}
-                      <select className="input" style={{marginTop:4}} value={draft.kind}
+                      <select aria-label={t('admin_legal_kind')} className="input" style={{marginTop:4}} value={draft.kind}
                         onChange={e => setDraft({...draft, kind: e.target.value})}>
                         <option value="terms">{t('legal_terms')}</option>
                         <option value="privacy">{t('legal_privacy')}</option>
@@ -3450,20 +3450,20 @@
                       </select>
                     </label>
                     <label style={{fontSize:11.5, flex:'1 1 100px'}}>{t('admin_legal_locale')}
-                      <input className="input" style={{marginTop:4}} value={draft.locale} maxLength={10}
+                      <input aria-label={t('admin_legal_locale')} className="input" style={{marginTop:4}} value={draft.locale} maxLength={10}
                         onChange={e => setDraft({...draft, locale: e.target.value})} placeholder="en"/>
                     </label>
                     <label style={{fontSize:11.5, flex:'1 1 100px'}}>{t('admin_legal_version')}
-                      <input className="input" style={{marginTop:4}} value={draft.version} maxLength={40}
+                      <input aria-label={t('admin_legal_version')} className="input" style={{marginTop:4}} value={draft.version} maxLength={40}
                         onChange={e => setDraft({...draft, version: e.target.value})} placeholder="1.0"/>
                     </label>
                   </div>
                   <label style={{fontSize:11.5}}>{t('admin_legal_doc_title')}
-                    <input className="input" style={{marginTop:4}} value={draft.title} maxLength={200}
+                    <input aria-label={t('admin_legal_doc_title')} className="input" style={{marginTop:4}} value={draft.title} maxLength={200}
                       onChange={e => setDraft({...draft, title: e.target.value})}/>
                   </label>
                   <label style={{fontSize:11.5}}>{t('admin_legal_body')}
-                    <textarea className="input" style={{marginTop:4, minHeight:220, fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.7}}
+                    <textarea aria-label={t('admin_legal_body')} className="input" style={{marginTop:4, minHeight:220, fontFamily:'var(--font-mono)', fontSize:12, lineHeight:1.7}}
                       value={draft.body} onChange={e => setDraft({...draft, body: e.target.value})}
                       placeholder={t('admin_legal_body_ph')}/>
                   </label>

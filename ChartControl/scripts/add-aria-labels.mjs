@@ -1,44 +1,102 @@
 #!/usr/bin/env node
 /*
-   인증 화면 입력칸에 접근성 라벨(aria-label)을 붙인다.
+   남은 입력칸에 접근성 라벨을 붙인다 — **태그 단위**로 처리한다.
 
-   ★★ 왜 필요한가
+   ★★ 왜 다시 쓰는가
 
-     라벨이 <span className="input-group__label"> 로만 있고 input 과 **연결돼 있지
-     않다**(htmlFor/id 도, aria-label 도 없다). 그래서:
+     앞선 스크립트는 줄 단위였다. 이 코드베이스의 입력 태그는 여러 줄에 걸쳐 있어
+     `placeholder`·`title`·`aria-label` 이 시작 줄에 없는 경우가 많고, 그래서 36개가
+     남았다(테스트가 잡아냈다). 파일 전체를 문자열로 보고 태그마다 판단한다.
 
-       · 스크린리더 사용자는 어느 칸이 이메일이고 어느 칸이 비밀번호인지 알 수 없다.
-       · e2e 가 getByLabel('email') 로 칸을 찾지 못해 **모든 인증 흐름 테스트가
-         실패**한다(24개 스펙이 이 방식을 쓴다).
-
-     즉 접근성 결함이 검증 수단까지 막고 있었다.
-
-   ★ 라벨 텍스트는 사전 키(t('fld_email'))다. aria-label 에 같은 값을 넣으면
-     번역이 함께 따라온다 — 영어 문자열을 새로 박으면 두 벌이 되어 어긋난다.
+   ★ 라벨 문구은 새로 만들지 않는다. 근거 우선순위:
+       1) 태그 안 placeholder={t('키')}
+       2) 태그 안 title={t('키')}
+       3) 태그 바로 앞의 input-group__label 안 t('키')
+       4) 태그를 감싸는 <label> 의 앞선 t('키')
+     하나도 없으면 건드리지 않고 보고한다 — 아무 이름이나 붙이면 "라벨이 있다" 는
+     거짓 신호가 되고, 화면 글자와 읽히는 글자가 달라진다.
 */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-const FILE = 'src/pages-auth.jsx';
-const src = readFileSync(FILE, 'utf8');
-const lines = src.split('\n');
+const SRC = 'src';
+const reportOnly = process.argv.includes('--report');
+const KEY = /\{t\(\s*'([a-z0-9_]+)'(?:\s*,[^)]*)?\)\}/i;
 
 let added = 0;
-for (let i = 0; i < lines.length - 1; i += 1) {
-  const label = lines[i];
-  if (!label.includes('input-group__label')) continue;
-  // 라벨 span 에서 사전 키를 뽑는다: {t('fld_email')}
-  const key = label.match(/\{t\('([a-z0-9_]+)'(?:,[^)]*)?\)\}/i);
-  if (!key) continue;
-  // 바로 다음 줄(또는 그 다음)의 input/select 에 aria-label 을 붙인다.
-  for (let j = i + 1; j <= Math.min(i + 2, lines.length - 1); j += 1) {
-    const el = lines[j];
-    if (!/<(input|select|textarea)\s/.test(el)) continue;
-    if (el.includes('aria-label=')) break;
-    lines[j] = el.replace(/<(input|select|textarea)\s/, `<$1 aria-label={t('${key[1]}')} `);
+const unresolved = [];
+
+for (const file of readdirSync(SRC).filter((f) => f.endsWith('.jsx')).sort()) {
+  const path = join(SRC, file);
+  let text = readFileSync(path, 'utf8');
+  let changedInFile = 0;
+  let searchFrom = 0;
+
+  for (;;) {
+    const m = /<(input|select|textarea)([\s>])/i.exec(text.slice(searchFrom));
+    if (!m) break;
+    const tagStart = searchFrom + m.index;
+    // 태그 끝(> 또는 />)을 찾는다. 중괄호 안의 > 는 무시한다.
+    let depth = 0;
+    let tagEnd = -1;
+    for (let i = tagStart; i < text.length; i += 1) {
+      const ch = text[i];
+      if (ch === '{') depth += 1;
+      else if (ch === '}') depth -= 1;
+      else if (ch === '>' && depth === 0) { tagEnd = i; break; }
+    }
+    if (tagEnd === -1) break;
+    const tag = text.slice(tagStart, tagEnd + 1);
+    searchFrom = tagEnd + 1;
+
+    if (/type=["'](checkbox|radio|hidden)["']/.test(tag)) continue;
+    if (/aria-label\s*=/.test(tag)) continue;
+
+    // 근거 찾기
+    let expr = null;
+    const ph = tag.match(new RegExp(`placeholder=${KEY.source}`, 'i'));
+    if (ph) expr = `{t('${ph[1]}')}`;
+    if (!expr) {
+      const ti = tag.match(new RegExp(`title=${KEY.source}`, 'i'));
+      if (ti) expr = `{t('${ti[1]}')}`;
+    }
+    if (!expr) {
+      // 앞 400자 안의 라벨 span
+      const before = text.slice(Math.max(0, tagStart - 400), tagStart);
+      const lab = [...before.matchAll(new RegExp(`input-group__label[^>]*>\\s*(?:<[^>]+>\\s*)*${KEY.source}`, 'gi'))].pop();
+      if (lab) expr = `{t('${lab[1]}')}`;
+    }
+    if (!expr) {
+      // 감싸는 <label> 의 앞선 문구
+      const before = text.slice(Math.max(0, tagStart - 500), tagStart);
+      const li = before.lastIndexOf('<label');
+      if (li >= 0) {
+        const seg = before.slice(li);
+        const lab = [...seg.matchAll(new RegExp(KEY.source, 'gi'))].pop();
+        if (lab) expr = `{t('${lab[1]}')}`;
+      }
+    }
+
+    if (!expr) {
+      unresolved.push(`${file}  ${tag.replace(/\s+/g, ' ').slice(0, 86)}`);
+      continue;
+    }
+
+    if (!reportOnly) {
+      const injected = tag.replace(/<(input|select|textarea)([\s>])/i, (s2, t2, sep) => `<${t2} aria-label=${expr}${sep === '>' ? '>' : sep}`);
+      text = text.slice(0, tagStart) + injected + text.slice(tagEnd + 1);
+      searchFrom = tagStart + injected.length;
+    }
+    changedInFile += 1;
     added += 1;
-    break;
   }
+
+  if (!reportOnly && changedInFile > 0) writeFileSync(path, text, 'utf8');
+  if (changedInFile > 0) console.log(`${path.padEnd(30)} ${changedInFile}개`);
 }
 
-writeFileSync(FILE, lines.join('\n'), 'utf8');
-console.log(`${FILE}: aria-label ${added}개 추가`);
+console.log(`\n합계 ${added}개${reportOnly ? ' (보고만)' : ' 보강'}`);
+if (unresolved.length) {
+  console.log('\n근거 없음 — 건드리지 않았다:');
+  for (const u of unresolved) console.log('  ', u);
+}

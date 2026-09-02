@@ -958,8 +958,7 @@
         </div>
 
         <div className="ai-input">
-          <textarea
-            ref={inputRef}
+          <textarea aria-label={t('ai_copilot_title')} ref={inputRef}
             className="ai-input__box"
             placeholder={t(isBeginner ? 'ai_input_beginner' : 'ai_input_pro')}
             value={input}

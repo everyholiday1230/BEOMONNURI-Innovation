@@ -443,9 +443,7 @@
 
             <div className="otp-input">
               {otp.map((d, i) => (
-                <input
-                  key={i}
-                  ref={otpRefs[i]}
+                <input aria-label={t('a11y_otp_digit')} key={i} ref={otpRefs[i]}
                   type="text"
                   maxLength={1}
                   className="otp-input__cell"
@@ -695,7 +693,7 @@
             <div>
               <div className="input-group">
                 <span className="input-group__label">{t('signup_ref_label')}</span>
-                <input
+                <input aria-label={t('signup_ref_ph')}
                   value={refCode}
                   maxLength={16}
                   placeholder={t('signup_ref_ph')}
@@ -1009,7 +1007,7 @@
             <>
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_9334ed')}</div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap: 10}}>
-                <div className="input-group"><span className="input-group__label">{t('fld_first_name')}</span><input value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})}/></div>
+                <div className="input-group"><span className="input-group__label">{t('fld_first_name')}</span><input aria-label={t('fld_first_name')} value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})}/></div>
                 <div className="input-group"><span className="input-group__label">{t('fld_last_name')}</span><input aria-label={t('fld_first_name')} value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})}/></div>
               </div>
               <div className="input-group"><span className="input-group__label">{t('k_y_c_onboarding_31fbff')}</span><input aria-label={t('fld_last_name')} type="date" value={form.birth} onChange={e => setForm({...form, birth: e.target.value})}/></div>
@@ -1025,7 +1023,7 @@
           {step === 2 && (
             <>
               <div className="auth-kyc-step-title">{t('k_y_c_onboarding_ebce71')}</div>
-              <div className="input-group"><span className="input-group__label">{t('fld_address')}</span><input placeholder={t('k_y_c_onboarding_dad291')} value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></div>
+              <div className="input-group"><span className="input-group__label">{t('fld_address')}</span><input aria-label={t('fld_address')} placeholder={t('k_y_c_onboarding_dad291')} value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></div>
               <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap: 10}}>
                 <div className="input-group"><span className="input-group__label">{t('fld_city')}</span><input aria-label={t('fld_address')} value={form.city} onChange={e => setForm({...form, city: e.target.value})}/></div>
                 <div className="input-group"><span className="input-group__label">{t('fld_postal')}</span><input aria-label={t('fld_city')} value={form.postal} onChange={e => setForm({...form, postal: e.target.value})}/></div>
