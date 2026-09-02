@@ -38,6 +38,12 @@ export interface OrderRouterDeps {
   */
   portfolio: PortfolioReadRepo;
   symbolInfo: Record<string, SymbolInfo>;
+  /*
+     심볼 카탈로그 적재 여부.
+
+     ★ 이 경로는 선물 규격만 쓴다(현물 분기가 없다). 그래서 인자가 없다.
+  */
+  catalogueReady?: () => boolean;
   policy: TradingPolicy;
   posture: TradingPosture;
   /** 운영 컨트롤 게이트. 있으면 global_live_trading/new_positions 킬스위치를 강제한다. */
@@ -138,6 +144,8 @@ export function createOrderRouter(d: OrderRouterDeps): Hono {
 
     return {
       symbolInfo: d.symbolInfo[symbol],
+      // ★ 규격이 없을 때 "우리 문제" 와 "지원 안 하는 심볼" 을 구분하기 위해 넘긴다.
+      catalogueLoaded: d.catalogueReady ? d.catalogueReady() : undefined,
       policy: d.policy,
       referencePrice,
       referenceStale,

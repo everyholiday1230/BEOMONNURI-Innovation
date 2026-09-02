@@ -17,6 +17,13 @@ export interface TradingPolicy {
 }
 
 export interface RiskEngineInput {
+  /*
+     심볼 카탈로그가 적재됐는가.
+
+     ★ 넘기지 않으면(undefined) 예전과 같은 문구가 나온다 — 호출자를 강제로
+       고치게 만들지 않되, 넘긴 곳은 고객에게 정확히 말할 수 있다.
+  */
+  catalogueLoaded?: boolean;
   mode: ExecutionMode;
   symbol: SymbolInfo | undefined;
   side: 'long' | 'short';
@@ -80,6 +87,8 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     riskReward: i.riskReward,
     maxEstLoss: i.maxEstLoss,
     marketDataStatus: i.marketDataStatus,
+    // ★ 규격이 없을 때 "우리 문제" 와 "심볼 문제" 를 구분하게 넘긴다.
+    catalogueLoaded: i.catalogueLoaded,
   });
   const gates: RiskGate[] = [...base.gates];
   const add = (id: string, label: string, ok: boolean, detail: string) =>

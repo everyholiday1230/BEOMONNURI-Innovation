@@ -16,6 +16,21 @@ export interface RiskGate {
 
 export interface RiskGateInput {
   symbol?: SymbolInfo;
+  /*
+     ★★ 심볼 규격이 없을 때 **누구의 문제인지** 구분하기 위한 값.
+
+       실서비스 사고: 카탈로그 적재가 실패한 동안 고객 주문 9건이
+       'symbol metadata unavailable' 로 막혔다. 그 문구는 **고객이 심볼을 잘못
+       골랐다는 뜻으로 읽힌다.** 그래서 고객은 90분간 8번 다시 눌렀다.
+
+       실제로는 우리 쪽 데이터가 없던 것이다. 두 상황은 고객이 취할 행동이
+       완전히 다르다 — 하나는 "다른 심볼을 고르세요", 다른 하나는
+       "잠시 뒤 다시 시도하세요, 고객님 잘못이 아닙니다".
+
+     false = 카탈로그가 아직 적재되지 않았다(우리 문제)
+     true  = 카탈로그는 있는데 그 심볼이 없다(심볼 문제)
+  */
+  catalogueLoaded?: boolean;
   side: 'long' | 'short';
   orderType: 'market' | 'limit' | 'stop' | 'tp_sl';
   price?: string;
@@ -57,8 +72,19 @@ export function evaluateRiskGates(input: RiskGateInput): RiskGateResult {
   // 1. Symbol & market metadata present.
   if (sym && sym.tickSize && sym.stepSize && sym.minQty) {
     add('metadata', 'Symbol · market metadata', 'ok', `${sym.id} · tick ${sym.tickSize} · step ${sym.stepSize}`);
+  } else if (input.catalogueLoaded === false) {
+    /*
+       ★★ 우리 쪽 문제임을 분명히 말한다. 고객이 자기 입력을 의심하며 반복
+         시도하는 것을 막는 것이 목적이다.
+    */
+    add(
+      'metadata',
+      'Symbol · market metadata',
+      'fail',
+      'exchange symbol catalogue not loaded yet on our side — not your input; retry shortly',
+    );
   } else {
-    add('metadata', 'Symbol · market metadata', 'fail', 'symbol metadata unavailable');
+    add('metadata', 'Symbol · market metadata', 'fail', `no specification for this symbol${sym?.id ? ` (${sym.id})` : ''} — pick another market`);
   }
 
   // 2. Price / quantity validity (finite, > 0).

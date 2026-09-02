@@ -965,13 +965,79 @@ const DEFAULT_SYMBOL_INFO: Record<string, SymbolInfo> = {
      로 읽으므로 채워지는 즉시 반영된다. 조회 실패 시 기존 값을 유지한다(정적 폴백 포함).
 */
 const symbolInfoMap: Record<string, SymbolInfo> = { ...DEFAULT_SYMBOL_INFO };
-async function refreshSymbolInfo(): Promise<void> {
+
+/*
+   ★★ 카탈로그 적재 상태를 **밖에서 볼 수 있게** 들고 있는다.
+
+     실서비스 사고: 08-30 에 한 고객의 주문 9건이 'symbol metadata unavailable' 로
+     막혔다(02:54~09:44, 90분 동안 8번 재시도). 원인은 이 적재의 실패였는데,
+     예전 코드는 `catch { }` 로 **아무 로그도 남기지 않았다.** 거래를 전부 좌우하는
+     데이터의 실패가 완전히 조용했다 — 운영자는 고객이 왜 거래를 못 하는지 알 수
+     없었고, 고객은 자기 심볼이 잘못된 줄 알고 계속 다시 눌렀다.
+
+     그래서 세 가지를 바꾼다: (1) 실패를 크게 남긴다 (2) 첫 성공까지 빠르게
+     재시도한다 (3) 상태를 조회할 수 있게 한다.
+*/
+const symbolCatalogue = {
+  /** 한 번이라도 실제 카탈로그가 적재됐는가. false 면 정적 폴백(BTC/ETH)뿐이다. */
+  loaded: false,
+  lastSuccessAt: null as number | null,
+  lastError: null as string | null,
+  lastErrorAt: null as number | null,
+  attempts: 0,
+  /** 정적 폴백 심볼 수 — 이 수만 있으면 사실상 비어 있는 것이다. */
+  fallbackCount: Object.keys(DEFAULT_SYMBOL_INFO).length,
+  get count() { return Object.keys(symbolInfoMap).length; },
+};
+
+async function refreshSymbolInfo(): Promise<boolean> {
+  symbolCatalogue.attempts += 1;
   try {
     const syms = await providers.market.getSymbols();
+    if (!syms || syms.length === 0) {
+      /*
+         ★ 빈 배열을 성공으로 취급하면 안 된다. "조회는 됐지만 아무것도 없다" 는
+           상류 장애의 흔한 모습이고, 그대로 두면 정적 폴백만 남은 상태가
+           '정상' 으로 기록된다.
+      */
+      throw new Error('심볼 카탈로그가 비어 있다 (0건)');
+    }
     for (const s of syms) symbolInfoMap[s.id] = s;
-  } catch { /* 실패 시 기존 값 유지 — 주문 게이트가 정적 폴백으로라도 동작하게 */ }
+    const first = !symbolCatalogue.loaded;
+    symbolCatalogue.loaded = true;
+    symbolCatalogue.lastSuccessAt = Date.now();
+    symbolCatalogue.lastError = null;
+    if (first) console.log(`[symbols] 선물 카탈로그 적재 완료 — ${syms.length}건 (주문 검증 가능)`);
+    return true;
+  } catch (e) {
+    const msg = (e as Error).message;
+    symbolCatalogue.lastError = msg;
+    symbolCatalogue.lastErrorAt = Date.now();
+    /*
+       ★★ 조용히 삼키지 않는다. 이 값이 없으면 **BTC/ETH 외 모든 주문이 막힌다.**
+         고객에게는 "symbol metadata unavailable" 로 보이는데, 그건 고객 잘못처럼
+         읽힌다. 로그가 없으면 아무도 진짜 원인을 알 수 없다.
+    */
+    console.error(`[symbols] 선물 카탈로그 적재 실패 (${symbolCatalogue.attempts}번째) — BTC/ETH 외 주문이 막힌다: ${msg}`);
+    return false;
+  }
 }
-void refreshSymbolInfo();
+
+/*
+   ★★ 첫 성공까지는 빠르게 재시도한다.
+
+     예전에는 10분 간격만 있었다. 부팅 직후 한 번 실패하면 **최소 10분 동안**
+     BTC/ETH 외 모든 주문이 막힌다. 배포할 때마다 그 창이 생기고, 배포는 잦다.
+*/
+async function loadSymbolCatalogueWithRetry(): Promise<void> {
+  const delays = [0, 3_000, 10_000, 30_000, 60_000, 120_000];
+  for (const wait of delays) {
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (await refreshSymbolInfo()) return;
+  }
+  console.error('[symbols] 재시도를 모두 소진했다 — 10분 주기 갱신으로 넘어간다. BTC/ETH 외 주문은 계속 막힌다.');
+}
+void loadSymbolCatalogueWithRetry();
 {
   const t = setInterval(() => { void refreshSymbolInfo(); }, 10 * 60 * 1000);
   if (typeof t.unref === 'function') t.unref();
@@ -989,14 +1055,55 @@ void refreshSymbolInfo();
      메타데이터 게이트에서 막힌다 — 잘못된 규격으로 통과시키는 것보다 안전하다.
 */
 const spotSymbolInfoMap: Record<string, SymbolInfo> = {};
-async function refreshSpotSymbolInfo(): Promise<void> {
-  if (!providers.spot) return;
+
+/*
+   ★★ 현물은 정적 폴백이 **아예 없다.** 이 맵이 비어 있으면 BTC/ETH 조차 포함해
+     현물 주문이 전부 막힌다 — 선물보다 더 심각하다. 그래서 같은 감시를 붙인다.
+*/
+const spotCatalogue = {
+  loaded: false,
+  lastSuccessAt: null as number | null,
+  lastError: null as string | null,
+  lastErrorAt: null as number | null,
+  attempts: 0,
+  get count() { return Object.keys(spotSymbolInfoMap).length; },
+};
+
+async function refreshSpotSymbolInfo(): Promise<boolean> {
+  /*
+     ★ 현물 제공자가 없는 배포도 있다. 그건 실패가 아니라 "해당 없음" 이므로
+       실패로 기록하지 않는다 — 없는 기능을 장애로 세면 진짜 장애가 묻힌다.
+  */
+  if (!providers.spot) return true;
+  spotCatalogue.attempts += 1;
   try {
     const syms = (await providers.spot.getSymbols()) as SymbolInfo[];
+    if (!syms || syms.length === 0) throw new Error('현물 심볼 카탈로그가 비어 있다 (0건)');
     for (const sym of syms) spotSymbolInfoMap[sym.id] = sym;
-  } catch { /* 실패 시 기존 값 유지 */ }
+    const first = !spotCatalogue.loaded;
+    spotCatalogue.loaded = true;
+    spotCatalogue.lastSuccessAt = Date.now();
+    spotCatalogue.lastError = null;
+    if (first) console.log(`[symbols] 현물 카탈로그 적재 완료 — ${syms.length}건 (현물 주문 가능)`);
+    return true;
+  } catch (e) {
+    const msg = (e as Error).message;
+    spotCatalogue.lastError = msg;
+    spotCatalogue.lastErrorAt = Date.now();
+    console.error(`[symbols] 현물 카탈로그 적재 실패 (${spotCatalogue.attempts}번째) — 현물 주문이 전부 막힌다: ${msg}`);
+    return false;
+  }
 }
-void refreshSpotSymbolInfo();
+
+async function loadSpotCatalogueWithRetry(): Promise<void> {
+  const delays = [0, 3_000, 10_000, 30_000, 60_000, 120_000];
+  for (const wait of delays) {
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (await refreshSpotSymbolInfo()) return;
+  }
+  console.error('[symbols] 현물 재시도를 모두 소진했다 — 현물 주문은 계속 막힌다.');
+}
+void loadSpotCatalogueWithRetry();
 {
   const t = setInterval(() => { void refreshSpotSymbolInfo(); }, 10 * 60 * 1000);
   if (typeof t.unref === 'function') t.unref();
@@ -1470,10 +1577,34 @@ if (env.authEnabled) {
         const mem = process.memoryUsage();
         const mb = (n: number) => `${Math.round(n / 1024 / 1024)}MB`;
 
+        /*
+           심볼 카탈로그 상태를 사람이 읽는 한 줄로 만든다.
+
+           ★★ 이것이 없어서 실서비스 사고를 놓쳤다. 08-30 에 적재가 조용히
+             실패하는 동안 고객 주문 9건이 막혔는데, 운영자 화면 어디에도
+             "심볼 규격을 못 받았다" 는 표시가 없었다. 거래 가능 여부를 좌우하는
+             값이면 상태창에 있어야 한다.
+        */
+        const catalogueLine = (
+          st: { loaded: boolean; count: number; lastError: string | null; lastSuccessAt: number | null; attempts: number },
+          blockedWhenEmpty: string,
+        ): string => {
+          if (st.loaded) {
+            const age = st.lastSuccessAt ? Math.round((Date.now() - st.lastSuccessAt) / 1000) : null;
+            return `Loaded — ${st.count} symbols${age === null ? '' : ` (${age}s ago)`}`;
+          }
+          // ★ 실패 원인을 그대로 보여준다. "실패" 만 있으면 다음 행동을 정할 수 없다.
+          return `NOT LOADED after ${st.attempts} attempt(s) — ${blockedWhenEmpty}${st.lastError ? ` · last error: ${st.lastError}` : ''}`;
+        };
+
         return {
           api: 'ok',
           // core.pool 이 있으면 Postgres 로 붙어 있다는 뜻이다(부팅 시 연결 확인됨).
           postgres: core.pool ? 'Connected' : 'Unavailable (dev store is SQLite)',
+          symbolCatalogueFutures: catalogueLine(symbolCatalogue, 'orders other than BTC/ETH are blocked'),
+          symbolCatalogueSpot: providers.spot
+            ? catalogueLine(spotCatalogue, 'ALL spot orders are blocked')
+            : 'Not applicable — no spot provider on this deployment',
           secretsManager: env.awsRegion ? 'Configured' : 'Not used — secrets come from environment variables',
           // 시세 어댑터. KuCoin 으로 전환했으므로 BitMart 고정 표기는 사실과 다르다.
           marketDataSource: marketSource,
@@ -2249,6 +2380,11 @@ if (env.authEnabled) {
       portfolio: portfolioRepo,
       symbolInfo: symbolInfoMap,
       /*
+         ★ 카탈로그 적재 사실을 그대로 넘긴다. 라우터가 맵 크기로 추측하면
+           mock 배포(2건)와 폴백(2건)을 구분할 수 없다.
+      */
+      catalogueReady: () => symbolCatalogue.loaded,
+      /*
          주문 정책은 env.tradingPolicy 한 곳에서 온다.
 
          ★★ 전에는 이 줄과 실주문 라우터의 policy 가 **각각 하드코딩**돼 있었고 값이
@@ -2767,6 +2903,11 @@ if (env.authEnabled) {
           /* 검증 경로와 **같은** 정책을 쓴다(위 주석 참조). */
           policy: { ...env.tradingPolicy, allowedSymbols: [...env.tradingPolicy.allowedSymbols] },
           symbolInfo: symbolInfoMap,
+      /*
+         ★ 카탈로그 적재 사실을 그대로 넘긴다. 라우터가 맵 크기로 추측하면
+           mock 배포(2건)와 폴백(2건)을 구분할 수 없다.
+      */
+      catalogueReady: (market: 'spot' | 'futures') => (market === 'spot' ? spotCatalogue.loaded : symbolCatalogue.loaded),
           spotSymbolInfo: spotSymbolInfoMap,
           csrfKey: env.csrfKey,
           corsOrigins: env.corsOrigins,

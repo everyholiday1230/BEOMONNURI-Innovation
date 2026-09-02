@@ -23,6 +23,17 @@ const corr = () => Math.random().toString(36).slice(2, 10);
 const err = (code: string, message: string) => ({ error: { code, message, correlationId: corr() } });
 
 export interface TradingRouterDeps {
+  /*
+     심볼 카탈로그가 실제로 적재됐는가.
+
+     ★★ 규격이 없을 때 **누구의 문제인지** 가르는 값이다. 처음에는 맵 크기로
+       추측했는데(폴백 2개보다 많으면 적재됐다고 봤다) 틀렸다 — mock 배포에서는
+       진짜 카탈로그가 2건이라 "미적재" 로 잘못 판단했다. 추측 대신 적재를
+       수행한 쪽이 아는 **사실**을 받는다.
+
+     ★ 넘기지 않으면 예전과 같은 문구가 나온다. 호출자를 강제로 고치게 만들지 않는다.
+  */
+  catalogueReady?: (market: 'spot' | 'futures') => boolean;
   service: AuthService;
   vault: CredentialVault;
   /*
@@ -454,12 +465,28 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     // ★ 현물 주문은 현물 규격으로 검증한다. 선물 규격을 쓰면 단위가 달라 틀린다.
     const isSpot = body.market === 'spot';
     const metaSource = isSpot && d.spotSymbolInfo ? d.spotSymbolInfo : d.symbolInfo;
+    /*
+       ★★ 규격이 없을 때 **누구의 문제인지** 판단한다.
+
+         실서비스 사고(08-30): 카탈로그 적재가 조용히 실패하는 동안 고객 주문 9건이
+         'symbol metadata unavailable' 로 막혔다. 그 문구는 고객이 심볼을 잘못
+         골랐다는 뜻으로 읽혀서, 고객은 90분간 8번 다시 눌렀다.
+
+       ★ 판단은 적재를 수행한 쪽(index.ts)이 알려준 **사실**로 한다. 처음에는
+         맵 크기로 추측했는데 틀렸다 — mock 배포는 진짜 카탈로그가 2건이라
+         폴백(2건)과 구분되지 않았다. 추측이 개입하면 "우리 문제" 와 "심볼 문제" 를
+         거꾸로 말할 수 있고, 그러면 고객에게 또 잘못된 안내를 하게 된다.
+    */
+    const catalogueLoaded = d.catalogueReady
+      ? d.catalogueReady(isSpot ? 'spot' : 'futures')
+      : undefined;
     return {
       st,
       symbolId: symbol,
       input: {
         mode: d.mode,
         symbol: metaSource[symbol],
+        catalogueLoaded,
         side: (body.side as 'long' | 'short') ?? 'long',
         orderType: (body.orderType as 'market' | 'limit') ?? 'limit',
         price: body.price as string | undefined,

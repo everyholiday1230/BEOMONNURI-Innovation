@@ -72,6 +72,15 @@ export interface Reason {
 
 export interface ValidationContext {
   symbolInfo: SymbolInfo | undefined;
+  /*
+     심볼 카탈로그가 적재됐는가.
+
+     ★★ 이것을 구분하지 않으면 "symbol X is not supported" 라고 말하게 된다.
+       실제로는 **우리가 규격을 못 받은 것**인데 고객은 자기 심볼이 지원되지
+       않는다고 읽고 다른 심볼을 찾아 헤맨다. 실서비스에서 그런 일이 있었다
+       (고객이 90분간 8번 재시도).
+  */
+  catalogueLoaded?: boolean;
   policy: TradingPolicy;
   /** Reference price used for market orders and deviation checks; null when the feed is unavailable. */
   referencePrice: string | null;
@@ -134,7 +143,14 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
   const sym = ctx.symbolInfo;
 
   // ---- symbol ---------------------------------------------------------------
-  if (!sym) {
+  if (!sym && ctx.catalogueLoaded === false) {
+    /*
+       ★★ 우리 쪽 문제임을 분명히 말하고, 다른 코드로 구분한다. 고객이 지원되지
+         않는 심볼이라고 오해하면 있는 기능을 없다고 믿게 된다.
+    */
+    add('symbol.known', 'Symbol is in the catalogue', 'fail', 'catalogue not loaded on our side');
+    block('SYMBOL_CATALOGUE_UNAVAILABLE', 'our exchange symbol catalogue has not loaded yet — this is not your input; please retry shortly');
+  } else if (!sym) {
     add('symbol.known', 'Symbol is in the catalogue', 'fail', `${intent.symbol} not found`);
     block('UNKNOWN_SYMBOL', `symbol ${intent.symbol} is not supported`);
   } else {
