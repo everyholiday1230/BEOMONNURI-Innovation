@@ -1,235 +1,228 @@
-# 🚀 QuantumTrade AI — 팀 전달 패키지
+# ChartControl AI
 
-**작성**: 권누리 대표님, 이혜원 대표님
-**대상**: QuantumTrade AI 엔지니어링 팀
-**날짜**: 2026-08-02
-**상태**: **프론트엔드 100% 완료** · 백엔드/인프라 개발 대기
+AI 차팅 · 트레이딩 터미널. 고객이 **자기 거래소 계정**을 API 키로 연결하고, 우리 화면에서 차트를 보고 주문을 낸다.
 
----
-
-## ⚡ 빠른 시작
-
-### 1단계 · 로컬에서 실행 (30초)
-```bash
-# 이 폴더를 압축 해제 후
-cd team_delivery/
-
-# 정적 파일 서버 실행 (아무거나 선택)
-python3 -m http.server 8080
-# 또는
-npx serve .
-
-# 브라우저에서 열기:
-open http://localhost:8080/index.html
-```
-
-### 2단계 · 문서 읽기 (30분)
-1. **`HANDOFF_SUMMARY.html`** — 시각적 요약 (42 페이지 · 백엔드 To-Do)
-2. **`HANDOFF_TO_ENGINEERING.md`** — 상세 요구사항 (36KB)
-3. **`developer-handoff.html`** — 12-섹션 개발 명세 (JSON schema · State map)
-
-### 3단계 · 프로토타입 탐색
-- 헤더 우측 **USER / OPS / ADMIN / SUPER** role 스위치 클릭
-- 사이드바에서 각 페이지 클릭 → 42개 라우트 전부 실 페이지로 이동
-- `Design` · `Handoff` · `Library` 링크로 문서 접근
+**운영 중이며 실주문이 거래소로 나간다.** 실제 고객의 실제 돈이 움직인다.
 
 ---
 
-## 📦 이 패키지에 포함된 것
+## 이 제품이 하지 않는 것
 
-```
-team_delivery/
-├── 🚀 README.md                      ← 이 문서 (팀 시작 지점)
-├── 📄 HANDOFF_TO_ENGINEERING.md      ⭐ 상세 백엔드 요구사항 (필독)
-├── 🌐 HANDOFF_SUMMARY.html           ⭐ 시각적 페이지 지도
-│
-├── 🌐 index.html                     프론트엔드 진입점 (React SPA)
-├── 🌐 design-system.html             디자인 시스템 카탈로그
-├── 🌐 developer-handoff.html         12-섹션 개발 명세서
-│
-├── 📁 src/                           프론트엔드 소스코드 (22개 파일)
-│   ├── tokens.css                     디자인 토큰 (OKLCH · 4 브랜드)
-│   ├── base.css · components.css · widgets.css · pages.css · pages-auth.css
-│   ├── icons.jsx                      62 SVG 아이콘
-│   ├── mock-data.js · mock-app-data.js · mock-stream.js  ⭐ API 스키마 참조
-│   ├── chart-canvas.jsx               Canvas 2D 차트
-│   ├── widgets.jsx                    트레이딩 위젯
-│   ├── ai-copilot.jsx                 AI Copilot
-│   ├── layout-engine.jsx              24-col 그리드 엔진
-│   ├── tweaks.jsx                     Tweaks Panel
-│   ├── page-shell.jsx                 재사용 PageShell · Sidebar · KPI · Section · Table
-│   ├── pages-user.jsx                 사용자 페이지 (Markets · Portfolio · Analytics 등)
-│   ├── pages-more.jsx                 사용자 추가 페이지 (Deposit · Withdraw · Referral 등)
-│   ├── pages-auth.jsx                 인증 (Landing · Login · Signup · KYC · 404)
-│   ├── pages-admin.jsx                관리자 페이지 (Dashboard · Users · AI Ops 등)
-│   ├── pages-admin-more.jsx           관리자 추가 (KYC · Broadcast · Notice Editor 등)
-│   └── app.jsx                        최상위 앱 (라우팅 · 헤더 · 사이드바)
-│
-└── 📁 design-library/                재사용 UI 라이브러리
-    ├── index.html                      라이브러리 홈 (5단계 워크플로우)
-    ├── components/index.html           30+ 컴포넌트 카탈로그 (Copy 가능)
-    ├── snippets/index.html             14개 코드 스니펫
-    ├── templates/                      페이지 템플릿 5종 (blank/list/detail/form/dashboard)
-    └── guide.md                        페이지 · 컴포넌트 추가 가이드
-```
+먼저 이것부터 적는다. 이전 README 가 여기서 사실과 달랐고, 그 오해가 운영·회계·투자자 설명을 잘못된 방향으로 끌고 갈 수 있다.
 
----
-
-## 📊 프론트엔드 완성 요약
-
-| 항목 | 개수 | 상태 |
-|---|---|---|
-| **Routes / Pages** | 42 | ✅ 100% Hi-fi |
-| **React 컴포넌트** | 48 | ✅ 모두 mount |
-| **재사용 UI Primitives** | 30+ | ✅ 카탈로그화 |
-| **디자인 토큰** | 120+ | ✅ 4 브랜드 · Dark/Light |
-| **User Roles** | 4 | ✅ User · Ops · Admin · Super |
-| **지원 거래소** | 8 | ✅ referral 포함 |
-| **인증 플로우** | 6단계 | ✅ Signup → Email → KYC → Login → 2FA → PW Reset |
-| **관리자 페이지** | 17 | ✅ Dashboard + 16 detail |
-| **Placeholder 페이지** | 0 | ✅ 없음 |
-| **Console errors** | 0 | ✅ 클린 |
-
----
-
-## 🔧 백엔드 팀의 To-Do (10개 카테고리 · P0/P1/P2)
-
-**상세는 `HANDOFF_TO_ENGINEERING.md` 참조. 여기는 요약:**
-
-### 🟥 P0 · 반드시 만들어야 함 (6개)
-1. **인증 · 세션** — OAuth · JWT · 2FA · 세션 관리
-2. **KYC · 규제 준수** — 서류 업로드 · Face match · PEP/Sanctions · AML
-3. **WebSocket · 시세** — 8개 거래소 어댑터 · 캔들 · 오더북 · 체결 스트림
-4. **거래 엔진 · 리스크** — Order matching · 마진 · 청산 · Position tracking
-5. **지갑 · 자산** — Hot/Cold wallet · Multi-sig · 블록체인 노드 · 입금 감지
-6. **AI 모델** — LLM 백엔드 · SSE 스트리밍 · Tool calling · Prompt versioning
-
-### 🟨 P1 · 중요 (3개)
-7. **관리자 백엔드** — 유저 관리 · 감사 로그 · Broadcast
-8. **Referral · 수수료 · 프로모션** — 티어 자동 계산 · **30% 페이백** · 매월 정산
-9. **알림 · CS** — Push (FCM/APNs) · Email · SMS · CS 티켓
-
-### 🟩 P2 · 향후 (1개)
-10. **확장** — 모바일 앱 · 백테스트 엔진 · Copy trading · Developer API
-
----
-
-## 🎯 프론트엔드 → 백엔드 API 매핑 가이드
-
-**`src/mock-app-data.js`가 곧 API 스키마입니다.** 백엔드에서 API를 만들 때 이 파일의 데이터 구조를 그대로 사용하세요.
-
-예:
-```javascript
-// Frontend가 기대하는 응답 형태:
-window.QTApp.EXCHANGES = [
-  {
-    id: 'binance',
-    name: 'Binance',
-    referral: 'https://accounts.binance.com/register?ref=QUANTUM-KURI',
-    referralNote: '수수료 20% 페이백',
-    supportedProducts: ['Spot', 'Perp', 'Futures'],
-    required: ['apiKey', 'apiSecret'],
-    // ...
-  },
-];
-
-// Backend가 만들어야 할 endpoint:
-GET /api/v1/exchanges  →  응답 스키마는 위와 동일
-```
-
-주요 mock → API 매핑:
-- `EXCHANGES` → `GET /api/v1/exchanges` (거래소 리스트 · referral 포함)
-- `USER` → `GET /api/v1/me` (현재 유저)
-- `NOTIFICATIONS` → `GET /api/v1/notifications?filter=`
-- `STRATEGIES` → `GET /api/v1/strategies?filter=&sort=`
-- `TRADE_JOURNAL` → `GET /api/v1/analytics/journal`
-- `ADMIN_USERS` → `GET /api/admin/users?q=&status=`
-- `ADMIN_LIVE_TRADES` → `WS /admin/trades/stream`
-- `ADMIN_RISK_QUEUE` → `GET /api/admin/risk/queue`
-- `ADMIN_AI_METRICS` → `GET /api/admin/ai/metrics`
-- (전체 매핑은 `HANDOFF_TO_ENGINEERING.md` 참조)
-
----
-
-## 🏗️ 팀 이 프론트엔드를 어떻게 활용할 수 있나요?
-
-### 옵션 A · 이 프론트엔드 그대로 배포 (빠른 MVP)
-- 이 프로토타입은 사실상 **static SPA**입니다
-- Nginx/CDN에 그대로 올리고, mock 데이터 부분만 실 API 호출로 교체
-- 예상 소요: **API 통합 2-3주** + 백엔드 개발과 병렬 진행
-
-### 옵션 B · 정식 프레임워크로 리팩터링 (권장)
-- React 18 + TypeScript + Vite + Tailwind + Zustand 조합
-- 이 프로토타입의 **컴포넌트 구조 · 디자인 토큰 · mock 데이터 스키마** 그대로 이식
-- 예상 소요: **프론트엔드 리팩터링 4-6주** (기존 코드 참고하면 빠름)
-
-### 옵션 C · Next.js SSR 프로덕션 앱
-- SEO 필요한 랜딩 · 로그인 등은 SSR
-- 트레이딩 앱은 CSR (React SPA)
-- 예상 소요: 프론트 6-8주
-
-**어느 옵션이든** `src/tokens.css`는 그대로 사용 가능하며,
-`design-library/`는 개발 내내 참조 문서로 활용하세요.
-
----
-
-## 📞 대표님 요청 사항 · 완료 체크리스트
-
-| 요청 | 결과 |
+| 하지 않는 것 | 이유 |
 |---|---|
-| 관리자 페이지 | ✅ 17개 Hi-fi 완성 |
-| 사이드바 실제 페이지 연결 | ✅ 42/42 라우트 |
-| 8개 거래소 referral 링크 | ✅ mock-app-data.js에서 한 곳 편집 |
-| 회원가입 (우리 페이지) | ✅ Signup + Email + KYC 3단계 |
-| Login · 2FA · PW reset | ✅ 모두 hi-fi |
-| 재사용 디자인 라이브러리 | ✅ /design-library/ 완성 |
-| Role 기반 사이드바 | ✅ 4 role 실시간 스위치 |
-| Multi-Chart 별도 페이지 | ✅ /multi-chart · 4 레이아웃 |
-| 관리자 KYC/Deposit/Broadcast | ✅ 실제 큐/에디터 UI |
-| Design Ops (대표님 전용) | ✅ /admin/design-ops (SUPER role only) |
-| 모든 페이지 placeholder 없음 | ✅ 확인 완료 |
+| **고객 자금 보관** | 비수탁이다. 자금은 고객의 거래소 계정에 있다. 우리 지갑·키·온체인 경로가 없다. |
+| **입금 · 출금 처리** | 우리가 승인할 대상이 없다. 출금은 거래소에서 고객 인증으로 일어난다. |
+| **KYC 심사** | 우리는 신원 확인 주체가 아니다. 거래소가 한다. |
+| **수수료 페이백 / 리베이트 지급** | 지급할 지갑이 없다. 리베이트 조건은 `sharePct > 0` 일 때만 화면에 나온다. |
+| **KuCoin 이외 거래소** | 지금은 KuCoin 뿐이다. 어댑터 구조는 확장을 전제로 하지만 붙은 것은 하나다. |
+
+운영자 화면에 `/admin/deposits` · `/admin/withdrawals` · `/admin/assets` 가 남아 있으나, 실서비스에서는 목업 대신 **"우리는 자금을 보관하지 않는다"** 는 설명을 표시한다. 디자인 미리보기(백엔드 없음)에서만 원래 시안이 보인다.
 
 ---
 
-## 🎨 절대 지켜야 할 UX 계약
+## 구조
 
-프론트엔드가 지키는 규칙들 — 백엔드/향후 개발 시에도 유지 필수:
+pnpm 모노레포.
 
-1. **Simulation Stripe** — 데모/페이퍼 모드일 때 상단 노란 스트라이프 상시 표시
-2. **Approve Signal ≠ Submit Order** — AI 신호 승인은 오버레이 확정만. 실 주문은 별도 다단계 확인
-3. **9-gate Risk Check** — 주문 제출 전 SL/TP 방향 · 청산거리 · 잔고 등 9개 검증
-4. **Tabular Numerals** — 모든 가격/수량/퍼센트 `font-variant-numeric: tabular-nums`
-5. **색상 + 방향 이중 표기** — Long/Short는 색만이 아니라 ▲/▼ 아이콘 필수 (WCAG)
-6. **KYC 없이 거래 불가** — L1 이상만 거래 · L2 이상만 출금
-7. **API key Withdraw 권한 절대 금지** — 사용자에게 UI 상시 안내
-8. **Referral 링크는 mock-app-data.js에서만 관리** — 8개 거래소 한 곳에서 편집
+```
+apps/
+  api/                  Hono BFF. 인증 · 주문 · 관리자 · 결제 · 법적문서 · 관측
+  market-gateway/       시세 게이트웨이 서버
+packages/
+  exchange-kucoin/      KuCoin 선물/현물 어댑터 (주문 · 시세 · 브로커 리베이트)
+  exchange-bitmart/     BitMart (폴백으로만 남아 있다 — 2026-08-26 거래 중단)
+  exchange-adapters/    거래소 중립 인터페이스
+  domain/               금액 계산(D) · 리스크 게이트 · 주문 수학
+  schemas/              zod 스키마 (주문 · 심볼)
+  auth/                 세션 · 비밀번호 · 메일 · OAuth
+  mfa/                  TOTP (RFC 6238)
+  admin-domain/         관리자 권한(RBAC) · 불변식
+  admin-schemas/        관리자 요청 스키마
+  ai/                   AI 코파일럿 (도구 호출 · 신호 제안)
+  chart-adapter/        차트 엔진 어댑터
+  market-gateway/       시세 정규화 · 구독 관리
+  observability/        지표
+  cluster/              Redis 분산(레이트리밋 · 잠금)
+  security/ chaos/ strategy/ config/ design-tokens/
+src/                    프론트엔드 (아래 참조)
+infrastructure/postgres/  Postgres 마이그레이션 (0001~0040)
+```
+
+### 프론트엔드는 번들링하지 않는다
+
+`index.html` 이 `src/*.jsx` 를 **브라우저 Babel 로 런타임 변환**해서 로드한다(스크립트 태그 72개). 상태는 `window.*` 전역 스토어로 공유한다.
+
+이 방식의 대가를 정확히 알아둘 것:
+
+- React **개발 빌드**가 프로덕션에 나간다 (`react-dom.development.js`, 1.08MB)
+- Babel 이 런타임에 3.1MB 를 받아서 매번 변환한다
+- 첫 화면이 느리고, 트리 셰이킹·최소화가 없다
+
+빌드 파이프라인을 넣는 것이 남은 큰 과제다. 지금 구조를 모르고 파일을 쪼개면 로드 순서가 깨진다 — `index.html` 의 태그 순서가 곧 의존성 순서다.
 
 ---
 
-## ✅ 배포 전 최종 체크
+## 로컬에서 실행
 
-- [ ] 이 폴더 전체를 Git 저장소에 커밋
-- [ ] `HANDOFF_TO_ENGINEERING.md` 팀 전체 회람
-- [ ] 개발 리드에게 `HANDOFF_SUMMARY.html` + 이 README 오리엔테이션
-- [ ] P0 6개 카테고리 스프린트 계획 수립
-- [ ] `mock-app-data.js` 스키마 → 실 DB 스키마 매핑 회의
-- [ ] 8개 거래소 API 계정 발급 · **대표님 referral 링크 확정**
-- [ ] AI 모델 벤더 선정 (OpenAI · Anthropic · 자체)
-- [ ] 지갑 hosting 결정 (Fireblocks · Custody · 자체 multi-sig)
-- [ ] KYC 벤더 선정 (Onfido · Jumio · Sumsub)
-- [ ] 인프라 결정 (AWS · GCP · 자체)
+```bash
+pnpm install
+
+# API + 정적 파일 (SQLite, 모의 시세, 주문은 모의 처리)
+DATA_MODE=MOCK_REPLAY TRADING_MODE=MOCK \
+API_PORT=8787 API_HOST=127.0.0.1 \
+AUTH_COOKIE_INSECURE=true SQLITE_PATH=/tmp/cc.db \
+pnpm --filter @quantumtrade/api dev
+
+# http://127.0.0.1:8787 에서 화면까지 함께 서빙된다
+```
+
+기본은 SQLite 다. Postgres 로 붙이려면 **두 값을 함께** 줘야 한다 — `DATABASE_URL` 만으로는 전환되지 않는다(테스트가 개발 DB 를 오염시키는 것을 막기 위한 의도적 설계):
+
+```bash
+DATABASE_URL=postgresql://... USE_POSTGRES=true ...
+```
+
+마이그레이션은 **부팅 시 자동 실행되지 않는다.** `migrateUp(pool)` 을 직접 호출하거나 `pnpm test:postgres` 로 적용한다. 서버를 먼저 띄우면 관리자 라우트가 테이블 부재로 비활성화된다.
+
+### 검사
+
+```bash
+npx eslint .                                        # 0 errors 여야 한다
+pnpm -r typecheck                                   # 0 errors 여야 한다
+pnpm --filter @quantumtrade/api exec vitest run     # 1036 passed
+```
+
+`packages/cluster` 의 `redis.integration.test.ts` 는 `REDIS_URL` 없이 실패한다. 기존 문제이고 무관하다.
 
 ---
 
-## 문의 · 이슈
+## 실주문이 나가는 조건
 
-- **디자인 · 프론트 이슈**: 대표님 (권누리 / 이혜원)
-- **이 프로토타입의 참조 코드**: `src/` 폴더의 각 `.jsx` 파일 상단 주석 참조
-- **Design Library 사용법**: `design-library/guide.md`
+한 곳만 봐서는 안 된다. **모두** 만족해야 주문이 거래소로 간다.
+
+```
+FEATURE_LIVE_ORDERS_ENABLED = true
+TRADING_MODE                = 실주문 지원 모드
+LIVE_EXECUTION_MODE         = BITMART_LIVE_TRADE      ← 이름만 BitMart, 실제로는 KuCoin
+LIVE_TRADING_ENABLED        = true
+EMERGENCY_KILL_SWITCH       = false
+DB kill_switches            = global_live_trading · bitmart_live_trading · new_positions 모두 비활성
+```
+
+부팅 로그가 **왜 막혀 있는지** 정확히 출력한다. 막힌 이유를 추측하지 말고 로그를 볼 것.
+
+> **이름 정리 필요**: `BITMART_*` / `bitmart_live_trading` 이 실제로는 KuCoin 을 통제한다. 거래소를 추가하기 전에 거래소 중립 이름으로 바꿔야 한다. 지금 상태로 BitGet 을 붙이면 어느 변수가 어느 거래소를 켜는지 알 수 없게 된다.
 
 ---
 
-**🎯 결론: 프론트엔드는 완료. 이제 백엔드만 만들면 됩니다.**
+## 이 코드베이스의 규칙
 
-*이 패키지는 QuantumTrade AI · Institutional Cool 브랜드 v1.0 기준입니다.*
-*모든 mock 데이터는 결정적(deterministic)이며 실제 자금이 이동하지 않습니다.*
+작업 전에 읽을 것. 여기 적힌 것들은 전부 **실제로 사고가 났던 지점**이다.
+
+### 돈은 십진 문자열로만 다룬다
+
+`D()` (`@quantumtrade/domain`) 를 쓴다. `Number` · `parseFloat` 금지.
+
+> PayPal 결제 확인이 `NUMERIC(24,8)` 의 `"9.99000000"` 과 PayPal 의 `"9.99"` 를 문자열로 비교해 **항상 실패**했다. 고객은 결제되고, 주문은 실패로 기록되고, 포인트는 지급되지 않았다.
+
+### 없는 데이터를 만들지 않는다
+
+- 조회 실패는 "없음" 이 아니다. 빈 배열·0 으로 바꾸지 말고 오류로 표시한다.
+- 기본 TP/SL 가격을 넣지 않는다. 날짜 없는 행에 날짜를 넣지 않는다.
+- `PgIdempotencyStore.get()` 은 실패 시 **던진다**. 멱등성 조회 실패를 "처음 본 주문" 으로 취급하면 중복 주문이 나간다.
+
+> 저장 목록 3곳이 `.catch(() => setItems([]))` 였다. 고객에게는 "저장한 것이 사라졌다" 로, 운영자에게는 "고객 문의 없음" 으로 보였다.
+
+### 요청한 값이 아니라 실제 적용된 값을 보고한다
+
+주문 수량은 **거래소로 보낸 계약수 × 승수**를 돌려준다. `NormalizedOrder.takeProfitPrice` · `endpoint` 도 실제 등록된 값이다.
+
+### 죽은 버튼을 만들지 않는다
+
+`disabled` + 이유를 표기하거나, `src/pending-actions.js` 의 전역 "준비 중" 토스트에 맡긴다. 눌러도 조용히 아무 일 없는 버튼은 금지다.
+
+### 틀린 기준으로 검증하지 않는다
+
+이 유형이 고객 불만의 실제 원인이었다.
+
+- 마진 모드: 고객 선택이 아니라 **거래소에 설정된 모드**로 주문한다(`getMarginMode`). 불일치하면 KuCoin 이 거부한다.
+- 현물 주문은 **현물 규격**으로 검증한다. 선물 수량은 계약수, 현물은 코인 수다. 선물 심볼 669개 / 현물 1006개로 카탈로그도 다르다.
+- 상한(레버리지 · 주문금액 · 포지션수 · 일일주문 · 일일손실)의 **0 또는 빈 값은 "제한 없음"** 이다. 비교식에서 이걸 처리하지 않으면 `0 < 0` 이 거짓이 되어 모든 주문이 막힌다.
+
+### 작동할 수 없는 안전장치를 "통과" 로 표시하지 않는다
+
+`dailyLossSoFar` 는 아직 측정 경로가 없다(`'0'` 고정). 그래서 일일 손실 한도가 설정돼 있으면 게이트는 **거부**한다 — 통과로 보고하면 운영자가 보호받는다고 착각한다.
+
+### 의미→거래소 변환은 한 곳에서만
+
+TP/SL 의 위/아래 방향 매핑은 단 한 군데 있다. 뒤집히면 손절 자리에 익절이 걸린다.
+
+### 주석은 "왜" 를 적는다
+
+`★` / `★★` 표시로 **막으려는 실패 모드**를 함께 적는다. 이 코드베이스의 주석은 장식이 아니라 사고 기록이다.
+
+> 반대로, 코드와 어긋난 주석은 없는 것보다 나쁘다. `trade-mode.js` 에 "현물은 주문을 낼 수 없다" 고 적혀 있었고 바로 아랫줄이 `orderPath: 'live'` 였다. 실제로 고객 현물 주문이 거래소까지 갔다.
+
+---
+
+## 관측
+
+문제를 **고객보다 먼저** 알기 위한 장치다. 이전에는 없었다.
+
+- 서버 예외 → `app.onError` → `ops_errors` 기록. 응답에는 추적 ID 만 담는다(예외 메시지에 쿼리문·접속문자열이 섞여 나간다).
+- 브라우저 오류 → `POST /api/ops/client-error` → 같은 저장소
+- **원인당 1행.** 지문 계산에서 UUID · 숫자 · 따옴표 값과 스택의 행:열을 지운다. 안 그러면 한 버그가 수천 행이 되어 목록을 읽을 수 없고 알림이 폭주한다.
+- 새 오류는 `OPS_ALERT_EMAIL`(없으면 `MAIL_FROM`) 로 메일 발송. **지문당 1시간 1통.**
+- 운영자 화면: `/admin/system` → "Errors (last 24h)"
+
+기록·발송 실패는 절대 요청을 깨뜨리지 않는다. Postgres 가 없으면 부팅 로그가 "기록 꺼짐" 이라고 밝힌다.
+
+---
+
+## 권한
+
+```
+USER < PRO_USER < SUPPORT / ANALYST < ADMIN < SUPER_ADMIN
+```
+
+- 좌측 내비게이션은 `OPS → ADMIN → SUPER` 순으로 나뉜다. 등급은 각 항목의 `roles` 에서 자동으로 정해지므로 표시와 실제 권한이 어긋날 수 없다.
+- **회원 삭제는 SUPER_ADMIN 전용**이다. `ADMIN` 은 `admin.user.delete` 를 갖지 않는다.
+- 되돌릴 수 없는 작업은 재인증 + 사유 + 감사기록을 요구한다.
+- 권한 검사는 서버가 한다. 화면의 `roles` 배열은 표시용이다.
+
+---
+
+## 배포
+
+Render. Postgres + 웹 서비스. 자동 배포는 꺼져 있고(`autoDeployTrigger: 'off'`) 배포는 명시적으로 트리거한다.
+
+```bash
+# 배포 전
+npx eslint . && pnpm -r typecheck && pnpm --filter @quantumtrade/api exec vitest run
+```
+
+프론트엔드는 CDN 캐시 때문에 배포 직후 이전 파일이 응답할 수 있다. 배포 확인은 캐시 우회 쿼리(`?cb=$RANDOM`)로 마커를 grep 해서 한다.
+
+**신규 마이그레이션은 배포와 별도로 적용해야 한다.** 부팅 시 자동 실행되지 않는다.
+
+---
+
+## 알려진 미해결 과제
+
+| 항목 | 영향 |
+|---|---|
+| React 개발 빌드 + 런타임 Babel | 첫 화면 로딩이 느리다 |
+| `BITMART_*` 이름이 KuCoin 을 통제 | 거래소 추가 시 혼란 |
+| `dailyLossSoFar` 측정 경로 없음 | 일일 손실 한도를 실제로 걸 수 없다 |
+| 과거 AI 대화 선택 UI 없음 | 저장·자동복원은 되지만 목록에서 고를 수 없다 |
+| e2e 하네스가 없는 패키지를 참조 | `@quantumtrade/web` — e2e 가 돌지 않는다 |
+| 마이그레이션 드리프트 | Postgres 0040 · SQLite 0015 |
+| `src/widgets.jsx` 111KB · `src/pages-user.jsx` 4295행 | 수정 위험이 크다 |
+
+---
+
+## 이름에 대한 메모
+
+패키지 스코프가 `@quantumtrade/*` 다. 제품명은 **ChartControl AI** 로 바뀌었지만 패키지 이름은 그대로다. 브랜드 문자열은 사전 한 곳에서만 정하므로(`i18n.js`), 화면에는 올바른 이름이 나온다.
