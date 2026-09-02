@@ -2722,10 +2722,25 @@
      *
      * ★ 사유는 4~500자를 요구한다(Reason 스키마). 빈 문자열이면 422 다.
      */
-    setUserRole: function (id, newRole, reason) {
+    /*
+       역할 변경.
+
+       ★★ reauth 를 **반드시** 보낸다.
+
+         서버 RoleChangeSchema 가 reauth 를 필수로 요구하는데(권한 상승 경로라
+         재인증을 거치게 만들었다) 이 메서드는 보내지 않았다. 그래서 스키마 파싱이
+         실패해 **400 "invalid role change" 로 100% 실패**했다. 서버 쪽만 강화하고
+         호출자를 함께 고치지 않아 생긴 문제다.
+
+       ★ reauth 는 호출자가 확인 절차(사유 입력 등)를 거쳤다는 표시다. 기본값을
+         true 로 두지 않고 인자로 받는다 — 확인 없이 부르는 곳이 생기면 그 사실이
+         호출부에 드러나야 한다.
+    */
+    setUserRole: function (id, newRole, reason, reauth) {
       return sendJSON('PATCH', '/api/admin/users/' + encodeURIComponent(id) + '/role', {
         newRole: newRole,
         reason: reason || '',
+        reauth: reauth === true,
       });
     },
 

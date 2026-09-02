@@ -361,6 +361,41 @@
       setBusy(false);
     };
 
+    /*
+       역할 변경.
+
+       ★★ 서버 API 는 있었고 api-client 메서드도 있었지만 **어떤 화면도 부르지
+         않았다.** 즉 운영자는 직원을 임명·해임할 방법이 없었다. 게다가 그
+         메서드는 reauth 를 보내지 않아 불렀어도 400 으로 실패했다.
+
+       ★ 권한 상승 경로다(USER → SUPER_ADMIN 도 가능). 그래서 사유를 받고 그것을
+         재인증 확인으로 서버에 전달한다. 서버는 canAssignRole 불변식으로
+         마지막 SUPER_ADMIN 강등 등을 따로 막는다 — 화면을 믿지 않는다.
+    */
+    const ROLE_CHOICES = ['USER', 'PRO_USER', 'SUPPORT', 'ANALYST', 'ADMIN', 'SUPER_ADMIN'];
+    const changeRole = async (newRole) => {
+      const api = window.QTApi && window.QTApi.admin;
+      const u = detail.user;
+      if (!api || !api.setUserRole || !u || !newRole || newRole === u.role) return;
+      // eslint-disable-next-line no-alert
+      const reason = window.prompt(t('adm_role_reason', { from: u.role, to: newRole }), '');
+      if (reason === null) return;
+      if (String(reason).trim().length < 4) { setActionMsg({ kind: 'warn', text: t('adm_reason_too_short') }); return; }
+      setBusy(true); setActionMsg(null);
+      try {
+        const r = await api.setUserRole(u.id, newRole, String(reason).trim(), true);
+        if (r && r.error) {
+          setActionMsg({ kind: 'err', text: r.error.message || t('adm_action_failed') });
+        } else {
+          setActionMsg({ kind: 'ok', text: t('adm_role_done', { to: newRole }) });
+          load();
+        }
+      } catch (e) {
+        setActionMsg({ kind: 'err', text: (e && e.message) || t('adm_action_failed') });
+      }
+      setBusy(false);
+    };
+
     /** 세션 전체 종료 — 계정 탈취 대응. 서버 API 가 있는데 화면에 없었다. */
     const revokeSessions = async () => {
       const api = window.QTApi && window.QTApi.admin;
@@ -673,6 +708,8 @@
     };
 
     const canStatus = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.user.status.write'));
+    // ★ 역할 변경 권한은 별개다(admin.role.write). 상태 변경 권한으로 대신하지 않는다.
+    const canRole = Boolean(window.QTAdmin && window.QTAdmin.can && window.QTAdmin.can('admin.role.write'));
 
     /*
        조회가 끝나지 않았거나 실패한 상태.
@@ -831,6 +868,25 @@
               <button className="btn btn--sm" type="button" disabled={busy} onClick={revokeSessions} title={t('adm_revoke_hint')}>
                 <I.Lock size={13}/> {t('adm_revoke_sessions')}
               </button>
+            )}
+            {/*
+               역할 변경 — 서버 API·클라이언트 메서드는 있었지만 화면이 없었다.
+               ★ 권한은 서버가 판단한다(canAssignRole). 여기서 목록을 좁히는 것은
+                 편의일 뿐이고, 화면을 우회해도 서버가 막는다.
+            */}
+            {canRole && (
+              <label style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:11.5}}>
+                <span style={{color:'var(--color-text-secondary)'}}>{t('adm_role_label')}</span>
+                <select
+                  className="btn btn--sm"
+                  value={u.role}
+                  disabled={busy}
+                  onChange={(e) => changeRole(e.target.value)}
+                  aria-label={t('adm_role_label')}
+                >
+                  {ROLE_CHOICES.map((rc) => <option key={rc} value={rc}>{rc}</option>)}
+                </select>
+              </label>
             )}
             {canStatus && !(u.email_verified || u.emailVerified) && (
               <button className="btn btn--sm" type="button" disabled={busy} onClick={verifyEmail} title={t('adm_verify_email_hint')}>

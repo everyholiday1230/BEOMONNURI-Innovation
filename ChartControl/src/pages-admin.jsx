@@ -391,6 +391,15 @@
                     {t('adm_killswitch_on', { n: switches.filter(k => k.enabled || k.active || k.engaged).length })}
                   </div>
                 )}
+                {/*
+                   ★★ 조작 링크. 예전에는 "몇 개 켜져 있음" 만 보여주고 **끄고 켤 방법이
+                     없었다.** 부팅 로그는 "관리자 콘솔에서 끄십시오" 라고 안내하는데
+                     갈 곳이 없었고, 이제 이 스위치들이 실주문을 실제로 막으므로
+                     비상정지를 비상시에 풀 수 없는 상태였다.
+                */}
+                <a className="btn btn--sm" href="#/admin/system" style={{textDecoration:'none', alignSelf:'flex-start'}}>
+                  {t('ks_title')}
+                </a>
               </div>
             ) : (
             <div style={{display:'flex', flexDirection:'column', gap: 6}}>
@@ -2185,6 +2194,9 @@
             />
           )}
         </window.SectionCard>
+
+        {/* 킬스위치 조작 — 이 화면이 없어서 비상정지를 화면에서 풀 수 없었다. */}
+        {window.AdminKillSwitchPanel && <window.AdminKillSwitchPanel/>}
 
         {window.AdminBugReportsPanel && <window.AdminBugReportsPanel/>}
       </window.PageShell>
