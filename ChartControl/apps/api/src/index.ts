@@ -41,6 +41,7 @@ import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
+import { D } from '@quantumtrade/domain';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import { PgOpsErrorStore } from './ops/error-store';
 import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
@@ -539,6 +540,12 @@ app.get('/api/market/symbols', async (c) => {
    그래서 여기서 선언만 하고 풀이 준비되면 채운다. 채워지기 전 요청은
    supported:false 를 받는다 — 빈 목록으로 위장하지 않는다.
 */
+/*
+   ★ 거래일지 저장소. 분석 화면과 **일일 손실 한도 게이트**가 같은 인스턴스를 쓴다.
+     따로 만들면 한쪽이 Postgres, 다른 쪽이 SQLite 를 보게 되어 게이트가 빈
+     테이블을 읽는다 — 일일 주문 한도에서 실제로 그런 사고가 있었다.
+*/
+let journalRepo: import('./db/journal-repo').IJournalRepo | null = null;
 let noticeRepo: PgNoticeRepo | null = null;
 
 /*
@@ -2343,7 +2350,7 @@ if (env.authEnabled) {
     // the seam a PostgreSQL implementation slots into, like the other user-data repos.
     app.route('/api', createAnalyticsRouter({
       service: authService,
-      repo: core.pool ? new PgJournalRepo(core.pool) : new SqliteJournalRepo(db),
+      repo: (journalRepo = core.pool ? new PgJournalRepo(core.pool) : new SqliteJournalRepo(db)),
       posture: tradingPosture,
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
@@ -2796,6 +2803,28 @@ if (env.authEnabled) {
                 return (await accountAdapter.getPositions(ctx)).length;
               } catch {
                 // Unknown, NOT zero: a failed read must not satisfy a position limit.
+                return null;
+              }
+            },
+            /*
+               오늘(UTC) 실현손실. 손실이면 양수로 돌려준다.
+
+               ★★ 예전에는 이 입력이 '0' 으로 고정돼 있었다. 그래서 운영자가 일일
+                 손실 한도를 걸어도 `0 <= 한도` 가 언제나 참이라 게이트가 영원히
+                 통과했다 — 한도를 걸었다고 믿는데 아무 것도 막지 않았다.
+
+               ★ 조회에 실패하면 null 이다. 0 을 돌려주면 "손실 없음" 이라는 사실
+                 주장이 되어 한도가 무력해진다. null 이면 게이트가 거부한다.
+
+               ★ 이익이면 손실 0 이다(음수 손실은 한도를 우회하는 값이 된다).
+            */
+            dailyRealizedLoss: async (userId, dayStartMs) => {
+              if (!journalRepo) return null;
+              try {
+                const sum = await journalRepo.dailyPnl(userId, { from: dayStartMs, to: Date.now() });
+                const pnl = D(String(sum.totalRealizedPnl));
+                return pnl.lt(0) ? pnl.negated().toString() : '0';
+              } catch {
                 return null;
               }
             },

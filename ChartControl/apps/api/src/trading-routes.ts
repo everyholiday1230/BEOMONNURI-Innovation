@@ -181,6 +181,19 @@ export interface TradingRouterDeps {
     openPositions?(ctx: ExchangeContext): Promise<number | null>;
     /** Market data freshness for the symbol. */
     marketDataStatus?(symbol: string): 'LIVE' | 'STALE' | 'UNAVAILABLE';
+    /*
+       오늘(UTC) 실현손익. 손실이면 **양수 손실액**으로 돌려준다.
+
+       ★★ 없으면 일일 손실 한도를 강제할 수 없다. 예전에는 dailyLossSoFar 가
+         '0' 으로 고정돼 있어, 운영자가 한도를 걸어도 `0 <= 한도` 가 언제나 참이라
+         게이트가 영원히 통과했다. 지금은 측정 불가를 게이트가 거부로 다루므로
+         (risk-engine 의 dailyLossKnown) 한도를 걸면 주문이 막힌다. 이 함수가
+         그 상태를 실제 측정으로 바꾼다.
+
+       ★ 조회할 수 없으면 null 이다. 0 을 돌려주면 "손실 없음" 이라는 사실 주장이
+         되어 한도를 무력화한다 — 모르는 것과 0 은 다르다.
+    */
+    dailyRealizedLoss?(userId: string, dayStartMs: number): Promise<string | null>;
   };
 }
 
@@ -331,6 +344,8 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     credentialStatus: 'VERIFIED' | 'FAILED' | 'NONE';
     futureTradePermissionVerified: boolean;
     dailyOrderCount: number;
+    /** 오늘 실현손실(양수 = 손실). null = 측정 불가 — 0 과 구분해야 한다. */
+    dailyLossSoFar: string | null;
     openPositions: number;
     marketDataStatus: 'LIVE' | 'STALE' | 'UNAVAILABLE';
     unknown: string[];
@@ -353,6 +368,28 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     } else {
       unknown.push('dailyOrderCount');
     }
+
+    /*
+       오늘 실현손실.
+
+       ★ 하루 경계는 **UTC 자정**이다. 거래소 정산과 회계 기준을 맞추고, 서버
+         시간대에 따라 한도가 달라지지 않게 한다.
+
+       ★★ 조회에 실패하면 null 로 남긴다. 0 으로 채우면 "오늘 손실 없음" 이라는
+         거짓 사실이 되어 한도가 무력해진다. null 이면 게이트가 거부한다.
+    */
+    let dailyLossSoFar: string | null = null;
+    if (d.riskState?.dailyRealizedLoss) {
+      const dayStart = Date.UTC(
+        new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(),
+      );
+      try {
+        dailyLossSoFar = await d.riskState.dailyRealizedLoss(userId, dayStart);
+      } catch {
+        dailyLossSoFar = null;
+      }
+    }
+    if (dailyLossSoFar === null) unknown.push('dailyLossSoFar');
 
     let openPositions = 0;
     if (d.riskState?.openPositions && verified) {
@@ -390,7 +427,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     unknown.push('dailyLossSoFar');
 
     void userStatus;
-    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, openPositions, marketDataStatus, unknown };
+    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, openPositions, marketDataStatus, unknown };
   }
 
   /** Builds the risk-engine input from a request body plus resolved real state. */
@@ -460,11 +497,14 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         futureTradePermissionVerified: st.futureTradePermissionVerified,
         dailyOrderCount: st.dailyOrderCount,
         /*
-           ★ 출처가 없다. 이 값이 '0' 이면 일일손실 게이트가 항상 통과한다는 뜻이고,
-             그 사실은 resolveRiskState 에서 unknownInputs('dailyLossSoFar') 로
-             보고된다. 여기서 조용히 0 을 넣고 끝내지 않는다.
+           ★★ 오늘 실현손실. 이제 **실제 값**이다(예전에는 '0' 고정이었다).
+
+             측정하지 못하면 dailyLossKnown 이 false 로 가고, 한도가 설정돼 있으면
+             risk-engine 이 통과 대신 거부한다 — 한도를 걸었는데 아무 것도 막지
+             못하는 상태를 만들지 않는다.
         */
-        dailyLossSoFar: '0',
+        dailyLossSoFar: st.dailyLossSoFar ?? '0',
+        dailyLossKnown: st.dailyLossSoFar !== null,
         openPositions: st.openPositions,
         marketDataStatus: st.marketDataStatus,
       },

@@ -401,3 +401,66 @@ describe('SPOT-META 현물 주문은 현물 심볼 규격을 쓴다', () => {
     expect(gatesOf(b, 'minQty')!.status).toBe('fail');
   });
 });
+
+/*
+   DAILY-LOSS — 일일 손실 한도가 **실제 측정값**으로 판정된다.
+
+   ★★ 예전에는 dailyLossSoFar 가 '0' 으로 고정돼 있었다. 그래서 운영자가 한도를
+     걸어도 `0 <= 한도` 가 언제나 참이라 게이트가 영원히 통과했다 — 한도를 걸었다고
+     믿는 동안 아무 것도 막지 않았다. 이제 riskState.dailyRealizedLoss 로 읽고,
+     읽을 수 없으면 통과가 아니라 거부한다.
+*/
+describe('DAILY-LOSS 일일 손실 한도', () => {
+  const gate = (b: { gates: { id: string; status: string; detail: string }[] }) =>
+    b.gates.find((g) => g.id === 'policy.dailyLoss')!;
+  const validate = async (extra: Partial<Parameters<typeof createTradingRouter>[0]>, email: string) => {
+    const { app } = build(undefined, extra);
+    const jar = await login(app, email);
+    return (await reqA(app, 'POST', '/api/trading/orders/validate', {
+      jar, csrf: true,
+      body: { symbol: 'BTCUSDT', side: 'long', orderType: 'limit', price: '68000', quantity: '0.01', leverage: 5 },
+    })).json() as Promise<{ gates: { id: string; status: string; detail: string }[]; unknownInputs?: string[] }>;
+  };
+  const riskState = (loss: string | null) => ({
+    countOrdersSince: () => 0,
+    dailyRealizedLoss: async () => loss,
+  });
+
+  it('[L1] 한도가 없으면 손실이 있어도 통과하고 이유를 밝힌다', async () => {
+    const b = await validate({ riskState: riskState('500'), policy: { ...POLICY, dailyLossLimit: '' } }, 'dl1@ex.com');
+    expect(gate(b).status).toBe('ok');
+    expect(gate(b).detail).toContain('no operator cap');
+  });
+
+  it('[L2] ★★ 한도 안쪽의 실제 손실은 통과한다 (측정값을 쓴다)', async () => {
+    const b = await validate({ riskState: riskState('100'), policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl2@ex.com');
+    expect(gate(b).status).toBe('ok');
+    expect(gate(b).detail).toContain('100');
+  });
+
+  it('[L3] ★★ 한도를 넘은 실제 손실은 막는다 — 예전에는 항상 통과했다', async () => {
+    const b = await validate({ riskState: riskState('1500'), policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl3@ex.com');
+    expect(gate(b).status).toBe('fail');
+  });
+
+  it('[L4] ★★ 측정할 수 없는데 한도가 있으면 거부한다 (통과로 위장하지 않는다)', async () => {
+    const b = await validate({ riskState: riskState(null), policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl4@ex.com');
+    expect(gate(b).status).toBe('fail');
+    expect(gate(b).detail).toContain('not measured');
+    expect(b.unknownInputs ?? []).toContain('dailyLossSoFar');
+  });
+
+  it('[L5] 조회 함수가 아예 없으면 측정 불가로 보고한다', async () => {
+    const b = await validate({ riskState: { countOrdersSince: () => 0 }, policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl5@ex.com');
+    expect(gate(b).status).toBe('fail');
+    expect(b.unknownInputs ?? []).toContain('dailyLossSoFar');
+  });
+
+  it('[L6] 조회가 예외를 던져도 게이트는 거부로 끝난다(요청이 깨지지 않는다)', async () => {
+    const b = await validate({
+      riskState: { countOrdersSince: () => 0, dailyRealizedLoss: async () => { throw new Error('db down'); } },
+      policy: { ...POLICY, dailyLossLimit: '1000' },
+    }, 'dl6@ex.com');
+    expect(gate(b).status).toBe('fail');
+  });
+});
