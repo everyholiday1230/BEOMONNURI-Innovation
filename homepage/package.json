@@ -1,0 +1,25 @@
+{
+  "name": "beomon-ai-homepage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Responsive AI company homepage for Beomon Nuri Innovation Co., Ltd.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "lucide-static": "^1.18.0",
+    "sharp": "^0.35.1",
+    "typescript": "latest",
+    "vite": "latest",
+    "wrangler": "^4.86.0"
+  },
+  "overrides": {
+    "esbuild": ">=0.28.1",
+    "ws": ">=8.21.0"
+  }
+}
