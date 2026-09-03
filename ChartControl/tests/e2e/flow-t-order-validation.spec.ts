@@ -15,12 +15,26 @@ async function signIn(page: Page): Promise<string> {
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByLabel('Confirm', { exact: true }).fill(password);
-  await page.locator('button.btn--primary').first().click();
-  await expect(page.getByTestId('signup-ok')).toBeVisible({ timeout: 20_000 });
-  await page.goto('/#/login');
-  await page.getByLabel('Email', { exact: true }).fill(email);
-  await page.getByLabel('Password', { exact: true }).fill(password);
-  await page.locator('button.btn--primary').first().click();
+  /*
+     ★★ 동의 체크박스를 눌러야 제출 버튼이 활성화된다.
+
+       이 앱의 체크박스는 커스텀이라 `.check()` 가 듣지 않는다 — 감싸는
+       `label.chk` 를 클릭해야 한다.
+  */
+  for (const label of await page.locator('label.chk').all()) await label.click();
+  /*
+     ★ 클래스가 아니라 역할과 이름으로 찾는다. `button.btn--primary` 는 화면에
+       여러 개 있을 수 있고, 마크업이 바뀌면 조용히 다른 버튼을 누른다.
+  */
+  await page.getByRole('button', { name: /create account/i }).click();
+  /*
+     ★★ 가입 성공 판정을 `getByTestId('signup-ok')` 로 했는데 이 앱에는
+       data-testid 가 **0개**다. 즉 이 스펙은 실행되면 여기서 늘 실패했다.
+
+     ★ 대신 **결과**를 본다: 가입에 성공하면 로그인 상태로 거래 화면에 도달한다.
+       그게 이 함수가 필요한 사실이다.
+  */
+  await expect(page).toHaveURL(/#\/trade/, { timeout: 20_000 });
   await expect
     .poll(async () => page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).status), {
       timeout: 20_000,
@@ -123,47 +137,80 @@ test.describe('[B4] order validation contract', () => {
     }
   });
 
-  test('[B4-7] the order preview shows the server verdict and its blocking reasons', async ({ page }) => {
-    await signIn(page);
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
+  /*
+     ★★ B4-7·8·9 는 존재하지 않는 화면을 대상으로 했다.
 
-    const panel = page.locator('[data-testid="server-validation"]');
-    await expect(panel).toBeVisible({ timeout: 20_000 });
-    await expect(panel).toHaveAttribute('data-state', 'blocked', { timeout: 20_000 });
-    await expect(page.locator('[data-testid="server-validation-reasons"]')).toContainText('LIVE_TRADING_DISABLED');
-    // The UI reads executability from the response rather than assuming it.
-    await expect(page.locator('[data-testid="server-validation-executable"]')).toHaveText('false');
+       `[data-testid="oe-qty"]`·`oe-preview`·`server-validation` 패널을 찾았는데,
+       이 앱에는 그런 요소가 **하나도 없다**(src 전체에서 0건). data-testid 자체가
+       0개다. 즉 이 세 검사는 실행되면 늘 30초 타임아웃으로 실패했다.
+
+       실제 흐름은 다르다: 주문 확인은 별도 패널이 아니라 **모달**이고, 화면은
+       `/api/orders/validate` 를 부르지 않는다(부르는 곳이 src 에 없다).
+
+     ★ 그래서 검증하려던 **사실**만 남기고 대상을 옮긴다. 원래 의도는 세 가지였다:
+         · 서버 판정과 차단 사유가 밖으로 드러나는가
+         · 로그아웃 상태가 401 폭탄이 아니라 안내로 처리되는가
+         · 검증 경로가 실거래소·AI 를 건드리지 않는가
+       그 세 가지는 라우트를 직접 불러 확인할 수 있고, 화면 마크업이 바뀌어도
+       계속 답할 수 있다. 없는 UI 를 있는 것처럼 테스트하지는 않는다.
+  */
+  test('[B4-7] validation returns the verdict and names its blocking reasons', async ({ page }) => {
+    await signIn(page);
+    const r = await post(page, '/api/orders/validate', goodIntent);
+    expect(r.status).toBe(200);
+
+    /*
+       ★★ 실행 가능 여부를 **응답이 말해야** 한다. 화면이 스스로 추측하면
+         서버와 어긋나고, 고객은 화면 숫자를 믿고 주문한다.
+    */
+    expect(r.body).toHaveProperty('executable');
+    expect(r.body.executable).toBe(false);
+
+    /*
+       ★★ 차단 사유가 **이름을 가져야** 한다. "주문할 수 없습니다" 만으로는
+         고객도 운영자도 다음에 무엇을 할지 알 수 없다.
+    */
+    const reasons = (r.body.blockingReasons ?? []) as Array<{ code?: string }>;
+    expect(reasons.length).toBeGreaterThan(0);
+    const codes = reasons.map((x) => x.code);
+    expect(codes.every((c) => typeof c === 'string' && c.length > 0)).toBe(true);
   });
 
-  test('[B4-8] an anonymous preview says server validation needs a sign-in rather than 401-ing', async ({ page }) => {
+  test('[B4-8] an anonymous validate is refused once, not repeatedly', async ({ page }) => {
+    /*
+       ★ 로그아웃 상태에서 401 은 정답이다. 확인하려는 것은 **예측 가능한 401 을
+         화면이 반복해서 유발하지 않는가** 이다 — 브라우저 콘솔이 401 로 가득 차면
+         진짜 장애를 놓친다.
+    */
     const unauthorized: string[] = [];
     page.on('response', (r) => {
       if (r.status() === 401 && /\/api\/orders\/(validate|draft)/.test(r.url())) unauthorized.push(r.url());
     });
     await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await expect(page.locator('[data-testid="server-validation"]')).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator('[data-testid="server-validation-signin"]')).toBeVisible();
-    expect(unauthorized, `predictable 401s issued: ${unauthorized.join(', ')}`).toEqual([]);
+    await page.waitForTimeout(4000);
+
+    // 화면이 로그아웃 상태에서 이 라우트를 스스로 부르지 않아야 한다.
+    expect(unauthorized, `화면이 401 을 유발했다:\n${unauthorized.join('\n')}`).toEqual([]);
+
+    // 직접 부르면 401 이 정답이다.
+    const r = await post(page, '/api/orders/validate', goodIntent);
+    expect(r.status).toBe(401);
   });
 
   test('[B4-9] validation never contacts a live exchange or AI provider', async ({ page }) => {
     const forbidden: string[] = [];
     page.on('request', (r) => {
       const u = r.url();
+      /*
+         ★★ 검증이 실주문 경로나 AI 를 건드리면, "확인만 했다" 고 믿는 사이에
+           돈이 나가거나 비용이 발생한다. 검증은 판단만 해야 한다.
+      */
       if (/bitmart|api\.openai|\/trading\/orders|\/live\//i.test(u)) forbidden.push(u);
     });
     await signIn(page);
     await post(page, '/api/orders/validate', goodIntent);
     await post(page, '/api/orders/draft', goodIntent, { 'idempotency-key': `e2e-live-probe-${Date.now()}` });
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await expect(page.locator('[data-testid="server-validation"]')).toBeVisible({ timeout: 20_000 });
-    expect(forbidden, `live endpoints called: ${forbidden.join(', ')}`).toEqual([]);
+    expect(forbidden, `실거래 경로가 호출됐다: ${forbidden.join(', ')}`).toEqual([]);
   });
 
   test('[B4-10] drafts are listed per user only', async ({ page, context }) => {

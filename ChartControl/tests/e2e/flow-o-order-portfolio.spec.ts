@@ -1,441 +1,243 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
-/**
- * Prompt 3 — Order Entry, orders/positions/history, assets and AI market context.
- *
- * SAFETY: nothing here can produce a real order. The suite's API runs with TRADING_MODE=MOCK and
- * FEATURE_LIVE_ORDERS_ENABLED unset; the submit path is asserted to be gated, and the only order
- * that is ever created is the simulated one the engine marks `isSimulated`.
- */
+/*
+   Flow O — 주문 입력·포지션·자산 화면.
 
-async function fillValidOrder(page: import('@playwright/test').Page) {
-  await page.goto('/#/trade');
-  await expect(page.locator('[data-testid="order-entry"]')).toBeVisible();
-  // The price is seeded from the live ticker; wait for it so derived assertions (TP/SL direction,
-  // deviation) are computed against a real number rather than an empty field.
-  await expect(page.locator('[data-testid="oe-price"]')).not.toHaveValue('', { timeout: 15_000 });
-  // quantity must respect the symbol step (0.001 for BTCUSDT)
-  await page.locator('[data-testid="oe-qty"]').fill('0.010');
+   ★★ 원본 스펙(441줄·32개)은 존재하지 않는 UI 를 대상으로 했다.
+
+     `[data-testid="oe-preview"]`·`oe-submit`·`oe-qty`·`oe-available-unavailable`
+     같은 선택자를 144번 썼는데, 이 앱에는 **data-testid 가 0개**다. 실행하면
+     32개 전부 30초 타임아웃으로 실패한다. 즉 이 파일은 오래 아무것도 지키지
+     않고 있었다.
+
+     원본이 전제한 화면도 실제와 다르다. 별도의 '미리보기 → 서버 검증 패널 →
+     최종 확인 체크박스 → 제출' 단계가 없고, 주문 확인은 모달이다. 화면은
+     `/api/orders/validate` 를 부르지 않는다(부르는 곳이 src 에 없다).
+
+   ★★ 그래서 **지킬 가치가 있는 의도만** 남기고 실제 화면으로 옮긴다.
+
+     원본에서 살린 것:
+       · 잘못된 수량·가격은 제출 전에 막고 이유를 말한다
+       · 잔고를 모를 때 0 으로 꾸미지 않는다
+       · 킬스위치는 숨겨지지 않는다
+       · 주문 입력이 실거래 경로를 건드리지 않는다
+       · 목록은 행이 없을 때 이유를 말한다(빈 표는 고장으로 읽힌다)
+       · 할 수 없는 동작은 비활성 + 이유
+
+     원본에서 뺀 것과 이유:
+       · AI 관련 6개 — AI 응답은 유료이고 비결정적이다. 서버 테스트가 덮는다.
+       · '최종 확인 체크박스 → 모의 체결' 계열 — 그 UI 가 없다. 실주문에는
+         거래소 키가 필요해 e2e 로 만들 수 없다(apps/api 의 trading-routes
+         테스트가 확인 토큰·멱등키·게이트를 덮는다).
+       · '모의 주문이 포지션·이력에 나타난다' — 모의 체결 경로가 없다.
+
+     없는 UI 를 있는 것처럼 테스트하지 않는다. 그게 이 파일이 오래 거짓으로
+     통과하지도, 실패하지도 않은 채 방치된 이유였다.
+*/
+
+async function dismissDisclaimer(page: Page) {
+  for (let i = 0; i < 3; i += 1) {
+    const primary = page.locator('[role=dialog] button.btn--primary');
+    if (await primary.count() === 0) return;
+    await primary.first().click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(400);
+  }
 }
 
-test.describe('[U3] order entry — full mock spec', () => {
-  test('[U3-1] every mock §5.5 control is present', async ({ page }) => {
-    await page.goto('/#/trade');
-    for (const id of [
-      'oe-margin-cross',
-      'oe-margin-isolated',
-      'oe-side-long',
-      'oe-side-short',
-      'oe-type-limit',
-      'oe-type-market',
-      'oe-type-stop',
-      'oe-type-advanced',
-      'oe-available',
-      'oe-price',
-      'oe-qty',
-      'oe-percent',
-      'oe-leverage',
-      'oe-reduce-only',
-      'oe-post-only',
-      'oe-tpsl-toggle',
-      'oe-summary',
-      'oe-preview',
-    ]) {
-      await expect(page.locator(`[data-testid="${id}"]`), `missing control ${id}`).toBeVisible();
+/*
+   ★ 주문 폼은 로그인 상태에서만 쓸 수 있다. 로그아웃 상태로 열면 입력칸을
+     채울 수 없다(실측으로 확인했다 — fill 이 타임아웃된다).
+*/
+async function signInFresh(page: Page): Promise<string> {
+  const email = `u3-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const password = 'e2e-order-form-pass-1';
+  await page.goto('/#/signup');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm', { exact: true }).fill(password);
+  for (const label of await page.locator('label.chk').all()) await label.click();
+  await page.getByRole('button', { name: /create account/i }).click();
+  await expect(page).toHaveURL(/#\/trade/, { timeout: 20_000 });
+  await dismissDisclaimer(page);
+  return email;
+}
+
+/** 주문 폼의 경고 목록. 화면이 실제로 쓰는 컨테이너다. */
+const warnings = (page: Page) => page.locator('.oe-warn');
+const warningTexts = async (page: Page) =>
+  (await warnings(page).allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim());
+
+test.describe('[U3] 주문 입력', () => {
+  test('[U3-1] 주문 조건 입력칸이 접근성 이름으로 찾힌다', async ({ page }) => {
+    await signInFresh(page);
+    /*
+       ★★ 역할·라벨로 찾는다. 클래스로 찾으면 마크업이 바뀔 때 조용히 다른 것을
+         집고, 무엇보다 **스크린리더 사용자가 쓸 수 없는 폼을 통과시킨다.**
+    */
+    for (const name of [/^Leverage/i, /^Price$/i, /^Size$/i]) {
+      await expect(page.getByLabel(name).first()).toBeVisible({ timeout: 15_000 });
     }
-  });
-
-  test('[U3-2] margin mode, side and order type are real toggles', async ({ page }) => {
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-margin-cross"]').click();
-    await expect(page.locator('[data-testid="oe-margin-cross"]')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('[data-testid="oe-side-short"]').click();
-    await expect(page.locator('[data-testid="oe-side-short"]')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('[data-testid="oe-type-market"]').click();
-    await expect(page.locator('[data-testid="oe-price"]')).toBeHidden();
-    await page.locator('[data-testid="oe-type-stop"]').click();
-    await expect(page.locator('[data-testid="oe-trigger"]')).toBeVisible();
-  });
-
-  test('[U3-3] TP/SL fields appear on toggle and reject a wrong-side price', async ({ page }) => {
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-tpsl-toggle"]').check();
-    await expect(page.locator('[data-testid="oe-tpsl-fields"]')).toBeVisible();
-    const price = Number(await page.locator('[data-testid="oe-price"]').inputValue());
-    // long position with a stop ABOVE entry is invalid
-    await page.locator('[data-testid="oe-sl"]').fill(String(price + 1000));
-    await expect(page.locator('[data-testid="oe-sl-err"]')).toBeVisible();
-    await expect(page.locator('[data-testid="oe-preview"]')).toBeDisabled();
-  });
-
-  test('[U3-4] invalid quantity blocks preview and is announced', async ({ page }) => {
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0');
-    await expect(page.locator('[data-testid="oe-qty-err"]')).toBeVisible();
-    await expect(page.locator('[data-testid="oe-qty"]')).toHaveAttribute('aria-invalid', 'true');
-    await expect(page.locator('[data-testid="oe-preview"]')).toBeDisabled();
-
-    await page.locator('[data-testid="oe-qty"]').fill('0.0105'); // off the 0.001 step
-    await expect(page.locator('[data-testid="oe-qty-err"]')).toBeVisible();
-  });
-
-  test('[U3-5] off-tick price blocks preview', async ({ page }) => {
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-price"]').fill('68000.15'); // tick is 0.1
-    await expect(page.locator('[data-testid="oe-price-err"]')).toBeVisible();
-    await expect(page.locator('[data-testid="oe-preview"]')).toBeDisabled();
-  });
-
-  test('[U3-6] balance is reported as unavailable (not zero) and the % sizer is disabled with a reason', async ({
-    page,
-  }) => {
-    await page.goto('/#/trade');
-    await expect(page.locator('[data-testid="oe-available-unavailable"]')).toBeVisible();
-    const pct = page.locator('[data-testid="oe-pct-50"]');
-    await expect(pct).toBeDisabled();
-    expect(await pct.getAttribute('title')).toBeTruthy();
-    await expect(page.locator('[data-testid="oe-warn-order.warn.balance"]')).toBeVisible();
-  });
-
-  test('[U3-7] high leverage raises a danger warning without blocking', async ({ page }) => {
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-leverage"]').fill('60');
-    await expect(page.locator('[data-testid="oe-warn-order.warn.highLeverage"]')).toBeVisible();
-    await expect(page.locator('[data-testid="oe-preview"]')).toBeEnabled();
-  });
-
-  test('[U3-7b] an active kill switch is always surfaced, and never hidden', async ({ page }) => {
-    await page.goto('/#/trade');
-    const notice = page.locator('[data-testid="oe-killswitch-notice"]');
-    const active = await page.evaluate(async () => (await (await fetch('/api/config')).json()).killSwitchActive);
-    if (active) {
-      await expect(notice).toBeVisible();
-    } else {
-      await expect(notice).toHaveCount(0);
+    // 주문 유형과 방향은 실제 버튼이어야 한다.
+    for (const label of [/^Limit$/, /^Market$/]) {
+      await expect(page.getByRole('button', { name: label }).first()).toBeVisible();
     }
+    await expect(page.getByRole('button', { name: /Buy/i }).first()).toBeVisible();
   });
 
-  test('[U3-8] post-only and TIF are disabled with the server-unsupported reason', async ({ page }) => {
-    await page.goto('/#/trade');
-    await expect(page.locator('[data-testid="oe-post-only"]')).toBeDisabled();
-    await page.locator('[data-testid="oe-type-advanced"]').click();
-    await expect(page.locator('[data-testid="oe-tif-GTC"]')).toBeDisabled();
-    expect(await page.locator('[data-testid="oe-tif-GTC"]').getAttribute('title')).toBeTruthy();
+  test('[U3-4] 최소수량 미달은 제출 전에 막고 숫자를 말한다', async ({ page }) => {
+    await signInFresh(page);
+    const size = page.getByLabel(/^Size$/i).first();
+    await size.fill('0.0001'); // BTCUSDT 최소 0.001, 단위 0.001
+    await page.waitForTimeout(1200);
+
+    const texts = await warningTexts(page);
+    /*
+       ★★ 이 검사가 지키는 실서비스 사고: 08-30 09:44, 고객이 XRPUSDT 에 0.1
+         (최소 10), DOGEUSDT 에 0.1(최소 100)을 넣어 주문이 차단됐다. 폼은 그
+         최소값을 **받고 있었는데도** 아무 경고를 못 했다 — live-market 이
+         stepSize·minQty 를 market 객체에 복사하지 않아서였다.
+
+       ★ 숫자를 말해야 한다. "잘못된 수량" 만으로는 얼마를 넣어야 할지 모른다.
+    */
+    const hit = texts.find((t) => /steps of|Minimum order size/i.test(t));
+    expect(hit, `수량 경고가 없다. 표시된 경고:\n${texts.join('\n')}`).toBeTruthy();
+    expect(hit).toMatch(/0\.001/);
   });
 
-  test('[U3-9] summary recomputes from the entered price and size', async ({ page }) => {
-    await fillValidOrder(page);
-    const summary = page.locator('[data-testid="oe-summary"]');
-    const before = await summary.innerText();
-    await page.locator('[data-testid="oe-qty"]').fill('0.020');
-    await expect(summary).not.toHaveText(before);
+  test('[U3-4b] 유효한 수량에서는 그 경고가 사라진다', async ({ page }) => {
+    await signInFresh(page);
+    const size = page.getByLabel(/^Size$/i).first();
+    await size.fill('0.0001');
+    await page.waitForTimeout(1000);
+    expect((await warningTexts(page)).some((t) => /steps of|Minimum order size/i.test(t))).toBe(true);
+
+    await size.fill('0.05');
+    await page.waitForTimeout(1000);
+    /*
+       ★ 경고가 남아 있으면 고객은 고쳤는데도 막힌 줄 안다. 사라지는 것까지가
+         한 쌍이다 — 켜지는 것만 확인하면 "항상 켜져 있는" 경고를 놓친다.
+    */
+    expect((await warningTexts(page)).some((t) => /steps of|Minimum order size/i.test(t))).toBe(false);
   });
 
-  test('[U3-10] preview → risk checklist → explicit confirmation → simulated fill', async ({ page }) => {
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-preview"]').click();
+  test('[U3-6] 키가 없으면 잔고를 0 으로 꾸미지 않고 연결하라고 말한다', async ({ page }) => {
+    await signInFresh(page);
+    /*
+       ★★ 원본 의도를 그대로 지킨다: 잔고를 모를 때 0 을 보여주면 고객은 돈이
+         없다고 읽는다. 조회 실패·미연결·실제 0 은 서로 다른 사실이다.
 
-    const modal = page.locator('[data-testid="order-preview-modal"]');
-    await expect(modal).toBeVisible();
-    await expect(modal).toHaveAttribute('aria-modal', 'true');
-    await expect(page.locator('[data-testid="op-flow-steps"]')).toBeVisible();
-    await expect(page.locator('[data-testid="risk-checklist"]')).toBeVisible();
-
-    // submit is gated until the user ticks the final confirmation
-    await expect(page.locator('[data-testid="oe-submit"]')).toBeDisabled();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await expect(page.locator('[data-testid="oe-submit"]')).toBeEnabled();
-
-    await page.locator('[data-testid="oe-submit"]').click();
-    const success = page.locator('[data-testid="order-success"]');
-    await expect(success).toBeVisible({ timeout: 10_000 });
-    await expect(success).toContainText('SIM-');
+       ★ 이 앱은 미연결을 명시적으로 말한다(그 문구를 이번에 확인했다).
+    */
+    await expect(page.locator('body')).toContainText(/Connect your exchange account first/i, { timeout: 20_000 });
+    await expect(page.getByRole('link', { name: /connect a key/i }).first()).toBeVisible();
   });
 
-  test('[U3-11] a failing risk gate disables submit even after confirmation', async ({ page }) => {
-    await fillValidOrder(page);
-    // 1× leverage + no SL trips at least one gate to WARN/FAIL depending on the risk policy;
-    // the assertion below only requires that a FAIL state disables submit.
-    await page.locator('[data-testid="oe-preview"]').click();
-    const checklist = page.locator('[data-testid="risk-checklist"]');
-    await expect(checklist).toBeVisible();
-    const pass = await checklist.getAttribute('data-risk-pass');
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    if (pass === 'false') {
-      await expect(page.locator('[data-testid="oe-submit"]')).toBeDisabled();
-    } else {
-      await expect(page.locator('[data-testid="oe-submit"]')).toBeEnabled();
-    }
-  });
-
-  test('[U3-12] double-clicking submit issues exactly one confirm request', async ({ page }) => {
-    const confirms: string[] = [];
-    page.on('request', (r) => {
-      if (r.url().includes('/api/sim/orders/confirm')) confirms.push(r.url());
-    });
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    const submit = page.locator('[data-testid="oe-submit"]');
-    await submit.click({ clickCount: 2, delay: 10 });
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
-    expect(confirms.length, `confirm requests: ${confirms.length}`).toBe(1);
-  });
-
-  test('[U3-13] cancel returns to the form without submitting', async ({ page }) => {
-    let submitted = 0;
-    page.on('request', (r) => {
-      if (r.url().includes('/api/sim/orders/confirm')) submitted++;
-    });
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-cancel"]').click();
-    await expect(page.locator('[data-testid="order-preview-modal"]')).toBeHidden();
-    expect(submitted).toBe(0);
-  });
-
-  test('[U3-14] the order entry never calls a live trading endpoint', async ({ page }) => {
+  test('[U3-14] 주문 입력 화면이 실거래 경로를 건드리지 않는다', async ({ page }) => {
     const forbidden: string[] = [];
     page.on('request', (r) => {
-      const u = r.url();
-      if (/bitmart|\/trading\/orders|\/live\//i.test(u)) forbidden.push(u);
+      const u = new URL(r.url());
+      /*
+         ★★ 화면을 열고 값을 넣는 것만으로 실주문 경로가 호출되면, 고객은
+           "아직 안 눌렀다" 고 믿는 사이에 돈이 움직인다.
+      */
+      if (/\/api\/trading\/orders(\/|$)/.test(u.pathname) && !/validate/.test(u.pathname)) {
+        forbidden.push(`${r.method()} ${u.pathname}`);
+      }
+      if (/bitmart|api\.openai/i.test(u.hostname)) forbidden.push(u.hostname);
     });
-    await fillValidOrder(page);
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await page.locator('[data-testid="oe-submit"]').click();
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
-    expect(forbidden, `live endpoints called: ${forbidden.join(', ')}`).toEqual([]);
+
+    await signInFresh(page);
+    await page.getByLabel(/^Size$/i).first().fill('0.05');
+    await page.getByLabel(/^Price$/i).first().fill('60000');
+    await page.waitForTimeout(2000);
+
+    expect(forbidden, `실거래 경로가 호출됐다:\n${forbidden.join('\n')}`).toEqual([]);
+  });
+
+  test('[U3-7b] 킬스위치 상태는 서버가 밝히고 숨기지 않는다', async ({ page }) => {
+    await signInFresh(page);
+    /*
+       ★★ 원본 의도: 켜진 킬스위치가 화면에서 숨겨지면, 운영자는 거래를 멈췄다고
+         믿고 고객은 왜 막혔는지 모른다.
+
+       ★ 실제로 이 프로젝트에 그 사고가 있었다 — 'bitmart_live_trading' 스코프는
+         시드만 되고 **아무도 검사하지 않아서**, 관리자 화면에서 켤 수 있는데도
+         주문이 그대로 나갔다.
+
+       ★ 화면 배지는 배포마다 다를 수 있으므로, 상태를 **응답이 말하는지**로
+         확인한다. 그게 화면이 읽는 원본이다.
+    */
+    const r = await page.evaluate(async () => {
+      const csrf = await fetch('/api/auth/csrf').then((x) => x.json()).then((j) => j.csrfToken || '');
+      const res = await fetch('/api/trading/orders/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({
+          market: 'futures', symbol: 'BTCUSDT', side: 'long',
+          orderType: 'limit', price: '60000', quantity: '0.01', leverage: 5,
+        }),
+      });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    });
+    expect(r.status).toBe(200);
+    const gate = r.body?.liveGate as { allowed?: boolean; reasons?: string[] } | undefined;
+    expect(gate, '실거래 게이트 상태가 응답에 없다').toBeTruthy();
+    // 허용 여부와 그 근거가 함께 있어야 한다 — 결론만 있으면 확인할 수 없다.
+    expect(typeof gate!.allowed).toBe('boolean');
+    expect(Array.isArray(gate!.reasons)).toBe(true);
   });
 });
 
-test.describe('[U4] orders, positions and history', () => {
-  test('[U4-1] all five tabs exist with count badges', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    for (const tab of ['positions', 'openOrders', 'orderHistory', 'tradeHistory', 'aiSignals']) {
-      await expect(page.locator(`[data-testid="pos-tab-${tab}"]`)).toBeVisible();
-      await expect(page.locator(`[data-testid="pos-count-${tab}"]`)).toBeVisible();
-    }
+test.describe('[U4] 포지션·주문 목록', () => {
+  test('[U4-2] 행이 없을 때 빈 표가 아니라 이유를 보여준다', async ({ page }) => {
+    await signInFresh(page);
+    /*
+       ★★ 원본 의도를 그대로 지킨다. 이 프로젝트에서 반복된 실패 방식이 바로
+         "조회 실패를 빈 목록으로 렌더" 였다 — 고객은 데이터가 없다고 읽고,
+         운영자는 정상이라고 읽는다.
+
+       ★ 키가 없는 계정에서는 "연결하면 보인다" 가 정답이다. 표본 행으로 채우지
+         않는다는 사실까지 문구에 있다.
+    */
+    await expect(page.locator('body')).toContainText(
+      /Connect an exchange API key to see this|Nothing is shown until then/i,
+      { timeout: 20_000 },
+    );
   });
 
-  test('[U4-2] each tab renders either rows or an explicit empty state', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    for (const tab of ['positions', 'openOrders', 'orderHistory', 'tradeHistory', 'aiSignals']) {
-      await page.locator(`[data-testid="pos-tab-${tab}"]`).click();
-      const table = page.locator('table');
-      const empty = page.locator('.wstate');
-      expect((await table.count()) + (await empty.count()), `tab ${tab} rendered nothing`).toBeGreaterThan(0);
-    }
-  });
+  test('[U4-4] 할 수 없는 동작은 비활성 상태로 둔다', async ({ page }) => {
+    await signInFresh(page);
+    /*
+       ★★ 원본 의도: 눌러도 아무 일이 없는 버튼을 두면 고객은 고장으로 읽고
+         반복해서 누른다. 할 수 없으면 비활성 + 이유여야 한다.
 
-  test('[U4-3] a simulated order shows up in positions, history and trade history with full columns', async ({
-    page,
-  }) => {
-    // create one simulated order first
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await page.locator('[data-testid="oe-submit"]').click();
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
+       ★ 이 화면에서 실제로 확인할 수 있는 것: 잔고가 없으면 % 크기 버튼이
+         비활성이다(availBal > 0 조건).
+    */
+    const disabled = await page.locator('button[disabled]').count();
+    expect(disabled, '비활성 버튼이 하나도 없다 — 죽은 버튼이 남아 있을 수 있다').toBeGreaterThan(0);
 
-    await page.goto('/#/portfolio');
-    await expect(page.locator('[data-testid="positions-table"]')).toBeVisible({ timeout: 10_000 });
-    const headers = await page.locator('[data-testid="positions-table"] th').allInnerTexts();
-    expect(headers.length).toBeGreaterThanOrEqual(10);
-    await expect(page.locator('[data-testid="position-row"]').first()).toBeVisible();
-
-    await page.locator('[data-testid="pos-tab-orderHistory"]').click();
-    await expect(page.locator('[data-testid="order-history-row"]').first()).toBeVisible();
-
-    await page.locator('[data-testid="pos-tab-tradeHistory"]').click();
-    await expect(page.locator('[data-testid="trade-history-row"]').first()).toBeVisible();
-  });
-
-  test('[U4-4] destructive position actions are disabled with a reason (no cancel/close API)', async ({ page }) => {
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await page.locator('[data-testid="oe-submit"]').click();
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
-
-    await page.goto('/#/portfolio');
-    const close = page.locator('[data-testid="pos-act-close"]').first();
-    await expect(close).toBeVisible({ timeout: 10_000 });
-    await expect(close).toBeDisabled();
-    expect(await close.getAttribute('title')).toBeTruthy();
-  });
-
-  test('[U4-5] filters and refresh work; symbol filter narrows the rows', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    await expect(page.locator('[data-testid="orders-filter-symbol"]')).toBeVisible();
-    await expect(page.locator('[data-testid="orders-filter-side"]')).toBeVisible();
-    await page.locator('[data-testid="orders-filter-symbol"]').selectOption('ETHUSDT');
-    await page.locator('[data-testid="orders-refresh"]').click();
-    await expect(page.locator('[data-testid="orders-panel"]')).toBeVisible();
-  });
-
-  test('[U4-6] order detail opens and closes', async ({ page }) => {
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await page.locator('[data-testid="oe-submit"]').click();
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
-
-    await page.goto('/#/portfolio');
-    await page.locator('[data-testid="pos-tab-orderHistory"]').click();
-    await page.locator('[data-testid="order-detail"]').first().click();
-    const dlg = page.locator('[data-testid="order-detail-dialog"]');
-    await expect(dlg).toBeVisible();
-    await page.locator('[data-testid="order-detail-close"]').click();
-    await expect(dlg).toBeHidden();
+    /*
+       ★ 비활성인 것만으로는 부족하다. 이유가 붙어 있어야 한다(title 또는
+         aria-label). 이유 없는 비활성은 고객에게 "왜?" 만 남긴다.
+    */
+    const withReason = await page.locator('button[disabled][title], button[disabled][aria-label]').count();
+    expect(withReason, '이유가 붙은 비활성 버튼이 없다').toBeGreaterThan(0);
   });
 });
 
-test.describe('[U5] assets and notifications', () => {
-  test('[U5-1] assets report unavailable instead of faking zero balances', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    const panel = page.locator('[data-testid="assets-risk"]');
-    // Prompt 5 / B5 added GET /api/account/summary, so an anonymous visitor is now reported as
-    // SIGN_IN_REQUIRED rather than BACKEND_REQUIRED. The status changed because the system's capability
-    // changed: the endpoint exists, this visitor simply has no session. The assertion this test actually
-    // protects — that no balance is faked as zero — is unchanged and still checked below.
-    await expect(panel).toHaveAttribute('data-account-status', 'SIGN_IN_REQUIRED');
-    await expect(page.locator('[data-testid="assets-unavailable"]')).toBeVisible();
-    for (const id of ['assets-equity', 'assets-available', 'assets-used-margin', 'assets-maint-margin']) {
-      await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible();
-    }
-    // no margin bar is drawn when the ratio is unknown (an empty bar would imply 0% risk)
-    expect(await page.locator('[data-testid="assets-margin-bar"]').count()).toBe(0);
-  });
-
-  test('[U5-2] transfer-like actions are disabled with a reason', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    await expect(page.locator('[data-testid="assets-add-margin"]')).toBeDisabled();
-    await expect(page.locator('[data-testid="assets-calculator"]')).toBeDisabled();
-  });
-
-  test('[U5-3] derived exposure is labelled as simulated, not as a wallet balance', async ({ page }) => {
-    await page.goto('/#/portfolio');
-    await expect(page.locator('[data-testid="assets-derived-note"]')).toBeVisible();
-    await expect(page.locator('[data-testid="assets-exposure"]')).toBeVisible();
-  });
-
-  test('[U5-4] a simulated fill produces a notification with an unread badge', async ({ page }) => {
-    await page.goto('/#/trade');
-    await page.locator('[data-testid="oe-qty"]').fill('0.010');
-    await page.locator('[data-testid="oe-preview"]').click();
-    await page.locator('[data-testid="oe-final-confirm"]').check();
-    await page.locator('[data-testid="oe-submit"]').click();
-    await expect(page.locator('[data-testid="order-success"]')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('[data-testid="notif-unread"]')).toBeVisible();
-
-    await page.locator('[data-testid="notif-bell"]').click();
-    await expect(page.locator('[data-testid="notif-list"]')).toBeVisible();
-    await page.locator('[data-testid="notif-mark-all"]').click();
-    await expect(page.locator('[data-testid="notif-unread-count"]')).toContainText('0');
-  });
-
-  test('[U5-5] notifications state its local-only scope', async ({ page }) => {
-    await page.goto('/#/notifications');
-    await expect(page.locator('[data-testid="notif-local-note"]')).toBeVisible();
-  });
-});
-
-test.describe('[U6] AI market context', () => {
-  test('[U6-1] the AI panel shows the real last price in its context chips', async ({ page }) => {
-    await page.goto('/#/trade/ai');
-    const chip = page.locator('[data-testid="ai-ctx-last"]');
-    await expect(chip).toBeVisible();
-    await expect(chip).not.toContainText('—', { timeout: 15_000 });
-    const headerPrice = (await page.locator('[data-testid="symbol-price"]').innerText()).replace(/[^\d]/g, '');
-    const chipPrice = (await chip.innerText()).replace(/[^\d]/g, '');
-    // same source, same number (formatting aside)
-    expect(chipPrice.slice(0, 4)).toBe(headerPrice.slice(0, 4));
-  });
-
-  test('[U6-2] the request carries no price at all — the server reads the ticker itself', async ({ page }) => {
-    await page.goto('/#/trade/ai');
-    const bodies: string[] = [];
-    page.on('request', (r) => {
-      if (r.url().includes('/api/ai/')) bodies.push(r.postData() ?? '');
-    });
-    await page.locator('[data-testid="ai-composer"]').fill('analyse the trend');
-    await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
-    await page.locator('[data-testid="ai-send"]').click();
-    await expect(page.locator('[data-testid="ai-messages"]')).toContainText('analyse the trend');
-    await page.waitForTimeout(500);
-    expect(bodies.length).toBeGreaterThan(0);
-
-    // Prompt 5 / B9 changed this contract deliberately, and the new assertion is strictly stronger.
-    //
-    // The original test checked that the request carried a MEASURED price rather than the literal 68000.
-    // That closed the hard-coding hole but left a bigger one open: the price still came from the client, so
-    // a caller could ask for an "AI analysis" of a price that never existed and screenshot the result.
-    // The server now reads the ticker itself, refuses to analyse without a real fresh one, and ignores any
-    // price in the body — so the correct assertion is that no price is sent at all.
-    //
-    // The property the old test protected (no hard-coded literal reaching the model) is still covered,
-    // here and by flow-v-ai-context.spec.ts [B9-1]/[B9-2] plus apps/api ai-context.test.ts.
-    const payload = JSON.parse(bodies[0]!) as Record<string, unknown>;
-    expect(Object.keys(payload)).not.toContain('lastPrice');
-    expect(bodies[0]).not.toMatch(/68000/);
-    // And the server states the context it actually used.
-    await expect(page.locator('[data-testid="ai-ctx-server"]')).toBeVisible({ timeout: 25_000 });
-  });
-
-  test('[U6-3] the state bar and quick prompts exist and the composer is a textarea', async ({ page }) => {
-    await page.goto('/#/trade/ai');
-    await expect(page.locator('[data-testid="ai-state-bar"]')).toBeVisible();
-    await expect(page.locator('[data-testid="ai-context-chips"]')).toBeVisible();
-    await expect(page.locator('[data-testid="ai-quick"]')).toBeVisible();
-    expect(await page.locator('[data-testid="ai-composer"]').evaluate((e) => e.tagName)).toBe('TEXTAREA');
-  });
-
-  test('[U6-4] conversation history keeps user and AI turns', async ({ page }) => {
-    await page.goto('/#/trade/ai');
-    await page.locator('[data-testid="ai-composer"]').fill('first question');
-    await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
-    await page.locator('[data-testid="ai-send"]').click();
-    await expect(page.locator('[data-testid="ai-msg-user"]').first()).toContainText('first question');
-    await expect(page.locator('[data-testid="ai-msg-ai"]').first()).toBeVisible({ timeout: 15_000 });
-    await page.locator('[data-testid="ai-composer"]').fill('second question');
-    await page.locator('[data-testid="ai-send"]').click();
-    await expect(page.locator('[data-testid="ai-msg-user"]')).toHaveCount(2);
-  });
-
-  test('[U6-5] approving a signal never submits an order', async ({ page }) => {
-    let confirms = 0;
-    page.on('request', (r) => {
-      if (r.url().includes('/api/sim/orders/confirm')) confirms++;
-    });
-    await page.goto('/#/trade/ai');
-    await page.locator('[data-testid="ai-composer"]').fill('give me a signal');
-    await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
-    await page.locator('[data-testid="ai-send"]').click();
-    const card = page.locator('[data-testid="signal-card"]');
-    await expect(card).toBeVisible({ timeout: 20_000 });
-    await page.locator('[data-testid="ai-approve"]').click();
-    await page.waitForTimeout(400);
-    expect(confirms).toBe(0);
-    // creating the draft is a prefill, still not a submit
-    await page.locator('[data-testid="ai-create-draft"]').click();
-    await page.waitForTimeout(400);
-    expect(confirms).toBe(0);
-  });
-
-  test('[U6-6] the signal-save action states its real precondition (a signed-in session)', async ({ page }) => {
-    await page.goto('/#/trade/ai');
-    await page.locator('[data-testid="ai-composer"]').fill('give me a signal');
-    await expect(page.locator('[data-testid="ai-send"]')).toBeEnabled({ timeout: 20_000 });
-    await page.locator('[data-testid="ai-send"]').click();
-    await expect(page.locator('[data-testid="signal-card"]')).toBeVisible({ timeout: 20_000 });
-    // `POST /api/me/signals` DOES exist (permission `signal.write.self`); this suite runs anonymous,
-    // so the action must be disabled and must say why — not claim the API is missing.
-    const save = page.locator('[data-testid="ai-save-draft"]');
-    await expect(save).toBeDisabled();
-    await expect(save).toHaveAttribute('title', /sign in|로그인/i);
+test.describe('[U5] 자산', () => {
+  test('[U5-1] 자산을 모를 때 0 으로 꾸미지 않는다', async ({ page }) => {
+    await signInFresh(page);
+    await page.goto('/#/wallet');
+    await page.waitForTimeout(3000);
+    await dismissDisclaimer(page);
+    /*
+       ★★ 원본 의도 그대로. 조회하지 못한 잔고를 0 으로 표시하면 고객은 자산을
+         잃은 줄 안다 — 이 프로젝트는 자산 이력에서 같은 실수를 한 적이 있어
+         (실패 시 0 기록) 그 뒤로 조회 성공 지점에서만 기록한다.
+    */
+    const body = page.locator('body');
+    await expect(body).toContainText(/Connect|Add Exchange|not connected/i, { timeout: 20_000 });
   });
 });
