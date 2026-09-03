@@ -348,9 +348,22 @@ app.post('/api/ops/client-error', async (c) => {
      ★ await 하지 않는다. 고객 화면이 오류를 보고하는 요청이 우리 DB 응답을
        기다릴 이유가 없다. 기록 실패는 captureError 안에서 삼켜진다.
   */
+  /*
+     ★★ 브라우저 오류의 **하위 출처**를 메시지 앞에 붙인다.
+
+       렌더 오류·프로미스 거부·전역 오류는 원인 분류가 완전히 다르다. 전부
+       'client' 로만 쌓으면 운영자가 목록을 읽어도 무엇을 봐야 할지 모른다.
+
+     ★ source 컬럼을 넓히지 않고 메시지에 넣는다. 컬럼을 바꾸면 기존 조회·화면
+       필터를 모두 함께 고쳐야 하고, 그 과정에서 놓치면 목록이 조용히 비어 보인다.
+       메시지 앞에 붙이면 지문도 자연히 갈라져 분류 효과는 같다.
+  */
+  const sub = String(parsed.source ?? '').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40);
+  const labelled = sub ? `[${sub}] ${msg || '(빈 메시지)'}` : (msg || '(빈 메시지)');
+
   void captureError(opsErrorAlerter, {
     source: 'client',
-    message: msg || '(빈 메시지)',
+    message: labelled,
     stack: stack || undefined,
     url: url || undefined,
   });

@@ -38,6 +38,11 @@
         message: String((error && error.message) || error || 'unknown'),
         stack: String((error && error.stack) || ''),
         componentStack: String((info && info.componentStack) || ''),
+        /*
+           ★ 어디서 잡힌 오류인지 함께 보낸다. 렌더 오류와 프로미스 거부는
+             원인 분류가 완전히 다르므로, 구분 없이 쌓으면 운영자가 읽을 수 없다.
+        */
+        source: String((info && info.source) || 'react-render'),
         url: String(location.hash || location.pathname || ''),
         userAgent: navigator.userAgent,
         at: new Date().toISOString(),
@@ -156,4 +161,79 @@
   }
 
   window.AppErrorBoundary = AppErrorBoundary;
+
+  /*
+     ★★ 전역 오류 보고. 이것이 없어서 관측성이 **사실상 없었다.**
+
+       확인한 사실: 로컬 실서비스 구성(Postgres)에서 브라우저에 미처리 오류를
+       던져도 `/api/ops/client-error` 로 요청이 **한 건도 가지 않았고**,
+       ops_errors 는 0행이었다. window.onerror 도 설정돼 있지 않았다.
+
+       원인은 위 report() 가 **React 렌더 오류에서만** 불렸기 때문이다. 그런데
+       실제 앱 오류의 대부분은 렌더 중이 아니라 비동기 콜백·이벤트 핸들러·
+       프로미스 거부에서 난다. 그 전부가 조용히 사라지고 있었다.
+
+       동작하지 않는 관측성은 없는 것보다 나쁘다 — 운영자는 ops_errors 가
+       비어 있는 것을 보고 "오류가 없다" 고 믿는다. 실제로 그 상태였다.
+
+     ★ 보고 자체가 새 오류를 만들면 무한 루프가 된다. 그래서 (1) 같은 내용은
+       한 번만 보내고 (2) 페이지당 총량을 제한하고 (3) 보고 경로의 예외는
+       모두 삼킨다.
+  */
+  var reported = Object.create(null);
+  var reportCount = 0;
+  var REPORT_MAX = 20;
+
+  function reportOnce(error, extra) {
+    try {
+      var msg = String((error && error.message) || error || 'unknown');
+      /*
+         ★ 같은 오류가 초당 수십 번 나는 경우가 실제로 있다(렌더 루프). 지문으로
+           묶어 한 번만 보낸다 — 서버도 제한하지만, 네트워크를 먼저 아끼는 편이
+           고객 화면에 이롭다.
+      */
+      var key = msg + '|' + String((extra && extra.source) || '');
+      if (reported[key]) return;
+      reported[key] = true;
+      if (reportCount >= REPORT_MAX) return;
+      reportCount += 1;
+      report(error, extra);
+    } catch (e) { /* 보고는 최선의 노력이다 */ }
+  }
+
+  /*
+     ★ 이미 설정된 핸들러를 덮지 않는다. 다른 스크립트가 먼저 붙였을 수 있고,
+       덮으면 그쪽 기능이 조용히 사라진다.
+  */
+  window.addEventListener('error', function (ev) {
+    /*
+       ★★ 리소스 로드 실패(<img>·<script>)도 같은 'error' 이벤트로 온다. 그건
+         JS 오류가 아니고, 걸러내지 않으면 이미지 하나 깨질 때마다 보고가 쌓여
+         진짜 오류가 묻힌다.
+    */
+    if (ev && ev.target && ev.target !== window && ev.target.tagName) return;
+    reportOnce((ev && ev.error) || (ev && ev.message) || 'window.onerror', {
+      source: 'window.error',
+      componentStack: ev && ev.filename ? ev.filename + ':' + ev.lineno + ':' + ev.colno : '',
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function (ev) {
+    /*
+       ★★ 처리되지 않은 프로미스 거부. 이 앱은 대부분의 서버 통신을 프로미스로
+         하므로, 이걸 놓치면 통신 계열 결함이 전부 보이지 않는다.
+    */
+    var r = ev && ev.reason;
+    reportOnce(r instanceof Error ? r : new Error('unhandledrejection: ' + String(r)), {
+      source: 'unhandledrejection',
+    });
+  });
+
+  /*
+     ★ 다른 코드가 의도적으로 보고할 수 있게 열어둔다(예: catch 안에서 삼키면서도
+       기록은 남기고 싶을 때). 없으면 각자 fetch 를 만들게 되고 형식이 갈린다.
+  */
+  window.QTReportError = function (error, context) {
+    reportOnce(error, { source: String(context || 'manual') });
+  };
 })();
