@@ -1634,13 +1634,31 @@ if (env.authEnabled) {
              ★ 연속 실패가 쌓이면 감시가 사실상 죽은 것이다. 개수를 함께 보여준다.
           */
           riskWatch: (() => {
-            if (!riskWatch) return 'Off — alerts only while a screen is open';
+            /*
+               ★★ 실주문이 켜져 있으면 이 상태는 그냥 'Off' 가 아니다. 운영자가
+                 상태창을 훑을 때 중요도가 보여야 한다.
+            */
+            if (!riskWatch) {
+              return env.liveTradingEnabled && env.liveOrdersEnabled
+                ? 'OFF while live orders are ARMED — nothing computes liquidation risk once a customer closes the screen (set RISK_WATCH_ENABLED=true)'
+                : 'Off — alerts only while a screen is open';
+            }
             const st = riskWatch.status();
             if (!st.running) return 'Stopped';
             if (st.consecutiveFailures >= 3) return `FAILING (${st.consecutiveFailures} in a row)`;
             const last = st.lastRun;
-            if (!last) return `Running (every ${Math.round(st.intervalMs / 1000)}s, no run yet)`;
-            return `Running (every ${Math.round(st.intervalMs / 1000)}s, ${last.targets} watched)`;
+            /*
+               ★★ 켜져 있어도 **알림은 인앱 전용이다.** 감시가 도는 것과 고객에게
+                 닿는 것은 다른 문제다.
+
+                 risk-watch 는 notifications.create() 만 호출한다 — 이메일도
+                 푸시도 없다. 즉 자고 있는 고객에게는 도달하지 않고, 앱을 열 때
+                 받은편지함에서 보게 된다. "감시 중" 이라는 표시만 보고 고객이
+                 보호된다고 믿으면 안 되므로, 전달 수단을 함께 밝힌다.
+            */
+            const delivery = ' · in-app inbox only (no email/push — does not reach a customer who is away)';
+            if (!last) return `Running (every ${Math.round(st.intervalMs / 1000)}s, no run yet)${delivery}`;
+            return `Running (every ${Math.round(st.intervalMs / 1000)}s, ${last.targets} watched)${delivery}`;
           })(),
           openai: aiResolution.kind === 'openai' && aiResolution.available ? 'Configured' : 'Not Connected',
           aiProvider: aiResolution.kind,
@@ -2350,7 +2368,26 @@ if (env.authEnabled) {
       });
       riskWatch.start();
     } else {
-      console.log('[api] 청산 위험 감시: 꺼짐 (RISK_WATCH_ENABLED=true 로 켠다). 화면이 열려 있을 때만 경고가 계산됩니다.');
+      /*
+         ★★ 실주문이 켜져 있는데 감시가 꺼져 있으면 **그냥 알림이 아니라 경고다.**
+
+           이 조합의 뜻: 고객이 레버리지 포지션을 들고 있는데, 화면을 닫으면
+           청산가에 접근하는 동안 아무 계산도 되지 않는다. 실제 실서비스가
+           이 상태였다(RISK_WATCH_ENABLED 미설정 = 꺼짐, LIVE_TRADING_ENABLED=true).
+
+           예전 로그는 중립적인 한 줄이라 운영자가 이게 중요한지 알 수 없었다.
+           기본값이 꺼짐인 이유는 "실주문이 없는 배포" 를 전제한 것인데, 그 전제가
+           깨진 배포에서는 그 이유가 더 이상 성립하지 않는다.
+      */
+      if (env.liveTradingEnabled && env.liveOrdersEnabled) {
+        console.warn(
+          '[api] ⚠ 청산 위험 감시가 꺼져 있는데 실주문은 켜져 있다 — '
+          + '고객이 화면을 닫으면 청산 접근을 아무도 계산하지 않는다. '
+          + 'RISK_WATCH_ENABLED=true 로 켠다.',
+        );
+      } else {
+        console.log('[api] 청산 위험 감시: 꺼짐 (RISK_WATCH_ENABLED=true 로 켠다). 화면이 열려 있을 때만 경고가 계산됩니다.');
+      }
     }
 
     /*
