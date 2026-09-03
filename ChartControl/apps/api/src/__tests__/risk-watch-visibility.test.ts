@@ -58,25 +58,24 @@ describe('RISK-WATCH-VISIBILITY — 감시 상태가 정확히 드러난다', ()
     expect(line).toMatch(/RISK_WATCH_ENABLED=true/);
   });
 
-  it('[4] 감시가 돌 때도 인앱 전용임을 밝힌다', () => {
+  it('[4] 전달 수단을 사실대로 말한다 — 발송기가 있을 때와 없을 때가 다르다', () => {
     /*
        ★★ 감시가 도는 것과 고객에게 닿는 것은 다른 문제다. "Running" 만 보면
          운영자는 고객이 보호된다고 읽는다.
+
+       ★ MailSink 는 메모리에만 쌓는다. 그걸 "이메일 발송" 으로 표시하면 같은
+         착각을 새로 만들기 때문에, 실제 발송기 여부로 갈라야 한다.
     */
-    const i = src.indexOf('in-app inbox only');
-    expect(i, '전달 수단 표시가 없다').toBeGreaterThan(0);
-    const line = src.slice(i - 60, i + 160);
-    expect(line).toMatch(/no email\/push/);
-    expect(line).toMatch(/does not reach a customer who is away/);
+    expect(src).toMatch(/in-app \+ email to the customer/);
+    expect(src).toMatch(/mail provider not configured/);
+    expect(src).toMatch(/const delivery = mailConfigured/);
   });
 
-  it('[5] 알림 경로가 정말 인앱뿐인지 확인한다 — 문구가 사실과 어긋나면 안 된다', () => {
-    const watch = readFileSync(join(__dirname, '..', 'trading', 'risk-watch.ts'), 'utf8');
-    expect(watch).toMatch(/notifications\.create\(/);
+  it('[5] 실제 발송기와 메모리 싱크를 구분한다', () => {
     /*
-       ★ 이메일·푸시 경로가 생기면 이 검사가 실패한다. 그때 상태창 문구도 함께
-         고쳐야 한다 — 사실이 바뀌었는데 설명이 남으면 그게 새 거짓말이 된다.
+       ★★ MailSink 로 보내면서 "이메일 켜짐" 이라고 말하면, 이 기능이 없애려던
+         착각을 그대로 재현한다.
     */
-    expect(watch).not.toMatch(/sendMail|sendEmail|pushNotification/);
+    expect(src).toMatch(/const mailConfigured = Boolean\(smtpProvider \?\? resendProvider\)/);
   });
 });

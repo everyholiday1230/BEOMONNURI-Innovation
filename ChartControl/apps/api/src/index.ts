@@ -78,6 +78,7 @@ import { SqliteCredentialRepo } from './db/trading-repos';
 import { SqliteStrategyRepo } from './db/strategy-repo';
 import { PgStrategyRepo } from './db/pg-strategy-repo';
 import { createStrategyRouter } from './strategy-routes';
+import { createRiskEmailAlerter } from './trading/risk-email';
 import { createTradingRouter } from './trading-routes';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
@@ -1346,6 +1347,15 @@ if (env.authEnabled) {
     const smtpProvider = smtpFromEnv();
     const resendProvider = smtpProvider ? null : resendFromEnv();
     const mailProvider = smtpProvider ?? resendProvider ?? new MailSink();
+    /*
+       ★★ 실제로 밖으로 나가는 발송기인가.
+
+         MailSink 는 메모리에만 쌓는다 — 보낸 것처럼 보이지만 아무에게도 닿지
+         않는다. 청산 경고처럼 "닿는 것" 이 존재 이유인 기능은 이 구분이 필요하다.
+         싱크에 대고 보내면서 상태창에 "이메일 알림 켜짐" 을 표시하면, 그게
+         이 기능이 없애려던 착각을 새로 만든다.
+    */
+    const mailConfigured = Boolean(smtpProvider ?? resendProvider);
 
     /*
        ★★ 오류 관측 장치를 여기서 켠다(메일러와 DB 풀이 모두 준비된 지점).
@@ -1656,7 +1666,19 @@ if (env.authEnabled) {
                  받은편지함에서 보게 된다. "감시 중" 이라는 표시만 보고 고객이
                  보호된다고 믿으면 안 되므로, 전달 수단을 함께 밝힌다.
             */
-            const delivery = ' · in-app inbox only (no email/push — does not reach a customer who is away)';
+            /*
+               ★★ 전달 수단을 사실대로 말한다.
+
+                 감시가 도는 것과 고객에게 닿는 것은 다른 문제다. 예전에는 인앱
+                 알림뿐이어서 자고 있는 고객에게 닿지 않았고, 그런데 상태창은
+                 "Running" 만 보여줬다 — 운영자는 고객이 보호된다고 읽었다.
+
+               ★ MailSink 는 메모리에만 쌓는다. 그걸 "이메일 발송" 으로 표시하면
+                 같은 착각을 새로 만든다. 그래서 실제 발송기 여부로 판단한다.
+            */
+            const delivery = mailConfigured
+              ? ' · in-app + email to the customer'
+              : ' · in-app inbox only (mail provider not configured — does not reach a customer who is away)';
             if (!last) return `Running (every ${Math.round(st.intervalMs / 1000)}s, no run yet)${delivery}`;
             return `Running (every ${Math.round(st.intervalMs / 1000)}s, ${last.targets} watched)${delivery}`;
           })(),
@@ -2365,8 +2387,45 @@ if (env.authEnabled) {
           }
           return [...byUser.values()];
         },
+        /*
+           ★★ 청산 경고를 **이메일로도** 보낸다.
+
+             인앱 알림만으로는 자고 있는 고객에게 닿지 않는다. 이 감시 기능의
+             주석이 걱정한 상황("사용자가 자는 동안 가격이 청산가에 접근")을
+             인앱 알림으로는 해결할 수 없다. 상태창의 "Running" 이 "고객이
+             보호된다" 를 뜻하게 하려면 닿는 경로가 필요하다.
+
+           ★ 메일 설정이 없으면 붙이지 않는다(undefined). 그러면 감시는 그대로
+             돌고 인앱 알림만 만든다 — 설정 누락으로 감시가 멈추면 안 된다.
+
+           ★ 주소는 **그 사용자 본인의 것**만 쓴다. 조회 실패 시 대체 주소로
+             보내면 다른 사람에게 고객의 포지션을 보내는 일이 된다.
+        */
+        emailAlert: mailConfigured
+          ? createRiskEmailAlerter({
+              mail: mailProvider,
+              lookupEmail: async (userId) => {
+                if (!core.pool) return null;
+                try {
+                  const r = await core.pool.query<{ email: string }>(
+                    'SELECT email FROM users WHERE id = $1 AND status = $2',
+                    [userId, 'active'],
+                  );
+                  return r.rows[0]?.email ?? null;
+                } catch {
+                  // ★ 조회 실패를 빈 주소로 바꾸지 않는다. null 이면 보내지 않는다.
+                  return null;
+                }
+              },
+              appBaseUrl: env.publicBaseUrl,
+            })
+          : undefined,
       });
       riskWatch.start();
+      console.log(
+        `[api] 청산 위험 감시: 켜짐 (${Math.round(env.riskWatchIntervalMs / 1000)}초 주기, `
+        + `알림=인앱${mailConfigured ? ' + 이메일' : ' 전용 — 메일 미설정이라 자는 고객에게는 닿지 않는다'})`,
+      );
     } else {
       /*
          ★★ 실주문이 켜져 있는데 감시가 꺼져 있으면 **그냥 알림이 아니라 경고다.**

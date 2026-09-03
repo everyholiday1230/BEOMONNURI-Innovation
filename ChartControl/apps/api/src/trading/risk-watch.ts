@@ -103,6 +103,29 @@ export interface RiskWatchDeps {
   state?: AlertState;
   /** 테스트용 시계. */
   now?: () => number;
+  /*
+     청산 경고 이메일 발송.
+
+     ★★ 왜 필요한가: 인앱 알림만으로는 **자고 있는 고객에게 닿지 않는다.**
+       청산은 고객이 화면을 보고 있지 않을 때도 진행되고, 그때가 정확히 알려야
+       할 순간이다. 이 감시 기능의 주석이 걱정한 상황("사용자가 자는 동안")을
+       인앱 알림으로는 해결할 수 없다.
+
+     ★ 없으면(undefined) 인앱 알림만 만든다 — 메일 설정이 없는 배포에서 감시가
+       멈추면 안 된다.
+
+     ★ 실패해도 던지지 않는다. 메일 발송 실패가 감시 루프를 멈추면 다른 고객의
+       경고까지 사라진다.
+  */
+  emailAlert?: (input: {
+    userId: string;
+    symbol: string;
+    side: 'long' | 'short';
+    level: RiskLevel;
+    distancePct: number;
+    markPrice: string;
+    liquidationPrice: string;
+  }) => Promise<void>;
 }
 
 export interface WatchResult {
@@ -175,6 +198,36 @@ export async function watchUserPositions(
       correlationId: `${p.symbol}:${p.side}`,
       at: d.now ? d.now() : undefined,
     });
+    /*
+       ★★ 이메일도 보낸다 — 인앱 알림만으로는 자고 있는 고객에게 닿지 않는다.
+
+         등급이 나빠진 이 지점에서만 보낸다. 위 억제 로직을 그대로 타므로
+         같은 등급이 반복될 때 메일이 쌓이지 않는다. 그게 중요한 이유: 메일이
+         흔해지면 고객이 규칙을 만들어 걸러버리고, 그러면 정말 급한 경고도
+         못 본다.
+
+       ★ await 하되 실패는 삼킨다. 메일 실패가 루프를 멈추면 **다른 고객의
+         경고까지** 사라진다 — 한 명의 메일 문제로 전체 감시를 잃을 수 없다.
+    */
+    if (d.emailAlert) {
+      try {
+        await d.emailAlert({
+          userId,
+          symbol: p.symbol,
+          side: p.side === 'short' ? 'short' : 'long',
+          level: verdict.level,
+          distancePct: verdict.distancePct,
+          /*
+             ★ 숫자를 문자열로 넘긴다. 메일 본문에 그대로 들어가는 값이고,
+               여기서 반올림해 버리면 고객이 거래소에서 보는 값과 어긋난다.
+          */
+          markPrice: p.markPrice === null ? '' : String(p.markPrice),
+          liquidationPrice: p.liquidationPrice === null ? '' : String(p.liquidationPrice),
+        });
+      } catch {
+        /* 메일은 최선의 노력이다. 인앱 알림은 이미 만들어졌다. */
+      }
+    }
     state.set(key, verdict.level);
     out.notified += 1;
   }

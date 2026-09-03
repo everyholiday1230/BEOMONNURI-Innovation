@@ -4,6 +4,7 @@ import {
   watchUserPositions,
   type AlertState,
   type PositionRisk,
+  type RiskWatchDeps,
 } from './risk-watch';
 
 /**
@@ -36,6 +37,12 @@ import {
 
 export interface RiskWatchLoopDeps {
   notifications: INotificationRepo;
+  /*
+     청산 경고 이메일 발송기. 없으면 인앱 알림만 만든다.
+
+     ★ 메일 설정이 없는 배포에서 감시가 멈추면 안 되므로 선택 항목이다.
+  */
+  emailAlert?: RiskWatchDeps['emailAlert'];
   /**
    * 감시 대상과 각자의 포지션을 가져온다.
    *
@@ -124,7 +131,7 @@ export class RiskWatchLoop {
       */
       for (const target of list) {
         const r = await watchUserPositions(
-          { notifications: this.d.notifications, state: this.state },
+          { notifications: this.d.notifications, state: this.state, emailAlert: this.d.emailAlert },
           target.userId,
           target.positions,
         );
