@@ -135,9 +135,27 @@
     const loc = (window.QTI18n && window.QTI18n.getLocale && window.QTI18n.getLocale()) || 'en';
     let dn = null;
     try { dn = new Intl.DisplayNames([loc], { type: 'region' }); } catch (e) { /* older browser */ }
+    /*
+       ★★ 영어 이름으로도 찾게 한다.
+
+         실서비스 실측: 일본어 화면에서 'korea' 를 입력하면 **0개**였다. 일본어로는
+         韓国 이라서 번역된 이름과 맞지 않았다. 그런데 UI 언어와 무관하게 영어
+         이름을 입력하는 사람이 많다(영어가 편한 사용자, 나라 이름의 현지 표기를
+         모르는 사용자). 검색의 목적은 찾는 것이므로, 못 찾으면 기능이 없는 것과
+         같다.
+
+       ★ 화면에 보이는 이름은 그대로 번역된 이름이다 — 영어는 검색에만 쓴다.
+         목록에 영어를 섞으면 중국어 화면에 영어가 튀어나온다.
+    */
+    let dnEn = null;
+    try { dnEn = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) { /* older browser */ }
     const nameOf = (code) => {
       if (code === 'OTHER') return t('country_other');
       try { return (dn && dn.of(code)) || code; } catch (e) { return code; }
+    };
+    const enNameOf = (code) => {
+      if (code === 'OTHER') return 'other';
+      try { return (dnEn && dnEn.of(code)) || code; } catch (e) { return code; }
     };
 
     /* 우선순위 국가를 앞에 두고, 나머지는 보는 사람의 언어 기준으로 정렬한다. */
@@ -151,7 +169,9 @@
 
     const needle = q.trim().toLowerCase();
     const shown = needle
-      ? all.filter((c) => nameOf(c).toLowerCase().includes(needle) || c.toLowerCase().includes(needle))
+      ? all.filter((c) => nameOf(c).toLowerCase().includes(needle)
+          || enNameOf(c).toLowerCase().includes(needle)
+          || c.toLowerCase().includes(needle))
       : all;
 
     /* 목록이 바뀌면 커서를 처음으로 되돌린다 — 없는 항목을 가리키면 Enter 가 엉뚱한 것을 고른다. */

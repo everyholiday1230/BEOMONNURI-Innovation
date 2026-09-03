@@ -151,6 +151,20 @@ describe('SIGNUP-COUNTRY — 고른 국가가 실제로 저장된다', () => {
     expect(page).toMatch(/c\.toLowerCase\(\)\.includes\(needle\)/);
   });
 
+  it('[16] 영어 이름으로도 검색된다', () => {
+    const page = read('src/pages-auth.jsx');
+    /*
+       ★★ 실서비스 실측: 일본어 화면에서 'korea' 를 입력하면 0개였다(일본어로는
+         韓国). UI 언어와 무관하게 영어 이름을 입력하는 사람이 많으므로, 못 찾으면
+         검색 기능이 없는 것과 같다.
+
+       ★ 화면에 보이는 이름은 번역된 이름 그대로다 — 영어는 검색에만 쓴다.
+         목록에 섞으면 중국어 화면에 영어가 튀어나온다.
+    */
+    expect(page).toMatch(/enNameOf\(c\)\.toLowerCase\(\)\.includes\(needle\)/);
+    expect(page).toMatch(/new Intl\.DisplayNames\(\['en'\]/);
+  });
+
   it('[11] 결과가 없으면 이유를 말한다 — 빈 상자는 고장으로 읽힌다', () => {
     const page = read('src/pages-auth.jsx');
     expect(page).toMatch(/country_no_match/);
