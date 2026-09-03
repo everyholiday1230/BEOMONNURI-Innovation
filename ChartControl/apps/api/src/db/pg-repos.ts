@@ -18,14 +18,21 @@ export class PgUserRepository implements IUserRepository {
   constructor(private readonly pool: Pool) {}
   async create(u: User): Promise<void> {
     await this.pool.query(
-      `INSERT INTO users (id,email,password_hash,role,status,mfa_enabled,email_verified,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, to_timestamp($8/1000.0), to_timestamp($9/1000.0))`,
-      [u.id, u.email, u.passwordHash, u.role, u.status, u.mfaEnabled, u.emailVerified, u.createdAt, u.updatedAt],
+      /*
+         ★★ country·country_source 를 함께 넣는다. 이 두 칸이 없어서 가입 화면이
+           물어본 국가가 저장 경로에 도달하지 못했다 — 화면·클라이언트·스키마가
+           모두 준비돼 있었는데 INSERT 문에서 끊겼다.
+      */
+      `INSERT INTO users (id,email,password_hash,role,status,mfa_enabled,email_verified,created_at,updated_at,country,country_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, to_timestamp($8/1000.0), to_timestamp($9/1000.0), $10, $11)`,
+      [u.id, u.email, u.passwordHash, u.role, u.status, u.mfaEnabled, u.emailVerified, u.createdAt, u.updatedAt,
+        // ★ undefined 를 넘기면 pg 가 오류를 낸다. 없으면 명시적으로 null 이다.
+        u.country ?? null, u.countrySource ?? null],
     );
   }
   private async one(where: string, val: string): Promise<User | null> {
     const r = await this.pool.query(
-      `SELECT id,email,password_hash,role,status,mfa_enabled,email_verified, ${ms('created_at', 'c')}, ${ms('updated_at', 'u')} FROM users WHERE ${where} = $1`,
+      `SELECT id,email,password_hash,role,status,mfa_enabled,email_verified,country,country_source, ${ms('created_at', 'c')}, ${ms('updated_at', 'u')} FROM users WHERE ${where} = $1`,
       [val],
     );
     const row = r.rows[0];
@@ -33,6 +40,8 @@ export class PgUserRepository implements IUserRepository {
     return {
       id: row.id, email: row.email, passwordHash: row.password_hash, role: row.role as Role,
       status: row.status as User['status'], mfaEnabled: !!row.mfa_enabled, emailVerified: !!row.email_verified,
+      // ★ 없으면 null 로 남긴다. 기본값을 채우면 없는 사실을 만든다.
+      country: row.country ?? null, countrySource: (row.country_source ?? null) as User['countrySource'],
       createdAt: Number(row.c), updatedAt: Number(row.u),
     };
   }

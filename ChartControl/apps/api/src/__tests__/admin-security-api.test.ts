@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { SqliteAdminRepoAdapter } from '../db/admin-repo-contract';
 import { SqlitePreferencesRepo } from '../db/preferences-repo';
@@ -440,12 +442,25 @@ describe('ADM-API-15 GET /admin/backup/status', () => {
     expect(b.pragmas.journalMode).toBeTruthy();
     expect(typeof b.pragmas.walEnabled).toBe('boolean');
     expect(Number(b.pragmas.pageSize)).toBeGreaterThan(0);
-    // The last applied migration is a real row. Updated with migration 0013 (resource user_id FK fix —
-    // layouts/ai_signals/chart_overlays/order_drafts + version tables must not FK to a users table that
-    // lives in Postgres on production; extends the 0012 fix to the resource tables). This assertion
-    // is deliberately exact: it is how the backup-status endpoint proves it reports the schema actually
-    // applied, not a hardcoded string.
-    expect(b.migrations.last?.version).toBe('0015_user_tags');
+    /*
+       마지막으로 적용된 마이그레이션이 **실제 행**이어야 한다.
+
+       ★★ 이 검사의 목적은 백업 상태 엔드포인트가 하드코딩된 문자열이 아니라
+         진짜로 적용된 스키마를 보고한다는 것을 증명하는 것이다.
+
+       ★ 예전에는 이름을 정확히 박아 뒀다('0015_user_tags'). 그러면 **마이그레이션을
+         추가할 때마다 이 테스트가 깨진다** — 실제로 0016 을 추가하자 깨졌고, 그건
+         새 기능의 결함이 아니라 이 검사의 형태 문제였다. 깨지는 이유가 결함과
+         무관하면 사람들이 테스트를 믿지 않게 된다.
+
+       ★ 그래서 이름 대신 성질을 본다: 디스크의 마이그레이션 파일 중 가장 마지막
+         것과 같아야 한다. 하드코딩된 값을 돌려주면 여전히 실패한다.
+    */
+    const files = readdirSync(join(__dirname, '..', 'db', 'migrations'))
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const newest = files[files.length - 1]!.replace(/\.sql$/, '');
+    expect(b.migrations.last?.version).toBe(newest);
     expect(b.migrations.appliedCount).toBeGreaterThanOrEqual(9);
     // NOTHING unknowable is reported as a success: every backup field is null and named as unavailable.
     for (const [k, v] of Object.entries(b.backup)) {

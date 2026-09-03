@@ -14,19 +14,29 @@ import type { DB } from './sqlite';
 interface UserRow {
   id: string; email: string; password_hash: string; role: string; status: string;
   mfa_enabled: number; email_verified: number; created_at: number; updated_at: number;
+  country?: string | null;
+  country_source?: string | null;
 }
 const rowToUser = (r: UserRow): User => ({
   id: r.id, email: r.email, passwordHash: r.password_hash, role: r.role as Role,
   status: r.status as User['status'], mfaEnabled: !!r.mfa_enabled, emailVerified: !!r.email_verified,
   createdAt: r.created_at, updatedAt: r.updated_at,
+  // ★ 없으면 null 로 남긴다. 기본값을 채우면 없는 사실을 만든다.
+  country: r.country ?? null, countrySource: (r.country_source ?? null) as User['countrySource'],
 });
 
 export class SqliteUserRepository implements IUserRepository {
   constructor(private readonly db: DB) {}
   async create(u: User): Promise<void> {
     this.db
-      .prepare('INSERT INTO users (id,email,password_hash,role,status,mfa_enabled,email_verified,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)')
-      .run(u.id, u.email, u.passwordHash, u.role, u.status, u.mfaEnabled ? 1 : 0, u.emailVerified ? 1 : 0, u.createdAt, u.updatedAt);
+      .prepare('INSERT INTO users (id,email,password_hash,role,status,mfa_enabled,email_verified,created_at,updated_at,country,country_source) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+      /*
+         ★★ country·country_source 를 함께 넣는다. 이 두 칸이 없어서 가입 화면이
+           물어본 국가가 저장되지 않았다.
+         ★ 없으면 null 이다 — 기본값을 채우면 없는 사실을 만든다.
+      */
+      .run(u.id, u.email, u.passwordHash, u.role, u.status, u.mfaEnabled ? 1 : 0, u.emailVerified ? 1 : 0, u.createdAt, u.updatedAt,
+        u.country ?? null, u.countrySource ?? null);
   }
   async findByEmail(email: string): Promise<User | null> {
     const r = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase()) as UserRow | undefined;

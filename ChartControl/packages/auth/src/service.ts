@@ -171,6 +171,22 @@ export class AuthService {
       emailVerified: false,
       createdAt: t,
       updatedAt: t,
+      /*
+         가입 시 선택한 국가.
+
+         ★★ 예전에는 이 두 줄이 없어서 화면이 물어본 국가가 **여기서 사라졌다.**
+           클라이언트는 보내고 스키마만 고쳐도 부족하다 — User 객체에 넣지 않으면
+           저장 경로에 도달하지 않는다.
+
+         ★ 없으면 null 이다. 기본값으로 특정 국가를 넣으면 없는 사실을 만든다.
+
+         ★★ 근거를 모르면 'inferred' 로 본다. 사용자가 직접 골랐다고 단정하는
+           쪽이 위험하다 — 나중에 국가별 평균을 낼 때 추정치가 선언으로 섞인다.
+      */
+      country: parsed.data.country ?? null,
+      countrySource: parsed.data.country
+        ? (parsed.data.countrySource ?? 'inferred')
+        : null,
     };
     await this.users.create(user);
     await this.log('auth.register', user.id, ctx, 'success', { email: user.email });

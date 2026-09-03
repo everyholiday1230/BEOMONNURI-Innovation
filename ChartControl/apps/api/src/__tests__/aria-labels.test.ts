@@ -31,7 +31,23 @@ const SRC = join(__dirname, '../../../../src');
      못 보고 "라벨 없음" 으로 잘못 보고한다 — 실제로 6곳을 그렇게 오판했다.
      중괄호 깊이를 세어 **속성 밖의** `>` 에서만 끊는다.
 */
-function inputTags(text: string): string[] {
+/*
+   주석을 지운다.
+
+   ★★ 이 스캐너는 이미 두 번 잘못 셌다(여러 줄 태그 36개 누락, onChange 안의 '>' 를
+     태그 끝으로 오인). 세 번째는 **주석 안의 태그 이름**이었다 — 설명 주석에
+     `<select>` 라고 쓰자 라벨 없는 입력칸으로 보고했다.
+
+   ★ 측정 도구가 틀리면 그 위에서 내린 판단이 전부 틀린다. 주석을 먼저 걷어낸다.
+*/
+function stripComments(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+}
+
+function inputTags(raw: string): string[] {
+  const text = stripComments(raw);
   const out: string[] = [];
   const re = /<(input|select|textarea)[\s>]/gi;
   let m: RegExpExecArray | null;

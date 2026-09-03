@@ -14,7 +14,7 @@
    ============================================================ */
 
 (function () {
-  const { useState, useEffect } = React;
+  const { useState, useEffect, useRef, useMemo } = React;
   const I = window.Icons;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
@@ -69,6 +69,185 @@
     const opts = ordered.map((code) => <option key={code} value={code}>{label(code)}</option>);
     opts.push(<option key="OTHER" value="OTHER">{t('country_other')}</option>);
     return opts;
+  };
+
+  /*
+     브라우저에서 국가를 **추정**한다.
+
+     ★★ 예전에는 초기값이 `'KR'` 로 박혀 있었다. 그건 선택이 아니라 가정이다 —
+       한국어를 UI 에서 뺀 뒤에도 모든 신규 가입자가 한국으로 기록됐다. 나중에
+       국가별 평균을 내려면 그 값은 쓸 수 없다.
+
+     ★ 추정 근거는 두 가지다: 브라우저 언어의 지역 부분(ko-KR → KR)과 시간대.
+       둘 다 확실하지 않다(VPN·여행·기기 설정). 그래서 **제안으로만** 쓰고,
+       countrySource='inferred' 로 표시해 사용자가 직접 고른 값과 구분한다.
+
+     ★ 추정에 실패하면 빈 값을 둔다. 아무 나라나 넣으면 틀린 사실이 기록된다.
+  */
+  const guessCountry = () => {
+    try {
+      const langs = (navigator.languages && navigator.languages.length)
+        ? navigator.languages : [navigator.language || ''];
+      for (const l of langs) {
+        const m = String(l).match(/[-_]([A-Za-z]{2})$/);
+        if (m) {
+          const code = m[1].toUpperCase();
+          if (COUNTRY_CODES.includes(code)) return code;
+        }
+      }
+    } catch (e) { /* 추정 실패는 빈 값으로 둔다 */ }
+    try {
+      /* 시간대의 지역명으로 마지막 시도. Asia/Seoul 같은 값에서 도시는 알아도 국가 코드는 아니므로, 알려진 몇 개만 본다. */
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const TZ_HINT = { 'Asia/Seoul': 'KR', 'Asia/Tokyo': 'JP', 'Asia/Shanghai': 'CN', 'Asia/Taipei': 'TW',
+        'Asia/Singapore': 'SG', 'Asia/Hong_Kong': 'HK', 'Europe/London': 'GB', 'Europe/Berlin': 'DE',
+        'America/New_York': 'US', 'America/Los_Angeles': 'US', 'America/Chicago': 'US' };
+      if (TZ_HINT[tz]) return TZ_HINT[tz];
+    } catch (e) { /* 무시 */ }
+    return '';
+  };
+
+  /*
+     검색 가능한 국가 선택기.
+
+     ★★ 왜 select 로는 안 되는가
+
+       목록이 195개다. 기본 `<select>` 는 검색이 없어서 사용자가 스크롤로 찾아야
+       한다. 나라 이름이 보는 사람의 언어로 번역되므로 알파벳 순서도 언어마다
+       달라지고, 스크롤로 찾기가 더 어렵다.
+
+     ★★ 접근성
+
+       역할을 직접 선언한다 — combobox(입력) + listbox(목록) + option(항목).
+       키보드만 쓰는 사용자가 ↑↓ 로 옮기고 Enter 로 고르고 Esc 로 닫을 수 있어야
+       한다. 마우스로만 되는 선택기는 이 화면을 쓸 수 없게 만든다.
+
+     ★ 코드로도 찾게 한다. 'KR' 을 입력하는 사람도 있고, 번역된 이름을 모르는
+       경우도 있다(중국어 화면에서 독일을 찾을 때).
+  */
+  const CountryPicker = ({ value, onChange, t }) => {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const [cursor, setCursor] = useState(0);
+    const boxRef = useRef(null);
+    const listId = 'country-listbox';
+
+    const loc = (window.QTI18n && window.QTI18n.getLocale && window.QTI18n.getLocale()) || 'en';
+    let dn = null;
+    try { dn = new Intl.DisplayNames([loc], { type: 'region' }); } catch (e) { /* older browser */ }
+    const nameOf = (code) => {
+      if (code === 'OTHER') return t('country_other');
+      try { return (dn && dn.of(code)) || code; } catch (e) { return code; }
+    };
+
+    /* 우선순위 국가를 앞에 두고, 나머지는 보는 사람의 언어 기준으로 정렬한다. */
+    const all = useMemo(() => {
+      const rest = COUNTRY_CODES
+        .filter((c) => !COUNTRY_PRIORITY.includes(c))
+        .sort((a, b) => nameOf(a).localeCompare(nameOf(b), loc));
+      return COUNTRY_PRIORITY.concat(rest).concat(['OTHER']);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loc]);
+
+    const needle = q.trim().toLowerCase();
+    const shown = needle
+      ? all.filter((c) => nameOf(c).toLowerCase().includes(needle) || c.toLowerCase().includes(needle))
+      : all;
+
+    /* 목록이 바뀌면 커서를 처음으로 되돌린다 — 없는 항목을 가리키면 Enter 가 엉뚱한 것을 고른다. */
+    useEffect(() => { setCursor(0); }, [needle, open]);
+
+    /* 바깥을 누르면 닫는다. */
+    useEffect(() => {
+      if (!open) return undefined;
+      const onDown = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+      document.addEventListener('mousedown', onDown);
+      return () => document.removeEventListener('mousedown', onDown);
+    }, [open]);
+
+    const pick = (code) => {
+      /*
+         ★★ 사용자가 직접 고른 값이므로 근거를 'user' 로 올린다. 브라우저 추정과
+           구분해야 나중에 국가별 평균이 왜곡되지 않는다.
+      */
+      onChange(code, 'user');
+      setOpen(false);
+      setQ('');
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!open) { setOpen(true); return; }
+        setCursor((i) => {
+          const next = e.key === 'ArrowDown' ? i + 1 : i - 1;
+          if (next < 0) return shown.length - 1;
+          if (next >= shown.length) return 0;
+          return next;
+        });
+        return;
+      }
+      if (e.key === 'Enter') {
+        if (open && shown[cursor]) { e.preventDefault(); pick(shown[cursor]); }
+        return;
+      }
+      if (e.key === 'Escape' && open) { e.preventDefault(); setOpen(false); }
+    };
+
+    return (
+      <div ref={boxRef} style={{ position: 'relative' }}>
+        <input
+          type="text"
+          role="combobox"
+          aria-label={t('fld_country')}
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          placeholder={t('country_search_ph')}
+          value={open ? q : nameOf(value)}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onKeyDown={onKeyDown}
+        />
+        {open && (
+          <div
+            id={listId}
+            role="listbox"
+            aria-label={t('country_search_open')}
+            className="panel"
+            style={{
+              position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 50,
+              maxHeight: 240, overflowY: 'auto', marginTop: 2,
+              boxShadow: 'var(--shadow-lg, 0 8px 24px rgba(0,0,0,.4))',
+            }}
+          >
+            {shown.length === 0 ? (
+              /*
+                 ★★ 결과가 없을 때 빈 상자를 보여주지 않는다. 빈 목록은 "고장났다"
+                   로 읽힌다 — 무엇을 검색했고 왜 비었는지 말한다.
+              */
+              <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                {t('country_no_match', { q: q.trim() })}
+              </div>
+            ) : shown.map((code, i) => (
+              <button
+                key={code}
+                type="button"
+                role="option"
+                aria-selected={code === value}
+                className={`btn btn--ghost btn--sm ${i === cursor ? 'is-active' : ''}`}
+                style={{ display: 'block', width: '100%', textAlign: 'left' }}
+                onMouseEnter={() => setCursor(i)}
+                onClick={() => pick(code)}
+              >
+                {nameOf(code)}
+                <span style={{ opacity: 0.5, marginLeft: 6, fontSize: 10 }}>{code === 'OTHER' ? '' : code}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   /** 언어 변경 시 이 파일의 컴포넌트들이 재렌더되도록 하는 훅. */
@@ -488,7 +667,7 @@
   // SIGNUP PAGE
   // ============================================================
   window.SignupPage = function SignupPage({ shellProps: _shellProps }) {
-    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: 'KR', agree: false, marketing: true });
+    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: true });
 
     /*
        초대 코드.
@@ -589,7 +768,18 @@
       setServerError('');
       setLoading(true);
       window.QTApi.auth.register(form.email, form.pw, {
-        country: form.country,
+        /*
+           ★ 빈 값은 보내지 않는다. 서버 스키마가 두 글자 코드만 받으므로 ''
+             를 보내면 검증에서 걸린다 — 국가를 고르지 않았다고 가입이 막히면
+             그 손해가 이 정보의 가치보다 크다.
+        */
+        ...(form.country ? { country: form.country } : {}),
+        /*
+           ★★ 그 값의 근거를 함께 보낸다. 브라우저 추정과 사용자가 직접 고른 값을
+             서버가 구분해서 저장한다 — 추정치를 선언으로 취급하면 나중에 국가별
+             평균이 조용히 왜곡된다.
+        */
+        ...(form.country ? { countrySource: form.countrySource || 'inferred' } : {}),
         marketingOptIn: form.marketing,
         /*
            코드가 유효할 때만 보낸다.
@@ -670,9 +860,23 @@
 
           <div className="input-group">
             <span className="input-group__label"><I.Globe size={11}/> {t('fld_country')}</span>
-            <select aria-label={t('fld_country')} value={form.country} onChange={e => setForm({...form, country: e.target.value})} style={{background:'transparent', border:0, width:'100%', color:'inherit', outline:'none', fontFamily:'inherit'}}>
-              {countryOptions()}
-            </select>
+            <CountryPicker
+              value={form.country}
+              onChange={(code, source) => setForm({ ...form, country: code, countrySource: source })}
+              t={t}
+            />
+            {/*
+               ★★ 추정값이라는 사실을 숨기지 않는다.
+
+                 브라우저에서 짐작한 값을 미리 채워 두면 편하지만, 그대로 두면
+                 사용자는 자기가 고른 것으로 착각한다. 확인해 달라고 말한다 —
+                 그래야 이 데이터를 나중에 신뢰할 수 있다.
+            */}
+            {form.country && form.countrySource === 'inferred' && (
+              <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                {t('country_guessed')}
+              </div>
+            )}
           </div>
 
           {(errors.length > 0 || serverError) && (

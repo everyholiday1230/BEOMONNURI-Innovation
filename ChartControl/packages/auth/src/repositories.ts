@@ -10,6 +10,15 @@ export interface User {
   emailVerified: boolean;
   createdAt: number;
   updatedAt: number;
+  /*
+     가입 시 선택한 국가 (ISO 3166-1 alpha-2 또는 'OTHER'). 모르면 null.
+
+     ★ 기존 가입자에게는 이 정보가 없다. 없는 것을 기본값으로 채우면 없는 사실을
+       만들어내는 것이 되므로 null 을 유지한다.
+  */
+  country?: string | null;
+  /** 위 값의 근거: 'user'(직접 선택) | 'inferred'(브라우저 추정). 모르면 null. */
+  countrySource?: 'user' | 'inferred' | null;
 }
 
 /** User without the password hash — safe to return to clients. */
