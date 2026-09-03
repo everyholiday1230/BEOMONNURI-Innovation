@@ -97,6 +97,32 @@ describe('ORDER-QTY-SPEC — 폼이 수량 규격을 안다', () => {
     }
   });
 
+  it('[8] 다중 차트 각 칸이 자기 심볼의 규격을 쓴다', () => {
+    const src = read('src/app.jsx');
+    /*
+       ★★ 예전에는 활성 종목의 market 을 복사해 base·quote·symbol 만 바꿨다.
+         그 칸은 이름만 자기 심볼이고 규격은 활성 종목 것이었다 — 가격 자리수·
+         최대 레버리지·펀딩비율·수수료·최소수량이 전부 다른 종목 값이다.
+         이름과 숫자가 어긋나면 이용자는 그 숫자를 자기 종목의 것으로 읽는다.
+
+       ★ 수량 규격이 market 에 흐르게 된 뒤로 더 위험해졌다(다른 종목의
+         최소수량으로 판단하게 된다). 그래서 이 검사를 함께 둔다.
+    */
+    expect(src).toMatch(/function paneMarket\(/);
+    expect(src).toMatch(/market=\{paneMarket\(symbol, props\.market\)\}/);
+    // ★ 옛 방식(사본에 심볼만 덮어쓰기)이 돌아오면 실패해야 한다.
+    expect(src).not.toMatch(/market=\{\{ \.\.\.props\.market, base:/);
+
+    const fn = src.slice(src.indexOf('function paneMarket('), src.indexOf('function paneMarket(') + 1600);
+    /*
+       ★★ 못 찾았을 때 규격을 지우는 것이 핵심이다. 틀린 규격을 그 종목의
+         것처럼 물려주면, 조용히 잘못된 숫자로 계산한다.
+    */
+    for (const field of ['tickSize', 'stepSize', 'minQty', 'maxLeverage']) {
+      expect(fn, `폴백에서 ${field} 를 비우지 않는다`).toMatch(new RegExp(`${field}: undefined`));
+    }
+  });
+
   it('[7] 심볼 이름을 빈 값으로 두지 않는다', () => {
     const src = read('src/widgets.jsx');
     const start = src.indexOf('const minQtyNum =');

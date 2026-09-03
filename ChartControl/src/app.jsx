@@ -7,6 +7,44 @@
   const I = window.Icons;
   const { fmt, fmtPrice } = window.QTFmt;
 
+  /*
+     패널 하나의 시장 정보.
+
+     ★★ 다중 차트에서 각 칸은 다른 종목을 보여준다. 활성 종목의 객체를 복사해
+       이름만 바꾸면, 그 칸의 숫자(가격 자리수·최대 레버리지·펀딩비율·수수료·
+       최소수량)는 전부 **다른 종목 것**이 된다. 이용자는 이름을 보고 그 숫자를
+       자기 종목의 것으로 읽는다.
+
+     ★ QT.MARKETS 는 심볼별 실제 항목을 들고 있다(live-market 의 applyMarkets 가
+       서버 값으로 채운다). 그것을 쓴다.
+
+     ★ 못 찾으면 사본으로 되돌리되 **규격은 지운다.** 틀린 규격을 그 종목의 것처럼
+       보여주는 것보다, 없어서 계산하지 않는 편이 안전하다.
+  */
+  function paneMarket(symbol, active) {
+    const want = String(symbol || '').toUpperCase();
+    const list = (window.QT && Array.isArray(window.QT.MARKETS)) ? window.QT.MARKETS : [];
+    const found = list.find((m) => String((m.base || '') + (m.quote || '')).toUpperCase() === want);
+    if (found) return found;
+    return {
+      ...active,
+      base: want.replace(/USDT$|USDC$|BTC$/, ''),
+      quote: (want.match(/(USDT|USDC|BTC)$/) || ['', ''])[1],
+      symbol: want,
+      // ★ 다른 종목의 규격을 물려주지 않는다.
+      tickSize: undefined,
+      stepSize: undefined,
+      minQty: undefined,
+      quantityPrecision: undefined,
+      multiplier: undefined,
+      maxLeverage: undefined,
+      takerFeeRate: undefined,
+      makerFeeRate: undefined,
+      fundingRate: undefined,
+    };
+  }
+
+
   /**
    * 번역 조회 — 파일 단위 헬퍼.
    *
@@ -2228,10 +2266,18 @@
                   paneId={paneId}
                   focused={false}
                   /*
-                     ★ market 객체를 통째로 넘기지 않고 심볼만 바꾼 사본을 만든다.
-                       원본을 넘기면 이 칸이 활성 종목의 정보(승수·수수료)를 쓴다.
+                     ★★ 이 칸의 심볼에 해당하는 **실제 항목**을 찾아 넘긴다.
+
+                       예전에는 활성 종목의 market 을 복사해 base·quote·symbol 만
+                       바꿨다. 그래서 이 칸은 이름만 자기 심볼이고 규격은 활성 종목
+                       것을 썼다 — tickSize(가격 자리수)·multiplier·maxLeverage·
+                       펀딩비율·수수료율이 전부 다른 종목 값이었다. 이름과 숫자가
+                       어긋나면 이용자는 그 숫자를 자기 종목의 것으로 읽는다.
+
+                       수량 규격(stepSize·minQty)이 market 에 흐르게 된 뒤로는 더
+                       위험해졌다 — 다른 종목의 최소수량으로 판단하게 된다.
                   */
-                  market={{ ...props.market, base: symbol.replace(/USDT$|USDC$|BTC$/, ''), quote: symbol.replace(/^.*?(USDT|USDC|BTC)$/, '$1'), symbol }}
+                  market={paneMarket(symbol, props.market)}
                   candles={paneCandles}
                   lastPrice={last}
                   prevPrice={paneCandles.length > 1 ? paneCandles[paneCandles.length - 2].close : null}
