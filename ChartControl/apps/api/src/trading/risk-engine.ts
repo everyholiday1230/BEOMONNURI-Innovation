@@ -46,6 +46,17 @@ export interface RiskEngineInput {
   availableQuote?: string | null;
   /** 현물인가. 필요 금액 계산이 다르다(현물은 전액, 선물은 증거금). */
   isSpot?: boolean;
+  /*
+     명목가가 정확한가.
+
+     ★★ 선물 계약 승수를 모르면 명목가가 배수만큼 틀릴 수 있다(실서비스
+       XRPUSDT 는 multiplier 가 null 이다). 어림값으로 주문을 막으면 **돈이 있는
+       고객의 주문을 우리가 막는** 것이 되고, 그건 거래소가 막는 것보다 나쁘다.
+
+     ★ 그래서 정확할 때만 거부한다. 어림값일 때는 사실을 밝히고 통과시킨다 —
+       최종 판단자는 거래소다.
+  */
+  notionalExact?: boolean;
   /** 수수료율(테이커). 필요 금액에 더한다 — 딱 맞는 잔고로는 주문이 안 나간다. */
   takerFeeRate?: string;
   marketDataStatus: string;
@@ -194,15 +205,29 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     } else if (!Number.isFinite(need)) {
       add2('funds.available', 'Balance covers this order', 'warn', `balance ${fmt(avail)} — order size unknown, cannot compare`);
     } else if (avail >= need) {
+      /*
+         ★ 충분하다고 말할 때도 어림값이면 밝힌다. "확인했다" 와 "대충 맞다" 는
+           다른 주장이다.
+      */
       add2('funds.available', 'Balance covers this order', 'ok',
-        `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) ≤ have ${fmt(avail)}`);
+        `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) ≤ have ${fmt(avail)}`
+        + (i.notionalExact === false ? ' · approximate (contract multiplier unknown)' : ''));
     } else {
       /*
          ★★ 부족한 **금액**을 말한다. "잔고 부족" 만으로는 고객이 얼마를 넣어야
            하는지 모른다 — 거래소 원문이 정확히 그래서 쓸모없었다.
+
+         ★★ 다만 명목가가 어림값이면 **거부하지 않는다.** 승수를 몰라 계산이
+           틀렸을 수 있고, 그 경우 돈이 충분한 고객의 주문을 우리가 막게 된다.
+           어림값이라는 사실을 함께 말하고 거래소에 맡긴다.
       */
-      add2('funds.available', 'Balance covers this order', 'fail',
-        `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) but have ${fmt(avail)} — short by ${fmt(need - avail)}`);
+      const shortfall = `need ${fmt(need)} (${i.isSpot ? 'full amount' : `margin at ${lev}x`}${fee > 0 ? ' + fee' : ''}) but have ${fmt(avail)} — short by ${fmt(need - avail)}`;
+      if (i.notionalExact === false) {
+        add2('funds.available', 'Balance covers this order', 'warn',
+          `${shortfall} · contract multiplier unknown, so this is approximate — the exchange decides`);
+      } else {
+        add2('funds.available', 'Balance covers this order', 'fail', shortfall);
+      }
     }
   }
   /*

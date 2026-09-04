@@ -572,6 +572,40 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const catalogueLoaded = d.catalogueReady
       ? d.catalogueReady(isSpot ? 'spot' : 'futures')
       : undefined;
+
+    /*
+       주문 명목가.
+
+       ★ 지정가는 입력 가격, 시장가는 현재 시세를 쓴다. 시장가에 가격이 없다고
+         계산을 포기하면 시장가 주문에서 잔고 검사가 영원히 동작하지 않는다.
+    */
+    const spec = metaSource[symbol];
+    let derivedPrice: string | undefined;
+    const bodyPrice = typeof body.price === 'string' ? body.price : undefined;
+    if (bodyPrice && Number(bodyPrice) > 0) {
+      derivedPrice = bodyPrice;
+    } else if (d.marketSnapshot) {
+      try {
+        const snap = await d.marketSnapshot(symbol, isSpot ? 'spot' : 'futures');
+        const px = snap?.markPrice ?? snap?.last;
+        if (px !== undefined && px !== null && Number(px) > 0) derivedPrice = String(px);
+      } catch {
+        // ★ 시세 조회 실패는 조용히 넘긴다 — 주문 검증 자체를 실패시킬 이유는 없다.
+      }
+    }
+
+    const qtyNum = Number(body.quantity ?? 0);
+    /*
+       ★★ 승수를 모르면 1 로 두되 **정확하지 않다고 표시한다.** 1 로 계산한 값을
+         정확한 것처럼 쓰면 명목가가 배수만큼 작게 나오고, 그러면 "돈이 충분하다" 고
+         잘못 말한다 — 안전한 방향으로 틀리는 게 아니다.
+    */
+    const mult = Number((spec as { multiplier?: unknown } | undefined)?.multiplier);
+    const multKnown = Number.isFinite(mult) && mult > 0;
+    const notionalExact = isSpot || multKnown;
+    const derivedNotional = (derivedPrice && Number.isFinite(qtyNum) && qtyNum > 0)
+      ? String(Number(derivedPrice) * qtyNum * (multKnown ? mult : 1))
+      : undefined;
     return {
       st,
       symbolId: symbol,
@@ -599,8 +633,36 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         takeProfit: (body.takeProfit ?? body.takeProfitPrice) as string | undefined,
         riskReward: body.riskReward as string | undefined,
         maxEstLoss: body.maxEstLoss as string | undefined,
-        positionValue: body.positionValue as string | undefined,
-        referencePrice: body.referencePrice as string | undefined,
+        /*
+           ★★ 명목가를 **서버가 계산한다.**
+
+             실서비스 실측(09-04 02:10~02:11, 주문 3건): 잔고 게이트가
+             `balance 22.8665 — order size unknown, cannot compare` 로 나왔다.
+             잔고는 읽었는데 **주문 크기를 몰라서 비교를 못 했다.**
+
+             원인은 이 줄이 `body.positionValue` 를 기다린 것이다. 클라이언트는
+             그 값을 보내지 않는다(src 전체에 없다). 그래서 내가 만든 게이트가
+             있기는 한데 아무것도 막지 못하는 상태였다 — 이 프로젝트가 반복해서
+             겪은 실패 방식(측정하지 않는 게이트)을 내 새 게이트가 그대로 재현했다.
+
+           ★ 서버는 재료를 이미 갖고 있다: 지정가는 body.price, 시장가는 시세.
+             클라이언트가 보내주면 그대로 쓰고(호출자를 깨뜨리지 않는다),
+             없으면 계산한다.
+        */
+        positionValue: (body.positionValue as string | undefined) ?? derivedNotional,
+        referencePrice: (body.referencePrice as string | undefined) ?? derivedPrice,
+        /*
+           ★★ 그 명목가가 **정확한가.**
+
+             선물 계약 승수(multiplier)를 모르면 명목가가 배수만큼 틀릴 수 있다
+             (실서비스 XRPUSDT 는 multiplier 가 null 이다). 틀린 값으로 주문을
+             막으면 **돈이 있는 고객의 주문을 우리가 막는** 것이 되고, 그건 거래소가
+             막는 것보다 나쁘다.
+
+           ★ 그래서 정확할 때만 거부하고, 어림값일 때는 사실을 밝히고 통과시킨다.
+             최종 판단자는 거래소다.
+        */
+        notionalExact,
         policy: d.policy,
         liveTradingEnabled: d.liveTradingEnabled,
         /*

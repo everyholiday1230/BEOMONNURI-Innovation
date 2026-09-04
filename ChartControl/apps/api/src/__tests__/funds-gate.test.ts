@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { runRiskEngine } from '../trading/risk-engine';
 
@@ -112,6 +114,53 @@ describe('FUNDS-GATE — 주문 전에 잔고를 본다', () => {
     const g = funds({ availableQuote: '100', positionValue: undefined });
     expect(g.status).toBe('warn');
     expect(g.detail).toMatch(/cannot compare/i);
+  });
+
+  it('[10] 명목가를 서버가 계산한다 — 클라이언트를 기다리면 게이트가 죽는다', () => {
+    /*
+       ★★ 실서비스 실측(09-04 02:10~02:11, 주문 3건): 이 게이트가
+         `balance 22.8665 — order size unknown, cannot compare` 로 나왔다.
+         잔고는 읽었는데 **주문 크기를 몰라서 비교를 못 했다.**
+
+         원인은 라우터가 `body.positionValue` 를 기다린 것이다. 클라이언트는 그
+         값을 보내지 않는다(src 전체에 없다). 즉 내가 만든 게이트가 있기는 한데
+         아무것도 막지 못했다 — 이 프로젝트가 반복해서 겪은 실패 방식(측정하지
+         않는 게이트)을 새 게이트가 그대로 재현했다.
+    */
+    const routes = readFileSync(
+      join(__dirname, '..', 'trading-routes.ts'),
+      'utf8',
+    );
+    // 클라이언트 값이 있으면 쓰고, 없으면 서버가 만든 값을 쓴다.
+    expect(routes).toMatch(/positionValue: \(body\.positionValue as string \| undefined\) \?\? derivedNotional/);
+    // 시장가에는 입력 가격이 없으므로 시세로 계산해야 한다.
+    expect(routes).toMatch(/d\.marketSnapshot\(symbol, isSpot \? 'spot' : 'futures'\)/);
+    expect(routes).toMatch(/derivedNotional/);
+  });
+
+  it('[11] 명목가가 어림값이면 거부하지 않는다 — 우리가 고객 돈을 막으면 안 된다', () => {
+    /*
+       ★★ 선물 계약 승수를 모르면 명목가가 배수만큼 틀릴 수 있다(실서비스
+         XRPUSDT 는 multiplier 가 null 이다). 어림값으로 막으면 돈이 충분한
+         고객의 주문을 우리가 막는다 — 거래소가 막는 것보다 나쁘다.
+    */
+    const approx = funds({ availableQuote: '1', positionValue: '20', notionalExact: false });
+    expect(approx.status).toBe('warn');
+    expect(approx.detail).toMatch(/approximate/i);
+    expect(run({ availableQuote: '1', positionValue: '20', notionalExact: false }).pass).toBe(true);
+
+    // 정확할 때는 막는다 — 그러지 않으면 게이트가 다시 무의미해진다.
+    const exact = funds({ availableQuote: '1', positionValue: '20', notionalExact: true });
+    expect(exact.status).toBe('fail');
+    expect(run({ availableQuote: '1', positionValue: '20', notionalExact: true }).pass).toBe(false);
+  });
+
+  it('[12] 충분할 때도 어림값이면 밝힌다 — "확인했다" 와 "대충 맞다" 는 다르다', () => {
+    const g = funds({ availableQuote: '22.8665', positionValue: '20', notionalExact: false });
+    expect(g.status).toBe('ok');
+    expect(g.detail).toMatch(/approximate/i);
+    const exact = funds({ availableQuote: '22.8665', positionValue: '20', notionalExact: true });
+    expect(exact.detail).not.toMatch(/approximate/i);
   });
 
   it('[9] 잔고 0 은 측정값이므로 거부한다 — null 과 다르다', () => {
