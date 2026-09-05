@@ -26,7 +26,6 @@
         '{brand} is chart analysis software. Ask about a chart in plain words and the AI explains what the '
         + 'indicators show; if you decide to act, the order runs on your own exchange account after you approve it. '
         + 'We do not hold your funds, manage them, or recommend what to buy.',
-        + 'Ask for analysis in plain words as if drawing on the chart, then move through signal → draft → risk check → execution on a safe pipeline.',
       auth_833f52: 'Plain language → you draw overlays → draft your own setup',
       auth_66cdd9: 'Drag, resize and preset your own layout',
       auth_2d0495: 'Approve ≠ Submit · multi-stage risk check',

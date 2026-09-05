@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
@@ -35,6 +35,63 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
    ★ 이 검사는 그 표기가 다시 흐려지는 것을 막는다. 문구를 바꿀 수는 있지만,
      "거래 터미널"·"투자정보" 로 되돌아가면 실패한다.
 */
+/*
+   문구 파일이 **문법적으로 유효한가.**
+
+   ★★ 왜 이 검사가 생겼나
+
+     문구를 스크립트로 일괄 수정하다가 여러 줄 문자열 연결에서 한 줄을 남겨
+     `+ '...'` 가 홀로 떠 버렸다. 브라우저는 `Unexpected token '+'` 로 그 파일을
+     통째로 버리고, 그 파일에 든 **모든 문구가 사라진다** — 로그인·가입 화면이
+     빈 라벨로 뜬다. 실서비스에 그 상태로 배포됐고, 페이지 오류를 잡는 검사가
+     따로 있었기에 발견했다.
+
+   ★ 문구 수정은 앞으로도 스크립트로 할 것이므로, 사람이 눈으로 확인하는 대신
+     기계가 막는다. node --check 와 같은 판정을 vitest 안에서 한다.
+*/
+describe('LOCALES — 문구 파일이 유효하다', () => {
+  const dir = join(ROOT, 'src', 'locales');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.js'));
+
+  it('[0] 문구 파일이 모두 파싱된다', () => {
+    expect(files.length).toBeGreaterThan(10);
+    const broken: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(join(dir, f), 'utf8');
+      try {
+        /*
+           ★ 실행하지 않고 문법만 본다. new Function 은 본문을 컴파일하되
+             호출하지 않으므로, window 같은 브라우저 전역이 없어도 검사할 수 있다.
+        */
+        // eslint-disable-next-line no-new-func
+        new Function(src);
+      } catch (e) {
+        broken.push(`${f}: ${(e as Error).message}`);
+      }
+    }
+    expect(broken, `문법 오류가 있는 문구 파일:\n${broken.join('\n')}`).toEqual([]);
+  });
+
+  it('[0b] 연결 연산자가 홀로 남은 줄이 없다', () => {
+    /*
+       ★★ 정확히 그 실수가 났던 형태다. 파싱은 위에서 잡지만, 이 검사는 **무엇이
+         잘못됐는지** 바로 알려준다 — 오류 메시지가 'Unexpected token' 하나뿐이면
+         어느 줄인지 찾는 데 시간이 걸린다.
+    */
+    const orphans: string[] = [];
+    for (const f of files) {
+      const lines = readFileSync(join(dir, f), 'utf8').split('\n');
+      lines.forEach((line, i) => {
+        if (!/^\s*\+\s*['"]/.test(line)) return;
+        const prev = (lines[i - 1] ?? '').trimEnd();
+        // 앞 줄이 쉼표로 끝났으면 이 줄은 이어붙일 대상이 없다.
+        if (prev.endsWith(',')) orphans.push(`${f}:${i + 1}`);
+      });
+    }
+    expect(orphans, `이어붙일 대상이 없는 + 줄:\n${orphans.join('\n')}`).toEqual([]);
+  });
+});
+
 describe('POSITIONING — AI 소프트웨어로 표기된다', () => {
   const html = read('index.html');
   const en = read('src/locales/en.js');
