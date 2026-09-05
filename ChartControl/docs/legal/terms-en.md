@@ -19,7 +19,7 @@ Charts currently cover cryptocurrency markets. Coverage of other markets, such a
 and ETFs, may be added later; this section will be updated if it is.
 
 The Service is software licensed to you for your own use. It is not a securities exchange, a
-broker, a dealer, an investment adviser, an asset manager or a payment service. Where the Service
+dealer, an investment adviser, an asset manager or a payment service. Where the Service
 transmits an order, it does so as a tool acting on your instruction — the trade itself is a
 transaction between you and your own exchange, under that exchange's terms, and the exchange is
 the party that accepts, executes, prices and settles it.

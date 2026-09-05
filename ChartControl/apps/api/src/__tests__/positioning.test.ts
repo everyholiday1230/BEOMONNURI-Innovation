@@ -138,9 +138,34 @@ describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 �
   it('[L3] 우리가 아닌 것을 정의 조항에서 열거한다', () => {
     for (const { loc, src } of terms) {
       const head = src.slice(0, 2600);
-      const disclaims = /not a securities exchange|証券取引所、ブローカー|不是证券交易所/.test(head);
+      const disclaims = /not a securities exchange|証券取引所|不是证券交易所/.test(head);
       expect(disclaims, `terms-${loc}: 정의 조항에 업종 부인이 없다`).toBe(true);
     }
+  });
+
+  it('[L3b] 브로커 여부를 약관이 주장하지 않는다', () => {
+    /*
+       ★★ 운영자 지시로 브로커 표현을 뺐다.
+
+         "브로커가 아니다" 라고 쓰면 KuCoin API Broker 제휴(리베이트를 받는 관계)와
+         어긋날 수 있고, "브로커다" 라고 쓰면 규제 업종을 자칭하게 된다. 어느 쪽도
+         우리가 단정할 사안이 아니므로 **주장을 하지 않는다.**
+
+       ★★ 다만 리베이트 고지(제5조 "broker arrangements with exchanges")는 남긴다.
+         그건 업종 주장이 아니라 **우리가 어떻게 돈을 버는지에 대한 사실 고지**다.
+         그것까지 지우면 수익 구조를 숨기는 것이 되고, 심사에서 오히려 불리하다.
+    */
+    const en = read('docs/legal/terms-en.md');
+    /*
+       ★ 범위를 **제1조로 정확히 자른다.** 처음에 앞 2,600자로 봤는데 제5조의 수익
+         고지(2,569자 지점)가 그 안에 들어와 잘못 실패했다 — 검사 범위가 틀리면
+         통과·실패 어느 쪽도 신뢰할 수 없다.
+    */
+    const clause1 = en.slice(en.indexOf('## 1.'), en.indexOf('## 2.'));
+    expect(clause1.length).toBeGreaterThan(300);
+    expect(clause1, '정의 조항에 브로커 주장이 남아 있다').not.toMatch(/\bbroker\b/i);
+    // 수익 고지는 살아 있어야 한다.
+    expect(en).toMatch(/Fee rebates\*\* under broker arrangements with exchanges/);
   });
 
   it('[L4] 고객 보호 조항은 그대로 남아 있다 — 표현을 바꾸며 약화시키지 않는다', () => {
