@@ -1,10 +1,10 @@
 # Refund Policy
 
-_Last updated: 2026-08-26. This policy explains refunds for purchases made on {{BRAND_NAME}}. It is not legal advice; where local consumer law grants you stronger rights, those rights prevail._
+_Last updated: 2026-09-05. This policy explains refunds for purchases made on {{BRAND_NAME}}. It is not legal advice; where local consumer law grants you stronger rights, those rights prevail._
 
 ## 1. What you buy here
 
-{{BRAND_NAME}} sells **points** (used for in-app features such as AI analysis and saving your own signals/indicators) and any paid plans offered in the app. **We do not hold your trading funds** — deposits, withdrawals and trades happen at your connected exchange, not here. This policy covers only purchases made on {{BRAND_NAME}}.
+{{BRAND_NAME}} is software. What you can buy here is **use of that software** — points (spent on in-app features such as AI analysis runs and saving your own indicators) and any paid plan offered in the app. You are not buying a financial product, an investment, or a trading service. **We do not hold your trading funds** — deposits, withdrawals and trades happen at your connected exchange, not here. This policy covers only purchases made on {{BRAND_NAME}}.
 
 ## 2. Unused points — 7-day refund
 
@@ -23,13 +23,13 @@ If a recurring plan is offered, you may cancel at any time; cancellation stops t
 
 ## 5. What is NOT refundable
 
-- **Trading losses.** All trading decisions and orders are your own; {{BRAND_NAME}} is a charting/analysis tool and does not provide investment advice. We cannot refund market losses.
+- **Trading losses.** All trading decisions and orders are your own; {{BRAND_NAME}} is analysis software and does not provide investment advice. We cannot refund market losses.
 - **Exchange fees / funding** charged by your exchange (KuCoin, etc.) — those are governed by the exchange.
 - Points received through promotions, referrals or gifts (they were not purchased).
 
 ## 6. Payment-provider chargebacks
 
-Purchases are processed by third-party providers (e.g. PayPal, and Korean payment via Toss). You may also use the provider's own dispute process, but contacting us first is usually faster.
+Purchases are processed by third-party payment providers. You may also use the provider's own dispute process, but contacting us first is usually faster.
 
 ## 7. How to request a refund
 

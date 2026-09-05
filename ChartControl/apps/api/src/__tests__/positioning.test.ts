@@ -92,6 +92,107 @@ describe('LOCALES — 문구 파일이 유효하다', () => {
   });
 });
 
+/*
+   법적 문서가 업종과 일치하는가.
+
+   ★★ 사업자 업종은 **소프트웨어 개발·공급**이다(운영자 확인). 그런데 약관 제1조는
+     서비스를 "암호화폐 파생상품 거래를 위한 차트·분석·주문중계 도구" 로 정의하고
+     있었다. 심사관이 가장 먼저 읽는 정의 조항이 규제 업종을 가리키면, 아래에 붙은
+     면책 조항(투자자문 아님·자금 미보관)이 아무리 강해도 분류가 그쪽으로 간다.
+
+   ★ 제2조("당사가 하지 않는 것")는 원래도 정확했으므로 손대지 않았다. 고친 것은
+     정의뿐이고, 고객 보호 문구는 하나도 약화시키지 않았다.
+
+   ★★ 주문 중계 사실을 **숨기지 않는다.** 실제로 그 기능이 있으므로, 없다고 적으면
+     그게 더 큰 문제가 된다. 대신 성격을 정확히 적는다: 고객이 입력·승인한 주문을
+     고객 자신의 계정으로 보내는 보조 기능이고, 거래 자체는 고객과 거래소 사이의
+     거래다.
+*/
+describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 일치한다', () => {
+  const terms = ['en', 'ja', 'zh'].map((l) => ({ loc: l, src: read(`docs/legal/terms-${l}.md`) }));
+
+  it('[L1] 약관 제1조가 소프트웨어라고 말한다', () => {
+    for (const { loc, src } of terms) {
+      const head = src.slice(0, 2200);
+      const saysSoftware = /develop and supply software|ソフトウェアの開発・提供|软件开发与供应/.test(head);
+      expect(saysSoftware, `terms-${loc}: 제1조가 소프트웨어 공급이라고 말하지 않는다`).toBe(true);
+    }
+  });
+
+  it('[L2] "암호화폐 파생상품 거래 도구" 라는 정의가 남아 있지 않다', () => {
+    for (const { loc, src } of terms) {
+      /*
+         ★★ 이 문장이 정확히 심사에서 걸린 정의다. 기능 설명이 아니라 **업종 선언**으로
+           읽힌다.
+      */
+      for (const banned of [
+        /order-routing tool\*\* for cryptocurrency derivatives trading/,
+        /注文中継ツール\*\*です/,
+        /委托转发工具\*\*/,
+      ]) {
+        expect(src, `terms-${loc}: 옛 정의가 남아 있다`).not.toMatch(banned);
+      }
+    }
+  });
+
+  it('[L3] 우리가 아닌 것을 정의 조항에서 열거한다', () => {
+    for (const { loc, src } of terms) {
+      const head = src.slice(0, 2600);
+      const disclaims = /not a securities exchange|証券取引所、ブローカー|不是证券交易所/.test(head);
+      expect(disclaims, `terms-${loc}: 정의 조항에 업종 부인이 없다`).toBe(true);
+    }
+  });
+
+  it('[L4] 고객 보호 조항은 그대로 남아 있다 — 표현을 바꾸며 약화시키지 않는다', () => {
+    /*
+       ★★ 포지셔닝을 고치다가 면책·보호 문구를 지우면 그게 더 큰 문제다. 제2조의
+         핵심 7개가 유지되는지 확인한다.
+    */
+    const en = read('docs/legal/terms-en.md');
+    for (const must of [
+      /We do not hold your funds/,
+      /We do not provide deposits or withdrawals/,
+      /We do not make trading decisions for you/,
+      /We do not provide automated trading/,
+      /We do not provide investment advice, discretionary asset management or collective investment services/,
+      /We do not charge trading fees/,
+      /We do not guarantee or forecast your results/,
+    ]) {
+      expect(en, `제2조 항목이 사라졌다: ${must}`).toMatch(must);
+    }
+  });
+
+  it('[L5] 환불정책이 "소프트웨어 이용"을 판다고 말한다', () => {
+    const en = read('docs/legal/refund-en.md');
+    /*
+       ★★ PG 심사관은 "무엇에 대해 결제가 일어나는가" 를 본다. 답이 금융상품·거래로
+         읽히면 막힌다.
+    */
+    expect(en).toMatch(/is software\. What you can buy here is \*\*use of that software\*\*/);
+    expect(en).toMatch(/not buying a financial product, an investment, or a trading service/);
+  });
+
+  it('[L6] 제거된 결제수단을 약관이 아직 언급하지 않는다', () => {
+    /*
+       ★ Toss 는 신청이 반려돼 제거했다. 약관이 남은 수단을 말하면 심사관이 실제와
+         다른 결제 구조를 본다.
+    */
+    for (const loc of ['en', 'ja', 'zh']) {
+      expect(read(`docs/legal/refund-${loc}.md`), `refund-${loc}: Toss 언급이 남아 있다`).not.toMatch(/Toss/i);
+    }
+  });
+
+  it('[L7] 개정했으면 시행일·버전이 함께 올라간다', () => {
+    /*
+       ★★ 내용을 바꾸고 시행일을 그대로 두면, 이용자는 언제 바뀌었는지 알 수 없고
+         동의 이력과도 어긋난다.
+    */
+    for (const { loc, src } of terms) {
+      expect(src, `terms-${loc}: 버전이 1.0 그대로다`).not.toMatch(/(Version|バージョン|版本) ?1\.0/);
+    }
+  });
+});
+
 describe('POSITIONING — AI 소프트웨어로 표기된다', () => {
   const html = read('index.html');
   const en = read('src/locales/en.js');

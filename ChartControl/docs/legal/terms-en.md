@@ -1,16 +1,28 @@
 # Terms of Service
 
-Effective: 10 August 2026 · Version 1.0
+Effective: 5 September 2026 · Version 1.1
 
 ## 1. What this service is
 
 These Terms govern your use of {{BRAND_NAME}} (the "Service").
 
-The Service is a **charting, analysis and order-routing tool** for cryptocurrency derivatives trading. It provides:
+**We develop and supply software.** The Service is a chart analysis application that you operate
+yourself. It provides:
 
 - Charts and indicators built from market data published by exchanges
-- **Routing of your instructions to an exchange** using API keys you connect yourself
-- Analytical information for reference
+- An AI assistant that explains what those charts and indicators show, in reply to your questions
+- Saved layouts, drawings and indicator presets
+- An optional convenience feature that transmits an order **you have entered and approved** to your
+  own exchange account, using API keys you connect yourself
+
+Charts currently cover cryptocurrency markets. Coverage of other markets, such as listed equities
+and ETFs, may be added later; this section will be updated if it is.
+
+The Service is software licensed to you for your own use. It is not a securities exchange, a
+broker, a dealer, an investment adviser, an asset manager or a payment service. Where the Service
+transmits an order, it does so as a tool acting on your instruction — the trade itself is a
+transaction between you and your own exchange, under that exchange's terms, and the exchange is
+the party that accepts, executes, prices and settles it.
 
 ## 2. What we do not do
 
