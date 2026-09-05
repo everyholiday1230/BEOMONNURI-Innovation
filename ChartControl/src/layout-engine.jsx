@@ -154,11 +154,79 @@
       setSelectedId(null);
     }, [commit]);
 
+    /*
+       드래그·리사이즈를 시작할 때의 위치·크기.
+
+       ★ 놓았을 때 겹치면 이 자리로 되돌린다. 조작 전 상태이므로 겹치지 않는 것이
+         보장된다 — 임의의 빈자리로 옮기면 사용자가 창을 잃어버린다.
+    */
+    const geomStartRef = useRef(null);
+
     const updateWidget = useCallback((id, partial) => {
       setLayout(prev => {
-        const nextWidgets = prev.widgets.map(w => w.id === id ? { ...w, ...partial } : w);
+        const target = prev.widgets.find(w => w.id === id);
+        /*
+           ★★ 겹치는 위치·크기는 받지 않는다.
+
+             `overlaps`·`hasCollision` 은 처음부터 이 파일에 있었는데, 위젯을 새로
+             켤 때와 복제할 때(findFreeSpot)만 쓰였다. 드래그·리사이즈가 지나는
+             이 함수는 좌표를 **그대로 저장했다.** 그래서 창을 끌어다 놓으면 겹쳤다.
+
+             실측: 프리셋 6개의 초기 배치는 모두 겹침 0쌍인데, 편집 모드에서 창
+             하나를 다른 창 위로 끌면 겹침 2쌍이 됐다. 설계가 아니라 검사를 부르지
+             않은 것이었다.
+
+           ★★ 겹칠 때 **되돌리지 않고 마지막 유효 위치를 유지한다.**
+
+             드래그 중에 창이 원래 자리로 튀면 조작감이 망가진다. 겹치는 좌표만
+             무시하면, 창은 마우스를 따라오다가 다른 창에 닿는 순간 그 앞에서
+             멈춘다 — 벽에 막히는 느낌이고, 사용자가 왜 멈췄는지 바로 안다.
+
+           ★ 위치·크기와 무관한 변경(잠금, 설정, _dragging 플래그만 있는 호출)은
+             그대로 통과시킨다. 그것까지 막으면 드래그 종료 신호가 사라진다.
+        */
+        const touchesGeometry = partial.x !== undefined || partial.y !== undefined
+          || partial.w !== undefined || partial.h !== undefined;
+        /*
+           ★★ **이동 중에는 막지 않는다. 놓을 때만 판정한다.**
+
+             처음에는 매 호출을 검사했는데 창이 갇혔다(실측: 아래 빈 공간으로 700px
+             끌어도 좌표가 그대로였다). 드래그는 픽셀마다 onChange 를 부르고, 경로가
+             다른 창을 스치는 순간부터 좌표가 전부 거부된다. 기준점(drag.ox/oy)은
+             그대로이므로 그 뒤의 이동도 같은 절대 좌표를 계산해 계속 거부된다 —
+             한 번 막히면 영구히 지나갈 수 없다.
+
+             그래서 드래그·리사이즈 **중**(_dragging/_resizing)에는 그대로 통과시키고,
+             **끝나는 순간**에 겹쳤는지 본다. 겹쳤으면 그 조작을 시작 위치로
+             되돌린다. 화면에서는 창을 끌어다 놓았을 때 원래 자리로 돌아가므로,
+             "여기는 놓을 수 없다" 가 분명히 보인다.
+
+           ★ 시작 위치는 드래그가 시작될 때 기억한다(geomStartRef). 되돌릴 곳을
+             모르면 겹친 상태로 남을 수밖에 없다.
+        */
+        const isTransient = partial._dragging === true || partial._resizing === true;
+        const isEnding = partial._dragging === false || partial._resizing === false;
+
+        let applied = partial;
+        if (target && isEnding) {
+          const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
+          if (hasCollision(others, target)) {
+            const start = geomStartRef.current;
+            if (start && start.id === id) {
+              /* ★ 시작 위치로 되돌린다. 그 자리는 조작 전이므로 겹치지 않았다. */
+              applied = { ...partial, x: start.x, y: start.y, w: start.w, h: start.h };
+            }
+          }
+          geomStartRef.current = null;
+        } else if (target && isTransient && !geomStartRef.current) {
+          /* ★ 조작이 시작됐다. 되돌릴 자리를 기억한다. */
+          geomStartRef.current = { id, x: target.x, y: target.y, w: target.w, h: target.h };
+        }
+        void touchesGeometry;
+
+        const nextWidgets = prev.widgets.map(w => w.id === id ? { ...w, ...applied } : w);
         const next = { ...prev, widgets: nextWidgets };
-        if (!partial._dragging && !partial._resizing) {
+        if (!applied._dragging && !applied._resizing) {
           setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));
           setDirty(true);
         }
