@@ -777,6 +777,18 @@
     const dataKeyRef = useRef('');
     /* 마지막으로 차트에 실은 데이터의 지문. 같으면 resetData 를 건너뛴다. */
     const dataFingerprintRef = useRef('');
+    /*
+       ★ 마지막 갱신 시점의 봉 개수와 첫 타임스탬프. "마지막 봉만 바뀌었는가" 를
+         판단하는 데 쓴다 — 그 경우에만 뷰를 건드리지 않는 갱신을 쓸 수 있다.
+    */
+    const prevLenRef = useRef(0);
+    const prevFirstTsRef = useRef(null);
+    /*
+       ★ 과거를 보는 동안 미뤄 둔 실시간 갱신이 있는가. 사용자가 오른쪽 끝으로
+         돌아왔을 때 한 번 다시 그리기 위해 기억한다 — 미뤘다는 사실을 잊으면
+         돌아와도 낡은 마지막 봉이 남는다.
+    */
+    const pendingLiveRef = useRef(false);
     /** 우리 overlay.id -> KLineChart overlay id */
     const overlayIdsRef = useRef(new Map());
     const maPaneRef = useRef(null);
@@ -1132,6 +1144,57 @@
           }
         }
       } catch (e) { /* 가시범위 조회 실패는 치명적이지 않다 */ }
+
+      /*
+         ★★ 과거를 보고 있으면 **resetData 를 부르지 않는다.**
+
+           실측(가시범위를 3초 간격으로 관찰): 과거로 스크롤한 뒤 범위가
+           48→86, 192→230, 84→122 로 계속 튀었다. 사용자는 차트를 읽을 수 없다.
+
+           원인: resetData() 는 데이터를 통째로 버리고 **데이터 로더를 다시
+           호출한다.** 로더는 비동기이므로, 그 직후에 scrollToTimestamp 로
+           앵커를 복원해도 로더 응답이 도착하면 뷰가 다시 최신으로 밀린다.
+           복원과 로더가 경쟁하면서 매 갱신마다 위치가 흔들린 것이다.
+
+         ★ 마지막 봉만 바뀌는 경우(실시간 틱)에는 전체를 다시 실을 이유가 없다.
+           그 한 봉만 갱신한다(updateData). 과거를 보는 중에도 최신 봉은 정확히
+           유지되고, 뷰는 움직이지 않는다.
+
+         ★ 봉 개수나 첫 타임스탬프가 바뀐 경우(심볼·주기 변경, 과거 추가 적재)는
+           구조가 달라진 것이므로 resetData 가 맞다. 그때는 앵커를 복원한다.
+      */
+      const prevLen = prevLenRef.current;
+      const prevFirstTs = prevFirstTsRef.current;
+      prevLenRef.current = merged.length;
+      prevFirstTsRef.current = merged[0].timestamp;
+
+      const onlyLastBarChanged = sameKey
+        && prevLen === merged.length
+        && prevFirstTs === merged[0].timestamp;
+
+      /*
+         ★★ 과거를 보고 있고 **마지막 봉만 바뀐 경우**에는 다시 그리지 않는다.
+
+           이 KLineCharts 버전에는 부분 갱신 API 가 없다(실측: 인스턴스에 resetData·
+           getDataList·setDataLoader 만 있고 updateData/appendData 계열이 없다).
+           그래서 "마지막 봉만 갱신" 은 불가능하다.
+
+           선택지는 두 개였다:
+             (a) 계속 resetData 한다 → 과거를 볼 수 없다(실측: 3초마다 튐 6/6회)
+             (b) 과거를 보는 동안 최신 봉 갱신을 미룬다 → 화면이 고정된다
+
+           (b) 를 고른다. 과거를 분석하는 중에 최신 봉이 실시간으로 갱신될 필요는
+           없다. 오른쪽 끝으로 돌아오면 그때 최신 데이터로 다시 그린다.
+
+         ★★ 데이터를 버리는 것이 아니다. dataRef 는 이미 갱신했으므로, 다음에
+           구조가 바뀌거나 사용자가 최신으로 돌아오면 최신 상태가 반영된다.
+
+         ★ 지문은 이미 갱신했다. 그래서 같은 틱으로 다시 들어와도 반복 판정하지 않는다.
+      */
+      if (onlyLastBarChanged && anchorTs != null) {
+        pendingLiveRef.current = true;
+        return;
+      }
 
       chart.resetData();
 
