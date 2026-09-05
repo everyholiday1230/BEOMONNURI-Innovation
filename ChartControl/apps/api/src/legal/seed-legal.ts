@@ -153,8 +153,24 @@ export async function seedLegalDocuments(
 
   const existing = await repo.list(500).catch(() => []);
   const published = await repo.publishedKinds().catch(() => []);
+  /*
+     ★★ **버전까지 본다.**
+
+       예전에는 종류·언어만 봤다. 그래서 한 번 공개된 뒤에는 LEGAL_VERSION 을 올려도
+       새 버전이 절대 공개되지 않았다 — 시딩이 초안만 15개 만들고 "공개 0" 으로
+       끝났고, 화면에는 계속 옛 약관이 나갔다. 실제로 그 상태를 겪었다:
+       파일을 고치고 버전을 올리고 배포했는데 `/api/legal/terms` 가 여전히
+       2026-08-22 본문을 돌려줬다.
+
+       "이미 공개된 문서는 손대지 않는다" 는 규칙은 **같은 버전**에 대한 것이다.
+       개정판을 새 버전으로 올리는 것은 그 규칙이 막으려던 일(동의한 내용을 몰래
+       바꾸는 것)이 아니라, 정반대로 그 규칙이 요구하는 절차다.
+
+     ★ 이전 버전은 그대로 남는다(repo.publish 가 최신 공개본을 가리키게 한다).
+       동의 이력은 버전을 함께 기록하므로 과거 동의가 지워지지 않는다.
+  */
   const isPublished = (kind: string, locale: string) =>
-    published.some((p) => p.kind === kind && p.locale === locale);
+    published.some((p) => p.kind === kind && p.locale === locale && p.version === opts.version);
 
   for (const kind of LEGAL_KINDS) {
     for (const locale of SEED_LOCALES) {

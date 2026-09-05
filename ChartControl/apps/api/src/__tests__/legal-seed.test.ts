@@ -152,12 +152,34 @@ describe('법적 문서 시딩', () => {
     expect(r.skipped.some((x) => x.startsWith('terms/en'))).toBe(true);
   });
 
-  it('이미 공개된 종류·언어는 다시 공개하지 않는다', async () => {
+  it('같은 버전이 이미 공개돼 있으면 다시 공개하지 않는다', async () => {
+    /*
+       ★★ 이것이 원래 지키려던 규칙이다: **같은 버전**을 두 번 공개하지 않는다.
+         게시된 약관의 본문을 몰래 바꾸면 이용자가 동의한 내용과 달라진다.
+    */
     const { repo } = stubRepo([
-      { id: 'old', kind: 'terms', locale: 'en', version: 'old-1', title: 't', body: 'b', publishedAt: 1 },
+      { id: 'same', kind: 'terms', locale: 'en', version: base.version, title: 't', body: 'b', publishedAt: 1 },
     ]);
     const r = await seedLegalDocuments(repo, { ...base, publish: true, companyInfo: '상호: 테스트' });
     expect(r.published).not.toContain('terms/en');
     expect(r.skipped.some((x) => x.startsWith('terms/en'))).toBe(true);
+  });
+
+  it('새 버전은 이전 버전이 공개돼 있어도 공개한다', async () => {
+    /*
+       ★★ 예전에는 이 경우도 막았다 — 종류·언어만 보고 버전을 무시했기 때문이다.
+         그래서 한 번 공개한 뒤에는 LEGAL_VERSION 을 올려도 개정판이 **영원히
+         초안에 머물렀다.** 실제로 그 상태를 겪었다: 약관 제1조를 고치고 버전을
+         올려 배포했는데 화면에는 계속 옛 본문이 나갔고, 시딩 로그는 "생성 15 ·
+         공개 0" 이었다.
+
+       ★ "공개된 문서는 손대지 않는다" 는 같은 버전에 대한 규칙이다. 개정판을 새
+         버전으로 올리는 것은 그 규칙이 요구하는 절차이고, 막아야 할 일이 아니다.
+    */
+    const { repo } = stubRepo([
+      { id: 'old', kind: 'terms', locale: 'en', version: 'old-1', title: 't', body: 'b', publishedAt: 1 },
+    ]);
+    const r = await seedLegalDocuments(repo, { ...base, publish: true, companyInfo: '상호: 테스트' });
+    expect(r.published, `새 버전이 공개되지 않았다. skipped=${JSON.stringify(r.skipped)}`).toContain('terms/en');
   });
 });
