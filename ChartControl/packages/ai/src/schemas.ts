@@ -59,14 +59,42 @@ export const AI_CHART_COMMANDS = [
   'createOrderDraftProposal',
 ] as const;
 
-/**
- * Indicators the chart can render (KLineCharts built-ins). The AI may only ask for these — anything
- * else fails validation. `params` are the indicator calc-params (e.g. [14] for RSI, [12,26,9] for
- * MACD); the chart applies sane defaults when omitted.
- */
+/*
+   차트가 그릴 수 있는 지표 — **KLineCharts 내장 27종 전부.**
+
+   ★★ 이 목록이 유일한 기준이다.
+
+     예전에는 세 곳이 따로 관리돼 어긋나 있었다:
+       · 차트 화면(src/chart-indicators.jsx)  27종
+       · 이 목록                              21종
+       · AI 계산 도구(tools.ts)               5종
+
+     그 결과 두 가지 잘못이 있었다:
+       1. 차트에 있는 8종(AO AVP BRAR CR DMA EMV PSY PVT)을 AI 가 다루지 못했다 —
+          고객이 그 지표를 켜놓고 물어도 AI 는 손을 댈 수 없었다.
+       2. 이 목록에만 있던 ATR·STOCH 는 **KLineCharts 에 없다.** AI 가 추가를
+          제안하면 차트가 렌더하지 못하고, 고객에게는 "AI 가 넣었다는데 안 보인다"
+          가 된다. 예전에 removeIndicator 가 같은 방식으로 거짓 보고한 적이 있다.
+
+   ★ 목록은 벤더 번들에서 실측해 맞췄다:
+       grep 'name:"XXX"' vendor/klinecharts/klinecharts.min.js → 27종
+     주석에 적힌 목록을 믿지 않고 라이브러리를 직접 확인했다.
+
+   ★★ 화면 목록과의 일치는 테스트가 지킨다(indicator-parity.test.ts). 사람이 두 곳을
+     같이 고치는 방식은 이미 한 번 실패했다.
+
+   ★ `params` 는 지표 계산 인자다(RSI 는 [14], MACD 는 [12,26,9]). 생략하면 차트가
+     기본값을 쓴다.
+*/
 export const AI_INDICATORS = [
-  'MA', 'EMA', 'SMA', 'BOLL', 'SAR', 'BBI', // overlay on the price pane
-  'MACD', 'RSI', 'KDJ', 'VOL', 'ATR', 'CCI', 'WR', 'DMI', 'OBV', 'TRIX', 'ROC', 'BIAS', 'STOCH', 'VR', 'MTM', // separate pane
+  // 가격창 위에 겹쳐 그리는 것
+  'MA', 'EMA', 'SMA', 'BOLL', 'BBI', 'SAR', 'AVP',
+  // 거래량 계열
+  'VOL', 'OBV', 'VR', 'EMV', 'PVT',
+  // 모멘텀
+  'MACD', 'RSI', 'KDJ', 'CCI', 'WR', 'BIAS', 'BRAR', 'CR',
+  // 그 밖
+  'ROC', 'MTM', 'AO', 'PSY', 'DMI', 'DMA', 'TRIX',
 ] as const;
 export type AiIndicatorName = (typeof AI_INDICATORS)[number];
 export type AiChartCommandName = (typeof AI_CHART_COMMANDS)[number];
