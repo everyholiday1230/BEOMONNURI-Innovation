@@ -671,7 +671,27 @@
     publishIndicators: publish,
     getIndicators: () => current,
     publishIndicatorDetail(list) {
-      currentDetail = Array.isArray(list) && list.length ? list : null;
+      const next = Array.isArray(list) && list.length ? list : null;
+      /*
+         ★★ 구독자에게 **알린다.**
+
+           예전에는 값만 저장하고 알리지 않았다. 그래서 이 목록을 그리는 레전드가
+           갱신되지 않았고, 지표를 추가해도 이름이 다음 조작 때 나타났다(실측:
+           한 박자 밀림). 저장은 했으니 "데이터는 있는데 화면이 모르는" 상태다.
+
+         ★ 이름 목록(publishIndicators)만 알리면 부족하다. 설정값이나 계산값만
+           바뀐 경우(MA 기간 변경, 새 틱)에는 이름이 같아서 그쪽이 알림을
+           건너뛴다.
+
+         ★ 값은 매 틱 바뀌므로 그대로 알리면 재렌더가 잦아진다. 그래서 **이름과
+           설정값만** 비교해 구조가 바뀔 때만 알린다 — 레전드가 쓰는 것이 그 둘이다.
+      */
+      const shape = (l) => (Array.isArray(l)
+        ? l.map((d) => `${d && d.id}|${d && d.params && d.params.calcParams ? d.params.calcParams.join(',') : ''}`).join(';')
+        : '');
+      const changed = shape(currentDetail) !== shape(next);
+      currentDetail = next;
+      if (changed) listeners.forEach((fn) => { try { fn(current); } catch (e) { /* noop */ } });
     },
     /** 설정값까지 담은 활성 지표. 모르면 null (빈 배열이 아니다). */
     getIndicatorDetail: () => currentDetail,

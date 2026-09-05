@@ -816,6 +816,18 @@
     const [colors, setColors] = useState(readColors);
     const [hoverCandle, setHoverCandle] = useState(null);
     const [appLang, setAppLang] = useState(currentAppLang);
+    /*
+       ★★ 화면에 올라간 지표 목록. 레전드가 이것을 그린다.
+
+         예전 레전드는 MA20·MA60·MA120 이 문자열로 박혀 있었다. 그래서 RSI·MACD 를
+         켜도 이름이 나오지 않았고, 내장 툴팁은 "우리 레전드로 대체한다" 며 꺼놨으니
+         결과적으로 **어느 쪽도 지표 이름을 말하지 않았다.**
+
+       ★ 차트가 게시하는 상태(QTChartState)를 구독한다. 그 게시는 이미
+         publishState() 가 마운트·추가·제거 시점에 하고 있으므로, 여기서는 읽기만
+         하면 된다.
+    */
+    const [activeIndicators, setActiveIndicators] = useState([]);
 
     const decimals = useMemo(
       () => priceDecimalsFor(symbol, candles?.[candles.length - 1]?.close),
@@ -823,6 +835,46 @@
     );
 
     // --- 테마/브랜드 변경 시 색상 재적용 (ChartCanvas 와 동일 동작) ---
+    /*
+       지표 목록 구독.
+
+       ★ 차트가 게시한 목록을 읽어 레전드에 그린다. 값(latest)까지 오지만 레전드는
+         이름과 설정값만 쓴다 — 값은 HUD 와 툴팁의 역할이고, 여기에 숫자를 넣으면
+         선 색 옆에 숫자가 붙어 읽기 어려워진다.
+
+       ★ MA 계열만 기존 색 표기를 유지한다. 다른 지표의 선 색은 라이브러리가
+         내부에서 정하므로 우리가 알 수 없고, 임의 색을 붙이면 화면과 어긋난다.
+    */
+    useEffect(() => {
+      const MA_SWATCH = ['var(--chart-ma-1)', 'var(--chart-ma-2)', 'var(--chart-ma-3)'];
+      const toItems = (detail) => {
+        if (!Array.isArray(detail)) return [];
+        const out = [];
+        for (const d of detail) {
+          const name = d && d.id ? String(d.id) : '';
+          if (!name) continue;
+          const params = d.params && Array.isArray(d.params.calcParams) ? d.params.calcParams : null;
+          const label = params && params.length ? `${name}(${params.join(',')})` : name;
+          if (name === 'MA' && params && params.length) {
+            /* MA 는 설정값마다 선이 하나씩이므로 각각 표기한다. */
+            params.slice(0, 3).forEach((n, idx) => {
+              out.push({ name: `MA${n}`, paneId: d.paneId || 'candle', label: `MA${n}`, swatch: MA_SWATCH[idx] });
+            });
+            continue;
+          }
+          out.push({ name, paneId: d.paneId || 'candle', label, swatch: null });
+        }
+        return out.slice(0, 10);
+      };
+      const cs = window.QTChartState;
+      if (!cs) return undefined;
+      if (typeof cs.getIndicatorDetail === 'function') setActiveIndicators(toItems(cs.getIndicatorDetail()));
+      if (typeof cs.subscribe !== 'function') return undefined;
+      return cs.subscribe(() => {
+        try { setActiveIndicators(toItems(cs.getIndicatorDetail())); } catch (e) { /* noop */ }
+      });
+    }, []);
+
     useEffect(() => {
       const root = document.documentElement;
       const obs = new MutationObserver(() => {
@@ -1271,6 +1323,17 @@
            ★ 계산이 한 프레임 뒤에 끝나므로 약간 늦춰 읽는다. 즉시 읽으면 result 가
              비어 있어 값 없는 목록을 게시한다.
         */
+        /*
+           ★★ 두 번 게시한다: 즉시, 그리고 계산이 끝난 뒤.
+
+             계산이 한 프레임 뒤에 끝나므로 즉시 게시하면 값이 비어 있다. 반대로
+             지연만 하면 지표 이름이 늦게 나타나 화면이 한 박자 밀린다(실측:
+             레전드가 다음 조작 때 갱신됐다).
+
+             이름은 즉시 필요하고 값은 조금 뒤에 온다 — 두 번 게시가 두 요구를
+             모두 만족한다.
+        */
+        try { window.ChartKlineUtil && window.ChartKlineUtil.publishState(); } catch (e) { /* noop */ }
         setTimeout(() => {
           try { window.ChartKlineUtil && window.ChartKlineUtil.publishState(); } catch (e) { /* noop */ }
         }, 300);
@@ -1390,11 +1453,34 @@
           </div>
         )}
 
-        {showLegend && showMA && (
+        {/*
+           ★★ 활성 지표를 **모두** 보여준다.
+
+             예전에는 MA20·MA60·MA120 세 개가 문자열로 박혀 있었고, 그것도 showMA
+             일 때만 나왔다. 그래서 RSI·MACD·PSY 를 켜도 화면에 이름이 없었다 —
+             운영자 신고 그대로 "무슨 지표인지 모르겠다" 는 상태다.
+
+             내장 툴팁은 껐다(`tooltip: { showRule: 'none' }`, "우리 레전드로
+             대체한다"). 그런데 그 레전드가 MA 만 알고 있었으니, 대체한다고 적어
+             두고 실제로는 대체하지 못한 상태였다.
+
+           ★ 이름과 설정값을 함께 보여준다. `MA` 만으로는 20일선인지 120일선인지
+             알 수 없고, 그 둘은 완전히 다른 판단이다.
+
+           ★ 색은 지표 자체의 선 색을 쓸 수 없으므로(라이브러리가 내부에서 정한다)
+             MA 계열만 기존 색 표기를 유지하고, 나머지는 이름만 보여준다 — 없는
+             색을 지어내면 화면의 선 색과 어긋난다.
+        */}
+        {showLegend && activeIndicators.length > 0 && (
           <div className="chart-legend">
-            <div className="chart-legend__item"><span className="chart-legend__swatch" style={{background:'var(--chart-ma-1)'}}/>MA20</div>
-            <div className="chart-legend__item"><span className="chart-legend__swatch" style={{background:'var(--chart-ma-2)'}}/>MA60</div>
-            <div className="chart-legend__item"><span className="chart-legend__swatch" style={{background:'var(--chart-ma-3)'}}/>MA120</div>
+            {activeIndicators.map((ind) => (
+              <div className="chart-legend__item" key={`${ind.name}-${ind.paneId}`}>
+                {ind.swatch
+                  ? <span className="chart-legend__swatch" style={{ background: ind.swatch }}/>
+                  : null}
+                {ind.label}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1534,6 +1620,8 @@
          ★ 지표가 바뀌었으니 게시한다. 안 하면 AI 가 방금 추가된 지표의 값을
            모른 채 답한다.
       */
+      // ★ 이름은 즉시, 값은 계산 후. 둘 다 필요하다.
+      try { this.publishState(); } catch (e) { /* noop */ }
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return applied;
     },
@@ -1582,6 +1670,7 @@
         } catch (e) { stillThere = true; /* 확인 불가 → 성공이라고 말하지 않는다 */ }
       }
       // ★ 제거도 지표 변경이다. 게시하지 않으면 AI 가 지운 지표를 계속 안다.
+      try { this.publishState(); } catch (e) { /* noop */ }
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return !stillThere;
     },
