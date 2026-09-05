@@ -2318,12 +2318,23 @@
                         }</div>
                       </div>
                       {notReady ? (
+                        /*
+                           ★★ 왜 연결할 수 없는지를 **서버가 준 이유로** 말한다.
+
+                             예전에는 무조건 'NOT PARTNERED'(미협약) 로 표시했다.
+                             BitMart 는 **협약이 있는데** 우리 배선이 아직 안 된
+                             경우라서, 그 배지는 사실과 다르다. 협약이 있는 파트너를
+                             '미협약' 이라고 적으면 운영자에게도 고객에게도 거짓이다.
+
+                           ★ 이유 키가 오면 그것을 쓰고, 없으면 기존 문구로 돌아간다
+                             (진짜 미협약 거래소가 그 경우다).
+                        */
                         <span
                           className="exchange-card__status"
                           style={{background:'color-mix(in srgb, var(--color-warning) 18%, transparent)', color:'var(--color-warning)'}}
-                          title={t('ex_not_partnered_hint')}
+                          title={ex.connectBlockedReasonKey ? t(ex.connectBlockedReasonKey) : t('ex_not_partnered_hint')}
                         >
-                          {t('ex_not_partnered')}
+                          {ex.connectBlockedReasonKey ? t('ex_connect_pending') : t('ex_not_partnered')}
                         </span>
                       ) : (
                         /*
@@ -2365,7 +2376,12 @@
                         운영자가 "곧 되나" 하고 기다린다. */}
                     {notReady && (
                       <div style={{fontSize:10.5, lineHeight:1.5, color:'var(--color-warning)', background:'color-mix(in srgb, var(--color-warning) 10%, transparent)', padding:'6px 8px', borderRadius:4}}>
-                        {t('ex_not_partnered_note')}
+                        {/*
+                           ★ 서버가 준 이유를 그대로 쓴다. 'ex_not_partnered_note' 는
+                             "브로커 협약도 어댑터도 없다" 는 뜻이라, 협약이 있는
+                             BitMart 에는 사실과 다르다.
+                        */}
+                        {ex.connectBlockedReasonKey ? t(ex.connectBlockedReasonKey) : t('ex_not_partnered_note')}
                       </div>
                     )}
 
@@ -2463,11 +2479,23 @@
                           </button>
                         </>
                       ) : (
-                        <button aria-label={notReady ? t('ex_not_partnered_hint') : undefined}
+                        /*
+                           ★★ 연결할 수 없으면 **버튼을 비활성**으로 둔다. 누를 수 있게
+                             두면 고객이 유효한 키를 넣고, 우리는 그 키를 잘못된 거래소
+                             어댑터로 검증해 실패시킨다 — 고객은 자기 키를 의심한다.
+
+                           ★ 이유를 title·aria-label 로 함께 준다. 이유 없는 비활성은
+                             고장으로 읽힌다. 서버가 준 이유가 있으면 그것을 쓴다.
+
+                           ★★ 중괄호로 감싼 JSX 주석을 삼항 분기 안에 두면 파일 전체가
+                             깨진다. 이 파일에 그 경고를 적어 두고도 내가 다시 위반했다 —
+                             표현식 자리에서는 일반 주석을 쓴다.
+                        */
+                        <button aria-label={notReady ? (ex.connectBlockedReasonKey ? t(ex.connectBlockedReasonKey) : t('ex_not_partnered_hint')) : undefined}
                           className="btn btn--sm"
                           style={{flex:1}}
                           disabled={ex.status === 'coming-soon' || notReady}
-                          title={notReady ? t('ex_not_partnered_hint') : undefined}
+                          title={notReady ? (ex.connectBlockedReasonKey ? t(ex.connectBlockedReasonKey) : t('ex_not_partnered_hint')) : undefined}
                           onClick={() => setConnectingEx(ex)}
                         >
                           <I.Plus size={11}/> {t('wal_connect_api')}

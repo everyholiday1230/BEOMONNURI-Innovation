@@ -5,6 +5,7 @@ import {
   EXCHANGES,
   getExchange,
   isConnectable,
+  CONNECT_BLOCKED_REASON_KEYS,
 } from './exchange-catalog';
 
 /**
@@ -88,8 +89,25 @@ export function createExchangeRouter(d: ExchangeRouterDeps = {}): Hono {
          전부 받을 때, 어느 것이 실제로 연결되는지 구분할 근거가 필요하다.
          화면이 자기 목록을 따로 들고 있으면 코드와 어긋난다.
     */
-    const withFlag = matched.map((e) => ({ ...e, connectable: isConnectable(e.id) }));
-    const items = include === 'all' ? withFlag : withFlag.filter((e) => e.connectable);
+    const withFlag = matched.map((e) => ({
+      ...e,
+      connectable: isConnectable(e.id),
+      /*
+         ★★ 연결이 막힌 **이유**를 함께 준다.
+
+           협약은 있는데 우리 배선이 안 된 거래소는 목록에 보여주는 것이 맞다.
+           그때 화면이 "왜 못 누르는지" 를 말할 수 있어야 한다 — 이유 없이
+           비활성이면 고객은 고장으로 읽고 운영자는 왜 빠졌는지 모른다.
+      */
+      connectBlockedReasonKey: CONNECT_BLOCKED_REASON_KEYS[e.id] ?? null,
+    }));
+    /*
+       ★ 연결 가능한 것 + **보여주기로 정한 것**을 함께 내보낸다. 후자는
+         connectable=false 이지만 이유가 붙어 있다.
+    */
+    const items = include === 'all'
+      ? withFlag
+      : withFlag.filter((e) => e.connectable || e.connectBlockedReasonKey !== null);
 
     // Public, non-user-specific, and changes only on deploy — safe to cache briefly at the edge.
     c.header('cache-control', 'public, max-age=300');
@@ -118,7 +136,12 @@ export function createExchangeRouter(d: ExchangeRouterDeps = {}): Hono {
     /* 개별 조회에서도 같은 사실을 밝힌다. 여기서 404 로 감추지 않는 이유:
        링크를 직접 여는 경우가 있고, "없는 거래소" 와 "아직 연결 못 하는
        거래소" 는 다른 사실이다. */
-    return c.json({ ...ex, connectable: isConnectable(ex.id) });
+    return c.json({
+      ...ex,
+      connectable: isConnectable(ex.id),
+      // ★ 목록과 같은 사실을 준다. 두 응답이 다르면 화면이 경로에 따라 다르게 말한다.
+      connectBlockedReasonKey: CONNECT_BLOCKED_REASON_KEYS[ex.id] ?? null,
+    });
   });
 
   return app;

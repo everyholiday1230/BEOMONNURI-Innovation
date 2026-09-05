@@ -12,6 +12,7 @@ import {
   findForbiddenGrants,
   getConfirmedReferrals,
   getExchange,
+  CONNECT_BLOCKED_REASON_KEYS,
 } from '../exchanges/exchange-catalog';
 
 /**
@@ -276,14 +277,21 @@ describe('EXG-03 GET /api/v1/exchanges/:id', () => {
     expect(parsed.data.id).toBe('bitmart');
     expect(parsed.data.required).toContain('memo');
     /*
-       ★★ BitMart 는 **연결 불가**다. 2026-08-26 01:00 UTC 에 거래를 종료했다.
+       ★★ BitMart 는 목록에 **보이지만 아직 연결할 수 없다.** 두 사실을 함께 검사한다.
 
-         이 검사는 connectable=true 를 기대하고 있었고, 그래서 "문 닫은 거래소를
-         고객에게 권하는 상태" 를 테스트가 지키고 있었다. 카탈로그에는 남지만
-         (과거 연결 기록·리베이트 조회가 이 id 를 쓴다) 새로 연결하도록
-         권하지는 않는다.
+         이 검사는 세 번 바뀌었고, 그 이력 자체가 요점이다:
+           1) connectable=true — 협약이 있으니 연결된다고 봤다
+           2) connectable=false — 거래소가 문을 닫았다고 **잘못** 판단했다
+           3) 지금: false + 이유 — 거래소는 살아 있고(2026-09-05 공개 API 로 확인:
+              현물 티커·선물 계약 200, BTC_USDT 24h 거래대금 2.05억 USDT) 협약도
+              있지만, **우리 배포가 거래소 어댑터를 하나만 쓰기 때문에** 연결하면
+              KuCoin 으로 검증돼 반드시 실패한다.
+
+       ★★ 그래서 이유가 없으면 실패해야 한다. connectable=false 만 있으면 화면이
+         '미협약' 이라고 **거짓을 말한다** — 실제로 그랬다.
     */
     expect(parsed.data.connectable).toBe(false);
+    expect(parsed.data.connectBlockedReasonKey).toBe('ex_connect_pending_bitmart');
   });
 
   it('[2] an unknown id is a 404 with a correlation id', async () => {
@@ -330,19 +338,41 @@ describe('exchange catalogue — connectable filtering', () => {
   app.route('/api', createExchangeRouter({ now: () => 1_700_000_000_000 }));
   const get = (path: string) => app.request(`http://local${path}`);
 
-  it('[1] 기본 목록은 어댑터가 있는 거래소만 준다', async () => {
+  it('[1] 기본 목록 = 연결 가능한 것 + 협약은 있으나 배선 대기 중인 것', async () => {
     const body = (await (await get('/api/v1/exchanges')).json()) as {
-      items: { id: string; connectable: boolean }[];
+      items: { id: string; connectable: boolean; connectBlockedReasonKey: string | null }[];
     };
-    expect(body.items.map((e) => e.id).sort()).toEqual([...CONNECTABLE_EXCHANGE_IDS].sort());
-    expect(body.items.every((e) => e.connectable)).toBe(true);
+    /*
+       ★★ 연결 가능한 것만 주면 **협약한 거래소가 화면에서 사라진다.** 운영자는
+         왜 없는지 모르고, 고객은 우리가 그 거래소를 지원하지 않는다고 읽는다.
+
+       ★ 그래서 "연결 가능" 과 "협약은 있으나 아직 연결 못 함" 을 함께 준다.
+         후자는 connectable=false 이지만 이유 키가 붙어 있다.
+    */
+    const expected = [...CONNECTABLE_EXCHANGE_IDS, ...Object.keys(CONNECT_BLOCKED_REASON_KEYS)].sort();
+    expect(body.items.map((e) => e.id).sort()).toEqual(expected);
+
+    /*
+       ★★ 연결할 수 없는 항목에는 **반드시 이유가 있어야 한다.** 이유 없이
+         비활성으로 보이면 고객은 고장으로 읽고 반복해서 누른다.
+    */
+    for (const e of body.items) {
+      if (!e.connectable) {
+        expect(e.connectBlockedReasonKey, `${e.id}: 연결 불가인데 이유가 없다`).toBeTruthy();
+      }
+    }
   });
 
   it('[2] 감춘 개수를 밝힌다 — 목록이 짧은 이유를 화면이 설명할 수 있다', async () => {
     const body = (await (await get('/api/v1/exchanges')).json()) as {
       hiddenNotConnectable: number;
     };
-    expect(body.hiddenNotConnectable).toBe(EXCHANGES.length - CONNECTABLE_EXCHANGE_IDS.length);
+    /*
+       ★ 감춘 개수는 "목록에 안 보이는 것" 의 수다. 이유를 붙여 보여주기로 한
+         거래소는 이제 목록에 있으므로 감춘 것이 아니다.
+    */
+    const shown = CONNECTABLE_EXCHANGE_IDS.length + Object.keys(CONNECT_BLOCKED_REASON_KEYS).length;
+    expect(body.hiddenNotConnectable).toBe(EXCHANGES.length - shown);
     expect(body.hiddenNotConnectable).toBeGreaterThan(0);
   });
 

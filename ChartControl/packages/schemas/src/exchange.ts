@@ -200,6 +200,20 @@ export type Exchange = z.infer<typeof ExchangeSchema>;
 export const ExchangeListItemSchema = ExchangeBaseSchema.extend({
   /** 어댑터가 있고 협약된 거래소인가. false 면 키를 등록해도 동작하지 않는다. */
   connectable: z.boolean(),
+  /*
+     연결이 막힌 **이유**의 사전 키. 막히지 않았으면 null.
+
+     ★★ connectable=false 하나로는 두 상태가 구분되지 않는다:
+       · 우리가 다루지 않는 거래소 (목록에서 빼는 것이 맞다)
+       · 협약은 있는데 우리 배선이 아직 안 된 거래소 (보여주고 설명하는 것이 맞다)
+
+       둘을 같게 다루면 협약한 거래소가 화면에서 사라지고, 화면은 "미협약" 이라고
+       **거짓을 말한다**. BitMart 가 그 경우였다 — 협약이 있고 거래소도 운영 중인데
+       우리 배포가 어댑터를 하나만 쓰기 때문에 연결만 못 한다.
+
+     ★ 문구가 아니라 키다. 문장을 응답에 담으면 언어를 바꿀 수 없다.
+  */
+  connectBlockedReasonKey: z.string().min(1).nullable(),
 }).superRefine(refineExchange);
 export type ExchangeListItem = z.infer<typeof ExchangeListItemSchema>;
 

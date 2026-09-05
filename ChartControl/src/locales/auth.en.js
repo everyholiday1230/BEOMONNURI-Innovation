@@ -20,10 +20,12 @@
       auth_d629d0: 'Privacy',
       auth_a5e5da: 'Security',
       auth_e2654a: 'Help',
-      auth_77edb5: 'Study your chart by conversation,',
-      auth_9ab22f: 'execute with one approval.',
+      auth_77edb5: 'Ask questions about any chart.',
+      auth_9ab22f: 'you stay in control of every order.',
       auth_7e2510:
-        '{brand} brings Bloomberg-grade information density and an AI Copilot into a single language. '
+        '{brand} is chart analysis software. Ask about a chart in plain words and the AI explains what the '
+        + 'indicators show; if you decide to act, the order runs on your own exchange account after you approve it. '
+        + 'We do not hold your funds, manage them, or recommend what to buy.',
         + 'Ask for analysis in plain words as if drawing on the chart, then move through signal → draft → risk check → execution on a safe pipeline.',
       auth_833f52: 'Plain language → you draw overlays → draft your own setup',
       auth_66cdd9: 'Drag, resize and preset your own layout',
@@ -129,11 +131,11 @@
       pwreset_link_sent: 'Reset link sent to {email}.',
 
       // --- 랜딩 ---
-      landing_66a662: 'Institutional-grade trading tools for individual traders.',
+      landing_66a662: 'We are a software company. We do not hold your money, we do not manage it, and we do not tell you what to buy.',
       landing_7bbd5b: 'Start for free',
       landing_1ea899: 'View demo',
-      landing_4c1fc3: 'One approval',
-      landing_af3947: 'to execute.',
+      landing_4c1fc3: 'The AI answers',
+      landing_af3947: ' — you decide what to do.',
       landing_5f6b64: 'Ask in plain language and the copilot helps you mark support/resistance, trend lines and indicators on the chart you are viewing, using live market data. Everything is a draft you create and decide on — a charting tool, not investment advice.',
       landing_44cbb3: 'Freely drag and resize · 7 presets (Standard / Scalper / Multi / AI and more)',
       landing_40f668: 'AI approval ≠ order submission · 9-gate risk check · simulation stripe always visible',

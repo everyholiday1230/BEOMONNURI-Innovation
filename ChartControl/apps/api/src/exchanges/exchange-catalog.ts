@@ -318,18 +318,51 @@ export const EXCHANGES: readonly Exchange[] = Object.freeze(parsed);
      동작하지 않는 키를 등록하게 된다. 코드에 어댑터가 추가될 때 함께 고친다.
 */
 /*
-   ★★ BitMart 를 뺐다. **2026-08-26 01:00 UTC 에 거래를 종료했다.**
+   ★★ 지금 **키를 넣어 실제로 거래할 수 있는** 거래소.
 
-     그런데 연결 가능 목록에 남아 있어서, 고객 지갑 화면에 파트너 거래소로
-     노출되고 가입 링크(https://www.bitmart.com/invite/...)와 "Connect API" 까지
-     제공됐다. 고객이 문 닫은 거래소에 가입해 키를 만들어 넣는 경로였다 —
-     그 키로는 아무 주문도 나가지 않고, 고객은 이유를 알 수 없다.
+     이 목록은 어댑터 존재와 브로커 협약을 함께 뜻한다. 둘 다 있어야 들어간다.
 
-   ★ 카탈로그에서 지우지는 않는다. 어댑터 코드도 남아 있고(폴백), 과거 연결
-     기록과 리베이트 조회가 그 id 를 참조한다. '연결을 권하지 않는다' 와
-     '존재하지 않는다' 는 다른 사실이다.
+   ★★ BitMart 를 여기에 넣지 않는 이유는 "문을 닫아서" 가 **아니다.**
+
+     한때 2026-08-26 에 거래를 종료했다고 판단해 목록에서 뺐는데 그 정보가 틀렸다.
+     2026-09-05 에 공개 API 로 직접 확인했다:
+
+       GET api-cloud.bitmart.com/system/time                → 200
+       GET api-cloud.bitmart.com/spot/quotation/v3/ticker    → 200, BTC_USDT
+                                                               last 79,709.95,
+                                                               24h 거래대금 2.05억 USDT
+       GET api-cloud-v2.bitmart.com/contract/public/details  → 200, 선물 계약 정상
+
+     BitMart 는 정상 운영 중이고 브로커 협약도 있다. 넣지 못하는 진짜 이유는
+     **우리 쪽 배선**이다: 이 배포는 거래소 어댑터를 하나만 쓴다(DATA_MODE 로 결정,
+     실서비스는 KUCOIN_PUBLIC). 어댑터 선택은 현물/선물로만 갈리고 거래소별로는
+     갈리지 않는다. 그래서 BitMart 키를 넣으면 exchange='kucoin' 으로 저장되고
+     KuCoin API 로 검증돼 **반드시 실패한다** — 유효한 키인데 고객은 이유를 알 수 없다.
+
+   ★ 그래서 목록에는 보여주되(협약이 사실이므로) 연결은 막고 이유를 말한다.
+     아래 CONNECT_BLOCKED_REASON_KEYS 를 보라.
 */
 export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin']);
+
+/*
+   ★★ **목록에는 보이지만 아직 연결할 수 없는** 거래소와 그 이유.
+
+     'connectable=false' 만으로는 두 상태가 구분되지 않는다:
+       · 우리가 다루지 않는 거래소 (목록에서 빼는 것이 맞다)
+       · 협약은 있는데 우리 배선이 아직 안 된 거래소 (보여주고 설명하는 것이 맞다)
+
+     둘을 같게 다루면, 협약한 거래소가 화면에서 사라져 운영자는 왜 없는지 모르고
+     고객은 우리가 그 거래소를 지원하지 않는다고 읽는다.
+
+   ★ 값은 **사전 키**다. 문구를 여기 박아 두면 언어 추가 때 놓친다.
+
+   ★★ '서비스 종료' 라고 쓰지 않는다. BitMart 는 운영 중이고, 그렇게 적으면
+     BitMart 를 쓰는 고객에게 **거짓을 말하는** 것이 된다. 사실은 "우리 연결이
+     아직 준비되지 않았다" 다.
+*/
+export const CONNECT_BLOCKED_REASON_KEYS: Readonly<Record<string, string>> = Object.freeze({
+  bitmart: 'ex_connect_pending_bitmart',
+});
 
 /** 어댑터가 있고 협약된 거래소인가. */
 export function isConnectable(id: string): boolean {
