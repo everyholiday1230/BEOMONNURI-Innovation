@@ -17,6 +17,13 @@
    * 표면은 `/api/v1/*` 를 쓴다. 둘을 따로 둔다 — 한쪽만 바뀌어도 다른 쪽이
    * 깨지지 않게 하기 위함이다.
    */
+  /*
+     심볼 규격 캐시.
+
+     ★ 모듈 스코프에 둔다. 함수 안에 두면 호출마다 초기화돼 캐시가 아니게 된다.
+  */
+  var _specCache = { at: 0, symbols: [] };
+
   var MARKET_BASE = '/api/market';
   var V1_BASE = '/api/v1';
 
@@ -313,10 +320,64 @@
       return sendJSON('DELETE', '/api/me/chart-templates/' + encodeURIComponent(String(id)));
     },
 
+    /*
+       ★★ 심볼 규격은 **캐시한다.** 5초마다 다시 받을 이유가 없다.
+
+         측정: 이 함수는 5초 주기로 호출되고(live-market 의 MARKETS_POLL_MS),
+         /tickers 30.7KB + /symbols 7.5KB 를 매번 받았다(brotli 적용 후). 그런데
+         서버는 심볼 카탈로그를 **10분마다** 갱신한다 — 즉 /symbols 응답의 120번 중
+         119번은 같은 내용이다.
+
+         접속 1명이 8시간 열어두면 그것만 41MB, 3명이면 124MB 다. Render Hobby
+         요금제의 월 5GB 를 이런 식으로 태우고 있었고, 초과분은 100GB 당 $15 다.
+
+       ★ 시세(/tickers)는 캐시하지 않는다. 그게 5초마다 바뀌는 실제 데이터이고,
+         이 폴링의 목적이다.
+
+       ★ 캐시가 비어 있거나 만료됐으면 받아온다. 조회가 실패하면 **이전 값을
+         유지한다** — 규격이 사라지면 주문 폼이 최소수량을 다시 모르게 된다
+         (그 배선이 끊겨 고객 주문이 막힌 적이 있다).
+    */
     markets: function () {
+      var SPEC_TTL_MS = 10 * 60 * 1000;
+      var now = Date.now();
+      var specFresh = _specCache.at > 0 && (now - _specCache.at) < SPEC_TTL_MS;
+      /*
+         ★★ 필요한 종목만 요청한다.
+
+           서버는 669종목을 돌려주는데 화면이 쓰는 것은 QT.MARKETS 의 21종목이다.
+           5초마다 그 차이만큼을 버리고 있었다(무압축 190KB → 필요한 것은 6KB).
+
+         ★ 목록을 못 구하면 파라미터를 붙이지 않는다 — 그때는 예전처럼 전체를
+           받는다. 목록이 비었다고 시세를 0개 받으면 화면이 텅 빈다.
+      */
+      var want = [];
+      try {
+        var list = (window.QT && window.QT.MARKETS) || [];
+        want = list.map(function (m) { return String((m.base || '') + (m.quote || '')).toUpperCase(); })
+          .filter(function (x) { return x.length > 0; });
+      } catch (e) { want = []; }
+      var tickerPath = want.length > 0 ? '/tickers?symbols=' + encodeURIComponent(want.join(',')) : '/tickers';
+
       return Promise.all([
-        market('/tickers', { timeoutMs: 20000 }),
-        market('/symbols', { timeoutMs: 20000 }),
+        market(tickerPath, { timeoutMs: 20000 }),
+        specFresh
+          ? Promise.resolve({ symbols: _specCache.symbols })
+          : market('/symbols', { timeoutMs: 20000 })
+              .then(function (r) {
+                var list = (r && r.symbols) || [];
+                // ★ 빈 응답을 캐시하지 않는다. 캐시해 두면 10분 동안 규격이 없다.
+                if (list.length > 0) { _specCache = { at: Date.now(), symbols: list }; }
+                return r;
+              })
+              .catch(function (e) {
+                /*
+                   ★★ 실패 시 이전 값을 쓴다. 규격이 없으면 주문 폼이 최소수량·단위를
+                     모르게 되고, 그 상태가 실제로 고객 주문을 막았다.
+                */
+                if (_specCache.symbols.length > 0) return { symbols: _specCache.symbols };
+                throw e;
+              }),
       ]).then(function (res) {
         var tickers = (res[0] && res[0].items) || [];
         var symbols = (res[1] && res[1].symbols) || [];

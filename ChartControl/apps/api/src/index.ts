@@ -821,8 +821,34 @@ app.get('/api/market/tickers', async (c) => {
     // Base/quote come from the symbol catalogue, not parsed out of the ticker id: splitting "BTCUSDT"
     // by guessing the quote length breaks on symbols like 1000PEPEUSDT and on non-USDT quotes.
     const meta = new Map(symbols.map((s) => [s.id, s]));
+
+    /*
+       ★★ 필요한 종목만 돌려준다.
+
+         측정(실서비스): 이 엔드포인트는 669종목 전체를 돌려주고 브라우저는 그것을
+         5초마다 받는다(brotli 적용 후 30.7KB, 무압축 190KB). 그런데 화면이 실제로
+         쓰는 것은 21종목이다 — **96%가 버려진다.**
+
+         Render Hobby 요금제의 월 5GB 를 이렇게 소진했고, 초과분은 100GB 당 $15 다.
+         접속 1명이 8시간 열어두면 이 폴링만 210MB 다.
+
+       ★ 파라미터가 없으면 예전처럼 전체를 준다. 기존 호출자(운영 화면·스크립트)를
+         깨뜨리지 않는다.
+
+       ★★ 요청한 종목 중 없는 것은 조용히 빠진다 — 그건 사실이다(그 종목의 시세가
+         지금 없다). 다만 `requested` 를 함께 돌려줘, 화면이 "몇 개를 물었고 몇 개를
+         받았는지" 비교할 수 있게 한다. 조용히 줄어든 목록을 전체로 오해하면
+         "시세가 사라졌다" 를 정상으로 읽는다.
+    */
+    const wanted = (c.req.query('symbols') ?? '')
+      .split(',')
+      .map((x) => x.trim().toUpperCase())
+      .filter((x) => x.length > 0);
+    const wantedSet = wanted.length > 0 ? new Set(wanted) : null;
+    const selected = wantedSet ? tickers.filter((t) => wantedSet.has(t.symbol.toUpperCase())) : tickers;
+
     return c.json({
-      items: tickers.map((t) => {
+      items: selected.map((t) => {
         const m = meta.get(t.symbol);
         return {
           ...t,
@@ -832,7 +858,16 @@ app.get('/api/market/tickers', async (c) => {
           pricePrecision: m?.pricePrecision ?? 2,
         };
       }),
-      total: tickers.length,
+      /*
+         ★ total 은 **돌려준 개수**다. 예전에는 필터가 없어 전체 개수와 같았다.
+           필터를 쓸 때 전체 개수를 total 로 주면 화면이 "받은 것보다 많다" 고
+           오해한다.
+      */
+      total: selected.length,
+      // ★ 카탈로그 전체 개수. 화면이 "전체 중 몇 개를 받았는지" 알 수 있어야 한다.
+      available: tickers.length,
+      // ★ 요청했는데 못 받은 종목. 조용히 빠지면 "시세가 사라졌다" 를 정상으로 읽는다.
+      ...(wantedSet ? { requested: wanted.length, missing: wanted.filter((w) => !selected.some((t) => t.symbol.toUpperCase() === w)) } : {}),
       source: providers.source,
       asOf: Date.now(),
       dataMode: env.dataMode,
