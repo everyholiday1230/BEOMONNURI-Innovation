@@ -87,8 +87,21 @@ describe('tool registry (strict, read-only)', () => {
   const reg = new ToolRegistry(ds);
   const ctx = { userId: 'u1', symbol: 'BTCUSDT', timeframe: '15m', correlationId: 'x' };
 
-  it('exposes exactly 12 read-only tools with strict JSON schema', () => {
-    expect(READ_ONLY_TOOL_NAMES.length).toBe(12);
+  it('exposes exactly 11 read-only tools with strict JSON schema', () => {
+    /*
+       ★★ 12 → 11. `calculate_indicator_set` 을 제거했다.
+
+         그 도구는 **아무것도 계산하지 않았다.** 구현 전체가 입력을 되돌려주면서
+         note: 'computed server-side (deterministic)' 를 붙이는 것이었다. 모델은
+         계산된 값을 받았다고 믿고 지표 수치를 말할 수 있었고, 그 숫자에는 출처가
+         없었다. 없는 도구보다 있는 척하는 도구가 위험하다.
+
+       ★ 개수를 박아 두는 검사는 유지한다. 도구가 조용히 늘어나는 것을 막는 것이
+         이 검사의 목적이고, 지금은 줄어든 이유가 분명하다.
+    */
+    expect(READ_ONLY_TOOL_NAMES.length).toBe(11);
+    // ★ 계산하지 않는 도구가 되살아나면 실패한다.
+    expect(reg.has('calculate_indicator_set')).toBe(false);
     const defs = reg.list();
     for (const d of defs) {
       expect(d.strict).toBe(true);
@@ -98,6 +111,26 @@ describe('tool registry (strict, read-only)', () => {
     expect(reg.has('submit_order')).toBe(false);
     expect(reg.has('set_leverage')).toBe(false);
   });
+  it('지표 수치를 출처 없이 말하지 못하게 프롬프트가 막는다', () => {
+    /*
+       ★★ 도구를 제거한 것만으로는 부족하다. 모델은 캔들만 보고도 지표를 눈대중으로
+         계산해 "RSI 는 72.4" 라고 단정할 수 있다. 숫자에는 출처가 있어야 한다.
+
+       ★ "말하지 마라" 가 아니라 **"출처가 있을 때만 말하라"** 로 적혀 있는지 본다.
+         차트 값을 넘기는 경로가 붙으면 규칙을 다시 고칠 필요가 없어야 한다.
+
+       ★★ 정성적 설명은 막지 않는다. "과매수처럼 보인다" 는 캔들에서 읽는 관찰이고,
+         "72.4" 는 출처가 필요한 주장이다. 둘을 구분하지 않으면 도구가 쓸모없어진다.
+    */
+    const registry = new PromptRegistry();
+    for (const id of ['copilot.system', 'chart.analysis', 'signal.generation']) {
+      const t = registry.get(id).template;
+      expect(t, `${id}: 지표 수치 규칙이 없다`).toMatch(/Never state a numeric indicator value/);
+      expect(t, `${id}: 모른다고 말하라는 지시가 없다`).toMatch(/say you do not have the value/);
+      expect(t, `${id}: 정성적 설명까지 막고 있다`).toMatch(/qualitatively/);
+    }
+  });
+
   it('executes a valid tool and rejects bad args / unknown tool', async () => {
     expect((await reg.execute('get_candles', JSON.stringify({ symbol: 'BTCUSDT', timeframe: '15m', limit: 10 }), ctx)).ok).toBe(true);
     expect((await reg.execute('get_candles', JSON.stringify({ symbol: 'BTCUSDT' }), ctx)).ok).toBe(false); // missing fields

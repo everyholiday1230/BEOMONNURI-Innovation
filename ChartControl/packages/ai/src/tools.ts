@@ -22,12 +22,33 @@ const TOOL_SCHEMAS = {
   get_current_chart_context: z.object({ symbol: SymbolArg, timeframe: TimeframeArg }).strict(),
   get_user_visible_positions: z.object({ symbol: SymbolArg.nullable() }).strict(),
   get_user_visible_open_orders: z.object({ symbol: SymbolArg.nullable() }).strict(),
-  calculate_indicator_set: z.object({ symbol: SymbolArg, timeframe: TimeframeArg, indicators: z.array(z.enum(['rsi', 'macd', 'ema', 'atr', 'bbands'])).min(1).max(5) }).strict(),
   calculate_risk_reward: z.object({ entry: z.string(), stop: z.string(), target: z.string() }).strict(),
   validate_chart_command: z.object({ commandJson: z.string().min(1) }).strict(),
 } as const;
 
 export type ToolName = keyof typeof TOOL_SCHEMAS;
+/*
+   ★★ `calculate_indicator_set` 을 **제거했다.** 아무것도 계산하지 않았다.
+
+     구현 전체가 이랬다:
+
+       return { symbol, timeframe, indicators, note: 'computed server-side (deterministic)' };
+
+     입력을 그대로 되돌려주면서 "서버에서 결정론적으로 계산했다" 고 적어 보냈다.
+     숫자는 없었다. 도구 설명도 'Compute a small set of technical indicators
+     (server-side, deterministic)' 였다.
+
+   ★★ 미구현보다 나쁜 이유: 모델은 **계산된 값을 받았다고 믿는다.** 그러면 지표
+     수치를 자신 있게 말하는데 그 숫자의 출처가 없다. 없는 도구보다, 있는 척하는
+     도구가 위험하다 — 이 프로젝트에서 반복해서 고쳐온 실패 방식이다(막지 못하는
+     게이트, 기록하지 않는 컬럼, 도달하지 않는 오류 싱크).
+
+   ★ 지표 값을 실제로 넘기는 경로는 차트가 이미 계산한 값을 쓰는 방식으로 붙인다
+     (KLineCharts 가 27종을 브라우저에서 계산한다). 서버에서 따로 구현하면 화면
+     숫자와 AI 숫자가 어긋날 수 있고, 그건 둘 다 못 믿게 만든다.
+
+   ★ 그때까지 모델은 지표 수치를 말할 수 없다. SAFETY_FOOTER 에 그 규칙을 넣었다.
+*/
 export const READ_ONLY_TOOL_NAMES = Object.keys(TOOL_SCHEMAS) as ToolName[];
 
 /**
@@ -89,7 +110,6 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   get_current_chart_context: 'Read-only current chart context the user is viewing.',
   get_user_visible_positions: 'Read-only positions the authenticated user is allowed to see.',
   get_user_visible_open_orders: 'Read-only open orders the authenticated user is allowed to see.',
-  calculate_indicator_set: 'Compute a small set of technical indicators (server-side, deterministic).',
   calculate_risk_reward: 'Compute risk/reward from entry/stop/target decimal strings.',
   validate_chart_command: 'Validate a proposed ChartCommand JSON against the schema (no side effects).',
 };
@@ -187,7 +207,6 @@ export class ToolRegistry implements IAIToolRegistry {
       case 'get_current_chart_context': return this.ds.get_current_chart_context(a.symbol as string, a.timeframe as string);
       case 'get_user_visible_positions': return this.ds.get_user_visible_positions(ctx.userId, (a.symbol as string) ?? null);
       case 'get_user_visible_open_orders': return this.ds.get_user_visible_open_orders(ctx.userId, (a.symbol as string) ?? null);
-      case 'calculate_indicator_set': return { symbol: a.symbol, timeframe: a.timeframe, indicators: a.indicators, note: 'computed server-side (deterministic)' };
       case 'calculate_risk_reward': {
         const entry = Number(a.entry), stop = Number(a.stop), target = Number(a.target);
         const risk = Math.abs(entry - stop), reward = Math.abs(target - entry);
