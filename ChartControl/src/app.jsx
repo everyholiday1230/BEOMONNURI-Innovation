@@ -1272,13 +1272,29 @@
     const chartIndicators = window.QTChartState && window.QTChartState.useIndicators
       ? window.QTChartState.useIndicators()
       : null;
+    /*
+       ★★ 계산된 값이 담긴 상세 목록. AI 가 지표 수치를 말하려면 이것이 필요하다.
+
+         예전에는 이름만 담긴 목록(useIndicators)을 AI 에게 보냈다. 그래서 AI 는
+         "RSI 가 켜져 있다" 만 알고 값은 몰랐고, 수치를 말하려면 추정해야 했다 —
+         출처 없는 숫자다. 상세 목록(getIndicatorDetail)에는 화면이 계산한 값이
+         들어 있으므로 그것을 보낸다.
+
+       ★ 값이 아직 없으면 null 이다(빈 배열이 아니다). 빈 배열은 "지표를 하나도
+         켜지 않았다" 로 읽히고, 그건 아직 모르는 것과 다른 사실이다.
+    */
+    const chartIndicatorDetail = (window.QTChartState && window.QTChartState.getIndicatorDetail)
+      ? window.QTChartState.getIndicatorDetail()
+      : null;
     const chartContext = useMemo(() => ({
       symbol: market.base + '/' + market.quote,
       tf: timeframe,
       price: lastPrice,
       candles,
       indicators: chartIndicators,
-    }), [market, timeframe, lastPrice, candles, chartIndicators]);
+      // ★ 값이 담긴 목록. AI 가 수치를 인용할 근거다.
+      indicatorDetail: chartIndicatorDetail,
+    }), [market, timeframe, lastPrice, candles, chartIndicators, chartIndicatorDetail]);
 
     // ---- shellProps for new-page components ----
     const shellProps = {

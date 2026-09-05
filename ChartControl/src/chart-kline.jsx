@@ -1198,6 +1198,19 @@
             chart.setPaneOptions({ id, height: 78, minHeight: 40, dragEnabled: true });
           }
         }
+        /*
+           ★★ 차트가 지표를 갖춘 시점에 **스스로 게시한다.**
+
+             예전에는 지표 패널 컴포넌트만 게시했다. 이용자가 그 패널을 열지 않으면
+             AI 코파일럿에게 지표 값이 전달되지 않아, 화면에는 MA·VOL 이 보이는데
+             AI 는 값을 모르는 상태가 됐다.
+
+           ★ 계산이 한 프레임 뒤에 끝나므로 약간 늦춰 읽는다. 즉시 읽으면 result 가
+             비어 있어 값 없는 목록을 게시한다.
+        */
+        setTimeout(() => {
+          try { window.ChartKlineUtil && window.ChartKlineUtil.publishState(); } catch (e) { /* noop */ }
+        }, 300);
       } else if (volPaneRef.current !== null) {
         chart.removeIndicator({ paneId: volPaneRef.current, name: 'VOL' });
         volPaneRef.current = null;
@@ -1403,6 +1416,42 @@
     _aiOverlayInds: new Set(['MA', 'EMA', 'SMA', 'BOLL', 'SAR', 'BBI']),
     _aiInd: new Map(), // name(UPPER) -> paneId
     _aiAlias: { STOCH: 'KDJ' }, // 우리 enum → klinecharts 내장명
+    /*
+       ★★ 활성 지표와 **계산된 값**을 QTChartState 에 게시한다.
+
+         예전에는 이 게시가 지표 패널 컴포넌트 안에만 있었다. 그래서 이용자가
+         Indicators 패널을 한 번도 열지 않으면 AI 코파일럿에게 값이 전달되지
+         않았다 — 화면에는 MA·VOL 이 그려져 있는데 AI 는 "지표 정보가 없다" 고
+         답하는 상태다. 실측으로 확인했다(패널을 열기 전 상세 목록이 비어 있었다).
+
+       ★ 차트가 지표의 소유자이므로 게시도 차트가 한다. 패널은 조작 도구일 뿐이다.
+
+       ★ 값이 없으면 값 필드를 넣지 않는다. null·0 을 넣으면 모델이 그것을 값으로
+         읽는다.
+    */
+    publishState() {
+      try {
+        const cs = window.QTChartState;
+        if (!cs || typeof cs.publishIndicators !== 'function') return;
+        const chart = [...INSTANCES][0];
+        if (!chart) return;
+        const list = chart.getIndicators() || [];
+        cs.publishIndicators(list.map((i) => i.name));
+        if (typeof cs.publishIndicatorDetail === 'function') {
+          cs.publishIndicatorDetail(list.map((i) => {
+            const res = Array.isArray(i.result) ? i.result : null;
+            const last = res && res.length > 0 ? res[res.length - 1] : null;
+            const prev = res && res.length > 1 ? res[res.length - 2] : null;
+            return {
+              id: i.name,
+              ...(Array.isArray(i.calcParams) && i.calcParams.length ? { params: { calcParams: i.calcParams } } : {}),
+              ...(last && typeof last === 'object' ? { latest: last } : {}),
+              ...(prev && typeof prev === 'object' ? { previous: prev } : {}),
+            };
+          }));
+        }
+      } catch (e) { /* 게시 실패가 차트를 막지 않는다 */ }
+    },
     addIndicator(name, params) {
       const raw = String(name || '').toUpperCase();
       const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
@@ -1418,6 +1467,11 @@
           if (id) { this._aiInd.set(kName, onPrice ? 'candle_pane' : id); applied = true; }
         } catch (e) { /* 지원하지 않는 지표 이름 등 — applied 는 false 로 남는다 */ }
       }
+      /*
+         ★ 지표가 바뀌었으니 게시한다. 안 하면 AI 가 방금 추가된 지표의 값을
+           모른 채 답한다.
+      */
+      setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return applied;
     },
     /*
@@ -1464,6 +1518,8 @@
           if (chart.getIndicators().some((i) => String(i.name).toUpperCase() === kName)) stillThere = true;
         } catch (e) { stillThere = true; /* 확인 불가 → 성공이라고 말하지 않는다 */ }
       }
+      // ★ 제거도 지표 변경이다. 게시하지 않으면 AI 가 지운 지표를 계속 안다.
+      setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return !stillThere;
     },
     listIndicators() {
@@ -1480,7 +1536,44 @@
         let overlays = [];
         let indicators = [];
         try { overlays = chart.getOverlays().map((o) => ({ name: o.name, id: o.id, points: o.points, ext: o.extendData && o.extendData.source })); } catch (e) { /* noop */ }
-        try { indicators = chart.getIndicators().map((i) => ({ name: i.name, paneId: i.paneId, calcParams: i.calcParams })); } catch (e) { /* noop */ }
+        /*
+           ★★ 계산된 **값**까지 담는다.
+
+             KLineCharts 는 각 지표의 계산 결과를 `result` 배열로 들고 있다
+             (RSI 220개, 마지막 항목이 {rsi1, rsi2, rsi3}). 예전에는 이름·설정만
+             꺼내서, AI 코파일럿은 "RSI 가 켜져 있다" 는 사실만 알고 값은 몰랐다.
+
+             그래서 AI 가 지표 수치를 말하려면 스스로 추정해야 했고, 그건 출처 없는
+             숫자다. 화면이 이미 계산해 둔 값을 그대로 넘기면 **고객이 보는 숫자와
+             AI 가 말하는 숫자가 같아진다.** 서버에서 따로 계산하면 미세하게
+             달라질 수 있고, 그러면 둘 다 못 믿게 된다.
+
+           ★ 마지막 값만 보낸다. 220개를 전부 보내면 프롬프트가 비대해지고 비용이
+             오른다. 지표 해석에 필요한 것은 최신 값과 그 직전 값(방향)이다.
+
+           ★★ 값이 없으면 **필드를 넣지 않는다.** null 이나 0 을 넣으면 모델이 그것을
+             값으로 읽는다 — 이 프로젝트가 반복해서 고쳐온 실패 방식이다.
+        */
+        try {
+          indicators = chart.getIndicators().map((i) => {
+            const out = { name: i.name, paneId: i.paneId, calcParams: i.calcParams };
+            const res = Array.isArray(i.result) ? i.result : null;
+            if (res && res.length > 0) {
+              const last = res[res.length - 1];
+              const prev = res.length > 1 ? res[res.length - 2] : null;
+              /*
+                 ★ 값은 객체다({rsi1: 7.84, ...}). 키 이름은 지표마다 다르므로
+                   그대로 넘긴다 — 우리가 이름을 바꾸면 모델이 무슨 값인지 모른다.
+              */
+              if (last && typeof last === 'object') {
+                out.latest = last;
+                if (prev && typeof prev === 'object') out.previous = prev;
+                out.samples = res.length;
+              }
+            }
+            return out;
+          });
+        } catch (e) { /* noop */ }
         let bars = 0;
         try { bars = chart.getDataList().length; } catch (e) { /* noop */ }
         return {

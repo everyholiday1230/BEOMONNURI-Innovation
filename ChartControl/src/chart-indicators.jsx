@@ -239,8 +239,25 @@
         for (const ind of chart.getIndicators()) {
           map.set(ind.name, ind.paneId);
           if (Array.isArray(ind.calcParams) && ind.calcParams.length) pmap.set(ind.name, ind.calcParams.slice());
+          /*
+             ★★ 계산된 값을 함께 담는다.
+
+               예전에는 이름과 설정값(calcParams)만 담았다. AI 코파일럿이 이 목록을
+               읽으므로, "RSI 가 켜져 있다" 는 알아도 값은 몰랐다 — 그래서 수치를
+               말하려면 스스로 추정해야 했고 그 숫자에는 출처가 없었다.
+
+             ★ 화면이 이미 계산해 둔 값을 그대로 쓴다. 서버에서 따로 계산하면 화면
+               숫자와 어긋날 수 있고, 그러면 어느 쪽도 믿을 수 없게 된다.
+
+             ★★ 값이 없으면 필드를 넣지 않는다. null·0 을 넣으면 그것을 값으로 읽는다.
+          */
+          const res = Array.isArray(ind.result) ? ind.result : null;
+          const lastVal = res && res.length > 0 ? res[res.length - 1] : null;
+          const prevVal = res && res.length > 1 ? res[res.length - 2] : null;
           detail.push({
             id: ind.name,
+            ...(lastVal && typeof lastVal === 'object' ? { latest: lastVal } : {}),
+            ...(prevVal && typeof prevVal === 'object' ? { previous: prevVal } : {}),
             // 값이 없으면 넣지 않는다 — 기본값을 적으면 없던 설정이 생긴다.
             ...(Array.isArray(ind.calcParams) && ind.calcParams.length
               ? { params: { calcParams: ind.calcParams } }

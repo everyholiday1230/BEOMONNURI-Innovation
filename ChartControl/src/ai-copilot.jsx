@@ -577,6 +577,28 @@
       */
       const chartContext = {
         indicators: Array.isArray(context.indicators) ? context.indicators.slice(0, 12) : [],
+        /*
+           ★★ 계산된 지표 값을 함께 보낸다. 이것이 없으면 AI 는 수치를 말할 수 없다
+             (안전 규칙이 출처 없는 숫자를 금지한다).
+
+             화면이 이미 계산한 값을 그대로 보낸다 — 서버에서 다시 계산하면 고객이
+             보는 숫자와 어긋날 수 있고, 그러면 어느 쪽도 믿을 수 없다.
+
+           ★ 최신 값과 그 직전 값만 보낸다. 전체 계열(지표당 수백 개)을 보내면
+             프롬프트가 비대해지고 토큰 비용이 오른다. 해석에 필요한 것은 현재
+             값과 방향이다.
+
+           ★★ 값이 없는 지표는 값 필드 없이 이름만 간다. 0 이나 null 을 넣으면
+             모델이 그것을 값으로 읽는다.
+        */
+        indicatorValues: Array.isArray(context.indicatorDetail)
+          ? context.indicatorDetail.slice(0, 12).map((d) => ({
+            name: d.id,
+            ...(d.params && d.params.calcParams ? { params: d.params.calcParams } : {}),
+            ...(d.latest ? { latest: d.latest } : {}),
+            ...(d.previous ? { previous: d.previous } : {}),
+          }))
+          : [],
         drawings: (Array.isArray(overlays) ? overlays : [])
           .filter((o) => o && (o.source === 'user' || o.source === 'ai-draft'))
           .slice(0, 20)

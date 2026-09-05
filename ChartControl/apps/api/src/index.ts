@@ -3394,12 +3394,56 @@ if (env.authEnabled) {
                "사용자가 지금 화면에 무엇을 켜뒀는지"를 모델에 알려 준다. 가격 주장에는 쓰지
                않는다(가격은 위 서버 값이 authoritative). 크기를 방어적으로 제한한다.
             */
-            let screen: { indicators?: unknown; drawings?: unknown } | null = null;
+    /*
+       화면 상태.
+
+       ★★ `indicatorValues` 를 함께 통과시킨다. 이것이 없으면 AI 는 지표 수치를
+         말할 수 없다 — 안전 규칙이 출처 없는 숫자를 금지하고, 예전에는 이 경로에
+         값이 실리지 않아 이름만 전달됐다.
+
+       ★★ 값의 출처를 **명시한다.** 이 숫자는 서버가 계산한 것이 아니라 고객
+         브라우저의 차트가 계산한 것이다. 그 사실을 프롬프트에 적지 않으면 모델은
+         서버가 검증한 값으로 착각하고, 우리도 로그에서 구분할 수 없다.
+
+         브라우저가 보낸 값이므로 신뢰 수준이 봉·가격과 다르다(그 둘은 서버가
+         직접 조회한다). 그래서 같은 곳에 섞지 않고 `screen` 안에 둔다.
+
+       ★ 개수를 제한한다. 지표당 값 객체가 몇 개 필드씩 있고, 12개를 넘기면
+         프롬프트가 비대해져 토큰 비용이 오른다.
+    */
+    let screen: {
+      indicators?: unknown;
+      drawings?: unknown;
+      indicatorValues?: unknown;
+      indicatorValuesNote?: string;
+    } | null = null;
             if (clientContext && typeof clientContext === 'object') {
               const cc = clientContext as Record<string, unknown>;
               const inds = Array.isArray(cc.indicators) ? cc.indicators.slice(0, 12) : undefined;
               const draws = Array.isArray(cc.drawings) ? cc.drawings.slice(0, 20) : undefined;
-              if (inds || draws) screen = { ...(inds ? { indicators: inds } : {}), ...(draws ? { drawings: draws } : {}) };
+              /*
+                 ★ 값이 하나도 없는 배열은 넣지 않는다. 빈 배열을 넣으면 모델이
+                   "지표를 켰는데 값이 없다" 로 읽을 수 있다.
+              */
+              const rawVals = Array.isArray(cc.indicatorValues) ? cc.indicatorValues.slice(0, 12) : undefined;
+              const vals = rawVals && rawVals.length > 0 ? rawVals : undefined;
+              if (inds || draws || vals) {
+                screen = {
+                  ...(inds ? { indicators: inds } : {}),
+                  ...(draws ? { drawings: draws } : {}),
+                  ...(vals ? {
+                    indicatorValues: vals,
+                    /*
+                       ★★ 이 한 줄이 중요하다. 모델이 값의 성질을 알아야 한다 —
+                         고객 화면이 계산한 값이고, 고객이 보는 숫자와 같다.
+                    */
+                    indicatorValuesNote:
+                      'Computed by the chart in the user\'s browser (KLineCharts). These are the exact numbers '
+                      + 'the user sees on screen, so you may quote them. They are not server-verified: if a value '
+                      + 'looks impossible, say so rather than reasoning from it.',
+                  } : {}),
+                };
+              }
             }
 
             const marketData = JSON.stringify({
