@@ -190,8 +190,21 @@
       descKey: 'preset_desc_standard',
       cols: 24,
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },
-        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 6,  h: 11, minW: 8, minH: 6 },
+        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 4,  h: 16, minW: 3, minH: 6 },
+        /*
+           ★★ minW 를 8 → 6 으로 낮춘다. **이 배치가 실제 값이고 8 은 지켜지지 않는
+             선언이었다.**
+
+             폭 6 인데 최소폭 8 이라고 적혀 있었다. 그 모순이 크기 조절 계산을
+             깨뜨렸다: 이웃이 내줄 수 있는 여유를 `폭 - 최소폭` 으로 계산하면
+             음수가 나오고, 그러면 옆 창을 넓히려 할 때 오히려 줄어든다(실측으로
+             재현했다 — market 을 넓히자 4열에서 3열로 줄었다).
+
+           ★ 배치를 바꾸지 않는 쪽을 골랐다. chart 를 8열로 넓히면 고객이 보던
+             기본 화면이 달라진다. 지켜지지 않는 최소값을 사실에 맞추는 것이
+             화면을 바꾸는 것보다 안전하다.
+        */
+        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 6,  h: 11, minW: 6, minH: 6 },
         { id: 'positions', type: 'positions',   x: 4,  y: 11, w: 12, h: 5,  minW: 8, minH: 3 },
         /*
            ★★ AI 코파일럿을 기본 배치에 넣는다.
@@ -238,8 +251,8 @@
            합계 3 + 11 + 6 + 4 = 24.
       */
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 8 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 11, h: 11, minW: 8, minH: 6 },
+        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 6 },
+        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 11, h: 11, minW: 6, minH: 6 },
         { id: 'positions', type: 'positions',   x: 3,  y: 11, w: 11, h: 5,  minW: 8, minH: 3 },
         { id: 'ai',        type: 'aiCopilot',   x: 14, y: 0,  w: 6,  h: 16, minW: 5, minH: 10 },
         { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },

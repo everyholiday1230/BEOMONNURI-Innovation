@@ -41,7 +41,17 @@
 
   const DEFAULT_WIDGET_META = {
     marketWatch:  { minW: 3, minH: 6,  name: 'Market Watch' },
-    chart:        { minW: 8, minH: 6,  name: 'Main Chart' },
+    /*
+       ★★ chart 최소폭을 8 → 6 으로 낮춘다.
+
+         기본 배치(standard-trader)가 실제로 폭 6 을 쓰고 있었다. 선언이 8 이면
+         "지켜지지 않는 최소값" 이고, 크기 조절 계산에서 `폭 - 최소폭` 이 음수가
+         되어 옆 창을 넓힐 때 오히려 줄어드는 결함을 만들었다(실측 재현).
+
+       ★ 두 곳(프리셋·이 메타)이 갈리면 같은 문제가 다시 생긴다. 테스트가 두 값의
+         일치를 검사한다.
+    */
+    chart:        { minW: 6, minH: 6,  name: 'Main Chart' },
     orderBook:    { minW: 3, minH: 6,  name: 'Order Book' },
     recentTrades: { minW: 3, minH: 3,  name: 'Recent Trades' },
     orderEntry:   { minW: 3, minH: 8,  name: 'Order Entry' },
