@@ -95,6 +95,44 @@
       ai_input_pro: 'Enter a command… (e.g. draw trendline / draft my setup / find S/R)',
       ai_reason_beginner: '💡 Why',
       ai_reason_pro: 'Reason',
+
+      /* ============================================================
+         후속 제안 칩 (follow-up suggestions)
+         ------------------------------------------------------------
+         ★★ 답변만 하고 끝내지 않는다. 다음에 확인할 것을 제시한다.
+
+           고객이 매번 "무엇을 물어야 하나" 를 스스로 떠올려야 하는 부담을 없앤다.
+           문구는 서버 규칙이 고르고(모델이 만들지 않는다), 여기서 언어별로 옮긴다.
+
+         ★★ **매수·매도 권유 문구를 절대 넣지 말 것.**
+
+           사업자 유형은 소프트웨어 개발·공급이고 투자자문 등록이 없다. "지금 사세요"
+           같은 문구가 들어가는 순간 투자권유가 된다. 제안은 검증·위험 점검·복기
+           범위로 제한한다. 테스트가 이 파일을 훑어 금지 표현을 막는다.
+         ============================================================ */
+      ai_fu_title: 'Next you could ask',
+      ai_fu_risk_open_position: '⚠ Check my open position risk',
+      ai_fu_risk_open_position_q: 'I have an open position. What is my liquidation distance and what would invalidate it?',
+      ai_fu_invalidation: '❓ Where would I be wrong?',
+      ai_fu_invalidation_q: 'I drew an entry and a stop but no invalidation level. At what point should I accept this idea is wrong?',
+      ai_fu_no_stop: '🛑 I have no stop level',
+      ai_fu_no_stop_q: 'I drew an entry zone but no stop level. Explain the structural levels below and above it.',
+      ai_fu_open_orders: '📋 Review my resting orders',
+      ai_fu_open_orders_q: 'I have resting orders. Are they still consistent with the current structure?',
+      ai_fu_counter_case: '🔄 Argue the opposite case',
+      ai_fu_counter_case_q: 'Now argue the opposite of what you just said. What is the strongest case against it?',
+      ai_fu_review_trades: '📖 Review my past trades',
+      ai_fu_review_trades_q: 'Review my past trades. Did I follow my own plan, and where did I deviate?',
+      ai_fu_higher_tf: '🔍 Check the higher timeframe',
+      ai_fu_higher_tf_q: 'Does the higher timeframe agree with this read, or disagree?',
+      ai_fu_add_indicator: '📈 Suggest indicators for this',
+      ai_fu_add_indicator_q: 'No indicators are on my chart. Which would be informative here, and what are their limits?',
+      ai_fu_funding: '💰 What is funding doing?',
+      ai_fu_funding_q: 'What is the funding rate telling us about positioning right now?',
+      ai_fu_order_book: '📊 Read the order book',
+      ai_fu_order_book_q: 'What does the order book depth show near the current price?',
+      ai_fu_explain_levels: '📍 Explain the key levels',
+      ai_fu_explain_levels_q: 'Explain the key levels on {symbol} and how you identified each one.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

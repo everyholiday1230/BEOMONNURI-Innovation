@@ -731,6 +731,26 @@
 }
 .ai-quick__chip:hover { color: var(--color-text-primary); border-color: var(--color-brand); }
 
+/*
+   후속 제안 줄. 기본 빠른 명령 칩과 **구별되어야** 한다 — 하나는 항상 있는
+   기능이고, 하나는 방금 대화에 맞춰 나온 것이다. 같아 보이면 왜 바뀌는지
+   이해할 수 없다.
+*/
+.ai-quick--followup {
+  border-top: 1px dashed var(--color-border-subtle);
+  align-items: center;
+}
+.ai-quick__label {
+  font-size: var(--fs-xs);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  margin-right: 2px;
+}
+.ai-quick__chip--followup {
+  border-color: var(--color-brand);
+  color: var(--color-text-primary);
+}
+.ai-quick__chip--followup:hover { background: var(--color-bg-elevated, var(--color-bg-surface)); }
+
 .ai-input {
   padding: var(--sp-6) var(--sp-8);
   border-top: 1px solid var(--color-border-subtle);

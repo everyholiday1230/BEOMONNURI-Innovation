@@ -22,6 +22,22 @@ const TOOL_SCHEMAS = {
   get_current_chart_context: z.object({ symbol: SymbolArg, timeframe: TimeframeArg }).strict(),
   get_user_visible_positions: z.object({ symbol: SymbolArg.nullable() }).strict(),
   get_user_visible_open_orders: z.object({ symbol: SymbolArg.nullable() }).strict(),
+  /*
+     ★★ 복기(post-mortem)용. **이용자 본인이 이미 끝낸 거래**만 읽는다.
+
+       왜 필요한가: 지금까지 AI 는 "앞으로 어떻게 할까" 만 도왔다. 그런데 고객이
+       실제로 손실을 줄이는 방법은 자기가 무엇을 했는지 보는 것이다 — 손절을 몇 번
+       옮겼는지, 계획한 손익비와 실제 결과가 얼마나 달랐는지.
+
+     ★ 과거만 본다. 미래 예측이나 수익 약속의 근거로 쓰이지 않는다.
+     ★ 조회 범위는 서버가 정한다(본인 것만). symbol/limit 은 좁히는 데만 쓴다.
+  */
+  get_user_trade_history: z
+    .object({
+      symbol: SymbolArg.nullable(),
+      limit: z.number().int().min(1).max(50),
+    })
+    .strict(),
   calculate_risk_reward: z.object({ entry: z.string(), stop: z.string(), target: z.string() }).strict(),
   validate_chart_command: z.object({ commandJson: z.string().min(1) }).strict(),
 } as const;
@@ -110,6 +126,10 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   get_current_chart_context: 'Read-only current chart context the user is viewing.',
   get_user_visible_positions: 'Read-only positions the authenticated user is allowed to see.',
   get_user_visible_open_orders: 'Read-only open orders the authenticated user is allowed to see.',
+  get_user_trade_history:
+    "Read-only history of the authenticated user's own COMPLETED orders (filled, cancelled, rejected), "
+    + 'newest first. Use this for post-trade review: compare what the user planned against what they '
+    + 'actually did. Past facts only — never present it as a prediction or a guarantee of future results.',
   calculate_risk_reward: 'Compute risk/reward from entry/stop/target decimal strings.',
   validate_chart_command: 'Validate a proposed ChartCommand JSON against the schema (no side effects).',
 };
@@ -151,6 +171,13 @@ export interface ToolDataSource {
   get_current_chart_context(symbol: string, timeframe: string): Promise<unknown>;
   get_user_visible_positions(userId: string, symbol: string | null): Promise<unknown>;
   get_user_visible_open_orders(userId: string, symbol: string | null): Promise<unknown>;
+  /**
+   * 이용자 본인의 종료된 주문 이력(복기용).
+   *
+   * ★ userId 는 서버가 세션에서 넣는다. 모델이 준 값을 쓰지 않는다 — 남의 거래를
+   *   읽는 경로가 되어서는 안 된다.
+   */
+  get_user_trade_history(userId: string, symbol: string | null, limit: number): Promise<unknown>;
 }
 
 export class ToolRegistry implements IAIToolRegistry {
@@ -207,6 +234,12 @@ export class ToolRegistry implements IAIToolRegistry {
       case 'get_current_chart_context': return this.ds.get_current_chart_context(a.symbol as string, a.timeframe as string);
       case 'get_user_visible_positions': return this.ds.get_user_visible_positions(ctx.userId, (a.symbol as string) ?? null);
       case 'get_user_visible_open_orders': return this.ds.get_user_visible_open_orders(ctx.userId, (a.symbol as string) ?? null);
+      /*
+         ★ userId 는 ctx(세션)에서만 온다. 모델이 준 값은 쓰지 않는다 — 그러면
+           남의 거래 기록을 읽는 경로가 된다.
+      */
+      case 'get_user_trade_history':
+        return this.ds.get_user_trade_history(ctx.userId, (a.symbol as string) ?? null, a.limit as number);
       case 'calculate_risk_reward': {
         const entry = Number(a.entry), stop = Number(a.stop), target = Number(a.target);
         const risk = Math.abs(entry - stop), reward = Math.abs(target - entry);

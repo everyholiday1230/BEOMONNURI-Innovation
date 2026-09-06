@@ -1,3 +1,4 @@
+import type { AiFollowUp } from './followups';
 import type { z } from 'zod';
 
 /**
@@ -121,6 +122,19 @@ export interface OrchestratorInput {
   dataSnapshotId?: string;
   /** Contract type for provenance on proposed commands. Defaults to 'perpetual'. */
   marketType?: 'futures' | 'perpetual';
+  /**
+   * 후속 제안을 고르는 데 쓰는 화면 상태.
+   *
+   * ★ UNTRUSTED — 브라우저가 보낸 값이다. 제안 문구를 고르는 데만 쓰고 권한 판단에는
+   *   절대 쓰지 않는다. 틀려도 최악의 결과가 "덜 알맞은 제안" 이어야 한다.
+   */
+  followUp?: {
+    indicators?: string[];
+    drawingTypes?: string[];
+    positionCount?: number | null;
+    openOrderCount?: number | null;
+    hasTradeHistory?: boolean | null;
+  };
 }
 
 export type OrchestratorEvent =
@@ -130,6 +144,11 @@ export type OrchestratorEvent =
   | { type: 'command'; command: unknown } // validated AiChartCommand
   | { type: 'signal'; signal: unknown } // validated AiSignalObject
   | { type: 'usage'; usage: AiUsage }
+  /**
+   * 답변이 끝난 뒤 제시할 후속 질문들. 서버가 규칙으로 고른다(모델이 만들지 않는다 —
+   * 없는 기능이나 투자권유를 제안할 수 있다). 토큰을 쓰지 않는다.
+   */
+  | { type: 'suggestions'; items: AiFollowUp[] }
   | { type: 'error'; code: string; message: string }
   | { type: 'done' };
 

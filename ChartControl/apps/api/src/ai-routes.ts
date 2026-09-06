@@ -254,6 +254,29 @@ export function createAiRouter(d: AiRouterDeps): Hono {
           marketData: grounded?.marketData,
           dataSnapshotId: grounded?.dataSnapshotId,
           marketType: grounded?.marketType,
+          /*
+             ★ 후속 제안을 고르는 데 쓰는 화면 상태. 브라우저가 보낸 값이라 신뢰하지
+               않는다 — 제안 문구 선택에만 쓰고 권한 판단에는 쓰지 않는다. 틀려도
+               최악이 "덜 알맞은 제안" 이다.
+          */
+          followUp: (() => {
+            const cc = (body as { chartContext?: Record<string, unknown> }).chartContext;
+            if (!cc || typeof cc !== 'object') return undefined;
+            const ind = Array.isArray(cc.indicators)
+              ? (cc.indicators as unknown[]).map((i) => (typeof i === 'string' ? i : String((i as { name?: string })?.name ?? ''))).filter(Boolean)
+              : [];
+            const draws = Array.isArray(cc.drawings)
+              ? (cc.drawings as unknown[]).map((d) => String((d as { type?: string })?.type ?? '')).filter(Boolean)
+              : [];
+            const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+            return {
+              indicators: ind,
+              drawingTypes: draws,
+              positionCount: num(cc.positionCount),
+              openOrderCount: num(cc.openOrderCount),
+              hasTradeHistory: typeof cc.hasTradeHistory === 'boolean' ? cc.hasTradeHistory : null,
+            };
+          })(),
         })) {
           if (ev.type === 'text') assistantText += ev.delta;
           if (ev.type === 'command' || ev.type === 'signal') producedAction = true;

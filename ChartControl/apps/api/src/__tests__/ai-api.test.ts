@@ -16,7 +16,7 @@ const ORIGIN = 'http://localhost:5173';
 const toolData: ToolDataSource = {
   async get_market_snapshot() { return { last: '100' }; }, async get_candles() { return []; }, async get_order_book_summary() { return { bids: 0, asks: 0 }; },
   async get_recent_trades_summary() { return { count: 0 }; }, async get_funding_rate() { return { fundingRate: null }; }, async get_market_metadata() { return {}; },
-  async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; },
+  async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; }, async get_user_trade_history() { return { available: true, total: 0, orders: [] }; },
 };
 
 function build(aiAvailable = true, rateLimiter?: import('../security/rate-limiter').RateLimiter, aiRatePerMin?: number) {

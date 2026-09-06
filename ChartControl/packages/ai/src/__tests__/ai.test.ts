@@ -82,12 +82,12 @@ describe('tool registry (strict, read-only)', () => {
     async get_market_metadata() { return { tickSize: '0.1' }; },
     async get_current_chart_context() { return { symbol: 'BTCUSDT' }; },
     async get_user_visible_positions() { return []; },
-    async get_user_visible_open_orders() { return []; },
+    async get_user_visible_open_orders() { return []; }, async get_user_trade_history() { return []; },
   };
   const reg = new ToolRegistry(ds);
   const ctx = { userId: 'u1', symbol: 'BTCUSDT', timeframe: '15m', correlationId: 'x' };
 
-  it('exposes exactly 11 read-only tools with strict JSON schema', () => {
+  it('exposes exactly 12 read-only tools with strict JSON schema', () => {
     /*
        ★★ 12 → 11. `calculate_indicator_set` 을 제거했다.
 
@@ -97,11 +97,20 @@ describe('tool registry (strict, read-only)', () => {
          없었다. 없는 도구보다 있는 척하는 도구가 위험하다.
 
        ★ 개수를 박아 두는 검사는 유지한다. 도구가 조용히 늘어나는 것을 막는 것이
-         이 검사의 목적이고, 지금은 줄어든 이유가 분명하다.
+         이 검사의 목적이고, 지금은 바뀐 이유가 분명하다.
+
+       ★★ 11 → 12. `get_user_trade_history` 를 추가했다(복기).
+
+         과거 거래를 읽는 도구다. **본인 것만** 읽고 userId 는 세션에서 온다 —
+         모델이 준 값을 쓰면 남의 기록을 읽는 경로가 된다. 그리고 조회 실패를 빈
+         배열로 바꾸지 않는다(available:false). "거래 없음" 과 "읽지 못함" 은
+         다른 사실이다.
     */
-    expect(READ_ONLY_TOOL_NAMES.length).toBe(11);
+    expect(READ_ONLY_TOOL_NAMES.length).toBe(12);
     // ★ 계산하지 않는 도구가 되살아나면 실패한다.
     expect(reg.has('calculate_indicator_set')).toBe(false);
+    // ★ 복기 도구가 있다.
+    expect(reg.has('get_user_trade_history')).toBe(true);
     const defs = reg.list();
     for (const d of defs) {
       expect(d.strict).toBe(true);
@@ -262,7 +271,7 @@ describe('orchestrator pipeline', () => {
     const ds: ToolDataSource = {
       async get_market_snapshot() { return { last: '100' }; }, async get_candles() { return []; }, async get_order_book_summary() { return {}; },
       async get_recent_trades_summary() { return {}; }, async get_funding_rate() { return {}; }, async get_market_metadata() { return {}; },
-      async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; },
+      async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; }, async get_user_trade_history() { return []; },
     };
     return {
       provider: new FakeProvider(() => providerEvents),
@@ -437,7 +446,7 @@ describe('BedrockConverseProvider (Converse stream mapping)', () => {
     const ds = {
       async get_market_snapshot() { return { last: '100' }; }, async get_candles() { return []; }, async get_order_book_summary() { return {}; },
       async get_recent_trades_summary() { return {}; }, async get_funding_rate() { return {}; }, async get_market_metadata() { return {}; },
-      async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; },
+      async get_current_chart_context() { return {}; }, async get_user_visible_positions() { return []; }, async get_user_visible_open_orders() { return []; }, async get_user_trade_history() { return []; },
     };
     const o = new Orchestrator({
       provider, prompts: new PromptRegistry(() => NOW), safety: new SafetyPolicy(), tools: new ToolRegistry(ds),

@@ -96,6 +96,8 @@ import { createMarketSearchRouter } from './market/market-routes';
 import { createExchangeRouter } from './exchanges/exchange-routes';
 import { getConfirmedReferrals } from './exchanges/exchange-catalog';
 import { createPortfolioRouter } from './portfolio/portfolio-routes';
+/* ★ 복기 도구가 '종료된 주문' 을 정의하는 데 쓴다. 목록을 새로 적으면 갈라진다. */
+import { TERMINAL_ORDER_STATES } from './portfolio/query';
 import { PortfolioRepo } from './db/portfolio-repo';
 import { assertProductionRepositoryReadiness, REQUIRED_PRODUCTION_REPOSITORY_IDS, type RepositoryDescriptor } from './db/repository-registry';
 import { createRateLimiter } from './security/rate-limiter';
@@ -136,7 +138,33 @@ const aiToolData: ToolDataSource = {
   // Read-only + user-scoped. Live positions/orders are gated elsewhere; default empty (shadow).
   async get_user_visible_positions() { return []; },
   async get_user_visible_open_orders() { return []; },
+  /*
+     ★★ 복기용 거래 이력. **실제 데이터에 연결한다.**
+
+       위의 두 도구는 빈 배열을 돌려주는 껍데기다(라이브 포지션은 다른 경로로 게이트
+       된다). 그 방식을 이 도구에 쓰면 안 된다 — 거래를 한 고객에게 "기록이 없다"
+       고 답하게 되고, 그것은 조회 실패를 '없음'으로 바꾸는 것이다.
+
+     ★ 저장소가 준비되기 전에는 빈 배열이 아니라 **미지원을 알린다.** 그래야 모델이
+       "기록이 없다" 대신 "지금 읽을 수 없다" 고 말한다.
+
+     ★ 본인 것만 읽는다. userId 는 세션에서 온 값이고 모델이 준 값이 아니다.
+  */
+  async get_user_trade_history(userId, symbol, limit) {
+    if (!aiTradeHistory) return { available: false, reason: 'trade history repository not wired', orders: [] };
+    return aiTradeHistory(userId, symbol, limit);
+  },
 };
+
+/**
+ * 복기용 거래 이력 조회. 저장소가 붙은 뒤에 채워진다.
+ *
+ * ★ null 인 동안 도구는 '미지원'을 알린다. 빈 배열을 돌려주면 "거래한 적 없음" 과
+ *   구별되지 않는다.
+ */
+let aiTradeHistory:
+  | ((userId: string, symbol: string | null, limit: number) => Promise<unknown>)
+  | null = null;
 
 // Resolve the AI provider at startup (fail-closed for openai without a Secrets Manager key).
 const aiModel = env.aiProvider === 'bedrock' ? (env.bedrockModelId || env.openaiModelPrimary) : env.openaiModelPrimary;
@@ -2360,6 +2388,45 @@ if (env.authEnabled) {
          보이므로 아무도 알아채지 못한다.
     */
     const portfolioRepo = core.pool ? new PgPortfolioRepo(core.pool) : new PortfolioRepo(db);
+
+    /*
+       ★★ 복기 도구를 **이 저장소**에 연결한다.
+
+         위 주석의 사고(쓰기는 PostgreSQL, 읽기는 SQLite)를 반복하지 않으려면 화면이
+         쓰는 것과 같은 저장소를 써야 한다. 그래서 여기서 붙인다.
+
+       ★ 종료된 주문만 본다(FILLED/CANCELLED/REJECTED/EXPIRED). 미체결은 복기 대상이
+         아니고 별도 도구가 있다.
+       ★ 조회가 터지면 빈 배열이 아니라 실패를 알린다 — "거래한 적 없음" 과 구별한다.
+    */
+    aiTradeHistory = async (userId, symbol, limit) => {
+      try {
+        const page = await portfolioRepo.listOrders(userId, TERMINAL_ORDER_STATES, {
+          symbol: symbol ?? undefined,
+          limit: Math.min(Math.max(1, limit), 50),
+          sort: 'updatedAt',
+          order: 'desc',
+        } as never);
+        return {
+          available: true,
+          total: page.total,
+          orders: page.items.map((o) => ({
+            symbol: o.symbol,
+            side: o.side,
+            type: o.type,
+            status: o.status,
+            price: o.price != null ? String(o.price) : null,
+            quantity: String(o.quantity),
+            filledQuantity: String(o.filledQuantity),
+            createdAt: new Date(o.createdAt).toISOString(),
+            updatedAt: new Date(o.updatedAt).toISOString(),
+          })),
+        };
+      } catch (e) {
+        /* ★ 실패를 '없음' 으로 바꾸지 않는다. */
+        return { available: false, reason: `query failed: ${(e as Error).message}`, orders: [] };
+      }
+    };
 
     /*
        청산 위험 감시 (서버).

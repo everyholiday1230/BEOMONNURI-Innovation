@@ -10,6 +10,7 @@ import type {
   OrchestratorInput,
 } from './interfaces';
 import type { CostController } from './cost';
+import { suggestFollowUps } from './followups';
 import { ToolLoopGuard, isProposalTool, parseProposalArgs, type ProposalToolName } from './tools';
 import { buildDelimitedInput } from './prompts';
 import {
@@ -106,6 +107,12 @@ export class Orchestrator implements IAIOrchestrator {
     // call sets it too. Price-bearing proposals and priced text are gated on this.
     const grounding = { has: Boolean(input.marketData) };
     let fullText = '';
+    /*
+       ★ 실행된 읽기 도구를 모은다. 후속 제안이 "이미 본 것" 과 "아직 안 본 것" 을
+         구별하는 데 쓴다. 실패한 호출도 시도로 기록하지 않는다 — 결과가 없으면
+         본 것이 아니다.
+    */
+    const toolsUsed: string[] = [];
     try {
       yield { type: 'state', state: 'streaming' };
       for await (const ev of this.d.provider.streamResponse(req)) {
@@ -117,6 +124,7 @@ export class Orchestrator implements IAIOrchestrator {
         const mapped = await this.handleEvent(ev, input, loop, grounding);
         for (const m of mapped) {
           if (m.type === 'text') fullText += m.delta;
+          if (m.type === 'tool' && m.ok && !toolsUsed.includes(m.name)) toolsUsed.push(m.name);
           yield m;
         }
         if (ev.type === 'completed') {
@@ -141,6 +149,32 @@ export class Orchestrator implements IAIOrchestrator {
     } finally {
       this.d.cost.release();
     }
+
+    /*
+       ★★ 후속 제안. 답변만 하고 끝내지 않고 다음에 확인할 것을 제시한다.
+
+         모델이 만들지 않는다. 규칙으로 고른다 — 모델은 이 제품이 주문을 넣지
+         않는다는 것을 모르고(누르면 아무 일도 없는 죽은 버튼이 된다), 투자권유를
+         해서는 안 된다는 경계도 모른다. 토큰도 쓰지 않는다.
+
+       ★ 실패해도 답변을 망치지 않는다. 보조 기능이 본 기능을 막아서는 안 된다.
+    */
+    try {
+      const fu = input.followUp ?? {};
+      const items = suggestFollowUps({
+        toolsUsed,
+        indicators: Array.isArray(fu.indicators) ? fu.indicators : [],
+        drawingTypes: Array.isArray(fu.drawingTypes) ? fu.drawingTypes : [],
+        positionCount: fu.positionCount ?? null,
+        openOrderCount: fu.openOrderCount ?? null,
+        hasTradeHistory: fu.hasTradeHistory ?? null,
+        symbol: input.symbol,
+        timeframe: input.timeframe,
+        mode: input.mode,
+      });
+      if (items.length > 0) yield { type: 'suggestions', items };
+    } catch { /* 제안 실패는 비치명 — 답변은 이미 전달됐다 */ }
+
     yield { type: 'done' };
   }
 

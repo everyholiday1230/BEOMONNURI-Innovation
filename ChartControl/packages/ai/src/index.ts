@@ -2,6 +2,7 @@ export * from './interfaces';
 export * from './schemas';
 export * from './streaming';
 export * from './tools';
+export * from './followups';
 export * from './prompts';
 export * from './safety';
 export * from './cost';

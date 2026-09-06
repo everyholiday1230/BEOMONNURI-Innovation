@@ -117,6 +117,36 @@
     const [thinking, setThinking] = useState(null); // { steps, currentIdx, msg }
     const [streaming, setStreaming] = useState(null);
     /*
+       ★★ 후속 제안. 서버가 규칙으로 골라 보낸다(모델이 만들지 않는다).
+
+         답변만 하고 끝내면 고객이 매번 "다음에 뭘 물어야 하나" 를 스스로 떠올려야
+         한다. 대화 흐름에 맞는 다음 질문을 제시해 그 부담을 없앤다.
+
+       ★ 새 질문을 보내면 즉시 비운다. 이전 답변에 딸린 제안이 남아 있으면 방금
+         답변과 관계없는 것을 권하는 셈이 된다.
+    */
+    const [followUps, setFollowUps] = useState([]);
+    /*
+       복기 제안을 낼 수 있는지 판단하는 값.
+
+       ★★ null 을 유지한다 — **모르는 것과 없는 것을 구별한다.** false 로 시작하면
+         조회 전에 "거래 기록 없음" 이 되어 복기 제안이 영구히 안 나온다.
+
+       ★ 한 번만 조회한다. 제안 문구를 고르는 데만 쓰므로 실시간일 필요가 없다.
+    */
+    const [hasTradeHistory, setHasTradeHistory] = useState(null);
+    useEffect(() => {
+      let dead = false;
+      /* ★ localOrders 는 window.QTApi.rest 에 있다 — QTApi 직하가 아니다(실측으로 확인). */
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || typeof api.localOrders !== 'function') return undefined;
+      api.localOrders({ limit: 1 })
+        .then((r) => { if (!dead) setHasTradeHistory(Boolean(r && ((r.total || 0) > 0 || (r.items || []).length > 0))); })
+        /* ★ 실패는 null 로 남긴다. false 로 바꾸면 조회 실패가 '거래 없음' 이 된다. */
+        .catch(() => { if (!dead) setHasTradeHistory(null); });
+      return () => { dead = true; };
+    }, []);
+    /*
        접기 상태.
 
        ★★ 헤더의 두 버튼(Layout/More)은 **onClick 이 없는 껍데기**였다. 눌러도
@@ -522,6 +552,8 @@
     const handleSubmit = useCallback(async (raw) => {
       const text = (raw ?? input).trim();
       if (!text) return;
+      /* ★ 이전 답변의 제안을 즉시 비운다. 남겨두면 방금 질문과 무관한 것을 권한다. */
+      setFollowUps([]);
       setMsgs(m => [...m, makeMsg('user', text)]);
       setInput('');
 
@@ -599,6 +631,23 @@
             ...(d.previous ? { previous: d.previous } : {}),
           }))
           : [],
+        /*
+           ★★ 후속 제안을 고르는 근거. 서버가 규칙으로 제안을 고를 때만 쓴다.
+
+             권한 판단에는 쓰이지 않는다(브라우저가 보낸 값이라 신뢰할 수 없다).
+             틀려도 최악의 결과가 "덜 알맞은 제안" 이어야 한다.
+
+           ★ 모르는 값은 보내지 않는다. 0 으로 보내면 "없다" 가 되어, 조회 실패와
+             실제로 없는 것을 구별할 수 없다.
+        */
+        positionCount: Array.isArray(overlays)
+          ? overlays.filter((o) => o && String(o.source || '').startsWith('position')).length
+          : undefined,
+        openOrderCount: Array.isArray(overlays)
+          ? overlays.filter((o) => o && o.source === 'order').length
+          : undefined,
+        /* ★ null 이면 보내지 않는다 — 서버도 '모름' 으로 취급한다. */
+        hasTradeHistory: hasTradeHistory === null ? undefined : hasTradeHistory,
         drawings: (Array.isArray(overlays) ? overlays : [])
           .filter((o) => o && (o.source === 'user' || o.source === 'ai-draft'))
           .slice(0, 20)
@@ -615,6 +664,7 @@
             if (ev.type === 'text') { setThinking(null); acc += ev.delta || ''; setStreaming(acc); return; }
             if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
             if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
+            if (ev.type === 'suggestions') { setFollowUps(Array.isArray(ev.items) ? ev.items : []); return; }
             if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
             if (ev.type === 'error') { setThinking(null); setStreaming(null); const insuff = (ev.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
@@ -624,7 +674,7 @@
         },
       );
       activeStreamRef.current = stream;
-    }, [input, aiReady, context.symbol, context.tf, context.indicators, overlays, t, applyCommand, applySignal]);
+    }, [input, aiReady, context.symbol, context.tf, context.indicators, overlays, hasTradeHistory, t, applyCommand, applySignal]);
 
     /*
        차트 툴바의 'AI 분석' 버튼과 연결하는 창구.
@@ -969,6 +1019,35 @@
             </div>
           )}
         </div>
+
+        {/*
+             후속 제안. 답변이 끝난 뒤에만, 그리고 서버가 실제로 보낸 것만 그린다.
+
+             ★★ 죽은 버튼을 만들지 않는다. 각 칩은 사전에 있는 질문 문장을 그대로
+               전송한다 — 누르면 반드시 대화가 이어진다. 문구가 사전에 없으면
+               (번역 누락) 그 칩은 그리지 않는다.
+
+             ★ 스트리밍 중에는 숨긴다. 답이 나오는 중에 다음 질문을 권하면 방금
+               질문을 취소하는 것처럼 보인다.
+        */}
+        {followUps.length > 0 && !streaming && !thinking && (
+          <div className="ai-quick ai-quick--followup" aria-label={t('ai_fu_title')}>
+            <span className="ai-quick__label">{t('ai_fu_title')}</span>
+            {followUps.map((f) => {
+              const label = f && f.key ? t(f.key) : '';
+              const question = f && f.promptKey ? t(f.promptKey, f.params || {}) : '';
+              /* ★ 사전에 없으면 t() 가 키를 그대로 돌려준다. 그런 칩은 그리지 않는다. */
+              if (!label || label === f.key || !question || question === f.promptKey) return null;
+              return (
+                <button
+                  key={f.key}
+                  className="ai-quick__chip ai-quick__chip--followup"
+                  onClick={() => handleSubmit(question)}
+                >{label}</button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="ai-quick">
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_trendline_cmd'))}>{t('ai_chip_trendline')}</button>
