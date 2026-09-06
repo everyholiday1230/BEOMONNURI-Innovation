@@ -12,7 +12,29 @@ import { z } from 'zod';
 export const MAX_PAGE_SIZE = 200;
 export const DEFAULT_PAGE_SIZE = 50;
 
-/** Lifecycle states that mean "still working". Mirrors the order state machine. */
+/*
+   주문 생애주기 상태를 '진행 중' 과 '끝남' 으로 나눈다.
+
+   ★★ 두 목록의 합집합은 `packages/domain/order-machine.ts` 의 상태를 **빠짐없이**
+     덮어야 한다. 어느 쪽에도 없는 상태의 주문은 미체결 목록에도, 내역에도 나오지
+     않는다 — 화면에서 그냥 사라진다.
+
+     실제로 `UNKNOWN_RECONCILING` 이 양쪽에 다 빠져 있었다. 아래 주석이 "합집합은
+     빠짐없다" 고 주장했는데 사실이 아니었다. 지금은 테스트가 이 성질을 검사한다.
+
+   ★★ 라이브 주문 상태(live-order-machine.ts)는 여기 넣지 않는다.
+
+     `orders` 테이블에 쓰는 것은 모의 투영(sim-projection)뿐이다. 라이브 주문은
+     `trade_decisions` 에 기록되고(운영 확인: orders 0건, trade_decisions 26건),
+     거래소 미체결·내역은 거래소 API 를 직접 읽는다. 그래서 OPEN/CANCELED/
+     SUBMIT_UNKNOWN 같은 라이브 상태를 이 목록에 넣으면 이 테이블에 존재하지 않는
+     상태를 조회하는 셈이 된다.
+
+   ★ 라이브 쪽은 CANCELED(L 하나), 로컬 쪽은 CANCELLED(L 둘)로 철자가 다르다.
+     두 어휘를 섞으면 조용히 어긋난다 — 같은 테이블에 섞어 쓰지 않는다.
+*/
+
+/** '아직 진행 중' 인 상태. order-machine.ts 를 따른다. */
 export const OPEN_ORDER_STATES = [
   'DRAFT',
   'VALIDATING',
@@ -21,9 +43,16 @@ export const OPEN_ORDER_STATES = [
   'ACCEPTED',
   'PARTIALLY_FILLED',
   'CANCEL_PENDING',
+  /*
+     ★ 대조 중인 주문. 끝난 것이 아니므로 '진행 중' 이다.
+
+       빠져 있어서 이 상태의 주문은 어디에도 나오지 않았다. 하필 **결과를 모르는
+       상태**라 고객이 가장 확인하고 싶어하는 주문이 사라지는 셈이었다.
+  */
+  'UNKNOWN_RECONCILING',
 ] as const;
 
-/** Lifecycle states that mean "finished". Union with OPEN_ORDER_STATES must be exhaustive. */
+/** '끝남' 인 상태. OPEN_ORDER_STATES 와의 합집합이 order-machine 을 빠짐없이 덮어야 한다. */
 export const TERMINAL_ORDER_STATES = ['FILLED', 'CANCELLED', 'REJECTED', 'EXPIRED'] as const;
 
 export const ORDER_SORT_COLUMNS = {

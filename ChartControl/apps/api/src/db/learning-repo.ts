@@ -339,6 +339,122 @@ export class PgLearningRepo {
   }
 
   /**
+   * 복기용 거래 이력. **이용자 본인의** 결정과 그 결과를 함께 읽는다.
+   *
+   * ★★ 왜 `orders` 가 아니라 여기인가
+   *
+   *   AI 복기 도구를 처음 붙일 때 `orders` 테이블을 읽게 만들었다. 그런데 운영
+   *   데이터베이스의 `orders` 는 **0건**이고 실제 주문 기록은 `trade_decisions`
+   *   26건에 있었다(BLOCKED 13 · ACCEPTED 8 · REJECTED 5). `orders` 는 모의
+   *   투영(sim projection)이 쓰는 테이블이다. 그대로 배포했다면 실제로 주문한
+   *   고객에게 "기록이 없다" 고 답했을 것이다 — 배포 전에 잡았다.
+   *
+   * ★★ 막힌 주문도 함께 돌려준다.
+   *
+   *   복기에서 가장 쓸모 있는 것이 이것이다. 왜 막혔는지(수량 미달, 잔고 부족,
+   *   심볼 메타 없음)가 `submit_reason` 에 남아 있고, 같은 이유로 반복해서 막히는
+   *   패턴은 고객이 스스로 보기 어렵다.
+   *
+   * ★ 조회 실패를 빈 배열로 바꾸지 않는다. 호출자가 '읽지 못함' 과 '거래 없음' 을
+   *   구별할 수 있어야 한다 — 다른 읽기 메서드들은 실패 시 [] 를 돌려주는데, 그
+   *   방식은 여기서 거짓을 말하게 만든다.
+   */
+  async reviewHistory(userId: string, opts: { symbol?: string | null; limit: number }): Promise<{
+    available: true;
+    rows: Array<{
+      symbol: string;
+      side: string;
+      orderType: string;
+      market: string;
+      executionMode: string;
+      price: string | null;
+      quantity: string | null;
+      leverage: string | null;
+      stopLossPrice: string | null;
+      takeProfitPrice: string | null;
+      submitStatus: string;
+      submitReason: string | null;
+      decidedAt: string;
+      /* 결과가 아직 없을 수 있다(보유 중이거나 수집 전). null 은 '없음' 이 아니라 '아직 모름'. */
+      outcome: {
+        kind: string;
+        entryPrice: string | null;
+        exitPrice: string | null;
+        filledQuantity: string | null;
+        fees: string | null;
+        realizedPnl: string | null;
+        roiPct: string | null;
+        holdingSeconds: number | null;
+        closeReason: string | null;
+      } | null;
+    }>;
+  } | { available: false; reason: string }> {
+    const limit = Math.min(Math.max(1, Math.trunc(opts.limit)), 50);
+    try {
+      /*
+         ★ LEFT JOIN — 결과가 없는 결정도 남긴다. INNER JOIN 으로 하면 막힌 주문과
+           아직 안 닫힌 포지션이 전부 사라져 "성공한 거래만" 복기하게 된다.
+      */
+      const params: unknown[] = [userId];
+      let symbolClause = '';
+      if (opts.symbol) {
+        params.push(String(opts.symbol).toUpperCase());
+        symbolClause = ` AND d.symbol = $${params.length}`;
+      }
+      params.push(limit);
+      const r = await this.pool.query(
+        `SELECT d.symbol, d.side, d.order_type, d.market, d.execution_mode,
+                d.price, d.quantity, d.leverage, d.stop_loss_price, d.take_profit_price,
+                d.submit_status, d.submit_reason, d.decided_at,
+                o.outcome_kind, o.entry_price, o.exit_price, o.filled_quantity,
+                o.fees, o.realized_pnl, o.roi_pct, o.holding_seconds, o.close_reason
+           FROM trade_decisions d
+           LEFT JOIN trade_outcomes o ON o.decision_id = d.id
+          WHERE d.user_id = $1${symbolClause}
+          ORDER BY d.decided_at DESC
+          LIMIT $${params.length}`,
+        params,
+      );
+      const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
+      return {
+        available: true,
+        rows: r.rows.map((row) => ({
+          symbol: String(row.symbol),
+          side: String(row.side),
+          orderType: String(row.order_type),
+          market: String(row.market),
+          executionMode: String(row.execution_mode),
+          price: str(row.price),
+          quantity: str(row.quantity),
+          leverage: str(row.leverage),
+          stopLossPrice: str(row.stop_loss_price),
+          takeProfitPrice: str(row.take_profit_price),
+          submitStatus: String(row.submit_status),
+          submitReason: str(row.submit_reason),
+          decidedAt: (row.decided_at as Date).toISOString(),
+          outcome: row.outcome_kind
+            ? {
+              kind: String(row.outcome_kind),
+              entryPrice: str(row.entry_price),
+              exitPrice: str(row.exit_price),
+              filledQuantity: str(row.filled_quantity),
+              fees: str(row.fees),
+              realizedPnl: str(row.realized_pnl),
+              roiPct: str(row.roi_pct),
+              holdingSeconds: row.holding_seconds === null ? null : Number(row.holding_seconds),
+              closeReason: str(row.close_reason),
+            }
+            : null,
+        })),
+      };
+    } catch (e) {
+      this.noteFailure('review_history', e);
+      /* ★ 실패를 '거래 없음' 으로 바꾸지 않는다. */
+      return { available: false, reason: (e as Error).message };
+    }
+  }
+
+  /**
    * 이미 기록된 결과 키(`decisionId:kind`)를 읽는다.
    *
    * ★ 중복 삽입은 DB 제약이 막지만, 미리 걸러 두면 쓸데없는 왕복이 줄고

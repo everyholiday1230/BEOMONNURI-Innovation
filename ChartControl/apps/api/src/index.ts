@@ -96,8 +96,8 @@ import { createMarketSearchRouter } from './market/market-routes';
 import { createExchangeRouter } from './exchanges/exchange-routes';
 import { getConfirmedReferrals } from './exchanges/exchange-catalog';
 import { createPortfolioRouter } from './portfolio/portfolio-routes';
-/* ★ 복기 도구가 '종료된 주문' 을 정의하는 데 쓴다. 목록을 새로 적으면 갈라진다. */
-import { TERMINAL_ORDER_STATES } from './portfolio/query';
+/* ★ '미체결' 의 정의를 새로 적으면 화면과 기준이 갈린다. 공용 상수를 쓴다. */
+import { OPEN_ORDER_STATES } from './portfolio/query';
 import { PortfolioRepo } from './db/portfolio-repo';
 import { assertProductionRepositoryReadiness, REQUIRED_PRODUCTION_REPOSITORY_IDS, type RepositoryDescriptor } from './db/repository-registry';
 import { createRateLimiter } from './security/rate-limiter';
@@ -135,9 +135,27 @@ const aiToolData: ToolDataSource = {
   async get_funding_rate(symbol) { const tk = (await providers.market.getTicker(symbol)) as { fundingRate?: string }; return { fundingRate: tk.fundingRate ?? null }; },
   async get_market_metadata(symbol) { return { symbol, note: 'metadata via market provider' }; },
   async get_current_chart_context(symbol, timeframe) { return { symbol, timeframe }; },
-  // Read-only + user-scoped. Live positions/orders are gated elsewhere; default empty (shadow).
-  async get_user_visible_positions() { return []; },
-  async get_user_visible_open_orders() { return []; },
+  /*
+     ★★ 포지션·미체결 주문. **빈 배열을 돌려주는 껍데기였다.**
+
+       "Live positions/orders are gated elsewhere; default empty (shadow)" 라는 주석과 함께
+       두 도구가 항상 [] 를 돌려줬다. 그래서 AI 는 도구로 고객 상태를 볼 수 없었고,
+       포지션을 들고 있는 고객에게 "포지션이 없습니다" 라고 답할 수 있었다.
+
+       후속 제안에 "보유 포지션 위험 확인" 칩을 넣으면서 이 모순이 드러났다 — 칩은
+       포지션이 있을 때만 뜨는데, 눌러서 물어보면 도구가 빈 배열을 주는 상황이다.
+
+     ★ 조회 실패나 미지원을 **빈 배열로 바꾸지 않는다.** 없는 것과 못 읽는 것은 다른
+       사실이고, 전자를 후자로 바꾸면 고객에게 거짓을 말한다.
+  */
+  async get_user_visible_positions(userId, symbol) {
+    if (!aiUserPositions) return { available: false, reason: 'positions not readable on this deployment', rows: [] };
+    return aiUserPositions(userId, symbol);
+  },
+  async get_user_visible_open_orders(userId, symbol) {
+    if (!aiUserOpenOrders) return { available: false, reason: 'open orders not readable on this deployment', rows: [] };
+    return aiUserOpenOrders(userId, symbol);
+  },
   /*
      ★★ 복기용 거래 이력. **실제 데이터에 연결한다.**
 
@@ -164,6 +182,16 @@ const aiToolData: ToolDataSource = {
  */
 let aiTradeHistory:
   | ((userId: string, symbol: string | null, limit: number) => Promise<unknown>)
+  | null = null;
+
+/** 이용자 본인의 포지션. 저장소가 붙은 뒤에 채워진다(붙기 전에는 '읽을 수 없음'). */
+let aiUserPositions:
+  | ((userId: string, symbol: string | null) => Promise<unknown>)
+  | null = null;
+
+/** 이용자 본인의 미체결 주문. */
+let aiUserOpenOrders:
+  | ((userId: string, symbol: string | null) => Promise<unknown>)
   | null = null;
 
 // Resolve the AI provider at startup (fail-closed for openai without a Secrets Manager key).
@@ -2390,27 +2418,64 @@ if (env.authEnabled) {
     const portfolioRepo = core.pool ? new PgPortfolioRepo(core.pool) : new PortfolioRepo(db);
 
     /*
-       ★★ 복기 도구를 **이 저장소**에 연결한다.
+       ★★ 복기 도구를 **실제 주문 기록**에 연결한다.
 
-         위 주석의 사고(쓰기는 PostgreSQL, 읽기는 SQLite)를 반복하지 않으려면 화면이
-         쓰는 것과 같은 저장소를 써야 한다. 그래서 여기서 붙인다.
+         처음에는 `orders` 테이블(portfolioRepo.listOrders)을 읽게 만들었다. 그런데
+         운영 데이터베이스의 `orders` 는 **0건**이고 실제 기록은 `trade_decisions`
+         26건에 있었다(BLOCKED 13 · ACCEPTED 8 · REJECTED 5). `orders` 는 모의 투영이
+         쓰는 테이블이다. 그대로 배포했다면 실제로 주문한 고객에게 "기록이 없다" 고
+         답했을 것이다 — 조회 실패를 '없음' 으로 바꾸지 않겠다고 하면서 정작 **엉뚱한
+         테이블을 읽어** 같은 거짓을 만들 뻔했다.
 
-       ★ 종료된 주문만 본다(FILLED/CANCELLED/REJECTED/EXPIRED). 미체결은 복기 대상이
-         아니고 별도 도구가 있다.
-       ★ 조회가 터지면 빈 배열이 아니라 실패를 알린다 — "거래한 적 없음" 과 구별한다.
+       ★ 학습 저장소는 Postgres 에서만 존재한다(SQLite 배포에서는 undefined). 없으면
+         빈 배열이 아니라 '읽을 수 없음' 을 알린다. 그래야 모델이 "거래 안 하셨네요"
+         대신 "지금 확인할 수 없습니다" 라고 말한다.
+
+       ★ 결과(trade_outcomes)는 LEFT JOIN 이다. 막힌 주문과 아직 닫히지 않은 포지션도
+         복기 대상이다 — 성공한 거래만 보여주면 복기가 아니다.
     */
-    aiTradeHistory = async (userId, symbol, limit) => {
+    /*
+       ★★ 포지션·미체결 주문을 **화면과 같은 저장소**에서 읽는다.
+
+         전에는 두 도구가 빈 배열을 돌려주는 껍데기였다. 그래서 AI 가 고객 상태를
+         도구로 확인할 수 없었다.
+
+       ★ 실패를 빈 배열로 바꾸지 않는다. available:false 를 붙여 '못 읽음' 을 알린다.
+    */
+    aiUserPositions = async (userId, symbol) => {
       try {
-        const page = await portfolioRepo.listOrders(userId, TERMINAL_ORDER_STATES, {
+        const page = await portfolioRepo.listPositions(userId, {
           symbol: symbol ?? undefined,
-          limit: Math.min(Math.max(1, limit), 50),
+          limit: 20,
+        } as never);
+        return {
+          available: true,
+          total: page.total,
+          rows: page.items.map((p) => ({
+            symbol: p.symbol,
+            side: p.side,
+            size: String(p.size),
+            entryPrice: p.entryPrice != null ? String(p.entryPrice) : null,
+            leverage: (p as { leverage?: unknown }).leverage != null ? String((p as { leverage?: unknown }).leverage) : null,
+          })),
+        };
+      } catch (e) {
+        return { available: false, reason: `query failed: ${(e as Error).message}`, rows: [] };
+      }
+    };
+
+    aiUserOpenOrders = async (userId, symbol) => {
+      try {
+        const page = await portfolioRepo.listOrders(userId, OPEN_ORDER_STATES, {
+          symbol: symbol ?? undefined,
+          limit: 20,
           sort: 'updatedAt',
           order: 'desc',
         } as never);
         return {
           available: true,
           total: page.total,
-          orders: page.items.map((o) => ({
+          rows: page.items.map((o) => ({
             symbol: o.symbol,
             side: o.side,
             type: o.type,
@@ -2418,14 +2483,24 @@ if (env.authEnabled) {
             price: o.price != null ? String(o.price) : null,
             quantity: String(o.quantity),
             filledQuantity: String(o.filledQuantity),
-            createdAt: new Date(o.createdAt).toISOString(),
-            updatedAt: new Date(o.updatedAt).toISOString(),
           })),
         };
       } catch (e) {
-        /* ★ 실패를 '없음' 으로 바꾸지 않는다. */
-        return { available: false, reason: `query failed: ${(e as Error).message}`, orders: [] };
+        return { available: false, reason: `query failed: ${(e as Error).message}`, rows: [] };
       }
+    };
+
+    aiTradeHistory = async (userId, symbol, limit) => {
+      if (!learningRepo) {
+        return {
+          available: false,
+          reason: 'trade history is not readable on this deployment (learning repository unavailable)',
+          rows: [],
+        };
+      }
+      const res = await learningRepo.reviewHistory(userId, { symbol, limit });
+      if (!res.available) return { available: false, reason: res.reason, rows: [] };
+      return { available: true, total: res.rows.length, rows: res.rows };
     };
 
     /*
@@ -2764,12 +2839,27 @@ if (env.authEnabled) {
 
     // B9 — position/risk context for the AI copilot, read from the caller's OWN rows. Requires a valid
     // session; an anonymous analysis gets market context only rather than someone else's exposure.
-    const aiPortfolio = new PortfolioRepo(db);
+    /*
+       ★★ **화면이 읽는 것과 같은 저장소를 쓴다.**
+
+         여기서 `new PortfolioRepo(db)` — SQLite — 를 새로 만들고 있었다. 그런데 운영
+         배포는 Postgres 다(production 은 postgres:// DATABASE_URL 을 강제한다). 즉
+         AI 에게 넘기는 포지션 문맥이 **빈 데이터베이스**를 읽고 있었고, 고객이 포지션을
+         들고 있어도 AI 는 늘 "포지션 없음" 으로 봤다.
+
+       ★ 바로 위 portfolioRepo 선언의 주석이 정확히 이 사고를 경고한다("모의 주문 기록은
+         PostgreSQL 에 쓰는데 조회는 SQLite 를 보고 있었다"). 같은 실수가 이 줄에 남아
+         있었다. 그래서 저장소를 새로 만들지 않고 그것을 쓴다.
+
+       ★ Pg 구현은 async 다. await 를 붙인다 — 없으면 Promise 를 배열처럼 다루게 되고
+         조용히 빈 결과가 된다.
+    */
     aiUserContext = async (c) => {
       const raw = getCookie(c, env.cookieName);
       const v = raw ? await authService.validateSession(raw) : null;
-      if (!v) return { positions: [], availableBalance: null };      const positions = aiPortfolio.listPositions(v.user.id, { limit: 20 });
-      const balances = aiPortfolio.listBalances(v.user.id);
+      if (!v) return { positions: [], availableBalance: null };
+      const positions = await portfolioRepo.listPositions(v.user.id, { limit: 20 } as never);
+      const balances = await portfolioRepo.listBalances(v.user.id);
       const quote = balances.items.find((b) => b.asset === 'USDT');
       return {
         positions: positions.items.map((p) => ({ symbol: p.symbol, side: p.side, size: p.size, entryPrice: p.entryPrice })),

@@ -181,17 +181,40 @@ describe('AI-FOLLOWUPS — 대화 흐름에 맞는 다음 행동 제안', () => 
   it('[13] 복기 도구는 조회 실패를 "거래 없음" 으로 바꾸지 않는다', () => {
     /*
        ★★ 실제로 겪은 실패 유형이다. 조회가 안 되는 것과 없는 것을 같게 만들면
-         고객에게 거짓을 말한다 — 18건을 거래한 사람에게 "기록이 없다" 고 하는 식이다.
+         고객에게 거짓을 말한다 — 거래한 사람에게 "기록이 없다" 고 하는 식이다.
     */
     const idx = read('apps/api/src/index.ts');
     expect(idx, '거래 이력 도구가 없다').toMatch(/get_user_trade_history/);
     expect(idx, '미지원/실패를 구별하지 않는다').toMatch(/available: false/);
     expect(idx, '성공 경로에 available 표시가 없다').toMatch(/available: true/);
-    /* ★ 종료된 주문 목록을 새로 적으면 기준이 갈린다. 공용 상수를 써야 한다. */
-    expect(idx).toMatch(/TERMINAL_ORDER_STATES/);
   });
 
-  it('[14] 프롬프트가 과거 기록을 미래 예측으로 바꾸지 못하게 막는다', () => {
+  it('[14] 복기는 실제 주문 기록(trade_decisions)을 읽는다', () => {
+    /*
+       ★★ 처음에는 `orders` 테이블을 읽었다. 그런데 운영 데이터베이스의 `orders` 는
+         **0건**이고 실제 기록은 `trade_decisions` 에 26건 있었다(BLOCKED 13 ·
+         ACCEPTED 8 · REJECTED 5). `orders` 는 모의 투영이 쓰는 테이블이다.
+
+         그대로 배포했다면 실제로 주문한 고객에게 "기록이 없다" 고 답했을 것이다 —
+         조회 실패를 '없음' 으로 바꾸지 않겠다고 하면서 정작 엉뚱한 테이블을 읽어
+         같은 거짓을 만들 뻔했다. 배포 전에 잡았고, 이 검사가 되돌아가는 것을 막는다.
+    */
+    const idx = read('apps/api/src/index.ts');
+    expect(idx, '학습 저장소(실제 기록)를 쓰지 않는다').toMatch(/learningRepo\.reviewHistory/);
+    expect(idx, '모의 투영 테이블로 되돌아갔다').not.toMatch(/aiTradeHistory[\s\S]{0,600}listOrders/);
+
+    const repo = read('apps/api/src/db/learning-repo.ts');
+    expect(repo, 'reviewHistory 가 없다').toMatch(/reviewHistory/);
+    expect(repo, 'trade_decisions 를 읽지 않는다').toMatch(/FROM trade_decisions/);
+    /* ★ 결과가 없는 결정(막힌 주문, 미청산)도 남아야 한다. INNER JOIN 이면 사라진다. */
+    expect(repo, 'LEFT JOIN 이 아니면 막힌 주문이 사라진다').toMatch(/LEFT JOIN trade_outcomes/);
+    /* ★ 막힌 이유가 복기의 핵심이다. */
+    expect(repo).toMatch(/submit_reason/);
+    /* ★ 본인 것만. */
+    expect(repo).toMatch(/WHERE d\.user_id = \$1/);
+  });
+
+  it('[15] 프롬프트가 과거 기록을 미래 예측으로 바꾸지 못하게 막는다', () => {
     const prompts = read('packages/ai/src/prompts.ts');
     expect(prompts).toMatch(/past trades/i);
     expect(prompts).toMatch(/prediction/i);
