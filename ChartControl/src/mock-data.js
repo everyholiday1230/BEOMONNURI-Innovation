@@ -303,10 +303,20 @@
       descKey: 'preset_desc_dual',
       cols: 24,
       widgets: [
-        { id: 'chart',     type: 'chart',      x: 0,  y: 0,  w: 12, h: 10 },
-        { id: 'chart2',    type: 'miniChart',  x: 12, y: 0,  w: 12, h: 10 },
-        { id: 'positions', type: 'positions',  x: 0,  y: 10, w: 14, h: 6 },
-        { id: 'orderEntry',type: 'orderEntry', x: 14, y: 10, w: 10, h: 6 },
+        /*
+           ★★ 아래 행을 6 → 8 로 높인다. 주문 입력의 최소 높이가 8 행이다.
+
+             6 행으로는 주문 입력 칸이 최소 요구보다 작게 그려진다 — 필드가 잘린다.
+             다른 세 프리셋(standard-trader, scalper, beginner)은 8 행 이상을 준다.
+             이 프리셋만 예외였다.
+
+           ★ 최소값을 낮추는 대신 배치를 고쳤다. 최소 8 은 다른 곳에서 실제로
+             지켜지는 기준이고, 낮추면 모든 프리셋에서 주문 입력이 잘릴 수 있다.
+        */
+        { id: 'chart',     type: 'chart',      x: 0,  y: 0,  w: 12, h: 8 },
+        { id: 'chart2',    type: 'miniChart',  x: 12, y: 0,  w: 12, h: 8 },
+        { id: 'positions', type: 'positions',  x: 0,  y: 8,  w: 14, h: 8 },
+        { id: 'orderEntry',type: 'orderEntry', x: 14, y: 8,  w: 10, h: 8 },
       ]
     },
     'multi-chart': {

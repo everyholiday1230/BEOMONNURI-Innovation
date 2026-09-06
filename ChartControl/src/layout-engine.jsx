@@ -29,6 +29,114 @@
   function hasCollision(widgets, target) {
     return widgets.some(w => !w.hidden && w.id !== target.id && overlaps(w, target));
   }
+  function isPanelCollapsed(w) {
+    return typeof window !== 'undefined' && window.QTPanelState
+      && typeof window.QTPanelState.isCollapsed === 'function'
+      && window.QTPanelState.isCollapsed(w.id);
+  }
+  function minWOf(w) { return w.minW || (DEFAULT_WIDGET_META[w.type] && DEFAULT_WIDGET_META[w.type].minW) || 3; }
+  function minHOf(w) { return w.minH || (DEFAULT_WIDGET_META[w.type] && DEFAULT_WIDGET_META[w.type].minH) || 3; }
+  /** 두 구간이 겹치는가(한 축). */
+  function spansAxis(a1, a2, b1, b2) { return a1 < b2 && b1 < a2; }
+
+  /*
+     확대 요청을 **이웃 축소**로 해결한다 (한 방향, k 열/행).
+
+     ★★ 왜 이 방식인가
+
+       기본 배치는 24열을 빈틈 없이 채운다. 그래서 어떤 창을 넓히든 이웃과 겹치고,
+       "겹치면 되돌린다" 만 있으면 확대가 영구히 불가능하다(실측 확인).
+
+       바로 옆 이웃만 줄이면 최대 1열밖에 못 넓힌다(측정: 기본 배치의 여유가 0~1열).
+       그래서 한 줄의 이웃들을 **차례로** 줄인다. 위치는 옮기지 않고 같은 줄에서
+       순서도 유지한다 — 다른 줄로 밀어내는 자동 재배치와 다르다.
+
+     ★★ 기하 추론을 믿지 않고 **결과를 검증한다.**
+
+       이 계산을 세 번 틀렸다(양보량 공식, 적용 단계 minW 보정, 대상 minW 보정).
+       그래서 만든 배치를 마지막에 전수 검사한다 — 겹침, 최소 크기, 화면 경계.
+       하나라도 어긋나면 이 k 는 버린다. 추론이 틀려도 잘못된 배치가 나가지 않는다.
+
+     ★ 요청량부터 1까지 줄여가며 성립하는 최대치를 쓴다. 24열 안이므로 비용이 작다.
+  */
+  function buildGrowth(before, others, dir, k, cols) {
+    const t = { ...before };
+    const next = others.map((o) => ({ ...o }));
+    let need = k;
+
+    if (dir === 'e') {
+      t.w = before.w + k;
+      const line = next
+        .filter((o) => spansAxis(t.y, t.y + t.h, o.y, o.y + o.h) && o.x >= before.x + before.w)
+        .sort((a, b) => a.x - b.x);
+      let cursor = t.x + t.w;
+      for (const o of line) {
+        if (need > 0) { const give = Math.min(need, Math.max(0, o.w - minWOf(o))); o.w -= give; need -= give; }
+        /* ★ 필요할 때만 밀어낸다. 원래 있던 빈틈을 없애지 않는다. */
+        if (cursor > o.x) o.x = cursor;
+        cursor = o.x + o.w;
+      }
+    } else if (dir === 'w') {
+      if (before.x - k < 0) return null;
+      t.x = before.x - k; t.w = before.w + k;
+      const line = next
+        .filter((o) => spansAxis(t.y, t.y + t.h, o.y, o.y + o.h) && o.x + o.w <= before.x)
+        .sort((a, b) => b.x - a.x);
+      let cursor = t.x;
+      for (const o of line) {
+        if (need > 0) { const give = Math.min(need, Math.max(0, o.w - minWOf(o))); o.w -= give; need -= give; }
+        if (o.x + o.w > cursor) o.x = cursor - o.w;
+        cursor = o.x;
+      }
+    } else if (dir === 's') {
+      t.h = before.h + k;
+      const line = next
+        .filter((o) => spansAxis(t.x, t.x + t.w, o.x, o.x + o.w) && o.y >= before.y + before.h)
+        .sort((a, b) => a.y - b.y);
+      let cursor = t.y + t.h;
+      for (const o of line) {
+        if (need > 0) { const give = Math.min(need, Math.max(0, o.h - minHOf(o))); o.h -= give; need -= give; }
+        if (cursor > o.y) o.y = cursor;
+        cursor = o.y + o.h;
+      }
+    } else if (dir === 'n') {
+      if (before.y - k < 0) return null;
+      t.y = before.y - k; t.h = before.h + k;
+      const line = next
+        .filter((o) => spansAxis(t.x, t.x + t.w, o.x, o.x + o.w) && o.y + o.h <= before.y)
+        .sort((a, b) => b.y - a.y);
+      let cursor = t.y;
+      for (const o of line) {
+        if (need > 0) { const give = Math.min(need, Math.max(0, o.h - minHOf(o))); o.h -= give; need -= give; }
+        if (o.y + o.h > cursor) o.y = cursor - o.h;
+        cursor = o.y;
+      }
+    } else {
+      return null;
+    }
+
+    if (need > 0) return null;   // 줄일 수 있는 이웃이 부족하다
+
+    /* ★★ 전수 검증. 추론이 틀려도 잘못된 배치를 내보내지 않는다. */
+    const all = [t, ...next];
+    for (let i = 0; i < all.length; i += 1) {
+      for (let j = i + 1; j < all.length; j += 1) if (overlaps(all[i], all[j])) return null;
+    }
+    if (all.some((w) => w.w < 1 || w.h < 1)) return null;
+    if (all.some((w) => w.x < 0 || w.y < 0 || w.x + w.w > cols)) return null;
+    if (next.some((o) => o.w < minWOf(o) || o.h < minHOf(o))) return null;
+    return { target: t, others: next };
+  }
+
+  /** 성립하는 최대 확대를 찾는다. 하나도 안 되면 원래 배치를 그대로 돌려준다. */
+  function resolveGrowth(before, others, dir, want, cols = 24) {
+    for (let k = want; k >= 1; k -= 1) {
+      const r = buildGrowth(before, others, dir, k, cols);
+      if (r) return r;
+    }
+    return { target: { ...before }, others: others.map((o) => ({ ...o })) };
+  }
+
   function findFreeSpot(widgets, w, h, cols = 24) {
     for (let y = 0; y < 40; y++) {
       for (let x = 0; x <= cols - w; x++) {
@@ -218,7 +326,98 @@
         const isEnding = partial._dragging === false || partial._resizing === false;
 
         let applied = partial;
-        if (target && isEnding) {
+        let neighbours = null;
+
+        if (target && partial._resizing === true && partial._from && partial._dir) {
+          /*
+             ★★ 크기 조절은 **이웃을 차례로 줄여서** 해결한다(되돌리지 않는다).
+
+               24열이 빈틈 없이 채워져 있어, 되돌리기만 하면 확대가 영구히
+               불가능하다. 바로 옆만 줄이면 1열이 한계였다(측정). 그래서 같은 줄의
+               이웃들을 순서대로 줄인다 — 위치를 다른 줄로 옮기지는 않는다.
+
+             ★ 각 방향을 따로 처리한다. 대각선 손잡이는 두 방향이 함께 오는데,
+               한 번에 풀려고 하면 검증이 복잡해진다. 가로를 먼저 풀고 그 결과에
+               세로를 적용한다.
+          */
+          const from = partial._from;
+          /*
+             ★ 변화량(열/행)만 뽑는다. 절대 좌표는 쓰지 않는다 — 손잡이는 그려진
+               기하를 기준으로 움직이고, 계산은 저장 기하에서 하기 때문이다.
+          */
+          const dirs = [];
+          if (partial._dir.includes('e') && partial.w > from.w) dirs.push(['e', partial.w - from.w]);
+          if (partial._dir.includes('w') && partial.x < from.x) dirs.push(['w', from.x - partial.x]);
+          if (partial._dir.includes('s') && partial.h > from.h) dirs.push(['s', partial.h - from.h]);
+          if (partial._dir.includes('n') && partial.y < from.y) dirs.push(['n', from.y - partial.y]);
+
+          if (dirs.length > 0) {
+            /*
+               ★★ 계산을 **저장 좌표계 하나로** 통일한다.
+
+                 접힌 패널이 있으면 그릴 때만 기하가 바뀐다(panel-state 의 applyTo).
+                 좌표계가 둘이면 어느 쪽에서 계산해도 틀린다:
+                   · 저장값으로 계산하면 화면과 기준이 어긋난다
+                   · 그려진 값으로 계산해 저장하면 변환이 두 번 적용된다
+                 두 방식을 모두 실측으로 실패시켰다(겹침 발생, 이웃만 축소).
+
+               ★ 열 단위 변화량은 두 좌표계에서 같다(칸 폭이 일정하다). 그래서
+                 **변화량만** 받아 저장 좌표계에서 계산하면 변환과 무관하게 맞는다.
+                 화면 반영은 렌더 단계가 알아서 한다.
+            */
+            let cur = { ...target };
+            let rest = prev.widgets.filter(w => !w.hidden && w.id !== id).map(w => ({ ...w }));
+            for (const [dir, want] of dirs) {
+              const r = resolveGrowth(cur, rest, dir, want, prev.cols || 24);
+              cur = r.target; rest = r.others;
+            }
+            const { _from: _f, _dir: _d, ...restPartial } = partial;
+            void _f; void _d;
+            applied = { ...restPartial, x: cur.x, y: cur.y, w: cur.w, h: cur.h };
+            neighbours = new Map(rest.map(o => [o.id, o]));
+          } else {
+            /*
+               ★★ 확대가 아니면(축소·이동) 그대로 통과시키되 **겹침은 검사한다.**
+
+                 처음에는 무조건 통과시켰다. 그러자 축소·이동 조합에서 겹침이
+                 새어나갔다 — 실측으로 확인했다(확대는 0건인데 겹침 1쌍이 생겼다).
+                 확대만 검사하면 나머지 경로가 무방비가 된다.
+
+               ★ 겹치면 기하 변경을 버린다. 조작 중이므로 다음 마우스 이동이
+                 다시 시도하고, 겹치지 않는 위치에서 반영된다.
+            */
+            const { _from: _f2, _dir: _d2, ...restPartial } = partial;
+            void _f2; void _d2;
+            /*
+               ★★ 축소·이동도 **변화량**으로 적용한다.
+
+                 손잡이는 그려진 기하를 기준으로 절대 좌표를 보낸다. 접힘 변환이
+                 있으면 그 값이 저장 기하와 다르다 — 그대로 적용하면 줄이려는데
+                 오히려 늘어나 이웃과 겹치고, 겹침 검사가 막아서 **축소가 전혀
+                 되지 않았다**(실측: 781px 에서 두 번 줄여도 그대로).
+            */
+            const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
+            const moved = {
+              x: target.x + (partial.x - from.x),
+              y: target.y + (partial.y - from.y),
+              w: target.w + (partial.w - from.w),
+              h: target.h + (partial.h - from.h),
+            };
+            /* ★ 최소 크기 아래로는 줄이지 않는다. */
+            moved.w = Math.max(minWOf(target), moved.w);
+            moved.h = Math.max(minHOf(target), moved.h);
+            Object.assign(restPartial, moved);
+            const candidate = { ...target, ...restPartial };
+            if (hasCollision(others, candidate)) {
+              const { x: _x2, y: _y2, w: _w2, h: _h2, ...noGeom } = restPartial;
+              void _x2; void _y2; void _w2; void _h2;
+              applied = noGeom;
+              if (Object.keys(applied).length === 0) return prev;
+            } else {
+              applied = restPartial;
+            }
+          }
+        } else if (target && isEnding) {
           const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
           if (hasCollision(others, target)) {
             const start = geomStartRef.current;
@@ -234,7 +433,12 @@
         }
         void touchesGeometry;
 
-        const nextWidgets = prev.widgets.map(w => w.id === id ? { ...w, ...applied } : w);
+        const nextWidgets = prev.widgets.map(w => {
+          if (w.id === id) return { ...w, ...applied };
+          /* ★ 줄어든 이웃을 함께 반영한다. 대상만 바꾸면 겹친 상태가 저장된다. */
+          const n = neighbours && neighbours.get(w.id);
+          return n ? { ...w, x: n.x, y: n.y, w: n.w, h: n.h } : w;
+        });
         const next = { ...prev, widgets: nextWidgets };
         if (!applied._dragging && !applied._resizing) {
           setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));
@@ -503,7 +707,18 @@
           const cand = Math.max(0, Math.min(resize.oy + dy, resize.oy + resize.oh - minH));
           ny = cand; nh = resize.oh + (resize.oy - cand);
         }
-        onChange({ x: nx, y: ny, w: nw, h: nh, _resizing: true });
+        /*
+           ★★ 방향과 시작 크기를 함께 보낸다.
+
+             엔진이 "어느 방향으로 얼마나 넓히려는가" 를 알아야 그 줄의 이웃들을
+             차례로 줄일 수 있다. 첫 _resizing 호출에서 기준을 추측하면 이미 새
+             크기가 들어 있어 확대를 감지하지 못한다 — 그 버그를 실측으로 겪었다.
+        */
+        onChange({
+          x: nx, y: ny, w: nw, h: nh, _resizing: true,
+          _dir: resize.dir,
+          _from: { x: resize.ox, y: resize.oy, w: resize.ow, h: resize.oh },
+        });
       };
       const onUp = () => {
         onChange({ _resizing: false });
@@ -531,7 +746,20 @@
          창을 옮기고 추가·삭제하는 배치 작업용으로 남긴다.
        ★ 평상시에는 테두리에 가깝게(연하게) 보이도록 CSS 가 처리한다.
     */
-    const showResize = !isLocked && !widget.locked;
+    /*
+       ★★ 접힌 패널은 크기를 조절할 수 없다.
+
+         접히면 폭이 고정 띠(2열)로 강제되고, 그 값은 그릴 때 만들어진다. 손잡이를
+         끌면 저장값과 화면값이 서로 다른 방향으로 움직여 겹침이 생긴다(실측:
+         접힌 코파일럿의 e 손잡이를 끌자 겹침 1쌍이 발생했다).
+
+       ★ 손잡이를 아예 내보내지 않는다. 끌 수 없는 손잡이를 보여주는 것은
+         죽은 버튼과 같다 — 펼치면 다시 조절할 수 있다.
+    */
+    const isCollapsedPanel = typeof window !== 'undefined' && window.QTPanelState
+      && typeof window.QTPanelState.isCollapsed === 'function'
+      && window.QTPanelState.isCollapsed(widget.id);
+    const showResize = !isLocked && !widget.locked && !isCollapsedPanel;
     const _showControls = isEditing && (isSelected || false);
 
     /* ★ 훅을 모두 부른 뒤에 숨김을 처리한다(위 isHidden 주석 참조). */

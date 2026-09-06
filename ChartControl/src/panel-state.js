@@ -91,18 +91,43 @@
         */
         let best = null;
         let bestOverlap = 0;
+        /*
+           ★★ '정확히 맞닿음' 을 요구하지 않는다.
+
+             전에는 `other.x + other.w === target.x` 로 딱 붙은 경우만 이웃으로
+             봤다. 그래서 이용자가 창 크기를 조절해 한 열이라도 틈이 생기면 접힘
+             변환이 **사라지고** 화면이 갑자기 튀었다. 크기 조절이 접힘을 깨뜨리는
+             원인이었다(실측으로 확인했다).
+
+           ★ 왼쪽에 있고 행이 겹치는 것 중 **가장 가까운** 것을 고른다. 오른쪽 변이
+             접힌 패널의 왼쪽 변을 넘지 않아야 한다(넘으면 이미 겹친 상태다).
+        */
+        let bestGap = Infinity;
         for (const other of out) {
           if (other === target || other.hidden) continue;
-          const touchesLeft = other.x + other.w === target.x;
-          if (!touchesLeft) continue;
+          const right = other.x + other.w;
+          if (right > target.x) continue;           // 오른쪽에 있거나 이미 겹친다
           const overlap = Math.min(other.y + other.h, target.y + target.h) - Math.max(other.y, target.y);
-          if (overlap > bestOverlap) { best = other; bestOverlap = overlap; }
+          if (overlap <= 0) continue;               // 행이 겹치지 않으면 이웃이 아니다
+          const gap = target.x - right;
+          if (gap < bestGap || (gap === bestGap && overlap > bestOverlap)) {
+            best = other; bestOverlap = overlap; bestGap = gap;
+          }
         }
         if (!best) continue;
 
         best.w += freed;
         target.x += freed;
         target.w = COLLAPSED_W;
+
+        /*
+           ★ 변환 결과가 겹치면 되돌린다. 이 함수는 그리기 직전에 돌기 때문에
+             여기서 겹치면 화면에 그대로 겹쳐 보인다 — 검사가 없었다.
+        */
+        const collide = out.some((o) => o !== best && !o.hidden
+          && !(best.x + best.w <= o.x || o.x + o.w <= best.x
+            || best.y + best.h <= o.y || o.y + o.h <= best.y));
+        if (collide) { best.w -= freed; target.x -= freed; target.w = freed + COLLAPSED_W; }
       }
 
       return out;

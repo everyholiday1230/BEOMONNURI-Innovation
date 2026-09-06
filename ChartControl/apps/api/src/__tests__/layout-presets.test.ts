@@ -64,13 +64,26 @@ describe('LAYOUT-PRESETS — 프리셋이 스스로 모순되지 않는다', () 
     expect(Object.keys(M).length).toBeGreaterThan(5);
   });
 
-  it('[2] 어떤 위젯도 자기 최소 크기를 위반하지 않는다', () => {
+  it('[2] 어떤 위젯도 **유효** 최소 크기를 위반하지 않는다', () => {
+    /*
+       ★★ inline 선언만 보면 안 된다.
+
+         처음엔 프리셋에 적힌 minW/minH 만 검사했다. 그래서 선언이 **없는** 위젯이
+         메타의 최소값을 위반하는 경우를 놓쳤다 — dual-chart 의 주문 입력이 6 행인데
+         최소는 8 행이었다(다른 프리셋은 모두 8 이상을 준다). 확대 계산 테스트가
+         대신 잡아냈다.
+
+       ★ 실제로 적용되는 값은 inline ?? 메타 ?? 3 이다. 그 값으로 검사한다.
+    */
     const bad: string[] = [];
     for (const [name, p] of Object.entries(P)) {
       for (const w of p.widgets ?? []) {
-        const ww = w as unknown as Record<string, number>;
-        if (ww.minW != null && ww.w < ww.minW) bad.push(`${name}/${w.id}: w=${ww.w} < minW=${ww.minW}`);
-        if (ww.minH != null && ww.h < ww.minH) bad.push(`${name}/${w.id}: h=${ww.h} < minH=${ww.minH}`);
+        const ww = w as unknown as Record<string, number | string>;
+        const m = M[String(ww.type)] || { minW: 3, minH: 3 };
+        const minW = (ww.minW as number) || m.minW || 3;
+        const minH = (ww.minH as number) || m.minH || 3;
+        if ((ww.w as number) < minW) bad.push(`${name}/${ww.id}: w=${ww.w} < ${minW}`);
+        if ((ww.h as number) < minH) bad.push(`${name}/${ww.id}: h=${ww.h} < ${minH}`);
       }
     }
     expect(bad, `최소 크기 위반:\n${bad.join('\n')}`).toEqual([]);
@@ -110,7 +123,7 @@ describe('LAYOUT-PRESETS — 프리셋이 스스로 모순되지 않는다', () 
   it('[5] 24열을 넘지 않는다', () => {
     const bad: string[] = [];
     for (const [name, p] of Object.entries(P)) {
-      for (const w of (p.widgets ?? []) as unknown as Record<string, number>[]) {
+      for (const w of (p.widgets ?? []) as unknown as Array<{ id: string; x: number; w: number }>) {
         if (w.x + w.w > 24) bad.push(`${name}/${w.id}: x+w=${w.x + w.w} > 24`);
       }
     }
