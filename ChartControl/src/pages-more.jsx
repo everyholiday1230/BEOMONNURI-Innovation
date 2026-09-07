@@ -554,6 +554,11 @@
                 <button className="btn btn--sm btn--primary" onClick={() => { if (onSuccess) onSuccess(exchange, form); onClose(); }} disabled={!testResult?.ok}>
                   <I.Check size={12}/> {t('exchange_connect_wizard_5953fd')}
                 </button>
+                {actNote && (
+                  <span style={{marginLeft:8, fontSize:11, color: actNote.ok ? 'var(--color-trade-long)' : 'var(--color-warning)'}}>
+                    {actNote.text}
+                  </span>
+                )}
               </>
             )}
             {step === 4 && <button className="btn btn--sm btn--primary" onClick={onClose}>{t('exchange_connect_wizard_8d8680')}</button>}
@@ -1264,7 +1269,13 @@
               { key: 'network', label: t('col_network') },
               { key: 'status',  label: t('col_status'), render: r => <span className={`status-pill status-pill--${r.status === 'completed' ? 'ok' : 'warn'}`}>{r.status.toUpperCase()}</span> },
               { key: 'hash',    label: t('tx_col_hash'), render: r => <span style={{fontFamily:'var(--font-mono)', fontSize:10, color:'var(--color-brand)'}}>{r.txHash.slice(0, 12)}…</span> },
-              { key: 'act',     label: '', align:'right', render: () => <button className="tbl-action">{t('col_view')}</button> },
+              /*
+                 ★★ '보기' 버튼을 제거한다. onClick 이 없어 눌러도 아무 일이 없었고,
+                   보여줄 상세 화면도 없다. 바로 왼쪽 열에 거래 해시가 이미 있어
+                   거래소나 블록 탐색기에서 확인할 수 있다.
+
+                 ★ 열 자체를 없앤다 — 빈 열을 남기면 무언가 있어야 하는 자리처럼 보인다.
+              */
             ]}
             rows={filtered}
           />
@@ -1316,6 +1327,40 @@
     */
     const [btRun, setBtRun] = useState({ busy: false, error: null, note: null, result: null });
     const [btForm, setBtForm] = useState({ symbol: 'BTCUSDT', timeframe: '15m', bars: '500' });
+
+    /*
+       ★★ '알림' 과 '팔로우' 버튼이 onClick 없이 놓여 있었다 — 눌러도 아무 일이 없었다.
+         두 기능 모두 클라이언트·서버 경로가 이미 있다(createPriceAlert, followStrategy).
+         특히 팔로우는 라벨에 **가격까지 적혀 있었다**('Follow · $0/mo') — 결제되는 것처럼
+         보이는 버튼이 눌리지 않는 것은 최악이다.
+
+       ★ 결과를 반드시 말한다. 표시가 없으면 고객은 다시 누르고, 알림·팔로우가 두 개 생긴다.
+    */
+    const [actNote, setActNote] = useState(null);
+    const [actBusy, setActBusy] = useState(null);
+
+    const followThis = async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || typeof api.followStrategy !== 'function' || !strategyId) return;
+      setActBusy('follow'); setActNote(null);
+      try {
+        const r = await api.followStrategy(strategyId, btForm.symbol, btForm.timeframe);
+        setActNote(r && r.ok !== false
+          ? { ok: true, text: t('strat_follow_ok', { symbol: btForm.symbol }) }
+          : { ok: false, text: (r && r.message) || t('strat_follow_failed') });
+      } catch (e) { setActNote({ ok: false, text: (e && e.message) || t('strat_follow_failed') }); }
+      setActBusy(null);
+    };
+
+    const alertThis = async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || typeof api.createPriceAlert !== 'function') return;
+      /*
+         ★ 이 화면에는 목표 가격이 없다. 그래서 알림을 임의로 만들지 않고 알림 화면으로
+           보낸다 — 가격 없는 알림은 발동하지 않고, 고객은 설정됐다고 믿는다.
+      */
+      window.location.hash = '#/notifications';
+    };
 
     const runBacktest = React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -1516,8 +1561,10 @@
                 >
                   <I.Chart size={13}/> {btRun.busy ? t('bt_running') : t('bt_live_backtest')}
                 </button>
-                <button className="btn btn--sm"><I.Bell size={13}/> {t('col_alert')}</button>
-                <button className="btn btn--sm btn--primary"><I.Plus size={13}/> {t('strategy_detail_73a075')}</button>
+                <button className="btn btn--sm" onClick={alertThis}><I.Bell size={13}/> {t('col_alert')}</button>
+                <button className="btn btn--sm btn--primary" disabled={actBusy === 'follow'} onClick={followThis}>
+                  <I.Plus size={13}/> {actBusy === 'follow' ? t('bt_running') : t('strategy_detail_73a075')}
+                </button>
               </>
             )}
           </>

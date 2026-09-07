@@ -829,8 +829,29 @@
                     </>
                   ) : (
                     <>
-                      <button className="btn btn--xs" style={{flex:1}}><I.Chart size={11}/> {t('col_backtest')}</button>
-                      <button className="btn btn--xs btn--primary" style={{flex:1}}><I.Plus size={11}/> {t('col_follow')}</button>
+                      {/*
+                           ★★ 예시 데이터일 때의 버튼이다. **눌러도 아무 일이 없다.**
+
+                             위 실데이터 분기에서는 두 버튼 모두 배선돼 있다(백테스트·팔로우
+                             서버 경로가 있다). 여기는 거래소 키를 연결하지 않은 고객이 보는
+                             화면이고, 예시 전략에 백테스트를 돌릴 대상이 없다.
+
+                           ★ 그래서 눌리지 않게 한다. 예시 화면이라도 눌리는 것처럼 보이면
+                             고장으로 읽힌다 — disabled 는 "지금은 안 된다" 를 스스로 말한다.
+                           ★ 이유를 title 로 붙인다. 회색 버튼만 보여주고 왜인지 말하지 않으면
+                             고객은 자기 잘못인지 제품 문제인지 모른다.
+                      */}
+                      {/*
+                           ★ title 만 두면 접근성 이름이 되지 않는다(화면 읽기 프로그램은
+                             title 을 이름으로 쓰지 않는다 — 테스트가 이걸 잡았다).
+                             버튼 안에 이미 글자가 있으므로 이름은 충분하고, **이유는 버튼
+                             밖 문장으로** 말한다. 회색 버튼만 보여주고 이유를 숨기지 않는다.
+                      */}
+                      <button className="btn btn--xs" style={{flex:1}} disabled><I.Chart size={11}/> {t('col_backtest')}</button>
+                      <button className="btn btn--xs btn--primary" style={{flex:1}} disabled><I.Plus size={11}/> {t('col_follow')}</button>
+                    <div style={{fontSize:10.5, color:'var(--color-text-tertiary)', marginTop:4, flexBasis:'100%'}}>
+                        {t('strat_needs_key')}
+                      </div>
                     </>
                   )}
                 </div>
@@ -3363,7 +3384,17 @@
                     </div>
                   </div>
                   {/* 아바타 변경 기능이 없다 — 업로드 경로도 저장소도 없다. */}
-                  {!isLive && <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>}
+                  {/*
+                       ★★ '사진 변경' 을 가린다. **서버에 업로드 경로가 없다**
+                         (/me/avatar · /me/photo · /me/profile-image 전부 없음).
+
+                         눌러도 아무 일이 없는 버튼이었다. 고객은 사진을 바꿀 수 있다고
+                         믿고 누르고, 아무 일도 없으면 제품이 고장났다고 판단한다.
+
+                       ★ 마크업을 지우지 않고 감춘다 — 업로드 경로가 생기면 여기에
+                         onClick 만 붙이면 된다. 지우면 디자인 산출물과 어긋난다.
+                  */}
+                  {false && !isLive && <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>}
                 </div>
 
                 {isLive ? (
@@ -3402,8 +3433,19 @@
                       <div className="input-group"><span className="input-group__label">{t('settings_76245e')}</span><input aria-label={t('settings_76245e')} defaultValue="Asia/Seoul (UTC+9)"/></div>
                     </div>
                     <div style={{marginTop:16, display:'flex', gap:8, justifyContent:'flex-end'}}>
-                      <button className="btn btn--sm">{t('settings_19b2d1')}</button>
-                      <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>
+                      {/*
+                           ★★ '취소' 도 함께 가린다. 저장이 없으면 취소할 것도 없다 —
+                             둘 중 하나만 남기면 짝이 맞지 않아 더 이상하게 보인다.
+                      */}
+                      {false && <button className="btn btn--sm">{t('settings_19b2d1')}</button>}
+                      {/*
+                           ★★ '저장' 을 가린다. 이 탭에서 저장할 것이 없다 — API 키는 등록·회수만
+                             있고(수정 기능 자체가 없다), 저장할 서버 경로도 없다.
+
+                           ★ 눌러도 아무 일이 없는 버튼이 "저장됐다" 는 인상을 준다. 그게 가장
+                             나쁘다 — 고객은 확인하지 않는다.
+                      */}
+                      {false && <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>}
                     </div>
                   </>
                 )}
@@ -3680,8 +3722,21 @@
                   </div>
 
                   <div style={{display:'flex', gap: 8, justifyContent:'flex-end'}}>
+                    {/*
+                         ★★ '기본값 복원' 과 '저장' 을 가린다. **차트 환경설정을 저장하는 서버
+                           경로가 없다**(chart_preferences 테이블도, /me/preferences 라우트도 없음).
+
+                           둘 다 눌러도 아무 일이 없었다. 특히 '저장' 은 최악이다 — 고객이
+                           설정을 바꾸고 저장을 누르면 저장됐다고 믿는다. 그리고 다음에 들어와
+                           설정이 사라진 것을 본다.
+
+                         ★ 위의 개별 설정들은 즉시 반영되는 것이라 저장 버튼이 없어도 동작한다.
+                           저장 경로가 생기면 여기에 onClick 을 붙인다.
+                    */}
+                    {false && (<>
                     <button className="btn btn--sm">{t('settings_a2d19e')}</button>
                     <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>
+                    </>)}
                   </div>
                 </div>
               </window.SectionCard>
@@ -3780,7 +3835,11 @@
                         <div style={{fontWeight:500}}>{t('settings_0207e4')}</div>
                         <div style={{fontSize:11, color:'var(--color-text-tertiary)'}}>{t('settings_c523ec')}</div>
                       </div>
-                      <button className="btn btn--sm"><I.Camera size={12}/> {t('col_export')}</button>
+                      {/*
+                           ★★ '내보내기' 를 가린다. 서버에 내보내기 경로가 없다. 같은 이유로
+                             이미 가려 둔 Export 버튼이 이 파일에 세 개 더 있다(2026-08).
+                      */}
+                      {false && <button className="btn btn--sm"><I.Camera size={12}/> {t('col_export')}</button>}
                     </div>
                   </div>
                 </window.SectionCard>

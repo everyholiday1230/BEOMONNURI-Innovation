@@ -165,6 +165,10 @@
       my_strategies_7dbef2: 'Browse the AI Strategies page and follow one you like.',
       my_strategies_bc178b: '+ Browse strategies',
       my_strategies_c93fb6: 'Strategy gallery →',
+
+      /* ★ 팔로우 결과. 실패는 '아무것도 저장되지 않았다' 까지 말해야 재시도 판단이 된다. */
+      strat_follow_ok: 'Following on {symbol}. Manage it under My Strategies.',
+      strat_follow_failed: 'Could not follow this strategy. Nothing was saved — try again.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

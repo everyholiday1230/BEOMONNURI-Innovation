@@ -200,8 +200,21 @@
             <span>{t('market_watch')}</span>
           </div>
           <div className="panel__actions">
+            {/*
+                 ★★ 패널 헤더의 '필터' 와 '더보기' 아이콘을 가린다.
+
+                   둘 다 onClick 이 없어 눌러도 아무 일이 없었다. 그리고 '더보기' 는
+                   aria-label 도 없어 화면 읽기 프로그램에는 이름 없는 버튼으로 읽혔다.
+
+                 ★ 필터 기능은 이미 이 패널 안에 있다(탭 · 즐겨찾기 · 검색). 헤더의
+                   아이콘은 같은 일을 하는 두 번째 입구인데 배선이 없었다.
+
+                 ★ 마크업은 남긴다 — 기능이 생기면 onClick 과 aria-label 만 붙이면 된다.
+            */}
+            {false && (<>
             <button aria-label={t('notifications_f53a6e')} className="btn btn--icon" title={t('notifications_f53a6e')}><I.Filter size={14}/></button>
             <button className="btn btn--icon"><I.More size={14}/></button>
+            </>)}
           </div>
         </div>
         <div className="panel__body" style={{padding: 0}}>
@@ -673,7 +686,13 @@
         <div className="panel__header">
           <div className="panel__title"><I.Book size={14}/><span>{t('order_book')}</span></div>
           <div className="panel__actions">
-            <button className="btn btn--icon"><I.Cog size={12}/></button>
+            {/*
+                 ★★ 오더북 '설정' 아이콘을 가린다. onClick 도 aria-label 도 없었다 —
+                   눌러도 아무 일이 없고, 화면 읽기 프로그램에는 이름 없는 버튼이었다.
+
+                 ★ 호가 묶음 단위(grouping) 같은 설정을 넣을 자리인데 아직 없다.
+            */}
+            {false && <button className="btn btn--icon"><I.Cog size={12}/></button>}
           </div>
         </div>
         <div className="panel__body" style={{padding: 0}}>
@@ -746,7 +765,11 @@
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Zap size={14}/><span>{t('recent_trades')}</span></div>
-          <div className="panel__actions"><button className="btn btn--icon"><I.More size={12}/></button></div>
+          {/*
+               ★★ '더보기' 아이콘을 가린다. onClick 도 aria-label 도 없었다.
+                 이 패널에는 더 보여줄 것도 없다(전체 목록이 이미 스크롤된다).
+          */}
+          <div className="panel__actions">{false && <button className="btn btn--icon"><I.More size={12}/></button>}</div>
         </div>
         <div className="panel__body" style={{padding: 0}}>
           <div className="rt-head">
@@ -2470,7 +2493,11 @@
             )}
           </div>
           <div className="panel__actions">
-            <button aria-label={t('mc_expand')} className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>
+            {/*
+                 ★★ 미니차트 '확대' 를 가린다. onClick 이 없어 눌러도 아무 일이 없었다.
+                   확대하려면 메인 차트에서 그 종목을 열면 된다 — 그 경로는 동작한다.
+            */}
+            {false && <button aria-label={t('mc_expand')} className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>}
           </div>
         </div>
         )}

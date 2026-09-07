@@ -123,6 +123,9 @@
       */
       wal_revoke_confirm: 'Revoke this API key? Orders and balance reads will stop immediately. This cannot be undone — you can connect a new key afterwards.',
       wal_revoke_failed: 'Could not revoke the key: {msg}. It is still active — try again, or remove it at the exchange.',
+
+      /* ★ 예시 전략 화면의 버튼이 왜 눌리지 않는지 말한다. 회색 버튼만으로는 이유를 알 수 없다. */
+      strat_needs_key: 'Connect an exchange API key to use this — these are example strategies.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

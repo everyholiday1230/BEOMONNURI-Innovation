@@ -159,6 +159,10 @@
       withdraw_e88174: '申请提币 →',
       withdraw_ecf928: '添加地址',
       withdraw_fe7cae: '每日限额',
+
+      /* ★ 팔로우 결과. 실패는 '아무것도 저장되지 않았다' 까지 말해야 재시도 판단이 된다. */
+      strat_follow_ok: '已在 {symbol} 关注。可在「我的策略」中管理。',
+      strat_follow_failed: '无法关注该策略。未保存任何内容 — 请重试。',
     },
     { label: '简体中文', bcp47: 'zh-CN' },
   );

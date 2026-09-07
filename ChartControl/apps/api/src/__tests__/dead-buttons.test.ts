@@ -92,6 +92,49 @@ describe('DEAD-BUTTONS — 눌러도 아무 일이 없는 버튼을 막는다', 
     expect(around, "API 키 행에 배선 없는 '수정' 버튼이 돌아왔다").not.toMatch(/t\('col_edit'\)/);
   });
 
+  it('[5] 실제로 화면에 그려지는 죽은 버튼이 없다', () => {
+    /*
+       ★★ 이것이 진짜 기준이다. `{false && ...}` 로 감춰 둔 버튼은 고객이 볼 수 없으므로
+         죽은 버튼이 아니다 — 기능이 생겼을 때 되살릴 마크업이다. 지우면 디자인
+         산출물과 어긋난다.
+
+         반대로 **감추지 않고 배선도 없는** 버튼은 고객이 누르고 아무 일도 일어나지
+         않는다. 그것만 센다.
+
+       ★ 이 값은 0 이어야 한다. 0 이 아니게 만드는 변경은 고객에게 눌리지 않는 버튼을
+         내보내는 것이다.
+    */
+    const offenders: string[] = [];
+    for (const f of CUSTOMER_FILES) {
+      /* ★ 주석을 공백으로 바꿔 길이를 유지한다 — 줄 번호가 밀리면 위치를 못 짚는다. */
+      const src = read(f)
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, (m) => ' '.repeat(m.length))
+        .replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length));
+      const re = /<button\b[\s\S]*?<\/button>/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const blk = m[0];
+        /*
+           ★★ 여는 태그를 `>` 로 끊으면 안 된다. 속성값 안에 `>` 가 들어 있는 경우
+             (`onClick={() => ...}`) 태그가 조기에 끊겨 onClick 을 못 본다 — 실제로
+             배선된 복사 버튼을 죽은 버튼으로 잘못 잡았다.
+
+           ★ 그래서 **블록 전체**에서 onClick 을 찾는다. 안에 중첩 버튼이 없으므로
+             안전하고, 놓치는 쪽보다 넉넉한 쪽이 오탐을 줄인다.
+        */
+        if (/onClick/.test(blk) || /disabled/.test(blk) || /type=["']submit["']/.test(blk)) continue;
+        if (/qt-pending-mark/.test(blk)) continue;
+        /* ★ 감춰진 블록 안이면 고객이 보지 못한다. */
+        if (/\{false\s*&&/.test(src.slice(Math.max(0, m.index - 500), m.index))) continue;
+        offenders.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+    expect(
+      offenders.length,
+      `고객이 누를 수 있는데 아무 일도 일어나지 않는 버튼이 ${offenders.length}개다:\n${offenders.join('\n')}`,
+    ).toBe(0);
+  });
+
   it('[4] 고객 화면에 onClick 없는 버튼이 늘어나지 않는다', () => {
     /*
        ★★ 남아 있는 것을 전부 지금 고치지는 못한다. 그래서 **현재 개수를 고정**하고
@@ -115,7 +158,7 @@ describe('DEAD-BUTTONS — 눌러도 아무 일이 없는 버튼을 막는다', 
        측정값. 이 숫자를 올리는 변경은 죽은 버튼을 추가한 것이다.
        내려가면 이 값을 함께 낮춘다.
     */
-    const BASELINE = 19;   // 측정값. 23 → 20 → 19 로 줄였다. 늘리는 변경은 죽은 버튼을 추가한 것이다.
+    const BASELINE = 14;   // 23 → 20 → 19 → 14. 늘리는 변경은 죽은 버튼을 추가한 것이다.
     expect(
       offenders.length,
       `onClick 없는 버튼이 ${offenders.length}개다(기준 ${BASELINE}).\n`
