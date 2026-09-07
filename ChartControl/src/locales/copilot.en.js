@@ -133,6 +133,22 @@
       ai_fu_order_book_q: 'What does the order book depth show near the current price?',
       ai_fu_explain_levels: '📍 Explain the key levels',
       ai_fu_explain_levels_q: 'Explain the key levels on {symbol} and how you identified each one.',
+
+      /*
+         시그널 카드의 저장·알림 결과 문구.
+
+         ★ 눌렀는데 아무 표시가 없으면 됐는지 알 수 없다. 고객은 다시 누르고, 알림이 두 개
+           생긴다. 그래서 성공과 실패를 모두 말한다 — 실패는 "아무것도 저장되지 않았다" 까지
+           말해야 재시도 여부를 판단할 수 있다.
+      */
+      ai_points_insufficient: 'Not enough points to save this. Top up on the Points page.',
+      ai_alert_no_price: 'This signal has no entry price, so there is nothing to alert on.',
+      ai_alert_created: 'Alert set at {price}. You will be told when price reaches it.',
+      ai_alert_failed: 'Could not set the alert. Nothing was saved — try again.',
+
+      /* ★ 레이어 표시/숨김. 상태에 따라 문구가 바뀐다 — 같은 라벨이면 무엇이 일어날지 알 수 없다. */
+      ai_layer_hide: 'Hide this layer on the chart',
+      ai_layer_show: 'Show this layer on the chart',
     },
     { label: 'English', bcp47: 'en-US' },
   );

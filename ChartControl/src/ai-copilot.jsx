@@ -54,7 +54,7 @@
 
   // ============================================================
   window.AICopilot = function AICopilot({
-    context, isBeginner, overlays, addOverlay, updateOverlay: _updateOverlay, removeOverlay: _removeOverlay,
+    context, isBeginner, overlays, addOverlay, updateOverlay, removeOverlay: _removeOverlay,
     onProposeSignal, currentSignal, onApproveSignal, onCreateOrderDraft, onEditSignal, onRejectSignal,
     t,
     /*
@@ -135,6 +135,10 @@
        ★ 한 번만 조회한다. 제안 문구를 고르는 데만 쓰므로 실시간일 필요가 없다.
     */
     const [hasTradeHistory, setHasTradeHistory] = useState(null);
+    /* 시그널 카드의 저장·알림 진행 상태와 결과 문구. */
+    const [sigSaveBusy, setSigSaveBusy] = useState(false);
+    const [sigAlertBusy, setSigAlertBusy] = useState(false);
+    const [sigNote, setSigNote] = useState(null);
     useEffect(() => {
       let dead = false;
       /* ★ localOrders 는 window.QTApi.rest 에 있다 — QTApi 직하가 아니다(실측으로 확인). */
@@ -447,12 +451,12 @@
           if (_removeOverlay) _removeOverlay(a.overlayId);
           return t('ai_overlay_removed');
         case 'updateOverlay':
-          if (_updateOverlay && a.patch) _updateOverlay(a.overlayId, a.patch);
+          if (updateOverlay && a.patch) updateOverlay(a.overlayId, a.patch);
           return t('ai_cmd_applied');
         default:
           return null;
       }
-    }, [addOverlay, _removeOverlay, _updateOverlay, anchorTime, t]);
+    }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, t]);
 
     /* 서버가 검증해 보낸 SignalObject를 오버레이(진입/손절/익절/마커)로 그리고 상위에 제안한다. */
     const applySignal = useCallback((sig) => {
@@ -548,6 +552,70 @@
       } catch (e) { /* 적용 실패는 조용히 무시 — 저장 데이터가 손상됐을 수 있다 */ }
       setSavedOpen(false);
     }, [applyCommand, applySignal, t]);
+
+    /*
+       ★★ 시그널 카드의 '초안 저장' 과 '알림 설정'.
+
+         두 버튼 모두 onClick 이 없어 눌러도 아무 일이 없었다. 그런데 서버 기능은 둘 다
+         이미 있었다 — 저장은 savedCreate(이 파일의 다른 곳에서 쓴다), 알림은
+         POST /api/me/alerts. **화면에서만 끊겨 있었다.**
+
+       ★ 결과를 반드시 말한다. 눌렀는데 표시가 없으면 됐는지 알 수 없고, 고객은 다시
+         누른다 — 알림이 두 개 생긴다.
+    */
+    const saveSignalDraft = useCallback(async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || typeof api.savedCreate !== 'function' || !currentSignal) return;
+      setSigSaveBusy(true); setSigNote(null);
+      const sym = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      try {
+        const r = await api.savedCreate({
+          kind: 'signal',
+          name: `${sym || 'signal'} ${currentSignal.direction || ''}`.trim(),
+          symbol: sym || undefined,
+          timeframe: context.tf,
+          payload: currentSignal,
+        });
+        setSigNote(r && r.ok !== false
+          ? { ok: true, text: t('sv_saved_ok', { n: (r && r.name) || '' }) }
+          : { ok: false, text: (r && r.message) || t('sv_save_failed') });
+      } catch (e) {
+        /* ★ 포인트 부족은 다른 문제다 — 저장 실패로 뭉뚱그리지 않는다. */
+        const insuff = e && e.status === 402;
+        setSigNote({ ok: false, text: insuff ? t('ai_points_insufficient') : ((e && e.message) || t('sv_save_failed')) });
+      }
+      setSigSaveBusy(false);
+    }, [currentSignal, context.symbol, context.tf, t]);
+
+    const setSignalAlert = useCallback(async () => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || typeof api.createPriceAlert !== 'function' || !currentSignal) return;
+      /*
+         ★ 진입 구간의 가까운 쪽을 알림 가격으로 쓴다. 구간을 알림으로 바꿀 수는 없으므로
+           "이 가격에 닿으면 알려 달라" 로 좁힌다.
+         ★ 방향은 현재가 기준으로 정한다. 위/아래를 잘못 고르면 알림이 즉시 발동하거나
+           영원히 안 온다.
+      */
+      const zone = Array.isArray(currentSignal.entryZone) ? currentSignal.entryZone.map(Number) : [];
+      const target = zone.length ? (currentSignal.direction === 'short' ? Math.max(...zone) : Math.min(...zone)) : null;
+      if (!target || !Number.isFinite(target)) { setSigNote({ ok: false, text: t('ai_alert_no_price') }); return; }
+      const last = Number(context.price);
+      const direction = Number.isFinite(last) ? (target >= last ? 'above' : 'below') : 'above';
+      setSigAlertBusy(true); setSigNote(null);
+      try {
+        const r = await api.createPriceAlert({
+          symbol: String(context.symbol || '').toUpperCase(),
+          direction,
+          targetPrice: target,
+        });
+        setSigNote(r && r.ok !== false
+          ? { ok: true, text: t('ai_alert_created', { price: String(target) }) }
+          : { ok: false, text: (r && r.message) || t('ai_alert_failed') });
+      } catch (e) {
+        setSigNote({ ok: false, text: (e && e.message) || t('ai_alert_failed') });
+      }
+      setSigAlertBusy(false);
+    }, [currentSignal, context.symbol, context.price, t]);
 
     const handleSubmit = useCallback(async (raw) => {
       const text = (raw ?? input).trim();
@@ -973,7 +1041,7 @@
 
           {/* SIGNAL CARD floated once a signal is proposed and last message is AI reply */}
           {currentSignal && msgs.some(m => m.role === 'ai') && (
-            <SignalCard signal={currentSignal} onApprove={onApproveSignal} onCreateOrder={onCreateOrderDraft} onEdit={onEditSignal} onReject={onRejectSignal} isBeginner={isBeginner}/>
+            <SignalCard signal={currentSignal} onApprove={onApproveSignal} onCreateOrder={onCreateOrderDraft} onEdit={onEditSignal} onReject={onRejectSignal} isBeginner={isBeginner} onSaveDraft={saveSignalDraft} onSetAlert={setSignalAlert} saveBusy={sigSaveBusy} alertBusy={sigAlertBusy} actionNote={sigNote}/>
           )}
 
           {thinking && (
@@ -1103,21 +1171,43 @@
             {t('ai_signal_layers')}
           </div>
           {[
-            { name: 'AI Draft', label: t('ai_layer_draft'), count: overlays.filter(o=>o.source==='ai-draft').length, color: 'var(--color-ai)', dashed: true },
-            { name: 'AI Approved', label: t('ai_layer_approved'), count: overlays.filter(o=>o.source==='ai-approved').length, color: 'var(--color-signal-approved)' },
-            { name: 'My Drawings', label: t('ai_layer_mine'), count: overlays.filter(o=>o.source==='user').length, color: 'var(--color-text-primary)' },
+            { name: 'AI Draft', label: t('ai_layer_draft'), count: overlays.filter(o=>o.source==='ai-draft').length, color: 'var(--color-ai)', dashed: true , match: (o=>o.source==='ai-draft')},
+            { name: 'AI Approved', label: t('ai_layer_approved'), count: overlays.filter(o=>o.source==='ai-approved').length, color: 'var(--color-signal-approved)' , match: (o=>o.source==='ai-approved')},
+            { name: 'My Drawings', label: t('ai_layer_mine'), count: overlays.filter(o=>o.source==='user').length, color: 'var(--color-text-primary)' , match: (o=>o.source==='user')},
             /* ★ 주문·포지션 개수는 실제 오버레이에서 센다. 전에는 3 으로 박혀 있었다 —
                  주문이 없어도 "3" 이라고 말하는 가짜 값이었다(사용자가 있지도 않은 주문을 믿는다). */
-            { name: 'Orders', label: t('ai_layer_orders'), count: overlays.filter(o=>o.source==='order').length, color: 'var(--color-order-pending)' },
-            { name: 'Positions', label: t('ai_layer_positions'), count: overlays.filter(o=>String(o.source||'').indexOf('position')===0).length, color: 'var(--color-trade-long)' },
-          ].map(l => (
+            { name: 'Orders', label: t('ai_layer_orders'), count: overlays.filter(o=>o.source==='order').length, color: 'var(--color-order-pending)' , match: (o=>o.source==='order')},
+            { name: 'Positions', label: t('ai_layer_positions'), count: overlays.filter(o=>String(o.source||'').indexOf('position')===0).length, color: 'var(--color-trade-long)' , match: (o=>String(o.source||'').startsWith('position'))},
+          ].map(l => {
+            /*
+               ★★ 이 눈 버튼에 onClick 이 없었다 — 눌러도 아무 일이 없었다.
+
+                 차트는 `overlay.hidden` 을 이미 존중한다(chart-kline.jsx 의
+                 `if (!ov || ov.hidden) continue`). 즉 숨기는 기능은 있었고 **화면에서만
+                 끊겨 있었다.** 선이 겹쳐 차트를 못 보겠을 때 고객이 할 수 있는 일이 없었다.
+
+               ★ 레이어를 한 번에 켜고 끈다. 하나라도 보이면 '전부 숨기기', 전부 숨겨져 있으면
+                 '전부 보이기' — 눌렀을 때 결과가 예측 가능해야 한다.
+
+               ★ 대상이 없으면 누를 수 없게 한다. 0개인 레이어의 토글은 눌러도 변화가 없고,
+                 그건 다시 죽은 버튼이다.
+            */
+            const members = overlays.filter(l.match);
+            const anyVisible = members.some((o) => !o.hidden);
+            return (
             <div className="ai-layer" key={l.name}>
-              <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined, borderTopColor: l.dashed ? l.color : undefined}}/>
+              <span className="ai-layer__swatch" style={{background: l.color, borderTop: l.dashed ? `2px dashed ${l.color}` : undefined}}/>
               <span className="ai-layer__name">{l.label || l.name}</span>
               <span className="ai-layer__count">{l.count}</span>
-              <button aria-label={t('ai_toggle')} className="ai-layer__eye" title={t('ai_toggle')}><I.Eye size={12}/></button>
+              <button
+                aria-label={t(anyVisible ? 'ai_layer_hide' : 'ai_layer_show')}
+                className="ai-layer__eye"
+                title={t(anyVisible ? 'ai_layer_hide' : 'ai_layer_show')}
+                disabled={members.length === 0}
+                onClick={() => { members.forEach((o) => updateOverlay(o.id, { hidden: anyVisible })); }}
+              ><I.Eye size={12}/></button>
             </div>
-          ))}
+          );})}
         </div>
           </>
         )}
@@ -1181,7 +1271,7 @@
     );
   }
 
-  function SignalCard({ signal, onApprove, onCreateOrder, onEdit, onReject, isBeginner }) {
+  function SignalCard({ signal, onApprove, onCreateOrder, onEdit, onReject, isBeginner, onSaveDraft, onSetAlert, saveBusy, alertBusy, actionNote }) {
     const isApproved = signal.status === 'approved';
     return (
       <div style={{marginLeft: 34}}>
@@ -1243,17 +1333,41 @@
               <>
                 <button className="btn btn--sm btn--primary" onClick={onApprove}><I.Check size={12}/> {t('ai_approve_signal')}</button>
                 <button className="btn btn--sm" onClick={onEdit}>{t('col_edit')}</button>
-                <button className="btn btn--sm">{t('ai_save_draft')}</button>
+                {/*
+                     ★★ 이 버튼에 onClick 이 없었다 — 눌러도 아무 일이 없었다.
+
+                       분석을 저장하는 기능은 **이미 있다**(savedCreate, 이 파일의 다른 곳에서
+                       쓰고 있다). 화면에서만 끊겨 있었다. 간판 기능의 후속 동작이 눌리지 않으면
+                       고객은 분석을 남겨 둘 방법이 없다고 판단한다.
+                */}
+                <button className="btn btn--sm" disabled={saveBusy} onClick={onSaveDraft}>
+                  {saveBusy ? t('sec_loading') : t('ai_save_draft')}
+                </button>
                 <button className="btn btn--sm btn--danger" onClick={onReject}>{t('col_reject')}</button>
               </>
             ) : (
               <>
                 <button className="btn btn--sm btn--primary" onClick={onCreateOrder}><I.ArrowRight size={12}/> {t('ai_create_order_draft')}</button>
-                <button className="btn btn--sm">{t('ai_set_alert')}</button>
-                <button className="btn btn--sm">{t('lay_duplicate')}</button>
+                {/*
+                     ★★ '알림 설정' 도 onClick 이 없었다. 가격 알림 서버 기능은 이미 있다
+                       (POST /api/me/alerts). 진입 구간 가격을 알림 지점으로 쓴다 — "거기 오면
+                       알려 달라" 가 이 버튼의 뜻이다.
+
+                     ★ '복제' 는 제거했다. 무엇을 복제하는지 정의되지 않았고(신호는 하나만 유지된다),
+                       서버에도 대응 기능이 없다. 눌리지 않는 버튼보다 없는 편이 정직하다.
+                */}
+                <button className="btn btn--sm" disabled={alertBusy} onClick={onSetAlert}>
+                  {alertBusy ? t('sec_loading') : t('ai_set_alert')}
+                </button>
               </>
             )}
           </div>
+          {/* ★ 눌렀는데 아무 표시가 없으면 됐는지 알 수 없다. 성공·실패를 같은 자리에 말한다. */}
+          {actionNote && (
+            <div style={{marginTop:6, fontSize:11, color: actionNote.ok ? 'var(--color-trade-long)' : 'var(--color-warning)'}}>
+              {actionNote.text}
+            </div>
+          )}
 
           <div style={{fontSize: 10, color:'var(--color-text-tertiary)', display:'flex', gap: 10}}>
             <span>Generated {new Date(signal.createdAt).toLocaleTimeString('en-GB',{hour12:false})}</span>

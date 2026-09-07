@@ -115,7 +115,7 @@ describe('DEAD-BUTTONS — 눌러도 아무 일이 없는 버튼을 막는다', 
        측정값. 이 숫자를 올리는 변경은 죽은 버튼을 추가한 것이다.
        내려가면 이 값을 함께 낮춘다.
     */
-    const BASELINE = 23;   // 측정값: pages-user 11 · ai-copilot 4 · pages-more 3 · widgets 5
+    const BASELINE = 19;   // 측정값. 23 → 20 → 19 로 줄였다. 늘리는 변경은 죽은 버튼을 추가한 것이다.
     expect(
       offenders.length,
       `onClick 없는 버튼이 ${offenders.length}개다(기준 ${BASELINE}).\n`
