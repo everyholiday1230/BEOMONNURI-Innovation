@@ -8,6 +8,8 @@
    ============================================================ */
 
 (function () {
+  /* ★ 배선되지 않은 조작 요소 표시 여부. mock-policy 가 단일 진상이다(기본 false). */
+  var SHOW_UNWIRED = !!(window.QTMockPolicy && window.QTMockPolicy.showUnwired && window.QTMockPolicy.showUnwired());
   const { useState, useEffect, useRef, useMemo } = React;
   const I = window.Icons;
 
@@ -211,7 +213,7 @@
 
                  ★ 마크업은 남긴다 — 기능이 생기면 onClick 과 aria-label 만 붙이면 된다.
             */}
-            {false && (<>
+            {SHOW_UNWIRED && (<>
             <button aria-label={t('notifications_f53a6e')} className="btn btn--icon" title={t('notifications_f53a6e')}><I.Filter size={14}/></button>
             <button className="btn btn--icon"><I.More size={14}/></button>
             </>)}
@@ -692,7 +694,7 @@
 
                  ★ 호가 묶음 단위(grouping) 같은 설정을 넣을 자리인데 아직 없다.
             */}
-            {false && <button className="btn btn--icon"><I.Cog size={12}/></button>}
+            {SHOW_UNWIRED && <button className="btn btn--icon"><I.Cog size={12}/></button>}
           </div>
         </div>
         <div className="panel__body" style={{padding: 0}}>
@@ -769,7 +771,7 @@
                ★★ '더보기' 아이콘을 가린다. onClick 도 aria-label 도 없었다.
                  이 패널에는 더 보여줄 것도 없다(전체 목록이 이미 스크롤된다).
           */}
-          <div className="panel__actions">{false && <button className="btn btn--icon"><I.More size={12}/></button>}</div>
+          <div className="panel__actions">{SHOW_UNWIRED && <button className="btn btn--icon"><I.More size={12}/></button>}</div>
         </div>
         <div className="panel__body" style={{padding: 0}}>
           <div className="rt-head">
@@ -912,7 +914,32 @@
     */
     const qtyStep = Number(market && market.stepSize) || 0;
     const qtyPrec = Number.isFinite(Number(market && market.quantityPrecision)) ? Number(market.quantityPrecision) : 3;
-    const snapQty = (q) => ((!(qtyStep > 0) || !Number.isFinite(q)) ? q : Number((Math.floor(q / qtyStep) * qtyStep).toFixed(qtyPrec)));
+    /*
+       ★★ 수량을 거래소 단위로 **내림**한다. 정수 산술로 한다.
+
+         전에는 `Math.floor(q / qtyStep) * qtyStep` 였다. 부동소수 오차로 입력이 한 단위
+         줄어들었다 — 실측: 0.3→0.2, 2.9→2.8, 0.043→0.042, 0.7→0.6.
+         입력칸은 고객이 넣은 값을 그대로 보여주므로 **고객은 줄어든 것을 모른다.**
+         서버 쪽 계약 변환에도 같은 결함이 있어 두 번 줄어들 수 있었다.
+
+       ★ 확장은 반올림으로 한다(0.3*10 이 2.9999... 가 되는 것을 막는다). 그러나
+         **나눗셈은 내림**이어야 한다 — 스텝의 배수가 아닌 입력을 올리면 고객이 의도한
+         것보다 많이 주문된다. 잔고를 넘겨 거부되거나, 더 나쁘게는 그대로 체결된다.
+    */
+    const snapQty = (q) => {
+      if (!(qtyStep > 0) || !Number.isFinite(q)) return q;
+      /* 스텝과 입력을 같은 자리수로 확장한다. 자리수가 유한하므로 정확하다. */
+      const dec = Math.max(
+        (String(qtyStep).split('.')[1] || '').length,
+        (String(q).split('.')[1] || '').length,
+      );
+      const scale = Math.pow(10, dec);
+      const qi = Math.round(q * scale);
+      const si = Math.round(qtyStep * scale);
+      if (si <= 0) return q;
+      const snapped = (Math.floor(qi / si) * si) / scale;
+      return Number(snapped.toFixed(qtyPrec));
+    };
     const sz = snapQty(parseFloat(size) || 0);
     /*
        ★ 심볼별 최대 레버리지를 넘으면 KuCoin 이 주문을 거부한다(예: 최대 20배
@@ -2497,7 +2524,7 @@
                  ★★ 미니차트 '확대' 를 가린다. onClick 이 없어 눌러도 아무 일이 없었다.
                    확대하려면 메인 차트에서 그 종목을 열면 된다 — 그 경로는 동작한다.
             */}
-            {false && <button aria-label={t('mc_expand')} className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>}
+            {SHOW_UNWIRED && <button aria-label={t('mc_expand')} className="btn btn--icon" type="button" title={t('mc_expand')}><I.Expand size={12}/></button>}
           </div>
         </div>
         )}

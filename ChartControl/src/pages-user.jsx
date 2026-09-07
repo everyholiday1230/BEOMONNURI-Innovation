@@ -12,6 +12,8 @@
    ============================================================ */
 
 (function () {
+  /* ★ 배선되지 않은 조작 요소 표시 여부. mock-policy 가 단일 진상이다(기본 false). */
+  var SHOW_UNWIRED = !!(window.QTMockPolicy && window.QTMockPolicy.showUnwired && window.QTMockPolicy.showUnwired());
   const { useState, useEffect, useMemo } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
@@ -1185,7 +1187,7 @@
                  붙인다(관리자 회원 Export 처럼 서버가 URL 을 준다).
               */}
             {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
-            {false && (
+            {SHOW_UNWIRED && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('an_export_report')}</button>
             )}
             <button aria-label={t('acct_refresh')}
@@ -1661,7 +1663,7 @@
           <>
             {/* Export 숨김 — 위 Export Report 와 같은 이유(배선할 경로가 없다). */}
             {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
-            {false && (
+            {SHOW_UNWIRED && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
             )}
             {/*
@@ -3394,7 +3396,7 @@
                        ★ 마크업을 지우지 않고 감춘다 — 업로드 경로가 생기면 여기에
                          onClick 만 붙이면 된다. 지우면 디자인 산출물과 어긋난다.
                   */}
-                  {false && !isLive && <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>}
+                  {SHOW_UNWIRED && !isLive && <button className="btn btn--sm" style={{marginLeft:'auto'}}>{t('settings_b7909f')}</button>}
                 </div>
 
                 {isLive ? (
@@ -3437,7 +3439,7 @@
                            ★★ '취소' 도 함께 가린다. 저장이 없으면 취소할 것도 없다 —
                              둘 중 하나만 남기면 짝이 맞지 않아 더 이상하게 보인다.
                       */}
-                      {false && <button className="btn btn--sm">{t('settings_19b2d1')}</button>}
+                      {SHOW_UNWIRED && <button className="btn btn--sm">{t('settings_19b2d1')}</button>}
                       {/*
                            ★★ '저장' 을 가린다. 이 탭에서 저장할 것이 없다 — API 키는 등록·회수만
                              있고(수정 기능 자체가 없다), 저장할 서버 경로도 없다.
@@ -3445,7 +3447,7 @@
                            ★ 눌러도 아무 일이 없는 버튼이 "저장됐다" 는 인상을 준다. 그게 가장
                              나쁘다 — 고객은 확인하지 않는다.
                       */}
-                      {false && <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>}
+                      {SHOW_UNWIRED && <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>}
                     </div>
                   </>
                 )}
@@ -3733,7 +3735,7 @@
                          ★ 위의 개별 설정들은 즉시 반영되는 것이라 저장 버튼이 없어도 동작한다.
                            저장 경로가 생기면 여기에 onClick 을 붙인다.
                     */}
-                    {false && (<>
+                    {SHOW_UNWIRED && (<>
                     <button className="btn btn--sm">{t('settings_a2d19e')}</button>
                     <button className="btn btn--sm btn--primary">{t('settings_1f1712')}</button>
                     </>)}
@@ -3839,7 +3841,7 @@
                            ★★ '내보내기' 를 가린다. 서버에 내보내기 경로가 없다. 같은 이유로
                              이미 가려 둔 Export 버튼이 이 파일에 세 개 더 있다(2026-08).
                       */}
-                      {false && <button className="btn btn--sm"><I.Camera size={12}/> {t('col_export')}</button>}
+                      {SHOW_UNWIRED && <button className="btn btn--sm"><I.Camera size={12}/> {t('col_export')}</button>}
                     </div>
                   </div>
                 </window.SectionCard>
@@ -4417,7 +4419,7 @@
             </select>
             {/* Export 숨김 (베타 범위 제외) — 주문 내역 내보내기 경로가 아직 없다. */}
             {/* eslint-disable-next-line no-constant-binary-expression -- 마크업을 지우지 않고 감춘다(배선 전). 되살릴 때 조건만 지운다. */}
-            {false && (
+            {SHOW_UNWIRED && (
               <button className="btn btn--sm"><I.Camera size={13}/> {t('export_csv')}</button>
             )}
           </>

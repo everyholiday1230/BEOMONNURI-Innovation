@@ -344,6 +344,33 @@ export function assertProductionSigningKeys(
   if (!isProduction) return;
   const missing: string[] = [];
   if (!env.AUTH_CSRF_KEY || env.AUTH_CSRF_KEY.length < 32) missing.push('AUTH_CSRF_KEY (min 32 chars)');
+  /*
+     ★★ 거래소 자격증명 KEK.
+
+       미설정이면 코드가 **공개된 고정 키**로 폴백했다(index.ts: `Buffer.alloc(32, 7)` —
+       전 바이트 0x07). 저장소를 읽을 수 있는 사람은 누구나 고객의 거래소 API 키를
+       복호화할 수 있다는 뜻이다. 운영에서 실제로 그 상태였고 자격증명 3건이 영향을
+       받았다.
+
+     ★★ 이 검사를 켜면 KEK 없이는 운영이 부팅하지 않는다. 그것이 의도다 — 조용히
+       약한 키로 도는 것보다 서지 않는 편이 안전하다.
+
+     ★ 순서가 중요하다. KEK 를 새로 넣기 전에 기존 자격증명을 재래핑해야 한다
+       (apps/api/scripts/rewrap-credentials.mts). 안 하면 옛 KEK 로 감싼 DEK 를 풀 수
+       없어 고객이 키를 다시 등록해야 한다.
+
+     ★ 32바이트(base64)를 요구한다. AES-256-GCM 이 그 길이만 받는다 — 짧은 값을 넣으면
+       부팅은 되고 암호화에서 터진다.
+  */
+  /* ★ 읽는 쪽(credentialKek)이 BITMART_DEV_KEK 도 받는다. 검사와 사용이 갈라지면 안 된다. */
+  const kek = env.CREDENTIAL_KEK ?? env.BITMART_DEV_KEK;
+  if (!kek) {
+    missing.push('CREDENTIAL_KEK (base64, 32 bytes — see apps/api/scripts/rewrap-credentials.mts before setting)');
+  } else {
+    let bytes = 0;
+    try { bytes = Buffer.from(kek, 'base64').length; } catch { bytes = 0; }
+    if (bytes !== 32) missing.push('CREDENTIAL_KEK (must decode to exactly 32 bytes)');
+  }
   if (missing.length > 0) {
     throw new Error(
       `fail-closed startup: ${missing.join(', ')} must be provided in production ` +

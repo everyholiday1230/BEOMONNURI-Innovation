@@ -125,7 +125,12 @@ describe('DEAD-BUTTONS — 눌러도 아무 일이 없는 버튼을 막는다', 
         if (/onClick/.test(blk) || /disabled/.test(blk) || /type=["']submit["']/.test(blk)) continue;
         if (/qt-pending-mark/.test(blk)) continue;
         /* ★ 감춰진 블록 안이면 고객이 보지 못한다. */
-        if (/\{false\s*&&/.test(src.slice(Math.max(0, m.index - 500), m.index))) continue;
+        /*
+           ★ 감춘 표시가 `{false && ...}` 에서 `{SHOW_UNWIRED && ...}` 로 바뀌었다.
+             eslint 의 no-constant-binary-expression 이 상수 비교를 오류로 잡기 때문이고,
+             규칙을 끄면 진짜 상수 비교 실수까지 놓친다. 의도를 이름으로 드러낸 것이다.
+        */
+        if (/\{(false|SHOW_UNWIRED)\s*&&/.test(src.slice(Math.max(0, m.index - 500), m.index))) continue;
         offenders.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
       }
     }

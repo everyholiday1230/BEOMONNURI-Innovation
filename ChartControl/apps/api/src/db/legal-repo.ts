@@ -207,6 +207,41 @@ export class PgLegalRepo {
    * ★ 게시되지 않은 문서에는 동의할 수 없다. 초안에 동의를 받으면 그 동의가
    *   무엇에 대한 것인지 불분명해진다.
    */
+  /**
+   * 가입 시 필수 동의 3종의 **최신 게시본** id 를 돌려준다.
+   *
+   * ★★ 왜 필요한가
+   *
+   *   `recordConsent` 는 documentId 를 요구하고 게시되지 않은 문서를 거부한다. 그런데
+   *   "지금 유효한 문서가 무엇인가" 를 알려주는 함수가 없어서, 가입 경로가 동의를
+   *   기록할 방법 자체가 없었다. 결과: 사용자 38명 중 동의 기록 0건.
+   *
+   * ★ 게시본만 고른다. 초안에 동의를 기록하면 고객이 볼 수 없는 문서에 동의한 것이 된다.
+   * ★ 필수 3종 중 하나라도 없으면 **빈 배열**을 돌려준다. 일부만 기록하면 "약관은 받았고
+   *   위험고지는 못 받았다" 는 상태가 되고, 그건 받지 않은 것과 분쟁에서 다르지 않다.
+   */
+  async requiredConsentDocs(locale: string): Promise<Array<{ id: string; kind: string; version: string }>> {
+    const KINDS = ['terms', 'privacy', 'risk'] as const;
+    try {
+      const { rows } = await this.pool.query(
+        `SELECT DISTINCT ON (kind) id, kind, version
+           FROM legal_documents
+          WHERE locale = $1 AND kind = ANY($2::text[]) AND published_at IS NOT NULL
+          ORDER BY kind, published_at DESC`,
+        [locale, KINDS as unknown as string[]],
+      );
+      const out = rows.map((r) => ({
+        id: String((r as Record<string, unknown>).id),
+        kind: String((r as Record<string, unknown>).kind),
+        version: String((r as Record<string, unknown>).version),
+      }));
+      /* ★ 셋이 모두 있어야 한다. 부분 기록은 하지 않는다. */
+      return out.length === KINDS.length ? out : [];
+    } catch {
+      return [];
+    }
+  }
+
   async recordConsent(input: {
     userId: string; documentId: string; ip?: string | null;
     client?: PoolClient;

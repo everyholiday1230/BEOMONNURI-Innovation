@@ -2808,6 +2808,13 @@
       plan_f_topup: 'Buy extra points when you run out',
       pt_topup_needs_plan: 'Extra points are available on a paid plan. Your monthly points come with the plan — see Pricing to upgrade.',
       pt_topup_unverified: 'Could not check your plan right now, so buying is closed. Nothing was charged — please reload shortly.',
+
+      /*
+         주문 식별자. 없으면 **만들지 않는다** — 가짜 번호는 조회가 안 되고, 고객은
+         그것을 적어 두고 문의한다. 아직 없으면 어디서 확인할 수 있는지 말한다.
+      */
+      op_order_id: 'Order ID',
+      op_order_id_pending: 'Order ID will appear in Order History once the exchange confirms',
     },
     { label: 'English', bcp47: 'en-US' },
   );

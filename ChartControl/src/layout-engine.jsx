@@ -29,11 +29,6 @@
   function hasCollision(widgets, target) {
     return widgets.some(w => !w.hidden && w.id !== target.id && overlaps(w, target));
   }
-  function isPanelCollapsed(w) {
-    return typeof window !== 'undefined' && window.QTPanelState
-      && typeof window.QTPanelState.isCollapsed === 'function'
-      && window.QTPanelState.isCollapsed(w.id);
-  }
   function minWOf(w) { return w.minW || (DEFAULT_WIDGET_META[w.type] && DEFAULT_WIDGET_META[w.type].minW) || 3; }
   function minHOf(w) { return w.minH || (DEFAULT_WIDGET_META[w.type] && DEFAULT_WIDGET_META[w.type].minH) || 3; }
   /** 두 구간이 겹치는가(한 축). */

@@ -58,7 +58,8 @@ describe('SIGNUP-GRANT — 신규 고객이 AI 를 실행할 수 있다', () => 
          코드 없이 가입한다.
     */
     const idx = read('apps/api/src/index.ts');
-    const start = idx.indexOf('onRegistered: async (userId, referralCode)');
+    /* ★ 시그니처에 동의 정보(regCtx)가 추가됐다. 접두사로 찾는다. */
+    const start = idx.indexOf('onRegistered: async (userId, referralCode');
     expect(start, 'onRegistered 를 찾지 못했다').toBeGreaterThan(0);
     const grantAt = idx.indexOf('signupGrantPoints', start);
     const earlyReturnAt = idx.indexOf('if (!referralRepo || !referralCode) return;', start);

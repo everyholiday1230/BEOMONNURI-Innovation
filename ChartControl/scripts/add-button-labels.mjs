@@ -23,7 +23,7 @@ import { join } from 'node:path';
 
 const SRC = 'src';
 const reportOnly = process.argv.includes('--report');
-const KEY = /\{t\(\s*'([a-z0-9_]+)'(?:\s*,[^)]*)?\)\}/i;
+/* 쓰이지 않는다 — 라벨 추출 방식을 바꾸면서 남았다. 지운다. */
 
 let added = 0;
 const unresolved = [];

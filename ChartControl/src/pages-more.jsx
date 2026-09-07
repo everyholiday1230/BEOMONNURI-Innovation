@@ -554,11 +554,6 @@
                 <button className="btn btn--sm btn--primary" onClick={() => { if (onSuccess) onSuccess(exchange, form); onClose(); }} disabled={!testResult?.ok}>
                   <I.Check size={12}/> {t('exchange_connect_wizard_5953fd')}
                 </button>
-                {actNote && (
-                  <span style={{marginLeft:8, fontSize:11, color: actNote.ok ? 'var(--color-trade-long)' : 'var(--color-warning)'}}>
-                    {actNote.text}
-                  </span>
-                )}
               </>
             )}
             {step === 4 && <button className="btn btn--sm btn--primary" onClick={onClose}>{t('exchange_connect_wizard_8d8680')}</button>}
@@ -1565,6 +1560,19 @@
                 <button className="btn btn--sm btn--primary" disabled={actBusy === 'follow'} onClick={followThis}>
                   <I.Plus size={13}/> {actBusy === 'follow' ? t('bt_running') : t('strategy_detail_73a075')}
                 </button>
+                {/*
+                     ★ 결과를 버튼 옆에 말한다. 표시가 없으면 됐는지 알 수 없고, 고객은 다시
+                       누른다 — 팔로우가 두 번 걸린다.
+                     ★★ 이 블록을 처음엔 **다른 컴포넌트**에 넣었다. actNote 가 그 스코프에
+                       없어 렌더 시 ReferenceError 가 났고, eslint 가 no-undef 로 잡았다.
+                       그런데 그때 내 eslint 확인 방식이 색상 코드 때문에 0을 반환하고 있어
+                       놓쳤다. 검증 도구가 조용히 실패하면 검증하지 않은 것과 같다.
+                */}
+                {actNote && (
+                  <span style={{marginLeft:8, fontSize:11, color: actNote.ok ? 'var(--color-trade-long)' : 'var(--color-warning)'}}>
+                    {actNote.text}
+                  </span>
+                )}
               </>
             )}
           </>

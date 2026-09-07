@@ -1959,6 +1959,18 @@
           gates: (r && r.gates) || [],
           reconcile: (r && r.reconcile) || null,
           brokerAttached: Boolean(r && r.brokerAttached),
+          /*
+             ★★ 실제 주문 식별자를 그대로 넘긴다. 서버는 이미 둘 다 준다.
+
+               전에는 여기서 버려져서, 성공 화면이 `SIM-{Math.random()}` 을 만들어
+               보여줬다 — 매 렌더마다 바뀌고 어디에서도 조회할 수 없는 번호였다.
+               고객이 그것을 적어 두고 문의하면 우리도 찾을 수 없다.
+
+             ★ 거래소 번호는 접수됐어도 아직 없을 수 있다. 그때는 우리 주문번호로
+               조회한다 — 그래서 둘 다 넘긴다.
+          */
+          clientOrderId: (r && r.clientOrderId) || key,
+          exchangeOrderId: (r && r.exchangeOrderId) || null,
           idempotencyKey: key,
         };
       });

@@ -67,9 +67,28 @@
     return L.isBackendPresent() === true;
   }
 
+  /*
+     배선되지 않은 조작 요소를 보여줄 것인가.
+
+     ★★ 왜 상수인가
+
+       서버 경로가 없어 눌러도 아무 일이 없는 버튼들을 `{false && ...}` 로 감춰 두었다.
+       마크업을 지우지 않는 이유는 기능이 생기면 onClick 만 붙이면 되고, 지우면 디자인
+       산출물과 어긋나기 때문이다.
+
+       그런데 `{false && ...}` 는 eslint 의 no-constant-binary-expression 이 오류로 잡는다.
+       규칙을 끄면 **진짜 상수 비교 실수**까지 놓친다. 그래서 규칙을 우회하지 않고
+       **의도를 이름으로 드러낸다** — 이 값이 왜 false 인지 여기에 적혀 있다.
+
+     ★ 배선을 확인할 때 이 값을 true 로 바꾸면 감춘 것들이 한 번에 드러난다.
+  */
+  var SHOW_UNWIRED_CONTROLS = false;
+
   window.QTMockPolicy = {
     allowMockData: allowMockData,
     isRealService: isRealService,
+    /** 배선되지 않은 버튼을 보여줄지. 기본 false — 죽은 버튼을 고객에게 내보내지 않는다. */
+    showUnwired: function () { return SHOW_UNWIRED_CONTROLS; },
 
     /**
      * 목업과 실데이터 중 무엇을 쓸지 고른다.

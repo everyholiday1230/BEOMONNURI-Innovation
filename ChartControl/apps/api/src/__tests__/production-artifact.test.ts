@@ -254,9 +254,24 @@ describe('production signing key is required, never defaulted', () => {
   });
 
   it('accepts a sufficiently long production key', () => {
+    /*
+       ★ 자격증명 KEK 도 필수가 됐다. 미설정이면 코드가 공개된 고정 키
+         (Buffer.alloc(32, 7))로 폴백해 고객의 거래소 API 키를 누구나 복호화할 수
+         있었다 — 운영이 실제로 그 상태였고 자격증명 3건이 영향받았다.
+    */
     expect(() =>
-      assertProductionSigningKeys({ NODE_ENV: 'production', AUTH_CSRF_KEY: 'x'.repeat(32) }),
+      assertProductionSigningKeys({
+        NODE_ENV: 'production',
+        AUTH_CSRF_KEY: 'x'.repeat(32),
+        CREDENTIAL_KEK: Buffer.alloc(32, 1).toString('base64'),
+      }),
     ).not.toThrow();
+  });
+
+  it('rejects a missing credential KEK in production', () => {
+    /* ★ 조용히 약한 키로 도는 것보다 서지 않는 편이 안전하다. */
+    expect(() => assertProductionSigningKeys({ NODE_ENV: 'production', AUTH_CSRF_KEY: 'x'.repeat(32) }))
+      .toThrow(/CREDENTIAL_KEK/);
   });
 
   it('does not constrain non-production runtimes', () => {

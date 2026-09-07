@@ -986,6 +986,18 @@
 
     const [orderPreview, setOrderPreview] = useState(null); // modal
     const [flowStep, setFlowStep] = useState('idle'); // idle | draft | user-review | approved | order-draft | preview | risk-check | confirm | submitted
+    /*
+       ★★ 제출 결과의 **실제 주문 식별자**. 성공 화면이 이것을 보여줘야 한다.
+
+         전에는 `SIM-{Math.random()...}` 을 렌더했다. 세 가지가 잘못이다:
+           · 매 렌더마다 값이 바뀌어 고객이 적어 둘 수 없다
+           · 거래소에도 우리 기록에도 없는 번호라 조회가 불가능하다
+           · 접두사가 SIM- 이라 **실주문을 모의로 오인**시킨다
+         실주문 경로(live.ok → step='submitted')에서 그대로 나왔다.
+
+       ★ 서버는 clientOrderId 와 exchangeOrderId 를 이미 돌려준다. 그것을 쓴다.
+    */
+    const [orderResult, setOrderResult] = useState(null);
 
     const proposeSignal = useCallback((sig) => {
       setCurrentSignal({ ...sig, status: 'draft' });
@@ -1164,6 +1176,17 @@
           });
 
           setFlowStep(live.ok ? 'submitted' : 'idle');
+          /*
+             ★ 실패해도 기록한다 — SUBMIT_UNKNOWN 이면 clientOrderId 로 조회해야 하고,
+               그 번호를 화면이 보여줘야 한다.
+          */
+          setOrderResult(live.ok || live.outcome === 'SUBMIT_UNKNOWN'
+            ? {
+              clientOrderId: live.clientOrderId || (draft && draft.clientOrderId) || null,
+              exchangeOrderId: live.exchangeOrderId || null,
+              outcome: live.outcome || null,
+            }
+            : null);
 
           if (live.ok) {
             pushToast({
@@ -2114,6 +2137,7 @@
         {orderPreview && (
           <OrderPreviewModal
             order={orderPreview}
+            result={orderResult}
             step={flowStep}
             onCancel={() => { setOrderPreview(null); setFlowStep('idle'); }}
             onConfirm={confirmOrder}
@@ -3132,7 +3156,7 @@
   // ============================================================
   // Order Preview Modal (multi-step)
   // ============================================================
-  function OrderPreviewModal({ order, step, onCancel, onConfirm, market, lastPrice, t }) {
+  function OrderPreviewModal({ order, step, onCancel, onConfirm, market, lastPrice, t, result }) {
     /*
        서버가 계산한 값이 오면 그것을 보여준다.
        클라이언트 추정치를 그대로 두면 화면 숫자와 실제 체결 조건이 어긋난다.
@@ -3277,7 +3301,20 @@
             {isFinal && (
               <div style={{marginTop:16, padding: 12, background:'oklch(74% 0.14 150 / 0.14)', border:'1px solid var(--color-success)', borderRadius: 6, color:'var(--color-success)', textAlign:'center'}}>
                 <I.Check size={16} style={{display:'inline', verticalAlign:'-3px', marginRight: 4}}/>
-                <strong>{t('op_accepted')}</strong> · Order ID: SIM-{Math.random().toString(36).slice(2,8).toUpperCase()}
+                <strong>{t('op_accepted')}</strong>
+                {/*
+                     ★★ 실제 주문 식별자를 보여준다. 없으면 **만들지 않는다** — 가짜 번호는
+                       조회가 안 되고, 고객은 그것을 적어 두고 문의한다.
+                     ★ 거래소 번호가 아직 없을 수 있다(접수됐지만 응답에 없는 경우). 그때는
+                       우리 주문번호를 보여준다 — 그것으로 조회할 수 있다.
+                */}
+                {result && (result.exchangeOrderId || result.clientOrderId) ? (
+                  <span> · {t('op_order_id')}: <code style={{fontFamily:'var(--font-mono)'}}>
+                    {result.exchangeOrderId || result.clientOrderId}
+                  </code></span>
+                ) : (
+                  <span style={{color:'var(--color-text-tertiary)'}}> · {t('op_order_id_pending')}</span>
+                )}
               </div>
             )}
           </div>

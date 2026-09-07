@@ -2205,7 +2205,42 @@ if (env.authEnabled) {
            근거가 없으므로 소급 귀속을 허용하지 않는다.
            저장소가 없거나 제도가 꺼져 있으면 아무 일도 하지 않는다.
         */
-        onRegistered: async (userId, referralCode) => {
+        onRegistered: async (userId, referralCode, regCtx) => {
+          /*
+             ★★ 필수 동의를 기록한다.
+
+               화면은 체크박스를 강제하고 값도 보냈지만, 스키마에 필드가 없어 zod 가
+               조용히 버렸고 기록 함수는 호출부가 0건이었다. 결과: 사용자 38명 중 동의
+               기록 0건. **동의를 받았다는 입증 책임은 우리에게 있으므로, 기록이 없으면
+               받지 않은 것과 같다.**
+
+             ★ 동의하지 않았으면 기록하지 않는다 — 없는 동의를 만들지 않는다.
+             ★ 셋(약관·개인정보·위험고지)이 모두 게시돼 있어야 기록한다. 일부만 남기면
+               "약관은 받았고 위험고지는 못 받았다" 가 되고, 분쟁에서 받지 않은 것과 다르지
+               않다.
+             ★ 실패해도 가입은 유지한다. 다만 **크게 남긴다** — 조용한 실패가 이 문제의
+               원인이었다.
+          */
+          if (legalRepo && regCtx && regCtx.agreed === true) {
+            try {
+              const locale = regCtx.locale || 'en';
+              const docs = await legalRepo.requiredConsentDocs(locale);
+              if (docs.length === 0) {
+                console.error(
+                  `[legal] ★ 동의 기록 불가 — ${locale} 의 필수 문서(약관·개인정보·위험고지)가 모두 게시돼 있지 않다. `
+                  + `user=${userId}. 동의를 받았다는 증거가 남지 않는다.`,
+                );
+              } else {
+                for (const doc of docs) {
+                  await legalRepo.recordConsent({ userId, documentId: doc.id, ip: regCtx.ip ?? null });
+                }
+                console.log(`[legal] 동의 기록 ${docs.length}건 — user=${userId} locale=${locale}`);
+              }
+            } catch (e) {
+              console.error('[legal] ★ 동의 기록 실패 — 가입은 유지한다:', (e as Error).message);
+            }
+          }
+
           /*
              ★★ 가입 축하 포인트. **초대 코드와 무관하게** 모든 신규 고객에게 준다.
 
@@ -3133,7 +3168,24 @@ if (env.authEnabled) {
 
     // Phase 3 — BitMart trading (additive). Read-only by default; live disabled + kill switch on.
     try {
-      const kek = env.credentialKek ?? Buffer.alloc(32, 7).toString('base64'); // dev-only fixed KEK when unset
+      /*
+         ★★ 예전에는 미설정 시 `Buffer.alloc(32, 7)` — 전 바이트 0x07 — 로 폴백했다.
+           그 값은 코드에 적혀 있으므로 **공개된 키**다. 저장소를 읽을 수 있는 사람은
+           누구나 고객의 거래소 API 키를 복호화할 수 있었고, 운영이 실제로 그 상태였다
+           (영향 자격증명 3건).
+
+         ★ 운영은 env.ts 의 fail-closed 검사가 막는다. 개발에서는 편의를 위해 폴백을
+           남기되 **경고를 크게 남긴다** — 조용히 약한 키로 도는 것이 원인이었다.
+      */
+      let kek = env.credentialKek;
+      if (!kek) {
+        kek = Buffer.alloc(32, 7).toString('base64');
+        console.warn(
+          '[api] ★ CREDENTIAL_KEK 미설정 — 개발용 고정 키로 자격증명을 암호화한다. '
+          + '이 키는 코드에 적혀 있어 공개된 값이다. 운영에서는 부팅이 거부된다. '
+          + '설정 전에 apps/api/scripts/rewrap-credentials.mts 로 기존 자격증명을 재래핑할 것.',
+        );
+      }
       const vault = new CredentialVault(new LocalKekProvider(kek));
       // brokerId: attribution for the BitMart Broker Program. Every relayed order must carry it or
       // the fill earns no rebate, so it is wired at the single place the adapter is constructed.

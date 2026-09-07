@@ -10,6 +10,18 @@ export default tseslint.config(
     // Non-source artifacts and generated output.
     ignores: [
       '**/dist/**',
+      /*
+         web-dist 는 Babel 이 만든 빌드 산출물이다. 디렉터리 이름이 web-dist 라서
+         위의 dist 규칙에 걸리지 않고 검사 대상에 남아 있었다.
+
+         결과: 로컬에서 한 번이라도 빌드한 사람은 eslint 가 7,635개 오류를 내뱉는다
+         (전부 산출물에서 나온 것). README 가 배포 전 게이트로 지시한 명령이 무조건
+         실패하므로 사람이 우회하게 되고, 그 안에 진짜 소스 오류가 묻힌다. 실제로
+         그 상태에서 소스 오류 16건이 보고되지 않고 있었다.
+
+         .gitignore 에는 이미 있다. 두 곳이 갈라진 것이 원인이다.
+      */
+      '**/web-dist/**',
       '**/node_modules/**',
       '**/*.css',
       '**/coverage/**',

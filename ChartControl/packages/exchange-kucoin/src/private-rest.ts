@@ -19,7 +19,7 @@
  * 발급하도록 안내한다. 이 파일에 출금 엔드포인트를 추가하지 말 것.
  */
 
-import { toDecimalString } from './decimal.js';
+import { toDecimalString, contractsFromQuantity } from './decimal.js';
 import { KucoinApiError, DEFAULT_KUCOIN_FUTURES_REST } from './rest.js';
 import { buildAuthHeaders, type BrokerCredentials, type UserCredentials } from './signature.js';
 import { toKucoinSymbol, toInternalSymbol } from './symbols.js';
@@ -637,13 +637,25 @@ export class KucoinFuturesPrivate {
       );
     }
 
-    const qty = Number(req.quantity);
-    if (!Number.isFinite(qty) || qty <= 0) {
+    /*
+       ★★ 계약 수 계산을 **정수 산술**로 한다.
+
+         전에는 `Number(qty) / multiplier` 후 `Math.floor` 였다. 부동소수 오차 때문에
+         계약이 하나 적게 나갔다 — 실측:
+           0.043 / 0.001 = 42.99999999999999 → 42 (정답 43)
+           0.3   / 0.1   = 2.9999999999999996 → 2  (정답 3)
+           2.9   / 0.1   = 28.999999999999996 → 28 (정답 29)
+
+         즉 **고객이 요청한 것보다 적은 수량이 거래소로 나갔다.** 곱셈은 이미 십진
+         문자열로 처리하는데 이 나눗셈만 float 로 남아 있었다.
+
+       ★ null 은 "계산할 수 없다" 다. 0 으로 떨어뜨리면 "최소 미달" 로 읽혀 원인을
+         찾기 어렵다.
+    */
+    const contracts = contractsFromQuantity(req.quantity, multiplier as number);
+    if (contracts === null) {
       throw new KucoinApiError(`수량이 올바르지 않다: ${req.quantity}`, { code: 'INVALID_QUANTITY' });
     }
-
-    const rawContracts = qty / (multiplier as number);
-    const contracts = Math.floor(rawContracts);
     if (contracts < 1) {
       throw new KucoinApiError(
         `최소 주문 수량 미달: ${req.quantity} < 1계약(${multiplier})`,

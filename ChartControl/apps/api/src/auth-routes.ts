@@ -70,7 +70,19 @@ interface RouterDeps {
    * 처리한다 — 초대 코드 문제로 가입이 막히면 사용자를 잃는다.
    * 귀속은 가입 시점에만 가능하므로(소급 불가) 여기가 유일한 자리다.
    */
-  onRegistered?: (userId: string, referralCode: string | null) => Promise<void> | void;
+  /**
+   * 가입 후처리.
+   *
+   * ★ `agreed` 는 필수 동의 체크 결과다. 이 값을 넘기지 않으면 동의를 기록할 방법이
+   *   없다 — 실제로 그 상태였고 사용자 38명 중 동의 기록이 0건이었다.
+   * ★ `locale` 로 어느 언어 문서에 동의했는지 정한다. 문서마다 내용이 다르므로
+   *   추측하면 안 된다.
+   */
+  onRegistered?: (
+    userId: string,
+    referralCode: string | null,
+    ctx?: { agreed?: boolean; locale?: string; ip?: string | null },
+  ) => Promise<void> | void;
   cookieName?: string;
   cookieDomain?: string;
   /** Optional MFA gate (Phase 6). When a user has MFA enabled, login returns a pending challenge
@@ -245,7 +257,13 @@ export function createAuthRouter(deps: RouterDeps): Hono {
       const raw = parsed.body as Record<string, unknown> | undefined;
       const code = raw && typeof raw.referralCode === 'string' ? raw.referralCode : null;
       try {
-        await deps.onRegistered(r.user.id, code);
+        /*
+           ★ 동의 여부와 언어를 함께 넘긴다. 스키마가 agree 를 받게 됐으므로 파싱된
+             본문에서 읽는다.
+        */
+        const agreed = raw && raw.agree === true;
+        const locale = raw && typeof raw.locale === 'string' ? raw.locale : undefined;
+        await deps.onRegistered(r.user.id, code, { agreed: Boolean(agreed), locale, ip: ipOf(c) ?? null });
       } catch (e) {
         console.warn('[auth] 리퍼럴 귀속 실패 — 가입은 유지한다:', (e as Error).message);
       }
@@ -427,7 +445,21 @@ export function createAuthRouter(deps: RouterDeps): Hono {
       */
       if (r.created && deps.onRegistered) {
         try {
-          await deps.onRegistered(r.user.id, null);
+          /*
+             ★★ 구글 가입에는 동의 체크박스가 없다. 리다이렉트로 오므로 우리 화면을
+               거치지 않는다.
+
+               그래서 `agreed` 를 참으로 넘기지 않는다 — 받지 않은 동의를 기록하면
+               분쟁에서 더 나쁘다(거짓 기록). 대신 그 사실을 로그로 남겨, 구글 가입자에게
+               동의를 따로 받아야 한다는 것이 보이게 한다.
+
+             ★ 이건 미해결 항목이다. 제대로 고치려면 구글 콜백 후 동의 화면을 한 번
+               거치게 해야 한다.
+          */
+          console.warn(
+            `[legal] ★ 구글 가입 — 필수 동의를 받지 못했다(리다이렉트 경로에 동의 화면이 없다). user=${r.user.id}`,
+          );
+          await deps.onRegistered(r.user.id, null, { agreed: false, ip: ipOf(c) ?? null });
         } catch (e) {
           console.warn('[auth] 구글 가입 후처리 실패 — 로그인은 유지한다:', (e as Error).message);
         }

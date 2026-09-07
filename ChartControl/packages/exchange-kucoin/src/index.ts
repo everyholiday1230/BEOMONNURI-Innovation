@@ -22,6 +22,8 @@ export {
 
 export {
   toDecimalString,
+  /* ★ 계약 수 변환. 정수 산술 — float 나눗셈이 1계약을 잃던 것을 고친 것이다. */
+  contractsFromQuantity,
   requireDecimalString,
   precisionFromStep,
   nanosToMs,
