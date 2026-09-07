@@ -28,7 +28,7 @@ import type {
   NormalizedOrder,
   SubmitOrderRequest,
   SubmitOutcome,
-} from '@quantumtrade/exchange-bitmart';
+} from '@quantumtrade/exchange-core';
 import { KucoinFuturesPrivate, type KucoinPrivateConfig } from '@quantumtrade/exchange-kucoin';
 /* 수량 계산에 십진수를 쓴다 — 승수 곱셈을 부동소수로 하면 자리수가 어긋난다. */
 import { D } from '@quantumtrade/domain';

@@ -96,6 +96,9 @@ importers:
       '@quantumtrade/exchange-bitmart':
         specifier: workspace:*
         version: link:../../packages/exchange-bitmart
+      '@quantumtrade/exchange-core':
+        specifier: workspace:*
+        version: link:../../packages/exchange-core
       '@quantumtrade/exchange-kucoin':
         specifier: workspace:*
         version: link:../../packages/exchange-kucoin
@@ -379,6 +382,9 @@ importers:
       '@quantumtrade/config':
         specifier: workspace:*
         version: link:../config
+      '@quantumtrade/exchange-core':
+        specifier: workspace:*
+        version: link:../exchange-core
       '@quantumtrade/schemas':
         specifier: workspace:*
         version: link:../schemas
@@ -392,6 +398,15 @@ importers:
       vitest:
         specifier: 2.1.9
         version: 2.1.9(@types/node@20.14.15)(jsdom@25.0.0)
+
+  packages/exchange-core:
+    devDependencies:
+      '@types/node':
+        specifier: 20.14.15
+        version: 20.14.15
+      typescript:
+        specifier: 5.5.4
+        version: 5.5.4
 
   packages/exchange-kucoin:
     dependencies:

@@ -25,7 +25,23 @@ const withWebkit = process.env.PW_WEBKIT === '1';
 const API_PORT = port('E2E_MFA_API_PORT', 8787);
 const WEB_PORT = port('E2E_MFA_WEB_PORT', 5173);
 const API_URL = `http://127.0.0.1:${API_PORT}`;
-const BASE_URL = process.env.E2E_MFA_BASE_URL ?? `http://localhost:${WEB_PORT}`;
+/*
+   ★★ BASE_URL 을 **API 서버**로 잡는다.
+
+     전에는 `http://localhost:5173` — Vite 개발 서버 — 를 가리키고, 두 번째
+     webServer 로 `pnpm --filter @quantumtrade/web dev` 를 띄우려 했다. **그 패키지는
+     존재하지 않는다.** 그래서 그 프로세스가 즉시 죽고 Playwright 가
+     "Process from config.webServer exited early" 로 중단했다 — 이 스위트는 **한 번도
+     실행되지 않았다.** 2단계 인증(MFA)은 계정 탈취를 막는 마지막 장치인데 그 검증이
+     통째로 비어 있었다.
+
+     같은 결함을 tests/e2e 에서 이미 고쳤다(그 파일 상단 주석에 기록돼 있다). API 가
+     정적 파일을 함께 서빙하므로 서버는 하나로 충분하다.
+
+   ★ WEB_PORT 는 더 이상 서버를 띄우지 않지만 포트 점검 목록에 남긴다 — 예전 방식으로
+     수동 실행한 개발 서버가 떠 있으면 알려주는 편이 낫다.
+*/
+const BASE_URL = process.env.E2E_MFA_BASE_URL ?? API_URL;
 const GIT_SHA = buildSha();
 
 export default defineConfig({
@@ -66,7 +82,8 @@ export default defineConfig({
         NODE_ENV: 'development',
         // The suite drives its own port, so that origin must be allowlisted for CSRF-protected
         // mutations. Hard-coding 5173 here is what broke isolation (Phase 7 §5).
-        CORS_ALLOWED_ORIGINS: `${BASE_URL},http://127.0.0.1:${WEB_PORT}`,
+        /* ★ 브라우저가 API 오리진에서 요청하므로 그 오리진을 허용한다(BASE_URL = API_URL). */
+        CORS_ALLOWED_ORIGINS: `http://127.0.0.1:${API_PORT},http://localhost:${API_PORT}`,
         // Batch 1: the login/MFA distributed rate limiter is now on the real HTTP path; a test suite
         // hammers login from one IP, so raise the budget here exactly as the admin suite raises its own
         // (real limits are exercised by the dedicated rate-limit unit/integration tests, not the flows).
@@ -75,18 +92,10 @@ export default defineConfig({
         GIT_SHA,
       },
     },
-    {
-      command: 'pnpm --filter @quantumtrade/web dev',
-      cwd: repoRoot,
-      url: BASE_URL,
-      timeout: 60_000,
-      reuseExistingServer: reuseExistingServer(),
-      // Port via env: pnpm swallows a forwarded `-- --port` flag (Phase 7 §5).
-      // DEV_API_PROXY_TARGET (server-only) points the dev proxy at this suite's API.
-      // VITE_API_BASE_URL is deliberately NOT set: it would be inlined into the client bundle,
-      // making browser calls cross-origin so the SameSite session cookie is dropped.
-      env: { DEV_API_PROXY_TARGET: API_URL, VITE_DEV_PORT: String(WEB_PORT) },
-    },
+    /*
+       ★ 두 번째 webServer 를 제거했다. `@quantumtrade/web` 은 존재하지 않는 패키지이고,
+         그것을 띄우려는 시도가 이 스위트를 시작조차 못 하게 만들고 있었다.
+    */
   ],
 });
 

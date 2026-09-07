@@ -33,7 +33,8 @@
     "@quantumtrade/cluster": "workspace:*",
     "@quantumtrade/strategy": "workspace:*",
     "@quantumtrade/exchange-kucoin": "workspace:*",
-    "ws": "8.18.0"
+    "ws": "8.18.0",
+    "@quantumtrade/exchange-core": "workspace:*"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.11",

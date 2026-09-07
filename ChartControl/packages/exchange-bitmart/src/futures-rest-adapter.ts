@@ -1,5 +1,5 @@
 import { buildSignedHeaders, normalizeQuery, serializeBody } from './signature';
-import { isOrderMutationAllowed } from './modes';
+import { isOrderMutationAllowed } from '@quantumtrade/exchange-core';
 import { normalizeBalances, normalizeOrder, normalizeOrders, normalizePositions } from './normalize';
 import {
   TRANSACTION_HISTORY_PATH,
@@ -18,7 +18,7 @@ import type {
   Position,
   SubmitOrderRequest,
   SubmitOutcome,
-} from './interfaces';
+} from '@quantumtrade/exchange-core';
 
 export interface BitMartFuturesConfig {
   restBase: string; // PRODUCTION base, e.g. https://api-cloud-v2.bitmart.com (NEVER demo)

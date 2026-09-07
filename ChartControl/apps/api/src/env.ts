@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { normalizeExecutionMode } from '@quantumtrade/exchange-bitmart';
+import { normalizeExecutionMode } from '@quantumtrade/exchange-core';
 import {
   DATA_MODES,
   TRADING_MODES,

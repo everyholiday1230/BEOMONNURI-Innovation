@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@quantumtrade/schemas": "workspace:*",
-    "@quantumtrade/config": "workspace:*"
+    "@quantumtrade/config": "workspace:*",
+    "@quantumtrade/exchange-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "20.14.15",

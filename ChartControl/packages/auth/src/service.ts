@@ -35,7 +35,17 @@ export type RegisterResult =
   | { ok: false; code: 'VALIDATION' | 'EMAIL_TAKEN'; error: string };
 
 export type LoginResult =
-  | { ok: true; user: PublicUser; sessionId: string; csrfSecret: string; expiresAt: number }
+  /**
+   * `created` — 이 호출이 계정을 **새로 만들었는가**.
+   *
+   * ★★ 연합 로그인(구글)은 계정이 없으면 그 자리에서 만든다. 그래서 "로그인" 처럼
+   *   보이지만 실제로는 가입인 경우가 있다. 호출자가 그것을 구별하지 못하면 가입
+   *   시 해야 할 일(포인트 지급, 초대 귀속)이 전부 빠진다 — 실제로 빠져 있었다.
+   *   구글로 가입한 고객은 포인트를 받지 못해 AI 를 쓸 수 없었다.
+   *
+   * ★ 비밀번호 로그인 경로에서는 항상 없거나 false 다.
+   */
+  | { ok: true; user: PublicUser; sessionId: string; csrfSecret: string; expiresAt: number; created?: boolean }
   | { ok: false; code: 'INVALID_CREDENTIALS' | 'RATE_LIMITED' | 'DISABLED' | 'EMAIL_NOT_VERIFIED'; error: string; retryAfterMs?: number };
 
 export interface DeviceSession {
@@ -225,6 +235,8 @@ export class AuthService {
     }
 
     let user = await this.users.findByEmail(email);
+    /* ★ 이 호출이 계정을 만들었는지 기록한다. 호출자가 가입 처리를 해야 한다. */
+    let created = false;
     if (!user) {
       const t0 = this.now();
       const fresh: User = {
@@ -243,6 +255,7 @@ export class AuthService {
       await this.users.create(fresh);
       await this.log('auth.register', fresh.id, ctx, 'success', { email, provider });
       user = fresh;
+      created = true;
     }
 
     /*
@@ -274,6 +287,7 @@ export class AuthService {
       sessionId: rawToken,
       csrfSecret: session.csrfSecret,
       expiresAt: session.expiresAt,
+      created,
     };
   }
 

@@ -42,7 +42,7 @@ import { PgPointOrderRepo } from './db/point-order-repo';
 import { resolvePaymentProviders } from './payments/providers';
 import { createSavedRouter } from './saved-routes';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
-import { isLegacyModeName } from '@quantumtrade/exchange-bitmart';
+import { isLegacyModeName } from '@quantumtrade/exchange-core';
 import { PgOpsErrorStore } from './ops/error-store';
 import { captureError, handleServerError, type ErrorAlerterDeps } from './ops/error-alert';
 import { createUserStrategyRouter } from './user-strategy-routes';
@@ -1619,9 +1619,44 @@ if (env.authEnabled) {
         }
       }
       for (const s of ['ai_provider', 'ai_signal_generation', 'ai_order_draft'] as const) await adminRepo.seedKill(s, null, false);
-      // Seed feature flags (safe defaults).
+      /*
+         Seed feature flags (safe defaults).
+
+         ★★ 씨딩은 **처음 한 번만** 값을 정한다(INSERT OR IGNORE). 이후에는 관리자
+           화면이 진실이다 — 운영자가 화면에서 끈 것을 재시작이 되살리면 안 된다.
+
+         ★★ 그런데 그 규칙에 함정이 있었다.
+
+           AI_ENABLED=false 인 상태로 한 번 부팅한 데이터베이스는 플래그가 false 로
+           박히고, 나중에 AI_ENABLED=true 로 바꿔도 **영원히 꺼진 채로 남는다.**
+           유일한 단서는 고객이 코파일럿에서 "운영자가 AI를 껐습니다" 를 보는 것뿐이다.
+           환경변수를 바꾼 사람은 자기가 켰다고 믿는다.
+
+         ★ 값을 덮어쓰지 않는다(그러면 관리자 화면이 무의미해진다). 대신 **불일치를
+           소리내어 알린다.** 결과와 고칠 위치를 함께 적는다 — 경고만 있고 무엇을
+           해야 하는지 없으면 읽어도 행동할 수 없다.
+      */
       await adminRepo.seedFlag('ai_enabled', env.aiEnabled, 'AI copilot enabled');
       await adminRepo.seedFlag('bitmart_live_trading_enabled', false, 'BitMart live trading (default off)');
+
+      try {
+        const flags = (await adminRepo.listFlags()) as Array<{ key?: string; enabled?: unknown }>;
+        const row = flags.find((f) => f && f.key === 'ai_enabled');
+        const stored = row ? Boolean(row.enabled) : null;
+        if (stored !== null && stored !== env.aiEnabled) {
+          console.warn(
+            `[api] ★ ai_enabled 불일치 — 환경변수 AI_ENABLED=${env.aiEnabled} 인데 데이터베이스 플래그는 ${stored} 다. `
+            + '실제로 적용되는 값은 데이터베이스 쪽이다(씨딩은 최초 1회만 값을 정한다). '
+            + (stored
+              ? '지금은 켜져 있으므로 AI 는 동작한다.'
+              : 'AI 코파일럿이 꺼져 있다 — 고객은 "운영자가 AI를 껐습니다" 를 보게 된다. '
+                + '관리자 화면 > 기능 플래그에서 ai_enabled 를 켜야 한다(환경변수를 바꿔도 반영되지 않는다).'),
+          );
+        }
+      } catch (e) {
+        /* ★ 진단이 부팅을 막아서는 안 된다. */
+        console.warn('[api] ai_enabled 플래그 확인 실패:', (e as Error).message);
+      }
 
       /*
          첫 관리자 승격.

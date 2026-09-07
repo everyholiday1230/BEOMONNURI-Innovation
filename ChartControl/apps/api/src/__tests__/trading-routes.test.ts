@@ -4,7 +4,7 @@ import { SqliteFavoritesRepo } from '../db/favorites-repo';
 import { randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
 import { AuthService, MailSink } from '@quantumtrade/auth';
-import type { IExchangeAccountAdapter } from '@quantumtrade/exchange-bitmart';
+import type { IExchangeAccountAdapter } from '@quantumtrade/exchange-core';
 import { openDb } from '../db/sqlite';
 import { SqliteUserRepository, SqliteSessionRepository, SqliteAuditRepository, SqliteTokenRepository } from '../db/repos';
 import { ResourceRepo } from '../db/resource-repo';

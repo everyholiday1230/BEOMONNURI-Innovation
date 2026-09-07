@@ -38,7 +38,7 @@ import type {
   SubmitOrderRequest,
   SubmitOutcome,
   AccountBalance,
-} from '@quantumtrade/exchange-bitmart';
+} from '@quantumtrade/exchange-core';
 import { KucoinSpotPrivate, type KucoinSpotPrivateConfig } from '@quantumtrade/exchange-kucoin';
 
 import { toKucoinCredential } from './kucoin-account-adapter';

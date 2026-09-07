@@ -1,4 +1,4 @@
-import type { AccountBalance, NormalizedOrder, Position } from './interfaces';
+import type { AccountBalance, NormalizedOrder, Position } from '@quantumtrade/exchange-core';
 
 /** BitMart-specific → normalized. Isolated so BitMart API drift is a one-file fix (ADR-0002). */
 const rows = (raw: unknown): Record<string, unknown>[] => {

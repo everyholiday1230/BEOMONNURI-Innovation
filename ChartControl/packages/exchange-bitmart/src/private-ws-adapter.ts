@@ -1,4 +1,4 @@
-import type { ExchangeContext, IExchangePrivateStreamAdapter, PrivateStreamEvent } from './interfaces';
+import type { ExchangeContext, IExchangePrivateStreamAdapter, PrivateStreamEvent } from '@quantumtrade/exchange-core';
 import { assertProductionWsUrl } from './ws-config';
 
 /**

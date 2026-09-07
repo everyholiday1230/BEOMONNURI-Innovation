@@ -410,6 +410,30 @@ export function createAuthRouter(deps: RouterDeps): Hono {
       if (!r.ok) return fail(r.code === 'DISABLED' ? 'account_disabled' : 'login_failed');
 
       /*
+         ★★ 구글로 **처음** 들어온 사람은 로그인이 아니라 가입이다.
+
+           `loginWithVerifiedEmail` 은 계정이 없으면 그 자리에서 만든다. 그런데 이
+           경로는 `onRegistered` 를 부르지 않았다. 그래서 구글로 가입한 고객에게는
+           가입 시 해야 할 일이 전부 빠졌다 — 포인트가 지급되지 않아 **AI 를 한 번도
+           쓸 수 없고**(최소 300pt 필요), 초대 코드 귀속도 되지 않았다.
+
+         ★ 지급 로직을 여기 복사하지 않는다. 비밀번호 가입과 **같은 창구**를 부른다 —
+           두 곳에 적으면 한쪽만 고쳐지는 일이 생긴다.
+
+         ★ 초대 코드는 null 이다. 구글 리다이렉트에는 코드를 실어 보내지 않는다.
+           (코드를 보존하려면 state 에 담아 왕복시켜야 한다 — 별건으로 남긴다.)
+
+         ★ 실패를 삼킨다 — 지급 때문에 로그인이 깨지면 안 된다. 다만 로그는 남긴다.
+      */
+      if (r.created && deps.onRegistered) {
+        try {
+          await deps.onRegistered(r.user.id, null);
+        } catch (e) {
+          console.warn('[auth] 구글 가입 후처리 실패 — 로그인은 유지한다:', (e as Error).message);
+        }
+      }
+
+      /*
          ★ MFA 가 켜진 계정은 비밀번호 경로와 같은 규칙을 적용한다 — 구글로
            들어오면 2단계를 건너뛸 수 있으면 안 된다.
       */

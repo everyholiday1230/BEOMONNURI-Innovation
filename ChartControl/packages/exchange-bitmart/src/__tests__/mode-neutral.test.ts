@@ -6,7 +6,7 @@ import {
   isOrderMutationAllowed,
   evaluateLiveTradingGate,
   type ExecutionMode,
-} from '../modes';
+} from '@quantumtrade/exchange-core';
 
 /*
    ============================================================

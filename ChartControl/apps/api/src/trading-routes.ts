@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
-import type { ExecutionMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-bitmart';
+import type { ExecutionMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-core';
 import { CredentialVault } from './trading/credential-vault';
 // 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
 import { attributeRealizedPnl, buildOrderOutcomes } from './learning/outcome-collector';
