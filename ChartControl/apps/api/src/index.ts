@@ -36,6 +36,8 @@ import { runAlertSweep } from './alerts/alert-watcher';
 import { PgReferralRepo } from './db/referral-repo';
 import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
+import { createSubscriptionRouter } from './subscriptions/subscription-routes';
+import { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { createPointsRouter } from './points/points-routes';
 import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
@@ -2389,6 +2391,30 @@ if (env.authEnabled) {
       cryptoUsdtAddress: env.cryptoUsdtAddress,
       cryptoNetwork: env.cryptoNetwork,
     });
+
+    /*
+       구독 라우터.
+
+       ★★ 요금제(/api/plans)는 **로그인 없이** 열려 있어야 한다 — 랜딩 페이지가 그것을
+         읽어 프라이싱을 그린다. 금액을 화면에 박아 두면 서버와 갈라지고, 고객은 화면에
+         적힌 것과 다른 금액을 결제하게 된다.
+
+       ★ 정기결제는 아직 붙지 않았다. recurringAvailable 이 false 이므로 화면이 결제
+         버튼을 띄우지 않고, 서버도 checkout 을 명확한 코드로 거절한다. 되는 척하는
+         엔드포인트를 두지 않는다.
+    */
+    const subscriptionRepo = core.pool ? new PgSubscriptionRepo(core.pool) : undefined;
+    app.route('/api', createSubscriptionRouter({
+      service: authService,
+      ...(subscriptionRepo ? { repo: subscriptionRepo } : {}),
+      ...(pointsRepo ? { points: pointsRepo } : {}),
+      cookieName: env.cookieName,
+      /*
+         ★ PayPal 정기결제(subscriptions API)를 아직 쓰지 않는다. providers.ts 에는
+           createOrder/capture 만 있다. 구현하면 이 함수만 바꾼다.
+      */
+      recurringAvailable: () => false,
+    }));
 
     app.route('/api', createPointsRouter({
       service: authService,

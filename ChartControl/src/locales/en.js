@@ -2733,6 +2733,65 @@
       ai_bar_mode_live: 'LIVE ORDERS',
       ai_bar_mode_sim: 'SIMULATED',
       ai_bar_mode_unknown: 'MODE ?',
+
+      /* ============================================================
+         요금제(구독) 문구
+         ------------------------------------------------------------
+         ★★ 금액과 포함량은 **서버(/api/plans)가 유일한 진상**이다. 여기에는 이름과
+           설명만 둔다 — 숫자를 여기 적으면 서버와 갈라지고, 고객은 화면에 적힌 것과
+           다른 금액을 결제하게 된다.
+
+         ★★ 없는 기능을 적지 않는다. 상시 감시 에이전트·종목 스캐너·자동 주문·데이터
+           내보내기는 없거나 하지 않기로 한 것이므로 요금제 문구에 넣지 않았다.
+           고객은 그것을 사고 없다는 것을 나중에 안다.
+
+         ★ 정기결제가 아직 붙지 않았다는 사실도 문구로 말한다(plan_billing_pending).
+           감추고 결제 버튼을 띄우는 것보다 낫다.
+         ============================================================ */
+      plan_loading: 'Loading plans…',
+      plan_load_failed: 'Could not load the plans right now. Nothing is being charged — please try again shortly.',
+      plan_per_month: '/mo',
+      plan_included_runs: 'Includes about {n} AI analyses each month ({pt} points)',
+      plan_included_none: 'Points are granted once when you sign up, not every month',
+      plan_billing_pending: 'Monthly billing is not connected yet, so no plan can be purchased today. Create a free account and you can upgrade the moment it opens — nothing will be charged before you choose it.',
+      plan_free_name: 'Free',
+      plan_basic_name: 'Basic',
+      plan_pro_name: 'Pro',
+      plan_f_chart: 'Full charting with 27 indicators and drawing tools',
+      plan_f_exchange: 'Connect your own KuCoin account — we never hold your funds',
+      plan_f_orders: 'Place and manage orders through your own API key',
+      plan_f_liquidation: 'Liquidation watch with email alerts',
+      plan_f_alerts: 'Price alerts',
+      plan_f_backtest: 'Strategy backtesting',
+      plan_f_mfa: 'Two-factor authentication',
+      plan_f_ai_signup_only: 'AI analysis using the points granted at signup',
+      plan_f_ai_monthly: 'About {n} AI analyses every month',
+      plan_f_review: 'AI review of your own past trades',
+      plan_f_saves: 'Save strategies, indicator sets and chart layouts',
+      plan_f_priority: 'Longer AI answers before overage applies',
+
+      /*
+         구독 상태 문구.
+
+         ★★ 해지가 **즉시 끊기지 않는다**는 사실을 반드시 말한다. 이미 낸 달은 끝까지
+           쓴다 — 즉시 끊긴다고 오해하면 고객은 해지를 미루고, 그건 우리가 원하는
+           것이 아니다.
+
+         ★★ 결제 대행사 쪽 정기결제는 우리 기록과 **별개**다. 그것을 말하지 않으면
+           "해지했는데 또 결제됐다" 가 된다.
+
+         ★ 조회 실패를 '무료' 로 말하지 않는다. 유료 고객에게 무료라고 하면 돈이 새고
+           있다고 생각한다.
+      */
+      sub_read_failed: 'Could not read your subscription right now. Your plan has not changed — please reload shortly.',
+      sub_free_note: 'Free plan. Points were granted once at signup and are not topped up monthly.',
+      sub_active_note: 'Renews {date} · {pt} points are added each month (unused points do not carry over)',
+      sub_canceled_note: 'Cancelled — you keep full access until {date}, then the plan drops to Free.',
+      sub_cancel: 'Cancel subscription',
+      sub_cancel_confirm: 'Cancel the subscription? You keep access until the end of the month you already paid for. This cannot be undone here — you would need to subscribe again.',
+      sub_canceled_ok: 'Subscription cancelled. Access continues until the end of the current period.',
+      sub_canceled_provider: 'Subscription cancelled on our side. Also stop the recurring payment with the payment provider, or it will charge again.',
+      sub_cancel_failed: 'Could not cancel the subscription. Nothing was changed — try again.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

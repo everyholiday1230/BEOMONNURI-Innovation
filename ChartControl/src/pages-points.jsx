@@ -43,6 +43,50 @@
 
   window.PointsPage = function PointsPage({ shellProps }) {
     const [data, setData] = useState(null);
+    /*
+       구독 상태.
+
+       ★ null 을 유지한다 — 조회 전에 '무료' 로 보여주면 유료 고객이 자기 플랜이 사라진
+         것으로 본다. 받은 뒤에만 그린다.
+    */
+    const [sub, setSub] = useState(null);
+    const [subBusy, setSubBusy] = useState(false);
+    const loadSub = React.useCallback(() => {
+      fetch('/api/me/subscription', { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((j) => setSub(j))
+        /* ★ 실패를 무료로 바꾸지 않는다. available:false 로 두고 화면이 그렇게 말한다. */
+        .catch(() => setSub({ available: false }));
+    }, []);
+    useEffect(() => { loadSub(); }, [loadSub]);
+
+    const cancelSub = async () => {
+      /*
+         ★★ 해지는 되돌릴 수 없고, **즉시 끊기지 않는다**(이미 낸 달은 끝까지 쓴다).
+           그 두 가지를 확인 문구에서 함께 말한다 — 즉시 끊긴다고 오해하면 해지를 미룬다.
+      */
+      if (!window.confirm(t('sub_cancel_confirm'))) return;
+      setSubBusy(true);
+      try {
+        const cs = await (await fetch('/api/auth/csrf', { credentials: 'same-origin' })).json().catch(() => ({}));
+        const r = await fetch('/api/me/subscription/cancel', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': (cs && cs.csrfToken) || '' },
+          body: '{}',
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.ok) {
+          /* ★ 결제 대행사 쪽 정기결제는 우리 기록과 별개다. 그 사실을 반드시 알린다. */
+          setMsg({ ok: true, text: j.providerStopRequired ? t('sub_canceled_provider') : t('sub_canceled_ok') });
+          loadSub();
+        } else {
+          setMsg({ ok: false, text: (j.error && j.error.message) || t('sub_cancel_failed') });
+        }
+      } catch (e) {
+        setMsg({ ok: false, text: (e && e.message) || t('sub_cancel_failed') });
+      }
+      setSubBusy(false);
+    };
     const [err, setErr] = useState(null);
     const [busyId, setBusyId] = useState(null);
     const [msg, setMsg] = useState(null);
@@ -308,6 +352,59 @@
                 sub={t('pt_spent_sub')}
               />
             </div>
+
+            {/*
+                 구독 상태.
+
+                 ★★ 포인트 화면에 둔다. 구독이 하는 일이 **매달 포인트를 충전하는 것**이므로
+                   잔액 바로 옆에서 보여야 "왜 이만큼인가" 를 알 수 있다. 별도 화면으로
+                   빼면 두 숫자의 관계가 보이지 않는다.
+
+                 ★ 읽지 못한 경우를 '무료' 로 말하지 않는다. 유료 고객에게 "무료 플랜" 이라고
+                   하는 것은 거짓이고, 고객은 돈이 새고 있다고 생각한다.
+            */}
+            {sub && (
+              <div style={{
+                padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                background:'var(--color-bg-panel)', border:'1px solid var(--color-border-subtle)',
+                display:'flex', flexWrap:'wrap', gap:10, alignItems:'center', justifyContent:'space-between',
+              }}>
+                {sub.available === false ? (
+                  <span style={{color:'var(--color-warning)'}}>{t('sub_read_failed')}</span>
+                ) : (
+                  <>
+                    <div>
+                      <strong>{t(sub.subscription.planNameKey)}</strong>
+                      {sub.subscription.planCode !== 'free' && (
+                        <span style={{color:'var(--color-text-tertiary)'}}>
+                          {' · $'}{sub.subscription.priceUsd}{t('plan_per_month')}
+                        </span>
+                      )}
+                      <div style={{fontSize:11.5, color:'var(--color-text-secondary)', marginTop:3}}>
+                        {sub.subscription.planCode === 'free'
+                          ? t('sub_free_note')
+                          : (sub.subscription.status === 'canceled'
+                            ? t('sub_canceled_note', { date: sub.subscription.currentPeriodEnd ? new Date(sub.subscription.currentPeriodEnd).toLocaleDateString() : '—' })
+                            : t('sub_active_note', {
+                              pt: Number(sub.subscription.monthlyPoints || 0).toLocaleString(),
+                              date: sub.subscription.currentPeriodEnd ? new Date(sub.subscription.currentPeriodEnd).toLocaleDateString() : '—',
+                            }))}
+                      </div>
+                    </div>
+                    {/*
+                         ★ 결제가 붙지 않았으므로 '구독하기' 버튼을 만들지 않는다. 요금제는
+                           랜딩의 프라이싱에서 보여주고, 여기서는 지금 상태만 말한다.
+                         ★ 해지는 실제로 동작하므로 유료 구독일 때만 보여준다.
+                    */}
+                    {sub.subscription.planCode !== 'free' && sub.subscription.status === 'active' && (
+                      <button className="btn btn--sm" disabled={subBusy} onClick={cancelSub}>
+                        {subBusy ? t('sec_loading') : t('sub_cancel')}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/*
                ★★ 반드시 표시하는 고지 ★★

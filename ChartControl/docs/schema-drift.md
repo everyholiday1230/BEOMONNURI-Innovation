@@ -5,8 +5,8 @@
 현재 상태 — `node scripts/schema-drift.mjs` 로 언제든 다시 확인할 수 있다:
 
 ```
-Postgres 표 107개 · SQLite 표 74개
-운영에만 있는 표 33개
+Postgres 표 108개 · SQLite 표 74개
+운영에만 있는 표 34개
 ```
 
 파일 번호(Postgres 0041 / SQLite 0015)로는 격차를 알 수 없다. SQLite 쪽은 phase 단위로 여러 표를 한 파일에 만들기 때문이다. 그래서 **표 이름**으로 비교한다.
@@ -23,14 +23,14 @@ Postgres 표 107개 · SQLite 표 74개
 
 ## 결정
 
-**SQLite 를 Postgres 와 맞추지 않는다.** 33개 표를 옮기는 비용이 크고, 일부는 Postgres 전용 기능(`JSONB`, `EXTRACT`, `xmax`, 부분 인덱스)에 의존한다. SQLite 는 **인증·주문 초안·차트까지만 되는 축소 개발 환경**으로 규정한다.
+**SQLite 를 Postgres 와 맞추지 않는다.** 34개 표를 옮기는 비용이 크고, 일부는 Postgres 전용 기능(`JSONB`, `EXTRACT`, `xmax`, 부분 인덱스)에 의존한다. SQLite 는 **인증·주문 초안·차트까지만 되는 축소 개발 환경**으로 규정한다.
 
 대신 두 가지를 지킨다.
 
 1. **없는 표를 쓰는 기능은 `supported: false` 로 정직하게 답한다.** 빈 목록을 돌려주면 "데이터가 없다" 로 읽혀 개발자가 코드를 의심한다. 이건 이미 여러 라우트에 적용돼 있다(`saved-routes`, `notices`, `referral` 등).
 2. **새 드리프트가 생기면 알린다.** `scripts/schema-drift.mjs` 가 이 문서에 적히지 않은 운영 표를 발견하면 **실패(exit 1)** 한다. 새 Postgres 마이그레이션을 추가하면서 판단을 미루는 것을 막는다.
 
-## 운영 전용 표 33개와 개발에서 꺼지는 기능
+## 운영 전용 표 34개와 개발에서 꺼지는 기능
 
 | 표 | 개발에서 꺼지는 것 |
 |---|---|
@@ -46,6 +46,7 @@ Postgres 표 107개 · SQLite 표 74개
 | `equity_snapshots` | 자산 추이 |
 | `price_alerts` | 가격 알림 |
 | `chart_templates` | 차트 서식 저장 |
+| `subscriptions` | 월정액 구독 — 플랜 확인·해지·월 포인트 충전. 없으면 `/api/me/subscription` 이 `available:false` 로 답한다(무료라고 단정하지 않는다). 요금제 목록(`/api/plans`)은 코드 상수라 SQLite 에서도 보인다 |
 | `tier_definitions` `tier_benefit_settings` `user_tier_state` | 등급 제도 |
 | `admin_user_notes` | 관리자 회원 노트 |
 | `kucoin_oauth_states` | KuCoin Fast API(OAuth) 연결 — 라우트가 아예 등록되지 않는다 |

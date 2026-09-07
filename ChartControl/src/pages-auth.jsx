@@ -1567,6 +1567,29 @@
     */
     const LANDING_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
     const [liveQuotes, setLiveQuotes] = useState(null);   // null = 조회 중 · [] = 실패
+
+    /*
+       요금제. **서버가 유일한 진상**이므로 화면은 받아서 그린다.
+
+       ★ 세 상태를 구별한다: loading · error · ready. 실패를 빈 목록으로 바꾸면
+         "요금제가 없다" 처럼 보이고, 금액을 임의로 채우면 거짓 가격이 된다.
+       ★ 로그인 없이 열리는 엔드포인트다 — 방문자가 가입 전에 가격을 봐야 한다.
+    */
+    const [plans, setPlans] = useState({ state: 'loading', list: [], recurringAvailable: false });
+    useEffect(() => {
+      let dead = false;
+      fetch('/api/plans', { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((j) => {
+          if (dead) return;
+          const list = Array.isArray(j && j.plans) ? j.plans : [];
+          /* ★ 빈 응답을 '준비됨' 으로 보지 않는다 — 요금제가 없는 화면은 고장으로 보인다. */
+          if (!list.length) { setPlans({ state: 'error', list: [], recurringAvailable: false }); return; }
+          setPlans({ state: 'ready', list, recurringAvailable: Boolean(j && j.recurringAvailable) });
+        })
+        .catch(() => { if (!dead) setPlans({ state: 'error', list: [], recurringAvailable: false }); });
+      return () => { dead = true; };
+    }, []);
     useEffect(() => {
       let cancelled = false;
       const rest = window.QTApi && window.QTApi.rest;
@@ -1937,20 +1960,65 @@
            ★ 섹션을 지우지 않고 사실을 쓴다 — 방문자는 요금을 찾아서 여기를 누른다.
              "무료다 / 청구할 수단이 없다 / 유료가 열리면 먼저 알린다" 를 말한다.
         */}
+        {/*
+             프라이싱.
+
+             ★★ 금액·포함량을 화면에 박지 않는다. **서버(/api/plans)가 유일한 진상**이다.
+               두 곳에 적으면 갈라지고, 고객은 화면에 적힌 것과 다른 금액을 결제하게 된다.
+
+             ★★ 아직 정기결제가 붙지 않았다. 서버가 `recurringAvailable: false` 를 주면
+               결제 버튼을 **띄우지 않고** 그 사실을 문장으로 말한다 — 누를 수 없는 결제
+               버튼은 고객이 돈을 보낼 방법을 찾게 만든다.
+
+             ★ 불러오기 전·실패 시에는 요금제를 그리지 않는다. 금액을 임의로 채우면
+               거짓 가격을 보여주는 것이다.
+        */}
         <section id="pricing" className="landing-section">
           <div className="landing-section-title">{t('landing_nav_pricing')}</div>
-          <div className="landing-pricing">
-            <div className="landing-price-card is-highlight" style={{gridColumn: '1 / -1'}}>
-              <div className="landing-price-card__name">{t('landing_price_title')}</div>
-              <div className="landing-price-card__price"><strong>$0</strong></div>
-              <ul>
-                <li>✓ {t('landing_price_body_1')}</li>
-                <li>✓ {t('landing_price_body_2')}</li>
-                <li>✓ {t('landing_price_body_3')}</li>
-              </ul>
-              <a className="btn btn--primary" href="#/signup" style={{width: '100%'}}>{t('landing_price_cta')}</a>
-            </div>
-          </div>
+          {plans.state === 'loading' && (
+            <div className="landing-price-note">{t('plan_loading')}</div>
+          )}
+          {plans.state === 'error' && (
+            <div className="landing-price-note">{t('plan_load_failed')}</div>
+          )}
+          {plans.state === 'ready' && (
+            <>
+              <div className="landing-pricing">
+                {plans.list.map((pl) => (
+                  <div key={pl.code} className={`landing-price-card${pl.highlight ? ' is-highlight' : ''}`}>
+                    <div className="landing-price-card__name">{t(pl.nameKey)}</div>
+                    <div className="landing-price-card__price">
+                      <strong>${pl.priceUsd}</strong>
+                      {pl.priceUsd !== '0' && <span className="landing-price-card__per">{t('plan_per_month')}</span>}
+                    </div>
+                    {/* ★ 포함 분석 횟수를 그대로 말한다 — 포인트만 적으면 몇 번 쓸 수 있는지 알 수 없다. */}
+                    <div className="landing-price-card__meta">
+                      {pl.monthlyPoints > 0
+                        ? t('plan_included_runs', { n: String(pl.approxAiRuns), pt: pl.monthlyPoints.toLocaleString() })
+                        : t('plan_included_none')}
+                    </div>
+                    <ul>
+                      {pl.features.map((f) => (
+                        <li key={f.key} className={f.included ? '' : 'is-excluded'}>
+                          {f.included ? '✓' : '—'} {t(f.key, f.params || {})}
+                        </li>
+                      ))}
+                    </ul>
+                    {/*
+                         ★ 결제가 준비되지 않았으면 가입 링크만 둔다. 유료 플랜에 '구독' 버튼을
+                           띄우고 눌러도 안 되면 그게 가장 나쁘다.
+                    */}
+                    <a className={`btn ${pl.highlight ? 'btn--primary' : ''}`} href="#/signup" style={{width: '100%'}}>
+                      {t('landing_price_cta')}
+                    </a>
+                  </div>
+                ))}
+              </div>
+              {!plans.recurringAvailable && (
+                <div className="landing-price-note">{t('plan_billing_pending')}</div>
+              )}
+            </>
+          )}
         </section>
 
         <section id="exchanges" className="landing-section">
