@@ -2169,6 +2169,56 @@ if (env.authEnabled) {
            저장소가 없거나 제도가 꺼져 있으면 아무 일도 하지 않는다.
         */
         onRegistered: async (userId, referralCode) => {
+          /*
+             ★★ 가입 축하 포인트. **초대 코드와 무관하게** 모든 신규 고객에게 준다.
+
+               운영 데이터로 확인한 사실: 사용자 20명 중 포인트를 가진 사람은 2명
+               (둘 다 운영자 계정)이고 나머지 18명은 전원 0 이었다. AI 실행에는 최소
+               300pt 가 필요하다. 즉 **모든 실제 고객이 AI 코파일럿을 한 번도 쓸 수
+               없었다** — 이 제품의 핵심 기능이다. 포인트 주문 22건 중 결제 완료는
+               0건이고(created 20 · failed 2), 가입 지급도 코드에 없었다. 지급 경로가
+               운영자 수동(admin_grant) 하나뿐이었다.
+
+               신규 고객이 가입 직후 만나는 것이 402 오류였다는 뜻이다.
+
+             ★ 금액은 환경변수로 둔다. 비용이 직접 걸리는 값이므로 배포 없이 조정할
+               수 있어야 하고, 0 으로 두면 지급하지 않는다(기능을 끌 수 있다).
+
+             ★ 멱등: refType/refId 를 넣으면 uq_points_ref 가 두 번 적립을 막는다.
+             ★ 실패를 삼킨다 — 포인트 적립 때문에 회원가입이 실패하면 안 된다.
+               다만 조용히 넘기지 않고 로그를 남긴다. 지급이 안 되면 고객은 AI 를
+               쓸 수 없고, 그 사실을 아무도 모르는 상태가 이 문제의 원인이었다.
+          */
+          if (pointsRepo && env.signupGrantPoints > 0) {
+            try {
+              const ps = await pointsRepo.getSettings();
+              if (ps.enabled) {
+                /*
+                   ★ reason 은 'event_reward' 를 쓴다. DB CHECK 제약이 사유를 고정
+                     목록으로 제한하므로 'signup_grant' 를 새로 넣으려면 마이그레이션이
+                     필요하다. 원장에서의 구분은 refType='signup_grant' 로 충분하고,
+                     그 조합이 UNIQUE 인덱스의 멱등 키이기도 하다.
+                */
+                const entry = await pointsRepo.grant({
+                  userId,
+                  amount: env.signupGrantPoints,
+                  reason: 'event_reward',
+                  refType: 'signup_grant',
+                  refId: userId,
+                  memo: `signup grant (${env.signupGrantPoints}pt)`,
+                });
+                if (entry) console.log(`[points] 가입 지급 ${env.signupGrantPoints}pt — user=${userId}`);
+              } else {
+                console.warn('[points] 포인트 제도가 꺼져 있어 가입 지급을 건너뛴다 — 신규 고객은 AI 를 쓸 수 없다');
+              }
+            } catch (e) {
+              console.error(
+                '[points] 가입 지급 실패 — 가입은 유지한다. 이 고객은 AI 를 실행할 수 없다:',
+                (e as Error).message,
+              );
+            }
+          }
+
           if (!referralRepo || !referralCode) return;
           const attributed = await referralRepo.attribute(referralCode, userId);
           if (!attributed) return;

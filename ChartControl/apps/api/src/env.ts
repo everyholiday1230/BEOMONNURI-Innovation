@@ -241,6 +241,17 @@ export interface ApiEnv {
   orderValidateRatePerMin: number;
   /** BATCH_1/R6 — distributed LOGIN request budget per minute, applied to the IP and account buckets. */
   loginRateLimitPerMin: number;
+  /**
+   * 가입 시 신규 고객에게 줄 포인트. 0 이면 지급하지 않는다.
+   *
+   * ★★ 왜 필요한가: AI 실행에 최소 300pt 가 필요한데 지급 경로가 운영자 수동뿐이었다.
+   *   운영 데이터에서 사용자 20명 중 18명이 0pt 였고, 그 18명은 AI 를 한 번도 쓸 수
+   *   없었다 — 핵심 기능이다. 결제 완료도 0건이었다.
+   *
+   * ★ 비용이 직접 걸리는 값이라 환경변수로 둔다. 배포 없이 조정하고, 0 으로 끌 수 있다.
+   *   기본 900pt = 기본 분석 3회(300pt/회).
+   */
+  signupGrantPoints: number;
   /** BATCH_1/R6 — distributed MFA verification budget per minute, per actor. */
   mfaRateLimitPerMin: number;
   /** BATCH_2/BL-11 — distributed AI request budget per minute, per authenticated user + route category. */
@@ -810,6 +821,8 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     // legitimate user needs only a few attempts (a success clears the bucket). The DURABLE penalty is the
     // separate `account_lockouts` control in PostgreSQL, which these do not replace.
     loginRateLimitPerMin: Number(env.LOGIN_RATE_LIMIT_PER_MIN ?? 10),
+    /* ★ 음수·NaN 은 0 으로 떨어뜨린다. 잘못된 값이 지급을 막는 쪽이 과다 지급보다 안전하다. */
+    signupGrantPoints: Math.max(0, Math.trunc(Number(env.SIGNUP_GRANT_POINTS ?? 900)) || 0),
     mfaRateLimitPerMin: Number(env.MFA_RATE_LIMIT_PER_MIN ?? 10),
     // BATCH_2/BL-11 — AI request RATE budget (distinct from the AI token/cost budget enforced by the
     // CostController). Bounds how often a user can trigger an expensive model call in a short window.
