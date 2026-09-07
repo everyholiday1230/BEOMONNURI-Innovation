@@ -249,7 +249,7 @@ export interface ApiEnv {
    *   없었다 — 핵심 기능이다. 결제 완료도 0건이었다.
    *
    * ★ 비용이 직접 걸리는 값이라 환경변수로 둔다. 배포 없이 조정하고, 0 으로 끌 수 있다.
-   *   기본 900pt = 기본 분석 3회(300pt/회).
+   *   기본 1000pt — 운영자가 정한 값이다(기본 분석 3회 + 여유).
    */
   signupGrantPoints: number;
   /** BATCH_1/R6 — distributed MFA verification budget per minute, per actor. */
@@ -822,7 +822,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     // separate `account_lockouts` control in PostgreSQL, which these do not replace.
     loginRateLimitPerMin: Number(env.LOGIN_RATE_LIMIT_PER_MIN ?? 10),
     /* ★ 음수·NaN 은 0 으로 떨어뜨린다. 잘못된 값이 지급을 막는 쪽이 과다 지급보다 안전하다. */
-    signupGrantPoints: Math.max(0, Math.trunc(Number(env.SIGNUP_GRANT_POINTS ?? 900)) || 0),
+    signupGrantPoints: Math.max(0, Math.trunc(Number(env.SIGNUP_GRANT_POINTS ?? 1000)) || 0),
     mfaRateLimitPerMin: Number(env.MFA_RATE_LIMIT_PER_MIN ?? 10),
     // BATCH_2/BL-11 — AI request RATE budget (distinct from the AI token/cost budget enforced by the
     // CostController). Bounds how often a user can trigger an expensive model call in a short window.
