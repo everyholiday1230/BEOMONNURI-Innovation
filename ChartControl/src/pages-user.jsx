@@ -3249,6 +3249,8 @@
        ★ 서버에 목록 조회 경로도 없었다(저장·검증·삭제만 있었다). 함께 만들었다.
     */
     const [exKeys, setExKeys] = useState(null);
+    /* ★ 회수 중인 키 id. 두 번 눌러 두 번 지우는 것을 막고, 진행 중임을 보여준다. */
+    const [revoking, setRevoking] = useState(null);
     useEffect(() => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.exchangeKeys) return undefined;
@@ -3414,7 +3416,23 @@
               <window.SectionCard
                 title={t('set_api_keys')}
                 subtitle={t('settings_8eb853')}
-                actions={<button className="btn btn--sm btn--primary"><I.Plus size={12}/> {t('wal_add_key')}</button>}
+                /*
+                   ★★ 이 버튼에 onClick 이 없었다. 눌러도 아무 일이 없었다(운영에서 클릭으로 확인:
+                     URL 변화 없음, 대화창 없음).
+
+                     같은 화면이 "지갑 화면에서 연결하라" 고 안내하면서, 정작 바로 옆에 눌리지 않는
+                     '키 추가' 버튼을 두고 있었다. 고객은 그 버튼을 먼저 누른다 — 그리고 아무 일도
+                     일어나지 않으면 제품이 고장났다고 판단한다.
+
+                   ★ 키 등록 흐름은 지갑 화면에 이미 있다(거래소 선택 → 키 입력 → 검증).
+                     같은 흐름을 여기 복제하지 않고 그곳으로 보낸다.
+                */
+                actions={(
+                  <button
+                    className="btn btn--sm btn--primary"
+                    onClick={() => { window.location.hash = '#/wallet'; }}
+                  ><I.Plus size={12}/> {t('wal_add_key')}</button>
+                )}
                 noPadding
               >
                 <div className="api-key-row" style={{background:'var(--color-bg-panel)', color:'var(--color-text-tertiary)', fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:500}}>
@@ -3489,9 +3507,40 @@
                           ? timeAgo(new Date(k.lastUsedAt).getTime())
                           : t('wal_col_last_used_none')}
                       </div>
+                      {/*
+                           ★★ 두 버튼 모두 onClick 이 없었다 — 눌러도 아무 일이 없다.
+
+                             특히 '회수' 가 죽어 있던 것이 문제다. 고객이 키가 유출됐다고 판단해
+                             회수하려 해도 이 화면에서는 불가능했다. 보안 동작이 화면에서 끊긴 것이고,
+                             서버에는 DELETE /api/trading/credentials/:id 가 이미 있었다.
+
+                           ★ '수정' 은 제거한다. 거래소 키는 수정 대상이 아니다 — 비밀키를 바꾸려면
+                             새로 등록하고 예전 것을 회수하는 것이 맞다. 배선할 서버 기능도 없다.
+                             있으나 눌리지 않는 버튼보다 없는 편이 정직하다.
+
+                           ★ 회수는 되돌릴 수 없으므로 확인을 받는다.
+                      */}
                       <div style={{display:'inline-flex', gap:4}}>
-                        <button className="tbl-action">{t('col_edit')}</button>
-                        <button className="tbl-action tbl-action--danger">{t('col_revoke')}</button>
+                        <button
+                          className="tbl-action tbl-action--danger"
+                          disabled={revoking === k.id}
+                          onClick={async () => {
+                            if (!window.confirm(t('wal_revoke_confirm'))) return;
+                            const api = window.QTApi && window.QTApi.credentials;
+                            if (!api || typeof api.remove !== 'function') return;
+                            setRevoking(k.id);
+                            try {
+                              await api.remove(k.id);
+                              /* ★ 목록을 다시 읽는다. 지운 뒤에도 남아 있으면 지워졌는지 알 수 없다. */
+                              if (window.QTAccount && window.QTAccount.refresh) window.QTAccount.refresh();
+                              else window.location.reload();
+                            } catch (e) {
+                              /* ★ 실패를 조용히 넘기지 않는다 — 고객은 키가 회수됐다고 믿는다. */
+                              window.alert(t('wal_revoke_failed', { msg: (e && e.message) || '' }));
+                            }
+                            setRevoking(null);
+                          }}
+                        >{revoking === k.id ? t('sec_loading') : t('col_revoke')}</button>
                       </div>
                     </div>
                   );

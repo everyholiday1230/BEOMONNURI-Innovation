@@ -116,6 +116,13 @@
       settings_009e27: 'Delete account permanently',
       settings_560adc: 'Erases all data · not recoverable · requires 2FA + email confirmation',
       settings_254a82: 'Request deletion',
+
+      /*
+         API 키 회수. **되돌릴 수 없다** — 확인을 받고, 실패하면 아직 살아 있다고 말한다.
+         조용히 실패하면 고객은 회수됐다고 믿는다(그게 유출 상황이면 치명적이다).
+      */
+      wal_revoke_confirm: 'Revoke this API key? Orders and balance reads will stop immediately. This cannot be undone — you can connect a new key afterwards.',
+      wal_revoke_failed: 'Could not revoke the key: {msg}. It is still active — try again, or remove it at the exchange.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

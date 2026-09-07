@@ -2375,19 +2375,9 @@ if (env.authEnabled) {
       supportEmail: env.supportEmail,
     }));
 
-    app.route('/api', createPointsRouter({
-      service: authService,
-      ...(pointsRepo ? { repo: pointsRepo } : {}),
-      csrfKey: env.csrfKey,
-      corsOrigins: env.corsOrigins,
-      cookieName: env.cookieName,
-      verifyCsrf,
-      originAllowed,
-    }));
-
     /*
-       포인트 충전(결제) 라우터. PayPal/USDT 자격증명이 없으면 각 수단이 비활성으로
-       정직하게 보고된다(NOT_CONFIGURED). 적립은 결제 검증 후 point_ledger 로 멱등 처리.
+       ★ 결제 수단 해석을 **포인트 라우터보다 앞으로** 옮겼다. 포인트 화면이 "구매
+         가능한가" 를 여기서 판단해야 하는데, 뒤에서 만들면 그 값을 넘길 수 없다.
     */
     const paymentProviders = resolvePaymentProviders({
       paypalClientId: env.paypalClientId,
@@ -2399,6 +2389,34 @@ if (env.authEnabled) {
       cryptoUsdtAddress: env.cryptoUsdtAddress,
       cryptoNetwork: env.cryptoNetwork,
     });
+
+    app.route('/api', createPointsRouter({
+      service: authService,
+      ...(pointsRepo ? { repo: pointsRepo } : {}),
+      csrfKey: env.csrfKey,
+      corsOrigins: env.corsOrigins,
+      cookieName: env.cookieName,
+      verifyCsrf,
+      originAllowed,
+      /*
+         ★★ 실제로 결제할 수 있는지 알려준다.
+
+           전에는 `purchaseAvailable` 이 **하드코딩 false** 였다. 주석은 "결제 대행사가
+           없으므로" 라고 설명했지만, 지금은 PayPal 이 연결돼 있고 실제로 결제 화면까지
+           넘어간다(운영에서 확인). 그래서 포인트 화면이 구매 버튼을 띄우면서 동시에
+           **"이 배포에서는 포인트를 돈으로 살 수 없다" 고 말하는** 모순 상태였다.
+
+           고객이 그 문장을 읽으면 결제를 포기한다. 매출을 막는 거짓말이다.
+
+         ★ 판단 근거를 하나로 만든다: 결제 수단이 하나라도 실제로 설정돼 있는가.
+       */
+      paymentConfigured: () => Boolean(paymentProviders.paypal || paymentProviders.crypto || paymentProviders.toss),
+    }));
+
+    /*
+       포인트 충전(결제) 라우터. PayPal/USDT 자격증명이 없으면 각 수단이 비활성으로
+       정직하게 보고된다(NOT_CONFIGURED). 적립은 결제 검증 후 point_ledger 로 멱등 처리.
+    */
     const pointOrderRepo = core.pool && pointsRepo ? new PgPointOrderRepo(core.pool, pointsRepo) : undefined;
     app.route('/api', createPaymentRouter({
       service: authService,

@@ -1901,7 +1901,19 @@
             {route.path === '/wallet/transactions' && <window.TransactionHistoryPage shellProps={shellProps}/>}
             {route.path === '/referral'       && <window.ReferralPage       shellProps={shellProps}/>}
             {route.path === '/points'         && <window.PointsPage         shellProps={shellProps}/>}
-            {route.path === '/fees'           && auth.role !== 'user' && <window.FeeRebatePage      shellProps={shellProps}/>}
+            {/*
+                 ★★ `auth.role !== 'user'` 조건이 붙어 있었다. 그런데 access.js 는 이 경로를
+                   **'user' 등급으로 허용**한다. 두 판단이 정반대라서, 고객은 접근 검사를
+                   통과하지만 아무것도 렌더되지 않았다 — **완전히 검은 빈 화면**이다.
+                   (운영에서 확인: /fees 본문 0자.)
+
+                 ★ 이 화면은 거래소 실제 수수료율을 보여주는 고객용 화면이다(access.js 주석에
+                   "배선 완료 — 거래소 실 수수료율"). 관리자 전용이 아니다. 조건을 제거한다.
+
+                 ★ 접근 제어는 access.js 한 곳에서만 한다. 렌더 조건에 권한을 또 쓰면
+                   이렇게 갈라진다.
+            */}
+            {route.path === '/fees'           && <window.FeeRebatePage      shellProps={shellProps}/>}
             {route.path === '/help'           && <window.HelpCenterPage     shellProps={shellProps}/>}
             {route.path === '/settings'       && <window.SettingsPage       shellProps={shellProps}/>}
             {route.path === '/notifications'  && <window.NotificationsPage  shellProps={shellProps}/>}

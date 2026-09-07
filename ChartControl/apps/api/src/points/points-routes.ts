@@ -31,6 +31,12 @@ export interface PointsRouterDeps {
   cookieName: string;
   verifyCsrf: (token: string | undefined, cookie: string | undefined, secret: string, key: string) => boolean;
   originAllowed: (origin: string | undefined, referer: string | undefined, allowed: string[]) => boolean;
+  /**
+   * 실제로 결제할 수 있는가(결제 수단이 하나라도 설정돼 있는가).
+   *
+   * ★ 없으면 false 로 본다 — 살 수 없는데 살 수 있다고 말하는 쪽이 더 나쁘다.
+   */
+  paymentConfigured?: () => boolean;
 }
 
 const err = (code: string, message: string) => ({ error: { code, message } });
@@ -79,12 +85,16 @@ export function createPointsRouter(d: PointsRouterDeps): Hono {
           /*
              구매 가능 여부.
 
-             ★ 조건 두 개를 모두 만족해야 true 다: 설정이 켜져 있고, 결제
-               경로가 실제로 있어야 한다. 지금은 결제 대행사가 없으므로
-               항상 false 다. 설정만 보고 true 를 주면 화면이 구매 버튼을
-               띄우고 사용자가 돈을 보낼 방법을 찾는다.
+             ★★ 전에는 **하드코딩 false** 였다. 주석은 "결제 대행사가 없으므로" 라고
+               설명했지만 PayPal 이 연결된 뒤에도 false 로 남았다. 그래서 포인트 화면이
+               결제 버튼을 띄우면서 동시에 "이 배포에서는 살 수 없다" 고 말했다 —
+               고객이 그 문장을 읽고 결제를 포기한다(운영에서 실제로 그 상태였다).
+
+             ★ 조건은 둘이다: 결제 경로가 실제로 있고, 설정이 켜져 있어야 한다.
+               둘 중 하나라도 아니면 버튼을 띄우지 않는다 — 살 수 없는데 살 수 있다고
+               말하는 것이 더 나쁘다.
           */
-          purchaseAvailable: false,
+          purchaseAvailable: Boolean(d.paymentConfigured?.()) && settings.purchaseEnabled,
           purchaseEnabledInSettings: settings.purchaseEnabled,
           expiryDays: settings.expiryDays,
         },
