@@ -835,8 +835,9 @@
     /** 사용 가능한 결제수단 + 포인트 패키지. supported.{paypal,usdt}=false 면 화면이 "준비중" 표시. */
     topupPackages: function () {
       return getJSON('', '/api/me/topup/packages').then(
-        function (r) { return { ok: true, supported: (r && r.supported) || {}, packages: (r && r.packages) || [], enabled: Boolean(r && r.enabled) }; },
-        function () { return { ok: false, supported: {}, packages: [], enabled: false }; }
+        function (r) { return { ok: true, supported: (r && r.supported) || {}, topupAllowed: !(r && r.topupAllowed === false), topupBlockedReason: (r && r.topupBlockedReason) || null, planCode: (r && r.planCode) || null, packages: (r && r.packages) || [], enabled: Boolean(r && r.enabled) }; },
+        /* ★ 실패를 '구매 가능' 으로 바꾸지 않는다. 모르면 막는다. */
+        function () { return { ok: false, supported: {}, packages: [], enabled: false, topupAllowed: false, topupBlockedReason: 'UNVERIFIED', planCode: null }; }
       );
     },
     /** PayPal 결제 주문 생성 → { orderId, approveUrl } (approveUrl 로 이동해 승인). */

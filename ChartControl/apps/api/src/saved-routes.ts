@@ -3,6 +3,9 @@ import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import type { PgSavedItemRepo, SavedItemKind, SavedItemScope } from './db/saved-item-repo';
 import type { PgPointsRepo } from './db/points-repo';
+import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
+import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
+import { FEATURE_SAVES } from './subscriptions/plans';
 
 const CSRF = 'qt_csrf';
 const err = (code: string, message: string) => ({ error: { code, message } });
@@ -22,6 +25,13 @@ export interface SavedRouterDeps {
   service: AuthService;
   repo?: PgSavedItemRepo;
   points?: PgPointsRepo;
+  /**
+   * 구독 저장소. 저장 기능은 유료 플랜에만 포함된다.
+   *
+   * ★ 없으면 저장을 막고 '확인 불가' 로 답한다 — 무료로 열어 두면 요금제 문구와
+   *   실제가 갈라진다("저장 가능" 을 유료 항목으로 팔면서 무료로 열어 두는 셈).
+   */
+  subscriptions?: PgSubscriptionRepo;
   csrfKey: string;
   corsOrigins: string[];
   cookieName: string;
@@ -57,6 +67,15 @@ export function createSavedRouter(d: SavedRouterDeps): Hono {
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!d.repo) return c.json(err('NOT_CONFIGURED', 'saving requires the PostgreSQL backend'), 503);
+    /*
+       ★★ 저장은 유료 플랜 기능이다. 요금제 정의(plan_f_saves)를 그대로 읽어 판단한다 —
+         별도 목록을 두면 가격표와 갈라진다.
+       ★ 포인트를 차감하기 **전에** 막는다. 차감 후 막으면 돈은 나가고 결과가 없다.
+    */
+    {
+      const gate = await checkPlanFeature(d.subscriptions, a.user.id, FEATURE_SAVES);
+      if (!gate.allowed) return c.json(gateErrorBody(gate), gate.reason === 'PLAN_REQUIRED' ? 402 : 503);
+    }
     const body = (await c.req.json().catch(() => ({}))) as { kind?: string; scope?: string; name?: string; symbol?: string; timeframe?: string; payload?: unknown };
     if (!body.kind || !VALID_KINDS.has(body.kind as SavedItemKind)) return c.json(err('BAD_REQUEST', 'invalid kind'), 400);
     if (!body.name || !String(body.name).trim()) return c.json(err('BAD_REQUEST', 'name required'), 400);

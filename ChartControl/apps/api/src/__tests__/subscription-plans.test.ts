@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PLANS, PLAN_BY_CODE, PLAN_AI_RUN_POINTS, isPlanCode, DEFAULT_PLAN } from '../subscriptions/plans';
+import { PLANS, PLAN_BY_CODE, PLAN_AI_RUN_POINTS, isPlanCode, DEFAULT_PLAN, planIncludes, FEATURE_SAVES, FEATURE_TOPUP } from '../subscriptions/plans';
 import { AI_BASE_POINTS } from '../points/ai-metering';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
@@ -28,7 +28,7 @@ const exists = (p: string) => existsSync(join(ROOT, p));
 describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
   it('[1] 플랜을 실제로 읽었다', () => {
     /* ★★ 빈 배열이면 아래 검사가 "검사할 것이 없어서" 통과한다. */
-    expect(PLANS.length).toBeGreaterThanOrEqual(3);
+    expect(PLANS.length).toBeGreaterThanOrEqual(5);
     expect(Object.keys(PLAN_BY_CODE).length).toBe(PLANS.length);
     expect(isPlanCode(DEFAULT_PLAN)).toBe(true);
   });
@@ -58,13 +58,29 @@ describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
     }
   });
 
-  it('[4] 무료 플랜은 매달 포인트를 주지 않는다', () => {
+  it('[4] 무료 플랜은 값이 0 이고, 유료 기능은 포함하지 않는다', () => {
     /*
-       ★★ 매달 무료로 주면 유료로 올릴 이유가 사라지고, 계정을 여러 개 만드는 남용이
-         생긴다. 가입 지급(1회)과 구독 충전(매달)은 다른 것이다.
+       ★★ 무료 플랜도 매달 포인트를 준다(운영자 결정: 1,000pt = 분석 3회).
+
+         ★ 그 대신 **유료 기능은 반드시 제외돼야 한다.** 무료로 전부 주면 올릴 이유가
+           없다. 저장과 추가 구매가 제외인지 검사한다 — 요금제 문구와 서버 게이트가
+           같은 정의를 읽으므로, 여기서 참이면 게이트도 막는다.
+
+         ★ 남용 위험은 기록해 둔다: 매달 무료 지급은 계정을 여러 개 만드는 길이 된다.
+           지금 막는 것은 이메일 중복뿐이다.
     */
-    expect(PLAN_BY_CODE.free.monthlyPoints).toBe(0);
     expect(PLAN_BY_CODE.free.priceUsd).toBe('0');
+    expect(PLAN_BY_CODE.free.monthlyPoints).toBeGreaterThan(0);
+    expect(planIncludes('free', FEATURE_SAVES), '무료 플랜에 저장이 포함됐다').toBe(false);
+    expect(planIncludes('free', FEATURE_TOPUP), '무료 플랜에 추가 구매가 포함됐다').toBe(false);
+  });
+
+  it('[4b] 유료 플랜은 저장과 추가 구매를 포함한다', () => {
+    /* ★ 가격표에 적힌 것을 서버 게이트가 그대로 읽으므로, 여기가 곧 권한이다. */
+    for (const p of PLANS.filter((x) => x.priceUsd !== '0')) {
+      expect(planIncludes(p.code, FEATURE_SAVES), `${p.code}: 저장이 빠졌다`).toBe(true);
+      expect(planIncludes(p.code, FEATURE_TOPUP), `${p.code}: 추가 구매가 빠졌다`).toBe(true);
+    }
   });
 
   it('[5] 유료 플랜은 값이 비싸질수록 더 준다', () => {

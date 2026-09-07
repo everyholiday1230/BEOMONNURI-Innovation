@@ -444,8 +444,28 @@
               }}>{msg.text}</div>
             )}
 
-            {/* 포인트 충전(결제): PayPal / USDT. 결제수단 미설정이면 정직하게 "준비 중". */}
-            {topup && (
+            {/*
+                 포인트 추가 구매(토큰 충전).
+
+                 ★★ 구독제로 바꾸면서 이 섹션은 **유료 구독자 전용**이 됐다. 무료 이용자가
+                   포인트만 사서 쓰면 구독제가 아니게 된다.
+
+                 ★ 권한이 없으면 카드를 아예 그리지 않고 **왜인지 한 줄로 말한다.** 카드를
+                   보여주고 누르면 402 를 주는 것보다 낫다 — 고객은 결제하려고 카드를 꺼낸다.
+
+                 ★ '확인 불가' 와 '요금제에 없음' 을 구별해 말한다. 앞의 경우 고객이 할 수
+                   있는 일이 없고, 뒤의 경우 업그레이드하면 된다.
+            */}
+            {topup && !topup.topupAllowed && (
+              <div style={{
+                padding:'12px 14px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                background:'var(--color-bg-surface)', border:'1px dashed var(--color-border-subtle)',
+                color:'var(--color-text-secondary)',
+              }}>
+                {topup.topupBlockedReason === 'UNVERIFIED' ? t('pt_topup_unverified') : t('pt_topup_needs_plan')}
+              </div>
+            )}
+            {topup && topup.topupAllowed && (
               <window.SectionCard title={t('pt_topup_title', { unit })} subtitle={t('pt_topup_sub')}>
                 {!topup.enabled ? (
                   <div style={{

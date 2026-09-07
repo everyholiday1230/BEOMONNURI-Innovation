@@ -28,7 +28,7 @@
 */
 
 /** 플랜 코드. 원장·구독 행에 저장되므로 함부로 바꾸면 기존 구독이 깨진다. */
-export type PlanCode = 'free' | 'basic' | 'pro';
+export type PlanCode = 'free' | 'basic' | 'pro' | 'premium' | 'elite';
 
 export interface PlanFeature {
   /** 화면 문구의 사전 키. 서버가 문장을 만들지 않는다 — 언어가 4종이다. */
@@ -71,11 +71,16 @@ export const PLANS: Plan[] = [
     nameKey: 'plan_free_name',
     priceUsd: '0',
     /*
-       ★ 0 이다. 가입 시 한 번 지급되는 것과 다르다 — 무료 플랜은 매달 충전되지 않는다.
-         화면이 "가입 시 1회 지급" 이라고 정확히 말한다.
+       ★★ 무료 플랜도 매달 1,000pt 를 준다(운영자 결정). AI 분석 3회에 해당한다.
+
+         ★ 위험을 적어 둔다: 매달 무료로 주면 계정을 여러 개 만드는 남용이 가능하다.
+           지금 막는 것은 이메일 중복뿐이다. 남용이 보이면 이메일 인증 필수화 또는
+           지급 조건 추가를 검토해야 한다 — 금액이 작아 지금은 감수할 수 있다.
+
+       ★ 저장 기능은 제외한다. 무료로 전부 주면 유료로 올릴 이유가 없다.
     */
-    monthlyPoints: 0,
-    approxAiRuns: 0,
+    monthlyPoints: 1000,
+    approxAiRuns: 3,
     features: [
       { key: 'plan_f_chart', included: true },
       { key: 'plan_f_exchange', included: true },
@@ -84,8 +89,9 @@ export const PLANS: Plan[] = [
       { key: 'plan_f_alerts', included: true },
       { key: 'plan_f_backtest', included: true },
       { key: 'plan_f_mfa', included: true },
-      { key: 'plan_f_ai_signup_only', included: true },
+      { key: 'plan_f_ai_monthly', included: true, params: { n: '3' } },
       { key: 'plan_f_saves', included: false },
+      { key: 'plan_f_topup', included: false },
     ],
   },
   {
@@ -107,6 +113,7 @@ export const PLANS: Plan[] = [
       { key: 'plan_f_ai_monthly', included: true, params: { n: '30' } },
       { key: 'plan_f_review', included: true },
       { key: 'plan_f_saves', included: true },
+      { key: 'plan_f_topup', included: true },
     ],
   },
   {
@@ -127,6 +134,51 @@ export const PLANS: Plan[] = [
       { key: 'plan_f_ai_monthly', included: true, params: { n: '100' } },
       { key: 'plan_f_review', included: true },
       { key: 'plan_f_saves', included: true },
+      { key: 'plan_f_topup', included: true },
+      { key: 'plan_f_priority', included: true },
+    ],
+  },
+  {
+    code: 'premium',
+    nameKey: 'plan_premium_name',
+    priceUsd: '99',
+    /* 240회 × 300pt. 단가가 낮아진다($/pt) — 상위 플랜이 더 유리해야 올릴 이유가 생긴다. */
+    monthlyPoints: 72000,
+    approxAiRuns: 240,
+    features: [
+      { key: 'plan_f_chart', included: true },
+      { key: 'plan_f_exchange', included: true },
+      { key: 'plan_f_orders', included: true },
+      { key: 'plan_f_liquidation', included: true },
+      { key: 'plan_f_alerts', included: true },
+      { key: 'plan_f_backtest', included: true },
+      { key: 'plan_f_mfa', included: true },
+      { key: 'plan_f_ai_monthly', included: true, params: { n: '240' } },
+      { key: 'plan_f_review', included: true },
+      { key: 'plan_f_saves', included: true },
+      { key: 'plan_f_topup', included: true },
+      { key: 'plan_f_priority', included: true },
+    ],
+  },
+  {
+    code: 'elite',
+    nameKey: 'plan_elite_name',
+    priceUsd: '199',
+    /* 500회 × 300pt. */
+    monthlyPoints: 150000,
+    approxAiRuns: 500,
+    features: [
+      { key: 'plan_f_chart', included: true },
+      { key: 'plan_f_exchange', included: true },
+      { key: 'plan_f_orders', included: true },
+      { key: 'plan_f_liquidation', included: true },
+      { key: 'plan_f_alerts', included: true },
+      { key: 'plan_f_backtest', included: true },
+      { key: 'plan_f_mfa', included: true },
+      { key: 'plan_f_ai_monthly', included: true, params: { n: '500' } },
+      { key: 'plan_f_review', included: true },
+      { key: 'plan_f_saves', included: true },
+      { key: 'plan_f_topup', included: true },
       { key: 'plan_f_priority', included: true },
     ],
   },
@@ -149,3 +201,24 @@ export function isPlanCode(v: unknown): v is PlanCode {
  *   막는 것보다 나쁘다(돈을 받지 않고 원가를 쓴다).
  */
 export const DEFAULT_PLAN: PlanCode = 'free';
+
+/*
+   플랜이 특정 기능을 포함하는가.
+
+   ★★ 요금제 문구와 실제 권한이 갈라지면 안 된다. 가격표에 "저장 가능" 이라고 적고
+     서버가 막으면 고객은 돈을 내고 못 쓴다. 반대로 "제외" 라고 적고 열어 두면 무료로
+     쓸 수 있어 유료 전환 이유가 사라진다.
+
+   ★ 그래서 게이트가 **요금제 정의를 그대로 읽는다.** 별도 목록을 만들지 않는다.
+*/
+export function planIncludes(code: PlanCode, featureKey: string): boolean {
+  const plan = PLAN_BY_CODE[code];
+  if (!plan) return false;
+  const f = plan.features.find((x) => x.key === featureKey);
+  return Boolean(f && f.included);
+}
+
+/** 저장 기능(전략·지표·차트) 권한을 나타내는 요금제 항목 키. */
+export const FEATURE_SAVES = 'plan_f_saves';
+/** 포인트 추가구매 권한을 나타내는 요금제 항목 키. */
+export const FEATURE_TOPUP = 'plan_f_topup';

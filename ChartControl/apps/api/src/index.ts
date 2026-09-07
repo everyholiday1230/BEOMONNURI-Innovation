@@ -2455,7 +2455,8 @@ if (env.authEnabled) {
       verifyCsrf,
       originAllowed,
       ...(env.publicBaseUrl ? { publicBaseUrl: env.publicBaseUrl } : {}),
-    }));
+          ...(subscriptionRepo ? { subscriptions: subscriptionRepo } : {}),
+}));
     console.log(`[api] payments mounted (paypal=${Boolean(paymentProviders.paypal)}, usdt=${Boolean(paymentProviders.crypto)}, toss=${Boolean(paymentProviders.toss)})`);
 
     /* 저장 항목(신호·지표·드로잉) — PG. 저장 시 포인트 차감(제도 켜져 있을 때). */
@@ -2469,7 +2470,8 @@ if (env.authEnabled) {
       cookieName: env.cookieName,
       verifyCsrf,
       originAllowed,
-    }));
+          ...(subscriptionRepo ? { subscriptions: subscriptionRepo } : {}),
+}));
 
     /* 사용자 전략/지표(Option B) — PG. 생성 시 포인트 차감(제도 켜져 있을 때), 편집·삭제 무료. */
     const userStrategyRepo = core.pool ? new PgUserStrategyRepo(core.pool) : undefined;
@@ -2480,7 +2482,8 @@ if (env.authEnabled) {
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
       cookieName: env.cookieName,
-    }));
+          ...(subscriptionRepo ? { subscriptions: subscriptionRepo } : {}),
+}));
 
     app.route('/api', createReferralRouter({
       service: authService,

@@ -3,6 +3,9 @@ import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import type { PgUserStrategyRepo, UserStrategyKind } from './db/user-strategy-repo';
 import type { PgPointsRepo } from './db/points-repo';
+import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
+import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
+import { FEATURE_SAVES } from './subscriptions/plans';
 
 /*
    사용자가 만든 전략/지표 CRUD (Option B).
@@ -21,6 +24,8 @@ const VALID_KINDS = new Set<UserStrategyKind>(['strategy', 'indicator']);
 
 export interface UserStrategyRouterDeps {
   service: AuthService;
+  /** 구독 저장소. 전략·지표 저장은 유료 플랜 기능이다. */
+  subscriptions?: PgSubscriptionRepo;
   repo?: PgUserStrategyRepo;
   points?: PgPointsRepo;
   csrfKey: string;
@@ -63,6 +68,14 @@ export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
     if (!body.kind || !VALID_KINDS.has(body.kind as UserStrategyKind)) return c.json(err('BAD_REQUEST', 'invalid kind'), 400);
     if (!body.name || !String(body.name).trim()) return c.json(err('BAD_REQUEST', 'name required'), 400);
     const kind = body.kind as UserStrategyKind;
+    /*
+       ★★ 전략·지표 저장도 유료 플랜 기능이다. 포인트를 차감하기 전에 막는다 —
+         차감 후 막으면 포인트는 나가고 저장은 안 된다.
+    */
+    {
+      const gate = await checkPlanFeature(d.subscriptions, a.user.id, FEATURE_SAVES);
+      if (!gate.allowed) return c.json(gateErrorBody(gate), gate.reason === 'PLAN_REQUIRED' ? 402 : 503);
+    }
     const cost = STRATEGY_SAVE_COST[kind];
 
     // 포인트 제도가 켜져 있으면 저장에 포인트를 쓴다. 잔액이 모자라면 저장하지 않는다.

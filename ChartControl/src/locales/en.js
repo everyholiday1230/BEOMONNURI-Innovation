@@ -2792,6 +2792,22 @@
       sub_canceled_ok: 'Subscription cancelled. Access continues until the end of the current period.',
       sub_canceled_provider: 'Subscription cancelled on our side. Also stop the recurring payment with the payment provider, or it will charge again.',
       sub_cancel_failed: 'Could not cancel the subscription. Nothing was changed — try again.',
+
+      /*
+         상위 요금제와 포인트 추가 구매.
+
+         ★★ 포인트는 이제 **구독자 전용 추가 구매**다. 무료 이용자가 포인트만 사서 쓰면
+           구독제가 아니게 된다. 그래서 권한이 없으면 구매 카드를 아예 그리지 않고 왜인지
+           말한다 — 카드를 보여주고 누르면 거절하는 것보다 낫다.
+
+         ★ '확인 불가' 와 '요금제에 없음' 을 구별한다. 앞의 경우 고객이 할 수 있는 일이
+           없고, 뒤의 경우 업그레이드하면 된다.
+      */
+      plan_premium_name: 'Premium',
+      plan_elite_name: 'Elite',
+      plan_f_topup: 'Buy extra points when you run out',
+      pt_topup_needs_plan: 'Extra points are available on a paid plan. Your monthly points come with the plan — see Pricing to upgrade.',
+      pt_topup_unverified: 'Could not check your plan right now, so buying is closed. Nothing was charged — please reload shortly.',
     },
     { label: 'English', bcp47: 'en-US' },
   );

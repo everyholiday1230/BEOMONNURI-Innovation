@@ -9,6 +9,9 @@ import { D } from '@quantumtrade/domain';
 import type { PgPointOrderRepo } from './db/point-order-repo';
 import type { PgPointsRepo } from './db/points-repo';
 import { type PaymentProviders, POINT_PACKAGES, findPackage } from './payments/providers';
+import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
+import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
+import { FEATURE_TOPUP } from './subscriptions/plans';
 
 const CSRF = 'qt_csrf';
 const err = (code: string, message: string) => ({ error: { code, message } });
@@ -54,6 +57,8 @@ export function capturedPaymentMatches(
 }
 
 export interface PaymentRouterDeps {
+  /** 구독 저장소. 추가 구매는 유료 구독자만 가능하다. */
+  subscriptions?: PgSubscriptionRepo;
   service: AuthService;
   orders?: PgPointOrderRepo;
   points?: PgPointsRepo;
@@ -79,6 +84,21 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
     d.originAllowed(c.req.header('origin'), c.req.header('referer'), d.corsOrigins) &&
     d.verifyCsrf(c.req.header('x-csrf-token'), getCookie(c, CSRF), secret, d.csrfKey);
 
+  /*
+     ★★ 포인트는 이제 **구독자 전용 추가 구매(토큰 충전)** 다.
+
+       구독제로 전환하면서 포인트를 없애지 않고 '월 포함량을 다 쓴 사람이 더 사는'
+       창구로 남겼다. 그래서 무료 이용자는 살 수 없다 — 살 수 있게 두면 구독하지 않고
+       포인트만 사서 쓰는 길이 열리고, 그건 구독제가 아니다.
+
+     ★ 판단은 요금제 정의(plan_f_topup)를 그대로 읽는다. 별도 목록을 두지 않는다.
+  */
+  const topupGate = async (c: Context, userId: string) => {
+    const gate = await checkPlanFeature(d.subscriptions, userId, FEATURE_TOPUP);
+    if (gate.allowed) return null;
+    return c.json(gateErrorBody(gate), gate.reason === 'PLAN_REQUIRED' ? 402 : 503);
+  };
+
   const paypalOn = Boolean(d.orders && d.points && d.providers.paypal);
   const usdtOn = Boolean(d.orders && d.points && d.providers.crypto);
   const tossOn = Boolean(d.orders && d.points && d.providers.toss);
@@ -87,9 +107,19 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
   app.get('/me/topup/packages', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    /*
+       ★★ 화면이 구매 섹션을 **띄울지 말지** 판단할 근거를 준다. 무료 이용자에게
+         구매 카드를 보여주고 누르면 402 를 주는 것보다, 아예 보여주지 않고 왜인지
+         말하는 편이 낫다.
+    */
+    const gate = await checkPlanFeature(d.subscriptions, a.user.id, FEATURE_TOPUP);
     return c.json({
       supported: { paypal: paypalOn, usdt: usdtOn, toss: tossOn },
       packages: POINT_PACKAGES,
+      /** 이 이용자가 추가 구매를 할 수 있는가(유료 구독 필요). */
+      topupAllowed: gate.allowed,
+      ...(gate.allowed ? {} : { topupBlockedReason: gate.reason }),
+      planCode: gate.planCode,
       // 결제 수단이 하나도 없으면 화면이 "결제 준비 중" 을 정직히 표시한다.
       enabled: paypalOn || usdtOn || tossOn,
     });
@@ -99,6 +129,7 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
   app.post('/me/topup/paypal/create', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    { const blocked = await topupGate(c, a.user.id); if (blocked) return blocked; }
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!paypalOn) return c.json(err('NOT_CONFIGURED', 'PayPal is not enabled'), 503);
     const body = (await c.req.json().catch(() => ({}))) as { packageId?: string };
@@ -184,6 +215,7 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
   app.post('/me/topup/toss/create', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    { const blocked = await topupGate(c, a.user.id); if (blocked) return blocked; }
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!tossOn) return c.json(err('NOT_CONFIGURED', 'Toss is not enabled'), 503);
     const body = (await c.req.json().catch(() => ({}))) as { packageId?: string };
@@ -230,6 +262,7 @@ export function createPaymentRouter(d: PaymentRouterDeps): Hono {
   app.post('/me/topup/usdt/create', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    { const blocked = await topupGate(c, a.user.id); if (blocked) return blocked; }
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!usdtOn) return c.json(err('NOT_CONFIGURED', 'USDT payment is not enabled'), 503);
     const body = (await c.req.json().catch(() => ({}))) as { packageId?: string };
