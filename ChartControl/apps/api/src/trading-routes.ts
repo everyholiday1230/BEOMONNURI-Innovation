@@ -4,6 +4,7 @@ import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumt
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import type { ExecutionMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-core';
 import { CredentialVault } from './trading/credential-vault';
+import { issuePreviewToken, verifyPreviewToken, PREVIEW_TOKEN_TTL_MS } from './trading/preview-token';
 // 학습 결과 수집 — 순수 함수(DB·네트워크를 만지지 않는다).
 import { attributeRealizedPnl, buildOrderOutcomes } from './learning/outcome-collector';
 import { evaluateTier } from './tiers/tier-engine';
@@ -178,7 +179,26 @@ export interface TradingRouterDeps {
    *
    * ★ 구조적 타입만 요구한다 — OperationalControls 구현에 결합하지 않는다.
    */
-  controls?: { killActive(scope: string): boolean };
+  /**
+   * 런타임 킬스위치·플래그.
+   *
+   * ★ `controlsUnknown()` 을 **필수**로 요구한다. 선택으로 두면 주입하는 쪽이 빠뜨려도
+   *   조용히 통과되고, fail-open 이 그대로 돌아온다.
+   */
+  controls?: { killActive(scope: string): boolean; controlsUnknown(): boolean };
+  /**
+   * 킬스위치 상태를 모를 때도 주문을 받을까. **기본 false(막는다).**
+   *
+   * ★ 운영 예외를 위한 탈출구다. 기본값이 열림이면 고치려던 문제가 남는다.
+   */
+  allowOrdersWhenControlsUnknown?: boolean;
+  /**
+   * 미리보기 토큰 서명 키.
+   *
+   * ★ 없으면 실주문 경로가 토큰을 검증할 수 없다. index.ts 가 반드시 넘긴다 —
+   *   선택으로 두지 않는 이유는 빠뜨렸을 때 조용히 보호가 사라지기 때문이다.
+   */
+  previewSecret: string;
   /**
    * 실주문 멱등성 저장소. 없으면 프로세스 메모리로 떨어진다.
    *
@@ -609,12 +629,22 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   }
 
   /** Builds the risk-engine input from a request body plus resolved real state. */
+  /* ★ 서명 키를 한 번만 꺼내 둔다. */
+  const previewSecret = d.previewSecret;
+
   async function buildRiskInput(
     userId: string,
     userStatus: string,
     body: Record<string, unknown>,
     confirmationTokenValid: boolean,
     idempotencyKeyValid: boolean,
+    /**
+     * 미리보기 토큰 판정. dry-run(validate) 에서는 아직 없으므로 넘기지 않는다.
+     *
+     * ★ 기본값을 "유효" 로 두지 않는다. 넘기지 않으면 미판정이고, 실주문 경로는
+     *   반드시 넘긴다 — 기본 통과로 두면 고치려던 하드코딩이 그대로 돌아온다.
+     */
+    preview?: { expired: boolean; tokenValid: boolean },
   ) {
     const symbol = String(body.symbol ?? 'BTCUSDT');
     // ★ 현물 주문은 현물 규격으로 검증한다. 선물 규격을 쓰면 단위가 달라 틀린다.
@@ -743,8 +773,40 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         emergencyKillSwitch:
           d.killSwitch
           || ORDER_BLOCKING_KILL_SCOPES.some((sc) => d.controls?.killActive(sc) ?? false),
+        /*
+           ★★ **스위치 상태를 모르면 주문을 막는다.**
+
+             `killActive()` 는 한 번도 읽지 못했을 때 false(차단 아님)를 돌려준다.
+             그래서 운영자가 관리자 화면에서 global_live_trading 을 걸어 뒀는데도
+             주문이 계속 나가는 상태가 가능했다. 로그에 흔적은 남았지만 강제는 없었다.
+
+           ★★ `d.controls` 자체가 없는 경우도 같이 막는다.
+
+             controls 는 index.ts 에서 admin 초기화 try 블록 안에서 만들어 조건부로
+             주입된다. 마이그레이션 미적용 등으로 그 블록이 던지면 controls 가 아예
+             없고, `?.` → undefined → `?? false` → 차단 없음이 됐다. 즉 관리자 기능이
+             깨진 상태가 곧 "모든 킬스위치 해제" 였다.
+
+           ★ 조회(포지션·잔고·주문내역)는 이 값으로 막지 않는다. 막을 이유가 없고,
+             DB 일시 장애 때 화면이 통째로 죽는다.
+
+           ★ 운영에서 이 상태로도 주문을 받아야 하는 예외가 생기면
+             ALLOW_ORDERS_WHEN_CONTROLS_UNKNOWN=true 로 명시적으로 연다. 기본은 닫힘 —
+             기본값이 열림이면 고치려던 문제가 그대로 남는다.
+        */
+        controlsUnknown: d.allowOrdersWhenControlsUnknown
+          ? false
+          : (!d.controls || d.controls.controlsUnknown()),
         userStatus,
-        previewExpired: false,
+        /*
+           ★★ 예전에는 여기가 `previewExpired: false` **하드코딩**이었다. 만료를
+             판정한 적이 없는데 게이트는 "미리보기 만료" 보호가 있다고 말했다.
+
+           ★ dry-run(validate) 에는 토큰이 없다. 그때는 만료 아님·토큰 유효로 두고
+             게이트를 정보용으로만 쓴다 — 실주문 판정은 submit 에서만 한다.
+        */
+        previewExpired: preview ? preview.expired : false,
+        previewTokenValid: preview ? preview.tokenValid : true,
         confirmationTokenValid,
         idempotencyKeyValid,
         // Connectivity is only healthy if market data is actually live.
@@ -796,8 +858,31 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     // rather than asserted true.
     const { st, input, symbolId } = await buildRiskInput(a.user.id, a.user.status, body, false, false);
     const risk = runRiskEngine(input);
+    /*
+       ★★ 미리보기 토큰을 **여기서 발급한다.**
+
+         이 경로는 인증돼 있고(사용자를 안다) 주문 내용도 다 갖고 있다. 예전에 실주문
+         확인 토큰을 발급하던 /api/sim/order-drafts 는 **인증이 없어** 누구나 토큰을
+         받을 수 있었고, 그래서 최종 확인 게이트가 실체가 없었다.
+
+       ★ 게이트가 실패해도 토큰은 발급한다. 토큰은 "이 내용을 이 시각에 보여줬다" 는
+         증표일 뿐 허가가 아니다. 허가는 submit 이 다시 판정한다.
+    */
+    const previewToken = issuePreviewToken(previewSecret, {
+      userId: a.user.id,
+      symbol: symbolId,
+      side: String(body.side ?? ''),
+      orderType: String(body.orderType ?? ''),
+      quantity: String(body.quantity ?? ''),
+      price: String(body.price ?? ''),
+      leverage: String(body.leverage ?? ''),
+      marginMode: String(body.marginMode ?? ''),
+    });
     return c.json({
       symbol: symbolId,
+      previewToken,
+      /** 이 토큰이 유효한 시간(ms). 화면이 "다시 계산" 을 띄울 시점을 알 수 있다. */
+      previewTokenTtlMs: PREVIEW_TOKEN_TTL_MS,
       pass: risk.pass,
       failCount: risk.failCount,
       gates: risk.gates,
@@ -1823,12 +1908,40 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     */
     const { result } = await idem.run(`${a.user.id}:${idemKey}`, async () => {
       // Real state, not literals. These were hardcoded, which made every state-dependent gate pass.
+      /*
+         ★★ 미리보기 토큰을 **여기서 검증한다.**
+
+           예전에는 previewExpired 가 하드코딩 false 였고 confirmationToken 은 존재
+           여부만 봤다. 그 토큰은 인증 없는 /api/sim/order-drafts 가 발급했으므로,
+           "최종 확인 게이트" 와 "미리보기 만료" 는 이름만 있고 실체가 없었다.
+
+         ★ 토큰은 주문 내용(사용자·심볼·방향·수량·가격·레버리지·마진모드)에 묶여 있다.
+           작은 주문으로 받은 토큰으로 큰 주문을 확인할 수 없다.
+      */
+      const previewBinding = {
+        userId: a.user.id,
+        symbol,
+        side: String(body.side ?? ''),
+        orderType: String(body.orderType ?? ''),
+        quantity: String(body.quantity ?? ''),
+        price: String(body.price ?? ''),
+        leverage: String(body.leverage ?? ''),
+        marginMode: String(body.marginMode ?? ''),
+      };
+      const pv = verifyPreviewToken(previewSecret, body.previewToken as string | undefined, previewBinding);
+      const previewState = {
+        expired: !pv.ok && pv.reason === 'EXPIRED',
+        /* ★ 만료가 아닌 실패(없음·위조·내용 변경)는 '토큰 무효' 로 본다. */
+        tokenValid: pv.ok,
+      };
+
       const { st, input } = await buildRiskInput(
         a.user.id,
         a.user.status,
         { ...body, symbol },
         Boolean(body.confirmationToken),
         true,
+        previewState,
       );
       const risk = runRiskEngine(input);
 

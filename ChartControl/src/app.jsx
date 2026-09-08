@@ -1145,7 +1145,44 @@
         const path = window.QTMode ? window.QTMode.getOrderPath() : 'sim';
 
         if (path === 'live' && window.QTApi.orders.submitLive) {
+          /*
+             ★★ 실주문 직전에 **미리보기 토큰**을 받는다.
+
+               서버가 서명·만료가 있는 토큰을 발급하고, submit 에서 그것으로
+               "미리보기 만료" 와 "주문 내용 일치" 를 판정한다. 예전에는 두 판정이
+               하드코딩(false)과 존재 여부 검사여서 실체가 없었다.
+
+             ★ 실패해도 여기서 멈추지 않는다. 토큰 없이 보내면 서버가 거부하고 그
+               사유를 돌려준다 — 화면이 자기 판단으로 주문을 막지 않는다. 막을지는
+               서버 게이트 한 곳에서만 정한다.
+          */
+          let previewToken = '';
+          if (window.QTApi.orders.validateLive) {
+            try {
+              /*
+                 ★★ 아래 값들은 submitLive 에 넘기는 것과 **한 글자도 다르면 안 된다.**
+
+                   토큰은 주문 내용에 묶여 있다. 발급 때와 제출 때 값이 다르면 서버가
+                   "주문 내용이 바뀌었다" 로 보고 거부한다 — 즉 어긋나면 **모든 실주문이
+                   막힌다.** 그래서 표현식을 그대로 복사한다(다른 기본값을 쓰지 않는다).
+              */
+              const pv = await window.QTApi.orders.validateLive({
+                symbol: market.symbol || (market.base + market.quote),
+                side: orderPreview.side,
+                orderType: orderPreview.type,
+                price: orderPreview.price,
+                quantity: orderPreview.size,
+                leverage: orderPreview.leverage || market.leverage || 10,
+                marginMode: orderPreview.marginMode ? String(orderPreview.marginMode).toLowerCase() : undefined,
+              });
+              previewToken = (pv && pv.previewToken) || '';
+            } catch (e) {
+              /* 조용히 삼키지 않는다 — 토큰을 못 받은 이유가 콘솔에 남아야 한다. */
+              console.warn('[order] 미리보기 토큰 발급 실패:', e && e.message);
+            }
+          }
           const live = await window.QTApi.orders.submitLive({
+            previewToken: previewToken,
             symbol: market.symbol || (market.base + market.quote),
             side: orderPreview.side,
             orderType: orderPreview.type,

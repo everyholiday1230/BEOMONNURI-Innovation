@@ -40,7 +40,7 @@ function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState'
   app.route('/api', createTradingRouter({
     service, vault: new CredentialVault(new LocalKekProvider(randomBytes(32).toString('base64'))),
     credRepo: new SqliteCredentialRepo(db), accountAdapter: mockAccount, exchangeId: 'bitmart', policy: POLICY, symbolInfo: SYM,
-    csrfKey: 'k', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'LIVE_READ_ONLY',
+    csrfKey: 'k', previewSecret: 'test-preview-secret', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'LIVE_READ_ONLY',
     liveTradingEnabled: false, killSwitch: true,
     ...(riskState ? { riskState } : {}),
     ...(extra ?? {}),
@@ -167,7 +167,7 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     const { app } = build(undefined, {
       liveTradingEnabled: true,
       killSwitch: false,
-      controls: { killActive: (scope: string) => scope === 'global_live_trading' },
+      controls: { killActive: (scope: string) => scope === 'global_live_trading', controlsUnknown: () => false },
     });
     const jar = await login(app, 'rw-kill@ex.com');
     const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
@@ -187,7 +187,7 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     const { app } = build(undefined, {
       liveTradingEnabled: true,
       killSwitch: false,
-      controls: { killActive: (scope: string) => scope === 'exchange_live_trading' },
+      controls: { killActive: (scope: string) => scope === 'exchange_live_trading', controlsUnknown: () => false },
     });
     const jar = await login(app, 'rw-kill-ex@ex.com');
     const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
@@ -201,7 +201,7 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     const { app } = build(undefined, {
       liveTradingEnabled: true,
       killSwitch: false,
-      controls: { killActive: (scope: string) => scope === 'bitmart_live_trading' },
+      controls: { killActive: (scope: string) => scope === 'bitmart_live_trading', controlsUnknown: () => false },
     });
     const jar = await login(app, 'rw-kill-old@ex.com');
     const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {
@@ -215,7 +215,7 @@ describe('RISK-WIRE — the risk engine reads real state', () => {
     const { app } = build(undefined, {
       liveTradingEnabled: true,
       killSwitch: false,
-      controls: { killActive: () => false },
+      controls: { killActive: () => false, controlsUnknown: () => false },
     });
     const jar = await login(app, 'rw-kill-none@ex.com');
     const b = await (await reqA(app, 'POST', '/api/trading/orders/validate', {

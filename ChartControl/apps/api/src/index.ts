@@ -3460,6 +3460,17 @@ if (env.authEnabled) {
           */
           ...(operationalControls ? { controls: operationalControls } : {}),
           /*
+             ★ 킬스위치 상태를 모를 때 주문을 받을지. 기본은 **닫힘**이다.
+               운영 예외가 필요할 때만 env 로 명시적으로 연다.
+          */
+          allowOrdersWhenControlsUnknown: process.env.ALLOW_ORDERS_WHEN_CONTROLS_UNKNOWN === 'true',
+          /*
+             ★ 미리보기 토큰 서명 키. CSRF 키를 재사용하되 **용도를 섞지 않도록**
+               접두사를 붙인다 — 같은 키로 서로 다른 의미의 서명을 만들면 한쪽
+               토큰을 다른 쪽에 밀어넣는 혼동이 생길 수 있다.
+          */
+          previewSecret: `order-preview:${env.csrfKey}`,
+          /*
              실주문을 여는 **실제** 조건. 안내 문구가 이 값으로 만들어진다.
 
              ★★ 전에는 문구가 `TRADING_MODE` 와 `FEATURE_LIVE_ORDERS_ENABLED` 를

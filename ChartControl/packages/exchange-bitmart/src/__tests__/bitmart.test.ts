@@ -42,9 +42,9 @@ describe('BitMart signature', () => {
 
 describe('live trading gate', () => {
   const base = {
-    mode: 'LIVE_TRADE' as const, liveTradingEnabled: true, emergencyKillSwitch: false,
+    mode: 'LIVE_TRADE' as const, liveTradingEnabled: true, emergencyKillSwitch: false, controlsUnknown: false,
     credentialStatus: 'VERIFIED', futureTradePermissionVerified: true, userStatus: 'active',
-    riskCheckPassed: true, previewExpired: false, confirmationTokenValid: true, idempotencyKeyValid: true,
+    riskCheckPassed: true, previewExpired: false, previewTokenValid: true, confirmationTokenValid: true, idempotencyKeyValid: true,
     marketDataStale: false, exchangeConnectivityHealthy: true, symbol: 'BTCUSDT', allowedSymbols: ['BTCUSDT'],
   };
   it('allows only when every protection passes', () => {

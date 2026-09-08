@@ -1849,6 +1849,54 @@
      *          SUBMIT_UNKNOWN 이면 접수 여부를 **알 수 없다** — 재시도하지 말고
      *          미체결 목록을 조회해 확인해야 한다.
      */
+    /**
+     * 실주문 사전 점검 + **미리보기 토큰 발급**.
+     *
+     * ★★ 확인 창을 띄우기 직전에 부른다. 토큰의 발급 시각이 곧 "이 숫자를 보여준
+     *   시각" 이 되고, 서버가 submit 에서 그 시각으로 만료를 판정한다.
+     *
+     * ★ 토큰은 주문 내용에 묶여 있다. 수량·가격·방향이 바뀌면 다시 받아야 한다 —
+     *   바뀐 내용으로 옛 토큰을 쓰면 서버가 거부한다(그게 목적이다).
+     *
+     * @returns { ok, pass, reasons, previewToken, previewTokenTtlMs }
+     */
+    validateLive: function (o) {
+      /*
+         ★★ 아래 정규화는 submitLive 와 **완전히 같아야 한다.**
+
+           토큰은 이 값들에 묶여 발급된다. 한 곳이라도 다르면 서버가 "주문 내용이
+           바뀌었다" 로 판정해 **모든 실주문이 막힌다.** 특히 현물에서 leverage·
+           marginMode 를 지우는 규칙을 빠뜨리면 현물 주문이 전부 거부된다.
+      */
+      var body = {
+        symbol: o.symbol,
+        side: o.side === 'short' ? 'short' : 'long',
+        orderType: String(o.orderType || o.type || 'limit').toLowerCase(),
+        quantity: decStr(o.quantity !== undefined ? o.quantity : o.size),
+        leverage: Number(o.leverage) || 1,
+        marginMode: o.marginMode === 'cross' ? 'cross' : 'isolated',
+        market: (window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot') ? 'spot' : 'futures',
+      };
+      if (body.orderType !== 'market' && o.price !== undefined && o.price !== null) {
+        body.price = decStr(o.price);
+      }
+      /* ★ submitLive 와 같은 규칙. 현물에는 레버리지·증거금 모드가 없다. */
+      if (body.market === 'spot') {
+        delete body.leverage;
+        delete body.marginMode;
+      }
+      return sendJSON('POST', '/api/trading/orders/validate', body).then(function (r) {
+        return {
+          ok: true,
+          pass: !!(r && r.pass),
+          reasons: (r && r.reasons) || [],
+          liveGate: (r && r.liveGate) || null,
+          previewToken: (r && r.previewToken) || '',
+          previewTokenTtlMs: (r && r.previewTokenTtlMs) || 0,
+        };
+      });
+    },
+
     submitLive: function (o) {
       var key = o.idempotencyKey || newClientOrderId();
       var body = {
@@ -1860,6 +1908,16 @@
         marginMode: o.marginMode === 'cross' ? 'cross' : 'isolated',
         // 서버가 명시적 확인을 요구한다. 사용자가 확인 버튼을 누른 시점에만 보낸다.
         confirmationToken: o.confirmationToken || '',
+        /*
+           ★★ 서명·만료 있는 미리보기 토큰. **서버가 발급한 것을 그대로 되돌려준다.**
+
+             예전에는 확인 토큰이 인증 없는 시뮬 초안 경로에서 왔고, 서버는 그 값이
+             비어 있지 않은지만 봤다. 그래서 "최종 확인" 과 "미리보기 만료" 보호가
+             이름만 있었다.
+
+           ★ 여기서 만들지 않는다. 클라이언트가 만들 수 있으면 보호가 아니다.
+        */
+        previewToken: o.previewToken || '',
         /*
            ★★ 어느 시장의 주문인지 **반드시** 보낸다.
 

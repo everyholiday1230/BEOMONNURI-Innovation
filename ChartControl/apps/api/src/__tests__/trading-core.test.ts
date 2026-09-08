@@ -72,8 +72,8 @@ describe('server risk engine', () => {
     mode: 'LIVE_TRADE' as const, symbol: SYM, side: 'long' as const, orderType: 'limit' as const,
     price: '68000.0', quantity: '0.100', leverage: 20, stopLoss: '67000.0', takeProfit: '70000.0',
     riskReward: '2', maxEstLoss: '100', positionValue: '6800', marketDataStatus: 'LIVE', referencePrice: '68010.0',
-    policy: POLICY, liveTradingEnabled: true, emergencyKillSwitch: false, credentialStatus: 'VERIFIED',
-    futureTradePermissionVerified: true, userStatus: 'active', previewExpired: false, confirmationTokenValid: true,
+    policy: POLICY, liveTradingEnabled: true, emergencyKillSwitch: false, controlsUnknown: false, credentialStatus: 'VERIFIED',
+    futureTradePermissionVerified: true, userStatus: 'active', previewExpired: false, previewTokenValid: true, confirmationTokenValid: true,
     idempotencyKeyValid: true, exchangeConnectivityHealthy: true, dailyOrderCount: 0, dailyLossSoFar: '0', openPositions: 0,
     /*
        ★★ POLICY 는 일일 손실 한도 1000 을 걸어 두었다. 그런데 dailyLossSoFar 는

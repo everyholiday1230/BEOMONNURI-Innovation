@@ -45,11 +45,44 @@ export interface LiveTradingGateInput {
   mode: ExecutionMode;
   liveTradingEnabled: boolean; // LIVE_TRADING_ENABLED
   emergencyKillSwitch: boolean; // EMERGENCY_KILL_SWITCH (true = blocked)
+  /**
+   * 킬스위치·플래그 상태를 **한 번도 읽지 못했나**. true 면 주문을 막는다.
+   *
+   * ★★ 왜 emergencyKillSwitch 와 따로 두는가
+   *
+   *   "운영자가 스위치를 걸었다" 와 "스위치 상태를 모른다" 는 전혀 다른 상황인데,
+   *   예전에는 후자가 **차단 아님(false)** 으로 흘러 그대로 통과했다. 그래서 관리자
+   *   화면에서 global_live_trading 을 걸어 뒀는데 주문이 계속 나가는 상태가 가능했다.
+   *
+   *   두 값을 합치면 로그와 고객 안내에서 원인을 구분할 수 없다. 운영자는 "내가 걸었나"
+   *   와 "서버가 못 읽었나" 를 알아야 대응이 달라진다.
+   *
+   * ★ 한 번이라도 읽었으면 false 다 — 마지막 성공값을 쓴다(가용성 우선). DB 가 잠깐
+   *   흔들릴 때마다 주문을 막을 이유는 없다.
+   */
+  controlsUnknown: boolean;
   credentialStatus: string; // must be 'VERIFIED'
   futureTradePermissionVerified: boolean;
   userStatus: string; // must be 'active'
   riskCheckPassed: boolean;
+  /**
+   * 미리보기가 만료됐나.
+   *
+   * ★ 예전에는 라우터가 `false` 를 **하드코딩**해 넘겼다 — 만료를 판정한 적이 없다.
+   *   이제 서명된 미리보기 토큰의 발급 시각으로 판정한다.
+   */
   previewExpired: boolean;
+  /**
+   * 미리보기 토큰이 서명·소유자·주문내용까지 맞나.
+   *
+   * ★★ `previewExpired` 와 따로 둔다. "시간이 지났다" 와 "주문 내용이 발급 때와
+   *   다르다(또는 위조다)" 는 고객에게 보일 문장이 다르고, 운영자가 봐야 할 것도 다르다.
+   *
+   * ★ 예전 `confirmationTokenValid` 는 `Boolean(body.confirmationToken)` 즉 존재
+   *   여부만 봤고, 그 토큰은 **인증 없는** 시뮬 엔드포인트가 발급했다. 최종 확인
+   *   게이트는 이름만 있고 실체가 없었다.
+   */
+  previewTokenValid: boolean;
   confirmationTokenValid: boolean;
   idempotencyKeyValid: boolean;
   marketDataStale: boolean;
@@ -69,11 +102,17 @@ export function evaluateLiveTradingGate(i: LiveTradingGateInput): GateResult {
   if (i.mode !== 'LIVE_TRADE') reasons.push(`mode ${i.mode} does not permit live orders`);
   if (!i.liveTradingEnabled) reasons.push('LIVE_TRADING_ENABLED is false');
   if (i.emergencyKillSwitch) reasons.push('emergency kill switch active');
+  /*
+     ★ 상태를 모르면 막는다. 사유를 킬스위치와 구분해 돌려준다 — 운영자가 "내가 걸었나"
+       와 "서버가 못 읽었나" 를 로그에서 구분할 수 있어야 한다.
+  */
+  if (i.controlsUnknown) reasons.push('kill switch state unknown — controls were never read');
   if (i.credentialStatus !== 'VERIFIED') reasons.push('credential not VERIFIED');
   if (!i.futureTradePermissionVerified) reasons.push('Future-Trade permission not verified');
   if (i.userStatus !== 'active') reasons.push('user not active');
   if (!i.riskCheckPassed) reasons.push('server risk check did not pass');
-  if (i.previewExpired) reasons.push('order preview expired');
+  if (i.previewExpired) reasons.push('order preview expired — please review the numbers again');
+  if (!i.previewTokenValid) reasons.push('order preview token invalid — the order details changed after the preview');
   if (!i.confirmationTokenValid) reasons.push('final confirmation token invalid');
   if (!i.idempotencyKeyValid) reasons.push('idempotency key invalid');
   if (i.marketDataStale) reasons.push('market data is stale');

@@ -115,6 +115,27 @@ export class OperationalControls {
     return this.kills.get(scope) ?? false;
   }
 
+  /**
+   * 판정 근거가 **아예 없는** 상태인가. 이때 주문을 내보내면 안 된다.
+   *
+   * ★★ 왜 killActive() 로는 부족한가
+   *
+   *   한 번도 읽지 못했으면 `killActive()` 는 false(차단 아님)를 돌려준다. 그래서
+   *   운영자가 관리자 화면에서 `global_live_trading` 을 걸어 뒀는데도 주문이 계속
+   *   나가는 상태가 가능했다. "스위치를 걸었다" 와 "스위치 상태를 모른다" 는 전혀
+   *   다른데, 두 경우가 똑같이 통과됐다.
+   *
+   * ★ 첫 실패와 이후 실패를 다르게 다룬다. 한 번이라도 읽었으면 마지막 성공값을 쓴다
+   *   (가용성 우선) — DB 가 잠깐 흔들릴 때마다 주문을 막을 이유는 없다. 그러나 한 번도
+   *   못 읽었으면 근거가 없으므로 **막는다**.
+   *
+   * ★ 조회(포지션·잔고·주문내역)는 이 값으로 막지 않는다. 막을 이유가 없고, DB 일시
+   *   장애 때 화면이 통째로 죽는다.
+   */
+  controlsUnknown(): boolean {
+    return !this.loaded;
+  }
+
   /** AI 를 지금 쓸 수 있나(마스터 플래그 + provider 킬스위치). */
   aiEnabled(): boolean {
     return this.flagEnabled('ai_enabled', true) && !this.killActive('ai_provider');

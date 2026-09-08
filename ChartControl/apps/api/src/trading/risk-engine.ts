@@ -65,10 +65,18 @@ export interface RiskEngineInput {
   // live-gate context
   liveTradingEnabled: boolean;
   emergencyKillSwitch: boolean;
+  /**
+   * 킬스위치·플래그를 **한 번도 읽지 못했나**. true 면 주문을 막는다.
+   *
+   * ★ 선택 아닌 필수 필드로 둔다. 기본값을 false 로 두면 호출자가 빠뜨렸을 때
+   *   조용히 "차단 아님" 이 되어, 고치려던 fail-open 이 그대로 돌아온다.
+   */
+  controlsUnknown: boolean;
   credentialStatus: string;
   futureTradePermissionVerified: boolean;
   userStatus: string;
   previewExpired: boolean;
+  previewTokenValid: boolean;
   confirmationTokenValid: boolean;
   idempotencyKeyValid: boolean;
   exchangeConnectivityHealthy: boolean;
@@ -294,11 +302,13 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     mode: i.mode,
     liveTradingEnabled: i.liveTradingEnabled,
     emergencyKillSwitch: i.emergencyKillSwitch,
+    controlsUnknown: i.controlsUnknown,
     credentialStatus: i.credentialStatus,
     futureTradePermissionVerified: i.futureTradePermissionVerified,
     userStatus: i.userStatus,
     riskCheckPassed: failCount === 0,
     previewExpired: i.previewExpired,
+    previewTokenValid: i.previewTokenValid,
     confirmationTokenValid: i.confirmationTokenValid,
     idempotencyKeyValid: i.idempotencyKeyValid,
     marketDataStale: i.marketDataStatus !== 'LIVE',
