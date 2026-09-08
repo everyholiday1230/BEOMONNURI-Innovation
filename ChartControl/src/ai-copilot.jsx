@@ -1280,7 +1280,26 @@
             <div className="signal-card__title">
               <span className={`badge ${isApproved ? 'badge--approved' : 'badge--draft'}`}>{isApproved ? '✓ APPROVED' : '◐ AI DRAFT'}</span>
               <span style={{fontSize:14, fontWeight:600}}>{signal.symbol.replace('USDT','/USDT')}</span>
-              <span className="badge badge--long">▲ LONG</span>
+              {/*
+                   ★★ 방향이 **하드코딩 `▲ LONG`** 이었다. 숏 신호도 롱으로 표시됐다.
+
+                     고객이 카드를 보고 방향을 반대로 읽는다. 그 상태에서 '주문 초안' 을
+                     누르면 초안 자체는 서버가 준 방향으로 만들어지므로, 화면과 주문이
+                     어긋난 채로 확인 절차가 진행된다. 방향을 잘못 읽고 확인하는 것이
+                     이 화면에서 나올 수 있는 최악의 결과다.
+
+                   ★ 색과 화살표도 방향에 맞춘다 — 초록 위쪽 화살표가 숏에 붙으면 글자를
+                     읽지 않는 사람은 계속 롱으로 본다.
+                   ★ 방향이 없으면 만들지 않는다. '—' 로 두고 색도 중립으로 한다 —
+                     모르는 것을 롱이라고 말하지 않는다.
+              */}
+              {signal.direction === 'long' || signal.direction === 'short' ? (
+                <span className={`badge badge--${signal.direction}`}>
+                  {signal.direction === 'long' ? '▲' : '▼'} {t(signal.direction === 'long' ? 'side_long' : 'side_short')}
+                </span>
+              ) : (
+                <span className="badge" style={{color:'var(--color-text-tertiary)'}}>—</span>
+              )}
               <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontSize:11}}>{signal.timeframe} · {signal.timeHorizon}</span>
             </div>
             <div style={{display:'inline-flex', alignItems:'center', gap: 10}}>

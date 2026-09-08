@@ -23,6 +23,21 @@ const corr = () => Math.random().toString(36).slice(2, 10);
 const err = (code: string, message: string) => ({ error: { code, message, correlationId: corr() } });
 
 export interface TradingRouterDeps {
+  /**
+   * 분산 레이트리미터. **주문 제출에 반드시 필요하다.**
+   *
+   * ★★ 이 라우터에는 레이트리밋이 없었다. 관리자·MFA·주문검증 경로에는 전달되는데
+   *   **제출만 빠져 있었다.** 실주문 경로가 가장 위험한 곳인데 가장 열려 있었다.
+   *
+   *   위험: 확인 토큰을 얻은 뒤 같은 요청을 반복하면 멱등키가 다르면 각각 별개 주문이
+   *   된다. 자동화된 실수(재시도 루프)나 탈취된 세션이 짧은 시간에 여러 주문을 낸다.
+   *
+   * ★ 없으면 제한하지 않는다(개발 편의). 다만 운영에서는 반드시 전달돼야 하고,
+   *   전달되지 않으면 부팅 로그가 그 사실을 말한다.
+   */
+  rateLimiter?: { allow(key: string, budget: number, windowMs: number): Promise<{ ok: boolean; retryAfterMs: number }> };
+  /** 분당 주문 제출 허용 건수. 기본 12 — 손으로 내는 주문에는 넉넉하고 루프는 막는다. */
+  orderRatePerMin?: number;
   /*
      심볼 카탈로그가 실제로 적재됐는가.
 
@@ -1726,6 +1741,27 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   app.post('/trading/orders/submit', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+
+    /*
+       ★★ 주문 제출 레이트리밋. 이 라우터에는 없었다.
+
+         멱등키가 다르면 반복 요청이 각각 **별개 주문**이 된다. 재시도 루프나 탈취된
+         세션이 짧은 시간에 여러 주문을 낼 수 있다. 실주문 경로가 가장 위험한데 제한이
+         가장 없었다.
+
+       ★ 사용자 기준으로 센다(IP 가 아니다). 같은 사무실에서 두 사람이 거래하면 IP 로는
+         서로를 막는다.
+       ★ 429 에 Retry-After 를 붙인다 — 언제 다시 시도할 수 있는지 말하지 않으면
+         클라이언트가 즉시 재시도한다.
+    */
+    if (d.rateLimiter) {
+      const budget = d.orderRatePerMin ?? 12;
+      const dec = await d.rateLimiter.allow(`order-submit:user:${a.user.id}`, budget, 60_000);
+      if (!dec.ok) {
+        c.header('Retry-After', String(Math.max(1, Math.ceil(dec.retryAfterMs / 1000))));
+        return c.json(err('RATE_LIMITED', `too many order submissions — wait ${Math.ceil(dec.retryAfterMs / 1000)}s`), 429);
+      }
+    }
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!hasPermission(a.user.role, 'order-draft.write.self')) return c.json(err('FORBIDDEN', ''), 403);
     const idemKey = c.req.header('idempotency-key');

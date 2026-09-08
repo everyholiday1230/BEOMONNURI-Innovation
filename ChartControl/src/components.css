@@ -455,16 +455,52 @@ kbd {
   color: transparent;
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
-.chk input { display: none; }
+/*
+   ★★ `display: none` 이면 **키보드로 체크할 수 없다.**
+
+     Tab 순서에서 빠지고 화면 읽기 프로그램에도 노출되지 않는다. 가입 화면의 필수
+     동의가 이 상태였다 — 마우스로는 되지만 키보드만 쓰는 사람은 **가입을 완료할 수
+     없다.** Tab 순서에 체크박스가 없는 것을 실측으로 확인했다.
+
+   ★ 그래서 시각적으로만 감춘다(clip-path). 요소는 그대로 있어 초점을 받고, 값도
+     전달되고, 화면 읽기 프로그램이 읽는다.
+   ★ 초점 표시를 반드시 만든다. 보이지 않는 입력에 초점이 가면 지금 어디인지 알 수
+     없으므로, 옆의 상자에 테두리를 그려 준다.
+*/
+.chk input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: 0; padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
 .chk input:checked + .chk__box {
   background: var(--color-brand); border-color: var(--color-brand); color: var(--color-text-inverse);
 }
 .chk:hover .chk__box { border-color: var(--color-brand); }
+/* ★ 키보드 초점을 눈에 보이게 한다 — 없으면 어디에 있는지 알 수 없다. */
+.chk input:focus-visible + .chk__box {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 45%, transparent);
+}
 
 .switch { position: relative; width: 28px; height: 16px; display: inline-block; cursor: pointer; }
-.switch input { display: none; }
+/* ★ 스위치도 같은 이유로 감추기만 한다(display:none 이면 키보드로 조작 불가). */
+.switch input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: 0; padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
 .switch__track { position: absolute; inset: 0; background: var(--color-border-default); border-radius: 999px; transition: background var(--dur-fast); }
 .switch__thumb { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: var(--color-text-inverse); border-radius: 50%; transition: transform var(--dur-fast) var(--ease-out); }
+.switch input:focus-visible + .switch__track {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 45%, transparent);
+}
 .switch input:checked + .switch__track { background: var(--color-brand); }
 .switch input:checked + .switch__track > .switch__thumb { transform: translateX(12px); }
 

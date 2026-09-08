@@ -1707,7 +1707,39 @@ if (env.authEnabled) {
       // 런타임에서 실제로 강제된다(15초 캐시). 관리자 화면 토글이 최대 15초 내 반영.
       operationalControls = new OperationalControls(adminRepo);
       await operationalControls.start();
-      console.log('[api] operational controls started — feature flags + kill switches are now enforced');
+      /*
+         ★★ "started" 만 찍으면 거짓이 될 수 있다.
+
+           start() 안의 첫 갱신이 실패하면 loaded 가 false 로 남고, 모든 판정이
+           **기본값(허용)** 이 된다 — 킬스위치가 꺼진 것처럼 동작한다. 그런데 로그는
+           "now enforced" 라고 말했다. 운영자는 스위치가 걸려 있다고 믿는다.
+
+         ★ 실제로 읽었는지를 보고한다. 못 읽었으면 그 결과까지 말한다.
+      */
+      /*
+         ★★ 일일 손실 한도의 **출처**를 부팅 때 밝힌다.
+
+           한도를 걸어 두면 게이트가 동작하지만, 판정 근거가 **고객이 손으로 적는 저널**
+           이다. 거래소 원장이 아니다. 이 사실을 말하지 않으면 운영자는 거래소 손실을
+           기준으로 막힌다고 믿는다.
+      */
+      if (env.tradingPolicy.dailyLossLimit && Number(env.tradingPolicy.dailyLossLimit) > 0) {
+        console.warn(
+          `[api] ★ 일일 손실 한도 ${env.tradingPolicy.dailyLossLimit} 가 설정돼 있다. `
+          + '단 판정 근거는 **고객이 직접 입력한 거래 저널**이며 거래소 실현손익이 아니다. '
+          + '저널에 적지 않은 손실은 한도에 반영되지 않는다.',
+        );
+      }
+
+      if (operationalControls.isLoaded()) {
+        console.log('[api] operational controls started — feature flags + kill switches are now enforced');
+      } else {
+        console.error(
+          '[api] ★ operational controls started but NOTHING WAS READ — 기능 플래그와 킬스위치가 '
+          + '기본값(허용)으로 동작한다. 관리자 화면에서 걸어 둔 차단이 적용되지 않는다. '
+          + `실패 ${operationalControls.failureCount()}회. 위의 [ops-controls] 로그에 원인이 있다.`,
+        );
+      }
 
       /*
          시스템 상태.
@@ -3471,6 +3503,22 @@ if (env.authEnabled) {
 
                ★ 이익이면 손실 0 이다(음수 손실은 한도를 우회하는 값이 된다).
             */
+            /*
+               일일 실현손실.
+
+               ★★ **출처가 고객이 손으로 적는 거래 저널이다.** 거래소 원장이 아니다.
+
+                 그래서 한도는 고객이 저널에 적은 만큼만 막는다. 적지 않으면 손실이
+                 0 으로 보이고 한도는 통과한다. 즉 이 게이트는 **자기 신고 기반**이고,
+                 거래소에서 실제로 얼마를 잃었는지와 무관하다.
+
+               ★ 이 사실이 어디에도 적혀 있지 않아 "일일 손실 한도가 작동한다" 로 읽혔다.
+                 운영자가 한도를 걸어 두고 안심하면 그것이 가장 위험하다.
+
+               ★ 제대로 고치려면 거래소 체결 내역(getFills)에서 실현손익을 집계해야 한다.
+                 그것은 키가 있는 고객에게만 가능하고, 조회 실패를 0 으로 바꾸면 안 되므로
+                 별도 작업이다. 지금은 **무엇에 기반한 값인지 정직하게 기록**한다.
+            */
             dailyRealizedLoss: async (userId, dayStartMs) => {
               if (!journalRepo) {
                 console.warn('[api] dailyRealizedLoss: journal repo not wired — daily loss cap cannot be enforced');
@@ -3505,6 +3553,14 @@ if (env.authEnabled) {
             // 잊으면 실피드인데도 STALE 로 판정되어 주문이 조용히 막힌다.
             marketDataStatus: () => computeMarketDataStatus(providers),
           },
+          /*
+             ★★ 주문 제출 레이트리밋. 이 라우터에만 빠져 있었다.
+
+               관리자·MFA·주문검증에는 전달되는데 **실주문 제출만** 없었다. 가장 위험한
+               경로가 가장 열려 있었다 — 멱등키가 다르면 반복 요청이 각각 별개 주문이 된다.
+          */
+          rateLimiter,
+          orderRatePerMin: Number(process.env.ORDER_RATE_LIMIT_PER_MIN ?? 12),
         }),
       );
        

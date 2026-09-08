@@ -28,6 +28,8 @@ export class OperationalControls {
   private kills = new Map<string, boolean>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private loaded = false;
+  /* ★ 갱신 실패 횟수. 첫 실패와 반복 실패를 구별해 로그를 낸다. */
+  private failures = 0;
 
   constructor(
     private readonly repo: ControlsRepo,
@@ -69,10 +71,36 @@ export class OperationalControls {
       this.flags = flags;
       this.kills = kills;
       this.loaded = true;
-    } catch {
-      // 마지막으로 성공한 값을 유지한다(가용성 우선).
+    } catch (e) {
+      /*
+         ★★ 조용히 삼키면 안 된다.
+
+           예전에는 `catch { }` 였다. 그래서 **첫 로드가 실패하면** loaded 가 false 로
+           남고, flagEnabled/killActive 가 기본값(허용)을 돌려준다 — 즉 킬스위치가
+           꺼진 것처럼 동작하는데 부팅 로그에 아무 흔적이 없다. 운영자는 스위치가
+           걸려 있다고 믿는다.
+
+         ★ 첫 실패와 이후 실패를 구별한다. 첫 실패는 **아무 값도 없는 상태**라 심각하고,
+           이후 실패는 마지막 성공값을 쓰므로 덜 심각하다(가용성 우선이 맞다).
+         ★ 반복 실패를 매번 찍으면 로그가 묻힌다. 첫 실패와 그 뒤 10회마다만 찍는다.
+      */
+      this.failures += 1;
+      const first = !this.loaded;
+      if (first || this.failures % 10 === 1) {
+        const what = first
+          ? '★ 운영 스위치를 한 번도 읽지 못했다 — 기능 플래그와 킬스위치가 **기본값(허용)** 으로 동작한다. '
+            + '스위치를 걸어 두었다고 믿으면 안 된다.'
+          : `운영 스위치 갱신 실패(${this.failures}회) — 마지막으로 읽은 값을 계속 쓴다.`;
+        console.error(`[ops-controls] ${what} 원인: ${(e as Error).message}`);
+      }
     }
   }
+
+  /** 지금까지의 갱신 실패 횟수. 상태 패널이 이 값을 보여준다. */
+  failureCount(): number { return this.failures; }
+
+  /** 한 번이라도 성공적으로 읽었는가. false 면 모든 판정이 기본값이다. */
+  isLoaded(): boolean { return this.loaded; }
 
   /** 플래그가 켜져 있나. 알 수 없으면(아직 미로드/미시드) 기본 허용(true). */
   flagEnabled(key: string, dflt = true): boolean {
