@@ -38,6 +38,14 @@
 
       // --- 툴 실행 결과 ---
       ai_tool_trendline: '📐 Draft trendline added to chart · layer: AI Draft',
+      /*
+         ★ AI 가 답하기 전 진행 단계. 서버가 보내는 state·tool 이벤트로 채운다
+           (전에는 이 목록이 항상 비어 있었다 — ai-copilot.jsx 주석 참조).
+         ★ 도구 이름은 번역하지 않는다. 14개 도구에 언어별 사전을 만들면 도구가
+           늘 때마다 사전이 뒤처지고, 뒤처진 사전은 빈 칸으로 나타난다.
+      */
+      ai_step_validating: 'Checking the request',
+      ai_step_tool: 'Using {name}',
       ai_tool_signal: '📊 5 overlays created · entry zone / SL / TP1-3 / long marker',
       ai_tool_sr: '📍 2 support/resistance levels added',
       ai_tool_edited: '✍️ Your edit applied · {detail}',

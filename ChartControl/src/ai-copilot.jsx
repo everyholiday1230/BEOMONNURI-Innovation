@@ -745,6 +745,50 @@
           onEvent: (ev) => {
             if (!ev || !ev.type) return;
             if (ev.type === 'text') { setThinking(null); acc += ev.delta || ''; setStreaming(acc); return; }
+            /*
+               ★★ 진행 표시가 **항상 비어 있었다.**
+
+                 `setThinking({ steps: [], ... })` 가 유일한 호출이었고 steps 를 채우는
+                 코드가 없어서, 사고 단계 패널(1085행의 steps.map)이 아무것도 그리지
+                 않았다. 고객은 질문을 보낸 뒤 'Thinking' 글자만 보고 기다렸다 —
+                 도구를 몇 개 쓰는지, 어디까지 갔는지 알 수 없었다.
+
+               ★ 서버는 이미 보내고 있었다. `state`(validating·streaming)와
+                 `tool`(name·ok)을 orchestrator 가 내보내고 ai-routes 가 그대로
+                 흘려보내는데(:299), 클라이언트가 "내부 신호" 로 버렸다.
+
+               ★ 도구 이름을 사람이 읽는 말로 바꾸지 않는다. 14개 도구에 언어별
+                 사전을 만들면 도구가 늘 때마다 사전이 뒤처지고, 뒤처진 사전은
+                 빈 칸으로 나타난다. 밑줄만 공백으로 바꿔 그대로 보여준다.
+            */
+            if (ev.type === 'state') {
+              const label = ev.state === 'validating' ? t('ai_step_validating')
+                : ev.state === 'streaming' ? t('ai_state_streaming_note')
+                  : null;
+              if (label) {
+                setThinking((prev) => {
+                  const steps = (prev && Array.isArray(prev.steps)) ? prev.steps : [];
+                  if (steps.some((s) => s.text === label)) return prev;
+                  const next = steps.concat([{ text: label }]);
+                  return { steps: next, currentIdx: next.length - 1, msg: (prev && prev.msg) || t('ai_thinking') };
+                });
+              }
+              return;
+            }
+            if (ev.type === 'tool') {
+              /*
+                 ★ 실패한 도구를 성공처럼 보이게 두지 않는다. 패널의 체크 표시는
+                   순서(index)로만 정해지므로, 실패는 문구에 표시해야 드러난다.
+              */
+              const base = t('ai_step_tool', { name: String(ev.name || '').replace(/_/g, ' ') });
+              const text = ev.ok === false ? base + ' ✗' : base;
+              setThinking((prev) => {
+                const steps = (prev && Array.isArray(prev.steps)) ? prev.steps : [];
+                const next = steps.concat([{ text }]);
+                return { steps: next, currentIdx: next.length - 1, msg: (prev && prev.msg) || t('ai_thinking') };
+              });
+              return;
+            }
             if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
             if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
             if (ev.type === 'suggestions') { setFollowUps(Array.isArray(ev.items) ? ev.items : []); return; }

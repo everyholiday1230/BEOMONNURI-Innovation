@@ -29,6 +29,8 @@
       ai_ctx_loaded: '上下文已载入。{symbol} · {tf} · {bars} 根K线。',
       ai_ctx_loaded_ind: '上下文已载入。{symbol} · {tf} · {bars} 根K线 · {n} 个指标启用中。',
       ai_tool_trendline: '📐 已在图表上添加趋势线草稿 · 图层：AI 草稿',
+      ai_step_validating: '正在检查请求',
+      ai_step_tool: '正在使用 {name}',
       ai_tool_signal: '📊 已创建 5 个图形 · 入场区间 / 止损 / TP1-3 / 做多标记',
       ai_tool_sr: '📍 已添加 2 条支撑/阻力位',
       ai_tool_edited: '✍️ 已应用你的修改 · {detail}',
