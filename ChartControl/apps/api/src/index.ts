@@ -109,6 +109,8 @@ import { createNotificationRouter } from './notifications/notification-routes';
 import { createAnalyticsRouter } from './analytics/analytics-routes';
 import { SqliteJournalRepo, PgJournalRepo } from './db/journal-repo';
 import { buildAiMarketContext, type TickerLike } from './ai/market-context';
+import { startRetentionScheduler } from './privacy/retention-scheduler';
+import { RETENTION_RULES } from './privacy/retention-policy';
 
 const env = loadEnv();
 const providers = selectProviders(env);
@@ -1725,6 +1727,28 @@ if (env.authEnabled) {
       // 런타임에서 실제로 강제된다(15초 캐시). 관리자 화면 토글이 최대 15초 내 반영.
       operationalControls = new OperationalControls(adminRepo);
       await operationalControls.start();
+
+      /*
+         ★★ 보관기간이 지난 개인정보를 **자동으로** 파기한다.
+
+           개인정보처리방침은 접속기록을 3개월 후 파기한다고 약속하는데, 파기는
+           수동 CLI 뿐이었고 스케줄러 참조가 0건이었다. 즉 아무도 실행하지 않았고
+           audit_logs 가 서비스 개시일부터 그대로 쌓여 있었다. 약속을 지키지 않는
+           것 자체가 위반이고, 그 증거가 DB 에 남는다.
+
+         ★ Postgres 에서만 돈다. 개발(SQLite)에는 대상 표가 없거나 구조가 다르고,
+           개발 데이터를 지워야 할 이유도 없다.
+
+         ★ 실패해도 부팅을 막지 않는다. 다만 스케줄러 내부에서 크게 로그를 남긴다.
+      */
+      if (core?.pool) {
+        startRetentionScheduler(core.pool);
+        console.log(
+          `[privacy] 보관기간 파기 스케줄러 시작 — 대상 ${RETENTION_RULES.length}개 표, 하루 1회.`,
+        );
+      } else {
+        console.log('[privacy] 보관기간 파기 스케줄러 미가동 — Postgres 가 아니다(개발 환경).');
+      }
       /*
          ★★ "started" 만 찍으면 거짓이 될 수 있다.
 

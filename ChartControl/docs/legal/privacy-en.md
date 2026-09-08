@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 10 August 2026 · Version 1.0
+Effective: 8 September 2026 · Version 1.1
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
@@ -38,7 +38,7 @@ We collect **only what the Service needs.**
 | Data | Purpose | Retention |
 |---|---|---|
 | Order and fill records | Showing your trading history, handling disputes | 5 years |
-| Daily equity snapshots | Drawing your equity curve | 1 year |
+| Daily equity snapshots | Drawing your equity curve | 2 years |
 | Interface settings (theme, language, favourites, chart templates) | Convenience, syncing across your devices | Until account closure |
 | Consent records (version and time) | Proving agreement | 5 years |
 | Support enquiries | Responding to you | 3 years |

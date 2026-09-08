@@ -48,23 +48,40 @@ describe('본문 버전 표기 읽기', () => {
 });
 
 describe('render.yaml 과 문서 본문', () => {
-  it('render.yaml 의 LEGAL_VERSION 이 약관 본문 시행일과 맞는다', async () => {
+  it('render.yaml 의 LEGAL_VERSION 이 **가장 최근** 문서 시행일 이상이다', async () => {
     /*
        ★★ 이 테스트가 재배포 회귀를 막는다. render.yaml 값이 낡으면 배포가 운영을
-         구버전으로 되돌린다 — 실제로 그 상태였다.
-    */
-    const { readFileSync } = await import('node:fs');
-    const yaml = readFileSync(new URL('../../../../render.yaml', import.meta.url), 'utf-8');
-    /*
-       ★ `key: LEGAL_VERSION` 선언만 본다. 설명 주석에도 LEGAL_VERSION 이라는 말이
-         나오므로 느슨하게 찾으면 엉뚱한 value 를 잡는다(실제로 "true" 를 잡았다).
-    */
-    const m = /- key:\s*LEGAL_VERSION\s*(?:\n\s*#[^\n]*)*\n\s*value:\s*"([^"]+)"/.exec(yaml);
-    expect(m, 'render.yaml 에 LEGAL_VERSION 이 없다').toBeTruthy();
+         구버전으로 되돌린다 — 실제로 그 상태였다(2026-08-22 vs 운영 2026-09-05b).
 
-    const terms = readFileSync(new URL('../../../../docs/legal/terms-en.md', import.meta.url), 'utf-8');
-    const stamp = readBodyVersionStamp(terms);
-    expect(stamp, 'terms-en.md 에 시행일 표기가 없다').toBeTruthy();
-    expect(m![1]!.startsWith(stamp!.isoDate)).toBe(true);
+       ★★ 왜 "약관 본문과 같다" 가 아니라 "가장 최근 문서 이상" 인가
+
+         LEGAL_VERSION 은 문서 15건 전체에 붙는 **배포 라벨 하나**다. 문서마다 시행일이
+         다르므로(약관 2026-09-05, 개인정보 2026-09-08) 어느 한 문서와 같기를 요구하면
+         다른 문서를 고칠 때마다 테스트가 틀린 실패를 낸다.
+
+         정말 막아야 하는 것은 **라벨이 문서보다 낡은 상태**다. 그러면 고친 문서가
+         게시되지 않고 고객은 옛 문서를 계속 본다 — 지금 개인정보처리방침을 고쳤으므로
+         이 규칙이 실제로 걸린다.
+    */
+    const { readFileSync: rf, readdirSync } = await import('node:fs');
+    const yaml = rf(new URL('../../../../render.yaml', import.meta.url), 'utf-8');
+    const m = /- key:\s*LEGAL_VERSION\s*(?:\n\s*#[^\n]*)*\n\s*value:\s*"([^"]+)"/.exec(yaml);
+    expect(m, 'render.yaml 에 LEGAL_VERSION 선언이 없다').toBeTruthy();
+    const label = m![1]!;
+
+    const dir = new URL('../../../../docs/legal/', import.meta.url);
+    let newest = '0000-00-00';
+    let newestFile = '';
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.md') || f.startsWith('draft-') || f === 'README.md') continue;
+      const stamp = readBodyVersionStamp(rf(new URL(f, dir), 'utf-8'));
+      if (stamp && stamp.isoDate > newest) { newest = stamp.isoDate; newestFile = f; }
+    }
+    expect(newest, '시행일 표기를 가진 문서가 하나도 없다').not.toBe('0000-00-00');
+    expect(
+      label >= newest,
+      `LEGAL_VERSION="${label}" 이 ${newestFile} 의 시행일 ${newest} 보다 낡았다 — `
+      + '고친 문서가 게시되지 않고 고객은 옛 문서를 본다.',
+    ).toBe(true);
   });
 });
