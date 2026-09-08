@@ -236,6 +236,18 @@
       m.quantityPrecision = r.quantityPrecision;
       m.takerFeeRate = r.takerFeeRate;
       m.makerFeeRate = r.makerFeeRate;
+      /*
+         ★★ 유지증거금률(maintenanceMarginRate). 청산가 추정의 유일한 실제 근거다.
+
+           이 값을 옮기지 않아서 주문창이 청산가를 **코드에 박은 상수 0.92** 로
+           계산하고 있었다(widgets.jsx). 서버는 이미 거래소 계약 사양에서 받아
+           /api/market/contract-specs 로 내보내고 있었는데(index.ts) 화면까지
+           오지 않았다 — 값이 있는데도 지어낸 숫자를 쓰고 있었던 것이다.
+
+         ★ 청산가는 고객이 손절 위치를 정하는 근거다. 틀린 청산가는 손절이 걸리기
+           전에 청산되게 만든다. 없으면 '—' 로 두는 것이 지어낸 값보다 안전하다.
+      */
+      m.maintenanceMarginRate = r.maintenanceMarginRate;
 
       // 활성 심볼이면 스트림 상태도 함께 채운다. WS ticker 가 도착하기 전에도
       // 헤더/주문창의 가격이 0 으로 보이지 않게 하기 위함.
@@ -296,6 +308,8 @@
         fundingRate: r.fundingRate, nextFundingTime: r.nextFundingTime, openInterest: r.openInterest,
         tickSize: r.tickSize, multiplier: r.multiplier, maxLeverage: r.maxLeverage,
         takerFeeRate: r.takerFeeRate, makerFeeRate: r.makerFeeRate,
+        /* ★ 청산가 추정의 근거. 위 병합 지점의 주석 참조. */
+        maintenanceMarginRate: r.maintenanceMarginRate,
       });
     });
 

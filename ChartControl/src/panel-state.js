@@ -32,8 +32,20 @@
   const collapsed = new Set();
   const listeners = new Set();
 
-  /** 접었을 때 남기는 폭(칸). 헤더의 접기 버튼을 누를 수 있어야 한다. */
-  const COLLAPSED_W = 2;
+  /*
+     접었을 때 남기는 폭(칸). 헤더의 접기 버튼을 누를 수 있어야 한다.
+
+     ★★ 2 칸이었다. 24칸 격자에서 2칸은 1600px 화면에서 **109px** 이고, 그 안에는
+       세로 라벨과 32px 버튼 하나뿐이다. 고객이 "차트와 코파일럿 사이에 빈 공간이
+       있다" 고 한 것이 이 띠다 — 접는 목적이 차트를 넓게 보는 것인데 100px 넘게
+       비어 있으면 목적이 절반만 달성된다.
+
+     ★ 1 칸이면 1600px 에서 약 57px 이고 32px 버튼이 들어간다. 가장 좁은 데스크톱
+       (1024px)에서도 격자 한 칸이 약 33px 이라 버튼이 겨우 들어간다 — 그래서
+       `.panel.qt-ai-collapsed` 의 좌우 패딩을 0 으로 두는 CSS 가 함께 있어야 한다
+       (pending.css 의 .qt-ai-collapsed 규칙).
+  */
+  const COLLAPSED_W = 1;
 
   function emit() {
     listeners.forEach((fn) => {

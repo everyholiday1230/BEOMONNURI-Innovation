@@ -1112,7 +1112,39 @@
     const fee = takerRate == null ? null : totalUSDT * takerRate;
     const requiredMargin = totalUSDT / lev;
     const availAfter = assets.availableBalance - requiredMargin;
-    const estLiq = side === 'long' ? px * (1 - 0.92 / lev) : px * (1 + 0.92 / lev);
+    /*
+       ★★ 청산가 추정. 전에는 이랬다:
+
+             estLiq = side === 'long' ? px * (1 - 0.92 / lev) : px * (1 + 0.92 / lev)
+
+         `0.92` 는 **코드에 박힌 근거 없는 상수**였다. 청산가는 심볼별 유지증거금률
+         (maintenanceMarginRate)에 따라 달라지는데 그것을 쓰지 않았다. 게다가 같은
+         저장소의 `packages/domain/src/order-math.ts` 에 올바른 공식이 이미 있었고
+         서버는 그 값을 /api/market/contract-specs 로 내보내고 있었다 — 화면까지
+         배선되지 않아서 지어낸 숫자를 쓰고 있었다(live-market.js 에서 병합 추가).
+
+       ★ 공식은 order-math.ts 와 **같은 것**을 쓴다. 두 곳이 다른 답을 내면 어느
+         쪽을 믿어야 하는지 알 수 없다:
+             long  : entry × (1 − 1/lev + mmr)
+             short : entry × (1 + 1/lev − mmr)
+
+       ★★ 유지증거금률을 모르면 **null 을 돌려준다.** 지어낸 청산가는 없는 청산가보다
+         나쁘다 — 고객은 이 숫자를 보고 손절 위치를 정한다. 실제 청산가가 표시보다
+         가까우면 손절이 걸리기 전에 청산된다.
+
+       ★ 이 값은 주문 전 추정이다. 확인창은 서버가 계산한 값(estLiquidationPrice)이
+         있으면 그것을 우선한다(app.jsx). 포지션이 열린 뒤에는 거래소가 주는 실제
+         청산가를 쓴다.
+
+       ★ 교차(Cross) 마진의 실제 청산가는 계정 전체 자산에 따라 달라지므로 이
+         추정(격리 모델)과 다를 수 있다. 그래서 값을 '추정' 으로만 쓴다.
+    */
+    const mmr = market && Number.isFinite(Number(market.maintenanceMarginRate))
+      ? Number(market.maintenanceMarginRate)
+      : null;
+    const estLiq = (mmr == null || !(lev > 0) || !(px > 0))
+      ? null
+      : (side === 'long' ? px * (1 - 1 / lev + mmr) : px * (1 + 1 / lev - mmr));
     const priceDev = ((px - lastPrice) / lastPrice) * 100;
 
     const errors = [];
@@ -1485,7 +1517,7 @@
               </div>
               {/* 현물은 강제 청산이 없다 — 청산가를 보여주지 않는다. */}
               {!isSpot && (
-                <div className="oe-summary__row"><span>{t('oe_est_liq')}</span><strong className="t-warning">{fmt(estLiq, 1)}</strong></div>
+                <div className="oe-summary__row"><span>{t('oe_est_liq')}</span><strong className="t-warning">{estLiq == null ? t('dash') : fmt(estLiq, 1)}</strong></div>
               )}
               <div className="oe-summary__row"><span>{t('oe_avail_after')}</span><strong>{fmt(availAfter)} USDT</strong></div>
             </div>

@@ -683,6 +683,82 @@
 .ai-cursor { display: inline-block; width: 6px; height: 12px; background: var(--color-ai); vertical-align: text-bottom; animation: blink 1s ease-in-out infinite; }
 @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 
+/*
+   ---------- 좁은 코파일럿 패널에서 글을 읽을 폭을 늘린다 ----------
+
+   ★★ 고객 불만: "글이 긴데 읽을 수 있는 칸이 너무 작아요."
+
+     실측(1600px 화면, 코파일럿 펼침 = 338px):
+       .ai-messages 좌우 패딩   16 + 16 = 32px
+       아바타 26px + gap 12px          = 38px
+       .ai-msg__bubble 좌우 패딩 16+16 = 32px
+       .ai-msg__bubble max-width: 96%  → 남은 폭에서 또 4%
+     합계 **102px, 패널 폭의 30%** 가 글이 아닌 것에 쓰였다. 실제 글 폭은 약
+     236px 로 한 줄에 30자 남짓이다. 긴 분석문을 그 폭으로 읽으라는 것은 무리다.
+
+   ★ 그래서 패널이 좁을 때만 여백을 줄이고 **AI 쪽 아바타를 감춘다.** 아바타는
+     누가 말했는지 알려주는 장치인데, AI 메시지는 좌측 정렬·다른 배경색·말머리로
+     이미 구분된다. 사용자 메시지 아바타는 남긴다(우측 정렬과 짝을 이룬다).
+
+   ★ 넓을 때는 아무 것도 바꾸지 않는다 — 디자인이 의도한 여백을 좁은 경우에만
+     양보한다. 그래서 컨테이너 쿼리를 쓴다(뷰포트가 아니라 **패널** 폭 기준이다.
+     패널은 격자에서 크기가 바뀌므로 미디어 쿼리로는 잡히지 않는다).
+
+   ★ 컨테이너 이름을 준다. autofit 모드에서 .panel__body 도 컨테이너가 되므로
+     이름 없이 쓰면 어느 조상에 걸리는지가 모드에 따라 달라진다.
+*/
+/*
+   ---------- 대화 영역이 세로로 눌리는 문제 ----------
+
+   ★★ 고객 불만의 진짜 원인은 폭이 아니라 **높이**였다.
+
+     실측(1600px, 코파일럿 펼침, 패널 높이 500px):
+       .ai-messages  clientHeight **24px**  ← 답변을 읽는 칸
+       .ai-messages  scrollHeight 546px     ← 실제 내용
+     즉 546px 짜리 글을 **24px 창**으로 읽고 있었다. 스크롤은 되지만 한 번에
+     한 줄 반이 보인다. "글이 긴데 읽을 수 있는 칸이 너무 작다" 가 이것이다.
+
+   ★ 원인: .ai-messages 는 `flex: 1` 인데 형제들이 패널 높이를 먼저 다 가져간다.
+     형제 기본값이 `flex: 0 1 auto` 라 **내용 높이만큼은 절대 안 줄어들고**,
+     .ai-messages 만 `min-height: 0` 이라 남은 것(=거의 0)을 받는다. 실측 분포:
+       ai-layers 164px · ai-input 86px · ai-quick 69px · header/state/context ~85px
+     합계 400px 넘게 쓰고 남은 24px 이 대화 칸이었다.
+
+   ★ 그래서 (a) 대화 칸에 **최소 높이를 보장**하고 (b) 부차 영역에 **상한**을 준다.
+     레이어 목록과 빠른질문 칩은 그 안에서 스크롤한다 — 그것들이 대화를 밀어내는
+     것이 거꾸로다. 패널을 키우면 상한은 그대로고 대화 칸이 늘어난다.
+
+   ★ 상한값은 500px 패널을 기준으로 계산했다:
+       header 37 + state 34 + context 56 + quick 34 + input 86 + layers 56 = 303
+       → 대화 칸 197px (이전 24px). 넘치지 않으므로 입력창이 밖으로 밀리지 않는다.
+
+   ★ 부차 영역은 상한 안에서 스크롤한다. 정보를 지우지 않고 **자리만 양보**한다 —
+     레이어 목록·상태 문구를 없애면 그건 다른 기능을 죽이는 것이다.
+*/
+.ai-messages   { flex: 1 1 auto; min-height: 180px; }
+.ai-state-bar  { flex: 0 0 auto; max-height: 34px; overflow-y: auto; }
+.ai-context    { flex: 0 0 auto; max-height: 56px; overflow-y: auto; }
+.ai-quick      { flex: 0 0 auto; max-height: 34px; overflow-y: auto; }
+.ai-layers     { flex: 0 0 auto; max-height: 56px; overflow-y: auto; }
+.ai-input      { flex: 0 0 auto; }
+.ai-header     { flex: 0 0 auto; }
+
+.panel.qt-ai-panel { container-type: inline-size; container-name: aipanel; }
+
+@container aipanel (max-width: 440px) {
+  .ai-messages { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+  .ai-msg { gap: var(--sp-3); }
+  .ai-msg--ai .ai-msg__avatar { display: none; }
+  .ai-msg__bubble {
+    padding-left: var(--sp-5);
+    padding-right: var(--sp-5);
+    /* 96% 는 좁은 폭에서 한 줄에 2~3자를 더 버린다. 좁을 때는 다 쓴다. */
+    max-width: 100%;
+  }
+  /* 긴 글은 줄 간격이 조금 더 넓어야 눈이 줄을 놓치지 않는다. */
+  .ai-msg--ai .ai-msg__bubble { line-height: 1.65; }
+}
+
 .ai-tool-result {
   padding: var(--sp-4) var(--sp-6);
   background: var(--color-bg-elevated);
@@ -1640,15 +1716,38 @@
   grid-auto-rows: minmax(0, 1fr);
 }
 
-/* Order Entry: 제출 버튼을 패널 하단에 고정 — 스크롤 밖으로 사라지지 않게 */
+/*
+   Order Entry: 제출 버튼 바.
+
+   ★★ 전에는 `position: sticky; bottom: 0` 이었다. **그것이 겹침의 원인이다.**
+
+     실측(1600px, autofit 기본 on):
+       .oe-buttons 의 문서상 위치  y≈876 (oe-warn 다음)
+       sticky 가 끌어올린 위치      y=557..603   ← 273px 위로 떠올랐다
+       그 자리에 있던 TIF 행        y=595..617
+     → GTC / IOC / FOK 세 버튼이 `▲ Buy · Long` 에 **8px 덮였다.**
+
+     sticky bottom 은 정적 위치가 스크롤포트보다 아래일 때 요소를 위로 끌어올린다.
+     이 패널은 아래에 396px('고급 주문') 이 더 있어서 제출 바가 항상 화면 중간에
+     떠 있었고, 불투명 배경이라 그 자리의 내용을 가렸다.
+
+   ★ 같은 원인으로 이미 한 번 사고가 났다 — 퍼센트 슬라이더(0/25/50/75/100)가
+     이 바에 덮여 다섯 개 전부 눌리지 않았다. 그때는 `.oe-body` 에 padding-bottom
+     44px 을 주는 것으로 막았는데, 그 처방은 **맨 끝 내용**만 구제한다. 문서 중간에
+     있는 TIF 행은 여전히 덮인다.
+
+   ★ 그래서 고정을 뗀다. 제출 버튼이 스크롤에 따라 움직이지만, **가려진 버튼보다
+     스크롤해야 하는 버튼이 낫다.** 매수·매도는 이 화면에서 가장 중요한 컨트롤이고
+     8px 이라도 다른 버튼에 덮이면 오클릭이 난다.
+
+   ★ 근본 해결은 이 바를 스크롤 영역(.oe-body) **밖**으로 옮겨 패널 바닥에 두는
+     것이다(구조 변경). 그러면 고정과 비겹침을 동시에 얻는다 — 별건으로 남긴다.
+*/
 [data-autofit="on"] .oe-buttons {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  position: static;
   background: var(--color-bg-panel);
   padding-top: 6px;
   margin-top: 4px;
-  box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, 0.45);
 }
 
 /*

@@ -204,8 +204,28 @@
              기본 화면이 달라진다. 지켜지지 않는 최소값을 사실에 맞추는 것이
              화면을 바꾸는 것보다 안전하다.
         */
-        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 6,  h: 11, minW: 6, minH: 6 },
-        { id: 'positions', type: 'positions',   x: 4,  y: 11, w: 12, h: 5,  minW: 8, minH: 3 },
+        /*
+           ★★ 차트를 6 → 7 칸으로 넓힌다. **오른쪽 패널에서 한 칸을 가져온다**
+             (orderBook 4 → 3). 차트를 넓히려고 코파일럿을 줄이면 원래 문제로
+             되돌아가기 때문이다.
+
+             왜 필요했나 — 실측(1600px 화면):
+               코파일럿 접힘: 차트 614px
+               코파일럿 펼침: 차트 **328px**
+             펼치면 차트가 절반이 됐다. 둘이 같은 행에서 폭을 나눠 쓰는데 차트
+             저장폭이 6칸뿐이라, 코파일럿을 펼치는 순간 차트가 쓸 수 있는 폭이
+             바닥났다. 고객이 "차트를 좌우로 늘려 가득 채워달라" 고 한 지점이다.
+
+           ★ 7 칸이면 펼친 상태에서도 약 399px (이전 328px, +22%) 이고, 접으면
+             12칸 약 684px 가 된다. orderBook 은 3칸(약 171px)이 되는데 240px
+             미만에서 `.ob-row__total` 을 접는 컨테이너 쿼리가 이미 있어(widgets.css)
+             가격·수량은 그대로 읽힌다.
+
+           ★ orderEntry 는 건드리지 않는다. 4칸(223px)에서도 이미 제출 버튼과
+             주문금액이 잘리고 있어 더 줄이면 못 쓴다(별건으로 남긴다).
+        */
+        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 7,  h: 11, minW: 6, minH: 6 },
+        { id: 'positions', type: 'positions',   x: 4,  y: 11, w: 13, h: 5,  minW: 8, minH: 3 },
         /*
            ★★ AI 코파일럿을 기본 배치에 넣는다.
 
@@ -229,9 +249,10 @@
              차트가 10칸이 된다 — 디자이너 배치(12칸)보다 2칸 좁지만, 펼쳤을 때
              코파일럿이 쓸 수 있는 최소 폭(minW 5)을 확보한다.
         */
-        { id: 'ai',        type: 'aiCopilot',   x: 10, y: 0,  w: 6,  h: 11, minW: 5, minH: 10 },
-        { id: 'orderbook', type: 'orderBook',   x: 16, y: 0,  w: 4,  h: 11, minW: 3, minH: 6 },
-        { id: 'trades',    type: 'recentTrades',x: 16, y: 11, w: 4,  h: 5,  minW: 3, minH: 3 },
+        { id: 'ai',        type: 'aiCopilot',   x: 11, y: 0,  w: 6,  h: 11, minW: 5, minH: 10 },
+        /* ★ 4 → 3 칸. 이 한 칸이 차트로 갔다(위 chart 주석 참조). */
+        { id: 'orderbook', type: 'orderBook',   x: 17, y: 0,  w: 3,  h: 11, minW: 3, minH: 6 },
+        { id: 'trades',    type: 'recentTrades',x: 17, y: 11, w: 3,  h: 5,  minW: 3, minH: 3 },
         { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 11, minW: 3, minH: 8 },
         { id: 'assets',    type: 'assetsRisk',  x: 20, y: 11, w: 4,  h: 5,  minW: 3, minH: 3 },
       ]

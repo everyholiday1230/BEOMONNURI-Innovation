@@ -1126,7 +1126,7 @@
       */
       risk_liq_warning: '{symbol} がロスカット価格に近づいています',
       risk_liq_critical: 'ロスカットが近づいています — 残り {pct}%',
-      risk_liq_unknown: 'ロスカット価格を取得できません',
+      risk_liq_unknown: '算出できません — この銘柄の維持証拠金率を取引所から取得できていません。ポジションが安全という意味ではありません。',
 
       // --- 取引所連携 ---
       ex_not_partnered: '未提携',

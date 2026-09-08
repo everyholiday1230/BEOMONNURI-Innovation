@@ -40,6 +40,8 @@
       maxLeverage: undefined,
       takerFeeRate: undefined,
       makerFeeRate: undefined,
+      /* 청산가 추정의 근거(거래소 계약 사양). 없으면 청산가를 표시하지 않는다. */
+      maintenanceMarginRate: undefined,
       fundingRate: undefined,
     };
   }
@@ -3116,12 +3118,26 @@
       meta: `${leverage}×`,
     });
     // 4. Liquidation distance
-    const liqDistPct = Math.abs(((order.estLiq - px) / px) * 100);
+    /*
+       ★★ 청산가를 모를 때 이 검사가 **"안전" 으로 통과**했다.
+
+         `order.estLiq` 가 null 이면 liqDistPct 가 NaN 이 되고, `NaN < 3` 과
+         `NaN < 6` 이 모두 false 라 state 는 'ok', 문구는 '안전 범위', 표시는
+         `-NaN%` 가 됐다. 측정하지 못한 것을 통과로 보고하면 고객은 청산까지
+         여유가 있다고 믿는다 — 이 저장소가 금지한 실패 방식이다.
+
+       ★ 그래서 모를 때는 경고 상태로 두고 이유를 말한다. 차단(fail)까지 하지는
+         않는다 — 유지증거금률을 못 받은 것이 곧 위험한 포지션이라는 뜻은 아니다.
+    */
+    const liqKnown = Number.isFinite(Number(order.estLiq)) && Number(order.estLiq) > 0;
+    const liqDistPct = liqKnown ? Math.abs(((order.estLiq - px) / px) * 100) : null;
     checks.push({
-      state: liqDistPct < 3 ? 'fail' : liqDistPct < 6 ? 'warn' : 'ok',
+      state: !liqKnown ? 'warn' : liqDistPct < 3 ? 'fail' : liqDistPct < 6 ? 'warn' : 'ok',
       label: t('risk_liq_distance'),
-      detail: t(liqDistPct < 3 ? 'risk_liq_danger_close' : liqDistPct < 6 ? 'risk_liq_warn' : 'risk_liq_safe'),
-      meta: `-${liqDistPct.toFixed(2)}%`,
+      detail: !liqKnown
+        ? t('risk_liq_unknown')
+        : t(liqDistPct < 3 ? 'risk_liq_danger_close' : liqDistPct < 6 ? 'risk_liq_warn' : 'risk_liq_safe'),
+      meta: liqKnown ? `-${liqDistPct.toFixed(2)}%` : t('dash'),
     });
     // 5. Price deviation
     checks.push({
@@ -3309,7 +3325,7 @@
                 </span>
                 <span className="op-row__v">{shown.fee == null ? t('dash') : `${fmt(shown.fee, 4)} USDT`}</span>
               </div>
-              <div className="op-row"><span className="op-row__k">{t('oe_est_liq')}</span><span className="op-row__v t-warning">{fmt(shown.liq, 1)}</span></div>
+              <div className="op-row"><span className="op-row__k">{t('oe_est_liq')}</span><span className="op-row__v t-warning">{Number.isFinite(Number(shown.liq)) && Number(shown.liq) > 0 ? fmt(shown.liq, 1) : t('dash')}</span></div>
               <div className="op-row"><span className="op-row__k">TIF</span><span className="op-row__v">{order.tif || 'GTC'}</span></div>
               {order.tpsl && (
                 <>

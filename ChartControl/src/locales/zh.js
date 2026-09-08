@@ -1114,7 +1114,7 @@
 
       risk_liq_warning: '{symbol} 正在接近强平价',
       risk_liq_critical: '接近强制平仓 — 仅剩 {pct}%',
-      risk_liq_unknown: '无法获取强平价格',
+      risk_liq_unknown: '无法计算 — 交易所未提供该交易对的维持保证金率。这并不表示仓位是安全的。',
 
       ex_not_partnered: '未合作',
       ex_connect_pending: '即将开放',

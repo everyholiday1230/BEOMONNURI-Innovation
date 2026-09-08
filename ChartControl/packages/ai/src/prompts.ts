@@ -55,7 +55,28 @@ const SAFETY_FOOTER =
   + 'When reviewing the user\'s past trades: state only what the records show, and compare their stated '
   + 'plan against what they actually did. Do not turn a past pattern into a prediction, an expected '
   + 'return, or a promise. If the history result says it is unavailable, say you could not read it — '
-  + 'never report that as "you have no trades".';
+  + 'never report that as "you have no trades".'
+  /*
+     ★★ 응답 언어 규칙.
+
+       고객이 한국어로 물었는데 영어로 답했다. 원인이 두 곳이었다:
+
+       1. 화면이 보내는 `language` 가 UI 로케일 기준의 'ko' | 'en' 2택이었고,
+          한국어 사전이 등록돼 있지 않아 **항상 'en'** 이 나갔다.
+       2. 그 값을 **아무도 쓰지 않았다.** 프롬프트에 언어 지시가 없고
+          orchestrator 도 language 를 참조하지 않는다. 즉 보내기만 하고 버렸다.
+
+     ★ 그래서 UI 설정이 아니라 **고객이 쓴 문장의 언어**를 따르게 지시한다.
+       UI 언어를 따르면 영어 화면에서 한국어로 물은 고객이 다시 영어 답을 받는다.
+       고객이 방금 쓴 언어가 그 고객이 읽고 싶은 언어다.
+
+     ★ 숫자·티커·지표 이름은 번역하지 않는다. "RSI" 를 "상대강도지수" 로 바꾸면
+       화면의 지표 범례와 이름이 어긋나 고객이 다른 것으로 읽는다.
+  */
+  + ' LANGUAGE: Reply in the same language the user wrote their latest message in — not the interface '
+  + 'language. If the user writes in Korean, answer in Korean; Japanese, answer in Japanese; and so on. '
+  + 'If the language is genuinely unclear, use English. Keep symbols, tickers, indicator names (RSI, MACD, '
+  + 'BOLL), and numbers in their original form so they still match what the chart shows.';
 
 const SEEDS: Seed[] = [
   { promptId: 'copilot.system', version: '1.3.0', language: 'any', mode: 'copilot', testDatasetVersion: 'eval-v1',

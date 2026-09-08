@@ -663,7 +663,22 @@
       // 진행 표시(가짜 계산 단계가 아니라 단순 로딩). 첫 토큰이 오면 사라진다.
       setThinking({ steps: [], currentIdx: 0, msg: t('ai_thinking') });
       let acc = '';
-      const lang = (window.QTI18n && window.QTI18n.getLocale && String(window.QTI18n.getLocale()).indexOf('ko') === 0) ? 'ko' : 'en';
+      /*
+         ★★ 전에는 `indexOf('ko') === 0 ? 'ko' : 'en'` 2택이었다. 그런데 한국어 사전이
+           등록돼 있지 않아 getLocale() 이 'ko' 를 돌려주는 일이 없었고, 결과적으로
+           **항상 'en'** 이 나갔다. 일본어·중국어 이용자도 'en' 으로 뭉개졌다.
+
+         ★ 이제 UI 로케일을 그대로 보낸다(참고용). 실제 응답 언어는 서버 프롬프트가
+           **고객이 쓴 문장의 언어**로 결정한다 — UI 가 영어인데 한국어로 물은 고객이
+           영어 답을 받는 것이 원래 불만이었기 때문이다. 이 값은 언어를 판별할 수
+           없을 때의 참고값으로만 쓴다.
+      */
+      const lang = (() => {
+        try {
+          const loc = window.QTI18n && window.QTI18n.getLocale ? String(window.QTI18n.getLocale() || '') : '';
+          return loc ? loc.toLowerCase() : 'en';
+        } catch (e) { return 'en'; }
+      })();
       /*
          심볼을 백엔드 표기로 맞춘다. 화면 context.symbol 은 'BTC/USDT'(슬래시 포함)인데
          서버의 시세 조회(getTicker)·정규 스키마는 'BTCUSDT' 를 쓴다. 슬래시를 남기면
@@ -874,7 +889,7 @@
 
     // ---- UI ----
     return (
-      <div className={`panel ${collapsed ? 'qt-ai-collapsed' : ''}`} style={{height:'100%'}}>
+      <div className={`panel qt-ai-panel ${collapsed ? 'qt-ai-collapsed' : ''}`} style={{height:'100%'}}>
         <div className="ai-header">
           {/*
              ★★ 접힌 상태에서는 제목을 그리지 않는다.
@@ -927,7 +942,17 @@
                   setStreaming(null);
                 }}
               >
-                <I.More size={14}/>
+                {/*
+                   ★★ 아이콘이 `I.More`(점 3개) 였다. 다른 패널의 **더보기 메뉴와
+                     완전히 같은 모양**이다(widgets.jsx 의 orderBook·orderEntry 등).
+
+                     그래서 메뉴가 열릴 것으로 기대하고 누르는데 **대화가 지워진다.**
+                     되돌릴 수 없는 동작을 메뉴처럼 보이는 버튼에 둔 것이다.
+
+                   ★ 휴지통으로 바꾼다. 지우는 동작임이 모양만으로 드러나고, 같은
+                     헤더의 접기 화살표(I.Up/I.Down)와도 혼동되지 않는다.
+                */}
+                <I.Trash size={14}/>
               </button>
             )}
           </div>

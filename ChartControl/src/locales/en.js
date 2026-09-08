@@ -1158,6 +1158,11 @@
       risk_liq_danger_close: '⚠ Very risky',
       risk_liq_warn: 'Caution',
       risk_liq_safe: 'Safe range',
+      /*
+         ★ 청산가를 계산할 수 없을 때. "안전" 으로 넘기지 않는다 — 측정하지 못한
+           것을 통과로 표시하면 고객이 보호받는다고 착각한다.
+      */
+      risk_liq_unknown: 'Cannot be measured — the exchange did not provide a maintenance margin rate for this symbol. This does NOT mean the position is safe.',
       risk_price_dev: 'Deviation from last price',
       risk_dev_far: '⚠ More than 3% away from the market price',
       risk_dev_near: 'Near the market price',
