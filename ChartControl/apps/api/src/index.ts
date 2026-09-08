@@ -3998,6 +3998,21 @@ if (legalRepo) {
       /* 막힌 것과 빠진 파일은 반드시 눈에 보이게 남긴다 — 조용히 넘기면 아무도 모른다. */
       if (r.blocked.length > 0) console.warn(`[legal] 공개하지 않음: ${r.blocked.join(', ')}`);
       if (r.missingFiles.length > 0) console.warn(`[legal] 문서 없음/실패: ${r.missingFiles.join(', ')}`);
+      /*
+         ★★ 본문 표기와 배포 라벨이 어긋난 문서를 알린다.
+
+           고객은 본문의 "Version 1.1" 을 읽는데 우리는 그 동의를 LEGAL_VERSION 라벨로
+           기록한다. 어긋나면 어느 텍스트에 동의했는지 설명하기 어려워진다.
+
+         ★ 증거 자체는 남는다 — 동의는 document_id 로 기록되고 게시본은 덮어쓸 수 없다.
+           어긋나는 것은 라벨이다. 그래도 운영자가 알아야 한다.
+      */
+      if (r.versionMismatch.length > 0) {
+        console.warn(
+          `[legal] ★ 본문 표기와 배포 라벨(LEGAL_VERSION=${(process.env.LEGAL_VERSION ?? '').trim()})이 어긋난다 — `
+          + `동의 기록의 버전은 라벨을 따른다:\n      ${r.versionMismatch.join('\n      ')}`,
+        );
+      }
       if (!process.env.LEGAL_AUTOPUBLISH) {
         console.log('[legal] 초안만 만들었다. /admin/legal 에서 검토 후 공개하거나 LEGAL_AUTOPUBLISH=true 로 배포할 것.');
       }

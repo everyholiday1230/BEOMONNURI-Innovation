@@ -2605,8 +2605,19 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
         termsPublished: has('terms'),
         privacyPublished: has('privacy'),
         riskPublished: has('risk'),
-        // 이 둘이 없으면 런칭 차단이다.
-        canLaunch: has('terms') && has('privacy'),
+        refundPublished: has('refund'),
+        /*
+           ★★ 가입에서 **동의를 받는 3종**이 모두 게시돼야 런칭할 수 있다.
+
+             예전에는 약관·개인정보 둘만 봤다. 그런데 가입 화면과 서버
+             (requiredConsentDocs)는 **위험 고지까지 3종**을 받는다. 위험 고지가
+             없으면 동의를 아예 기록하지 못하는데(부분 기록을 하지 않는다)
+             "런칭 가능" 이라고 답했다.
+
+           ★ 환불 정책도 포함한다. 유료 구독을 파는데 환불 기준이 게시돼 있지
+             않으면 전자상거래법상 문제가 된다.
+        */
+        canLaunch: has('terms') && has('privacy') && has('risk') && has('refund'),
       },
     });
   });

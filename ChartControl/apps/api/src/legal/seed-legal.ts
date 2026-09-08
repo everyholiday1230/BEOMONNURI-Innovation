@@ -49,6 +49,43 @@ import { LEGAL_KINDS, type LegalKind, type PgLegalRepo } from '../db/legal-repo'
  * ★ 이미 공개된 한국어 문서 행은 이 목록에서 빼도 **DB 에 남는다.** 파일이
  *   없으면 새로 시딩되지 않을 뿐이다 — 기존 행 정리는 운영자가 별도로 한다.
  */
+
+/**
+ * 문서 본문이 스스로 밝힌 시행일·판번호를 읽는다.
+ *
+ * ★ 영어·중국어 표기를 모두 읽는다. 일본어·환불·보안 문서에는 이 줄이 아예 없어
+ *   null 을 돌려준다 — 없는 것을 "0" 이나 오늘 날짜로 바꾸지 않는다.
+ */
+export function readBodyVersionStamp(
+  body: string,
+): { raw: string; isoDate: string } | null {
+  const MONTHS: Record<string, number> = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  };
+  /* 영어: "Effective: 5 September 2026 · Version 1.1" */
+  const en = /Effective:\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})[^\n]*/.exec(body);
+  if (en) {
+    const m = MONTHS[(en[2] ?? '').toLowerCase()];
+    if (m) {
+      const d = Number(en[1]);
+      return {
+        raw: en[0].trim(),
+        isoDate: `${en[3]}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+      };
+    }
+  }
+  /* 중국어: "生效日期：2026 年 9 月 5 日 · 版本 1.1" */
+  const zh = /生效日期：\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日[^\n]*/.exec(body);
+  if (zh) {
+    return {
+      raw: zh[0].trim(),
+      isoDate: `${zh[1]}-${String(Number(zh[2])).padStart(2, '0')}-${String(Number(zh[3])).padStart(2, '0')}`,
+    };
+  }
+  return null;
+}
+
 export const SEED_LOCALES = ['en', 'ja', 'zh'] as const;
 
 export interface LegalSeedOptions {
@@ -84,6 +121,12 @@ export interface LegalSeedResult {
   /** 파일 내용이 바뀌어 초안 본문을 다시 맞춘 문서. */
   refreshed: string[];
   skipped: string[];
+  /**
+   * 본문 표기와 배포 라벨이 어긋난 문서들.
+   *
+   * ★ 게시를 막지는 않지만 반드시 로그에 남긴다 — 조용히 넘어가면 아무도 모른다.
+   */
+  versionMismatch: string[];
   blocked: string[];
   missingFiles: string[];
 }
@@ -123,7 +166,7 @@ export async function seedLegalDocuments(
   repo: PgLegalRepo,
   opts: LegalSeedOptions,
 ): Promise<LegalSeedResult> {
-  const out: LegalSeedResult = { created: [], published: [], refreshed: [], skipped: [], blocked: [], missingFiles: [] };
+  const out: LegalSeedResult = { created: [], published: [], refreshed: [], skipped: [], versionMismatch: [], blocked: [], missingFiles: [] };
   const docsDir = resolveDocsDir(opts.docsDir);
   if (!docsDir) {
     out.missingFiles.push('docs/legal (디렉터리를 찾지 못했다)');
@@ -232,6 +275,30 @@ export async function seedLegalDocuments(
           .then(() => out.published.push(`${key} (기존 초안)`))
           .catch((e: unknown) => out.blocked.push(`${key} 공개 실패: ${(e as Error).message}`));
         continue;
+      }
+
+      /*
+         ★★ 본문이 스스로 밝힌 시행일·판번호를 읽어, 배포 라벨과 **어긋나면 알린다.**
+
+           문서 본문에는 `Effective: 5 September 2026 · Version 1.1` 같은 줄이 있는데,
+           우리가 동의 기록에 남기는 버전은 배포 환경변수(LEGAL_VERSION)에서 온다.
+           둘이 어긋나면 고객은 "Version 1.1" 을 읽고 우리는 그 동의를 `2026-08-22` 로
+           기록한다 — 실제로 그 상태였다.
+
+         ★ 게시를 **거부하지는 않는다.** 문서마다 시행일이 다르고(약관 9/5, 개인정보
+           8/10) 일부는 표기가 아예 없어, 단일 라벨과 전부 일치시키는 것은 불가능하다.
+           거부하면 전 문서가 막힌다. 그래서 드러내고 넘어간다 — 조용히 넘어가는 것과
+           다르다.
+
+         ★ 증거 자체는 보존된다. 동의는 document_id 로 기록되고 게시본은 덮어쓸 수
+           없다(repo.updateDraft 가 ALREADY_PUBLISHED 로 거부한다). 어긋나는 것은
+           **라벨**이고 텍스트가 아니다.
+      */
+      const bodyStamp = readBodyVersionStamp(body);
+      if (bodyStamp && !opts.version.startsWith(bodyStamp.isoDate)) {
+        out.versionMismatch.push(
+          `${key}: 본문 "${bodyStamp.raw}" (시행 ${bodyStamp.isoDate}) ↔ 배포 라벨 "${opts.version}"`,
+        );
       }
 
       const doc = await repo.createDraft({
