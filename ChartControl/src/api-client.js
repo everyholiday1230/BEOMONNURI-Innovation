@@ -803,8 +803,13 @@
     savedList: function (kind) {
       var q = kind ? ('?kind=' + encodeURIComponent(kind)) : '';
       return getJSON('', '/api/me/saved' + q).then(
-        function (r) { return { ok: true, supported: Boolean(r && r.supported), items: (r && r.items) || [], saveCost: (r && r.saveCost) || 0 }; },
-        function (e) { return { ok: false, supported: false, items: [], saveCost: 0, status: e && e.status }; }
+        /*
+           ★ savesAllowed 는 서버 판정이다(요금제 plan_f_saves). 조회 실패 시
+             false 로 둔다 — 허용으로 가정하면 무료 플랜 고객이 저장 버튼을 눌러
+             402 를 보게 되고, 그건 고장으로 읽힌다.
+        */
+        function (r) { return { ok: true, supported: Boolean(r && r.supported), items: (r && r.items) || [], saveCost: (r && r.saveCost) || 0, savesAllowed: Boolean(r && r.savesAllowed), planCode: (r && r.planCode) || null }; },
+        function (e) { return { ok: false, supported: false, items: [], saveCost: 0, savesAllowed: false, planCode: null, status: e && e.status }; }
       );
     },
     /** 저장(포인트 차감). {kind,name,symbol?,timeframe?,payload}. 잔액 부족은 402. */

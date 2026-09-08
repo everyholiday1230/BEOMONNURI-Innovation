@@ -58,7 +58,32 @@ export function createSavedRouter(d: SavedRouterDeps): Hono {
     const kindQ = c.req.query('kind');
     const kind = kindQ && VALID_KINDS.has(kindQ as SavedItemKind) ? (kindQ as SavedItemKind) : undefined;
     const items = await d.repo.listForUser(a.user.id, kind);
-    return c.json({ supported: true, items, saveCost: SAVE_COST_BY_SCOPE, extendCost: EXTEND_COST_POINTS });
+    /*
+       ★★ 저장 가능 여부를 **목록과 함께** 내려준다.
+
+         전에는 화면이 알 방법이 없어서, 무료 플랜 고객에게도 저장 버튼을 그리고
+         누르면 402(PLAN_REQUIRED)가 떴다. 누를 수 있는데 실패하는 버튼은 고객에게
+         고장으로 읽힌다 — 이 저장소가 금지한 '죽은 버튼' 이다.
+
+       ★ 판정은 서버가 한다. 화면이 플랜 목록을 따로 들고 판단하면 가격표와 갈라진다
+         (POST 게이트와 같은 checkPlanFeature 를 쓴다 — 단일 출처).
+
+       ★ 실패를 '허용' 으로 바꾸지 않는다. 조회에 실패하면 allowed=false 로 두어
+         눌러서 402 를 보는 대신 이유를 먼저 보게 한다.
+    */
+    let savesAllowed = false;
+    let planCode: string | null = null;
+    try {
+      const gate = await checkPlanFeature(d.subscriptions, a.user.id, FEATURE_SAVES);
+      savesAllowed = gate.allowed;
+      planCode = (gate as { planCode?: string | null }).planCode ?? null;
+    } catch {
+      savesAllowed = false;
+    }
+    return c.json({
+      supported: true, items, saveCost: SAVE_COST_BY_SCOPE, extendCost: EXTEND_COST_POINTS,
+      savesAllowed, planCode,
+    });
   });
 
   // ---- 저장 (포인트 차감) ----

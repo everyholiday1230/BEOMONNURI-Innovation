@@ -44,6 +44,10 @@
          ★ 도구 이름은 번역하지 않는다. 14개 도구에 언어별 사전을 만들면 도구가
            늘 때마다 사전이 뒤처지고, 뒤처진 사전은 빈 칸으로 나타난다.
       */
+      /* ★ AI 가 그린 선·신호에 이름을 붙여 저장한다. 무료 플랜은 저장 불가(운영 결정). */
+      sv_plan_required: 'Saving needs a paid plan',
+      sv_name_label: 'Name this',
+      sv_save: 'Save',
       ai_step_validating: 'Checking the request',
       ai_step_tool: 'Using {name}',
       ai_tool_signal: '📊 5 overlays created · entry zone / SL / TP1-3 / long marker',

@@ -28,6 +28,9 @@
       ai_ctx_loaded_ind: 'コンテキストを読み込みました。{symbol} · {tf} · {bars} 本 · 指標 {n} 件が有効。',
 
       ai_tool_trendline: "📐 チャートにドラフトのトレンドラインを追加 · レイヤー: AI Draft",
+      sv_plan_required: "保存は有料プランが必要です",
+      sv_name_label: "名前を付ける",
+      sv_save: "保存",
       ai_step_validating: "リクエストを確認しています",
       ai_step_tool: "{name} を使用中",
       ai_tool_signal: "📊 オーバーレイ5件を生成 · エントリー帯 / 損切り / 利確1-3 / ロングマーカー",

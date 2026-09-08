@@ -510,6 +510,8 @@
     // CCAI Copilot 안에서 저장된 항목(신호/지표/드로잉)을 본다.
     const [savedOpen, setSavedOpen] = useState(false);
     const [savedItems, setSavedItems] = useState(null);
+    /* 저장이 요금제에 포함돼 있는가. 서버 판정을 그대로 쓴다(조회 실패 시 false). */
+    const [savesAllowed, setSavesAllowed] = useState(false);
     const [savedError, setSavedError] = useState(false);
     const loadSaved = useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -523,8 +525,19 @@
         if (r && r.ok === false) { setSavedItems(null); setSavedError(true); return; }
         setSavedError(false);
         setSavedItems((r && r.items) || []);
-      }).catch(() => { setSavedItems(null); setSavedError(true); });
+        /*
+           ★ 저장 가능 여부는 **서버 판정**이다(요금제 plan_f_saves). 무료 플랜은
+             저장이 아예 불가하므로(운영 결정 2026-09-08) 버튼을 눌러 402 를 보게
+             하지 않고 미리 막고 이유를 적는다.
+        */
+        setSavesAllowed(Boolean(r && r.savesAllowed));
+      }).catch(() => { setSavedItems(null); setSavedError(true); setSavesAllowed(false); });
     }, []);
+    /*
+       ★ 목록을 한 번도 열지 않아도 저장 버튼의 활성 여부를 알아야 한다.
+         마운트 때 한 번 읽는다(목록은 접혀 있어도 게이트 판정은 필요하다).
+    */
+    useEffect(() => { loadSaved(); }, [loadSaved]);
     useEffect(() => { loadSavedRef.current = loadSaved; }, [loadSaved]);
     const toggleSaved = useCallback(() => {
       setSavedOpen((o) => { const n = !o; if (n) loadSaved(); return n; });
@@ -1132,7 +1145,7 @@
 
         <div className="ai-messages" ref={scrollRef}>
           {msgs.map(m => (
-            <AIMessage key={m.id} msg={m} currentSignal={currentSignal} onApproveSignal={onApproveSignal} onCreateOrderDraft={onCreateOrderDraft} onEditSignal={onEditSignal} onRejectSignal={onRejectSignal} onSaveProposal={saveProposal} savingId={savingId} isBeginner={isBeginner}/>
+            <AIMessage key={m.id} msg={m} currentSignal={currentSignal} onApproveSignal={onApproveSignal} onCreateOrderDraft={onCreateOrderDraft} onEditSignal={onEditSignal} onRejectSignal={onRejectSignal} onSaveProposal={saveProposal} savingId={savingId} savesAllowed={savesAllowed} isBeginner={isBeginner}/>
           ))}
 
           {/* SIGNAL CARD floated once a signal is proposed and last message is AI reply */}
@@ -1312,7 +1325,20 @@
   };
 
   // ---- Sub components ----
-  function AIMessage({ msg, isBeginner, onSaveProposal, savingId }) {
+  function AIMessage({ msg, isBeginner, onSaveProposal, savingId, savesAllowed }) {
+    /*
+       ★★ AI 가 그린 선·신호에 **이름을 지을 수 있게 한다.**
+
+         전에는 `name: note` — 도구 결과 문구가 그대로 이름이 됐다. 그래서 저장
+         목록이 '📊 5 overlays created · entry zone / SL / TP1-3' 처럼 다 비슷해
+         나중에 어느 것이 무엇인지 구분할 수 없었다. 이름은 고객이 나중에 찾기
+         위한 것이므로 고객이 정해야 한다.
+
+       ★ 자동 이름을 기본값으로 채워 둔다 — 빈 칸을 주면 이름 없이 저장하려다
+         서버가 400('name required')을 돌려준다.
+    */
+    const [nameDraft, setNameDraft] = useState(null);   // null = 입력칸 닫힘
+    const beginEdit = () => setNameDraft(String((msg.savable && msg.savable.name) || '').slice(0, 120));
     if (msg.role === 'system') {
       return (
         <div style={{display:'flex', alignItems:'center', gap: 8, fontSize: 11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', padding:'2px 0'}}>
@@ -1328,14 +1354,56 @@
             <I.Sparkles size={11}/>
             <span>{msg.toolResult}</span>
             {msg.savable && !msg.saved && (
-              <button
-                className="btn btn--sm"
-                style={{marginLeft:'auto'}}
-                disabled={savingId === msg.id}
-                onClick={() => onSaveProposal && onSaveProposal(msg.id, msg.savable)}
-              >
-                {savingId === msg.id ? t('sv_saving') : t('ai_save_proposal', { n: 100 })}
-              </button>
+              savesAllowed === false ? (
+                /*
+                   ★ 무료 플랜은 저장이 아예 불가하다(운영 결정). 버튼을 그려 놓고
+                     402 를 돌려주면 고객은 고장으로 읽는다 — disabled + 이유를 적는다.
+                */
+                <button
+                  aria-label={t('sv_plan_required')}
+                  className="btn btn--sm"
+                  style={{marginLeft:'auto'}}
+                  disabled
+                  title={t('sv_plan_required')}
+                >
+                  {t('sv_plan_required')}
+                </button>
+              ) : nameDraft === null ? (
+                <button
+                  className="btn btn--sm"
+                  style={{marginLeft:'auto'}}
+                  disabled={savingId === msg.id}
+                  onClick={beginEdit}
+                >
+                  {savingId === msg.id ? t('sv_saving') : t('ai_save_proposal', { n: 100 })}
+                </button>
+              ) : (
+                <span style={{marginLeft:'auto', display:'inline-flex', alignItems:'center', gap:6}}>
+                  <input
+                    aria-label={t('sv_name_label')}
+                    className="input input--sm"
+                    style={{width: 140, fontSize: 11.5}}
+                    value={nameDraft}
+                    maxLength={120}
+                    placeholder={t('sv_name_label')}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && nameDraft.trim()) { onSaveProposal(msg.id, { ...msg.savable, name: nameDraft.trim() }); setNameDraft(null); }
+                      if (e.key === 'Escape') setNameDraft(null);
+                    }}
+                  />
+                  <button
+                    className="btn btn--sm btn--primary"
+                    disabled={savingId === msg.id || !nameDraft.trim()}
+                    onClick={() => { onSaveProposal(msg.id, { ...msg.savable, name: nameDraft.trim() }); setNameDraft(null); }}
+                  >
+                    {savingId === msg.id ? t('sv_saving') : t('sv_save')}
+                  </button>
+                  <button aria-label={t('cancel')} className="btn btn--icon btn--sm" title={t('cancel')} onClick={() => setNameDraft(null)}>
+                    <I.X size={11}/>
+                  </button>
+                </span>
+              )
             )}
             {msg.savedNote && <span style={{marginLeft: msg.savable && !msg.saved ? 8 : 'auto', fontSize:11, color:'var(--color-text-secondary)'}}>{msg.savedNote}</span>}
           </div>
