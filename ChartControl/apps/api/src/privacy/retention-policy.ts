@@ -41,6 +41,18 @@ export interface RetentionRule {
   column: string;
   /** 보관 일수. */
   days: number;
+  /**
+   * 시각 컬럼의 저장 형태.
+   *
+   * ★★ 표마다 다르다. `audit_logs.at` 은 timestamptz 인데 `admin_actions.at` 은
+   *   **에폭 밀리초(bigint)** 다. 한 가지로 가정하면 한쪽이 조용히 실패한다 —
+   *   실제로 운영에서 `invalid input syntax for type bigint` 로 파기가 멈췄다.
+   *
+   * ★ 새 표를 추가할 때 이 값을 반드시 확인할 것. information_schema 로 확인한다:
+   *     SELECT data_type FROM information_schema.columns
+   *      WHERE table_name='...' AND column_name='...';
+   */
+  columnKind: 'timestamptz' | 'epoch_ms';
   /** 사람이 읽는 근거. 로그와 감사에 그대로 쓴다. */
   reason: string;
   /**
@@ -63,6 +75,7 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
     table: 'audit_logs',
     column: 'at',
     days: 90,
+    columnKind: 'timestamptz',
     reason: '접속·행위 기록 3개월 (통신비밀보호법 시행령 · 처리방침 1.2)',
     statutory: true,
   },
@@ -70,6 +83,8 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
     table: 'admin_actions',
     column: 'at',
     days: 90,
+    /* ★ 이 표만 에폭 밀리초다. timestamptz 로 가정하면 파기가 실패한다. */
+    columnKind: 'epoch_ms',
     reason: '관리자 행위 기록 3개월 (처리방침 1.2)',
     statutory: true,
   },
@@ -81,6 +96,7 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
     table: 'sessions',
     column: 'expires_at',
     days: 90,
+    columnKind: 'timestamptz',
     reason: '만료 세션의 IP·User-Agent 3개월 (처리방침 1.2)',
     statutory: true,
   },

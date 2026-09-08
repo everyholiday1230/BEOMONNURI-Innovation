@@ -43,7 +43,17 @@ export interface PurgeOutcome {
  * ★ `ctid` 로 배치를 자른다. 기본키 이름을 표마다 알 필요가 없다.
  */
 async function purgeRule(pool: Pool, rule: RetentionRule, now: number): Promise<PurgeOutcome> {
-  const cutoff = cutoffFor(rule, now);
+  const cutoffDate = cutoffFor(rule, now);
+  /*
+     ★★ 컬럼 저장 형태에 맞춰 기준값을 만든다.
+
+       표마다 다르다 — audit_logs.at 은 timestamptz 인데 admin_actions.at 은
+       에폭 밀리초(bigint)다. 한 가지로 가정했더니 운영에서
+       `invalid input syntax for type bigint` 로 파기가 조용히 멈췄다.
+  */
+  const cutoff: Date | string = rule.columnKind === 'epoch_ms'
+    ? String(cutoffDate.getTime())
+    : cutoffDate;
   let deleted = 0;
   try {
     for (;;) {

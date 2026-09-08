@@ -31,6 +31,8 @@ describe('보관기간 정책', () => {
     expect(RETENTION_RULES.length).toBeGreaterThan(0);
     for (const r of RETENTION_RULES) {
       expect(r.days).toBeGreaterThan(0);
+      /* ★ 컬럼 형태를 명시해야 한다. 빠뜨리면 그 표의 파기가 조용히 실패한다. */
+      expect(['timestamptz', 'epoch_ms'], `${r.table} 의 columnKind`).toContain(r.columnKind);
       expect(r.reason, `${r.table} 에 근거가 없다`).toBeTruthy();
       expect(typeof r.statutory).toBe('boolean');
     }
@@ -66,7 +68,12 @@ describe.skipIf(!URL_)('보관기간 파기 — 실제 Postgres', () => {
        것이 **삭제 조건**뿐이기 때문이다.
     */
     await pool.query('CREATE TABLE audit_logs (id serial primary key, at timestamptz, ip text)');
-    await pool.query('CREATE TABLE admin_actions (id serial primary key, at timestamptz, ip text)');
+    /*
+       ★★ admin_actions.at 은 운영에서 **에폭 밀리초(bigint)** 다. timestamptz 로
+         가정했더니 운영에서 `invalid input syntax for type bigint` 로 파기가 멈췄다.
+         실제 타입을 그대로 쓴다 — 여기서 timestamptz 로 만들면 그 버그를 못 잡는다.
+    */
+    await pool.query('CREATE TABLE admin_actions (id serial primary key, at bigint, ip text)');
     await pool.query('CREATE TABLE sessions (id serial primary key, expires_at timestamptz, ip text)');
   });
 
@@ -76,9 +83,10 @@ describe.skipIf(!URL_)('보관기간 파기 — 실제 Postgres', () => {
     const now = Date.now();
     const old = new Date(now - 200 * 24 * 3600 * 1000);   // 200일 전
     const fresh = new Date(now - 10 * 24 * 3600 * 1000);  // 10일 전
-    for (const t of ['audit_logs', 'admin_actions']) {
-      await pool.query(`INSERT INTO ${t} (at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`, [old, fresh]);
-    }
+    await pool.query(`INSERT INTO audit_logs (at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`, [old, fresh]);
+    /* ★ bigint 표에는 밀리초 숫자를 넣는다. */
+    await pool.query(`INSERT INTO admin_actions (at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`,
+      [String(old.getTime()), String(fresh.getTime())]);
     await pool.query(`INSERT INTO sessions (expires_at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`, [old, fresh]);
 
     const out = await runRetentionPurge(pool, now);
