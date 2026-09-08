@@ -567,6 +567,17 @@
 }
 
 /* 위젯에 마우스를 올리면 보인다. */
+/*
+   ★ 패널 닫기 버튼. 보이는 크기는 20px 로 두고(패널 헤더가 좁다) 히트 영역만
+     24px 로 넓힌다. WCAG 2.2 §2.5.8.
+*/
+.qt-widget-close::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 24px; height: 24px;
+  transform: translate(-50%, -50%);
+}
 .widget:hover .qt-widget-close { opacity: 0.75; }
 
 .qt-widget-close:hover {

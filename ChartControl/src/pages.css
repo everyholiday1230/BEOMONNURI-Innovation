@@ -694,6 +694,26 @@
   opacity: 0.25;
   transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
+
+/*
+   ★★ 터치 영역 확장 — 보이는 크기는 그대로 두고 누를 수 있는 범위만 넓힌다.
+
+     WCAG 2.2 §2.5.8 Target Size (Minimum, AA) 는 24×24 CSS px 을 요구한다.
+     아래 요소들은 390px 뷰포트에서 8~20px 로 측정됐다.
+
+   ★ width/height 를 키우지 않는다. 사이드바 핀·슬라이더 눈금·닫기 버튼은 크기가
+     커지면 레이아웃이 흐트러진다. 대신 ::after 로 투명한 판을 덮는다 —
+     보이는 것은 그대로고 히트 영역만 24px 이 된다.
+
+   ★ pointer-events 는 기본값(auto)이면 충분하다. 부모 버튼의 이벤트로 올라간다.
+*/
+.sb-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 24px; height: 24px;
+  transform: translate(-50%, -50%);
+}
 .sb-row:hover .sb-pin { opacity: 0.7; }
 .sb-pin:hover { opacity: 1; }
 .sb-pin.is-on {

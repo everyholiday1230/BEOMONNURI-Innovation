@@ -146,7 +146,11 @@
 .landing-foot__legal {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  /*
+     ★ 가로 간격을 넉넉히 둔다. 링크 높이를 24px 로 키워도 좌우가 붙어 있으면
+       여전히 옆을 누른다. 세로 gap 은 줄바꿈될 때만 쓰인다.
+  */
+  gap: 6px 18px;
   align-items: center;
 }
 
@@ -154,6 +158,18 @@
   color: var(--color-text-tertiary);
   text-decoration: none;
   border-bottom: 1px solid transparent;
+  /*
+     ★★ 터치 타깃 최소 24×24 (WCAG 2.2 §2.5.8 Target Size (Minimum), AA).
+
+       실측에서 이 링크들이 390×844 뷰포트에서 높이 17px 였다. 손가락으로는
+       옆 링크를 누르게 되고, 그 옆이 '환불 정책' 이나 '위험 고지' 다.
+
+     ★ 높이를 24px 로 만들되 글자 크기는 건드리지 않는다 — inline-flex 로
+       세로 정렬만 잡는다. font-size 를 키우면 푸터 레이아웃이 무너진다.
+  */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 .landing-foot__legal a:hover {

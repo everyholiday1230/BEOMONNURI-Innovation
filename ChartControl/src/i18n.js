@@ -29,6 +29,18 @@
 
   /** locale -> { key: string } */
   const DICTS = new Map();
+  /*
+     지연 로드 대상 언어의 표시 정보.
+
+     ★ 사전보다 먼저 알아야 하는 값이다. 사전이 없으면 label 을 알 수 없어 순환
+       버튼에 코드('ja')가 그대로 찍힌다.
+     ★ 언어를 추가할 때 여기와 LAZY_LOCALES 두 곳을 함께 고친다.
+  */
+  const LAZY_LOCALE_META = {
+    ja: { label: '日本語', bcp47: 'ja' },
+    zh: { label: '简体中文', bcp47: 'zh-CN' },
+  };
+
   /** locale -> 표시 이름 (언어 선택 UI 용) */
   const LABELS = new Map();
   /** locale -> 숫자/날짜 서식용 BCP-47 태그 */
@@ -65,13 +77,31 @@
   }
 
   /** 등록된 언어 목록. 하드코딩하지 않고 레지스트리에서 산출한다. */
+  /**
+   * 고를 수 있는 언어 목록. 언어 순환 버튼의 **단일 출처**다.
+   *
+   * ★★ 아직 내려받지 않은 언어도 포함한다.
+   *
+   *   사전을 지연 로드하도록 바꾼 뒤, 등록된 것만 돌려주면 첫 화면에서 목록이
+   *   영어 하나가 된다. 그러면 순환 버튼에 다른 언어가 아예 나타나지 않아
+   *   **일본어·중국어 고객이 자기 언어로 갈 방법이 사라진다.**
+   *
+   *   그래서 "실을 수 있다고 아는 언어"(LAZY_LOCALE_META)를 함께 넣는다.
+   *   `keys: 0` 으로 아직 로드되지 않았음을 구분할 수 있게 둔다.
+   */
   function available() {
-    return [...DICTS.keys()].map((code) => ({
+    const out = [...DICTS.keys()].map((code) => ({
       code,
       label: LABELS.get(code) || code,
       bcp47: BCP47.get(code) || code,
       keys: Object.keys(DICTS.get(code) || {}).length,
     }));
+    Object.keys(LAZY_LOCALE_META).forEach(function (code) {
+      if (DICTS.has(code)) return;         // 이미 로드됨 — 위에서 들어갔다
+      const m = LAZY_LOCALE_META[code];
+      out.push({ code, label: m.label, bcp47: m.bcp47, keys: 0 });
+    });
+    return out;
   }
 
   function has(locale) {
@@ -197,6 +227,74 @@
   // 현재 언어
   // ---------------------------------------------------------------
 
+
+  /*
+     ─────────────────────────────────────────────────────────────────────────
+     언어 사전 지연 로드
+     ─────────────────────────────────────────────────────────────────────────
+
+     ★★ 왜 필요한가
+
+       예전에는 index.html 이 en·ja·zh 사전을 **무조건 세 개 다** 실었다.
+       합 505 KB — 첫 로드 JS 의 17% 다. 사용자는 한 언어만 쓴다.
+
+     ★ 영어(폴백)만 정적으로 싣고, 다른 언어는 그 언어를 실제로 고를 때 주입한다.
+       t() 는 요청 언어 → 기본형 → 폴백 순으로 찾으므로, 사전이 도착하기 전에는
+       영어가 보이고 도착하면 다시 그려진다. **빈 화면이나 키 문자열이 보이지 않는다.**
+
+     ★ 같은 언어를 두 번 로드하지 않는다. 실패해도 화면을 깨뜨리지 않고 영어로 남긴다 —
+       다만 조용히 넘기지 않고 콘솔에 남긴다.
+  */
+  const LAZY_LOCALES = {
+    ja: ['ja', 'auth.ja', 'user.ja', 'more.ja', 'admin.ja', 'copilot.ja', 'shell.ja'],
+    zh: ['zh', 'auth.zh', 'user.zh', 'more.zh', 'admin.zh', 'copilot.zh', 'shell.zh'],
+  };
+  const lazyState = {};   // locale → 'loading' | 'done' | 'failed'
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      const el = document.createElement('script');
+      el.src = src;
+      el.async = false;          // ★ 순서를 지킨다. 기본 사전이 먼저 등록돼야 한다.
+      el.onload = function () { resolve(); };
+      el.onerror = function () { reject(new Error(src)); };
+      document.head.appendChild(el);
+    });
+  }
+
+  /**
+   * 이 언어의 사전을 (필요하면) 내려받는다.
+   *
+   * @returns Promise — 이미 있으면 즉시 완료.
+   */
+  function ensureLocaleLoaded(locale) {
+    const base = String(locale || '').split('-')[0];
+    const files = LAZY_LOCALES[base];
+    if (!files) return Promise.resolve();          // 정적으로 실린 언어(en) 이거나 미지원
+    if (lazyState[base] === 'done' || lazyState[base] === 'loading') return Promise.resolve();
+    if (DICTS.has(base)) { lazyState[base] = 'done'; return Promise.resolve(); }
+
+    lazyState[base] = 'loading';
+    /* ★ 순차 로드. 기본 사전(ja.js)이 register 를 먼저 해야 나머지가 병합된다. */
+    let chain = Promise.resolve();
+    files.forEach(function (name) {
+      chain = chain.then(function () { return loadScript('src/locales/' + name + '.js'); });
+    });
+    return chain
+      .then(function () {
+        lazyState[base] = 'done';
+        /* 사전이 도착했으니 화면을 다시 그리게 알린다. */
+        try {
+          window.dispatchEvent(new CustomEvent('qt:i18n-loaded', { detail: { locale: base } }));
+        } catch (e) { /* noop */ }
+      })
+      .catch(function (e) {
+        lazyState[base] = 'failed';
+        /* ★ 조용히 넘기지 않는다. 영어로 남되 이유는 보인다. */
+        console.warn('[QTI18n] 사전 로드 실패 — 영어로 표시한다:', base, e && e.message);
+      });
+  }
+
   function setLocale(locale) {
     const raw = String(locale || '');
     if (!raw) return current;
@@ -216,6 +314,20 @@
        ★ 지역 표기는 기본형으로 한 번 더 시도한다('zh-CN' 만 등록된 상태에서
          'zh' 를 요청하거나 그 반대인 경우가 있다).
     */
+    /*
+       ★★ 사전이 아직 없으면 **먼저 내려받기를 건다.**
+
+         이 호출이 없으면 지연 로드한 언어가 "등록되지 않은 언어" 로 취급돼 곧바로
+         폴백(영어)으로 정규화된다. 그러면 사용자가 일본어를 골라도 영어가 남고
+         버튼 표시만 JA 가 된다 — 화면과 표시가 다른 말을 하는 상태다.
+    */
+    if (!DICTS.has(raw) && !DICTS.has(String(raw).split('-')[0])) {
+      ensureLocaleLoaded(raw).then(function () {
+        /* 도착했으면 다시 적용한다. 없으면 아래에서 정규화된 폴백이 유지된다. */
+        if (DICTS.has(String(raw).split('-')[0])) setLocale(raw);
+      });
+    }
+
     let next = raw;
     if (!DICTS.has(next)) {
       const base = next.split('-')[0];
@@ -387,6 +499,7 @@
       return d ? Object.assign({}, d) : null;
     },
     register,
+    ensureLocaleLoaded,
     available,
     has,
     t,

@@ -137,13 +137,6 @@
     ★ 미번역 키는 i18n 이 en 으로 자동 폴백한다(src/i18n.js fallback='en').
       그래서 핵심 화면부터 번역하고 점진적으로 채울 수 있다.
   -->
-  <script src="src/locales/ja.js"></script>
-  <script src="src/locales/auth.ja.js"></script>
-  <script src="src/locales/user.ja.js"></script>
-  <script src="src/locales/more.ja.js"></script>
-  <script src="src/locales/admin.ja.js"></script>
-  <script src="src/locales/copilot.ja.js"></script>
-  <script src="src/locales/shell.ja.js"></script>
 
   <!--
     简体中文 (zh) — 简体中文辞書.
@@ -152,13 +145,19 @@
     ★ 번체(zh-TW)는 별도 사전이다. 간체 사전을 번체 화면에 쓰면 글자가
       섞여 보이므로, 필요해지면 파일을 따로 추가한다.
   -->
-  <script src="src/locales/zh.js"></script>
-  <script src="src/locales/auth.zh.js"></script>
-  <script src="src/locales/user.zh.js"></script>
-  <script src="src/locales/more.zh.js"></script>
-  <script src="src/locales/admin.zh.js"></script>
-  <script src="src/locales/copilot.zh.js"></script>
-  <script src="src/locales/shell.zh.js"></script>
+  <!--
+    ★★ ja·zh 사전은 **여기서 싣지 않는다.** 필요할 때 i18n 이 주입한다.
+
+      예전에는 en·ja·zh 를 무조건 세 개 다 실었다. 합 505 KB — 첫 로드 JS 의
+      17% 인데, 사용자는 한 언어만 쓴다.
+
+      QTI18n.setLocale() 이 사전이 없는 언어를 만나면 ensureLocaleLoaded() 로
+      해당 7개 파일을 순서대로 내려받고, 도착하면 다시 적용한다. 그 사이에는
+      영어 폴백이 보인다 — 빈 화면이나 키 문자열이 아니다.
+
+      ★ 언어를 추가할 때는 src/i18n.js 의 LAZY_LOCALES 에 한 줄 넣는다.
+        여기 <script> 를 다시 늘리면 절감이 사라진다.
+  -->
 
   <!-- Data + engine (plain JS) -->
   <script src="src/mock-data.js"></script>
