@@ -80,27 +80,39 @@ describe('AUDIT-P1 — 화면과 로그가 사실을 말한다', () => {
     /* ★ 부팅 로그가 "enforced" 라고 단정하면 안 된다 — 못 읽었을 수 있다. */
     const idx = read('apps/api/src/index.ts');
     const at = idx.indexOf('operationalControls.start()');
-    const seg = idx.slice(at, at + 1200);
+    /*
+       ★ 창을 넉넉히 잡는다. 사이에 다른 부팅 로그가 들어오면 좁은 창은 놓친다 —
+         실제로 일일 손실 한도 로그가 길어지면서 1200자 창을 벗어나 헛되게 실패했다.
+    */
+    const seg = idx.slice(at, at + 3000);
     expect(seg, '로드 여부를 확인하지 않고 enforced 라고 말한다').toMatch(/isLoaded\(\)/);
     expect(seg, '못 읽은 경우를 알리지 않는다').toMatch(/NOTHING WAS READ/);
   });
 
-  it('[4] 일일 손실 한도의 출처를 숨기지 않는다', () => {
+  it('[4] 일일 손실 한도는 기본으로 걸지 않고, 켜면 한계를 밝힌다', () => {
     /*
-       ★★ 판정 근거가 **고객이 손으로 적는 거래 저널**이다. 거래소 원장이 아니다.
-         적지 않은 손실은 한도에 반영되지 않는다 — 즉 자기 신고 기반이다.
+       ★★ 운영 결정(2026-09-08): **일일 손실 한도를 걸지 않는다.**
 
-         이 사실이 어디에도 없어서 "일일 손실 한도가 작동한다" 로 읽혔다. 운영자가
-         한도를 걸고 안심하는 것이 가장 위험하다.
+         우리는 분석 소프트웨어를 공급하고 주문은 고객이 자기 계정·자기 판단으로 낸다.
+         손실 한도는 고객의 자금 관리 영역이고 강제 종료는 거래소 청산이 처리한다.
+
+       ★ 예전 검사는 "판정 근거가 저널임을 밝히는가" 를 봤다. 그 뒤 근거를 거래소
+         실현손익으로 바꿨고(저널은 보조), 한도 자체를 끄기로 했다. 그래서 검사도
+         바뀐 사실을 본다 — 낡은 문구를 계속 요구하면 코드를 사실과 다르게 되돌리게 된다.
     */
     const idx = read('apps/api/src/index.ts');
-    const at = idx.indexOf('dailyRealizedLoss: async');
-    expect(at, 'dailyRealizedLoss 를 찾지 못했다').toBeGreaterThan(0);
-    const before = idx.slice(Math.max(0, at - 1200), at);
-    expect(before, '출처가 저널이라는 사실을 적지 않았다').toMatch(/저널/);
-    expect(before, '거래소 원장이 아니라는 사실을 적지 않았다').toMatch(/거래소 원장이 아니다/);
-    /* ★ 부팅 때 한 번 알려야 한다 — 코드 주석은 운영자가 읽지 않는다. */
-    expect(idx, '부팅 로그에 출처 경고가 없다').toMatch(/직접 입력한 거래 저널/);
+
+    /* 한도를 걸지 않은 상태를 부팅 때 분명히 말해야 한다. */
+    expect(idx, '한도를 걸지 않는다는 사실을 부팅 로그에 남기지 않는다')
+      .toMatch(/일일 손실 한도: 걸지 않는다/);
+
+    /* 누군가 켰을 때는 반쪽만 덮인다는 한계를 경고해야 한다. */
+    expect(idx, '한도를 켰을 때 선물만 덮인다는 경고가 없다').toMatch(/선물만/);
+
+    /* render.yaml 에 선언이 되살아나면 안 된다. */
+    const yaml = read('render.yaml');
+    expect(/- key:\s*TRADE_DAILY_LOSS_LIMIT/.test(yaml), 'render.yaml 에 한도가 되살아났다').toBe(false);
+    expect(yaml, '왜 없는지 주석이 없다 — 다음 사람이 실수로 넣는다').toContain('TRADE_DAILY_LOSS_LIMIT');
   });
 
   it('[5] 필수 동의를 키보드로 체크할 수 있다', () => {

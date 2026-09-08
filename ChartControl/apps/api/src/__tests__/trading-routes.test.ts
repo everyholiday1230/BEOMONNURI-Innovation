@@ -432,13 +432,24 @@ describe('DAILY-LOSS 일일 손실 한도', () => {
     expect(gate(b).detail).toContain('no operator cap');
   });
 
-  it('[L2] ★★ 한도 안쪽의 실제 손실은 통과한다 (측정값을 쓴다)', async () => {
+  it('[L2] ★★ **저널 값만으로는 통과하지 않는다** — 자기 신고는 측정이 아니다', async () => {
+    /*
+       ★★ 예전에는 저널이 돌려준 값을 실측으로 보고 `100 ≤ 1000` 으로 통과시켰다.
+
+         그런데 저널은 **고객이 손으로 적는 것**이다. 아무것도 적지 않으면 0 이 나오고,
+         한도를 걸어 뒀는데 아무것도 막지 못한다. 자기 신고 0 건과 "오늘 손실이 0" 은
+         전혀 다른 말이다.
+
+       ★ 이제 거래소 실현손익(dailyLossSource='exchange')만 측정으로 인정한다.
+         이 하네스에는 거래소 자격증명이 없으므로 저널로 내려가고, 따라서 거부된다 —
+         시끄럽지만 정직하다. 한도를 지우면 즉시 풀린다(기본값이 '걸지 않음').
+    */
     const b = await validate({ riskState: riskState('100'), policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl2@ex.com');
-    expect(gate(b).status).toBe('ok');
-    expect(gate(b).detail).toContain('100');
+    expect(gate(b).status).toBe('fail');
+    expect(gate(b).detail).toContain('not measured');
   });
 
-  it('[L3] ★★ 한도를 넘은 실제 손실은 막는다 — 예전에는 항상 통과했다', async () => {
+  it('[L3] ★★ 한도를 넘은 손실도 막는다 (저널이든 실측이든 통과시키지 않는다)', async () => {
     const b = await validate({ riskState: riskState('1500'), policy: { ...POLICY, dailyLossLimit: '1000' } }, 'dl3@ex.com');
     expect(gate(b).status).toBe('fail');
   });

@@ -529,7 +529,19 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     let dailyLossSoFar: string | null = null;
     /** 손실 값의 출처. 게이트 결과와 함께 내려보내 화면이 근거를 말할 수 있게 한다. */
     let dailyLossSource: 'exchange' | 'journal' | null = null;
-    {
+    /*
+       ★★ **한도가 걸려 있지 않으면 아예 조회하지 않는다.**
+
+         일일 손실 한도는 기본적으로 걸지 않는다(운영 결정). 그런데 한도가 없는데도
+         거래소 실현손익을 읽으면, 주문 검증마다 KuCoin history-positions 를 한 번씩
+         때린다 — 쓰지 않을 값을 얻으려고 외부 호출 한도를 소모하고, 그 호출이 느리면
+         주문 화면이 그만큼 늦어진다.
+
+       ★ 한도를 넣으면 즉시 다시 조회한다. 판정과 조회가 같은 조건을 보므로
+         "한도는 있는데 값이 없다" 로 어긋나지 않는다.
+    */
+    const lossCapConfigured = Number(d.policy.dailyLossLimit || '') > 0;
+    if (lossCapConfigured) {
       const dayStart = Date.UTC(
         new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(),
       );
@@ -571,7 +583,15 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         }
       }
     }
-    if (dailyLossSoFar === null) unknown.push('dailyLossSoFar');
+    /*
+       ★★ 한도를 걸지 않았으면 "미측정" 으로 보고하지 않는다.
+
+         측정하기로 하지 않은 것을 못 했다고 적으면, 운영자는 고칠 것이 있다고 읽는다.
+         미측정 목록은 "쓰려고 했는데 얻지 못한 값" 만 담아야 쓸모가 있다.
+
+       ★ 한도가 걸려 있는데 얻지 못했으면 그때는 반드시 남긴다 — 게이트도 거부한다.
+    */
+    if (lossCapConfigured && dailyLossSoFar === null) unknown.push('dailyLossSoFar');
 
     let openPositions = 0;
     if (d.riskState?.openPositions && verified) {
@@ -822,7 +842,18 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
              못하는 상태를 만들지 않는다.
         */
         dailyLossSoFar: st.dailyLossSoFar ?? '0',
-        dailyLossKnown: st.dailyLossSoFar !== null,
+        /*
+           ★★ **거래소에서 읽은 값만 "측정됐다" 로 본다.**
+
+             예전에는 `!== null` 만 봤다. 그러면 고객이 거래 저널에 아무것도 적지
+             않았을 때 저널이 `0` 을 돌려주고, 게이트는 `0 ≤ 1000` 으로 **통과**한다.
+             한도를 걸어 뒀는데 실제로는 아무것도 막지 못하는 상태다 — 자기 신고
+             0 건과 "오늘 손실이 0 이다" 는 전혀 다른 말이다.
+
+           ★ 저널만 있으면 known=false 로 두어 게이트가 **거부**하게 한다. 시끄럽지만
+             정직하다. 한도를 지우면 즉시 풀린다(기본값이 '걸지 않음' 이다).
+        */
+        dailyLossKnown: st.dailyLossSoFar !== null && st.dailyLossSource === 'exchange',
         openPositions: st.openPositions,
         /*
            잔고 게이트 입력.
