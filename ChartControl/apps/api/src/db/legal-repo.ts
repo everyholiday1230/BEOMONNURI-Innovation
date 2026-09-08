@@ -291,15 +291,21 @@ export class PgLegalRepo {
    */
   async pendingConsents(userId: string, locale: string): Promise<Array<{ kind: LegalKind; documentId: string; version: string }>> {
     const out: Array<{ kind: LegalKind; documentId: string; version: string }> = [];
-    // 동의가 필요한 것은 약관과 개인정보처리방침이다. 위험 고지·보안 안내는 읽기 자료다.
-    for (const kind of ['terms', 'privacy'] as const) {
-      const doc = await this.liveFor(kind, locale);
-      if (!doc) continue;
+    /*
+       ★★ 필수 목록을 여기서 다시 정하지 않는다.
+
+         예전에는 여기서 약관·개인정보만 봤는데, 가입 화면과 `requiredConsentDocs` 는
+         **위험 고지까지 3종**을 받는다. 두 곳이 어긋나면 "가입 때는 3종을 받았는데
+         미동의 목록에는 2종만 뜬다" 는 상태가 되고, 어느 쪽이 사실인지 알 수 없다.
+         필수 목록은 `requiredConsentDocs` 한 곳에서만 정한다.
+    */
+    const required = await this.requiredConsentDocs(locale);
+    for (const doc of required) {
       const { rows } = await this.pool.query(
         `SELECT 1 FROM user_legal_consents WHERE user_id = $1 AND document_id = $2`,
         [userId, doc.id],
       );
-      if (!rows[0]) out.push({ kind, documentId: doc.id, version: doc.version });
+      if (!rows[0]) out.push({ kind: doc.kind as LegalKind, documentId: doc.id, version: doc.version });
     }
     return out;
   }

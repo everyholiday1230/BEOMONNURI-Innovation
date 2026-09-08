@@ -457,7 +457,7 @@ export function createAuthRouter(deps: RouterDeps): Hono {
                거치게 해야 한다.
           */
           console.warn(
-            `[legal] ★ 구글 가입 — 필수 동의를 받지 못했다(리다이렉트 경로에 동의 화면이 없다). user=${r.user.id}`,
+            `[legal] 구글 가입 — 가입 화면을 거치지 않았으므로 동의는 아직 없다. 동의 화면으로 보낸다. user=${r.user.id}`,
           );
           await deps.onRegistered(r.user.id, null, { agreed: false, ip: ipOf(c) ?? null });
         } catch (e) {
@@ -481,7 +481,17 @@ export function createAuthRouter(deps: RouterDeps): Hono {
       setCookie(c, sessionCookie, r.sessionId, { ...base, httpOnly: true });
       setCookie(c, CSRF, csrfTokenFor(r.csrfSecret, csrfKey), { ...base, httpOnly: false });
       const u = new URL(g.appRedirect);
-      u.hash = '/trade';
+      /*
+         ★★ 새로 만들어진 계정은 **거래 화면이 아니라 동의 화면으로** 보낸다.
+
+           구글은 리다이렉트로 돌아오므로 우리 가입 화면(체크박스)을 거치지 않는다.
+           예전에는 그대로 /trade 로 보냈고, 그 결과 구글로 들어온 고객은 약관·개인정보·
+           위험고지에 동의한 기록이 **하나도 없이** 거래 화면까지 들어갔다.
+
+         ★ 기존 계정의 로그인은 그대로 /trade 로 보낸다 — 매번 동의를 다시 묻지 않는다.
+           (문서가 개정되면 동의 화면이 스스로 미동의를 발견해 다시 띄운다.)
+      */
+      u.hash = r.created ? '/consent' : '/trade';
       return c.redirect(u.toString(), 302);
     });
   }

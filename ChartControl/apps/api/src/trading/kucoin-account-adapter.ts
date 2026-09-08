@@ -36,6 +36,8 @@ import {
   type KucoinPrivateConfig,
   type UserCredentials,
 } from '@quantumtrade/exchange-kucoin';
+/* ★ 금액은 십진(Decimal)으로 다룬다 — 손익 합계를 부동소수로 하면 어긋난다. */
+import { D } from '@quantumtrade/domain';
 
 /** 심볼별 계약 승수 조회. 포지션 수량을 기초자산 단위로 바꾸는 데 필요하다. */
 export type MultiplierLookup = (symbol: string) => number | undefined;
@@ -161,6 +163,47 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
    * 체결 내역. 한 주문이 여러 번 체결되면 여러 행이 된다.
    * 실제 수수료가 얼마 나갔는지는 이쪽에만 있다.
    */
+  /**
+   * 기간 내 **실현손실**(양수 손실액). 손실이 없으면 '0'. 조회 실패는 예외로 던진다.
+   *
+   * ★★ 왜 손실만 돌려주는가
+   *
+   *   호출자는 일일 손실 한도를 판정한다. 이익을 음수 손실로 돌려주면 `loss <= cap` 이
+   *   더 헐거워져 한도가 사실상 사라진다.
+   *
+   * ★★ 왜 보수적으로 계산하는가
+   *
+   *   거래소의 `pnl` 이 수수료를 포함하는지 문서가 명확하지 않다. 손실 한도에서는
+   *   **손실을 크게 보는 쪽**이 안전하다 — 한도가 일찍 걸리는 것이 늦게 걸리는 것보다
+   *   낫다. 그래서 수수료와 펀딩비를 다시 차감한다.
+   *
+   * ★ 선물 전용이다. 현물 실현손익은 이 경로로 얻을 수 없다 — 한도는 선물만 덮는다.
+   * ★ 실패를 0 으로 바꾸지 않는다. 던져서 호출자가 '측정 불가' 로 다루게 한다.
+   */
+  async dailyRealizedLoss(ctx: ExchangeContext, fromMs: number, toMs: number): Promise<string> {
+    const rows = await this.client.getPositionsHistory(toKucoinCredential(ctx.credential), {
+      fromMs,
+      toMs,
+    });
+    /*
+       ★ 십진 문자열을 D() 로 더한다. 손익 합계를 부동소수로 하면 자리수가 어긋난다.
+       ★ closeTime 으로 한 번 더 걸러낸다 — 거래소가 경계를 포함해 돌려줄 수 있다.
+    */
+    let net = D('0');
+    for (const r of rows) {
+      if (r.closeTime < fromMs || r.closeTime > toMs) continue;
+      /*
+         net = pnl − tradeFee + fundingFee
+           · tradeFee 는 보통 양수(지출)이므로 뺀다.
+           · fundingFee 는 지급이면 음수이므로 그대로 더한다.
+         이 조합이 가장 보수적인(손실을 크게 보는) 해석이다.
+      */
+      net = net.plus(D(r.pnl)).minus(D(r.tradeFee)).plus(D(r.fundingFee));
+    }
+    /* 이익이거나 0 이면 손실은 0 이다. */
+    return net.isNegative() ? net.abs().toString() : '0';
+  }
+
   getFills(ctx: ExchangeContext, symbol?: string) {
     return this.client.getFills(toKucoinCredential(ctx.credential), {
       symbol,

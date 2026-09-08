@@ -74,6 +74,11 @@
     */
     '/points': 'user',
     '/fees': 'user',
+    /*
+       ★ 동의 화면. 로그인한 사용자면 누구나 들어와야 한다 — 구글로 막 가입한 계정이
+         가장 먼저 오는 곳이다. 여기를 막으면 동의를 남길 방법이 없어진다.
+    */
+    '/consent': 'user',
     '/help': 'user',
     '/settings': 'user',
     '/notifications': 'user',

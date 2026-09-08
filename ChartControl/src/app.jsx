@@ -1370,6 +1370,7 @@
       '/portfolio', '/analytics',
       '/wallet', '/wallet/transactions',
       '/referral', '/points', '/fees', '/help', '/settings', '/notifications', '/order-history',
+      '/consent',
       '/admin', '/admin/users', '/admin/users/detail', '/admin/trades', '/admin/ai-ops',
       '/admin/design-ops', '/admin/risk', '/admin/assets', '/admin/kyc',
       '/admin/deposits', '/admin/withdrawals', '/admin/referral', '/admin/points', '/admin/legal', '/admin/fees', '/admin/notices',
@@ -1937,6 +1938,7 @@
                    이렇게 갈라진다.
             */}
             {route.path === '/fees'           && <window.FeeRebatePage      shellProps={shellProps}/>}
+            {route.path === '/consent'        && <window.ConsentPage       shellProps={shellProps}/>}
             {route.path === '/help'           && <window.HelpCenterPage     shellProps={shellProps}/>}
             {route.path === '/settings'       && <window.SettingsPage       shellProps={shellProps}/>}
             {route.path === '/notifications'  && <window.NotificationsPage  shellProps={shellProps}/>}

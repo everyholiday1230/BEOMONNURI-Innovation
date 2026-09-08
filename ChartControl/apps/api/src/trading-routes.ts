@@ -384,7 +384,20 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     + `orders=${Boolean(d.riskState?.countOrdersSince)} `
     + `positions=${Boolean(d.riskState?.openPositions)} `
     + `marketData=${Boolean(d.riskState?.marketDataStatus)} `
-    + `dailyLoss=${Boolean(d.riskState?.dailyRealizedLoss)}`,
+    /*
+       ★★ `dailyLoss=true` 만 찍으면 **무엇으로 판정하는지** 알 수 없다.
+
+         저널(고객 자기 신고)로 판정하는 것과 거래소 실현손익으로 판정하는 것은 전혀
+         다른 보증이다. 전자는 적지 않은 손실을 막지 못한다.
+    */
+    + `dailyLoss=${(() => {
+      const hasExchange = typeof (d.accountAdapter as unknown as { dailyRealizedLoss?: unknown }).dailyRealizedLoss === 'function';
+      const hasJournal = Boolean(d.riskState?.dailyRealizedLoss);
+      if (hasExchange && hasJournal) return 'exchange+journal';
+      if (hasExchange) return 'exchange';
+      if (hasJournal) return 'journal(자기신고 — 적지 않은 손실은 막지 못한다)';
+      return 'none(한도를 강제할 수 없다)';
+    })()}`,
   );
 
   /*
@@ -452,6 +465,8 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     dailyOrderCount: number;
     /** 오늘 실현손실(양수 = 손실). null = 측정 불가 — 0 과 구분해야 한다. */
     dailyLossSoFar: string | null;
+    /** 손실 판정 근거. 'exchange' 는 거래소 실현손익, 'journal' 은 고객 자기 신고. */
+    dailyLossSource: 'exchange' | 'journal' | null;
     openPositions: number;
     /*
        주문에 쓸 수 있는 견적통화 잔고. null = 측정 불가 — **0 과 구분해야 한다.**
@@ -492,14 +507,48 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
          거짓 사실이 되어 한도가 무력해진다. null 이면 게이트가 거부한다.
     */
     let dailyLossSoFar: string | null = null;
-    if (d.riskState?.dailyRealizedLoss) {
+    /** 손실 값의 출처. 게이트 결과와 함께 내려보내 화면이 근거를 말할 수 있게 한다. */
+    let dailyLossSource: 'exchange' | 'journal' | null = null;
+    {
       const dayStart = Date.UTC(
         new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(),
       );
-      try {
-        dailyLossSoFar = await d.riskState.dailyRealizedLoss(userId, dayStart);
-      } catch {
-        dailyLossSoFar = null;
+      /*
+         ★★ **거래소 실현손익을 먼저 쓴다.** 저널은 보조다.
+
+           저널은 고객이 손으로 적는 것이라, 적지 않은 손실은 한도에 반영되지 않는다.
+           한도를 걸어도 실제 손실을 막지 못하는 상태였다. 거래소가 계산한 값이 있으면
+           그것이 사실이다.
+
+         ★ 선물 전용이다(KuCoin history-positions). 현물 실현손익은 이 경로로 얻을 수
+           없어 한도가 선물만 덮는다.
+      */
+      const adapter = d.accountAdapter as unknown as {
+        dailyRealizedLoss?: (ctx: ExchangeContext, from: number, to: number) => Promise<string>;
+      };
+      if (typeof adapter.dailyRealizedLoss === 'function') {
+        try {
+          const resolved = await resolveExchangeContext(userId);
+          if (resolved.ok) {
+            dailyLossSoFar = await adapter.dailyRealizedLoss(resolved.ctx, dayStart, Date.now());
+            dailyLossSource = 'exchange';
+          }
+        } catch (e) {
+          /*
+             ★ 조용히 삼키지 않는다. 저널로 내려가지만 왜 내려갔는지 남긴다 — 여기서
+               조용히 실패하면 한도가 자기 신고로 되돌아간 것을 아무도 모른다.
+          */
+          console.warn(`[trading] dailyRealizedLoss: 거래소 조회 실패 — 저널로 대체: ${(e as Error).message}`);
+        }
+      }
+      /* ★ 거래소에서 얻지 못했으면 저널로 내려간다. 둘 다 없으면 null 이고 게이트가 거부한다. */
+      if (dailyLossSoFar === null && d.riskState?.dailyRealizedLoss) {
+        try {
+          dailyLossSoFar = await d.riskState.dailyRealizedLoss(userId, dayStart);
+          if (dailyLossSoFar !== null) dailyLossSource = 'journal';
+        } catch {
+          dailyLossSoFar = null;
+        }
       }
     }
     if (dailyLossSoFar === null) unknown.push('dailyLossSoFar');
@@ -556,7 +605,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     */
 
     void userStatus;
-    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, openPositions, availableQuote, marketDataStatus, unknown };
+    return { credentialStatus, futureTradePermissionVerified, dailyOrderCount, dailyLossSoFar, dailyLossSource, openPositions, availableQuote, marketDataStatus, unknown };
   }
 
   /** Builds the risk-engine input from a request body plus resolved real state. */

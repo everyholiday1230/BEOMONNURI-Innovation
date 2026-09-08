@@ -107,6 +107,26 @@ export interface KucoinOrder {
 }
 
 /** 체결 1건. */
+/**
+ * 종료된 포지션 하나. 거래소가 계산한 실현손익을 담는다.
+ *
+ * ★ 금액은 모두 십진 **문자열**이다. 손익을 부동소수로 다루면 합계가 어긋난다.
+ */
+export interface KucoinClosedPosition {
+  closeId: string;
+  symbol: string;
+  settleCurrency: string;
+  /** 실현손익. 손실이면 음수. */
+  pnl: string;
+  /** 거래 수수료(보통 양수). */
+  tradeFee: string;
+  /** 펀딩비. 지급했으면 음수. */
+  fundingFee: string;
+  openTime: number;
+  closeTime: number;
+  side: 'long' | 'short';
+}
+
 export interface KucoinFill {
   id: string;
   orderId: string;
@@ -554,6 +574,62 @@ export class KucoinFuturesPrivate {
    * 주문 목록과 다르다: 한 주문이 여러 번에 나눠 체결되면 여기에 여러 행이 생긴다.
    * 수수료가 실제로 얼마 나갔는지는 이쪽에만 있다.
    */
+  /**
+   * 종료된 포지션 이력에서 **실현손익**을 읽는다.
+   *
+   * ★★ 왜 체결 내역(/api/v1/fills)으로는 안 되는가
+   *
+   *   체결 내역에는 가격·수량·수수료만 있고 **실현손익이 없다.** 진입가와 청산가를
+   *   짝지어 계산하려면 포지션 추적을 우리가 다시 구현해야 하고, 부분 청산·펀딩비까지
+   *   맞추면 거래소와 어긋난다. 거래소가 이미 계산해 둔 값을 쓰는 것이 맞다.
+   *
+   * ★★ 왜 이 값이 필요한가
+   *
+   *   일일 손실 한도가 **고객이 손으로 적는 저널**로 판정되고 있었다. 적지 않은 손실은
+   *   한도에 반영되지 않아, 한도를 걸어도 실제 손실을 막지 못했다.
+   *
+   * ★ 선물 전용이다(api-futures 호스트). 현물 실현손익은 이 경로로 얻을 수 없다 —
+   *   호출자가 그 한계를 알고 있어야 한다.
+   * ★ 한 번에 최대 7일까지만 조회된다(거래소 제한). '오늘' 조회에는 충분하다.
+   */
+  async getPositionsHistory(
+    user: UserCredentials,
+    opts: { fromMs: number; toMs: number; limit?: number },
+  ): Promise<KucoinClosedPosition[]> {
+    const d = await this.request<{ items?: Array<Record<string, unknown>> }>(
+      user,
+      'GET',
+      '/api/v1/history-positions',
+      {
+        query: {
+          from: opts.fromMs,
+          to: opts.toMs,
+          limit: Math.min(opts.limit ?? 200, 200),
+        },
+      },
+    );
+
+    const out: KucoinClosedPosition[] = [];
+    for (const r of d?.items ?? []) {
+      const canonical = toInternalSymbol(String(r.symbol ?? ''));
+      if (!canonical) continue;
+      out.push({
+        closeId: String(r.closeId ?? ''),
+        symbol: canonical,
+        settleCurrency: String(r.settleCurrency ?? 'USDT'),
+        /* 거래소가 계산한 실현손익. 손실이면 음수다. */
+        pnl: toDecimalString(r.pnl as number) ?? '0',
+        /* 거래 수수료(양수) 와 펀딩비(지급이면 음수). 부호를 보존한다. */
+        tradeFee: toDecimalString(r.tradeFee as number) ?? '0',
+        fundingFee: toDecimalString(r.fundingFee as number) ?? '0',
+        openTime: Number(r.openTime ?? 0),
+        closeTime: Number(r.closeTime ?? 0),
+        side: String(r.side ?? '').toLowerCase() === 'short' ? 'short' : 'long',
+      });
+    }
+    return out;
+  }
+
   async getFills(
     user: UserCredentials,
     opts: {

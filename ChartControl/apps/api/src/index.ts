@@ -2442,6 +2442,12 @@ if (env.authEnabled) {
       ...(legalRepo ? { repo: legalRepo } : {}),
       cookieName: env.cookieName,
       supportEmail: env.supportEmail,
+      /*
+         ★ 동의 기록(POST)에 필요하다. 없으면 그 라우트는 등록되지 않아,
+           구글 가입자가 동의를 남길 방법이 사라진다.
+         ★ 쿠키 이름은 auth-routes 의 CSRF 쿠키와 **같아야** 한다('qt_csrf').
+      */
+      csrf: { key: env.csrfKey, cookieName: 'qt_csrf', corsOrigins: env.corsOrigins },
     }));
 
     /*

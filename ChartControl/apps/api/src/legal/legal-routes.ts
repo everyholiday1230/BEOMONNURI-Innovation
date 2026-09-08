@@ -12,7 +12,7 @@
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 
-import { AuthService } from '@quantumtrade/auth';
+import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 
 import { LEGAL_KINDS, type LegalKind, type PgLegalRepo } from '../db/legal-repo';
 
@@ -21,6 +21,13 @@ export interface LegalRouterDeps {
   repo?: PgLegalRepo;
   cookieName: string;
   supportEmail: string;
+  /**
+   * CSRF 서명 키와 쿠키 이름. 동의 기록은 상태를 바꾸므로 보호가 필요하다.
+   *
+   * ★ 없으면 POST 라우트를 **등록하지 않는다.** 보호 없이 동의를 기록하면
+   *   제3자 사이트가 고객 대신 동의를 남길 수 있다.
+   */
+  csrf?: { key: string; cookieName: string; corsOrigins: readonly string[] };
 }
 
 const isKind = (v: string): v is LegalKind => (LEGAL_KINDS as readonly string[]).includes(v);
@@ -109,6 +116,71 @@ export function createLegalRouter(d: LegalRouterDeps): Hono {
     ]);
     return c.json({ available: true, consents, pending });
   });
+
+  /**
+   * 미동의 필수 문서에 동의를 기록한다.
+   *
+   * ★★ 왜 필요한가 — **구글 가입은 동의를 받을 수 없었다.**
+   *
+   *   구글은 리다이렉트로 돌아오므로 우리 가입 화면(체크박스)을 거치지 않는다.
+   *   그래서 구글로 들어온 고객은 약관·개인정보·위험고지에 동의한 기록이 **하나도
+   *   없는 상태로** 거래 화면까지 들어갔다. 이 라우트와 동의 화면이 그 구멍을 막는다.
+   *
+   * ★ 본문의 문서 ID 를 믿지 않는다. 서버가 계산한 미동의 목록에 있는 것만 기록한다 —
+   *   클라이언트가 아무 ID나 보내 원하지 않는 문서에 동의를 남기게 하면 안 된다.
+   * ★ 필수 3종이 모두 게시돼 있지 않으면 **아무것도 기록하지 않는다**(부분 동의 금지).
+   * ★ 이미 동의한 것은 조용히 넘어간다(멱등) — 화면을 두 번 눌러도 오류가 나지 않는다.
+   */
+  if (d.csrf) {
+    const cs = d.csrf;
+    app.post('/legal/me/consents', async (c) => {
+      const raw = getCookie(c, d.cookieName);
+      const v = raw ? await d.service.validateSession(raw) : null;
+      if (!v) return c.json({ error: { code: 'UNAUTHENTICATED', message: '' } }, 401);
+
+      /* ★ Origin 검사 + 세션에 묶인 서명 토큰. 둘 다 본다. */
+      if (!originAllowed(c.req.header('origin'), c.req.header('referer'), [...cs.corsOrigins])) {
+        return c.json({ error: { code: 'CSRF_FAILED', message: 'origin not allowed' } }, 403);
+      }
+      if (!verifyCsrf(c.req.header('x-csrf-token'), getCookie(c, cs.cookieName), v.session.csrfSecret, cs.key)) {
+        return c.json({ error: { code: 'CSRF_FAILED', message: 'csrf validation failed' } }, 403);
+      }
+
+      if (!d.repo) {
+        /*
+           ★ 저장소가 없으면 성공이라고 답하지 않는다. 동의를 기록할 수 없는데
+             기록했다고 답하면, 화면이 고객을 통과시키고 증거는 남지 않는다.
+        */
+        return c.json({ error: { code: 'LEGAL_UNAVAILABLE', message: 'consent store unavailable' } }, 503);
+      }
+
+      const locale = pickLocale(c);
+      const pending = await d.repo.pendingConsents(v.user.id, locale);
+      const required = await d.repo.requiredConsentDocs(locale);
+      if (required.length === 0) {
+        /* 필수 문서가 다 게시되지 않았다 — 받을 수 없는 동의를 받았다고 하지 않는다. */
+        return c.json({ error: { code: 'LEGAL_NOT_PUBLISHED', message: 'required documents are not published' } }, 503);
+      }
+
+      const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? c.req.header('x-real-ip') ?? null;
+      const recorded: string[] = [];
+      for (const doc of pending) {
+        try {
+          const r = await d.repo.recordConsent({ userId: v.user.id, documentId: doc.documentId, ip });
+          if (r) recorded.push(r.kind);
+        } catch (e) {
+          /* ★ 한 건이라도 실패하면 성공이라고 답하지 않는다. */
+          console.warn(`[legal] 동의 기록 실패 user=${v.user.id} doc=${doc.documentId}: ${(e as Error).message}`);
+          return c.json({ error: { code: 'CONSENT_FAILED', message: 'could not record consent' } }, 500);
+        }
+      }
+
+      /* ★ 남은 미동의를 다시 계산해 돌려준다 — 화면이 통과 여부를 스스로 판단하지 않게. */
+      const stillPending = await d.repo.pendingConsents(v.user.id, locale);
+      return c.json({ ok: true, recorded, pending: stillPending });
+    });
+  }
 
   return app;
 }
