@@ -8,6 +8,7 @@
 
 1. 추측·거짓·과장 금지. 검증하지 않은 것을 "완료"라고 쓰지 않는다.
 2. 코드 변경 후 항상 `pnpm -r typecheck` → `pnpm -r test` → `pnpm build`, exit code 확인.
+   **단 `pnpm -r test` 만으로는 부족하다 — §3 을 반드시 읽을 것.**
 3. 지시받지 않은 연관 업무도 선제 수행. 단 파괴적 작업·프로덕션 변경·벤더 선정은 사전 승인.
 4. 목표는 서비스 출시.
 
@@ -88,6 +89,57 @@ pnpm -r typecheck
 pnpm -r test
 pnpm build
 ```
+
+### 3-1. Postgres 없이 돌리면 178개가 조용히 빠진다
+
+`pnpm -r test` 를 그냥 돌리면 통과 숫자가 나오지만, **Postgres 통합 스위트는
+`skipIf(!PG_TEST_URL)` 로 조용히 건너뛴다.** 빠지는 대상이 하필 운영 경로다 —
+결제·포인트 주문 멱등 충전(`payment.test.ts`), 법적 문서·동의(`legal-repo`),
+자격증명(`pg-credential-repo`), 공지, 자산 스냅샷, 차트 템플릿.
+
+운영은 Postgres 로 돈다. SQLite 로만 통과한 것은 **운영을 검증한 것이 아니다.**
+
+| 실행 방식 | passed | skipped |
+|---|---|---|
+| Postgres 없이 | ~1,320 | 194 |
+| `PG_TEST_URL` 설정 | **~1,565** | 16 |
+
+### 반드시 이렇게 돌린다
+
+```bash
+# 1) Postgres 를 띄운다 (docker 가 없으면 로컬 initdb 로도 된다)
+export PATH=/usr/lib/postgresql/16/bin:$PATH
+initdb -D /tmp/pgt -U postgres
+pg_ctl -D /tmp/pgt -l /tmp/pgt.log \
+  -o "-p 54240 -k /tmp -c listen_addresses=127.0.0.1 -c max_connections=300" start
+
+# 2) PG_TEST_URL 을 주고 돌린다
+PG_TEST_URL="postgres://postgres@127.0.0.1:54240/postgres" \
+  pnpm --filter @quantumtrade/api exec vitest run
+```
+
+`max_connections` 를 올려 두는 이유: 스위트마다 **자기 전용 데이터베이스**를 만들어
+(`__tests__/helpers/pg-test-db.ts` 의 `createIsolatedTestDatabase`) 병렬로 돈다.
+기본값 100 이면 커넥션이 마른다.
+
+### skip 개수를 반드시 본다
+
+**`1,320 passed` 를 보고 안심하는 것이 문제의 본질이다.** skipped 가 194 면
+Postgres 를 안 붙인 것이다. 붙였으면 16 이어야 한다(16 은 Redis·외부 의존
+스위트로, 별도다).
+
+```bash
+# skip 이 몇 개인지 눈으로 확인한다
+... vitest run 2>&1 | grep -E "^ *Tests "
+```
+
+### 새 Pg 스위트를 만들 때
+
+`createIsolatedTestDatabase(PG_TEST_URL, '<스위트이름>')` 을 **반드시** 쓴다.
+같은 데이터베이스를 공유하면 한 스위트가 `migrate down` 을 할 때 다른 스위트의
+테이블이 사라진다. 그러면 단독으로는 통과하고 전체 실행에서만 실패해서, 원인을
+찾는 데 오래 걸린다.
+
 
 Postgres/Redis 통합 테스트는 환경변수가 없으면 자동 skip된다. **반드시 실제로 돌릴 것**:
 

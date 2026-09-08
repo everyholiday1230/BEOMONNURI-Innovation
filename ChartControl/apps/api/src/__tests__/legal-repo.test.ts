@@ -202,9 +202,24 @@ d('PgLegalRepo', () => {
          자기 로케일에 두 종류를 모두 두면 폴백이 끼어들 자리가 없어져
          다른 데이터와 무관하게 같은 결과가 나온다.
     */
+    /*
+       ★★ 필수 **3종**(terms · privacy · risk)을 모두 만들어 둔다.
+
+         requiredConsentDocs 는 셋이 모두 게시돼 있지 않으면 **빈 배열**을 돌려준다
+         (부분 동의를 만들지 않기 위한 의도적 설계다). 그래서 두 종류만 만들면
+         pendingConsents 도 항상 비어 있고, 이 검사는 재동의를 확인하지 못한다.
+
+         예전에는 pendingConsents 가 여기서 필수 목록을 따로(terms·privacy) 정하고
+         있었다 — 가입 경로는 3종을 받는데 이쪽은 2종만 봐서 두 곳이 어긋났다.
+         이제 requiredConsentDocs 한 곳에서만 정한다.
+    */
     const p1 = await draft({ kind: 'privacy' });
     await repo.publish(p1.id);
     await repo.recordConsent({ userId: user, documentId: p1.id });
+
+    const rk = await draft({ kind: 'risk' });
+    await repo.publish(rk.id);
+    await repo.recordConsent({ userId: user, documentId: rk.id });
 
     const v1 = await draft();
     await repo.publish(v1.id);
@@ -217,7 +232,7 @@ d('PgLegalRepo', () => {
 
     const pending = await repo.pendingConsents(user, 'zz');
     expect(pending.map((x) => x.kind)).toContain('terms');
-    // 새로 게시한 terms 만 남는다 — privacy 는 이미 동의했다.
+    // 새로 게시한 terms 만 남는다 — privacy·risk 는 이미 동의했다.
     expect(pending).toHaveLength(1);
     expect(pending[0]?.version).toBe(v2.version);
   });

@@ -68,6 +68,9 @@ function toDoc(r: Record<string, unknown>): LegalDoc {
 }
 
 export class PgLegalRepo {
+  /** 로케일별로 한 번만 경고한다 — 매 요청마다 찍으면 로그가 묻힌다. */
+  private readonly warnedIncompleteConsentDocs = new Set<string>();
+
   constructor(private readonly pool: Pool) {}
 
   /**
@@ -236,7 +239,26 @@ export class PgLegalRepo {
         version: String((r as Record<string, unknown>).version),
       }));
       /* ★ 셋이 모두 있어야 한다. 부분 기록은 하지 않는다. */
-      return out.length === KINDS.length ? out : [];
+      if (out.length === KINDS.length) return out;
+      /*
+         ★★ 여기서 빈 배열을 돌려주면 **재동의 요구도 함께 사라진다.**
+
+           pendingConsents 가 이 함수를 쓰므로, 필수 3종이 다 게시돼 있지 않으면
+           "동의할 것 없음" 이 되어 동의 화면이 뜨지 않는다. 부분 동의를 만들지 않는
+           것은 맞지만, 그 상태가 **조용해서는** 안 된다.
+
+         ★ 문서를 못 게시했다는 이유로 모든 고객의 로그인을 막는 것은 더 나쁘다.
+           그래서 통과시키되, 로케일마다 한 번만 크게 알린다.
+      */
+      if (!this.warnedIncompleteConsentDocs.has(locale)) {
+        this.warnedIncompleteConsentDocs.add(locale);
+        const found = out.map((r) => r.kind).join(', ') || '(없음)';
+        console.warn(
+          `[legal] ★ 필수 동의 문서가 다 게시되지 않았다 (locale=${locale}, 게시된 것: ${found}). `
+          + '동의를 기록할 수 없고, 약관 개정 시 재동의도 요구되지 않는다. /admin/legal 에서 게시할 것.',
+        );
+      }
+      return [];
     } catch {
       return [];
     }
