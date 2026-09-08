@@ -506,9 +506,15 @@
                             disabled={subBusy || p.code === sub.subscription.planCode}
                             onClick={() => startSub(p.code)}
                           >
+                            {/*
+                                 ★ p.name 은 **번역 키**다(plan_premium_name). 그대로 쓰면
+                                   화면에 키 문자열이 보인다 — 실제로 그랬다. t() 로 한 번 더
+                                   푼다. 키가 사전에 없으면 t() 가 키를 돌려주므로 최소한
+                                   깨지지는 않는다.
+                            */}
                             {p.code === sub.subscription.planCode
-                              ? t('sub_current_plan', { plan: p.name })
-                              : t('sub_subscribe_to', { plan: p.name, price: p.priceUsd })}
+                              ? t('sub_current_plan', { plan: t(p.name) })
+                              : t('sub_subscribe_to', { plan: t(p.name), price: p.priceUsd })}
                           </button>
                         ))}
                       </div>
