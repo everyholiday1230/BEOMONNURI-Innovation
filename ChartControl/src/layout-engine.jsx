@@ -59,17 +59,52 @@
     const next = others.map((o) => ({ ...o }));
     let need = k;
 
+    /*
+       ★★ **경계를 맞대고 있는 이웃은 순차가 아니라 전부 줄여야 한다.**
+
+         예전에는 `need` 를 이웃에게 순서대로 빼서 0 이 되면 멈췄다. 가로(e/w)는
+         한 줄에 이웃이 하나씩 늘어서 있어 그게 맞다. 그런데 세로(n/s)는 **여러
+         열이 같은 y 경계를 공유**한다. 하나만 줄이면 나머지는 그대로 남아 대상과
+         겹치고, 전수 검증이 그것을 잡아 **null 을 돌려준다** — 즉 아무 일도
+         일어나지 않는다.
+
+         실측으로 격리했다: standard 배치에서 `positions` 를 위로 넓히려 하면
+         위쪽에 chart(여유5)와 ai(여유1)가 같은 y11 경계를 공유하는데, chart 만
+         줄어들어 ai 와 겹쳤고 결과가 버려졌다. 그래서 위쪽 크기 조절이 전혀
+         동작하지 않았다.
+
+       ★ 그래서 대상과 **직접 맞닿은** 이웃(첫 줄)은 모두 k 만큼 줄인다. 하나라도
+         여유가 부족하면 이 k 는 성립하지 않는다(resolveGrowth 가 더 작은 k 를
+         시도한다). 맞닿지 않은 뒷줄은 밀려나기만 하면 되므로 예전처럼 다룬다.
+    */
+    const shrinkTouching = (list, sizeKey, minOf, edgeOf) => {
+      const touching = list.filter((o) => edgeOf(o));
+      for (const o of touching) {
+        const room = o[sizeKey] - minOf(o);
+        if (room < k) return false;          // 이 이웃이 못 내준다 → k 불가
+      }
+      for (const o of touching) o[sizeKey] -= k;
+      return true;
+    };
+
     if (dir === 'e') {
       t.w = before.w + k;
       const line = next
         .filter((o) => spansAxis(t.y, t.y + t.h, o.y, o.y + o.h) && o.x >= before.x + before.w)
         .sort((a, b) => a.x - b.x);
-      let cursor = t.x + t.w;
+      /*
+         ★ 오른쪽으로 맞닿은 이웃은 **전부** k 만큼 줄인다. 여러 행대가 같은 x 경계를
+           공유할 수 있다(예: market y0-16 의 오른쪽에 chart y0-11 과 positions y11-16).
+           하나만 줄이면 나머지가 겹쳐 결과가 버려진다 — 그래서 넓히기가 실패했다.
+      */
+      if (!shrinkTouching(line, 'w', minWOf, (o) => o.x === before.x + before.w)) return null;
+      need = 0;
+      /* ★ 행이 겹치는 것끼리만 가로로 쌓는다. 한 커서로 훑으면 다른 행의 이웃이 밀린다. */
       for (const o of line) {
-        if (need > 0) { const give = Math.min(need, Math.max(0, o.w - minWOf(o))); o.w -= give; need -= give; }
-        /* ★ 필요할 때만 밀어낸다. 원래 있던 빈틈을 없애지 않는다. */
-        if (cursor > o.x) o.x = cursor;
-        cursor = o.x + o.w;
+        const leftOf = [t, ...line].filter((q) => q !== o
+          && spansAxis(o.y, o.y + o.h, q.y, q.y + q.h) && q.x <= o.x);
+        const wall = leftOf.reduce((mx, q) => Math.max(mx, q.x + q.w), 0);
+        if (wall > o.x) o.x = wall;
       }
     } else if (dir === 'w') {
       if (before.x - k < 0) return null;
@@ -77,22 +112,35 @@
       const line = next
         .filter((o) => spansAxis(t.y, t.y + t.h, o.y, o.y + o.h) && o.x + o.w <= before.x)
         .sort((a, b) => b.x - a.x);
-      let cursor = t.x;
+      /* ★ 왼쪽으로 맞닿은 이웃도 전부 줄인다(위와 같은 이유). */
+      if (!shrinkTouching(line, 'w', minWOf, (o) => o.x + o.w === before.x)) return null;
+      need = 0;
       for (const o of line) {
-        if (need > 0) { const give = Math.min(need, Math.max(0, o.w - minWOf(o))); o.w -= give; need -= give; }
-        if (o.x + o.w > cursor) o.x = cursor - o.w;
-        cursor = o.x;
+        if (o.x + o.w > t.x) o.x = Math.max(0, t.x - o.w);
       }
     } else if (dir === 's') {
       t.h = before.h + k;
       const line = next
         .filter((o) => spansAxis(t.x, t.x + t.w, o.x, o.x + o.w) && o.y >= before.y + before.h)
         .sort((a, b) => a.y - b.y);
-      let cursor = t.y + t.h;
+      /* ★ 아래로 맞닿은(y == 대상 하단) 이웃은 **전부** k 만큼 줄인다. */
+      if (!shrinkTouching(line, 'h', minHOf, (o) => o.y === before.y + before.h)) return null;
+      need = 0;
+      /*
+         ★★ 재배치는 **열이 겹치는 것끼리만** 세로로 쌓는다.
+
+           예전에는 `line` 전체를 하나의 커서로 훑었다. 그런데 세로 방향의 `line` 에는
+           **서로 다른 열**에 있는 이웃이 함께 들어온다(예: chart x4-11 과 ai x11-17).
+           그것들을 한 커서로 쌓으면 두 번째 이웃이 첫 번째 **아래로** 밀려나
+           y 가 음수까지 갔다(실측: ai 의 y 가 -10).
+
+         ★ 그래서 이웃마다 자기 열과 겹치는 것들만 보고 위치를 정한다.
+      */
       for (const o of line) {
-        if (need > 0) { const give = Math.min(need, Math.max(0, o.h - minHOf(o))); o.h -= give; need -= give; }
-        if (cursor > o.y) o.y = cursor;
-        cursor = o.y + o.h;
+        const above = [t, ...line].filter((q) => q !== o
+          && spansAxis(o.x, o.x + o.w, q.x, q.x + q.w) && q.y <= o.y);
+        const floor = above.reduce((mx, q) => Math.max(mx, q.y + q.h), 0);
+        if (floor > o.y) o.y = floor;
       }
     } else if (dir === 'n') {
       if (before.y - k < 0) return null;
@@ -100,11 +148,18 @@
       const line = next
         .filter((o) => spansAxis(t.x, t.x + t.w, o.x, o.x + o.w) && o.y + o.h <= before.y)
         .sort((a, b) => b.y - a.y);
-      let cursor = t.y;
+      /* ★ 위로 맞닿은(하단 == 대상 상단) 이웃은 **전부** k 만큼 줄인다. */
+      if (!shrinkTouching(line, 'h', minHOf, (o) => o.y + o.h === before.y)) return null;
+      need = 0;
+      /*
+         ★★ 위와 같은 이유로 **열이 겹치는 것끼리만** 쌓는다. 한 커서로 훑으면
+           다른 열의 이웃이 위로 밀려 y 가 음수가 된다.
+         ★ 맞닿은 이웃은 이미 k 만큼 줄었으므로 y 를 그대로 두면 대상과 딱 맞는다.
+           그 아래(=대상 쪽)로 침범하는 경우만 끌어올린다.
+      */
       for (const o of line) {
-        if (need > 0) { const give = Math.min(need, Math.max(0, o.h - minHOf(o))); o.h -= give; need -= give; }
-        if (o.y + o.h > cursor) o.y = cursor - o.h;
-        cursor = o.y;
+        const bottom = o.y + o.h;
+        if (bottom > t.y) o.y = Math.max(0, t.y - o.h);
       }
     } else {
       return null;
