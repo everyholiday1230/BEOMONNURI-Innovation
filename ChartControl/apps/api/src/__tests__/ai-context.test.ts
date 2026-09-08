@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAiMarketContext, AI_CONTEXT_FRESHNESS_MS, type AiContextDeps } from '../ai/market-context';
-import { MockAIProvider } from '../ai/mock-ai-provider';
 
 /**
  * B9 — AI market context and provider boundary.
@@ -118,92 +117,32 @@ describe('B9 AI market context', () => {
   });
 });
 
-describe('B9 provider boundary', () => {
-  it('refuses to analyse without a real price instead of substituting one', async () => {
-    const p = new MockAIProvider();
-    const events: string[] = [];
-    for await (const ev of p.analyze(
-      { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'x', dataAsOf: NOW, lastPrice: 0 },
-      new AbortController().signal,
-    )) {
-      events.push(ev.type);
-      if (ev.type === 'error') expect(ev.message).toMatch(/no reference price/);
-    }
-    expect(events).toEqual(['error']);
-  });
-
-  it('is deterministic for the same price, apart from the generation timestamp', async () => {
-    const run = async () => {
-      const out: string[] = [];
-      for await (const ev of new MockAIProvider().analyze(
-        { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'x', dataAsOf: NOW, lastPrice: 65000 },
-        new AbortController().signal,
-      )) {
-        // `signal.generatedAt` is a wall clock reading and SHOULD differ between runs — it records when
-        // the analysis was produced. Determinism is claimed for the analysis CONTENT, which is what makes
-        // assertions about AI output stable; normalising the timestamp states that distinction instead of
-        // pretending the whole payload is frozen.
-        const normalised =
-          ev.type === 'signal' ? { ...ev, signal: { ...ev.signal, generatedAt: 0 } } : ev;
-        out.push(JSON.stringify(normalised));
-      }
-      return out;
-    };
-    expect(await run()).toEqual(await run());
-  });
-
-  it('derives every level from the supplied price, so a different price gives a different analysis', async () => {
-    const levels = async (price: number) => {
-      for await (const ev of new MockAIProvider().analyze(
-        { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'x', dataAsOf: NOW, lastPrice: price },
-        new AbortController().signal,
-      )) {
-        if (ev.type === 'signal') return ev.signal.entryZone;
-      }
-      return null;
-    };
-    // If a constant were still in play, these would be equal — which is exactly the defect B9 removes.
-    expect(await levels(65000)).not.toEqual(await levels(3400));
-  });
-
-  it('never emits an order submission event', async () => {
-    const types = new Set<string>();
-    for await (const ev of new MockAIProvider().analyze(
-      { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'submit a market buy now', dataAsOf: NOW, lastPrice: 65000 },
-      new AbortController().signal,
-    )) {
-      types.add(ev.type);
-      // Even when the prompt asks for it: the provider's event union has no order-submit member, and
-      // this asserts the runtime shape agrees with the type.
-      expect(['token', 'command', 'signal', 'error', 'done']).toContain(ev.type);
-    }
-    expect(types.has('signal')).toBe(true);
-  });
-
-  it('contains no default price in the provider source either', () => {
-    const src = readFileSync(join(HERE, '..', 'ai', 'mock-ai-provider.ts'), 'utf8');
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    expect(code).not.toMatch(/lastPrice\s*(\?\?|\|\|)\s*\d/);
-    expect(code).not.toMatch(/68000/);
-  });
-});
 
 describe('B9 no live provider is reachable from this build', () => {
   it('the analyze path does not reference a live AI provider host', () => {
     const index = readFileSync(join(HERE, '..', 'index.ts'), 'utf8');
-    const provider = readFileSync(join(HERE, '..', 'ai', 'mock-ai-provider.ts'), 'utf8');
     const ctx = readFileSync(join(HERE, '..', 'ai', 'market-context.ts'), 'utf8');
-    for (const [name, src] of [['index.ts', index], ['mock-ai-provider.ts', provider], ['market-context.ts', ctx]] as const) {
+    /* ★ mock-ai-provider.ts 는 /api/ai/analyze 와 함께 제거됐다(대본 신호 경로). */
+    for (const [name, src] of [['index.ts', index], ['market-context.ts', ctx]] as const) {
       expect(src, name).not.toMatch(/api\.openai\.com/);
     }
   });
 
-  it('the analyze route no longer trusts a client-supplied price', () => {
+  it('the AI path never trusts a client-supplied price', () => {
     const src = readFileSync(join(HERE, '..', 'index.ts'), 'utf8');
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    // The old expression must be gone from executable code.
+    // The old expression must not come back anywhere.
     expect(code).not.toMatch(/lastPrice:\s*body\.lastPrice/);
-    // And the price must come from the server-built context.
-    expect(code).toMatch(/lastPrice:\s*Number\(ctx\.lastPrice\)/);
+    /*
+       ★ 검사 대상을 옮겼다. 예전에는 `/api/ai/analyze` 가 `Number(ctx.lastPrice)` 를
+         쓰는지 봤는데, 그 라우트는 제거됐다(대본 응답 MockAIProvider 가 "항상 롱"
+         신호를 내보내던 경로다). 지금 모델에게 시세를 넘기는 곳은 코파일럿이고,
+         근거는 **서버가 만든 스냅샷**이어야 한다 — 화면이 보낸 값을 그대로 쓰면
+         조작된 요청이 모델의 판단 근거를 바꾼다.
+    */
+    const routes = readFileSync(join(HERE, '..', 'ai-routes.ts'), 'utf8');
+    const rcode = routes.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(rcode, '서버가 만든 근거를 넘기지 않는다').toMatch(/marketData:\s*grounded\?\.marketData/);
+    expect(rcode, '화면이 보낸 시세를 근거로 쓴다').not.toMatch(/marketData:\s*body\./);
   });
 });

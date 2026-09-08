@@ -119,11 +119,17 @@ describe('AI-USER-STATE — AI 가 이용자 상태를 실제로 읽는다', () 
     */
     const idx = read('apps/api/src/index.ts');
     expect(idx, 'AI 전용 SQLite 저장소를 다시 만들었다').not.toMatch(/const aiPortfolio = new PortfolioRepo\(db\)/);
-    const seg = idx.slice(idx.indexOf('aiUserContext = async'), idx.indexOf('aiSessionValid = async'));
+    /*
+       ★ 검사 대상을 옮겼다. 예전에는 `/api/ai/analyze` 의 `aiUserContext` 를 봤는데
+         그 라우트와 함께 제거됐다(대본 응답 MockAIProvider 가 "항상 롱" 신호를
+         내보내던 경로다). 지금 AI 에게 포지션을 넘기는 곳은 코파일럿 도구
+         `get_user_visible_positions` → `aiUserPositions` 다. 검사가 사라지면
+         같은 사고(AI 전용 빈 저장소를 읽는 것)를 다시 막을 수 없다.
+    */
+    const seg = idx.slice(idx.indexOf('aiUserPositions = async'), idx.indexOf('aiUserOpenOrders = async'));
     expect(seg.length).toBeGreaterThan(100);
     expect(seg, '공용 저장소를 쓰지 않는다').toMatch(/portfolioRepo\.listPositions/);
     /* ★ Pg 구현은 async 다. await 가 없으면 Promise 를 배열처럼 다뤄 조용히 빈 결과가 된다. */
     expect(seg).toMatch(/await portfolioRepo\.listPositions/);
-    expect(seg).toMatch(/await portfolioRepo\.listBalances/);
   });
 });

@@ -14,7 +14,6 @@ import { describeStatic, mountStatic } from './static-web';
 import { attachWsGateway, type WsGatewayHandle } from './ws-gateway';
 
 
-import { MockAIProvider } from './ai/mock-ai-provider';
 import { SimOrderEngine } from './sim/order-engine';
 import { AuthService, MailSink, resendFromEnv, smtpFromEnv, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import { createAuthRouter } from './auth-routes';
@@ -116,7 +115,6 @@ import { RETENTION_RULES } from './privacy/retention-policy';
 
 const env = loadEnv();
 const providers = selectProviders(env);
-const ai = new MockAIProvider();
 const orders = new SimOrderEngine();
 // R6/BL-11 — one distributed rate limiter shared by every rate-limited HTTP path. Production uses Redis
 // (fail-closed: REDIS_URL required, runtime failures deny); dev/e2e uses in-memory. Selected by the
@@ -969,93 +967,7 @@ app.get('/api/market/tickers', async (c) => {
  * Anonymous callers get market context only. Position and balance context requires a session, and it is
  * read from the user's own rows — never from the request.
  */
-let aiUserContext: ((c: Context) => Promise<{
-  positions: { symbol: string; side: string; size: string; entryPrice: string | null }[];
-  availableBalance: string | null;
-}>) | null = null;
-// 세션 검증기(뒤에서 authService 준비되면 할당). /api/ai/analyze 를 인증 게이트한다.
-let aiSessionValid: ((c: Context) => Promise<boolean>) | null = null;
 
-app.post('/api/ai/analyze', async (c) => {
-  // ★ 인증 게이트(fail-closed). 이 경로는 실 LLM 분석을 돌려 비용이 든다 —
-  //   비인증·무제한 공개 시 비용/DoS 위험. 프런트는 게이트된 /ai/copilot 을 쓴다.
-  if (!aiSessionValid || !(await aiSessionValid(c))) {
-    return c.json(errBody('UNAUTHENTICATED', 'sign in to use AI analysis'), 401);
-  }
-  const body = await c.req.json<{
-    symbol?: string;
-    timeframe?: string;
-    prompt?: string;
-    /** Accepted for backwards compatibility and deliberately NOT used. */
-    lastPrice?: number;
-  }>();
-  /*
-     ★★ AI 가 실제로 연결돼 있지 않으면 여기서 멈춘다.
-
-       이 엔드포인트의 분석기는 MockAIProvider(대본 응답)다. 프런트엔드는 이제
-       /ai/copilot(인증·게이트된 경로)만 쓰고 이 경로는 호출하지 않지만, 라우트가
-       열려 있으면 실서비스에서 목업 분석이 그대로 나간다(비인증). aiAvailable 이
-       false 인 동안에는 목업을 흘리지 않고 '아직 없음' 을 명확히 알린다.
-       진짜 provider 를 붙이면(aiResolution.available) 그때 실제 분석을 연결한다.
-  */
-  if (aiResolution.kind === 'unavailable' || aiResolution.available !== true) {
-    return c.json(errBody('AI_UNAVAILABLE', 'AI analysis is not enabled on this deployment'), 503);
-  }
-
-  const symbol = body.symbol ?? env.defaultSymbol;
-  const timeframe = (body.timeframe ?? '15m') as (typeof SUPPORTED_TIMEFRAMES)[number];
-
-  const userCtx = aiUserContext ? await aiUserContext(c) : { positions: [], availableBalance: null };
-  const built = await buildAiMarketContext(
-    { symbol, timeframe },
-    {
-      getTicker: (s) => providers.market.getTicker(s) as Promise<TickerLike | null>,
-      getPositions: () => userCtx.positions,
-      getAvailableBalance: () => userCtx.availableBalance,
-      source: env.dataMode === 'MOCK_REPLAY' ? 'MOCK' : 'SNAPSHOT',
-      tradingMode: env.tradingMode,
-      liveTradingEnabled: env.liveOrdersEnabled && env.liveTradingEnabled,
-      killSwitchActive: env.emergencyKillSwitch,
-    },
-  );
-
-  // Fail closed: no price, a stale price or a provider outage stops the analysis. The client is told
-  // which of the three it was so it can show something truthful.
-  if (!built.ok) {
-    return c.json(
-      errBody('AI_CONTEXT_UNAVAILABLE', `cannot build market context: ${built.reason}`),
-      built.reason === 'PROVIDER_UNAVAILABLE' ? 502 : 409,
-    );
-  }
-  const ctx = built.context;
-
-  return streamSSE(c, async (stream) => {
-    const abort = new AbortController();
-    stream.onAbort(() => abort.abort()); // cancel when the client disconnects
-    // The context is emitted FIRST so the UI can label the answer with its provenance before any token
-    // of the answer arrives.
-    await stream.writeSSE({ event: 'context', data: JSON.stringify({ type: 'context', context: ctx }) });
-    try {
-      for await (const ev of ai.analyze(
-        {
-          symbol,
-          timeframe,
-          prompt: body.prompt ?? '',
-          dataAsOf: ctx.asOf,
-          // Decimal string → number at the provider boundary only, after it has been validated as a real
-          // positive price. There is no fallback value.
-          lastPrice: Number(ctx.lastPrice),
-          context: ctx,
-        },
-        abort.signal,
-      )) {
-        await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
-      }
-    } catch (e) {
-      await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: (e as Error).message }) });
-    }
-  });
-});
 
 // ---- simulated market-data SSE fan-out (single-node, in-memory) ----
 app.get('/api/stream/market', (c) => {
@@ -3193,24 +3105,6 @@ if (env.authEnabled) {
        ★ Pg 구현은 async 다. await 를 붙인다 — 없으면 Promise 를 배열처럼 다루게 되고
          조용히 빈 결과가 된다.
     */
-    aiUserContext = async (c) => {
-      const raw = getCookie(c, env.cookieName);
-      const v = raw ? await authService.validateSession(raw) : null;
-      if (!v) return { positions: [], availableBalance: null };
-      const positions = await portfolioRepo.listPositions(v.user.id, { limit: 20 } as never);
-      const balances = await portfolioRepo.listBalances(v.user.id);
-      const quote = balances.items.find((b) => b.asset === 'USDT');
-      return {
-        positions: positions.items.map((p) => ({ symbol: p.symbol, side: p.side, size: p.size, entryPrice: p.entryPrice })),
-        // Null, not 0: an unknown balance must not read as an empty account.
-        availableBalance: quote ? quote.available : null,
-      };
-    };
-    // /api/ai/analyze 인증 게이트: 유효 세션이면 true.
-    aiSessionValid = async (c) => {
-      const raw = getCookie(c, env.cookieName);
-      return raw ? Boolean(await authService.validateSession(raw)) : false;
-    };
 
     // Durable projection for confirmed SIMULATED orders. Ownership is taken from the validated session
     // cookie only — never from the request body — so a caller cannot write rows into another account.

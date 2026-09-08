@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { SimOrderEngine } from '../sim/order-engine';
-import { MockAIProvider } from '../ai/mock-ai-provider';
 import type { SymbolInfo } from '@quantumtrade/schemas';
 
 const BTC: SymbolInfo = {
@@ -69,42 +68,3 @@ describe('SimOrderEngine confirmation gate + idempotency', () => {
   });
 });
 
-describe('MockAIProvider structured output', () => {
-  it('emits only allowlisted validated commands + a validated signal, and never an order submission', async () => {
-    const ai = new MockAIProvider();
-    const abort = new AbortController();
-    const events = [];
-    for await (const ev of ai.analyze(
-      { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'analyze', dataAsOf: Date.now(), lastPrice: 68000 },
-      abort.signal,
-    )) {
-      events.push(ev);
-    }
-    const commands = events.filter((e) => e.type === 'command');
-    expect(commands.length).toBeGreaterThan(0);
-    const allowed = ['createEntryZone', 'createStopLoss', 'createTakeProfit'];
-    for (const c of commands) {
-      if (c.type === 'command') expect(allowed).toContain(c.command.command);
-    }
-    // No command may be an order submission; createOrderDraft (if present) is a draft only.
-    for (const c of commands) {
-      if (c.type === 'command') expect(c.command.command).not.toBe('submitOrder');
-    }
-    expect(events.some((e) => e.type === 'signal')).toBe(true);
-    expect(events.some((e) => e.type === 'done')).toBe(true);
-  });
-
-  it('stops and yields error when aborted', async () => {
-    const ai = new MockAIProvider();
-    const abort = new AbortController();
-    abort.abort();
-    const events = [];
-    for await (const ev of ai.analyze(
-      { symbol: 'BTCUSDT', timeframe: '15m', prompt: 'x', dataAsOf: Date.now(), lastPrice: 68000 },
-      abort.signal,
-    )) {
-      events.push(ev);
-    }
-    expect(events.some((e) => e.type === 'error')).toBe(true);
-  });
-});
