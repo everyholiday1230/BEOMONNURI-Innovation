@@ -545,10 +545,22 @@
          한다 — 잊을 수 있는 곳을 하나 줄인다.
     */
     /*
-       ★ `multi` 별칭은 남긴다 — 멀티차트 **탭**은 없어졌지만 같은 이름의
-         레이아웃 프리셋은 그대로 있고, 공유된 옛 링크가 그 배치를 연다.
+       ★★ `multi`·`dual` 별칭을 **없앴다** (2026-09-08).
+
+         dual-chart·multi-chart 프리셋을 삭제했다 — miniChart 로 같은 심볼을 여러 번
+         그려 쓸모가 적었다. 별칭만 남겨 두면 옛 링크가 **존재하지 않는 프리셋**을
+         가리키고, 그러면 배치가 비어 화면이 깨진다.
+
+       ★ 대신 두 링크를 살아 있는 프리셋으로 보낸다. 옛 링크를 받은 사람이 빈 화면을
+         보는 것보다, 비슷한 배치를 보는 것이 낫다.
+           multi(차트 여럿) → chart-focus (차트를 가장 크게)
+           dual(차트 둘)    → chart-focus
     */
-    const QUERY_PRESET_ALIAS = { ai: 'ai-workspace', chart: 'chart-focus', multi: 'multi-chart', dual: 'dual-chart' };
+    const QUERY_PRESET_ALIAS = {
+      ai: 'ai-workspace', chart: 'chart-focus',
+      multi: 'chart-focus', dual: 'chart-focus',
+      scalper: 'scalper', standard: 'standard-trader',
+    };
     function presetFromQuery(v) {
       if (!v) return null;
       const key = String(v);

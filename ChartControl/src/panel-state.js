@@ -128,18 +128,56 @@
         }
         if (!best) continue;
 
-        best.w += freed;
+        /*
+           ★★ **왼쪽 이웃 하나만 넓히면 구멍이 생긴다.**
+
+             접힌 패널의 행 범위를 왼쪽에서 **여러 패널이 나눠 덮는** 경우가 있다.
+             하나만 넓히면 나머지 행에는 아무것도 오지 않아 빈칸이 남는다.
+
+             실제로 그랬다 — ai-workspace 에서 코파일럿은 y0-16 인데 왼쪽 차트는
+             y0-11 뿐이어서, 접으면 y11-16 에 **빈칸 25칸**이 생겼다(채움 87%).
+
+           ★ 그래서 `best` 와 **같은 거리에 있고 행이 겹치는** 패널을 모두 모아
+             함께 넓힌다. 그 집합이 접힌 패널의 행 범위를 빈틈없이 덮을 때만
+             적용한다 — 덮지 못하면 넓혀도 구멍이 남으므로 손대지 않는 것이 낫다.
+        */
+        const sameGap = out.filter((o) => o !== target && !o.hidden
+          && target.x - (o.x + o.w) === bestGap
+          && Math.min(o.y + o.h, target.y + target.h) - Math.max(o.y, target.y) > 0);
+
+        /* 이 집합이 target 의 행 범위를 빈틈없이 덮는가. */
+        const covered = (() => {
+          const rows = sameGap
+            .map((o) => [Math.max(o.y, target.y), Math.min(o.y + o.h, target.y + target.h)])
+            .sort((a, b) => a[0] - b[0]);
+          let edge = target.y;
+          for (const [a, b] of rows) {
+            if (a > edge) return false;      // 사이에 틈이 있다
+            edge = Math.max(edge, b);
+          }
+          return edge >= target.y + target.h;
+        })();
+
+        /* 덮지 못하면 하나만 넓힌다(예전 동작) — 그래도 겹침 검사는 한다. */
+        const grow = covered ? sameGap : [best];
+
+        for (const g of grow) g.w += freed;
         target.x += freed;
         target.w = COLLAPSED_W;
 
         /*
-           ★ 변환 결과가 겹치면 되돌린다. 이 함수는 그리기 직전에 돌기 때문에
-             여기서 겹치면 화면에 그대로 겹쳐 보인다 — 검사가 없었다.
+           ★ 변환 결과가 겹치면 **전부** 되돌린다. 이 함수는 그리기 직전에 돌기
+             때문에 여기서 겹치면 화면에 그대로 겹쳐 보인다.
         */
-        const collide = out.some((o) => o !== best && !o.hidden
-          && !(best.x + best.w <= o.x || o.x + o.w <= best.x
-            || best.y + best.h <= o.y || o.y + o.h <= best.y));
-        if (collide) { best.w -= freed; target.x -= freed; target.w = freed + COLLAPSED_W; }
+        const collide = out.some((a, i) => out.some((b, j) => j > i
+          && !a.hidden && !b.hidden
+          && !(a.x + a.w <= b.x || b.x + b.w <= a.x
+            || a.y + a.h <= b.y || b.y + b.h <= a.y)));
+        if (collide) {
+          for (const g of grow) g.w -= freed;
+          target.x -= freed;
+          target.w = freed + COLLAPSED_W;
+        }
       }
 
       return out;

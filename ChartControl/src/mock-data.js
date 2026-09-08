@@ -183,199 +183,115 @@
   };
 
   // -------- Layout presets (24-col grid, GridStack-compatible) --------
+  /*
+     ─────────────────────────── 레이아웃 프리셋 ───────────────────────────
+
+     ★★ 설계 규칙 — 이 넷을 지키지 않으면 화면이 깨진다
+
+       1) **24열 × 16행을 빈칸·겹침 0 으로 완전히 덮는다.**
+          빈칸이 있으면 화면에 빈 공간으로 보이고, 겹치면 패널이 서로를 가린다.
+
+       2) **코파일럿을 접었을 때도 빈칸이 없어야 한다.**
+          접히면 폭이 1칸으로 줄고, 남은 폭은 `panel-state.applyTo` 가 **왼쪽
+          이웃 하나**에게 넘긴다. 그래서 코파일럿의 왼쪽에 **같은 행 범위를
+          정확히 덮는** 패널이 있어야 한다.
+
+          예전 ai-workspace 가 이 규칙을 어겼다 — 코파일럿은 y0-16 인데 왼쪽
+          차트는 y0-11 뿐이어서, 접으면 y11-16 구간에 **빈칸 25칸**이 생겼다
+          (실측: 채움 87%, 다른 프리셋은 93~94%).
+
+       3) 모든 패널이 `layout-engine.jsx` 의 minW/minH 보다 **여유 있게** 크다.
+          딱 최소값이면 줄일 수 없고, 최소값보다 작으면 크기 조절 계산이 음수가
+          되어 옆 창을 넓히려 할 때 오히려 줄어든다.
+
+       4) **4개만 둔다.** 예전에는 8개였는데 dual-chart·multi-chart 는 miniChart
+          로 같은 심볼을 여러 번 그려 쓸모가 적었고, beginner·risk 는 다른
+          프리셋의 부분집합이었다. 선택지가 많은 것보다 각각이 분명한 것이 낫다.
+
+     ★ 좌표를 고칠 때는 반드시 빈칸·겹침을 다시 계산할 것. 눈으로는 못 잡는다.
+       회귀 테스트가 이 넷을 검사한다(apps/api/src/__tests__/layout-presets.test.ts).
+  */
   const LAYOUT_PRESETS = {
+    /*
+       1. Standard Trader — 기본. 운영 지시로 **배치를 바꾸지 않는다.**
+          고객이 보던 화면이 달라지면 그것 자체가 사고다.
+    */
     'standard-trader': {
       id: 'standard-trader',
       name: 'Standard Trader',
       descKey: 'preset_desc_standard',
       cols: 24,
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 4,  h: 16, minW: 3, minH: 6 },
-        /*
-           ★★ minW 를 8 → 6 으로 낮춘다. **이 배치가 실제 값이고 8 은 지켜지지 않는
-             선언이었다.**
-
-             폭 6 인데 최소폭 8 이라고 적혀 있었다. 그 모순이 크기 조절 계산을
-             깨뜨렸다: 이웃이 내줄 수 있는 여유를 `폭 - 최소폭` 으로 계산하면
-             음수가 나오고, 그러면 옆 창을 넓히려 할 때 오히려 줄어든다(실측으로
-             재현했다 — market 을 넓히자 4열에서 3열로 줄었다).
-
-           ★ 배치를 바꾸지 않는 쪽을 골랐다. chart 를 8열로 넓히면 고객이 보던
-             기본 화면이 달라진다. 지켜지지 않는 최소값을 사실에 맞추는 것이
-             화면을 바꾸는 것보다 안전하다.
-        */
-        /*
-           ★★ 차트를 6 → 7 칸으로 넓힌다. **오른쪽 패널에서 한 칸을 가져온다**
-             (orderBook 4 → 3). 차트를 넓히려고 코파일럿을 줄이면 원래 문제로
-             되돌아가기 때문이다.
-
-             왜 필요했나 — 실측(1600px 화면):
-               코파일럿 접힘: 차트 614px
-               코파일럿 펼침: 차트 **328px**
-             펼치면 차트가 절반이 됐다. 둘이 같은 행에서 폭을 나눠 쓰는데 차트
-             저장폭이 6칸뿐이라, 코파일럿을 펼치는 순간 차트가 쓸 수 있는 폭이
-             바닥났다. 고객이 "차트를 좌우로 늘려 가득 채워달라" 고 한 지점이다.
-
-           ★ 7 칸이면 펼친 상태에서도 약 399px (이전 328px, +22%) 이고, 접으면
-             12칸 약 684px 가 된다. orderBook 은 3칸(약 171px)이 되는데 240px
-             미만에서 `.ob-row__total` 을 접는 컨테이너 쿼리가 이미 있어(widgets.css)
-             가격·수량은 그대로 읽힌다.
-
-           ★ orderEntry 는 건드리지 않는다. 4칸(223px)에서도 이미 제출 버튼과
-             주문금액이 잘리고 있어 더 줄이면 못 쓴다(별건으로 남긴다).
-        */
-        { id: 'chart',     type: 'chart',       x: 4,  y: 0,  w: 7,  h: 11, minW: 6, minH: 6 },
-        { id: 'positions', type: 'positions',   x: 4,  y: 11, w: 13, h: 5,  minW: 8, minH: 3 },
-        /*
-           ★★ AI 코파일럿을 기본 배치에 넣는다.
-
-             전에는 `ai-workspace` 프리셋에만 있었다. 그래서 거래 화면(/trade)에서
-             코파일럿을 접으면 **그 화면에는 원래 코파일럿이 없어서** 다시 펼칠
-             방법이 없어 보였다(실제로 그렇게 보고받았다).
-
-           ★ 처음부터 **접힌 상태**로 둔다(아래 collapsedByDefault).
-             접히면 2칸만 쓰고 남는 폭은 왼쪽 이웃(차트)이 가져간다. 그래서
-             디자이너가 만든 배치와 거의 같은 화면으로 시작하고, 필요할 때만
-             펼친다 — 배치를 크게 바꾸지 않는다.
-
-           ★★ 저장 폭은 **펼친 크기**(6칸)로 둔다.
-
-             처음에 2칸으로 저장했더니 접기 변환이 `freed = 2 - 2 = 0` 이 되어
-             접기·펼치기가 둘 다 아무 일도 하지 않았다(실측: 펼쳐도 109px 그대로).
-             접힘은 **표시 상태**이고 저장 폭은 펼친 크기여야 한다.
-
-           ★ 차트를 12 → 6 으로 줄이고 코파일럿에 6을 준다. 접힌 상태에서는
-             코파일럿이 2칸만 쓰고 남은 4칸을 왼쪽 이웃(차트)이 가져가므로
-             차트가 10칸이 된다 — 디자이너 배치(12칸)보다 2칸 좁지만, 펼쳤을 때
-             코파일럿이 쓸 수 있는 최소 폭(minW 5)을 확보한다.
-        */
-        { id: 'ai',        type: 'aiCopilot',   x: 11, y: 0,  w: 6,  h: 11, minW: 5, minH: 10 },
-        /* ★ 4 → 3 칸. 이 한 칸이 차트로 갔다(위 chart 주석 참조). */
-        { id: 'orderbook', type: 'orderBook',   x: 17, y: 0,  w: 3,  h: 11, minW: 3, minH: 6 },
-        { id: 'trades',    type: 'recentTrades',x: 17, y: 11, w: 3,  h: 5,  minW: 3, minH: 3 },
-        { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 11, minW: 3, minH: 8 },
-        { id: 'assets',    type: 'assetsRisk',  x: 20, y: 11, w: 4,  h: 5,  minW: 3, minH: 3 },
-      ]
+        { id: 'market',     type: 'marketWatch',  x: 0,  y: 0,  w: 4, h: 16, minW: 3, minH: 6 },
+        { id: 'chart',      type: 'chart',        x: 4,  y: 0,  w: 7, h: 11, minW: 6, minH: 6 },
+        { id: 'positions',  type: 'positions',    x: 4,  y: 11, w: 13, h: 5, minW: 8, minH: 3 },
+        { id: 'ai',         type: 'aiCopilot',    x: 11, y: 0,  w: 6, h: 11, minW: 5, minH: 10 },
+        { id: 'orderbook',  type: 'orderBook',    x: 17, y: 0,  w: 3, h: 11, minW: 3, minH: 6 },
+        { id: 'trades',     type: 'recentTrades', x: 17, y: 11, w: 3, h: 5,  minW: 3, minH: 3 },
+        { id: 'orderEntry', type: 'orderEntry',   x: 20, y: 0,  w: 4, h: 11, minW: 3, minH: 8 },
+        { id: 'assets',     type: 'assetsRisk',   x: 20, y: 11, w: 4, h: 5,  minW: 3, minH: 3 },
+      ],
     },
+
+    /*
+       2. AI Workspace — 코파일럿 중심.
+
+       ★★ 예전 배치는 코파일럿이 y0-16 이고 왼쪽 차트가 y0-11 이어서, 접으면
+         y11-16 에 빈칸이 생겼다. 이제 코파일럿을 **차트와 같은 y0-11** 로 맞추고
+         그 아래(y11-16)는 assetsRisk 가 채운다. 접으면 차트가 그 폭을 받고,
+         아래는 assetsRisk 가 받아 **어느 상태에서도 빈칸이 없다.**
+    */
     'ai-workspace': {
       id: 'ai-workspace',
       name: 'AI Workspace',
       descKey: 'preset_desc_ai',
       cols: 24,
-      /*
-         ★★ 원래 위젯이 4개뿐이었고 **주문 패널(orderEntry)이 없었다.**
-           코파일럿이 24칸 중 9칸을 차지해서, 이 워크스페이스에서는 분석은
-           볼 수 있는데 주문을 넣을 수가 없었다. 분석을 보고 바로 주문하는
-           것이 이 화면의 목적이므로, 주문 패널이 없으면 화면을 벗어나야 한다.
-
-         ★ 코파일럿을 9 → 6 칸으로 줄이고 주문 패널 4칸을 넣었다(minW 3).
-           합계 3 + 11 + 6 + 4 = 24.
-      */
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 6 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 11, h: 11, minW: 6, minH: 6 },
-        { id: 'positions', type: 'positions',   x: 3,  y: 11, w: 11, h: 5,  minW: 8, minH: 3 },
-        { id: 'ai',        type: 'aiCopilot',   x: 14, y: 0,  w: 6,  h: 16, minW: 5, minH: 10 },
-        { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },
-      ]
+        { id: 'market',     type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 6 },
+        { id: 'chart',      type: 'chart',       x: 3,  y: 0,  w: 10, h: 11, minW: 6, minH: 6 },
+        { id: 'positions',  type: 'positions',   x: 3,  y: 11, w: 10, h: 5,  minW: 8, minH: 3 },
+        { id: 'ai',         type: 'aiCopilot',   x: 13, y: 0,  w: 7,  h: 11, minW: 5, minH: 10 },
+        { id: 'assets',     type: 'assetsRisk',  x: 13, y: 11, w: 7,  h: 5,  minW: 3, minH: 3 },
+        { id: 'orderEntry', type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 16, minW: 3, minH: 8 },
+      ],
     },
+
+    /*
+       3. Chart Focus — 차트를 가장 크게. 코파일럿이 없어 접힘 문제 자체가 없다.
+          오른쪽 열을 주문(위)·자산(아래)으로 나눠 아래 빈칸을 없앤다.
+    */
     'chart-focus': {
       id: 'chart-focus',
       name: 'Chart Focus',
       descKey: 'preset_desc_chart',
       cols: 24,
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 17, h: 12 },
-        { id: 'positions', type: 'positions',   x: 3,  y: 12, w: 17, h: 4 },
-        { id: 'orderEntry',type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 16 },
-      ]
+        { id: 'market',     type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 6 },
+        { id: 'chart',      type: 'chart',       x: 3,  y: 0,  w: 17, h: 12, minW: 6, minH: 6 },
+        { id: 'positions',  type: 'positions',   x: 3,  y: 12, w: 17, h: 4,  minW: 8, minH: 3 },
+        { id: 'orderEntry', type: 'orderEntry',  x: 20, y: 0,  w: 4,  h: 10, minW: 3, minH: 8 },
+        { id: 'assets',     type: 'assetsRisk',  x: 20, y: 10, w: 4,  h: 6,  minW: 3, minH: 3 },
+      ],
     },
+
+    /*
+       4. Scalper — 오더북·체결·주문 중심. 빠른 진입에 필요한 것만 크게 둔다.
+          차트는 작게(11열), 대신 오더북과 주문 패널을 넓힌다.
+    */
     'scalper': {
       id: 'scalper',
       name: 'Scalper',
       descKey: 'preset_desc_scalper',
       cols: 24,
       widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 12, h: 9 },
-        { id: 'positions', type: 'positions',   x: 3,  y: 9,  w: 12, h: 7 },
-        { id: 'orderbook', type: 'orderBook',   x: 15, y: 0,  w: 4,  h: 16 },
-        { id: 'orderEntry',type: 'orderEntry',  x: 19, y: 0,  w: 5,  h: 12 },
-        { id: 'trades',    type: 'recentTrades',x: 19, y: 12, w: 5,  h: 4 },
-      ]
-    },
-    /*
-       2분할 차트 — 거래 화면 안에서 두 종목을 나란히 본다.
-
-       왜 별도 페이지(/multi-chart)가 아니라 프리셋인가
-         /multi-chart 로 나가면 주문 패널과 포지션이 없다. 두 종목을 비교하는
-         이유는 그중 하나를 거래하기 위해서인데, 비교하다가 주문하려면 화면을
-         떠나야 했고 그 사이에 가격이 움직인다.
-
-       구성
-         위쪽에 차트 둘(왼쪽이 활성 심볼, 오른쪽은 위젯이 따로 기억한다),
-         아래에 포지션과 주문 패널. marketWatch 를 빼서 차트 폭을 확보했다 —
-         심볼은 각 차트 머리의 버튼으로 바꾼다.
-    */
-    'dual-chart': {
-      id: 'dual-chart',
-      name: 'Dual Chart',
-      descKey: 'preset_desc_dual',
-      cols: 24,
-      widgets: [
-        /*
-           ★★ 아래 행을 6 → 8 로 높인다. 주문 입력의 최소 높이가 8 행이다.
-
-             6 행으로는 주문 입력 칸이 최소 요구보다 작게 그려진다 — 필드가 잘린다.
-             다른 세 프리셋(standard-trader, scalper, beginner)은 8 행 이상을 준다.
-             이 프리셋만 예외였다.
-
-           ★ 최소값을 낮추는 대신 배치를 고쳤다. 최소 8 은 다른 곳에서 실제로
-             지켜지는 기준이고, 낮추면 모든 프리셋에서 주문 입력이 잘릴 수 있다.
-        */
-        { id: 'chart',     type: 'chart',      x: 0,  y: 0,  w: 12, h: 8 },
-        { id: 'chart2',    type: 'miniChart',  x: 12, y: 0,  w: 12, h: 8 },
-        { id: 'positions', type: 'positions',  x: 0,  y: 8,  w: 14, h: 8 },
-        { id: 'orderEntry',type: 'orderEntry', x: 14, y: 8,  w: 10, h: 8 },
-      ]
-    },
-    'multi-chart': {
-      id: 'multi-chart',
-      name: 'Multi-Chart',
-      descKey: 'preset_desc_multi',
-      cols: 24,
-      widgets: [
-        { id: 'market',    type: 'marketWatch', x: 0,  y: 0,  w: 3,  h: 16 },
-        { id: 'chart',     type: 'chart',       x: 3,  y: 0,  w: 11, h: 8 },
-        { id: 'chart2',    type: 'miniChart',   x: 14, y: 0,  w: 10, h: 8 },
-        { id: 'chart3',    type: 'miniChart',   x: 3,  y: 8,  w: 11, h: 8 },
-        { id: 'chart4',    type: 'miniChart',   x: 14, y: 8,  w: 10, h: 8 },
-      ]
-    },
-    'beginner': {
-      id: 'beginner',
-      name: 'Beginner',
-      descKey: 'preset_desc_beginner',
-      cols: 24,
-      widgets: [
-        { id: 'chart',     type: 'chart',       x: 0,  y: 0,  w: 16, h: 12 },
-        { id: 'orderEntry',type: 'orderEntry',  x: 16, y: 0,  w: 8,  h: 12 },
-        { id: 'positions', type: 'positions',   x: 0,  y: 12, w: 24, h: 4 },
-      ]
-    },
-    'risk': {
-      id: 'risk',
-      name: 'Risk Monitor',
-      descKey: 'preset_desc_risk',
-      cols: 24,
-      widgets: [
-        { id: 'positions', type: 'positions',   x: 0,  y: 0,  w: 14, h: 10 },
-        { id: 'assets',    type: 'assetsRisk',  x: 14, y: 0,  w: 10, h: 6 },
-        { id: 'chart',     type: 'chart',       x: 14, y: 6,  w: 10, h: 10 },
-        { id: 'orderbook', type: 'orderBook',   x: 0,  y: 10, w: 7,  h: 6 },
-        { id: 'trades',    type: 'recentTrades',x: 7,  y: 10, w: 7,  h: 6 },
-      ]
+        { id: 'market',     type: 'marketWatch',  x: 0,  y: 0,  w: 3,  h: 16, minW: 3, minH: 6 },
+        { id: 'chart',      type: 'chart',        x: 3,  y: 0,  w: 11, h: 10, minW: 6, minH: 6 },
+        { id: 'positions',  type: 'positions',    x: 3,  y: 10, w: 11, h: 6,  minW: 8, minH: 3 },
+        { id: 'orderbook',  type: 'orderBook',    x: 14, y: 0,  w: 5,  h: 10, minW: 3, minH: 6 },
+        { id: 'trades',     type: 'recentTrades', x: 14, y: 10, w: 5,  h: 6,  minW: 3, minH: 3 },
+        { id: 'orderEntry', type: 'orderEntry',   x: 19, y: 0,  w: 5,  h: 11, minW: 3, minH: 8 },
+        { id: 'assets',     type: 'assetsRisk',   x: 19, y: 11, w: 5,  h: 5,  minW: 3, minH: 3 },
+      ],
     },
   };
 
