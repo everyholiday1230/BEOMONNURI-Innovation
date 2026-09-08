@@ -69,7 +69,12 @@ pnpm build                      # 패키지 빌드 + 위 단계
 
 ★★ `env` 를 뺐을 때 **숨어 있던 결함이 드러났다**: `ai-copilot.jsx` 가 `aiReady` 를 선언보다 먼저 읽고 있었는데, `const`→`var` 변환이 TDZ 를 없애 가려주고 있었다. 문법 문제가 아니라 실제 버그였다.
 
-남은 과제: 최소화(minify)와 트리 셰이킹은 아직 없다.
+남은 과제: 최소화(minify)와 트리 셰이킹은 아직 없다. `web-dist/` 합계가 약 1.4 MB 다.
+
+★ 언어 사전은 지연 로드한다(2026-09-08). en 만 정적으로 싣고 ja·zh 는 그 언어를
+  고를 때 `QTI18n.ensureLocaleLoaded()` 가 주입한다 — 첫 로드에서 **434 KB** 가 빠졌다.
+  언어를 추가할 때는 `src/i18n.js` 의 `LAZY_LOCALES` 와 `LAZY_LOCALE_META` 두 곳을
+  고친다. `index.html` 에 `<script>` 를 다시 늘리면 절감이 사라진다.
 
 ---
 
@@ -235,9 +240,8 @@ npx eslint . && pnpm -r typecheck && pnpm --filter @quantumtrade/api exec vitest
 
 | 항목 | 영향 |
 |---|---|
-| React 개발 빌드 + 런타임 Babel | 첫 화면 로딩이 느리다 |
 | 모드 값이 `BITMART_LIVE_TRADE` | 값 이름만 거래소 이름이다(env 이름·내부 식별자·킬스위치는 정리됨). 58곳에 퍼져 있어 별도로 옮긴다 |
-| `dailyLossSoFar` 측정 경로 없음 | 일일 손실 한도를 실제로 걸 수 없다 |
+| 일일 손실 한도가 **선물만** 덮는다 | KuCoin history-positions 로 실현손익을 읽는다. 현물 실현손익은 그 경로로 얻을 수 없어 한도에 반영되지 않는다 |
 | 과거 AI 대화 선택 UI 없음 | 저장·자동복원은 되지만 목록에서 고를 수 없다 |
 | e2e | 하네스는 고쳐서 실행된다. 스펙 24개는 구조가 다른 예전 앱 기준(`data-testid` 0개, 없는 라우트 참조) — [docs/e2e-status.md](docs/e2e-status.md) |
 | 마이그레이션 드리프트 | 운영 전용 표 33개 — 개발(SQLite)에서 그만큼 기능이 꺼진다. 기록·점검: [docs/schema-drift.md](docs/schema-drift.md), `pnpm check:schema-drift` |

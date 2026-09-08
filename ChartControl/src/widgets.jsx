@@ -938,7 +938,25 @@
       const si = Math.round(qtyStep * scale);
       if (si <= 0) return q;
       const snapped = (Math.floor(qi / si) * si) / scale;
-      return Number(snapped.toFixed(qtyPrec));
+      /*
+         ★★ 마지막 반올림이 **스텝 정렬을 되돌리면 안 된다.**
+
+           `toFixed(qtyPrec)` 에서 qtyPrec 이 스텝의 소수 자리수보다 거칠면 값이
+           다시 왜곡된다. 실측된 경우:
+
+             step=0.01  prec=1  0.29  → 0.3    ← **상향**
+             step=0.1   prec=0  2.9   → 3      ← **상향**
+             step=0.001 prec=2  0.043 → 0.04   ← 하향
+
+           상향이 특히 나쁘다 — 고객이 요청한 것보다 **많은 수량**이 나간다.
+
+         ★ 지금은 도달하지 않는다. quantityPrecision 이 stepSize 에서 파생되기
+           때문이다(precisionFromStep / decimalsOf). 그러나 두 값을 독립적으로
+           정하는 어댑터가 하나만 추가되면 되살아난다. 자리수를 스텝 쪽으로
+           넉넉하게 잡아 그 경로를 아예 막는다.
+      */
+      const stepDec = (String(qtyStep).split('.')[1] || '').length;
+      return Number(snapped.toFixed(Math.max(qtyPrec, stepDec)));
     };
     const sz = snapQty(parseFloat(size) || 0);
     /*
