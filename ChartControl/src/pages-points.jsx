@@ -60,6 +60,102 @@
     }, []);
     useEffect(() => { loadSub(); }, [loadSub]);
 
+    /*
+       ─────────────────── 구독 시작(PayPal 정기결제) ───────────────────
+
+       ★★ 흐름을 두 단계로 나눈다.
+
+         1) checkout  → 서버가 PayPal 구독을 만들고 승인 링크를 준다
+         2) confirm   → 승인 후 돌아오면 **서버가 PayPal 에 물어** ACTIVE 인지 확인한 뒤
+                        구독을 켠다
+
+         2번을 생략하고 돌아온 것만으로 켜면, 고객이 그 URL 을 직접 열어 결제 없이
+         유료 기능을 쓸 수 있다.
+
+       ★ providerRef 를 sessionStorage 에 둔다. PayPal 로 나갔다 돌아오면 페이지가
+         새로 뜨므로 메모리 상태가 사라진다. localStorage 가 아니라 sessionStorage 인
+         이유는 이 값이 그 창의 결제 시도에만 쓰이기 때문이다.
+    */
+    const REF_KEY = 'qt.sub.pendingRef';
+    const [subMsg, setSubMsg] = useState(null);
+
+    const startSub = async (planCode) => {
+      setSubBusy(true); setSubMsg(null);
+      try {
+        const cs = await (await fetch('/api/auth/csrf', { credentials: 'same-origin' })).json();
+        const r = await fetch('/api/me/subscription/checkout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': (cs && cs.csrfToken) || '' },
+          body: JSON.stringify({ planCode }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j || !j.approveUrl) {
+          /* ★ 실패를 조용히 넘기지 않는다. 코드를 그대로 보여준다. */
+          const code = (j && j.error && j.error.code) || ('HTTP_' + r.status);
+          setSubMsg(t('sub_start_failed', { code }));
+          setSubBusy(false);
+          return;
+        }
+        try { sessionStorage.setItem(REF_KEY, j.providerRef); } catch (e) { void e; }
+        /* PayPal 승인 화면으로 보낸다. */
+        location.href = j.approveUrl;
+      } catch (e) {
+        setSubMsg(t('sub_start_failed', { code: (e && e.message) || 'error' }));
+        setSubBusy(false);
+      }
+    };
+
+    /*
+       승인 후 복귀 처리.
+
+       ★ `?sub=return` 으로 돌아온다. 그때 confirm 을 부른다 — 아직 켜지 않은 상태다.
+       ★ 아직 승인 전(NOT_ACTIVE)이면 켜지 않고 그대로 알린다. PayPal 처리가 늦을 수
+         있으므로 "실패" 라고 단정하지 않는다.
+    */
+    useEffect(() => {
+      const hash = String(location.hash || '');
+      if (!/[?&]sub=return/.test(hash)) {
+        if (/[?&]sub=cancel/.test(hash)) {
+          setSubMsg(t('sub_start_canceled'));
+          try { sessionStorage.removeItem(REF_KEY); } catch (e) { void e; }
+        }
+        return;
+      }
+      let ref = '';
+      try { ref = sessionStorage.getItem(REF_KEY) || ''; } catch (e) { void e; }
+      if (!ref) { setSubMsg(t('sub_confirm_no_ref')); return; }
+      let dead = false;
+      (async () => {
+        setSubBusy(true);
+        try {
+          const cs = await (await fetch('/api/auth/csrf', { credentials: 'same-origin' })).json();
+          const r = await fetch('/api/me/subscription/confirm', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': (cs && cs.csrfToken) || '' },
+            body: JSON.stringify({ providerRef: ref }),
+          });
+          const j = await r.json().catch(() => null);
+          if (dead) return;
+          if (r.ok && j && j.ok) {
+            try { sessionStorage.removeItem(REF_KEY); } catch (e) { void e; }
+            setSubMsg(t('sub_started', { plan: j.planCode }));
+            loadSub();
+          } else {
+            const code = (j && j.error && j.error.code) || ('HTTP_' + r.status);
+            /* ★ RECORD_FAILED 는 돈은 냈는데 기록이 안 된 상태다 — 문의를 안내한다. */
+            setSubMsg(code === 'RECORD_FAILED' ? t('sub_paid_not_recorded') : t('sub_confirm_pending', { code }));
+          }
+        } catch (e) {
+          if (!dead) setSubMsg(t('sub_confirm_pending', { code: (e && e.message) || 'error' }));
+        } finally {
+          if (!dead) setSubBusy(false);
+        }
+      })();
+      return () => { dead = true; };
+    }, [loadSub, t]);
+
     const cancelSub = async () => {
       /*
          ★★ 해지는 되돌릴 수 없고, **즉시 끊기지 않는다**(이미 낸 달은 끝까지 쓴다).
@@ -392,12 +488,40 @@
                       </div>
                     </div>
                     {/*
-                         ★ 결제가 붙지 않았으므로 '구독하기' 버튼을 만들지 않는다. 요금제는
-                           랜딩의 프라이싱에서 보여주고, 여기서는 지금 상태만 말한다.
-                         ★ 해지는 실제로 동작하므로 유료 구독일 때만 보여준다.
+                         ★★ 구독 버튼은 **서버가 결제 가능하다고 말한 플랜만** 그린다.
+
+                           sub.purchasablePlans 는 PayPal 플랜 ID 가 설정되고 **금액 대조를
+                           통과한** 플랜 목록이다. 화면이 스스로 목록을 만들면, PayPal 에서
+                           금액이 바뀌었을 때 $19 를 보여주고 다른 금액을 청구한다.
+
+                         ★ 목록이 비어 있으면 버튼을 만들지 않고 이유를 문장으로 말한다.
+                           눌러도 안 되는 버튼이 가장 나쁘다.
                     */}
+                    {Array.isArray(sub.purchasablePlans) && sub.purchasablePlans.length > 0 && (
+                      <div style={{display:'flex', gap:7, flexWrap:'wrap', marginTop:10}}>
+                        {sub.purchasablePlans.map((p) => (
+                          <button
+                            key={p.code}
+                            className={`btn btn--sm ${p.code === sub.subscription.planCode ? '' : 'btn--primary'}`}
+                            disabled={subBusy || p.code === sub.subscription.planCode}
+                            onClick={() => startSub(p.code)}
+                          >
+                            {p.code === sub.subscription.planCode
+                              ? t('sub_current_plan', { plan: p.name })
+                              : t('sub_subscribe_to', { plan: p.name, price: p.priceUsd })}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {Array.isArray(sub.purchasablePlans) && sub.purchasablePlans.length === 0 && (
+                      <div className="muted" style={{fontSize:12, marginTop:8}}>{t('plan_billing_pending')}</div>
+                    )}
+                    {subMsg && (
+                      <div role="status" style={{fontSize:12.5, marginTop:9, lineHeight:1.7}}>{subMsg}</div>
+                    )}
+                    {/* ★ 해지는 실제로 동작하므로 유료 구독일 때만 보여준다. */}
                     {sub.subscription.planCode !== 'free' && sub.subscription.status === 'active' && (
-                      <button className="btn btn--sm" disabled={subBusy} onClick={cancelSub}>
+                      <button className="btn btn--sm" disabled={subBusy} onClick={cancelSub} style={{marginTop:9}}>
                         {subBusy ? t('sec_loading') : t('sub_cancel')}
                       </button>
                     )}

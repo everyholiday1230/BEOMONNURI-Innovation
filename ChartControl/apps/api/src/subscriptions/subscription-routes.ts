@@ -33,8 +33,34 @@ export interface SubscriptionRouterDeps {
   repo?: PgSubscriptionRepo;
   points?: PgPointsRepo;
   cookieName: string;
-  /** 정기결제가 실제로 가능한가. 지금은 항상 false 다 — 구현되면 여기만 바꾼다. */
+  /** 정기결제가 실제로 가능한가. PayPal 플랜 ID 가 있고 금액 대조를 통과했을 때만 true. */
   recurringAvailable?: () => boolean;
+  /**
+   * PayPal 구독 연동.
+   *
+   * ★ 없으면 checkout 이 503 을 돌려준다. 빈 구현으로 200 을 주면 "구독됐다" 고
+   *   믿게 되는데 실제로는 아무 일도 일어나지 않는다.
+   */
+  paypal?: {
+    /** 이 플랜을 지금 결제할 수 있나(ID 설정 + 금액 대조 통과). */
+    planIdFor(code: PlanCode): string | null;
+    /**
+     * PayPal 플랜 id → 우리 플랜 코드. **역방향 조회가 필요하다.**
+     *
+     * ★ 승인 확인에서 화면이 보낸 planCode 를 믿지 않고, PayPal 이 알려준 plan_id 로
+     *   우리 코드를 되짚는다. 그래야 $19 결제로 $199 권한을 받는 것을 막을 수 있다.
+     */
+    planCodeFor(planId: string): PlanCode | null;
+    createSubscription(input: {
+      planId: string; userId: string; returnUrl: string; cancelUrl: string;
+    }): Promise<{ providerRef: string; approveUrl: string; status: string }>;
+    getSubscription(providerRef: string): Promise<{
+      ok: boolean; status: string; customId?: string; planId?: string; nextBillingAt?: string;
+    }>;
+    cancelSubscription(providerRef: string, reason: string): Promise<{ ok: boolean; status: string }>;
+  };
+  /** 승인 후 고객이 돌아올 앱 주소(https://…). */
+  appBaseUrl?: string;
 }
 
 export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
@@ -86,6 +112,19 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
         entitled: read.row.entitled,
         provider: read.row.provider,
       },
+      /*
+         ★★ **지금 결제할 수 있는 플랜 목록을 서버가 정한다.**
+
+           PayPal 플랜 ID 가 설정되고 **금액 대조를 통과한** 플랜만 들어간다. 화면이
+           스스로 목록을 만들면, PayPal 에서 금액이 바뀌었을 때 $19 를 보여주고 다른
+           금액을 청구하게 된다.
+
+         ★ 빈 배열도 의미가 있다 — 화면이 "결제 준비 중" 을 말할 수 있다. 목록을 아예
+           내려보내지 않으면 화면은 "아직 못 받았다" 와 "팔 것이 없다" 를 구분할 수 없다.
+      */
+      purchasablePlans: PLANS
+        .filter((pl) => pl.code !== 'free' && Boolean(d.paypal?.planIdFor(pl.code)))
+        .map((pl) => ({ code: pl.code, name: pl.nameKey, priceUsd: pl.priceUsd, monthlyPoints: pl.monthlyPoints })),
     });
   });
 
@@ -112,11 +151,154 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
         503,
       );
     }
+    if (!d.paypal) return c.json(err('RECURRING_NOT_CONFIGURED', 'payment provider not wired'), 503);
+
     /*
-       ★ 여기까지 오면 정기결제가 붙은 뒤다. 그때 구현한다 — 지금 빈 구현을 두면
-         "성공했다" 고 돌려주고 구독이 생기지 않는 상태가 된다.
+       ★★ 플랜 id 는 **서버가 정한다.** 화면이 보내는 값을 쓰면 고객이 $199 플랜의
+         권한을 $19 플랜 id 로 살 수 있다.
     */
-    return c.json(err('NOT_IMPLEMENTED', 'checkout is not implemented'), 501);
+    const planId = d.paypal.planIdFor(body.planCode);
+    if (!planId) {
+      return c.json(
+        err('PLAN_NOT_PURCHASABLE',
+          'this plan cannot be purchased right now — its billing plan is not configured or its price does not match'),
+        503,
+      );
+    }
+
+    const base = (d.appBaseUrl ?? '').replace(/\/$/, '');
+    try {
+      const sub = await d.paypal.createSubscription({
+        planId,
+        userId: a.user.id,
+        /*
+           ★ 승인 후 돌아오는 곳. 여기서 **바로 구독을 켜지 않는다** — 이 URL 은
+             고객이 직접 열 수 있다. 화면이 /me/subscription/confirm 을 불러
+             서버가 PayPal 에 물어 ACTIVE 인지 확인한 뒤에만 켠다.
+        */
+        returnUrl: `${base}/#/points?sub=return`,
+        cancelUrl: `${base}/#/points?sub=cancel`,
+      });
+      /*
+         ★ 아직 구독을 기록하지 않는다. 승인 전 상태(APPROVAL_PENDING)를 'active' 로
+           저장하면 결제하지 않은 고객이 유료 기능을 쓰게 된다.
+      */
+      return c.json({
+        ok: true,
+        provider: 'paypal',
+        providerRef: sub.providerRef,
+        approveUrl: sub.approveUrl,
+        status: sub.status,
+        /** 화면이 이 값을 confirm 에 그대로 돌려준다. */
+        note: 'open approveUrl; the subscription starts only after PayPal reports ACTIVE',
+      });
+    } catch (e) {
+      /* ★ 실패를 성공으로 포장하지 않는다. 이유를 남기고 그대로 알린다. */
+      console.warn(`[subscription] PayPal 구독 생성 실패 user=${a.user.id} plan=${body.planCode}: ${(e as Error).message}`);
+      return c.json(err('CHECKOUT_FAILED', 'could not start the subscription — no payment was taken'), 502);
+    }
+  });
+
+  /**
+   * 승인 확인 — 구독을 실제로 켜는 유일한 경로.
+   *
+   * ★★ 왜 return_url 만으로 켜지 않는가
+   *
+   *   그 URL 은 고객이 브라우저에 직접 입력할 수 있다. 그것만으로 켜면 **결제하지 않고
+   *   유료 기능을 쓸 수 있다.** 그래서 PayPal 에 물어 상태가 ACTIVE 인지 확인한다.
+   *
+   * ★ `custom_id` 로 소유자를 대조한다. 남의 구독 id 를 보내 자기 계정에 붙이는 것을
+   *   막는다 — 이 검사가 없으면 한 사람이 결제한 구독을 여러 계정이 나눠 쓸 수 있다.
+   */
+  app.post('/me/subscription/confirm', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!d.paypal) return c.json(err('RECURRING_NOT_CONFIGURED', 'payment provider not wired'), 503);
+    if (!d.repo) return c.json(err('NOT_CONFIGURED', 'subscription store not wired'), 503);
+
+    const body = (await c.req.json().catch(() => ({}))) as { providerRef?: unknown };
+    const ref = typeof body.providerRef === 'string' ? body.providerRef.trim() : '';
+    if (!ref) return c.json(err('BAD_REQUEST', 'providerRef required'), 400);
+
+    const sub = await d.paypal.getSubscription(ref);
+    if (!sub.ok) {
+      /* 아직 승인 전이거나 실패다. 켜지 않고 상태를 그대로 알린다. */
+      return c.json(err('NOT_ACTIVE', `PayPal reports ${sub.status}`), 409);
+    }
+    /* ★ 소유자 대조. 다르면 남의 구독이다. */
+    if (sub.customId && sub.customId !== a.user.id) {
+      console.warn(`[subscription] ★ 소유자 불일치 — ref=${ref} custom_id=${sub.customId} 요청자=${a.user.id}`);
+      return c.json(err('NOT_YOURS', 'this subscription belongs to another account'), 403);
+    }
+    /* ★ 플랜도 서버가 되짚는다. PayPal 이 알려준 plan_id 로 우리 코드를 찾는다. */
+    const code = sub.planId ? d.paypal.planCodeFor(sub.planId) : null;
+    if (!code) {
+      console.warn(`[subscription] ★ 알 수 없는 PayPal 플랜 plan_id=${sub.planId} ref=${ref}`);
+      return c.json(err('UNKNOWN_PLAN', 'could not match the PayPal plan to a subscription tier'), 409);
+    }
+
+    const now = Date.now();
+    /*
+       ★ 기간 끝을 PayPal 의 다음 청구일로 잡는다. 우리가 30일을 더하면 실제 청구일과
+         어긋나 권한이 하루 먼저 끊기거나 하루 더 열린다.
+       ★ 알 수 없으면 31일로 둔다 — 짧게 잡아 덜 열리는 쪽이 안전하다.
+    */
+    const nextMs = sub.nextBillingAt ? Date.parse(sub.nextBillingAt) : NaN;
+    const periodEnd = Number.isFinite(nextMs) && nextMs > now ? nextMs : now + 31 * 24 * 3600 * 1000;
+
+    const ok = await d.repo.upsert({
+      userId: a.user.id,
+      planCode: code,
+      periodStart: now,
+      periodEnd,
+      provider: 'paypal',
+      providerRef: ref,
+    });
+    if (!ok) {
+      /*
+         ★★ 결제는 됐는데 기록에 실패한 상태다. 성공이라고 답하면 고객은 돈을 냈는데
+           권한이 없고, 우리는 그 사실을 모른다. 크게 남기고 실패로 답한다.
+      */
+      console.error(`[subscription] ★ 결제는 승인됐으나 기록 실패 user=${a.user.id} ref=${ref} plan=${code}`);
+      return c.json(err('RECORD_FAILED', 'payment was approved but we could not record it — contact support'), 500);
+    }
+
+    /*
+       ★★ **여기서 포인트를 충전한다.** 이 호출이 없으면 돈은 받고 고객은 AI 를 쓸 수
+         없다 — 유료 플랜의 실체가 매달 충전되는 포인트이기 때문이다.
+
+       ★ 멱등하다. claimMonthlyGrant 가 주기당 한 번만 양수를 돌려주므로, 고객이
+         confirm 을 두 번 불러도 두 배 들어가지 않는다.
+
+       ★ 충전 실패로 **구독을 실패로 만들지 않는다.** 결제와 기록은 이미 끝났고,
+         구독을 실패로 답하면 고객이 다시 결제를 시도한다. 대신 크게 남기고
+         응답에 사실을 담아 화면이 안내할 수 있게 한다.
+    */
+    let granted = 0;
+    let grantFailed: string | null = null;
+    if (d.points) {
+      const g = await grantMonthlyPointsIfDue(d.repo, d.points, a.user.id, now);
+      if ('granted' in g) granted = g.granted;
+      else {
+        grantFailed = g.failed;
+        console.error(
+          `[subscription] ★ 구독은 시작됐으나 포인트 충전 실패 user=${a.user.id} plan=${code}: ${g.failed} `
+          + '— 고객이 결제했는데 AI 를 쓸 수 없다.',
+        );
+      }
+    } else {
+      grantFailed = 'points store not wired';
+      console.error('[subscription] ★ 포인트 저장소가 없어 구독 충전을 하지 못했다.');
+    }
+
+    return c.json({
+      ok: true,
+      planCode: code,
+      periodEnd,
+      provider: 'paypal',
+      granted,
+      ...(grantFailed ? { grantFailed } : {}),
+    });
   });
 
   /*

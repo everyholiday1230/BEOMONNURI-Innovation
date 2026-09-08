@@ -166,23 +166,38 @@ describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
     expect(src, '/api/plans 를 부르지 않는다').toMatch(/\/api\/plans/);
   });
 
-  it('[9] 되지 않는 결제를 되는 것처럼 보이지 않는다', () => {
+  it('[9] 결제가 되는 척하지 않고, 금액이 어긋나면 팔지 않는다', () => {
     /*
-       ★★ PayPal 정기결제 연동이 없다(providers.ts 에 createOrder/capture 만 있다).
-         그 사실을 서버가 recurringAvailable 로 알려주고, 화면은 그것을 보고 결제
-         버튼을 띄우지 않으며, 안내 문구로 사실을 말한다.
+       ★★ 예전에는 정기결제가 없어서 "되는 척하지 않는가" 만 봤다. 이제 PayPal 구독을
+         붙였으므로 검사할 것이 바뀌었다 — **화면 금액과 실제 청구가 어긋나지 않는가**.
+
+         PayPal 대시보드에서 플랜 금액을 바꿀 수 있다. 그러면 화면은 $19 를 보여주고
+         다른 금액이 청구된다. 고객은 화면을 보고 결제하므로 그 어긋남은 우리 책임이다.
     */
     const routes = read('apps/api/src/subscriptions/subscription-routes.ts');
     expect(routes).toMatch(/recurringAvailable/);
-    /* ★ checkout 은 성공을 흉내내지 않고 명확히 거절해야 한다. */
+    /* ★ 준비되지 않았을 때는 여전히 명확히 거절해야 한다. */
     expect(routes).toMatch(/RECURRING_NOT_CONFIGURED/);
-    expect(routes, 'checkout 이 성공을 흉내낸다').not.toMatch(/checkout[\s\S]{0,400}ok: true/);
+    /* ★ 플랜 id 를 화면이 보내는 값으로 정하면 $19 로 $199 권한을 살 수 있다. */
+    expect(routes, '플랜 id 를 서버가 정하지 않는다').toMatch(/planIdFor\(body\.planCode\)/);
+    /* ★ 승인 여부를 PayPal 에 직접 물어야 한다. return_url 만으로 켜면 무료로 열린다. */
+    expect(routes, '승인 확인 경로가 없다').toMatch(/getSubscription\(ref\)/);
+    expect(routes, '소유자 대조가 없다').toMatch(/NOT_YOURS/);
+    /* ★ 돈을 받고 포인트를 안 주면 유료 플랜의 실체가 없다. */
+    expect(routes, '구독 시작 시 포인트 충전을 하지 않는다').toMatch(/grantMonthlyPointsIfDue/);
 
     const idx = read('apps/api/src/index.ts');
-    expect(idx, '정기결제 가능 여부를 넘기지 않는다').toMatch(/recurringAvailable: \(\) => false/);
+    /* ★ 금액 대조를 통과한 플랜만 판다. 통과 집합이 비면 결제가 닫힌다. */
+    expect(idx, '금액 대조 없이 결제를 연다').toMatch(/verifyPlanAmounts/);
+    expect(idx, '검증된 플랜만 팔지 않는다').toMatch(/verifiedPlanIds/);
+    expect(idx, '플랜 id 를 코드에 박았다 — sandbox/live 가 다르다').not.toMatch(/'P-[A-Z0-9]{10,}'/);
 
     const auth = read('src/pages-auth.jsx');
     expect(auth, '결제 미준비 사실을 화면이 말하지 않는다').toMatch(/plan_billing_pending/);
+
+    const points = read('src/pages-points.jsx');
+    /* ★ 화면은 서버가 준 목록만 그린다. 스스로 만들면 잠긴 플랜을 팔게 된다. */
+    expect(points, '결제 가능 목록을 서버에서 받지 않는다').toMatch(/purchasablePlans/);
   });
 
   it('[10] 해지가 즉시 끊지 않고, 결제사 정지가 별개임을 말한다', () => {

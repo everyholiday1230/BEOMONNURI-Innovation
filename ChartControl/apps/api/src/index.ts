@@ -38,6 +38,8 @@ import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
 import { createSubscriptionRouter } from './subscriptions/subscription-routes';
 import { PgSubscriptionRepo } from './subscriptions/subscription-repo';
+import { readPlanMapping, verifyPlanAmounts, type PaidPlanCode } from './subscriptions/paypal-plans';
+import type { PlanCode } from './subscriptions/plans';
 import { createPointsRouter } from './points/points-routes';
 import { createPaymentRouter } from './payment-routes';
 import { PgPointOrderRepo } from './db/point-order-repo';
@@ -2531,16 +2533,94 @@ if (env.authEnabled) {
          엔드포인트를 두지 않는다.
     */
     const subscriptionRepo = core.pool ? new PgSubscriptionRepo(core.pool) : undefined;
+    /*
+       ─────────────────── PayPal 정기결제 준비 ───────────────────
+
+       ★★ 여기서 하는 일은 하나다: **화면 금액과 실제 청구가 같은 플랜만 판다.**
+
+         플랜 ID 는 환경변수로 받고(sandbox/live 가 다르다), 부팅 때 PayPal 에 물어
+         금액·통화·주기·상태를 우리 정의와 대조한다. 어긋난 플랜은 `verifiedPlanIds`
+         에 들어가지 않아 결제가 막힌다.
+
+       ★ 대조는 **비동기로 나중에** 끝난다. 그동안 verifiedPlanIds 는 비어 있고
+         결제가 닫혀 있다 — 확인 전에 여는 것보다 안전하다.
+    */
+    const planMapping = readPlanMapping();
+    const verifiedPlanIds = new Set<string>();
+    const paypalProvider = paymentProviders?.paypal ?? null;
+
+    if (planMapping.missing.length > 0) {
+      console.warn(
+        `[subscription] PayPal 플랜 미설정: ${planMapping.missing.join(', ')} — 이 플랜은 결제할 수 없다.`,
+      );
+    }
+    if (!paypalProvider) {
+      console.warn('[subscription] PayPal 자격증명이 없어 정기결제를 열 수 없다.');
+    } else if (Object.keys(planMapping.byCode).length > 0) {
+      void verifyPlanAmounts(planMapping, (id) => paypalProvider.getPlan(id))
+        .then((checks) => {
+          for (const ch of checks) {
+            if (ch.ok) { verifiedPlanIds.add(ch.planId); continue; }
+            /*
+               ★ 어긋난 플랜은 크게 남긴다. 조용히 잠그면 "왜 결제 버튼이 없나" 를
+                 아무도 설명할 수 없다.
+            */
+            console.error(
+              `[subscription] ★ 플랜 불일치로 결제를 잠갔다 — ${ch.code} (${ch.planId}): ${ch.detail}. `
+              + '화면 금액과 실제 청구가 어긋날 수 있다.',
+            );
+          }
+          const okCodes = checks.filter((ch) => ch.ok).map((ch) => ch.code);
+          console.log(
+            okCodes.length > 0
+              ? `[subscription] 정기결제 사용 가능: ${okCodes.join(', ')} (금액 대조 통과)`
+              : '[subscription] 정기결제 사용 가능한 플랜이 없다 — 위 불일치를 확인할 것.',
+          );
+        })
+        .catch((e: unknown) => {
+          console.error(`[subscription] ★ 플랜 대조 실패 — 정기결제를 열지 않는다: ${(e as Error).message}`);
+        });
+    }
+
+    /** 라우터에 넘길 PayPal 구독 어댑터. 검증된 플랜만 통과시킨다. */
+    const paypalSubscriptions = paypalProvider
+      ? {
+        planIdFor: (code: PlanCode): string | null => {
+          const id = planMapping.byCode[code as PaidPlanCode];
+          /* ★ 검증되지 않은 id 는 없는 것으로 다룬다. */
+          return id && verifiedPlanIds.has(id) ? id : null;
+        },
+        planCodeFor: (planId: string): PlanCode | null => {
+          for (const [code, id] of Object.entries(planMapping.byCode)) {
+            if (id === planId) return code as PlanCode;
+          }
+          return null;
+        },
+        createSubscription: (i: { planId: string; userId: string; returnUrl: string; cancelUrl: string }) =>
+          paypalProvider.createSubscription(i),
+        getSubscription: (ref: string) => paypalProvider.getSubscription(ref),
+        cancelSubscription: (ref: string, reason: string) => paypalProvider.cancelSubscription(ref, reason),
+      }
+      : null;
+
     app.route('/api', createSubscriptionRouter({
       service: authService,
       ...(subscriptionRepo ? { repo: subscriptionRepo } : {}),
       ...(pointsRepo ? { points: pointsRepo } : {}),
       cookieName: env.cookieName,
       /*
-         ★ PayPal 정기결제(subscriptions API)를 아직 쓰지 않는다. providers.ts 에는
-           createOrder/capture 만 있다. 구현하면 이 함수만 바꾼다.
+         ★★ 정기결제는 **금액 대조를 통과한 플랜만** 결제할 수 있다.
+
+           PayPal 대시보드에서 플랜 금액을 바꿀 수 있다. 그러면 우리 화면은 $19 를
+           보여주는데 실제로는 다른 금액이 청구된다. 고객은 화면을 보고 결제하므로
+           그 어긋남은 우리 책임이다. 부팅 때 대조해 어긋난 플랜은 잠근다.
+
+         ★ 대조 결과를 모르는 동안(부팅 직후 조회 전)에는 결제를 열지 않는다 —
+           `verifiedPlans` 가 빈 집합이면 아무 플랜도 팔 수 없다.
       */
-      recurringAvailable: () => false,
+      recurringAvailable: () => verifiedPlanIds.size > 0,
+      ...(paypalSubscriptions ? { paypal: paypalSubscriptions } : {}),
+      ...(env.publicBaseUrl ? { appBaseUrl: env.publicBaseUrl } : {}),
     }));
 
     app.route('/api', createPointsRouter({

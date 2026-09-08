@@ -94,6 +94,168 @@ export class PayPalProvider {
       customId: pu?.custom_id,
     };
   }
+
+  /* ─────────────────────── 구독(정기결제) ─────────────────────── */
+
+  /**
+   * 플랜의 실제 금액·주기·상태를 읽는다.
+   *
+   * ★★ 왜 필요한가 — **화면 금액과 실제 청구가 어긋나는 것을 막는다.**
+   *
+   *   PayPal 대시보드에서 플랜 금액을 바꿀 수 있다. 그러면 우리 화면은 $19 를
+   *   보여주는데 실제로는 다른 금액이 청구된다. 고객은 화면을 보고 결제하므로
+   *   이 어긋남은 우리 책임이다. 부팅 때 대조해 어긋나면 결제를 막는다.
+   *
+   * ★ 던지지 않고 ok=false 를 돌려준다. 부팅 중 조회 실패가 서버를 못 띄우게 하면
+   *   결제와 무관한 기능까지 멈춘다. 다만 **통과로 다루지도 않는다.**
+   */
+  async getPlan(planId: string): Promise<{
+    ok: boolean; amount?: string; currency?: string;
+    intervalUnit?: string; intervalCount?: number; status?: string;
+  }> {
+    try {
+      const token = await this.accessToken();
+      const res = await fetch(
+        `${this.base()}/v1/billing/plans/${encodeURIComponent(planId)}`,
+        { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) },
+      );
+      const body = (await res.json().catch(() => null)) as {
+        status?: string;
+        billing_cycles?: Array<{
+          tenure_type?: string;
+          frequency?: { interval_unit?: string; interval_count?: number };
+          pricing_scheme?: { fixed_price?: { value?: string; currency_code?: string } };
+        }>;
+      } | null;
+      if (!res.ok || !body) return { ok: false, status: `http_${res.status}` };
+      /*
+         ★ REGULAR 주기를 고른다. TRIAL 이 있으면 그 금액이 0 이라서, 첫 주기를
+           그냥 읽으면 "금액 0" 으로 보이고 대조가 틀린다.
+      */
+      const cycles = body.billing_cycles ?? [];
+      const regular = cycles.find((c) => (c.tenure_type ?? '').toUpperCase() === 'REGULAR') ?? cycles[0];
+      return {
+        ok: true,
+        amount: regular?.pricing_scheme?.fixed_price?.value,
+        currency: regular?.pricing_scheme?.fixed_price?.currency_code,
+        intervalUnit: regular?.frequency?.interval_unit,
+        intervalCount: regular?.frequency?.interval_count,
+        status: body.status,
+      };
+    } catch (e) {
+      return { ok: false, status: `error_${(e as Error).message.slice(0, 40)}` };
+    }
+  }
+
+  /**
+   * 구독을 만든다. 고객이 `approveUrl` 에서 승인해야 실제로 시작된다.
+   *
+   * ★★ 주문(createOrder)과 **다른 API** 다. 주문은 한 번 받는 것이고 구독은 매달
+   *   자동으로 청구된다. 하나로 합치면 "한 번만 받으려던 것이 매달 빠져나가는" 사고가
+   *   난다 — 돈이 걸린 곳에서는 경로를 섞지 않는다.
+   *
+   * ★ `custom_id` 에 우리 사용자 id 를 싣는다. 승인 후 돌아올 때 누구의 구독인지
+   *   PayPal 응답만으로 확인할 수 있어야 한다 — 화면이 알려주는 값을 믿으면 남의
+   *   구독을 자기 것으로 만들 수 있다.
+   *
+   * ★ 승인 링크가 없으면 **실패로 다룬다.** 구독 객체만 만들어지고 링크가 없으면
+   *   고객은 결제할 방법이 없는데 우리 DB 에는 "시작함" 이 남는다.
+   */
+  async createSubscription(input: {
+    planId: string;
+    userId: string;
+    returnUrl: string;
+    cancelUrl: string;
+  }): Promise<{ providerRef: string; approveUrl: string; status: string }> {
+    const token = await this.accessToken();
+    const res = await fetch(`${this.base()}/v1/billing/subscriptions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        plan_id: input.planId,
+        custom_id: input.userId,
+        application_context: {
+          user_action: 'SUBSCRIBE_NOW',
+          return_url: input.returnUrl,
+          cancel_url: input.cancelUrl,
+          /* 배송지를 받지 않는다 — 소프트웨어이고, 받으면 불필요한 개인정보가 된다. */
+          shipping_preference: 'NO_SHIPPING',
+        },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      id?: string; status?: string; links?: { rel: string; href: string }[];
+      message?: string; name?: string;
+    } | null;
+    if (!res.ok || !body?.id) {
+      throw new Error(`paypal subscription create failed: ${res.status} ${body?.name ?? ''} ${body?.message ?? ''}`.trim());
+    }
+    const approve = (body.links ?? []).find((l) => l.rel === 'approve');
+    if (!approve?.href) throw new Error('paypal subscription created without approve link');
+    return { providerRef: body.id, approveUrl: approve.href, status: body.status ?? 'APPROVAL_PENDING' };
+  }
+
+  /**
+   * 구독 상태를 조회한다. **승인 여부를 우리가 직접 확인하는 유일한 경로다.**
+   *
+   * ★ 화면이 "승인했다" 고 말해도 믿지 않는다. PayPal 에 물어 ACTIVE 인지 본다 —
+   *   돌아오는 URL 은 고객이 직접 열 수 있으므로 그것만으로 구독을 켜면 안 된다.
+   *
+   * ★ `customId` 를 함께 돌려준다. 호출부가 "이 구독이 정말 이 사용자 것인가" 를
+   *   대조할 수 있어야 한다.
+   */
+  async getSubscription(providerRef: string): Promise<{
+    ok: boolean; status: string; customId?: string; planId?: string;
+    nextBillingAt?: string; startedAt?: string;
+  }> {
+    const token = await this.accessToken();
+    const res = await fetch(
+      `${this.base()}/v1/billing/subscriptions/${encodeURIComponent(providerRef)}`,
+      { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      status?: string; custom_id?: string; plan_id?: string; start_time?: string;
+      billing_info?: { next_billing_time?: string };
+    } | null;
+    if (!res.ok || !body) return { ok: false, status: `http_${res.status}` };
+    return {
+      /* ★ ACTIVE 만 유효하다. APPROVAL_PENDING·SUSPENDED·CANCELLED 는 권한을 주지 않는다. */
+      ok: body.status === 'ACTIVE',
+      status: body.status ?? 'unknown',
+      customId: body.custom_id,
+      planId: body.plan_id,
+      nextBillingAt: body.billing_info?.next_billing_time,
+      startedAt: body.start_time,
+    };
+  }
+
+  /**
+   * 구독을 해지한다.
+   *
+   * ★ 이미 해지된 구독에 다시 해지를 보내면 PayPal 이 422 를 준다. 그것을 실패로
+   *   다루면 화면에 "해지 실패" 가 뜨는데 실제로는 해지돼 있다 — 고객이 다시
+   *   누르게 만든다. 이미 해지된 상태는 성공으로 본다.
+   */
+  async cancelSubscription(providerRef: string, reason: string): Promise<{ ok: boolean; status: string }> {
+    const token = await this.accessToken();
+    const res = await fetch(
+      `${this.base()}/v1/billing/subscriptions/${encodeURIComponent(providerRef)}/cancel`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: reason.slice(0, 120) }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (res.status === 204) return { ok: true, status: 'CANCELLED' };
+    /* 이미 해지된 경우도 성공으로 본다(위 주석). */
+    const body = (await res.json().catch(() => null)) as { name?: string; message?: string } | null;
+    const already = res.status === 422 && /already|SUBSCRIPTION_STATUS_INVALID/i.test(
+      `${body?.name ?? ''} ${body?.message ?? ''}`,
+    );
+    return { ok: already, status: already ? 'ALREADY_CANCELLED' : `http_${res.status}` };
+  }
 }
 
 export interface CryptoConfig {
