@@ -734,7 +734,34 @@
             if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
             if (ev.type === 'suggestions') { setFollowUps(Array.isArray(ev.items) ? ev.items : []); return; }
             if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
-            if (ev.type === 'error') { setThinking(null); setStreaming(null); const insuff = (ev.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: ev.message || ev.code || '' }), { icon: 'warn' })]); return; }
+            if (ev.type === 'error') {
+              setThinking(null); setStreaming(null);
+              /*
+                 ★★ **거부된 답변을 화면에 남기지 않는다.**
+
+                   서버는 답변을 스트리밍한 뒤 안전 검사(screenModelOutput)를 하고,
+                   걸리면 `unsafe-output` 을 보낸다. 그런데 그때까지 쌓인 텍스트가
+                   `acc` 에 남아 있어서, 아래 onDone 이 그것을 **그대로 대화에
+                   추가**했다. 즉 "수익 보장" 같은 문구나 시세가 낡은 상태의 조언이
+                   서버가 거부했는데도 고객 화면에 보였다.
+
+                 ★ acc 를 비워야 onDone 이 추가하지 않는다. 경고만 띄우고 텍스트를
+                   남기면, 고객은 경고를 흘려보고 본문을 읽는다.
+
+                 ★ 왜 서버가 스트리밍 전에 막지 않는가: 검사는 답변 **전체**를 봐야
+                   한다(문장 중간까지로는 수익 보장 문구를 판정할 수 없다). 그래서
+                   스트리밍 UX 를 유지하려면 클라이언트가 회수하는 것이 맞다.
+              */
+              const unsafe = (ev.code === 'unsafe-output');
+              if (unsafe) acc = '';
+              const insuff = (ev.code === 'INSUFFICIENT_POINTS');
+              setMsgs((m) => [...m, makeMsg('ai',
+                insuff ? t('ai_need_points')
+                  : unsafe ? t('ai_unsafe_output')
+                    : t('ai_stream_error', { msg: ev.message || ev.code || '' }),
+                { icon: 'warn' })]);
+              return;
+            }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
           },
           onError: (e) => { setThinking(null); setStreaming(null); const insuff = (e && e.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]); },

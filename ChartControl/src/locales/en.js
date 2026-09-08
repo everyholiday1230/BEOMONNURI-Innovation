@@ -220,6 +220,8 @@
       points_unit_default: 'points',
       ref_terms_points_sub: 'Points are credited when your invitee signs up — usable for AI runs and features.',
       ai_stream_error: 'AI response failed: {msg}',
+      // ★ 서버 안전 검사가 답변을 거부했을 때. 본문은 표시하지 않는다.
+      ai_unsafe_output: 'This answer was withheld because it did not pass our safety check (for example, it implied a guaranteed profit, or gave a view while market data was stale). Please ask again.',
       ai_need_points: 'You need points to run the AI. Open the Points page to top up.',
       ai_cmd_applied: 'Applied to chart',
       ai_indicator_added: 'Added {name} indicator',

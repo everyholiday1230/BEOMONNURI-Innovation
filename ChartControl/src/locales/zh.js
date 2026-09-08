@@ -477,6 +477,7 @@
       points_unit_default: '积分',
       ref_terms_points_sub: '受邀者注册后即发放积分，可用于 AI 运行和功能。',
       ai_stream_error: 'AI 响应失败：{msg}',
+      ai_unsafe_output: '该回答未通过安全检查，已不予显示（例如暗示保证收益，或在行情数据过期时给出观点）。请重新提问。',
       ai_need_points: '运行 AI 需要积分。请在积分页面充值。',
       ai_cmd_applied: '已应用到图表',
       ai_indicator_added: '已添加 {name} 指标',

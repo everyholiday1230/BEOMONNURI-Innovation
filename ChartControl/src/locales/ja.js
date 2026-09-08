@@ -475,6 +475,7 @@
       points_unit_default: 'ポイント',
       ref_terms_points_sub: '招待した人が登録するとポイントが付与されます（AI 実行や機能に使えます）。',
       ai_stream_error: 'AI 応答に失敗しました: {msg}',
+      ai_unsafe_output: 'この回答は安全確認を通過しなかったため表示していません（利益保証を示唆した、または相場データが古い状態で見解を述べた等）。もう一度お尋ねください。',
       ai_need_points: 'AI の実行にはポイントが必要です。ポイント画面でチャージしてください。',
       ai_cmd_applied: 'チャートに適用しました',
       ai_indicator_added: '{name} インジケーターを追加しました',
