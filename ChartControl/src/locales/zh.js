@@ -783,6 +783,7 @@
       col_actions: '操作',
       col_active: '启用',
       col_alert: '提醒',
+      ai_disclaimer: '这是分析辅助，不构成投资建议。不保证收益。所有下单均由您本人完成。',
       ai_analyst: '分析师',
       col_approve: '批准',
       col_available: '可用',

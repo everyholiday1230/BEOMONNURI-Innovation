@@ -126,8 +126,31 @@ export function safeJoin(root: string, requestPath: string): string | null {
 }
 
 /** 요청 경로의 첫 세그먼트가 화이트리스트에 있는지. */
+/**
+ * 운영에서는 서빙하지 않는 경로.
+ *
+ * ★★ `design-library/` 는 디자이너·개발자용 문서다. 그런데 운영에서 200 으로
+ *   열려 있었고, 그 문서들은 **제3자 CDN**(unpkg·jsdelivr)에서 React·Babel·폰트를
+ *   불러온다. 즉 그 URL 을 여는 사람의 IP 가 제3자로 나간다 — 우리 개인정보처리방침
+ *   4절과 어긋난다.
+ *
+ * ★ 그리고 이 경로 때문에 CSP 에서 CDN 허용을 뺄 수 없었다. CSP 는 오리진 전체에
+ *   적용되므로 문서별로 나눌 수 없다. 운영에서 막으면 CSP 를 좁힐 수 있다.
+ *
+ * ★ 개발에서는 그대로 열린다 — 디자이너는 로컬에서 본다.
+ */
+const PRODUCTION_BLOCKED_DIRS = ['design-library'] as const;
+
+/** 운영 여부. Render 는 NODE_ENV=production 으로 띄운다. */
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 function isAllowedTarget(rel: string): boolean {
   const first = rel.split('/')[0] ?? '';
+  if (isProduction() && (PRODUCTION_BLOCKED_DIRS as readonly string[]).includes(first)) {
+    return false;
+  }
   return (
     (STATIC_DIRS as readonly string[]).includes(first) ||
     (STATIC_ROOT_FILES as readonly string[]).includes(rel)

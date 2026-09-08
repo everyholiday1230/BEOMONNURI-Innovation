@@ -65,7 +65,9 @@
   "pnpm": {
     "overrides": {
       "ws": ">=8.21.0",
-      "use-sync-external-store": ">=1.6.0"
+      "use-sync-external-store": ">=1.6.0",
+      "nanoid": ">=3.3.18",
+      "js-yaml": ">=4.3.1"
     }
   }
 }

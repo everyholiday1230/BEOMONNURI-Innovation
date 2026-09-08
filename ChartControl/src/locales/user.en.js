@@ -13,7 +13,6 @@
     'en',
     {
       // --- Analytics: AI 인사이트 ---
-      analytics_171e3e: '🎯 AI signal win rate 82%',
       analytics_19b9a2: 'Trades based on AI signals significantly outperform discretionary trades.',
       analytics_c511d6: '✓ Afternoon session outperforms',
       analytics_4b3b6f: 'Trades between 12:00–16:00 UTC average 34% higher PnL than other hours.',

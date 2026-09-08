@@ -1293,6 +1293,24 @@
           <div className="ai-msg__bubble">
             {renderContent(msg.content)}
           </div>
+          {/*
+             ★★ 면책 문구를 **답변마다 화면에서 붙인다.**
+
+               예전에는 이 문구가 목업 provider 의 하드코딩 텍스트에만 있었다. 운영
+               provider(OpenAI)는 시스템 프롬프트로 지시받을 뿐이고, 모델이 그 문장을
+               실제로 쓸지는 보장되지 않는다. 즉 **운영 응답에는 면책이 없을 수 있었다.**
+
+             ★ 모델에 맡기지 않고 결정적으로 붙인다. 우리가 통제할 수 없는 것에
+               법적 문구를 의존하면 안 된다.
+
+             ★ 경고 아이콘 메시지(오류·거부 안내)에는 붙이지 않는다 — 그 말풍선은
+               답변이 아니다.
+          */}
+          {!isUser && !msg.icon && (
+            <div className="ai-msg__disclaimer" role="note">
+              {t('ai_disclaimer')}
+            </div>
+          )}
         </div>
       </div>
     );

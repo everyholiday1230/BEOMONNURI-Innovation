@@ -525,6 +525,11 @@
       col_actions: 'Actions',
       col_active: 'Active',
       col_alert: 'Alert',
+      /*
+         ★ 면책 문구. 답변마다 화면에서 붙인다 — 모델이 쓸지는 보장되지 않는다.
+           '분석 보조'·'투자자문 아님'·'수익 보장 없음'·'주문은 직접' 네 가지를 담는다.
+      */
+      ai_disclaimer: 'Analysis assistance — not investment advice. No profit is guaranteed. You place every order yourself.',
       ai_analyst: 'Analyst',
       col_approve: 'Approve',
       col_available: 'Available',

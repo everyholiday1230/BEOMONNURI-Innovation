@@ -245,14 +245,22 @@ app.onError((e, c) => {
    ★ 없었다. HSTS·X-Frame-Options·nosniff 는 붙어 있었지만 CSP 헤더는 아예
      생성되지 않았다(secureHeaders() 를 인자 없이 호출하면 CSP 를 만들지 않는다).
 
-   왜 'unsafe-eval' 과 'unsafe-inline' 이 들어가는가
-   ----------------------------------------------
-   프론트엔드가 브라우저에서 Babel 로 JSX 를 변환한다(빌드 단계가 없다).
-   그래서 script-src 에 'unsafe-eval' 이 필요하고, 인라인 babel 블록 때문에
-   'unsafe-inline' 도 필요하다.
+   'unsafe-eval' 을 **제거했다** (2026-09-08)
+   ----------------------------------------
+   예전에는 브라우저에서 Babel 로 JSX 를 변환했기 때문에 eval 이 필요했다. 그 뒤
+   scripts/build-web.mjs 가 web-dist/ 로 사전 컴파일하도록 바뀌어 babel.min.js 를
+   더 이상 받지 않는다. 확인한 사실:
 
-   ★ 이 두 값이 들어가면 CSP 의 XSS 차단 효과는 크게 줄어든다. 과장하지 않고
-     적어둔다 — CSP 가 있다고 XSS 가 막히는 것이 아니다.
+     · index.html 의 외부 도메인 참조 0건 (React·폰트 모두 자체 호스팅)
+     · index.html 의 text/babel 실행 블록 0건 (남은 4건은 전부 주석)
+     · src/ 실행 코드의 eval( · new Function( 0건
+
+   그래서 script-src 에서 'unsafe-eval' 과 CDN 을 뺐다.
+
+   ★ 'unsafe-inline' 은 남는다. React 의 style={{...}} 와 index.html 의 부팅
+     인라인 스크립트가 아직 있다. 그래서 CSP 가 XSS 를 완전히 막지는 못한다 —
+     과장하지 않고 적어둔다. 다만 eval 경로가 사라진 것은 실질적인 차이다:
+     주입된 문자열을 코드로 실행시키는 가장 쉬운 길이 닫혔다.
 
    그래도 남는 실질적 방어:
      · frame-ancestors 'none'  — 클릭재킹. 우리 화면을 남의 사이트에 끼워
@@ -264,8 +272,8 @@ app.onError((e, c) => {
        어렵게 한다.
      · form-action 'self'      — 입력값을 외부로 제출하지 못하게 한다.
 
-   ★ 나중에 빌드 단계를 도입하면 'unsafe-eval' 과 'unsafe-inline' 을 지워야
-     한다. 그때가 CSP 가 실제로 XSS 를 막기 시작하는 시점이다.
+   ★ 남은 과제: 인라인 스크립트를 없애고 'unsafe-inline' 까지 지우는 것.
+     그때가 CSP 가 실제로 XSS 를 막기 시작하는 시점이다.
 */
 /*
    CSP 가 허용하는 외부 스크립트 출처.
@@ -273,16 +281,26 @@ app.onError((e, c) => {
    ★ 실서비스 화면(index.html)은 이 목록을 **쓰지 않는다.** React·Babel·폰트를
      모두 자체 호스팅한다(vendor/ · src/fonts/).
 
-   ★ 그런데 목록을 비우지 못한다. design-library/ 와 design-system.html 이
-     아직 CDN 을 쓰고, 이 CSP 는 오리진 전체에 적용되어 문서별로 나눌 수 없다.
-     그 문서들은 디자이너·개발자용이며 실사용자에게 링크를 노출하지 않는다.
+   ★ 예전에는 목록을 비우지 못했다. design-library/ 가 CDN 을 쓰고 CSP 는 오리진
+     전체에 적용되어 문서별로 나눌 수 없었기 때문이다. 그래서 **운영에서 그 경로를
+     서빙하지 않도록** 했다(static-web.ts 의 PRODUCTION_BLOCKED_DIRS). 개발에서는
+     그대로 열린다 — 디자이너는 로컬에서 본다.
 
    ★ 그래서 재발 방지는 CSP 가 아니라 검사 도구로 한다:
        node tools/external-ref-check.mjs
      실서비스 화면과 src/ 에 외부 도메인 참조가 생기면 실패한다. CSP 를
      좁히는 것보다 정확하다 — 무엇이 어디서 쓰이는지 구분할 수 있기 때문이다.
 */
-const CDN = ['https://unpkg.com', 'https://cdn.jsdelivr.net'];
+/*
+   ★★ 외부 CDN 허용을 **없앴다** (2026-09-08).
+
+     실서비스 화면은 이 목록을 쓰지 않는다 — React·차트·폰트를 모두 자체
+     호스팅한다(vendor/ · src/fonts/). 허용 목록에 남겨 두면 나중에 누군가
+     외부 CDN 링크를 넣어도 CSP 가 막지 않고, 그러면 이용자 IP 가 제3자로
+     나가 개인정보처리방침 4절과 어긋난다. 좁혀서 실수를 막는다.
+
+   ★ 다시 필요해지면 그 도메인만 명시적으로 추가한다. 와일드카드로 열지 않는다.
+*/
 // Toss 결제 SDK(v2)는 브라우저에서 js.tosspayments.com 스크립트를 로드하고
 // *.tosspayments.com 으로 통신/결제창(iframe)을 띄운다. 결제에 필요한 정식 예외다.
 const TOSS_SCRIPT = 'https://js.tosspayments.com';
@@ -294,8 +312,8 @@ app.use('*', secureHeaders({
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
     // 브라우저 Babel 변환 때문에 eval 과 인라인이 필요하다 (위 주석 참고).
-    scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", TOSS_SCRIPT, ...CDN],
-    scriptSrcElem: ["'self'", "'unsafe-inline'", TOSS_SCRIPT, ...CDN],
+    scriptSrc: ["'self'", "'unsafe-inline'", TOSS_SCRIPT],
+    scriptSrcElem: ["'self'", "'unsafe-inline'", TOSS_SCRIPT],
     /*
        인라인 style 속성(React style={{...}})만 허용한다.
 
@@ -305,9 +323,9 @@ app.use('*', secureHeaders({
          그러면 이용자 IP 가 다시 제3자로 나가고, 우리 개인정보처리방침
          4절과 어긋난다. 좁혀서 실수를 막는다.
     */
-    styleSrc: ["'self'", "'unsafe-inline'", ...CDN],
+    styleSrc: ["'self'", "'unsafe-inline'"],
     // 폰트도 자체 호스팅이므로 외부 도메인이 필요 없다. data: 는 인라인 폰트용.
-    fontSrc: ["'self'", 'data:', ...CDN],
+    fontSrc: ["'self'", 'data:'],
     // 차트가 canvas 를 이미지로 내보낼 때 blob: 를 쓴다.
     imgSrc: ["'self'", 'data:', 'blob:'],
     /*

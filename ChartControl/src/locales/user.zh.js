@@ -19,7 +19,6 @@
   window.QTI18n.register(
     'zh',
     {
-      analytics_171e3e: '🎯 AI 信号胜率 82%',
       analytics_19b9a2: '依据 AI 信号的交易明显优于凭感觉的交易。',
       analytics_4b3b6f: 'UTC 12:00–16:00 之间的交易，平均盈亏比其他时段高 34%。',
       analytics_4fa8b3: '在「紧张」情绪下入场，亏损概率会升高 2.3 倍。',

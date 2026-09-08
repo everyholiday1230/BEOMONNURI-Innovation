@@ -655,6 +655,19 @@
   color: var(--color-text-primary);
   max-width: 96%;
 }
+/*
+   ★ 면책 문구. 답변마다 붙는다.
+
+     ★ 작게 두되 **읽을 수 있어야 한다.** 회색을 너무 흐리게 하면 "형식적으로
+       붙였다" 가 되고, 분쟁에서 고지했다고 말하기 어려워진다. tertiary 까지만 쓴다.
+*/
+.ai-msg__disclaimer {
+  margin-top: 6px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
+}
+
 .ai-msg--user .ai-msg__bubble {
   background: var(--color-brand-subtle);
   border-color: var(--color-brand-subtle);

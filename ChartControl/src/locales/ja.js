@@ -781,6 +781,7 @@
       col_actions: '操作',
       col_active: '有効',
       col_alert: 'アラート',
+      ai_disclaimer: '分析の補助であり、投資助言ではありません。利益は保証されません。注文はご自身で行います。',
       ai_analyst: 'アナリスト',
       col_approve: '承認',
       col_available: '利用可能',
