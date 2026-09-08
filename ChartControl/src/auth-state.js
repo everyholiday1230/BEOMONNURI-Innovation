@@ -138,6 +138,27 @@
         state.user = user || null;
         state.tier = user ? toTier(user.role) : null;
         notify();
+        /*
+           ★★ **필수 동의가 남아 있으면 동의 화면으로 보낸다.**
+
+             부품은 다 있었는데 트리거가 없었다. 서버는 미동의를 정확히 계산하고
+             (#/consent 화면도 그것만 신뢰한다), 그러나 **아무도 그 화면으로 보내지
+             않았다.** 그래서 약관을 개정해도 기존 고객은 개정본을 본 적도, 동의한
+             적도 없이 거래 화면으로 그냥 들어갔다.
+
+             그런데 DB 는 "이 고객은 구버전에만 동의했다" 는 기록을 정확히 갖고 있다.
+             분쟁이 생기면 우리 기록이 우리에게 불리한 증거가 된다.
+
+           ★ 동의 화면 자체와 법적 문서 화면에서는 검사하지 않는다 — 그 화면으로
+             보내는 코드가 그 화면에서 또 돌면 무한 이동이 된다.
+
+           ★ 로그인 자체를 막지 않는다. 조회 장애로 아무도 못 들어오면 그 손해가
+             더 크다. 다만 조회에 성공했고 미동의가 있으면 반드시 보낸다.
+
+           ★ 실패를 "동의할 것 없음" 으로 바꾸지 않는다. 넘어가지만 조용히 넘어가지는
+             않는다 — 이유가 콘솔에 남아야 한다.
+        */
+        if (user) checkPendingConsents();
         return user;
       })
       .catch(function (err) {
@@ -150,6 +171,70 @@
         return null;
       });
   }
+
+  /**
+   * 미동의 필수 문서가 있으면 동의 화면으로 보낸다.
+   *
+   * ★ 한 번의 세션 확인마다 최대 한 번만 조회한다. 화면 전환마다 부르면 요청이 쌓인다.
+   */
+  /*
+     동의 강제 상태.
+
+     ★ pendingCount 를 캐시한다. 미동의가 있는 사용자에게만 재조회가 일어나므로
+       요청이 쌓이지 않는다.
+  */
+  var pendingCount = -1;   // -1 = 아직 모른다
+
+  /** 이 화면에서는 동의를 강제하지 않는다 — 강제하면 무한 이동이 된다. */
+  function consentExempt() {
+    var h = String(location.hash || '');
+    return h.indexOf('#/consent') === 0 || h.indexOf('#/legal') === 0;
+  }
+
+  /**
+   * 미동의 필수 문서가 있으면 동의 화면으로 보낸다.
+   *
+   * ★★ **화면 이동마다 판정한다.** 세션당 한 번만 보면 우회할 수 있다 —
+   *   해시만 바꾸면 페이지가 재실행되지 않아 검사가 다시 돌지 않고, 고객은
+   *   동의하지 않은 채 `#/portfolio` 로 들어갈 수 있다. 실제로 그랬다.
+   *
+   * ★ 매번 서버에 다시 묻는다. 캐시만 믿으면 방금 동의를 마친 사용자를 동의
+   *   화면으로 되돌려 보낸다(무한 왕복). 미동의가 있는 사용자에게만 일어나는
+   *   요청이므로 비용은 작다.
+   *
+   * ★ 로그인 자체를 막지 않는다. 조회 장애로 아무도 못 들어오면 그 손해가 더 크다.
+   * ★ 실패를 "동의할 것 없음" 으로 바꾸지 않는다. 통과시키되 이유는 남긴다.
+   */
+  function checkPendingConsents() {
+    if (!state.user) return;
+    if (consentExempt()) return;
+    fetch('/api/legal/me/consents', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || j.available === false) { pendingCount = 0; return; }
+        var pend = Array.isArray(j.pending) ? j.pending : [];
+        pendingCount = pend.length;
+        if (pendingCount === 0) return;
+        /* 조회가 끝나는 사이 사용자가 동의 화면으로 갔을 수 있다. */
+        if (consentExempt()) return;
+        console.info('[QTAuth] 필수 동의 미완료 — 동의 화면으로 이동:',
+          pend.map(function (x) { return x.kind + '@' + x.version; }).join(', '));
+        location.hash = '#/consent';
+      })
+      .catch(function (e) {
+        console.info('[QTAuth] 동의 상태 확인 실패 — 통과시킨다:', e && e.message);
+      });
+  }
+
+  /*
+     ★ 화면이 바뀔 때마다 다시 본다. 다만 **미동의가 있다고 알고 있을 때만** 조회한다
+       (pendingCount !== 0). 모든 사용자가 화면마다 요청을 보내면 안 된다.
+  */
+  window.addEventListener('hashchange', function () {
+    if (!state.user) return;
+    if (pendingCount === 0) return;
+    checkPendingConsents();
+  });
 
   function logout() {
     if (!window.QTApi || !window.QTApi.auth) return Promise.resolve();

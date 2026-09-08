@@ -489,7 +489,11 @@ export function createAuthRouter(deps: RouterDeps): Hono {
            위험고지에 동의한 기록이 **하나도 없이** 거래 화면까지 들어갔다.
 
          ★ 기존 계정의 로그인은 그대로 /trade 로 보낸다 — 매번 동의를 다시 묻지 않는다.
-           (문서가 개정되면 동의 화면이 스스로 미동의를 발견해 다시 띄운다.)
+
+         문서가 개정된 경우는 **클라이언트가** 처리한다. auth-state.js 가 세션을 확인한
+         직후 /api/legal/me/consents 의 pending 을 보고 미동의가 있으면 #/consent 로
+         보낸다. 동의 화면은 자기가 렌더된 뒤에만 미동의를 발견할 수 있으므로, 그
+         화면으로 보내는 트리거가 반드시 밖에 있어야 한다.
       */
       u.hash = r.created ? '/consent' : '/trade';
       return c.redirect(u.toString(), 302);
