@@ -99,3 +99,36 @@ describe("④ 'pending' 구독도 해지된다", () => {
     expect(seg, 'entitled 로 막으면 pending 이 해지 불가가 된다').not.toContain('!read.row.entitled');
   });
 });
+
+describe('⑨ 동시 confirm 이 월 포인트를 두 번 지급하지 않는다', () => {
+  it('upsert 가 같은 주기 재확인에서 period_start 를 움직이지 않는다', () => {
+    /*
+       ★★★ 월 포인트는 `last_grant_period <> current_period_start` 로 중복을 막는다
+         (claimMonthlyGrant). 그런데 confirm 이 두 번 들어오면 각자 `periodStart: now`
+         로 upsert 해서 **period_start 가 바뀌고**, 지급 조건이 다시 참이 되어
+         **포인트가 두 번 나간다**(elite 면 150,000 × 2).
+
+         라우터의 alreadyActive 검사가 대부분 막지만 그것은 **잠금 없는 read-then-act**
+         다. 두 요청이 거의 동시에 오면 둘 다 검사를 통과한 뒤 각자 upsert 할 수 있다.
+
+       ★ 그래서 DB 문장 하나로 막는다. 실제 Postgres 로 확인한 동작:
+             1회차            start=1000000
+             2회차(같은 주기)  start=1000000 · 재지급 조건 거짓  ✓
+             갱신(기간끝 변경) start=3000000 · 새 주기 지급      ✓
+    */
+    const at = repo.indexOf('async upsert');
+    expect(at).toBeGreaterThan(-1);
+    const seg = repo.slice(at, at + 3000);
+    expect(seg, '조건부 period_start 유지가 없다').toContain('current_period_start = CASE');
+    expect(seg, '같은 구독인지 보지 않는다').toContain('provider_ref IS NOT DISTINCT FROM EXCLUDED.provider_ref');
+    expect(seg, '같은 기간끝인지 보지 않는다').toContain('current_period_end = EXCLUDED.current_period_end');
+    expect(seg, '유지 분기가 없다').toContain('THEN subscriptions.current_period_start');
+  });
+
+  it('갱신은 막지 않는다 — 기간끝이 달라지면 새 주기다', () => {
+    /* ★ 이 조건이 없으면 다음 달 포인트가 영원히 지급되지 않는다. */
+    const at = repo.indexOf('async upsert');
+    const seg = repo.slice(at, at + 3000);
+    expect(seg).toContain('ELSE EXCLUDED.current_period_start');
+  });
+});

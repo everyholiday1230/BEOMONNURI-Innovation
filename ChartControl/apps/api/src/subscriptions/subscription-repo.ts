@@ -127,7 +127,21 @@ export class PgSubscriptionRepo {
          ON CONFLICT (user_id) DO UPDATE SET
            plan_code = EXCLUDED.plan_code,
            status = 'active',
-           current_period_start = EXCLUDED.current_period_start,
+           -- ★★★ 같은 주기를 다시 확인한 것이면 period_start 를 움직이지 않는다.
+           --   월 포인트 지급은 last_grant_period <> current_period_start 로 중복을 막는다.
+           --   confirm 이 두 번 들어오면 각자 periodStart: now 로 upsert 해서 period_start 가
+           --   바뀌고, 지급 조건이 다시 참이 되어 포인트가 두 번 나간다(elite 면 150,000 x 2).
+           --   라우터의 alreadyActive 검사는 잠금 없는 read-then-act 라 거의 동시에 오면
+           --   둘 다 통과할 수 있다. 그래서 DB 문장 하나로 막는다.
+           --   같은 구독(provider_ref) · 같은 기간끝 · 이미 활성이면 주기가 바뀐 것이 아니다.
+           --   갱신(다음 달)은 current_period_end 가 달라져 정상적으로 새 주기가 된다.
+           current_period_start = CASE
+             WHEN subscriptions.status = 'active'
+              AND subscriptions.provider_ref IS NOT DISTINCT FROM EXCLUDED.provider_ref
+              AND subscriptions.current_period_end = EXCLUDED.current_period_end
+             THEN subscriptions.current_period_start
+             ELSE EXCLUDED.current_period_start
+           END,
            current_period_end = EXCLUDED.current_period_end,
            provider = EXCLUDED.provider,
            provider_ref = EXCLUDED.provider_ref,
