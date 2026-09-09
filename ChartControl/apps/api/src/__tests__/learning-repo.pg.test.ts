@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { createPool, migrateUp } from '../db/pg';
@@ -18,6 +20,30 @@ import { PgLearningRepo } from '../db/learning-repo';
  */
 const URL = process.env.PG_TEST_URL;
 
+/*
+   ★★★ **PG 가 없어도 도는 검사.** 아래 통합 시험은 PG_TEST_URL 이 없으면 전부
+     건너뛰어진다 — 평소 CI 에서는 학습 동의 조건을 아무도 지켜주지 않는다는 뜻이다.
+     실제로 그래서 이 파일의 실패 3건이 오랫동안 보이지 않았다.
+
+   ★ 그래서 소스 검사만 **skipIf 밖**에 둔다. 통합 시험과 짝이다.
+*/
+describe('학습 표본 내보내기 — 동의 조건 (PG 없이도 확인한다)', () => {
+  it('★★ 내보내기 SQL 에 동의 조건이 있다 (조용히 지워지는 것을 막는다)', () => {
+    /*
+       ★★★ 동작 시험(아래)과 **함께** 둔다. 동작 시험은 PG 가 없으면 건너뛰어지므로
+         평소 CI 에서는 이 조건을 지켜주지 못한다. 소스 검사는 항상 돈다.
+
+       ★ 주석을 먼저 지운다 — 설명하는 산문에 같은 문구가 있어서 소스 검사가
+         엉뚱하게 통과하는 사고를 이 저장소에서 이미 겪었다.
+    */
+    const src = readFileSync(resolve(__dirname, '../db/learning-repo.ts'), 'utf-8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    expect(src, '학습 표본 내보내기에서 동의 조건이 사라졌다 — 동의 없는 기록이 학습에 들어간다')
+      .toMatch(/ai_training_opt_in\s*=\s*TRUE/);
+  });
+});
+
 describe.skipIf(!URL)('LEARN-DB 거래 학습 데이터 저장', () => {
   let pool: Pool;
   let userA: string;
@@ -32,7 +58,20 @@ describe.skipIf(!URL)('LEARN-DB 거래 학습 데이터 저장', () => {
     userB = randomUUID();
     for (const id of [userA, userB]) {
       await pool.query(
-        'INSERT INTO users (id, email, password_hash, status) VALUES ($1,$2,$3,$4)',
+        /*
+           ★★★ **ai_training_opt_in 을 TRUE 로 넣는다.**
+
+             exportSamples 는 `JOIN users u ON … u.ai_training_opt_in = TRUE` 로
+             **동의한 사용자만** 뽑는다(learning-repo.ts:531). 시험은 그 열을 넣지
+             않아 기본값(FALSE/NULL)이었고, 그래서 내보내기가 항상 0건이었다.
+
+           ★★ 이것은 **제품이 옳고 시험이 낡은** 경우다. 조건을 지우면 동의 없는
+             기록이 학습에 들어간다 — 고치는 방향을 반대로 잡으면 안 된다.
+
+           ★ 이 실패는 PG_TEST_URL 이 없으면 **조용히 건너뛰어져** 보이지 않았다.
+             감사가 지적하고 실제 PG 18 로 돌려서 확인했다(3건 실패 → 0건).
+        */
+        'INSERT INTO users (id, email, password_hash, status, ai_training_opt_in) VALUES ($1,$2,$3,$4,TRUE)',
         [id, `u_${id}@ex.com`, 'scrypt$1$1$1$a$b', 'active'],
       );
     }
@@ -174,6 +213,37 @@ describe.skipIf(!URL)('LEARN-DB 거래 학습 데이터 저장', () => {
     expect(s!.outcome?.closeReason).toBe('stop_loss');
   });
 
+  it('★★★ 학습 동의를 철회하면 내보내기에서 빠진다 (동의 없는 학습 방지)', async () => {
+    /*
+       ★★★ 이 경로에 시험이 **없었다.** 그런데 법적으로 가장 무거운 곳이다 —
+         동의 없는 개인정보를 상용 모델 학습에 쓰면 개인정보보호법 위반이다.
+
+       ★★ 그리고 이 조건은 **조용히 깨질 수 있다.** exportSamples 의 JOIN 한 줄이고,
+         지워도 다른 시험은 전부 통과한다(오히려 데이터가 더 많이 나와 통과한다).
+         실제로 다른 시험들은 opt_in 을 넣지 않아 0건을 받고 있었는데도
+         "PG 없음" 으로 건너뛰어져 아무도 몰랐다.
+
+       ★ 그래서 **철회하면 사라지는지**를 직접 확인한다. 동의를 TRUE→FALSE 로 바꾸고
+         같은 조회를 다시 한다.
+    */
+    const repo = new PgLearningRepo(pool);
+    const range = { from: new Date(Date.now() - 3_600_000), to: new Date(Date.now() + 3_600_000), limit: 100 };
+
+    const before = await repo.exportSamples(range);
+    expect(before.length, '동의 상태에서 표본이 나오지 않았다 — 시험 전제가 깨졌다')
+      .toBeGreaterThan(0);
+
+    /* ★ 동의 철회. 열을 직접 바꾼다 — 이 시험의 대상은 조회 조건이다. */
+    await pool.query('UPDATE users SET ai_training_opt_in = FALSE');
+    const after = await repo.exportSamples(range);
+    expect(after, '동의를 철회했는데도 학습 표본에 남아 있다').toEqual([]);
+
+    /* ★ 되돌려 둔다 — 뒤 시험이 이 상태에 영향받지 않게. */
+    await pool.query('UPDATE users SET ai_training_opt_in = TRUE');
+    const restored = await repo.exportSamples(range);
+    expect(restored.length, '되돌린 뒤 표본이 다시 나오지 않았다').toBeGreaterThan(0);
+  });
+
   it('[7] ★★ 내보내기에 user_id 가 들어가지 않는다', async () => {
     const repo = new PgLearningRepo(pool);
     const samples = await repo.exportSamples({
@@ -224,7 +294,20 @@ describe.skipIf(!URL)('LEARN-DB 거래 학습 데이터 저장', () => {
     const repo = new PgLearningRepo(pool);
     const doomed = randomUUID();
     await pool.query(
-      'INSERT INTO users (id, email, password_hash, status) VALUES ($1,$2,$3,$4)',
+      /*
+           ★★★ **ai_training_opt_in 을 TRUE 로 넣는다.**
+
+             exportSamples 는 `JOIN users u ON … u.ai_training_opt_in = TRUE` 로
+             **동의한 사용자만** 뽑는다(learning-repo.ts:531). 시험은 그 열을 넣지
+             않아 기본값(FALSE/NULL)이었고, 그래서 내보내기가 항상 0건이었다.
+
+           ★★ 이것은 **제품이 옳고 시험이 낡은** 경우다. 조건을 지우면 동의 없는
+             기록이 학습에 들어간다 — 고치는 방향을 반대로 잡으면 안 된다.
+
+           ★ 이 실패는 PG_TEST_URL 이 없으면 **조용히 건너뛰어져** 보이지 않았다.
+             감사가 지적하고 실제 PG 18 로 돌려서 확인했다(3건 실패 → 0건).
+        */
+        'INSERT INTO users (id, email, password_hash, status, ai_training_opt_in) VALUES ($1,$2,$3,$4,TRUE)',
       [doomed, `u_${doomed}@ex.com`, 'scrypt$1$1$1$a$b', 'active'],
     );
     const id = await repo.recordDecision({
@@ -290,7 +373,20 @@ describe.skipIf(!URL)('LEARN-DB 결과 중복 방지 (0026)', () => {
     await migrateUp(pool);
     userId = randomUUID();
     await pool.query(
-      'INSERT INTO users (id, email, password_hash, status) VALUES ($1,$2,$3,$4)',
+      /*
+           ★★★ **ai_training_opt_in 을 TRUE 로 넣는다.**
+
+             exportSamples 는 `JOIN users u ON … u.ai_training_opt_in = TRUE` 로
+             **동의한 사용자만** 뽑는다(learning-repo.ts:531). 시험은 그 열을 넣지
+             않아 기본값(FALSE/NULL)이었고, 그래서 내보내기가 항상 0건이었다.
+
+           ★★ 이것은 **제품이 옳고 시험이 낡은** 경우다. 조건을 지우면 동의 없는
+             기록이 학습에 들어간다 — 고치는 방향을 반대로 잡으면 안 된다.
+
+           ★ 이 실패는 PG_TEST_URL 이 없으면 **조용히 건너뛰어져** 보이지 않았다.
+             감사가 지적하고 실제 PG 18 로 돌려서 확인했다(3건 실패 → 0건).
+        */
+        'INSERT INTO users (id, email, password_hash, status, ai_training_opt_in) VALUES ($1,$2,$3,$4,TRUE)',
       [userId, `u_${userId}@ex.com`, 'scrypt$1$1$1$a$b', 'active'],
     );
   });
