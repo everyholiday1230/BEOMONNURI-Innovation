@@ -46,8 +46,16 @@ export interface OrderRouterDeps {
   catalogueReady?: () => boolean;
   policy: TradingPolicy;
   posture: TradingPosture;
-  /** 운영 컨트롤 게이트. 있으면 global_live_trading/new_positions 킬스위치를 강제한다. */
-  controls?: { killActive(scope: string): boolean };
+  /*
+     운영 컨트롤 게이트. 있으면 global_live_trading/new_positions 킬스위치를 강제한다.
+
+     ★★ `controlsUnknown()` 을 **필수**로 요구한다.
+
+       선택으로 두면 주입하는 쪽이 빠뜨려도 컴파일이 통과하고, 빠진 곳이 곧 구멍이
+       된다. 실주문 라우터(trading-routes)가 같은 이유로 필수이고, 이 파일만 빠져
+       있었다 — 그래서 같은 질문에 두 경로가 다르게 답했다.
+  */
+  controls?: { killActive(scope: string): boolean; controlsUnknown(): boolean };
   /** Reference price provider (public market data only — never a private endpoint). */
   referencePrice: (symbol: string) => Promise<{ price: string; at: number } | null>;
   minNotional: string;
@@ -168,6 +176,18 @@ export function createOrderRouter(d: OrderRouterDeps): Hono {
       killSwitchActive: d.posture.killSwitchActive
         || ORDER_BLOCKING_KILL_SCOPES.some((sc) => sc !== 'new_positions' && (d.controls?.killActive(sc) ?? false)),
       newPositionsHalted: d.controls?.killActive('new_positions') ?? false,
+      /*
+         ★★ 킬스위치 상태를 **읽었는지**를 함께 넘긴다.
+
+           위 killActive() 들은 한 번도 못 읽었으면 전부 false 를 돌려준다. 즉
+           "안 걸렸다" 와 "모른다" 가 구분되지 않는다. 그 구분이 없으면 이 검증이
+           운영자가 걸어 둔 정지를 무시하고 "주문 가능" 이라고 답한다.
+
+         ★ controls 자체가 없는 배포(개발·모의)에서는 **모르는 것이 아니다** —
+           강제할 대상이 없는 것이다. 그때 막으면 개발에서 주문 검증을 할 수 없다.
+           그래서 controls 가 주입된 경우에만 그 상태를 묻는다.
+      */
+      controlsUnknown: d.controls ? d.controls.controlsUnknown() : false,
       tradingMode: d.posture.tradingMode,
       availableBalance: quote ? quote.available : null,
       openPositions: positions.total,

@@ -91,6 +91,30 @@ export interface ValidationContext {
   makerFeeRate: string;
   liveTradingEnabled: boolean;
   killSwitchActive: boolean;
+  /*
+     ★★ **킬스위치 상태를 읽지 못한 상태.** killSwitchActive 로는 표현할 수 없다.
+
+       `OperationalControls.killActive()` 는 DB 를 한 번도 읽지 못했으면 false(차단
+       아님)를 돌려준다. 그래서 "운영자가 스위치를 걸지 않았다" 와 "스위치 상태를
+       모른다" 가 **똑같이 false** 로 들어온다. 전혀 다른 상황인데 구분이 없었다.
+
+     ★★ 이 값이 없으면 이 화면이 거짓을 말한다:
+
+         운영자가 global_live_trading 을 걸었다
+           → DB 를 못 읽는 상황이 겹친다
+           → 이 검증은 "gate.killSwitch: ok" → 고객 화면에 "주문 가능"
+           → 실제 제출은 trading-routes 에서 거부된다
+
+       실주문이 나가지는 않지만 **화면이 사실과 다른 것을 말한다.** 그리고 고객은
+       가능하다고 본 뒤 제출에서 막힌다.
+
+     ★ 실주문 경로(trading-routes → runRiskEngine)는 이미 이 값을 본다. 같은 질문에
+       두 경로가 다르게 답하면 어느 쪽이 맞는지 알 수 없다 — 그것을 맞춘다.
+
+     ★ 필수(옵셔널 아님)로 둔다. 선택으로 두면 주입하는 쪽이 빠뜨려도 컴파일이
+       통과하고, 빠진 곳이 곧 구멍이 된다. trading-routes 가 같은 이유로 필수다.
+  */
+  controlsUnknown: boolean;
   /** new_positions 킬스위치. true 면 reduceOnly 가 아닌(=포지션을 새로 열거나 늘리는) 주문을 막는다. */
   newPositionsHalted?: boolean;
   tradingMode: string;
@@ -325,6 +349,25 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
   if (!ctx.liveTradingEnabled) block('LIVE_TRADING_DISABLED', 'live trading is disabled in this deployment');
   add('gate.killSwitch', 'Kill switch inactive', ctx.killSwitchActive ? 'fail' : 'ok', `killSwitchActive=${ctx.killSwitchActive}`);
   if (ctx.killSwitchActive) block('KILL_SWITCH_ACTIVE', 'emergency kill switch is active');
+  /*
+     ★★ **상태를 모르면 "통과" 라고 말하지 않는다.**
+
+       위 gate.killSwitch 는 killSwitchActive=false 를 보고 'ok' 를 찍는다. 그런데 그
+       false 가 "안 걸렸다" 가 아니라 "못 읽었다" 일 수 있다. 그 경우 'ok' 는 검증되지
+       않은 주장이다.
+
+     ★ 이 저장소의 규칙: **측정할 수 없는 안전 검사를 통과로 보고하지 않는다.**
+       청산가 위험 검사에서 같은 실수를 이미 고쳤다(-NaN% 를 "안전" 으로 보고했다).
+
+     ★ 별도 게이트로 둔다. gate.killSwitch 를 'fail' 로 바꾸면 "스위치가 걸렸다" 는
+       뜻이 되어 또 다른 거짓이 된다. 걸린 것과 모르는 것은 다르다.
+
+     ★ 코드는 KILL_SWITCH_ACTIVE 를 재사용하지 않는다. 운영자가 로그를 볼 때 "스위치가
+       걸려서 막혔다" 와 "상태를 못 읽어서 막혔다" 는 대응이 전혀 다르다 — 후자는
+       DB 를 봐야 한다.
+  */
+  add('gate.controlsKnown', 'Kill-switch state readable', ctx.controlsUnknown ? 'fail' : 'ok', `controlsUnknown=${ctx.controlsUnknown}`);
+  if (ctx.controlsUnknown) block('CONTROLS_UNKNOWN', 'kill-switch state could not be read — refusing to report this order as allowed');
   // new_positions 킬스위치: 포지션을 새로 열거나 늘리는 주문만 막는다(청산/reduceOnly 는 허용).
   const opensPosition = !(intent.reduceOnly ?? false);
   add('gate.newPositions', 'New positions allowed', ctx.newPositionsHalted && opensPosition ? 'fail' : 'ok', `newPositionsHalted=${ctx.newPositionsHalted ?? false}`);
@@ -333,7 +376,14 @@ export function validateOrderIntent(intent: OrderIntent, ctx: ValidationContext)
   // `valid` describes the ORDER (would the exchange accept its shape and size). `allowed` additionally
   // requires the deployment gates. Keeping them separate is what lets the UI say "your order is fine but
   // this system will not send it" instead of blaming the user's input.
-  const orderLevelBlocking = blocking.filter((b) => b.code !== 'LIVE_TRADING_DISABLED' && b.code !== 'KILL_SWITCH_ACTIVE' && b.code !== 'NEW_POSITIONS_HALTED');
+  /*
+     ★ CONTROLS_UNKNOWN 도 배포 게이트다 — **고객 입력 문제가 아니다.**
+
+       이 목록에서 빠지면 `valid: false` 가 되어 화면이 "주문 내용이 잘못됐다" 고
+       말한다. 고객은 자기 숫자를 고치려 하는데 고칠 것이 없다. 우리 쪽 상태를
+       고객 잘못으로 표시하는 것이 이 목록의 존재 이유다.
+  */
+  const orderLevelBlocking = blocking.filter((b) => b.code !== 'LIVE_TRADING_DISABLED' && b.code !== 'KILL_SWITCH_ACTIVE' && b.code !== 'NEW_POSITIONS_HALTED' && b.code !== 'CONTROLS_UNKNOWN');
   const valid = orderLevelBlocking.length === 0;
 
   const feeRate = intent.type === 'market' ? ctx.takerFeeRate : ctx.makerFeeRate;
