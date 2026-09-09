@@ -2694,6 +2694,16 @@ if (env.authEnabled) {
 
     app.route('/api', createSubscriptionRouter({
       service: authService,
+      /*
+         ★★★ CSRF 배선. **이 라우터에만 빠져 있었다** — payment·trading·ai·mfa·admin 은
+           전부 넘기고 있었는데 구독만 없었다. 돈이 나가는 네 경로(checkout·confirm·
+           change·cancel)가 무방비였다.
+         ★ 라우터 쪽에서 필수 필드로 선언했으므로, 앞으로 빠뜨리면 typecheck 가 잡는다.
+      */
+      verifyCsrf,
+      originAllowed,
+      corsOrigins: env.corsOrigins,
+      csrfKey: env.csrfKey,
       ...(subscriptionRepo ? { repo: subscriptionRepo } : {}),
       ...(pointsRepo ? { points: pointsRepo } : {}),
       cookieName: env.cookieName,

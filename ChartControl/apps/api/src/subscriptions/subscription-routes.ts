@@ -2,6 +2,10 @@ import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import type { Context } from 'hono';
 import type { AuthService } from '@quantumtrade/auth';
+/*
+   ★ 값으로 쓰므로 `import type` 이 아니다. 위 AuthService 는 타입만 쓰이므로 그대로 둔다.
+*/
+import { verifyCsrf, originAllowed } from '@quantumtrade/auth';
 
 import { PLANS, PLAN_BY_CODE, isPlanCode, PLAN_AI_RUN_POINTS, type PlanCode } from './plans';
 import type { PgSubscriptionRepo } from './subscription-repo';
@@ -33,6 +37,21 @@ export interface SubscriptionRouterDeps {
   repo?: PgSubscriptionRepo;
   points?: PgPointsRepo;
   cookieName: string;
+  /*
+     ★★★ CSRF 검증. **이 라우터에만 없었다**(감사 확인: verifyCsrf·originAllowed 0건).
+       payment·trading·ai·mfa·admin 은 전부 적용돼 있다.
+
+     ★ 돈이 나가는 경로다 — checkout·confirm·change·cancel 넷 다. 검증이 없으면 다른
+       사이트가 고객 브라우저로 우리 API 를 부를 수 있다(쿠키가 함께 나간다).
+       화면은 이미 x-csrf-token 을 보내므로 서버만 붙이면 된다.
+
+     ★ 선택(?)이 아니라 **필수**로 둔다. 선택이면 배선을 빠뜨렸을 때 조용히 무방비가
+       되고, 그것이 이 라우터가 이렇게 된 가장 그럴듯한 경로다.
+  */
+  verifyCsrf: typeof verifyCsrf;
+  originAllowed: typeof originAllowed;
+  corsOrigins: string[];
+  csrfKey: string;
   /** 정기결제가 실제로 가능한가. PayPal 플랜 ID 가 있고 금액 대조를 통과했을 때만 true. */
   recurringAvailable?: () => boolean;
   /**
@@ -76,6 +95,14 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
     const v = await d.service.validateSession(raw);
     return v ?? null;
   };
+
+  /*
+     ★ payment-routes 와 **같은 방식**이다. 라우터마다 다르게 만들면 한 곳이 빠져도
+       눈에 띄지 않는다 — 실제로 이 라우터가 빠져 있었다.
+  */
+  const csrfOk = (c: Context, secret: string) =>
+    d.originAllowed(c.req.header('origin'), c.req.header('referer'), d.corsOrigins)
+    && d.verifyCsrf(c.req.header('x-csrf-token'), getCookie(c, 'qt_csrf'), secret, d.csrfKey);
 
   /*
      요금제 목록. **로그인 없이도 볼 수 있다** — 랜딩 페이지가 이걸 읽어 그린다.
@@ -142,6 +169,8 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
   app.post('/me/subscription/checkout', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    /* ★★ CSRF 검증. 돈이 나가는 경로다 — 없으면 다른 사이트가 고객 브라우저로 이 API 를 부를 수 있다. */
+    if (!csrfOk(c, a.session.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     const body = (await c.req.json().catch(() => ({}))) as { planCode?: unknown };
     if (!isPlanCode(body.planCode)) return c.json(err('BAD_REQUEST', 'unknown planCode'), 400);
     if (body.planCode === 'free') return c.json(err('BAD_REQUEST', 'the free plan needs no payment'), 400);
@@ -318,6 +347,8 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
   app.post('/me/subscription/confirm', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    /* ★ CSRF 검증(위 checkout 과 같은 규칙). */
+    if (!csrfOk(c, a.session.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!d.paypal) return c.json(err('RECURRING_NOT_CONFIGURED', 'payment provider not wired'), 503);
     if (!d.repo) return c.json(err('NOT_CONFIGURED', 'subscription store not wired'), 503);
 
@@ -466,6 +497,8 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
   app.post('/me/subscription/change', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    /* ★ CSRF 검증(위 checkout 과 같은 규칙). */
+    if (!csrfOk(c, a.session.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!d.repo) return c.json(err('NOT_CONFIGURED', 'subscription store not wired'), 503);
     if (!d.paypal) return c.json(err('RECURRING_NOT_CONFIGURED', 'payment provider not wired'), 503);
 
@@ -543,6 +576,8 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
   app.post('/me/subscription/cancel', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    /* ★ CSRF 검증(위 checkout 과 같은 규칙). */
+    if (!csrfOk(c, a.session.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     if (!d.repo) return c.json(err('NOT_CONFIGURED', 'subscription store not wired'), 503);
 
     const read = await d.repo.get(a.user.id);
