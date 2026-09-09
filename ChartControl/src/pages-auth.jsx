@@ -687,7 +687,19 @@
   // SIGNUP PAGE
   // ============================================================
   window.SignupPage = function SignupPage({ shellProps: _shellProps }) {
-    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: true });
+    /*
+       ★★ 마케팅 수신 동의 기본값을 **해제**로 둔다.
+
+         전에는 `marketing: true` — 기본 체크 상태였다. 고객이 아무 것도 하지 않아도
+         동의한 것으로 처리되는 형태다. 개인정보보호법 §22③④ 는 마케팅 동의를
+         **별도로, 적극적으로** 받으라고 하고, 정보통신망법 §50① 은 영리목적 광고성
+         정보 전송에 사전 동의를 요구한다. 기본 체크는 그 "적극적 동의" 로 보기 어렵다.
+
+       ★ 게다가 이 값은 서버 스키마가 받지 않아 **저장되지도 않았다**(RegisterInputSchema).
+         즉 받은 척만 하고 기록이 없었다. 기록 없는 동의는 받지 않은 것과 같다.
+         지금은 해제가 기본이고, 켜면 실제로 기록된다.
+    */
+    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: false });
 
     /*
        초대 코드.

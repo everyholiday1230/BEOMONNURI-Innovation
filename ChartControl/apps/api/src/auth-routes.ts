@@ -81,7 +81,14 @@ interface RouterDeps {
   onRegistered?: (
     userId: string,
     referralCode: string | null,
-    ctx?: { agreed?: boolean; locale?: string; ip?: string | null },
+    /*
+       ★ marketingOptIn 은 **선택** 동의다. agreed(필수 약관)와 섞지 않는다 —
+         개인정보보호법 §22③④ 가 별도로 받으라고 하는 것이 이것이다.
+       ★ undefined 와 false 를 구별한다. undefined = 화면이 묻지 않았다(구글 가입),
+         false = 물었고 고객이 거절했다. 거절을 '안 물어봄' 으로 기록하면 나중에
+         다시 물어야 하는지 알 수 없다.
+    */
+    ctx?: { agreed?: boolean; marketingOptIn?: boolean; locale?: string; ip?: string | null },
   ) => Promise<void> | void;
   cookieName?: string;
   cookieDomain?: string;
@@ -263,7 +270,13 @@ export function createAuthRouter(deps: RouterDeps): Hono {
         */
         const agreed = raw && raw.agree === true;
         const locale = raw && typeof raw.locale === 'string' ? raw.locale : undefined;
-        await deps.onRegistered(r.user.id, code, { agreed: Boolean(agreed), locale, ip: ipOf(c) ?? null });
+        /*
+           ★ 화면이 보낸 마케팅 동의를 그대로 읽는다(zod 스키마를 거치지 않는 것은
+             agreed 와 같은 방식이다). 값이 없으면 undefined 로 둔다 — false 로
+             바꾸면 "물었는데 거절했다" 와 "묻지 않았다" 가 구별되지 않는다.
+        */
+        const marketingOptIn = raw && typeof raw.marketingOptIn === 'boolean' ? raw.marketingOptIn : undefined;
+        await deps.onRegistered(r.user.id, code, { agreed: Boolean(agreed), marketingOptIn, locale, ip: ipOf(c) ?? null });
       } catch (e) {
         console.warn('[auth] 리퍼럴 귀속 실패 — 가입은 유지한다:', (e as Error).message);
       }
