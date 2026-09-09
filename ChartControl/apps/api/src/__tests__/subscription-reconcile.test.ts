@@ -476,3 +476,59 @@ describe('★ 복귀 URL 에서도 구독 id 를 읽는다', () => {
     expect(seg, 'URL 대체 경로가 없다').toContain('subscription_id');
   });
 });
+
+describe('★★★ 해지는 PayPal 쪽 정기결제까지 멈춘다', () => {
+  const src = readFileSync(new URL('../subscriptions/subscription-routes.ts', import.meta.url), 'utf-8');
+  const cancelAt = src.indexOf("app.post('/me/subscription/cancel'");
+  const seg = src.slice(cancelAt, cancelAt + 4200);
+
+  it('cancelSubscription 을 실제로 부른다', () => {
+    /*
+       ★★★ 예전에는 우리 DB 만 'canceled' 로 바꾸고 `providerStopRequired: true` 를
+         돌려줬다. 즉 고객이 해지를 눌러도 **PayPal 은 매달 계속 청구한다.**
+         화면은 "결제사에서도 멈추세요" 라고 안내했지만 그 부담을 고객에게 넘기는
+         것이고 대부분은 하지 않는다 → "해지했는데 또 결제됐다" → 분쟁·차지백.
+
+         provider 에 cancelSubscription 은 이미 구현돼 있었다. 라우터가 부르지
+         않았을 뿐이다(인터페이스에는 선언돼 있었다 — 그래서 눈에 안 띄었다).
+    */
+    expect(cancelAt, '해지 라우트를 찾지 못했다').toBeGreaterThan(-1);
+    expect(seg, 'PayPal 해지를 호출하지 않는다').toContain('d.paypal.cancelSubscription(');
+  });
+
+  it('★ PayPal 을 먼저 멈추고 그 다음 우리 기록을 바꾼다', () => {
+    /*
+       ★★ 순서가 뒤집히면 **고객이 해지됐다고 믿는데 청구가 계속된다.**
+           · PayPal 성공 → DB 실패 : 청구는 멈췄고 대조 작업이 정리한다. 안전.
+           · DB 성공 → PayPal 실패 : 최악. 절대 이 순서로 두면 안 된다.
+    */
+    const stopAt = seg.indexOf('d.paypal.cancelSubscription(');
+    const dbAt = seg.indexOf('await d.repo.cancel(a.user.id)');
+    expect(stopAt).toBeGreaterThan(-1);
+    expect(dbAt).toBeGreaterThan(-1);
+    expect(stopAt, 'DB 해지가 PayPal 정지보다 먼저다').toBeLessThan(dbAt);
+  });
+
+  it('PayPal 정지가 실패하면 성공이라고 답하지 않는다', () => {
+    /* ★ 조용히 넘기면 청구가 계속되는 것을 아무도 모른다. */
+    expect(seg).toContain('PROVIDER_STOP_FAILED');
+    expect(seg, '실패를 크게 남기지 않는다').toMatch(/console\.error[^;]*정지 실패/);
+  });
+
+  it('고객에게 추가 조치를 요구하지 않는다', () => {
+    /* ★ 우리가 멈췄으므로 providerStopRequired 는 항상 false 여야 한다. */
+    expect(seg).toContain('providerStopRequired: false');
+    expect(seg).toContain('providerStopped');
+  });
+
+  it('provider_ref 조회 실패를 "없음"으로 다루지 않는다', () => {
+    /*
+       ★★ 없다고 판단하면 PayPal 해지를 **건너뛴다.** 그러면 고객은 해지했다고
+         믿는데 청구가 계속된다. 그래서 저장소가 던지고 라우터가 503 으로 막는다.
+    */
+    const repo = readFileSync(new URL('../subscriptions/subscription-repo.ts', import.meta.url), 'utf-8');
+    const at = repo.indexOf('async providerRefOf');
+    expect(at).toBeGreaterThan(-1);
+    expect(repo.slice(at, at + 900)).toContain('throw new Error');
+  });
+});

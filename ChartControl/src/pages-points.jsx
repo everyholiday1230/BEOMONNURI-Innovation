@@ -203,7 +203,13 @@
         const j = await r.json().catch(() => ({}));
         if (r.ok && j.ok) {
           /* ★ 결제 대행사 쪽 정기결제는 우리 기록과 별개다. 그 사실을 반드시 알린다. */
-          setMsg({ ok: true, text: j.providerStopRequired ? t('sub_canceled_provider') : t('sub_canceled_ok') });
+          /*
+             ★ 이제 서버가 PayPal 정기결제까지 멈춘다. 고객이 따로 할 일이 없다.
+               예전에는 providerStopRequired 가 true 라서 "결제사에서도 멈추세요" 를
+               띄웠다 — 그 부담을 고객에게 넘기는 것이었고, 대부분은 하지 않아
+               "해지했는데 또 결제됐다" 가 된다.
+          */
+          setMsg({ ok: true, text: j.providerStopped ? t('sub_canceled_provider') : t('sub_canceled_ok') });
           loadSub();
         } else {
           setMsg({ ok: false, text: (j.error && j.error.message) || t('sub_cancel_failed') });

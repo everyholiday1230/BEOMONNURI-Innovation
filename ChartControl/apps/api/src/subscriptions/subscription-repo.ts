@@ -214,6 +214,29 @@ export class PgSubscriptionRepo {
   }
 
   /**
+   * 이 사용자의 결제 대행사 구독 id.
+   *
+   * ★ 해지할 때 필요하다. get() 이 돌려주는 행에는 provider_ref 가 없다 — 화면에
+   *   노출할 값이 아니기 때문이다. 서버 안에서만 쓴다.
+   */
+  async providerRefOf(userId: string): Promise<string | null> {
+    try {
+      const r = await this.pool.query(
+        `SELECT provider_ref FROM subscriptions WHERE user_id = $1`,
+        [userId],
+      );
+      const v = r.rows[0]?.provider_ref;
+      return v ? String(v) : null;
+    } catch (e) {
+      /*
+         ★★ 읽지 못한 것을 "없다" 로 돌려주면 호출자가 결제 대행사 해지를 건너뛴다.
+           그러면 고객은 해지했다고 믿는데 **청구가 계속된다.** 그래서 던진다.
+      */
+      throw new Error(`provider_ref 조회 실패: ${(e as Error).message}`);
+    }
+  }
+
+  /**
    * 승인 대기 목록 — 대조 작업 대상.
    *
    * ★ `olderThanMs` 보다 오래된 것만 준다. 방금 만든 것을 건드리면 고객이 PayPal

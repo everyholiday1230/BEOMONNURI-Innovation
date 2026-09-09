@@ -395,18 +395,81 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
     if (!read.ok) return c.json(err('READ_FAILED', read.reason), 503);
     if (read.row.planCode === 'free') return c.json(err('NO_SUBSCRIPTION', 'nothing to cancel'), 400);
 
+    /*
+       ★★★ **PayPal 쪽 정기결제를 먼저 멈춘다.** 이것이 없었다.
+
+         예전에는 우리 DB 만 'canceled' 로 바꾸고 `providerStopRequired: true` 를
+         돌려줬다. 즉 고객이 해지를 눌러도 **PayPal 은 매달 계속 청구한다.**
+         화면은 "결제사에서도 멈추세요" 라고 안내했지만, 그 부담을 고객에게 넘기는
+         것이고 대부분은 하지 않는다. 결과는 "해지했는데 또 결제됐다" → 분쟁·차지백.
+
+         provider 에 cancelSubscription 은 이미 구현돼 있었다(204 성공, 422
+         '이미 해지됨' 도 성공). 라우터가 부르지 않았을 뿐이다.
+
+       ★★ **순서가 중요하다.** PayPal 을 먼저 멈추고 그 다음 우리 기록을 바꾼다.
+           · PayPal 성공 → DB 실패 : 청구는 멈췄고 기간까지 접근권 유지. 대조 작업이
+             다음 회차에 PayPal=CANCELLED 를 보고 정리한다. 안전하다.
+           · DB 먼저 성공 → PayPal 실패 : 고객은 해지됐다고 믿는데 **청구가 계속된다.**
+             절대 이 순서로 두면 안 된다.
+
+       ★ PayPal 해지가 실패하면 **성공이라고 답하지 않는다.** 고객이 다시 시도하거나
+         문의할 수 있어야 한다. 조용히 넘기면 청구가 계속되는 것을 아무도 모른다.
+    */
+    let providerStopped = false;
+    if (d.paypal && read.row.provider === 'paypal') {
+      let ref: string | null = null;
+      try {
+        ref = await d.repo.providerRefOf(a.user.id);
+      } catch (e) {
+        console.error(`[subscription] ★ 해지 중 provider_ref 조회 실패 user=${a.user.id}: ${(e as Error).message}`);
+        return c.json(
+          err('CANCEL_FAILED', 'could not reach the payment provider — nothing was changed, please try again'),
+          503,
+        );
+      }
+      if (ref) {
+        try {
+          const stop = await d.paypal.cancelSubscription(ref, 'customer requested cancellation');
+          if (!stop.ok) {
+            /* ★ 크게 남긴다 — 청구가 계속되는 상태다. */
+            console.error(`[subscription] ★ PayPal 정기결제 정지 실패 user=${a.user.id} ref=${ref} status=${stop.status}`);
+            return c.json(
+              err('PROVIDER_STOP_FAILED', 'we could not stop the recurring payment at PayPal — nothing was changed, please try again or contact support'),
+              502,
+            );
+          }
+          providerStopped = true;
+        } catch (e) {
+          console.error(`[subscription] ★ PayPal 정기결제 정지 예외 user=${a.user.id} ref=${ref}: ${(e as Error).message}`);
+          return c.json(
+            err('PROVIDER_STOP_FAILED', 'we could not stop the recurring payment at PayPal — nothing was changed, please try again or contact support'),
+            502,
+          );
+        }
+      }
+    }
+
     const ok = await d.repo.cancel(a.user.id);
-    if (!ok) return c.json(err('CANCEL_FAILED', 'could not cancel — nothing was changed'), 500);
+    if (!ok) {
+      /*
+         ★ PayPal 은 멈췄는데 우리 기록만 실패한 상태다. 청구는 더 이상 되지 않으므로
+           고객이 손해를 보지는 않는다. 대조 작업이 PayPal=CANCELLED 를 보고 정리한다.
+           그래도 사람이 알아야 하므로 크게 남긴다.
+      */
+      console.error(`[subscription] ★ PayPal 은 정지됐으나 기록 갱신 실패 user=${a.user.id} (대조 작업이 정리한다)`);
+      return c.json(err('CANCEL_FAILED', 'could not cancel — nothing was changed'), 500);
+    }
 
     return c.json({
       ok: true,
       /** 이 시각까지는 그대로 쓸 수 있다. 화면이 반드시 표시해야 한다. */
       activeUntil: read.row.currentPeriodEnd || null,
-      /**
-       * 결제 대행사 쪽 정기결제가 우리 기록과 별개라는 사실.
-       * ★ provider 가 null 이면 결제로 만든 구독이 아니므로 멈출 것도 없다.
-       */
-      providerStopRequired: read.row.provider !== null,
+      /*
+         ★ 우리가 결제 대행사 쪽까지 멈췄다. 고객이 따로 할 일이 **없다.**
+           예전에는 이 값이 true 여서 "결제사에서도 멈추세요" 를 띄웠다.
+      */
+      providerStopped,
+      providerStopRequired: false,
     });
   });
 
