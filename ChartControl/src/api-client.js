@@ -744,20 +744,65 @@
     aiCopilotStream: function (payload, handlers) {
       handlers = handlers || {};
       var controller = new AbortController();
-      var headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
-      if (csrfToken) headers['x-csrf-token'] = csrfToken;
-      fetch('/api/ai/copilot', {
-        method: 'POST', headers: headers, credentials: 'same-origin',
-        body: JSON.stringify(payload || {}), signal: controller.signal,
-      }).then(function (res) {
-        if (!res.ok || !res.body) {
-          return res.text().then(function (t) {
-            var j = null; try { j = JSON.parse(t); } catch (e) { /* 비JSON */ }
-            var msg = (j && j.error && j.error.message) || ('HTTP ' + res.status);
-            if (handlers.onError) handlers.onError({ code: (j && j.error && j.error.code) || ('HTTP_' + res.status), message: msg });
-            if (handlers.onDone) handlers.onDone();
-          });
-        }
+
+      /*
+         ★★ **AI 가 403 으로 아예 안 됐다.** 이 함수만 CSRF 준비를 하지 않았다.
+
+           `sendJSON` 은 두 가지를 한다:
+             1) 토큰이 없으면 먼저 `auth.csrf()` 로 받아온다
+             2) 403 이 오면 한 번 갱신하고 재시도한다 (세션은 살아있는데 토큰만 만료된 경우)
+
+           그런데 이 스트림 함수는 **둘 다 하지 않았다.** `if (csrfToken)` 로 있으면 붙이고
+           없으면 그냥 보냈다. 그래서:
+
+             · 새로고침 직후 첫 질문 → 토큰이 아직 없음 → 헤더 없이 전송 → 403
+             · 오래 켜 둔 탭 → 토큰 만료 → 403, 재시도 없음 → 계속 실패
+
+           서버 판정은 `originAllowed(...) && verifyCsrf(...)` 이고, 토큰이 undefined 면
+           verifyCsrf 가 거짓이 되어 CSRF_FAILED(403) 이다. 즉 로그인은 되어 있는데
+           AI 만 안 되는 상태가 된다 — 실제로 그렇게 신고가 들어왔다.
+
+         ★ 다른 POST 는 전부 sendJSON 을 지나가므로 멀쩡했다. 이 함수만 스트리밍 때문에
+           fetch 를 직접 쓰면서 그 두 가지를 놓쳤다.
+
+         ★ 403 재시도는 **한 번만** 한다. 무한 재시도는 서버가 정말로 거부할 때
+           요청을 증폭시킨다.
+      */
+      var aborted = false;
+      controller.signal.addEventListener('abort', function () { aborted = true; });
+
+      function fail(res, t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) { /* 비JSON */ }
+        var msg = (j && j.error && j.error.message) || ('HTTP ' + res.status);
+        if (handlers.onError) handlers.onError({ code: (j && j.error && j.error.code) || ('HTTP_' + res.status), message: msg });
+        if (handlers.onDone) handlers.onDone();
+      }
+
+      function send(retried) {
+        var headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
+        if (csrfToken) headers['x-csrf-token'] = csrfToken;
+        return fetch('/api/ai/copilot', {
+          method: 'POST', headers: headers, credentials: 'same-origin',
+          body: JSON.stringify(payload || {}), signal: controller.signal,
+        }).then(function (res) {
+          /* ★ 토큰 만료로 막힌 경우 한 번 갱신하고 다시 보낸다. */
+          if (res.status === 403 && !retried && !aborted) {
+            return auth.csrf().then(function () { return send(true); }, function () {
+              return res.text().then(function (t) { fail(res, t); });
+            });
+          }
+          if (!res.ok || !res.body) {
+            return res.text().then(function (t) { fail(res, t); });
+          }
+          return pumpStream(res);
+        }, function (e) {
+          if (aborted) { if (handlers.onDone) handlers.onDone(); return; }
+          if (handlers.onError) handlers.onError({ code: 'NETWORK', message: (e && e.message) || '' });
+          if (handlers.onDone) handlers.onDone();
+        });
+      }
+
+      function pumpStream(res) {
         var reader = res.body.getReader();
         var decoder = new TextDecoder();
         var buf = '';
@@ -780,11 +825,17 @@
           });
         }
         return pump();
-      }).catch(function (e) {
-        if (e && e.name === 'AbortError') return;
-        if (handlers.onError) handlers.onError({ code: 'NETWORK', message: (e && e.message) || 'stream failed' });
-        if (handlers.onDone) handlers.onDone();
-      });
+      }
+
+      /*
+         ★ CSRF 토큰이 아직 없으면 **먼저 받아온 뒤** 보낸다. sendJSON 이 하던 것과 같다.
+           없으면 새로고침 직후 첫 질문이 반드시 403 이 된다.
+      */
+      if (!csrfToken) {
+        auth.csrf().then(function () { return send(false); }, function () { return send(false); });
+      } else {
+        send(false);
+      }
       return { abort: function () { controller.abort(); } };
     },
 
