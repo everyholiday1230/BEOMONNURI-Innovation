@@ -38,7 +38,13 @@ describe('오버레이 부분 수정 — 기존 필드를 날리지 않는다', 
 
   /* ★ 실제 동작을 값으로 확인한다. 문자열 검사만으로는 의미를 보장하지 못한다. */
   it('라벨만 바꿔도 id·type·points 가 남는다', () => {
-    const upd = (o: Record<string, unknown>, patch: Record<string, unknown>) => ({ ...o, ...patch, id: o.id });
+    /*
+       ★ 제네릭으로 둔다. `Record<string, unknown>` 을 그대로 펼치면 반환 타입에서
+         원래 필드가 사라져 `r.type` 접근이 컴파일되지 않는다(typecheck 3건 실패).
+         런타임 검증 내용은 그대로다 — 타입만 보존한다.
+    */
+    const upd = <T extends Record<string, unknown>>(o: T, patch: Record<string, unknown>): T =>
+      ({ ...o, ...patch, id: o.id }) as T;
     const ov = { id: 'ai-1', type: 'horizontal', source: 'ai-draft', points: [{ price: 41800, time: 1 }], label: 'S' };
     const r = upd(ov, { label: '지지 41800' });
     expect(r.id).toBe('ai-1');
