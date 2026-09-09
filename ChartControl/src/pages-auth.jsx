@@ -699,7 +699,51 @@
          즉 받은 척만 하고 기록이 없었다. 기록 없는 동의는 받지 않은 것과 같다.
          지금은 해제가 기본이고, 켜면 실제로 기록된다.
     */
-    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: false, aiTraining: false });
+    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: false, aiTraining: false, risk: false, privacy: false });
+
+    /*
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       동의 항목 정의 — **한 곳**에서 관리한다
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+       ★★ 전에는 체크박스가 화면 곳곳에 흩어져 있었고, 제출 조건은 `!form.agree`
+         하나만 봤다. 그런데 서버는 **필수 문서 3종**(약관·처리방침·위험고지)의
+         동의를 기록한다. 즉 고객이 확인하지 않은 항목의 동의가 기록됐다.
+
+       ★ 목록을 한 곳에 두면 '무엇이 필수인가' 의 기준이 하나가 된다. 화면과 제출
+         조건이 같은 목록을 읽으므로 어긋날 수 없다.
+
+       ★ 제3자 제공 항목은 넣지 않는다 — 처리방침 §4 의 수신자(거래소·메일·클라우드)는
+         전부 처리위탁이고 거래소는 고객 본인 계정이다. 위탁은 밝히면 되고 동의가
+         필요 없다. 필요 없는 동의를 필수로 만들면 그 자체가 §22③ 문제가 된다.
+    */
+    const CONSENT_ITEMS = [
+      { key: 'terms', field: 'agree', required: true, labelKey: 'consent_terms', bodyKey: 'consent_terms_body', href: '#/terms' },
+      { key: 'privacy', field: 'privacy', required: true, labelKey: 'consent_privacy', bodyKey: 'consent_privacy_body', href: '#/privacy' },
+      { key: 'risk', field: 'risk', required: true, labelKey: 'consent_risk', bodyKey: 'consent_risk_body', href: '#/risk' },
+      { key: 'aiTraining', field: 'aiTraining', required: false, labelKey: 'consent_ai_training', bodyKey: 'consent_ai_training_body' },
+      { key: 'marketing', field: 'marketing', required: false, labelKey: 'consent_marketing', bodyKey: 'consent_marketing_body' },
+    ];
+
+    /** 지금 열려 있는 항목(하나만). 전부 펼치면 가입 버튼이 화면 밖으로 밀린다. */
+    const [consentOpen, setConsentOpen] = useState(null);
+
+    /* ★ 필수 항목이 전부 체크됐는가. 제출 버튼이 이 값을 본다. */
+    const requiredConsentsChecked = CONSENT_ITEMS.every((it) => !it.required || Boolean(form[it.field]));
+    /* ★ '모두 동의' 는 선택까지 포함해 전부 체크됐을 때만 켜진 것으로 본다. */
+    const allConsentsChecked = CONSENT_ITEMS.every((it) => Boolean(form[it.field]));
+
+    /*
+       ★★ '모두 동의합니다' 를 끄면 **전부 해제**한다.
+
+         켤 때만 전부 체크하고 끌 때 아무것도 안 하면, 고객이 "동의를 취소했다" 고
+         생각하는데 개별 항목은 그대로 켜져 있다. 화면과 실제가 어긋난다.
+    */
+    const setAllConsents = (on) => {
+      const next = { ...form };
+      CONSENT_ITEMS.forEach((it) => { next[it.field] = on; });
+      setForm(next);
+    };
 
     /*
        초대 코드.
@@ -817,7 +861,18 @@
            ★ 같은 파일 주석에 국가 필드에 대해 정확히 이 사고("묻고서 듣지 않는 입력")가
              적혀 있는데, 동의 체크박스가 같은 상태였다.
         */
-        agree: form.agree === true,
+        /*
+           ★★ **필수 항목이 전부 체크됐을 때만** true 로 보낸다.
+
+             서버는 `agreed === true` 를 보고 **필수 문서 3종**(약관·처리방침·위험고지)의
+             동의를 모두 기록한다(index.ts `requiredConsentDocs`). 전에는 화면이
+             약관 체크박스 하나만 보고 이 값을 보냈기 때문에, 고객이 확인하지 않은
+             위험고지의 동의까지 기록됐다.
+
+           ★ 화면이 3개로 나뉘었으므로 이 값도 3개 전부를 근거로 삼는다. 서버가 무엇을
+             기록하는지와 화면이 무엇을 확인했는지가 일치해야 한다.
+        */
+        agree: requiredConsentsChecked,
         /*
            ★★ 그 값의 근거를 함께 보낸다. 브라우저 추정과 사용자가 직접 고른 값을
              서버가 구분해서 저장한다 — 추정치를 선언으로 취급하면 나중에 국가별
@@ -825,7 +880,14 @@
         */
         ...(form.country ? { countrySource: form.countrySource || 'inferred' } : {}),
         marketingOptIn: form.marketing,
-        /* 2605 Ac70B798Ae30B85dC758 AI D559C2b5 C774C6a9 B3d9C758(C120D0dd). B9c8Cf00D305Acfc Bcc4B3c4B85c Bcf4B0b8B2e4 2014 Baa9C801C774 B2e4B97cB2c8. */
+        /*
+           ★ 거래기록의 AI 학습 이용 동의(선택). 마케팅과 **별도로** 보낸다 —
+             목적이 다르고, 하나로 묶으면 광고만 허락한 고객의 거래기록을 학습에 쓴다.
+
+           ★★ 이 주석이 한때 깨져 있었다("2605 Ac70B798..."). 파이썬으로 파일을
+             수정할 때 유니코드가 이스케이프된 채 기록된 것이다. 파일 내용은 편집
+             도구로만 쓰고 파이썬 write 로 쓰지 않는다 — 같은 사고가 반복된다.
+        */
         aiTrainingOptIn: form.aiTraining,
         /*
            코드가 유효할 때만 보낸다.
@@ -970,13 +1032,112 @@
             </div>
           )}
 
-          <label className="chk">
-            <input type="checkbox" checked={form.agree} onChange={e => setForm({...form, agree: e.target.checked})} required/>
-            <span className="chk__box"><I.Check size={10}/></span>
-            <span style={{fontSize: 12}}>
-              <a href="#/terms" target="_blank" rel="noopener" style={{color:'var(--color-brand)'}}>{t('auth_3b9e30')}</a> · <a href="#/privacy" target="_blank" rel="noopener" style={{color:'var(--color-brand)'}}>{t('signup_532136')}</a> {t('signup_75a112')}
-            </span>
-          </label>
+          {/*
+             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+             동의 항목 — 필수/선택을 **구분해서** 받는다
+             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+             ★★ 전에는 체크박스 하나로 약관·처리방침을 함께 받았다. 그런데 서버는
+               **필수 문서 3종**(약관·처리방침·위험고지)의 동의를 모두 기록한다
+               (index.ts `requiredConsentDocs`). 즉 고객은 위험고지에 동의한 줄
+               **모르는데 동의 기록이 남았다.** 무엇에 동의했는지 모르는 동의는
+               나중에 다툼이 생기면 증거로서 약하다.
+
+             ★★ 개인정보보호법 §22① 은 필수와 선택을 **구분하여** 동의받도록 요구한다.
+               선택 항목을 필수 약관에 섞으면 그 동의는 자유로운 의사로 보기 어렵고,
+               무효가 되면 그것으로 모은 데이터를 **전부 쓸 수 없다.** 동의율이 낮은
+               것보다 나쁜 결과다.
+
+             ★ '모두 동의합니다' 는 표준적인 방식이고 문제없다. 조건은 세 가지다:
+                 (1) 필수/선택 표시가 명확하다
+                 (2) 각 항목을 개별로 켜고 끌 수 있다
+                 (3) 선택을 거절해도 가입이 된다
+               세 조건을 모두 지킨다.
+
+             ★★ '모두 동의합니다' 는 **기본 해제**다. 미리 체크해 두면 고객이 누르지
+               않은 동의가 기록된다 — 그것이 위에서 말한 무효 위험이다. 한 번은
+               고객이 눌러야 한다.
+
+             ★ 제3자 제공 항목은 **넣지 않는다.** 우리가 데이터를 넘기는 곳
+               (거래소·메일 발송·클라우드)은 처리방침 §4 기준으로 전부 **처리위탁**이고,
+               거래소는 고객 본인 계정이다. 위탁은 처리방침에 밝히면 되고 별도 동의가
+               필요 없다. 필요 없는 동의를 필수로 만들면 그 자체가 §22③ 문제가 된다.
+               정말로 제3자에게 제공하는 일이 생기면 그때 **선택**으로 추가한다.
+          */}
+          <div className="consent-group" style={{
+            border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden',
+          }}>
+            {/* 모두 동의 */}
+            <label className="chk" style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px',
+              borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)',
+              cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={allConsentsChecked}
+                onChange={(e) => setAllConsents(e.target.checked)}
+              />
+              <span className="chk__box"><I.Check size={10}/></span>
+              <span style={{fontSize: 13, fontWeight: 600}}>{t('consent_all')}</span>
+            </label>
+
+            {CONSENT_ITEMS.map((it) => {
+              const open = consentOpen === it.key;
+              return (
+                <div key={it.key} style={{borderBottom: '1px solid var(--color-border)'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px'}}>
+                    <label className="chk" style={{display: 'flex', alignItems: 'center', gap: 8, flex: 1, cursor: 'pointer', margin: 0}}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form[it.field])}
+                        onChange={(e) => setForm({ ...form, [it.field]: e.target.checked })}
+                        {...(it.required ? { required: true } : {})}
+                      />
+                      <span className="chk__box"><I.Check size={10}/></span>
+                      <span style={{fontSize: 12}}>
+                        <span style={{
+                          color: it.required ? 'var(--color-danger, #dc2626)' : 'var(--color-text-tertiary)',
+                          fontWeight: it.required ? 600 : 400,
+                        }}>
+                          {t(it.required ? 'consent_required' : 'consent_optional')}
+                        </span>{' '}
+                        {t(it.labelKey)}
+                      </span>
+                    </label>
+                    {/*
+                       ★ 열고 닫기. 동의 대상을 읽을 수 없으면 그 동의는 아무것도
+                         가리키지 않는다 — 접어두더라도 **열 수 있어야** 한다.
+                    */}
+                    <button
+                      type="button"
+                      onClick={() => setConsentOpen(open ? null : it.key)}
+                      aria-expanded={open}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                        fontSize: 11, color: 'var(--color-text-tertiary)',
+                      }}
+                    >{t(open ? 'consent_collapse' : 'consent_expand')}</button>
+                  </div>
+                  {open && (
+                    <div style={{
+                      padding: '0 12px 10px 34px', fontSize: 11, lineHeight: 1.7,
+                      color: 'var(--color-text-secondary)',
+                    }}>
+                      {t(it.bodyKey)}
+                      {it.href && (
+                        <div style={{marginTop: 4}}>
+                          <a href={it.href} target="_blank" rel="noopener" style={{color: 'var(--color-brand)'}}>
+                            {t('consent_read_full')}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {/*
              ★★ 동의 대상이 실제로 게시되어 있는지 확인한다 ★★
@@ -1002,38 +1163,17 @@
             </div>
           )}
 
-          <label className="chk">
-            <input type="checkbox" checked={form.marketing} onChange={e => setForm({...form, marketing: e.target.checked})}/>
-            <span className="chk__box"><I.Check size={10}/></span>
-            <span style={{fontSize: 12}}>{t('signup_21e2e3')}</span>
-          </label>
+          {/*
+             ★ 마케팅·AI학습 체크박스는 위 동의 그룹으로 옮겼다. 필수/선택을 구분해서
+               받아야 하므로 한 곳에 모아 표시하는 것이 맞다(§22①).
+          */}
 
           {/*
-             ★★ 거래기록의 AI 학습 이용 동의. **선택**이고 기본 해제다.
-
-               처리방침 §1.5 가 이 목적을 밝히고 있지만, 밝히는 것과 동의를 받는 것은
-               다르다. 개인정보보호법 §28-2 는 가명정보 처리를 통계작성·과학적연구·
-               공익적기록보존 목적으로 제한하는데, **상용 모델 학습이 그에 해당하는지는
-               법률 검토가 필요하다**(LEGAL-REVIEW-REQUEST §B-3).
-
-             ★ 그래서 어느 해석에서도 안전한 쪽을 택했다 — 별도 동의를 받아 둔다.
-               필요 없다는 답이 오면 이 칸을 지우면 되고, 필요하다는 답이 오면 이미
-               받아 둔 상태가 된다. 반대 순서로 가면 이미 모은 데이터를 못 쓴다.
-
-             ★ 필수로 두지 않는다. 필수로 묶으면 학습을 거절하는 고객이 서비스를 아예
-               쓸 수 없게 되고, 그것은 §22③ 이 금지하는 방향이다(서비스 제공에
-               필요하지 않은 동의를 강제).
-
-             ★ 거절해도 서비스를 그대로 쓸 수 있다는 사실을 문구에 적었다 — 적지 않으면
-               고객은 체크해야 하는 줄로 읽는다.
+             ★★ 제출 조건은 **필수 항목 전부**다. 전에는 `!form.agree` 하나만 봤는데,
+               서버는 필수 문서 3종의 동의를 기록한다. 화면이 하나만 확인하면 고객이
+               확인하지 않은 항목의 동의가 기록된다.
           */}
-          <label className="chk">
-            <input type="checkbox" checked={form.aiTraining} onChange={e => setForm({...form, aiTraining: e.target.checked})}/>
-            <span className="chk__box"><I.Check size={10}/></span>
-            <span style={{fontSize: 12}}>{t('signup_ai_training')}</span>
-          </label>
-
-          <button type="submit" className="btn btn--primary btn--lg" style={{width:'100%'}} disabled={loading || !form.agree || errors.length > 0 || !form.email || !form.pw2}>
+          <button type="submit" className="btn btn--primary btn--lg" style={{width:'100%'}} disabled={loading || !requiredConsentsChecked || errors.length > 0 || !form.email || !form.pw2}>
             {loading ? <><span className="spinner"/> {t('signup_24cd06')}</> : t('signup_3929bb')}
           </button>
 

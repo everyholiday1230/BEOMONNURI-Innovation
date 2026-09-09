@@ -258,6 +258,32 @@
            ★ 거절해도 기능이 같다는 사실을 적는다. 적지 않으면 눌러야 하는 줄로 읽는다.
            ★ 언제든 바꿀 수 있다는 것도 적는다 — 되돌릴 수 없다고 느끼면 아무도 켜지 않는다.
       */
+      /*
+         ━━━ 동의 항목 문구 ━━━
+
+         ★★ 필수/선택을 **구분해서** 보여준다(§22①). 선택 항목에는 거절해도 서비스를
+           그대로 쓸 수 있다는 사실을 반드시 적는다 — 적지 않으면 고객은 체크해야
+           하는 줄로 읽고, 그렇게 받은 동의는 자유로운 의사로 보기 어렵다.
+
+         ★ 각 항목이 **무엇에 쓰이는지** 한 줄로 적는다. "서비스 개선" 같은 말로 뭉개면
+           무엇에 동의하는지 알 수 없다.
+      */
+      consent_all: 'I agree to all of the above',
+      consent_required: '(required)',
+      consent_optional: '(optional)',
+      consent_expand: 'open',
+      consent_collapse: 'close',
+      consent_read_full: 'Read the full document',
+      consent_terms: 'Terms of Service',
+      consent_terms_body: 'The rules for using the Service: what we provide, what we do not, and the limits of our responsibility. This is analysis software — you place your own orders on your own exchange account.',
+      consent_privacy: 'Collection and use of personal data',
+      consent_privacy_body: 'Email address, country, sign-in records and the data needed to operate the Service. Required to provide the Service — we cannot run your account without it.',
+      consent_risk: 'Leveraged trading risk disclosure',
+      consent_risk_body: 'Leveraged trading can lose more than you deposit, and liquidation can happen quickly. Nothing in this Service is investment advice, and no outcome is guaranteed.',
+      consent_ai_training: 'Use of my trading records to train the AI',
+      consent_ai_training_body: 'Your orders, the indicators you had on, and how those trades turned out — used to train our AI after pseudonymisation. The assistant works exactly the same if you decline, and you can change this at any time.',
+      consent_marketing: 'Marketing and promotional messages',
+      consent_marketing_body: 'New features, guides and offers by email. Declining changes nothing about the Service, and you can unsubscribe at any time.',
       ai_training_ask_title: 'May we learn from your trading records?',
       ai_training_ask_body: 'We would like to use your orders, the indicators you had on, and how those trades turned out to train our AI. Your records are pseudonymised first. This is optional — the assistant works exactly the same either way, and you can change your answer at any time.',
       ai_training_ask_yes: 'Yes, you may',
@@ -2901,7 +2927,7 @@
       sub_paid_not_recorded: 'Your payment was approved but we could not record it. Please contact support with the time of payment — do not pay again.',
       sub_cancel_confirm: 'Cancel the subscription? You keep access until the end of the month you already paid for. This cannot be undone here — you would need to subscribe again.',
       sub_canceled_ok: 'Subscription cancelled. Access continues until the end of the current period.',
-      sub_canceled_provider: 'Subscription cancelled on our side. Also stop the recurring payment with the payment provider, or it will charge again.',
+      sub_canceled_provider: 'Cancelled. The recurring payment at PayPal has been stopped — nothing more for you to do. Access continues until the end of the current period.',
       sub_cancel_failed: 'Could not cancel the subscription. Nothing was changed — try again.',
 
       /*
