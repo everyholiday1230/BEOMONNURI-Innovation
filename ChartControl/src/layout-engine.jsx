@@ -394,6 +394,32 @@ const DEFAULT_WIDGET_META = {
          보장된다 — 임의의 빈자리로 옮기면 사용자가 창을 잃어버린다.
     */
     const geomStartRef = useRef(null);
+    /*
+       ★★★ 크기 조절 **제스처 시작 시점의 배치 전체**를 기억한다.
+
+         왜 필요한가 — 이것이 "훅훅 미끄러진다" 의 진짜 원인이었다.
+
+         손잡이는 제스처 시작부터의 **절대** 변화량을 보낸다(예: 계속 +1열).
+         그런데 이웃을 줄이는 계산이 그 값을 **이미 줄어든 현재 상태**에 매번 다시
+         적용했다. 그래서 마우스가 한 칸을 넘긴 뒤에는 **마우스가 움직일 때마다**
+         한 칸씩 더 늘어났다 — 커서는 5px 만 갔는데 패널은 한 칸씩 계속 자랐다.
+
+         실측(96열, 한 칸 19.48px, 수정 전):
+           마우스 20px → +19px(1열)   ← 여기까지는 맞다
+                  25px → +39px(2열)   ← 5px 더 갔는데 한 칸 더
+                  30px → +58px(3열)
+                  35px → +77px(4열)   ← 최소폭에 걸려 멈춤
+         즉 첫 칸 이후로는 5px 마다 한 칸. 이론값의 약 4배 속도다. 천천히 움직이면
+         (이벤트가 많아서) 더 많이 자라고, 빨리 움직이면 덜 자란다 — 손에는
+         제어할 수 없이 미끄러지는 것으로 느껴진다.
+
+       ★ 고침: 매 이동마다 **기준 스냅샷**에서 다시 계산한다. 절대 변화량을 절대
+         기준에 적용하므로 이벤트 개수와 무관하게 결과가 같다(멱등).
+
+       ★ Math.round → Math.trunc 와 48→96열은 별개의 문제였다(칸 크기·경계 타이밍).
+         그 둘을 고친 뒤에도 이 누적이 남아 있었다.
+    */
+    const resizeBaseRef = useRef(null);
 
     const updateWidget = useCallback((id, partial) => {
       setLayout(prev => {
@@ -440,6 +466,26 @@ const DEFAULT_WIDGET_META = {
         const isTransient = partial._dragging === true || partial._resizing === true;
         const isEnding = partial._dragging === false || partial._resizing === false;
 
+        /*
+           ★★★ 기준 스냅샷은 **분기 밖에서** 잡아야 한다.
+
+             처음에는 아래 `else if (target && isTransient && !geomStartRef.current)`
+             안에 넣었다. 그런데 크기 조절이면 그 위의 성장 분기가 먼저 걸려서 이
+             `else if` 는 **실행되지 않는다.** 그래서 스냅샷이 영원히 null 이고,
+             계산은 계속 `prev` 를 기준으로 해서 누적이 그대로 남았다.
+             실측으로 확인했다 — 고쳤다고 생각했는데 수치가 한 글자도 안 바뀌었다
+             (20px→+19, 25px→+39, 30px→+58 ... 수정 전과 동일).
+
+           ★ 그러므로 분기 판단보다 **먼저** 잡는다. 제스처 첫 호출에서 한 번만
+             잡히고(`!resizeBaseRef.current`), 끝날 때 해제한다.
+        */
+        if (partial._resizing === true && !resizeBaseRef.current) {
+          resizeBaseRef.current = prev.widgets.map(w => ({ ...w }));
+        }
+        if (partial._resizing === false) {
+          resizeBaseRef.current = null;
+        }
+
         let applied = partial;
         let neighbours = null;
 
@@ -480,8 +526,16 @@ const DEFAULT_WIDGET_META = {
                  **변화량만** 받아 저장 좌표계에서 계산하면 변환과 무관하게 맞는다.
                  화면 반영은 렌더 단계가 알아서 한다.
             */
-            let cur = { ...target };
-            let rest = prev.widgets.filter(w => !w.hidden && w.id !== id).map(w => ({ ...w }));
+            /*
+               ★★ **기준 스냅샷**에서 계산한다. `prev` 를 쓰면 이미 반영된 축소에
+                 절대 변화량을 다시 적용해 누적된다(위 resizeBaseRef 주석의 실측).
+               ★ 제스처의 첫 호출에서는 스냅샷이 아직 없다 — 그때의 `prev` 가 곧
+                 시작 상태이므로 그대로 쓰면 맞다.
+            */
+            const base = resizeBaseRef.current || prev.widgets;
+            const baseTarget = base.find(w => w.id === id) || target;
+            let cur = { ...baseTarget };
+            let rest = base.filter(w => !w.hidden && w.id !== id).map(w => ({ ...w }));
             for (const [dir, want] of dirs) {
               const r = resolveGrowth(cur, rest, dir, want, prev.cols || 96);
               cur = r.target; rest = r.others;
@@ -580,6 +634,26 @@ const DEFAULT_WIDGET_META = {
       });
     }, []);
 
+    /*
+       ★★★ 접기는 **숨김 표시만** 남긴다. 저장 좌표는 절대 건드리지 않는다.
+
+         왜 이렇게 하는가 — 앞서 세 번 실패했다.
+
+         처음에는 접을 때 이웃을 실제로 넓혀 저장했다. 그러면 되살릴 때 그 폭을
+         정확히 돌려받아야 하는데, 여러 개를 접었다 펴는 순서·중간 편집까지 맞추는
+         것이 사실상 불가능했다. 세 가지 방법을 실측으로 모두 실패시켰다:
+           · 넘겨준 양을 기록해 되돌리기        → 복원 후 채움 54~85%
+           · 겹친 만큼 줄이기(작은 축)          → 80~90%
+           · 겹친 만큼 줄이기(넓어진 축)        → 75~86%
+         기본이 96~97% 인데 어느 방법도 돌아오지 못했다.
+
+       ★ 그래서 좌표를 **파생값**으로 만든다. 저장된 배치는 언제나 "다 펼친 상태"
+         하나뿐이고, 접힘은 그릴 때 변환으로 적용한다(applyFolds). 되살리기는
+         집합에서 id 를 빼는 것이므로 원래 배치로 **정확히** 돌아온다.
+
+       ★ 같은 구조를 이미 쓰고 있다 — panel-state.applyTo 가 접힌 패널의 기하를
+         렌더 시점에 다시 쓴다. 같은 규칙을 따르면 좌표계가 하나 더 늘지 않는다.
+    */
     const hideWidget = useCallback((id) => {
       setLayout(prev => {
         const nextWidgets = prev.widgets.map(w => w.id === id ? { ...w, hidden: true } : w);
@@ -590,15 +664,15 @@ const DEFAULT_WIDGET_META = {
       setSelectedId(null);
     }, []);
 
+    /*
+       ★ 되살리기는 숨김만 해제한다. 좌표를 건드리지 않으므로 접기 전 배치로
+         **정확히** 돌아온다. 빈자리를 찾을 필요도 없다 — 그 자리는 애초에
+         이 패널의 자리이고, 저장 좌표에서 비워진 적이 없다.
+    */
     const showWidget = useCallback((id) => {
       setLayout(prev => {
-        const w = prev.widgets.find(x => x.id === id);
-        if (!w) return prev;
-        const others = prev.widgets.filter(x => !x.hidden && x.id !== id);
-        const spot = findFreeSpot(others, w.w, w.h);
-        const nextWidgets = prev.widgets.map(x =>
-          x.id === id ? { ...x, hidden: false, x: spot.x, y: spot.y } : x
-        );
+        if (!prev.widgets.some(x => x.id === id)) return prev;
+        const nextWidgets = prev.widgets.map(x => x.id === id ? { ...x, hidden: false } : x);
         setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));
         setDirty(true);
         return { ...prev, widgets: nextWidgets };

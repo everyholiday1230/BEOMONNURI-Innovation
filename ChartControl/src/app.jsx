@@ -2089,6 +2089,59 @@
           {/* Symbol Header */}
           <window.SymbolHeader price={lastPrice} prev={prevPrice} market={market} t={t}/>
 
+          {/*
+             ★★ 접힌 패널 바.
+
+               운영 지시: "클로즈패널보단 접어두게해줘 사람들이 보고 싶은것만 볼 수
+               있도록. 위에 접은거 보이도록해서 누르면 다시 펴지도록."
+
+             ★ 예전에는 패널을 닫으면 **레이아웃 → 위젯 라이브러리** 안으로
+               들어갔다. 되살리려면 메뉴를 두 번 열어야 하고, 무엇을 닫았는지
+               화면에서 보이지 않았다. 그래서 "AI 만 접힌다" 고 느끼게 된다 —
+               AI 는 좁은 띠로 남지만 나머지는 흔적 없이 사라지기 때문이다.
+
+             ★ 이제 접은 패널이 차트 위에 남는다. 무엇을 접었는지 보이고, 눌러서
+               바로 펼 수 있다. 접은 것이 없으면 바 자체를 그리지 않는다 —
+               빈 띠가 세로 공간을 먹으면 안 된다.
+          */}
+          {(() => {
+            const folded = (engine.layout.widgets || []).filter((w) => w.hidden);
+            if (folded.length === 0) return null;
+            return (
+              <div className="qt-folded-bar" role="group" aria-label={t('lay_folded_bar')}>
+                <span className="qt-folded-bar__label">{t('lay_folded_label')}</span>
+                {folded.map((w) => {
+                  const label = widgetLabel(w.type, t);
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      className="qt-folded-chip"
+                      /* ★ title 은 접근성 이름이 아니다. aria-label 을 따로 준다. */
+                      title={t('lay_unfold_hint', { label })}
+                      aria-label={t('lay_unfold_hint', { label })}
+                      onClick={() => engine.showWidget(w.id)}
+                    >
+                      <span className="qt-folded-chip__caret" aria-hidden="true">⌄</span>
+                      {label}
+                    </button>
+                  );
+                })}
+                {/*
+                   ★ 두 개 이상 접었을 때만 "전부 펴기" 를 준다. 하나일 때는 그 칩을
+                     누르는 것과 똑같아서 버튼이 두 개 있으면 헷갈린다.
+                */}
+                {folded.length > 1 && (
+                  <button
+                    type="button"
+                    className="qt-folded-bar__all"
+                    onClick={() => folded.forEach((w) => engine.showWidget(w.id))}
+                  >{t('lay_unfold_all')}</button>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Body Grid */}
           {/*
              ★★ `gridTemplateRows` 를 인라인으로 넣지 않는다.
@@ -2118,7 +2171,13 @@
                  배치가 아니다. 저장본을 고치면 접었다 펴는 동작이 이용자가
                  손으로 맞춘 배치를 영구히 망친다.
             */}
-            {(window.QTPanelState ? window.QTPanelState.applyTo(engine.layout.widgets) : engine.layout.widgets).map(w => (
+            {(window.QTPanelState
+              /*
+                 ★ 접힘(숨김) 자리 메우기를 **먼저**, 그 다음 좁은 띠 접기를 적용한다.
+                   순서를 바꾸면 띠로 좁아진 폭을 기준으로 자리를 나눠 어긋난다.
+              */
+              ? window.QTPanelState.applyTo(window.QTPanelState.applyFolds(engine.layout.widgets, engine.layout.cols, 16))
+              : engine.layout.widgets).map(w => (
               <window.WidgetHost
                 key={w.id}
                 widget={w}

@@ -135,7 +135,7 @@
       landing_1ea899: 'View demo',
       landing_4c1fc3: 'The AI answers',
       landing_af3947: ' — you decide what to do.',
-      landing_5f6b64: 'Ask in plain language and the copilot helps you mark support/resistance, trend lines and indicators on the chart you are viewing, using live market data. Everything is a draft you create and decide on — a charting tool, not investment advice.',
+      landing_5f6b64: 'Ask in plain language and ChartControl AI helps you mark support/resistance, trend lines and indicators on the chart you are viewing, using live market data. Everything is a draft you create and decide on — a charting tool, not investment advice.',
       landing_44cbb3: 'Freely drag and resize · 7 presets (Standard / Scalper / Multi / AI and more)',
       landing_40f668: 'AI approval ≠ order submission · 9-gate risk check · simulation stripe always visible',
       landing_69704c: 'Mood tags · performance by time of day · automatic pattern detection',

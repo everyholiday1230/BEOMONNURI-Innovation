@@ -59,6 +59,95 @@
   }
 
   window.QTPanelState = {
+    /*
+       ★★★ 접힌(숨긴) 패널의 자리를 **그릴 때** 이웃에게 넘긴다.
+
+         저장된 배치는 언제나 "다 펼친 상태" 하나다. 접힘은 여기서 파생 계산한다.
+         그래야 되살릴 때 원래 배치로 **정확히** 돌아온다 — 저장 좌표를 실제로
+         고치는 방식은 여러 개를 접었다 폈을 때 복원되지 않았다(실측 54~90%,
+         기본 96~97%). layout-engine 의 hideWidget 주석에 기록해 두었다.
+
+       ★ 규칙: 접힌 칸의 **행 범위를 빈틈없이 덮는** 옆 이웃들을 그 폭만큼 넓힌다.
+         가로가 안 되면 **열 범위를 덮는** 위/아래 이웃을 그 높이만큼 넓힌다.
+         한쪽만 넓히면 나머지가 겹치므로 덮는 이웃을 **모두** 넓힌다.
+
+       ★ 어느 쪽도 맞지 않으면 그대로 둔다. 구멍이 남는 것이 배치를 망가뜨리는
+         것보다 낫다.
+
+       ★ 접힌 것을 여러 개 처리할 때는 **하나씩 순서대로** 적용한다. 앞서 넓어진
+         결과 위에서 다음을 계산해야 두 번째 구멍도 메워진다.
+    */
+    applyFolds(widgets, cols, rows) {
+      if (!Array.isArray(widgets)) return widgets;
+      if (!widgets.some((w) => w && w.hidden)) return widgets;
+
+      const C = cols || 96;
+      const R = rows || 16;
+      const out = widgets.map((w) => ({ ...w }));
+
+      /*
+         ★ 빈 칸을 실제로 세어 **가장 큰 빈 사각형**을 찾는다. 접힌 칸 하나만 보고
+           이웃을 넓히면, 여러 개를 접었을 때 남는 조각을 못 메운다.
+           실측(사각형 없이 접힌 칸만 볼 때): chart-focus 3개 접으면 채움 **16%**.
+      */
+      const emptyRect = () => {
+        const grid = [];
+        for (let r = 0; r < R; r++) grid.push(new Array(C).fill(false));
+        for (const o of out) {
+          if (o.hidden) continue;
+          for (let r = o.y; r < Math.min(R, o.y + o.h); r++)
+            for (let c = o.x; c < Math.min(C, o.x + o.w); c++)
+              if (r >= 0 && c >= 0) grid[r][c] = true;
+        }
+        for (let r = 0; r < R; r++) {
+          for (let c = 0; c < C; c++) {
+            if (grid[r][c]) continue;
+            let w = 0;
+            while (c + w < C && !grid[r][c + w]) w++;
+            let h = 1;
+            outer: while (r + h < R) {
+              for (let k = c; k < c + w; k++) if (grid[r + h][k]) break outer;
+              h++;
+            }
+            return { x: c, y: r, w, h };
+          }
+        }
+        return null;
+      };
+
+      /*
+         ★★ 채우는 조건: 이웃의 **다른 축 범위가 빈 사각형 안에 들어 있어야** 한다.
+           삐져나오면 넓히는 순간 바깥의 남의 칸을 덮어 겹친다.
+
+         ★ 빈틈없이 덮을 것을 요구하지 **않는다.** 조건에 맞는 이웃만 넓히고 다시
+           빈 사각형을 찾으면, 남은 조각이 다음 회차에 더 작은 사각형으로 잡혀
+           차례로 메워진다. "완전히 덮을 때만 넓힌다" 로 만들었을 때는 조금이라도
+           어긋나면 통째로 포기해 큰 구멍이 남았다.
+      */
+      const fill = (rect) => {
+        const vis = out.filter((o) => !o.hidden);
+        const inRows = (o) => o.y >= rect.y && o.y + o.h <= rect.y + rect.h;
+        const inCols = (o) => o.x >= rect.x && o.x + o.w <= rect.x + rect.w;
+        const west = vis.filter((o) => o.x + o.w === rect.x && inRows(o));
+        if (west.length) { west.forEach((o) => { o.w += rect.w; }); return true; }
+        const east = vis.filter((o) => o.x === rect.x + rect.w && inRows(o));
+        if (east.length) { east.forEach((o) => { o.x -= rect.w; o.w += rect.w; }); return true; }
+        const north = vis.filter((o) => o.y + o.h === rect.y && inCols(o));
+        if (north.length) { north.forEach((o) => { o.h += rect.h; }); return true; }
+        const south = vis.filter((o) => o.y === rect.y + rect.h && inCols(o));
+        if (south.length) { south.forEach((o) => { o.y -= rect.h; o.h += rect.h; }); return true; }
+        return false;
+      };
+
+      /* ★ 안전 상한. 못 메우는 조각이 남아도 무한 반복하지 않는다. */
+      for (let guard = 0; guard < 400; guard++) {
+        const rect = emptyRect();
+        if (!rect) break;
+        if (!fill(rect)) break;
+      }
+      return out;
+    },
+
     isCollapsed(id) { return collapsed.has(id); },
 
     setCollapsed(id, on) {
