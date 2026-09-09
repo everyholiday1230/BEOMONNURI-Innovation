@@ -1294,7 +1294,13 @@
             <button className={`oe-tab ${orderType==='limit'?'is-active':''}`} onClick={() => setOrderType('limit')}>{t('limit')}</button>
             <button className={`oe-tab ${orderType==='market'?'is-active':''}`} onClick={() => setOrderType('market')}>{t('market')}</button>
             <button className={`oe-tab ${orderType==='trigger'?'is-active':''}`} onClick={() => setOrderType('trigger')}>{t('trigger')}</button>
-            {!isBeginner && (
+            {/*
+             ★★ 없는 기능은 **가린다.** 비활성 + '준비중' 표시로 두었지만 운영자가
+               "이건 뭐야? 누를 수 없던데" / "그냥 아예 버튼 안 보이게 해줘" 라고 했다.
+               설명이 붙어 있어도 없는 기능이 자리를 차지하면 고객은 "왜 안 되나" 를
+               먼저 묻는다. 마크업은 남긴다 — SHOW_UNWIRED 를 켜면 다시 보인다.
+          */}
+            {SHOW_UNWIRED && !isBeginner && (
               <button aria-label={t('adm_feature_absent')} className="oe-tab" disabled title={t('adm_feature_absent')}>
                 {t('advanced')} <span className="qt-pending-mark">{t('sec_pending')}</span>
               </button>
@@ -1893,8 +1899,15 @@
                                규칙대로 비활성 + '준비중' 으로 명확히 밝힌다.
                                (진입과 동시 거는 TP/SL 은 주문 패널에서 이미 가능하다.)
                           */}
+                          {/*
+                             ★★ 없는 기능은 가린다. 비활성 + 이유 표시로도 고객은
+                               "왜 안 되나" 를 먼저 묻는다(운영자 지시).
+                               진입과 동시 거는 TP/SL 은 주문 패널에서 이미 된다.
+                          */}
+                          {SHOW_UNWIRED && (<>
                           <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span></button>
                           <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>{t('col_margin')} <span className="qt-pending-mark">{t('sec_pending')}</span></button>
+                          </>)}
                           <button className="btn btn--xs btn--danger" onClick={() => onClose && onClose(p.id)}>{t('close')}</button>
                         </div>
                       </td>
@@ -2426,7 +2439,13 @@
           <div style={{display:'flex', gap: 6}}>
             {/* 증거금 추가는 선물에만 있다. */}
             {/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}
-            {!assetsIsSpot && (
+            {/*
+             ★★ 없는 기능은 **가린다.** 비활성 + '준비중' 표시로 두었지만 운영자가
+               "이건 뭐야? 누를 수 없던데" / "그냥 아예 버튼 안 보이게 해줘" 라고 했다.
+               설명이 붙어 있어도 없는 기능이 자리를 차지하면 고객은 "왜 안 되나" 를
+               먼저 묻는다. 마크업은 남긴다 — SHOW_UNWIRED 를 켜면 다시 보인다.
+          */}
+            {SHOW_UNWIRED && !assetsIsSpot && (
               <button aria-label={t('adm_feature_absent')} className="btn btn--sm" style={{flex:1}} disabled title={t('adm_feature_absent')}>
                 {t('mg_add')} <span className="qt-pending-mark">{t('sec_pending')}</span>
               </button>
