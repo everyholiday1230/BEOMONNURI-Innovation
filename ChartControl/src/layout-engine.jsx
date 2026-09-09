@@ -232,10 +232,63 @@ const DEFAULT_WIDGET_META = {
   };
 
   // ---------- Main hook ----------
+  /** 지금 격자의 열 수. 프리셋·CSS(widgets.css 의 grid-template-columns)와 같아야 한다. */
+  const GRID_COLS = 48;
+
+  /**
+   * 저장된 레이아웃을 지금 격자에 맞춘다.
+   *
+   * ★★ 왜 필요한가 — **이것이 없으면 기존 고객 화면이 절반만 찬다.**
+   *
+   *   격자를 24 → 48 열로 올렸다(크기 조절이 뚝뚝 끊겨서). 그런데 이용자가 손으로
+   *   맞춘 배치는 `qt.layout` 에 **24열 좌표로** 저장돼 있다. 그것을 48열 격자에
+   *   그대로 그리면 모든 패널이 절반 폭이 되고 오른쪽 절반이 빈다.
+   *
+   *   실측으로 확인했다: 24열 저장본 → 채움 **46%** (48열 저장본은 91%).
+   *
+   * ★ 비율로 환산한다(x·w·minW × 48/24). 반올림 때문에 1칸이 어긋날 수 있으므로
+   *   마지막에 격자 밖으로 나가는 것만 잘라낸다 — 겹침까지 고치려 들지 않는다.
+   *   이용자 배치를 크게 바꾸는 것보다, 살짝 어긋난 채 열어 주는 편이 낫다
+   *   (원하면 프리셋을 다시 누르면 된다).
+   *
+   * ★ cols 가 없는 아주 예전 저장본은 24열로 본다 — 48열 도입 전에는 전부 24였다.
+   */
+  function migrateLayoutCols(layout) {
+    if (!layout || !Array.isArray(layout.widgets)) return layout;
+    const from = Number(layout.cols) || 24;
+    if (from === GRID_COLS) return layout;
+
+    const k = GRID_COLS / from;
+    const widgets = layout.widgets.map((w) => {
+      const x = Math.round((w.x || 0) * k);
+      const width = Math.max(1, Math.round((w.w || 1) * k));
+      return {
+        ...w,
+        /* 격자 밖으로 나가지 않게 자른다. */
+        x: Math.min(x, GRID_COLS - 1),
+        w: Math.min(width, GRID_COLS - Math.min(x, GRID_COLS - 1)),
+        ...(w.minW ? { minW: Math.max(1, Math.round(w.minW * k)) } : {}),
+      };
+    });
+    return { ...layout, cols: GRID_COLS, widgets };
+  }
+
   window.useLayoutEngine = function useLayoutEngine(initialPresetId = 'standard-trader') {
     const [layout, setLayout] = useState(() => {
       const saved = localStorage.getItem('qt.layout');
-      if (saved) { try { return JSON.parse(saved); } catch (e) {} }
+      if (saved) {
+        try {
+          /*
+             ★ 읽는 즉시 환산하고 **다시 저장한다.** 저장하지 않으면 매번 환산하게
+               되고, 반올림이 누적될 위험이 있다.
+          */
+          const migrated = migrateLayoutCols(JSON.parse(saved));
+          if (migrated && Number(migrated.cols) === GRID_COLS) {
+            try { localStorage.setItem('qt.layout', JSON.stringify(migrated)); } catch (e) { /* 저장 실패는 무시 */ }
+          }
+          return migrated;
+        } catch (e) { /* 깨진 저장본은 프리셋으로 시작한다 */ }
+      }
       return JSON.parse(JSON.stringify(QT.LAYOUT_PRESETS[initialPresetId]));
     });
     const [history, setHistory] = useState({ past: [], future: [] });
