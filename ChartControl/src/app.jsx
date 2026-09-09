@@ -2053,10 +2053,26 @@
           <window.SymbolHeader price={lastPrice} prev={prevPrice} market={market} t={t}/>
 
           {/* Body Grid */}
+          {/*
+             ★★ `gridTemplateRows` 를 인라인으로 넣지 않는다.
+
+               예전에는 `repeat(auto-fill, 40px)` 를 인라인으로 강제했다. 인라인은
+               스타일시트보다 강해서, 자동맞춤(`[data-autofit="on"] .trade-body`)의
+               `repeat(16, minmax(0, 1fr))` 를 **덮어버렸다.**
+
+               결과: 16행이 화면 높이에 맞게 늘어나지 못하고 40px 로 고정돼
+               **아래쪽이 비었다.** 실측(1920×1080): 영역 938px 인데 패널은 730px
+               만 써서 208px 가 빈 채였다(채움 76%).
+
+             ★ 행 높이는 CSS 가 정한다:
+                 · 자동맞춤 on  → repeat(16, minmax(0,1fr))  화면을 꽉 채운다
+                 · 자동맞춤 off → grid-auto-rows: 40px       예전 고정 높이
+                 · 모바일       → grid-auto-rows: auto       세로로 쌓고 스크롤
+               세 경우가 이미 스타일시트에 있으므로 인라인이 필요 없다.
+          */}
           <div
             ref={bodyRef}
             className={`trade-body ${engine.isEditing ? 'is-editing' : ''}`}
-            style={{ gridTemplateRows: `repeat(auto-fill, ${40}px)` }}
           >
             {/*
                ★★ 접힌 패널의 공간을 이웃에게 넘겨 그린다.
