@@ -849,11 +849,30 @@
                              버튼 안에 이미 글자가 있으므로 이름은 충분하고, **이유는 버튼
                              밖 문장으로** 말한다. 회색 버튼만 보여주고 이유를 숨기지 않는다.
                       */}
-                      <button className="btn btn--xs" style={{flex:1}} disabled><I.Chart size={11}/> {t('col_backtest')}</button>
-                      <button className="btn btn--xs btn--primary" style={{flex:1}} disabled><I.Plus size={11}/> {t('col_follow')}</button>
-                    <div style={{fontSize:10.5, color:'var(--color-text-tertiary)', marginTop:4, flexBasis:'100%'}}>
+                      {/*
+                           ★★★ **조건 없이 disabled 였다 — 거래소 키를 넣어도 살아나지 않는다.**
+
+                             옆 문장은 strat_needs_key("키가 필요하다")를 말하는데, 실제로는
+                             키와 무관하게 항상 죽어 있었다. 그래서 키를 등록한 고객은
+                             "넣었는데도 왜 안 되나" 를 겪는다. **틀린 이유를 보여주는 것이
+                             이유를 숨기는 것보다 나쁘다.**
+
+                           ★ 운영자 지침대로 **숨긴다.** 회색 버튼은 눌러도 되는지 아닌지
+                             판단을 고객에게 미룬다 — 실제로 "이건 뭐야? 누를 수 없던데" 를
+                             들었다. 기능이 배선되면 SHOW_UNWIRED 없이 되살린다.
+
+                           ★ 마크업은 지우지 않는다 — 되살릴 때 다시 만들지 않게.
+                      */}
+                      {SHOW_UNWIRED && (<>
+                        <button className="btn btn--xs" style={{flex:1}} disabled><I.Chart size={11}/> {t('col_backtest')}</button>
+                        <button className="btn btn--xs btn--primary" style={{flex:1}} disabled><I.Plus size={11}/> {t('col_follow')}</button>
+                      </>)}
+                    {/* ★ 버튼을 숨기면 이유만 남아 뜬금없다 — 함께 숨긴다. */}
+                    {SHOW_UNWIRED && (
+                      <div style={{fontSize:10.5, color:'var(--color-text-tertiary)', marginTop:4, flexBasis:'100%'}}>
                         {t('strat_needs_key')}
                       </div>
+                    )}
                     </>
                   )}
                 </div>

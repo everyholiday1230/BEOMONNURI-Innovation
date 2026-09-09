@@ -163,6 +163,73 @@
   window.AppErrorBoundary = AppErrorBoundary;
 
   /*
+     ★★★ **화면별 오류 경계.**
+
+       예전에는 AppErrorBoundary 가 **루트 한 곳에만** 걸려 있었다. 그래서 한 화면의
+       렌더 예외가 **앱 전체를 지웠다** — 실측: /points 를 깨뜨리니 본문 1,933자 →
+       219자, 헤더·내비 요소 2개 → **0개**. 고객은 아무 데도 갈 수 없는 상태가 된다.
+
+     ★ 이 경계는 **셸을 살려 둔 채 그 화면만** 폴백으로 바꾼다. 그러면 고객은
+       다른 메뉴로 이동해 계속 쓸 수 있다 — 거래 중 화면 하나가 깨졌을 때 포지션을
+       못 닫는 상황을 막는다.
+
+     ★ 폴백을 **작게** 만든다. 루트 경계처럼 전체 화면 안내를 넣으면 셸 안에서
+       두 번 겹쳐 보인다. 여기서는 한 문장 + 다시 시도 버튼이면 된다.
+
+     ★ `resetKey` 가 바뀌면 오류 상태를 스스로 푼다. 이것이 없으면 한 번 깨진 뒤
+       **다른 화면으로 갔다 돌아와도 계속 폴백**이 보인다(경계는 자식이 바뀌어도
+       오류 상태를 유지한다). 라우트 경로를 키로 넘긴다.
+
+     ★ 보고는 루트와 같은 report() 를 쓴다 — 경로가 갈라지면 한쪽만 서버에 남는다.
+  */
+  class RouteErrorBoundary extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = { hasError: false, error: null, key: props.resetKey };
+      this.retry = this.retry.bind(this);
+    }
+
+    static getDerivedStateFromError(error) {
+      return { hasError: true, error: error };
+    }
+
+    /*
+       ★ 라우트가 바뀌면 오류를 푼다. getDerivedStateFromProps 로 처리해야
+         "깨진 화면 → 다른 화면" 이동이 즉시 반영된다.
+    */
+    static getDerivedStateFromProps(props, state) {
+      if (props.resetKey !== state.key) return { hasError: false, error: null, key: props.resetKey };
+      return null;
+    }
+
+    componentDidCatch(error, info) {
+      report(error, info);
+      // eslint-disable-next-line no-console
+      console.error('[RouteErrorBoundary] 화면 렌더 중 예외 (' + String(this.props.resetKey) + '):', error, info);
+    }
+
+    retry() {
+      this.setState({ hasError: false, error: null });
+    }
+
+    render() {
+      if (!this.state.hasError) return this.props.children;
+      return React.createElement(
+        'div',
+        { className: 'route-error', role: 'alert', style: { padding: '24px 18px', maxWidth: 520 } },
+        React.createElement('div', { style: { fontWeight: 600, marginBottom: 6 } },
+          tt('err_route_title', '이 화면을 표시하지 못했습니다')),
+        React.createElement('div', { style: { fontSize: 13, opacity: 0.75, marginBottom: 12 } },
+          tt('err_route_body', '다른 메뉴는 그대로 쓸 수 있습니다. 다시 시도해 보세요.')),
+        React.createElement('button', { className: 'btn btn--sm btn--primary', onClick: this.retry },
+          tt('err_route_retry', '다시 시도')),
+      );
+    }
+  }
+
+  window.RouteErrorBoundary = RouteErrorBoundary;
+
+  /*
      ★★ 전역 오류 보고. 이것이 없어서 관측성이 **사실상 없었다.**
 
        확인한 사실: 로컬 실서비스 구성(Postgres)에서 브라우저에 미처리 오류를

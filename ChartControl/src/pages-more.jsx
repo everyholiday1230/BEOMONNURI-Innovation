@@ -10,6 +10,12 @@
    ============================================================ */
 
 (function () {
+  /*
+     ★ 배선되지 않은 조작 요소 표시 여부. mock-policy 가 단일 진상이다(기본 false).
+       pages-user.jsx 와 **같은 식**을 쓴다 — 두 화면이 서로 다른 판정을 하면
+       한쪽만 숨겨져 더 헷갈린다.
+  */
+  var SHOW_UNWIRED = !!(window.QTMockPolicy && window.QTMockPolicy.showUnwired && window.QTMockPolicy.showUnwired());
   const { useState, useEffect } = React;
 
   // 번역 조회. 사전(src/locales/*.js)이 단일 출처이며 코드에 문자열을 두지 않는다.
@@ -1862,7 +1868,18 @@
               <div className="input-group"><span className="input-group__label">{t('fld_position_size')}</span><input aria-label={t('fld_position_size')} defaultValue="100" disabled/><span className="input-group__suffix">USDT</span></div>
               <div className="input-group"><span className="input-group__label">{t('fld_max_concurrent')}</span><input aria-label={t('fld_max_concurrent')} defaultValue="3" disabled/><span className="input-group__suffix">positions</span></div>
               <div className="input-group"><span className="input-group__label">{t('fld_stop_copy_dd')}</span><input aria-label={t('fld_stop_copy_dd')} defaultValue="10" disabled/><span className="input-group__suffix">%</span></div>
-              <button aria-label={t('bt_autocopy_absent')} className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
+              {/*
+                   ★★★ **자동 복사 기능이 없는데 버튼을 보여줬다.** 조건 없이 disabled 다.
+
+                     aria-label 로 "사용할 수 없다" 를 말하지만, 그것은 **화면 읽기 프로그램에만**
+                     들린다. 눈으로 보는 고객에게는 회색 버튼 하나가 있을 뿐이다.
+
+                   ★ 운영자 지침대로 숨긴다 — 없는 기능은 자리도 차지하지 않는다.
+                     마크업은 남겨 둔다(되살릴 때 다시 만들지 않게).
+              */}
+              {SHOW_UNWIRED && (
+                <button aria-label={t('bt_autocopy_absent')} className="btn" disabled title={t('bt_autocopy_absent')}>{t('strat_save_settings')}</button>
+              )}
             </div>
           </window.SectionCard>
         )}

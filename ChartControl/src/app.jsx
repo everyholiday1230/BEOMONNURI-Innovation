@@ -2059,6 +2059,27 @@
         {!isTradeRoute && (
           <div style={{gridColumn: '1 / -1', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0}}>
             <div style={{flex: 1, minHeight: 0, overflow: 'auto'}}>
+            {/*
+                 ★★★ **화면별 오류 경계.**
+
+                   예전에는 오류 경계가 **루트 한 곳에만** 있었다. 그래서 한 화면의 렌더
+                   예외가 **앱 전체를 지웠다** — 실측: /points 를 깨뜨리니 본문 1,933자 →
+                   219자, 헤더·내비 요소 2개 → **0개**. 고객은 아무 데도 갈 수 없다.
+                   거래 중이라면 포지션을 닫으러 갈 수조차 없다.
+
+                 ★ 여기서 감싸면 셸(헤더·내비·사이드바)은 살아 있고 **그 화면만** 폴백이
+                   된다. 다른 메뉴로 이동해 계속 쓸 수 있다.
+
+                 ★ resetKey 에 경로를 준다. 이것이 없으면 한 번 깨진 뒤 다른 화면으로
+                   갔다 돌아와도 **계속 폴백**이 보인다(경계는 자식이 바뀌어도 오류
+                   상태를 유지한다).
+
+                 ★ 경계가 없으면(스크립트 로드 실패 등) 감싸지 않고 그대로 렌더한다 —
+                   경계 때문에 화면이 안 나오는 일은 없어야 한다.
+            */}
+            {(() => {
+              const RB = window.RouteErrorBoundary;
+              const body = (<>
             {/* USER PAGES */}
             {route.path === '/markets'        && <window.MarketsPage        shellProps={shellProps}/>}
             {route.path === '/ai-strategies'  && <window.AIStrategiesPage   shellProps={shellProps}/>}
@@ -2125,6 +2146,10 @@
             {route.path === '/admin/cs'           && <window.AdminCSTicketPage   shellProps={shellProps} ticketId={route.query.id}/>}
 
             {/* NotFound is handled in the isAuthRoute block above */}
+              </>);
+              /* ★ 경계가 없으면 그대로 렌더한다 — 경계 때문에 화면이 안 나오면 안 된다. */
+              return RB ? <RB resetKey={route.path}>{body}</RB> : body;
+            })()}
             </div>
             <window.AppFooter/>
           </div>
