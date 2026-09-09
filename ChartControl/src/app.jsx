@@ -782,7 +782,21 @@
     const [overlays, setOverlays] = useState([]);
     const activeSymbolKey = market.base + market.quote;
     const addOverlay = useCallback((ov) => setOverlays(prev => [...prev.filter(x => x.id !== ov.id), { symbol: activeSymbolKey, ...ov }]), [activeSymbolKey]);
-    const updateOverlay = useCallback((id, patch) => setOverlays(prev => prev.map(o => o.id === id ? { symbol: o.symbol, ...patch } : o)), []);
+    /*
+       ★★ **부분 수정이 오버레이를 통째로 날렸다.**
+
+         `{ symbol: o.symbol, ...patch }` 였다. 즉 patch 에 없는 필드는 **전부 사라진다.**
+         "이 선 색만 빨갛게 바꿔줘" 를 하면 결과가 `{ symbol, color }` 가 되어
+         id·type·points 가 없어진다 → 선이 화면에서 사라지거나 렌더가 깨진다.
+
+       ★ AI 의 updateOverlay 명령이 이 경로를 쓴다. 즉 AI 에게 선 수정을 부탁하면
+         선이 없어졌다. 삭제를 부탁한 것이 아닌데 삭제된다.
+
+       ★ patch 는 이름 그대로 **부분** 수정이다. 기존 값 위에 덮어써야 한다.
+       ★ id 는 patch 가 덮어쓰지 못하게 마지막에 고정한다. id 가 바뀌면 다음 수정·삭제가
+         대상을 찾지 못하고, 화면에는 같은 선이 두 개로 보인다.
+    */
+    const updateOverlay = useCallback((id, patch) => setOverlays(prev => prev.map(o => o.id === id ? { ...o, ...patch, id: o.id } : o)), []);
     const removeOverlay = useCallback((id) => setOverlays(prev => prev.filter(o => o.id !== id)), []);
     const clearAIOverlays = useCallback(() => setOverlays(prev => prev.filter(o => o.source !== 'ai-draft' && o.source !== 'ai-approved')), []);
 

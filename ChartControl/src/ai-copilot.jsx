@@ -656,7 +656,15 @@
       try {
         const r = await api.savedCreate({
           kind: 'signal',
-          name: `${sym || 'signal'} ${currentSignal.direction || ''}`.trim(),
+          /*
+             ★ 옛 필드(currentSignal.direction)를 읽고 있었다 — 값이 없어 이름이
+               'BTCUSDT' 로만 저장됐다. 방향을 말한 경우에만 붙이고, 양방향 제시면
+               붙이지 않는다(고르지 않은 방향이 기록에 남으면 안 된다).
+          */
+          name: `${sym || 'signal'} ${(() => {
+            const s = Array.isArray(currentSignal.sides) ? currentSignal.sides : [];
+            return s.length === 1 && s[0].direction ? s[0].direction : '';
+          })()}`.trim(),
           symbol: sym || undefined,
           timeframe: context.tf,
           payload: currentSignal,
@@ -681,8 +689,26 @@
          ★ 방향은 현재가 기준으로 정한다. 위/아래를 잘못 고르면 알림이 즉시 발동하거나
            영원히 안 온다.
       */
-      const zone = Array.isArray(currentSignal.entryZone) ? currentSignal.entryZone.map(Number) : [];
-      const target = zone.length ? (currentSignal.direction === 'short' ? Math.max(...zone) : Math.min(...zone)) : null;
+      /*
+         ★★ **이 버튼이 절대 동작하지 않았다.** 옛 필드를 읽고 있었다.
+
+           `currentSignal.entryZone` 은 두 번의 구조 변경 전에 없어진 필드다
+           (entryZone → entry → sides[].entry). 그래서 `zone` 이 항상 빈 배열이 되고,
+           바로 아래 검사에서 매번 걸려 "알림 가격이 없다" 만 떴다.
+
+         ★ 조용히 실패한 것이 아니라 **오류를 띄우며** 실패했으므로 고객은 자기 셋업에
+           문제가 있는 줄 알았다. 실제로는 화면 코드가 없는 필드를 읽은 것이다.
+
+         ★★ 양방향 제시(sides 2개)일 때는 알림을 만들지 않는다. 어느 방향의 진입가로
+           걸어야 하는지 코드가 고를 수 없고, 고르면 그것이 방향 발신이 된다.
+           주문 초안과 같은 이유다.
+
+         ★ 진입가 한 점을 알림 가격으로 쓴다. 위 주석의 "구간의 가까운 쪽" 은 옛 구조
+           기준이다 — 진입가는 이제 구간이 아니라 고객이 입력한 한 점이다.
+      */
+      const alertSides = Array.isArray(currentSignal.sides) ? currentSignal.sides : [];
+      if (alertSides.length !== 1) { setSigNote({ ok: false, text: t('ai_pick_direction_first') }); return; }
+      const target = Number(alertSides[0].entry);
       if (!target || !Number.isFinite(target)) { setSigNote({ ok: false, text: t('ai_alert_no_price') }); return; }
       const last = Number(context.price);
       const direction = Number.isFinite(last) ? (target >= last ? 'above' : 'below') : 'above';
