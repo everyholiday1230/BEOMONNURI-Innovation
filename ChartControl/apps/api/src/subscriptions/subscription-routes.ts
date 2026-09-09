@@ -180,9 +180,28 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
         cancelUrl: `${base}/#/points?sub=cancel`,
       });
       /*
-         ★ 아직 구독을 기록하지 않는다. 승인 전 상태(APPROVAL_PENDING)를 'active' 로
-           저장하면 결제하지 않은 고객이 유료 기능을 쓰게 된다.
+         ★★★ 승인 대기를 **기록한다.** 접근권은 주지 않는다.
+
+           예전에는 아무것도 저장하지 않고 구독 id 를 화면에만 돌려줬다. 승인 전
+           상태를 'active' 로 저장하면 안 된다는 판단은 맞았지만, 반대쪽에 구멍이
+           있었다 — 고객이 PayPal 에서 승인을 마친 뒤 브라우저를 닫으면 **요금은
+           청구되는데 우리에겐 기록도 단서도 없었다.** 되찾을 방법이 없었다.
+
+         ★ 'pending' 은 entitled 를 켜지 않는다(active + 기간으로만 판단). 이 기록의
+           목적은 나중에 PayPal 에 대조해 되찾는 것이다.
+
+         ★ 기록 실패가 결제를 막지는 않는다 — 이미 PayPal 쪽 구독은 만들어졌다.
+           대신 로그를 남긴다(markPending 안에서).
       */
+      if (d.repo && sub.providerRef) {
+        await d.repo.markPending({
+          userId: a.user.id,
+          planCode: body.planCode,
+          provider: 'paypal',
+          providerRef: sub.providerRef,
+        });
+      }
+
       return c.json({
         ok: true,
         provider: 'paypal',

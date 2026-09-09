@@ -44,6 +44,7 @@ Postgres 표 108개 · SQLite 표 74개
 | `trade_decisions` `trade_outcomes` | 판단 기록·결과 귀속(학습 데이터) |
 | `learning_subjects` `learning_exports` | 학습 데이터 집계·반출 |
 | `equity_snapshots` | 자산 추이 |
+| `payment_webhook_events` | 결제 웹훅 중복 처리 방지(멱등성 기록). 개발에서는 웹훅을 받지 않으므로 꺼진다 — 승인 대기 대조는 PayPal 자격증명이 있을 때만 돌고, 없으면 부팅 로그에 그 사실을 남긴다 |
 | `price_alerts` | 가격 알림 |
 | `chart_templates` | 차트 서식 저장 |
 | `subscriptions` | 월정액 구독 — 플랜 확인·해지·월 포인트 충전. 없으면 `/api/me/subscription` 이 `available:false` 로 답한다(무료라고 단정하지 않는다). 요금제 목록(`/api/plans`)은 코드 상수라 SQLite 에서도 보인다 |

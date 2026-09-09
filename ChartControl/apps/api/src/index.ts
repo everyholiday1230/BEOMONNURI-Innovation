@@ -37,6 +37,8 @@ import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
 import { createSubscriptionRouter } from './subscriptions/subscription-routes';
 import { PgSubscriptionRepo } from './subscriptions/subscription-repo';
+import { startSubscriptionReconciler } from './subscriptions/subscription-reconcile';
+import { grantMonthlyPointsIfDue } from './subscriptions/subscription-routes';
 import { readPlanMapping, verifyPlanAmounts, type PaidPlanCode } from './subscriptions/paypal-plans';
 import type { PlanCode } from './subscriptions/plans';
 import { createPointsRouter } from './points/points-routes';
@@ -2587,6 +2589,63 @@ if (env.authEnabled) {
         cancelSubscription: (ref: string, reason: string) => paypalProvider.cancelSubscription(ref, reason),
       }
       : null;
+
+    /*
+       ★★★ 승인 대기 대조 작업.
+
+         confirm 은 **고객의 브라우저가 돌아와야** 실행된다. 돌아오지 못하면 PayPal
+         쪽은 ACTIVE 로 요금이 청구되는데 우리 DB 는 'pending' 에 머물러 접근권이
+         없다. 고객은 "돈 냈는데 왜 안 되냐" 고 문의한다. 탭을 닫거나, 모바일에서
+         앱 전환 중 세션이 끊기거나, 리디렉트가 실패하면 생긴다.
+
+       ★ 그래서 서버가 스스로 PayPal 에 물어 활성화한다. **웹훅 등록 같은 외부 설정이
+         전혀 필요 없다** — 우리가 만든 구독 id 를 이미 저장해 두었기 때문이다.
+
+       ★ 활성화 처리는 confirm 과 **같아야 한다** — 기간 반영 + 포인트 지급.
+         한쪽만 고치면 어느 경로로 들어왔는지에 따라 고객이 받는 것이 달라진다.
+    */
+    if (subscriptionRepo && paypalProvider) {
+      startSubscriptionReconciler(
+        subscriptionRepo,
+        { getSubscription: (ref: string) => paypalProvider.getSubscription(ref) },
+        {
+          activate: async (i) => {
+            const now = Date.now();
+            const nextMs = i.nextBillingAt ? Date.parse(i.nextBillingAt) : NaN;
+            /* ★ confirm 과 같은 규칙. 다음 청구일을 못 읽으면 31일로 둔다. */
+            const periodEnd = Number.isFinite(nextMs) && nextMs > now
+              ? nextMs
+              : now + 31 * 24 * 3600 * 1000;
+            const ok = await subscriptionRepo.upsert({
+              userId: i.userId,
+              planCode: i.planCode,
+              periodStart: now,
+              periodEnd,
+              provider: 'paypal',
+              providerRef: i.providerRef,
+            });
+            /*
+               ★ 기록 실패는 **던진다.** 그래야 pending 으로 남아 다음 회차가 다시
+                 시도한다. 조용히 넘기면 고객은 결제한 채로 방치된다.
+            */
+            if (!ok) throw new Error('구독 기록(upsert)에 실패했다');
+            if (pointsRepo) {
+              const g = await grantMonthlyPointsIfDue(subscriptionRepo, pointsRepo, i.userId, now);
+              /*
+                 ★ 포인트 지급 실패가 구독을 되돌리지는 않는다(결제는 유효하다).
+                   다만 크게 남긴다 — 고객이 받아야 할 것을 못 받은 상태다.
+              */
+              if ('failed' in g) {
+                console.error(`[subscription] ★ 대조 활성화 후 포인트 지급 실패 user=${i.userId}: ${g.failed}`);
+              }
+            }
+          },
+        },
+      );
+      console.log('[subscription] 승인 대기 대조 작업 시작 — 브라우저가 돌아오지 않은 결제를 15분마다 확인한다.');
+    } else if (subscriptionRepo && !paypalProvider) {
+      console.log('[subscription] 승인 대기 대조 미가동 — PayPal 자격증명이 없다.');
+    }
 
     app.route('/api', createSubscriptionRouter({
       service: authService,
