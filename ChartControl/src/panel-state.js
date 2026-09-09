@@ -46,11 +46,11 @@
        (pending.css 의 .qt-ai-collapsed 규칙).
   */
   /*
-     ★★ **48열 기준 2칸**이다(2026-09-09). 그리드를 24 → 48 열로 올렸으므로 예전
+     ★★ **96열 기준 4칸**이다. 그리드를 24 → 48 → 96 열로 올렸으므로 예전 24열의
        1칸과 같은 실제 폭이다. 1 로 두면 접힌 패널이 절반 폭이 되어 접기 버튼이
        들어가지 않는다.
   */
-  const COLLAPSED_W = 2;
+  const COLLAPSED_W = 4;
 
   function emit() {
     listeners.forEach((fn) => {

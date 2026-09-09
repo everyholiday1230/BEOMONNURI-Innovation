@@ -15,10 +15,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-const COLS = 48;
+const COLS = 96;
 const ROWS = 16;
 /** panel-state.js 의 COLLAPSED_W 와 같아야 한다. */
-const COLLAPSED_W = 2;
+const COLLAPSED_W = 4;
 
 interface W { id: string; type: string; x: number; y: number; w: number; h: number }
 

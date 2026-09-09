@@ -225,16 +225,20 @@
   flex: 1;
   display: grid;
   /*
-     ★★ 48열이다(예전 24열).
+     ★★ 96열이다(24 → 48 → 96 으로 두 번 올렸다).
 
-       24열이면 1920px 화면에서 한 칸이 약 71px 이다. 즉 크기를 조절할 때 마우스를
-       71px 움직여야 한 칸이 바뀌어 **뚝뚝 끊기는 느낌**이 난다. 48열로 올리면 한 칸이
-       약 35px 이 되어 훨씬 부드럽다.
+       한 칸이 커야 조절이 거칠어진다. 1864px 화면 기준:
+         24열 → 한 칸 78px   (마우스 78px 움직여야 한 칸)
+         48열 → 39px         (그래도 "미끄러진다" 는 보고)
+         96열 → **약 20px**
+
+       ★ 열을 늘려도 패널 사이 여백은 그대로다(6px). 여러 칸을 차지하는 패널이
+         내부 여백을 흡수하므로 전체 폭도 손실되지 않는다.
 
      ★ 프리셋 좌표(x·w·minW)도 함께 두 배로 바꿨다. 한쪽만 바꾸면 배치가 절반으로
        쪼그라든다.
   */
-  grid-template-columns: repeat(48, 1fr);
+  grid-template-columns: repeat(96, 1fr);
   grid-auto-rows: 40px;
   gap: var(--grid-gap);
   padding: var(--grid-gap);
@@ -256,7 +260,7 @@
   background-image:
     linear-gradient(to right, var(--color-border-subtle) 1px, transparent 1px),
     linear-gradient(to bottom, var(--color-border-subtle) 1px, transparent 1px);
-  background-size: calc((100% - 48 * var(--grid-gap)) / 48 + var(--grid-gap)) 40px;
+  background-size: calc((100% - 96 * var(--grid-gap)) / 96 + var(--grid-gap)) 40px;
   pointer-events: none;
   opacity: 0.35;
   z-index: 0;

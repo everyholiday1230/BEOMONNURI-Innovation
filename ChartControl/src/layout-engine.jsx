@@ -179,7 +179,7 @@
   }
 
   /** 성립하는 최대 확대를 찾는다. 하나도 안 되면 원래 배치를 그대로 돌려준다. */
-  function resolveGrowth(before, others, dir, want, cols = 48) {
+  function resolveGrowth(before, others, dir, want, cols = 96) {
     for (let k = want; k >= 1; k -= 1) {
       const r = buildGrowth(before, others, dir, k, cols);
       if (r) return r;
@@ -187,7 +187,7 @@
     return { target: { ...before }, others: others.map((o) => ({ ...o })) };
   }
 
-  function findFreeSpot(widgets, w, h, cols = 48) {
+  function findFreeSpot(widgets, w, h, cols = 96) {
     for (let y = 0; y < 40; y++) {
       for (let x = 0; x <= cols - w; x++) {
         const trial = { x, y, w, h, id: '__probe__' };
@@ -198,7 +198,7 @@
   }
 
     /*
-     ★★ minW 는 **48열 기준**이다(2026-09-09). 그리드를 24 → 48 열로 올렸다.
+     ★★ minW 는 **96열 기준**이다. 그리드를 24 → 48 → 96 열로 올렸다.
 
        24열이면 1920px 화면에서 한 칸이 약 71px 이라, 크기를 조절할 때 마우스를 71px
        움직여야 한 칸이 바뀌어 뚝뚝 끊겼다. 48열이면 약 35px 이다.
@@ -210,7 +210,7 @@
        가로만큼 끊기지 않았다.
   */
 const DEFAULT_WIDGET_META = {
-    marketWatch:  { minW: 6, minH: 6,  name: 'Market Watch' },
+    marketWatch:  { minW: 12, minH: 6,  name: 'Market Watch' },
     /*
        ★★ chart 최소폭을 8 → 6 으로 낮춘다.
 
@@ -221,19 +221,19 @@ const DEFAULT_WIDGET_META = {
        ★ 두 곳(프리셋·이 메타)이 갈리면 같은 문제가 다시 생긴다. 테스트가 두 값의
          일치를 검사한다.
     */
-    chart:        { minW: 12, minH: 6,  name: 'Main Chart' },
-    orderBook:    { minW: 6, minH: 6,  name: 'Order Book' },
-    recentTrades: { minW: 6, minH: 3,  name: 'Recent Trades' },
-    orderEntry:   { minW: 6, minH: 8,  name: 'Order Entry' },
-    positions:    { minW: 16, minH: 3,  name: 'Positions & Orders' },
-    assetsRisk:   { minW: 6, minH: 3,  name: 'Assets · Risk' },
-    aiCopilot:    { minW: 10, minH: 10, name: t('ai_copilot_title') },
-    miniChart:    { minW: 8, minH: 6,  name: 'Mini Chart' },
+    chart:        { minW: 24, minH: 6,  name: 'Main Chart' },
+    orderBook:    { minW: 12, minH: 6,  name: 'Order Book' },
+    recentTrades: { minW: 12, minH: 3,  name: 'Recent Trades' },
+    orderEntry:   { minW: 12, minH: 8,  name: 'Order Entry' },
+    positions:    { minW: 32, minH: 3,  name: 'Positions & Orders' },
+    assetsRisk:   { minW: 12, minH: 3,  name: 'Assets · Risk' },
+    aiCopilot:    { minW: 20, minH: 10, name: t('ai_copilot_title') },
+    miniChart:    { minW: 16, minH: 6,  name: 'Mini Chart' },
   };
 
   // ---------- Main hook ----------
   /** 지금 격자의 열 수. 프리셋·CSS(widgets.css 의 grid-template-columns)와 같아야 한다. */
-  const GRID_COLS = 48;
+  const GRID_COLS = 96;
 
   /**
    * 저장된 레이아웃을 지금 격자에 맞춘다.
@@ -483,7 +483,7 @@ const DEFAULT_WIDGET_META = {
             let cur = { ...target };
             let rest = prev.widgets.filter(w => !w.hidden && w.id !== id).map(w => ({ ...w }));
             for (const [dir, want] of dirs) {
-              const r = resolveGrowth(cur, rest, dir, want, prev.cols || 48);
+              const r = resolveGrowth(cur, rest, dir, want, prev.cols || 96);
               cur = r.target; rest = r.others;
             }
             const { _from: _f, _dir: _d, ...restPartial } = partial;
@@ -641,7 +641,7 @@ const DEFAULT_WIDGET_META = {
     }, []);
 
     const addWidget = useCallback((type) => {
-      const meta = DEFAULT_WIDGET_META[type] || { minW: 8, minH: 6 };
+      const meta = DEFAULT_WIDGET_META[type] || { minW: 16, minH: 6 };
       setLayout(prev => {
         const others = prev.widgets.filter(x => !x.hidden);
         const w = Math.max(meta.minW, type === 'chart' ? 12 : 6);
@@ -671,7 +671,7 @@ const DEFAULT_WIDGET_META = {
   // WIDGET WRAPPER — handles drag/resize on grid
   // ============================================================
   window.WidgetHost = function WidgetHost({
-    widget, cols = 48, rowH = 40, gap = 6,
+    widget, cols = 96, rowH = 40, gap = 6,
     isEditing, isLocked, isSelected, onChange,
     /** 크기 조절이 끝났을 때 호출된다 — 상위가 레이아웃을 저장한다. */
     onResizeEnd,
@@ -801,9 +801,23 @@ const DEFAULT_WIDGET_META = {
     useEffect(() => {
       if (!resize) return;
       const onMove = (e) => {
-        const dx = Math.round((e.clientX - resize.x0) / (resize.cellW + gap));
-        const dy = Math.round((e.clientY - resize.y0) / (resize.cellH + gap));
-        const minW = widget.minW || 6;
+        /*
+           ★★ **반올림하지 않는다.** 커서가 한 칸을 완전히 지난 뒤에만 한 칸 움직인다.
+
+             예전에는 `Math.round` 였다. 그러면 한 칸(약 39px)의 **절반만** 움직여도
+             한 칸이 바뀐다 — 패널 경계가 커서를 앞질러 가고, 손에는 "미끄러진다" 로
+             느껴진다. 실측: 마우스 20px 이동에 패널이 38px 커졌다.
+
+             버림으로 바꾸면 경계가 커서를 따라오다 칸 경계에서 딱 걸린다. 같은 격자,
+             같은 칸 크기인데 조작감이 달라진다.
+
+           ★ 음수(왼쪽·위로 끌기)도 0 쪽으로 버려야 한다. `Math.floor(-0.6)` 은 -1 이라
+             반올림과 같아진다. 그래서 `Math.trunc` 를 쓴다.
+        */
+        const step = (delta, size) => Math.trunc(delta / (size + gap));
+        const dx = step(e.clientX - resize.x0, resize.cellW);
+        const dy = step(e.clientY - resize.y0, resize.cellH);
+        const minW = widget.minW || 12;
         const minH = widget.minH || 3;
         let nw = resize.ow, nh = resize.oh, nx = resize.ox, ny = resize.oy;
         if (resize.dir.includes('e')) {

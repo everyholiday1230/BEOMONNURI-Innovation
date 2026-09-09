@@ -53,19 +53,19 @@ const OLD_24 = {
 describe('저장 레이아웃 열 수 환산', () => {
   it('24열 저장본을 48열로 환산한다', () => {
     const out = migrate(OLD_24);
-    expect(out.cols).toBe(48);
+    expect(out.cols).toBe(96);
     const by = (id: string) => out.widgets.find((w) => w.id === id)!;
-    expect(by('market').w).toBe(8);
-    expect(by('chart').x).toBe(8);
-    expect(by('chart').w).toBe(14);
-    expect(by('orderEntry').x).toBe(40);
-    expect(by('assets').w).toBe(8);
+    expect(by('market').w).toBe(16);
+    expect(by('chart').x).toBe(16);
+    expect(by('chart').w).toBe(28);
+    expect(by('orderEntry').x).toBe(80);
+    expect(by('assets').w).toBe(16);
   });
 
   it('★ 환산 후 오른쪽 끝까지 채운다 (절반만 차지 않는다)', () => {
     const out = migrate(OLD_24);
     const right = Math.max(...out.widgets.map((w) => w.x + w.w));
-    expect(right, `오른쪽 끝이 ${right} 이다 — 48 이어야 화면을 꽉 채운다`).toBe(48);
+    expect(right, `오른쪽 끝이 ${right} 이다 — 48 이어야 화면을 꽉 채운다`).toBe(96);
   });
 
   it('minW 도 함께 환산한다', () => {
@@ -74,12 +74,12 @@ describe('저장 레이아웃 열 수 환산', () => {
          있게 된다(주문 패널이 읽을 수 없을 만큼 좁아진다).
     */
     const out = migrate(OLD_24);
-    expect(out.widgets.find((w) => w.id === 'chart')!.minW).toBe(12);
-    expect(out.widgets.find((w) => w.id === 'ai')!.minW).toBe(10);
+    expect(out.widgets.find((w) => w.id === 'chart')!.minW).toBe(24);
+    expect(out.widgets.find((w) => w.id === 'ai')!.minW).toBe(20);
   });
 
   it('이미 48열이면 그대로 둔다 (반올림 누적 방지)', () => {
-    const already = { id: 'x', cols: 48, widgets: [{ id: 'a', x: 3, y: 0, w: 7, h: 5, minW: 5 }] };
+    const already = { id: 'x', cols: 96, widgets: [{ id: 'a', x: 3, y: 0, w: 7, h: 5, minW: 5 }] };
     const out = migrate(already);
     expect(out).toBe(already as unknown as typeof out);
   });
@@ -88,8 +88,8 @@ describe('저장 레이아웃 열 수 환산', () => {
     /* 48열 도입 전에는 전부 24열이었다. cols 가 없다고 손대지 않으면 절반만 찬다. */
     const noCols = { id: 'x', widgets: [{ id: 'a', x: 0, y: 0, w: 24, h: 16 }] };
     const out = migrate(noCols);
-    expect(out.cols).toBe(48);
-    expect(out.widgets[0]!.w).toBe(48);
+    expect(out.cols).toBe(96);
+    expect(out.widgets[0]!.w).toBe(96);
   });
 
   it('격자 밖으로 나가지 않는다', () => {
@@ -100,7 +100,7 @@ describe('저장 레이아웃 열 수 환산', () => {
     const edge = { id: 'x', cols: 24, widgets: [{ id: 'a', x: 23, y: 0, w: 2, h: 5 }] };
     const out = migrate(edge);
     for (const w of out.widgets) {
-      expect(w.x + w.w, `${w.id} 가 격자를 넘는다`).toBeLessThanOrEqual(48);
+      expect(w.x + w.w, `${w.id} 가 격자를 넘는다`).toBeLessThanOrEqual(96);
       expect(w.x).toBeGreaterThanOrEqual(0);
       expect(w.w).toBeGreaterThanOrEqual(1);
     }
@@ -124,10 +124,10 @@ describe('저장 레이아웃 열 수 환산', () => {
     /*
        ★★ 세 곳이 어긋나면 배치가 무너진다. 한 곳만 고치는 실수를 막는다.
     */
-    expect(src).toMatch(/const GRID_COLS = 48;/);
+    expect(src).toMatch(/const GRID_COLS = 96;/);
     const css = readFileSync(new URL('../../../../src/widgets.css', import.meta.url), 'utf-8');
-    expect(css).toContain('grid-template-columns: repeat(48, 1fr)');
+    expect(css).toContain('grid-template-columns: repeat(96, 1fr)');
     const mock = readFileSync(new URL('../../../../src/mock-data.js', import.meta.url), 'utf-8');
-    expect((mock.match(/cols: 48,/g) ?? []).length, '프리셋 cols 가 48 이 아니다').toBeGreaterThanOrEqual(4);
+    expect((mock.match(/cols: 96,/g) ?? []).length, '프리셋 cols 가 48 이 아니다').toBeGreaterThanOrEqual(4);
   });
 });
