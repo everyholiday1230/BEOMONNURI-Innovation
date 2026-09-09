@@ -130,8 +130,20 @@ for (const rel of files) {
   const outPath = join(OUT_DIR, outRel);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, code, 'utf8');
-  totalIn += src.length;
-  totalOut += code.length;
+  /*
+     ★★ **String.length 는 바이트가 아니다.** UTF-16 코드유닛 개수다.
+
+       이 코드베이스는 한국어 주석이 많다. 한글은 UTF-8 로 **3바이트**인데
+       String.length 로는 1로 센다. 실측: String.length 합 1,527,806 vs
+       실제 UTF-8 1,793,820 → **14.8% 과소보고.**
+
+       "바이트" 라고 찍어 놓고 실제보다 작게 말하면, 번들 크기를 줄이는 판단이
+       전부 어긋난다(작아 보이니 손댈 이유가 없어 보인다).
+
+     ★ Buffer.byteLength 로 실제 바이트를 센다.
+  */
+  totalIn += Buffer.byteLength(src, 'utf8');
+  totalOut += Buffer.byteLength(code, 'utf8');
 }
 
 const written = readdirSync(OUT_DIR).length;

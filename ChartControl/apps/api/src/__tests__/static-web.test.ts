@@ -179,6 +179,35 @@ describe('화이트리스트', () => {
       .toEqual([]);
   });
 
+  it('★★★ 마운트 가드가 지연 로드되는 전역을 기다리지 않는다', () => {
+    /*
+       ★★★ 실제로 일어난 사고다.
+
+         관리자 화면을 `#/admin` 일 때만 내려받도록 바꿨는데(69KB 절감) index.html 의
+         마운트 가드가 `window.Admin*` 6개를 **필수로 요구하고 있었다.** 일반 방문자는
+         조건이 영원히 만족되지 않아 6초 재시도 뒤
+         "Failed to load required scripts" 만 남았다 — **랜딩·로그인이 통째로 죽었다.**
+
+       ★★ 네트워크에는 4xx/5xx 가 **하나도 없었다.** 그래서 응답 코드만 보면 정상이다.
+         프로덕션에서 화면을 실제로 열어보고서야 발견했다.
+
+       ★ 규칙: 지연 로드하는 번들이 등록하는 전역은 마운트 가드에 있으면 안 된다.
+         여기서는 "가드에 Admin* 전역이 없다" 로 확인한다 — 지연 대상이 관리자뿐이므로
+         충분하고, 대상이 늘면 이 시험을 함께 고치게 된다.
+    */
+    const root = resolve(__dirname, '../../../..');
+    const html = readFileSync(join(root, 'index.html'), 'utf-8');
+    const guard = html.match(/if \(window\.App && [^\n]*/)?.[0] ?? '';
+    expect(guard, '마운트 가드를 찾지 못했다 — 시험이 낡았다').not.toBe('');
+    const admins = [...guard.matchAll(/window\.(Admin[A-Za-z]*)/g)].map((m) => m[1]);
+    expect(admins, `지연 로드되는 관리자 전역을 마운트 가드가 기다린다 → 화면이 뜨지 않는다: ${admins.join(', ')}`)
+      .toEqual([]);
+    /* ★ 그리고 관리자 번들이 실제로 지연 로드 방식인지도 확인한다 — 둘 중 하나만
+         맞으면 의미가 없다. */
+    expect(html, '관리자 번들이 다시 즉시 로드로 돌아갔다')
+      .not.toMatch(/<script[^>]*src="web-dist\/pages-admin(-more)?\.js"/);
+  });
+
   it('디자이너 산출물은 모두 포함된다', () => {
     // 하나라도 빠지면 화면이 깨진다. 서빙 대상이 조용히 줄어드는 것을 막는다.
     expect(STATIC_DIRS).toContain('src');

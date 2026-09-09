@@ -371,7 +371,23 @@
   -->
   <script>
     function tryMount(retries = 0) {
-      if (window.App && window.MarketWatch && window.SymbolHeader && window.ChartCanvas && window.AICopilot && window.useLayoutEngine && window.WidgetHost && window.TweaksPanel && window.Icons && window.PresetRibbon && window.WidgetLibrary && window.LayoutEditToolbar && window.PageShell && window.MarketsPage && window.AdminDashboardPage && window.LoginPage && window.SignupPage && window.LandingPage && window.KYCOnboardingPage && window.NotFoundPage && window.DepositPage && window.WithdrawPage && window.TransactionHistoryPage && window.StrategyDetailPage && window.ReferralPage && window.FeeRebatePage && window.HelpCenterPage && window.AdminUserDetailPage && window.AdminKYCQueuePage && window.AdminBroadcastPage && window.AdminNoticeEditorPage && window.AdminAssetsHiFiPage) {
+      /*
+         ★★★ **관리자 컴포넌트를 필수 목록에서 뺀다.**
+
+           관리자 화면을 `#/admin` 일 때만 내려받도록 바꿨는데(69KB 절감) 이 가드가
+           window.Admin* 6개를 **필수로 요구하고 있었다.** 그래서 일반 방문자에게는
+           조건이 절대 만족되지 않고, 6초 재시도 뒤
+           "Failed to load required scripts" 만 남았다 — **랜딩·로그인이 통째로 죽었다.**
+
+           프로덕션에서 실제로 열어보고서야 발견했다. 4xx/5xx 가 하나도 없어서
+           네트워크 로그로는 보이지 않았다.
+
+         ★ 관리자 전역은 지연 로드 뒤에 붙으므로 **여기서 기다리면 안 된다.**
+           라우트가 그려질 때 있으면 된다.
+
+         ★ 제외한 것: AdminDashboardPage, AdminUserDetailPage, AdminKYCQueuePage, AdminBroadcastPage, AdminNoticeEditorPage, AdminAssetsHiFiPage
+      */
+      if (window.App && window.MarketWatch && window.SymbolHeader && window.ChartCanvas && window.AICopilot && window.useLayoutEngine && window.WidgetHost && window.TweaksPanel && window.Icons && window.PresetRibbon && window.WidgetLibrary && window.LayoutEditToolbar && window.PageShell && window.MarketsPage && window.LoginPage && window.SignupPage && window.LandingPage && window.KYCOnboardingPage && window.NotFoundPage && window.DepositPage && window.WithdrawPage && window.TransactionHistoryPage && window.StrategyDetailPage && window.ReferralPage && window.FeeRebatePage && window.HelpCenterPage) {
         const root = ReactDOM.createRoot(document.getElementById('root'));
         // 전역 에러 바운더리로 감싼다 — 렌더 중 예외가 앱 전체를 검은 화면으로
         // 만들지 않고 복구 UI를 띄운다. 바운더리 로드 실패 시에는 그냥 App 을 띄운다.
