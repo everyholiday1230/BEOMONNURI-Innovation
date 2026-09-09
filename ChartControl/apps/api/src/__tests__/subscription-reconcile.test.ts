@@ -420,3 +420,59 @@ describe('★★★ 조회 성공과 "구독이 유효한가" 를 섞지 않는�
     expect(statusCalls).toHaveLength(0);
   });
 });
+
+describe('★★ confirm 은 두 번 불러도 포인트를 두 번 주지 않는다', () => {
+  const src = readFileSync(new URL('../subscriptions/subscription-routes.ts', import.meta.url), 'utf-8');
+
+  it('이미 활성이면 기간을 다시 쓰지 않는다', () => {
+    /*
+       ★★★ 샌드박스 실측에서 **실제로 두 번 지급됐다** — 같은 사용자에게 30,000pt 가
+         7초 간격으로(원장 ref_id 가 서로 달랐다).
+
+         원인: 매 호출이 `periodStart: now` 로 upsert 했다. claimMonthlyGrant 는
+         `last_grant_period <> current_period_start` 로 중복을 막는데, period_start 가
+         매번 바뀌면 새 주기로 오해해 또 지급한다.
+
+         이 경로는 실제로 두 번 불린다 — 복귀 화면 새로고침, 프런트엔드 재시도,
+         sessionStorage 와 URL 양쪽에서 단서를 찾아 각각 호출.
+
+       ★ 고침: 이미 이 구독으로 활성이면 아무것도 하지 않고 현재 상태를 돌려준다.
+         실측(승인 후 confirm 3회): granted 150000 → 0 → 0.
+    */
+    const at = src.indexOf('const existing = await d.repo.findByProviderRef(ref);');
+    expect(at, '멱등 검사가 없다').toBeGreaterThan(-1);
+    const seg = src.slice(at, at + 900);
+    expect(seg).toContain("existing.status === 'active'");
+    expect(seg, '소유자 대조가 없다').toContain('existing.userId === a.user.id');
+    expect(seg, '이미 처리됨을 알리지 않는다').toContain('alreadyActive: true');
+    expect(seg, '지급 0 을 명시하지 않는다').toContain('granted: 0');
+  });
+
+  it('멱등 검사가 upsert 보다 앞에 있다', () => {
+    /* ★ 뒤에 있으면 이미 기간을 덮어쓴 뒤라 의미가 없다. */
+    const guard = src.indexOf('const existing = await d.repo.findByProviderRef(ref);');
+    const upsert = src.indexOf('const ok = await d.repo.upsert({');
+    expect(guard).toBeGreaterThan(-1);
+    expect(upsert).toBeGreaterThan(-1);
+    expect(guard, '멱등 검사가 upsert 뒤에 있다').toBeLessThan(upsert);
+  });
+});
+
+describe('★ 복귀 URL 에서도 구독 id 를 읽는다', () => {
+  const ui = readFileSync(new URL('../../../../src/pages-points.jsx', import.meta.url), 'utf-8');
+
+  it('sessionStorage 가 비어도 subscription_id 로 확인한다', () => {
+    /*
+       ★★ 예전에는 sessionStorage 만 봤다. 그런데 PayPal 은 복귀 URL 에
+         `?subscription_id=I-...` 를 붙여 준다. sessionStorage 는 새 탭·모바일 앱
+         전환·시크릿 모드에서 비어 있다. 그러면 **결제는 됐는데 확인이 안 된다.**
+       ★ URL 값을 믿어도 안전하다 — confirm 이 PayPal 에 물어 ACTIVE 를 확인하고
+         custom_id 로 소유자까지 대조한다(NOT_YOURS).
+    */
+    expect(ui).toContain("q.get('subscription_id')");
+    const at = ui.indexOf("sessionStorage.getItem(REF_KEY)");
+    expect(at).toBeGreaterThan(-1);
+    const seg = ui.slice(at, at + 900);
+    expect(seg, 'URL 대체 경로가 없다').toContain('subscription_id');
+  });
+});

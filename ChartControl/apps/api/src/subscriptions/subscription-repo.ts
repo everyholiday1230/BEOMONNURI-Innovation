@@ -190,18 +190,24 @@ export class PgSubscriptionRepo {
     }
   }
 
-  /** PayPal 구독 id 로 소유자와 상태를 찾는다. 웹훅·대조 작업이 쓴다. */
+  /** PayPal 구독 id 로 소유자·상태·기간을 찾는다. 웹훅·대조·confirm 멱등검사가 쓴다. */
   async findByProviderRef(providerRef: string): Promise<
-    { userId: string; planCode: string; status: string } | null
+    { userId: string; planCode: string; status: string; periodEnd: number } | null
   > {
     try {
       const r = await this.pool.query(
-        `SELECT user_id, plan_code, status FROM subscriptions WHERE provider_ref = $1`,
+        `SELECT user_id, plan_code, status, current_period_end
+           FROM subscriptions WHERE provider_ref = $1`,
         [providerRef],
       );
       if (!r.rowCount) return null;
       const x = r.rows[0]!;
-      return { userId: String(x.user_id), planCode: String(x.plan_code), status: String(x.status) };
+      return {
+        userId: String(x.user_id),
+        planCode: String(x.plan_code),
+        status: String(x.status),
+        periodEnd: ms(x.current_period_end),
+      };
     } catch {
       return null;
     }

@@ -289,6 +289,40 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
     const nextMs = sub.nextBillingAt ? Date.parse(sub.nextBillingAt) : NaN;
     const periodEnd = Number.isFinite(nextMs) && nextMs > now ? nextMs : now + 31 * 24 * 3600 * 1000;
 
+    /*
+       ★★★ **두 번 불러도 포인트가 두 번 지급되지 않게** 한다.
+
+         이 경로는 실제로 두 번 불린다:
+           · 고객이 복귀 화면을 새로고침한다
+           · 프런트엔드가 재시도한다(네트워크 불안정)
+           · sessionStorage 와 URL 양쪽에서 단서를 찾아 각각 호출된다
+
+         예전에는 매 호출이 `periodStart: now` 로 upsert 했다. claimMonthlyGrant 는
+         `last_grant_period <> current_period_start` 로 중복을 막는데, period_start 가
+         매번 바뀌면 **새 주기로 오해해 또 지급한다.**
+
+         샌드박스 실측에서 실제로 발생했다 — 같은 사용자에게 30,000pt 가 7초 간격으로
+         두 번 지급됐다(원장 ref_id 가 서로 달랐다).
+
+       ★ 그래서 **이미 이 구독으로 활성 상태면 아무것도 하지 않는다.** 기간을 다시
+         쓰지 않으므로 지급도 일어나지 않는다. 갱신(기간 연장)은 대조 작업이 맡는다.
+
+       ★ 플랜을 바꾼 경우는 PayPal 구독 id 가 새로 발급되므로 여기 걸리지 않는다 —
+         정상적으로 새 구독이 기록된다.
+    */
+    const existing = await d.repo.findByProviderRef(ref);
+    if (existing && existing.userId === a.user.id && existing.status === 'active') {
+      return c.json({
+        ok: true,
+        planCode: existing.planCode,
+        periodEnd: existing.periodEnd,
+        provider: 'paypal',
+        /* ★ 이미 처리된 요청임을 분명히 한다. 화면이 "또 지급됐다" 고 오해하면 안 된다. */
+        alreadyActive: true,
+        granted: 0,
+      });
+    }
+
     const ok = await d.repo.upsert({
       userId: a.user.id,
       planCode: code,

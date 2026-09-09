@@ -122,8 +122,38 @@
         }
         return;
       }
+      /*
+         ★★★ 구독 id 를 **두 곳에서** 찾는다.
+
+           예전에는 sessionStorage 만 봤다. 그런데 PayPal 은 복귀 URL 에
+           `?subscription_id=I-...` 를 붙여 준다. 그것을 무시하고 있었다.
+
+         ★ sessionStorage 는 다음 경우에 비어 있다:
+             · 고객이 PayPal 을 **새 탭**에서 열어 거기서 완료한 경우
+             · 모바일에서 PayPal 앱으로 넘어갔다가 새 탭으로 돌아온 경우
+             · 시크릿/프라이버시 모드, 저장 차단 설정
+           그러면 **결제는 됐는데 확인이 안 된다.** 대조 작업이 15분 뒤 구제하지만,
+           고객은 결제 직후 화면에서 아무 일도 안 일어난 것으로 본다.
+
+         ★★ URL 값을 믿어도 안전하다 — confirm 이 PayPal 에 직접 물어 ACTIVE 인지
+           확인하고, `custom_id` 로 소유자까지 대조해 남의 구독이면 NOT_YOURS 로
+           거부한다. 그 검사가 이미 서버에 있다. 그래서 여기서는 단서만 넘기면 된다.
+      */
       let ref = '';
       try { ref = sessionStorage.getItem(REF_KEY) || ''; } catch (e) { void e; }
+      if (!ref) {
+        try {
+          const q = new URLSearchParams(String(location.search || '').replace(/^\?/, ''));
+          ref = q.get('subscription_id') || '';
+        } catch (e) { void e; }
+      }
+      if (!ref) {
+        /* ★ 해시 뒤쪽 질의문자열에도 붙을 수 있다(라우팅 방식에 따라). */
+        try {
+          const hq = hash.split('?')[1] || '';
+          ref = new URLSearchParams(hq).get('subscription_id') || '';
+        } catch (e) { void e; }
+      }
       if (!ref) { setSubMsg(t('sub_confirm_no_ref')); return; }
       let dead = false;
       (async () => {
