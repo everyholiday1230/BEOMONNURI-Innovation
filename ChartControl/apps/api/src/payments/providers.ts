@@ -187,9 +187,23 @@ export class PayPalProvider {
     const body = (await res.json().catch(() => null)) as {
       id?: string; status?: string; links?: { rel: string; href: string }[];
       message?: string; name?: string;
+      /*
+         ★★ PayPal 은 어느 필드가 왜 틀렸는지 `details` 에 담아 준다. 예전에는 이것을
+           버리고 name/message 만 남겨서, 오류가 "Request is not well-formed" 뿐이었다.
+           그 문장만으로는 원인을 알 수 없다 — 실제로 return_url 이 상대 경로인 것을
+           찾는 데 시간을 썼다. 돈이 걸린 경로에서 진단 정보를 버리면 안 된다.
+      */
+      details?: { field?: string; issue?: string; description?: string }[];
+      debug_id?: string;
     } | null;
     if (!res.ok || !body?.id) {
-      throw new Error(`paypal subscription create failed: ${res.status} ${body?.name ?? ''} ${body?.message ?? ''}`.trim());
+      const detail = (body?.details ?? [])
+        .map((d) => [d.field, d.issue, d.description].filter(Boolean).join(' '))
+        .join(' | ');
+      throw new Error(
+        `paypal subscription create failed: ${res.status} ${body?.name ?? ''} ${body?.message ?? ''}`
+        + `${detail ? ` — ${detail}` : ''}${body?.debug_id ? ` (debug_id=${body.debug_id})` : ''}`.trimEnd(),
+      );
     }
     const approve = (body.links ?? []).find((l) => l.rel === 'approve');
     if (!approve?.href) throw new Error('paypal subscription created without approve link');
@@ -206,7 +220,11 @@ export class PayPalProvider {
    *   대조할 수 있어야 한다.
    */
   async getSubscription(providerRef: string): Promise<{
-    ok: boolean; status: string; customId?: string; planId?: string;
+    /** ACTIVE 인가. confirm 라우트가 이 의미로 쓴다. */
+    ok: boolean;
+    /** ★ 조회 자체가 됐는가. 통신 실패와 "승인 전·취소됨" 을 구별하려면 이것을 본다. */
+    lookupOk: boolean;
+    status: string; customId?: string; planId?: string;
     nextBillingAt?: string; startedAt?: string;
   }> {
     const token = await this.accessToken();
@@ -218,8 +236,29 @@ export class PayPalProvider {
       status?: string; custom_id?: string; plan_id?: string; start_time?: string;
       billing_info?: { next_billing_time?: string };
     } | null;
-    if (!res.ok || !body) return { ok: false, status: `http_${res.status}` };
+    /*
+       ★★★ **조회 성공**과 **구독이 유효한가**를 구별해서 돌려준다.
+
+         예전에는 `ok` 하나뿐이었고 그 뜻이 "ACTIVE 인가" 였다. 그래서 호출자가
+         `ok:false` 를 보면 그것이
+           · 통신 실패인지 (HTTP 500, 타임아웃)
+           · 조회는 됐지만 아직 승인 전인지 (APPROVAL_PENDING)
+           · 취소·정지된 것인지 (CANCELLED / SUSPENDED)
+         구별할 수 없었다.
+
+         실제로 그 때문에 대조 작업이 **승인 전·취소된 구독을 전부 '조회 실패' 로
+         처리했다.** 결과가 안전한 쪽(활성화 안 함)이라 눈에 잘 띄지 않았지만,
+         취소된 구독이 영원히 정리되지 않고 오류 로그만 쌓인다. 샌드박스로 실제
+         호출해 보고 발견했다 — PayPal 은 HTTP 200 + APPROVAL_PENDING 을 정상
+         반환하는데 우리가 ok:false 로 바꾸고 있었다.
+
+       ★ `lookupOk` 는 **조회 자체가 됐는가**다. 상태 판단은 호출자가 `status` 로 한다.
+       ★ `ok` 는 기존 뜻(ACTIVE)을 그대로 둔다 — confirm 라우트가 그 의미로 쓰고 있고,
+         거기서는 "ACTIVE 가 아니면 켜지 않는다" 가 정확한 규칙이다.
+    */
+    if (!res.ok || !body) return { ok: false, lookupOk: false, status: `http_${res.status}` };
     return {
+      lookupOk: true,
       /* ★ ACTIVE 만 유효하다. APPROVAL_PENDING·SUSPENDED·CANCELLED 는 권한을 주지 않는다. */
       ok: body.status === 'ACTIVE',
       status: body.status ?? 'unknown',

@@ -32,7 +32,14 @@ import type { PlanCode } from './plans';
  */
 export interface ReconcileProvider {
   getSubscription(providerRef: string): Promise<{
-    ok: boolean;
+    /**
+     * ★★ **조회 자체가 됐는가.** 구독이 유효한가가 아니다.
+     *
+     *   provider 의 `ok` 는 "ACTIVE 인가" 를 뜻한다. 그것을 조회 성공으로 오해하면
+     *   승인 전(APPROVAL_PENDING)·취소됨(CANCELLED)이 전부 "조회 실패" 가 되어
+     *   **상태 처리가 전혀 동작하지 않는다.** 실제로 그 버그를 샌드박스에서 겪었다.
+     */
+    lookupOk: boolean;
     status: string;
     planId?: string;
     nextBillingAt?: string;
@@ -114,7 +121,7 @@ export async function reconcilePendingOnce(
            넣으면 'wait' 로 떨어져 조용히 넘어가고, 오래되면 만료로 지워진다.
            고객의 유효한 결제를 장애 때문에 버리는 셈이다. 명시적으로 실패 처리한다.
       */
-      if (!got.ok) {
+      if (!got.lookupOk) {
         out.push({ providerRef: row.providerRef, action: 'lookup_failed', status: got.status });
         continue;
       }
@@ -306,7 +313,7 @@ export async function reconcileRenewalsOnce(
     /*
        ★ ok:false 는 조회 실패다. "구독이 없다" 로 보면 장애 때 유효한 구독을 끊는다.
     */
-    if (!got.ok) {
+    if (!got.lookupOk) {
       out.push({ providerRef: row.providerRef, action: 'lookup_failed', status: got.status });
       continue;
     }

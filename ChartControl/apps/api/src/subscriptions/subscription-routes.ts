@@ -166,7 +166,31 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
       );
     }
 
+    /*
+       ★★★ 절대 URL 이 없으면 **결제를 시작하지 않는다.**
+
+         예전에는 `(d.appBaseUrl ?? '')` 였다. 값이 없으면 base 가 빈 문자열이 되어
+         return_url 이 `/#/points?sub=return` — **상대 경로**가 된다. PayPal 은 그것을
+         거부하는데, 돌려주는 오류가 `400 INVALID_REQUEST "Request is not well-formed"`
+         뿐이라 **어느 필드가 문제인지 알 수 없다.** 샌드박스로 실제 호출해 보고서야
+         원인을 찾았다.
+
+       ★ 그러므로 여기서 먼저 막고 이유를 분명히 말한다. 고객에게는 "결제를 시작할 수
+         없다" 를, 로그에는 어느 환경변수가 없는지를 남긴다. PayPal 에 잘못된 요청을
+         보내 알 수 없는 오류를 받는 것보다 낫다.
+    */
     const base = (d.appBaseUrl ?? '').replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(base)) {
+      console.error(
+        '[subscription] ★ APP_BASE_URL 이 없어 결제를 시작할 수 없다 — '
+        + 'PayPal 은 return_url 에 절대 URL 을 요구한다. 환경변수를 설정할 것.',
+      );
+      return c.json(
+        err('BASE_URL_NOT_CONFIGURED', 'the server is missing its public address — payment cannot start'),
+        503,
+      );
+    }
+
     try {
       const sub = await d.paypal.createSubscription({
         planId,

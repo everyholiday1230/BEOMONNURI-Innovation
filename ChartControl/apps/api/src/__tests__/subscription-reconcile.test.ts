@@ -77,7 +77,7 @@ describe('reconcilePendingOnce', () => {
   it('★ PayPal 이 ACTIVE 면 활성화한다 — 브라우저가 돌아오지 않아도 구제된다', async () => {
     const { repo } = fakeRepo([row()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: '2026-10-09T00:00:00Z' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE', nextBillingAt: '2026-10-09T00:00:00Z' }),
     };
     const activated: unknown[] = [];
     const activator: ReconcileActivator = { activate: async (i) => { activated.push(i); } };
@@ -95,7 +95,7 @@ describe('reconcilePendingOnce', () => {
     */
     const { repo, statusCalls } = fakeRepo([row()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: false, status: 'http_500' }),
+      getSubscription: async () => ({ lookupOk: false, ok: false, status: 'http_500' }),
     };
     const activator: ReconcileActivator = { activate: async () => { throw new Error('불려서는 안 된다'); } };
     const out = await reconcilePendingOnce(repo, provider, activator);
@@ -117,7 +117,7 @@ describe('reconcilePendingOnce', () => {
   it('CANCELLED 면 만료로 정리한다', async () => {
     const { repo, statusCalls } = fakeRepo([row()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'CANCELLED' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'CANCELLED' }),
     };
     const out = await reconcilePendingOnce(repo, provider, { activate: async () => {} });
     expect(out[0]?.action).toBe('expired');
@@ -131,7 +131,7 @@ describe('reconcilePendingOnce', () => {
     */
     const { repo, statusCalls } = fakeRepo([row()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE' }),
     };
     const activator: ReconcileActivator = {
       activate: async () => { throw new Error('DB 기록 실패'); },
@@ -144,7 +144,7 @@ describe('reconcilePendingOnce', () => {
   it('아직 승인 중이면 그대로 둔다', async () => {
     const { repo, statusCalls } = fakeRepo([row({ pendingSince: Date.now() - 20 * 60_000 })]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'APPROVAL_PENDING' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'APPROVAL_PENDING' }),
     };
     const out = await reconcilePendingOnce(repo, provider, { activate: async () => {} });
     expect(out[0]?.action).toBe('still_pending');
@@ -155,7 +155,7 @@ describe('reconcilePendingOnce', () => {
     /* ★ 승인하지 않고 떠난 흔적을 영원히 남기면 대조 대상이 계속 늘어난다. */
     const { repo, statusCalls } = fakeRepo([row({ pendingSince: Date.now() - 8 * 24 * 3600 * 1000 })]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'APPROVAL_PENDING' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'APPROVAL_PENDING' }),
     };
     const out = await reconcilePendingOnce(repo, provider, { activate: async () => {} });
     expect(out[0]?.action).toBe('expired');
@@ -170,8 +170,8 @@ describe('reconcilePendingOnce', () => {
     ]);
     const provider: ReconcileProvider = {
       getSubscription: async (ref) => {
-        if (ref === 'I-2') return { ok: false, status: 'http_503' };
-        return { ok: true, status: 'ACTIVE' };
+        if (ref === 'I-2') return { lookupOk: false, ok: false, status: 'http_503' };
+        return { lookupOk: true, ok: true, status: 'ACTIVE' };
       },
     };
     const done: string[] = [];
@@ -258,7 +258,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
     const nextAt = new Date(prevEnd + 30 * DAY).toISOString();
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: nextAt }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE', nextBillingAt: nextAt }),
     };
     const calls: unknown[] = [];
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async (i) => { calls.push(i); } });
@@ -279,7 +279,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
     const provider: ReconcileProvider = {
       /* PayPal 이 아직 같은 청구일을 준다(청구 전). */
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd).toISOString() }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd).toISOString() }),
     };
     let extended = 0;
     for (let i = 0; i < 5; i++) {
@@ -293,7 +293,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     const prevEnd = Date.now() + 5 * DAY;
     const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd - DAY).toISOString() }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd - DAY).toISOString() }),
     };
     let extended = 0;
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
@@ -308,7 +308,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     */
     const { repo } = renewRepo([rowNow()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE' }),
     };
     let extended = 0;
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
@@ -319,7 +319,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
   it('SUSPENDED(결제 실패)는 연장하지 않는다 — 유예기간을 임의로 만들지 않는다', async () => {
     const { repo, statusCalls } = renewRepo([rowNow()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'SUSPENDED', nextBillingAt: new Date(Date.now() + 30 * DAY).toISOString() }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'SUSPENDED', nextBillingAt: new Date(Date.now() + 30 * DAY).toISOString() }),
     };
     let extended = 0;
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
@@ -332,7 +332,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     /* ★ 이미 낸 몫을 빼앗지 않는다. 기간이 지나면 entitled 가 저절로 false 다. */
     const { repo, statusCalls } = renewRepo([rowNow()]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'CANCELLED' }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'CANCELLED' }),
     };
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => {} });
     expect(out[0]?.action).toBe('ended');
@@ -341,7 +341,7 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
 
   it('조회 실패로 구독을 끊지 않는다', async () => {
     const { repo, statusCalls } = renewRepo([rowNow()]);
-    const provider: ReconcileProvider = { getSubscription: async () => ({ ok: false, status: 'http_502' }) };
+    const provider: ReconcileProvider = { getSubscription: async () => ({ lookupOk: false, ok: false, status: 'http_502' }) };
     let extended = 0;
     const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
     expect(out[0]?.action).toBe('lookup_failed');
@@ -353,12 +353,70 @@ describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 
     const prevEnd = Date.now() + 3600_000;
     const { repo, statusCalls } = renewRepo([rowNow({ periodEnd: prevEnd })]);
     const provider: ReconcileProvider = {
-      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd + 30 * DAY).toISOString() }),
+      getSubscription: async () => ({ lookupOk: true, ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd + 30 * DAY).toISOString() }),
     };
     const out = await reconcileRenewalsOnce(repo, provider, {
       extend: async () => { throw new Error('DB 실패'); },
     });
     expect(out[0]?.action).toBe('extend_failed');
+    expect(statusCalls).toHaveLength(0);
+  });
+});
+
+describe('★★★ 조회 성공과 "구독이 유효한가" 를 섞지 않는다', () => {
+  const src = readFileSync(new URL('../payments/providers.ts', import.meta.url), 'utf-8');
+
+  it('provider 가 lookupOk 를 따로 돌려준다', () => {
+    /*
+       ★★★ provider 의 `ok` 는 "ACTIVE 인가" 를 뜻한다. 나는 그것을 "조회 성공" 으로
+         가정하고 대조 작업을 만들었다. 그래서 승인 전(APPROVAL_PENDING)·취소됨
+         (CANCELLED)·정지됨(SUSPENDED)이 **전부 '조회 실패' 로 묶였다.**
+
+         결과가 안전한 쪽(활성화 안 함)이라 눈에 잘 띄지 않았다. 그러나
+           · 취소된 구독이 영원히 정리되지 않는다
+           · 승인 전 구독마다 오류 로그가 쌓여 **진짜 실패를 가린다**
+
+         샌드박스로 실제 호출해서 발견했다 — PayPal 은 HTTP 200 + APPROVAL_PENDING 을
+         정상 반환하는데 우리가 ok:false 로 바꾸고 있었다. 단위 테스트만으로는
+         절대 못 찾는 종류의 버그다(대역이 내 가정을 그대로 따라했으므로).
+    */
+    expect(src, 'lookupOk 가 없다').toContain('lookupOk');
+    const at = src.indexOf('async getSubscription');
+    expect(at).toBeGreaterThan(-1);
+    const seg = src.slice(at, at + 2600);
+    /* 통신 실패 경로 */
+    expect(seg).toContain('lookupOk: false');
+    /* 조회 성공 경로 */
+    expect(seg).toContain('lookupOk: true');
+    /* ok 의 기존 뜻은 유지한다 — confirm 라우트가 그 의미로 쓴다. */
+    expect(seg).toContain("ok: body.status === 'ACTIVE'");
+  });
+
+  it('대조 작업은 lookupOk 로 판단한다 — ok 로 판단하면 상태 처리가 죽는다', () => {
+    const rec = readFileSync(new URL('../subscriptions/subscription-reconcile.ts', import.meta.url), 'utf-8');
+    expect(rec).toContain('if (!got.lookupOk)');
+    /* ★ `if (!got.ok)` 로 되돌아가면 취소·정지가 다시 조회 실패로 묶인다. */
+    expect(rec, 'ok 로 판단하는 코드가 남아 있다').not.toMatch(/if \(!got\.ok\)/);
+  });
+
+  it('취소된 구독은 조회 실패가 아니라 종료로 처리된다', async () => {
+    /* ★ 이것이 위 버그의 실제 증상이었다. */
+    const { repo, statusCalls } = fakeRepo([row()]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ lookupOk: true, ok: false, status: 'CANCELLED' }),
+    };
+    const out = await reconcilePendingOnce(repo, provider, { activate: async () => {} });
+    expect(out[0]?.action, '취소를 조회 실패로 처리했다').toBe('expired');
+    expect(statusCalls[0]?.status).toBe('expired');
+  });
+
+  it('승인 전 구독은 조회 실패가 아니라 대기로 처리된다', async () => {
+    const { repo, statusCalls } = fakeRepo([row({ pendingSince: Date.now() - 20 * 60_000 })]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ lookupOk: true, ok: false, status: 'APPROVAL_PENDING' }),
+    };
+    const out = await reconcilePendingOnce(repo, provider, { activate: async () => {} });
+    expect(out[0]?.action, '승인 대기를 조회 실패로 처리했다').toBe('still_pending');
     expect(statusCalls).toHaveLength(0);
   });
 });
