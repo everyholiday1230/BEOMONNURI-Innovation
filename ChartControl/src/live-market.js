@@ -751,7 +751,12 @@
     opts = opts || {};
     var symbol = normalizeSymbol(opts.symbol) || 'BTCUSDT';
     var tf = opts.tf || '15m';
-    var count = opts.count || 220;
+    /*
+       ★ 호출자가 개수를 주지 않았을 때의 기본값. 220 은 차트 폭을 못 채운다
+         (오늘 왼쪽 공백의 원인이었다). 호출자는 CHART_BAR_COUNT(1000)를 넘기지만,
+         기본값도 함께 올려 두어야 새 호출자가 같은 함정에 빠지지 않는다.
+    */
+    var count = opts.count || 1000;
 
     ensureCandles(symbol, tf);
 

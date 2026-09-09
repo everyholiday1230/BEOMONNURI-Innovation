@@ -2541,6 +2541,14 @@ if (env.authEnabled) {
         `[subscription] PayPal 플랜 미설정: ${planMapping.missing.join(', ')} — 이 플랜은 결제할 수 없다.`,
       );
     }
+    /*
+       ★★ **어느 환경으로 도는지 부팅 로그에 남긴다.** 표시가 없어서 오설정을 알 수
+         없었다. sandbox 로 돌면 고객은 결제가 된 것처럼 보이는데 돈이 들어오지 않는다.
+    */
+    console.log(
+      `[subscription] PayPal 환경: ${env.paypalMode ?? '(미설정 → sandbox)'}`
+      + `${env.paypalMode === 'live' ? '' : '  ★ 실제 결제가 들어오지 않는다'}`,
+    );
     if (!paypalProvider) {
       console.warn('[subscription] PayPal 자격증명이 없어 정기결제를 열 수 없다.');
     } else if (Object.keys(planMapping.byCode).length > 0) {

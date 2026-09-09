@@ -1060,7 +1060,28 @@
          ★ 읽기 전용 진단이다. 여기에 의존하는 기능 코드는 두지 않는다 — 그러면
            디버그 훅이 제품 동작이 되어 지우지 못한다.
       */
+      /*
+         ★★ 진단 노출은 **로컬에서만** 한다.
+
+           커밋 주석에 "읽기 전용" 이라고 썼는데 **부정확했다**(감사 지적). 인스턴스에는
+           setStyles·createOverlay·setSymbol·resetData 등 **상태를 바꾸는 메서드**가 함께
+           달려 있다. 프로덕션에서 전역으로 열어 두면 아무 스크립트나 차트를 조작할 수
+           있고, 확장 프로그램이나 주입된 코드가 고객이 보는 차트를 바꿀 수 있다.
+
+         ★ 그리고 인스턴스가 여러 개(멀티차트)면 같은 전역을 서로 덮어쓴다. 마지막에
+           만들어진 것만 남으므로 진단값이 어느 차트인지 알 수 없다.
+
+         ★ cleanup 에서 지운다 — 아래 unmount 경로 참고. 지우지 않으면 파괴된
+           인스턴스를 가리키는 전역이 남아 호출 시 터진다.
+      */
+      const diagAllowed = (() => {
+        try {
+          const h = String(window.location?.hostname || '');
+          return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+        } catch (e) { void e; return false; }
+      })();
       try {
+        if (!diagAllowed) throw new Error('skip diagnostics');
         window.__qtChart = chart;
         window.__qtChartInfo = () => {
           try {
@@ -1306,6 +1327,16 @@
           KL.dispose(host);
         } catch (e) { /* noop */ }
         chartRef.current = null;
+        /*
+           ★ 진단 전역을 지운다. 남겨 두면 파괴된 인스턴스를 가리켜 호출 시 터지고,
+             멀티차트에서는 어느 차트인지도 알 수 없다.
+        */
+        try {
+          if (window.__qtChart === chart) {
+            window.__qtChart = null;
+            window.__qtChartInfo = null;
+          }
+        } catch (e) { void e; }
         overlayIdsRef.current.clear();
         maPaneRef.current = null;
         volPaneRef.current = null;

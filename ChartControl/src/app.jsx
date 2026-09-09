@@ -157,6 +157,19 @@
     최소 법적 푸터 — 거래(전체화면) 화면을 제외한 일반 페이지 하단에 얇게 깐다.
     꼭 필요한 것만: 브랜드·© 연도, 약관·개인정보·리스크·환불 링크, 한 줄 리스크 고지, 문의.
   */
+  /*
+     ★★★ 차트에 실을 봉 수. **220 이 왼쪽 공백의 실제 원인이었다.**
+
+       진단 노출(window.__qtChartInfo)로 재보니 차트가 든 봉이 220개였고 보이는 구간이
+       154~220 이었다. 확대를 조금만 풀면 220개로는 폭을 못 채워 **왼쪽이 빈다.**
+       서버는 1000봉을 준다(실측).
+
+     ★ 모듈 수준에 둔다 — 주 차트와 멀티차트 보조 칸이 **같은 값**을 써야 한다.
+       컴포넌트 안에 두었더니 보조 칸이 220 으로 남아 같은 버그가 한 화면에 두 벌
+       있었다.
+  */
+  const CHART_BAR_COUNT = 1000;
+
   function AppFooter() {
     const brand = (window.QTI18n && window.QTI18n.brand) ? window.QTI18n.brand() : 'ChartControl AI';
     const year = new Date().getFullYear();
@@ -294,9 +307,23 @@
              되쓰지 않으면 화면 문장은 영어인데 헤더 버튼에는 저장된 코드가 그대로
              찍힌다. 한국어를 서비스 언어에서 제외한 뒤, 이미 lang='ko' 를 저장한
              브라우저가 정확히 그 상태가 된다 — 영어 화면에 KO 표시.
+
+           ★★ 단, **지연 로드 중인 언어에는 되쓰지 않는다.**
+
+             사전이 도착하기 전에는 setLocale 이 동기적으로 폴백('en')을 돌려준다.
+             그 값을 되쓰면 사용자가 고른 언어가 즉시 영어로 덮어써지고 저장까지
+             'en' 으로 남아, 새로고침하면 영어로 돌아갔다. 사전을 지연 로드로
+             바꾼 뒤 ja·zh 를 포함해 **영어가 아닌 모든 언어가 선택되지 않는
+             상태**였다(화면은 일본어인데 헤더 버튼은 EN).
+
+             `known()` 은 "지원하는 언어인가"를 사전 도착 여부와 무관하게 답한다.
+             지원 언어면 사용자의 선택을 그대로 두고, 사전이 도착하면 i18n 이
+             스스로 다시 적용한다. 되쓰기는 'ko' 처럼 지원하지 않는 언어에만
+             일어난다 — 원래 이 코드가 잡으려던 경우는 그대로 잡힌다.
         */
         const applied = window.QTI18n.setLocale(state.lang);
-        if (applied && applied !== state.lang) {
+        const supported = window.QTI18n.known ? window.QTI18n.known(state.lang) : true;
+        if (!supported && applied && applied !== state.lang) {
           setState((s) => (s.lang === applied ? s : { ...s, lang: applied }));
         }
       } else {
@@ -670,20 +697,6 @@
       if (next && next !== market) setMarket(next);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [route.query.symbol]);
-    /*
-       ★★★ 차트에 실을 봉 수. **220 이 왼쪽 공백의 실제 원인이었다.**
-
-         진단 노출(window.__qtChartInfo)로 재보니 차트가 든 봉이 220개였고, 보이는
-         구간이 154~220 이었다. 즉 화면에 66봉만 있고, 확대를 조금만 풀면 220개로는
-         폭을 못 채워 **왼쪽이 빈다.**
-
-       ★ 앞서 live-market 의 초기 요청을 300→1000 으로 올렸지만 **차트에는 닿지
-         않았다.** 배열 크기를 정하는 것은 이 값이다. 그것을 계측 없이 추측해서
-         엉뚱한 곳을 고쳤다.
-
-       ★ 서버는 1000봉을 준다(실측: /api/market/candles?limit=1000 → 1000개).
-    */
-    const CHART_BAR_COUNT = 1000;
     const [timeframe, setTimeframe] = useState('15m');
 
     /*
@@ -2529,7 +2542,12 @@
                    이용자는 자기가 ETH 포지션을 들고 있다고 읽는다.
               */
               const paneCandles = (window.QT && window.QT.generateCandles)
-                ? window.QT.generateCandles({ symbol, tf: timeframe, count: 220 })
+                /*
+                   ★ 220 이 아니라 CHART_BAR_COUNT 를 쓴다. 오늘 주 차트의 왼쪽 공백을
+                     고쳤는데(220 → 1000) **같은 결함이 이 보조 칸에 남아 있었다.**
+                     한 화면에 같은 버그가 두 벌 있으면 하나만 고쳐도 고쳐 보이지 않는다.
+                */
+                ? window.QT.generateCandles({ symbol, tf: timeframe, count: CHART_BAR_COUNT })
                 : [];
               const paneOverlays = (props.allOverlays || []).filter((o) => o.symbol === symbol);
               const last = paneCandles.length ? paneCandles[paneCandles.length - 1].close : null;

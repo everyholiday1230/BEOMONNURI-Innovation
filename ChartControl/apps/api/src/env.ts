@@ -846,7 +846,29 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     bedrockRegion: env.BEDROCK_REGION ?? env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
     paypalClientId: env.PAYPAL_CLIENT_ID,
     paypalClientSecret: env.PAYPAL_CLIENT_SECRET,
-    paypalMode: env.PAYPAL_MODE,
+    /*
+       ★★★ **오타 하나로 운영이 조용히 샌드박스로 돈다.**
+
+         providers.ts 는 `=== 'live' ? live : sandbox` 다. 즉 'Live'·'LIVE'·'liv' 처럼
+         조금만 어긋나면 **말없이 샌드박스**로 간다. 그러면:
+           · 고객은 승인 화면을 통과하고 구독이 active 가 되고 포인트도 전액 받는다
+           · 그런데 **돈이 들어오지 않는다** — 아무도 모른다
+
+       ★ 그래서 아는 값만 받는다. 모르는 값이면 부팅을 막지 않고(결제 없이도 서비스는
+         돌아야 한다) 대신 **크게 남기고 sandbox 로 확정**한다 — 모호한 상태를 남기지
+         않는다.
+    */
+    paypalMode: (() => {
+      const raw = (env.PAYPAL_MODE ?? '').trim();
+      if (raw === '') return undefined;
+      const v = raw.toLowerCase();
+      if (v === 'live' || v === 'sandbox') return v;
+      console.error(
+        `[payments] ★ PAYPAL_MODE 값이 잘못됐다: '${raw}' — 'live' 또는 'sandbox' 여야 한다. `
+        + 'sandbox 로 다룬다. live 로 의도했다면 결제가 들어오지 않는다.',
+      );
+      return 'sandbox';
+    })(),
     tossClientKey: env.TOSS_CLIENT_KEY,
     tossSecretKey: env.TOSS_SECRET_KEY,
     cryptoWebhookSecret: env.CRYPTO_WEBHOOK_SECRET,
