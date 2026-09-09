@@ -382,7 +382,19 @@ export function createAiRouter(d: AiRouterDeps): Hono {
         }
         if (assistantText) await d.conversations.appendMessage(a.user.id, body.conversationId!, { role: 'assistant', content: assistantText });
       } catch (e) {
-        await stream.writeSSE({ event: 'error', data: JSON.stringify({ code: 'stream-exception', message: (e as Error).message }) });
+        /*
+           ★★ 여기도 로그가 없었다. 오케스트레이터 밖에서 터진 오류(대화 저장 실패,
+             SSE 쓰기 실패 등)가 조용히 사라졌다.
+
+           ★ correlationId 를 함께 찍는다. 고객이 "참조: xxx" 를 알려주면 그 요청을
+             로그에서 바로 찾을 수 있다 — 화면 문구에 그 값을 넣어 둔 이유다.
+        */
+        const err = e as Error;
+        console.error(
+          `[ai] ★ 코파일럿 처리 실패 — corr=${correlationId} user=${a.user.id} `
+          + `name=${err.name} message=${err.message}`,
+        );
+        await stream.writeSSE({ event: 'error', data: JSON.stringify({ code: 'stream-exception', message: err.message }) });
       } finally {
         aiInFlight.delete(a.user.id);
       }

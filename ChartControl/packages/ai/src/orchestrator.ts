@@ -180,7 +180,29 @@ export class Orchestrator implements IAIOrchestrator {
       }
     } catch (e) {
       this.d.cost.onProviderFailure();
-      yield { type: 'error', code: 'stream-exception', message: (e as Error).message };
+      /*
+         ★★ **원인을 서버에 남긴다.** 전에는 이 오류가 어디에도 기록되지 않았다.
+
+           고객 화면에는 "답변 작성 중 문제가 발생했습니다" 만 보이고(그건 맞다 —
+           제공자 오류 원문을 고객에게 보여줄 수는 없다), 서버 로그에도 아무것도
+           남지 않았다. 그래서 **AI 가 전부 실패하는데 원인을 알 수 없는** 상태가 됐다.
+           실제로 그 상태로 운영에서 신고가 들어왔고, 로그를 봐도 단서가 없었다.
+
+         ★ 고객에게 숨기는 것과 우리가 모르는 것은 다르다. 화면은 순화하고 로그에는
+           원문을 남긴다.
+
+         ★ 제공자 오류는 대개 원인이 정해져 있다 — 키 만료·잔액 부족·모델명 오류·
+           레이트리밋. 원문에 그 구분이 들어 있으므로 한 줄만 봐도 대응이 갈린다.
+
+         ★ 모델명을 함께 찍는다. 존재하지 않는 모델을 설정하면 404 가 오는데, 그때
+           "어떤 모델을 부르려 했는가" 가 없으면 설정을 의심하기까지 오래 걸린다.
+      */
+      const err = e as Error;
+      console.error(
+        `[ai] ★ 제공자 호출 실패 — model=${this.d.model} corr=${input.correlationId} `
+        + `name=${err.name} message=${err.message}`,
+      );
+      yield { type: 'error', code: 'stream-exception', message: err.message };
     } finally {
       this.d.cost.release();
     }
