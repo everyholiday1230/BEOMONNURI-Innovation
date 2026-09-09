@@ -2587,6 +2587,12 @@ if (env.authEnabled) {
           paypalProvider.createSubscription(i),
         getSubscription: (ref: string) => paypalProvider.getSubscription(ref),
         cancelSubscription: (ref: string, reason: string) => paypalProvider.cancelSubscription(ref, reason),
+        /*
+           ★ 플랜 변경. 검증된 플랜만 넘긴다 — planIdFor 가 미검증 id 를 걸러낸다.
+             금액이 어긋난 플랜으로 바꾸면 화면 금액과 실제 청구가 달라진다.
+        */
+        reviseSubscription: (i2: { providerRef: string; planId: string; returnUrl: string; cancelUrl: string }) =>
+          paypalProvider.reviseSubscription(i2),
       }
       : null;
 
@@ -2642,6 +2648,11 @@ if (env.authEnabled) {
           },
         },
         {
+          /*
+             ★ 고객이 플랜을 바꿨으면 갱신 시점에 그 플랜으로 포인트를 지급해야 한다.
+               우리 DB 의 옛 플랜을 쓰면 업그레이드한 고객이 계속 낮은 포인트를 받는다.
+          */
+          planCodeFor: (planId: string) => paypalSubscriptions?.planCodeFor(planId) ?? null,
           /*
              ★★★ 갱신 확인. 이것이 없으면 **2회차부터 모든 구독자가** 돈만 내고
                접근권을 잃는다. PayPal 은 매달 알아서 청구하는데, 우리 쪽에서 기간을

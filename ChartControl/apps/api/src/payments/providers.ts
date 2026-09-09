@@ -276,6 +276,69 @@ export class PayPalProvider {
    *   다루면 화면에 "해지 실패" 가 뜨는데 실제로는 해지돼 있다 — 고객이 다시
    *   누르게 만든다. 이미 해지된 상태는 성공으로 본다.
    */
+  /**
+   * 플랜 변경(업그레이드/다운그레이드).
+   *
+   * ★★ 샌드박스 실측으로 확인한 PayPal 동작:
+   *
+   *     · 승인이 **필요하다** — 응답의 `approve` 링크로 고객을 보내야 한다
+   *     · 승인 전에는 plan_id 가 **바뀌지 않는다**(재조회하면 옛 플랜)
+   *     · 승인 후 plan_id 는 **즉시** 새 플랜이 된다
+   *     · 그런데 **즉시 청구되지 않는다** — 다음 청구일·마지막 결제액이 그대로다
+   *       (실측: basic $19 → elite 로 변경 후에도 last_payment=19.0,
+   *        next_billing_time 2026-10-09 유지, outstanding_balance 0)
+   *
+   * ★★★ 그래서 **포인트를 즉시 지급하면 안 된다.** 고객은 아직 $19 만 냈는데
+   *   elite 의 150,000pt 를 받게 되고, 다음 청구 전에 해지하면 그대로 가져간다.
+   *   차액 141,000pt 를 공짜로 주는 셈이다. 새 플랜 포인트는 **다음 결제일**에
+   *   지급한다(대조 작업의 갱신 경로가 그때 플랜을 읽어 지급한다).
+   */
+  async reviseSubscription(input: {
+    providerRef: string;
+    planId: string;
+    returnUrl: string;
+    cancelUrl: string;
+  }): Promise<{ ok: boolean; approveUrl?: string; status: string }> {
+    const token = await this.accessToken();
+    const res = await fetch(
+      `${this.base()}/v1/billing/subscriptions/${encodeURIComponent(input.providerRef)}/revise`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          /* ★ 같은 변경을 두 번 보내도 PayPal 쪽에서 한 번으로 묶이게 한다. */
+          'paypal-request-id': `revise-${input.providerRef}-${input.planId}`.slice(0, 100),
+        },
+        body: JSON.stringify({
+          plan_id: input.planId,
+          application_context: {
+            return_url: input.returnUrl,
+            cancel_url: input.cancelUrl,
+          },
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      plan_id?: string; links?: { rel: string; href: string }[];
+      name?: string; message?: string; debug_id?: string;
+      details?: { field?: string; issue?: string; description?: string }[];
+    } | null;
+    if (!res.ok || !body) {
+      const detail = (body?.details ?? [])
+        .map((d) => [d.field, d.issue, d.description].filter(Boolean).join(' ')).join(' | ');
+      return { ok: false, status: `http_${res.status} ${body?.name ?? ''} ${detail}`.trim() };
+    }
+    const approve = (body.links ?? []).find((l) => l.rel === 'approve');
+    /*
+       ★ 승인 링크가 없으면 고객이 승인할 방법이 없다 — 성공으로 다루면 "변경했다" 고
+         말하는데 아무 일도 일어나지 않는다. 실패로 돌려준다.
+    */
+    if (!approve?.href) return { ok: false, status: 'no_approve_link' };
+    return { ok: true, approveUrl: approve.href, status: 'APPROVAL_PENDING' };
+  }
+
   async cancelSubscription(providerRef: string, reason: string): Promise<{ ok: boolean; status: string }> {
     const token = await this.accessToken();
     const res = await fetch(

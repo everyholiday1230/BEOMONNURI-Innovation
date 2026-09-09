@@ -79,6 +79,46 @@
     const REF_KEY = 'qt.sub.pendingRef';
     const [subMsg, setSubMsg] = useState(null);
 
+    /*
+       ★ 지금 유료 구독 중인가. 구독 중이면 버튼이 "변경" 이어야 한다 —
+         "구독" 을 그대로 두면 새 구독이 하나 더 생겨 두 번 청구된다.
+    */
+    const isSubscribed = Boolean(sub && sub.subscription && sub.subscription.entitled
+      && sub.subscription.planCode !== 'free');
+
+    /*
+       ★★ 플랜 변경. PayPal 승인이 필요하고, **새 요금과 포인트는 다음 결제일부터**다.
+         실측으로 확인했다 — 승인 직후 PayPal 은 plan_id 만 바꾸고 청구는 하지 않는다.
+         그 사실을 화면이 말하지 않으면 고객은 지금 포인트가 들어올 줄 알고 기다린다.
+    */
+    const changePlan = async (planCode) => {
+      setSubBusy(true);
+      setSubMsg('');
+      try {
+        const cs = await (await fetch('/api/auth/csrf', { credentials: 'same-origin' })).json();
+        const r = await fetch('/api/me/subscription/change', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json', 'x-csrf-token': cs.csrfToken || cs.token || '' },
+          body: JSON.stringify({ planCode }),
+        });
+        const j = await r.json().catch(() => null);
+        if (r.ok && j && j.ok && j.approveUrl) {
+          setSubMsg(t('sub_change_started'));
+          /* ★ 승인 후 돌아올 단서를 남긴다(신규 결제와 같은 방식). */
+          try { sessionStorage.setItem(REF_KEY, String(j.providerRef || '')); } catch (e) { void e; }
+          window.location.assign(j.approveUrl);
+          return;
+        }
+        const code = (j && j.error && j.error.code) || ('HTTP ' + r.status);
+        setSubMsg(code === 'SAME_PLAN' ? t('sub_change_same') : t('sub_change_failed', { code }));
+      } catch (e) {
+        setSubMsg(t('sub_change_failed', { code: (e && e.message) || 'error' }));
+      } finally {
+        setSubBusy(false);
+      }
+    };
+
     const startSub = async (planCode) => {
       setSubBusy(true); setSubMsg(null);
       try {
@@ -540,7 +580,12 @@
                             key={p.code}
                             className={`btn btn--sm ${p.code === sub.subscription.planCode ? '' : 'btn--primary'}`}
                             disabled={subBusy || p.code === sub.subscription.planCode}
-                            onClick={() => startSub(p.code)}
+                            /*
+                               ★★ 이미 구독 중이면 **신규 결제가 아니라 플랜 변경**이다.
+                                 그대로 startSub 를 부르면 새 구독이 하나 더 만들어져
+                                 두 번 청구된다.
+                            */
+                            onClick={() => (isSubscribed ? changePlan(p.code) : startSub(p.code))}
                           >
                             {/*
                                  ★ p.name 은 **번역 키**다(plan_premium_name). 그대로 쓰면
@@ -550,7 +595,9 @@
                             */}
                             {p.code === sub.subscription.planCode
                               ? t('sub_current_plan', { plan: t(p.name) })
-                              : t('sub_subscribe_to', { plan: t(p.name), price: p.priceUsd })}
+                              : (isSubscribed
+                                ? t('sub_change_to', { plan: t(p.name), price: p.priceUsd })
+                                : t('sub_subscribe_to', { plan: t(p.name), price: p.priceUsd }))}
                           </button>
                         ))}
                       </div>

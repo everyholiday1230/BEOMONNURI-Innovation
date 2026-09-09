@@ -532,3 +532,83 @@ describe('★★★ 해지는 PayPal 쪽 정기결제까지 멈춘다', () => {
     expect(repo.slice(at, at + 900)).toContain('throw new Error');
   });
 });
+
+describe('★★ 플랜 변경 — 낸 만큼만 받는다', () => {
+  const routes = readFileSync(new URL('../subscriptions/subscription-routes.ts', import.meta.url), 'utf-8');
+  const prov = readFileSync(new URL('../payments/providers.ts', import.meta.url), 'utf-8');
+
+  it('변경은 승인이 필요하다 — approveUrl 없으면 실패로 다룬다', () => {
+    /*
+       ★★ 샌드박스 실측: revise 는 approve 링크를 주고, **승인 전에는 plan_id 가
+         바뀌지 않는다.** 승인 링크 없이 성공이라 답하면 "변경했다" 고 말하는데
+         아무 일도 일어나지 않는다.
+    */
+    const at = prov.indexOf('async reviseSubscription');
+    expect(at).toBeGreaterThan(-1);
+    const seg = prov.slice(at, at + 3000);
+    expect(seg).toContain("l.rel === 'approve'");
+    expect(seg).toContain("status: 'no_approve_link'");
+  });
+
+  it('★★★ 포인트를 즉시 지급하지 않는다 — 아직 새 요금을 내지 않았다', () => {
+    /*
+       ★★★ 샌드박스 실측이 결정적이었다. basic($19) → elite($199) 로 변경하고
+         승인한 직후:
+             PayPal plan_id  = elite   (즉시 바뀐다)
+             last_payment    = 19.0    (그대로 — **즉시 청구되지 않는다**)
+             next_billing    = 그대로
+             outstanding     = 0
+         즉 지금 elite 포인트 150,000 을 주면 고객은 $19 만 내고 차액 141,000pt 를
+         받고, 다음 청구 전에 해지하면 그대로 가져간다.
+
+       ★ 그래서 변경 라우트는 포인트를 건드리지 않고, 새 플랜 포인트는 다음 결제일에
+         갱신 경로가 지급한다. 화면에 그 사실을 반드시 알린다.
+    */
+    const at = routes.indexOf("app.post('/me/subscription/change'");
+    expect(at, '변경 라우트가 없다').toBeGreaterThan(-1);
+    const seg = routes.slice(at, at + 4500);
+    expect(seg, '변경 라우트가 포인트를 지급한다').not.toContain('grantMonthlyPointsIfDue');
+    expect(seg, '다음 결제일부터라는 안내가 없다').toContain('next billing date');
+  });
+
+  it('활성 구독이 없으면 변경이 아니라 신규 결제로 보낸다', () => {
+    /* ★ 조용히 새 구독을 만들면 고객은 "변경" 을 눌렀는데 새로 결제된다. */
+    const at = routes.indexOf("app.post('/me/subscription/change'");
+    const seg = routes.slice(at, at + 4500);
+    expect(seg).toContain('NO_ACTIVE_SUBSCRIPTION');
+    expect(seg).toContain('SAME_PLAN');
+  });
+
+  it('검증되지 않은 플랜으로는 바꿀 수 없다', () => {
+    /* ★ 금액이 어긋난 플랜으로 바꾸면 화면 금액과 실제 청구가 달라진다. */
+    const at = routes.indexOf("app.post('/me/subscription/change'");
+    const seg = routes.slice(at, at + 4500);
+    expect(seg).toContain('planIdFor(wanted)');
+    expect(seg).toContain('PLAN_NOT_PURCHASABLE');
+  });
+
+  it('★ 갱신 시 PayPal 의 플랜을 기준으로 포인트를 지급한다', async () => {
+    /*
+       ★★ 우리 DB 의 옛 플랜을 쓰면 **업그레이드한 고객이 영원히 낮은 플랜 포인트를
+         받는다.** 실측으로 확인했다: basic 9,000pt → 갱신 시 elite 150,000pt.
+    */
+    const prevEnd = Date.now() + 3600_000;
+    const { repo } = renewRepo([{ userId:'u1', planCode:'basic', providerRef:'I-UP', periodEnd: prevEnd }]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({
+        lookupOk: true, ok: true, status: 'ACTIVE',
+        planId: 'P-ELITE', nextBillingAt: new Date(prevEnd + 30 * DAY).toISOString(),
+      }),
+    };
+    const seen: string[] = [];
+    await reconcileRenewalsOnce(repo, provider, { extend: async (i) => { seen.push(i.planCode); } },
+      { planCodeFor: (id) => (id === 'P-ELITE' ? 'elite' : null) });
+    expect(seen, 'PayPal 의 플랜을 반영하지 않았다').toEqual(['elite']);
+  });
+
+  it('플랜을 알아낼 수 없으면 기존 플랜을 유지한다', () => {
+    /* ★ 모르는 plan_id 를 free 나 최저 플랜으로 떨어뜨리면 고객이 낸 만큼 못 받는다. */
+    const rec = readFileSync(new URL('../subscriptions/subscription-reconcile.ts', import.meta.url), 'utf-8');
+    expect(rec).toContain('(paidPlan ?? row.planCode)');
+  });
+});

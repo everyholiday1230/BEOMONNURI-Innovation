@@ -58,6 +58,10 @@ export interface SubscriptionRouterDeps {
       ok: boolean; status: string; customId?: string; planId?: string; nextBillingAt?: string;
     }>;
     cancelSubscription(providerRef: string, reason: string): Promise<{ ok: boolean; status: string }>;
+    /** 플랜 변경. 승인이 필요하므로 approveUrl 을 돌려준다. */
+    reviseSubscription(input: {
+      providerRef: string; planId: string; returnUrl: string; cancelUrl: string;
+    }): Promise<{ ok: boolean; approveUrl?: string; status: string }>;
   };
   /** 승인 후 고객이 돌아올 앱 주소(https://…). */
   appBaseUrl?: string;
@@ -386,6 +390,98 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
      ★ 우리 기록만 바꾼다. 결제 대행사 쪽 정기결제는 별도로 멈춰야 하고, 응답이 그
        사실을 말한다 — 고객이 "해지했는데 또 결제됐다" 를 겪지 않게.
   */
+  /**
+   * 플랜 변경(업그레이드/다운그레이드).
+   *
+   * ★★ 샌드박스 실측으로 확인한 PayPal 동작:
+   *     승인 필요 → 승인 후 plan_id 는 즉시 바뀌지만 **청구는 다음 결제일**이다
+   *     (basic $19 → elite 변경 후에도 last_payment=19.0, next_billing 그대로).
+   *
+   * ★★★ 그래서 **포인트를 지금 지급하지 않는다.** 고객은 아직 $19 만 냈는데
+   *   elite 150,000pt 를 받고 다음 청구 전에 해지하면 그대로 가져간다.
+   *   새 플랜 포인트는 다음 결제일에 지급된다(대조 작업의 갱신 경로).
+   *
+   * ★ 기능 접근은 플랜을 기준으로 하므로 승인 직후부터 새 플랜 기능을 쓸 수 있다.
+   *   PayPal 자신이 plan_id 를 즉시 바꾸므로 그 의미를 따른다. 화면이 "요금과
+   *   포인트는 다음 결제일부터" 를 반드시 말해야 한다.
+   */
+  app.post('/me/subscription/change', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!d.repo) return c.json(err('NOT_CONFIGURED', 'subscription store not wired'), 503);
+    if (!d.paypal) return c.json(err('RECURRING_NOT_CONFIGURED', 'payment provider not wired'), 503);
+
+    const body = await c.req.json().catch(() => null) as { planCode?: string } | null;
+    const wanted = String(body?.planCode ?? '');
+    if (!isPlanCode(wanted) || wanted === 'free') {
+      return c.json(err('BAD_PLAN', 'unknown plan'), 400);
+    }
+
+    const read = await d.repo.get(a.user.id);
+    if (!read.ok) return c.json(err('READ_FAILED', read.reason), 503);
+    /*
+       ★ 활성 구독이 없으면 변경이 아니라 **신규 결제**다. checkout 으로 보낸다 —
+         여기서 조용히 새 구독을 만들면 고객은 "변경" 을 눌렀는데 새로 결제된다.
+    */
+    if (!read.row.entitled || read.row.planCode === 'free') {
+      return c.json(err('NO_ACTIVE_SUBSCRIPTION', 'start a subscription first'), 400);
+    }
+    if (read.row.planCode === wanted) {
+      return c.json(err('SAME_PLAN', 'already on this plan'), 400);
+    }
+
+    const planId = d.paypal.planIdFor(wanted);
+    if (!planId) {
+      return c.json(
+        err('PLAN_NOT_PURCHASABLE', 'this plan cannot be selected right now — its billing plan is not configured or its price does not match'),
+        503,
+      );
+    }
+
+    /* ★ APP_BASE_URL 이 없으면 PayPal 이 상대 URL 을 거부한다(구독 생성에서 겪었다). */
+    const base = (d.appBaseUrl ?? '').replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(base)) {
+      console.error('[subscription] ★ APP_BASE_URL 이 없어 플랜 변경을 시작할 수 없다.');
+      return c.json(err('BASE_URL_NOT_CONFIGURED', 'the server is missing its public address'), 503);
+    }
+
+    let ref: string | null = null;
+    try {
+      ref = await d.repo.providerRefOf(a.user.id);
+    } catch (e) {
+      console.error(`[subscription] ★ 플랜 변경 중 provider_ref 조회 실패 user=${a.user.id}: ${(e as Error).message}`);
+      return c.json(err('CHANGE_FAILED', 'could not read your subscription — nothing was changed'), 503);
+    }
+    if (!ref) return c.json(err('NO_PROVIDER_REF', 'this subscription was not created through a payment provider'), 400);
+
+    try {
+      const rv = await d.paypal.reviseSubscription({
+        providerRef: ref,
+        planId,
+        returnUrl: `${base}/#/points?sub=changed`,
+        cancelUrl: `${base}/#/points?sub=change-cancel`,
+      });
+      if (!rv.ok || !rv.approveUrl) {
+        console.error(`[subscription] ★ 플랜 변경 실패 user=${a.user.id} ref=${ref} → ${wanted}: ${rv.status}`);
+        return c.json(err('CHANGE_FAILED', 'could not start the plan change — nothing was changed'), 502);
+      }
+      return c.json({
+        ok: true,
+        approveUrl: rv.approveUrl,
+        from: read.row.planCode,
+        to: wanted,
+        /*
+           ★ 화면이 반드시 말해야 하는 것. 이것을 숨기면 고객은 지금 포인트가
+             들어올 줄 알고 기다린다.
+        */
+        note: 'the new price and points start on your next billing date',
+      });
+    } catch (e) {
+      console.error(`[subscription] ★ 플랜 변경 예외 user=${a.user.id}: ${(e as Error).message}`);
+      return c.json(err('CHANGE_FAILED', 'could not start the plan change — nothing was changed'), 502);
+    }
+  });
+
   app.post('/me/subscription/cancel', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);

@@ -2927,6 +2927,11 @@
       sub_paid_not_recorded: 'Your payment was approved but we could not record it. Please contact support with the time of payment — do not pay again.',
       sub_cancel_confirm: 'Cancel the subscription? You keep access until the end of the month you already paid for. This cannot be undone here — you would need to subscribe again.',
       sub_canceled_ok: 'Subscription cancelled. Access continues until the end of the current period.',
+      sub_change_to: 'Change to {plan} — ${price}/month',
+      sub_change_note: 'Your plan will change at PayPal now, but the new price and the new monthly points start on your next billing date ({date}). Until then you keep your current plan.',
+      sub_change_started: 'Approve the change at PayPal. The new price and points start on your next billing date.',
+      sub_change_failed: 'Could not start the plan change ({code}). Nothing was changed.',
+      sub_change_same: 'You are already on this plan.',
       sub_canceled_provider: 'Cancelled. The recurring payment at PayPal has been stopped — nothing more for you to do. Access continues until the end of the current period.',
       sub_cancel_failed: 'Could not cancel the subscription. Nothing was changed — try again.',
 

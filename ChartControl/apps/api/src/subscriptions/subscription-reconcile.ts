@@ -190,6 +190,8 @@ export function startSubscriptionReconciler(
   opts: {
     intervalMs?: number;
     firstDelayMs?: number;
+    /** PayPal plan_id → 우리 플랜 코드. 플랜 변경을 갱신 시점에 반영한다. */
+    planCodeFor?: (planId: string) => PlanCode | null;
     /** 활성 구독 기간 연장. 없으면 갱신 확인을 하지 않는다(그러면 2회차에 끊긴다). */
     renewer?: {
       extend(input: {
@@ -228,7 +230,8 @@ export function startSubscriptionReconciler(
     */
     if (!opts.renewer) return;
     try {
-      const res = await reconcileRenewalsOnce(repo, provider, opts.renewer);
+      const res = await reconcileRenewalsOnce(repo, provider, opts.renewer,
+        opts.planCodeFor ? { planCodeFor: opts.planCodeFor } : {});
       const extended = res.filter((r) => r.action === 'extended');
       const ended = res.filter((r) => r.action === 'ended');
       const bad = res.filter((r) => r.action === 'extend_failed' || r.action === 'lookup_failed' || r.action === 'no_billing_date');
@@ -296,7 +299,12 @@ export async function reconcileRenewalsOnce(
       periodEnd: number;
     }): Promise<void>;
   },
-  opts: { withinMs?: number; limit?: number } = {},
+  opts: {
+    withinMs?: number;
+    limit?: number;
+    /** PayPal plan_id → 우리 플랜 코드. 고객이 플랜을 바꿨을 때 반영하려면 필요하다. */
+    planCodeFor?: (planId: string) => PlanCode | null;
+  } = {},
 ): Promise<RenewOutcome[]> {
   const withinMs = opts.withinMs ?? 2 * 24 * 60 * 60 * 1000;
   const rows = await repo.listRenewable(withinMs, opts.limit ?? 50);
@@ -336,6 +344,18 @@ export async function reconcileRenewalsOnce(
       continue;
     }
 
+    /*
+       ★★★ **PayPal 의 플랜을 기준으로 삼는다.** 고객이 플랜을 바꿨을 수 있다.
+
+         플랜 변경(revise)은 승인 직후 PayPal 쪽 plan_id 를 바꾸지만 **청구는 다음
+         결제일**이다. 그래서 새 플랜 포인트도 그때 지급해야 한다 — 지금 주면 아직
+         내지 않은 요금의 혜택을 먼저 주는 셈이다(elite 로 올리면 차액 141,000pt).
+
+       ★ 여기서 우리 DB 의 plan_code 를 쓰면 **옛 플랜의 포인트를 계속 지급한다.**
+         업그레이드한 고객이 영원히 낮은 플랜 포인트를 받는다.
+    */
+    const paidPlan = opts?.planCodeFor && got.planId ? opts.planCodeFor(got.planId) : null;
+
     const nextMs = got.nextBillingAt ? Date.parse(got.nextBillingAt) : NaN;
     if (!Number.isFinite(nextMs)) {
       /*
@@ -359,7 +379,8 @@ export async function reconcileRenewalsOnce(
     try {
       await renewer.extend({
         userId: row.userId,
-        planCode: row.planCode as PlanCode,
+        /* ★ PayPal 이 알려준 플랜을 우선한다. 못 알아내면 기존 값을 유지한다. */
+        planCode: (paidPlan ?? row.planCode) as PlanCode,
         providerRef: row.providerRef,
         /* ★ 주기 경계. now() 를 쓰면 폴링마다 값이 바뀌어 포인트가 중복 지급된다. */
         periodStart: row.periodEnd,
