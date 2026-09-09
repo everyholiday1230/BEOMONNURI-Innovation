@@ -159,6 +159,34 @@
             // 우리가 그리기 도구로 만든 도형임을 표시한다. 숨김·잠금·삭제가
             // 이 표시를 근거로 대상을 고른다 (AI 신호·주문선은 건드리지 않는다).
             extendData: { decimals: priceDecimals(), source: USER_DRAW_SOURCE },
+            /*
+               ★★ 수평선을 클릭하면 **가격을 숫자로 입력**할 수 있게 한다.
+
+                 마우스로 끌어 맞추면 원하는 값에 정확히 못 세운다. 지지·저항선은
+                 "68,400" 같은 딱 떨어지는 값에 두고 싶은데 드래그로는 68,412 처럼
+                 어긋나고, 그 선을 기준으로 만든 주문 초안도 함께 어긋난다.
+
+               ★ 수평선만 대상이다. 추세선·피보나치는 점이 둘 이상이라 숫자 하나로
+                 정할 수 없다.
+
+               ★ 여기서 창을 직접 만들지 않는다. 이벤트를 올려보내 화면이 띄우게 한다 —
+                 이 파일은 KLineChart API 를 감싸는 곳이고 DOM 을 만들지 않는다.
+            */
+            onClick: (event) => {
+              if (name !== 'horizontalStraightLine') return false;
+              const ov = event && event.overlay;
+              const pt = ov && ov.points && ov.points[0];
+              try {
+                window.dispatchEvent(new CustomEvent('qt:hline-click', {
+                  detail: {
+                    overlayId: ov ? ov.id : null,
+                    value: pt && pt.value != null ? pt.value : null,
+                    decimals: priceDecimals(),
+                  },
+                }));
+              } catch (e) { /* 이벤트 실패가 차트를 막지 않는다 */ }
+              return false;
+            },
           });
           return true;
         } catch (e) {

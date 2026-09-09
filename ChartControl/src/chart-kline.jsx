@@ -815,6 +815,106 @@
 
     const [colors, setColors] = useState(readColors);
     const [hoverCandle, setHoverCandle] = useState(null);
+    /*
+       수평선 가격 편집. `null` 이면 닫힌 상태다.
+       { id, value, locked } — value 는 입력 중인 문자열(숫자로 강제하지 않는다).
+    */
+    const [priceEdit, setPriceEdit] = useState(null);
+    const [priceEditError, setPriceEditError] = useState(null);
+
+    /*
+       ★ 이 컴포넌트는 `t` 를 props 로 받지 않는다. 사전에서 직접 읽고, 키가 없으면
+         영어 기본값을 쓴다 — 키를 넣기 전에도 화면에 키 문자열이 보이지 않게 한다.
+    */
+    const tx = React.useCallback((key, fallback) => {
+      const i18n = window.QTI18n;
+      if (i18n && typeof i18n.t === 'function') {
+        const v = i18n.t(key);
+        if (v && v !== key) return v;
+      }
+      return fallback;
+    }, []);
+
+    /*
+       입력한 가격을 오버레이에 반영한다.
+
+       ★★ 상위(`onOverlayChange`)로 넘긴다. 여기서 KLineChart 를 직접 고치면 상위
+         상태와 어긋나 다음 렌더에 되돌아간다 — 드래그 경로와 같은 통로를 쓴다.
+
+       ★ 검증에 실패하면 창을 닫지 않는다. 닫으면 무엇이 잘못됐는지 알 수 없고,
+         고객은 "적용을 눌렀는데 아무 일도 없다" 로 겪는다.
+    */
+    /*
+       ★★ **그리기 도구로 만든 수평선**의 클릭을 받는다.
+
+         그 선은 `chart-actions.js` 가 KLineChart 에 직접 만들기 때문에 이 컴포넌트의
+         오버레이 목록(`overlays`)에 없다. 그래서 아래 `onClick` 콜백이 걸리지 않는다.
+         chart-actions 가 `qt:hline-click` 이벤트를 올려보내고, 여기서 받아 같은
+         편집창을 띄운다.
+
+       ★ `klId` 를 함께 담는다. 우리 상태에 없는 선이므로 KLineChart 를 직접 고쳐야
+         한다(아래 applyPriceEdit 이 두 경로를 구분한다).
+    */
+    useEffect(() => {
+      const onHlineClick = (e) => {
+        const d = (e && e.detail) || {};
+        setPriceEditError(null);
+        setPriceEdit({
+          id: null,
+          klId: d.overlayId || null,
+          value: d.value != null ? String(d.value) : '',
+          locked: false,
+        });
+      };
+      window.addEventListener('qt:hline-click', onHlineClick);
+      return () => window.removeEventListener('qt:hline-click', onHlineClick);
+    }, []);
+
+    const applyPriceEdit = React.useCallback(() => {
+      setPriceEdit((cur) => {
+        if (!cur) return cur;
+        if (cur.locked) return cur;
+        /* 쉼표를 허용한다 — 68,400 처럼 붙여 넣는 경우가 많다. */
+        const raw = String(cur.value ?? '').replace(/,/g, '').trim();
+        const n = Number(raw);
+        if (!raw || !Number.isFinite(n) || n <= 0) {
+          setPriceEditError(
+            tx('chart_hline_bad', 'Enter a price greater than 0.'),
+          );
+          return cur;             // 창을 닫지 않는다
+        }
+        setPriceEditError(null);
+        /*
+           ★★ 두 경로가 있다. 섞으면 한쪽이 조용히 되돌아간다.
+
+             1) 우리 상태의 오버레이(AI 신호·주문선 등) → 상위로 올린다. 여기서
+                KLineChart 를 직접 고치면 다음 렌더에 상위 값으로 덮인다.
+             2) 그리기 도구로 만든 선 → 우리 상태에 없으므로 KLineChart 를 직접 고친다.
+        */
+        if (cur.id && onOverlayChange) {
+          /*
+             ★ points[0].price 만 바꾼다. time 은 그대로 둔다 — 수평선은 가격만
+               의미가 있고, time 을 지금으로 바꾸면 선이 화면 밖으로 밀릴 수 있다.
+          */
+          onOverlayChange(cur.id, { points: [{ price: n }] });
+        } else if (cur.klId) {
+          const chart = chartRef.current;
+          if (!chart) {
+            setPriceEditError(tx('chart_hline_bad', 'Enter a price greater than 0.'));
+            return cur;
+          }
+          try {
+            chart.overrideOverlay({ id: cur.klId, points: [{ value: n }] });
+          } catch (e) {
+            /* ★ 실패를 성공으로 보이게 하지 않는다. 창을 닫지 않고 이유를 남긴다. */
+            console.warn('[ChartKline] 수평선 가격 적용 실패', e);
+            setPriceEditError(tx('chart_hline_bad', 'Enter a price greater than 0.'));
+            return cur;
+          }
+        }
+        return null;              // 성공하면 닫는다
+      });
+    }, [onOverlayChange, tx]);
     const [appLang, setAppLang] = useState(currentAppLang);
     /*
        ★★ 화면에 올라간 지표 목록. 레전드가 이것을 그린다.
@@ -1425,6 +1525,27 @@
               onOverlayChange(ov.id, patchFromPoints(ov, moved.points));
               return false;
             },
+            /*
+               ★★ 선을 클릭하면 **가격을 숫자로 입력**할 수 있게 한다.
+
+                 마우스로 끌어 맞추면 원하는 값에 정확히 못 세운다. 지지·저항선은
+                 "68,400" 같은 딱 떨어지는 값에 두고 싶은데, 드래그로는 68,412 처럼
+                 어긋난다. 그러면 그 선을 기준으로 만든 주문 초안도 어긋난다.
+
+               ★ 수평선만 대상이다. 추세선·구간은 점이 둘 이상이라 숫자 하나로
+                 정할 수 없다 — 그건 별개 작업이다.
+            */
+            onClick: (event) => {
+              if (ov.type !== 'horizontal') return false;
+              const p = (event.overlay && event.overlay.points && event.overlay.points[0]) || null;
+              setPriceEdit({
+                id: ov.id,
+                /* 지금 값을 그대로 채워 넣는다 — 빈 칸에서 시작하면 다시 입력해야 한다. */
+                value: p && p.value != null ? String(p.value) : '',
+                locked: Boolean(ov.locked),
+              });
+              return false;
+            },
             onMouseEnter: () => {
               if (onOverlayHover) onOverlayHover(ov);
               return false;
@@ -1466,6 +1587,55 @@
         />
 
         {/* HUD — ChartCanvas 와 동일한 마크업/클래스 */}
+        {/*
+           ─────────────── 수평선 가격 입력 ───────────────
+
+           ★★ 드래그로는 원하는 값에 정확히 못 세운다. 지지·저항선을 "68,400" 같은
+             딱 떨어지는 값에 두고 싶은데 마우스로는 68,412 처럼 어긋나고, 그 선을
+             기준으로 만든 주문 초안도 함께 어긋난다.
+
+           ★ 잠긴 선은 값을 바꾸지 못한다. 잠금은 "실수로 건드리지 않겠다" 는 뜻이므로
+             숫자 입력으로 우회할 수 있으면 잠금이 무의미하다.
+
+           ★ 빈 값·숫자가 아닌 값·0 이하는 저장하지 않는다. 가격이 0 이면 선이 축
+             밖으로 나가 사라진 것처럼 보인다.
+        */}
+        {priceEdit && (
+          <div className="chart-price-edit" role="dialog" aria-label={tx('chart_hline_price', 'Line price')}>
+            <div className="chart-price-edit__title">{tx('chart_hline_price', 'Line price')}</div>
+            {priceEdit.locked ? (
+              <div className="chart-price-edit__note">{tx('chart_hline_locked', 'This line is locked.')}</div>
+            ) : (
+              <>
+                <input
+                  className="chart-price-edit__input"
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  aria-label={tx('chart_hline_price', 'Line price')}
+                  value={priceEdit.value}
+                  onChange={(e) => setPriceEdit((s2) => ({ ...s2, value: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); applyPriceEdit(); }
+                    if (e.key === 'Escape') { e.preventDefault(); setPriceEdit(null); }
+                  }}
+                />
+                <div className="chart-price-edit__row">
+                  <button type="button" className="btn btn--sm btn--primary" onClick={applyPriceEdit}>
+                    {tx('sv_apply', 'Apply')}
+                  </button>
+                  <button type="button" className="btn btn--sm" onClick={() => setPriceEdit(null)}>
+                    {tx('sv_cancel', 'Cancel')}
+                  </button>
+                </div>
+                {priceEditError && (
+                  <div className="chart-price-edit__err" role="alert">{priceEditError}</div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {hudCandle && (
           <div className="chart-hud">
             <div className="chart-hud__row">

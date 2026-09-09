@@ -52,3 +52,49 @@
 .chart-kline-wrap .chart-legend {
   right: 68px;
 }
+
+
+/* ─────────────── 수평선 가격 입력 ───────────────
+   ★ 차트 위에 뜨는 작은 창이다. 차트 위이므로 z-index 를 올리고, 클릭이 차트로
+     새어 들어가지 않게 pointer-events 를 받는다.
+   ★ 위치를 고정한다(왼쪽 위). 클릭 지점에 띄우면 화면 밖으로 나가는 경우를
+     따로 다뤄야 하고, 이 창은 작아서 고정 위치로 충분하다. */
+.chart-price-edit {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 30;
+  min-width: 168px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--color-border-strong, rgba(255,255,255,.16));
+  background: var(--color-bg-elevated, #191c24);
+  box-shadow: 0 8px 22px rgba(0,0,0,.38);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.chart-price-edit__title {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  letter-spacing: .02em;
+}
+.chart-price-edit__input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--color-border-strong, rgba(255,255,255,.16));
+  background: var(--color-bg-surface, #12141a);
+  color: var(--color-text-primary);
+  font-family: var(--font-num, inherit);
+  font-size: 13px;
+}
+.chart-price-edit__row { display: flex; gap: 6px; }
+.chart-price-edit__note,
+.chart-price-edit__err {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.chart-price-edit__note { color: var(--color-text-tertiary); }
+/* ★ 오류는 읽을 수 있어야 한다. 너무 흐리면 왜 적용이 안 됐는지 모른다. */
+.chart-price-edit__err { color: var(--color-danger, #e5484d); }
