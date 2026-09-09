@@ -2641,8 +2641,42 @@ if (env.authEnabled) {
             }
           },
         },
+        {
+          /*
+             ★★★ 갱신 확인. 이것이 없으면 **2회차부터 모든 구독자가** 돈만 내고
+               접근권을 잃는다. PayPal 은 매달 알아서 청구하는데, 우리 쪽에서 기간을
+               갱신하는 곳이 confirm(가입 시 1회)밖에 없었다.
+
+             ★ periodStart 는 **이전 기간의 끝**을 그대로 쓴다(대조 함수가 넘겨준다).
+               now() 를 쓰면 폴링마다 주기가 바뀐 것으로 오해해 포인트가 중복 지급된다.
+          */
+          renewer: {
+            extend: async (i) => {
+              const ok = await subscriptionRepo.upsert({
+                userId: i.userId,
+                planCode: i.planCode,
+                periodStart: i.periodStart,
+                periodEnd: i.periodEnd,
+                provider: 'paypal',
+                providerRef: i.providerRef,
+              });
+              /* ★ 던져서 다음 회차가 다시 시도하게 한다. 조용히 넘기면 고객이 끊긴다. */
+              if (!ok) throw new Error('기간 연장 기록(upsert)에 실패했다');
+              if (pointsRepo) {
+                /*
+                   ★ 새 주기의 월 포인트. claimMonthlyGrant 가
+                     last_grant_period <> current_period_start 로 중복을 막는다.
+                */
+                const g = await grantMonthlyPointsIfDue(subscriptionRepo, pointsRepo, i.userId, i.periodStart);
+                if ('failed' in g) {
+                  console.error(`[subscription] ★ 갱신 후 포인트 지급 실패 user=${i.userId}: ${g.failed}`);
+                }
+              }
+            },
+          },
+        },
       );
-      console.log('[subscription] 승인 대기 대조 작업 시작 — 브라우저가 돌아오지 않은 결제를 15분마다 확인한다.');
+      console.log('[subscription] 구독 대조 작업 시작 — 승인 누락과 월 갱신을 15분마다 확인한다.');
     } else if (subscriptionRepo && !paypalProvider) {
       console.log('[subscription] 승인 대기 대조 미가동 — PayPal 자격증명이 없다.');
     }

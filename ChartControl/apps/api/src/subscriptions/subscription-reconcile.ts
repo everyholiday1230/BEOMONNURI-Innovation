@@ -58,6 +58,15 @@ export interface ReconcileOutcome {
   error?: string;
 }
 
+export interface RenewOutcome {
+  providerRef: string;
+  action: 'extended' | 'not_advanced' | 'ended' | 'lookup_failed' | 'extend_failed' | 'no_billing_date';
+  status?: string;
+  /** 새 기간 끝(연장했을 때). */
+  periodEnd?: number;
+  error?: string;
+}
+
 /**
  * PayPal 상태 문자열 → 우리 판단.
  *
@@ -171,7 +180,17 @@ export function startSubscriptionReconciler(
   repo: PgSubscriptionRepo,
   provider: ReconcileProvider,
   activator: ReconcileActivator,
-  opts: { intervalMs?: number; firstDelayMs?: number } = {},
+  opts: {
+    intervalMs?: number;
+    firstDelayMs?: number;
+    /** 활성 구독 기간 연장. 없으면 갱신 확인을 하지 않는다(그러면 2회차에 끊긴다). */
+    renewer?: {
+      extend(input: {
+        userId: string; planCode: PlanCode; providerRef: string;
+        periodStart: number; periodEnd: number;
+      }): Promise<void>;
+    };
+  } = {},
 ): ReconcileHandle {
   const intervalMs = opts.intervalMs ?? 15 * 60_000;
   const firstDelayMs = opts.firstDelayMs ?? 90_000;
@@ -195,6 +214,33 @@ export function startSubscriptionReconciler(
     } catch (e) {
       console.error(`[subscription] 승인 대조 작업 자체가 실패했다: ${(e as Error).message}`);
     }
+
+    /*
+       ★★ 갱신 확인. 이것이 없으면 **2회차부터 모든 구독자가** 돈만 내고 접근권을
+         잃는다. 승인 대조(브라우저가 돌아오지 않은 경우)보다 영향이 크다.
+    */
+    if (!opts.renewer) return;
+    try {
+      const res = await reconcileRenewalsOnce(repo, provider, opts.renewer);
+      const extended = res.filter((r) => r.action === 'extended');
+      const ended = res.filter((r) => r.action === 'ended');
+      const bad = res.filter((r) => r.action === 'extend_failed' || r.action === 'lookup_failed' || r.action === 'no_billing_date');
+      if (extended.length > 0) {
+        console.log(`[subscription] 갱신 반영: ${extended.length}건의 기간을 연장했다.`);
+      }
+      if (ended.length > 0) {
+        console.log(`[subscription] PayPal 쪽에서 종료된 구독 ${ended.length}건 — 남은 기간까지 유효하게 둔다.`);
+      }
+      for (const f of bad) {
+        /*
+           ★ 돈이 걸린 경로다. 특히 no_billing_date 는 고객이 결제 중인데 우리가
+             연장하지 못한 상태이므로 반드시 사람이 봐야 한다.
+        */
+        console.error(`[subscription] ★ 갱신 확인 문제 ref=${f.providerRef} action=${f.action} status=${f.status ?? ''}: ${f.error ?? ''}`);
+      }
+    } catch (e) {
+      console.error(`[subscription] 갱신 확인 작업 자체가 실패했다: ${(e as Error).message}`);
+    }
   };
 
   const first = setTimeout(() => { void runNow(); }, firstDelayMs);
@@ -205,4 +251,118 @@ export function startSubscriptionReconciler(
   return {
     stop() { clearTimeout(first); clearInterval(timer); },
   };
+}
+
+
+/**
+ * 활성 구독의 기간을 PayPal 기준으로 연장한다.
+ *
+ * ★★★ 이것이 없으면 **2회차부터 고객이 돈만 내고 접근권을 잃는다.**
+ *
+ *   PayPal 구독은 매달 자기가 알아서 청구한다. 우리 쪽에서 기간을 갱신하는 곳은
+ *   confirm(가입 시 1회)과 승인 대조(pending 전용)뿐이었다. 활성 구독을 다시 보는
+ *   경로가 없었으므로, 가입 한 달 뒤 PayPal 은 정상 청구하는데 우리 기간은 지나
+ *   있어 entitled 가 false 가 된다.
+ *
+ *   승인 대조와 달리 이것은 **모든 구독자에게 반드시** 일어난다.
+ *
+ * ★★ 멱등해야 한다 — 15분마다 돌기 때문이다.
+ *
+ *   기간이 **실제로 앞으로 나아갔을 때만** 기록한다(nextEnd > prevEnd). 매번
+ *   now() 로 periodStart 를 새로 쓰면 claimMonthlyGrant 가 "새 주기" 로 오해해
+ *   **폴링마다 포인트를 지급한다.** 그래서 periodStart 는 **이전 기간의 끝**으로
+ *   둔다 — 주기 경계라서 한 주기에 정확히 한 번만 바뀐다.
+ *
+ * ★ PayPal 이 ACTIVE 라고 하면 결제가 정상이라는 뜻이다. SUSPENDED(결제 실패)면
+ *   연장하지 않는다 — 기간이 끝나면 자연히 만료된다. 유예기간을 우리가 임의로
+ *   만들지 않는다. 결제 없이 기능을 여는 판단을 코드가 대신하면 안 된다.
+ */
+export async function reconcileRenewalsOnce(
+  repo: PgSubscriptionRepo,
+  provider: ReconcileProvider,
+  renewer: {
+    extend(input: {
+      userId: string;
+      planCode: PlanCode;
+      providerRef: string;
+      periodStart: number;
+      periodEnd: number;
+    }): Promise<void>;
+  },
+  opts: { withinMs?: number; limit?: number } = {},
+): Promise<RenewOutcome[]> {
+  const withinMs = opts.withinMs ?? 2 * 24 * 60 * 60 * 1000;
+  const rows = await repo.listRenewable(withinMs, opts.limit ?? 50);
+  const out: RenewOutcome[] = [];
+
+  for (const row of rows) {
+    let got: Awaited<ReturnType<ReconcileProvider['getSubscription']>>;
+    try {
+      got = await provider.getSubscription(row.providerRef);
+    } catch (e) {
+      out.push({ providerRef: row.providerRef, action: 'lookup_failed', error: (e as Error).message });
+      continue;
+    }
+    /*
+       ★ ok:false 는 조회 실패다. "구독이 없다" 로 보면 장애 때 유효한 구독을 끊는다.
+    */
+    if (!got.ok) {
+      out.push({ providerRef: row.providerRef, action: 'lookup_failed', status: got.status });
+      continue;
+    }
+
+    const verdict = judgePaypalStatus(got.status);
+
+    if (verdict === 'dead') {
+      /*
+         ★ PayPal 쪽이 끝났다. 남은 기간까지는 쓸 수 있어야 하므로 'canceled' 로 둔다
+           — 이미 낸 몫을 빼앗지 않는다. 기간이 지나면 entitled 가 저절로 false 다.
+      */
+      await repo.setStatus(row.userId, 'canceled');
+      out.push({ providerRef: row.providerRef, action: 'ended', status: got.status });
+      continue;
+    }
+
+    if (verdict !== 'active') {
+      /* SUSPENDED 등 — 연장하지 않는다. 기간이 끝나면 만료된다. */
+      out.push({ providerRef: row.providerRef, action: 'not_advanced', status: got.status });
+      continue;
+    }
+
+    const nextMs = got.nextBillingAt ? Date.parse(got.nextBillingAt) : NaN;
+    if (!Number.isFinite(nextMs)) {
+      /*
+         ★★ ACTIVE 인데 다음 청구일을 읽을 수 없다. 임의로 연장하면 결제 없이 기능이
+           열릴 수 있으므로 연장하지 않고 **크게 남긴다.** 고객이 끊기면 이 로그로
+           원인을 찾는다.
+      */
+      out.push({ providerRef: row.providerRef, action: 'no_billing_date', status: got.status });
+      continue;
+    }
+
+    /*
+       ★ 앞으로 나아갔을 때만 기록한다. 같은 값으로 다시 쓰면 주기가 바뀐 것으로
+         오해해 포인트를 또 지급한다.
+    */
+    if (!(nextMs > row.periodEnd)) {
+      out.push({ providerRef: row.providerRef, action: 'not_advanced', status: got.status, periodEnd: row.periodEnd });
+      continue;
+    }
+
+    try {
+      await renewer.extend({
+        userId: row.userId,
+        planCode: row.planCode as PlanCode,
+        providerRef: row.providerRef,
+        /* ★ 주기 경계. now() 를 쓰면 폴링마다 값이 바뀌어 포인트가 중복 지급된다. */
+        periodStart: row.periodEnd,
+        periodEnd: nextMs,
+      });
+      out.push({ providerRef: row.providerRef, action: 'extended', status: got.status, periodEnd: nextMs });
+    } catch (e) {
+      out.push({ providerRef: row.providerRef, action: 'extend_failed', status: got.status, error: (e as Error).message });
+    }
+  }
+
+  return out;
 }

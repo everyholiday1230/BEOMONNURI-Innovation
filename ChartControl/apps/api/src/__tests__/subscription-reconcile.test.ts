@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import {
   judgePaypalStatus,
   reconcilePendingOnce,
+  reconcileRenewalsOnce,
   type ReconcileProvider,
   type ReconcileActivator,
 } from '../subscriptions/subscription-reconcile';
@@ -229,5 +230,135 @@ describe('★ 승인 대기는 접근권을 주지 않는다 — 결제 없이 �
     const seg = src.slice(at, at + 1400);
     expect(seg).toContain('return false');
     expect(seg).toContain('ON CONFLICT (event_id) DO NOTHING');
+  });
+});
+
+type RenewRow = { userId: string; planCode: string; providerRef: string; periodEnd: number };
+
+function renewRepo(rows: RenewRow[]) {
+  const statusCalls: Array<{ userId: string; status: string }> = [];
+  const repo = {
+    listRenewable: async () => rows,
+    setStatus: async (userId: string, status: string) => { statusCalls.push({ userId, status }); return true; },
+  } as unknown as PgSubscriptionRepo;
+  return { repo, statusCalls };
+}
+
+const DAY = 24 * 3600 * 1000;
+
+describe('★★ 월 갱신 — 이것이 없으면 2회차부터 돈만 내고 접근권을 잃는다', () => {
+  const rowNow = (over: Partial<RenewRow> = {}): RenewRow => ({
+    userId: 'u1', planCode: 'pro', providerRef: 'I-R1',
+    periodEnd: Date.now() + 3600_000,
+    ...over,
+  });
+
+  it('PayPal 이 다음 청구일을 앞으로 옮겼으면 기간을 연장한다', async () => {
+    const prevEnd = Date.now() + 3600_000;
+    const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
+    const nextAt = new Date(prevEnd + 30 * DAY).toISOString();
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: nextAt }),
+    };
+    const calls: unknown[] = [];
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async (i) => { calls.push(i); } });
+    expect(out[0]?.action).toBe('extended');
+    const c = calls[0] as { periodStart: number; periodEnd: number };
+    /* ★ periodStart 는 이전 기간의 끝 — 주기 경계여야 한다. */
+    expect(c.periodStart).toBe(prevEnd);
+    expect(c.periodEnd).toBe(Date.parse(nextAt));
+  });
+
+  it('★★★ 같은 값으로 다시 돌리면 아무 것도 하지 않는다 — 포인트 중복 지급 방지', async () => {
+    /*
+       ★★ 15분마다 도는 작업이다. periodStart 를 now() 로 쓰거나 값이 같아도 기록하면
+         claimMonthlyGrant 가 "새 주기" 로 오해해 **폴링마다 포인트를 지급한다.**
+         하루면 96번이다. 그래서 앞으로 나아갔을 때만 기록한다.
+    */
+    const prevEnd = Date.now() + 10 * DAY;
+    const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
+    const provider: ReconcileProvider = {
+      /* PayPal 이 아직 같은 청구일을 준다(청구 전). */
+      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd).toISOString() }),
+    };
+    let extended = 0;
+    for (let i = 0; i < 5; i++) {
+      const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
+      expect(out[0]?.action).toBe('not_advanced');
+    }
+    expect(extended, '기간이 안 바뀌었는데 기록했다 — 포인트가 중복 지급된다').toBe(0);
+  });
+
+  it('과거 날짜로는 연장하지 않는다', async () => {
+    const prevEnd = Date.now() + 5 * DAY;
+    const { repo } = renewRepo([rowNow({ periodEnd: prevEnd })]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd - DAY).toISOString() }),
+    };
+    let extended = 0;
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
+    expect(out[0]?.action).toBe('not_advanced');
+    expect(extended).toBe(0);
+  });
+
+  it('★ ACTIVE 인데 청구일을 못 읽으면 연장하지 않고 크게 남긴다', async () => {
+    /*
+       ★★ 임의로 연장하면 **결제 없이 기능이 열린다.** 연장하지 않고 눈에 띄게 남긴다.
+         고객이 끊기면 그 로그로 원인을 찾는다.
+    */
+    const { repo } = renewRepo([rowNow()]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'ACTIVE' }),
+    };
+    let extended = 0;
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
+    expect(out[0]?.action).toBe('no_billing_date');
+    expect(extended).toBe(0);
+  });
+
+  it('SUSPENDED(결제 실패)는 연장하지 않는다 — 유예기간을 임의로 만들지 않는다', async () => {
+    const { repo, statusCalls } = renewRepo([rowNow()]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'SUSPENDED', nextBillingAt: new Date(Date.now() + 30 * DAY).toISOString() }),
+    };
+    let extended = 0;
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
+    expect(out[0]?.action).toBe('not_advanced');
+    expect(extended, '결제가 실패했는데 기간을 늘렸다').toBe(0);
+    expect(statusCalls, 'SUSPENDED 는 아직 끝난 것이 아니다').toHaveLength(0);
+  });
+
+  it('PayPal 쪽에서 해지되면 canceled — 남은 기간은 살려 둔다', async () => {
+    /* ★ 이미 낸 몫을 빼앗지 않는다. 기간이 지나면 entitled 가 저절로 false 다. */
+    const { repo, statusCalls } = renewRepo([rowNow()]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'CANCELLED' }),
+    };
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => {} });
+    expect(out[0]?.action).toBe('ended');
+    expect(statusCalls[0]).toEqual({ userId: 'u1', status: 'canceled' });
+  });
+
+  it('조회 실패로 구독을 끊지 않는다', async () => {
+    const { repo, statusCalls } = renewRepo([rowNow()]);
+    const provider: ReconcileProvider = { getSubscription: async () => ({ ok: false, status: 'http_502' }) };
+    let extended = 0;
+    const out = await reconcileRenewalsOnce(repo, provider, { extend: async () => { extended++; } });
+    expect(out[0]?.action).toBe('lookup_failed');
+    expect(statusCalls, '장애 때 유효한 구독을 끊었다').toHaveLength(0);
+    expect(extended).toBe(0);
+  });
+
+  it('연장 기록이 실패하면 상태를 바꾸지 않는다 — 다음 회차가 다시 시도한다', async () => {
+    const prevEnd = Date.now() + 3600_000;
+    const { repo, statusCalls } = renewRepo([rowNow({ periodEnd: prevEnd })]);
+    const provider: ReconcileProvider = {
+      getSubscription: async () => ({ ok: true, status: 'ACTIVE', nextBillingAt: new Date(prevEnd + 30 * DAY).toISOString() }),
+    };
+    const out = await reconcileRenewalsOnce(repo, provider, {
+      extend: async () => { throw new Error('DB 실패'); },
+    });
+    expect(out[0]?.action).toBe('extend_failed');
+    expect(statusCalls).toHaveLength(0);
   });
 });

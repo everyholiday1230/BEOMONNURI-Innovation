@@ -240,6 +240,50 @@ export class PgSubscriptionRepo {
   }
 
   /**
+   * 갱신 확인이 필요한 구독 — 기간이 곧 끝나거나 이미 지난 **활성** 구독.
+   *
+   * ★★★ 이것이 없어서 **2회차부터 고객이 돈만 내고 접근권을 잃었다.**
+   *
+   *   PayPal 구독은 매달 **자기가 알아서** 청구한다. 그런데 우리 쪽에서
+   *   current_period_end 를 갱신하는 곳은 confirm(가입 시 1회)과 승인 대조
+   *   (pending 전용)뿐이었다. 활성 구독을 다시 보는 경로가 아예 없었다.
+   *
+   *   결과: 가입 한 달 뒤 PayPal 은 정상 청구하는데 우리 DB 의 기간은 지나 있어
+   *   entitled 가 false 가 된다. 고객은 **요금을 내면서 기능을 잃고**, 월 포인트도
+   *   받지 못한다(claimMonthlyGrant 가 current_period_end > now() 를 요구한다).
+   *
+   *   승인 대조 때와 달리 이것은 **모든 구독자에게 반드시** 일어난다.
+   *
+   * ★ 만료 전에 미리 본다(기본 2일). 만료된 뒤에 보면 그 사이 고객이 잠시라도
+   *   기능을 잃는다.
+   */
+  async listRenewable(withinMs: number, limit = 50): Promise<
+    Array<{ userId: string; planCode: string; providerRef: string; periodEnd: number }>
+  > {
+    try {
+      const r = await this.pool.query(
+        `SELECT user_id, plan_code, provider_ref, current_period_end
+           FROM subscriptions
+          WHERE status = 'active'
+            AND provider_ref IS NOT NULL
+            AND current_period_end < now() + ($1::bigint * interval '1 millisecond')
+          ORDER BY current_period_end ASC
+          LIMIT $2`,
+        [String(withinMs), limit],
+      );
+      return r.rows.map((x) => ({
+        userId: String(x.user_id),
+        planCode: String(x.plan_code),
+        providerRef: String(x.provider_ref),
+        periodEnd: ms(x.current_period_end),
+      }));
+    } catch (e) {
+      console.warn(`[subscription] 갱신 대상 조회 실패: ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
    * 상태만 바꾼다(기간은 건드리지 않는다).
    *
    * ★ 'canceled' 는 기간이 남아 있으면 계속 쓸 수 있다는 뜻이다 — 그래서 기간을
