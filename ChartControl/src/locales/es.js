@@ -713,6 +713,7 @@
       // --- 랜딩 내비게이션 ---
       landing_nav_features: 'Funciones',
       landing_nav_pricing: 'Precios',
+      landing_price_what: 'Un plan de pago es una suscripción a este software: no es una comisión de trading, ni una cuenta gestionada, ni asesoramiento pagado. Tu cuenta de exchange es tuya y cada orden la envías tú.',
       landing_nav_exchanges: 'Exchanges',
 
       // --- 표 머리글 (공통) ---
@@ -1499,7 +1500,7 @@
       // --- 랜딩: 우리는 브로커가 아니다 ---
       landing_stripe_badge: 'SOFTWARE, NO UN BRÓKER',
       landing_stripe_note: 'No somos un exchange, ni un bróker, ni un asesor de inversiones. Cualquier orden que decidas enviar la ejecuta tu propia cuenta del exchange.',
-      landing_sub_counted: 'Una herramienta de software que lee gráficos con vos: indicadores, dibujos y un asistente de IA en un mismo espacio de trabajo. Hoy los gráficos cubren cripto; acciones y ETFs vienen después.',
+      landing_sub_counted: 'Una herramienta de software que lee gráficos con vos: indicadores, dibujos y un asistente de IA en un mismo espacio de trabajo. Los gráficos cubren pares de cripto de KuCoin.',
       landing_sub_plain: 'Una herramienta de software que lee gráficos con vos: indicadores, dibujos y un asistente de IA en un mismo espacio de trabajo.',
       auth_exchanges_title: 'Exchanges asociados',
       auth_exchanges_desc: 'Conectá tu propia API key — nunca custodiamos tus fondos',
@@ -3000,10 +3001,6 @@
       landing_feat_ex_title: 'Usá tu propia cuenta de exchange',
       landing_feat_ex_none: 'La lista de exchanges conectables está cargando.',
       landing_feat_ex_body: '{names} — tus fondos nunca salen de tu propia cuenta del exchange. Solo enviamos la orden que aprobaste, y nunca pedimos permiso de retiro.',
-      landing_price_title: 'Ahora todo es gratis',
-      landing_price_body_1: 'No hay ningún proveedor de pago conectado, así que no se puede cobrar nada ni comprar ningún plan de pago.',
-      landing_price_body_2: 'Los análisis de IA se miden con puntos que ganás por referidos y eventos — no con dinero.',
-      landing_price_body_3: 'Si más adelante se abre un plan de pago, va a ser una suscripción a este software — no una comisión de trading, no una cuenta administrada y no asesoramiento pago. Lo vamos a decir en esta página antes de que algo cambie para vos.',
       landing_price_cta: 'Crear una cuenta gratis',
       landing_price_cta_paid: 'Obtener este plan',
 
@@ -3026,7 +3023,7 @@
       landing_live_title: 'Los gráficos son en vivo, no capturas de pantalla',
       landing_live_sub: 'Los precios de abajo se leen de datos públicos de mercado para que veas la herramienta funcionando antes de registrarte. No publicamos pronósticos ni recomendaciones.',
       landing_live_unavailable: 'Ahora no se pudieron cargar los datos de mercado. Preferimos no mostrar nada en lugar de un ejemplo.',
-      landing_live_note: '{n}h de velas de una hora · se actualiza cuando recargás',
+      landing_live_note: '{n}h de velas de una hora · se actualiza cada 25 segundos',
       landing_custody_title: 'Dónde está tu dinero',
       landing_custody_sub: 'No somos custodios. Tus fondos nunca pasan por nosotros — solo enviamos la orden.',
       landing_custody_you: 'Vos',

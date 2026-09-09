@@ -43,8 +43,32 @@ describe('CSP — 좁힌 상태 유지', () => {
     const html = read('../../../../index.html');
     /* 주석은 제외하고 실제 태그만 본다. */
     const stripped = html.replace(/<!--[\s\S]*?-->/g, '');
-    const external = stripped.match(/(?:src|href)="https?:\/\/[^"]+"/g) ?? [];
-    expect(external, `외부 참조가 생겼다: ${external.join(', ')}`).toEqual([]);
+    /*
+       ★★ 이 시험이 막으려는 것은 **외부 CDN 에서 코드·폰트를 받아오는 것**이다
+         (개인정보처리방침에 없는 제3자 전달 + CSP 를 넓혀야 하는 이유가 된다).
+
+       ★ 그런데 **자기 도메인을 가리키는 절대 URL 은 다르다.** og:image·og:url·
+         canonical 은 규격상 절대 URL 이어야 한다 — 상대 경로를 쓰면 대부분의
+         플랫폼과 검색엔진이 무시한다. 그것까지 막으면 공유 카드와 색인을 고칠 수
+         없다(실제로 이 시험이 그 수정을 막았다).
+
+       ★ 그래서 **우리 도메인은 허용하고 그 밖의 도메인만 막는다.** 도메인 목록을
+         여기 한 곳에 둔다 — 늘어나면 눈에 띈다.
+
+       ★ 그리고 og:image 등은 src/href 가 아니라 content= 로 들어간다. 원래 정규식이
+         못 잡던 자리이므로 content= 도 함께 본다 — 여기로 외부 CDN 이 들어올 수 있다.
+    */
+    const OWN_HOSTS = ['chartcontrol.onrender.com'];
+    const refs = stripped.match(/(?:src|href|content)="https?:\/\/[^"]+"/g) ?? [];
+    const external = refs.filter((r) => {
+      const url = r.replace(/^[a-z]+="/, '').replace(/"$/, '');
+      try {
+        return !OWN_HOSTS.includes(new URL(url).hostname);
+      } catch {
+        return true; /* 파싱 안 되는 값은 문제로 본다 */
+      }
+    });
+    expect(external, `외부 도메인 참조가 생겼다: ${external.join(', ')}`).toEqual([]);
   });
 
   it('운영에서 design-library 를 서빙하지 않는다 (CDN 을 뺄 수 있는 전제)', () => {

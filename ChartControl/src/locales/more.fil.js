@@ -1,0 +1,177 @@
+/* ============================================================
+   Filipino — 입출금·추천·수수료·도움말 (pages-more.jsx) 사전
+   ------------------------------------------------------------
+   키는 tools/i18n-extract.py 가 생성한 것이며 바꾸지 않는다. 값만 번역한다.
+   ★ {brand} {symbol} 치환자는 그대로 남긴다.
+   ★★ 비수탁 고지(자금은 고객 거래소에 있음 / 출금 권한 의도적 제외 / 측정 못 하는
+     적중률은 공표하지 않음)는 톤을 약화하지 않고 그대로 옮긴다.
+   ★ 금융·기술 용어는 영어를 유지한다(Taglish).
+   ============================================================ */
+
+(function () {
+  'use strict';
+  if (!window.QTI18n) return;
+
+  window.QTI18n.register(
+    'fil',
+    {
+      // --- 거래소 연결 마법사 ---
+      exchange_connect_wizard_a17369: 'Mag-sign up',
+      exchange_connect_wizard_fa18a0: 'Gumawa ng key',
+      exchange_connect_wizard_4511bd: 'Ilagay ang key',
+      exchange_connect_wizard_8d8680: 'Tapos na',
+      exchange_connect_wizard_acfc61: '🎁 Bonus sa bagong sign-up',
+      exchange_connect_wizard_ca4b74: 'Partner link ng {brand}',
+      exchange_connect_wizard_806a50: 'May account na ako →',
+      exchange_connect_wizard_0506be: '2️⃣ Gumawa ng API key',
+      exchange_connect_wizard_aad4f8: 'Checklist kapag gumagawa ng key',
+      exchange_connect_wizard_938e35: 'Read permission (kailangan)',
+      exchange_connect_wizard_4b268e: 'Trade permission (pagpapadala ng order)',
+      exchange_connect_wizard_d39a64: 'Withdraw permission (❌ huwag kailanman i-on)',
+      exchange_connect_wizard_ec2bc7: 'IP restriction (inirerekomenda) · payagan lang ang kasalukuyang IP',
+      exchange_connect_wizard_c0269d: 'Maglagay ng expiry · 90 araw ang inirerekomenda',
+      exchange_connect_wizard_f4b9a9: 'Nagawa na ang key →',
+      exchange_connect_wizard_46d3df: '3️⃣ Ilagay ang API key',
+      exchange_connect_wizard_267402: 'hal. abcd1234…',
+      exchange_connect_wizard_344324: 'hal. secret1234…',
+      exchange_connect_wizard_64bc70: 'Naka-set na ang IP allowlist (inirerekomenda)',
+      exchange_connect_wizard_ad0627: 'Kailangan sa OKX · Bitget at iba pa',
+      exchange_connect_wizard_810016: '← Bumalik',
+      exchange_connect_wizard_5953fd: 'I-save ang koneksyon',
+      exchange_connect_wizard_718595: 'Sinusubukan…',
+      exchange_connect_wizard_7e3fbe: 'Mali ang format ng API key',
+      exchange_connect_wizard_cea2a6: 'Na-verify ang API key',
+      exchange_connect_wizard_a9672e: 'Nakakonekta na!',
+
+      // --- 입금 ---
+      deposit_b9ca11: 'Magdeposito',
+      deposit_65292b: 'Magdeposito ng assets sa iyong {brand} wallet',
+      deposit_1bcffc: '1. Piliin ang asset at network',
+      deposit_d4cde2: 'Kasalukuyang balanse',
+      deposit_eba168: '2. Address ng deposito',
+      deposit_adb488: '3. Mga paalala sa deposito',
+      deposit_eca2cd: 'Pinakamababang deposito:',
+      deposit_2f858e: 'Kailangang confirmations:',
+      deposit_53bb7f: 'Tinatayang oras bago ma-kredito:',
+      deposit_9360c7: '1-3 min',
+      deposit_13c35d: '3-5 min',
+      deposit_b5d053: '10-30 min',
+      deposit_7fb69f: 'Mga kasalukuyang deposito',
+
+      // --- 출금 ---
+      withdraw_972169: 'Mag-withdraw',
+      withdraw_690b48: 'Mag-withdraw ng assets sa panlabas na wallet',
+      withdraw_d4bbb3: 'Available',
+      withdraw_3f13b3: 'Detalye ng withdrawal',
+      withdraw_605c61: 'Address book',
+      withdraw_708758: 'Mga naka-save na withdrawal address',
+      withdraw_ecf928: 'Magdagdag ng address',
+      withdraw_34f036: 'Bayad',
+      withdraw_5f9394: 'Matatanggap mo',
+      withdraw_fe7cae: 'Limitasyon kada araw',
+      withdraw_757555: 'Natitirang limitasyon',
+      withdraw_100747: 'Itaas ang limitasyon',
+      withdraw_e88174: 'Humiling ng withdrawal →',
+      withdraw_e01e9b: '⚠ Huling kumpirmasyon ng withdrawal',
+      withdraw_a426f8: 'Ituloy ang withdrawal gamit ang mga detalyeng ito?',
+      withdraw_403732: '6-digit na code',
+      withdraw_e6f846: 'Kumpirmahin ang withdrawal',
+      withdraw_19b2d1: 'Kanselahin',
+      withdraw_83b14a: 'Natanggap ang kahilingan sa withdrawal (simulation)',
+
+      // --- 거래 내역 ---
+      transaction_history_1de8f9: 'Buong tala ng deposito, withdrawal, transfer, bayad at rebate',
+      transaction_history_ec0ce9: 'Deposito ngayong buwan',
+      transaction_history_99af2b: 'Withdrawal ngayong buwan',
+      transaction_history_ef5fd4: 'Mga rebate',
+      transaction_history_adb142: 'Hanapin ang TX hash · asset',
+
+      // --- 추천 (Referral) ---
+      referral_5c777f: 'Mag-refer ng kaibigan',
+      referral_36c994: 'Mag-imbita ng kaibigan at kumita ng fee rebate',
+      referral_556648: 'Kabuuang naimbitahan',
+      referral_cc6354: 'Mga aktibong user',
+      referral_d7f3c2: 'Rebate ngayong buwan',
+      referral_1a8dfd: 'Kabuuang rebate',
+      referral_e31ce0: '🎁 Ang invite link ko',
+      referral_967128: 'Invite link',
+      referral_4e6dd0: 'Invite code',
+      referral_0f2024: 'Ibahagi',
+      referral_7932cf: '🎯 Paano ito gumagana',
+      referral_047382: 'Ibahagi ang invite link o code sa isang kaibigan',
+      referral_c57b53: 'Mag-sign up ang kaibigan mo sa link at tapusin ang KYC',
+      referral_a0193f: '💰 Estruktura ng rebate',
+      referral_944615: 'Komisyon ng tier ko',
+      referral_5f1706: 'Sinesettle tuwing ika-1 ng buwan · binabayaran sa wallet mo sa USDT',
+      referral_8580a8: 'Mga naimbitahang kaibigan',
+      referral_c398ae: 'Wala pa pong naimbitahang kaibigan',
+      referral_fa91e4: 'Ibahagi ang link sa itaas para sa unang imbitasyon mo.',
+      referral_c0d797: 'Agad',
+      referral_4aa57d: 'Nag-trade sa loob ng 7 araw',
+      referral_d23449: '5+ imbitasyon',
+      referral_ccc2b8: '20+ imbitasyon',
+      referral_1c41fb: '100+ imbitasyon',
+      referral_3be144: '500+ imbitasyon',
+
+      // --- 수수료 / 리베이트 ---
+      fee_rebate_4f1ad0: 'Ang fee tier ko · progreso patungo sa susunod na tier · mga promo',
+      fee_rebate_350a9e: 'Mga trading fee',
+      fee_rebate_2f76f9: 'Referral rebate',
+      fee_rebate_e7fe5e: 'Rebate sa promo',
+      fee_rebate_597833: 'Net na bayad',
+      fee_rebate_6d03c2: '🎁 Mga aktibong promo',
+      fee_rebate_a3530c: 'Hati-hati ng bayad ngayong buwan',
+
+      // --- 도움말 센터 ---
+      help_center_42b43b: 'FAQ · gabay · contact',
+      help_center_044ef4: 'Maghanap ng sagot…',
+      help_center_ae2ce9: 'Mga madalas itanong',
+      help_center_df04a4: 'Account · KYC',
+      help_center_b92aff: 'Sign-up · verification · pagpapabalik',
+      help_center_3910ce: 'Pera at bayad',
+      help_center_7901e1: 'Nasa exchange mo nakatago · wala kaming dinadagdag na bayad',
+      help_center_dc20f4: 'Trading',
+      help_center_eafac1: 'Mga order type · leverage · liquidation',
+      help_center_87ad98: 'Mga signal · overlay · kawastuhan',
+      help_center_51472d: 'Paano ako mag-sign up?',
+      help_center_c1c49c: 'Email at isang password, pagkatapos kumpirmahin ang address. Hindi kami humihingi ng ID — ang exchange ang nagbe-verify ng pagkakakilanlan mo kapag nagbukas ka ng account doon. Pagkatapos mag-sign in, ikonekta ang exchange API key mo sa Wallet page.',
+      help_center_45bbd7: 'Saan ako magdedeposito at mag-wiwithdraw?',
+      help_center_8f8fe0: 'Sa exchange mo, hindi dito. Nananatili ang pera mo sa sarili mong exchange account — hindi namin ito tinatanggap ni hinahawakan, at ang mga API key na hinihingi namin ay sadyang walang withdrawal permission. Kung naantala ang deposito o withdrawal, tanong iyon para sa exchange mo; hindi namin nakikita ang chain.',
+      help_center_62cd9d: 'Paano kinakalkula ang mga bayad?',
+      help_center_b9a588: 'Ang exchange ang kumukuha ng sarili nilang maker/taker fee sa account mo, at sumusunod ang rate na iyon sa sariling talaan ng exchange. Wala kaming idinadagdag na bayad. Ang kita namin ay galing sa broker rebate ng exchange, kaya walang dagdag gastos sa iyo ang pagkonekta sa pamamagitan namin.',
+      help_center_667475: 'Paano ako magkokonekta ng API key?',
+      help_center_aa37a6: 'Sa Wallet page, pumili ng suportadong exchange, tapos sundin ang wizard sa paggawa ng key. Read + Trade permission lang ang ibigay.',
+      help_center_d67afc: 'May AI analysis ba?',
+      help_center_72f72a: 'Wala pa sa deployment na ito. Hangga’t walang nakakonektang AI provider, hindi maglalabas ng price levels ang copilot — ang paggawa-gawa ng entry o stop price nang walang modelo ay mas masama pa sa hindi pagsasabi ng kahit ano. Hindi rin kami naglalabas ng hit-rate na hindi namin masusukat. Kapag naka-enable na ito, hindi pa rin ito kusang magpapadala ng order.',
+      help_center_c46850: 'Maaari ko bang i-on ang ganap na automated na AI trading?',
+      help_center_c5eed0: 'Hindi. Bawat order ay kailangan ng pag-apruba mo bago ipadala — walang unattended na auto-trading mode. Kapag nakakonekta na ang AI analysis, makakagawa ito ng draft ng order, pero ang pagpapadala nito ay laging hiwalay na aksyon na ginagawa mo.',
+      help_center_7b944c: 'Ano ang mangyayari kung masuspinde ang account ko?',
+      help_center_ddc217: 'Makikita mo ang dahilan kapag nag-sign in ka, at naitatala ito sa audit log namin. Sumagot sa inquiry form sa ibaba kasama ang hinihingi namin, at rerepasuhin ito ng isang operator. Hindi hinahawakan ng suspensyon ang pera mo — nasa sarili mong exchange account iyon at hindi namin ito maigagalaw.',
+      help_center_531f6a: 'Makipag-ugnayan sa amin',
+      help_center_0330b1: 'Magsimulang mag-chat',
+      help_center_23dfeb: 'Karaniwang sagot 3 min',
+      help_center_dda31f: 'Magpadala ng email',
+      help_center_5052f8: 'Magbukas ng ticket',
+      help_center_8c548e: 'Dedicated 1:1 na manager',
+
+      // --- 전략 상세 / 내 전략 ---
+      strategy_detail_73a075: 'I-follow · $0/buwan',
+      strategy_detail_0a17fe: 'Inirerekomenda para sa:',
+      strategy_detail_40a912: 'Mga sumusunod sa trend na medium hanggang long-term',
+      strategy_detail_704ee2: 'Mga day trader · scalper',
+      strategy_detail_411128: 'Konsistent ang resulta. Tumpak ang pagdating ng alerts.',
+      strategy_detail_20ef84: 'Kahanga-hanga na tumutugma ang live na resulta sa backtest.',
+      strategy_detail_c84624: 'Magandang strategy, kahit na makakatulong kung mas malinaw ito sa paglaktaw ng sideways na merkado.',
+      my_strategies_2247f0: 'Mga strategy na sinusundan mo · performance · setting ng auto-copy',
+      my_strategies_eb1536: 'Wala pa pong sinusundang strategy',
+      my_strategies_308c9f: 'Wala ka pang sinusundang strategy',
+      my_strategies_7dbef2: 'Tingnan ang AI Strategies page at sundan ang isang gusto mo.',
+      my_strategies_bc178b: '+ Tingnan ang mga strategy',
+      my_strategies_c93fb6: 'Galeriya ng strategy →',
+
+      strat_follow_ok: 'Sinusundan sa {symbol}. Pamahalaan ito sa My Strategies.',
+      strat_follow_failed: 'Hindi na-follow ang strategy na ito. Walang na-save — subukan muli.',
+    },
+    { label: 'Filipino', bcp47: 'fil-PH' },
+  );
+})();

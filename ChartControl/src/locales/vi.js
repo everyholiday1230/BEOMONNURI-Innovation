@@ -728,6 +728,7 @@
       // --- 랜딩 내비게이션 ---
       landing_nav_features: 'Chức năng',
       landing_nav_pricing: 'Giá',
+      landing_price_what: 'Gói trả phí là phí thuê bao phần mềm này — không phải phí giao dịch, không phải quản lý tài khoản hộ, không phải tư vấn đầu tư có phí. Tài khoản sàn là của bạn và bạn tự đặt mọi lệnh.',
       landing_nav_exchanges: 'Sàn giao dịch',
 
       // --- 표 머리글 (공통) ---
@@ -1554,7 +1555,7 @@
       // --- 랜딩: 우리는 브로커가 아니다 ---
       landing_stripe_badge: 'PHẦN MỀM, KHÔNG PHẢI SÀN MÔI GIỚI',
       landing_stripe_note: 'Chúng tôi không phải sàn giao dịch, không phải nhà môi giới và không phải nhà tư vấn đầu tư. Mọi lệnh bạn chọn đặt đều được thực hiện bởi chính tài khoản sàn của bạn.',
-      landing_sub_counted: 'Một công cụ phần mềm đọc biểu đồ cùng bạn: chỉ báo, hình vẽ và một trợ lý AI trong cùng một không gian làm việc. Hiện biểu đồ bao gồm tiền mã hóa; cổ phiếu và ETF là bước tiếp theo.',
+      landing_sub_counted: 'Một công cụ phần mềm đọc biểu đồ cùng bạn: chỉ báo, hình vẽ và một trợ lý AI trong cùng một không gian làm việc. Biểu đồ bao gồm các cặp tiền mã hóa từ KuCoin.',
       landing_sub_plain: 'Một công cụ phần mềm đọc biểu đồ cùng bạn: chỉ báo, hình vẽ và một trợ lý AI trong cùng một không gian làm việc.',
       auth_exchanges_title: 'Sàn đối tác',
       auth_exchanges_desc: 'Kết nối API key của chính bạn — chúng tôi không bao giờ giữ tiền của bạn',
@@ -3088,10 +3089,6 @@
       landing_feat_ex_title: 'Dùng chính tài khoản sàn của bạn',
       landing_feat_ex_none: 'Danh sách sàn có thể kết nối đang được tải.',
       landing_feat_ex_body: '{names} — tiền của bạn không bao giờ rời khỏi tài khoản sàn của chính bạn. Chúng tôi chỉ gửi lệnh mà bạn đã phê duyệt, và chúng tôi không bao giờ xin quyền rút tiền.',
-      landing_price_title: 'Hiện tại mọi thứ đều miễn phí',
-      landing_price_body_1: 'Chưa có nhà cung cấp thanh toán nào được kết nối, nên không thể thu tiền và không thể mua gói trả phí nào.',
-      landing_price_body_2: 'Các lượt phân tích AI được tính bằng điểm mà bạn nhận từ giới thiệu và sự kiện — không phải bằng tiền.',
-      landing_price_body_3: 'Nếu về sau có một gói trả phí mở ra, đó sẽ là khoản thuê phần mềm này — không phải phí giao dịch, không phải tài khoản được quản lý, và không phải tư vấn có phí. Chúng tôi sẽ nói rõ điều đó trên trang này trước khi có bất cứ thay đổi nào với bạn.',
       landing_price_cta: 'Tạo tài khoản miễn phí',
       landing_price_cta_paid: 'Chọn gói này',
 
@@ -3114,7 +3111,7 @@
       landing_live_title: 'Biểu đồ là trực tiếp, không phải ảnh chụp',
       landing_live_sub: 'Các mức giá bên dưới được đọc từ dữ liệu thị trường công khai để bạn thấy công cụ hoạt động trước khi đăng ký. Chúng tôi không công bố dự báo và không đưa khuyến nghị nào.',
       landing_live_unavailable: 'Hiện không tải được dữ liệu thị trường. Chúng tôi không hiển thị gì thay vì đưa ra dữ liệu mẫu.',
-      landing_live_note: '{n} giờ nến theo giờ · cập nhật khi bạn tải lại',
+      landing_live_note: '{n} giờ nến theo giờ · cập nhật mỗi 25 giây',
       landing_custody_title: 'Tiền của bạn nằm ở đâu',
       landing_custody_sub: 'Chúng tôi phi lưu ký. Tiền của bạn không bao giờ đi qua chúng tôi — chúng tôi chỉ gửi lệnh.',
       landing_custody_you: 'Bạn',

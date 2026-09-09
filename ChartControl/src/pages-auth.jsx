@@ -1815,29 +1815,67 @@
       let cancelled = false;
       const rest = window.QTApi && window.QTApi.rest;
       if (!rest || !rest.candles) { setLiveQuotes([]); return undefined; }
-      Promise.all(LANDING_SYMBOLS.map((s) => Promise.all([
+      /*
+         ★★★ **제목이 "The charts are live" 인데 새로고침해야 바뀌었다**(감사 지적).
+           주석에도 "updates when you reload" 라고 적어 두었으니 거짓말은 아니었지만,
+           제목과 어긋난다. 문구를 낮추는 대신 **사실로 만든다.**
+
+         ★ 25초 간격. 1시간 봉이라 더 자주 부를 이유가 없고, 랜딩은 로그인 없이
+           누구나 열 수 있으므로 짧게 하면 **비로그인 트래픽이 그대로 서버 부하**가 된다.
+
+         ★ 탭이 숨어 있으면 부르지 않는다(document.hidden). 열어만 두고 안 보는 탭이
+           종일 폴링하면 비용만 나간다.
+
+         ★ 실패해도 이전 값을 지우지 않는다 — 화면이 깜빡이며 비는 것보다 조금 오래된
+           값을 두는 것이 낫다. 첫 조회 실패만 [] 로 두어 "불러올 수 없다" 를 보인다.
+      */
+      const load = (isFirst) => Promise.all(LANDING_SYMBOLS.map((s) => Promise.all([
         rest.candles(s, '1h', 48).catch(() => null),
         rest.ticker ? rest.ticker(s).catch(() => null) : Promise.resolve(null),
       ]).then(([c, tk]) => {
         const rows = (c && c.data) || [];
-        const closes = Array.isArray(rows)
-          ? rows.map((r) => Number(r.close)).filter((n) => Number.isFinite(n))
+        /*
+           ★★★ **OHLC 를 버리지 않는다.**
+
+             예전에는 `r.close` 만 뽑아 선으로 그렸다. 그런데 문구는
+             "{n}h of hourly candles" 라고 말한다 — **캔들이라 하면서 선을 보여줬다.**
+             데이터는 이미 다 받아 놓고 버린 것이라 비용도 들지 않는다(감사 지적).
+
+           ★ 캔들 하나를 그리려면 4개가 다 필요하다. 하나라도 숫자가 아니면 그 봉을
+             버린다 — 절반만 그리면 시세를 잘못 읽게 된다.
+        */
+        const bars = Array.isArray(rows)
+          ? rows.map((r) => ({
+            o: Number(r.open), h: Number(r.high), l: Number(r.low), c: Number(r.close),
+          })).filter((b) => Number.isFinite(b.o) && Number.isFinite(b.h)
+            && Number.isFinite(b.l) && Number.isFinite(b.c))
           : [];
+        const closes = bars.map((b) => b.c);
         if (closes.length < 2) return null;
         const first = closes[0];
         const last = closes[closes.length - 1];
         return {
           symbol: s,
           closes,
+          bars,   /* ★ 캔들 렌더링용. closes 는 등락률 계산에 계속 쓴다. */
           last,
           /* 변동률은 우리가 받은 캔들로 계산한다 — 티커의 24h 값과 창이 달라 섞으면 어긋난다. */
           changePct: first > 0 ? ((last - first) / first) * 100 : null,
           vol24h: tk && tk.data && Number.isFinite(Number(tk.data.vol24h)) ? Number(tk.data.vol24h) : null,
         };
       }))).then((list) => {
-        if (!cancelled) setLiveQuotes(list.filter(Boolean));
-      }).catch(() => { if (!cancelled) setLiveQuotes([]); });
-      return () => { cancelled = true; };
+        if (cancelled) return;
+        const next = list.filter(Boolean);
+        /* ★ 갱신 조회가 빈 결과면 이전 값을 지우지 않는다 — 깜빡임을 만들지 않는다. */
+        if (next.length || isFirst) setLiveQuotes(next);
+      }).catch(() => { if (!cancelled && isFirst) setLiveQuotes([]); });
+
+      load(true);
+      const timer = setInterval(() => {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        load(false);
+      }, 25_000);
+      return () => { cancelled = true; clearInterval(timer); };
     }, []);
 
     return (
@@ -2031,11 +2069,27 @@
                   /* 스파크라인 — 받은 종가만으로 그린다. 값이 없으면 이 카드는 나오지 않는다. */
                   const w = 260;
                   const h = 64;
-                  const lo = Math.min(...q.closes);
-                  const hi = Math.max(...q.closes);
+                  /*
+                     ★★ **캔들로 그린다.** 문구가 "hourly candles" 라고 말하는데 선을
+                       보여주고 있었다(감사 지적). OHLC 는 이미 받아 놓고 버렸다.
+
+                     ★ 세로 범위는 고가·저가로 잡는다. 종가만으로 잡으면 꼬리가
+                       그림 밖으로 나간다.
+                  */
+                  const bars = Array.isArray(q.bars) && q.bars.length ? q.bars : null;
+                  const lo = bars ? Math.min(...bars.map((b) => b.l)) : Math.min(...q.closes);
+                  const hi = bars ? Math.max(...bars.map((b) => b.h)) : Math.max(...q.closes);
                   const span = hi - lo || 1;
                   const step = q.closes.length > 1 ? w / (q.closes.length - 1) : w;
                   const pts = q.closes.map((c, i) => `${(i * step).toFixed(1)},${(h - ((c - lo) / span) * (h - 6) - 3).toFixed(1)}`);
+                  /* 값 → y 좌표. 위아래 3px 은 선 굵기가 잘리지 않도록 남긴다. */
+                  const yOf = (v) => h - ((v - lo) / span) * (h - 6) - 3;
+                  /*
+                     ★ 봉 폭. 48봉이 260px 에 들어가므로 한 봉이 5.4px 다. 몸통을 그보다
+                       좁게(70%) 두어 봉 사이가 붙어 보이지 않게 한다.
+                     ★ 최소 1px 을 보장한다 — 0 이 되면 몸통이 사라져 심지만 남는다.
+                  */
+                  const bw = bars ? Math.max(1, (w / bars.length) * 0.7) : 1;
                   const up = q.changePct !== null && q.changePct >= 0;
                   /* ★ 토큰 이름을 틀리면 선이 그려지지 않는다(stroke 가 무효값이 된다).
                        실제 토큰은 --color-trade-long / --color-trade-short 다. */
@@ -2050,9 +2104,35 @@
                       </div>
                       <div className="landing-live__price">{fmtNum(q.last)}</div>
                       <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" aria-hidden="true">
-                        {/* 면적을 옅게 깔고 선을 얹는다 — 선만 있으면 작은 화면에서 거의 보이지 않는다. */}
-                        <polygon points={`0,${h} ${pts.join(' ')} ${w},${h}`} fill={stroke} opacity="0.14"/>
-                        <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+                        {/*
+                             ★★ 캔들. 봉마다 심지(고–저) 하나와 몸통(시–종) 하나를 그린다.
+                             ★ 상승·하락 색을 봉 단위로 정한다 — 카드 전체 색으로 칠하면
+                               개별 봉의 방향을 읽을 수 없다.
+                             ★ 몸통 높이가 0 이면(시=종) 보이지 않으므로 최소 1px 을 준다.
+                        */}
+                        {bars ? bars.map((b, i) => {
+                          const cx = i * step;
+                          const bu = b.c >= b.o;
+                          const col = bu ? 'var(--color-trade-long)' : 'var(--color-trade-short)';
+                          const yTop = yOf(Math.max(b.o, b.c));
+                          const bh = Math.max(1, Math.abs(yOf(b.o) - yOf(b.c)));
+                          return (
+                            <g key={i}>
+                              <line
+                                x1={cx} x2={cx} y1={yOf(b.h)} y2={yOf(b.l)}
+                                stroke={col} strokeWidth="1" vectorEffect="non-scaling-stroke"
+                              />
+                              <rect x={cx - bw / 2} y={yTop} width={bw} height={bh} fill={col}/>
+                            </g>
+                          );
+                        }) : (
+                          /* ★ OHLC 가 없으면(예전 캐시) 선으로 물러난다 — 빈 칸을 보이지 않는다. */
+                          <polygon points={`0,${h} ${pts.join(' ')} ${w},${h}`} fill={stroke} opacity="0.14"/>
+                        )}
+                        {/* ★ 캔들을 그렸으면 선은 겹쳐 그리지 않는다 — 봉을 가린다. */}
+                        {!bars && (
+                          <polyline points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+                        )}
                       </svg>
                     </div>
                   );
@@ -2196,6 +2276,18 @@
         */}
         <section id="pricing" className="landing-section">
           <div className="landing-section-title">{t('landing_nav_pricing')}</div>
+          {/*
+               ★★★ **무엇에 대해 결제가 일어나는지 요금제 자리에서 말한다.**
+
+                 이 문장이 landing_price_body_3 에 있었는데 **화면에 렌더되지 않았다**
+                 (사용처 0곳). 시험은 통과하고 있었으므로 "고지했다" 고 착각하기 쉬웠다.
+                 열려 있지 않은 문구는 고지가 아니다.
+
+               ★ PG 심사와 법적 성격 판정 모두 "결제 대상" 을 본다. 답이 없으면 결제가
+                 거래·투자로 추정된다. 소프트웨어 구독이라고 적고, **아닌 것도** 적는다
+                 — 거래 수수료·일임운용·유료 조언이 아니다.
+          */}
+          <div className="landing-price-note">{t('landing_price_what')}</div>
           {plans.state === 'loading' && (
             <div className="landing-price-note">{t('plan_loading')}</div>
           )}

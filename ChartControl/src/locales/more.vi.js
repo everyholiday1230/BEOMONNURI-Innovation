@@ -1,0 +1,177 @@
+/* ============================================================
+   Tiếng Việt — 입출금·추천·수수료·도움말 (pages-more.jsx) 사전
+   ------------------------------------------------------------
+   키는 tools/i18n-extract.py 가 생성한 것이며 바꾸지 않는다. 값만 번역한다.
+   ★ {brand} {symbol} 치환자는 그대로 남긴다.
+   ★★ 도움말의 "자금은 고객 거래소에 있고 우리가 보관하지 않는다", "출금 권한을
+     의도적으로 제외한다", "적중률을 공표하지 않는다" 같은 사실 진술은 톤을 약화하지
+     않고 그대로 옮긴다 — 이 문장들이 비수탁 구조의 고지다.
+   ============================================================ */
+
+(function () {
+  'use strict';
+  if (!window.QTI18n) return;
+
+  window.QTI18n.register(
+    'vi',
+    {
+      // --- 거래소 연결 마법사 ---
+      exchange_connect_wizard_a17369: 'Đăng ký',
+      exchange_connect_wizard_fa18a0: 'Tạo key',
+      exchange_connect_wizard_4511bd: 'Nhập key',
+      exchange_connect_wizard_8d8680: 'Hoàn tất',
+      exchange_connect_wizard_acfc61: '🎁 Thưởng cho người đăng ký mới',
+      exchange_connect_wizard_ca4b74: 'Liên kết đối tác của {brand}',
+      exchange_connect_wizard_806a50: 'Tôi đã có tài khoản →',
+      exchange_connect_wizard_0506be: '2️⃣ Tạo một API key',
+      exchange_connect_wizard_aad4f8: 'Danh mục cần kiểm khi tạo key',
+      exchange_connect_wizard_938e35: 'Quyền đọc (bắt buộc)',
+      exchange_connect_wizard_4b268e: 'Quyền giao dịch (đặt lệnh)',
+      exchange_connect_wizard_d39a64: 'Quyền rút tiền (❌ tuyệt đối không bật)',
+      exchange_connect_wizard_ec2bc7: 'Giới hạn IP (khuyến nghị) · chỉ cho phép IP hiện tại',
+      exchange_connect_wizard_c0269d: 'Đặt thời hạn · khuyến nghị 90 ngày',
+      exchange_connect_wizard_f4b9a9: 'Đã tạo key →',
+      exchange_connect_wizard_46d3df: '3️⃣ Nhập API key',
+      exchange_connect_wizard_267402: 'vd: abcd1234…',
+      exchange_connect_wizard_344324: 'vd: secret1234…',
+      exchange_connect_wizard_64bc70: 'Đã cấu hình danh sách IP cho phép (khuyến nghị)',
+      exchange_connect_wizard_ad0627: 'Bắt buộc trên OKX · Bitget và một số sàn khác',
+      exchange_connect_wizard_810016: '← Quay lại',
+      exchange_connect_wizard_5953fd: 'Lưu kết nối',
+      exchange_connect_wizard_718595: 'Đang kiểm tra…',
+      exchange_connect_wizard_7e3fbe: 'Định dạng API key không hợp lệ',
+      exchange_connect_wizard_cea2a6: 'Đã xác minh API key',
+      exchange_connect_wizard_a9672e: 'Đã kết nối!',
+
+      // --- 입금 ---
+      deposit_b9ca11: 'Nạp tiền',
+      deposit_65292b: 'Nạp tài sản vào ví {brand} của bạn',
+      deposit_1bcffc: '1. Chọn tài sản và mạng',
+      deposit_d4cde2: 'Số dư hiện tại',
+      deposit_eba168: '2. Địa chỉ nạp',
+      deposit_adb488: '3. Lưu ý khi nạp',
+      deposit_eca2cd: 'Nạp tối thiểu:',
+      deposit_2f858e: 'Số xác nhận cần thiết:',
+      deposit_53bb7f: 'Thời gian ghi có dự kiến:',
+      deposit_9360c7: '1-3 phút',
+      deposit_13c35d: '3-5 phút',
+      deposit_b5d053: '10-30 phút',
+      deposit_7fb69f: 'Các lần nạp gần đây',
+
+      // --- 출금 ---
+      withdraw_972169: 'Rút tiền',
+      withdraw_690b48: 'Rút tài sản về ví bên ngoài',
+      withdraw_d4bbb3: 'Khả dụng',
+      withdraw_3f13b3: 'Chi tiết rút tiền',
+      withdraw_605c61: 'Sổ địa chỉ',
+      withdraw_708758: 'Địa chỉ rút đã lưu',
+      withdraw_ecf928: 'Thêm địa chỉ',
+      withdraw_34f036: 'Phí',
+      withdraw_5f9394: 'Bạn nhận được',
+      withdraw_fe7cae: 'Hạn mức hằng ngày',
+      withdraw_757555: 'Hạn mức còn lại',
+      withdraw_100747: 'Nâng hạn mức',
+      withdraw_e88174: 'Yêu cầu rút tiền →',
+      withdraw_e01e9b: '⚠ Xác nhận rút tiền lần cuối',
+      withdraw_a426f8: 'Tiến hành rút tiền với các thông tin này?',
+      withdraw_403732: 'Mã 6 chữ số',
+      withdraw_e6f846: 'Xác nhận rút tiền',
+      withdraw_19b2d1: 'Hủy',
+      withdraw_83b14a: 'Đã nhận yêu cầu rút tiền (mô phỏng)',
+
+      // --- 거래 내역 ---
+      transaction_history_1de8f9: 'Bản ghi đầy đủ về nạp, rút, chuyển, phí và hoàn phí',
+      transaction_history_ec0ce9: 'Nạp trong tháng này',
+      transaction_history_99af2b: 'Rút trong tháng này',
+      transaction_history_ef5fd4: 'Hoàn phí',
+      transaction_history_adb142: 'Tìm TX hash · tài sản',
+
+      // --- 추천 (Referral) ---
+      referral_5c777f: 'Giới thiệu bạn bè',
+      referral_36c994: 'Mời bạn bè và nhận hoàn phí giao dịch',
+      referral_556648: 'Tổng số đã mời',
+      referral_cc6354: 'Người dùng đang hoạt động',
+      referral_d7f3c2: 'Hoàn phí tháng này',
+      referral_1a8dfd: 'Hoàn phí lũy kế',
+      referral_e31ce0: '🎁 Liên kết mời của tôi',
+      referral_967128: 'Liên kết mời',
+      referral_4e6dd0: 'Mã mời',
+      referral_0f2024: 'Chia sẻ',
+      referral_7932cf: '🎯 Cách hoạt động',
+      referral_047382: 'Chia sẻ liên kết hoặc mã mời với bạn bè',
+      referral_c57b53: 'Bạn của bạn đăng ký qua liên kết và hoàn tất KYC',
+      referral_a0193f: '💰 Cơ cấu hoàn phí',
+      referral_944615: 'Hoa hồng theo bậc của tôi',
+      referral_5f1706: 'Quyết toán vào ngày 1 mỗi tháng · trả vào ví của bạn bằng USDT',
+      referral_8580a8: 'Bạn bè đã mời',
+      referral_c398ae: 'Chưa có bạn bè nào được mời',
+      referral_fa91e4: 'Hãy chia sẻ liên kết ở trên để thực hiện lời mời đầu tiên.',
+      referral_c0d797: 'Ngay lập tức',
+      referral_4aa57d: 'Đã giao dịch trong 7 ngày',
+      referral_d23449: 'Từ 5 lời mời',
+      referral_ccc2b8: 'Từ 20 lời mời',
+      referral_1c41fb: 'Từ 100 lời mời',
+      referral_3be144: 'Từ 500 lời mời',
+
+      // --- 수수료 / 리베이트 ---
+      fee_rebate_4f1ad0: 'Bậc phí của tôi · tiến độ lên bậc tiếp theo · khuyến mãi',
+      fee_rebate_350a9e: 'Phí giao dịch',
+      fee_rebate_2f76f9: 'Hoàn phí giới thiệu',
+      fee_rebate_e7fe5e: 'Hoàn phí khuyến mãi',
+      fee_rebate_597833: 'Phí thực tế',
+      fee_rebate_6d03c2: '🎁 Khuyến mãi đang chạy',
+      fee_rebate_a3530c: 'Chi tiết phí tháng này',
+
+      // --- 도움말 센터 ---
+      help_center_42b43b: 'FAQ · hướng dẫn · liên hệ',
+      help_center_044ef4: 'Tìm câu trả lời…',
+      help_center_ae2ce9: 'Câu hỏi thường gặp',
+      help_center_df04a4: 'Tài khoản · KYC',
+      help_center_b92aff: 'Đăng ký · xác minh · phục hồi',
+      help_center_3910ce: 'Tiền và phí',
+      help_center_7901e1: 'Được giữ tại sàn của bạn · chúng tôi không cộng thêm phí',
+      help_center_dc20f4: 'Giao dịch',
+      help_center_eafac1: 'Loại lệnh · đòn bẩy · thanh lý',
+      help_center_87ad98: 'Tín hiệu · lớp vẽ · độ chính xác',
+      help_center_51472d: 'Tôi đăng ký như thế nào?',
+      help_center_c1c49c: 'Email và một mật khẩu, rồi xác nhận địa chỉ email. Chúng tôi không yêu cầu giấy tờ tùy thân — sàn giao dịch xác minh danh tính của bạn khi bạn mở tài khoản ở đó. Sau khi đăng nhập, hãy kết nối API key của sàn tại trang Ví.',
+      help_center_45bbd7: 'Tôi nạp và rút tiền ở đâu?',
+      help_center_8f8fe0: 'Tại sàn giao dịch của bạn, không phải ở đây. Tiền của bạn nằm trong chính tài khoản sàn của bạn — chúng tôi không bao giờ nhận hay giữ nó, và các API key mà chúng tôi yêu cầu đã cố ý loại bỏ quyền rút tiền. Nếu việc nạp hay rút bị chậm, đó là câu hỏi dành cho sàn của bạn; chúng tôi không thấy được on-chain.',
+      help_center_62cd9d: 'Phí được tính như thế nào?',
+      help_center_b9a588: 'Sàn thu phí maker/taker của chính họ trên tài khoản của bạn, và mức phí đó theo bảng phí riêng của sàn. Chúng tôi không cộng thêm phí. Doanh thu của chúng tôi đến từ khoản hoàn phí broker của sàn, vì vậy việc kết nối qua chúng tôi không khiến bạn tốn thêm gì.',
+      help_center_667475: 'Tôi kết nối API key như thế nào?',
+      help_center_aa37a6: 'Tại trang Ví, hãy chọn một sàn được hỗ trợ, rồi làm theo trình hướng dẫn tạo key. Chỉ cấp quyền Đọc + Giao dịch.',
+      help_center_d67afc: 'Có phân tích AI không?',
+      help_center_72f72a: 'Chưa có trên bản triển khai này. Cho đến khi kết nối được một nhà cung cấp AI, copilot sẽ không đưa ra các mức giá — tự nghĩ ra giá vào lệnh hay cắt lỗ mà không có mô hình thì còn tệ hơn là không nói gì. Chúng tôi cũng không công bố tỷ lệ chính xác mà mình không đo được. Khi được bật, nó vẫn sẽ không bao giờ tự đặt lệnh.',
+      help_center_c46850: 'Tôi có thể bật giao dịch AI hoàn toàn tự động không?',
+      help_center_c5eed0: 'Không. Mọi lệnh đều cần bạn phê duyệt trước khi được gửi — không có chế độ giao dịch tự động không cần giám sát. Khi phân tích AI được kết nối, nó có thể dựng bản nháp cho một lệnh, nhưng việc gửi lệnh luôn là một hành động riêng do bạn thực hiện.',
+      help_center_7b944c: 'Nếu tài khoản của tôi bị tạm ngưng thì sao?',
+      help_center_ddc217: 'Bạn sẽ thấy lý do khi đăng nhập, và nó được ghi lại trong sổ kiểm toán của chúng tôi. Hãy phản hồi qua biểu mẫu hỏi đáp bên dưới kèm những gì chúng tôi yêu cầu, và một nhân viên sẽ xem xét. Việc tạm ngưng không ảnh hưởng đến tiền của bạn — tiền nằm trong tài khoản sàn của chính bạn và chúng tôi không thể chuyển nó.',
+      help_center_531f6a: 'Liên hệ với chúng tôi',
+      help_center_0330b1: 'Bắt đầu trò chuyện',
+      help_center_23dfeb: 'Phản hồi trung bình 3 phút',
+      help_center_dda31f: 'Gửi email',
+      help_center_5052f8: 'Mở một ticket',
+      help_center_8c548e: 'Quản lý riêng 1:1',
+
+      // --- 전략 상세 / 내 전략 ---
+      strategy_detail_73a075: 'Theo dõi · 0$/tháng',
+      strategy_detail_0a17fe: 'Phù hợp với:',
+      strategy_detail_40a912: 'Người theo xu hướng trung và dài hạn',
+      strategy_detail_704ee2: 'Day trader · scalper',
+      strategy_detail_411128: 'Kết quả ổn định. Cảnh báo đến chính xác.',
+      strategy_detail_20ef84: 'Ấn tượng vì kết quả thực tế khớp với backtest.',
+      strategy_detail_c84624: 'Chiến lược tốt, tuy sẽ hữu ích hơn nếu nói rõ hơn về việc bỏ qua thị trường đi ngang.',
+      my_strategies_2247f0: 'Chiến lược bạn theo dõi · hiệu suất · cài đặt tự động sao chép',
+      my_strategies_eb1536: 'Chưa theo dõi chiến lược nào',
+      my_strategies_308c9f: 'Bạn chưa theo dõi chiến lược nào',
+      my_strategies_7dbef2: 'Hãy xem trang Chiến lược AI và theo dõi một chiến lược bạn thích.',
+      my_strategies_bc178b: '+ Xem các chiến lược',
+      my_strategies_c93fb6: 'Thư viện chiến lược →',
+
+      strat_follow_ok: 'Đang theo dõi trên {symbol}. Hãy quản lý trong Chiến lược của tôi.',
+      strat_follow_failed: 'Không thể theo dõi chiến lược này. Không có gì được lưu — hãy thử lại.',
+    },
+    { label: 'Tiếng Việt', bcp47: 'vi' },
+  );
+})();

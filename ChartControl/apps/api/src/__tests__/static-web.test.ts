@@ -12,7 +12,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolve, sep } from 'node:path';
+import { resolve, sep, join } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
 
 import { STATIC_DIRS, STATIC_ROOT_FILES, resolveWebRoot, safeJoin } from '../static-web';
 
@@ -111,6 +112,36 @@ describe('화이트리스트', () => {
     const files = STATIC_ROOT_FILES as readonly string[];
     for (const forbidden of ['.env', '.env.example', 'package.json', 'pnpm-lock.yaml']) {
       expect(files).not.toContain(forbidden);
+    }
+  });
+
+  it('★★ index.html 이 참조하는 루트 파일이 실제로 존재하고 서빙된다', () => {
+    /*
+       ★★★ 메타 태그만 넣고 파일을 열지 않으면 **고친 것이 아니다.**
+
+         og:image 가 404 면 공유 카드는 여전히 **제목만 있는 회색 칸**으로 나온다.
+         그리고 그 사실은 링크를 실제로 공유해 보지 않으면 드러나지 않는다 —
+         화면에서는 아무 문제도 보이지 않는다.
+
+       ★ 그래서 index.html 을 읽어 참조된 루트 파일을 뽑고,
+           (1) 파일이 디스크에 있는지
+           (2) STATIC_ROOT_FILES 에 있는지
+         둘 다 확인한다. 하나만 봐도 놓친다 — 파일은 있는데 서빙 목록에 없거나,
+         목록에는 있는데 파일이 없을 수 있다.
+    */
+    const root = resolve(__dirname, '../../../..');
+    const html = readFileSync(join(root, 'index.html'), 'utf-8');
+    /* content="https://…/파일" 과 href="/파일" 양쪽을 본다. */
+    const refs = new Set<string>();
+    for (const m of html.matchAll(/(?:content|href)="(?:https?:\/\/[^"/]+)?\/([A-Za-z0-9._-]+\.(?:png|svg|ico|txt|xml))"/g)) {
+      if (m[1]) refs.add(m[1]);
+    }
+    expect(refs.size, 'index.html 에서 루트 파일 참조를 하나도 못 찾았다 — 정규식이 낡았다')
+      .toBeGreaterThan(0);
+    for (const f of refs) {
+      expect(existsSync(join(root, f)), `${f} 를 index.html 이 참조하는데 파일이 없다`).toBe(true);
+      expect(STATIC_ROOT_FILES as readonly string[], `${f} 가 STATIC_ROOT_FILES 에 없어 404 가 된다`)
+        .toContain(f);
     }
   });
 

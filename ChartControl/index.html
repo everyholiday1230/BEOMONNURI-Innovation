@@ -31,6 +31,39 @@
   <meta property="og:type" content="website">
 
   <!--
+    공유 카드 · 정규 URL.
+
+    ★★★ og:image·og:url·twitter:card·canonical 이 **전부 없었다**(감사 지적).
+      결과:
+        · 링크를 공유하면 **제목만 있는 회색 칸**이 나온다 — 클릭률이 크게 떨어진다
+        · canonical 이 없으면 ?utm_source=… 같은 파라미터가 붙은 주소가 **각각 다른
+          페이지**로 색인된다. 검색 순위가 여러 주소로 쪼개진다
+        · twitter:card 가 없으면 트위터·슬랙이 큰 카드로 펼치지 않는다
+
+    ★ og:image 는 절대 URL 이어야 한다. 상대 경로를 쓰면 대부분의 플랫폼이 무시한다.
+
+    ★ SVG 가 아니라 **PNG** 를 가리킨다. 카카오톡 등 여러 플랫폼이 SVG og:image 를
+      읽지 못한다. 원본 SVG(og-image.svg)도 함께 두어 나중에 문구를 고칠 수 있게 한다.
+
+    ★ og:image:width/height 를 적어 둔다. 없으면 첫 공유 때 플랫폼이 이미지를
+      내려받아 크기를 재는 동안 카드가 비어 보인다.
+  -->
+  <meta property="og:site_name" content="ChartControl AI">
+  <meta property="og:url" content="https://chartcontrol.onrender.com/">
+  <meta property="og:image" content="https://chartcontrol.onrender.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="ChartControl AI — AI chart analysis software">
+  <meta property="og:locale" content="en_US">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ChartControl AI — AI chart analysis software">
+  <meta name="twitter:description" content="AI-assisted chart analysis software. Not an exchange, broker or investment adviser. You place every order yourself.">
+  <meta name="twitter:image" content="https://chartcontrol.onrender.com/og-image.png">
+
+  <link rel="canonical" href="https://chartcontrol.onrender.com/">
+
+  <!--
     웹폰트 — 자체 호스팅 (IBM Plex Sans/Mono · Pretendard Variable)
 
     ★★ 전에는 구글 폰트와 jsDelivr 에서 직접 불러왔다. 두 가지를 고쳤다.

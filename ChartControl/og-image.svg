@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  공유 카드 이미지(og:image). 1200×630 은 트위터·페이스북·카카오톡·슬랙이 공통으로
+  쓰는 비율이다.
+
+  ★★ 이 파일이 없어서 링크를 공유하면 **제목만 있는 회색 칸**이 나왔다. 클릭률이
+    크게 떨어진다(감사 지적).
+
+  ★ SVG 로 만든다 — 텍스트가 선명하고 파일이 작다(수 KB). 다만 일부 플랫폼(특히
+    카카오톡)은 SVG og:image 를 읽지 못한다. 그런 경우를 위해 PNG 도 함께 둔다.
+
+  ★ 색은 tokens.css 의 실제 값을 옮겼다. oklch 를 그대로 쓰면 구형 렌더러에서
+    보이지 않을 수 있어 sRGB 근사값으로 적었다.
+      n-950           oklch(14% 0.012 240) ≈ #0d1117
+      n-050           oklch(97% 0.002 240) ≈ #f5f6f7
+      trade-long-500  oklch(72% 0.14 175)  ≈ #14b8a6
+      trade-short-500 oklch(68% 0.22 355)  ≈ #f43f5e
+
+  ★★ SVG 는 XML 이라 주석에 하이픈 두 개를 연달아 쓸 수 없다. CSS 토큰 이름을
+    그대로 적었더니 파일 전체가 파싱 실패했고 렌더러는
+    "Comment must not contain" 오류 화면만 보여줬다. 스크린샷을 열어보지 않았으면
+    빈 카드를 배포했을 것이다.
+
+  ★ 문구는 랜딩과 같은 주장만 쓴다 — 수익 보장이나 투자자문으로 읽힐 표현을 넣지 않는다.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img"
+     aria-label="ChartControl AI — AI chart analysis software">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#151b26"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- 배경 캔들. 제품이 무엇인지 한눈에 보이게 한다. 값은 장식용이므로 특정 시세를 뜻하지 않는다. -->
+  <g opacity="0.30">
+    <g stroke="#14b8a6" fill="#14b8a6">
+      <line x1="80"  y1="430" x2="80"  y2="500" stroke-width="2"/><rect x="74"  y="450" width="12" height="34"/>
+      <line x1="130" y1="400" x2="130" y2="478" stroke-width="2"/><rect x="124" y="418" width="12" height="44"/>
+      <line x1="230" y1="350" x2="230" y2="430" stroke-width="2"/><rect x="224" y="368" width="12" height="48"/>
+      <line x1="330" y1="300" x2="330" y2="382" stroke-width="2"/><rect x="324" y="318" width="12" height="50"/>
+      <line x1="430" y1="262" x2="430" y2="340" stroke-width="2"/><rect x="424" y="280" width="12" height="46"/>
+      <line x1="530" y1="228" x2="530" y2="300" stroke-width="2"/><rect x="524" y="244" width="12" height="42"/>
+    </g>
+    <g stroke="#f43f5e" fill="#f43f5e">
+      <line x1="180" y1="378" x2="180" y2="452" stroke-width="2"/><rect x="174" y="396" width="12" height="40"/>
+      <line x1="280" y1="330" x2="280" y2="404" stroke-width="2"/><rect x="274" y="346" width="12" height="42"/>
+      <line x1="380" y1="284" x2="380" y2="356" stroke-width="2"/><rect x="374" y="300" width="12" height="40"/>
+      <line x1="480" y1="246" x2="480" y2="318" stroke-width="2"/><rect x="474" y="262" width="12" height="40"/>
+    </g>
+  </g>
+
+  <!-- 제목 -->
+  <text x="80" y="180" fill="#f5f6f7"
+        font-family="'IBM Plex Sans','Pretendard Variable',system-ui,-apple-system,sans-serif"
+        font-size="76" font-weight="700" letter-spacing="-1.5">ChartControl AI</text>
+
+  <text x="80" y="246" fill="#9aa4b2"
+        font-family="'IBM Plex Sans','Pretendard Variable',system-ui,-apple-system,sans-serif"
+        font-size="34" font-weight="400">AI chart analysis software</text>
+
+  <!--
+     ★ 아래 한 줄은 우리가 아닌 것을 분명히 말한다. 공유 카드만 보고 "투자 대행" 으로
+       오해하는 것을 막는다 — 랜딩에서 하는 것과 같은 고지다.
+  -->
+  <text x="80" y="546" fill="#6b7684"
+        font-family="'IBM Plex Sans','Pretendard Variable',system-ui,-apple-system,sans-serif"
+        font-size="25" font-weight="400">Not an exchange, broker or investment adviser · You place every order yourself</text>
+
+  <rect x="80" y="576" width="120" height="4" rx="2" fill="#14b8a6"/>
+</svg>

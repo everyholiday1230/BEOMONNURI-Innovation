@@ -722,6 +722,7 @@
       // --- 랜딩 내비게이션 ---
       landing_nav_features: 'Özellikler',
       landing_nav_pricing: 'Fiyatlandırma',
+      landing_price_what: 'Ücretli plan bu yazılımın aboneliğidir; işlem ücreti, portföy yönetimi veya ücretli yatırım tavsiyesi değildir. Borsa hesabınız sizde kalır ve her emri kendiniz verirsiniz.',
       landing_nav_exchanges: 'Borsalar',
 
       // --- 표 머리글 (공통) ---
@@ -1534,7 +1535,7 @@
       // --- 랜딩: 우리는 브로커가 아니다 ---
       landing_stripe_badge: 'YAZILIM, ARACI KURUM DEĞİL',
       landing_stripe_note: 'Biz bir borsa, aracı kurum veya yatırım danışmanı değiliz. Göndermeyi seçtiğiniz her emir, kendi borsa hesabınız tarafından uygulanır.',
-      landing_sub_counted: 'Grafikleri sizinle birlikte okuyan bir yazılım aracı: göstergeler, çizimler ve bir yapay zeka asistanı tek bir çalışma alanında. Grafikler şu an kripto kapsıyor; hisseler ve ETF’ler sırada.',
+      landing_sub_counted: 'Grafikleri sizinle birlikte okuyan bir yazılım aracı: göstergeler, çizimler ve bir yapay zeka asistanı tek bir çalışma alanında. Grafikler KuCoin’deki kripto paritelerini kapsar.',
       landing_sub_plain: 'Grafikleri sizinle birlikte okuyan bir yazılım aracı: göstergeler, çizimler ve bir yapay zeka asistanı tek bir çalışma alanında.',
       auth_exchanges_title: 'İş ortağı borsalar',
       auth_exchanges_desc: 'Kendi API key’inizi bağlayın — paranızı asla saklamıyoruz',
@@ -3069,10 +3070,6 @@
       landing_feat_ex_title: 'Kendi borsa hesabınızı kullanın',
       landing_feat_ex_none: 'Bağlanabilir borsa listesi yükleniyor.',
       landing_feat_ex_body: '{names} — paranız kendi borsa hesabınızdan hiç çıkmaz. Yalnızca onayladığınız emri gönderiyoruz ve asla para çekme izni istemiyoruz.',
-      landing_price_title: 'Şu anda her şey ücretsiz',
-      landing_price_body_1: 'Bağlı bir ödeme sağlayıcısı yok, bu yüzden hiçbir ücret alınamaz ve hiçbir ücretli paket satın alınamaz.',
-      landing_price_body_2: 'Yapay zeka analizleri, referanslardan ve etkinliklerden kazandığınız puanlarla ölçülür — parayla değil.',
-      landing_price_body_3: 'İleride ücretli bir paket açılırsa bu, bu yazılıma bir abonelik olacaktır — işlem ücreti değil, yönetilen hesap değil ve ücretli danışmanlık değil. Sizin için bir şey değişmeden önce bunu bu sayfada söyleyeceğiz.',
       landing_price_cta: 'Ücretsiz hesap oluştur',
       landing_price_cta_paid: 'Bu planı al',
 
@@ -3095,7 +3092,7 @@
       landing_live_title: 'Grafikler canlı, ekran görüntüsü değil',
       landing_live_sub: 'Aşağıdaki fiyatlar, kayıt olmadan önce aracın çalıştığını görebilmeniz için herkese açık piyasa verisinden okunur. Hiçbir tahmin ve hiçbir öneri yayınlamıyoruz.',
       landing_live_unavailable: 'Piyasa verisi şu anda yüklenemedi. Örnek göstermek yerine hiçbir şey göstermiyoruz.',
-      landing_live_note: '{n} saatlik saatlik mumlar · sayfayı yenilediğinizde güncellenir',
+      landing_live_note: '{n} saatlik mumlar · her 25 saniyede güncellenir',
       landing_custody_title: 'Paranız nerede',
       landing_custody_sub: 'Saklama yapmıyoruz. Paranız bizden hiç geçmez — biz yalnızca emri gönderiyoruz.',
       landing_custody_you: 'Siz',

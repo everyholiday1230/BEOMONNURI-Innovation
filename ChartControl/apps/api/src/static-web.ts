@@ -49,8 +49,12 @@ export const STATIC_DIRS = ['src', 'vendor', 'design-library', 'web-dist'] as co
 
    ★ sitemap.xml 을 추가했다. robots.txt 가 사이트맵 주소를 알려주는데 그 파일이
      404 면 크롤러가 매번 헛걸음한다.
+
+   ★★ og-image.png 를 추가했다. index.html 의 og:image 가 **절대 URL** 로 이 파일을
+     가리킨다. 목록에 없으면 404 가 되고, 그러면 공유 카드가 **제목만 있는 회색 칸**
+     으로 나온다 — 메타 태그만 넣고 파일을 열지 않으면 고친 것이 아니다.
 */
-export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'apple-touch-icon.png', 'robots.txt', 'sitemap.xml'] as const;
+export const STATIC_ROOT_FILES = ['index.html', 'favicon.ico', 'apple-touch-icon.png', 'robots.txt', 'sitemap.xml', 'og-image.png', 'og-image.svg'] as const;
 
 /**
  * 확장자 → Content-Type.

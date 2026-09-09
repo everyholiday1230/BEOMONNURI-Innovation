@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -282,8 +282,19 @@ describe('POSITIONING — AI 소프트웨어로 표기된다', () => {
     expect(live).toMatch(/no forecasts and no recommendations/i);
   });
 
-  it('[7] 유료화가 열릴 때 파는 것이 무엇인지 미리 말한다', () => {
-    const price = en.match(/landing_price_body_3: '([^']*)'/)?.[1] ?? '';
+  it('[7] 결제 대상이 무엇인지 요금제 자리에서 말한다', () => {
+    /*
+       ★★★ 예전에는 landing_price_body_3 을 검사했는데, 그 키는 **화면에 렌더되지
+         않았다**(사용처 0곳). 시험은 통과했으므로 "고지했다" 고 착각하기 쉬웠다.
+         **열려 있지 않은 문구는 고지가 아니다.**
+
+       ★ 그래서 (1) 문구 내용과 (2) 그 키가 화면 코드에서 **실제로 쓰이는지**를
+         함께 본다. 하나만 보면 같은 함정에 다시 빠진다.
+    */
+    const price = en.match(/landing_price_what: '([^']*)'/)?.[1] ?? '';
+    const ui = readFileSync(resolve(__dirname, '../../../../src/pages-auth.jsx'), 'utf-8');
+    expect(ui, 'landing_price_what 이 화면에서 쓰이지 않는다 — 열리지 않는 고지다')
+      .toContain("t('landing_price_what')");
     /*
        ★★ PG 심사관은 "무엇에 대해 결제가 일어나는가" 를 확인한다. 그 답이 없으면
          결제 대상이 거래·투자로 추정된다. 소프트웨어 구독이라고 적는다.
