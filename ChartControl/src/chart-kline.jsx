@@ -1046,6 +1046,28 @@
       });
       if (!chart) return undefined;
       chartRef.current = chart;
+      /*
+         ★★ 진단용 노출. 차트 내부(봉 수·보이는 구간·배율)를 페이지에서 읽을 수 없어서
+           문제를 잴 때마다 사람 눈에 의존해야 했다. 실제로 타임프레임 스침의 원인을
+           추측으로 두 번 짚었고 한 번 틀렸다 — 잴 수 있으면 그럴 일이 없다.
+
+         ★ 읽기 전용 진단이다. 여기에 의존하는 기능 코드는 두지 않는다 — 그러면
+           디버그 훅이 제품 동작이 되어 지우지 못한다.
+      */
+      try {
+        window.__qtChart = chart;
+        window.__qtChartInfo = () => {
+          try {
+            const bs = chart.getBarSpace && chart.getBarSpace();
+            return {
+              bars: chart.getDataList ? chart.getDataList().length : null,
+              visible: chart.getVisibleRange ? chart.getVisibleRange() : null,
+              barSpace: typeof bs === 'number' ? bs : (bs && bs.bar) || null,
+              loading: window.__qtChartLoading || null,
+            };
+          } catch (e) { return { error: String(e && e.message) }; }
+        };
+      } catch (e) { void e; }
       INSTANCES.add(chart);
       if (onChartReady) onChartReady(chart);
 
