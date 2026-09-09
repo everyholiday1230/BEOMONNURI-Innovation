@@ -31,7 +31,7 @@
      node scripts/build-web.mjs            컴파일 → web-dist/
      node scripts/build-web.mjs --compare  react 전용 vs react+env 산출물 비교
    ============================================================ */
-import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -57,6 +57,24 @@ function jsxFilesFromIndex() {
   const out = [];
   for (const m of html.matchAll(/<script[^>]*src="web-dist\/([^"]+)\.js"/g)) out.push(`src/${m[1]}.jsx`);
   for (const m of html.matchAll(/<script[^>]*type="text\/babel"[^>]*src="(src\/[^"]+\.jsx)"/g)) out.push(m[1]);
+  /*
+     ★★★ **지연 로드하는 파일도 컴파일해야 한다.**
+
+       관리자 화면을 `#/admin` 일 때만 붙이도록 바꿨더니 `<script src>` 태그가
+       사라졌고, 그래서 **이 빌드가 두 파일을 아예 컴파일하지 않았다.**
+       프로덕션에서 web-dist/pages-admin.js 가 **404** 가 됐다 —
+       로컬에는 예전 빌드 결과가 남아 있어서 눈치채지 못할 수 있었다.
+
+     ★ 그래서 인라인 스크립트 안의 'web-dist/xxx.js' 문자열도 대상으로 받는다.
+       index.html 이 단일 출처라는 원칙은 그대로 지킨다 — 태그든 문자열이든
+       index.html 이 참조하면 빌드한다.
+
+     ★ 원본(src/xxx.jsx)이 없는 이름은 버린다 — 문자열이 우연히 걸릴 수 있다.
+  */
+  for (const m of html.matchAll(/['"`]web-dist\/([A-Za-z0-9._-]+)\.js['"`]/g)) {
+    const src = `src/${m[1]}.jsx`;
+    if (existsSync(join(ROOT, src))) out.push(src);
+  }
   return [...new Set(out)];
 }
 

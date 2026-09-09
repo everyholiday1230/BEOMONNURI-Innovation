@@ -145,6 +145,40 @@ describe('화이트리스트', () => {
     }
   });
 
+  it('★★★ index.html 이 참조하는 web-dist 파일이 모두 빌드된다 (지연 로드 포함)', () => {
+    /*
+       ★★★ 관리자 화면을 `#/admin` 일 때만 붙이도록 바꿨더니 `<script src>` 태그가
+         사라졌고, build-web.mjs 가 **그 두 파일을 아예 컴파일하지 않았다.**
+         프로덕션에서 web-dist/pages-admin.js 가 **404** 가 됐다.
+
+       ★★ 로컬에는 예전 빌드 결과가 남아 있어서 `ls` 로는 정상처럼 보였다.
+         프로덕션에 배포한 뒤 실제로 눌러보고서야 드러났다 — 그래서 시험으로 고정한다.
+
+       ★ 태그든 인라인 문자열이든 index.html 이 참조하는 web-dist/*.js 는
+         (1) 원본 src/*.jsx 가 있고 (2) 빌드 결과가 있어야 한다.
+    */
+    const root = resolve(__dirname, '../../../..');
+    const html = readFileSync(join(root, 'index.html'), 'utf-8');
+    const names = new Set<string>();
+    /* <script src="web-dist/x.js"> 와 인라인 문자열 'web-dist/x.js' 양쪽. */
+    for (const m of html.matchAll(/['"`]web-dist\/([A-Za-z0-9._-]+)\.js['"`]/g)) {
+      if (m[1]) names.add(m[1]);
+    }
+    expect(names.size, 'index.html 에서 web-dist 참조를 찾지 못했다').toBeGreaterThan(10);
+    const missing: string[] = [];
+    for (const n of names) {
+      const hasSrc = existsSync(join(root, `src/${n}.jsx`));
+      const hasOut = existsSync(join(root, `web-dist/${n}.js`));
+      /*
+         ★ 원본이 없는 이름은 빌드 대상이 아니다(다른 방식으로 만들어질 수 있다).
+           원본이 있는데 결과물이 없으면 배포하면 404 다.
+      */
+      if (hasSrc && !hasOut) missing.push(n);
+    }
+    expect(missing, `index.html 이 참조하는데 빌드되지 않았다 → 배포하면 404: ${missing.join(', ')}`)
+      .toEqual([]);
+  });
+
   it('디자이너 산출물은 모두 포함된다', () => {
     // 하나라도 빠지면 화면이 깨진다. 서빙 대상이 조용히 줄어드는 것을 막는다.
     expect(STATIC_DIRS).toContain('src');
