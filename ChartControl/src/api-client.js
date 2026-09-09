@@ -703,9 +703,37 @@
     /** AI 가용 여부/제공자/모델. 미가용이면 available:false + 이유. */
     aiStatus: function () {
       return getJSON('', '/api/ai/status').then(
-        function (r) { return { ok: true, available: Boolean(r && r.available), provider: r && r.provider, model: r && r.model, reason: r && r.reason }; },
+        function (r) {
+          return {
+            ok: true,
+            available: Boolean(r && r.available),
+            provider: r && r.provider,
+            model: r && r.model,
+            reason: r && r.reason,
+            /*
+               ★ 학습 이용 동의를 아직 물어보지 않았는가. 가입 화면에 체크박스가 생기기
+                 전에 가입한 고객은 물어본 적이 없다 — AI 를 처음 쓸 때 한 번 묻는다.
+            */
+            needsTrainingConsent: Boolean(r && r.needsTrainingConsent),
+          };
+        },
         function (e) { return { ok: false, available: false, reason: (e && e.message) || 'status failed' }; }
       );
+    },
+
+    /**
+     * 거래기록의 AI 학습 이용 동의를 기록한다.
+     *
+     * ★★ 동의·거절 **둘 다** 보낸다. 거절도 기록해야 다시 묻지 않는다 — 거절한 고객에게
+     *   매번 다시 묻는 것은 동의를 압박하는 것이 된다.
+     *
+     * ★ 실패를 성공으로 다루지 않는다. 화면이 "기록했습니다" 라고 말하면 고객은 동의가
+     *   남았다고 믿는데 실제로는 없다.
+     */
+    aiTrainingConsent: function (optIn) {
+      return sendJSON('POST', '/api/ai/training-consent', { optIn: Boolean(optIn) })
+        .then(function (r) { return { ok: true, optIn: Boolean(r && r.optIn) }; },
+          function (e) { return { ok: false, message: (e && e.message) || '' }; });
     },
 
     /** 대화 생성 → conversationId. 코파일럿 스트림 전에 한 번 호출한다. */

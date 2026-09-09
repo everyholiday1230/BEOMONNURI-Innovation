@@ -3926,6 +3926,39 @@ if (env.authEnabled) {
         createAiRouter({
           service: authService,
           ...(operationalControls ? { controls: operationalControls } : {}),
+          /*
+             ★★ 거래기록의 AI 학습 이용 동의. **Postgres 에서만** 붙인다.
+
+               개발(SQLite)에는 users.ai_training_opt_in 컬럼이 없고, 개발에서 이 창이
+               뜰 이유도 없다. 미주입이면 라우트가 묻지 않는다.
+
+             ★ `asked` 는 '동의했는가' 가 아니라 '물어봤는가' 다. `..._at` 이 채워졌으면
+               물어본 것이다 — 거절도 기록하므로 거절한 고객에게 다시 묻지 않는다.
+               매번 다시 묻는 것은 동의를 압박하는 것이 된다.
+
+             ★ 컬럼이 없으면(마이그레이션 0046 미적용) asked 가 던지고, 라우트가 이를
+               '묻지 않음' 으로 처리한다. AI 는 계속 동작한다 — 동의를 못 물으면 학습에
+               못 쓸 뿐이고 그것은 AI 를 막을 이유가 아니다.
+          */
+          ...(core.pool ? {
+            aiTrainingConsent: {
+              asked: async (userId: string) => {
+                const r = await core.pool!.query(
+                  'SELECT ai_training_opt_in_at FROM users WHERE id = $1',
+                  [userId],
+                );
+                const row = r.rows[0] as { ai_training_opt_in_at: unknown } | undefined;
+                return Boolean(row && row.ai_training_opt_in_at);
+              },
+              record: async (userId: string, optIn: boolean) => {
+                await core.pool!.query(
+                  'UPDATE users SET ai_training_opt_in = $2, ai_training_opt_in_at = now() WHERE id = $1',
+                  [userId, optIn],
+                );
+                console.log(`[legal] AI 학습 이용 동의 기록(AI 사용 시점) — user=${userId} optIn=${optIn}`);
+              },
+            },
+          } : {}),
           conversations: core.pool ? new PgConversationRepo(core.pool) : new SqliteConversationRepo(db),
           usage: core.pool ? new PgUsageRepo(core.pool, aiResolution.kind) : new SqliteUsageRepo(db),
           toolData: aiToolData,

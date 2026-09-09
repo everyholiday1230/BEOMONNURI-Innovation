@@ -250,6 +250,18 @@
       ai_err_injection: 'That message looked like an attempt to change my instructions, so I did not process it. Please rephrase what you would like to look at.',
       ai_err_stream: 'Something broke while writing the answer. Please ask again.',
       ai_err_generic: 'Something went wrong and the answer did not complete. Please ask again. (ref: {code})',
+      /*
+         ★★ 거래기록의 AI 학습 이용 동의 — 최초 1회 안내.
+
+           ★ 무엇을 쓰는지 구체적으로 적는다. "서비스 개선" 같은 말로 뭉개면 고객은
+             무엇에 동의하는지 모른다.
+           ★ 거절해도 기능이 같다는 사실을 적는다. 적지 않으면 눌러야 하는 줄로 읽는다.
+           ★ 언제든 바꿀 수 있다는 것도 적는다 — 되돌릴 수 없다고 느끼면 아무도 켜지 않는다.
+      */
+      ai_training_ask_title: 'May we learn from your trading records?',
+      ai_training_ask_body: 'We would like to use your orders, the indicators you had on, and how those trades turned out to train our AI. Your records are pseudonymised first. This is optional — the assistant works exactly the same either way, and you can change your answer at any time.',
+      ai_training_ask_yes: 'Yes, you may',
+      ai_training_ask_no: 'No, thanks',
       /* ★ 조용히 무시하는 것보다 낫다. 무엇이 안 됐는지 이름을 말한다. */
       ai_cmd_unknown: 'I could not apply "{command}" — this chart action is not supported yet, so nothing was drawn.',
       ai_chip_fib_cmd: 'Draw Fibonacci retracement levels on the current swing.',

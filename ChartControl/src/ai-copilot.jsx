@@ -331,6 +331,53 @@
     }, [restoreConversation]);
 
     const restoredRef = useRef(false);
+
+    /*
+       ★★ 거래기록의 AI 학습 이용 동의 — **AI 를 처음 쓸 때 한 번만** 묻는다.
+
+         가입 화면에는 체크박스가 있다. 그런데 그 전에 가입한 고객은 물어본 적이 없고,
+         마이페이지에도 설정이 없어서 **켤 방법도 끌 방법도 없었다.** 그러면 학습 대상이
+         영구히 0명이 되는데, 운영 결정은 학습을 진행하는 것이다.
+
+       ★ 왜 여기서 묻는가: AI 를 쓰지 않는 고객에게는 물을 이유가 없다(그 사람의 기록은
+         학습 대상 데이터를 만들지도 않는다). 쓰는 순간이 가장 자연스러운 시점이다.
+
+       ★★ 물어보기만 하고 **막지 않는다.** 답하지 않아도 AI 를 쓸 수 있다. 이 동의는
+         AI 사용 조건이 아니라 학습 이용 여부만 정한다 — 필수로 묶으면 서비스 제공에
+         필요하지 않은 동의를 강제하는 것이 되고, §22③ 이 금지하는 방향이다.
+    */
+    const [trainingAsk, setTrainingAsk] = useState(false);
+    const [trainingBusy, setTrainingBusy] = useState(false);
+    const trainingCheckedRef = useRef(false);
+
+    useEffect(() => {
+      if (trainingCheckedRef.current || !aiReady) return;
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiStatus) return;
+      trainingCheckedRef.current = true;
+      let cancelled = false;
+      api.aiStatus().then((r) => {
+        if (cancelled) return;
+        /* ★ 서버가 '아직 안 물어봤다' 고 할 때만 띄운다. 화면이 스스로 판단하지 않는다. */
+        if (r && r.ok && r.needsTrainingConsent) setTrainingAsk(true);
+      }, () => { /* 상태 조회 실패는 무시한다 — 이 안내 때문에 AI 가 막히면 안 된다 */ });
+      return () => { cancelled = true; };
+    }, [aiReady]);
+
+    const answerTraining = useCallback((optIn) => {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.aiTrainingConsent) { setTrainingAsk(false); return; }
+      setTrainingBusy(true);
+      api.aiTrainingConsent(optIn).then((r) => {
+        setTrainingBusy(false);
+        /*
+           ★★ 실패하면 창을 닫지 않는다. 닫으면 고객은 선택이 기록됐다고 믿는데 실제로는
+             없다 — 나중에 학습에 쓰면 근거 없는 사용이 된다. 다시 시도할 수 있게 둔다.
+        */
+        if (r && r.ok) setTrainingAsk(false);
+      }, () => { setTrainingBusy(false); });
+    }, []);
+
     useEffect(() => {
       if (restoredRef.current || !aiReady) return;
       const api = window.QTApi && window.QTApi.rest;
@@ -1578,6 +1625,37 @@
               포인트만 든다. 피보나치는 차트 드로잉 툴바의 수동 피보나치 도구로 그린다. */}
           <button className="ai-quick__chip" onClick={() => handleSubmit(t('ai_chip_rr_cmd'))}>{t('ai_chip_rr')}</button>
         </div>
+
+        {/*
+           ★★ 거래기록의 AI 학습 이용 동의 — 최초 1회 안내.
+
+             입력창 **바로 위**에 둔다. 대화 위쪽에 두면 대화가 길어질 때 스크롤 밖으로
+             밀려 고객이 보지 못한다.
+
+           ★ 모달로 띄우지 않는다. 모달은 답할 때까지 막는데, 이 동의는 AI 사용 조건이
+             아니다. 답하지 않고 그냥 질문해도 된다 — 그때는 다음에 다시 묻는다.
+
+           ★ 두 버튼을 같은 크기로 놓는다. '동의' 를 크게 하면 그것이 압박이 된다.
+             거절해도 기능이 같다는 사실을 문구에 적었다.
+        */}
+        {trainingAsk && (
+          <div className="ai-consent" role="region" aria-label={t('ai_training_ask_title')}
+            style={{
+              margin: '0 10px 8px', padding: '10px 12px', borderRadius: 8,
+              border: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)',
+            }}>
+            <div style={{fontSize: 12, fontWeight: 600, marginBottom: 4}}>{t('ai_training_ask_title')}</div>
+            <div style={{fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 8}}>
+              {t('ai_training_ask_body')}
+            </div>
+            <div style={{display: 'flex', gap: 6}}>
+              <button className="btn btn--sm" disabled={trainingBusy}
+                onClick={() => answerTraining(true)}>{t('ai_training_ask_yes')}</button>
+              <button className="btn btn--sm" disabled={trainingBusy}
+                onClick={() => answerTraining(false)}>{t('ai_training_ask_no')}</button>
+            </div>
+          </div>
+        )}
 
         <div className="ai-input">
           <textarea aria-label={t('ai_copilot_title')} ref={inputRef}

@@ -59,6 +59,30 @@ export interface AiRouterDeps {
    */
   controls?: { aiEnabled(): boolean; killActive(scope: string): boolean };
   /**
+   * 거래기록의 AI 학습 이용 동의.
+   *
+   * ★★ 왜 AI 라우트에 두는가 — **물어볼 자리가 여기뿐이다.**
+   *
+   *   가입 화면에는 체크박스가 있다. 그런데 그 전에 가입한 고객은 물어본 적이 없고,
+   *   마이페이지에도 설정이 없어서 **켤 방법도 끌 방법도 없었다.** 결과적으로 학습
+   *   대상이 영구히 0명이 된다(운영 결정은 학습을 진행하는 것이다).
+   *
+   *   그래서 AI 를 처음 쓸 때 한 번 묻는다. AI 를 쓰지 않는 고객에게는 물을 이유가
+   *   없고(그 사람의 기록은 학습 대상 데이터를 만들지도 않는다), 쓰는 순간이 가장
+   *   자연스러운 시점이다.
+   *
+   * ★ `asked` 는 '동의했는가' 가 아니라 '물어봤는가' 다. 거절도 기록해야 다시 묻지
+   *   않는다. 거절한 고객에게 매번 다시 묻는 것은 동의를 압박하는 것이 된다.
+   *
+   * ★ 없으면(미주입) 묻지 않는다 — 개발·모의 환경에서 이 창이 뜰 이유가 없다.
+   */
+  aiTrainingConsent?: {
+    /** 이 사용자에게 물어봤는가. false 면 최초 1회 안내를 띄운다. */
+    asked(userId: string): Promise<boolean>;
+    /** 선택을 기록한다. 동의·거절 **둘 다** 기록한다. */
+    record(userId: string, optIn: boolean): Promise<void>;
+  };
+  /**
    * Build a grounded, server-verified market snapshot for the prompt (decimal strings + timestamps).
    * Returns null when no real price is available — the orchestrator then refuses price-bearing
    * proposals rather than letting the model invent a level. Wired in index.ts from buildAiMarketContext.
@@ -108,7 +132,65 @@ export function createAiRouter(d: AiRouterDeps): Hono {
   app.get('/ai/status', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(errBody('UNAUTHENTICATED', ''), 401);
-    return c.json({ available: d.ai.available, provider: d.ai.kind, reason: d.ai.available ? undefined : d.ai.reason, model: d.ai.available ? d.model : undefined });
+    /*
+       ★ 학습 동의를 아직 물어보지 않았는지 함께 알려준다. 화면이 이 값으로 최초 1회
+         안내를 띄운다.
+
+       ★ 실패해도 status 를 깨뜨리지 않는다. 마이그레이션 0046 이 아직 적용되지 않은
+         배포에서도 AI 는 동작해야 한다 — 동의를 못 물으면 학습에 못 쓸 뿐이고,
+         그것은 AI 를 막을 이유가 아니다.
+    */
+    let needsTrainingConsent = false;
+    if (d.aiTrainingConsent) {
+      try { needsTrainingConsent = !(await d.aiTrainingConsent.asked(a.user.id)); } catch { needsTrainingConsent = false; }
+    }
+    return c.json({
+      available: d.ai.available,
+      provider: d.ai.kind,
+      reason: d.ai.available ? undefined : d.ai.reason,
+      model: d.ai.available ? d.model : undefined,
+      needsTrainingConsent,
+    });
+  });
+
+  /*
+     ★★ 거래기록의 AI 학습 이용 동의를 기록한다 (최초 1회 + 이후 변경).
+
+       가입 후에 이 구조가 생긴 고객은 물어본 적이 없다. AI 를 처음 쓸 때 한 번 묻고,
+       그 뒤에는 이 엔드포인트로 언제든 바꿀 수 있다.
+
+     ★★ **거절해도 AI 를 쓸 수 있다.** 이 값은 AI 사용 조건이 아니다 — 학습 이용 여부만
+       정한다. 필수로 묶으면 서비스 제공에 필요하지 않은 동의를 강제하는 것이 되고,
+       그것은 개인정보보호법 §22③ 이 금지하는 방향이다.
+
+     ★ 동의 철회도 같은 경로다. 동의는 언제든 철회할 수 있어야 하는데, 전에는 켤 방법도
+       끌 방법도 없었다 — 그 자체가 문제였다.
+  */
+  app.post('/ai/training-consent', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(errBody('UNAUTHENTICATED', ''), 401);
+    if (!csrfOk(c, a.csrfSecret)) return c.json(errBody('CSRF_FAILED', ''), 403);
+    if (!d.aiTrainingConsent) return c.json(errBody('NOT_CONFIGURED', 'training consent store unavailable'), 503);
+
+    const raw = await c.req.json().catch(() => null) as { optIn?: unknown } | null;
+    /*
+       ★ boolean 만 받는다. 없거나 다른 타입이면 거부한다 — 애매한 값을 '동의' 로
+         해석하면 받지 않은 동의를 기록하게 된다.
+    */
+    if (!raw || typeof raw.optIn !== 'boolean') {
+      return c.json(errBody('BAD_REQUEST', 'optIn must be a boolean'), 400);
+    }
+    try {
+      await d.aiTrainingConsent.record(a.user.id, raw.optIn);
+      return c.json({ ok: true, optIn: raw.optIn });
+    } catch (e) {
+      /*
+         ★ 실패를 성공으로 답하지 않는다. 화면이 "기록했습니다" 라고 말하면 고객은
+           동의가 남았다고 믿는데 실제로는 없다 — 나중에 학습에 쓰면 근거 없는 사용이 된다.
+      */
+      console.error('[legal] ★ AI 학습 동의 기록 실패 — 마이그레이션 0046 확인:', (e as Error).message);
+      return c.json(errBody('INTERNAL', 'could not record the choice'), 500);
+    }
   });
 
   // ---- conversation CRUD (user-isolated) ----
