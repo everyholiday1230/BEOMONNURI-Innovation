@@ -967,6 +967,14 @@
          하면 된다.
     */
     const [activeIndicators, setActiveIndicators] = useState([]);
+    /*
+       ★★ 요청한 타임프레임의 데이터를 기다리는 중인가.
+
+         타임프레임을 누르면 `timeframe` 은 즉시 바뀌지만 `candles` 는 다음 렌더에나
+         온다. 그 사이를 **빈 화면으로 스치게 두면 고장으로 읽힌다**(운영자 신고).
+         "불러오는 중" 을 명시하면 의도된 상태로 읽힌다.
+    */
+    const [tfLoading, setTfLoading] = useState(false);
 
     const decimals = useMemo(
       () => priceDecimalsFor(symbol, candles?.[candles.length - 1]?.close),
@@ -1323,7 +1331,18 @@
            심볼/타임프레임 effect 가 stale 로 판단해 화면을 비운다. 즉 **틀린
            프레임이 잠깐이라도 보이지 않는다.** 올바른 데이터가 오면 그때 그린다.
       */
-      if (!candlesMatchTimeframe(bars, timeframe)) return;
+      if (!candlesMatchTimeframe(bars, timeframe)) {
+        /*
+           ★ 요청한 프레임의 데이터가 아직 아니다 = 불러오는 중이다. 화면이 그것을
+             말할 수 있게 표시를 남긴다. 예전에는 조용히 빈 화면이 스쳐서 고장으로
+             읽혔다(운영자: "타임프레임 누르면 스친다").
+        */
+        try { window.__qtChartLoading = symbol + '|' + timeframe; } catch (e) { void e; }
+        setTfLoading(true);
+        return;
+      }
+      try { window.__qtChartLoading = null; } catch (e) { void e; }
+      setTfLoading(false);
 
       const key = symbol + '|' + timeframe;
       const sameKey = dataKeyRef.current === key;
@@ -1665,6 +1684,30 @@
           className="chart-kline-host"
           style={{ position: 'absolute', inset: 0 }}
         />
+
+        {/*
+           ★★ "불러오는 중" 표시. 타임프레임을 바꾼 직후 데이터가 오기 전 구간이다.
+
+             예전에는 그 구간에 **빈 화면이 스쳤다.** 운영자가 "타임프레임 누를 때
+             스친다" 고 한 것이 이것이다. 데이터가 오는 시간을 없앨 수는 없으므로,
+             **의도된 상태로 보이게** 만든다.
+
+           ★ pointerEvents: none — 표시가 차트 조작을 막으면 안 된다.
+        */}
+        {tfLoading && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'var(--color-bg-panel)', opacity: 0.82,
+              pointerEvents: 'none', zIndex: 3,
+              fontSize: 12, color: 'var(--color-text-secondary)',
+              fontFamily: 'var(--font-mono)', letterSpacing: '0.03em',
+            }}
+          >
+            {tx('chart_loading_tf', 'Loading candles…').replace('{tf}', timeframe)}
+          </div>
+        )}
 
         {/* HUD — ChartCanvas 와 동일한 마크업/클래스 */}
         {/*

@@ -163,9 +163,21 @@
     const support = (window.QTConfig && window.QTConfig.supportEmail) || 'support@beomonnuri.com';
     return (
       <footer className="app-legal-footer">
-        <span className="app-legal-footer__biz">{t('foot_business')}</span>
+        {/*
+           ★★ 사업자 정보 한 줄을 푸터에서 뺐다(운영 지시: "맨 아래에는 안 보이고
+             다른 곳에 나오게").
+
+           ★★★ 다만 **없애지는 않았다.** 전자상거래법 제10조는 상호·대표자·주소·
+             전화번호·사업자등록번호 등을 사이버몰에 표시하도록 요구한다. 그래서
+             아래 링크(`#/company`)로 **한 번에 닿을 수 있게** 남겼다. 국내 사이트들이
+             흔히 쓰는 방식이다 — 푸터에 링크, 별도 화면에 전문.
+
+           ★ 링크마저 없애면 표시 의무를 지키지 않는 것이 된다. 지우자는 요청이었다면
+             그 부분은 따르지 않았고, 이유를 보고했다.
+        */}
         <span className="app-legal-footer__copy">© {year} {brand} · {t('foot_disclaimer')}</span>
         <span className="app-legal-footer__links">
+          <a href="#/company">{t('foot_company_link')}</a>
           <a href="#/terms">{t('auth_3b9e30')}</a>
           <a href="#/privacy">{t('auth_d629d0')}</a>
           <a href="#/risk">{t('legal_risk')}</a>
@@ -1533,6 +1545,22 @@
           {route.path === '/'               && <window.LandingPage        shellProps={shellProps}/>}
           {/* 법적 문서 — route 를 넘겨 어느 문서인지 판단한다. */}
           {['/terms','/privacy','/risk','/security','/refund'].includes(route.path) && <window.LegalPage route={route}/>}
+          {/*
+             ★★ 사업자 정보 화면. 푸터에서 한 줄로 늘 보이던 것을 여기로 옮겼다.
+               전자상거래법 제10조의 표시 의무는 **닿을 수 있으면** 충족된다 —
+               푸터 링크 한 번으로 온다.
+          */}
+          {route.path === '/company'        && (
+            <div className="page-wrap" style={{maxWidth: 760, margin: '0 auto', padding: '28px 18px'}}>
+              <h1 style={{fontSize: 20, marginBottom: 14}}>{t('foot_company_link')}</h1>
+              <div style={{whiteSpace: 'pre-line', lineHeight: 1.7, fontSize: 13, color: 'var(--color-text-secondary)'}}>
+                {t('foot_business')}
+              </div>
+              <p style={{marginTop: 18, fontSize: 12, color: 'var(--color-text-tertiary)'}}>
+                {t('foot_company_note')}
+              </p>
+            </div>
+          )}
           {route.path === '/login'          && <window.LoginPage          shellProps={shellProps}/>}
           {route.path === '/signup'         && <window.SignupPage         shellProps={shellProps}/>}
           {route.path === '/verify-email'   && <window.EmailVerifyPage    shellProps={shellProps}/>}
