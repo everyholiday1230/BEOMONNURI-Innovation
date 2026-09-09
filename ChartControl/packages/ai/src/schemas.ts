@@ -166,35 +166,52 @@ export const AI_SIGNAL_STATES = [
 export const AiSignalStateSchema = z.enum(AI_SIGNAL_STATES);
 export type AiSignalState = (typeof AI_SIGNAL_STATES)[number];
 
-export const AiSignalObjectSchema = z
+/**
+ * 고객이 만든 셋업의 **검토 결과**.
+ *
+ * ★★ 예전 `AiSignalObjectSchema` 를 대체한다. 그 스키마는 `aiGenerated:
+ *   z.literal(true)` 였다 — 리터럴이라 "AI 가 만든 신호" 외에는 **표현할 자리가
+ *   없었다.** 고객이 만든 셋업을 담을 수 없었고, 그래서 기능이 자연히 AI 발신으로
+ *   흘렀다. 스키마가 제품의 성격을 정하고 있었다.
+ *
+ * ★ `author` 에 'ai' 를 넣지 않는다. 넣으면 그 경로가 다시 생긴다.
+ *
+ * ★ `confidence` 를 제거했다. AI 가 고객 셋업에 확신도 점수를 붙이면 그것이 곧
+ *   예측이고 추천이다. 대신 계산·검증 결과(riskReward · missing ·
+ *   contradictingEvidence)를 담는다 — 이것은 사실 진술이다.
+ *
+ * ★ direction · entry · stop · targets 는 **고객이 준 값**이다. orchestrator 가
+ *   고객이 방향을 말했는지 확인한 뒤에만 이 객체를 만든다.
+ */
+export const AiSetupReviewSchema = z
   .object({
-    signalId: z.string().min(1),
+    reviewId: z.string().min(1),
     schemaVersion: z.number().int().positive(),
     symbol: z.string().min(1),
     marketType: MarketTypeSchema,
     timeframe: TimeframeSchema,
+    /* ---- 고객이 준 것 ---- */
     direction: DirectionSchema,
-    entryZone: z.tuple([DecimalString, DecimalString]),
-    stopLoss: DecimalString,
-    takeProfits: z.array(PositiveDecimalString).min(1).max(3),
-    invalidationLevel: DecimalString,
-    confidence: z.number().min(0).max(100),
-    riskReward: DecimalString,
-    thesis: z.string().max(4000),
-    supportingEvidence: z.array(z.string().max(500)).default([]),
+    entry: DecimalString,
+    stop: DecimalString.optional(),
+    targets: z.array(PositiveDecimalString).max(3).default([]),
+    /* ---- AI 가 계산·검증한 것 ---- */
+    riskReward: DecimalString.optional(),
+    missing: z.array(z.enum(['stopLoss', 'invalidation', 'takeProfit'])).max(3).default([]),
     contradictingEvidence: z.array(z.string().max(500)).default([]),
-    assumptions: z.array(z.string().max(300)).default([]),
-    dataTimestamp: EpochMs,
-    expiresAt: EpochMs,
-    aiGenerated: z.literal(true),
+    invalidation: z.string().max(500).optional(),
+    /* ---- 출처·시각 ---- */
+    author: z.enum(['user', 'user_ai_assisted']),
     model: z.string().min(1),
     promptVersion: z.string().min(1),
     dataSnapshotId: z.string().min(1),
+    dataTimestamp: EpochMs,
+    expiresAt: EpochMs,
     userEdited: z.boolean(),
     status: AiSignalStateSchema,
   })
-  .refine((s) => Number(s.entryZone[0]) <= Number(s.entryZone[1]), { message: 'entryZone must be [lo,hi] with lo<=hi', path: ['entryZone'] });
-export type AiSignalObject = z.infer<typeof AiSignalObjectSchema>;
+  .strict();
+export type AiSetupReview = z.infer<typeof AiSetupReviewSchema>;
 
 /** Signal state machine. Approval and order submission stay separate; there is no submit here. */
 const SIGNAL_T: Record<AiSignalState, AiSignalState[]> = {

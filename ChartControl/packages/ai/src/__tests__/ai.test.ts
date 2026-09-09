@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  AiChartCommandSchema, validateChartCommandArgs, AiSignalObjectSchema, transitionAiSignal, canTransitionAiSignal,
+  AiChartCommandSchema, validateChartCommandArgs, AiSetupReviewSchema, transitionAiSignal, canTransitionAiSignal,
   PromptRegistry, buildDelimitedInput, SafetyPolicy, sanitizeMarkdown, CostController, DEFAULT_COST_CONFIG,
   FakeProvider, MockReplayProvider, OpenAIResponsesProvider, BedrockConverseProvider, ToolRegistry, ToolLoopGuard, zodToJsonSchema,
   normalizeResponsesEvent, ToolCallAccumulator, parseSseChunk, Orchestrator, validateProposedChartCommand,
@@ -33,14 +33,25 @@ describe('schemas: ChartCommand + args', () => {
 
 describe('schemas: SignalObject + state machine', () => {
   const sig = {
-    signalId: 's1', schemaVersion: 2, symbol: 'BTCUSDT', marketType: 'perpetual', timeframe: '15m', direction: 'long',
-    entryZone: ['100', '101'], stopLoss: '95', takeProfits: ['110'], invalidationLevel: '94', confidence: 60, riskReward: '2',
-    thesis: 't', supportingEvidence: [], contradictingEvidence: [], assumptions: [], dataTimestamp: 1, expiresAt: FUTURE,
-    aiGenerated: true, model: 'm', promptVersion: '1.0.0', dataSnapshotId: 'snap', userEdited: false, status: 'PROPOSED',
+    reviewId: 'r1', schemaVersion: 2, symbol: 'BTCUSDT', marketType: 'perpetual', timeframe: '15m',
+    direction: 'long', entry: '100', stop: '95', targets: ['110'],
+    riskReward: '2', missing: [], contradictingEvidence: [], invalidation: 'close below 94',
+    author: 'user_ai_assisted', model: 'm', promptVersion: '1.0.0', dataSnapshotId: 'snap',
+    dataTimestamp: 1, expiresAt: FUTURE, userEdited: false, status: 'USER_REVIEW',
   };
-  it('valid signal parses; reversed entry zone fails', () => {
-    expect(AiSignalObjectSchema.safeParse(sig).success).toBe(true);
-    expect(AiSignalObjectSchema.safeParse({ ...sig, entryZone: ['101', '100'] }).success).toBe(false);
+  it('valid setup review parses', () => {
+    expect(AiSetupReviewSchema.safeParse(sig).success).toBe(true);
+  });
+  /*
+     ★★ 운여 결정(2026-09-08)을 스키마로 고정한다: 신호는 고객이 만들고 AI 는 서포트한다.
+       author 에 'ai' 를 허용하면 AI 단독 발신 경로가 되살아난다.
+     ★ confidence 는 제거됐다. AI 가 고객 셋업에 점수를 붙이면 그것이 예쓸·추천이다.
+  */
+  it('AI 단독 발신(author:ai)은 스키마가 받지 않는다', () => {
+    expect(AiSetupReviewSchema.safeParse({ ...sig, author: 'ai' }).success).toBe(false);
+  });
+  it('확신도(confidence)를 다시 넣을 수 없다', () => {
+    expect(AiSetupReviewSchema.safeParse({ ...sig, confidence: 74 }).success).toBe(false);
   });
   it('state machine keeps approval separate; APPROVED can only create draft (no submit state)', () => {
     expect(canTransitionAiSignal('USER_REVIEW', 'APPROVED')).toBe(true);
@@ -132,7 +143,7 @@ describe('tool registry (strict, read-only)', () => {
          "72.4" 는 출처가 필요한 주장이다. 둘을 구분하지 않으면 도구가 쓸모없어진다.
     */
     const registry = new PromptRegistry();
-    for (const id of ['copilot.system', 'chart.analysis', 'signal.generation']) {
+    for (const id of ['copilot.system', 'chart.analysis', 'setup.review']) {
       const t = registry.get(id).template;
       expect(t, `${id}: 지표 수치 규칙이 없다`).toMatch(/Never state a numeric indicator value/);
       expect(t, `${id}: 모른다고 말하라는 지시가 없다`).toMatch(/say you do not have the value/);
@@ -157,7 +168,7 @@ describe('tool registry (strict, read-only)', () => {
     expect(g.admit('c', '{}').ok).toBe(false); // 4th call > maxCalls(3)
   });
   it('zodToJsonSchema marks all props required + additionalProperties false', () => {
-    const js = zodToJsonSchema(AiSignalObjectSchema.innerType?.() ? AiSignalObjectSchema : AiSignalObjectSchema) as Record<string, unknown>;
+    const js = zodToJsonSchema(AiSetupReviewSchema) as Record<string, unknown>;
     // just ensure the helper handles a plain object tool schema
     const toolJs = reg.list().find((d) => d.name === 'get_candles')!.parameters as { required: string[] };
     expect(toolJs.required).toEqual(['symbol', 'timeframe', 'limit']);
@@ -353,32 +364,57 @@ describe('orchestrator pipeline', () => {
     expect(evs.some((e) => e.type === 'command')).toBe(false);
     expect(evs.some((e) => e.type === 'error' && e.code === 'proposal-invalid')).toBe(true);
   });
-  it('emits a validated signal for a grounded propose_signal', async () => {
-    const signal = {
-      direction: 'long', entryZone: ['99', '101'], stopLoss: '95', takeProfits: ['110'], invalidationLevel: '94',
-      confidence: 55, riskReward: '2.0', thesis: 'higher lows into support', supportingEvidence: ['higher lows'],
-      contradictingEvidence: ['resistance overhead'], assumptions: ['no major news'],
-    };
-    const events: AiStreamEvent[] = [
-      { type: 'function_call.done', callId: 's1', name: 'propose_signal', args: JSON.stringify({ signalJson: JSON.stringify(signal) }) },
-      completed,
-    ];
-    const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal', marketData: 'last=100' })));
-    const sig = evs.find((e) => e.type === 'signal') as { signal: { direction: string; status: string; aiGenerated: boolean } } | undefined;
+  /*
+     ★★ 운여 결정(2026-09-08): 신호는 고객이 만들고 AI 는 서포트한다.
+       이 세 가지가 그 결정을 코드로 고정한다. 하나라도 지우면 AI 발신 경로가
+       조용히 되살아난다.
+  */
+  const review = { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2.0', missing: [], contradictingEvidence: ['resistance overhead'], invalidation: 'close below 94' };
+  const proposeReview = (args: Record<string, unknown> = review) =>
+    ({ type: 'function_call.done', callId: 's1', name: 'review_setup', args: JSON.stringify(args) }) as AiStreamEvent;
+
+  it('고객이 방향을 말하면 검토 결과를 낸다', async () => {
+    const events: AiStreamEvent[] = [proposeReview(), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'signal', marketData: 'last=100', userMessage: 'I am going long here, is my stop ok?' }),
+    ));
+    const sig = evs.find((e) => e.type === 'signal') as { signal: { direction: string; status: string; author: string } } | undefined;
     expect(sig).toBeTruthy();
     expect(sig!.signal.direction).toBe('long');
-    expect(sig!.signal.status).toBe('PROPOSED');
-    expect(sig!.signal.aiGenerated).toBe(true);
+    expect(sig!.signal.status).toBe('USER_REVIEW');
+    /* ★ AI 단독 발신이 아니라는 것을 기록한다. */
+    expect(sig!.signal.author).toBe('user_ai_assisted');
   });
-  it('rejects propose_signal without market grounding', async () => {
-    const signal = { direction: 'long', entryZone: ['99', '101'], stopLoss: '95', takeProfits: ['110'], invalidationLevel: '94', confidence: 55, riskReward: '2.0', thesis: 't', supportingEvidence: [], contradictingEvidence: [], assumptions: [] };
-    const events: AiStreamEvent[] = [
-      { type: 'function_call.done', callId: 's1', name: 'propose_signal', args: JSON.stringify({ signalJson: JSON.stringify(signal) }) },
-      completed,
-    ];
-    const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal' }))); // no marketData
+
+  it('★ 고객이 방향을 말하지 않았으면 AI 가 방향을 내놓지 못한다', async () => {
+    const events: AiStreamEvent[] = [proposeReview(), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'signal', marketData: 'last=100', userMessage: 'what do you think about this chart?' }),
+    ));
+    expect(evs.some((e) => e.type === 'signal')).toBe(false);
+    expect(evs.some((e) => e.type === 'error' && e.code === 'direction-not-stated')).toBe(true);
+  });
+
+  it('한국어로 방향을 말해도 인정된다', async () => {
+    const events: AiStreamEvent[] = [proposeReview(), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'signal', marketData: 'last=100', userMessage: '지금 롱으로 보는데 손절 어디 둘까?' }),
+    ));
+    expect(evs.some((e) => e.type === 'signal')).toBe(true);
+  });
+
+  it('rejects a setup review without market grounding', async () => {
+    const events: AiStreamEvent[] = [proposeReview(), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal', userMessage: 'going long' })));
     expect(evs.some((e) => e.type === 'signal')).toBe(false);
     expect(evs.some((e) => e.type === 'error' && e.code === 'ungrounded-proposal')).toBe(true);
+  });
+
+  it('★ signal.generation 프롬프트가 사라진 상태를 지킨다', () => {
+    /* 되살아나는 것이 가장 위험하다 — 방향을 만들라고 지시하는 유일한 지점이었다. */
+    const all = new PromptRegistry(() => NOW).all();
+    expect(all.some((r) => r.promptId === 'signal.generation')).toBe(false);
+    expect(all.some((r) => r.promptId === 'setup.review')).toBe(true);
   });
 });
 

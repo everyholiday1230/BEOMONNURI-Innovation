@@ -84,10 +84,39 @@ const PROPOSAL_TOOL_SCHEMAS = {
       reasoningSummary: z.string().min(1).max(600),
     })
     .strict(),
-  propose_signal: z
+  /*
+     ★★ `propose_signal` 을 `review_setup` 으로 바꿨다.
+
+       예전 도구는 `signalJson` 한 덩이를 받았다. 그 안에 방향·진입·손절·목표가가
+       전부 들어 있어서 **모델이 다 만들어 넣을 수 있었다.** 스키마가 그것을 막지
+       않았다.
+
+     ★ 이제 `direction` 을 **필수 필드**로 둔다. 값은 고객 요청에서만 온다 —
+       서버가 요청에 고객이 명시한 방향이 있는지 확인하고, 없는데 도구 호출에
+       방향이 들어오면 거부한다(orchestrator). 즉 AI 가 방향을 만들어낼 구조적
+       여지를 없앤다. 스키마로 막는 것이 프롬프트로 부탁하는 것보다 강하다.
+
+     ★ 나머지 필드는 고객이 준 숫자를 그대로 되돌려 받는 자리다. AI 가 채우는 것은
+       계산·반박 결과(riskReward·missing·contradicting)뿐이다.
+  */
+  review_setup: z
     .object({
-      // full SignalObject fields as JSON; the server fills provenance and validates the schema.
-      signalJson: z.string().min(2).max(6000),
+      /** 고객이 말한 방향. AI 가 정하지 않는다. */
+      direction: z.enum(['long', 'short']),
+      /** 고객이 말한 진입가. 십진 문자열. */
+      entry: z.string().min(1).max(40),
+      /** 고객이 말한 손절가. 없으면 생략하고 missing 에 담는다. */
+      stop: z.string().min(1).max(40).optional(),
+      /** 고객이 말한 목표가(최대 3개). */
+      targets: z.array(z.string().min(1).max(40)).max(3).default([]),
+      /** 계산한 손익비. calculate_risk_reward 결과를 그대로 넣는다. */
+      riskReward: z.string().min(1).max(40).optional(),
+      /** 빠진 항목. 지어내지 말고 없는 것을 없다고 적는다. */
+      missing: z.array(z.enum(['stopLoss', 'invalidation', 'takeProfit'])).max(3).default([]),
+      /** 이 셋업에 **반대되는** 근거. 캔들에서 읽은 것만. */
+      contradictingEvidence: z.array(z.string().min(1).max(500)).max(6).default([]),
+      /** 무엇이 이 셋업을 무효로 만드는가. */
+      invalidation: z.string().max(500).optional(),
     })
     .strict(),
 } as const;
@@ -110,10 +139,12 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- createTakeProfit: {"price":"68000","index":0}\n' +
     '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
     'Prices must come from MARKET_DATA — never invent a level. Shown to the user as a proposal; never auto-applied.',
-  propose_signal:
-    'Propose a trading SignalObject (direction, entryZone, stopLoss, takeProfits, invalidation, ' +
-    'riskReward, thesis, supporting + contradicting evidence). Derive every level from MARKET_DATA. ' +
-    'Shown for user review; never auto-executed.',
+  review_setup:
+    'Review the setup the USER authored. `direction`, `entry`, `stop` and `targets` must be the values ' +
+    'the user stated — you must not choose or invent them. Return the computed riskReward, what is ' +
+    'missing, and evidence that argues AGAINST the setup. This is the user\'s own analysis, not a ' +
+    'recommendation, and is never auto-executed. If the user gave no direction, do not call this tool — ' +
+    'ask them to choose instead.',
 };
 
 const TOOL_DESCRIPTIONS: Record<ToolName, string> = {

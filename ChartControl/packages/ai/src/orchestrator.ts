@@ -15,7 +15,7 @@ import { ToolLoopGuard, isProposalTool, parseProposalArgs, type ProposalToolName
 import { buildDelimitedInput } from './prompts';
 import {
   AiChartCommandSchema,
-  AiSignalObjectSchema,
+  AiSetupReviewSchema,
   validateChartCommandArgs,
   AI_CHART_COMMAND_VERSION,
   AI_SIGNAL_SCHEMA_VERSION,
@@ -53,7 +53,8 @@ export interface OrchestratorDeps {
 const PROMPT_BY_MODE: Record<OrchestratorInput['mode'], string> = {
   copilot: 'copilot.system',
   'chart-analysis': 'chart.analysis',
-  signal: 'signal.generation',
+  /* ★ 신호 발신(signal.generation)을 고객 셋업 검토(setup.review)로 바꿨다. */
+  signal: 'setup.review',
 };
 
 export class Orchestrator implements IAIOrchestrator {
@@ -258,31 +259,56 @@ export class Orchestrator implements IAIOrchestrator {
       return [{ type: 'command', command: check.data }];
     }
 
-    // propose_signal — a signal always carries levels, so it always requires grounding.
-    if (!grounding.has) return [{ type: 'error', code: 'ungrounded-proposal', message: 'signal requires market data before it can be proposed' }];
-    let signalFields: Record<string, unknown>;
-    try {
-      signalFields = JSON.parse(String(parsed.value.signalJson));
-    } catch {
-      return [{ type: 'error', code: 'proposal-invalid', message: 'signalJson is not valid JSON' }];
+    /*
+       review_setup — 고객이 만든 셋업의 검토 결과다. 수준(가격)을 다루므로 시세
+       근거가 반드시 있어야 한다.
+    */
+    if (!grounding.has) return [{ type: 'error', code: 'ungrounded-proposal', message: 'setup review requires market data' }];
+
+    /*
+       ★★ **방향 발신을 서버에서 막는다.**
+
+         프롬프트에 "방향을 고르지 마라" 고 적는 것만으로는 부족하다 — 모델은
+         지시를 어길 수 있고, 어겼을 때 그것이 곧 매매 신호가 된다. 그래서 고객이
+         방향을 말했는지 **서버가 확인**하고, 말하지 않았는데 도구 호출에 방향이
+         들어오면 거부한다.
+
+       ★ 판정 근거는 고객이 이 요청에서 쓴 문장(userMessage)이다. 대화 전체를 보면
+         "지난번에 롱 얘기했잖아" 같은 것까지 방향 선언으로 읽혀 경계가 흐려진다.
+
+       ★ 언어를 가리지 않아야 한다. 한국어로 "롱으로 보고 있어" 라고 쓴 고객도
+         방향을 말한 것이다. 그래서 언어별 키워드를 함께 본다.
+    */
+    const said = String(input.userMessage ?? '').toLowerCase();
+    const LONG_WORDS = ['long', '롱', '매수', '買い', 'ロング', '做多', '买入'];
+    const SHORT_WORDS = ['short', '숏', '매도', '空売り', 'ショート', '做空', '卖出'];
+    const userStatedDirection = LONG_WORDS.some((w) => said.includes(w)) || SHORT_WORDS.some((w) => said.includes(w));
+    if (!userStatedDirection) {
+      return [{
+        type: 'error',
+        code: 'direction-not-stated',
+        message: 'the user has not stated a direction — ask them to choose instead of proposing one',
+      }];
     }
+
     const built = {
-      ...signalFields,
-      signalId: this.uuid(),
+      ...parsed.value,
+      reviewId: this.uuid(),
       schemaVersion: AI_SIGNAL_SCHEMA_VERSION,
       symbol: input.symbol,
       marketType: input.marketType ?? 'perpetual',
       timeframe: input.timeframe,
-      aiGenerated: true as const,
+      /* ★ 출처는 '고객이 만들고 AI 가 도왔다' 다. AI 단독 발신은 표현할 수 없다. */
+      author: 'user_ai_assisted' as const,
       model: this.d.model,
       promptVersion: '1.0.0',
       dataSnapshotId: input.dataSnapshotId ?? `ctx-${input.correlationId}`,
       dataTimestamp: now,
       expiresAt: now + PROPOSAL_TTL_MS,
       userEdited: false,
-      status: 'PROPOSED' as const,
+      status: 'USER_REVIEW' as const,
     };
-    const check = AiSignalObjectSchema.safeParse(built);
+    const check = AiSetupReviewSchema.safeParse(built);
     if (!check.success) return [{ type: 'error', code: 'proposal-invalid', message: check.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }];
     return [{ type: 'signal', signal: check.data }];
   }
