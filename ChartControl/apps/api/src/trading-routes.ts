@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
@@ -652,6 +653,79 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   /* ★ 서명 키를 한 번만 꺼내 둔다. */
   const previewSecret = d.previewSecret;
 
+  /*
+     ★★★ **실주문 body 검증.** 이 경로에 zod 검증이 **0건**이었다.
+
+       `String()` / `Number()` 캐스팅만 있었다. 그러면 잘못된 입력이 조용히 그럴듯한
+       값으로 바뀐다 — `String(undefined)` → `'undefined'`, `Number('abc')` → `NaN`.
+       그 값이 거래소까지 내려간다.
+
+     ★ `OrderIntentSchema` 는 쓸 수 없다. 그것은 draft/validate 경로 전용이고 필드가
+       다르다(그쪽은 type·price, 이쪽은 orderType·limitPrice·size). `.strict()` 라
+       그대로 붙이면 **정상 주문이 전부 막힌다.** 그래서 이 경로의 실제 형태로 만든다.
+
+     ★★ `.strict()` 를 쓰지 **않는다.** 화면이 보내는 필드가 앞으로 늘 수 있고, 모르는
+       필드 하나에 주문이 막히면 그것이 더 큰 사고다. 대신 **아는 필드의 형식은
+       엄격하게** 본다 — 그것이 이 검증의 목적이다.
+
+     ★ 숫자는 문자열로 받는다. 돈은 십진 문자열로 다루는 것이 이 저장소의 규칙이고,
+       부동소수로 바꾸면 마지막 자리가 흔들린다.
+  */
+  const DecimalStr = z.union([z.string(), z.number()])
+    .transform((v) => String(v).trim())
+    .refine((v) => v !== '' && /^\d+(\.\d+)?$/.test(v) && Number(v) > 0, {
+      message: 'must be a positive decimal',
+    });
+
+  const SubmitOrderSchema = z.object({
+    symbol: z.string().trim().regex(/^[A-Z0-9._-]{2,24}$/i),
+    side: z.enum(['long', 'short', 'buy', 'sell']),
+    /*
+       ★★ 실제 계약을 코드에서 읽어 맞췄다. 처음에는 서버 내부 이름(size·limitPrice)으로
+         만들었는데 **화면은 quantity·price 를 보낸다**(app.jsx 의 submitLive 호출).
+         그대로 두면 정상 주문이 전부 400 이 됐다 — 기존 시험 2건이 즉시 잡았다.
+       ★ 서버가 `body.quantity ?? body.size` 로 둘 다 받으므로 스키마도 둘 다 받는다.
+         한쪽만 받으면 다른 경로가 막힌다.
+       ★ orderType 과 type 도 둘 다 온다(라우트가 둘 다 읽는다).
+    */
+    quantity: DecimalStr.optional(),
+    size: DecimalStr.optional(),
+    orderType: z.enum(['market', 'limit', 'stop', 'stop_limit']).optional(),
+    type: z.enum(['market', 'limit', 'stop', 'stop_limit']).optional(),
+    /* 지정가·스톱지정가에서 필수. 아래 superRefine 이 강제한다. */
+    price: DecimalStr.optional(),
+    stopPrice: DecimalStr.optional(),
+    stopLoss: DecimalStr.optional(),
+    takeProfit: DecimalStr.optional(),
+    leverage: z.coerce.number().int().min(1).max(125).optional(),
+    marginMode: z.enum(['cross', 'isolated']).optional(),
+    market: z.enum(['spot', 'futures']).optional(),
+    reduceOnly: z.boolean().optional(),
+    postOnly: z.boolean().optional(),
+    timeInForce: z.string().trim().max(12).optional(),
+    stopDirection: z.enum(['up', 'down']).optional(),
+    stopPriceType: z.enum(['TP', 'IP', 'MP']).optional(),
+    confirmationToken: z.string().max(512).optional(),
+    previewToken: z.string().max(512).optional(),
+    /* 화면이 덧붙일 수 있는 값은 통과시킨다(.strict 를 쓰지 않는 이유). */
+  }).passthrough().superRefine((o, ctx) => {
+    /* ★ 수량은 어느 이름으로든 하나는 와야 한다. */
+    if (o.quantity === undefined && o.size === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: 'quantity is required' });
+    }
+    const kind = o.orderType ?? o.type;
+    if (kind === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['orderType'], message: 'orderType is required' });
+      return;
+    }
+    if ((kind === 'limit' || kind === 'stop_limit') && o.price === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['price'], message: 'price required for limit orders' });
+    }
+    if ((kind === 'stop' || kind === 'stop_limit') && o.stopPrice === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['stopPrice'], message: 'stopPrice required for stop orders' });
+    }
+  });
+
   async function buildRiskInput(
     userId: string,
     userStatus: string,
@@ -790,9 +864,35 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
              나갔다.** 목록을 한 곳에서 가져오면 스코프를 추가할 때 강제 경로가
              함께 따라온다.
         */
-        emergencyKillSwitch:
-          d.killSwitch
-          || ORDER_BLOCKING_KILL_SCOPES.some((sc) => d.controls?.killActive(sc) ?? false),
+        /*
+           ★★★ **청산 주문은 `new_positions` 스위치로 막지 않는다.**
+
+             `ORDER_BLOCKING_KILL_SCOPES` 를 전면 OR 로 걸고 있었다. 그 목록에는
+             `new_positions` 가 들어 있는데, 그 스위치의 뜻은 이름 그대로 **신규 포지션**
+             차단이다. 청산(reduceOnly)까지 막으면:
+
+               · 시장이 급변해 운영자가 new_positions 를 걸면
+               · 고객은 **포지션을 닫을 수 없다** — 손실이 계속 커진다
+               · 가장 위험한 순간에 탈출구를 잠그는 셈이다
+
+             검증 경로(portfolio/order-validation.ts:371)에는 이미 이 예외가 있었다.
+             **실주문 경로에만 없었다** — 두 경로가 갈라져 있던 것이다.
+
+           ★ global/exchange/bitmart 스위치는 예외 없이 막는다. 그것들은 "이 거래소로
+             주문을 내지 말라" 는 뜻이므로 청산도 포함된다. 청산이 필요하면 고객이
+             거래소 앱에서 직접 한다.
+
+           ★ reduceOnly 를 모르면(필드 없음) **신규로 간주**해 막는다. 모르는 것을
+             청산으로 취급하면 스위치를 우회하는 길이 된다.
+        */
+        emergencyKillSwitch: (() => {
+          const isReduceOnly = body.reduceOnly === true;
+          const scopes = isReduceOnly
+            ? ORDER_BLOCKING_KILL_SCOPES.filter((sc) => sc !== 'new_positions')
+            : ORDER_BLOCKING_KILL_SCOPES;
+          return d.killSwitch
+            || scopes.some((sc) => d.controls?.killActive(sc) ?? false);
+        })(),
         /*
            ★★ **스위치 상태를 모르면 주문을 막는다.**
 
@@ -1931,7 +2031,25 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!hasPermission(a.user.role, 'order-draft.write.self')) return c.json(err('FORBIDDEN', ''), 403);
     const idemKey = c.req.header('idempotency-key');
     if (!idemKey) return c.json(err('BAD_REQUEST', 'Idempotency-Key header required'), 400);
-    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const rawBody = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    /*
+       ★★★ **실주문 검증.** 이 경로에 zod 검증이 0건이었다 — 캐스팅만 있었다.
+
+         잘못된 입력이 조용히 그럴듯한 값으로 바뀌어 거래소까지 내려갔다:
+             String(undefined) → 'undefined' · Number('abc') → NaN
+         수량이나 가격이 그렇게 들어가면 고객 돈이 걸린다.
+
+       ★ 실패를 **어느 필드가 왜** 인지 알려준다. "잘못된 요청" 만 주면 고객도 우리도
+         무엇을 고쳐야 하는지 모른다.
+    */
+    const parsedBody = SubmitOrderSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      const detail = parsedBody.error.issues
+        .map((is) => `${is.path.join('.') || 'body'}: ${is.message}`)
+        .join(' · ');
+      return c.json(err('INVALID_ORDER', detail || 'order fields failed validation'), 400);
+    }
+    const body = parsedBody.data as Record<string, unknown>;
     const symbol = String(body.symbol ?? 'BTCUSDT');
     /*
        ★ 사용자·용도를 함께 넘긴다. DB 저장소가 컬럼으로 요구하고, 키에서
