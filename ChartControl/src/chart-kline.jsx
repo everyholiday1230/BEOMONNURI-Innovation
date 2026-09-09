@@ -226,6 +226,45 @@
     return PERIOD_MAP[timeframe] || PERIOD_MAP['15m'];
   }
 
+  /*
+     ★★★ 타임프레임별 **한 봉의 길이(ms)**.
+
+       왜 필요한가 — 타임프레임을 바꾸면 `timeframe` prop 은 즉시 새 값이 되는데
+       `candles` prop 은 **다음 렌더에나** 새 값이 온다(부모가 비동기로 받아온다).
+       그 사이에 주입 로직이 "옛 캔들"을 "새 타임프레임 키"로 도장 찍어 버려서,
+       이후 검사가 '맞는 데이터' 로 오인하고 **틀린 프레임을 그대로 그린다.**
+       운영자가 본 "최초에 특정 화면이 나왔다가 현재 프레임으로 바뀐다" 가 이것이다.
+       (같은 프레임을 다시 누르면 이미 캐시가 있어 한 번에 맞게 나온다.)
+
+     ★ 그래서 **데이터 자체로** 검증한다. 봉 간격은 타임프레임이 결정하므로,
+       받은 캔들의 간격이 요청한 타임프레임과 다르면 그것은 다른 프레임의 데이터다.
+  */
+  const TF_MS = {
+    '1m': 60e3, '3m': 180e3, '5m': 300e3, '15m': 900e3, '30m': 1800e3,
+    '1H': 3600e3, '2H': 7200e3, '4H': 14400e3, '1D': 86400e3, '1W': 604800e3,
+  };
+
+  /**
+   * 이 캔들 배열이 주어진 타임프레임의 것인가.
+   *
+   * ★ 간격의 **최빈값**을 본다. 평균은 거래소가 빠뜨린 봉(gap) 하나에 크게 흔들린다.
+   * ★ 판단할 수 없으면 true 로 둔다 — 모른다고 화면을 비우면 볼 수 있는 차트를
+   *   못 보게 된다. 확실히 다를 때만 거부한다.
+   */
+  function candlesMatchTimeframe(bars, timeframe) {
+    const want = TF_MS[timeframe];
+    if (!want || !Array.isArray(bars) || bars.length < 3) return true;
+    const counts = new Map();
+    for (let i = 1; i < bars.length && i < 60; i++) {
+      const d = bars[i].timestamp - bars[i - 1].timestamp;
+      if (d > 0) counts.set(d, (counts.get(d) || 0) + 1);
+    }
+    if (counts.size === 0) return true;
+    let mode = 0; let best = -1;
+    for (const [d, n] of counts) if (n > best) { best = n; mode = d; }
+    return mode === want;
+  }
+
   // ===============================================================
   // 커스텀 오버레이 등록 — 우리 4종을 KLineChart 오버레이로 구현
   // ---------------------------------------------------------------
@@ -1272,6 +1311,20 @@
 
       if (bars.length === 0) { dataRef.current = bars; dataKeyRef.current = symbol + '|' + timeframe; return; }
 
+      /*
+         ★★★ **요청한 타임프레임의 데이터인지 먼저 확인한다.**
+
+           `timeframe` prop 은 클릭 즉시 새 값이 되지만 `candles` 는 다음 렌더에나
+           온다. 그 사이에 옛 캔들을 새 키로 도장 찍으면 아래 심볼/타임프레임
+           effect 의 `stale` 검사가 '맞는 데이터' 로 오인하고 **틀린 프레임을
+           그대로 그린다.** 그것이 "최초에 다른 화면이 나왔다가 바뀐다" 였다.
+
+         ★ 여기서 거부하면 dataKeyRef 를 건드리지 않으므로, 곧 이어지는
+           심볼/타임프레임 effect 가 stale 로 판단해 화면을 비운다. 즉 **틀린
+           프레임이 잠깐이라도 보이지 않는다.** 올바른 데이터가 오면 그때 그린다.
+      */
+      if (!candlesMatchTimeframe(bars, timeframe)) return;
+
       const key = symbol + '|' + timeframe;
       const sameKey = dataKeyRef.current === key;
 
@@ -1381,10 +1434,37 @@
         return;
       }
 
+      /*
+         ★★★ **확대 배율을 보존한다.**
+
+           resetData() 는 데이터를 통째로 다시 실으면서 봉 간격(bar space)을 기본값으로
+           되돌린다. 그래서 이용자가 확대해 둔 상태에서 시세가 한 번 바뀌면 배율이
+           툭 되돌아간다 — 운영자가 본 "확대하면 깜빡거리고 튕긴다" 의 절반이 이것이다.
+           위치(scrollToTimestamp)만 복원하고 **배율은 복원하지 않았다.**
+
+         ★ getBarSpace/setBarSpace 는 이 KLineCharts 버전에 있다(vendor 번들에서 확인).
+           예전 주석의 "부분 갱신 API 가 없다" 는 updateData 계열을 말한 것이고,
+           배율 API 는 별개다.
+
+         ★ 못 읽거나 못 쓰면 조용히 넘어간다 — 배율 복원 실패가 차트 자체를
+           멈추게 하면 안 된다.
+      */
+      let keepBarSpace = null;
+      try {
+        const bs = chart.getBarSpace && chart.getBarSpace();
+        /* getBarSpace 는 버전에 따라 숫자 또는 {bar,halfBar,...} 를 돌려준다. */
+        const v = typeof bs === 'number' ? bs : (bs && typeof bs.bar === 'number' ? bs.bar : null);
+        if (typeof v === 'number' && v > 0) keepBarSpace = v;
+      } catch (e) { /* 못 읽으면 복원하지 않는다 */ }
+
       chart.resetData();
 
       if (anchorTs != null) {
         try { chart.scrollToTimestamp(anchorTs, 0); } catch (e) { /* 복원 실패는 무시 */ }
+        /* ★ 위치 복원 뒤에 배율을 되돌린다. 순서가 바뀌면 배율 변경이 위치를 흔든다. */
+        if (keepBarSpace != null) {
+          try { if (chart.setBarSpace) chart.setBarSpace(keepBarSpace); } catch (e) { /* 무시 */ }
+        }
       }
     }, [candles]);
 
