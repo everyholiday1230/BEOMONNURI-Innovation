@@ -1046,7 +1046,25 @@
          ★ 값이 없으면 초안을 만들지 않는다. 0 이나 임의값으로 채우면 고객이 의도하지
            않은 가격으로 주문 확인창에 들어간다.
       */
-      const entry = Number(currentSignal.entry);
+      /*
+         ★★ **양방향 제시일 때는 초안을 만들지 않는다.**
+
+           sides 가 2개면 고객이 방향을 고르지 않은 것이다. 이때 초안을 만들려면 코드가
+           방향을 하나 골라야 하고, 그 순간 **화면은 대칭인데 주문은 한쪽**이 된다.
+           고객이 고르지 않은 방향으로 주문 확인창이 열리는 것이 이 화면에서 나올 수
+           있는 최악의 결과다.
+
+         ★ 대신 무엇을 해야 하는지 알려준다. 버튼이 조용히 아무 일도 하지 않으면
+           고객은 고장으로 읽는다(죽은 버튼을 만들지 않는다).
+      */
+      const sides = Array.isArray(currentSignal.sides) ? currentSignal.sides : [];
+      if (sides.length !== 1) {
+        pushToast({ title: t('toast_draft_failed'), desc: t('ai_pick_direction_first'), variant: 'warning' });
+        return;
+      }
+      const side = sides[0];
+
+      const entry = Number(side.entry);
       if (!Number.isFinite(entry) || entry <= 0) {
         pushToast({ title: t('toast_draft_failed'), desc: t('ai_setup_no_entry'), variant: 'warning' });
         return;
@@ -1055,12 +1073,12 @@
         /* 출처를 남긴다 — 주문 확인창의 AI 경고는 이 값으로만 켠다. */
         source: 'ai',
         confidence: null,
-        side: currentSignal.direction,
+        side: side.direction,
         price: entry,
         size: 0.05,
         tpsl: {
-          tp: Array.isArray(currentSignal.targets) ? currentSignal.targets : [],
-          sl: currentSignal.stop ?? null,
+          tp: Array.isArray(side.targets) ? side.targets : [],
+          sl: side.stop ?? null,
         }
       });
       setFlowStep('order-draft');

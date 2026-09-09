@@ -91,32 +91,54 @@ const PROPOSAL_TOOL_SCHEMAS = {
        전부 들어 있어서 **모델이 다 만들어 넣을 수 있었다.** 스키마가 그것을 막지
        않았다.
 
-     ★ 이제 `direction` 을 **필수 필드**로 둔다. 값은 고객 요청에서만 온다 —
-       서버가 요청에 고객이 명시한 방향이 있는지 확인하고, 없는데 도구 호출에
-       방향이 들어오면 거부한다(orchestrator). 즉 AI 가 방향을 만들어낼 구조적
-       여지를 없앤다. 스키마로 막는 것이 프롬프트로 부탁하는 것보다 강하다.
+     ★★ 이제 `sides` 배열로 받는다 — 1개 또는 롱·숏 2개.
 
-     ★ 나머지 필드는 고객이 준 숫자를 그대로 되돌려 받는 자리다. AI 가 채우는 것은
-       계산·반박 결과(riskReward·missing·contradicting)뿐이다.
+       · 고객이 방향을 말했으면 sides 1개(그 방향).
+       · 말하지 않았으면 sides 2개(롱·숏 **둘 다**).
+
+       처음에는 방향이 없으면 도구 호출 자체를 거부했다. 그랬더니 고객이
+       "BTC 어때?" 처럼 방향을 안 쓰고 묻는 대부분의 경우에 **아무 답도 못 받았다.**
+       막는 것이 목적이 아니다 — AI 가 방향을 **고르지** 않게 하는 것이 목적이고,
+       양쪽을 같이 보여주면 그 목적을 지키면서 고객은 필요한 답을 다 받는다.
+
+     ★ '주(primary)' 와 '부(alternate)' 로 나누지 않는다. 나누면 어느 쪽이 주인지가
+       곧 추천이 된다. 배열에 나란히 담는다.
+
+     ★ 대칭은 서버 스키마(AiSetupReviewSchema.superRefine)가 강제한다. 한쪽만 오면
+       검증에서 떨어진다 — 프롬프트로 부탁하는 것보다 강하다.
   */
   review_setup: z
     .object({
-      /** 고객이 말한 방향. AI 가 정하지 않는다. */
-      direction: z.enum(['long', 'short']),
-      /** 고객이 말한 진입가. 십진 문자열. */
-      entry: z.string().min(1).max(40),
-      /** 고객이 말한 손절가. 없으면 생략하고 missing 에 담는다. */
-      stop: z.string().min(1).max(40).optional(),
-      /** 고객이 말한 목표가(최대 3개). */
-      targets: z.array(z.string().min(1).max(40)).max(3).default([]),
-      /** 계산한 손익비. calculate_risk_reward 결과를 그대로 넣는다. */
-      riskReward: z.string().min(1).max(40).optional(),
+      /*
+         방향별 셋업. 고객이 방향을 말했으면 1개, 말하지 않았으면 롱·숏 2개.
+         ★ 2개일 때 어느 쪽도 권하지 않는다. 순서에 의미를 두지 않는다.
+      */
+      sides: z
+        .array(
+          z
+            .object({
+              direction: z.enum(['long', 'short']),
+              /** 진입가. 고객이 말했으면 그 값, 양방향 제시일 때는 캔들에서 읽은 수준. */
+              entry: z.string().min(1).max(40),
+              /** 손절가. 없으면 생략하고 missing 에 담는다. */
+              stop: z.string().min(1).max(40).optional(),
+              /** 목표가(최대 3개). */
+              targets: z.array(z.string().min(1).max(40)).max(3).default([]),
+              /** 계산한 손익비. calculate_risk_reward 결과를 그대로 넣는다. */
+              riskReward: z.string().min(1).max(40).optional(),
+              /** 이 방향에 **반대되는** 근거. 캔들에서 읽은 것만. */
+              contradictingEvidence: z.array(z.string().min(1).max(500)).max(6).default([]),
+              /** 무엇이 이 방향을 무효로 만드는가. */
+              invalidation: z.string().max(500).optional(),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(2),
       /** 빠진 항목. 지어내지 말고 없는 것을 없다고 적는다. */
       missing: z.array(z.enum(['stopLoss', 'invalidation', 'takeProfit'])).max(3).default([]),
-      /** 이 셋업에 **반대되는** 근거. 캔들에서 읽은 것만. */
-      contradictingEvidence: z.array(z.string().min(1).max(500)).max(6).default([]),
-      /** 무엇이 이 셋업을 무효로 만드는가. */
-      invalidation: z.string().max(500).optional(),
+      /** 방향과 무관한 관찰(지지·저항·추세·모멘텀). 방향을 몰라도 항상 적을 수 있다. */
+      observations: z.array(z.string().min(1).max(500)).max(8).default([]),
     })
     .strict(),
 } as const;

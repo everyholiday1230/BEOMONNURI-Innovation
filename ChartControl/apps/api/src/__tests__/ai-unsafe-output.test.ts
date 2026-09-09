@@ -48,7 +48,15 @@ describe('거부된 AI 답변 회수', () => {
   it('일반 오류와 포인트 부족은 여전히 구분한다', () => {
     const src = read('../../../../src/ai-copilot.jsx');
     const at = src.indexOf("if (ev.type === 'error')");
-    const seg = src.slice(at, at + 1800);
+    /*
+       ★ 고정 길이(1800자)로 잘라 읽고 있었다. 그 블록에 방향 되묻기 처리가 들어오자
+         INSUFFICIENT_POINTS 가 구간 밖으로 밀려나 테스트가 깨졌다 — 코드가 잘못된
+         것이 아니라 자르는 방식이 깨진 것이다.
+
+       ★ 그래서 다음 이벤트 분기가 시작될 때까지 읽는다. 블록이 길어져도 따라간다.
+    */
+    const end = src.indexOf("// 'tool' | 'state'", at);
+    const seg = src.slice(at, end > at ? end : at + 6000);
     expect(seg).toContain('INSUFFICIENT_POINTS');
     expect(seg).toContain('ai_stream_error');
   });

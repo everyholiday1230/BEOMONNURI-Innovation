@@ -475,26 +475,47 @@
          고객이 주지 않았으면 없다 — 없는 것을 지어내 그리지 않는다.
     */
     const applySignal = useCallback((sig) => {
-      if (!sig || !sig.direction) return [];
+      if (!sig || !Array.isArray(sig.sides) || sig.sides.length === 0) return [];
       const anchor = anchorTime();
       const drawn = [];
-      const entry = toNum(sig.entry);
-      if (Number.isFinite(entry) && entry > 0) {
-        addOverlay({ id: 'sig-entry', type: 'horizontal', source: 'ai-draft', points: [{ price: entry, time: anchor }], label: t('ai_overlay_entry_zone') });
-        drawn.push(t('ai_overlay_entry_zone'));
-        addOverlay({ id: 'sig-marker', type: 'signal-marker', source: 'ai-draft', direction: sig.direction, points: [{ time: anchor, price: entry }] });
-      }
-      const stop = toNum(sig.stop);
-      if (Number.isFinite(stop) && stop > 0) {
-        addOverlay({ id: 'sig-sl', type: 'horizontal', source: 'ai-draft', points: [{ price: stop, time: anchor }], label: 'SL · ' + sig.stop });
-        drawn.push('SL');
-      }
-      (Array.isArray(sig.targets) ? sig.targets : []).forEach((tp, i) => {
-        const v = toNum(tp);
-        if (!Number.isFinite(v) || v <= 0) return;
-        addOverlay({ id: 'sig-tp' + (i + 1), type: 'horizontal', source: 'ai-draft', points: [{ price: v, time: anchor }], label: 'TP' + (i + 1) + ' · ' + tp });
-        drawn.push('TP' + (i + 1));
+
+      /*
+         ★★ 방향을 말하지 않은 고객에게는 **롱·숏을 같은 굵기로** 그린다.
+
+           한쪽만 그리거나 한쪽을 강조하면 그것이 곧 추천이 된다. 그리는 방식으로도
+           방향을 발신하지 않아야 한다 — 문구만 대칭이고 그림이 한쪽이면 고객은
+           그림을 믿는다.
+
+         ★ 그래서 오버레이 id 에 방향을 넣어 두 벌이 공존하게 한다. 예전에는
+           'sig-entry' 처럼 고정 id 여서 두 번째 방향이 첫 번째를 덮어썼다.
+
+         ★ 그린 것만 세어서 돌려준다. 하드코딩한 개수를 쓰면 "5개 그렸습니다" 라고
+           말하고 아무것도 안 그리는 사고가 반복된다(실제로 고객 문의로 돌아왔다).
+      */
+      const both = sig.sides.length > 1;
+      sig.sides.forEach((side) => {
+        if (!side || !side.direction) return;
+        const d = side.direction;
+        const tag = both ? ' (' + t(d === 'long' ? 'side_long' : 'side_short') + ')' : '';
+        const entry = toNum(side.entry);
+        if (Number.isFinite(entry) && entry > 0) {
+          addOverlay({ id: 'sig-entry-' + d, type: 'horizontal', source: 'ai-draft', points: [{ price: entry, time: anchor }], label: t('ai_overlay_entry_zone') + tag });
+          drawn.push(t('ai_overlay_entry_zone') + tag);
+          addOverlay({ id: 'sig-marker-' + d, type: 'signal-marker', source: 'ai-draft', direction: d, points: [{ time: anchor, price: entry }] });
+        }
+        const stop = toNum(side.stop);
+        if (Number.isFinite(stop) && stop > 0) {
+          addOverlay({ id: 'sig-sl-' + d, type: 'horizontal', source: 'ai-draft', points: [{ price: stop, time: anchor }], label: 'SL' + tag + ' · ' + side.stop });
+          drawn.push('SL' + tag);
+        }
+        (Array.isArray(side.targets) ? side.targets : []).forEach((tp, i) => {
+          const v = toNum(tp);
+          if (!Number.isFinite(v) || v <= 0) return;
+          addOverlay({ id: 'sig-tp' + (i + 1) + '-' + d, type: 'horizontal', source: 'ai-draft', points: [{ price: v, time: anchor }], label: 'TP' + (i + 1) + tag + ' · ' + tp });
+          drawn.push('TP' + (i + 1) + tag);
+        });
       });
+
       if (onProposeSignal) onProposeSignal(sig);
       return drawn;
     }, [addOverlay, anchorTime, onProposeSignal, t]);
@@ -846,7 +867,14 @@
                 : t('ai_setup_nothing_drawn');
               setMsgs((m) => [...m, makeMsg('ai', '', {
                 toolResult: note,
-                savable: { kind: 'signal', name: t('ai_my_setup') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal },
+                /*
+                   ★ 저장 이름에 방향을 넣되, 양방향 제시면 방향을 넣지 않는다 —
+                     '내 셋업 · long' 으로 저장되면 고르지 않은 방향이 기록에 남는다.
+                */
+                savable: { kind: 'signal', name: t('ai_my_setup') + (() => {
+                  const s = ev.signal && Array.isArray(ev.signal.sides) ? ev.signal.sides : [];
+                  return s.length === 1 && s[0].direction ? ' · ' + s[0].direction : '';
+                })(), payload: ev.signal },
               })]);
               return;
             }
@@ -897,6 +925,21 @@
 
                  ★ acc 를 비우지 않는다. 방향 없이도 할 수 있는 관찰(지지·저항·추세선)은
                    이미 유효하게 스트리밍됐다. 그것을 지우면 고객은 아무것도 못 받는다.
+              */
+              /*
+                 ★★ 이제 이 경로는 **드물다** — 그러나 지우지 않는다.
+
+                   정책이 바뀌었다. 방향을 말하지 않아도 서버는 거부하지 않고 롱·숏을
+                   **함께** 제시한다(review_setup 의 sides 2개). 그래서 정상 흐름에서는
+                   이 오류가 나오지 않는다.
+
+                 ★ 남겨두는 이유: 차트 명령 경로에서 한쪽 마커만 그리려 할 때 여전히
+                   이 코드로 거부한다(방향 발신 구멍 차단). 그때 고객 화면에 개발자용
+                   영어가 뜨면 안 된다 — 그것이 BEWHITE 님이 겪은 문제였다.
+
+                 ★ 그리고 모델이 sides 를 한쪽만 보내 스키마 검증에 떨어지는 경우에도
+                   고객에게는 "방향을 알려주세요" 로 보이는 것이 맞다. 내부 위반을
+                   고객이 이해할 수 있는 요청으로 바꿔주는 자리다.
               */
               if (ev.code === 'direction-not-stated') {
                 if (acc) { setMsgs((m) => [...m, makeMsg('ai', acc)]); acc = ''; }
@@ -1594,13 +1637,31 @@
                    ★ 방향이 없으면 만들지 않는다. '—' 로 두고 색도 중립으로 한다 —
                      모르는 것을 롱이라고 말하지 않는다.
               */}
-              {signal.direction === 'long' || signal.direction === 'short' ? (
-                <span className={`badge badge--${signal.direction}`}>
-                  {signal.direction === 'long' ? '▲' : '▼'} {t(signal.direction === 'long' ? 'side_long' : 'side_short')}
-                </span>
-              ) : (
-                <span className="badge" style={{color:'var(--color-text-tertiary)'}}>—</span>
-              )}
+              {/*
+                 ★★ 양방향 제시일 때는 한쪽 배지를 달지 않는다.
+
+                   sides 가 2개면 고객이 방향을 말하지 않은 것이고, 그때 배지에 '롱' 이
+                   붙으면 카드 전체가 롱 제안으로 읽힌다 — 그림과 표를 대칭으로 만들어도
+                   맨 위 배지 하나가 그것을 전부 무너뜨린다.
+              */}
+              {(() => {
+                const sides = Array.isArray(signal.sides) ? signal.sides : [];
+                if (sides.length > 1) {
+                  return (
+                    <span className="badge" style={{color:'var(--color-text-secondary)'}}>
+                      {t('ai_both_directions')}
+                    </span>
+                  );
+                }
+                const d = sides.length === 1 ? sides[0].direction : null;
+                return (d === 'long' || d === 'short') ? (
+                  <span className={`badge badge--${d}`}>
+                    {d === 'long' ? '▲' : '▼'} {t(d === 'long' ? 'side_long' : 'side_short')}
+                  </span>
+                ) : (
+                  <span className="badge" style={{color:'var(--color-text-tertiary)'}}>—</span>
+                );
+              })()}
               <span style={{color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', fontSize:11}}>{signal.timeframe} · {signal.timeHorizon}</span>
             </div>
             <div style={{display:'inline-flex', alignItems:'center', gap: 10}}>
@@ -1629,11 +1690,15 @@
                    지웠으므로 값 자체가 오지 않는다.
 
                  ★ 대신 손익비를 보여준다. 그것은 고객이 준 숫자로 계산한 **사실**이다.
+
+                 ★★ 양방향 제시일 때는 헤더에 손익비를 두지 않는다. 방향마다 값이 다르고,
+                   헤더에 하나만 놓으면 그 방향이 대표로 읽힌다. 아래 표에서 방향별로
+                   나란히 보여준다.
               */}
-              {signal.riskReward ? (
+              {(Array.isArray(signal.sides) && signal.sides.length === 1 && signal.sides[0].riskReward) ? (
                 <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end'}}>
                   <span style={{fontSize:9, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)'}}>R : R</span>
-                  <span style={{fontSize:13, fontWeight:600, fontFamily:'var(--font-mono)'}}>1 : {signal.riskReward}</span>
+                  <span style={{fontSize:13, fontWeight:600, fontFamily:'var(--font-mono)'}}>1 : {signal.sides[0].riskReward}</span>
                 </div>
               ) : null}
             </div>
@@ -1641,15 +1706,45 @@
 
           <div className="signal-card__grid">
             {/*
-               ★★ 필드를 새 구조에 맞췄다. 서버가 entryZone/stopLoss/takeProfits 대신
-                 entry/stop/targets 를 보낸다(고객이 준 값이라 구간이 아니라 한 점이다).
-                 옛 필드를 읽던 코드는 `signal.entryZone[0]` 에서 터지거나 빈 칸을 그렸다.
+               ★★ 방향별로 나란히 보여준다.
+
+                 sides 가 1개면 고객이 방향을 말한 것이라 예전과 같은 한 줄 표다.
+                 2개면 방향을 말하지 않은 것이고, 롱·숏을 **같은 형식·같은 줄 수**로
+                 놓는다. 한쪽을 자세히 쓰면 그것이 추천이 된다.
+
+               ★ 순서를 롱→숏으로 고정한다. 손익비가 좋은 쪽을 앞에 놓는 식으로
+                 정렬하면 정렬이 곧 추천이 된다.
 
                ★ 고객이 주지 않은 값은 '—' 로 둔다. 지어내지 않는다.
             */}
-            <div className="signal-card__row"><span className="signal-card__k">{t('ai_entry_zone')}</span><span className="signal-card__v">{signal.entry ? fmt(signal.entry, 0) : t('dash')}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">{t('op_stop_loss')}</span><span className="signal-card__v t-short">{signal.stop ? fmt(signal.stop, 0) : t('dash')}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">TP</span><span className="signal-card__v t-long">{Array.isArray(signal.targets) && signal.targets.length ? signal.targets.map((v) => fmt(v, 0)).join(' / ') : t('dash')}</span></div>
+            {(Array.isArray(signal.sides) ? signal.sides : [])
+              .slice()
+              .sort((a, b) => (a.direction === 'long' ? -1 : 1) - (b.direction === 'long' ? -1 : 1))
+              .map((side) => {
+                const both = signal.sides.length > 1;
+                const dirLabel = t(side.direction === 'long' ? 'side_long' : 'side_short');
+                return (
+                  <React.Fragment key={side.direction}>
+                    {both ? (
+                      <div className="signal-card__row" style={{borderTop:'1px solid var(--color-border)', paddingTop: 6, marginTop: 4}}>
+                        <span className="signal-card__k" style={{fontWeight:600, color:'var(--color-text-primary)'}}>
+                          {side.direction === 'long' ? '▲' : '▼'} {dirLabel}
+                        </span>
+                        <span className="signal-card__v" style={{fontSize:11, color:'var(--color-text-tertiary)'}}>
+                          {side.riskReward ? 'R:R 1 : ' + side.riskReward : t('dash')}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="signal-card__row"><span className="signal-card__k">{t('ai_entry_zone')}</span><span className="signal-card__v">{side.entry ? fmt(side.entry, 0) : t('dash')}</span></div>
+                    <div className="signal-card__row"><span className="signal-card__k">{t('op_stop_loss')}</span><span className="signal-card__v t-short">{side.stop ? fmt(side.stop, 0) : t('dash')}</span></div>
+                    <div className="signal-card__row"><span className="signal-card__k">TP</span><span className="signal-card__v t-long">{Array.isArray(side.targets) && side.targets.length ? side.targets.map((v) => fmt(v, 0)).join(' / ') : t('dash')}</span></div>
+                    <div className="signal-card__row"><span className="signal-card__k">{t('ai_invalidation_word')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{side.invalidation || t('dash')}</span></div>
+                    {Array.isArray(side.contradictingEvidence) && side.contradictingEvidence.length ? (
+                      <div className="signal-card__row"><span className="signal-card__k">{t('ai_setup_against')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{side.contradictingEvidence.join(' · ')}</span></div>
+                    ) : null}
+                  </React.Fragment>
+                );
+              })}
             {/*
                ★ 빠진 항목을 숨기지 않고 적는다. 손절 없는 셋업을 조용히 넘기면
                  고객은 자기가 빠뜨린 것을 모른다 — 그것이 이 검토의 목적이다.
@@ -1657,36 +1752,64 @@
             {Array.isArray(signal.missing) && signal.missing.length ? (
               <div className="signal-card__row"><span className="signal-card__k">{t('ai_setup_missing')}</span><span className="signal-card__v t-warning">{signal.missing.join(' / ')}</span></div>
             ) : null}
-            <div className="signal-card__row"><span className="signal-card__k">{t('ai_invalidation_word')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{signal.invalidation || t('dash')}</span></div>
           </div>
 
           {/*
-             ★★ 반대 근거를 **본문에** 보여준다. 예전 카드는 '근거(reason)' 만 보여줬다 —
-               AI 가 셋업을 지지하는 이유만 읽히면 그것이 추천으로 작동한다. 이 기능의
-               목적은 고객 판단을 반박해 주는 것이므로 반대 근거가 주인공이다.
+             ★★ 방향과 무관한 관찰. 방향을 말하지 않은 고객도 이것은 받아야 한다 —
+               지지·저항·추세는 방향을 고르지 않고도 말할 수 있는 사실이다.
           */}
-          {Array.isArray(signal.contradictingEvidence) && signal.contradictingEvidence.length ? (
+          {Array.isArray(signal.observations) && signal.observations.length ? (
             <div className="signal-card__reason">
-              <strong>{t('ai_setup_against')}: </strong>
-              {signal.contradictingEvidence.join(' · ')}
-              {/*
-                 ★ 초보자에게는 이 칸이 무엇인지 한 줄 덧붙인다. '반대 근거' 라는 말만
-                   보면 왜 반대되는 것을 보여주는지 오해할 수 있다 — 셋업을 막는 것이
-                   아니라 놓친 것을 보여주는 칸이다.
-              */}
-              {isBeginner ? (
-                <div style={{marginTop: 6, fontSize: 11, color:'var(--color-text-tertiary)'}}>
-                  {t('ai_setup_against_hint')}
-                </div>
-              ) : null}
+              <strong>{t('ai_observations')}: </strong>
+              {signal.observations.join(' · ')}
             </div>
           ) : null}
 
-          {/* Invalidation banner — always visible, cannot be missed */}
+          {/*
+             ★★ 양방향 제시일 때 어느 쪽도 권하지 않는다는 것을 **글로** 적는다.
+               표가 대칭이어도 고객은 "AI가 뭔가 알고 보여준다" 고 읽는다.
+          */}
+          {Array.isArray(signal.sides) && signal.sides.length > 1 ? (
+            <div className="signal-card__reason" style={{color:'var(--color-text-secondary)'}}>
+              {t('ai_both_directions_note')}
+            </div>
+          ) : null}
+
+          {/*
+             ★★ 반대 근거는 이제 **방향별 표 안**에 있다(위 grid). 방향마다 반대 근거가
+               다르기 때문이다 — 양방향 제시에서 하나로 합치면 어느 방향에 반대되는
+               근거인지 알 수 없다.
+
+             ★ 초보자 안내만 여기 남긴다. '반대 근거' 라는 말만 보면 왜 반대되는 것을
+               보여주는지 오해할 수 있다 — 셋업을 막는 것이 아니라 놓친 것을 보여주는
+               칸이다.
+          */}
+          {isBeginner && (Array.isArray(signal.sides) ? signal.sides : []).some((s) => Array.isArray(s.contradictingEvidence) && s.contradictingEvidence.length) ? (
+            <div className="signal-card__reason" style={{fontSize: 11, color:'var(--color-text-tertiary)'}}>
+              {t('ai_setup_against_hint')}
+            </div>
+          ) : null}
+
+          {/*
+             무효화 배너 — 항상 보인다.
+
+             ★★ 무효화 조건은 방향마다 다르다. 양방향 제시일 때 하나만 골라 띄우면
+               그 방향이 대표로 읽힌다. 그래서 그때는 방향별 조건을 표에 두고, 배너에는
+               "방향을 고르면 그 방향의 무효화 조건을 본다" 는 안내를 둔다.
+
+             ★ 값이 없으면 '—' 로 둔다. 여기에 그럴듯한 문장을 지어 넣으면 고객은
+               검증된 조건으로 읽는다.
+          */}
           <div className="invalidation-banner">
             <I.Alert size={14} className="invalidation-banner__icon"/>
             <div>
-              <strong>{t('ai_invalidation')}</strong> {signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}
+              <strong>{t('ai_invalidation')}</strong>{' '}
+              {(() => {
+                const sides = Array.isArray(signal.sides) ? signal.sides : [];
+                if (sides.length > 1) return t('ai_invalidation_per_side');
+                if (signal.invalidationKey) return t(signal.invalidationKey);
+                return (sides.length === 1 && sides[0].invalidation) ? sides[0].invalidation : t('dash');
+              })()}
               <span style={{color:'var(--color-text-tertiary)', marginLeft: 6, fontFamily:'var(--font-mono)', fontSize: 10}}>{t('ai_invalidation_note')}</span>
             </div>
           </div>

@@ -28,6 +28,40 @@ const PRICE_BEARING_COMMANDS = new Set<AiChartCommandName>([
   'createStopLoss', 'createTakeProfit', 'createLongMarker', 'createShortMarker', 'createInvalidationLevel',
 ]);
 
+/*
+   ★★ **방향을 드러내는 차트 명령.** 여기가 구멍이었다.
+
+     방향 검사는 `review_setup` 에만 걸려 있었다. 그런데 롱 마커는 차트 명령
+     (`propose_chart_command`)으로도 그릴 수 있고, 그 경로는 검사 앞에서 반환된다.
+     즉 모델이 `review_setup` 을 건너뛰고 `createLongMarker` 를 부르면 방향 발신
+     금지를 **그냥 지나갔다.** 4중 방어라고 적어 두었는데 서버 층에 구멍이 있었다.
+
+   ★ 같은 행위가 경로에 따라 되기도 하고 안 되기도 하면 어느 정책에서도 틀렸다.
+     그래서 이 명령들은 두 경로에서 같은 규칙을 받는다.
+
+   ★ 지지·저항·추세선·수평선은 여기 넣지 않는다. 방향을 드러내지 않는 관찰이고,
+     방향을 말하지 않은 고객도 받아야 하는 것이다(운영 결정: 관찰은 먼저).
+*/
+const DIRECTION_BEARING_COMMANDS = new Set<AiChartCommandName>([
+  'createLongMarker', 'createShortMarker',
+]);
+
+/*
+   고객이 방향을 말했는지 판정하는 단어들.
+
+   ★ 언어를 가리지 않는다. 한국어로 "롱으로 보고 있어" 라고 쓴 고객도 방향을 말한 것이다.
+   ★ 넓히지 않는다. '올라갈까요?' 는 질문이지 방향 선언이 아니다 — 느슨하게 만들면
+     AI 가 방향을 고른 것과 같아진다.
+*/
+const LONG_WORDS = ['long', '롱', '매수', '買い', 'ロング', '做多', '买入'];
+const SHORT_WORDS = ['short', '숏', '매도', '空売り', 'ショート', '做空', '卖出'];
+
+/** 고객 문장에 방향 선언이 있는가. 두 경로(review_setup·차트 명령)가 같은 판정을 쓴다. */
+export function userStatedDirection(userMessage: string | undefined): boolean {
+  const said = String(userMessage ?? '').toLowerCase();
+  return LONG_WORDS.some((w) => said.includes(w)) || SHORT_WORDS.some((w) => said.includes(w));
+}
+
 /** How long a proposed command/signal stays valid before the UI must discard it. */
 const PROPOSAL_TTL_MS = 5 * 60_000;
 
@@ -236,6 +270,27 @@ export class Orchestrator implements IAIOrchestrator {
       }
       const argCheck = validateChartCommandArgs(command, cmdArgs);
       if (!argCheck.ok) return [{ type: 'error', code: 'proposal-invalid', message: `args: ${argCheck.error}` }];
+
+      /*
+         ★★ **구멍을 막는다** — 방향을 드러내는 명령은 이 경로에서도 검사한다.
+
+           `review_setup` 에만 검사가 있어서, 모델이 그것을 건너뛰고 `createLongMarker`
+           를 부르면 방향 발신 금지를 그냥 지나갔다.
+
+         ★ 한쪽 마커만 그리는 것이 곧 방향 발신이다. 고객이 방향을 말하지 않았다면
+           `review_setup` 으로 **양쪽을 함께** 제시해야 한다 — 그 경로에는 스키마가
+           대칭을 강제한다. 그래서 여기서는 단독 마커를 막고 그 경로로 보낸다.
+
+         ★ 그림을 못 그리게 하는 것이 아니다. 지지·저항·추세선·수평선은 그대로
+           그려진다(DIRECTION_BEARING_COMMANDS 에 없다).
+      */
+      if (DIRECTION_BEARING_COMMANDS.has(command) && !userStatedDirection(input.userMessage)) {
+        return [{
+          type: 'error',
+          code: 'direction-not-stated',
+          message: 'one-sided marker without a user-stated direction — present both sides via review_setup',
+        }];
+      }
       const built = {
         schemaVersion: AI_CHART_COMMAND_VERSION,
         commandId: this.uuid(),
@@ -266,30 +321,33 @@ export class Orchestrator implements IAIOrchestrator {
     if (!grounding.has) return [{ type: 'error', code: 'ungrounded-proposal', message: 'setup review requires market data' }];
 
     /*
-       ★★ **방향 발신을 서버에서 막는다.**
+       ★★ **방향 발신을 서버에서 막는다 — 그러나 답을 막지는 않는다.**
 
-         프롬프트에 "방향을 고르지 마라" 고 적는 것만으로는 부족하다 — 모델은
-         지시를 어길 수 있고, 어겼을 때 그것이 곧 매매 신호가 된다. 그래서 고객이
-         방향을 말했는지 **서버가 확인**하고, 말하지 않았는데 도구 호출에 방향이
-         들어오면 거부한다.
+         프롬프트에 "방향을 고르지 마라" 고 적는 것만으로는 부족하다. 모델은 지시를
+         어길 수 있고, 어겼을 때 그것이 곧 매매 신호가 된다. 그래서 고객이 방향을
+         말했는지 **서버가 확인**한다.
+
+       ★★ 처음에는 방향이 없으면 도구 호출을 **거부**했다. 그것이 틀렸다.
+
+         고객은 "BTC 어때?" 처럼 방향을 안 쓰고 묻는 것이 자연스럽다. 그래서 대부분의
+         요청에서 아무 답도 못 받았고, 화면에는 개발자용 영어 오류가 떴다. 고객 문의로
+         돌아왔다(BEWHITE 님).
+
+         막는 것이 목적이 아니다. AI 가 방향을 **고르지** 않게 하는 것이 목적이다.
+         그래서 이제 거부하지 않고 **양쪽을 모두 요구**한다 — 롱·숏을 나란히 제시하면
+         AI 는 방향을 고르지 않으면서 고객은 필요한 답을 다 받는다.
 
        ★ 판정 근거는 고객이 이 요청에서 쓴 문장(userMessage)이다. 대화 전체를 보면
          "지난번에 롱 얘기했잖아" 같은 것까지 방향 선언으로 읽혀 경계가 흐려진다.
 
-       ★ 언어를 가리지 않아야 한다. 한국어로 "롱으로 보고 있어" 라고 쓴 고객도
-         방향을 말한 것이다. 그래서 언어별 키워드를 함께 본다.
+       ★ 언어를 가리지 않아야 한다. 한국어로 "롱으로 보고 있어" 라고 쓴 고객도 방향을
+         말한 것이다.
+
+       ★ 넓히지 않는다. '올라갈까요?' 는 질문이지 방향 선언이 아니다. 이 검사를
+         느슨하게 만들면 AI 가 방향을 고른 것과 같아진다.
     */
     const said = String(input.userMessage ?? '').toLowerCase();
-    const LONG_WORDS = ['long', '롱', '매수', '買い', 'ロング', '做多', '买入'];
-    const SHORT_WORDS = ['short', '숏', '매도', '空売り', 'ショート', '做空', '卖出'];
-    const userStatedDirection = LONG_WORDS.some((w) => said.includes(w)) || SHORT_WORDS.some((w) => said.includes(w));
-    if (!userStatedDirection) {
-      return [{
-        type: 'error',
-        code: 'direction-not-stated',
-        message: 'the user has not stated a direction — ask them to choose instead of proposing one',
-      }];
-    }
+    const statedDirection = LONG_WORDS.some((w) => said.includes(w)) || SHORT_WORDS.some((w) => said.includes(w));
 
     const built = {
       ...parsed.value,
@@ -298,6 +356,11 @@ export class Orchestrator implements IAIOrchestrator {
       symbol: input.symbol,
       marketType: input.marketType ?? 'perpetual',
       timeframe: input.timeframe,
+      /*
+         ★★ 이 값은 **서버가** 정한다. 모델이 정하게 두면 "고객이 말한 것으로 간주"
+           해 버리고 한쪽만 제시할 수 있다 — 방향 발신 금지가 그대로 무력해진다.
+      */
+      directionStatedByUser: statedDirection,
       /* ★ 출처는 '고객이 만들고 AI 가 도왔다' 다. AI 단독 발신은 표현할 수 없다. */
       author: 'user_ai_assisted' as const,
       model: this.d.model,

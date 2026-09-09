@@ -106,8 +106,33 @@ const cmd = z.object({ command: z.enum(AI_CHART_COMMANDS) });
  * strongly-typed `args` object. `args` is intentionally small and validated per command by
  * `validateChartCommandArgs`. There is NO command that submits/cancels/modifies a live order.
  */
+/*
+   ★★ **추세선이 아예 그려지지 않았다.** 이 자리가 원인이다.
+
+     `args` 가 평면 레코드(문자열·숫자·불리언·그 배열)였다. 그런데 추세선은
+     `points: [{time,price},{time,price}]` 이고 마커는 `point: {time,price}` 다 —
+     **중첩 객체**다. 그래서 앞의 per-command 검증(validateChartCommandArgs)을 통과한
+     뒤 여기서 `args.point: Invalid input` 으로 떨어졌다.
+
+     결과: AI 에게 "추세선 그려줘" 라고 하면 조용히 아무 일도 일어나지 않았다.
+     고객 질문("각종 선들도 그려달라고 하면 그려지나?")의 답이 '아니오' 였다.
+
+   ★ 앞서 per-command 스키마가 이미 엄격하게 검증한다(OverlayPoint 는 time·price 를
+     정확히 요구한다). 그래서 여기서는 **검증된 값을 담을 수 있을 만큼만** 넓힌다 —
+     z.unknown() 으로 열어버리지 않는다. 열면 무엇이 들어오는지 이 스키마만 읽고
+     알 수 없게 된다.
+
+   ★★ 이것을 고치면 `createLongMarker` 가 처음으로 이 경로를 통과할 수 있게 된다.
+     즉 방향 가드(orchestrator 의 DIRECTION_BEARING_COMMANDS)가 **이제부터 실제로
+     필요하다.** 전에는 이 평면 레코드가 우연히 막고 있었을 뿐이고, 의도된 방어가
+     아니었다 — 우연히 막히는 것에 안전을 기대면 안 된다.
+*/
+const ArgScalar = z.union([z.string(), z.number(), z.boolean()]);
+const ArgPoint = z.object({ time: EpochMs, price: RawDecimalString }).strict();
+const ArgValue = z.union([ArgScalar, ArgPoint, z.array(z.union([ArgScalar, ArgPoint]))]);
+
 export const AiChartCommandSchema = AiCommonFields.merge(cmd).extend({
-  args: z.record(z.union([z.string(), z.number(), z.boolean(), z.array(z.union([z.string(), z.number()]))])).default({}),
+  args: z.record(ArgValue).default({}),
 });
 export type AiChartCommand = z.infer<typeof AiChartCommandSchema>;
 
@@ -183,6 +208,27 @@ export type AiSignalState = (typeof AI_SIGNAL_STATES)[number];
  * ★ direction · entry · stop · targets 는 **고객이 준 값**이다. orchestrator 가
  *   고객이 방향을 말했는지 확인한 뒤에만 이 객체를 만든다.
  */
+/*
+   한 방향의 셋업. 고객이 방향을 말했으면 1개, 말하지 않았으면 롱·숏 2개가 온다.
+
+   ★★ '주(primary)' 와 '부(alternate)' 로 나누지 않는다. 나누면 어느 쪽이 주인지가
+     곧 추천으로 읽히고, 그러면 방향을 AI 가 고른 것과 다르지 않다. 배열에 나란히
+     담아 어느 쪽도 앞서지 않게 한다.
+*/
+export const SetupSideSchema = z
+  .object({
+    direction: DirectionSchema,
+    entry: DecimalString,
+    stop: DecimalString.optional(),
+    targets: z.array(PositiveDecimalString).max(3).default([]),
+    riskReward: DecimalString.optional(),
+    invalidation: z.string().max(500).optional(),
+    /* 이 방향과 어긋나는 근거. 양방향일 때 각 방향마다 다르다. */
+    contradictingEvidence: z.array(z.string().max(500)).default([]),
+  })
+  .strict();
+export type SetupSide = z.infer<typeof SetupSideSchema>;
+
 export const AiSetupReviewSchema = z
   .object({
     reviewId: z.string().min(1),
@@ -190,16 +236,23 @@ export const AiSetupReviewSchema = z
     symbol: z.string().min(1),
     marketType: MarketTypeSchema,
     timeframe: TimeframeSchema,
-    /* ---- 고객이 준 것 ---- */
-    direction: DirectionSchema,
-    entry: DecimalString,
-    stop: DecimalString.optional(),
-    targets: z.array(PositiveDecimalString).max(3).default([]),
-    /* ---- AI 가 계산·검증한 것 ---- */
-    riskReward: DecimalString.optional(),
+    /* ---- 고객이 방향을 말했는가 ---- */
+    /*
+       ★★ 이 값이 화면 표현을 정한다.
+
+         true  → 고객이 방향을 말했다. sides 는 1개. 그 방향으로 검토한 결과다.
+         false → 말하지 않았다. sides 는 2개(롱·숏). **어느 쪽도 권하지 않는 제시**다.
+
+       ★ 서버가 고객 문장을 보고 정한다. 모델이 정하게 두면 "말한 것으로 간주" 해
+         버리고 방향 발신 금지가 무력해진다.
+    */
+    directionStatedByUser: z.boolean(),
+    /* ---- 셋업 (1개 또는 롱·숏 2개) ---- */
+    sides: z.array(SetupSideSchema).min(1).max(2),
+    /* ---- AI 가 계산·검증한 것 (방향과 무관한 부분) ---- */
     missing: z.array(z.enum(['stopLoss', 'invalidation', 'takeProfit'])).max(3).default([]),
-    contradictingEvidence: z.array(z.string().max(500)).default([]),
-    invalidation: z.string().max(500).optional(),
+    /* 방향과 무관한 관찰(지지·저항·추세·모멘텀). 방향을 말하지 않아도 항상 유효하다. */
+    observations: z.array(z.string().max(500)).max(8).default([]),
     /* ---- 출처·시각 ---- */
     author: z.enum(['user', 'user_ai_assisted']),
     model: z.string().min(1),
@@ -210,7 +263,32 @@ export const AiSetupReviewSchema = z
     userEdited: z.boolean(),
     status: AiSignalStateSchema,
   })
-  .strict();
+  .strict()
+  /*
+     ★★ 대칭을 **스키마가** 강제한다.
+
+       방향을 말하지 않았으면 sides 가 정확히 2개여야 하고 롱·숏을 모두 담아야 한다.
+       한쪽만 오면 그것이 AI 의 방향 발신이다 — 검증에서 떨어뜨린다.
+
+     ★ 코드 여러 곳에서 검사하지 않고 스키마에 둔다. 검사 지점이 늘면 한 곳이
+       빠지고, 빠진 곳이 곧 구멍이 된다(차트 명령 경로에서 실제로 그랬다).
+  */
+  .superRefine((v, ctx) => {
+    if (v.directionStatedByUser) {
+      if (v.sides.length !== 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction stated by user → exactly one side' });
+      }
+      return;
+    }
+    if (v.sides.length !== 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction not stated → both long and short must be presented' });
+      return;
+    }
+    const dirs = new Set(v.sides.map((s) => s.direction));
+    if (!dirs.has('long') || !dirs.has('short')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction not stated → sides must be one long and one short' });
+    }
+  });
 export type AiSetupReview = z.infer<typeof AiSetupReviewSchema>;
 
 /** Signal state machine. Approval and order submission stay separate; there is no submit here. */

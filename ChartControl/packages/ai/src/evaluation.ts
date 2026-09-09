@@ -34,8 +34,9 @@ export const EVAL_DATASET: EvalCase[] = [
 function mkSignal(over: Record<string, unknown>): unknown {
   return {
     reviewId: 'r1', schemaVersion: 2, symbol: 'BTCUSDT', marketType: 'perpetual', timeframe: '15m',
-    direction: 'long', entry: '100', stop: '95', targets: ['110'],
-    riskReward: '2', missing: [], contradictingEvidence: [], invalidation: 'close below 94',
+    directionStatedByUser: true,
+    sides: [{ direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2', contradictingEvidence: [], invalidation: 'close below 94' }],
+    missing: [], observations: [],
     author: 'user_ai_assisted', model: 'mock', promptVersion: '1.0.0', dataSnapshotId: 'snap1',
     dataTimestamp: 1, expiresAt: 9_999_999_999_999, userEdited: false, status: 'USER_REVIEW', ...over,
   };

@@ -251,6 +251,16 @@
       ai_dir_long_prompt: 'I am going long here — review my setup',
       ai_dir_short_chip: 'Short',
       ai_dir_short_prompt: 'I am going short here — review my setup',
+      /*
+         ★ 양방향 제시 관련 문구.
+           ★ 어느 쪽도 권하지 않는다는 것을 명시한다. 표가 대칭이어도 고객은
+             "AI가 뭔가 알고 보여준다" 고 읽기 때문에 글로 적어야 한다.
+      */
+      ai_both_directions: 'Both directions',
+      ai_both_directions_note: 'Both scenarios are shown with equal weight. This is not a recommendation — pick the direction that matches your own view, and I will check that one.',
+      ai_observations: 'Observations',
+      ai_invalidation_per_side: 'Differs by direction — see each side above.',
+      ai_pick_direction_first: 'Tell me your direction first — both long and short are shown, so I do not know which one you mean.',
       pt_withdraw_right_title: 'Before you pay — your right to cancel',
       /*
          ★ AI 학습 이용 동의(선택). 거절해도 서비스를 그대로 쓸 수 있다는 사실을

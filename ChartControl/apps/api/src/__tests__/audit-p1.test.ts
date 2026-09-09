@@ -26,11 +26,24 @@ describe('AUDIT-P1 — 화면과 로그가 사실을 말한다', () => {
     /* 주석은 제외 — 왜 고쳤는지 설명하려면 옛 문자열을 언급해야 한다. */
     const code = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
     expect(code, '방향이 여전히 하드코딩이다').not.toMatch(/badge--long">▲ LONG/);
-    expect(code, '방향을 신호에서 읽지 않는다').toMatch(/signal\.direction/);
-    /* ★ 색과 화살표도 방향을 따라야 한다 — 초록 위쪽 화살표가 숏에 붙으면 글자를 안 읽는다. */
-    expect(code).toMatch(/badge--\$\{signal\.direction\}/);
+    /*
+       ★ 구조가 바뀌었다: signal.direction → signal.sides[].direction.
+
+         방향을 말하지 않은 고객에게 롱·숏을 함께 제시하게 되면서 방향이 방향별
+         배열로 옮겨갔다. 검사 의도는 그대로다 — **방향을 신호에서 읽어야 하고,
+         색·화살표가 그 방향을 따라야 한다.**
+    */
+    expect(code, '방향을 신호에서 읽지 않는다').toMatch(/sides/);
+    expect(code, '방향별 색을 쓰지 않는다').toMatch(/badge--\$\{(d|side\.direction)\}/);
     /* ★ JSX 텍스트로 들어가므로 따옴표가 없다. 중립 표시가 있는지만 본다. */
     expect(code, '방향이 없을 때 롱으로 단정한다').toMatch(/>—<\/span>/);
+    /*
+       ★★ 양방향 제시일 때 한쪽 배지를 달지 않는지 확인한다.
+
+         표와 그림을 대칭으로 만들어도 맨 위 배지 하나에 '롱' 이 붙으면 카드 전체가
+         롱 제안으로 읽힌다 — 대칭이 그 한 줄에서 무너진다.
+    */
+    expect(code, '양방향일 때 중립 배지를 쓰지 않는다').toMatch(/ai_both_directions/);
   });
 
   it('[2] 실주문 제출에 레이트리밋이 있다', () => {

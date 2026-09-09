@@ -34,13 +34,60 @@ describe('schemas: ChartCommand + args', () => {
 describe('schemas: SignalObject + state machine', () => {
   const sig = {
     reviewId: 'r1', schemaVersion: 2, symbol: 'BTCUSDT', marketType: 'perpetual', timeframe: '15m',
-    direction: 'long', entry: '100', stop: '95', targets: ['110'],
-    riskReward: '2', missing: [], contradictingEvidence: [], invalidation: 'close below 94',
+    directionStatedByUser: true,
+    sides: [{ direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2', contradictingEvidence: [], invalidation: 'close below 94' }],
+    missing: [], observations: [],
     author: 'user_ai_assisted', model: 'm', promptVersion: '1.0.0', dataSnapshotId: 'snap',
     dataTimestamp: 1, expiresAt: FUTURE, userEdited: false, status: 'USER_REVIEW',
   };
   it('valid setup review parses', () => {
     expect(AiSetupReviewSchema.safeParse(sig).success).toBe(true);
+  });
+
+  /*
+     ★★ 대칭을 스키마가 강제하는지 확인한다.
+
+       방향을 말하지 않았는데 한쪽만 오면 그것이 AI 의 방향 발신이다. 검증에서
+       떨어져야 한다 — 이 검사가 무력해지면 4중 방어의 스키마 층이 사라진다.
+  */
+  it('★ 방향을 말하지 않았는데 한쪽만 오면 거부한다', () => {
+    const oneSided = { ...sig, directionStatedByUser: false };
+    expect(AiSetupReviewSchema.safeParse(oneSided).success).toBe(false);
+  });
+
+  it('★ 방향을 말하지 않았으면 롱·숏 둘 다 있어야 통과한다', () => {
+    const both = {
+      ...sig,
+      directionStatedByUser: false,
+      sides: [
+        { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2', contradictingEvidence: [], invalidation: 'close below 94' },
+        { direction: 'short', entry: '99', stop: '104', targets: ['90'], riskReward: '1.8', contradictingEvidence: [], invalidation: 'close above 105' },
+      ],
+    };
+    expect(AiSetupReviewSchema.safeParse(both).success).toBe(true);
+  });
+
+  it('★ 같은 방향 두 개는 대칭이 아니므로 거부한다', () => {
+    const twoLongs = {
+      ...sig,
+      directionStatedByUser: false,
+      sides: [
+        { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2', contradictingEvidence: [] },
+        { direction: 'long', entry: '101', stop: '96', targets: ['111'], riskReward: '2', contradictingEvidence: [] },
+      ],
+    };
+    expect(AiSetupReviewSchema.safeParse(twoLongs).success).toBe(false);
+  });
+
+  it('★ 방향을 말했는데 두 개가 오면 거부한다 (고객 방향만 검토해야 한다)', () => {
+    const both = {
+      ...sig,
+      sides: [
+        { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2', contradictingEvidence: [] },
+        { direction: 'short', entry: '99', stop: '104', targets: ['90'], riskReward: '1.8', contradictingEvidence: [] },
+      ],
+    };
+    expect(AiSetupReviewSchema.safeParse(both).success).toBe(false);
   });
   /*
      ★★ 운여 결정(2026-09-08)을 스키마로 고정한다: 신호는 고객이 만들고 AI 는 서포트한다.
@@ -369,7 +416,9 @@ describe('orchestrator pipeline', () => {
        이 세 가지가 그 결정을 코드로 고정한다. 하나라도 지우면 AI 발신 경로가
        조용히 되살아난다.
   */
-  const review = { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2.0', missing: [], contradictingEvidence: ['resistance overhead'], invalidation: 'close below 94' };
+  const oneSide = { direction: 'long', entry: '100', stop: '95', targets: ['110'], riskReward: '2.0', contradictingEvidence: ['resistance overhead'], invalidation: 'close below 94' };
+  const shortSide = { direction: 'short', entry: '99', stop: '104', targets: ['90'], riskReward: '1.8', contradictingEvidence: ['support below'], invalidation: 'close above 105' };
+  const review = { sides: [oneSide], missing: [], observations: ['41,800 tested 3 times'] };
   const proposeReview = (args: Record<string, unknown> = review) =>
     ({ type: 'function_call.done', callId: 's1', name: 'review_setup', args: JSON.stringify(args) }) as AiStreamEvent;
 
@@ -378,21 +427,48 @@ describe('orchestrator pipeline', () => {
     const evs = await drain(new Orchestrator(deps(events)).run(
       input({ mode: 'signal', marketData: 'last=100', userMessage: 'I am going long here, is my stop ok?' }),
     ));
-    const sig = evs.find((e) => e.type === 'signal') as { signal: { direction: string; status: string; author: string } } | undefined;
+    const sig = evs.find((e) => e.type === 'signal') as { signal: { sides: { direction: string }[]; directionStatedByUser: boolean; status: string; author: string } } | undefined;
     expect(sig).toBeTruthy();
-    expect(sig!.signal.direction).toBe('long');
+    expect(sig!.signal.sides).toHaveLength(1);
+    expect(sig!.signal.sides[0]!.direction).toBe('long');
+    expect(sig!.signal.directionStatedByUser).toBe(true);
     expect(sig!.signal.status).toBe('USER_REVIEW');
     /* ★ AI 단독 발신이 아니라는 것을 기록한다. */
     expect(sig!.signal.author).toBe('user_ai_assisted');
   });
 
-  it('★ 고객이 방향을 말하지 않았으면 AI 가 방향을 내놓지 못한다', async () => {
-    const events: AiStreamEvent[] = [proposeReview(), completed];
+  /*
+     ★★ 정책이 바뀌었다 — 거부에서 **대칭 제시**로.
+
+       전에는 방향을 말하지 않으면 도구 호출을 거부했다. 그래서 "BTC 어때?" 처럼 방향을
+       안 쓰고 묻는 대부분의 요청에서 고객이 아무 답도 못 받았고, 화면에는 개발자용 영어
+       오류가 떴다(BEWHITE 님 문의).
+
+       막는 것이 목적이 아니다. AI 가 방향을 **고르지** 않게 하는 것이 목적이다.
+       양쪽을 함께 제시하면 그 목적을 지키면서 고객은 필요한 답을 다 받는다.
+  */
+  it('★ 방향을 말하지 않아도 답을 받는다 — 롱·숏을 함께 제시한다', async () => {
+    const events: AiStreamEvent[] = [proposeReview({ sides: [oneSide, shortSide], missing: [], observations: [] }), completed];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'signal', marketData: 'last=100', userMessage: 'what do you think about this chart?' }),
+    ));
+    const sig = evs.find((e) => e.type === 'signal') as { signal: { sides: { direction: string }[]; directionStatedByUser: boolean } } | undefined;
+    expect(sig).toBeTruthy();
+    expect(sig!.signal.directionStatedByUser).toBe(false);
+    expect(sig!.signal.sides).toHaveLength(2);
+    expect(new Set(sig!.signal.sides.map((s) => s.direction))).toEqual(new Set(['long', 'short']));
+  });
+
+  /*
+     ★★ 그러나 **한쪽만** 내놓는 것은 여전히 막는다. 이것이 방향 발신이다.
+       대칭 제시로 넓힌 것이 이 금지를 풀어버리지 않았는지 잠근다.
+  */
+  it('★ 방향을 말하지 않았는데 한쪽만 내놓으면 신호가 나오지 않는다', async () => {
+    const events: AiStreamEvent[] = [proposeReview({ sides: [oneSide], missing: [], observations: [] }), completed];
     const evs = await drain(new Orchestrator(deps(events)).run(
       input({ mode: 'signal', marketData: 'last=100', userMessage: 'what do you think about this chart?' }),
     ));
     expect(evs.some((e) => e.type === 'signal')).toBe(false);
-    expect(evs.some((e) => e.type === 'error' && e.code === 'direction-not-stated')).toBe(true);
   });
 
   it('한국어로 방향을 말해도 인정된다', async () => {
@@ -403,8 +479,85 @@ describe('orchestrator pipeline', () => {
     expect(evs.some((e) => e.type === 'signal')).toBe(true);
   });
 
-  it('rejects a setup review without market grounding', async () => {
-    const events: AiStreamEvent[] = [proposeReview(), completed];
+  /*
+     ★★ **구멍 회귀 테스트.**
+
+       방향 검사가 `review_setup` 에만 있었다. 그런데 롱 마커는 차트 명령
+       (`propose_chart_command`)으로도 그릴 수 있고 그 경로는 검사 앞에서 반환됐다.
+       즉 모델이 review_setup 을 건너뛰고 createLongMarker 를 부르면 방향 발신 금지를
+       **그냥 지나갔다.** 4중 방어라고 적어 두었는데 서버 층에 구멍이 있었다.
+
+     ★ 같은 행위가 경로에 따라 되기도 하고 안 되기도 하면 어느 정책에서도 틀렸다.
+  */
+  const proposeCommand = (command: string, args: Record<string, unknown>) =>
+    ({
+      type: 'function_call.done', callId: 'c1', name: 'propose_chart_command',
+      args: JSON.stringify({ command, argsJson: JSON.stringify(args), confidence: 70, reasoningSummary: 'x' }),
+    }) as AiStreamEvent;
+
+  it('★ 차트 명령으로도 한쪽 마커를 그릴 수 없다 (방향 미발신)', async () => {
+    const events: AiStreamEvent[] = [
+      proposeCommand('createLongMarker', { point: { time: 1, price: '100' }, text: 'long here' }),
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'copilot', marketData: 'last=100', userMessage: 'what do you think about this chart?' }),
+    ));
+    expect(evs.some((e) => e.type === 'command')).toBe(false);
+    expect(evs.some((e) => e.type === 'error' && e.code === 'direction-not-stated')).toBe(true);
+  });
+
+  it('고객이 방향을 말했으면 차트 명령으로 마커를 그릴 수 있다', async () => {
+    const events: AiStreamEvent[] = [
+      proposeCommand('createLongMarker', { point: { time: 1, price: '100' }, text: 'long here' }),
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'copilot', marketData: 'last=100', userMessage: '나는 롱으로 볼 생각이야' }),
+    ));
+    expect(evs.some((e) => e.type === 'command')).toBe(true);
+  });
+
+  /*
+     ★ 관찰은 막지 않는다. 지지·저항·추세선은 방향을 드러내지 않으므로, 방향을 말하지
+       않은 고객도 받아야 한다(운영 결정: 관찰은 먼저). 이 테스트가 없으면 위 가드를
+       넓히다가 그림 전체를 막아버릴 수 있다 — 실제로 그런 실수를 했다.
+  */
+  it('★ 방향을 말하지 않아도 지지·저항선은 그려진다', async () => {
+    const events: AiStreamEvent[] = [
+      proposeCommand('createHorizontalLevel', { price: '100', label: 'support' }),
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'copilot', marketData: 'last=100', userMessage: 'what do you think about this chart?' }),
+    ));
+    expect(evs.some((e) => e.type === 'command')).toBe(true);
+  });
+
+  /*
+     ★★ **추세선 회귀 테스트.**
+
+       `AiChartCommandSchema.args` 가 평면 레코드여서 중첩 객체를 담을 수 없었다.
+       추세선은 `points: [{time,price},{time,price}]` 이므로 per-command 검증을
+       통과한 뒤 최종 스키마에서 `args.points: Invalid input` 으로 떨어졌다.
+       고객이 "추세선 그려줘" 라고 하면 **조용히 아무 일도 일어나지 않았다.**
+
+     ★ 조용히 실패하는 것이 가장 나쁘다. 화면은 오류도 안 띄우므로 고객은 AI 가
+       무시했다고 느낀다.
+  */
+  it('★ 추세선이 그려진다 (중첩 인자가 최종 스키마를 통과한다)', async () => {
+    const events: AiStreamEvent[] = [
+      proposeCommand('createTrendLine', { points: [{ time: 1, price: '100' }, { time: 2, price: '110' }], label: 'up' }),
+      completed,
+    ];
+    const evs = await drain(new Orchestrator(deps(events)).run(
+      input({ mode: 'copilot', marketData: 'last=100', userMessage: 'draw the trendline' }),
+    ));
+    expect(evs.some((e) => e.type === 'error' && e.code === 'proposal-invalid')).toBe(false);
+    expect(evs.some((e) => e.type === 'command')).toBe(true);
+  });
+
+  it('rejects a setup review without market grounding', async () => {    const events: AiStreamEvent[] = [proposeReview(), completed];
     const evs = await drain(new Orchestrator(deps(events)).run(input({ mode: 'signal', userMessage: 'going long' })));
     expect(evs.some((e) => e.type === 'signal')).toBe(false);
     expect(evs.some((e) => e.type === 'error' && e.code === 'ungrounded-proposal')).toBe(true);
