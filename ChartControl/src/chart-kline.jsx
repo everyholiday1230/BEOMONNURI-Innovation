@@ -975,6 +975,12 @@
          "불러오는 중" 을 명시하면 의도된 상태로 읽힌다.
     */
     const [tfLoading, setTfLoading] = useState(false);
+    /*
+       ★ 마지막으로 차트에 적용한 심볼·기간. 같은 값을 다시 넣으면 KLineCharts 가
+         불필요하게 다시 그려서 화면이 스친다(측정: 전환 1회에 4~5회 재렌더).
+    */
+    const appliedSymbolRef = useRef(null);
+    const appliedPeriodRef = useRef(null);
 
     const decimals = useMemo(
       () => priceDecimalsFor(symbol, candles?.[candles.length - 1]?.close),
@@ -1520,8 +1526,31 @@
       // (심볼+candles 가 같은 렌더에서 도착) 건드리지 않아 방금 채운 데이터를 지우지 않는다.
       const stale = dataKeyRef.current !== key;
       if (stale) dataRef.current = [];
-      chart.setSymbol({ ticker: symbol, pricePrecision: decimals, volumePrecision: 3 });
-      chart.setPeriod(periodFor(timeframe));
+      /*
+         ★★★ **바뀐 것만 적용한다.** 이것이 "타임프레임 누를 때 스친다" 의 원인이었다.
+
+           호출 횟수를 세어 보니(진단 노출로 메서드를 감싸 측정):
+               타임프레임 전환 1회 → setSymbol 1 · setPeriod 1 · resetData 2~3
+
+           심볼은 **바뀌지 않았는데도** setSymbol 이 매번 불렸다. KLineCharts 는
+           setSymbol·setPeriod·resetData 각각에서 캔버스를 다시 그린다. 즉 한 번
+           바뀌는데 **네다섯 번 다시 그려서** 중간 상태가 눈에 스친다.
+
+         ★ 마지막으로 적용한 값을 기억하고 실제로 달라졌을 때만 부른다.
+           타임프레임만 바꾸면 setPeriod + resetData 두 번으로 줄어든다.
+
+         ★ decimals 만 바뀌는 경우도 있다(심볼 정밀도 갱신). 그때는 setSymbol 만
+           부르고 period·데이터는 건드리지 않는다.
+      */
+      const symKey = symbol + '|' + decimals;
+      if (appliedSymbolRef.current !== symKey) {
+        appliedSymbolRef.current = symKey;
+        chart.setSymbol({ ticker: symbol, pricePrecision: decimals, volumePrecision: 3 });
+      }
+      if (appliedPeriodRef.current !== timeframe) {
+        appliedPeriodRef.current = timeframe;
+        chart.setPeriod(periodFor(timeframe));
+      }
       if (stale) chart.resetData();
     }, [symbol, timeframe, decimals]);
 
