@@ -146,6 +146,32 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
     if (!isPlanCode(body.planCode)) return c.json(err('BAD_REQUEST', 'unknown planCode'), 400);
     if (body.planCode === 'free') return c.json(err('BAD_REQUEST', 'the free plan needs no payment'), 400);
 
+    /*
+       ★★★ **이미 구독 중이면 새 결제를 시작하지 않는다.**
+
+         이 검사가 없어서 기존 구독자가 결제를 다시 하면 **PayPal 구독이 2개** 만들어졌다:
+
+           · PayPal 은 두 건 모두 매달 청구한다
+           · 우리 DB 의 provider_ref 는 첫 번째뿐이다(markPending 이 활성 구독을 덮지
+             않으려고 의도적으로 no-op 한다)
+           · 그래서 두 번째는 **대조 대상도 아니고, 해지해도 멈지 않는다**
+
+         3091717 이 화면에서만 막았다(구독 중이면 버튼이 '변경' 으로 바뀐다). 서버는
+         무방비였다 — API 를 직접 부르거나 화면이 낡은 상태면 그대로 통과한다.
+
+       ★ 플랜을 바꾸려는 것이면 `/me/subscription/change` 가 맞는 경로다. 그쪽은
+         PayPal 의 revise 를 써서 구독을 하나로 유지한다.
+    */
+    if (d.repo) {
+      const cur = await d.repo.get(a.user.id);
+      if (cur.ok && cur.row.entitled && cur.row.planCode !== 'free') {
+        return c.json(
+          err('ALREADY_SUBSCRIBED', 'you already have an active subscription — use plan change instead'),
+          400,
+        );
+      }
+    }
+
     if (!d.recurringAvailable?.()) {
       return c.json(
         err(
@@ -222,12 +248,44 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
            대신 로그를 남긴다(markPending 안에서).
       */
       if (d.repo && sub.providerRef) {
-        await d.repo.markPending({
+        const recorded = await d.repo.markPending({
           userId: a.user.id,
           planCode: body.planCode,
           provider: 'paypal',
           providerRef: sub.providerRef,
         });
+        /*
+           ★★★ **기록하지 못했으면 PayPal 구독을 되돌린다.**
+
+             markPending 은 이미 활성 구독이 있으면 의도적으로 아무 일도 하지 않는다.
+             위에서 활성 구독을 막았지만 **경합**은 남는다 — 같은 고객이 두 창에서
+             동시에 누르거나, 대조 작업이 그 사이에 활성화하는 경우다.
+
+             그때 기록 없이 넘어가면 PayPal 에는 구독이 있고 우리에겐 단서가 없다.
+             대조도 못 하고 해지도 못 멈추는 **유령 구독**이 되어 매달 청구된다.
+
+           ★ 그래서 방금 만든 PayPal 구독을 즉시 취소하고 실패로 답한다. 고객은
+             다시 시도하거나 플랜 변경으로 가면 된다. **청구는 시작되지 않는다.**
+
+           ★ 취소마저 실패하면 크게 남긴다 — 사람이 PayPal 대시보드에서 지워야 한다.
+        */
+        if (!recorded) {
+          let undone = false;
+          try {
+            const stop = await d.paypal.cancelSubscription(sub.providerRef, 'duplicate subscription — not recorded');
+            undone = stop.ok;
+          } catch (e) {
+            console.error(`[subscription] ★ 유령 구독 취소 실패 ref=${sub.providerRef}: ${(e as Error).message}`);
+          }
+          console.error(
+            `[subscription] ★ 승인 대기 기록 실패로 결제를 되돌렸다 user=${a.user.id} `
+            + `ref=${sub.providerRef} PayPal취소=${undone ? '성공' : '★실패 — 대시보드에서 수동 삭제 필요'}`,
+          );
+          return c.json(
+            err('ALREADY_SUBSCRIBED', 'you already have an active subscription — use plan change instead'),
+            400,
+          );
+        }
       }
 
       return c.json({
@@ -490,6 +548,27 @@ export function createSubscriptionRouter(d: SubscriptionRouterDeps): Hono {
     const read = await d.repo.get(a.user.id);
     if (!read.ok) return c.json(err('READ_FAILED', read.reason), 503);
     if (read.row.planCode === 'free') return c.json(err('NO_SUBSCRIPTION', 'nothing to cancel'), 400);
+
+    /*
+       ★★ **이미 해지된 구독은 그대로 알려준다.** PayPal 을 다시 부르지 않는다.
+
+         예전에는 상태를 보지 않고 늘 PayPal 해지를 시도했다. 이미 해지된 구독이면
+         PayPal 이 422(SUBSCRIPTION_STATUS_INVALID) 를 주고, 그것을 실패로 다뤄
+         **502 를 돌려줬다**(실측). 고객이 해지를 두 번 누르면 오류를 본다 —
+         이미 해지됐는데도.
+
+       ★ 청구는 이미 멈춰 있다. 그러므로 성공으로 답하는 것이 사실이다. 다만
+         `alreadyCanceled` 로 구별해 화면이 "이미 해지되었습니다" 를 말할 수 있게 한다.
+    */
+    if (read.row.status === 'canceled') {
+      return c.json({
+        ok: true,
+        activeUntil: read.row.currentPeriodEnd || null,
+        alreadyCanceled: true,
+        providerStopped: true,
+        providerStopRequired: false,
+      });
+    }
 
     /*
        ★★★ **PayPal 쪽 정기결제를 먼저 멈춘다.** 이것이 없었다.

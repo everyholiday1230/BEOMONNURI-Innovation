@@ -351,11 +351,36 @@ export class PayPalProvider {
       },
     );
     if (res.status === 204) return { ok: true, status: 'CANCELLED' };
-    /* 이미 해지된 경우도 성공으로 본다(위 주석). */
-    const body = (await res.json().catch(() => null)) as { name?: string; message?: string } | null;
-    const already = res.status === 422 && /already|SUBSCRIPTION_STATUS_INVALID/i.test(
-      `${body?.name ?? ''} ${body?.message ?? ''}`,
-    );
+    /*
+       ★★★ 이미 해지된 경우도 성공으로 본다. 그런데 **찾는 위치가 틀렸다.**
+
+         `name`/`message` 만 봤는데 PayPal 은 사유를 **`details[]`** 에 담는다.
+         실측(샌드박스, 이미 해지된 구독에 재해지):
+
+             HTTP 422
+             name    = UNPROCESSABLE_ENTITY
+             message = The requested action could not be performed, semantically
+                       incorrect, or failed business validation.
+             details = [{ issue: 'SUBSCRIPTION_STATUS_INVALID',
+                          description: 'Invalid subscription status for cancel
+                                        action; subscription status should be
+                                        active or suspended.' }]
+
+         name·message 어디에도 단서가 없다. 그래서 "이미 해지됨" 을 실패로 다뤘고,
+         고객이 해지를 두 번 누르면 502 를 봤다(실측).
+
+       ★ 이제 details 까지 합쳐서 본다.
+    */
+    const body = (await res.json().catch(() => null)) as {
+      name?: string; message?: string;
+      details?: { issue?: string; description?: string }[];
+    } | null;
+    const haystack = [
+      body?.name ?? '',
+      body?.message ?? '',
+      ...(body?.details ?? []).map((d) => `${d.issue ?? ''} ${d.description ?? ''}`),
+    ].join(' ');
+    const already = res.status === 422 && /already|SUBSCRIPTION_STATUS_INVALID/i.test(haystack);
     return { ok: already, status: already ? 'ALREADY_CANCELLED' : `http_${res.status}` };
   }
 }

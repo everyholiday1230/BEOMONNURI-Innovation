@@ -164,7 +164,7 @@ export class PgSubscriptionRepo {
     providerRef: string;
   }): Promise<boolean> {
     try {
-      await this.pool.query(
+      const r = await this.pool.query(
         `INSERT INTO subscriptions
            (user_id, plan_code, status, current_period_start, current_period_end,
             provider, provider_ref, pending_since, updated_at)
@@ -179,7 +179,22 @@ export class PgSubscriptionRepo {
          WHERE subscriptions.status <> 'active'`,
         [input.userId, input.planCode, input.provider, input.providerRef],
       );
-      return true;
+      /*
+         ★★★ **기록됐는지 사실대로 돌려준다.**
+
+           예전에는 무조건 `true` 였다. 그런데 위 `WHERE subscriptions.status <> 'active'`
+           는 이미 활성 구독이 있으면 **의도적으로 아무 일도 하지 않는다**(멀쩡한
+           접근권을 pending 으로 덮지 않기 위해).
+
+           그때도 true 를 돌려주면 호출자는 "기록했다" 고 믿는다. 그러면 PayPal 쪽에는
+           구독이 만들어졌는데 우리에겐 그 provider_ref 가 없다 →
+             · 대조 작업이 찾지 못한다
+             · 해지해도 그 구독은 멈지 않는다
+             · **매달 이중 청구된다**
+
+           호출자가 이 값을 보고 PayPal 구독을 되돌릴 수 있어야 한다.
+      */
+      return (r.rowCount ?? 0) > 0;
     } catch (e) {
       /*
          ★ 실패를 조용히 삼키지 않는다. 이 기록이 없으면 결제 후 복구가 불가능하다.
@@ -384,8 +399,24 @@ export class PgSubscriptionRepo {
   async cancel(userId: string): Promise<boolean> {
     try {
       const r = await this.pool.query(
+        /*
+           ★★★ **'pending' 도 해지 대상이다.**
+
+             예전에는 `status = 'active'` 만 봤다. 그런데 결제를 마치고 대조 작업이
+             돌기 전(최대 15분, 적체 시 더 길다) 상태는 'pending' 이다. 그 사이에
+             고객이 해지를 누르면:
+
+               · PayPal 정지는 **성공**한다
+               · 이 UPDATE 가 0행 → 라우터가 500 CANCEL_FAILED
+               · 화면은 "아무것도 변경되지 않았다" 고 **거짓**을 말한다
+               · 다시 누르면 PayPal 이 422(이미 해지) → provider 는 성공으로 보지만
+                 여기서 또 0행 → 또 500. **영구히 실패한다.**
+
+           ★ 'canceled' 는 제외한다 — 이미 해지된 것을 다시 해지할 이유가 없고,
+             기간을 건드리지 않으므로 남은 이용권도 그대로다.
+        */
         `UPDATE subscriptions SET status = 'canceled', updated_at = now()
-          WHERE user_id = $1 AND status = 'active'`,
+          WHERE user_id = $1 AND status IN ('active', 'pending')`,
         [userId],
       );
       return (r.rowCount ?? 0) > 0;
