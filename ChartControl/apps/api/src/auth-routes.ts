@@ -123,6 +123,24 @@ function ipOf(c: Context): string | undefined {
 
 /** Read + parse JSON with a hard size cap (oversized-input protection). */
 async function readJson(c: Context): Promise<{ ok: true; body: unknown } | { ok: false }> {
+  /*
+     ★★★ **Content-Type 을 확인한다.** 이것이 없어서 CSRF preflight 를 우회할 수 있었다.
+
+       예전에는 본문을 text 로 읽어 그대로 JSON.parse 했다. 그래서 공격자가
+
+           <form action="https://…/api/auth/login" method="POST"
+                 enctype="text/plain">
+
+       로 보내면 브라우저가 **preflight 를 하지 않고**(단순 요청) 그대로 전송한다.
+       서버는 Content-Type 을 안 보므로 JSON 으로 파싱해 처리했다.
+
+     ★ application/json 을 요구하면 그 폼은 단순 요청이 될 수 없고, 브라우저가
+       preflight 를 보내므로 CORS 정책이 먼저 막는다.
+
+     ★ 파라미터(charset 등)는 붙을 수 있으므로 앞부분만 본다.
+  */
+  const ctype = (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
+  if (ctype !== 'application/json') return { ok: false };
   const text = await c.req.text();
   if (text.length > MAX_BODY) return { ok: false };
   try {
@@ -231,6 +249,24 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   });
 
   app.post('/auth/register', async (c) => {
+    /*
+       ★★★ **Origin 검사.** register·login 에만 없었다(감사 확인).
+
+         이 두 경로는 로그인 **전**이라 CSRF 토큰을 요구할 수 없다. 그래서 Origin/Referer
+         검사가 유일한 방어인데 그것도 없었다.
+
+       ★★ readJson 은 Content-Type 을 보지 않는다(본문을 text 로 읽어 JSON.parse 한다).
+         그래서 공격자가 `<form enctype="text/plain">` 으로 **preflight 없이** 이 경로를
+         부를 수 있다. 그러면 피해자 브라우저를 **공격자 계정으로 로그인**시킬 수 있다
+         (session fixation). 이 제품은 그 뒤 거래소 API 키를 수집하므로 결과가 무겁다.
+
+       ★ 같은 출처에서 온 요청만 받는다. Origin·Referer 가 아예 없는 경우
+         (일부 클라이언트·서버간 호출)는 originAllowed 의 기존 정책을 그대로 따른다 —
+         여기서 정책을 새로 만들면 다른 라우터와 갈라진다.
+    */
+    if (!originAllowed(c.req.header('origin'), c.req.header('referer'), corsOrigins)) {
+      return c.json(err('ORIGIN_NOT_ALLOWED', 'request origin is not allowed'), 403);
+    }
     const parsed = await readJson(c);
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid or oversized body'), 400);
     // 분산 레이트리밋(IP): 자동 대량 가입 방지.
@@ -291,6 +327,24 @@ export function createAuthRouter(deps: RouterDeps): Hono {
   });
 
   app.post('/auth/login', async (c) => {
+    /*
+       ★★★ **Origin 검사.** register·login 에만 없었다(감사 확인).
+
+         이 두 경로는 로그인 **전**이라 CSRF 토큰을 요구할 수 없다. 그래서 Origin/Referer
+         검사가 유일한 방어인데 그것도 없었다.
+
+       ★★ readJson 은 Content-Type 을 보지 않는다(본문을 text 로 읽어 JSON.parse 한다).
+         그래서 공격자가 `<form enctype="text/plain">` 으로 **preflight 없이** 이 경로를
+         부를 수 있다. 그러면 피해자 브라우저를 **공격자 계정으로 로그인**시킬 수 있다
+         (session fixation). 이 제품은 그 뒤 거래소 API 키를 수집하므로 결과가 무겁다.
+
+       ★ 같은 출처에서 온 요청만 받는다. Origin·Referer 가 아예 없는 경우
+         (일부 클라이언트·서버간 호출)는 originAllowed 의 기존 정책을 그대로 따른다 —
+         여기서 정책을 새로 만들면 다른 라우터와 갈라진다.
+    */
+    if (!originAllowed(c.req.header('origin'), c.req.header('referer'), corsOrigins)) {
+      return c.json(err('ORIGIN_NOT_ALLOWED', 'request origin is not allowed'), 403);
+    }
     const parsed = await readJson(c);
     if (!parsed.ok) return c.json(err('BAD_REQUEST', 'invalid or oversized body'), 400);
     // ---- distributed request-rate gate (R6/BL-11), BEFORE any credential work ----
