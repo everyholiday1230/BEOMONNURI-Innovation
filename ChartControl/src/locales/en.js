@@ -261,6 +261,18 @@
       ai_observations: 'Observations',
       ai_invalidation_per_side: 'Differs by direction — see each side above.',
       ai_pick_direction_first: 'Tell me your direction first — both long and short are shown, so I do not know which one you mean.',
+      /*
+         ★★ 버튼이 무엇을 하는지 — 그리고 **하지 않는지** 적는다.
+
+           '주문 초안' 은 이름에 '주문' 이 들어 있는데 주문이 아니다. 설명이 없으면
+           주문인 줄 알고 안 누르거나, 주문인 줄 알고 누른다. 실주문이 붙어 있는
+           화면에서 둘 다 위험하다.
+
+         ★ "주문이 들어가지 않습니다" 를 명시한다. '채워집니다' 만 적으면 고객은
+           "채워진 다음 자동으로 나가나?" 를 여전히 모른다.
+      */
+      ai_draft_btn_hint: 'Pressing this fills these prices into the order panel. No order is placed — you still enter the size and go through the confirmation screen yourself.',
+      ai_approve_btn_hint: 'Saving keeps this review on your chart so you can come back to it. Nothing is ordered, and no money moves.',
       pt_withdraw_right_title: 'Before you pay — your right to cancel',
       /*
          ★ AI 학습 이용 동의(선택). 거절해도 서비스를 그대로 쓸 수 있다는 사실을

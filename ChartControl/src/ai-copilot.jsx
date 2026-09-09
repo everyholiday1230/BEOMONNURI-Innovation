@@ -1848,6 +1848,28 @@
               </>
             )}
           </div>
+
+          {/*
+             ★★ **버튼이 무엇을 하는지 적는다.**
+
+               '주문 초안 만들기(Create Order Draft)' 는 이름에 '주문' 이 들어 있는데
+               실제로는 주문이 아니다 — 주문 패널 입력칸에 숫자를 채우는 것뿐이고,
+               거래소로 가는 것은 고객이 주문 패널에서 Buy/Sell 을 누르고 확인창까지
+               통과한 뒤다.
+
+             ★ 설명이 없으면 두 방향으로 다 틀린다: 주문인 줄 알고 안 누르거나,
+               주문인 줄 알고 누른다. 실주문이 붙어 있는 화면에서 둘 다 위험하다.
+
+             ★★ "주문이 들어가지 않습니다" 를 **명시적으로** 적는다. '채워집니다' 만
+               적으면 고객은 "채워진 다음 자동으로 나가나?" 를 여전히 모른다. 하지
+               않는 일을 분명히 말하는 것이 하는 일을 말하는 것보다 중요하다.
+
+             ★ 초보자 모드에만 두지 않는다. 이것은 팁이 아니라 오해를 막는 사실
+               안내이고, 오해는 숙련자도 한다.
+          */}
+          <div className="signal-card__hint" style={{fontSize: 11, color:'var(--color-text-tertiary)', marginTop: 6, lineHeight: 1.5}}>
+            {isApproved ? t('ai_draft_btn_hint') : t('ai_approve_btn_hint')}
+          </div>
           {/* ★ 눌렀는데 아무 표시가 없으면 됐는지 알 수 없다. 성공·실패를 같은 자리에 말한다. */}
           {actionNote && (
             <div style={{marginTop:6, fontSize:11, color: actionNote.ok ? 'var(--color-trade-long)' : 'var(--color-warning)'}}>

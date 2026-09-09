@@ -500,6 +500,8 @@
       ai_observations: '观察',
       ai_invalidation_per_side: '按方向不同 — 请查看上方各方向。',
       ai_pick_direction_first: '请先告知方向。目前同时展示了做多和做空，我无法判断您指的是哪一个。',
+      ai_draft_btn_hint: '点击后，这些价格会填入下单面板。不会下单 — 数量填写和确认页面仍需您自己完成。',
+      ai_approve_btn_hint: '保存后，这份核对会留在图表上，方便您以后查看。不会下单，也不会动用资金。',
       pt_withdraw_right_title: '付款前 — 关于撤销',
       signup_ai_training: '同意将我的交易记录用于训练 AI（可选 — 不勾选也不影响任何功能）',
       pt_withdraw_right_body: '如果你尚未使用所购买的{unit}，可在付款后 7 天内申请全额退款。一旦使用，该笔购买将无法退款。请邮件联系我们，我们会退回原支付方式。',
