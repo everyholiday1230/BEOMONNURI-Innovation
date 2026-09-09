@@ -39,7 +39,7 @@ function build(riskState?: Parameters<typeof createTradingRouter>[0]['riskState'
   app.route('/api', createAuthRouter({ service, audit, resource: new ResourceRepo(db), favorites: new SqliteFavoritesRepo(new ResourceRepo(db)), preferences: new SqlitePreferencesRepo(new ResourceRepo(db)), csrfKey: 'k', secureCookies: false, corsOrigins: [ORIGIN] }));
   app.route('/api', createTradingRouter({
     service, vault: new CredentialVault(new LocalKekProvider(randomBytes(32).toString('base64'))),
-    credRepo: new SqliteCredentialRepo(db), accountAdapter: mockAccount, exchangeId: 'bitmart', policy: POLICY, symbolInfo: SYM,
+    credRepo: new SqliteCredentialRepo(db), audit, accountAdapter: mockAccount, exchangeId: 'bitmart', policy: POLICY, symbolInfo: SYM,
     csrfKey: 'k', previewSecret: 'test-preview-secret', corsOrigins: [ORIGIN], cookieName: 'qt_session', mode: 'LIVE_READ_ONLY',
     liveTradingEnabled: false, killSwitch: true,
     ...(riskState ? { riskState } : {}),
@@ -67,6 +67,76 @@ async function login(app: App, email: string) {
   await reqA(app, 'POST', '/api/auth/register', { body: { email, password: 'longenough123' } });
   return jarFrom(await reqA(app, 'POST', '/api/auth/login', { body: { email, password: 'longenough123' } }));
 }
+
+describe('★★★ 거래소 API 키 행위는 감사기록에 남는다 — 키 값은 남지 않는다', () => {
+  /*
+     ★★★ 예전에는 등록·검증·삭제가 **어디에도 기록되지 않았다.**
+
+       MFA_KEK 사고(8acefb4) 때 영향 범위를 세야 했는데 자격증명 관련 기록이 하나도
+       없어서 **커밋 주석과 DB 행 수로 추정**할 수밖에 없었다. 고객에게 "언제부터
+       언제까지 위험했다" 를 말할 근거가 없다는 뜻이다.
+
+     ★★ 그리고 남기는 방식이 더 중요하다. **감사기록에 키가 들어가면 그 기록의
+       유출이 곧 키 유출이다.** 그래서 값이 새지 않는지도 함께 확인한다 —
+       마스킹된 값조차 넣지 않는다(마스킹 규칙이 바뀌면 과거 기록이 소급해 위험해진다).
+  */
+  const rows = (db: ReturnType<typeof openDb>) =>
+    db.prepare('SELECT action, target, meta FROM audit_logs ORDER BY at').all() as
+      { action: string; target: string | null; meta: string | null }[];
+
+  it('등록 → 삭제가 각각 남고, 어떤 기록에도 키 값이 없다', async () => {
+    const { app, db } = build();
+    const jar = await login(app, 'aud1@ex.com');
+    const AK = 'AKIA1234567890';
+    const SK = 'SUPERSECRETVALUE';
+    const MEMO = 'MEMOPASSPHRASE';
+
+    const created = await (await reqA(app, 'POST', '/api/trading/credentials', {
+      jar, csrf: true, body: { accessKey: AK, secretKey: SK, memo: MEMO, label: 'main' },
+    })).json() as { id: string };
+
+    let a = rows(db).filter((r) => r.action.startsWith('exchange.credential.'));
+    expect(a.map((r) => r.action), '등록이 기록되지 않았다').toContain('exchange.credential.create');
+    expect(a.find((r) => r.action === 'exchange.credential.create')?.target).toBe(created.id);
+
+    const del = await reqA(app, 'DELETE', `/api/trading/credentials/${created.id}`, { jar, csrf: true });
+    expect(del.status).toBe(200);
+
+    a = rows(db).filter((r) => r.action.startsWith('exchange.credential.'));
+    expect(a.map((r) => r.action), '삭제가 기록되지 않았다').toContain('exchange.credential.revoke');
+
+    /*
+       ★ 감사기록 전체(action·target·meta)를 한 덩어리로 만들어 키 조각이 있는지 본다.
+         meta 만 보면 target 으로 새는 경우를 놓친다.
+    */
+    const dump = JSON.stringify(rows(db));
+    expect(dump, 'accessKey 가 감사기록에 들어갔다').not.toContain(AK);
+    expect(dump, 'secretKey 가 감사기록에 들어갔다').not.toContain(SK);
+    expect(dump, 'memo(패스프레이즈)가 감사기록에 들어갔다').not.toContain(MEMO);
+    /* ★ 마스킹된 형태도 넣지 않는다. */
+    expect(dump, '마스킹된 키가 감사기록에 들어갔다').not.toContain('AKIA…');
+  });
+
+  it('검증(verify)도 남는다 — 실패한 검증이 반복되면 공격 신호일 수 있다', async () => {
+    const { app, db } = build();
+    const jar = await login(app, 'aud3@ex.com');
+    const created = await (await reqA(app, 'POST', '/api/trading/credentials', {
+      jar, csrf: true, body: { accessKey: 'AKIA1234567890', secretKey: 'S', memo: 'M' },
+    })).json() as { id: string };
+    await reqA(app, 'POST', `/api/trading/credentials/${created.id}/verify`, { jar, csrf: true });
+    const acts = rows(db).map((r) => r.action);
+    expect(acts, '검증이 기록되지 않았다').toContain('exchange.credential.verify');
+  });
+
+  it('없는 id 로 삭제하면(404) 기록을 남기지 않는다 — 노이즈로 덮이면 못 찾는다', async () => {
+    const { app, db } = build();
+    const jar = await login(app, 'aud2@ex.com');
+    const r = await reqA(app, 'DELETE', '/api/trading/credentials/does-not-exist', { jar, csrf: true });
+    expect(r.status).toBe(404);
+    const a = rows(db).filter((x) => x.action === 'exchange.credential.revoke');
+    expect(a, '실패한 삭제까지 기록됐다').toEqual([]);
+  });
+});
 
 describe('Phase 3 trading routes', () => {
   it('create credential returns masked only (no secret/memo)', async () => {

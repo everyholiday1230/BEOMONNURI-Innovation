@@ -3497,6 +3497,12 @@ if (env.authEnabled) {
           service: authService,
           vault,
           credRepo: credentialRepo,
+          /*
+             ★ 거래소 API 키 등록·검증·삭제를 감사기록에 남긴다. 예전에는 이 배선이
+               없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다**(MFA_KEK 사고 때
+               영향 범위를 추정해야 했던 이유다).
+          */
+          audit: auditRepo,
           accountAdapter,
           // 저장되는 자격증명에 기록될 거래소. 어댑터 선택과 같은 조건을 쓴다.
           exchangeId: useKucoinAccounts ? 'kucoin' : 'bitmart',

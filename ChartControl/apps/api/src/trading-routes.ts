@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
-import { AuthService, verifyCsrf, originAllowed, hasPermission } from '@quantumtrade/auth';
+import { AuthService, verifyCsrf, originAllowed, hasPermission, type IAuditRepository } from '@quantumtrade/auth';
 import { ORDER_BLOCKING_KILL_SCOPES } from '@quantumtrade/admin-domain';
 import type { ExecutionMode, IExchangeAccountAdapter, IExchangeTradingAdapter, ExchangeContext } from '@quantumtrade/exchange-core';
 import { CredentialVault } from './trading/credential-vault';
@@ -58,6 +58,22 @@ export interface TradingRouterDeps {
        PostgreSQL 판이 바뀌어도 라우트 코드는 같아야 한다.
   */
   credRepo: CredentialStore;
+  /**
+   * 감사기록 저장소. **거래소 API 키의 등록·검증·삭제를 남긴다.**
+   *
+   * ★★★ 이것이 없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다.**
+   *
+   *   MFA_KEK 사고(8acefb4) 때 영향 범위를 세야 했는데, 자격증명 관련 기록이
+   *   하나도 없어서 **커밋 주석과 DB 행 수로 추정**할 수밖에 없었다. 고객에게
+   *   "언제부터 언제까지 위험했다" 를 말할 근거가 없다는 뜻이다.
+   *
+   * ★ 키 값은 절대 남기지 않는다 — 감사기록이 유출되면 그것이 곧 키 유출이다.
+   *   남기는 것은 **행위와 대상 식별자**뿐이다.
+   *
+   * ★ 필수(optional 아님)로 둔다. 빠뜨리면 타입 오류가 난다 — 감사기록이 조용히
+   *   사라지는 것을 막는다.
+   */
+  audit: IAuditRepository;
   accountAdapter: IExchangeAccountAdapter;
   /**
    * 이 배포가 연결하는 거래소 식별자. 저장되는 자격증명에 기록된다.
@@ -376,6 +392,43 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
        저장소가 메모리면 부팅 때 경고한다(index.ts).
   */
   const idem = new IdempotencyService(d.idempotencyStore ?? new MemoryIdempotencyStore());
+
+  /*
+     ★★★ **거래소 API 키 관련 행위를 감사기록에 남긴다.**
+
+       예전에는 등록·검증·삭제가 **어디에도 기록되지 않았다.** MFA_KEK 사고 때
+       영향 범위를 세야 했는데 근거가 없어 커밋 주석과 DB 행 수로 추정했다.
+       고객에게 "언제부터 언제까지 위험했다" 를 말할 수 없다는 뜻이다.
+
+     ★★ **키 값은 절대 남기지 않는다.** 감사기록이 유출되면 그것이 곧 키 유출이다.
+       남기는 것은 행위·대상 id·거래소·IP 뿐이다. 마스킹된 값조차 넣지 않는다 —
+       마스킹 규칙이 바뀌면 과거 기록이 소급해서 위험해진다.
+
+     ★ 기록 실패가 **본 작업을 되돌리지 않는다.** 키는 이미 저장·삭제됐으므로
+       여기서 500 을 주면 고객은 실패한 줄 알고 다시 시도한다. 대신 크게 남긴다.
+  */
+  const auditCred = async (
+    c: Context,
+    actorUserId: string,
+    action: 'exchange.credential.create' | 'exchange.credential.verify' | 'exchange.credential.revoke',
+    credentialId: string,
+    meta?: Record<string, unknown>,
+  ): Promise<void> => {
+    try {
+      await d.audit.record({
+        id: corr(),
+        actorUserId,
+        action,
+        target: credentialId,
+        ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+        at: Date.now(),
+        /* ★ exchangeId 는 어느 거래소 키였는지 알기 위해 필요하다. 키 값과 무관하다. */
+        meta: { exchange: d.exchangeId, ...(meta ?? {}) },
+      });
+    } catch (e) {
+      console.error(`[audit] ★ 자격증명 감사기록 실패 (${action}) — 본 작업은 이미 완료됐다:`, e);
+    }
+  };
 
   const authed = async (c: Context) => {
     const raw = getCookie(c, d.cookieName);
@@ -1103,6 +1156,7 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     // 어느 거래소 키인지 기록한다. 화면이 그 값을 그대로 보여준다.
     const row = await d.credRepo.create(a.user.id, enc, body.label, d.exchangeId);
     // Response NEVER includes secret/memo — only the masked access key + status.
+    await auditCred(c, a.user.id, 'exchange.credential.create', row.id, { label: body.label ?? null });
     return c.json({ id: row.id, accessKeyMasked: row.accessKeyMasked, connectionStatus: row.connectionStatus }, 201);
   });
 
@@ -1117,9 +1171,11 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       const ctx: ExchangeContext = { mode: 'LIVE_READ_ONLY', credential: cred };
       await d.accountAdapter.getBalances(ctx); // Read-Only probe (no order permission needed)
       await d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
+      await auditCred(c, a.user.id, 'exchange.credential.verify', row.id, { result: 'verified' });
       return c.json({ id: row.id, connectionStatus: 'VERIFIED', permissionsVerified: true });
     } catch (e) {
       await d.credRepo.setVerified(a.user.id, row.id, 'FAILED', false);
+      await auditCred(c, a.user.id, 'exchange.credential.verify', row.id, { result: 'failed' });
       return c.json({ id: row.id, connectionStatus: 'FAILED', reason: (e as Error).message });
     }
   });
@@ -1128,7 +1184,14 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
-    return (await d.credRepo.revoke(a.user.id, c.req.param('id'))) ? c.json({ ok: true }) : c.json(err('NOT_FOUND', ''), 404);
+    /*
+       ★ 삭제는 **성공했을 때만** 남긴다. 없는 id 로 부른 404 까지 남기면 기록이
+         노이즈로 덮인다 — 정작 필요한 순간에 찾기 어려워진다.
+    */
+    const revokedId = c.req.param('id');
+    const revoked = await d.credRepo.revoke(a.user.id, revokedId);
+    if (revoked) await auditCred(c, a.user.id, 'exchange.credential.revoke', revokedId);
+    return revoked ? c.json({ ok: true }) : c.json(err('NOT_FOUND', 'credential not found'), 404);
   });
 
   /**

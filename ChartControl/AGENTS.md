@@ -189,13 +189,19 @@ docker run -d --name qt-pg-verify -e POSTGRES_USER=newchart -e POSTGRES_PASSWORD
 docker run -d --name qt-redis-verify -p 127.0.0.1:16399:6379 redis:7-alpine
 
 export PG_TEST_URL="postgres://newchart:newchart@127.0.0.1:15499/qtdb_verify"
-export REDIS_TEST_URL="redis://127.0.0.1:16399"
+export REDIS_URL="redis://127.0.0.1:16399"      # ★ REDIS_TEST_URL 이 아니다 — 아래 설명 참고
 pnpm -r test
 
 docker rm -f qt-pg-verify qt-redis-verify
 ```
 
 포트 15432/16379는 이 머신의 다른 프로젝트가 점유 중이므로 15499/16399를 쓴다.
+
+**★★ `REDIS_URL` 이다. 예전 이 문서는 `REDIS_TEST_URL` 이라고 적어 두었는데 코드는
+그 이름을 읽지 않는다**(`packages/cluster` 는 `REDIS_URL` 만 본다). 그래서 문서대로
+설정하면 Redis 통합 시험이 조용히 건너뛰어지고, "돌렸다" 고 착각하게 된다.
+
+PG 쪽은 `PG_TEST_URL` 이 맞다 — 두 이름이 다른 것은 혼란스럽지만 코드가 그렇다.
 
 ## 4. 프론트엔드 계약
 
