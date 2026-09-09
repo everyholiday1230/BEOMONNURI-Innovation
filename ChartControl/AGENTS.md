@@ -9,6 +9,7 @@
 1. 추측·거짓·과장 금지. 검증하지 않은 것을 "완료"라고 쓰지 않는다.
 2. 코드 변경 후 항상 `pnpm -r typecheck` → `pnpm -r test` → `pnpm build`, exit code 확인.
    **단 `pnpm -r test` 만으로는 부족하다 — §3 을 반드시 읽을 것.**
+   **★★ 그리고 `typecheck` 는 마지막에 파일을 만든 뒤 한 번 더 돌릴 것 — §3-3.**
 3. 지시받지 않은 연관 업무도 선제 수행. 단 파괴적 작업·프로덕션 변경·벤더 선정은 사전 승인.
 4. 목표는 서비스 출시.
 
@@ -132,6 +133,45 @@ Postgres 를 안 붙인 것이다. 붙였으면 16 이어야 한다(16 은 Redis
 # skip 이 몇 개인지 눈으로 확인한다
 ... vitest run 2>&1 | grep -E "^ *Tests "
 ```
+
+### 3-3. ★★ typecheck 를 **마지막에** 한 번 더 돌린다
+
+**vitest 는 타입을 검사하지 않는다.** esbuild 로 타입을 지우고 실행한다. 그래서
+`3 passed` 와 `typecheck 0` 은 **아무 관계가 없다.**
+
+실제로 이 함정에 빠졌다(커밋 `30717ac`). 순서가 이랬다:
+
+```
+1) pnpm -r typecheck   → 0        ← 이 시점엔 새 테스트 파일이 아직 없었다
+2) 새 테스트 파일 작성
+3) 그 테스트 실행       → 3 passed
+4) 전체 테스트          → 1,516 passed
+5) 커밋                            ← typecheck 를 다시 돌리지 않았다
+```
+
+결과: `main` 의 typecheck 게이트가 빨개져 **다른 사람의 배포가 막혔다.** 그때 막힌
+것이 결제 수정(`d773e6f`)이었다 — 고객 돈이 걸린 더 급한 작업이었다.
+
+원인이 된 코드:
+
+```ts
+// ✗ Record<string, unknown> 을 펼치면 반환 타입이 { id: unknown } 으로 좁혀진다.
+//   원래 필드가 타입에서 사라져 r.type / r.points 접근이 컴파일되지 않는다.
+const upd = (o: Record<string, unknown>, patch: Record<string, unknown>) => ({ ...o, ...patch, id: o.id });
+
+// ✓ 제네릭으로 타입을 보존한다. 런타임 동작은 같다.
+const upd = <T extends Record<string, unknown>>(o: T, patch: Record<string, unknown>): T =>
+  ({ ...o, ...patch, id: o.id }) as T;
+```
+
+**규칙: 파일을 만들거나 고친 뒤가 마지막 단계라면, 커밋 직전에 typecheck 를 다시 돌린다.**
+
+```bash
+# 올바른 순서
+파일 작성/수정 → 테스트 → pnpm -r typecheck → eslint → 커밋
+```
+
+★ "테스트가 통과하면 타입도 맞다" 고 가정하지 말 것. 그 가정이 이 사고의 원인이다.
 
 ### 새 Pg 스위트를 만들 때
 
