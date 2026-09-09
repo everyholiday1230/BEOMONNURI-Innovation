@@ -217,7 +217,44 @@ export function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
     return { type: [inner.type ?? 'string', 'null'] };
   }
   if (tn === 'ZodOptional') return zodToJsonSchema((def as unknown as { innerType: z.ZodTypeAny }).innerType);
-  return {};
+  /*
+     ★★★ **AI 전체가 400 으로 죽은 원인이 이것이었다.**
+
+       `z.array(...).default([])` 는 typeName 이 `ZodDefault` 다. 이 함수가 그것을
+       모르고 아래 `return {}` 로 떨어져 **type 없는 빈 스키마**를 만들었다.
+       OpenAI 는 함수 정의를 검증하므로 즉시 거절한다:
+
+         400 Invalid schema for function 'review_setup':
+         In context=('properties','sides','items','properties','targets'),
+         schema must have a 'type' key.
+
+       함수 정의 하나가 잘못되면 **그 호출 전체가 실패한다.** 그래서 AI 기능이
+       통째로 안 됐다(프로덕션 로그로 확인).
+
+     ★ default 는 값이 없을 때 채우는 것이므로 JSON Schema 로는 내부 타입 그대로다.
+  */
+  if (tn === 'ZodDefault') return zodToJsonSchema((def as unknown as { innerType: z.ZodTypeAny }).innerType);
+  /*
+     ★★ `.refine()` / `.superRefine()` / `.transform()` 은 typeName 이 `ZodEffects` 다.
+       이것도 처리되지 않아 빈 스키마가 됐다 — **모르는 타입을 던지게 바꾸자마자
+       바로 드러났다.** 그전에는 조용히 잘못된 정의가 만들어지고 있었다.
+
+     ★ 검증·변환 규칙은 JSON Schema 로 표현할 수 없다. 구조는 내부 스키마 그대로다.
+  */
+  if (tn === 'ZodEffects') return zodToJsonSchema((def as unknown as { schema: z.ZodTypeAny }).schema);
+  /*
+     ★★★ 모르는 타입은 **조용히 넘기지 않는다.**
+
+       예전에는 `return {}` 였다. 그래서 스키마에 새 zod 타입을 쓰는 순간 아무 경고도
+       없이 잘못된 함수 정의가 만들어지고, **AI 기능 전체가 죽는다.** 실제로 그렇게
+       16일간 간헐적으로(그리고 어제부터는 완전히) 실패했다.
+
+     ★ 던지면 부팅·시험 단계에서 즉시 드러난다. 고객 앞에서 죽는 것보다 낫다.
+       tool-schema 시험이 모든 스키마를 변환해 이 경로를 확인한다.
+  */
+  throw new Error(
+    `zodToJsonSchema: 처리하지 않는 zod 타입 '${tn}' — 함수 정의가 무효가 되어 AI 호출 전체가 실패한다. 이 함수에 분기를 추가할 것.`,
+  );
 }
 
 export interface ToolDataSource {
