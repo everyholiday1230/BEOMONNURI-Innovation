@@ -1248,7 +1248,19 @@
       <div className="panel" style={{height:'100%'}}>
         <div className="panel__header">
           <div className="panel__title"><I.Wallet size={14}/><span>{t('order_entry')}</span></div>
-          <div className="panel__actions">{/* ★ 배선되지 않은 버튼이다. 누르면 아무 일도 없어 사용자는 고장으로 읽는다 — 준비중임을 밝히고 비활성화한다. */}<button aria-label={t('adm_feature_absent')} className="btn btn--icon" disabled title={t('adm_feature_absent')}><I.More size={12}/></button></div>
+          {/*
+             ★★ 배선되지 않은 "점 3개"(더보기) 버튼을 **가린다.**
+
+               비활성 + 이유 표시로 두었지만, 운영자가 "이건 뭐야? 누를 수 없던데"
+               라고 물었다. 즉 설명이 붙어 있어도 **없는 기능이 자리를 차지하면
+               혼란만 준다.** 다른 패널들은 이미 SHOW_UNWIRED 로 가리고 있었는데
+               이 패널만 남아 있었다.
+
+             ★ 마크업은 남긴다 — 기능이 생기면 onClick 과 이름만 붙이면 된다.
+          */}
+          <div className="panel__actions">{SHOW_UNWIRED && (
+            <button aria-label={t('adm_feature_absent')} className="btn btn--icon" disabled title={t('adm_feature_absent')}><I.More size={12}/></button>
+          )}</div>
         </div>
 
         <div className="panel__body" style={{padding: 0}}>
@@ -2338,11 +2350,23 @@
                눌러도 아무 일이 없어 이용자는 고장으로 읽었다 — 준비중임을 밝히고
                비활성으로 둔다. (거래소 앱에서는 이체가 가능하다)
           */}
+          {/*
+             ★★ '이체(Transfer) soon' 버튼을 **가린다.**
+
+               운영 지시: "Assets & Risk 이것도 soon인데 그냥 아예 버튼 안보이게해줘".
+               비활성 + '준비중' 표시로 두었지만, 없는 기능이 자리를 차지하면 고객은
+               "왜 안 되나" 를 먼저 묻는다. 입출금은 우리가 취급하지 않으므로
+               (거래소 앱에서 한다) 당분간 생길 기능도 아니다.
+
+             ★ 마크업은 남긴다 — 나중에 필요하면 SHOW_UNWIRED 만 켜면 보인다.
+          */}
+          {SHOW_UNWIRED && (
           <div className="panel__actions">
             <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>
               {t('tx_kind_transfer')} <span className="qt-pending-mark">{t('sec_pending')}</span>
             </button>
           </div>
+          )}
         </div>
         <div className="panel__body" style={{padding: '12px 16px', gap: 12}}>
           <div style={{display:'flex', flexDirection:'column', gap: 2}}>
