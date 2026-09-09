@@ -27,7 +27,16 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 */
 
 const KEK32 = Buffer.alloc(32, 1).toString('base64');
-const base = { NODE_ENV: 'production', AUTH_CSRF_KEY: 'x'.repeat(40) } as NodeJS.ProcessEnv;
+/*
+   ★ MFA_KEK 도 fail-closed 목록에 추가됐다(TOTP 시드 래핑 키 — CREDENTIAL_KEK 와
+     같은 부류의 결함이었다). 이 파일은 CREDENTIAL_KEK 를 검사하므로 MFA_KEK 는
+     유효한 값으로 고정해 둔다. 그러지 않으면 모든 통과 사례가 MFA_KEK 때문에 실패한다.
+*/
+const base = {
+  NODE_ENV: 'production',
+  AUTH_CSRF_KEY: 'x'.repeat(40),
+  MFA_KEK: Buffer.alloc(32, 3).toString('base64'),
+} as NodeJS.ProcessEnv;
 
 describe('CREDENTIAL-KEK — 공개된 고정 키로 고객 자격증명을 감싸지 않는다', () => {
   it('[1] 운영에서 KEK 가 없으면 부팅을 거부한다', () => {

@@ -264,6 +264,9 @@ describe('production signing key is required, never defaulted', () => {
         NODE_ENV: 'production',
         AUTH_CSRF_KEY: 'x'.repeat(32),
         CREDENTIAL_KEK: Buffer.alloc(32, 1).toString('base64'),
+        /* ★ MFA_KEK 도 fail-closed 목록에 추가됐다(TOTP 시드 래핑 키). 이 픽스처는
+             다른 항목을 검사하므로 여기서는 유효한 값을 넣어 둔다. */
+        MFA_KEK: Buffer.alloc(32, 2).toString('base64'),
       }),
     ).not.toThrow();
   });

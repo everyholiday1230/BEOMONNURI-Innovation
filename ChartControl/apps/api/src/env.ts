@@ -371,6 +371,27 @@ export function assertProductionSigningKeys(
     try { bytes = Buffer.from(kek, 'base64').length; } catch { bytes = 0; }
     if (bytes !== 32) missing.push('CREDENTIAL_KEK (must decode to exactly 32 bytes)');
   }
+  /*
+     ★★★ MFA_KEK — TOTP 시드를 감싸는 키. CREDENTIAL_KEK 와 **같은 부류의 결함**이었다.
+
+       미설정이면 index.ts 가 `Buffer.alloc(32, 9)`(전 바이트 0x09)로 폴백했다. 즉
+       저장소를 읽을 수 있으면 누구나 전 사용자의 TOTP 시드를 복호화하고 **영구 유효한
+       2FA 코드**를 만들 수 있다. 2FA 가 두 번째 요소로서 무력해진다.
+
+     ★★ 운영에서 실제로 그 상태였다(2026-09-09 확인: Render 에 MFA_KEK 없음).
+       다행히 그 시점 `mfa_credentials` 가 **0건**이어서 영향받은 사용자는 없었다.
+       그래서 재래핑·재등록 안내 없이 키만 설정하면 됐다 — 지금이 고칠 최적 시점이었다.
+
+     ★ CREDENTIAL_KEK 를 막은 검사가 이 키를 비켜갔다. 사례가 아니라 **부류**를 막는다:
+       KEK 성격의 키는 전부 이 목록에 있어야 한다.
+  */
+  if (!env.MFA_KEK) {
+    missing.push('MFA_KEK (base64, 32 bytes — TOTP seed wrapping key)');
+  } else {
+    let mfaBytes = 0;
+    try { mfaBytes = Buffer.from(env.MFA_KEK, 'base64').length; } catch { mfaBytes = 0; }
+    if (mfaBytes !== 32) missing.push('MFA_KEK (must decode to exactly 32 bytes)');
+  }
   if (missing.length > 0) {
     throw new Error(
       `fail-closed startup: ${missing.join(', ')} must be provided in production ` +

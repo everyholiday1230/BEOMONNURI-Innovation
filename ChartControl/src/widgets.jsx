@@ -902,7 +902,49 @@
          tickSize 소수 자리수에서 구한다. tickSize 를 모르면 건드리지 않는다.
     */
     const tickSz = Number(market && market.tickSize) || 0;
-    const pricePrec = (String(tickSz).split('.')[1] || '').length;
+    /*
+       ★★★ **손절·익절이 0 이 되어 사라졌다. 고객 돈이 걸린 결함이다.**
+
+         예전에는 `String(tickSz).split('.')[1].length` 였다. tickSz 는 숫자이므로
+         **1e-7 이하는 자바스크립트가 지수표기로 문자열화한다:**
+
+             String(1e-7) === '1e-7'   → split('.')[1] 없음 → pricePrec = 0
+
+         그러면 아래 snapPrice 의 `toFixed(0)` 이 가격을 **정수로 반올림**한다.
+         밈코인 가격은 0.00002 수준이라 결과가 **0** 이다.
+
+       ★ 실측(수정 전):
+             tick 1e-3 → prec 3 · tick 1e-5 → prec 5 · tick 1e-6 → prec 6
+             tick 1e-7 → prec 0 → snapPrice(0.00001234) = 0   ← 여기서부터 붕괴
+             tick 1e-8 → prec 0 → 0
+             tick 1e-9 → prec 0 → 0
+
+       ★★ 무엇이 무너지는가: TP/SL 이 0 이 되면 hasTp/hasSl 이 false 가 되고
+         bracketOut 이 null 이 된다. 지정가는 서버가 막지만 **시장가는 정상 접수되어
+         손절 없는 포지션이 열린다.** SHIB·PEPE·FLOKI 등 소액 단위 심볼 전부.
+
+       ★ 고침: 지수표기와 10의 거듭제곱이 아닌 tick(예: 0.5) 을 **모두** 처리한다.
+         toFixed(20) 로 고정소수 문자열을 만든 뒤 뒤쪽 0 을 떼고 소수 자리를 센다.
+             1e-9 → '0.000000001' → 9
+             0.5  → '0.5'         → 1     (log10 방식은 0 이 되어 .5 를 잃는다)
+             0.001→ '0.001'       → 3
+         상한 12 — 그 이상은 거래소에 없고 부동소수 오차만 커진다.
+    */
+    const pricePrec = (() => {
+      if (!(tickSz > 0) || !Number.isFinite(tickSz)) return 0;
+      /*
+         ★ 지수표기로 정확히 센다. toFixed(20) 은 부동소수 오차가 남는다
+           (실측: (0.001).toFixed(20) === '0.00100000000000000002' → 자리수 12).
+           toExponential 은 유효숫자와 지수를 분리해 주므로 오차가 끼지 않는다.
+             1e-9  → '1e-9'   → 0 - (-9) = 9
+             0.5   → '5e-1'   → 0 - (-1) = 1
+             0.001 → '1e-3'   → 3
+             1.5e-5→ '1.5e-5' → 1 + 5   = 6
+      */
+      const [mant, exp] = tickSz.toExponential().split('e');
+      const mantDecimals = (mant.split('.')[1] || '').length;
+      return Math.max(0, Math.min(12, mantDecimals - Number(exp)));
+    })();
     const snapPrice = (p) => ((!(tickSz > 0) || !Number.isFinite(p)) ? p : Number((Math.round(p / tickSz) * tickSz).toFixed(pricePrec)));
     const px = snapPrice(parseFloat(price) || lastPrice);
     /*
