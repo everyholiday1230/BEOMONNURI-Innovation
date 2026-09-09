@@ -1032,16 +1032,35 @@
     }, [clearAIOverlays, pushToast]);
     const createOrderDraft = useCallback(() => {
       if (!currentSignal) return;
+      /*
+         ★★ `currentSignal.entryZone[0]` 을 읽고 있었다. 서버가 구조를 바꾼 뒤
+           (entryZone → entry, takeProfits → targets, stopLoss → stop) 이 줄이
+           **TypeError 로 터졌다** — 고객이 '주문 초안' 을 누르면 화면이 죽었다.
+
+         ★ 진입가는 이제 구간이 아니라 고객이 입력한 한 점이다.
+
+         ★ confidence 는 스키마에서 제거됐다(AI 가 고객 셋업에 점수를 매기지 않는다).
+           주문 확인창의 AI 확신도 표시도 함께 사라진다 — 값이 없으면 그 칸을 그리지
+           않는 처리가 이미 들어가 있다.
+
+         ★ 값이 없으면 초안을 만들지 않는다. 0 이나 임의값으로 채우면 고객이 의도하지
+           않은 가격으로 주문 확인창에 들어간다.
+      */
+      const entry = Number(currentSignal.entry);
+      if (!Number.isFinite(entry) || entry <= 0) {
+        pushToast({ title: t('toast_draft_failed'), desc: t('ai_setup_no_entry'), variant: 'warning' });
+        return;
+      }
       setOrderDraft({
-        /* 출처를 남긴다 — 주문 확인창의 AI 경고와 확신도는 이 값으로만 켠다. */
+        /* 출처를 남긴다 — 주문 확인창의 AI 경고는 이 값으로만 켠다. */
         source: 'ai',
-        confidence: typeof currentSignal.confidence === 'number' ? currentSignal.confidence : null,
+        confidence: null,
         side: currentSignal.direction,
-        price: (currentSignal.entryZone[0] + currentSignal.entryZone[1]) / 2,
+        price: entry,
         size: 0.05,
         tpsl: {
-          tp: currentSignal.takeProfits,
-          sl: currentSignal.stopLoss,
+          tp: Array.isArray(currentSignal.targets) ? currentSignal.targets : [],
+          sl: currentSignal.stop ?? null,
         }
       });
       setFlowStep('order-draft');

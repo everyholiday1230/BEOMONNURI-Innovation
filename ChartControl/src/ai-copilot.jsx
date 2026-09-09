@@ -459,17 +459,44 @@
     }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, t]);
 
     /* 서버가 검증해 보낸 SignalObject를 오버레이(진입/손절/익절/마커)로 그리고 상위에 제안한다. */
+    /*
+       고객이 만든 셋업의 검토 결과를 차트에 얹는다.
+
+       ★★ 전에는 `if (!Array.isArray(sig.entryZone)) return;` 로 시작했다. 서버가
+         구조를 바꾼 뒤(entryZone → entry, takeProfits → targets) 이 가드가 **모든
+         결과를 조용히 걸러냈다.** 그런데 대화에는 '📊 5 overlays created' 가
+         그대로 붙었다 — 화면이 그리지 않은 것을 그렸다고 말한 것이다.
+         이 코드베이스가 금지한 실패 방식이고, 실제로 고객 문의로 돌아왔다.
+
+       ★ 그래서 **그린 것만 세어서 돌려준다.** 호출부가 그 개수로 문구를 만든다.
+         하드코딩한 개수를 쓰면 같은 사고가 반복된다.
+
+       ★ entry 는 이제 구간이 아니라 한 점이다(고객이 입력한 진입가). 손절·목표가는
+         고객이 주지 않았으면 없다 — 없는 것을 지어내 그리지 않는다.
+    */
     const applySignal = useCallback((sig) => {
-      if (!sig || !Array.isArray(sig.entryZone)) return;
+      if (!sig || !sig.direction) return [];
       const anchor = anchorTime();
-      addOverlay({ id: 'sig-entry', type: 'entry-zone', source: 'ai-draft', priceLo: toNum(sig.entryZone[0]), priceHi: toNum(sig.entryZone[1]), label: t('ai_overlay_entry_zone') });
-      addOverlay({ id: 'sig-sl', type: 'horizontal', source: 'ai-draft', points: [{ price: toNum(sig.stopLoss), time: anchor }], label: 'SL · ' + sig.stopLoss });
-      (Array.isArray(sig.takeProfits) ? sig.takeProfits : []).forEach((tp, i) => {
-        addOverlay({ id: 'sig-tp' + (i + 1), type: 'horizontal', source: 'ai-draft', points: [{ price: toNum(tp), time: anchor }], label: 'TP' + (i + 1) + ' · ' + tp });
+      const drawn = [];
+      const entry = toNum(sig.entry);
+      if (Number.isFinite(entry) && entry > 0) {
+        addOverlay({ id: 'sig-entry', type: 'horizontal', source: 'ai-draft', points: [{ price: entry, time: anchor }], label: t('ai_overlay_entry_zone') });
+        drawn.push(t('ai_overlay_entry_zone'));
+        addOverlay({ id: 'sig-marker', type: 'signal-marker', source: 'ai-draft', direction: sig.direction, points: [{ time: anchor, price: entry }] });
+      }
+      const stop = toNum(sig.stop);
+      if (Number.isFinite(stop) && stop > 0) {
+        addOverlay({ id: 'sig-sl', type: 'horizontal', source: 'ai-draft', points: [{ price: stop, time: anchor }], label: 'SL · ' + sig.stop });
+        drawn.push('SL');
+      }
+      (Array.isArray(sig.targets) ? sig.targets : []).forEach((tp, i) => {
+        const v = toNum(tp);
+        if (!Number.isFinite(v) || v <= 0) return;
+        addOverlay({ id: 'sig-tp' + (i + 1), type: 'horizontal', source: 'ai-draft', points: [{ price: v, time: anchor }], label: 'TP' + (i + 1) + ' · ' + tp });
+        drawn.push('TP' + (i + 1));
       });
-      const mid = (toNum(sig.entryZone[0]) + toNum(sig.entryZone[1])) / 2;
-      addOverlay({ id: 'sig-marker', type: 'signal-marker', source: 'ai-draft', direction: sig.direction || 'long', points: [{ time: anchor, price: mid }] });
       if (onProposeSignal) onProposeSignal(sig);
+      return drawn;
     }, [addOverlay, anchorTime, onProposeSignal, t]);
 
     // AI 가 만든 선/신호를 저장한다(포인트 차감). 저장소는 PG(/me/saved).
@@ -803,7 +830,26 @@
               return;
             }
             if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
-            if (ev.type === 'signal') { applySignal(ev.signal); setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_tool_signal'), savable: { kind: 'signal', name: t('ai_tool_signal') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal } })]); return; }
+            if (ev.type === 'signal') {
+              /*
+                 ★★ 전에는 `toolResult: t('ai_tool_signal')` — '📊 5 overlays created ·
+                   entry zone / SL / TP1-3 / long marker' 를 **하드코딩**했다. 실제로
+                   몇 개를 그렸는지와 무관했고, 서버 구조가 바뀐 뒤에는 하나도 그리지
+                   않았는데도 이 문구가 나갔다. 고객은 차트를 보고 "안 그려졌다" 고
+                   문의했다.
+                 ★ applySignal 이 그린 것을 돌려주므로 그것만 적는다. 아무것도 못
+                   그렸으면 그 사실을 적는다 — 조용히 넘어가면 같은 문의가 반복된다.
+              */
+              const drawn = applySignal(ev.signal) || [];
+              const note = drawn.length
+                ? t('ai_setup_drawn', { n: drawn.length, items: drawn.join(' / ') })
+                : t('ai_setup_nothing_drawn');
+              setMsgs((m) => [...m, makeMsg('ai', '', {
+                toolResult: note,
+                savable: { kind: 'signal', name: t('ai_my_setup') + (ev.signal && ev.signal.direction ? ' · ' + ev.signal.direction : ''), payload: ev.signal },
+              })]);
+              return;
+            }
             if (ev.type === 'suggestions') { setFollowUps(Array.isArray(ev.items) ? ev.items : []); return; }
             if (ev.type === 'points') { setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: t('ai_points_charged', { n: ev.charged, bal: ev.balance }) })]); return; }
             if (ev.type === 'error') {
@@ -1460,7 +1506,11 @@
         <div className={`signal-card ${isApproved ? 'signal-card--approved' : ''}`}>
           <div className="signal-card__head">
             <div className="signal-card__title">
-              <span className={`badge ${isApproved ? 'badge--approved' : 'badge--draft'}`}>{isApproved ? '✓ APPROVED' : '◐ AI DRAFT'}</span>
+              {/*
+                 ★ '◐ AI DRAFT' 였다. AI 가 만든 초안이라는 뜻인데, 운영 결정에 따라
+                   이제 셋업은 **고객이 만든다**. 표기를 사실에 맞춘다.
+              */}
+              <span className={`badge ${isApproved ? 'badge--approved' : 'badge--draft'}`}>{isApproved ? '✓ ' + t('ai_setup_checked') : t('ai_my_setup')}</span>
               <span style={{fontSize:14, fontWeight:600}}>{signal.symbol.replace('USDT','/USDT')}</span>
               {/*
                    ★★ 방향이 **하드코딩 `▲ LONG`** 이었다. 숏 신호도 롱으로 표시됐다.
@@ -1501,24 +1551,67 @@
                   return model || t('dash');
                 })()}</span>
               </div>
-              <div className={`conf-ring ${isApproved ? 'conf-ring--approved' : ''}`} style={{'--pct': signal.confidence}}>
-                <span className="conf-ring__label">{signal.confidence}%</span>
-              </div>
+              {/*
+                 ★★ 확신도 링(conf-ring)을 제거했다.
+
+                   AI 가 고객 셋업에 확신도 점수를 붙이면 그것이 곧 예측이고 추천이다.
+                   운영 결정(2026-09-08): 신호는 고객이 만들고 AI 는 서포트한다 —
+                   서포트는 점수를 매기는 일이 아니다. 스키마에서도 confidence 를
+                   지웠으므로 값 자체가 오지 않는다.
+
+                 ★ 대신 손익비를 보여준다. 그것은 고객이 준 숫자로 계산한 **사실**이다.
+              */}
+              {signal.riskReward ? (
+                <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end'}}>
+                  <span style={{fontSize:9, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--color-text-tertiary)'}}>R : R</span>
+                  <span style={{fontSize:13, fontWeight:600, fontFamily:'var(--font-mono)'}}>1 : {signal.riskReward}</span>
+                </div>
+              ) : null}
             </div>
           </div>
 
           <div className="signal-card__grid">
-            <div className="signal-card__row"><span className="signal-card__k">{t('ai_entry_zone')}</span><span className="signal-card__v">{fmt(signal.entryZone[0], 0)} – {fmt(signal.entryZone[1], 0)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">{t('op_stop_loss')}</span><span className="signal-card__v t-short">{fmt(signal.stopLoss, 0)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">R : R</span><span className="signal-card__v">1 : {signal.riskReward.toFixed(1)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">TP1 / TP2 / TP3</span><span className="signal-card__v t-long">{fmt(signal.takeProfits[0], 0)} / {fmt(signal.takeProfits[1], 0)} / {fmt(signal.takeProfits[2], 0)}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">{t('ai_time_horizon')}</span><span className="signal-card__v">{signal.timeHorizon}</span></div>
-            <div className="signal-card__row"><span className="signal-card__k">{t('ai_invalidation_word')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{signal.invalidationKey ? t(signal.invalidationKey) : signal.invalidation}</span></div>
+            {/*
+               ★★ 필드를 새 구조에 맞췄다. 서버가 entryZone/stopLoss/takeProfits 대신
+                 entry/stop/targets 를 보낸다(고객이 준 값이라 구간이 아니라 한 점이다).
+                 옛 필드를 읽던 코드는 `signal.entryZone[0]` 에서 터지거나 빈 칸을 그렸다.
+
+               ★ 고객이 주지 않은 값은 '—' 로 둔다. 지어내지 않는다.
+            */}
+            <div className="signal-card__row"><span className="signal-card__k">{t('ai_entry_zone')}</span><span className="signal-card__v">{signal.entry ? fmt(signal.entry, 0) : t('dash')}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">{t('op_stop_loss')}</span><span className="signal-card__v t-short">{signal.stop ? fmt(signal.stop, 0) : t('dash')}</span></div>
+            <div className="signal-card__row"><span className="signal-card__k">TP</span><span className="signal-card__v t-long">{Array.isArray(signal.targets) && signal.targets.length ? signal.targets.map((v) => fmt(v, 0)).join(' / ') : t('dash')}</span></div>
+            {/*
+               ★ 빠진 항목을 숨기지 않고 적는다. 손절 없는 셋업을 조용히 넘기면
+                 고객은 자기가 빠뜨린 것을 모른다 — 그것이 이 검토의 목적이다.
+            */}
+            {Array.isArray(signal.missing) && signal.missing.length ? (
+              <div className="signal-card__row"><span className="signal-card__k">{t('ai_setup_missing')}</span><span className="signal-card__v t-warning">{signal.missing.join(' / ')}</span></div>
+            ) : null}
+            <div className="signal-card__row"><span className="signal-card__k">{t('ai_invalidation_word')}</span><span className="signal-card__v" style={{fontSize: 11, color:'var(--color-text-secondary)'}}>{signal.invalidation || t('dash')}</span></div>
           </div>
 
-          <div className="signal-card__reason">
-            <strong>{t(isBeginner ? 'ai_reason_beginner' : 'ai_reason_pro')}: </strong>{signal.reasonKey ? t(signal.reasonKey) : signal.reason}
-          </div>
+          {/*
+             ★★ 반대 근거를 **본문에** 보여준다. 예전 카드는 '근거(reason)' 만 보여줬다 —
+               AI 가 셋업을 지지하는 이유만 읽히면 그것이 추천으로 작동한다. 이 기능의
+               목적은 고객 판단을 반박해 주는 것이므로 반대 근거가 주인공이다.
+          */}
+          {Array.isArray(signal.contradictingEvidence) && signal.contradictingEvidence.length ? (
+            <div className="signal-card__reason">
+              <strong>{t('ai_setup_against')}: </strong>
+              {signal.contradictingEvidence.join(' · ')}
+              {/*
+                 ★ 초보자에게는 이 칸이 무엇인지 한 줄 덧붙인다. '반대 근거' 라는 말만
+                   보면 왜 반대되는 것을 보여주는지 오해할 수 있다 — 셋업을 막는 것이
+                   아니라 놓친 것을 보여주는 칸이다.
+              */}
+              {isBeginner ? (
+                <div style={{marginTop: 6, fontSize: 11, color:'var(--color-text-tertiary)'}}>
+                  {t('ai_setup_against_hint')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Invalidation banner — always visible, cannot be missed */}
           <div className="invalidation-banner">
