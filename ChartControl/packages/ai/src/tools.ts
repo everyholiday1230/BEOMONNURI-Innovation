@@ -194,6 +194,19 @@ const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
 };
 
 /** Minimal Zod→JSON-Schema for OpenAI strict function tools (objects of scalars/enums/arrays). */
+/**
+ * JSON Schema 노드에 `null` 을 허용으로 더한다. **다른 키는 건드리지 않는다.**
+ *
+ * ★ `items`·`enum`·`properties` 를 잃으면 OpenAI 가 정의를 거부한다(400). 예전 코드가
+ *   `{ type: [t,'null'] }` 만 돌려줘 그것들을 버렸다.
+ */
+function withNull(js: Record<string, unknown>): Record<string, unknown> {
+  const t = js.type;
+  if (t === undefined) return { ...js, type: ['null'] };
+  if (Array.isArray(t)) return t.includes('null') ? js : { ...js, type: [...t, 'null'] };
+  return { ...js, type: [t, 'null'] };
+}
+
 export function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   const def = (schema as unknown as { _def: { typeName: string } })._def;
   const tn = def.typeName;
@@ -202,8 +215,28 @@ export function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
     for (const [key, val] of Object.entries(shape)) {
-      properties[key] = zodToJsonSchema(val);
-      required.push(key); // strict mode: ALL properties required (optionals are nullable)
+      /*
+         ★★★ **optional 은 null 을 허용해야 한다.** 주석은 "optionals are nullable" 이라고
+           적혀 있었는데 **실제로는 그렇지 않았다.**
+
+             z.string().optional() → ZodOptional 언랩 → { "type": "string" }
+             그런데 required 에는 들어간다 → 모델은 **반드시 문자열을 넣어야 한다**
+
+           OpenAI strict 모드에서 이것은 "빈 값을 줄 수 없다" 는 뜻이다. 그래서
+           `stop`(손절가)이 없는 상황에서도 모델이 값을 채워야 하고, 결과는 둘 중 하나다:
+             · 손절가를 **지어낸다** — 근거 없는 가격을 고객에게 제시하는 것이다
+             · ""/"N/A" 를 넣는다 → DecimalString 검증 실패 → **검토 전체가 사라진다**
+               (운영자가 본 "did not pass validation, so nothing was drawn" 이 이것이다)
+
+         ★ 고침: optional 이면 스키마에 'null' 을 더한다. 모델이 "없음" 을 표현할 수
+           있게 되고, 파싱 쪽에서 null → 필드 없음으로 되돌린다(아래 stripNulls).
+
+         ★ required 는 그대로 전부 넣는다 — OpenAI strict 모드의 요구사항이다.
+      */
+      const isOptional = (val as unknown as { _def: { typeName: string } })._def.typeName === 'ZodOptional';
+      const js = zodToJsonSchema(val) as Record<string, unknown>;
+      properties[key] = isOptional ? withNull(js) : js;
+      required.push(key);
     }
     return { type: 'object', properties, required, additionalProperties: false };
   }
@@ -213,8 +246,17 @@ export function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   if (tn === 'ZodEnum') return { type: 'string', enum: (def as unknown as { values: string[] }).values };
   if (tn === 'ZodArray') return { type: 'array', items: zodToJsonSchema((def as unknown as { type: z.ZodTypeAny }).type) };
   if (tn === 'ZodNullable') {
-    const inner = zodToJsonSchema((def as unknown as { innerType: z.ZodTypeAny }).innerType) as { type?: string };
-    return { type: [inner.type ?? 'string', 'null'] };
+    /*
+       ★★★ 예전에는 `{ type: [inner.type, 'null'] }` 만 돌려줬다. **inner 의 나머지를
+         전부 버렸다** — 배열의 `items`, enum 의 `enum`, 객체의 `properties` 까지.
+
+         실측: z.array(z.string()).nullable() → {"type":["array","null"]} · items 없음
+         → OpenAI 는 items 없는 array 를 거부한다(400). 오늘 낮에 겪은 그 400 과
+         같은 부류다.
+
+       ★ 그래서 inner 를 그대로 두고 type 에만 'null' 을 더한다(withNull).
+    */
+    return withNull(zodToJsonSchema((def as unknown as { innerType: z.ZodTypeAny }).innerType) as Record<string, unknown>);
   }
   if (tn === 'ZodOptional') return zodToJsonSchema((def as unknown as { innerType: z.ZodTypeAny }).innerType);
   /*
@@ -360,7 +402,31 @@ export function parseProposalArgs(name: ProposalToolName, argsJson: string):
   } catch {
     return { ok: false, error: 'invalid proposal arguments JSON' };
   }
-  const v = PROPOSAL_TOOL_SCHEMAS[name].safeParse(parsed);
+  /*
+     ★★★ **모델이 보낸 null 을 "필드 없음" 으로 되돌린다.**
+
+       위 zodToJsonSchema 가 optional 필드에 null 을 허용하도록 바꿨다(그러지 않으면
+       모델이 손절가를 지어내야 한다). 그런데 zod 의 `.optional()` 은 **null 을 받지
+       않는다** — undefined 만 받는다. 그래서 되돌리지 않으면 여기서 검증이 실패하고
+       검토 전체가 사라진다(고치려던 그 증상과 똑같아진다).
+
+     ★ 재귀로 지운다. 중첩 객체·배열 안의 null 도 같은 이유로 지워야 한다.
+     ★ 배열 요소의 null 은 **지우지 않고 그대로 둔다** — 배열 길이가 줄면 모델이
+       의도한 순서(예: 목표가 1·2·3)가 어긋난다. 그런 경우는 검증에서 걸러야 한다.
+  */
+  const stripNulls = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(stripNulls);
+    if (v && typeof v === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+        if (val === null) continue;
+        out[k] = stripNulls(val);
+      }
+      return out;
+    }
+    return v;
+  };
+  const v = PROPOSAL_TOOL_SCHEMAS[name].safeParse(stripNulls(parsed));
   if (!v.success) return { ok: false, error: v.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') };
   return { ok: true, value: v.data as Record<string, unknown> };
 }
