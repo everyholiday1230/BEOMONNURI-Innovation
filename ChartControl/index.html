@@ -301,14 +301,66 @@
   <script src="web-dist/page-shell.js"></script>
   <script src="web-dist/pages-user.js"></script>
   <script src="web-dist/admin-kill-switch.js"></script>
-  <script src="web-dist/pages-admin.js"></script>
   <script src="web-dist/pages-auth.js"></script>
   <script src="web-dist/pages-more.js"></script>
   <script src="web-dist/pages-points.js"></script>
   <script src="web-dist/pages-legal.js"></script>
   <!-- 동의 화면 — 구글 가입자는 가입 폼을 거치지 않아 여기서 동의를 받는다. -->
   <script src="web-dist/pages-consent.js"></script>
-  <script src="web-dist/pages-admin-more.js"></script>
+  <!--
+    ★★★ **관리자 화면은 /admin 경로에서만 내려받는다.**
+
+      예전에는 pages-admin.js·pages-admin-more.js 를 **모든 방문자가** 받았다.
+      실측(프로덕션): gzip 40,765 + 28,463 = **약 69KB**(원본 349KB). 로그인 화면만
+      보러 온 사람도 관리자 화면 코드를 전부 받고 있었다. 관리자는 우리 몇 명뿐이다.
+
+    ★ app.js 보다 먼저 있어야 할 이유가 없다 — 라우트가 그려질 때 window.AdminXxxPage
+      를 찾을 뿐이다. 그래서 경로를 보고 그때 붙인다.
+
+    ★ **history 이동도 처리한다.** hashchange 만 들으면 뒤로/앞으로 갔을 때 놓친다.
+      그리고 이미 붙였으면 다시 붙이지 않는다(중복 실행 방지).
+
+    ★ 로드 후 **다시 렌더를 유발한다.** 스크립트가 늦게 오면 이미 그려진 화면에는
+      컴포넌트가 없어 빈 칸이 된다. hashchange 를 한 번 더 쏴서 다시 그리게 한다.
+
+    ★ 실패하면 조용히 넘기지 않는다 — 관리자가 빈 화면을 보고 원인을 모르게 된다.
+  -->
+  <script>
+    (function () {
+      var loaded = false;
+      function needsAdmin() {
+        return String(location.hash || '').indexOf('#/admin') === 0;
+      }
+      function load() {
+        if (loaded || !needsAdmin()) return;
+        loaded = true;
+        var files = ['web-dist/pages-admin.js', 'web-dist/pages-admin-more.js'];
+        var done = 0;
+        files.forEach(function (src) {
+          var el = document.createElement('script');
+          el.src = src;
+          el.async = false;   /* ★ 순서를 지킨다 — async 면 뒤 파일이 먼저 실행될 수 있다 */
+          el.onload = function () {
+            done += 1;
+            if (done !== files.length) return;
+            /* ★ 이미 그려진 화면을 다시 그리게 한다. 없으면 빈 칸으로 남는다. */
+            try { window.dispatchEvent(new HashChangeEvent('hashchange')); }
+            catch (e) { try { window.dispatchEvent(new Event('hashchange')); } catch (e2) { void e2; } }
+          };
+          el.onerror = function () {
+            loaded = false;   /* ★ 다시 시도할 수 있게 되돌린다 */
+            // eslint-disable-next-line no-console
+            console.error('[admin] ★ 관리자 화면 스크립트를 불러오지 못했다:', src);
+          };
+          document.head.appendChild(el);
+        });
+      }
+      window.addEventListener('hashchange', load);
+      window.addEventListener('popstate', load);
+      load();
+    })();
+  </script>
+
   <script src="web-dist/app.js"></script>
 
   <!-- Mount -->
