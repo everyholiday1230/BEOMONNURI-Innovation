@@ -38,10 +38,56 @@ describe('보관기간 정책', () => {
     }
   });
 
-  it('접속기록은 3개월(90일)이다 — 늘리면 수집 최소화와 충돌한다', () => {
-    const audit = RETENTION_RULES.find((r) => r.table === 'audit_logs');
-    expect(audit?.days).toBe(90);
-    expect(audit?.statutory).toBe(true);
+  /*
+     ★★★ 전제가 거꾸로였다.
+
+       이 검사는 원래 "접속기록은 90일이고 늘리면 수집 최소화와 충돌한다" 였다.
+       법은 반대를 요구한다 — 「개인정보의 안전성 확보조치 기준」(개인정보보호위원회
+       고시 제2026-9호, 2026-07-01 시행) 제8조제1항 원문:
+
+         "개인정보처리시스템에 접속한 자(다만, 정보주체는 제외한다)의 접속기록을
+          **1년 이상** 보관ㆍ관리하여야 한다."
+
+       즉 **짧은 쪽이 위반**이다. 90일은 법정 최소치의 1/4 이었다.
+
+     ★ 그래서 이 검사는 "정확히 N일" 이 아니라 **최소치 이상**을 본다. 운영자가
+       더 길게 두는 것은 자유이고, 짧게 두는 것만 막아야 한다.
+  */
+  const STATUTORY_ACCESS_LOG_MIN_DAYS = 365;
+
+  it('★ 관리자 접속기록은 법정 최소 1년 이상이다 (고시 제8조제1항)', () => {
+    /* 관리자·시스템 접속기록을 담는 표. 정보주체 본인 세션은 제외 대상이다. */
+    for (const table of ['audit_logs', 'admin_actions']) {
+      const rule = RETENTION_RULES.find((r) => r.table === table);
+      expect(rule, `${table} 규칙이 없다`).toBeTruthy();
+      expect(
+        rule!.days,
+        `${table}: ${rule!.days}일은 법정 최소 ${STATUTORY_ACCESS_LOG_MIN_DAYS}일 미달 — 고시 제8조제1항 위반`,
+      ).toBeGreaterThanOrEqual(STATUTORY_ACCESS_LOG_MIN_DAYS);
+      expect(rule!.statutory, `${table} 은 법정 기간이므로 statutory=true 여야 한다`).toBe(true);
+    }
+  });
+
+  it('세션은 법정 최소기간이 없다 — 고시 제8조① 이 정보주체를 제외한다', () => {
+    /*
+       ★ 고객 본인의 접속은 의무 대상이 아니다. 그러므로 짧게 두어도 되고, 짧은 쪽이
+         프라이버시에 유리하다. statutory=true 로 두면 "줄이면 위반" 이라는 잘못된
+         신호를 준다.
+    */
+    const sess = RETENTION_RULES.find((r) => r.table === 'sessions');
+    expect(sess?.statutory).toBe(false);
+    expect(sess?.days).toBeLessThan(STATUTORY_ACCESS_LOG_MIN_DAYS);
+  });
+
+  it('근거로 적용되지 않는 법을 인용하지 않는다', () => {
+    /*
+       ★★ 예전 reason 에 「통신비밀보호법 시행령」이 적혀 있었다. 그 보관의무는
+         **전기통신사업자**의 의무이고 우리는 일반 개인정보처리자다. 적용 법령이
+         아닌 것을 근거로 적으면 감사 때 그대로 문제가 된다.
+    */
+    for (const r of RETENTION_RULES) {
+      expect(r.reason, `${r.table}: 통신비밀보호법은 우리에게 적용되지 않는다`).not.toContain('통신비밀보호법');
+    }
   });
 
   it('운영자 결정 항목은 따로 둔다 (자산 스냅샷 2년)', () => {

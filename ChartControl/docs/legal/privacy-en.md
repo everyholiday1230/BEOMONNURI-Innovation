@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 9 September 2026 · Version 1.2
+Effective: 9 September 2026 · Version 1.3
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
@@ -24,6 +24,7 @@ We collect **only what the Service needs.**
 | IP address | Blocking unauthorised access, protecting accounts | 3 months |
 | Browser information (User-Agent) | Per-device session management, spotting unusual sign-ins | 3 months |
 | Time of access | As above | 3 months |
+| Security and audit logs — which action was taken, when, from which IP, including administrator access to your data | Investigating security incidents and abuse; meeting the statutory access-log duty | 1 year |
 
 ### 1.3 Exchange connection (if you connect one)
 
@@ -81,7 +82,14 @@ Tell us at the support address in §11 and we will stop adding new records for y
 
 - **Performance of a contract**: account and exchange connection data are needed to provide the Service.
 - **Legitimate interests**: access records are needed to block unauthorised access and protect accounts.
-- **Legal obligation**: trading and consent records are kept for dispute handling and statutory compliance.
+- **Legal obligation**: some records are kept because the law requires it, for the periods the law sets:
+  - Contract and order-withdrawal records — 5 years (Enforcement Decree of the Act on Consumer Protection in Electronic Commerce, Article 6(1)2)
+  - Payment and supply-of-goods records — 5 years (same Decree, Article 6(1)3)
+  - Consumer complaint and dispute records — 3 years (same Decree, Article 6(1)4)
+  - Advertising and display records — 6 months (same Decree, Article 6(1)1)
+  - Access logs of those who access our systems, including administrators — 1 year (Standards for Securing the Safety of Personal Information, PIPC Notice 2026-9, Article 8(1))
+
+  Where no statutory period applies, we set the period ourselves and state it in the tables above.
 - **Consent**: processing beyond these purposes (for example marketing email) is done only with your separate consent, and you can use the Service without giving it.
 
 For residents of the European Economic Area, GDPR Article 6(1)(b), (f), (c) and (a) apply respectively.
