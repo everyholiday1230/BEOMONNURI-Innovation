@@ -160,6 +160,12 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
     '- createTakeProfit: {"price":"68000","index":0}\n' +
     '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
+    '- updateOverlay: {"overlayId":"ai-1","patch":{"label":"support 41800"}}\n' +
+    '  NOT SUPPORTED in patch: color, width/thickness, lineStyle. The renderer derives colour and ' +
+    'thickness from the overlay source (AI draft vs user), so those keys change nothing. If the user ' +
+    'asks to recolour or thicken a line, say plainly that this is not adjustable rather than calling ' +
+    'the tool — do not report a change that will not happen.\n' +
+    '- deleteOverlay / hideOverlay: {"overlayId":"ai-1"}\n' +
     'Prices must come from MARKET_DATA — never invent a level. Shown to the user as a proposal; never auto-applied.',
   review_setup:
     'Review the setup the USER authored. `direction`, `entry`, `stop` and `targets` must be the values ' +

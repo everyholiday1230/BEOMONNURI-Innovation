@@ -51,6 +51,16 @@
          ★ 가격을 함께 적는 이유: "지지선 그렸습니다" 만으로는 고객이 자기가 생각한
            자리에 그려졌는지 확인할 수 없다. 확인할 수 없는 보고는 보고가 아니다.
       */
+      /*
+         ★★ 반영된 것과 반영되지 않은 것을 **둘 다** 말한다.
+
+           색·굵기는 렌더러가 읽지 않는다(출처로만 정해진다). 운영 결정으로 지원하지
+           않기로 했으므로, 지원하지 않는다고 말해야 한다 — 조용히 성공한 척하는 것이
+           이 저장소가 반복해서 고쳐 온 실패다.
+      */
+      ai_overlay_updated: '✏️ Updated {fields}',
+      ai_overlay_updated_partial: '✏️ Updated {done}. Could not change {skipped} — line colour and thickness are set by the chart and are not adjustable.',
+      ai_overlay_update_unsupported: 'I could not change {fields}. Line colour and thickness are set by the chart (AI drafts are dashed, your own lines are solid) and cannot be adjusted from here.',
       ai_drew_trendline: '📐 Drew a trendline from {from} to {to}',
       ai_drew_level: '📍 Drew a level at {price}',
       ai_drew_support: '📍 Drew support at {price}',

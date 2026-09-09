@@ -28,6 +28,9 @@
       ai_ctx_loaded_ind: 'コンテキストを読み込みました。{symbol} · {tf} · {bars} 本 · 指標 {n} 件が有効。',
 
       ai_tool_trendline: "📐 チャートにドラフトのトレンドラインを追加 · レイヤー: AI Draft",
+      ai_overlay_updated: '✏️ {fields} を変更しました',
+      ai_overlay_updated_partial: '✏️ {done} を変更しました。{skipped} は変更できません — 線の色と太さはチャート側で決まり、調整できません。',
+      ai_overlay_update_unsupported: '{fields} は変更できませんでした。線の色と太さはチャート側で決まります（AI のドラフトは破線、お客様の線は実線）。ここからは調整できません。',
       ai_drew_trendline: '📐 {from} から {to} へトレンドラインを描きました',
       ai_drew_level: '📍 {price} にラインを描きました',
       ai_drew_support: '📍 {price} にサポートを描きました',

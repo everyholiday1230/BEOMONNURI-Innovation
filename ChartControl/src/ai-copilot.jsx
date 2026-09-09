@@ -474,9 +474,42 @@
         case 'deleteOverlay':
           if (_removeOverlay) _removeOverlay(a.overlayId);
           return t('ai_overlay_removed');
-        case 'updateOverlay':
-          if (updateOverlay && a.patch) updateOverlay(a.overlayId, a.patch);
-          return t('ai_cmd_applied');
+        case 'updateOverlay': {
+          /*
+             ★★ **반영되지 않는 수정을 "적용했다" 고 말하지 않는다.**
+
+               전에는 patch 에 무엇이 들어와도 `ai_cmd_applied`('차트에 적용했습니다')
+               를 돌려줬다. 그런데 색과 굵기는 **렌더러가 읽지 않는다**:
+
+                 · 색   : `colorForSource(src, colors)` — 출처(AI초안/승인/사용자)로만
+                          정해진다. ext.color 를 보지 않는다.
+                 · 굵기 : renderInfo 가 `width: ext.width || 1.5` 를 계산하지만
+                          **아무도 구조분해로 꺼내 쓰지 않는다.** 선은 항상 size: 1.5 다.
+
+               즉 "이 선 빨갛게 해줘" 를 하면 화면은 그대로인데 AI 는 "적용했습니다" 라고
+               말했다. 이 저장소가 반복해서 고쳐 온 실패(하지 않은 일을 했다고 말하기)와
+               같은 것이다.
+
+             ★ 운영 결정(2026-09-09): 색·굵기 변경은 **지원하지 않는다.** 그러면 지원하지
+               않는다고 말해야 한다 — 조용히 성공한 척하는 것이 가장 나쁘다.
+
+             ★ 지원 여부를 렌더러 기준으로 판단한다. 나중에 렌더러가 색을 읽게 되면
+               이 목록만 고치면 된다.
+          */
+          const RENDERED_KEYS = ['label', 'points', 'price', 'priceLo', 'priceHi', 'text'];
+          const keys = a.patch && typeof a.patch === 'object' ? Object.keys(a.patch) : [];
+          const applied = keys.filter((k) => RENDERED_KEYS.includes(k));
+          const ignored = keys.filter((k) => !RENDERED_KEYS.includes(k));
+          if (applied.length && updateOverlay) {
+            const safe = {};
+            applied.forEach((k) => { safe[k] = a.patch[k]; });
+            updateOverlay(a.overlayId, safe);
+          }
+          /* ★ 무엇이 반영되고 무엇이 안 됐는지 둘 다 말한다. */
+          if (applied.length && ignored.length) return t('ai_overlay_updated_partial', { done: applied.join(', '), skipped: ignored.join(', ') });
+          if (applied.length) return t('ai_overlay_updated', { fields: applied.join(', ') });
+          return t('ai_overlay_update_unsupported', { fields: ignored.join(', ') });
+        }
         default:
           return null;
       }
