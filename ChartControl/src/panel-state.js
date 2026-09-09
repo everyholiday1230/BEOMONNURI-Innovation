@@ -45,7 +45,12 @@
        `.panel.qt-ai-collapsed` 의 좌우 패딩을 0 으로 두는 CSS 가 함께 있어야 한다
        (pending.css 의 .qt-ai-collapsed 규칙).
   */
-  const COLLAPSED_W = 1;
+  /*
+     ★★ **48열 기준 2칸**이다(2026-09-09). 그리드를 24 → 48 열로 올렸으므로 예전
+       1칸과 같은 실제 폭이다. 1 로 두면 접힌 패널이 절반 폭이 되어 접기 버튼이
+       들어가지 않는다.
+  */
+  const COLLAPSED_W = 2;
 
   function emit() {
     listeners.forEach((fn) => {

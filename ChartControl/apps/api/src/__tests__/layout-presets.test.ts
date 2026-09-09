@@ -120,13 +120,24 @@ describe('LAYOUT-PRESETS — 프리셋이 스스로 모순되지 않는다', () 
     expect(bad, `초기 배치 겹침:\n${bad.join('\n')}`).toEqual([]);
   });
 
-  it('[5] 24열을 넘지 않는다', () => {
+  it('[5] 선언한 열 수를 넘지 않는다', () => {
+    /*
+       ★★ 열 수를 24 로 박지 않는다. 프리셋의 `cols` 를 읽는다.
+
+         그리드를 24 → **48열**로 올렸다(2026-09-09). 24열이면 1920px 화면에서 한 칸이
+         약 71px 이라, 크기를 조절할 때 마우스를 71px 움직여야 한 칸이 바뀌어 뚝뚝
+         끊겼다. 48열이면 약 35px 이다.
+
+         숫자를 박아 두면 열 수를 바꿀 때마다 이 테스트가 틀린 실패를 낸다.
+    */
     const bad: string[] = [];
     for (const [name, p] of Object.entries(P)) {
+      const cols = (p as unknown as { cols?: number }).cols ?? 48;
+      expect(cols, `${name} 의 cols 가 없다`).toBeGreaterThan(0);
       for (const w of (p.widgets ?? []) as unknown as Array<{ id: string; x: number; w: number }>) {
-        if (w.x + w.w > 24) bad.push(`${name}/${w.id}: x+w=${w.x + w.w} > 24`);
+        if (w.x + w.w > cols) bad.push(`${name}/${w.id}: x+w=${w.x + w.w} > ${cols}`);
       }
     }
-    expect(bad, `24열 초과:\n${bad.join('\n')}`).toEqual([]);
+    expect(bad, `열 초과:\n${bad.join('\n')}`).toEqual([]);
   });
 });

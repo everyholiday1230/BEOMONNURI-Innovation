@@ -91,10 +91,16 @@ describe('LAYOUT-GROW — 넓히면 이웃이 줄어든다', () => {
     let cases = 0;
     for (const [name, p] of Object.entries(P)) {
       const ws = (p.widgets || []).filter((w) => !w.hidden);
+      /*
+         ★★ 열 수를 **프리셋에서 읽어 넘긴다.** 넘기지 않으면 함수 기본값으로
+           계산되는데 검사는 박아 둔 수로 하게 되어, 그리드 해상도를 바꿀 때마다
+           틀린 실패가 난다 — 24 → 48 로 올리며 실제로 104건 오탐이 났다.
+      */
+      const cols = (p as unknown as { cols?: number }).cols ?? 48;
       for (const w of ws) {
         for (const dir of ['e', 'w', 's', 'n']) {
           const others = ws.filter((o) => o.id !== w.id).map((o) => ({ ...o }));
-          const r = E.resolveGrowth({ ...w }, others, dir, 4);
+          const r = E.resolveGrowth({ ...w }, others, dir, 4, cols);
           const all = [r.target, ...r.others];
           cases += 1;
           for (let i = 0; i < all.length; i += 1) {
@@ -102,7 +108,7 @@ describe('LAYOUT-GROW — 넓히면 이웃이 줄어든다', () => {
               if (ov(all[i]!, all[j]!)) bad.push(`${name}/${w.id} ${dir}: ${all[i]!.id}↔${all[j]!.id}`);
             }
           }
-          if (all.some((x) => x.x < 0 || x.y < 0 || x.x + x.w > 24)) bad.push(`${name}/${w.id} ${dir}: 경계 초과`);
+          if (all.some((x) => x.x < 0 || x.y < 0 || x.x + x.w > cols)) bad.push(`${name}/${w.id} ${dir}: 경계 초과(cols=${cols})`);
         }
       }
     }

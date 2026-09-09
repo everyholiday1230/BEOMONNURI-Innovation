@@ -224,7 +224,17 @@
 .trade-body {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(24, 1fr);
+  /*
+     ★★ 48열이다(예전 24열).
+
+       24열이면 1920px 화면에서 한 칸이 약 71px 이다. 즉 크기를 조절할 때 마우스를
+       71px 움직여야 한 칸이 바뀌어 **뚝뚝 끊기는 느낌**이 난다. 48열로 올리면 한 칸이
+       약 35px 이 되어 훨씬 부드럽다.
+
+     ★ 프리셋 좌표(x·w·minW)도 함께 두 배로 바꿨다. 한쪽만 바꾸면 배치가 절반으로
+       쪼그라든다.
+  */
+  grid-template-columns: repeat(48, 1fr);
   grid-auto-rows: 40px;
   gap: var(--grid-gap);
   padding: var(--grid-gap);
@@ -246,7 +256,7 @@
   background-image:
     linear-gradient(to right, var(--color-border-subtle) 1px, transparent 1px),
     linear-gradient(to bottom, var(--color-border-subtle) 1px, transparent 1px);
-  background-size: calc((100% - 24 * var(--grid-gap)) / 24 + var(--grid-gap)) 40px;
+  background-size: calc((100% - 48 * var(--grid-gap)) / 48 + var(--grid-gap)) 40px;
   pointer-events: none;
   opacity: 0.35;
   z-index: 0;

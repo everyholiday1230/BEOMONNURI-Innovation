@@ -179,7 +179,7 @@
   }
 
   /** 성립하는 최대 확대를 찾는다. 하나도 안 되면 원래 배치를 그대로 돌려준다. */
-  function resolveGrowth(before, others, dir, want, cols = 24) {
+  function resolveGrowth(before, others, dir, want, cols = 48) {
     for (let k = want; k >= 1; k -= 1) {
       const r = buildGrowth(before, others, dir, k, cols);
       if (r) return r;
@@ -187,7 +187,7 @@
     return { target: { ...before }, others: others.map((o) => ({ ...o })) };
   }
 
-  function findFreeSpot(widgets, w, h, cols = 24) {
+  function findFreeSpot(widgets, w, h, cols = 48) {
     for (let y = 0; y < 40; y++) {
       for (let x = 0; x <= cols - w; x++) {
         const trial = { x, y, w, h, id: '__probe__' };
@@ -197,8 +197,20 @@
     return { x: 0, y: 0 };
   }
 
-  const DEFAULT_WIDGET_META = {
-    marketWatch:  { minW: 3, minH: 6,  name: 'Market Watch' },
+    /*
+     ★★ minW 는 **48열 기준**이다(2026-09-09). 그리드를 24 → 48 열로 올렸다.
+
+       24열이면 1920px 화면에서 한 칸이 약 71px 이라, 크기를 조절할 때 마우스를 71px
+       움직여야 한 칸이 바뀌어 뚝뚝 끊겼다. 48열이면 약 35px 이다.
+
+     ★ 프리셋 좌표(x·w·minW)와 CSS grid-template-columns 도 함께 두 배로 바꿨다.
+       한 곳만 고치면 배치가 절반으로 쪼그라들거나 최소폭이 절반이 된다.
+
+     ★ minH 는 그대로다 — 행 수(16)는 바꾸지 않았다. 세로는 한 칸이 약 45px 이라
+       가로만큼 끊기지 않았다.
+  */
+const DEFAULT_WIDGET_META = {
+    marketWatch:  { minW: 6, minH: 6,  name: 'Market Watch' },
     /*
        ★★ chart 최소폭을 8 → 6 으로 낮춘다.
 
@@ -209,14 +221,14 @@
        ★ 두 곳(프리셋·이 메타)이 갈리면 같은 문제가 다시 생긴다. 테스트가 두 값의
          일치를 검사한다.
     */
-    chart:        { minW: 6, minH: 6,  name: 'Main Chart' },
-    orderBook:    { minW: 3, minH: 6,  name: 'Order Book' },
-    recentTrades: { minW: 3, minH: 3,  name: 'Recent Trades' },
-    orderEntry:   { minW: 3, minH: 8,  name: 'Order Entry' },
-    positions:    { minW: 8, minH: 3,  name: 'Positions & Orders' },
-    assetsRisk:   { minW: 3, minH: 3,  name: 'Assets · Risk' },
-    aiCopilot:    { minW: 5, minH: 10, name: t('ai_copilot_title') },
-    miniChart:    { minW: 4, minH: 6,  name: 'Mini Chart' },
+    chart:        { minW: 12, minH: 6,  name: 'Main Chart' },
+    orderBook:    { minW: 6, minH: 6,  name: 'Order Book' },
+    recentTrades: { minW: 6, minH: 3,  name: 'Recent Trades' },
+    orderEntry:   { minW: 6, minH: 8,  name: 'Order Entry' },
+    positions:    { minW: 16, minH: 3,  name: 'Positions & Orders' },
+    assetsRisk:   { minW: 6, minH: 3,  name: 'Assets · Risk' },
+    aiCopilot:    { minW: 10, minH: 10, name: t('ai_copilot_title') },
+    miniChart:    { minW: 8, minH: 6,  name: 'Mini Chart' },
   };
 
   // ---------- Main hook ----------
@@ -418,7 +430,7 @@
             let cur = { ...target };
             let rest = prev.widgets.filter(w => !w.hidden && w.id !== id).map(w => ({ ...w }));
             for (const [dir, want] of dirs) {
-              const r = resolveGrowth(cur, rest, dir, want, prev.cols || 24);
+              const r = resolveGrowth(cur, rest, dir, want, prev.cols || 48);
               cur = r.target; rest = r.others;
             }
             const { _from: _f, _dir: _d, ...restPartial } = partial;
@@ -576,7 +588,7 @@
     }, []);
 
     const addWidget = useCallback((type) => {
-      const meta = DEFAULT_WIDGET_META[type] || { minW: 4, minH: 6 };
+      const meta = DEFAULT_WIDGET_META[type] || { minW: 8, minH: 6 };
       setLayout(prev => {
         const others = prev.widgets.filter(x => !x.hidden);
         const w = Math.max(meta.minW, type === 'chart' ? 12 : 6);
@@ -606,7 +618,7 @@
   // WIDGET WRAPPER — handles drag/resize on grid
   // ============================================================
   window.WidgetHost = function WidgetHost({
-    widget, cols = 24, rowH = 40, gap = 6,
+    widget, cols = 48, rowH = 40, gap = 6,
     isEditing, isLocked, isSelected, onChange,
     /** 크기 조절이 끝났을 때 호출된다 — 상위가 레이아웃을 저장한다. */
     onResizeEnd,
@@ -738,7 +750,7 @@
       const onMove = (e) => {
         const dx = Math.round((e.clientX - resize.x0) / (resize.cellW + gap));
         const dy = Math.round((e.clientY - resize.y0) / (resize.cellH + gap));
-        const minW = widget.minW || 3;
+        const minW = widget.minW || 6;
         const minH = widget.minH || 3;
         let nw = resize.ow, nh = resize.oh, nx = resize.ox, ny = resize.oy;
         if (resize.dir.includes('e')) {

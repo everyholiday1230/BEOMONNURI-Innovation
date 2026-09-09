@@ -53,22 +53,27 @@ function loadEngine(): { buildGrowth: Growth; resolveGrowth: Growth } {
 
 const { resolveGrowth } = loadEngine();
 
-/** standard-trader 기본 배치. 24×16 을 빈틈없이 채운다. */
+/**
+ * standard-trader 기본 배치. **48열** × 16행을 빈틈없이 채운다.
+ *
+ * ★ 그리드를 24 → 48 열로 올렸다(한 칸 71px → 35px). 여기 좌표도 두 배다.
+ *   mock-data.js 와 어긋나면 이 테스트가 실제와 다른 것을 검사한다.
+ */
 const BASE: W[] = [
-  { id: 'market', type: 'marketWatch', x: 0, y: 0, w: 4, h: 16 },
-  { id: 'chart', type: 'chart', x: 4, y: 0, w: 7, h: 11 },
-  { id: 'positions', type: 'positions', x: 4, y: 11, w: 13, h: 5 },
-  { id: 'ai', type: 'aiCopilot', x: 11, y: 0, w: 6, h: 11 },
-  { id: 'orderbook', type: 'orderBook', x: 17, y: 0, w: 3, h: 11 },
-  { id: 'trades', type: 'recentTrades', x: 17, y: 11, w: 3, h: 5 },
-  { id: 'orderEntry', type: 'orderEntry', x: 20, y: 0, w: 4, h: 11 },
-  { id: 'assets', type: 'assetsRisk', x: 20, y: 11, w: 4, h: 5 },
+  { id: 'market', type: 'marketWatch', x: 0, y: 0, w: 8, h: 16 },
+  { id: 'chart', type: 'chart', x: 8, y: 0, w: 14, h: 11 },
+  { id: 'positions', type: 'positions', x: 8, y: 11, w: 26, h: 5 },
+  { id: 'ai', type: 'aiCopilot', x: 22, y: 0, w: 12, h: 11 },
+  { id: 'orderbook', type: 'orderBook', x: 34, y: 0, w: 6, h: 11 },
+  { id: 'trades', type: 'recentTrades', x: 34, y: 11, w: 6, h: 5 },
+  { id: 'orderEntry', type: 'orderEntry', x: 40, y: 0, w: 8, h: 11 },
+  { id: 'assets', type: 'assetsRisk', x: 40, y: 11, w: 8, h: 5 },
 ];
 
 function grow(id: string, dir: string, want = 1) {
   const before = BASE.find((w) => w.id === id)!;
   const others = BASE.filter((w) => w.id !== id).map((w) => ({ ...w }));
-  const r = resolveGrowth({ ...before }, others, dir, want, 24);
+  const r = resolveGrowth({ ...before }, others, dir, want, 48);
   return { before, after: r!.target, all: [r!.target, ...r!.others] };
 }
 
@@ -77,7 +82,7 @@ function invariants(all: W[]) {
   const bad: string[] = [];
   for (const w of all) {
     if (w.x < 0 || w.y < 0) bad.push(`${w.id} 음수 좌표 x${w.x} y${w.y}`);
-    if (w.x + w.w > 24) bad.push(`${w.id} 오른쪽 경계 초과`);
+    if (w.x + w.w > 48) bad.push(`${w.id} 오른쪽 경계 초과`);
     if (w.w < 1 || w.h < 1) bad.push(`${w.id} 크기 0`);
   }
   for (let i = 0; i < all.length; i += 1) {
@@ -151,7 +156,7 @@ describe('패널 크기 조절 — 네 방향', () => {
     */
     const before = BASE.find((w) => w.id === 'orderEntry')!;
     const others = BASE.filter((w) => w.id !== 'orderEntry').map((w) => ({ ...w }));
-    const r = resolveGrowth({ ...before }, others, 'w', 1, 24)!;
+    const r = resolveGrowth({ ...before }, others, 'w', 1, 48)!;
     expect(r.target.w).toBe(before.w);
     expect(invariants([r.target, ...r.others])).toEqual([]);
   });
@@ -163,7 +168,7 @@ describe('패널 크기 조절 — 네 방향', () => {
     */
     const before = BASE.find((w) => w.id === 'positions')!;
     const others = BASE.filter((w) => w.id !== 'positions').map((w) => ({ ...w }));
-    const r = resolveGrowth({ ...before }, others, 'n', 5, 24)!;
+    const r = resolveGrowth({ ...before }, others, 'n', 5, 48)!;
     expect(invariants([r.target, ...r.others])).toEqual([]);
   });
 

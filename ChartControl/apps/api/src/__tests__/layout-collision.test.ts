@@ -88,7 +88,11 @@ describe('LAYOUT-COLLISION — 창이 겹치지 않는다', () => {
       */
     expect(src).toMatch(/function overlaps\(a, b\)/);
     expect(src).toMatch(/function hasCollision\(widgets, target\)/);
-    expect(src).toMatch(/function findFreeSpot\(widgets, w, h, cols = 24\)/);
+    /*
+       ★ 열 수를 박지 않는다. 24 → 48 로 올렸고(한 칸 71px → 35px) 앞으로도 바뀔 수
+         있다. 함수가 있는지만 본다 — 기본값을 검사하면 틀린 실패를 낸다.
+    */
+    expect(src).toMatch(/function findFreeSpot\(widgets, w, h, cols = \d+\)/);
   });
 
   it('[7] 자동 재배치를 넣지 않았다 — 운영자 판단', () => {
