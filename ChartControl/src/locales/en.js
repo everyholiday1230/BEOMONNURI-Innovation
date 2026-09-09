@@ -228,6 +228,30 @@
       ai_indicator_unsupported: 'Indicator not supported: {name}',
       ai_indicator_removed: 'Removed {name} indicator',
       ai_overlay_removed: 'Overlay removed',
+      /* ★ '삭제' 와 '숨김' 은 고객에게 전혀 다른 말이다. 숨김은 되돌릴 수 있다. */
+      ai_overlay_hidden: 'Overlay hidden — it is still there, just not drawn',
+      /*
+         ★★ 서버 내부 영어를 고객에게 그대로 보여주지 않는다.
+
+           전에는 `AI response failed: {msg}` 에 개발자용 문장이 들어갔다:
+             "setup review requires market data" / "Model output rejected: ..." 등.
+           BEWHITE 님이 본 'AI response failed: HTTP 403' 이 이것이다.
+
+         ★ 원인만 말하지 않고 **고객이 할 수 있는 일**을 함께 적는다. 다음 행동이 없으면
+           고객은 같은 요청을 반복한다.
+      */
+      ai_err_session: 'Your session needs refreshing. Please reload the page and ask again — your conversation is kept.',
+      ai_err_signin: 'Please sign in again to continue.',
+      ai_err_disabled: 'The AI assistant is turned off right now. Please try again later.',
+      ai_err_unavailable: 'The AI assistant is not available right now. Please try again in a moment.',
+      ai_err_network: 'The connection dropped before the answer finished. Please ask again.',
+      ai_err_ungrounded: 'I could not read live market data, so I did not give you price levels. Asking again usually works — I will not quote levels I cannot verify.',
+      ai_err_invalid: 'I tried to draw something that did not pass validation, so nothing was drawn. Please ask again, ideally with the price you have in mind.',
+      ai_err_injection: 'That message looked like an attempt to change my instructions, so I did not process it. Please rephrase what you would like to look at.',
+      ai_err_stream: 'Something broke while writing the answer. Please ask again.',
+      ai_err_generic: 'Something went wrong and the answer did not complete. Please ask again. (ref: {code})',
+      /* ★ 조용히 무시하는 것보다 낫다. 무엇이 안 됐는지 이름을 말한다. */
+      ai_cmd_unknown: 'I could not apply "{command}" — this chart action is not supported yet, so nothing was drawn.',
       ai_chip_fib_cmd: 'Draw Fibonacci retracement levels on the current swing.',
       ai_chip_rr_cmd: 'Estimate the risk/reward for a reasonable setup here.',
       ai_stop: 'Stop',

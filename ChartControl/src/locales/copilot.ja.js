@@ -55,7 +55,6 @@
       toast_draft_failed: "下書きを作成できませんでした",
       ai_step_validating: "リクエストを確認しています",
       ai_step_tool: "{name} を使用中",
-      ai_tool_signal: "📊 オーバーレイ5件を生成 · エントリー帯 / 損切り / 利確1-3 / ロングマーカー",
       ai_tool_edited: "✍️ 利用者の修正を反映 · {detail}",
       ai_hint_drag: "📌 トレンドライン両端の円をドラッグして位置を調整できます。修正すると会話に反映されます。",
       ai_invalidation_note: "· この条件が発生した場合、シグナルは自動的に無効化されます",

@@ -470,7 +470,22 @@
         case 'removeIndicator':
           if (util && util.removeIndicator) util.removeIndicator(a.indicator);
           return t('ai_indicator_removed', { name: a.indicator });
+        /*
+           ★★ **숨기기가 삭제하고 있었다.** 두 명령이 같은 처리로 묶여 있었다.
+
+             `hideOverlay` 와 `deleteOverlay` 가 둘 다 `_removeOverlay` 를 불렀다.
+             즉 "이 선 잠깐 숨겨줘" 를 하면 선이 **없어졌다.** 되돌릴 방법이 없다 —
+             고객이 그린 선이면 다시 그려야 한다.
+
+           ★ 숨기기는 `hidden: true` 로 표시만 한다. 렌더러가 그 값을 보고 건너뛴다
+             (chart-kline.jsx:1488, chart-canvas.jsx:346에서 확인). 레이어 패널의 눈
+             아이콘이 쓰는 방식과 같다 — 같은 동작이 경로에 따라 다르면 안 된다.
+
+           ★ 문구도 구분한다. '삭제했습니다' 와 '숨겼습니다' 는 고객에게 전혀 다른 말이다.
+        */
         case 'hideOverlay':
+          if (updateOverlay) updateOverlay(a.overlayId, { hidden: true });
+          return t('ai_overlay_hidden');
         case 'deleteOverlay':
           if (_removeOverlay) _removeOverlay(a.overlayId);
           return t('ai_overlay_removed');
@@ -496,7 +511,14 @@
              ★ 지원 여부를 렌더러 기준으로 판단한다. 나중에 렌더러가 색을 읽게 되면
                이 목록만 고치면 된다.
           */
-          const RENDERED_KEYS = ['label', 'points', 'price', 'priceLo', 'priceHi', 'text'];
+          /*
+             ★ 렌더러가 실제로 읽는 키만 넣는다. 확인한 근거:
+                 hidden  — chart-kline.jsx:1488, chart-canvas.jsx:346 에서 걸러낸다
+                 locked  — chart-canvas.jsx:574 에서 편집을 막는다
+                 label·points·price·priceLo·priceHi·text — 그리기에 직접 쓰인다
+               색·굵기는 없다(출처로만 정해진다) — 그래서 아래에서 지원하지 않는다고 말한다.
+          */
+          const RENDERED_KEYS = ['label', 'points', 'price', 'priceLo', 'priceHi', 'text', 'hidden', 'locked'];
           const keys = a.patch && typeof a.patch === 'object' ? Object.keys(a.patch) : [];
           const applied = keys.filter((k) => RENDERED_KEYS.includes(k));
           const ignored = keys.filter((k) => !RENDERED_KEYS.includes(k));
@@ -511,7 +533,23 @@
           return t('ai_overlay_update_unsupported', { fields: ignored.join(', ') });
         }
         default:
-          return null;
+          /*
+             ★★ **조용히 무시하지 않는다.** 전에는 `return null` 이었다.
+
+               호출부가 `if (note) setMsgs(...)` 이므로 null 은 **대화에 아무것도 남지
+               않는다.** 즉 서버가 명령을 보냈는데 화면은 그리지도 않고 말하지도 않는다.
+               고객에게는 AI 가 요청을 무시한 것으로 보인다.
+
+             ★ 실제로 이 경로가 열려 있다. `createSignalProposal` ·
+               `createOrderDraftProposal` 이 서버 화이트리스트(AI_CHART_COMMANDS)에는
+               있는데 여기 처리가 없다. 서버가 발행하지는 않지만, 모델이 그 이름을
+               호출하면 스키마 검증을 통과해 여기까지 온 뒤 조용히 사라진다.
+
+             ★ 명령 이름을 문구에 넣는다. 개발자가 로그를 볼 때 무엇이 빠졌는지 알아야
+               고칠 수 있고, 고객도 "무언가 안 됐다" 는 사실을 알 수 있다. 아무 말도
+               없는 것이 가장 나쁘다.
+          */
+          return t('ai_cmd_unknown', { command: String(cmd.command) });
       }
     }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, t]);
 
@@ -800,7 +838,17 @@
           try { localStorage.setItem(CONV_KEY, conversationId); } catch (e) { /* 저장 실패는 치명적이지 않다 */ }
         }
       } catch (e) {
-        setMsgs((m) => [...m, makeMsg('ai', t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]);
+        /*
+           ★★ 여기도 서버 원문을 그대로 띄우고 있었다. 대화방을 만드는 요청이 실패하는
+             경로다 — 세션 만료(401·403)가 가장 흔하다.
+
+           ★ 오류 코드로 갈라 안내한다. 원문을 넣으면 개발자용 영어가 노출된다.
+        */
+        const code = String((e && (e.code || e.status)) || '');
+        const key = (code === '403' || code === 'CSRF_FAILED' || code === 'HTTP_403') ? 'ai_err_session'
+          : (code === '401' || code === 'HTTP_401' || code === 'UNAUTHENTICATED') ? 'ai_err_signin'
+            : 'ai_err_generic';
+        setMsgs((m) => [...m, makeMsg('ai', key === 'ai_err_generic' ? t(key, { code }) : t(key), { icon: 'warn' })]);
         return;
       }
 
@@ -1059,16 +1107,71 @@
               }
 
               const insuff = (ev.code === 'INSUFFICIENT_POINTS');
+              /*
+                 ★★ **서버 내부 문장을 고객에게 그대로 보여주지 않는다.**
+
+                   `ai_stream_error: 'AI response failed: {msg}'` 에 서버 message 가
+                   그대로 들어갔다. 그 message 는 개발자를 위한 영어다:
+
+                     "setup review requires market data"
+                     "Model output rejected: guarantee-language"
+                     "kill switch state unknown — controls were never read"
+
+                   고객이 본 화면이 정확히 이것이다(BEWHITE 님 신고 'AI response failed').
+                   무엇이 잘못됐는지도, 무엇을 하면 되는지도 알 수 없다.
+
+                 ★ 코드별로 **고객이 할 수 있는 일**을 말한다. 원인만 말하고 다음 행동을
+                   주지 않으면 고객은 같은 요청을 반복한다.
+
+                 ★ 사전에 없는 코드는 일반 문구로 감싼다. 새 코드가 추가돼도 영어 원문이
+                   새지 않는다 — 이 방어가 없으면 다음 코드에서 같은 일이 반복된다.
+              */
+              const CODE_MSG = {
+                'ungrounded-proposal': 'ai_err_ungrounded',
+                'proposal-invalid': 'ai_err_invalid',
+                'prompt-injection': 'ai_err_injection',
+                'stream-exception': 'ai_err_stream',
+                AI_DISABLED: 'ai_err_disabled',
+                AI_UNAVAILABLE: 'ai_err_unavailable',
+              };
+              const mapped = CODE_MSG[ev.code];
               setMsgs((m) => [...m, makeMsg('ai',
                 insuff ? t('ai_need_points')
                   : unsafe ? t('ai_unsafe_output')
-                    : t('ai_stream_error', { msg: ev.message || ev.code || '' }),
+                    : mapped ? t(mapped)
+                      /*
+                         ★ 여기까지 오면 사전에 없는 코드다. 서버 message 를 **넣지 않는다** —
+                           개발자용 영어가 고객에게 새는 경로가 바로 이것이었다. 대신 코드만
+                           괄호로 보여줘서 문의 시 원인을 특정할 수 있게 한다.
+                      */
+                      : t('ai_err_generic', { code: String(ev.code || '') }),
                 { icon: 'warn' })]);
               return;
             }
             // 'tool' | 'state' | 'usage' — 내부 신호, UI 에 별도 표시하지 않는다.
           },
-          onError: (e) => { setThinking(null); setStreaming(null); const insuff = (e && e.code === 'INSUFFICIENT_POINTS'); setMsgs((m) => [...m, makeMsg('ai', insuff ? t('ai_need_points') : t('ai_stream_error', { msg: (e && e.message) || '' }), { icon: 'warn' })]); },
+          /*
+             ★★ 이 경로가 BEWHITE 님이 본 'AI response failed: HTTP 403' 을 만들었다.
+
+               HTTP 오류(403·503 등)는 onEvent 가 아니라 여기로 온다. 그리고
+               `ai_stream_error` 에 서버 message 나 'HTTP 403' 을 그대로 넣었다.
+               고객은 무엇이 잘못됐는지도, 무엇을 하면 되는지도 알 수 없다.
+
+             ★ 코드별로 **고객이 할 수 있는 일**을 말한다. 403 은 대개 세션·토큰 문제이므로
+               새로고침을 안내한다(근본 원인은 885ea6a 에서 고쳤지만, 다른 이유로 403 이
+               올 수도 있다).
+          */
+          onError: (e) => {
+            setThinking(null); setStreaming(null);
+            const code = String((e && e.code) || '');
+            const key = code === 'INSUFFICIENT_POINTS' ? 'ai_need_points'
+              : (code === 'CSRF_FAILED' || code === 'HTTP_403') ? 'ai_err_session'
+                : code === 'HTTP_401' ? 'ai_err_signin'
+                  : (code === 'AI_DISABLED' || code === 'HTTP_503') ? 'ai_err_disabled'
+                    : code === 'NETWORK' ? 'ai_err_network'
+                      : null;
+            setMsgs((m) => [...m, makeMsg('ai', key ? t(key) : t('ai_err_generic', { code }), { icon: 'warn' })]);
+          },
           onDone: () => { setThinking(null); setStreaming(null); if (acc) setMsgs((m) => [...m, makeMsg('ai', acc)]); activeStreamRef.current = null; },
         },
       );

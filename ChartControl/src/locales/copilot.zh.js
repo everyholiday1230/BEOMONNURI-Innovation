@@ -56,7 +56,6 @@
       toast_draft_failed: '无法准备草稿',
       ai_step_validating: '正在检查请求',
       ai_step_tool: '正在使用 {name}',
-      ai_tool_signal: '📊 已创建 5 个图形 · 入场区间 / 止损 / TP1-3 / 做多标记',
       ai_tool_edited: '✍️ 已应用你的修改 · {detail}',
       ai_hint_drag: '📌 拖动趋势线两端的圆点即可调整。你的修改会同步到对话中。',
       ai_invalidation_note: '· 出现该条件时，信号将自动作废',

@@ -93,7 +93,6 @@
       toast_draft_failed: 'Could not prepare the draft',
       ai_step_validating: 'Checking the request',
       ai_step_tool: 'Using {name}',
-      ai_tool_signal: '📊 5 overlays created · entry zone / SL / TP1-3 / long marker',
       ai_tool_edited: '✍️ Your edit applied · {detail}',
       ai_hint_drag: '📌 Drag the circles at either end of the trendline to adjust it. Your edits are reflected in the conversation.',
       ai_invalidation_note: '· signal is invalidated automatically when this condition occurs',
