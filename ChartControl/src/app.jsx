@@ -2704,8 +2704,39 @@
     }, [getChart]);
 
     /** 드로잉 도구 선택. 그리기 가능한 도구면 KLineChart 그리기를 시작한다. */
+    /*
+       ★★ Esc 로 그리기 도구를 끈다.
+
+         입력창에만 걸면 **입력창에 포커스가 있을 때만** 동작한다. 차트를 클릭한 뒤
+         Esc 를 누르면 아무 일도 없고, 도구가 켜진 채 남아 다음 클릭이 의도하지 않은
+         선을 만든다(실측으로 확인했다).
+
+       ★ 커서 도구일 때는 걸지 않는다. 다른 화면 요소의 Esc(모달 닫기 등)를 가로채면
+         안 된다.
+    */
+    useEffect(() => {
+      if (activeTool === 'cursor') return undefined;
+      const onKey = (e) => {
+        if (e.key !== 'Escape') return;
+        /* 입력창에서 누른 경우는 그쪽 핸들러가 처리한다(중복 실행 방지). */
+        const el = document.activeElement;
+        if (el && el.closest && el.closest('.chart-hline-input')) return;
+        setHlinePrice('');
+        setActiveTool('cursor');
+        if (actions) actions.startDrawing('cursor', magnetMode);
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [activeTool, actions, magnetMode]);
+
     const pickTool = useCallback((toolId) => {
       setActiveTool(toolId);
+      /*
+         ★ 도구를 바꾸면 가격 입력을 비운다. 남겨 두면 나중에 수평선 도구를 다시
+           켰을 때 예전 값이 채워져 있고, 그대로 Enter 를 누르면 의도하지 않은
+           가격에 선이 생긴다.
+      */
+      setHlinePrice('');
       if (actions) actions.startDrawing(toolId, magnetMode);
     }, [actions, magnetMode]);
 
@@ -2881,13 +2912,22 @@
                 </button>
               );
             })}
-            <div className="chart-drawtool-sep"/>
             {/*
-               ★ 정확한 가격에 수평선 긋기. 클릭·드래그로는 예: BTC 80,000 처럼
-                 정확한 값을 맞출 수 없다(키움 등 국내 증권사에 있는 기능).
-                 값을 입력하고 Enter/버튼으로 그 가격에 선을 만든다.
+               ★★ 가격 입력을 **수평선 도구를 켤 때만** 보여준다.
+
+                 예전에는 입력창(84px)과 버튼이 툴바에 **항상** 있었다. 그래서
+                 · 좁은 화면에서 도구 아이콘들이 밀렸고
+                 · 수평선 도구가 두 개 있는 것처럼 보였다(3번째 아이콘 + 이 버튼)
+                 실제로 "뭐가 다르냐" 는 질문을 받았다.
+
+               ★ 도구를 켜면 두 방법을 다 쓸 수 있다:
+                   · 차트를 클릭  → 그 자리에 (눈으로 찍기)
+                   · 가격을 입력  → 정확한 값에 (BTC 80,000 처럼)
+                 클릭·드래그로는 정확한 값을 맞출 수 없다. 실측에서 방금 그린 선이
+                 78503.24188750003 이었다.
             */}
-            {(() => {
+            {activeTool === 'horizontal' && <div className="chart-drawtool-sep"/>}
+            {activeTool === 'horizontal' && (() => {
               const drawAtPrice = () => {
                 const raw = String(hlinePrice).replace(/,/g, '').trim();
                 const price = parseFloat(raw);
@@ -2910,7 +2950,19 @@
                     inputMode="decimal"
                     value={hlinePrice}
                     onChange={(e) => setHlinePrice(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') drawAtPrice(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') drawAtPrice();
+                      /*
+                         ★ Esc 로 도구를 끈다. 입력창만 닫으면 도구가 켜진 채 남아
+                           다음 클릭이 의도치 않게 선을 만든다.
+                      */
+                      if (e.key === 'Escape') { setHlinePrice(''); pickTool('cursor'); }
+                    }}
+                    /*
+                       ★ 도구를 켜면 바로 타이핑할 수 있게 한다. 입력창이 보이는데
+                         한 번 더 클릭해야 하면 "왜 안 써지나" 가 된다.
+                    */
+                    autoFocus
                     aria-label={t('a11y_hline_price')} placeholder={t('hline_price_ph')}
                     title={t('hline_price_title')}
                     style={{ width: 84, height: 24, fontSize: 11, padding: '0 6px', borderRadius: 4, border: '1px solid var(--color-border-default)', background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}
