@@ -872,6 +872,66 @@
               */
               const unsafe = (ev.code === 'unsafe-output');
               if (unsafe) acc = '';
+
+              /*
+                 ★★ **방향을 안 말했을 때는 오류가 아니다 — 되물어야 한다.**
+
+                   서버(orchestrator)는 고객이 방향(롱/숏)을 말하지 않았는데 모델이
+                   수준을 제안하려 하면 `direction-not-stated` 로 거부한다. 방향을 AI 가
+                   고르면 그것이 곧 매매 신호가 되므로, 그 거부 자체는 맞다.
+
+                 ★★ 그런데 이 화면이 그것을 **개발자용 영어 문장 그대로** 경고로 띄웠다:
+
+                     ⚠ the user has not stated a direction — ask them to choose ...
+
+                   고객에게는 그냥 고장으로 보인다. BEWHITE 님이 "또 안 된다" 고 한 것이
+                   이것이다. 방향을 안 쓰는 것이 오히려 자연스러운 질문 방식이라
+                   (예: "BTC 어때?") 대부분의 요청에서 이 화면이 나왔다.
+
+                 ★ 스트림에 도구 결과를 모델에 되먹이는 루프가 없다(단일 패스). 그래서
+                   모델이 스스로 되묻게 만들 수 없다. 되묻는 문장은 이 화면이 만든다 —
+                   그래야 고객의 UI 언어로 나온다.
+
+                 ★ 롱·숏을 **같은 크기로 나란히** 놓는다. 하나를 먼저·크게 놓으면 그것이
+                   추천으로 읽히고, 그러면 방향을 AI 가 고른 것과 다르지 않다.
+
+                 ★ acc 를 비우지 않는다. 방향 없이도 할 수 있는 관찰(지지·저항·추세선)은
+                   이미 유효하게 스트리밍됐다. 그것을 지우면 고객은 아무것도 못 받는다.
+              */
+              if (ev.code === 'direction-not-stated') {
+                if (acc) { setMsgs((m) => [...m, makeMsg('ai', acc)]); acc = ''; }
+                /*
+                   ★★ 고객이 쓴 언어로 되묻는다.
+
+                     이 문장은 서버가 아니라 이 화면이 만들기 때문에 **UI 언어**로 나온다.
+                     그런데 UI 는 en/ja/zh 뿐이라, 한국어로 질문한 고객이 영어 답을 받는다.
+                     방금 고친 "고객이 쓴 언어로 답한다" 가 이 경로에서만 깨진다.
+
+                   ★ UI 에 한국어를 추가하는 것이 아니다(운영 결정: 한국어 UI 없음).
+                     **AI 의 답변만** 고객 언어를 따르게 하는 것이고, 그것은 이미 정해진
+                     방침이다. 그래서 이 문장에 한해 한글 입력을 보고 갈라준다.
+
+                   ★ 판정은 한글 음절 존재 여부다. 로마자로 쓴 한국어("long? eottae?")까지
+                     잡으려 하면 다른 언어를 오판한다 — 넓히지 않는다.
+                */
+                const ko = /[\uAC00-\uD7A3]/.test(text);
+                setMsgs((m) => [...m, makeMsg('ai', ko
+                  ? '진입·손절·목표 가격을 잡으려면 어느 방향으로 보고 계신지 알아야 합니다. 여기서는 롱과 숏 모두 성립하는데 가격대가 달라집니다. 방향을 말씀해 주시면 그 전제로 검토해 드리겠습니다. 롱인가요, 숏인가요?'
+                  : t('ai_ask_direction'))]);
+                setFollowUps(ko
+                  ? [
+                    /* ★ 칩 문구에도 방향 단어(롱/숏)가 들어 있어야 한다 — 이것을 눌러 보낸
+                         문장이 다시 서버의 방향 검사를 통과해야 하기 때문이다. */
+                    { key: 'ko_long', labelText: '롱', questionText: '여기서 롱으로 보고 있어요 — 제 셋업을 검토해 주세요' },
+                    { key: 'ko_short', labelText: '숏', questionText: '여기서 숏으로 보고 있어요 — 제 셋업을 검토해 주세요' },
+                  ]
+                  : [
+                    { key: 'ai_dir_long_chip', promptKey: 'ai_dir_long_prompt' },
+                    { key: 'ai_dir_short_chip', promptKey: 'ai_dir_short_prompt' },
+                  ]);
+                return;
+              }
+
               const insuff = (ev.code === 'INSUFFICIENT_POINTS');
               setMsgs((m) => [...m, makeMsg('ai',
                 insuff ? t('ai_need_points')
@@ -1257,8 +1317,17 @@
           <div className="ai-quick ai-quick--followup" aria-label={t('ai_fu_title')}>
             <span className="ai-quick__label">{t('ai_fu_title')}</span>
             {followUps.map((f) => {
-              const label = f && f.key ? t(f.key) : '';
-              const question = f && f.promptKey ? t(f.promptKey, f.params || {}) : '';
+              /*
+                 ★ 사전 키 대신 **문구를 직접** 받을 수도 있게 한다(labelText/questionText).
+
+                   방향 되묻기 칩은 고객이 쓴 언어를 따라야 하는데, UI 사전에는 한국어가
+                   없다. 사전을 거치지 않고 문구를 그대로 넘길 길이 필요하다.
+
+                 ★ 아래 '사전에 없으면 그리지 않는다' 검사를 우회하지 않는다 — 직접 넘긴
+                   문구는 빈 값만 걸러내면 충분하다(키 미해결 문제가 없다).
+              */
+              const label = f && f.labelText ? f.labelText : (f && f.key ? t(f.key) : '');
+              const question = f && f.questionText ? f.questionText : (f && f.promptKey ? t(f.promptKey, f.params || {}) : '');
               /* ★ 사전에 없으면 t() 가 키를 그대로 돌려준다. 그런 칩은 그리지 않는다. */
               if (!label || label === f.key || !question || question === f.promptKey) return null;
               return (

@@ -239,6 +239,18 @@
            전에 보이는 것은 다르다(전자상거래법 §13②5호 는 계약 체결 전 고지를 요구).
          ★ 유리한 조건만 적지 않는다. '사용하면 환불되지 않는다' 를 함께 적는다.
       */
+      /*
+         ★ 방향을 안 말했을 때 되묻는 문장.
+
+           ★ 어느 쪽도 권하지 않는다. "롱이 유리해 보이지만" 같은 한 마디가 곧 추천이
+             되고, 그러면 방향을 AI 가 고른 것과 같아진다.
+           ★ 왜 필요한지를 먼저 적는다. 이유 없이 물으면 고객은 못 알아들은 줄로 읽는다.
+      */
+      ai_ask_direction: 'To place entry, stop-loss and take-profit levels I need to know which way you are trading. Both directions are equally valid here — the levels differ, so tell me yours and I will check it. Long or short?',
+      ai_dir_long_chip: 'Long',
+      ai_dir_long_prompt: 'I am going long here — review my setup',
+      ai_dir_short_chip: 'Short',
+      ai_dir_short_prompt: 'I am going short here — review my setup',
       pt_withdraw_right_title: 'Before you pay — your right to cancel',
       /*
          ★ AI 학습 이용 동의(선택). 거절해도 서비스를 그대로 쓸 수 있다는 사실을

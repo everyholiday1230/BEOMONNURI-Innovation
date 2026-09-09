@@ -496,3 +496,53 @@ describe('BedrockConverseProvider (Converse stream mapping)', () => {
     expect(cmd && cmd.command.command).toBe('addIndicator');
   });
 });
+
+/*
+   ★★ 되묻기 칩이 **다시 막히지 않는지** 잠근다.
+
+     BEWHITE 님이 "또 안 된다" 고 한 원인: 방향을 말하지 않은 요청을 서버가
+     `direction-not-stated` 로 거부했는데, 화면이 그것을 개발자용 영어 문장 그대로
+     경고로 띄웠다. 방향 없이 묻는 것이 오히려 자연스러워서 대부분의 질문이 그렇게 됐다.
+
+     화면은 이제 되묻고 롱·숏 칩을 준다. 그런데 **그 칩을 눌러 보낸 문장이 같은 서버
+     검사를 다시 통과해야** 한다. 통과하지 못하면 눌러도 또 되묻는 무한 루프가 된다 —
+     고객에게는 여전히 고장이다.
+
+   ★ 그래서 칩 문구를 여기에 그대로 적어 검사에 넣는다. 문구를 고치면 이 테스트가
+     깨지고, 깨지면 왕복이 성립하는지 다시 확인하게 된다.
+*/
+describe('방향 되묻기 칩은 서버 방향 검사를 통과한다 (무한 루프 방지)', () => {
+  const LONG_WORDS = ['long', '롱', '매수', '買い', 'ロング', '做多', '买入'];
+  const SHORT_WORDS = ['short', '숏', '매도', '空売り', 'ショート', '做空', '卖出'];
+  const statesDirection = (s: string) => {
+    const x = s.toLowerCase();
+    return LONG_WORDS.some((w) => x.includes(w)) || SHORT_WORDS.some((w) => x.includes(w));
+  };
+
+  /* src/ai-copilot.jsx 및 src/locales/{en,ja,zh}.js 의 칩 문구와 일치해야 한다. */
+  const CHIPS = [
+    '여기서 롱으로 보고 있어요 — 제 셋업을 검토해 주세요',
+    '여기서 숏으로 보고 있어요 — 제 셋업을 검토해 주세요',
+    'I am going long here — review my setup',
+    'I am going short here — review my setup',
+    'ここはロングで見ています — 私のセットアップを検証してください',
+    'ここはショートで見ています — 私のセットアップを検証してください',
+    '我这里看做多 — 请核对我的方案',
+    '我这里看做空 — 请核对我的方案',
+  ];
+
+  it.each(CHIPS)('칩 문장이 방향 선언으로 인정된다: %s', (chip) => {
+    expect(statesDirection(chip)).toBe(true);
+  });
+
+  /* ★ 반대쪽도 잠근다 — 방향 없는 질문은 여전히 되물어야 한다. 이 검사를 느슨하게
+       만들면(예: '올라' 를 롱으로 인정) AI 가 방향을 고른 것과 같아진다. */
+  it.each([
+    'BTC 어때?',
+    'BTC 분석해줘',
+    'what do you think of BTC',
+    '올라갈까요?',
+  ])('방향을 말하지 않은 질문은 되묻는다: %s', (msg) => {
+    expect(statesDirection(msg)).toBe(false);
+  });
+});
