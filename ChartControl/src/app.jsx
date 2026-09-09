@@ -670,6 +670,20 @@
       if (next && next !== market) setMarket(next);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [route.query.symbol]);
+    /*
+       ★★★ 차트에 실을 봉 수. **220 이 왼쪽 공백의 실제 원인이었다.**
+
+         진단 노출(window.__qtChartInfo)로 재보니 차트가 든 봉이 220개였고, 보이는
+         구간이 154~220 이었다. 즉 화면에 66봉만 있고, 확대를 조금만 풀면 220개로는
+         폭을 못 채워 **왼쪽이 빈다.**
+
+       ★ 앞서 live-market 의 초기 요청을 300→1000 으로 올렸지만 **차트에는 닿지
+         않았다.** 배열 크기를 정하는 것은 이 값이다. 그것을 계측 없이 추측해서
+         엉뚱한 곳을 고쳤다.
+
+       ★ 서버는 1000봉을 준다(실측: /api/market/candles?limit=1000 → 1000개).
+    */
+    const CHART_BAR_COUNT = 1000;
     const [timeframe, setTimeframe] = useState('15m');
 
     /*
@@ -736,7 +750,7 @@
       if (window.QTLive) window.QTLive.setActiveTimeframe(timeframe);
     }, [timeframe]);
 
-    const candles = useMemo(() => QT.generateCandles({ symbol: market.base + market.quote, tf: timeframe, count: 220, endPrice: market.price }), [market.base, market.quote, timeframe, market.price, liveVersion]);
+    const candles = useMemo(() => QT.generateCandles({ symbol: market.base + market.quote, tf: timeframe, count: CHART_BAR_COUNT, endPrice: market.price }), [market.base, market.quote, timeframe, market.price, liveVersion]);
     const [lastPrice, setLastPrice] = useState(market.price);
     const [prevPrice, setPrevPrice] = useState(market.price);
     const [orderBook, setOrderBook] = useState(() => QT.generateOrderBook(market.price));
