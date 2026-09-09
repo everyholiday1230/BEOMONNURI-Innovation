@@ -251,3 +251,13 @@
   background: var(--color-bg-hover, #22262e);
   outline: none;
 }
+
+/*
+   ★ 랜딩 요금제에서 고른 플랜을 구독 화면에서 표시한다.
+     표시가 없으면 도착해서 다시 골라야 하고, 랜딩에서 고른 행위가 버려진다.
+   ★ outline 을 쓴다 — border 를 바꾸면 버튼 크기가 변해 줄이 흔들린다.
+*/
+.btn.is-wanted {
+  outline: 2px solid var(--accent, #4c8dff);
+  outline-offset: 2px;
+}

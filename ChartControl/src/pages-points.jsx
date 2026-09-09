@@ -578,7 +578,29 @@
                         {sub.purchasablePlans.map((p) => (
                           <button
                             key={p.code}
-                            className={`btn btn--sm ${p.code === sub.subscription.planCode ? '' : 'btn--primary'}`}
+                            /*
+                               ★★ 랜딩에서 `#/points?plan=pro` 로 온 경우 그 플랜을 눌러야 할
+                                 버튼으로 표시한다.
+
+                                 랜딩의 요금제 카드가 전부 가입 링크였고(수익 누수), 이제는
+                                 고른 플랜을 가지고 여기로 온다. 그런데 도착해서 **어느 것을
+                                 골랐는지 표시가 없으면** 다시 고르게 된다 — 랜딩에서 고른
+                                 행위가 버려진다.
+
+                               ★ 자동으로 결제를 시작하지는 않는다. URL 파라미터만으로
+                                 PayPal 로 보내면 링크를 받은 사람이 의도 없이 결제 흐름에
+                                 들어간다. 표시까지만 한다.
+                            */
+                            ref={(el) => {
+                              const want = shellProps && shellProps.query && shellProps.query.plan;
+                              if (el && want && want === p.code && !el.dataset.qtScrolled) {
+                                el.dataset.qtScrolled = '1';
+                                try { el.scrollIntoView({ block: 'center' }); } catch (e) { void e; }
+                              }
+                            }}
+                            className={`btn btn--sm ${p.code === sub.subscription.planCode ? '' : 'btn--primary'}${
+                              shellProps && shellProps.query && shellProps.query.plan === p.code ? ' is-wanted' : ''
+                            }`}
                             disabled={subBusy || p.code === sub.subscription.planCode}
                             /*
                                ★★ 이미 구독 중이면 **신규 결제가 아니라 플랜 변경**이다.

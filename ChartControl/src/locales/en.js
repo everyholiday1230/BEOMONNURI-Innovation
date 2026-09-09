@@ -2818,6 +2818,9 @@
       landing_price_body_2: 'AI analysis runs are metered with points you earn from referrals and events — not with money.',
       landing_price_body_3: 'If a paid plan opens later it will be a subscription to this software — not a trading fee, not a managed account, and not paid advice. We will say so on this page before anything changes for you.',
       landing_price_cta: 'Create a free account',
+      /* ★ 유료 플랜에서 결제가 가능할 때의 문구. 가입 화면에 떨어뜨리지 않고 그 플랜의
+           결제로 이어진다는 뜻을 담는다. */
+      landing_price_cta_paid: 'Get this plan',
 
       /* --- AI 코파일럿 상태바 --- */
       ai_state_thinking: 'THINKING',

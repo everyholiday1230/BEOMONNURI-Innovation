@@ -50,7 +50,21 @@
        나라를 빨리 찾는 데 도움이 된다.
   */
   // 자주 쓰는 주요 시장은 맨 위에 고정, 나머지는 사용자 언어로 정렬해 전부 노출한다.
-  const COUNTRY_PRIORITY = ['KR', 'US', 'JP', 'CN', 'TW', 'SG', 'HK', 'GB', 'DE'];
+  /*
+     목록 맨 위에 고정하는 국가.
+
+     ★ 나머지는 현재 언어 기준 가나다순으로 정렬된다(아래 countryOptions).
+       여기에 넣은 것만 정렬을 건너뛰고 위로 올라온다.
+
+     ★★ 신흥시장 1차 출시 대상(VN IN BR MX TR AR PH)을 함께 고정한다.
+       이 나라 사용자는 200개 목록에서 자기 나라를 찾아 스크롤해야 했다.
+       국가명 자체는 Intl.DisplayNames 가 현재 언어로 번역하므로 여기에는
+       코드만 둔다 — 언어를 추가해도 이 배열은 고칠 필요가 없다.
+  */
+  const COUNTRY_PRIORITY = [
+    'KR', 'US', 'JP', 'CN', 'TW', 'SG', 'HK', 'GB', 'DE',
+    'VN', 'IN', 'BR', 'MX', 'TR', 'AR', 'PH',
+  ];
   const COUNTRY_CODES = ('AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BY BZ '
     + 'CA CD CG CH CI CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE '
     + 'GH GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KP KR KW KZ '
@@ -915,7 +929,23 @@
               if (window.QTAuth && window.QTAuth.refresh) {
                 try { window.QTAuth.refresh(); } catch (e) { /* 무시 */ }
               }
-              window.location.hash = '/trade';
+              /*
+                 ★★ 랜딩에서 유료 플랜을 고르고 온 경우(`#/signup?plan=pro`) 가입 후
+                   **그 플랜의 구독 화면**으로 보낸다.
+
+                   예전에는 무조건 /trade 였다. 그러면 요금제를 고른 사람이 거래 화면에
+                   떨어지고, 요금제를 **다시 찾아가야** 한다. 대부분 그러지 않는다 —
+                   감사가 지적한 수익 누수의 뒷부분이다.
+
+                 ★ 플랜 코드는 화면에서 온 값이라 그대로 신뢰하지 않는다. 영소문자만
+                   허용한다 — 해시에 임의 문자열이 들어가는 것을 막는다. 실제 유효성은
+                   구독 화면이 서버 목록(purchasablePlans)과 대조해 판정한다.
+              */
+              const want = String((new URLSearchParams(
+                (window.location.hash.split('?')[1] || ''),
+              )).get('plan') || '');
+              const safe = /^[a-z]{2,16}$/.test(want) ? want : '';
+              window.location.hash = safe ? `/points?plan=${safe}` : '/trade';
             })
             .catch(() => { window.location.hash = '/login'; });
         })
@@ -2198,10 +2228,33 @@
                     {/*
                          ★ 결제가 준비되지 않았으면 가입 링크만 둔다. 유료 플랜에 '구독' 버튼을
                            띄우고 눌러도 안 되면 그게 가장 나쁘다.
+
+                       ★★★ **결제가 되는데도 전부 가입으로만 보내고 있었다**(감사 지적).
+                         정기결제가 실제로 붙은 뒤에도 5장 전부 href="#/signup" 이었다.
+                         유료 플랜을 고른 사람을 가입 화면에 떨어뜨리면, 가입 후 요금제를
+                         **다시 찾아가야** 한다. 대부분 그러지 않는다 — 가장 직접적인
+                         수익 누수다.
+
+                       ★ 그래서 정기결제가 가능하고 유료 플랜이면 `?plan=` 을 붙여
+                         보낸다. 가입 뒤 그 플랜의 결제로 이어지게 하려는 것이다
+                         (로그인 상태면 곧바로 구독 화면으로).
+
+                       ★ 무료 플랜과 결제 불가 상태는 그대로 가입으로 보낸다 —
+                         눌러도 안 되는 버튼을 만들지 않는다는 원칙은 유지한다.
                     */}
-                    <a className={`btn ${pl.highlight ? 'btn--primary' : ''}`} href="#/signup" style={{width: '100%'}}>
-                      {t('landing_price_cta')}
-                    </a>
+                    {(() => {
+                      const paid = pl.priceUsd !== '0';
+                      const canBuy = paid && plans.recurringAvailable;
+                      const href = canBuy
+                        ? (shellProps && shellProps.user ? `#/points?plan=${pl.code}` : `#/signup?plan=${pl.code}`)
+                        : '#/signup';
+                      const label = canBuy ? t('landing_price_cta_paid') : t('landing_price_cta');
+                      return (
+                        <a className={`btn ${pl.highlight ? 'btn--primary' : ''}`} href={href} style={{width: '100%'}}>
+                          {label}
+                        </a>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
