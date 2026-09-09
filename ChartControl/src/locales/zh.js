@@ -491,6 +491,7 @@
       pt_topup_title: '购买{unit}',
       pt_topup_sub: '使用 PayPal 或 USDT 充值。付款确认后发放积分。',
       pt_withdraw_right_title: '付款前 — 关于撤销',
+      signup_ai_training: '同意将我的交易记录用于训练 AI（可选 — 不勾选也不影响任何功能）',
       pt_withdraw_right_body: '如果你尚未使用所购买的{unit}，可在付款后 7 天内申请全额退款。一旦使用，该笔购买将无法退款。请邮件联系我们，我们会退回原支付方式。',
       pt_topup_pending: '支付正在开通中——暂不支持充值。',
       pt_pay_paypal: 'PayPal',

@@ -699,7 +699,7 @@
          즉 받은 척만 하고 기록이 없었다. 기록 없는 동의는 받지 않은 것과 같다.
          지금은 해제가 기본이고, 켜면 실제로 기록된다.
     */
-    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: false });
+    const [form, setForm] = useState({ email: '', pw: '', pw2: '', country: guessCountry(), countrySource: 'inferred', agree: false, marketing: false, aiTraining: false });
 
     /*
        초대 코드.
@@ -825,6 +825,8 @@
         */
         ...(form.country ? { countrySource: form.countrySource || 'inferred' } : {}),
         marketingOptIn: form.marketing,
+        /* 2605 Ac70B798Ae30B85dC758 AI D559C2b5 C774C6a9 B3d9C758(C120D0dd). B9c8Cf00D305Acfc Bcc4B3c4B85c Bcf4B0b8B2e4 2014 Baa9C801C774 B2e4B97cB2c8. */
+        aiTrainingOptIn: form.aiTraining,
         /*
            코드가 유효할 때만 보낸다.
 
@@ -1004,6 +1006,31 @@
             <input type="checkbox" checked={form.marketing} onChange={e => setForm({...form, marketing: e.target.checked})}/>
             <span className="chk__box"><I.Check size={10}/></span>
             <span style={{fontSize: 12}}>{t('signup_21e2e3')}</span>
+          </label>
+
+          {/*
+             ★★ 거래기록의 AI 학습 이용 동의. **선택**이고 기본 해제다.
+
+               처리방침 §1.5 가 이 목적을 밝히고 있지만, 밝히는 것과 동의를 받는 것은
+               다르다. 개인정보보호법 §28-2 는 가명정보 처리를 통계작성·과학적연구·
+               공익적기록보존 목적으로 제한하는데, **상용 모델 학습이 그에 해당하는지는
+               법률 검토가 필요하다**(LEGAL-REVIEW-REQUEST §B-3).
+
+             ★ 그래서 어느 해석에서도 안전한 쪽을 택했다 — 별도 동의를 받아 둔다.
+               필요 없다는 답이 오면 이 칸을 지우면 되고, 필요하다는 답이 오면 이미
+               받아 둔 상태가 된다. 반대 순서로 가면 이미 모은 데이터를 못 쓴다.
+
+             ★ 필수로 두지 않는다. 필수로 묶으면 학습을 거절하는 고객이 서비스를 아예
+               쓸 수 없게 되고, 그것은 §22③ 이 금지하는 방향이다(서비스 제공에
+               필요하지 않은 동의를 강제).
+
+             ★ 거절해도 서비스를 그대로 쓸 수 있다는 사실을 문구에 적었다 — 적지 않으면
+               고객은 체크해야 하는 줄로 읽는다.
+          */}
+          <label className="chk">
+            <input type="checkbox" checked={form.aiTraining} onChange={e => setForm({...form, aiTraining: e.target.checked})}/>
+            <span className="chk__box"><I.Check size={10}/></span>
+            <span style={{fontSize: 12}}>{t('signup_ai_training')}</span>
           </label>
 
           <button type="submit" className="btn btn--primary btn--lg" style={{width:'100%'}} disabled={loading || !form.agree || errors.length > 0 || !form.email || !form.pw2}>

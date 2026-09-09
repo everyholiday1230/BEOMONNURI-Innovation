@@ -88,7 +88,7 @@ interface RouterDeps {
          false = 물었고 고객이 거절했다. 거절을 '안 물어봄' 으로 기록하면 나중에
          다시 물어야 하는지 알 수 없다.
     */
-    ctx?: { agreed?: boolean; marketingOptIn?: boolean; locale?: string; ip?: string | null },
+    ctx?: { agreed?: boolean; marketingOptIn?: boolean; aiTrainingOptIn?: boolean; locale?: string; ip?: string | null },
   ) => Promise<void> | void;
   cookieName?: string;
   cookieDomain?: string;
@@ -276,7 +276,12 @@ export function createAuthRouter(deps: RouterDeps): Hono {
              바꾸면 "물었는데 거절했다" 와 "묻지 않았다" 가 구별되지 않는다.
         */
         const marketingOptIn = raw && typeof raw.marketingOptIn === 'boolean' ? raw.marketingOptIn : undefined;
-        await deps.onRegistered(r.user.id, code, { agreed: Boolean(agreed), marketingOptIn, locale, ip: ipOf(c) ?? null });
+        /*
+           ★ 거래기록의 AI 학습 이용 동의. 마케팅과 **분리해서** 읽는다 — 목적이 다르고,
+             하나로 묶으면 광고만 허락한 고객의 기록을 학습에 쓰게 된다.
+        */
+        const aiTrainingOptIn = raw && typeof raw.aiTrainingOptIn === 'boolean' ? raw.aiTrainingOptIn : undefined;
+        await deps.onRegistered(r.user.id, code, { agreed: Boolean(agreed), marketingOptIn, aiTrainingOptIn, locale, ip: ipOf(c) ?? null });
       } catch (e) {
         console.warn('[auth] 리퍼럴 귀속 실패 — 가입은 유지한다:', (e as Error).message);
       }

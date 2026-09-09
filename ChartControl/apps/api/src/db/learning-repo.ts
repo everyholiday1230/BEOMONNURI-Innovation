@@ -509,6 +509,26 @@ export class PgLearningRepo {
          o.realized_pnl, o.roi_pct, o.holding_seconds, o.close_reason, o.observed_at
        FROM trade_decisions d
        LEFT JOIN trade_outcomes o ON o.decision_id = d.id
+       /*
+          ★★ **동의한 사용자의 기록만** 내보낸다.
+
+            전에는 이 조건이 없었다. 그래서 동의를 받아도 내보내기에서 걸러지지 않았고,
+            받아 둔 동의가 아무 것도 막지 않았다 — 동의 절차만 있고 실효가 없는 상태가
+            가장 나쁘다(받았다고 믿으면서 전원의 기록을 쓴다).
+
+          ★ INNER JOIN 이다. LEFT JOIN 으로 두면 users 에 없는 subject_key(탈퇴자의
+            가명 기록)가 NULL 로 남아 조건을 통과한다. 탈퇴자는 동의를 철회할 방법이
+            없으므로 학습에서 빼는 것이 맞다.
+
+          ★ subject_key 로 잇는다. trade_decisions 는 user_id 를 직접 갖지 않는다
+            (가명화의 목적이 그것이다). 대응 표(learning_subjects)를 통해 잇는다.
+
+          ★★ 이 조건을 지우면 동의 없는 기록이 학습에 들어간다. 지우려면
+            개인정보보호법 §28-2 해석(상용 모델 학습이 '과학적 연구' 인지)에 대한
+            법률 답변이 먼저 있어야 한다 — LEGAL-REVIEW-REQUEST §B-3.
+       */
+       JOIN learning_subjects ls ON ls.subject_key = d.subject_key
+       JOIN users u ON u.id = ls.user_id AND u.ai_training_opt_in = TRUE
        WHERE d.decided_at >= $1 AND d.decided_at < $2${modeClause}
        ORDER BY d.decided_at ASC
        LIMIT $${params.length}`,

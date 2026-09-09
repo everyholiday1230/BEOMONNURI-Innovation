@@ -240,6 +240,11 @@
          ★ 유리한 조건만 적지 않는다. '사용하면 환불되지 않는다' 를 함께 적는다.
       */
       pt_withdraw_right_title: 'Before you pay — your right to cancel',
+      /*
+         ★ AI 학습 이용 동의(선택). 거절해도 서비스를 그대로 쓸 수 있다는 사실을
+           문구에 넣는다 — 적지 않으면 고객은 체크해야 하는 줄로 읽는다.
+      */
+      signup_ai_training: 'Let us use my trading records to train our AI (optional — everything works the same if you leave this off)',
       pt_withdraw_right_body: 'If you have not spent the {unit} you bought, you can ask for a full refund within 7 days of payment. Once they are spent, that purchase can no longer be refunded. Email us and we will return it to the original payment method.',
       pt_topup_pending: 'Payment is being set up — top-up is not available yet.',
       pt_pay_paypal: 'PayPal',

@@ -489,6 +489,7 @@
       pt_topup_title: '{unit} 購入',
       pt_topup_sub: 'PayPal または USDT でチャージ。決済確認後にポイントが付与されます。',
       pt_withdraw_right_title: 'お支払いの前に — 撤回のご案内',
+      signup_ai_training: '取引記録を AI の学習に利用することに同意します（任意 — オフのままでも機能はすべて同じです）',
       pt_withdraw_right_body: '購入した{unit}を使用していない場合、決済から7日以内であれば全額返金をご請求いただけます。使用後はその購入分の返金はできません。メールでご連絡いただければ、元のお支払い方法に返金します。',
       pt_topup_pending: '決済準備中です — チャージはまだ利用できません。',
       pt_pay_paypal: 'PayPal',

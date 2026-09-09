@@ -2279,6 +2279,42 @@ if (env.authEnabled) {
           }
 
           /*
+             ★★ 거래기록의 AI 학습 이용 동의를 기록한다.
+
+               `trade_learning_dataset`(0025)이 고객 주문·지표·결과를 모으고 있고 그
+               목적이 모델 학습이다. 처리방침 v1.2 §1.5 에 밝혔지만, 밝히는 것과 동의를
+               받는 것은 다르다 — 개인정보보호법 §28-2 해석에 따라 별도 동의가 필요할 수
+               있다(LEGAL-REVIEW-REQUEST §B-3).
+
+             ★ 마케팅과 **분리해서** 기록한다. 목적이 다르고, 하나로 묶으면 광고만
+               허락한 고객의 거래기록을 학습에 쓰게 된다.
+
+             ★★ 거절도 기록한다. 마케팅은 '동의 없으면 안 보낸다' 로 끝나지만, 학습은
+               **이미 수집이 진행 중**이다. 거절한 고객을 아직 묻지 않은 고객과 구별해야
+               (a) 다시 묻지 않고 (b) 학습 대상에서 확실히 빼낼 수 있다.
+
+             ★ 학습 데이터셋을 만들 때 이 컬럼을 **반드시** 조건에 넣어야 한다:
+                 WHERE u.ai_training_opt_in = TRUE
+               동의 없이 학습에 쓰면 여기까지 만든 것이 무의미해진다.
+          */
+          if (core.pool && regCtx && typeof regCtx.aiTrainingOptIn === 'boolean') {
+            try {
+              await core.pool.query(
+                'UPDATE users SET ai_training_opt_in = $2, ai_training_opt_in_at = now() WHERE id = $1',
+                [userId, regCtx.aiTrainingOptIn],
+              );
+              console.log(`[legal] AI 학습 이용 동의 기록 — user=${userId} optIn=${regCtx.aiTrainingOptIn}`);
+            } catch (e) {
+              console.error(
+                '[legal] ★ AI 학습 동의 기록 실패 — 가입은 유지한다. '
+                + '마이그레이션 0046_ai_training_consent 가 적용됐는지 확인할 것. '
+                + '이 값이 없는 고객의 기록은 학습에 쓰면 안 된다:',
+                (e as Error).message,
+              );
+            }
+          }
+
+          /*
              ★★ 가입 축하 포인트. **초대 코드와 무관하게** 모든 신규 고객에게 준다.
 
                운영 데이터로 확인한 사실: 사용자 20명 중 포인트를 가진 사람은 2명
