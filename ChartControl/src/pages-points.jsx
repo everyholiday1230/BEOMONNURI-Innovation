@@ -626,6 +626,36 @@
                         </div>
                       ))}
                     </div>
+                    {/*
+                       ★★ 청약철회 안내를 **결제 버튼과 같은 화면**에 둔다.
+
+                         환불정책 문서에는 "미사용 포인트는 7일 내 전액 환불" 이 이미
+                         적혀 있었다. 그런데 결제 화면에는 결제 수단 버튼만 있었고
+                         철회 기한·방법·효과가 어디에도 없었다. 문서가 있는 것과 결제
+                         전에 보이는 것은 다르다 — 전자상거래법 §13②5호 가 요구하는
+                         것은 **계약 체결 전 고지**다.
+
+                       ★ 링크만 걸지 않고 핵심(7일·미사용·전액)을 본문에 적는다.
+                         링크는 눌러야 보이고, 결제 직전에 새 창을 여는 사람은 적다.
+
+                       ★ 사용한 뒤에는 환불되지 않는다는 사실도 같이 적는다. 유리한
+                         조건만 적고 제약을 링크 뒤에 숨기면 그게 더 나쁘다.
+                    */}
+                    <div style={{
+                      marginTop: 12, padding: '11px 13px', borderRadius: 7,
+                      fontSize: 12, lineHeight: 1.75,
+                      background: 'var(--color-bg-surface)',
+                      border: '1px solid var(--color-border-subtle)',
+                      color: 'var(--color-text-secondary)',
+                    }}>
+                      <div style={{fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4}}>
+                        {t('pt_withdraw_right_title')}
+                      </div>
+                      <div>{t('pt_withdraw_right_body', { unit })}</div>
+                      <a href="#/refund" style={{color: 'var(--color-brand)', fontWeight: 600}}>
+                        {t('legal_refund')} →
+                      </a>
+                    </div>
                     {usdtInvoice && (
                       <div style={{
                         marginTop:12, padding:'13px 15px', borderRadius:7, fontSize:12.5, lineHeight:1.8,

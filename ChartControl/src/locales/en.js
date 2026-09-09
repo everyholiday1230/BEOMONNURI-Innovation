@@ -234,6 +234,13 @@
       aiops_unavail_reason: 'Reason: {reason}',
       pt_topup_title: 'Buy {unit}',
       pt_topup_sub: 'Top up with PayPal or USDT. Points are credited after payment is confirmed.',
+      /*
+         ★ 청약철회 안내. 결제 버튼과 같은 화면에 둔다 — 문서에만 있는 것과 결제
+           전에 보이는 것은 다르다(전자상거래법 §13②5호 는 계약 체결 전 고지를 요구).
+         ★ 유리한 조건만 적지 않는다. '사용하면 환불되지 않는다' 를 함께 적는다.
+      */
+      pt_withdraw_right_title: 'Before you pay — your right to cancel',
+      pt_withdraw_right_body: 'If you have not spent the {unit} you bought, you can ask for a full refund within 7 days of payment. Once they are spent, that purchase can no longer be refunded. Email us and we will return it to the original payment method.',
       pt_topup_pending: 'Payment is being set up — top-up is not available yet.',
       pt_pay_paypal: 'PayPal',
       pt_pay_usdt: 'USDT',
@@ -529,6 +536,10 @@
          ★ 면책 문구. 답변마다 화면에서 붙인다 — 모델이 쓸지는 보장되지 않는다.
            '분석 보조'·'투자자문 아님'·'수익 보장 없음'·'주문은 직접' 네 가지를 담는다.
       */
+      /* ★ 수평선 가격 입력. 드래그로는 원하는 값에 정확히 못 세운다. */
+      chart_hline_price: 'Line price',
+      chart_hline_locked: 'This line is locked. Unlock it to change the price.',
+      chart_hline_bad: 'Enter a price greater than 0.',
       ai_disclaimer: 'Analysis assistance — not investment advice. No profit is guaranteed. You place every order yourself.',
       ai_analyst: 'Analyst',
       col_approve: 'Approve',

@@ -1,6 +1,6 @@
 # Refund Policy
 
-_Last updated: 2026-09-05. This policy explains refunds for purchases made on {{BRAND_NAME}}. It is not legal advice; where local consumer law grants you stronger rights, those rights prevail._
+_Last updated: 2026-09-09. This policy explains refunds for purchases made on {{BRAND_NAME}}. It is not legal advice; where local consumer law grants you stronger rights, those rights prevail._
 
 ## 1. What you buy here
 
@@ -33,4 +33,4 @@ Purchases are processed by third-party payment providers. You may also use the p
 
 ## 7. How to request a refund
 
-Email **{{SUPPORT_EMAIL}}** with your account email and the approximate purchase date. We aim to respond within a few business days. Approved refunds are returned to the original payment method; processing time depends on the provider.
+Email **{{SUPPORT_EMAIL}}** with your account email and the approximate purchase date. We aim to reply within 1 business day. **Once a refund is approved, we return it within 3 business days** to the original payment method. The time it then takes to appear on your statement depends on your payment provider, not on us.
