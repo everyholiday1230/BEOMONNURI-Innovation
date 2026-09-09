@@ -602,12 +602,38 @@ const DEFAULT_WIDGET_META = {
         }
         void touchesGeometry;
 
-        const nextWidgets = prev.widgets.map(w => {
+        let nextWidgets = prev.widgets.map(w => {
           if (w.id === id) return { ...w, ...applied };
           /* ★ 줄어든 이웃을 함께 반영한다. 대상만 바꾸면 겹친 상태가 저장된다. */
           const n = neighbours && neighbours.get(w.id);
           return n ? { ...w, x: n.x, y: n.y, w: n.w, h: n.h } : w;
         });
+
+        /*
+           ★★★ 크기 조절이 **끝난 뒤** 빈 자리를 메운다.
+
+             패널을 줄이면 그만큼이 빈 채로 남았다. 늘릴 때는 이웃을 줄여서 자리를
+             만드는데, 줄일 때는 아무도 그 자리를 받지 않았기 때문이다.
+             실측: 채움 96% → 60px 늘림 96% → 60px 되돌림 **89%**. 화면에 구멍이
+             보인다. 접기에서 쓴 것과 **같은 문제**라 같은 함수로 처리한다.
+
+           ★ 조작 **중**(_resizing === true)에는 하지 않는다. 매 이동마다 이웃을
+             넓히면 그것이 다음 계산의 기준이 되어 또 누적된다 — 방금 고친 그
+             버그를 다시 만드는 셈이다. 끝나는 순간에 한 번만 정리한다.
+
+           ★ 실패하거나 함수가 없으면 그대로 둔다. 구멍이 남는 것이 배치를
+             망가뜨리는 것보다 낫다.
+        */
+        if (partial._resizing === false && window.QTPanelState
+            && typeof window.QTPanelState.fillHoles === 'function') {
+          try {
+            const filled = window.QTPanelState.fillHoles(nextWidgets, prev.cols || 96, 16);
+            const vis = filled.filter(w => !w.hidden);
+            const bad = vis.some(a => a.w < 1 || a.h < 1)
+              || vis.some((a, i2) => vis.slice(i2 + 1).some(c => overlaps(a, c)));
+            if (!bad) nextWidgets = filled;
+          } catch (e) { void e; }
+        }
         const next = { ...prev, widgets: nextWidgets };
         if (!applied._dragging && !applied._resizing) {
           setHistory(h => ({ past: [...h.past, prev].slice(-30), future: [] }));

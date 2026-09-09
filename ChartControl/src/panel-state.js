@@ -77,27 +77,35 @@
        ★ 접힌 것을 여러 개 처리할 때는 **하나씩 순서대로** 적용한다. 앞서 넓어진
          결과 위에서 다음을 계산해야 두 번째 구멍도 메워진다.
     */
-    applyFolds(widgets, cols, rows) {
-      if (!Array.isArray(widgets)) return widgets;
-      if (!widgets.some((w) => w && w.hidden)) return widgets;
+    /*
+       ★★★ 빈 사각형을 찾아 이웃을 넓혀 메운다. 접기와 크기 축소가 **같은 문제**를
+         만들기 때문에 한 곳에서 처리한다.
 
+         · 접기: 접힌 칸이 비었다
+         · 축소: 줄인 만큼이 비었다 — 이쪽은 예전부터 구멍이 남았다
+           (실측: 96% → 60px 늘림 96% → 60px 되돌림 **89%**)
+
+       ★ 조건: 이웃의 **다른 축 범위가 빈 사각형 안에 들어 있어야** 한다. 삐져나오면
+         넓히는 순간 바깥의 남의 칸을 덮어 겹친다.
+
+       ★ 빈틈없이 덮을 것을 요구하지 **않는다.** 조건에 맞는 이웃만 넓히고 다시 빈
+         사각형을 찾으면 남은 조각이 차례로 메워진다. "완전히 덮을 때만" 으로 만들면
+         조금만 어긋나도 통째로 포기해 큰 구멍이 남는다(실측 16%).
+    */
+    fillHoles(list, cols, rows) {
+      if (!Array.isArray(list)) return list;
       const C = cols || 96;
       const R = rows || 16;
-      const out = widgets.map((w) => ({ ...w }));
+      const out = list.map((w) => ({ ...w }));
 
-      /*
-         ★ 빈 칸을 실제로 세어 **가장 큰 빈 사각형**을 찾는다. 접힌 칸 하나만 보고
-           이웃을 넓히면, 여러 개를 접었을 때 남는 조각을 못 메운다.
-           실측(사각형 없이 접힌 칸만 볼 때): chart-focus 3개 접으면 채움 **16%**.
-      */
       const emptyRect = () => {
         const grid = [];
         for (let r = 0; r < R; r++) grid.push(new Array(C).fill(false));
         for (const o of out) {
           if (o.hidden) continue;
-          for (let r = o.y; r < Math.min(R, o.y + o.h); r++)
-            for (let c = o.x; c < Math.min(C, o.x + o.w); c++)
-              if (r >= 0 && c >= 0) grid[r][c] = true;
+          for (let r = Math.max(0, o.y); r < Math.min(R, o.y + o.h); r++)
+            for (let c = Math.max(0, o.x); c < Math.min(C, o.x + o.w); c++)
+              grid[r][c] = true;
         }
         for (let r = 0; r < R; r++) {
           for (let c = 0; c < C; c++) {
@@ -115,15 +123,6 @@
         return null;
       };
 
-      /*
-         ★★ 채우는 조건: 이웃의 **다른 축 범위가 빈 사각형 안에 들어 있어야** 한다.
-           삐져나오면 넓히는 순간 바깥의 남의 칸을 덮어 겹친다.
-
-         ★ 빈틈없이 덮을 것을 요구하지 **않는다.** 조건에 맞는 이웃만 넓히고 다시
-           빈 사각형을 찾으면, 남은 조각이 다음 회차에 더 작은 사각형으로 잡혀
-           차례로 메워진다. "완전히 덮을 때만 넓힌다" 로 만들었을 때는 조금이라도
-           어긋나면 통째로 포기해 큰 구멍이 남았다.
-      */
       const fill = (rect) => {
         const vis = out.filter((o) => !o.hidden);
         const inRows = (o) => o.y >= rect.y && o.y + o.h <= rect.y + rect.h;
@@ -146,6 +145,17 @@
         if (!fill(rect)) break;
       }
       return out;
+    },
+
+    /*
+       ★ 접힘(숨김)은 **저장 좌표를 건드리지 않는다.** 그릴 때만 자리를 메운다.
+         그래서 되살리기가 원래 배치로 정확히 돌아온다 — 저장값을 고치는 방식은
+         세 번 실패했다(layout-engine 의 hideWidget 주석에 실측 기록).
+    */
+    applyFolds(widgets, cols, rows) {
+      if (!Array.isArray(widgets)) return widgets;
+      if (!widgets.some((w) => w && w.hidden)) return widgets;
+      return this.fillHoles(widgets, cols, rows);
     },
 
     isCollapsed(id) { return collapsed.has(id); },
