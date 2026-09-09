@@ -673,6 +673,16 @@
     const saveProposal = useCallback(async (msgId, savable) => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.savedCreate || !savable) return;
+      /*
+         ★★ 저장은 **포인트가 나간다.** 묻지 않고 차감하면 고객은 왜 줄었는지 모른다.
+           운영 지시: "저장할건지 물어보고 포인트가 차감된다고 말해주면 될꺼같아."
+
+         ★ 자동 저장은 하지 않는다(같은 지시). 눌러야 저장되고, 누를 때 비용을 알린다.
+      */
+      const scope = savable.scope === 'global' ? 'global' : 'symbol';
+      const cost = scope === 'global' ? 300 : 100;
+      if (typeof window.confirm === 'function'
+          && !window.confirm(t('sv_confirm_save_cost', { n: cost }))) return;
       setSavingId(msgId);
       const sym = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       try {
@@ -691,8 +701,20 @@
           setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: (r && r.message) || t('sv_save_failed') } : x)));
         }
       } catch (e) {
-        const insuff = e && e.status === 402;
-        setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: insuff ? t('sv_need_points') : ((e && e.message) || t('sv_save_failed')) } : x)));
+        /*
+           ★★ 402 가 두 가지 이유로 온다 — **구별해야 한다.**
+             · 포인트 부족    → 포인트를 채우면 된다
+             · 유료 플랜 필요 → 구독해야 한다 (저장은 유료 플랜 기능이다)
+           예전에는 둘 다 "포인트가 부족합니다" 로 보여서, 구독하면 되는 고객이
+           엉뚱하게 포인트를 사려 했다. 운영자도 그래서 혼란스러웠다.
+        */
+        const code = String((e && (e.code || (e.body && e.body.error && e.body.error.code))) || '');
+        const planNeeded = /PLAN|SUBSCRIPTION|FEATURE|ENTITLE/i.test(code);
+        const insuff = e && e.status === 402 && !planNeeded;
+        setMsgs((m) => m.map((x) => (x.id === msgId
+          ? { ...x, savedNote: planNeeded ? t('sv_need_plan')
+            : (insuff ? t('sv_need_points') : ((e && e.message) || t('sv_save_failed'))) }
+          : x)));
       }
       setSavingId(null);
     }, [context.symbol, context.tf, t]);

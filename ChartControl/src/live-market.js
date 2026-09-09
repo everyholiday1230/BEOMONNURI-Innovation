@@ -651,9 +651,26 @@
     var key = candleKey(symbol, tf);
     if (live.candles.has(key) || live.candleInflight.has(key)) return;
 
+    /*
+       ★★★ **초기 봉 수를 300 → 1000 으로 올린다.**
+
+         300봉은 화면을 못 채운다. 차트 패널이 650px 이고 확대를 조금만 풀어도
+         300봉이 오른쪽 절반만 차지하고 **왼쪽이 빈 공간으로 남는다.** 운영자가
+         본 "차트가 나와야 하는데 공백이네" 가 이것이다.
+
+       ★ 그리고 빈 곳을 채우려면 과거 데이터를 추가로 불러와야 하는데(backward),
+         그 요청은 보이는 구간이 데이터 앞쪽 20봉 이내일 때만 나간다. 즉
+         **확대를 풀 때마다 잠깐 비었다가 채워지고, 채워지면서 화면이 튄다.**
+         처음부터 넉넉히 받으면 그 왕복 자체가 줄어든다.
+
+       ★ 서버는 이미 1000봉을 준다(실측: /api/market/candles?limit=1000 → 1000개).
+         클라이언트만 300 으로 묶여 있었다.
+
+       ★ 스파크라인은 별도 경로(24포인트)이므로 이 값과 무관하다 — 위 주석 참고.
+    */
     var p = (spot && Api.rest.spot
-      ? Api.rest.spot.candles(symbol, tf, 300)
-      : Api.rest.candles(symbol, tf, 300))
+      ? Api.rest.spot.candles(symbol, tf, 1000)
+      : Api.rest.candles(symbol, tf, 1000))
       .then(function (res) {
         if (res && res.ok && Array.isArray(res.data) && res.data.length) {
           // 문자열 가격을 여기서 숫자로 바꾼다 (경계에서 한 번만).
