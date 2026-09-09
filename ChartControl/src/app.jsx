@@ -750,28 +750,7 @@
       if (window.QTLive) window.QTLive.setActiveTimeframe(timeframe);
     }, [timeframe]);
 
-    /*
-       ★★★ **`market.price` 를 의존에서 뺐다.** 이것이 "차트가 계속 깜빡인다" 의 원인이다.
-
-         측정: 가만히 둬도 8초에 resetData 가 2회 돌았다.
-
-         `market.price` 는 시세 틱마다 바뀐다. 그것이 의존에 있으면 **틱마다 1000봉
-         배열을 새로 만들고**, 차트는 그것을 새 데이터로 보고 `resetData()` 로 전체를
-         다시 싣는다. 이 KLineCharts 버전에는 부분 갱신 API 가 없어서(updateData 계열
-         없음) 마지막 봉 하나가 바뀌어도 1000봉을 통째로 다시 그린다.
-
-       ★ `liveVersion` 이 이미 **실제 캔들이 바뀌었을 때** 올라간다(QTLive). 그것만
-         있으면 충분하다. `market.price` 는 중복이면서 해로웠다.
-
-       ★★ 맞바꾼 것: 마지막 봉의 종가가 틱마다 실시간으로 움직이지는 않는다. 캔들
-         캐시가 갱신될 때 따라온다. 부분 갱신 API 가 없는 한 **"틱마다 갱신" 과
-         "깜빡이지 않음" 을 동시에 가질 수 없다.** 깜빡임을 없애는 쪽을 골랐다 —
-         운영자가 신고한 것이 그것이다.
-
-       ★ endPrice 는 그대로 market.price 를 쓴다. 실캔들이 있으면 쓰이지 않고(캐시
-         히트), 없을 때 목업의 마지막 가격을 맞추는 용도다.
-    */
-    const candles = useMemo(() => QT.generateCandles({ symbol: market.base + market.quote, tf: timeframe, count: CHART_BAR_COUNT, endPrice: market.price }), [market.base, market.quote, timeframe, liveVersion]);
+    const candles = useMemo(() => QT.generateCandles({ symbol: market.base + market.quote, tf: timeframe, count: CHART_BAR_COUNT, endPrice: market.price }), [market.base, market.quote, timeframe, market.price, liveVersion]);
     const [lastPrice, setLastPrice] = useState(market.price);
     const [prevPrice, setPrevPrice] = useState(market.price);
     const [orderBook, setOrderBook] = useState(() => QT.generateOrderBook(market.price));
