@@ -214,7 +214,25 @@
 
    ★ 디자이너 CSS 는 건드리지 않는다. 이 파일에만 추가한다.
    ────────────────────────────────────────────────────────────── */
-.qt-cgrid { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+/*
+   ★★ **폭을 부모에 맞춘다.** 이것이 없어서 패널을 넓혀도 차트가 그대로였다.
+
+     `.qt-cgrid` 는 세로 flex 컨테이너다. 부모(패널 본문)가 가로 flex 이므로,
+     `width` 를 주지 않으면 폭이 **내용 크기(max-content)** 로 정해진다. 그래서
+     패널을 923 → 1000px 로 넓혀도 이 격자는 704px 에 머물렀고, 그 안의 차트
+     캔버스도 503px 로 고정됐다(실측).
+
+   ★ `min-width: 0` 도 함께 둔다. flex 자식은 기본이 `min-width: auto` 라서
+     내용보다 작아지지 못한다 — 패널을 **줄일** 때 넘쳐 흐른다.
+*/
+.qt-cgrid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+}
 
 .qt-cgrid__bar {
   display: flex;
@@ -241,7 +259,8 @@
   color: var(--color-warning, #f5a524);
 }
 
-.qt-cgrid__grid { flex: 1; min-height: 0; display: grid; gap: 4px; padding: 4px; }
+/* ★ min-width: 0 — 없으면 격자가 내용 크기에 갇혀 부모를 따라가지 못한다. */
+.qt-cgrid__grid { flex: 1; min-height: 0; min-width: 0; display: grid; gap: 4px; padding: 4px; }
 
 .qt-cgrid__pane {
   position: relative;
@@ -301,7 +320,31 @@
 .qt-cgrid__tfs .seg__opt { height: 20px; padding: 0 5px; font-size: 10px; }
 .qt-cgrid__make { height: 22px; padding: 0 6px; font-size: 10px; white-space: nowrap; }
 
-.qt-cgrid__body { flex: 1; min-height: 0; position: relative; }
+/*
+   ★★ **안의 패널이 높이를 채우게 한다.** 이것이 없어서 패널을 세로로 늘려도
+     차트가 그대로였다.
+
+     이 요소는 `flex: 1` 로 잘 늘어난다(실측 700px). 그런데 자식 `.panel` 은
+     `flex: 0 1 auto` 라서 **내용 높이(463px)에 머물렀다.** 그 결과 차트 캔버스도
+     299px 로 고정됐다.
+
+   ★ 자기도 flex 컨테이너가 되어 자식을 늘린다. `min-height: 0` 은 줄일 때
+     넘치지 않게 하는 짝이다.
+*/
+.qt-cgrid__body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+/* ★ 격자 안의 패널은 칸을 꽉 채운다 — 내용 높이에 머물면 차트가 안 커진다. */
+.qt-cgrid__body > .panel {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
 
 .qt-cgrid__tag {
   position: absolute;

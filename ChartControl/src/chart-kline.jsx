@@ -1086,7 +1086,40 @@
       };
       chart.subscribeAction('onCrosshairChange', onCrosshair);
 
+      /*
+         ─────────────────── 패널 크기 변화 따라가기 ───────────────────
+
+         ★★ **이것이 없어서 패널을 키워도 차트가 그대로였다.**
+
+           KLineChart 는 캔버스에 그린다. 캔버스 크기는 생성 시점의 컨테이너 크기로
+           정해지고, 컨테이너가 커져도 **스스로 다시 그리지 않는다.** 그래서 패널만
+           커지고 차트는 예전 크기로 남아 오른쪽·아래에 빈 공간이 생겼다.
+
+           격자 크기 조절은 CSS 로 일어나므로 리액트 렌더가 다시 돌지 않는다 —
+           그래서 렌더에 의존하는 방법으로는 잡을 수 없다. 컨테이너를 직접 관찰한다.
+
+         ★ 프레임마다 부르지 않는다. ResizeObserver 는 드래그 중 수십 번 발화하는데,
+           그때마다 resize() 를 부르면 캔버스를 계속 다시 만들어 끊긴다.
+           requestAnimationFrame 으로 한 프레임에 한 번만 반영한다.
+
+         ★ 크기가 0 이면 건너뛴다. 패널이 접히거나 탭이 숨겨지면 0 이 되는데, 그때
+           resize() 를 부르면 KLineChart 가 잘못된 축을 계산해 다시 보일 때 깨진다.
+      */
+      let resizeRaf = 0;
+      const ro = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(() => {
+        if (resizeRaf) return;
+        resizeRaf = requestAnimationFrame(() => {
+          resizeRaf = 0;
+          const r = host.getBoundingClientRect();
+          if (r.width < 2 || r.height < 2) return;
+          try { chart.resize(); } catch (e) { /* 파괴된 차트면 무시한다 */ }
+        });
+      }) : null;
+      if (ro) ro.observe(host);
+
       return () => {
+        if (ro) { try { ro.disconnect(); } catch (e) { /* noop */ } }
+        if (resizeRaf) { cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
         // 과거 이력 폴링을 멈춘다 — 남겨두면 파괴된 차트를 계속 건드린다.
         clearInterval(historyTimer);
         try {
