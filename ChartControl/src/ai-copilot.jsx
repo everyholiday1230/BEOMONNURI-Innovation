@@ -411,34 +411,58 @@
       const a = cmd.args || {};
       const id = 'ai-' + (cmd.commandId || Math.random().toString(36).slice(2, 8));
       const util = window.ChartKlineUtil;
+      /*
+         ★★ **무엇을 어디에 그렸는지 말한다.**
+
+           6개 명령이 `ai_cmd_applied`('Applied to chart') 를 돌려줬다. 고객은 무엇이
+           어느 가격에 그려졌는지 알 수 없었다. 차트를 눈으로 뒤져야 했다.
+
+         ★★ 그리고 `ai_tool_sr` 은 '📍 **2** support/resistance levels added' 였다.
+           이 명령은 선을 **한 개** 그린다. 개수를 하드코딩해서 사실과 다른 문구가
+           나갔다 — '5 overlays created' 사고와 **같은 종류**다. 그 사고는 고객 문의로
+           돌아왔다.
+
+         ★ 그래서 개수·종류·가격을 전부 실제 인자에서 만든다. 문구에 숫자를 박지 않는다.
+
+         ★ 가격을 함께 적는 이유: "지지선 그렸습니다" 만으로는 고객이 자기가 생각한
+           자리에 그려졌는지 확인할 수 없다. 확인할 수 없는 보고는 보고가 아니다.
+      */
+      const px = (v) => fmt(toNum(v), 0);
       switch (cmd.command) {
-        case 'createTrendLine':
-          addOverlay({ id, type: 'trend-line', source: 'ai-draft', width: 1.8, label: a.label || t('ai_overlay_trendline'),
-            points: (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) })) });
-          return t('ai_tool_trendline');
+        case 'createTrendLine': {
+          const pts = (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) }));
+          addOverlay({ id, type: 'trend-line', source: 'ai-draft', width: 1.8, label: a.label || t('ai_overlay_trendline'), points: pts });
+          /* ★ 두 점의 가격을 말한다. 어느 방향으로 기울어진 선인지 글로도 알 수 있다. */
+          return pts.length === 2
+            ? t('ai_drew_trendline', { from: px(pts[0].price), to: px(pts[1].price) })
+            : t('ai_tool_trendline');
+        }
         case 'createHorizontalLevel':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: a.label || String(a.price), points: [{ price: toNum(a.price), time: anchorTime() }] });
-          return t('ai_cmd_applied');
+          return t('ai_drew_level', { price: px(a.price) });
         case 'createSupportResistance':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: (a.kind === 'support' ? 'S' : 'R') + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
-          return t('ai_tool_sr');
+          /* ★ 지지인지 저항인지 구분해 말한다. 하나로 뭉치면 고객이 반대로 읽는다. */
+          return t(a.kind === 'support' ? 'ai_drew_support' : 'ai_drew_resistance', { price: px(a.price) });
         case 'createEntryZone':
           addOverlay({ id, type: 'entry-zone', source: 'ai-draft', priceLo: toNum(a.priceLo), priceHi: toNum(a.priceHi), label: t('ai_overlay_entry_zone') });
-          return t('ai_cmd_applied');
+          return t('ai_drew_entry_zone', { lo: px(a.priceLo), hi: px(a.priceHi) });
         case 'createStopLoss':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: 'SL · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
-          return t('ai_cmd_applied');
+          return t('ai_drew_stop', { price: px(a.price) });
         case 'createTakeProfit':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: 'TP' + ((toNum(a.index) || 0) + 1) + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
-          return t('ai_cmd_applied');
+          return t('ai_drew_target', { n: (toNum(a.index) || 0) + 1, price: px(a.price) });
         case 'createInvalidationLevel':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: t('ai_invalidation_word') + ' · ' + a.price, points: [{ price: toNum(a.price), time: anchorTime() }] });
-          return t('ai_cmd_applied');
+          return t('ai_drew_invalidation', { price: px(a.price) });
         case 'createLongMarker':
-        case 'createShortMarker':
+        case 'createShortMarker': {
+          const p = a.point || {};
           addOverlay({ id, type: 'signal-marker', source: 'ai-draft', direction: cmd.command === 'createLongMarker' ? 'long' : 'short',
-            text: a.text, points: [{ time: Number(a.point && a.point.time), price: toNum(a.point && a.point.price) }] });
-          return t('ai_cmd_applied');
+            text: a.text, points: [{ time: Number(p.time), price: toNum(p.price) }] });
+          return t(cmd.command === 'createLongMarker' ? 'ai_drew_long_marker' : 'ai_drew_short_marker', { price: px(p.price) });
+        }
         case 'addIndicator': {
           const ok = util && util.addIndicator ? util.addIndicator(a.indicator, a.params) : false;
           return ok ? t('ai_indicator_added', { name: a.indicator }) : t('ai_indicator_unsupported', { name: a.indicator });

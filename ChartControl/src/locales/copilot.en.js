@@ -39,6 +39,29 @@
       // --- 툴 실행 결과 ---
       ai_tool_trendline: '📐 Draft trendline added to chart · layer: AI Draft',
       /*
+         ★★ 무엇을 **어느 가격에** 그렸는지 말한다.
+
+           전에는 6개 명령이 'Applied to chart' 만 돌려줬다. 고객은 무엇이 어디에
+           그려졌는지 알 수 없어 차트를 눈으로 뒤져야 했다.
+
+         ★★ 그리고 ai_tool_sr 은 '2 levels added' 였다 — 이 명령은 선을 **한 개**
+           그린다. 개수를 문구에 박아 사실과 다른 보고가 나갔다('5 overlays created'
+           사고와 같은 종류다). 이제 개수·종류·가격을 전부 실제 인자에서 만든다.
+
+         ★ 가격을 함께 적는 이유: "지지선 그렸습니다" 만으로는 고객이 자기가 생각한
+           자리에 그려졌는지 확인할 수 없다. 확인할 수 없는 보고는 보고가 아니다.
+      */
+      ai_drew_trendline: '📐 Drew a trendline from {from} to {to}',
+      ai_drew_level: '📍 Drew a level at {price}',
+      ai_drew_support: '📍 Drew support at {price}',
+      ai_drew_resistance: '📍 Drew resistance at {price}',
+      ai_drew_entry_zone: '🎯 Drew the entry zone {lo} – {hi}',
+      ai_drew_stop: '🛑 Drew the stop-loss line at {price}',
+      ai_drew_target: '🎯 Drew target {n} at {price}',
+      ai_drew_invalidation: '⚠ Drew the invalidation level at {price}',
+      ai_drew_long_marker: '▲ Marked long at {price}',
+      ai_drew_short_marker: '▼ Marked short at {price}',
+      /*
          ★ AI 가 답하기 전 진행 단계. 서버가 보내는 state·tool 이벤트로 채운다
            (전에는 이 목록이 항상 비어 있었다 — ai-copilot.jsx 주석 참조).
          ★ 도구 이름은 번역하지 않는다. 14개 도구에 언어별 사전을 만들면 도구가
@@ -61,7 +84,6 @@
       ai_step_validating: 'Checking the request',
       ai_step_tool: 'Using {name}',
       ai_tool_signal: '📊 5 overlays created · entry zone / SL / TP1-3 / long marker',
-      ai_tool_sr: '📍 2 support/resistance levels added',
       ai_tool_edited: '✍️ Your edit applied · {detail}',
       ai_hint_drag: '📌 Drag the circles at either end of the trendline to adjust it. Your edits are reflected in the conversation.',
       ai_invalidation_note: '· signal is invalidated automatically when this condition occurs',
