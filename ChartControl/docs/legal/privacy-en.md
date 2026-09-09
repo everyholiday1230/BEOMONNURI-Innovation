@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 8 September 2026 · Version 1.1
+Effective: 9 September 2026 · Version 1.2
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
@@ -42,6 +42,33 @@ We collect **only what the Service needs.**
 | Interface settings (theme, language, favourites, chart templates) | Convenience, syncing across your devices | Until account closure |
 | Consent records (version and time) | Proving agreement | 5 years |
 | Support enquiries | Responding to you | 3 years |
+| Country, and whether you chose it or we guessed it from your browser | Showing the right currency and language defaults; understanding where the Service is used | Until account closure |
+| Saved analysis, drawings and indicator sets | Restoring what you saved | Until you delete it |
+| Price alerts you set | Sending the alert you asked for | Until you delete it |
+| Bug reports you send | Fixing the problem you reported | 3 years |
+| Marketing consent (and the time you gave or withdrew it) | Proving consent before sending anything | 5 years |
+| Notes our staff add to your account | Handling your enquiries consistently across staff | Until account closure |
+| Tags our staff apply to your account | Grouping accounts for support and operations | Until account closure |
+
+### 1.5 Trading records kept for improving the Service
+
+We keep a separate record of **what you had on screen when you placed an order and how it turned out** — the indicators you had enabled, the market conditions at that moment, the risk checks that ran, and the result.
+
+| Data | Purpose | Retention |
+|---|---|---|
+| Indicators enabled, market snapshot, risk-check outcome, order result | Improving the Service, including **training our AI models** | 5 years |
+
+**How this is kept**
+
+- It is stored under a **separate pseudonymous key**, not your account identifier.
+- **If you close your account, the pseudonymous record remains.** It can no longer be linked back to you by us, and it is not deleted when your account is.
+- It is never shared with or sold to anyone outside our company.
+
+**If you do not want this**
+
+Tell us at the support address in §11 and we will stop adding new records for you. Records already collected under the pseudonymous key cannot be located and removed, because they are no longer linked to your account — this is the consequence of pseudonymising them.
+
+> **This section describes AI model training on your trading records.** If that is not something you want, do not connect an exchange account, or contact us before trading.
 
 ## 2. What we do not collect
 
