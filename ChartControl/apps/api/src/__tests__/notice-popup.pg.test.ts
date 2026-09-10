@@ -138,6 +138,45 @@ describe.skipIf(!URL)('NOTICE-POPUP 팝업 공지', () => {
     expect(jaList.find((x) => x.id === ja)).toBeTruthy();
   });
 
+  it('[9b] ★★★ en-US 로 물어도 en 공지가 나온다 (지역 코드 때문에 0건이 되지 않는다)', async () => {
+    /*
+       ★★★ 실제로 공지가 **아무에게도 보이지 않던** 원인이다.
+
+         화면은 `QTI18n.get()` 값을 그대로 보낸다 — 실측 `en-US`.
+         공지는 작성 화면 선택값대로 `locale = 'en'` 으로 저장된다.
+         예전 코드는 `n.locale = $locale` 정확 일치였으므로 **영원히 0건**이었다.
+
+         프로덕션에 공지를 넣고 확인해서 알았다: locale 없이 부르면 1건인데
+         `?locale=en-US` 로는 0건이었다. 기능은 다 만들어져 있는데 닿을 수 없었다.
+
+       ★ 정확히 일치하거나 **기본 언어가 같은** 것만 대상이다. 읽을 수 없는 다른
+         언어를 아무렇게나 띄우지는 않는다([9] 가 그것을 지킨다).
+    */
+    /*
+       ★ severity 를 critical 로 둔다. 정렬이 critical → warning → info 이고 limit 이
+         있어서, info 로 만들면 앞선 시험들이 남긴 공지에 밀려 목록 밖으로 나간다
+         (실제로 그렇게 실패했다). 이 시험의 대상은 **언어 매칭**이므로 순서에
+         영향받지 않게 만든다.
+    */
+    const en = await publish({ title: 'region fallback', popup: true, severity: 'critical', locale: 'en' });
+    const asEnUs = await repo.listUnreadPopups(userB, 'en-US', 10);
+    expect(asEnUs.find((x) => x.id === en), 'en-US 로 물으면 en 공지를 못 찾는다').toBeTruthy();
+
+    /* ★ 대문자가 섞여도 동작해야 한다. */
+    const asUpper = await repo.listUnreadPopups(userB, 'EN-us', 10);
+    expect(asUpper.find((x) => x.id === en), '대소문자 때문에 못 찾는다').toBeTruthy();
+
+    /* ★ 반대 방향도 본다 — pt-BR 로 저장된 공지를 pt 로 물어도 찾아야 한다. */
+    const ptBr = await publish({ title: 'pt-BR', popup: true, severity: 'critical', locale: 'pt-BR' });
+    const asPt = await repo.listUnreadPopups(userB, 'pt', 10);
+    expect(asPt.find((x) => x.id === ptBr), 'pt 로 물으면 pt-BR 공지를 못 찾는다').toBeTruthy();
+
+    /* ★★ 그래도 **다른 언어는 섞이지 않는다.** 이것이 무너지면 [9] 의 의미가 사라진다. */
+    const jaOnly = await publish({ title: 'ja only', popup: true, severity: 'critical', locale: 'ja' });
+    const asEn2 = await repo.listUnreadPopups(userB, 'en-US', 10);
+    expect(asEn2.find((x) => x.id === jaOnly), '일본어 공지가 en-US 에 섞였다').toBeUndefined();
+  });
+
   it('[10] ★ 발행하지 않은 공지는 나오지 않는다', async () => {
     const n = await repo.create(
       { title: 'draft popup', body: 'x', popup: true, severity: 'critical', locale: 'en' },

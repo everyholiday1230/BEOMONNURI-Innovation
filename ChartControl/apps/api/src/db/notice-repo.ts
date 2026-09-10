@@ -175,10 +175,35 @@ export class PgNoticeRepo {
    */
   async listUnreadPopups(userId: string, locale?: string, limit = 3): Promise<NoticeRow[]> {
     const params: unknown[] = [userId, Math.min(Math.max(limit, 1), 10)];
+    /*
+       ★★★ **언어를 정확히 일치시키면 공지가 아무에게도 보이지 않는다.**
+
+         화면은 `QTI18n.get()` 값을 그대로 보낸다 — 실측 `en-US`.
+         그런데 공지는 `locale = 'en'` 으로 저장된다(작성 화면의 선택값).
+         `n.locale = 'en-US'` 는 영원히 0건이다.
+
+         프로덕션에 공지를 넣고 확인해서 알았다: 서버 응답은 locale 없이 부르면
+         1건인데 `?locale=en-US` 로는 0건이었다.
+
+       ★ 그래서 **지역 코드를 떼어낸 기본 언어도 함께 본다**(en-US → en).
+         공지를 en-US 로 작성했다면 그것도 그대로 잡힌다.
+
+       ★★ 언어가 안 맞으면 **아무것도 안 보여주는 것보다 낫다** — 다만 다른 언어
+         공지를 아무렇게나 보여주지는 않는다. 정확히 일치하거나 기본 언어가 같은
+         것만 대상이다. 읽을 수 없는 글을 띄우면 닫는 습관만 생긴다.
+
+       ★ 소문자로 비교한다. 'EN-us' 같은 값이 들어와도 동작해야 한다.
+    */
     let localeClause = '';
     if (locale) {
-      params.push(locale);
-      localeClause = ` AND n.locale = $${params.length}`;
+      const norm = locale.trim().toLowerCase();
+      const base = norm.split('-')[0] ?? norm;
+      params.push(norm);
+      const iExact = params.length;
+      params.push(base);
+      const iBase = params.length;
+      localeClause = ` AND (lower(n.locale) = $${iExact} OR lower(n.locale) = $${iBase}`
+        + ` OR split_part(lower(n.locale), '-', 1) = $${iBase})`;
     }
     const r = await this.pool.query<DbRow>(
       `SELECT ${COLS.split(', ').map((x) => `n.${x.trim()}`).join(', ')}
