@@ -2004,7 +2004,15 @@
                             <button
                               type="button"
                               className="pos-sym-link"
+                              /*
+                                 ★ title 만 두면 접근성 이름이 되지 않는다 — 화면 읽기
+                                   프로그램은 title 을 이름으로 쓰지 않는다. 기존 시험
+                                   (aria-labels [4])이 이것을 잡았다.
+                                 ★ 버튼 안에 종목 글자가 있으므로 이름은 이미 있지만,
+                                   "차트로 이동" 이라는 **동작**을 알려야 한다.
+                              */
                               title={t('pos_open_chart', { sym: p.symbol.replace('USDT', '/USDT') })}
+                              aria-label={t('pos_open_chart', { sym: p.symbol.replace('USDT', '/USDT') })}
                               onClick={() => onSelectSymbol(p.symbol)}
                             >
                               <strong>{p.symbol.replace('USDT', '/USDT')}</strong>
