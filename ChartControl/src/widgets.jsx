@@ -1594,7 +1594,12 @@
                   {err.cta && (
                     <>
                       {' '}
-                      <a href={err.cta} style={{color:'var(--color-brand)', fontWeight:600}}>
+                      {/*
+                           ★ 클래스를 붙인다. mobile.css 가 터치 영역을 키우는데
+                             선택자가 붙을 자리가 없어 빗나갔다(실측: 95×14 로 남았다).
+                             인라인 style 만 있으면 CSS 로 손댈 수 없다.
+                      */}
+                      <a className="qt-inline-cta" href={err.cta} style={{color:'var(--color-brand)', fontWeight:600}}>
                         {t('acct_connect_cta')}
                       </a>
                     </>
@@ -1773,7 +1778,7 @@
         return (
           <>
             {t('acct_status_' + String(acct.status).toLowerCase())}{' '}
-            <a href="#/wallet" style={{color:'var(--color-brand)'}}>{t('acct_connect_cta')}</a>
+            <a className="qt-inline-cta" href="#/wallet" style={{color:'var(--color-brand)'}}>{t('acct_connect_cta')}</a>
           </>
         );
       }

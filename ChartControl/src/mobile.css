@@ -1194,6 +1194,13 @@
        inline-block 이어야 세로 padding 이 클릭 범위로 잡힌다.
      ★ 범위를 좁게 잡는다 — 모든 <a> 에 주면 문단 안 링크가 줄 간격을 벌린다.
   */
+  /*
+     ★★ 처음엔 `.qt-widget a[href^="#/"]` 로 잡으려 했는데 **빗나갔다**(실측: 95×14 로
+       그대로 남았다). 그 링크는 클래스가 없고 인라인 style 만 있어서 붙을 자리가
+       없었다 — 그래서 widgets.jsx 에 `.qt-inline-cta` 를 붙였다.
+     ★ 교훈: 선택자를 추측하지 말고 실제 DOM 을 보고 정한다.
+  */
+  .qt-inline-cta,
   .acct-empty a,
   .qt-widget a[href^="#/"],
   a[href^="mailto:"] {
