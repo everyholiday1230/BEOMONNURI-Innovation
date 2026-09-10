@@ -5,7 +5,7 @@ import {
   FakeProvider, MockReplayProvider, OpenAIResponsesProvider, BedrockConverseProvider, ToolRegistry, ToolLoopGuard, zodToJsonSchema,
   normalizeResponsesEvent, ToolCallAccumulator, parseSseChunk, Orchestrator, validateProposedChartCommand,
   EvaluationService, READ_ONLY_TOOL_NAMES,
-  type AiStreamEvent, type ToolDataSource, type OpenAiResponsesTransport, type RawResponsesEvent, type IAIUsageRepository,
+  type AiStreamEvent, type AiRequest, type ToolDataSource, type OpenAiResponsesTransport, type RawResponsesEvent, type IAIUsageRepository,
 } from '../index';
 
 const NOW = 1_000_000;
@@ -343,6 +343,93 @@ describe('orchestrator pipeline', () => {
   const input = (over = {}) => ({ conversationId: 'k', userId: 'u', userMessage: 'analyze', symbol: 'BTCUSDT', timeframe: '15m', mode: 'copilot' as const, language: 'en' as const, correlationId: 'x', ...over });
 
   async function drain(it: AsyncIterable<{ type: string; [k: string]: unknown }>) { const out = []; for await (const e of it) out.push(e); return out; }
+
+  /*
+     ★★★ **도구만 쓰고 한 마디도 하지 않는 문제.**
+
+       운영자가 실제로 겪었다: "78000에 수평선 그려줘" → 선은 그려지고 **메시지는 0개**.
+       서버 오류도 없다. 고객에게는 "아무 말도 안 하는 AI" 다.
+
+       원인은 호출이 **한 번**이었다는 것이다. 함수 호출 모델은 "도구를 부르고, 다음
+       차례에 결과를 받아 이어서 말한다" 는 전제로 동작한다. 그 다음 차례가 없었다.
+  */
+  describe('★★★ 도구만 쓰고 침묵하면 두 번째로 물어본다', () => {
+    const usage = { inputTokens: 1, outputTokens: 1, estimatedCostMicros: 0, model: 'm', fallbackUsed: false };
+    /* 첫 호출: 도구만 부르고 텍스트 없음. 두 번째 호출(tools 없음): 설명을 준다. */
+    const twoPass = (secondText = '수평선을 78000에 그렸습니다.') => (req: AiRequest): AiStreamEvent[] => {
+      const isSecond = !req.tools;   /* ★ 2차에는 도구를 넘기지 않는다 — 그것으로 구분한다 */
+      if (isSecond) {
+        return [
+          { type: 'created', responseId: 'r2' },
+          { type: 'output_text.delta', delta: secondText },
+          { type: 'completed', responseId: 'r2', usage },
+        ];
+      }
+      return [
+        { type: 'created', responseId: 'r1' },
+        { type: 'function_call.done', callId: 'c1', name: 'get_market_snapshot', args: '{"symbol":"BTCUSDT"}' },
+        { type: 'completed', responseId: 'r1', usage },
+      ];
+    };
+
+    it('텍스트가 0자면 2차 호출로 설명을 받는다', async () => {
+      const calls: boolean[] = [];
+      const script = twoPass();
+      const d = deps([], {
+        provider: new FakeProvider((req: AiRequest) => { calls.push(!req.tools); return script(req); }),
+      });
+      const evs = await drain(new Orchestrator(d).run(input({ userMessage: '78000에 수평선 그려줘' })));
+      const text = evs.filter((e) => e.type === 'text').map((e) => e.delta).join('');
+      expect(calls, '제공자를 두 번 불러야 한다(1차 도구 포함, 2차 도구 없음)').toEqual([false, true]);
+      expect(text, '2차 호출의 설명이 고객에게 나가지 않았다').toContain('78000');
+    });
+
+    it('★ 1차에서 이미 말했으면 2차를 부르지 않는다 — 비용이 두 배가 된다', async () => {
+      const calls: boolean[] = [];
+      const d = deps([], {
+        provider: new FakeProvider((req: AiRequest) => {
+          calls.push(!req.tools);
+          return [
+            { type: 'created', responseId: 'r' },
+            { type: 'output_text.delta', delta: '이미 설명했습니다.' },
+            { type: 'function_call.done', callId: 'c1', name: 'get_market_snapshot', args: '{"symbol":"BTCUSDT"}' },
+            { type: 'completed', responseId: 'r', usage },
+          ];
+        }),
+      });
+      await drain(new Orchestrator(d).run(input()));
+      expect(calls, '텍스트가 있는데도 2차를 불렀다').toEqual([false]);
+    });
+
+    it('★ 도구를 쓰지 않았으면 2차를 부르지 않는다', async () => {
+      const calls: boolean[] = [];
+      const d = deps([], {
+        provider: new FakeProvider((req: AiRequest) => {
+          calls.push(!req.tools);
+          return [{ type: 'created', responseId: 'r' }, { type: 'completed', responseId: 'r', usage }];
+        }),
+      });
+      await drain(new Orchestrator(d).run(input()));
+      expect(calls, '도구 결과가 없는데 2차를 불렀다').toEqual([false]);
+    });
+
+    it('★★ 2차 호출이 실패해도 1차 결과를 버리지 않는다 — 선은 이미 그려졌다', async () => {
+      const d = deps([], {
+        provider: new FakeProvider((req: AiRequest): AiStreamEvent[] => {
+          if (!req.tools) throw new Error('2차 호출 실패(의도)');
+          return [
+            { type: 'created', responseId: 'r1' },
+            { type: 'function_call.done', callId: 'c1', name: 'get_market_snapshot', args: '{"symbol":"BTCUSDT"}' },
+            { type: 'completed', responseId: 'r1', usage },
+          ];
+        }),
+      });
+      const evs = await drain(new Orchestrator(d).run(input()));
+      /* ★ 도구 실행 사실은 남아야 하고, 전체가 오류로 끝나서는 안 된다. */
+      expect(evs.some((e) => e.type === 'tool' && e.ok === true), '도구 결과가 사라졌다').toBe(true);
+      expect(evs.some((e) => e.type === 'done'), '정상 종료되지 않았다').toBe(true);
+    });
+  });
 
   it('blocks prompt injection before calling provider', async () => {
     const o = new Orchestrator(deps([{ type: 'output_text.delta', delta: 'x' }]));
