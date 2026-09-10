@@ -637,11 +637,34 @@ const DEFAULT_WIDGET_META = {
             const shrinkBase = resizeBaseRef.current || prev.widgets;
             const baseT = shrinkBase.find(w => w.id === id) || target;
             const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
-            const moved = {
+            /*
+               ★★★ **드래그 이동은 `_from` 을 보내지 않는다.**
+
+                 이 경로는 원래 크기 **축소**를 위해 만들어졌고, 손잡이가 함께 보내는
+                 `_from`(제스처 시작 기하)으로 변화량을 계산한다. 그런데 창을 끌어
+                 옮기는 드래그는 `_from` 을 보내지 않는다 — `onChange({x, y, _dragging})`
+                 뿐이다. 그래서 `from.x` 가 `undefined` 가 되고 계산이 NaN 이 됐다.
+
+                 실측: 편집 모드에서 ai 창을 assets 자리로 끌어도 **좌표가 한 칸도
+                 바뀌지 않았다**(45/span 24 → 45/span 24). 고객이 원한 "AI 창을
+                 포지션과 에셋 사이에 넣기" 가 이것 때문에 막혀 있었다.
+
+               ★ `_from` 이 없으면 **보내온 절대 좌표를 그대로 쓴다.** 드래그는 접힘
+                 변환과 무관한 격자 좌표를 직접 계산해 보내므로(onDragStart 의
+                 drag.ox/oy 기준) 변환이 필요 없다.
+               ★ 변화량 방식은 `_from` 이 있을 때만 쓴다 — 그때는 손잡이가 그려진
+                 기하를 기준으로 절대값을 보내기 때문에 변환이 필요하다.
+            */
+            const moved = from ? {
               x: baseT.x + (partial.x - from.x),
               y: baseT.y + (partial.y - from.y),
               w: baseT.w + (partial.w - from.w),
               h: baseT.h + (partial.h - from.h),
+            } : {
+              x: partial.x !== undefined ? partial.x : target.x,
+              y: partial.y !== undefined ? partial.y : target.y,
+              w: partial.w !== undefined ? partial.w : target.w,
+              h: partial.h !== undefined ? partial.h : target.h,
             };
             /* ★ 최소 크기 아래로는 줄이지 않는다. */
             moved.w = Math.max(minWOf(target), moved.w);
