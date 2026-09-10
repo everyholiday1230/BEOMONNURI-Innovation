@@ -1170,3 +1170,58 @@
     min-height: 28px;
   }
 }
+
+/* ============================================================================
+   ★ 터치 대상 3차 — 재측정으로 남은 것 (105 → 35 → 8)
+
+   ★★ 남은 8개 중 **5개는 내 측정의 오탐**이었다:
+        input 20×20 4개 → 부모 `label.chk` 가 **44px** 다. 라벨을 누르면 토글되므로
+                          실제 터치 대상은 44px 다. 요소 크기만 재면 이렇게 틀린다.
+        span.qt-drawer-toggle__bars 14×2 → 햄버거 아이콘의 **장식 막대**다.
+                          부모 button 이 대상이다.
+      그래서 이 둘은 손대지 않는다. **고칠 것이 없는데 고치면 오히려 배치를 깬다.**
+
+   ★ 실제로 미달인 것은 링크·별표 3종이다:
+        a "Connect a key →"  95×14 / 92×13   — 거래소 키 연결 유도. 이걸 못 누르면
+                                               실거래를 시작할 수 없다.
+        a "or email support…" 182×17          — 문의 경로.
+        span.sh-identity__star 14×15          — role="button" 인 관심종목 별표
+                                               (헤더의 것. 목록 행의 것은 1차에서 처리).
+   ============================================================================ */
+@media (max-width: 768px) {
+  /*
+     ★ 본문 안 인라인 링크. ::before 확장 상자는 옆 글자와 겹치므로 padding 을 쓴다.
+       inline-block 이어야 세로 padding 이 클릭 범위로 잡힌다.
+     ★ 범위를 좁게 잡는다 — 모든 <a> 에 주면 문단 안 링크가 줄 간격을 벌린다.
+  */
+  .acct-empty a,
+  .qt-widget a[href^="#/"],
+  a[href^="mailto:"] {
+    display: inline-block;
+    padding: 6px 2px;
+    min-height: 24px;
+  }
+
+  /* ★ 헤더 관심종목 별표 — role="button" 이라 실제 조작 요소다. */
+  .sh-identity__star {
+    position: relative;
+    font-size: 16px;
+    min-width: 24px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sh-identity__star::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    pointer-events: auto;
+    z-index: 0;
+  }
+}
