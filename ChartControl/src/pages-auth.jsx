@@ -2322,6 +2322,43 @@
              ★ 불러오기 전·실패 시에는 요금제를 그리지 않는다. 금액을 임의로 채우면
                거짓 가격을 보여주는 것이다.
         */}
+        {/*
+             ★★★ **사용 사례. 고객 후기가 아니다.**
+
+               운영자가 "고객 후기·사용 사례" 를 요청했다. 후기는 **쓰지 않았다** —
+               구독 0건이고 실고객 6명이라 인용할 후기가 없다. 없는 후기를 만드는 것은
+               표시광고법 위반이고, 이 저장소에서 근거 없는 문구를 지운 전례와 정면으로
+               어긋난다(「주식·ETF 곧 지원」).
+
+             ★ 대신 **"이런 상황에 쓴다"** 를 적었다. 후기와 달리 이것은 검증 가능한
+               사실이다 — 각 항목이 지금 동작하는 기능에 대응한다.
+
+             ★★ 사람 이름·사진·별점을 넣지 않았다. 그런 요소가 붙으면 읽는 사람은
+               후기로 이해한다. 시나리오라는 것이 형식에서 보여야 한다.
+
+             ★ 실제 후기가 쌓이면 이 섹션을 후기로 바꾸는 것이 맞다. 그때까지는 이것이
+               정직한 최선이다.
+        */}
+        <section id="usecases" className="landing-section">
+          <div className="landing-section-title">{t('landing_uc_title')}</div>
+          <p className="landing-demo__lead">{t('landing_uc_lead')}</p>
+          <div className="landing-uc">
+            {[
+              { who: 'landing_uc_1_who', pain: 'landing_uc_1_pain', use: 'landing_uc_1_use' },
+              { who: 'landing_uc_2_who', pain: 'landing_uc_2_pain', use: 'landing_uc_2_use' },
+              { who: 'landing_uc_3_who', pain: 'landing_uc_3_pain', use: 'landing_uc_3_use' },
+            ].map((c) => (
+              <div className="landing-uc__card" key={c.who}>
+                <div className="landing-uc__who">{t(c.who)}</div>
+                <div className="landing-uc__pain">{t(c.pain)}</div>
+                <div className="landing-uc__use">{t(c.use)}</div>
+              </div>
+            ))}
+          </div>
+          {/* ★ 후기가 아니라는 것을 분명히 적는다. 형식만으로는 오해할 수 있다. */}
+          <p className="landing-uc__note">{t('landing_uc_note')}</p>
+        </section>
+
         <section id="pricing" className="landing-section">
           <div className="landing-section-title">{t('landing_nav_pricing')}</div>
           {/*
@@ -2358,13 +2395,19 @@
                         ? t('plan_included_runs', { n: String(pl.approxAiRuns), pt: pl.monthlyPoints.toLocaleString() })
                         : t('plan_included_none')}
                     </div>
-                    <ul>
-                      {pl.features.map((f) => (
-                        <li key={f.key} className={f.included ? '' : 'is-excluded'}>
-                          {f.included ? '✓' : '—'} {t(f.key, f.params || {})}
-                        </li>
-                      ))}
-                    </ul>
+                    {/*
+                         ★★★ **카드마다 기능 10개를 나열해서 요금제 섹션이 2,850자였다.**
+
+                           같은 항목이 5장 카드에 반복되니 방문자는 무엇이 다른지 알기
+                           어렵고, 글이 길어 읽지 않는다. 실측: 랜딩 전체 6,434자 중
+                           **요금제가 2,850자(44%)** 였다.
+
+                         ★ 카드에는 **다른 것만** 남긴다(가격·분석 횟수). 항목별 비교는
+                           아래 공통 표 하나로 옮겼다 — 비교표는 세로로 훑으면 차이가
+                           바로 보인다.
+                         ★ 기능 목록 자체를 지운 것이 아니다. 없애면 "무엇이 포함되나" 를
+                           알 수 없다.
+                    */}
                     {/*
                          ★ 결제가 준비되지 않았으면 가입 링크만 둔다. 유료 플랜에 '구독' 버튼을
                            띄우고 눌러도 안 되면 그게 가장 나쁘다.
@@ -2398,6 +2441,60 @@
                   </div>
                 ))}
               </div>
+              {/*
+                   ★★★ **항목별 비교표.** 카드마다 같은 10개를 반복하던 것을 여기 하나로
+                     모았다(요금제 섹션 2,850자의 원인이었다).
+
+                   ★ 표는 **서버가 준 기능 목록**으로 만든다. 화면이 목록을 지어내면
+                     실제 권한과 어긋난다 — 그러면 "된다고 했는데 안 된다" 가 된다.
+                   ★ 항목 순서는 첫 플랜의 순서를 따른다. 플랜마다 순서가 다를 수 있으므로
+                     기준을 하나로 정한다.
+                   ★★ 포함/미포함을 ○/— 와 **색** 둘 다로 표시한다. 기호만으로는 좁은
+                     화면에서 구분이 어렵고, 색만으로는 색각 이상 이용자가 읽을 수 없다.
+              */}
+              {(() => {
+                const first = plans.list[0];
+                if (!first || !Array.isArray(first.features) || first.features.length === 0) return null;
+                const rows = first.features.map((f) => f.key);
+                const has = (pl, key) => {
+                  const hit = (pl.features || []).find((x) => x.key === key);
+                  return hit ? !!hit.included : false;
+                };
+                const params = (pl, key) => {
+                  const hit = (pl.features || []).find((x) => x.key === key);
+                  return (hit && hit.params) || {};
+                };
+                return (
+                  <div className="landing-cmp__wrap">
+                    <table className="landing-cmp">
+                      <caption className="landing-cmp__cap">{t('landing_cmp_caption')}</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">{t('landing_cmp_feature')}</th>
+                          {plans.list.map((pl) => (
+                            <th scope="col" key={pl.code}>{t(pl.nameKey)}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((key) => (
+                          <tr key={key}>
+                            <th scope="row">{t(key, params(first, key))}</th>
+                            {plans.list.map((pl) => (
+                              <td key={pl.code} className={has(pl, key) ? 'is-yes' : 'is-no'}>
+                                <span aria-hidden="true">{has(pl, key) ? '○' : '—'}</span>
+                                <span className="qt-sr-only">
+                                  {has(pl, key) ? t('landing_cmp_yes') : t('landing_cmp_no')}
+                                </span>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
               {!plans.recurringAvailable && (
                 <div className="landing-price-note">{t('plan_billing_pending')}</div>
               )}
