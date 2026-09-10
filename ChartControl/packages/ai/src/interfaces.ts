@@ -106,6 +106,26 @@ export interface OrchestratorInput {
   conversationId: string;
   userId: string;
   userMessage: string;
+  /**
+   * 이전 대화 내용(오래된 것부터). 없으면 이 요청은 첫 대화로 취급된다.
+   *
+   * ★★★ **이것이 없어서 AI 가 매번 처음부터 시작했다.**
+   *
+   *   실제 대화(고객 sunnysinn1):
+   *     11:25 "macd로 진입 매수매도 신호 좀 만들어줘"
+   *     11:26 "웅 골든크로스데드크로스해줘"
+   *     11:26 "macd켰어"
+   *     11:27 "macd로 진입신호만들어달라고"
+   *     11:28 "신호를 만들어달라고 신호못만들어? 차트에말이야."
+   *     11:29 "내가승인하테니까 롱신호만들어줘.ㅡㅡ 몇번말해"
+   *
+   *   같은 요청을 여섯 번 반복했다. 모델은 **앞의 대화를 전혀 모른 채** 매번
+   *   "MACD 가 화면에 없다" 를 처음 설명했다. 고객이 "몇번말해" 라고 한 것이 당연하다.
+   *
+   * ★ 길이를 서버가 자른다. 전부 넣으면 토큰이 폭증하고(비용은 고객 포인트다) 오래된
+   *   맥락이 현재 판단을 흐린다.
+   */
+  history?: { role: 'user' | 'assistant'; content: string }[];
   symbol: string;
   timeframe: string;
   mode: 'copilot' | 'chart-analysis' | 'signal';

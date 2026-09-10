@@ -309,9 +309,58 @@ export function createAiRouter(d: AiRouterDeps): Hono {
     return streamSSE(c, async (stream) => {
       const abort = new AbortController();
       stream.onAbort(() => abort.abort());
+      /*
+         ★★★ **대화 이력을 읽어 모델에 넘긴다.**
+
+           예전에는 현재 메시지만 보냈다. 그래서 모델은 매 요청을 첫 대화로 보고 앞에서
+           이미 답한 것을 다시 설명했다.
+
+           실제 기록(고객 sunnysinn1, 11:25~11:29): 같은 요청을 **여섯 번** 반복하고
+           "몇번말해" 라고 했다. 모델이 앞 대화를 몰랐기 때문이다.
+
+         ★ **사용자 메시지를 저장하기 전에** 읽는다. 저장 뒤에 읽으면 지금 보낸 메시지가
+           이력에도 들어가 같은 문장이 두 번 전달된다.
+
+         ★★ 최근 것만 넣는다(HISTORY_TURNS). 전부 넣으면 토큰이 폭증하고 그 비용은
+           고객 포인트다. 그리고 오래된 맥락이 현재 판단을 흐린다.
+
+         ★ 실패는 비치명이다 — 이력이 없어도 대화는 가능해야 한다. 조용히 넘기지 않고
+           로그는 남긴다.
+      */
+      const HISTORY_TURNS = 12;
+      let history: { role: 'user' | 'assistant'; content: string }[] = [];
+      try {
+        if (d.conversations.listMessages) {
+          const rows = await d.conversations.listMessages(a.user.id, body.conversationId!);
+          history = rows
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .slice(-HISTORY_TURNS)
+            .map((m) => ({ role: m.role as 'user' | 'assistant', content: String(m.content ?? '') }))
+            .filter((m) => m.content.length > 0);
+        }
+      } catch (e) {
+        console.warn(`[ai] 대화 이력을 읽지 못했다 — 이력 없이 진행한다: ${(e as Error).message}`);
+      }
       await d.conversations.appendMessage(a.user.id, body.conversationId!, { role: 'user', content: body.message! });
       const symbol = body.symbol ?? 'BTCUSDT';
-      const timeframe = body.timeframe ?? '15m';
+      /*
+         ★★★ **화면은 대문자(1H·2H·4H·1D·1W)를 보내고 스키마는 소문자만 받는다.**
+
+           프로덕션 로그가 원인을 그대로 말해줬다:
+             [ai] ★ 제안 거부 — code=proposal-invalid
+                  reason=timeframe: Invalid enum value. Expected '1m' | '3m' | ...
+
+           그래서 `1W` 에서 AI 가 **아무것도 그리지 못했다**(실측: 15m 은 command 1건,
+           1W 는 error 1건 + 텍스트 0자). 고객 sunnysinn1 의 화면이 `1W` 였고,
+           그래서 "신호를 만들어달라" 는 요청이 계속 실패했다.
+
+         ★ 다른 경로(api-client 의 normalizeTimeframe)는 이미 소문자로 바꿔 보낸다.
+           **이 라우트만 빠져 있었다** — 대문자를 그대로 스키마에 넘겼다.
+
+         ★ 여기서 소문자로 맞춘다. 화면 표기(가독성)와 서버 계약(스키마)을 각각
+           유지하면서 경계에서 한 번만 변환한다.
+      */
+      const timeframe = String(body.timeframe ?? '15m').toLowerCase();
       // Ground the model in a server-verified market snapshot. Failure is non-fatal: without it the
       // orchestrator simply refuses price-bearing proposals (no fabricated levels).
       let grounded: { marketData: string; dataSnapshotId: string; marketType?: 'futures' | 'perpetual' } | null = null;
@@ -327,6 +376,7 @@ export function createAiRouter(d: AiRouterDeps): Hono {
           conversationId: body.conversationId!,
           userId: a.user.id,
           userMessage: body.message!,
+          history,
           symbol,
           timeframe,
           mode: (body.mode as 'copilot' | 'chart-analysis' | 'signal') ?? 'copilot',

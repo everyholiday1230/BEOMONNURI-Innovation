@@ -142,7 +142,23 @@ export class Orchestrator implements IAIOrchestrator {
       userId: input.userId,
       model: this.d.model,
       instructions: prompt.template,
-      input: [{ role: 'user', content: buildDelimitedInput({ userMessage: input.userMessage, marketData: input.marketData }) }],
+      /*
+         ★★★ **대화 이력을 함께 보낸다.**
+
+           예전에는 현재 메시지 **하나만** 보냈다. 그래서 모델은 매 요청을 첫 대화로
+           보고, 앞에서 이미 답한 것을 다시 설명했다. 고객이 같은 요청을 여섯 번
+           반복하며 "몇번말해" 라고 한 기록이 있다.
+
+         ★ 이력은 **그대로** 넣는다(경계 표시 없이). 이력은 우리 DB 에 있는 우리 대화지
+           외부 입력이 아니다 — MARKET_DATA 처럼 감싸면 모델이 그것을 "신뢰할 수 없는
+           데이터" 로 다룬다.
+
+         ★★ 현재 메시지만 buildDelimitedInput 으로 감싼다. 시장 데이터가 거기 붙기
+           때문이다. 이력에 시장 데이터를 다시 넣지 않는다 — 과거 시세로 지금을
+           판단하면 안 된다.
+      */
+      input: [...(input.history ?? []).map((h) => ({ role: h.role, content: h.content })),
+        { role: 'user', content: buildDelimitedInput({ userMessage: input.userMessage, marketData: input.marketData }) }],
       // 서버가 시장 데이터를 이미 주입했으면(grounded) 읽기 전용 조회 도구는 노출하지 않는다.
       // 단일 패스 스트림에서 모델이 읽기 도구를 부르면 출력 제출을 기다리며 스트림이 끝나
       // 제안(command/signal)이 전혀 안 나온다. 주입된 데이터로 바로 제안하게 강제한다.
