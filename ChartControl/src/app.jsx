@@ -168,6 +168,18 @@
        컴포넌트 안에 두었더니 보조 칸이 220 으로 남아 같은 버그가 한 화면에 두 벌
        있었다.
   */
+  /*
+     ★ 헤더의 '레이아웃' 버튼 표시 여부. 기본 false — 운영자 요청으로 숨겼다.
+
+       같은 기능이 왼쪽 사이드바에 있고(`layout_edit`), 트레이드 화면에서는 편집 모드
+       없이도 패널을 접고 크기를 바꿀 수 있다. 헤더 자리를 쓸 만큼 자주 누르는 버튼이
+       아니다.
+
+     ★ `false &&` 로 감싸면 eslint 가 막는다(constant truthiness). 이름 있는 상수로
+       두면 왜 숨겼는지도 남는다.
+  */
+  const SHOW_HEADER_LAYOUT_BTN = false;
+
   const CHART_BAR_COUNT = 1000;
 
   function AppFooter() {
@@ -1959,9 +1971,26 @@
                 </a>
               </>
             )}
-            <button className="header-tool" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })}>
-              <I.LayoutIcon size={13}/> {t('layout_manager')}
-            </button>
+            {/*
+                 ★★ **헤더의 레이아웃 버튼을 없앴다**(운영자 요청).
+
+                   같은 기능이 **왼쪽 사이드바에 이미 있다**(app.jsx 의 sb-item-v2,
+                   `layout_edit`). 그리고 트레이드 화면에서는 편집 모드로 들어가지 않고도
+                   패널을 접고 크기를 바꿀 수 있다 — 헤더 자리를 쓸 만큼 자주 누르는
+                   버튼이 아니다.
+
+                 ★ 기능을 없앤 것이 아니라 **입구를 하나로 줄인 것**이다. 사이드바
+                   항목과 `#/trade?mode=layout-edit` 경로는 그대로 동작한다.
+
+                 ★ 마크업은 지우지 않고 남긴다 — 되살릴 때 다시 만들지 않게.
+                   (같은 이유로 SHOW_UNWIRED 뒤에 두지 않았다. 이건 죽은 버튼이 아니라
+                    중복 입구다.)
+            */}
+            {SHOW_HEADER_LAYOUT_BTN ? (
+              <button className="header-tool" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })}>
+                <I.LayoutIcon size={13}/> {t('layout_manager')}
+              </button>
+            ) : null}
             {/*
               입금 버튼.
 
