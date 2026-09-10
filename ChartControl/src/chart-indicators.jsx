@@ -283,6 +283,44 @@
         console.warn('[Indicators] 복원 실패', nm, e && e.message);
       }
     }
+    /*
+       ★★★ **복원 뒤에 게시해야 범례가 갱신된다.**
+
+         이것을 빼먹어서 세 번째로 실패했다. 실측 추적:
+             복원 호출 시 지표 ["MA","VOL"] → 3초 뒤 ["MA","VOL","MACD"]
+             즉 **복원은 성공했는데** 화면 범례는 "MA20 MA60 MA120 VOL" 뿐이었다.
+
+         범례(chart-kline)는 `QTChartState.getIndicatorDetail()` 을 구독한다. 그 값을
+         게시하는 것은 지표 패널의 `syncFromChart` 인데, 패널이 **닫혀 있으면 실행되지
+         않는다.** 그래서 차트에는 있고 범례에는 없는 상태가 됐다.
+
+       ★ 그래서 복원한 쪽이 직접 게시한다. 이름만이 아니라 설정값(calcParams)까지
+         담는다 — 범례가 "MACD(12,26,9)" 처럼 값을 보여주고, AI 코파일럿과 학습 기록도
+         이 값을 읽는다. 이름만 주면 20일선인지 120일선인지 알 수 없다.
+
+       ★ 차트에서 **실제 상태를 다시 읽어** 게시한다(낙관적 갱신 금지). 생성이 실패한
+         지표를 게시하면 범례가 없는 선을 가리킨다.
+    */
+    if (added) {
+      try {
+        var cs = window.QTChartState;
+        if (cs && cs.publishIndicators) {
+          var live = chart.getIndicators() || [];
+          cs.publishIndicators(live.map(function (x) { return x.name; }));
+          if (cs.publishIndicatorDetail) {
+            cs.publishIndicatorDetail(live.map(function (x) {
+              return {
+                name: x.name,
+                paneId: x.paneId,
+                calcParams: Array.isArray(x.calcParams) ? x.calcParams.slice() : [],
+              };
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('[Indicators] 복원 후 게시 실패 — 범례가 갱신되지 않는다:', e && e.message);
+      }
+    }
     return added;
   }
 
