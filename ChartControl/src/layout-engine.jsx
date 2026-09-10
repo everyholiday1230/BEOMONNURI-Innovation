@@ -623,12 +623,25 @@ const DEFAULT_WIDGET_META = {
                  오히려 늘어나 이웃과 겹치고, 겹침 검사가 막아서 **축소가 전혀
                  되지 않았다**(실측: 781px 에서 두 번 줄여도 그대로).
             */
+            /*
+               ★★★ **기준 스냅샷에서 계산해야 한다.** 확대 경로는 `resizeBaseRef` 를
+                 쓰는데 축소 경로는 `target`(=현재 상태)을 썼다. 그래서 한 제스처 안에서
+                 이미 반영된 변화 위에 절대 변화량을 다시 적용해 값이 어긋났다.
+
+                 실측: 동쪽으로 넓힌 뒤(span 52→56) 다시 좁히면 **그대로 56** 이었다.
+                 운영자가 전한 "한쪽으로만 되고 반대로는 안 된다" 가 이것이다.
+
+               ★ 확대와 축소가 **같은 기준**을 써야 한다. 그러지 않으면 방향에 따라
+                 동작이 달라지고, 그것이 "미끄러진다·안 된다" 로 느껴진다.
+            */
+            const shrinkBase = resizeBaseRef.current || prev.widgets;
+            const baseT = shrinkBase.find(w => w.id === id) || target;
             const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
             const moved = {
-              x: target.x + (partial.x - from.x),
-              y: target.y + (partial.y - from.y),
-              w: target.w + (partial.w - from.w),
-              h: target.h + (partial.h - from.h),
+              x: baseT.x + (partial.x - from.x),
+              y: baseT.y + (partial.y - from.y),
+              w: baseT.w + (partial.w - from.w),
+              h: baseT.h + (partial.h - from.h),
             };
             /* ★ 최소 크기 아래로는 줄이지 않는다. */
             moved.w = Math.max(minWOf(target), moved.w);
