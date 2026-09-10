@@ -2500,6 +2500,7 @@
       landing_uc_3_use: 'Yön ve seviyeleri söyleyin; AI risk-getiriyi kontrol eder ve aleyhinize olanı belirtir — yönü asla sizin yerinize seçmez.',
       landing_uc_note: 'Bunlar bizim yazdığımız kullanım örnekleridir. Henüz müşteri yorumu yayınlamıyoruz — birinin sözünü aktarmak yerine ürünü göstermeyi tercih ederiz.',
       landing_cmp_caption: 'Her planın kapsamı',
+      plan_f_ai_monthly_label: 'Aylık AI analizi',
       landing_cmp_all: 'Tüm planlarda',
       landing_cmp_feature: 'Özellik',
       landing_cmp_yes: 'Dahil',

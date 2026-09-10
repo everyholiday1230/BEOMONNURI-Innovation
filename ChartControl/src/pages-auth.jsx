@@ -2471,10 +2471,26 @@
                 // ★★ 무엇이 공통인지 **하드코딩하지 않고 서버 응답에서 계산한다.**
                 //   요금제 구성이 바뀌면 화면이 저절로 따라가야 한다 — 박아두면
                 //   "차이" 표시가 언젠가 거짓이 된다.
+                // ★★★ **포함 여부만 비교하면 안 된다 — 값도 비교해야 한다.**
+                //   `plan_f_ai_monthly` 는 전 플랜이 included 지만 문구에 박히는 횟수가
+                //   플랜마다 다르다(실측: 3 / 30 / 100 / 240 / 500).
+                //   포함 여부만 봤을 때 "공통" 으로 분류되어, 공통 칩에 **free 플랜의 3회**가
+                //   전 플랜 공통인 것처럼 표시됐다 — 유료 플랜 방문자에게는 **거짓**이다.
+                // ★ 그래서 params 까지 비교한다. 값이 다르면 공통이 아니라 "차이" 다.
+                const sig = (pl, key) => {
+                  const hit = (pl.features || []).find((x) => x.key === key);
+                  if (!hit) return 'none';
+                  return `${hit.included ? 1 : 0}|${JSON.stringify(hit.params || {})}`;
+                };
                 const differs = (key) => {
+                  const vals = plans.list.map((pl) => sig(pl, key));
+                  return vals.some((v) => v !== vals[0]);
+                };
+                // ★ 값이 있는 항목(플랜마다 params 가 다른 것)은 ○ 대신 값을 찍는다.
+                const valued = (key) => {
                   const vals = plans.list.map((pl) => {
                     const hit = (pl.features || []).find((x) => x.key === key);
-                    return hit ? !!hit.included : false;
+                    return JSON.stringify((hit && hit.params) || {});
                   });
                   return vals.some((v) => v !== vals[0]);
                 };
@@ -2503,13 +2519,39 @@
                       <tbody>
                         {rows.map((key) => (
                           <tr key={key}>
-                            <th scope="row">{t(key, params(first, key))}</th>
+                            {/*
+                                 ★★★ **행 이름에 free 플랜 숫자가 박히는 문제.**
+                                   `plan_f_ai_monthly` 문구는 "월 약 {n}회 분석" 인데
+                                   행 이름을 첫 플랜(free) params 로 만들면 "약 3회" 가
+                                   되고, 같은 줄 셀에는 30·100·240·500 이 찍힌다 — 모순이다.
+                                 ★ 값이 플랜마다 다른 항목은 **숫자 없는 별도 라벨**을 쓴다.
+                                 ★★ 라벨 키가 사전에 없으면 `t()` 는 **키 문자열을 그대로
+                                   돌려준다**(i18n.js:169). 그러면 화면에 `plan_f_..._label`
+                                   이 노출된다. 그래서 `exists()` 로 확인하고 없으면 원래
+                                   문구로 돌아간다 — 앞으로 값 있는 항목이 추가돼도 안전하다.
+                            */}
+                            <th scope="row">
+                              {valued(key) && window.QTI18n && window.QTI18n.exists(`${key}_label`)
+                                ? t(`${key}_label`)
+                                : t(key, params(first, key))}
+                            </th>
                             {plans.list.map((pl) => (
                               <td key={pl.code} className={has(pl, key) ? 'is-yes' : 'is-no'}>
-                                <span aria-hidden="true">{has(pl, key) ? '○' : '—'}</span>
-                                <span className="qt-sr-only">
-                                  {has(pl, key) ? t('landing_cmp_yes') : t('landing_cmp_no')}
-                                </span>
+                                {/*
+                                     ★★ 값이 플랜마다 다른 항목(예: 월 분석 횟수)은 ○ 로
+                                       덮으면 정보가 사라진다 — **실제 값**을 보여준다.
+                                       ○/— 는 있고/없고 뿐인 항목에만 쓴다.
+                                */}
+                                {has(pl, key) && valued(key)
+                                  ? <span>{t(key, params(pl, key))}</span>
+                                  : (
+                                    <>
+                                      <span aria-hidden="true">{has(pl, key) ? '○' : '—'}</span>
+                                      <span className="qt-sr-only">
+                                        {has(pl, key) ? t('landing_cmp_yes') : t('landing_cmp_no')}
+                                      </span>
+                                    </>
+                                  )}
                               </td>
                             ))}
                           </tr>
