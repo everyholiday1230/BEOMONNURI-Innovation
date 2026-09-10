@@ -1050,3 +1050,67 @@
   /* ★ 주 버튼도 같은 기준으로 키운다. */
   .btn--lg { min-height: 48px; font-size: 15px; }
 }
+
+/* ============================================================================
+   ★★★ 터치 영역 — 보이는 크기는 그대로, 누를 수 있는 범위만 넓힌다
+
+   실측(iPhone 12 뷰포트, 프로덕션, 로그인 후 4개 화면): **105개**가 24px 미만이었다.
+     .sb-pin          20×20  ×36   사이드바 고정 버튼
+     .mw-row__star    16×16  ×21   관심종목 별표
+     .qt-widget-close 20×20  ×8    패널 닫기
+     .pct-slider__stop  8×8  ×4    비율 슬라이더 눈금
+
+   ★★ **크기를 직접 키우면 배치가 깨진다.** 이 요소들은 좁은 행 안에 절대배치로
+     들어가 있고(.sb-pin 은 right:4px, .qt-widget-close 는 모서리 바깥), 실제로
+     예전에 qt-widget-close 를 옮기다가 헤더 버튼과 **겹침 5건**을 만든 적이 있다.
+
+   ★ 그래서 `::before` 로 **투명한 확장 영역**만 만든다. 보이는 모양·위치는 그대로이고
+     손가락이 닿는 범위만 44×44 가 된다. 레이아웃에 영향이 없다(position:absolute).
+
+   ★ `content: ''` 가 반드시 필요하다 — 없으면 의사요소가 생성되지 않는다.
+   ★ 부모에 position 이 없으면 확장 영역이 엉뚱한 곳에 생긴다. 위 네 요소는 모두
+     absolute 이거나 inline-flex 이므로 relative 를 함께 준다.
+   ★ 데스크톱에는 적용하지 않는다 — 마우스는 정확하고, 넓은 투명 영역이 옆 요소의
+     클릭을 가로챌 수 있다.
+   ============================================================================ */
+@media (max-width: 768px) {
+  .sb-pin,
+  .mw-row__star,
+  .qt-widget-close,
+  .pct-slider__stop,
+  .btn--icon,
+  .btn--xs {
+    position: relative;
+  }
+
+  .sb-pin::before,
+  .mw-row__star::before,
+  .qt-widget-close::before,
+  .pct-slider__stop::before,
+  .btn--icon::before,
+  .btn--xs::before {
+    content: '';
+    position: absolute;
+    /*
+       ★ 44px 기준을 중앙 정렬로 만든다. 요소가 20px 이면 위아래로 12px 씩 넓어진다.
+         top/left 를 50% 로 두고 translate 로 당기면 요소 크기와 무관하게 동작한다.
+    */
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    /* ★ 보이지 않아야 한다. 배경을 주면 회색 사각형이 나타난다. */
+    background: transparent;
+    /*
+       ★★ 확장 영역이 **버튼 자신의 클릭 범위**여야 한다. pointer-events 를 none 으로
+         두면 넓힌 의미가 없고, auto 로 두어야 부모 버튼이 이벤트를 받는다.
+    */
+    pointer-events: auto;
+    /* ★ 아이콘/글자보다 뒤에 둔다 — 위에 오면 자체 렌더를 가릴 수 있다. */
+    z-index: 0;
+  }
+
+  /* ★ 별표는 16px 이라 글자 자체도 조금 키운다 — 무엇인지 보이지 않으면 못 누른다. */
+  .mw-row__star { font-size: 14px; }
+}
