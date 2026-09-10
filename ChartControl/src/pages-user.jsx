@@ -2033,6 +2033,12 @@
         */
         futures_not_enabled: { key: 'fast_api_err_futures_not_enabled', ok: false },
         permission_mismatch: { key: 'fast_api_err_permission_mismatch', ok: false },
+        /*
+           ★★ 출금 권한을 승인한 경우. 우리는 그 키를 **보관하지 않는다** —
+             약관 제2조(입출금 미취급)이고, 유출 시 피해가 자산 전체가 된다.
+             그래서 발급을 중단하고 다시 하도록 안내한다.
+        */
+        withdraw_not_allowed: { key: 'fast_api_err_withdraw_not_allowed', ok: false },
       };
       setOauthResult(MAP[reason] || { key: 'fast_api_token_failed', ok: false });
 

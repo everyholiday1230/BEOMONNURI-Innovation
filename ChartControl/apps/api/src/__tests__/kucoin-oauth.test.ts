@@ -106,3 +106,82 @@ describe('KUCOIN-OAUTH state 소비 규칙 (SQL 계약)', () => {
     expect(src).not.toMatch(/refresh_token/u);
   });
 });
+
+describe('★★★ KUCOIN-OAUTH 키 발급 요청 계약 (KuCoin 문서 §6.1/§6.4)', () => {
+  /*
+     ★★★ 실제로 고객을 막고 있던 버그다. 프로덕션 로그:
+           `[kucoin-oauth] key-add 실패 http=200 code=40503 msg=isAddressbookOnly mismatch`
+         운영자 계정에서 2회. 화면은 **"선물이 활성화되지 않았다"** 고 안내했지만
+         사실이 아니었고, 운영자는 KuCoin 설정을 뒤지고 있었다.
+
+     ★★ 원인은 문서가 명시적으로 금지한 두 가지였다:
+
+       (1) "When requesting the user's API key later, please pass these fields
+            **exactly as** they are returned in KuCoin's response, without
+            modifying their content."
+           → 우리는 **우리가 요청한 값**을 보냈다. 고객이 승인 화면에서 고른 것과
+             한 칸이라도 다르면 거부된다.
+
+       (2) "When API_WITHDRAW_OAUTH=false, isAddressbookOnly will **not** be returned…
+            the broker must **not pass** isAddressbookOnly… Passing this field when
+            it is not returned will result in an error."
+           → 우리는 출금을 절대 요구하지 않으므로 이 값이 오지 않는데, 항상
+             `isAddressbookOnly: false` 를 보냈다. 그것이 그 오류의 직접 원인이다.
+
+     ★ 소스로 고정한다 — 실제 KuCoin 호출 없이도 계약을 지킬 수 있다.
+       주석을 먼저 지운다(설명 문장에 같은 문구가 있어 검사가 헛통과한다 —
+       이 저장소에서 여러 번 겪은 함정이다).
+  */
+  const src = (() => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { join, dirname } = require('node:path') as typeof import('node:path');
+    const { fileURLToPath } = require('node:url') as typeof import('node:url');
+    return readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'kucoin-oauth-routes.ts'),
+      'utf8',
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/[^\n]*$/gm, '');
+  })();
+
+  it('[K1] 콜백이 돌려준 권한을 읽는다 (우리가 요청한 값을 그대로 보내지 않는다)', () => {
+    /* ★ 콜백 쿼리에서 권한 키를 읽어야 한다. */
+    expect(src, 'API_WITHDRAW_OAUTH 를 콜백에서 읽지 않는다').toMatch(/GROUP_KEYS/);
+    expect(src, '콜백 쿼리에서 권한을 읽지 않는다').toMatch(/c\.req\.query\(k\)/);
+  });
+
+  it('[K2] ★★ isAddressbookOnly 를 무조건 보내지 않는다', () => {
+    /*
+       ★ 이것이 실제 오류의 직접 원인이었다. 하드코딩된 `isAddressbookOnly: false` 가
+         본문에 다시 들어오면 같은 실패가 재현된다.
+    */
+    expect(src, 'isAddressbookOnly 를 하드코딩해 보낸다 — KuCoin 이 거부한다')
+      .not.toMatch(/isAddressbookOnly:\s*false/);
+    /* ★ 콜백에 있을 때만 넘긴다. */
+    expect(src, 'isAddressbookOnly 를 콜백에서 읽지 않는다')
+      .toMatch(/c\.req\.query\(['"]isAddressbookOnly['"]\)/);
+    expect(src, '조건부로 넣지 않는다').toMatch(/keyPayload\.isAddressbookOnly/);
+  });
+
+  it('[K3] ★★★ 출금 권한이 승인되면 키를 만들지 않는다', () => {
+    /*
+       ★★ 콜백 권한을 그대로 넘기게 되면서 생긴 새 위험이다. 고객이 실수로 출금을
+         체크하면 출금 가능한 키가 만들어진다 — 그 키를 우리가 보관하는 것은 약관
+         제2조(입출금 미취급) 위반이고, 유출 시 피해가 **자산 전체**다.
+       ★ 그래서 발급 전에 중단한다.
+    */
+    expect(src, '출금 승인 시 중단하지 않는다').toMatch(/withdraw_not_allowed/);
+    expect(src, '출금 승인 여부를 확인하지 않는다')
+      .toMatch(/granted\.API_WITHDRAW_OAUTH\s*===\s*true/);
+  });
+
+  it('[K4] 40503 을 선물 미활성화로 단정하지 않는다', () => {
+    /*
+       ★★ 예전에는 40503 이면 무조건 "선물을 켜세요" 라고 했다. 실제 원인이
+         isAddressbookOnly 였는데 **틀린 이유**를 고객에게 알려주고 있었다.
+         틀린 안내는 없는 안내보다 나쁘다 — 고객이 엉뚱한 곳을 고치려 한다.
+    */
+    expect(src, 'KuCoin 의 msg 를 보지 않고 원인을 단정한다').toMatch(/addressbook/);
+  });
+});

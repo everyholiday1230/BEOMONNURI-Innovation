@@ -361,18 +361,75 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
          ★ 출금은 어떤 경로로도 켜지지 않는다.
       */
       const markets = normalizeMarkets(row.markets);
-      const authGroupMap = {
-        ...authGroupsFor(markets),
-        ...(d.authGroups || {}),
-        API_WITHDRAW_OAUTH: false,
-      };
+
+      /*
+         ★★★ **KuCoin 이 콜백으로 돌려준 권한을 그대로 넘겨야 한다.**
+
+           문서(§6.1)가 명시한다:
+             "When requesting the user's API key later, please pass these fields
+              **exactly as** they are returned in KuCoin's response, without
+              modifying their content."
+
+           예전에는 **우리가 요청한 값**(authGroupsFor)을 보냈다. 그래서 고객이 승인
+           화면에서 고른 것과 한 칸이라도 다르면 KuCoin 이 거부했다(code=40503).
+
+           실제 실패 로그: `code=40503 msg=isAddressbookOnly mismatch` — 운영자 계정에서
+           2회. 화면은 "선물이 활성화되지 않았다" 고 안내했지만 **사실이 아니었다.**
+
+         ★★ 그리고 문서가 더 분명히 금지한 것이 있다:
+             "When API_WITHDRAW_OAUTH=false, isAddressbookOnly will **not** be returned
+              in the callback. In this case, the broker must **not pass**
+              isAddressbookOnly. Passing this field when it is not returned will
+              result in an error."
+
+           우리는 출금을 **절대** 요구하지 않으므로 이 값이 돌아오지 않는다. 그런데
+           키 발급 때 항상 `isAddressbookOnly: false` 를 보냈다 — 그것이 그 오류의
+           직접 원인이다.
+
+         ★ 그래서 콜백 쿼리에서 권한을 읽는다. 없으면(구버전 응답) 우리가 요청한
+           값으로 물러난다 — 아무것도 못 보내면 발급 자체가 안 된다.
+
+         ★★ **출금은 어떤 경우에도 받지 않는다.** 콜백이 API_WITHDRAW_OAUTH=true 로
+           오면(고객이 실수로 체크) 키를 만들지 않고 중단한다. 출금 권한이 있는 키를
+           우리가 보관하는 것 자체가 약관 제2조 위반이고, 유출 시 피해가 자산 전체다.
+      */
+      const GROUP_KEYS = [
+        'API_COMMON', 'API_SPOT', 'API_MARGIN', 'API_FUTURES',
+        'API_EARN', 'API_TRANSFER', 'API_WITHDRAW_OAUTH',
+      ] as const;
+      const granted: Record<string, boolean> = {};
+      let sawAnyGroup = false;
+      for (const k of GROUP_KEYS) {
+        const raw = c.req.query(k);
+        if (raw === undefined) continue;
+        sawAnyGroup = true;
+        granted[k] = raw === 'true';
+      }
+
+      /* ★ 출금을 승인했다면 중단한다 — 우리는 그 키를 보관하지 않는다. */
+      if (granted.API_WITHDRAW_OAUTH === true) {
+        console.warn(`[kucoin-oauth] 출금 권한이 승인됨 — 키를 만들지 않는다 user=${a.user.id}`);
+        return back('withdraw_not_allowed');
+      }
+
+      const authGroupMap = sawAnyGroup
+        ? granted
+        : { ...authGroupsFor(markets), ...(d.authGroups || {}), API_WITHDRAW_OAUTH: false };
+
+      /*
+         ★ isAddressbookOnly 는 **콜백에 있을 때만** 넘긴다. 위 문서 인용 그대로다.
+           출금을 요구하지 않는 우리 흐름에서는 사실상 항상 생략된다.
+      */
+      const addressbookRaw = c.req.query('isAddressbookOnly');
+      const keyPayload: Record<string, unknown> = { authGroupMap };
+      if (addressbookRaw !== undefined) keyPayload.isAddressbookOnly = addressbookRaw === 'true';
       const keyRes = await fetch(`${d.oauthBase}${d.apiKeyPath}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
           authorization: `bearer ${tokenBody.access_token}`,
         },
-        body: JSON.stringify({ authGroupMap, isAddressbookOnly: false }),
+        body: JSON.stringify(keyPayload),
         signal: AbortSignal.timeout(20_000),
       });
       const keyBody = (await keyRes.json().catch(() => null)) as {
@@ -405,8 +462,20 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
              API_FUTURES 를 요구**한 경우다. 일반 오류로 뭉개면 고객은 몇 번
              다시 시도하다 포기한다 — 실제로 이 실패가 6건 남아 있었다.
         */
+        /*
+           ★★★ 예전에는 40503 을 **선물 미활성화**로 단정했다. 그런데 실제 로그는
+             `msg=isAddressbookOnly mismatch` 였다 — 원인이 전혀 달랐고, 화면은
+             고객에게 **틀린 이유**를 알려주고 있었다("선물을 켜세요").
+             운영자가 선물을 켜려고 KuCoin 설정을 뒤졌지만 문제는 우리 쪽이었다.
+
+           ★ 이제 KuCoin 이 준 msg 로 갈라낸다. 단정하지 않는다 — 모르는 경우는
+             일반 안내를 주고 로그에서 원인을 본다(그 로그가 이번에 원인을 찾아냈다).
+        */
+        const kmsg = String(keyBody?.msg ?? '').toLowerCase();
         if (String(keyBody?.code ?? '') === '40503') {
-          return back(markets === 'spot' ? 'permission_mismatch' : 'futures_not_enabled');
+          if (kmsg.includes('addressbook')) return back('permission_mismatch');
+          if (kmsg.includes('futures')) return back('futures_not_enabled');
+          return back('permission_mismatch');
         }
         return back('key_issue_failed');
       }
