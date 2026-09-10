@@ -388,6 +388,45 @@
        ★ 예약 이름(`__auto__`)만 찾는다. 이용자 템플릿을 자동 적용하면 남의 설정이
          갑자기 덮이는 셈이다.
     */
+    /*
+       ★★★ **저장값을 차트에 실제로 적용한다.**
+
+         처음 구현했을 때 저장·복원은 됐는데 **차트에 나타나지 않았다**(실측:
+         localStorage 에 `["MA","VOL","MACD"]` 가 남았지만 새로고침 후 범례는
+         MA·VOL 만). `toggle` 은 클릭했을 때만 차트를 만지고, `active` 상태를
+         차트에 반영하는 경로가 **없었기 때문이다.**
+
+       ★ 그래서 복원 전용 적용을 둔다. 차트에 없고 `active` 에만 있는 지표를 만든다.
+       ★★ 반대 방향(차트에 있고 active 에 없는 것)은 **지우지 않는다.** 차트가 기본으로
+         켜는 지표(MA·VOL)가 있고, 그것을 지우면 첫 화면이 비어 보인다. 이 effect 의
+         일은 "빠진 것을 채우는 것" 뿐이다.
+       ★ 차트가 준비된 뒤에만 동작해야 하므로 version 을 의존성에 넣는다
+         (chart-kline 이 인스턴스를 만들면 version 이 올라간다).
+    */
+    useEffect(() => {
+      const chart = getChart && getChart();
+      if (!chart || active.size === 0) return;
+      let existing;
+      try { existing = new Set((chart.getIndicators() || []).map((x) => x.name)); }
+      catch (e) { void e; return; }
+      let added = false;
+      for (const [nm, pid] of active) {
+        if (existing.has(nm)) continue;
+        try {
+          const onCandle = pid === 'candle_pane';
+          chart.createIndicator(
+            { name: nm, ...(onCandle ? { paneId: 'candle_pane' } : {}) },
+            onCandle,
+          );
+          added = true;
+        } catch (e) {
+          console.warn('[Indicators] 복원 실패', nm, e && e.message);
+        }
+      }
+      /* ★ 실제로 반영된 결과를 다시 읽는다(낙관적 갱신 금지). */
+      if (added) setTimeout(syncFromChart, 0);
+    }, [active, getChart, version, syncFromChart]);
+
     useEffect(() => {
       let alive = true;
       try {
