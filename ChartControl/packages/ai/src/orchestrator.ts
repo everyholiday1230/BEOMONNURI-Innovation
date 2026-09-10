@@ -341,7 +341,34 @@ export class Orchestrator implements IAIOrchestrator {
 
       // PROPOSAL tools: validate + emit a command/signal proposal (never executed, never auto-applied).
       if (isProposalTool(ev.name)) {
-        return this.handleProposal(ev.name, ev.args, input, grounding);
+        const out = this.handleProposal(ev.name, ev.args, input, grounding);
+        /*
+           ★★★ **제안 도구도 2차 호출 판정에 넣는다.**
+
+             처음 고칠 때 여기를 빠뜨렸다. 그래서 프로덕션에서 그대로 재현됐다 —
+             "78000에 수평선 그려줘" → SSE 이벤트 `command:1` 인데 `text:0`.
+             운영자가 겪은 바로 그 경우가 **제안 도구**(그리기)라 아래 일반 도구
+             분기를 타지 않았고, 수집 배열이 비어 2차 호출이 안 걸렸다.
+
+           ★ 조회 도구(get_*)만 세면 "그려줘" 류가 전부 침묵한다 — 오히려 침묵이
+             가장 잘 보이는 쪽이 그리기다(선은 생겼는데 말이 없다).
+
+           ★ 성공 신호는 `command`/`signal` 이다. 검증 실패(`error`)는 세지 않는다 —
+             실패했으면 설명할 결과가 없고, 그때는 오류 문구가 나가는 것이 맞다.
+
+           ★ 결과 본문에는 **제안 내용**을 담는다. 이름만 넘기면 2차 호출이
+             "수평선을 그렸습니다" 이상을 말할 수 없다(어느 값에 그렸는지 모른다).
+        */
+        const okItem = out.find((e) => e.type === 'command' || e.type === 'signal');
+        if (okItem) {
+          collected?.push({
+            name: ev.name,
+            ok: true,
+            output: (okItem as { command?: unknown; signal?: unknown }).command
+              ?? (okItem as { signal?: unknown }).signal,
+          });
+        }
+        return out;
       }
 
       if (!this.d.tools.has(ev.name)) return [{ type: 'error', code: 'unknown-tool', message: `unknown tool: ${ev.name}` }];

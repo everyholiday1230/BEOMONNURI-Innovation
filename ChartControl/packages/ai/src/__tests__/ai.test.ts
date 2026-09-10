@@ -480,6 +480,53 @@ describe('orchestrator pipeline', () => {
     expect(cmd!.command.command).toBe('createSupportResistance');
     expect(cmd!.command.args.price).toBe('100');
   });
+  /*
+     ★★★ **처음 고칠 때 여기를 빠뜨려 프로덕션에서 그대로 재현됐다.**
+
+       "78000에 수평선 그려줘" → SSE 이벤트 `command:1` 인데 `text:0`.
+       운영자가 겪은 경우가 **제안 도구**(그리기)라서, 일반 도구(get_*) 분기만 세던
+       2차 호출 조건이 걸리지 않았다. 조회 도구만 세면 "그려줘" 류가 전부 침묵한다 —
+       오히려 침묵이 가장 잘 보이는 쪽이 그리기다(선은 생겼는데 말이 없다).
+  */
+  it('★★★ 제안 도구(그리기)만 쓰고 침묵해도 2차 호출로 설명한다', async () => {
+    const usage2 = { inputTokens: 1, outputTokens: 1, estimatedCostMicros: 0, model: 'm', fallbackUsed: false };
+    const calls: boolean[] = [];
+    const d = deps([], {
+      provider: new FakeProvider((req: AiRequest): AiStreamEvent[] => {
+        const isSecond = !req.tools;
+        calls.push(isSecond);
+        if (isSecond) {
+          return [
+            { type: 'created', responseId: 'r2' },
+            { type: 'output_text.delta', delta: '지지선을 100에 표시했습니다.' },
+            { type: 'completed', responseId: 'r2', usage: usage2 },
+          ];
+        }
+        /* ★ 1차: 제안 도구만 부르고 텍스트 없음 — 운영자가 겪은 그 모양이다. */
+        return [proposeCmd('createSupportResistance', { price: '100', kind: 'support' }), completed];
+      }),
+    });
+    const evs = await drain(new Orchestrator(d).run(input({ marketData: 'last=100 asOf=NOW' })));
+    const text = evs.filter((e) => e.type === 'text').map((e) => e.delta).join('');
+    expect(calls, '제안 도구만 썼는데 2차를 부르지 않았다').toEqual([false, true]);
+    expect(evs.some((e) => e.type === 'command'), '제안이 사라졌다').toBe(true);
+    expect(text, '2차 설명이 나가지 않았다').toContain('100');
+  });
+
+  it('★ 제안이 검증 실패했으면 2차를 부르지 않는다 — 설명할 결과가 없다', async () => {
+    const calls: boolean[] = [];
+    const d = deps([], {
+      provider: new FakeProvider((req: AiRequest): AiStreamEvent[] => {
+        calls.push(!req.tools);
+        /* ★ 가격이 필요한 제안인데 시장 근거가 없다 → ungrounded-proposal 로 거부된다. */
+        return [proposeCmd('createSupportResistance', { price: '100', kind: 'support' }), completed];
+      }),
+    });
+    const evs = await drain(new Orchestrator(d).run(input()));   /* marketData 없음 */
+    expect(evs.some((e) => e.type === 'error'), '거부되지 않았다 — 시험 전제가 깨졌다').toBe(true);
+    expect(calls, '실패한 제안인데 2차를 불렀다').toEqual([false]);
+  });
+
   it('allows addIndicator without market grounding (no price)', async () => {
     const events: AiStreamEvent[] = [proposeCmd('addIndicator', { indicator: 'RSI', params: [14] }), completed];
     const evs = await drain(new Orchestrator(deps(events)).run(input())); // no marketData
