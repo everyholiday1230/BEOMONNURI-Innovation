@@ -163,6 +163,42 @@
     const [busy, setBusy] = useState(null);
     const [error, setError] = useState('');
     const boxRef = useRef(null);
+    /*
+       ★★★ **패널이 차트에 가려 종목 목록이 보이지 않았다**(운영자 신고).
+
+         원인은 조상 요소의 overflow 클리핑이다. 툴바(.chart-toolbar)는
+         `overflow-x: auto` 라, 그 안에서 absolute 로 띄운 패널이 잘린다.
+
+       ★ 지표 패널(chart-indicators.jsx)이 **이미 같은 문제를 겪고 같은 방식으로
+         고쳐 두었다** — 버튼 위치를 기준으로 `position: fixed` 로 띄워 조상 클리핑을
+         벗어난다. 그 방식을 그대로 쓴다. 두 패널이 다른 방식을 쓰면 한쪽만 고치는
+         실수가 생긴다.
+
+       ★ 화면 오른쪽 밖으로 나가지 않게 왼쪽으로 당긴다. 아래로 넘칠 때는 버튼 위로
+         올려 띄운다 — 차트 툴바는 화면 상단이 아니라 중간에 있을 수 있다.
+    */
+    const [fixedPos, setFixedPos] = useState(null);
+    useEffect(() => {
+      const wrap = boxRef.current && boxRef.current.parentElement;
+      if (!wrap) return undefined;
+      const place = () => {
+        const r = wrap.getBoundingClientRect();
+        const W = 320;
+        const H = boxRef.current ? boxRef.current.offsetHeight || 360 : 360;
+        let left = Math.round(r.left);
+        if (left + W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - W - 8);
+        let top = Math.round(r.bottom + 6);
+        if (top + H > window.innerHeight - 8) top = Math.max(8, Math.round(r.top) - H - 6);
+        setFixedPos({ top: top, left: left });
+      };
+      place();
+      window.addEventListener('resize', place);
+      window.addEventListener('scroll', place, true);
+      return () => {
+        window.removeEventListener('resize', place);
+        window.removeEventListener('scroll', place, true);
+      };
+    }, []);
 
     // 사용 가능한 심볼 목록. 실시세가 있으면 그것을, 없으면 목업 목록을 쓴다.
     const candidates = useMemo(() => {
@@ -325,7 +361,13 @@
     }, [getChart, items, syncFromChart]);
 
     return (
-      <div className="chart-ind-panel" style={{ width: 320 }} ref={boxRef}>
+      <div
+        className="chart-ind-panel"
+        style={fixedPos
+          ? { width: 320, position: 'fixed', top: fixedPos.top, left: fixedPos.left, right: 'auto' }
+          : { width: 320 }}
+        ref={boxRef}
+      >
         {/*
           마크업은 지표 패널(chart-indicators.css)의 클래스를 그대로 재사용한다.
           새 CSS 를 만들지 않는다 — 두 패널이 다른 모양이면 디자인 일관성이 깨진다.

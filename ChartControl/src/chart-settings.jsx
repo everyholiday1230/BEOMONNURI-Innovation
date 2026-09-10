@@ -241,7 +241,17 @@
         .then((r) => {
           if (!alive) return;
           if (r.supported && r.ok) {
-            setStore({ version: STORE.version, items: r.items.map(fromServerTemplate) });
+            /*
+               ★★ 예약 이름(`__auto__`)은 목록에서 감춘다.
+
+                 지표 자동 저장이 차트 템플릿 저장을 **재사용**한다(새 API 를 만들지
+                 않기 위해). 그 항목이 목록에 보이면 이용자가 자기 템플릿으로 착각해
+                 지우거나 덮어쓸 수 있고, 그러면 자동 저장이 조용히 망가진다.
+            */
+            setStore({
+              version: STORE.version,
+              items: r.items.filter((x) => x && x.name !== '__auto__').map(fromServerTemplate),
+            });
             setSynced(true);
           } else {
             setSynced(false);

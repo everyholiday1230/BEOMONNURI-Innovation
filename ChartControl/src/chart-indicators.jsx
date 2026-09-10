@@ -184,6 +184,62 @@
      새로고침 후에도 유지되고, 차트(ChartKline)가 기본 지표를 만들 때도 이 값을 읽는다.
   */
   const CALC_KEY = 'qt.chart.calcparams.v1';
+  /*
+     ★★★ **켜 둔 지표를 계정에 자동 저장한다**(운영자 요청).
+
+       예전에는 `useState(new Map())` 로 시작해서, 새로고침하면 켜 둔 지표가 전부
+       사라졌다. 파라미터(기간)만 localStorage 에 남았고 "무엇을 켰는지" 는 아니었다.
+       매번 다시 켜야 했다.
+
+     ★★ 저장 위치를 **서버 + 기기** 둘 다로 둔다:
+       · 서버(/api/me/chart-templates) — 계정에 붙으므로 **다른 기기에서도 그대로**다.
+         운영자 요청("아이디에 켜둔 지표")이 이 뜻이다.
+       · 기기(localStorage) — 비로그인·네트워크 장애·서버 미지원(SQLite 개발)에서도
+         동작해야 한다. 그리고 서버 응답을 기다리는 동안 화면이 비어 보이지 않는다.
+
+     ★ **새 API 를 만들지 않았다.** 이미 있는 차트 템플릿 저장을 예약된 이름으로 쓴다.
+       테이블·라우트·권한 검사를 새로 만들면 지켜야 할 것이 늘어난다.
+
+     ★ 예약 이름은 목록에 보이지 않게 걸러야 한다(템플릿 패널이 `__auto__` 를 숨긴다).
+       이용자가 만든 템플릿과 섞이면 지우거나 덮어쓸 수 있다.
+  */
+  const AUTO_KEY = 'qt.chart.indicators.v1';
+  const AUTO_TPL_NAME = '__auto__';
+
+  function loadAutoLocal() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(AUTO_KEY) || 'null');
+      return raw && Array.isArray(raw.names) ? raw : null;
+    } catch (e) { void e; return null; }
+  }
+  function saveAutoLocal(names, panes) {
+    try { localStorage.setItem(AUTO_KEY, JSON.stringify({ names: names, panes: panes || {} })); }
+    catch (e) { void e; }
+  }
+  /*
+     ★ 서버 저장은 실패해도 조용히 넘긴다 — 지표 자동 저장은 부가 기능이고, 실패로
+       차트 조작을 막으면 안 된다. 다만 로그는 남긴다(원인을 모르면 고칠 수 없다).
+     ★ 잦은 저장을 막기 위해 마지막으로 보낸 값과 같으면 보내지 않는다.
+  */
+  let _lastSent = '';
+  function saveAutoServer(names, panes) {
+    const sig = JSON.stringify({ names: names, panes: panes });
+    if (sig === _lastSent) return;
+    _lastSent = sig;
+    try {
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.saveChartTemplate) return;
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+      api.saveChartTemplate({
+        name: AUTO_TPL_NAME,
+        payload: { indicators: names, panes: panes, auto: true },
+      }).catch(function (e) {
+        console.warn('[Indicators] 자동 저장(서버) 실패 — 기기 저장은 유지된다:', e && e.message);
+      });
+    } catch (e) {
+      console.warn('[Indicators] 자동 저장(서버) 예외:', e && e.message);
+    }
+  }
   function loadCalcAll() { try { return JSON.parse(localStorage.getItem(CALC_KEY) || '{}') || {}; } catch (e) { return {}; } }
   function getCalc(name) { const v = loadCalcAll()[name]; return Array.isArray(v) && v.length ? v.slice() : null; }
   function setCalc(name, params) { try { const all = loadCalcAll(); all[name] = params; localStorage.setItem(CALC_KEY, JSON.stringify(all)); } catch (e) { /* noop */ } }
@@ -191,7 +247,17 @@
 
   window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose, publish = true }) {
     const [q, setQ] = useState('');
-    const [active, setActive] = useState(() => new Map()); // name -> paneId
+    /*
+       ★ 초기값을 기기 저장에서 읽는다. 서버 값은 아래 effect 가 도착하면 덮는다 —
+         서버가 정본이고 기기 저장은 즉시 보여주기 위한 것이다.
+    */
+    const [active, setActive] = useState(() => {
+      const saved = loadAutoLocal();
+      if (!saved) return new Map();
+      const m = new Map();
+      for (const nm of saved.names) m.set(nm, (saved.panes && saved.panes[nm]) || 'candle_pane');
+      return m;
+    });
     const [params, setParams] = useState(() => new Map()); // name -> calcParams[]
     const [editing, setEditing] = useState(null); // 파라미터 편집 중인 지표 이름
     const panelRef = useRef(null);
@@ -288,12 +354,63 @@
             window.QTChartState.publishIndicatorDetail(detail);
           }
         }
+        /*
+           ★★★ **차트가 실제로 반영한 결과를 저장한다.**
+
+             낙관적으로 `active` 를 저장하면, 차트가 지표 생성에 실패했을 때 켜지지도
+             않은 지표가 저장된다. 다음 접속에 그것을 되살리려다 또 실패한다.
+             syncFromChart 는 `chart.getIndicators()` 로 실제 상태를 읽으므로 여기가
+             저장할 자리다.
+
+           ★ 기기와 서버 둘 다에 저장한다. 서버는 계정에 붙으므로 다른 기기에서도
+             같은 지표가 켜진다.
+        */
+        const names = Array.from(map.keys());
+        const panes = {};
+        for (const [nm, pid] of map) panes[nm] = pid;
+        saveAutoLocal(names, panes);
+        saveAutoServer(names, panes);
       } catch (e) { /* noop */ }
     }, [getChart, publish]);
 
     useEffect(() => {
       syncFromChart();
     }, [syncFromChart, version]);
+
+    /*
+       ★★ 서버에 저장된 지표 구성을 불러온다(로그인 시 1회).
+
+         기기 저장으로 즉시 화면을 채우고, 서버 값이 오면 그것으로 맞춘다 —
+         **서버가 정본**이다. 다른 기기에서 바꾼 것이 반영돼야 한다.
+
+       ★ 실패는 조용히 넘긴다. 기기 저장으로 이미 동작하고 있으므로, 서버가 없는
+         환경에서 오류를 띄우면 기능이 고장난 것처럼 보인다.
+       ★ 예약 이름(`__auto__`)만 찾는다. 이용자 템플릿을 자동 적용하면 남의 설정이
+         갑자기 덮이는 셈이다.
+    */
+    useEffect(() => {
+      let alive = true;
+      try {
+        const api = window.QTApi && window.QTApi.rest;
+        if (!api || !api.chartTemplates) return undefined;
+        if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return undefined;
+        api.chartTemplates().then((r) => {
+          if (!alive || !r || !r.ok) return;
+          const hit = (r.items || []).find((x) => x && x.name === AUTO_TPL_NAME);
+          const payload = hit && hit.payload;
+          const names = payload && Array.isArray(payload.indicators) ? payload.indicators : null;
+          if (!names || names.length === 0) return;
+          const panes = (payload && payload.panes) || {};
+          const m = new Map();
+          for (const nm of names) m.set(nm, panes[nm] || 'candle_pane');
+          setActive(m);
+          saveAutoLocal(names, panes);
+        }).catch((e) => {
+          console.warn('[Indicators] 자동 불러오기 실패 — 기기 저장으로 동작한다:', e && e.message);
+        });
+      } catch (e) { void e; }
+      return () => { alive = false; };
+    }, []);
 
     // 바깥 클릭 / ESC 로 닫기
     useEffect(() => {
