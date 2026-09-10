@@ -261,3 +261,83 @@
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }
+
+/* ============================================================================
+   ★★★ "AI 로 뭘 할 수 있나" 예시 섹션
+
+   예전 랜딩은 6,434자 글에 이미지 1장이었다. 기능을 **설명**만 하고 "그래서 내가 뭘
+   얻나" 를 보여주지 않았다 — 방문자가 가장 먼저 궁금해하는 것이 그것이다.
+
+   ★ 대화 형태로 보여준다. 이 제품의 실제 사용법이 그렇고(말로 요청 → 차트에 그려짐),
+     캡처 이미지보다 정직하다 — 이미지는 꾸밀 수 있다.
+   ★ 색만으로 요청/응답을 구분하지 않는다. 들여쓰기와 아이콘이 함께 있다.
+   ============================================================================ */
+.landing-demo__lead {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0 0 18px;
+  max-width: 62ch;
+}
+.landing-demo {
+  display: grid;
+  gap: 14px;
+}
+.landing-demo__row {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--r-md, 8px);
+  background: var(--color-bg-surface);
+  padding: 14px 16px;
+  /* ★ 왼쪽 강조선. 카드가 나열되면 어디까지가 한 묶음인지 흐려진다. */
+  border-left: 3px solid var(--color-brand);
+}
+.landing-demo__ask {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.landing-demo__who {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex: 0 0 auto;
+}
+.landing-demo__bubble {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+.landing-demo__did {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.landing-demo__icon {
+  color: var(--color-brand);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+/*
+   ★★ 한계 문구. 눈에 띄되 경고처럼 붉게 만들지 않는다 — 이것은 사실 설명이고,
+     첫 방문자에게 위험 신호로 읽히면 이유 없이 불안해진다.
+*/
+.landing-demo__limit {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--r-sm, 6px);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+  max-width: 78ch;
+}
+
+/* ★ 넓은 화면에서는 두 열로 — 네 개가 세로로 늘어지면 스크롤이 길어진다. */
+@media (min-width: 900px) {
+  .landing-demo { grid-template-columns: 1fr 1fr; }
+}

@@ -2506,6 +2506,18 @@
 
       // --- 랜딩 통계 (검증 가능한 사실만) ---
       landing_stat_pairs: 'Số thị trường bạn có thể vẽ biểu đồ',
+      landing_demo_title: 'Nói ra. Thấy ngay trên biểu đồ.',
+      landing_demo_lead: 'Không cần học menu. Hãy nói bằng lời của bạn, biểu đồ thay đổi ngay trước mắt.',
+      landing_demo_you: 'Bạn',
+      landing_demo_q1: '"Vẽ hỗ trợ tại 78.000"',
+      landing_demo_a1: 'Vẽ mức giá lên biểu đồ, có nhãn và màu bản nháp AI',
+      landing_demo_q2: '"Bật MACD và đọc giúp tôi"',
+      landing_demo_a2: 'Bật chỉ báo và giải thích các giá trị hiện tại cho thấy điều gì',
+      landing_demo_q3: '"Tôi muốn long ở đây, stop dưới đáy gần nhất"',
+      landing_demo_a3: 'Đánh dấu điểm vào, stop và mục tiêu, rồi cho biết tỷ lệ lợi nhuận/rủi ro trước khi bạn đặt lệnh',
+      landing_demo_q4: '"Vì sao có nhịp này?"',
+      landing_demo_a4: 'Đọc các nến trên màn hình và trả lời dựa trên dữ liệu thực tế',
+      landing_demo_limit: 'Mọi hình vẽ đều là bản nháp bạn có thể xóa. AI không bao giờ đặt, sửa hay hủy lệnh — bạn tự làm điều đó trên tài khoản sàn của mình.',
       landing_stat_exchange: 'Nguồn dữ liệu biểu đồ',
       landing_stat_custody: 'Số tiền của khách hàng mà chúng tôi giữ',
       landing_stat_withdraw: 'Số quyền rút tiền mà chúng tôi yêu cầu',

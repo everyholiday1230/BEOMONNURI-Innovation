@@ -2429,6 +2429,18 @@
 
       // --- 랜딩 통계 (검증 가능한 사실만) ---
       landing_stat_pairs: 'Mercados que você pode analisar',
+      landing_demo_title: 'Fale. Veja no gráfico.',
+      landing_demo_lead: 'Sem menus para aprender. Peça com suas palavras e o gráfico muda na sua frente.',
+      landing_demo_you: 'Você',
+      landing_demo_q1: '"Marque suporte em 78.000"',
+      landing_demo_a1: 'Desenha o nível no seu gráfico, com rótulo e cor de rascunho da IA',
+      landing_demo_q2: '"Ligue o MACD e leia para mim"',
+      landing_demo_a2: 'Ativa o indicador e explica o que os valores atuais mostram',
+      landing_demo_q3: '"Quero comprar aqui com stop abaixo da última mínima"',
+      landing_demo_a3: 'Marca entrada, stop e alvos e informa o risco-retorno antes de você operar',
+      landing_demo_q4: '"Por que esse movimento aconteceu?"',
+      landing_demo_a4: 'Lê os candles na tela e responde com o que está realmente ali',
+      landing_demo_limit: 'Todo desenho é um rascunho que você pode apagar. A IA nunca envia, altera ou cancela uma ordem — isso é você, na sua própria conta da exchange.',
       landing_stat_exchange: 'Fontes de dados dos gráficos',
       landing_stat_custody: 'Recursos de clientes que guardamos',
       landing_stat_withdraw: 'Permissões de saque que pedimos',

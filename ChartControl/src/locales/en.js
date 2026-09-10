@@ -2263,6 +2263,18 @@
 
       // --- 랜딩 통계 (검증 가능한 사실만) ---
       landing_stat_pairs: 'Markets you can chart',
+      landing_demo_title: 'Say it. See it on the chart.',
+      landing_demo_lead: 'No menus to learn. Ask in your own words and the chart changes in front of you.',
+      landing_demo_you: 'You',
+      landing_demo_q1: '"Mark support at 78,000"',
+      landing_demo_a1: 'Draws the level on your chart, labelled and coloured as an AI draft',
+      landing_demo_q2: '"Turn on MACD and read it for me"',
+      landing_demo_a2: 'Switches the indicator on and explains what the current values show',
+      landing_demo_q3: '"I want to go long here with a stop under the last low"',
+      landing_demo_a3: 'Marks entry, stop and targets, then tells you the risk-reward before you commit',
+      landing_demo_q4: '"Why did this move happen?"',
+      landing_demo_a4: 'Reads the candles on screen and answers from what is actually there',
+      landing_demo_limit: 'Every drawing is a draft you can delete. The AI never places, changes or cancels an order — you do that yourself on your own exchange account.',
       landing_stat_exchange: 'Chart data sources',
       landing_stat_custody: 'Customer funds we hold',
       landing_stat_withdraw: 'Withdrawal permissions we request',

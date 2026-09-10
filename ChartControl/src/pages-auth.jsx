@@ -2055,6 +2055,54 @@
              "진짜 도는 서비스인가" 를 확인하는 가장 짧은 경로다. 값을 읽지 못하면
              예시로 채우지 않고 못 읽었다고 말한다.
         */}
+        {/*
+             ★★★ **"AI 로 뭘 할 수 있나" 를 글이 아니라 예시로 보여준다**(운영자 요청).
+
+               예전 랜딩은 6,434자 글에 이미지 1장이었다. 기능을 **설명**만 하고
+               "그래서 내가 뭘 얻나" 를 보여주지 않았다 — 방문자가 가장 먼저 궁금해하는
+               것이 그것이다.
+
+             ★★ **실제로 되는 것만 적는다.** 아래 예시 문장은 모두 지금 동작하는
+               도구에 대응한다(packages/ai/src/tools.ts):
+                 createSupportResistance · createHorizontalLevel · createTrendLine
+                 createEntryZone · createStopLoss · createTakeProfit · addIndicator
+               "주식·ETF 곧 지원" 처럼 근거 없는 약속을 적었다가 지운 전례가 있다.
+
+             ★ 대화 형태로 보여준다. 이 제품의 사용법이 실제로 그렇고(말로 요청 →
+               차트에 그려짐), 캡처 이미지보다 정직하다 — 이미지는 꾸밀 수 있다.
+
+             ★★ 마지막 줄에 **한계**를 함께 적는다. "AI 가 대신 매매한다" 로 읽히면
+               나중에 분쟁이 된다. 광고 문구가 제품보다 앞서면 안 된다.
+        */}
+        <section id="ai-demo" className="landing-section">
+          <div className="landing-section-title">{t('landing_demo_title')}</div>
+          <p className="landing-demo__lead">{t('landing_demo_lead')}</p>
+          <div className="landing-demo">
+            {[
+              { ask: 'landing_demo_q1', did: 'landing_demo_a1', icon: 'Chart' },
+              { ask: 'landing_demo_q2', did: 'landing_demo_a2', icon: 'Sparkles' },
+              { ask: 'landing_demo_q3', did: 'landing_demo_a3', icon: 'Alert' },
+              { ask: 'landing_demo_q4', did: 'landing_demo_a4', icon: 'Book' },
+            ].map((row) => {
+              const Ic = I[row.icon] || I.Sparkles;
+              return (
+                <div className="landing-demo__row" key={row.ask}>
+                  <div className="landing-demo__ask">
+                    <span className="landing-demo__who">{t('landing_demo_you')}</span>
+                    <span className="landing-demo__bubble">{t(row.ask)}</span>
+                  </div>
+                  <div className="landing-demo__did">
+                    <span className="landing-demo__icon" aria-hidden="true"><Ic size={13}/></span>
+                    <span>{t(row.did)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* ★ 한계를 같은 자리에 적는다 — 아래로 밀면 읽지 않는다. */}
+          <p className="landing-demo__limit">{t('landing_demo_limit')}</p>
+        </section>
+
         <section id="live" className="landing-section">
           <div className="landing-section-title">{t('landing_live_title')}</div>
           <div className="landing-live__sub">{t('landing_live_sub')}</div>

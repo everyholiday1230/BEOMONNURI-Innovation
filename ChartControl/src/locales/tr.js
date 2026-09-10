@@ -2486,6 +2486,18 @@
 
       // --- 랜딩 통계 (검증 가능한 사실만) ---
       landing_stat_pairs: 'Grafiğini çizebileceğiniz piyasa sayısı',
+      landing_demo_title: 'Söyleyin. Grafikte görün.',
+      landing_demo_lead: 'Öğrenilecek menü yok. Kendi kelimelerinizle isteyin, grafik gözünüzün önünde değişsin.',
+      landing_demo_you: 'Siz',
+      landing_demo_q1: '"78.000’e destek çiz"',
+      landing_demo_a1: 'Seviyeyi grafiğinize etiketli ve AI taslak renginde çizer',
+      landing_demo_q2: '"MACD’yi aç ve yorumla"',
+      landing_demo_a2: 'Göstergeyi açar ve mevcut değerlerin ne gösterdiğini anlatır',
+      landing_demo_q3: '"Burada long açmak istiyorum, stop son dibin altına"',
+      landing_demo_a3: 'Giriş, stop ve hedefleri işaretler; işlem öncesi risk-getiri oranını söyler',
+      landing_demo_q4: '"Bu hareket neden oldu?"',
+      landing_demo_a4: 'Ekrandaki mumları okur ve yalnızca orada olana dayanarak yanıtlar',
+      landing_demo_limit: 'Her çizim silebileceğiniz bir taslaktır. AI hiçbir zaman emir göndermez, değiştirmez veya iptal etmez — emri kendi borsa hesabınızda siz verirsiniz.',
       landing_stat_exchange: 'Grafik veri kaynakları',
       landing_stat_custody: 'Sakladığımız müşteri parası',
       landing_stat_withdraw: 'İstediğimiz para çekme izni sayısı',
