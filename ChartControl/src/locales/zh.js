@@ -1427,6 +1427,8 @@
       mk_trend_pending: '走势需要真实的 K 线数据。正在加载 — 如果取不到，这里会保持空白。',
       preset_desc_dual: '两个图表并排',
       mc_pick_symbol: '更换交易对',
+      mc_market_watch: '行情列表',
+      pos_open_chart: '在图表中显示 {sym}',
       mc_no_symbols: '无法载入交易对。请重新载入页面后再试。',
       mc_symbols_unavailable: '交易对列表还没有加载。行情数据到达后就会出现。',
       mc_not_live_hint: '此图表显示的不是交易所数据。',

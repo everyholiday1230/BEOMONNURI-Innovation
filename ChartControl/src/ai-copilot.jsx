@@ -174,11 +174,24 @@
          ★ 이용자가 한 번이라도 펼치면 그 선택을 기억한다(아래 저장).
            접어 놓고 새로고침했는데 다시 펼쳐져 있으면 매번 접어야 한다.
       */
+      /*
+         ★★★ **기본을 펼침으로 바꿨다**(운영자 요청).
+
+           예전에는 저장값이 없으면 접힘이었다. 그래서 처음 가입한 고객은 AI 패널이
+           **폭 51px 짜리 세로 막대**로만 보였다(다른 패널은 223px) — 실측으로 확인했다.
+           이 제품의 중심 기능인데 첫 화면에서 있는 줄도 모른다.
+
+         ★ 차트가 좁아지는 것은 사실이지만, 기본 배치(standard-trader)가 이미 AI 칸을
+           24 칸 잡아 두었다. 그 자리를 비워 두는 쪽이 오히려 배치 의도와 어긋난다.
+
+         ★ 이용자의 선택은 그대로 존중한다 — 한 번 접으면('1') 계속 접힌다.
+           저장이 없을 때의 기본값만 바뀐 것이다.
+      */
       try {
         const saved = localStorage.getItem('qt.ai.collapsed');
-        if (saved === '0') return false;   // 이용자가 펼쳐 둔 것
-        return true;                        // 저장이 없거나 '1' 이면 접힘
-      } catch (e) { return true; }
+        if (saved === '1') return true;    // 이용자가 접어 둔 것
+        return false;                       // 저장이 없거나 '0' 이면 펼침
+      } catch (e) { return false; }
     });
     const toggleCollapsed = useCallback(() => {
       setCollapsed((prev) => {

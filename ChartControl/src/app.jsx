@@ -2204,13 +2204,46 @@
                ★ 시장 목록·멀티차트와 **같은 경로**(setMarket)를 쓴다. 여기서 따로
                  상태를 바꾸면 MarketWatch 선택과 어긋난다.
           */}
-          <window.SymbolHeader
-            price={lastPrice}
-            prev={prevPrice}
-            market={market}
-            t={t}
-            onSelectMarket={setMarket}
-          />
+          {/*
+               ★★★ **▼ 는 마켓워치 패널을 여닫는다.**
+
+                 예전에는 `title="Change symbol"` 이라고 약속하면서 클릭 핸들러가 아예
+                 없었다 — 눌러도 아무 일이 없었다(운영자 신고).
+
+               ★ 드롭다운 목록을 만들 수도 있었지만, 마켓워치 패널이 이미 있고 시세·
+                 등락·관심종목까지 함께 보여준다. 같은 일을 하는 UI 를 두 벌 두면
+                 한쪽만 고치는 실수가 생긴다.
+
+               ★★ **접힌 것과 숨긴 것을 모두 살린다.** 마켓워치는 (a) 레이아웃에서
+                 hidden 이거나 (b) 폭 4칸으로 접혀 있을 수 있다. 둘 중 어느 상태든
+                 "안 보인다" 는 같으므로, 열 때는 둘 다 되돌린다.
+
+               ★ 패널이 배치에 아예 없으면(다른 프리셋) 버튼을 표시하지 않는다 —
+                 눌러도 안 되는 것을 보여주지 않는다.
+          */}
+          {(() => {
+            const mw = (engine.layout.widgets || []).find((w) => w.type === 'marketWatch');
+            const ps = window.QTPanelState;
+            const isFolded = !!(mw && ps && ps.isCollapsed && ps.isCollapsed(mw.id));
+            const visible = !!mw && !mw.hidden && !isFolded;
+            return (
+              <window.SymbolHeader
+                price={lastPrice}
+                prev={prevPrice}
+                market={market}
+                t={t}
+                marketWatchOpen={visible}
+                onToggleMarketWatch={mw ? () => {
+                  if (visible) {
+                    engine.hideWidget(mw.id);
+                  } else {
+                    if (mw.hidden) engine.showWidget(mw.id);
+                    if (isFolded && ps && ps.setCollapsed) ps.setCollapsed(mw.id, false);
+                  }
+                } : null}
+              />
+            );
+          })()}
 
           {/*
              ★★ 접힌 패널 바.
@@ -2681,6 +2714,18 @@
              넘긴다. 미리보기에서는 목업을 유지한다.
         */
         return <window.PositionsPanel
+          /*
+             ★★ 포지션 종목을 누르면 그 종목 차트로 옮겨간다(운영자 요청).
+               ★ 멀티차트·마켓워치와 **같은 경로**(onSelectMarket → setMarket)를 쓴다.
+                 여기서 따로 상태를 바꾸면 선택이 어긋난다.
+               ★ 목록에 없는 심볼이면 아무것도 하지 않는다 — 거래소에 없는 종목으로
+                 차트를 바꾸면 빈 차트가 된다.
+          */
+          onSelectSymbol={props.onSelectMarket ? (sym) => {
+            const got = (window.QTMarkets && window.QTMarkets.list) ? window.QTMarkets.list() : null;
+            const hit = ((got && got.rows) || []).find((m) => String(m.base) + String(m.quote) === sym);
+            if (hit) props.onSelectMarket(hit);
+          } : null}
           lastPrice={props.lastPrice}
           positions={(() => {
             const acct = window.QTAccount;

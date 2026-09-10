@@ -1971,3 +1971,19 @@
 
 .qt-folded-bar__all:hover { text-decoration: underline; }
 .qt-folded-bar__all:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 1px; }
+
+/*
+   ★ 포지션 목록의 종목 링크. 누르면 그 종목 차트로 옮겨간다.
+     겉모습은 원래 글자와 같게 두고(굵은 글씨) 밑줄로만 누를 수 있음을 알린다 —
+     버튼처럼 보이게 만들면 좁은 표에서 행이 흔들린다.
+   ★ 색만으로 알리지 않는다(색각 이상 고려) — 밑줄이 함께 있다.
+*/
+.pos-sym-link {
+  background: none; border: 0; padding: 0; margin: 0;
+  color: inherit; font: inherit; cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--color-text-tertiary);
+  text-underline-offset: 2px;
+}
+.pos-sym-link:hover { text-decoration-color: var(--color-brand); }
+.pos-sym-link:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }

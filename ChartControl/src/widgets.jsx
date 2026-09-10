@@ -294,7 +294,7 @@
   // ============================================================
   // SYMBOL HEADER
   // ============================================================
-  window.SymbolHeader = function SymbolHeader({ price, prev, market, t, onSelectMarket }) {
+  window.SymbolHeader = function SymbolHeader({ price, prev, market, t, onToggleMarketWatch, marketWatchOpen }) {
     /* '더보기' 메뉴 열림 상태. */
     const [moreOpen, setMoreOpen] = React.useState(false);
     /* ⋯ 더보기 메뉴를 버튼 위치 기준 position:fixed 로 띄운다 — 심볼 헤더는
@@ -310,47 +310,16 @@
       setMoreOpen((v) => !v);
     };
     /*
-       ★★★ **심볼 선택 드롭다운.** 헤더의 ▼ 가 `title="Change symbol"` 이라고 약속하면서
-         **클릭 핸들러가 아예 없었다** — 눌러도 아무 일이 없었다(운영자 신고).
+       ★★★ **▼ 는 마켓워치 패널을 여닫는다**(운영자 요청).
 
-       ★ 목록은 `window.QTMarkets.list()` 에서 가져온다. 화면이 목록을 지어내면
-         거래소에 없는 종목을 고를 수 있다.
-       ★ 위치 계산은 '더보기' 메뉴와 **같은 방식**을 쓴다(position:fixed). 심볼 헤더는
-         overflow-x:auto + 낮은 높이라 absolute 로 두면 잘린다.
+         처음엔 드롭다운 목록을 만들었는데, 운영자가 "이미 잘 만들어 둔 마켓워치를
+         보여주면 된다" 고 했다. 맞는 판단이다 — 마켓워치에는 시세·등락·관심종목이
+         함께 있고, 드롭다운은 그 정보를 잃은 축약판이다. 같은 일을 하는 UI 를 두 벌
+         유지하면 한쪽만 고치는 실수가 생긴다.
+
+       ★ 그래서 이름도 '심볼 변경' 이 아니라 '마켓워치' 로 바꿨다 — 버튼이 실제로
+         하는 일을 말해야 한다.
     */
-    const [symOpen, setSymOpen] = React.useState(false);
-    const symBtnRef = React.useRef(null);
-    const [symPos, setSymPos] = React.useState(null);
-    const [symRows, setSymRows] = React.useState([]);
-    const openSym = () => {
-      if (!onSelectMarket) return;   /* ★ 배선되지 않았으면 열지 않는다 — 빈 목록을 보이지 않는다. */
-      const r = symBtnRef.current && symBtnRef.current.getBoundingClientRect();
-      if (r) {
-        const W = 240;
-        setSymPos({ top: Math.round(r.bottom + 4), left: Math.round(Math.min(r.left, window.innerWidth - W - 8)) });
-      }
-      try {
-        const got = (window.QTMarkets && window.QTMarkets.list) ? window.QTMarkets.list() : null;
-        setSymRows(((got && got.rows) || []).slice(0, 40));
-      } catch (e) { void e; setSymRows([]); }
-      setSymOpen((v) => !v);
-    };
-    /* ★ 바깥을 누르면 닫는다. 열려 있을 때만 듣는다 — 항상 듣으면 다른 클릭이 느려진다. */
-    React.useEffect(() => {
-      if (!symOpen) return undefined;
-      const onDoc = (ev) => {
-        if (symBtnRef.current && symBtnRef.current.contains(ev.target)) return;
-        setSymOpen(false);
-      };
-      const onEsc = (ev) => { if (ev.key === 'Escape') setSymOpen(false); };
-      document.addEventListener('mousedown', onDoc);
-      document.addEventListener('keydown', onEsc);
-      return () => {
-        document.removeEventListener('mousedown', onDoc);
-        document.removeEventListener('keydown', onEsc);
-      };
-    }, [symOpen]);
-
     /* 가격 알림 모달 열림 상태. */
     const [alertOpen, setAlertOpen] = React.useState(false);
 
@@ -475,52 +444,20 @@
                 */}
                 <span className="badge badge--perp">{headerIsSpot ? t('mode_spot') : market.type}</span>
                 {/*
-                     ★★ `<span>` 이라 키보드로도 갈 수 없었고 클릭도 안 됐다.
-                       배선이 있을 때만 버튼으로 만든다 — 없으면 표시하지 않는다
-                       (눌러도 안 되는 것을 보여주지 않는다는 원칙).
+                     ★★ `<span>` 이라 클릭도 키보드 이동도 안 됐다. 버튼으로 바꾼다.
+                       배선(onToggleMarketWatch)이 없으면 표시하지 않는다 —
+                       눌러도 안 되는 것을 보여주지 않는다.
                 */}
-                {onSelectMarket ? (
+                {onToggleMarketWatch ? (
                   <button
                     type="button"
-                    ref={symBtnRef}
                     className="sh-identity__caret"
-                    title={t('mc_pick_symbol')}
-                    aria-label={t('mc_pick_symbol')}
-                    aria-haspopup="listbox"
-                    aria-expanded={symOpen}
-                    onClick={openSym}
-                  >▼</button>
+                    title={t('mc_market_watch')}
+                    aria-label={t('mc_market_watch')}
+                    aria-pressed={!!marketWatchOpen}
+                    onClick={onToggleMarketWatch}
+                  >{marketWatchOpen ? '▲' : '▼'}</button>
                 ) : null}
-                {symOpen && (
-                  <div
-                    className="sh-sym-menu"
-                    role="listbox"
-                    aria-label={t('mc_pick_symbol')}
-                    style={symPos
-                      ? { position: 'fixed', top: symPos.top, left: symPos.left }
-                      : undefined}
-                  >
-                    {symRows.length === 0 ? (
-                      /* ★ 목록을 못 불러왔을 때 빈 상자를 보이지 않는다 — 이유를 말한다. */
-                      <div className="sh-sym-menu__empty">{t('mc_no_symbols')}</div>
-                    ) : symRows.map((m) => {
-                      const on = m.base === market.base && m.quote === market.quote;
-                      return (
-                        <button
-                          type="button"
-                          key={String(m.base) + String(m.quote)}
-                          role="option"
-                          aria-selected={on}
-                          className={`sh-sym-menu__item${on ? ' is-on' : ''}`}
-                          onClick={() => { setSymOpen(false); if (!on) onSelectMarket(m); }}
-                        >
-                          <span>{m.base}/{m.quote}</span>
-                          {m.type ? <span className="sh-sym-menu__type">{m.type}</span> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
               <div className="sh-identity__sub">
                 <span>{headerIsSpot ? t('mode_spot_market_only') : t('mk_perp_usdt')}</span>
@@ -922,7 +859,30 @@
       needsPriceSyncRef.current = false;
       setPrice(String(lastPrice));
     }, [lastPrice]);
-    const [size, setSize] = useState(prefillSize || '0.05');
+    /*
+       ★★★ **기본 수량을 비운다.** 예전에는 '0.05' 가 미리 채워져 있었다.
+
+         그래서 처음 가입한 고객의 첫 화면이 이랬다(실측):
+             Order Value 3,908.74 USDT · Required Margin 390.87 USDT
+             Avail. After Order **-95.05 USDT**
+             **"Insufficient balance: 95.05 USDT short"**  ← 빨간 경고
+
+         고객은 아무것도 입력하지 않았는데 잔액 부족 경고를 본다. 계좌 상태와도
+         맞지 않는 숫자다 — 우리가 정한 0.05 BTC 때문에 나온 값이다.
+
+       ★★ 더 중요한 이유가 두 개 있다.
+
+         (1) **우리가 주문 크기를 제안하면 안 된다.** 이 제품은 "우리는 추천하지 않고
+             고객이 판단한다" 를 전제로 한다. 미리 채워진 0.05 BTC 는 사실상 제안이다.
+
+         (2) **돈이 나가는 경로가 된다.** 고객이 수량을 입력했다고 착각하고 매수를
+             누르면, 자기가 고르지 않은 크기로 주문이 나간다. 실주문이 열린 계정에서
+             이것은 실제 손실이다.
+
+       ★ prefillSize(AI 제안 등 명시적 채움)는 그대로 존중한다 — 그건 고객이 요청한
+         결과다. 기본값만 비운다.
+    */
+    const [size, setSize] = useState(prefillSize || '');
     const [pct, setPct] = useState(25);
     const [reduceOnly, setReduceOnly] = useState(false);
     const [postOnly, setPostOnly] = useState(false);
@@ -1368,7 +1328,20 @@
 
     if (needsExchange) {
       errors.push({ level: 'danger', text: t('oe_err_no_exchange'), cta: '#/wallet' });
-    } else if (requiredMargin > assets.availableBalance) {
+    /*
+       ★★★ **수량을 입력하기 전에는 잔액 부족 경고를 띄우지 않는다.**
+
+         예전에는 기본 수량 0.05 때문에 첫 화면부터 빨간 경고가 떴다:
+           "Insufficient balance: 95.05 USDT short"
+         고객은 아무것도 입력하지 않았는데 계좌에 문제가 있는 것처럼 보인다.
+
+       ★ 경고는 **고객이 무언가를 골랐을 때** 의미가 있다. 아직 아무 값도 없으면
+         부족한지 판단할 대상 자체가 없다.
+
+       ★ 거래소 미연결 안내(위 needsExchange)는 수량과 무관하므로 그대로 둔다 —
+         그건 "지금 주문을 낼 수 없다" 는 사실이고 먼저 알려야 한다.
+    */
+    } else if (sz > 0 && requiredMargin > assets.availableBalance) {
       errors.push({ level: 'danger', text: t('oe_err_insufficient', { amount: fmt(requiredMargin - assets.availableBalance) }) });
     }
     if (Math.abs(priceDev) > 3) errors.push({ level: 'warn', text: t('oe_err_price_dev', { pct: `${priceDev >= 0 ? '+' : ''}${priceDev.toFixed(2)}` }) });
@@ -1650,14 +1623,29 @@
               </div>
             )}
 
+            {/*
+                 ★★★ **수량을 입력하기 전에는 숫자를 만들지 않는다.**
+
+                   예전에는 기본 수량 0.05 로 계산된 값이 보였고, 잔액보다 커서
+                   **"Insufficient balance"** 경고까지 떴다. 고객은 아무것도 입력하지
+                   않았는데 계좌와 맞지 않는 숫자와 빨간 경고를 본다.
+
+                 ★ `0` 이 아니라 `—` 를 쓴다. 0 은 "계산해 봤더니 0" 으로 읽히고,
+                   `—` 는 "아직 계산할 것이 없다" 로 읽힌다. 이 저장소의 다른 자리
+                   (수수료·청산가)도 값이 없으면 이미 `—` 를 쓰므로 표기가 일관된다.
+
+                 ★ 잔액(Avail. After Order)도 `—` 로 둔다. 주문이 없으면 "주문 후 잔액"
+                   이라는 값 자체가 없다. 현재 잔액을 그대로 보여주면 마치 무언가를
+                   차감한 결과처럼 읽힌다.
+            */}
             <div className="oe-summary">
-              <div className="oe-summary__row"><span>{t('oe_order_value')}</span><strong>{fmt(totalUSDT)} USDT</strong></div>
+              <div className="oe-summary__row"><span>{t('oe_order_value')}</span><strong>{sz > 0 ? `${fmt(totalUSDT)} USDT` : t('dash')}</strong></div>
               {/*
                  현물에는 증거금이라는 개념이 없다. 선물식 계산값을 보여주면
                  존재하지 않는 조건을 이용자가 계획에 넣는다.
               */}
               {!isSpot && (
-                <div className="oe-summary__row"><span>{t('fld_required_margin')}</span><strong>{fmt(requiredMargin)} USDT</strong></div>
+                <div className="oe-summary__row"><span>{t('fld_required_margin')}</span><strong>{sz > 0 ? `${fmt(requiredMargin)} USDT` : t('dash')}</strong></div>
               )}
               <div className="oe-summary__row">
                 <span>{takerRate == null ? t('oe_est_fee') : t('oe_est_fee_pct', { pct: (takerRate * 100).toFixed(3) })}</span>
@@ -1667,7 +1655,7 @@
               {!isSpot && (
                 <div className="oe-summary__row"><span>{t('oe_est_liq')}</span><strong className="t-warning">{estLiq == null ? t('dash') : fmt(estLiq, 1)}</strong></div>
               )}
-              <div className="oe-summary__row"><span>{t('oe_avail_after')}</span><strong>{fmt(availAfter)} USDT</strong></div>
+              <div className="oe-summary__row"><span>{t('oe_avail_after')}</span><strong>{sz > 0 ? `${fmt(availAfter)} USDT` : t('dash')}</strong></div>
             </div>
 
             {errors.map((err, i) => (
@@ -1792,7 +1780,7 @@
   // ============================================================
   // POSITIONS & ORDERS
   // ============================================================
-  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, t }) {
+  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t }) {
     const [tab, setTab] = useState('positions');
 
     /*
@@ -1999,7 +1987,31 @@
                     <tr key={p.id}>
                       <td>
                         <div style={{display:'flex', alignItems:'center', gap: 6}}>
-                          <strong>{p.symbol.replace('USDT', '/USDT')}</strong>
+                          {/*
+                               ★★★ **포지션 종목을 누르면 차트가 그 종목으로 옮겨간다**
+                                 (운영자 요청).
+
+                                 포지션을 여러 개 들고 있을 때, 어떤 포지션을 보려면
+                                 마켓워치에서 그 종목을 다시 찾아야 했다. 포지션 행에
+                                 이미 종목이 적혀 있는데 그것이 죽은 글자였다.
+
+                               ★ 배선이 없으면 그냥 글자로 둔다 — 눌러도 안 되는 것을
+                                 보여주지 않는다.
+                               ★ 이미 보고 있는 종목이면 누를 필요가 없으므로 버튼으로
+                                 만들지 않는다(헛클릭을 유도하지 않는다).
+                          */}
+                          {onSelectSymbol && p.symbol !== currentSymbol ? (
+                            <button
+                              type="button"
+                              className="pos-sym-link"
+                              title={t('pos_open_chart', { sym: p.symbol.replace('USDT', '/USDT') })}
+                              onClick={() => onSelectSymbol(p.symbol)}
+                            >
+                              <strong>{p.symbol.replace('USDT', '/USDT')}</strong>
+                            </button>
+                          ) : (
+                            <strong>{p.symbol.replace('USDT', '/USDT')}</strong>
+                          )}
                           <span className="badge badge--perp" style={{fontSize:9, padding:'0 4px'}}>{p.type}</span>
                           <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.mode}</span>
                           <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.leverage}×</span>

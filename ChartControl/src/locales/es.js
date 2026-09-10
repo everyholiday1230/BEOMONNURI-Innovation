@@ -1726,6 +1726,8 @@
       mk_trend_pending: 'La tendencia necesita velas reales. Cargando — esto queda vacío si no se pueden obtener.',
       preset_desc_dual: 'Dos gráficos uno al lado del otro',
       mc_pick_symbol: 'Cambiar el símbolo',
+      mc_market_watch: 'Lista de mercados',
+      pos_open_chart: 'Mostrar {sym} en el gráfico',
       mc_no_symbols: 'No se pudieron cargar los símbolos. Recargá la página e intentá de nuevo.',
       mc_symbols_unavailable: 'La lista de símbolos todavía no cargó. Aparece cuando llegan los datos de mercado.',
       mc_not_live_hint: 'Este gráfico no está mostrando datos del exchange.',

@@ -1725,6 +1725,8 @@
       mk_trend_pending: 'A tendência precisa de candles reais. Carregando — isto fica vazio se não for possível obtê-los.',
       preset_desc_dual: 'Dois gráficos lado a lado',
       mc_pick_symbol: 'Trocar o ativo',
+      mc_market_watch: 'Lista de mercados',
+      pos_open_chart: 'Mostrar {sym} no gráfico',
       mc_no_symbols: 'Não foi possível carregar os símbolos. Recarregue a página e tente de novo.',
       mc_symbols_unavailable: 'A lista de ativos ainda não carregou. Ela aparece quando os dados de mercado chegam.',
       mc_not_live_hint: 'Este gráfico não está exibindo dados da exchange.',

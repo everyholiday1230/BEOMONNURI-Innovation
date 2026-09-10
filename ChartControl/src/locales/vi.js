@@ -1781,6 +1781,8 @@
       mk_trend_pending: 'Xu hướng cần nến thật. Đang tải — phần này sẽ để trống nếu không lấy được nến.',
       preset_desc_dual: 'Hai biểu đồ cạnh nhau',
       mc_pick_symbol: 'Đổi mã',
+      mc_market_watch: 'Danh sách thị trường',
+      pos_open_chart: 'Hiện {sym} trên biểu đồ',
       mc_no_symbols: 'Không thể tải danh sách cặp giao dịch. Vui lòng tải lại trang và thử lại.',
       mc_symbols_unavailable: 'Danh sách mã chưa được tải. Nó xuất hiện khi dữ liệu thị trường về.',
       mc_not_live_hint: 'Biểu đồ này không hiển thị dữ liệu của sàn.',
