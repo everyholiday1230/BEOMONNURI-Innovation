@@ -2195,7 +2195,22 @@
           )}
 
           {/* Symbol Header */}
-          <window.SymbolHeader price={lastPrice} prev={prevPrice} market={market} t={t}/>
+          {/*
+               ★★★ **onSelectMarket 을 넘기지 않아 헤더의 ▼(심볼 변경)가 죽어 있었다.**
+
+                 `title="Change symbol"` 이라고 약속하면서 클릭 핸들러가 아예 없었다.
+                 눌러도 아무 일이 없다 — 운영자가 신고한 그 증상이다.
+
+               ★ 시장 목록·멀티차트와 **같은 경로**(setMarket)를 쓴다. 여기서 따로
+                 상태를 바꾸면 MarketWatch 선택과 어긋난다.
+          */}
+          <window.SymbolHeader
+            price={lastPrice}
+            prev={prevPrice}
+            market={market}
+            t={t}
+            onSelectMarket={setMarket}
+          />
 
           {/*
              ★★ 접힌 패널 바.

@@ -294,7 +294,7 @@
   // ============================================================
   // SYMBOL HEADER
   // ============================================================
-  window.SymbolHeader = function SymbolHeader({ price, prev, market, t }) {
+  window.SymbolHeader = function SymbolHeader({ price, prev, market, t, onSelectMarket }) {
     /* '더보기' 메뉴 열림 상태. */
     const [moreOpen, setMoreOpen] = React.useState(false);
     /* ⋯ 더보기 메뉴를 버튼 위치 기준 position:fixed 로 띄운다 — 심볼 헤더는
@@ -309,6 +309,48 @@
       }
       setMoreOpen((v) => !v);
     };
+    /*
+       ★★★ **심볼 선택 드롭다운.** 헤더의 ▼ 가 `title="Change symbol"` 이라고 약속하면서
+         **클릭 핸들러가 아예 없었다** — 눌러도 아무 일이 없었다(운영자 신고).
+
+       ★ 목록은 `window.QTMarkets.list()` 에서 가져온다. 화면이 목록을 지어내면
+         거래소에 없는 종목을 고를 수 있다.
+       ★ 위치 계산은 '더보기' 메뉴와 **같은 방식**을 쓴다(position:fixed). 심볼 헤더는
+         overflow-x:auto + 낮은 높이라 absolute 로 두면 잘린다.
+    */
+    const [symOpen, setSymOpen] = React.useState(false);
+    const symBtnRef = React.useRef(null);
+    const [symPos, setSymPos] = React.useState(null);
+    const [symRows, setSymRows] = React.useState([]);
+    const openSym = () => {
+      if (!onSelectMarket) return;   /* ★ 배선되지 않았으면 열지 않는다 — 빈 목록을 보이지 않는다. */
+      const r = symBtnRef.current && symBtnRef.current.getBoundingClientRect();
+      if (r) {
+        const W = 240;
+        setSymPos({ top: Math.round(r.bottom + 4), left: Math.round(Math.min(r.left, window.innerWidth - W - 8)) });
+      }
+      try {
+        const got = (window.QTMarkets && window.QTMarkets.list) ? window.QTMarkets.list() : null;
+        setSymRows(((got && got.rows) || []).slice(0, 40));
+      } catch (e) { void e; setSymRows([]); }
+      setSymOpen((v) => !v);
+    };
+    /* ★ 바깥을 누르면 닫는다. 열려 있을 때만 듣는다 — 항상 듣으면 다른 클릭이 느려진다. */
+    React.useEffect(() => {
+      if (!symOpen) return undefined;
+      const onDoc = (ev) => {
+        if (symBtnRef.current && symBtnRef.current.contains(ev.target)) return;
+        setSymOpen(false);
+      };
+      const onEsc = (ev) => { if (ev.key === 'Escape') setSymOpen(false); };
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onEsc);
+      return () => {
+        document.removeEventListener('mousedown', onDoc);
+        document.removeEventListener('keydown', onEsc);
+      };
+    }, [symOpen]);
+
     /* 가격 알림 모달 열림 상태. */
     const [alertOpen, setAlertOpen] = React.useState(false);
 
@@ -432,7 +474,53 @@
                      상품을 잘못 알면 위험을 완전히 다르게 이해한다.
                 */}
                 <span className="badge badge--perp">{headerIsSpot ? t('mode_spot') : market.type}</span>
-                <span className="sh-identity__caret" title={t('mc_pick_symbol')}>▼</span>
+                {/*
+                     ★★ `<span>` 이라 키보드로도 갈 수 없었고 클릭도 안 됐다.
+                       배선이 있을 때만 버튼으로 만든다 — 없으면 표시하지 않는다
+                       (눌러도 안 되는 것을 보여주지 않는다는 원칙).
+                */}
+                {onSelectMarket ? (
+                  <button
+                    type="button"
+                    ref={symBtnRef}
+                    className="sh-identity__caret"
+                    title={t('mc_pick_symbol')}
+                    aria-label={t('mc_pick_symbol')}
+                    aria-haspopup="listbox"
+                    aria-expanded={symOpen}
+                    onClick={openSym}
+                  >▼</button>
+                ) : null}
+                {symOpen && (
+                  <div
+                    className="sh-sym-menu"
+                    role="listbox"
+                    aria-label={t('mc_pick_symbol')}
+                    style={symPos
+                      ? { position: 'fixed', top: symPos.top, left: symPos.left }
+                      : undefined}
+                  >
+                    {symRows.length === 0 ? (
+                      /* ★ 목록을 못 불러왔을 때 빈 상자를 보이지 않는다 — 이유를 말한다. */
+                      <div className="sh-sym-menu__empty">{t('mc_no_symbols')}</div>
+                    ) : symRows.map((m) => {
+                      const on = m.base === market.base && m.quote === market.quote;
+                      return (
+                        <button
+                          type="button"
+                          key={String(m.base) + String(m.quote)}
+                          role="option"
+                          aria-selected={on}
+                          className={`sh-sym-menu__item${on ? ' is-on' : ''}`}
+                          onClick={() => { setSymOpen(false); if (!on) onSelectMarket(m); }}
+                        >
+                          <span>{m.base}/{m.quote}</span>
+                          {m.type ? <span className="sh-sym-menu__type">{m.type}</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div className="sh-identity__sub">
                 <span>{headerIsSpot ? t('mode_spot_market_only') : t('mk_perp_usdt')}</span>

@@ -1419,6 +1419,7 @@
       // --- 2분할 차트 / 소형 차트 ---
       preset_desc_dual: 'チャートを2つ並べて',
       mc_pick_symbol: '銘柄を変更',
+      mc_no_symbols: '銘柄を読み込めませんでした。ページを再読み込みしてお試しください。',
       mc_symbols_unavailable: '銘柄一覧がまだ届いていません。相場データが入ると選べます。',
       mc_not_live_hint: 'このチャートは取引所のデータではありません。',
       mc_preview_data: 'プレビュー',

@@ -1567,6 +1567,7 @@
       // --- 2분할 차트 / 소형 차트 ---
       preset_desc_dual: 'Two charts side by side',
       mc_pick_symbol: 'Change symbol',
+      mc_no_symbols: 'No symbols could be loaded. Reload the page and try again.',
       mc_symbols_unavailable: 'The symbol list has not loaded yet. It appears once market data arrives.',
       mc_not_live_hint: 'This chart is not showing exchange data.',
       mc_preview_data: 'preview',

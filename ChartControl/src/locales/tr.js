@@ -1768,6 +1768,7 @@
       mk_trend_pending: 'Trend gerçek mum verisi gerektirir. Yükleniyor — alınamazsa burası boş kalır.',
       preset_desc_dual: 'Yan yana iki grafik',
       mc_pick_symbol: 'Sembolü değiştir',
+      mc_no_symbols: 'Semboller yüklenemedi. Sayfayı yenileyip tekrar deneyin.',
       mc_symbols_unavailable: 'Sembol listesi henüz yüklenmedi. Piyasa verisi geldiğinde görünür.',
       mc_not_live_hint: 'Bu grafik borsa verisi göstermiyor.',
       mc_preview_data: 'ön izleme',
