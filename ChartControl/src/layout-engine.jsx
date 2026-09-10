@@ -755,25 +755,44 @@ const DEFAULT_WIDGET_META = {
             const start = geomStartRef.current;
             let swapped = null;
             if (start && start.id === id) {
-              const hit = others.filter(o => overlaps(o, target));
               /*
-                 ★ 한 창과만 겹칠 때 교환한다. 여러 창에 걸쳤으면 어느 것과 바꿔야
-                   할지 알 수 없다 — 그때는 되돌리는 것이 정직하다.
+                 ★★★ **겹친 창들을 대상이 비운 자리로 보낸다(자리 교환).**
+
+                   격자는 빈틈 없이 채워져 있으므로 창을 어디에 놓아도 겹친다.
+                   "겹치면 되돌린다" 만 있으면 **이동이 영구히 불가능하다**.
+
+                 ★ 처음에는 "한 창과만 겹칠 때" 로 제한했는데 대부분 걸리지 않았다.
+                   실측: ai(폭 24)를 오른쪽 아래로 옮기면 격자 제한(x ≤ 96-24 = 72)
+                   때문에 x=73 에 놓이고 그 자리는 **trades·assets 두 창**과 겹친다.
+
+                 ★ 그래서 겹친 창을 **전부** 대상이 비운 자리에 왼쪽부터 나란히 넣는다.
+                   들어가지 않으면(합계 폭 초과) 교환을 포기하고 되돌린다.
+                 ★★ **위치만 옮기고 크기는 바꾸지 않는다.** 크기까지 조정하면 사용자가
+                   기대하지 않은 변화가 커지고 되돌리기도 어렵다.
+                 ★★ 결과를 **전수 검증**한다(겹침·경계). 이 파일에서 기하 계산을 여러 번
+                   틀렸으므로 추론을 믿지 않는다.
               */
-              if (hit.length === 1) {
-                const other = hit[0];
-                const movedOther = { ...other, x: start.x, y: start.y };
-                const rest = others.filter(o => o.id !== other.id);
-                const all = [target, movedOther, ...rest];
+              const hit = others.filter(o => overlaps(o, target));
+              const movedList = [];
+              let cursorX = start.x;
+              let fits = hit.length > 0;
+              for (const o of hit.slice().sort((a, b2) => a.x - b2.x)) {
+                if (cursorX + o.w > start.x + start.w) { fits = false; break; }
+                movedList.push({ ...o, x: cursorX, y: start.y });
+                cursorX += o.w;
+              }
+              if (fits && movedList.length === hit.length) {
+                const rest = others.filter(o => !hit.some(hh => hh.id === o.id));
+                const all = [target, ...movedList, ...rest];
                 let bad = false;
                 for (let i2 = 0; i2 < all.length && !bad; i2 += 1) {
                   for (let j2 = i2 + 1; j2 < all.length; j2 += 1) {
                     if (overlaps(all[i2], all[j2])) { bad = true; break; }
                   }
                 }
-                if (!bad && all.every(w => w.x >= 0 && w.y >= 0 && w.x + w.w <= (prev.cols || 96))) {
-                  swapped = new Map([[other.id, movedOther]]);
-                }
+                const inBounds = all.every(w => w.x >= 0 && w.y >= 0
+                  && w.x + w.w <= (prev.cols || 96));
+                if (!bad && inBounds) swapped = new Map(movedList.map(mm => [mm.id, mm]));
               }
             }
             if (swapped) {
