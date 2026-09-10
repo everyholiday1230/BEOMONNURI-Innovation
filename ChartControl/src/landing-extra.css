@@ -258,6 +258,6 @@
    ★ outline 을 쓴다 — border 를 바꾸면 버튼 크기가 변해 줄이 흔들린다.
 */
 .btn.is-wanted {
-  outline: 2px solid var(--accent, #4c8dff);
+  outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }

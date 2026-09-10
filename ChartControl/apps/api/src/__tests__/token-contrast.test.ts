@@ -22,7 +22,7 @@
  *   확인한다), 여기서는 "토큰을 그렇게 조합하면 반드시 미달" 인 경우를 막는다.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 type Rgb = [number, number, number];
@@ -221,6 +221,61 @@ describe('디자인 토큰 명암비 (oklch)', () => {
       ).toBeGreaterThanOrEqual(4.5);
     }
   };
+
+  it('[0c] ★★★ 정의되지 않은 CSS 변수를 참조하는 곳이 없다', () => {
+    /*
+       ★★★ **CSS 는 잘못된 var() 를 조용히 버린다.** 그래서 오타가 화면에서 드러나지
+         않는다 — 그 속성만 적용되지 않고 상속값이 남는다.
+
+         실제로 일어났다: LIVE 배지 글씨색을 고치려고 `var(--color-bg-base)` 라고 썼는데
+         **그런 토큰은 없었다**(실제 이름은 --color-bg-app). 무효값이라 색 지정이
+         무시되고 상속된 경고색(노랑)이 남아 명암비 **1.69** 였다. 고쳤다고 배포한 뒤
+         프로덕션에서 다시 재보고서야 알았다.
+
+         같은 오타가 pages-legal.jsx 에도 있었다 — 법적 문서 화면의 배경색이었다.
+
+       ★ 그래서 src 전체에서 var(--x) 참조를 뽑아 **정의가 있는지** 본다.
+         정의는 tokens.css 뿐 아니라 다른 CSS 에도 있을 수 있으므로 전부 모은다.
+
+       ★ 폴백이 있는 var(--x, 기본값) 은 무효 참조여도 화면이 깨지지 않으므로 제외한다.
+    */
+    const SRC_DIR = resolve(__dirname, '../../../../src');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(full);
+        else if (/\.(css|jsx|js)$/.test(e.name)) files.push(full);
+      }
+    };
+    walk(SRC_DIR);
+    expect(files.length, 'src 에서 파일을 찾지 못했다').toBeGreaterThan(10);
+
+    const defined = new Set<string>();
+    const used = new Map<string, string>();   /* 변수명 → 처음 발견한 파일 */
+    for (const f of files) {
+      /*
+         ★★ **주석을 먼저 지운다.** 이 시험을 만들면서 쓴 설명 주석 안에
+           `var(--color-bg-base)` 라는 예시를 적었더니 그것이 위반으로 잡혔다.
+           이 저장소는 주석이 많아 소스를 정규식으로 읽을 때마다 같은 문제가 난다.
+         ★ 블록 주석과 줄 주석 둘 다 지운다. 문자열 안의 // 를 지우는 부작용이
+           있을 수 있지만, 여기서는 var() 참조만 찾으므로 영향이 없다.
+      */
+      const text = readFileSync(f, 'utf-8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/[^\n]*$/gm, '');
+      for (const m of text.matchAll(/--([\w-]+)\s*:/g)) defined.add(m[1]!);
+      /* ★ 폴백 없는 참조만 본다: var(--x) — var(--x, y) 는 제외. */
+      for (const m of text.matchAll(/var\(\s*--([\w-]+)\s*\)/g)) {
+        if (!used.has(m[1]!)) used.set(m[1]!, f.replace(`${SRC_DIR}/`, ''));
+      }
+    }
+    const missing = [...used.entries()].filter(([name]) => !defined.has(name));
+    expect(
+      missing.map(([n2, f]) => `${n2} (${f})`),
+      '정의되지 않은 CSS 변수를 참조한다 — CSS 가 조용히 버려서 화면에서는 안 보인다',
+    ).toEqual([]);
+  });
 
   it('[1] 보조 텍스트(--n-500)가 모든 배경·테마에서 4.5:1 이상이다', () => {
     /*

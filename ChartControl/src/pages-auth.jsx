@@ -1095,12 +1095,12 @@
                정말로 제3자에게 제공하는 일이 생기면 그때 **선택**으로 추가한다.
           */}
           <div className="consent-group" style={{
-            border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden',
+            border: '1px solid var(--color-border-default)', borderRadius: 8, overflow: 'hidden',
           }}>
             {/* 모두 동의 */}
             <label className="chk" style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px',
-              borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)',
+              borderBottom: '1px solid var(--color-border-default)', background: 'var(--color-bg-surface)',
               cursor: 'pointer',
             }}>
               <input
@@ -1115,7 +1115,7 @@
             {CONSENT_ITEMS.map((it) => {
               const open = consentOpen === it.key;
               return (
-                <div key={it.key} style={{borderBottom: '1px solid var(--color-border)'}}>
+                <div key={it.key} style={{borderBottom: '1px solid var(--color-border-default)'}}>
                   <div style={{display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px'}}>
                     <label className="chk" style={{display: 'flex', alignItems: 'center', gap: 8, flex: 1, cursor: 'pointer', margin: 0}}>
                       <input

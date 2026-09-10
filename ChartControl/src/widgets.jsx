@@ -2362,12 +2362,12 @@
                   {calc.exit != null && row(
                     t('calc_pnl'),
                     (calc.pnl >= 0 ? '+' : '') + fmt(calc.pnl) + ' USDT',
-                    calc.pnl >= 0 ? 'var(--color-long)' : 'var(--color-short)'
+                    calc.pnl >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)'
                   )}
                   {calc.exit != null && row(
                     t('calc_roe'),
                     (calc.roe >= 0 ? '+' : '') + fmt(calc.roe) + ' %',
-                    calc.roe >= 0 ? 'var(--color-long)' : 'var(--color-short)'
+                    calc.roe >= 0 ? 'var(--color-trade-long)' : 'var(--color-trade-short)'
                   )}
                   <div style={{fontSize:10.5, color:'var(--color-text-tertiary)', marginTop:8, lineHeight:1.6}}>
                     {t('calc_liq_note')}

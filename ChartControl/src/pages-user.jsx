@@ -316,7 +316,7 @@
                     <strong>{r.base}</strong><span style={{color:'var(--color-text-tertiary)'}}>/{r.quote}</span>
                     <span className="badge badge--perp" style={{marginLeft:6}}>{r.type}</span>
                     {unlisted(r) && (
-                      <span className="badge" style={{marginLeft:6, background:'var(--color-surface-3)', color:'var(--color-text-tertiary)'}}>
+                      <span className="badge" style={{marginLeft:6, background:'var(--color-bg-elevated)', color:'var(--color-text-tertiary)'}}>
                         {t(r.unavailableReasonKey || 'market_not_listed')}
                       </span>
                     )}
@@ -386,7 +386,7 @@
             <div style={{padding: 12}}>
               <div className="markets-heatmap">
                 {filtered.map(m => (
-                  <div key={m.base + m.quote} className="heat-cell" style={{background: unlisted(m) ? 'var(--color-surface-2)' : heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
+                  <div key={m.base + m.quote} className="heat-cell" style={{background: unlisted(m) ? 'var(--color-bg-surface)' : heatCol(m.chg24h)}} onClick={() => shellProps.onNavigate && shellProps.onNavigate('/trade?symbol=' + m.base + m.quote)}>
                     <div className="heat-cell__sym">{m.base}</div>
                     <div>
                       {/* ★ 미상장은 색으로 상승·하락을 말하지 않는다 — 색이 가장 먼저 읽힌다. */}
@@ -1868,7 +1868,7 @@
           */}
           <window.SectionCard title={t('an_ai_insights')} subtitle={t('an_insights_sub')}>
             <div style={{display:'flex', flexDirection:'column', gap: 10}}>
-              <div style={{padding:'10px 12px', background:'var(--color-bg-subtle)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
+              <div style={{padding:'10px 12px', background:'var(--color-bg-surface)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
                 <strong>{t('an_insights_none')}</strong><br/>
                 <span style={{color:'var(--color-text-secondary)'}}>{t('an_insights_why')}</span>
               </div>
@@ -1876,7 +1876,7 @@
                  ★ 무엇이 있으면 되는지 적는다 — 이용자가 일지를 쓸 동기가 된다.
                    (거래 기록만으로는 감정·시간대 분석을 만들 수 없다.)
               */}
-              <div style={{padding:'10px 12px', background:'var(--color-bg-subtle)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
+              <div style={{padding:'10px 12px', background:'var(--color-bg-surface)', borderLeft:'3px solid var(--color-border-default)', borderRadius:4, fontSize:12, lineHeight:1.6}}>
                 <strong>{t('an_insights_need')}</strong><br/>
                 <span style={{color:'var(--color-text-secondary)'}}>{t('an_insights_need_why')}</span>
               </div>

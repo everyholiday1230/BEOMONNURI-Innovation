@@ -1664,10 +1664,16 @@
                        이 배지는 "LIVE" — **실주문이 거래소로 나간다**는 경고다. 읽히지 않으면
                        모의 거래로 착각할 수 있다.
 
+                     ★★ 처음에 `var(--color-bg-base)` 라고 썼는데 **그런 토큰은 없다**
+                       (실제 이름은 --color-bg-app). 무효값이라 색 지정이 무시되고
+                       상속된 경고색(노랑)이 그대로 남아 **비율 1.69** 였다 —
+                       고쳤다고 배포한 뒤 프로덕션에서 재보고서야 알았다.
+                       CSS 는 잘못된 var() 를 조용히 버린다.
+
                      ★ 어두운 글씨로 바꾸면 **6.15** 가 된다(실측). 배경색을 어둡게 하는 대신
                        글씨를 바꾼다 — 배경은 매도 색(--color-trade-short)이라 다른 곳과 같아야 한다.
                 */}
-                <span className="sim-stripe__badge" style={isLive ? {background:'var(--color-trade-short)', color:'var(--color-bg-base)'} : undefined}>{badge}</span>
+                <span className="sim-stripe__badge" style={isLive ? {background:'var(--color-trade-short)', color:'var(--color-bg-app)'} : undefined}>{badge}</span>
                 <span>{note}</span>
               </div>
               <div className="sim-stripe__right">

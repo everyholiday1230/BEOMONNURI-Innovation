@@ -1664,7 +1664,7 @@
           <div className="ai-consent" role="region" aria-label={t('ai_training_ask_title')}
             style={{
               margin: '0 10px 8px', padding: '10px 12px', borderRadius: 8,
-              border: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)',
+              border: '1px solid var(--color-border-default)', background: 'var(--color-bg-surface)',
             }}>
             <div style={{fontSize: 12, fontWeight: 600, marginBottom: 4}}>{t('ai_training_ask_title')}</div>
             <div style={{fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 8}}>
@@ -2012,7 +2012,7 @@
                 return (
                   <React.Fragment key={side.direction}>
                     {both ? (
-                      <div className="signal-card__row" style={{borderTop:'1px solid var(--color-border)', paddingTop: 6, marginTop: 4}}>
+                      <div className="signal-card__row" style={{borderTop:'1px solid var(--color-border-default)', paddingTop: 6, marginTop: 4}}>
                         <span className="signal-card__k" style={{fontWeight:600, color:'var(--color-text-primary)'}}>
                           {side.direction === 'long' ? '▲' : '▼'} {dirLabel}
                         </span>

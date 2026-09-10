@@ -146,7 +146,7 @@
 
     return (
       <div style={{
-        minHeight:'100vh', background:'var(--color-bg-base)', color:'var(--color-text-primary)',
+        minHeight:'100vh', background:'var(--color-bg-app)', color:'var(--color-text-primary)',
         display:'flex', flexDirection:'column',
       }}>
         {/* 머리말 — 로그인 상태와 무관하게 보인다. */}
