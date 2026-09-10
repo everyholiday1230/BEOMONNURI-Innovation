@@ -2542,8 +2542,15 @@
                                        덮으면 정보가 사라진다 — **실제 값**을 보여준다.
                                        ○/— 는 있고/없고 뿐인 항목에만 쓴다.
                                 */}
+                                {/*
+                                     ★ 셀에는 **숫자만**. 원래 문구를 그대로 쓰면
+                                       "About N AI analyses every month" 가 5칸에 반복되고,
+                                       같은 내용이 행 이름에 이미 있다.
+                                     ★★ 라벨을 지어내지 않고 **서버가 준 params 값만** 찍는다.
+                                       화면에서 단위를 붙이면 서버 의미와 어긋날 수 있다.
+                                */}
                                 {has(pl, key) && valued(key)
-                                  ? <span>{t(key, params(pl, key))}</span>
+                                  ? <span>{Object.values(params(pl, key)).join(' / ') || '○'}</span>
                                   : (
                                     <>
                                       <span aria-hidden="true">{has(pl, key) ? '○' : '—'}</span>
