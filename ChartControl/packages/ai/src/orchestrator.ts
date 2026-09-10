@@ -343,6 +343,35 @@ export class Orchestrator implements IAIOrchestrator {
       if (isProposalTool(ev.name)) {
         const out = this.handleProposal(ev.name, ev.args, input, grounding);
         /*
+           ★★★ **제안이 검증에서 떨어진 이유를 서버에 남긴다.**
+
+             고객 화면에는 ai_err_invalid("검증을 통과하지 못해 아무것도 그리지 않았다")
+             만 보였고, **우리 쪽에도 아무 기록이 없었다.** 그래서 "AI 가 그리다 말았다"
+             는 신고가 와도 원인을 알 수 없었다 — 어느 필드가 왜 거부됐는지 모른다.
+
+           ★ 이유는 이미 `message` 에 들어 있다(zod 이슈 문자열, ungrounded 사유 등).
+             화면에는 그것을 그대로 보여줄 수 없지만(내부 필드명이 노출된다) **로그에는
+             남겨야 한다.** 고객에게 숨기는 것과 우리가 모르는 것은 다르다.
+
+           ★ 실패한 경우만 남긴다. 성공까지 남기면 정상 사용에서 로그가 쏟아지고,
+             정작 필요한 실패가 묻힌다.
+
+           ★ correlationId 를 함께 찍는다 — 고객이 알려준 참조값으로 이 요청을 찾는다.
+           ★ 모델이 보낸 인자도 **길이를 잘라** 남긴다. 무엇을 보냈는지 모르면 스키마를
+             고칠 수 없다. 전체를 남기면 로그가 비대해지고, 사용자 문장이 섞여 들어올
+             수 있어 300자로 자른다.
+        */
+        const failed = out.find((e) => e.type === 'error');
+        if (failed) {
+          const f = failed as { code?: string; message?: string };
+          // eslint-disable-next-line no-console
+          console.error(
+            `[ai] ★ 제안 거부 — corr=${input.correlationId} tool=${ev.name} `
+            + `code=${f.code ?? '-'} reason=${(f.message ?? '').slice(0, 200)} `
+            + `args=${String(ev.args ?? '').slice(0, 300)}`,
+          );
+        }
+        /*
            ★★★ **제안 도구도 2차 호출 판정에 넣는다.**
 
              처음 고칠 때 여기를 빠뜨렸다. 그래서 프로덕션에서 그대로 재현됐다 —

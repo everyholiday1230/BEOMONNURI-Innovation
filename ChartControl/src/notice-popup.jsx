@@ -42,7 +42,35 @@
    */
   function safeToShow() {
     try {
-      if (document.querySelector('[data-widget-id="orderEntry"]')) return false;
+      /*
+         ★★★ **예전에는 주문 패널이 화면에 "있으면" 무조건 보류했다. 그래서 공지가
+           사실상 영구히 뜨지 않았다.**
+
+           실측: 기본 레이아웃의 /trade 에는 orderEntry 가 **항상** 있다. 그리고 이
+           함수는 hashchange 에서만 다시 평가되므로, 트레이드 화면에 머무르는 동안에는
+           기회가 오지 않는다. 프로덕션에 공지를 넣고 확인했더니 실제로 안 떴다 —
+           기능은 만들어져 있는데 닿을 수 없는 상태였다.
+
+         ★★ 원래 의도는 맞다: 주문을 내려던 손이 팝업을 누르고 그 사이 호가가 바뀌는
+           것을 막는 것이다. 그런데 막아야 할 것은 **패널의 존재**가 아니라
+           **주문 중이라는 상태**다.
+
+         ★ 그래서 판정을 좁힌다:
+             (a) 주문 패널의 입력칸에 **초점이 있으면** 보류 — 지금 입력 중이다.
+             (b) 주문 패널 입력칸에 **값이 들어 있으면** 보류 — 작성 중이다.
+           둘 다 아니면 화면에 패널이 있어도 띄운다. 손이 그 위에 있지 않다.
+      */
+      const oe = document.querySelector('[data-widget-id="orderEntry"]');
+      if (oe) {
+        /* (a) 초점이 주문 패널 안에 있다 */
+        const act = document.activeElement;
+        if (act && oe.contains(act)) return false;
+        /* (b) 작성 중인 값이 있다 — 숫자 입력칸에 무언가 적혀 있으면 건드리지 않는다 */
+        for (const inp of oe.querySelectorAll('input')) {
+          if (inp.type === 'checkbox' || inp.type === 'radio') continue;
+          if (String(inp.value || '').trim() !== '') return false;
+        }
+      }
       /*
          이미 **다른** 모달이 열려 있으면 겹치지 않는다.
 
@@ -76,7 +104,27 @@
     useEffect(() => {
       const bump = () => setTick((n) => n + 1);
       window.addEventListener('hashchange', bump);
-      return () => window.removeEventListener('hashchange', bump);
+      /*
+         ★★ **화면 이동만 기다리면 기회가 오지 않는다.**
+
+           보류 사유(다른 모달이 열려 있다 · 주문 입력 중이다)는 화면을 옮기지 않아도
+           사라진다. 예전에는 hashchange 만 들었기 때문에, 첫 진입 때 위험고지 모달이
+           열려 있으면 그 모달을 닫아도 공지가 **다시 시도되지 않았다.**
+           실측으로 그 상태를 확인했다(위험고지만 뜨고 공지는 끝까지 안 떴다).
+
+         ★ 그래서 잠깐 동안만 주기적으로 다시 본다. **영구 타이머가 아니다** —
+           30초 뒤 스스로 멈춘다. 그 안에 조건이 풀리지 않으면 다음 화면 이동을
+           기다리는 것이 맞다(계속 노리면 주문 중에 끼어든다).
+
+         ★ 2초 간격이다. 더 짧게 하면 모달을 닫는 손동작 중에 끼어들 수 있다.
+      */
+      const iv = setInterval(bump, 2000);
+      const stop = setTimeout(() => clearInterval(iv), 30_000);
+      return () => {
+        window.removeEventListener('hashchange', bump);
+        clearInterval(iv);
+        clearTimeout(stop);
+      };
     }, []);
 
     useEffect(() => {
