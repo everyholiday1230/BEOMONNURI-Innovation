@@ -92,7 +92,22 @@
          사각형을 찾으면 남은 조각이 차례로 메워진다. "완전히 덮을 때만" 으로 만들면
          조금만 어긋나도 통째로 포기해 큰 구멍이 남는다(실측 16%).
     */
-    fillHoles(list, cols, rows) {
+    /*
+       빈 자리를 이웃이 흡수하게 한다(접기·크기 축소 뒤 정리).
+
+       ★★★ `excludeId` — **방금 줄인 창은 흡수 후보에서 뺀다.**
+
+         이것이 없어서 크기 축소가 **전혀 되지 않았다.** 창을 줄이면 그 옆에 빈칸이
+         생기는데, 흡수 후보 `west`(빈칸의 왼쪽에 맞닿은 창)에 **줄인 창 자신이**
+         들어간다. 그래서 줄인 만큼을 그대로 되돌려받았다.
+
+         실측: 끌고 있는 동안 span 52→46 으로 줄어들다가, 놓는 순간(fillHoles 실행)
+         **52 로 복귀**했다. 운영자가 신고한 "축소가 안 된다" 가 이것이다.
+
+       ★ 인자를 주지 않으면 예전과 똑같이 동작한다 — 접기 경로는 그대로 둔다
+         (접힌 창은 흡수 후보가 되면 안 되지만, 그쪽은 hidden 이라 이미 제외된다).
+    */
+    fillHoles(list, cols, rows, excludeId) {
       if (!Array.isArray(list)) return list;
       const C = cols || 96;
       const R = rows || 16;
@@ -124,7 +139,8 @@
       };
 
       const fill = (rect) => {
-        const vis = out.filter((o) => !o.hidden);
+        /* ★ 방금 줄인 창은 흡수하지 않는다 — 그러면 축소가 상쇄된다. */
+        const vis = out.filter((o) => !o.hidden && o.id !== excludeId);
         const inRows = (o) => o.y >= rect.y && o.y + o.h <= rect.y + rect.h;
         const inCols = (o) => o.x >= rect.x && o.x + o.w <= rect.x + rect.w;
         const west = vis.filter((o) => o.x + o.w === rect.x && inRows(o));

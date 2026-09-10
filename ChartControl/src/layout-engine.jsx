@@ -721,7 +721,14 @@ const DEFAULT_WIDGET_META = {
         if (partial._resizing === false && window.QTPanelState
             && typeof window.QTPanelState.fillHoles === 'function') {
           try {
-            const filled = window.QTPanelState.fillHoles(nextWidgets, prev.cols || 96, 16);
+            /*
+               ★★★ **방금 조작한 창을 흡수 후보에서 뺀다.**
+
+                 이것이 없어서 축소가 전혀 되지 않았다. 창을 줄이면 옆에 빈칸이 생기고,
+                 fillHoles 의 흡수 후보에 **줄인 창 자신이** 들어가 줄인 만큼을 그대로
+                 되돌려받았다(실측: 끌 때 52→46, 놓는 순간 52 복귀).
+            */
+            const filled = window.QTPanelState.fillHoles(nextWidgets, prev.cols || 96, 16, id);
             const vis = filled.filter(w => !w.hidden);
             const bad = vis.some(a => a.w < 1 || a.h < 1)
               || vis.some((a, i2) => vis.slice(i2 + 1).some(c => overlaps(a, c)));
