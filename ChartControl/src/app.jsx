@@ -2838,9 +2838,24 @@
          ★ 없으면(스크립트 로드 실패) 조용히 넘긴다 — 지표 복원이 차트 표시를 막아서는
            안 된다.
       */
-      try {
-        if (window.QTRestoreIndicators) window.QTRestoreIndicators(chart);
-      } catch (e) { void e; }
+      /*
+         ★★ **차트가 자체 지표(MA·VOL)를 만들 시간을 준다.**
+
+           실측: 복원이 즉시 돌면 차트의 MA(20,60,120)가 아직 없어서 복원이 MA 를
+           **또** 만들고(기본 5,10,30) 범례에 두 벌이 나왔다 —
+           "MA5 MA10 MA30 MA20 MA60 MA120".
+
+           복원은 "차트에 없는 것만 채운다" 는 규칙이라, 차트가 먼저 만들도록 순서를
+           맞추면 중복이 사라진다. MA·VOL 은 `showMA` effect 가 만든다.
+
+         ★ 0ms setTimeout 으로 충분하다 — 같은 tick 의 effect 가 끝난 뒤에 돈다.
+           고정 지연(예: 500ms)을 주면 그만큼 지표가 늦게 나타난다.
+      */
+      setTimeout(() => {
+        try {
+          if (window.QTRestoreIndicators) window.QTRestoreIndicators(chart);
+        } catch (e) { void e; }
+      }, 0);
       /*
          차트 상태를 콘솔에서 확인할 수 있게 노출한다.
 

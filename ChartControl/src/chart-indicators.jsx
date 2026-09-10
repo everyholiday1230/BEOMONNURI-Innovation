@@ -295,10 +295,44 @@
   window.QTRestoreIndicators = function QTRestoreIndicators(chart) {
     if (!chart) return;
     applySavedIndicators(chart, loadAutoLocal());
-    try {
+
+    /*
+       ★★★ **차트가 준비된 시점에는 로그인 판정이 아직 안 됐을 수 있다.**
+
+         실측: 다른 기기에서 로그인했을 때 서버 복원이 안 됐다. 서버에는 값이 있고
+         (`__auto__` payload `["MA","VOL","MACD"]` 확인), 함수도 있고, 나중에 콘솔에서
+         부르면 동작한다. 그런데 차트 준비 순간에는 `isLoggedIn()` 이 아직 거짓이라
+         **그 자리에서 조용히 돌아갔다.**
+
+       ★ 그래서 지금 시도하고, 아직 로그인 판정이 안 됐으면 **인증 상태 변화를 한 번
+         기다린다.** 무한정 듣지 않는다 — 한 번 성공하면 구독을 끊는다.
+
+       ★ 판정이 안 된 것과 비로그인은 다르다. 비로그인이면 서버에 물어볼 것이 없고,
+         판정 중이면 곧 답이 온다. 둘을 구분하지 않으면 비로그인에서도 계속 기다린다.
+    */
+    var tried = false;
+    var pull = function () {
+      if (tried) return true;
       var api = window.QTApi && window.QTApi.rest;
-      if (!api || !api.chartTemplates) return;
-      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+      if (!api || !api.chartTemplates) return true;   /* 더 기다려도 소용없다 */
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return false;
+      tried = true;
+      fetchAndApply(chart, api);
+      return true;
+    };
+    if (!pull()) {
+      try {
+        if (window.QTAuth && typeof window.QTAuth.subscribe === 'function') {
+          var off = window.QTAuth.subscribe(function () {
+            if (pull() && typeof off === 'function') off();
+          });
+        }
+      } catch (e) { void e; }
+    }
+  };
+
+  function fetchAndApply(chart, api) {
+    try {
       api.chartTemplates().then(function (r) {
         if (!r || !r.ok) return;
         var hit = (r.items || []).find(function (x) { return x && x.name === AUTO_TPL_NAME; });
@@ -311,7 +345,7 @@
         console.warn('[Indicators] 자동 불러오기 실패 — 기기 저장으로 동작한다:', e && e.message);
       });
     } catch (e) { void e; }
-  };
+  }
 
   window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose, publish = true }) {
     const [q, setQ] = useState('');
