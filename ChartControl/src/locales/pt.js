@@ -2443,6 +2443,7 @@
       landing_uc_3_use: 'Informe direção e níveis; a IA verifica o risco-retorno e aponta o que pesa contra — ela nunca escolhe a direção por você.',
       landing_uc_note: 'Estes são exemplos de uso escritos por nós. Ainda não publicamos depoimentos de clientes — preferimos mostrar o produto a citar alguém.',
       landing_cmp_caption: 'O que cada plano inclui',
+      landing_cmp_all: 'Em todos os planos',
       landing_cmp_feature: 'Recurso',
       landing_cmp_yes: 'Incluído',
       landing_cmp_no: 'Não incluído',

@@ -2445,6 +2445,7 @@
       landing_uc_3_use: 'Indicá dirección y niveles; la IA revisa el riesgo-beneficio y señala lo que va en contra — nunca elige la dirección por vos.',
       landing_uc_note: 'Estos son ejemplos de uso escritos por nosotros. Todavía no publicamos testimonios de clientes — preferimos mostrarte el producto antes que citar a alguien.',
       landing_cmp_caption: 'Qué incluye cada plan',
+      landing_cmp_all: 'En todos los planes',
       landing_cmp_feature: 'Función',
       landing_cmp_yes: 'Incluido',
       landing_cmp_no: 'No incluido',

@@ -2520,6 +2520,7 @@
       landing_uc_3_use: 'Nói hướng và các mức; AI kiểm tra tỷ lệ lợi nhuận/rủi ro và chỉ ra điều bất lợi — nó không bao giờ chọn hướng thay bạn.',
       landing_uc_note: 'Đây là các ví dụ sử dụng do chúng tôi viết. Chúng tôi chưa công bố nhận xét khách hàng — thà cho bạn xem sản phẩm hơn là dẫn lời ai đó.',
       landing_cmp_caption: 'Mỗi gói bao gồm những gì',
+      landing_cmp_all: 'Có ở mọi gói',
       landing_cmp_feature: 'Tính năng',
       landing_cmp_yes: 'Có',
       landing_cmp_no: 'Không có',

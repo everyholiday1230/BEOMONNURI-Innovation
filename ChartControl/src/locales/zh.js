@@ -140,6 +140,7 @@
       landing_uc_3_use: '说出方向与价位，AI 会核对盈亏比并指出反面依据 —— 方向永远由您决定。',
       landing_uc_note: '以上是我们撰写的使用示例。我们尚未刊登客户评价 —— 与其引用别人的话，不如让您直接看产品。',
       landing_cmp_caption: '各方案包含的内容',
+      landing_cmp_all: '所有方案均含',
       landing_cmp_feature: '功能',
       landing_cmp_yes: '包含',
       landing_cmp_no: '不包含',

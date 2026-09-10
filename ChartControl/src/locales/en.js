@@ -2277,6 +2277,7 @@
       landing_uc_3_use: 'State your direction and levels; the AI checks the risk-reward and flags what argues against you — it never picks the direction for you.',
       landing_uc_note: 'These are examples of how the product is used, written by us. We do not publish customer testimonials yet — we would rather show you the product than quote someone.',
       landing_cmp_caption: 'What each plan includes',
+      landing_cmp_all: 'In every plan',
       landing_cmp_feature: 'Feature',
       landing_cmp_yes: 'Included',
       landing_cmp_no: 'Not included',

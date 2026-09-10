@@ -136,6 +136,7 @@
       landing_uc_3_use: '方向と水準を伝えると、AI が損益比を確認し、逆の根拠も挙げます — 方向を決めるのは常にお客様です。',
       landing_uc_note: 'これは当社が書いた使用例です。お客様の声はまだ掲載していません — 誰かの言葉を引くより、製品そのものをお見せしたいからです。',
       landing_cmp_caption: '各プランに含まれるもの',
+      landing_cmp_all: '全プラン共通',
       landing_cmp_feature: '機能',
       landing_cmp_yes: '含む',
       landing_cmp_no: '含まない',

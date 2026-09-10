@@ -1974,7 +1974,14 @@
             <span className="dot dot--ai"/> {t('landing_hero_badge')}
           </div>
           <h1 className="landing-hero__title">
-            {t('auth_77edb5')}<br/>
+            {/*
+                 ★★ 1행은 원래 `auth_77edb5` 였는데 그 키는 **로그인 화면 제목과 공유**된다.
+                   랜딩 문구를 바꾸면 로그인 화면까지 바뀌므로 랜딩 전용 키를 새로 만들었다.
+                 ★ "차트에 대해 질문하세요"(기능) → "차트를 노려보지 마세요"(무엇이 나아지나).
+                   **수익은 약속하지 않는다** — "시간이 줄어든다" 는 검증 가능하지만
+                   "돈을 번다" 는 아니다.
+            */}
+            {t('landing_hero_line1')}<br/>
             <span style={{color: 'var(--color-brand)'}}>{t('landing_4c1fc3')}</span>{t('landing_af3947')}
           </h1>
           <p className="landing-hero__body">
@@ -2455,7 +2462,24 @@
               {(() => {
                 const first = plans.list[0];
                 if (!first || !Array.isArray(first.features) || first.features.length === 0) return null;
-                const rows = first.features.map((f) => f.key);
+                // ★★★ **전 플랜 공통 항목은 표에서 뺀다.**
+                //   실측(/api/plans): 기능 10개 중 플랜별로 다른 것은 `plan_f_saves`,
+                //   `plan_f_topup` **2개뿐**이고 나머지 8개는 전 플랜 동일하다. 그대로
+                //   표로 만들면 50칸 중 **48칸이 ○** 가 되어 차이가 묻힌다.
+                // ★ 다른 항목만 행으로 만들고, 공통 항목은 표 아래 "모든 플랜 공통" 으로
+                //   한 번만 적는다. 목록을 지우는 것이 아니라 반복을 없애는 것이다.
+                // ★★ 무엇이 공통인지 **하드코딩하지 않고 서버 응답에서 계산한다.**
+                //   요금제 구성이 바뀌면 화면이 저절로 따라가야 한다 — 박아두면
+                //   "차이" 표시가 언젠가 거짓이 된다.
+                const differs = (key) => {
+                  const vals = plans.list.map((pl) => {
+                    const hit = (pl.features || []).find((x) => x.key === key);
+                    return hit ? !!hit.included : false;
+                  });
+                  return vals.some((v) => v !== vals[0]);
+                };
+                const rows = first.features.map((f) => f.key).filter(differs);
+                const common = first.features.filter((f) => f.included && !differs(f.key));
                 const has = (pl, key) => {
                   const hit = (pl.features || []).find((x) => x.key === key);
                   return hit ? !!hit.included : false;
@@ -2492,6 +2516,18 @@
                         ))}
                       </tbody>
                     </table>
+                    {/*
+                         ★ 전 플랜 공통 기능. 표에서 뺐다고 사라지면 "무엇이 포함되나" 를
+                           알 수 없다. 여기서 **한 번만** 보여준다.
+                    */}
+                    {common.length > 0 && (
+                      <div className="landing-cmp__common">
+                        <span className="landing-cmp__common-label">{t('landing_cmp_all')}</span>
+                        {common.map((f) => (
+                          <span className="landing-cmp__chip" key={f.key}>{t(f.key, f.params || {})}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
