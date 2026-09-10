@@ -230,12 +230,55 @@
               <button key={x} className={`mw-tab ${tab === x ? 'is-active' : ''}`} onClick={() => setTab(x)}>{TAB_LABEL(x)}</button>
             ))}
           </div>
-          <div className="mw-list-head">
-            <span/>
-            <span>{t('wl_pair')}</span>
-            <span style={{textAlign:'right'}}>{t('wl_price_vol')}</span>
-            <span style={{textAlign:'right'}}>24h</span>
-          </div>
+          {/*
+               ★★★ **정렬 상태는 이미 있었는데 바꿀 방법이 없었다.**
+
+                 `const [sort, _setSort] = useState({ key:'vol', dir:'desc' })` 로 상태와
+                 정렬 로직(아래 useMemo)까지 완성돼 있었지만, `_setSort` 를 부르는 곳이
+                 **한 곳도 없었다.** 헤더는 그냥 글자였다. 그래서 거래대금 내림차순으로
+                 영원히 고정이었다.
+
+               ★ 헤더를 버튼으로 만든다. 같은 열을 다시 누르면 방향이 바뀐다
+                 (운영자 요청: "한번 누르면 높은게 맨위로 다시 누르면 반대로").
+               ★ 다른 열로 옮길 때는 **내림차순부터** 시작한다 — 시세 목록에서 처음
+                 보고 싶은 것은 큰 값이다(오름차순이면 0에 가까운 종목이 먼저 온다).
+               ★ 화살표로 현재 정렬을 보여준다. aria-sort 도 함께 준다 —
+                 화면 읽기 프로그램이 정렬 상태를 읽어야 한다.
+               ★ Movers 탭은 절대값 정렬을 쓰므로(아래 분기) 이 정렬이 적용되지 않는다.
+                 그때는 헤더를 눌러도 바뀌지 않아 혼란스러우므로 비활성으로 표시한다.
+          */}
+          {(() => {
+            const sortable = tab !== 'Movers';
+            const arrow = (key) => (sort.key !== key ? '' : (sort.dir === 'asc' ? ' ↑' : ' ↓'));
+            const ariaSort = (key) => (sort.key !== key ? 'none' : (sort.dir === 'asc' ? 'ascending' : 'descending'));
+            const clickSort = (key) => () => _setSort((prev) => (
+              prev.key === key
+                ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+                : { key, dir: 'desc' }
+            ));
+            const Head = ({ k, label }) => (sortable ? (
+              <button
+                type="button"
+                className={`mw-sort${sort.key === k ? ' is-on' : ''}`}
+                aria-sort={ariaSort(k)}
+                aria-label={t('wl_sort_by', { col: label })}
+                title={t('wl_sort_by', { col: label })}
+                onClick={clickSort(k)}
+              >{label}{arrow(k)}</button>
+            ) : <span>{label}</span>);
+            return (
+              <div className="mw-list-head">
+                <span/>
+                <span>{t('wl_pair')}</span>
+                <span style={{textAlign:'right'}}>
+                  <Head k="price" label={t('wl_price')}/>
+                  <span className="mw-sort__sep"> / </span>
+                  <Head k="vol" label={t('wl_vol')}/>
+                </span>
+                <span style={{textAlign:'right'}}><Head k="chg" label="24h"/></span>
+              </div>
+            );
+          })()}
           <div style={{flex: 1, overflowY: 'auto'}}>
             {list.map(m => {
               const isActive = current === `${m.base}${m.quote}`;

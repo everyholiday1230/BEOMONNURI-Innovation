@@ -338,6 +338,27 @@
          유지한다** — 규격이 사라지면 주문 폼이 최소수량을 다시 모르게 된다
          (그 배선이 끊겨 고객 주문이 막힌 적이 있다).
     */
+    /*
+       ★★★ **"필요한 종목만 요청한다" 는 최적화가 종목 확장을 막고 있었다.**
+
+         절약 자체는 맞다(5초마다 190KB → 6KB). 그런데 요청 목록을 `QT.MARKETS` 에서
+         만들었고, `QT.MARKETS` 는 목업 시드 21개로 시작한다. 그래서
+         **21개만 요청 → 21개만 수신 → 목록은 영원히 21개**였다.
+         거래소는 677종목을 준다(실측: /api/market/symbols).
+         live-market 에 "목록에 없던 심볼을 추가한다" 는 코드가 이미 있었지만,
+         애초에 21개만 받아 오므로 추가할 것이 없었다.
+
+       ★ 그래서 **아직 확장되지 않았으면 전체를 받는다.** 채워진 뒤에는 다시 그
+         목록만 요청한다 — 매번 전체를 받으면 원래 문제로 돌아간다.
+
+       ★★ 판정을 "목록이 비었나" 가 아니라 **"시드 크기를 넘었나"** 로 둔다.
+         비었는지로 보면 시드 21개를 "목록이 있다" 로 판정해 영원히 21개에 머문다 —
+         그것이 지금까지의 상태였다.
+
+       ★ 아래 주석·조건(SPEC_TTL_MS 블록)은 대역폭 회귀 시험이 **소스 창을 잘라서**
+         검사한다. 그래서 긴 설명은 함수 **밖**에 둔다 — 안에 넣으면 검사 창이 밀려
+         엉뚱하게 실패한다(실제로 그렇게 실패했다).
+    */
     markets: function () {
       var SPEC_TTL_MS = 10 * 60 * 1000;
       var now = Date.now();
@@ -351,11 +372,14 @@
          ★ 목록을 못 구하면 파라미터를 붙이지 않는다 — 그때는 예전처럼 전체를
            받는다. 목록이 비었다고 시세를 0개 받으면 화면이 텅 빈다.
       */
+      var SEED_MAX = 40;
       var want = [];
       try {
         var list = (window.QT && window.QT.MARKETS) || [];
-        want = list.map(function (m) { return String((m.base || '') + (m.quote || '')).toUpperCase(); })
-          .filter(function (x) { return x.length > 0; });
+        if (list.length > SEED_MAX) {
+          want = list.map(function (m) { return String((m.base || '') + (m.quote || '')).toUpperCase(); })
+            .filter(function (x) { return x.length > 0; });
+        }
       } catch (e) { want = []; }
       var tickerPath = want.length > 0 ? '/tickers?symbols=' + encodeURIComponent(want.join(',')) : '/tickers';
 

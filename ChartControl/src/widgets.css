@@ -1987,3 +1987,18 @@
 }
 .pos-sym-link:hover { text-decoration-color: var(--color-brand); }
 .pos-sym-link:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+
+/*
+   ★ 마켓워치 정렬 헤더. 정렬 상태(sort)와 로직은 이미 있었는데 **바꿀 방법이 없었다**
+     — 헤더가 그냥 글자였고 _setSort 를 부르는 곳이 한 곳도 없었다.
+   ★ 겉모습은 원래 헤더 글자와 같게 둔다. 버튼처럼 만들면 좁은 헤더 줄이 흔들린다.
+   ★ 현재 정렬 열은 색과 굵기 둘 다로 표시한다(색만으로 알리지 않는다). 화살표도 함께 있다.
+*/
+.mw-sort {
+  background: none; border: 0; padding: 0; margin: 0;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.mw-sort:hover { color: var(--color-text-primary); }
+.mw-sort.is-on { color: var(--color-brand); font-weight: 600; }
+.mw-sort:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 1px; }
+.mw-sort__sep { color: var(--color-text-tertiary); }

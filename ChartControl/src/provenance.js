@@ -364,8 +364,38 @@
        사라지면 고객이 그 문구를 기억한다.
   */
   function isVisibleToViewer() {
-    // 미리보기(백엔드 없음) — 디자이너 확인용으로 항상 보인다.
-    if (window.QTLive && typeof window.QTLive.isBackendPresent === 'function'
+    /*
+       ★★★ **일반 고객에게 이 배지가 보였다**(운영자 신고).
+
+         화면에 이런 문장이 떴다:
+           "Charts, market data, indicators and AI Copilot are live. Order execution
+            runs live on the exchange once you connect a key; until then it is
+            simulated…"
+
+         이것은 **개발 상태를 알려주는 내부 도구**다. 고객에게는 "무엇이 아직 안 됐는가"
+         를 알려주는 셈이라 신뢰를 깎는다.
+
+       ★★ 원인이 두 개였다:
+
+         (1) `isBackendPresent() === false` 면 **등급을 보지 않고 항상 보였다.**
+             백엔드 판정은 부팅 초기에 아직 `false` 일 수 있고, 그 순간 일반 고객
+             화면에도 배지가 뜬다. "미리보기" 의도였지만 실제 서비스에서 새는 통로였다.
+
+         (2) `rank >= RANK.admin` 이라 **admin·super 둘 다** 보였다. 운영자 요청은
+             "최고관리자 1명만" 이다.
+
+       ★ 고침: 백엔드 없음은 **로컬에서만** 예외로 둔다(localhost). 그리고 등급은
+         `super` 로 좁힌다.
+
+       ★ 판정 불가(등급을 못 읽음)면 **보이지 않는다**(fail-closed). 내부 정보는
+         "모르겠으면 숨긴다" 가 맞다.
+    */
+    var isLocal = false;
+    try {
+      var h = String(window.location.hostname || '');
+      isLocal = (h === 'localhost' || h === '127.0.0.1' || h.slice(-6) === '.local');
+    } catch (e) { isLocal = false; }
+    if (isLocal && window.QTLive && typeof window.QTLive.isBackendPresent === 'function'
         && window.QTLive.isBackendPresent() === false) {
       return true;
     }
@@ -376,7 +406,7 @@
          화면 등급으로 변환해 두었고, 사이드바·접근 판정이 모두 이 값을 쓴다.
          두 체계를 섞으면 어느 한쪽이 어긋난다. */
     var rank = A.RANK[auth.getTier()];
-    return typeof rank === 'number' && rank >= A.RANK.admin;
+    return typeof rank === 'number' && rank >= A.RANK.super;
   }
 
   function t(key, vars) {
