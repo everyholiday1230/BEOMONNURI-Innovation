@@ -149,16 +149,41 @@ describe('패널 크기 조절 — 네 방향', () => {
     }
   });
 
-  it('여유가 없는 방향은 배치를 바꾸지 않는다 — orderEntry 왼쪽', () => {
+  it('★★ 닿은 이웃이 최소폭이어도 그 뒤의 여유를 쓴다 (겹침·경계는 그대로 지킨다)', () => {
     /*
-       왼쪽 orderBook 이 이미 최소폭 3 이다. 넓힐 수 없는 것이 맞고, 그때 겹치거나
-       음수 좌표가 나오면 안 된다.
+       ★★★ 예전에는 "닿은 이웃이 최소폭이면 확대 불가" 였다. 그래서 실제 화면에서
+         **positions 를 동쪽으로 아무리 끌어도 전혀 움직이지 않았다**(실측: 40·120·
+         300px 모두 col 변화 0). 운영자가 신고한 그 증상이다.
+
+         기본 배치의 12~16행: positions(17~68) · trades(69~80, minW 12 = **이미 최소**)
+         · assets(81~96, 여유 4). 닿은 이웃이 trades 하나이고 최소폭이라 즉시 실패했고,
+         뒤의 assets 여유 4칸을 쓰지 못했다.
+
+       ★ 이제 닿은 이웃을 **밀고** 그 뒤에서 흡수한다. 그래서 이 시험의 기대도 바뀐다 —
+         "바뀌지 않는다" 가 아니라 "**불변식을 지키며** 바뀐다" 가 맞다.
+
+       ★★ 지켜야 할 것은 그대로다: 겹침 없음 · 최소 크기 · 화면 경계. 그것이 이 시험의
+         본래 목적이고 `invariants()` 가 확인한다. 추론이 틀려도 잘못된 배치는 나가지
+         않는다.
     */
     const before = BASE.find((w) => w.id === 'orderEntry')!;
     const others = BASE.filter((w) => w.id !== 'orderEntry').map((w) => ({ ...w }));
     const r = resolveGrowth({ ...before }, others, 'w', 1, 96)!;
-    expect(r.target.w).toBe(before.w);
+    /* ★ 불변식은 반드시 지켜야 한다 — 이것이 무너지면 화면이 깨진다. */
     expect(invariants([r.target, ...r.others])).toEqual([]);
+    /* ★ 넓어졌거나(뒤 여유를 썼다) 그대로여야 한다(정말 여유가 없다). 좁아지면 버그다. */
+    expect(r.target.w).toBeGreaterThanOrEqual(before.w);
+  });
+
+  it('★★★ positions 를 동쪽으로 넓힐 수 있다 (운영자 신고 — 전혀 움직이지 않았다)', () => {
+    /*
+       ★ 이것이 실제 신고 경로다. trades 가 최소폭이라 예전에는 k=1 조차 실패했다.
+    */
+    const before = BASE.find((w) => w.id === 'positions')!;
+    const others = BASE.filter((w) => w.id !== 'positions').map((w) => ({ ...w }));
+    const r = resolveGrowth({ ...before }, others, 'e', 4, 96)!;
+    expect(r.target.w, 'positions 를 동쪽으로 전혀 넓힐 수 없다').toBeGreaterThan(before.w);
+    expect(invariants([r.target, ...r.others]), '넓혔더니 배치가 깨졌다').toEqual([]);
   });
 
   it('여유가 없으면 배치를 바꾸지 않는다 (억지로 겹치지 않는다)', () => {

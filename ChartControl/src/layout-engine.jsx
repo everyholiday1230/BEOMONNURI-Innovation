@@ -77,14 +77,72 @@
          여유가 부족하면 이 k 는 성립하지 않는다(resolveGrowth 가 더 작은 k 를
          시도한다). 맞닿지 않은 뒷줄은 밀려나기만 하면 되므로 예전처럼 다룬다.
     */
+    /*
+       ★ 세로(n/s) 전용. 가로는 아래 shrinkOrPush 를 쓴다 — 세로는 행 수 제약이 달라
+         (화면 높이가 고정) 같은 방식이 맞는지 확인하지 않았고, 지금 문제도 가로다.
+         변경 범위를 좁게 유지한다.
+    */
     const shrinkTouching = (list, sizeKey, minOf, edgeOf) => {
       const touching = list.filter((o) => edgeOf(o));
       for (const o of touching) {
-        const room = o[sizeKey] - minOf(o);
-        if (room < k) return false;          // 이 이웃이 못 내준다 → k 불가
+        if (o[sizeKey] - minOf(o) < k) return false;
       }
       for (const o of touching) o[sizeKey] -= k;
       return true;
+    };
+
+    /*
+       ★★★ **닿은 이웃만 보면 그 뒤의 여유를 쓸 수 없다.**
+
+         실측(기본 배치, positions 를 동쪽으로 늘리기):
+             positions col 17~68 · trades col 69~80(minW 12, **이미 최소**) ·
+             assets col 81~96(minW 12, 여유 4칸)
+         닿은 이웃은 trades 하나이고 그것이 최소폭이라 `room < k` 로 즉시 실패했다.
+         뒤의 assets 에 4칸이 남아 있는데 쓰지 못했다 — 그래서 **동쪽으로 아무리
+         끌어도 전혀 움직이지 않았다**(운영자 신고. 방향은 반대로 전해졌지만
+         "한쪽이 안 된다" 는 사실이었다).
+
+       ★ 그래서 닿은 이웃을 **줄이거나, 못 줄이면 밀어낸다.** 밀려난 이웃은 다시 그
+         뒤에서 자리를 얻어야 하므로, 줄에 있는 이웃을 앞에서부터 순서대로 훑으며
+         `need` 를 넘긴다. 마지막까지 못 흡수하면 이 k 는 실패다(그때는 더 작은 k 로
+         재시도한다 — resolveGrowth 가 한다).
+
+       ★★ 여러 행대가 같은 경계를 공유할 수 있다(market y0-16 의 오른쪽에 chart y0-11
+         과 positions y11-16). 그래서 **같은 x 에 있는 이웃 전부**를 한 묶음으로
+         처리한다 — 하나만 줄이면 나머지가 겹쳐 결과가 버려진다.
+
+       ★ 결과는 아래 전수 검증(겹침·최소크기·경계)이 다시 확인한다. 이 계산을 이전에
+         세 번 틀렸으므로 추론을 믿지 않는다.
+    */
+    const shrinkOrPush = (list, dir2) => {
+      const sizeKey = 'w';
+      const posKey = 'x';
+      /* ★ x 오름차순(동쪽) / 내림차순(서쪽)으로 훑는다. */
+      const ordered = dir2 === 'e'
+        ? [...list].sort((a, b) => a[posKey] - b[posKey])
+        : [...list].sort((a, b) => b[posKey] - a[posKey]);
+      let remaining = k;
+      /* 같은 좌표에 있는 것들을 묶어 한 번에 처리한다. */
+      const groups = [];
+      for (const o of ordered) {
+        const last = groups[groups.length - 1];
+        if (last && last[0][posKey] === o[posKey]) last.push(o);
+        else groups.push([o]);
+      }
+      for (const g of groups) {
+        if (remaining <= 0) break;
+        /* 이 묶음이 내줄 수 있는 최소 여유(묶음 전체가 같이 줄어야 한다). */
+        const room = Math.min(...g.map((o) => o[sizeKey] - minWOf(o)));
+        const give = Math.max(0, Math.min(room, remaining));
+        for (const o of g) {
+          o[sizeKey] -= give;
+          /* ★ 동쪽으로 늘릴 때 이웃은 그만큼 오른쪽에서 잘리고 왼쪽 경계가 밀린다. */
+          if (dir2 === 'e') o[posKey] += (remaining - give);
+          else o[posKey] -= (remaining - give);
+        }
+        remaining -= give;
+      }
+      return remaining <= 0;
     };
 
     if (dir === 'e') {
@@ -97,7 +155,7 @@
            공유할 수 있다(예: market y0-16 의 오른쪽에 chart y0-11 과 positions y11-16).
            하나만 줄이면 나머지가 겹쳐 결과가 버려진다 — 그래서 넓히기가 실패했다.
       */
-      if (!shrinkTouching(line, 'w', minWOf, (o) => o.x === before.x + before.w)) return null;
+      if (!shrinkOrPush(line, 'e')) return null;
       need = 0;
       /* ★ 행이 겹치는 것끼리만 가로로 쌓는다. 한 커서로 훑으면 다른 행의 이웃이 밀린다. */
       for (const o of line) {
@@ -113,7 +171,7 @@
         .filter((o) => spansAxis(t.y, t.y + t.h, o.y, o.y + o.h) && o.x + o.w <= before.x)
         .sort((a, b) => b.x - a.x);
       /* ★ 왼쪽으로 맞닿은 이웃도 전부 줄인다(위와 같은 이유). */
-      if (!shrinkTouching(line, 'w', minWOf, (o) => o.x + o.w === before.x)) return null;
+      if (!shrinkOrPush(line, 'w')) return null;
       need = 0;
       for (const o of line) {
         if (o.x + o.w > t.x) o.x = Math.max(0, t.x - o.w);

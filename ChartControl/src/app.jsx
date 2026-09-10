@@ -3053,7 +3053,20 @@
       <div className="panel chart-panel">
         <div className="chart-toolbar">
           <div className="chart-tf">
-            {['1m','5m','15m','30m','1H','4H','1D'].map(tf => (
+            {/*
+                 ★★ **2H·1W 를 추가했다**(운영자 확인 요청).
+
+                   확인한 사실:
+                     · 서버는 `1w` 를 **이미 제공한다** — 실측 168시간 간격으로 4봉 수신.
+                       `2h` 도 마찬가지다(2시간 간격 확인). 화면 버튼만 없었다.
+                     · **`1M`(월봉)은 KuCoin 이 주지 않는다.** 선물 kline 은 granularity 를
+                       분 단위 고정 목록으로 받고 최대가 10080분(=1주)이다.
+                       `?timeframe=1M` 은 400 `unsupported timeframe 1M` 로 거부된다(실측).
+
+                 ★ 화면은 대문자 표기(1H·1W)를 쓰고 api-client 의 normalizeTimeframe 이
+                   소문자로 바꿔 보낸다 — 그래서 표기를 통일해도 서버 계약이 깨지지 않는다.
+            */}
+            {['1m','5m','15m','30m','1H','2H','4H','1D','1W'].map(tf => (
               <button key={tf} className={`chart-tf__btn ${timeframe===tf?'is-active':''}`} onClick={() => setTimeframe(tf)}>{tf}</button>
             ))}
           </div>

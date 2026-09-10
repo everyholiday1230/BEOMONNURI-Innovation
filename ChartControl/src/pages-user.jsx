@@ -3741,7 +3741,7 @@
                          저장 경로가 생기면 여기에 연결한다.
                     */}
                     <div className="seg" style={{width:'100%'}}>
-                      {['1m','5m','15m','30m','1H','4H','1D'].map(tf => (
+                      {['1m','5m','15m','30m','1H','2H','4H','1D','1W'].map(tf => (
                         <button aria-label={t('set_default_tf_pending')} key={tf} className="seg__opt" style={{flex:1}} disabled title={t('set_default_tf_pending')}>{tf}</button>
                       ))}
                     </div>
