@@ -670,8 +670,32 @@ const DEFAULT_WIDGET_META = {
             moved.w = Math.max(minWOf(target), moved.w);
             moved.h = Math.max(minHOf(target), moved.h);
             Object.assign(restPartial, moved);
+            /*
+               ★★★ **드래그 이동은 진행 중에 막지 않는다. 놓을 때 판정한다.**
+
+                 위(505행) 주석이 이미 그렇게 말하는데 **코드는 매 호출 겹침을
+                 검사하고 있었다.** 의도와 코드가 어긋나 있었다.
+
+                 격자는 빈틈 없이 채워져 있으므로 창을 어디로 옮겨도 이동 경로에서
+                 반드시 겹친다. 그때 좌표를 버리면 기준점(drag.ox/oy)은 그대로이므로
+                 다음 이동도 같은 절대 좌표를 계산해 계속 거부된다 —
+                 **한 번 막히면 영구히 지나갈 수 없다.**
+
+                 실측: 편집 모드에서 ai 창을 아래로 300px 끌어도 row 가 그대로였다
+                 (1/span 11 → 1/span 11). 고객이 원한 "AI 창을 포지션과 에셋 사이에
+                 넣기" 가 이것 때문에 막혀 있었다.
+
+               ★ 그래서 드래그 **중**(`_dragging === true`)에는 그대로 통과시킨다.
+                 놓는 순간(`_dragging === false`)에 아래 isEnding 분기가 겹침을 보고,
+                 겹쳤으면 시작 위치로 되돌린다 — "여기는 놓을 수 없다" 가 화면에 보인다.
+
+               ★★ 크기 조절은 **계속 검사한다.** 크기 조절은 이웃을 줄여서 자리를
+                 만드는 방식이라 겹친 상태를 통과시키면 그것이 다음 계산의 기준이 되어
+                 누적된다(이 파일에서 이미 겪은 버그다).
+            */
+            const isDragMove = partial._dragging === true;
             const candidate = { ...target, ...restPartial };
-            if (hasCollision(others, candidate)) {
+            if (!isDragMove && hasCollision(others, candidate)) {
               const { x: _x2, y: _y2, w: _w2, h: _h2, ...noGeom } = restPartial;
               void _x2; void _y2; void _w2; void _h2;
               applied = noGeom;
@@ -702,6 +726,10 @@ const DEFAULT_WIDGET_META = {
                되돌리는 것은 아무것도 하지 않는 것보다 나쁘다.
              ★ 크기 조절은 위 분기에서 이미 겹침을 검사하고 거부한다. 그러므로 여기서
                다시 되돌릴 필요가 없다 — 되돌림은 **드래그 이동**을 위한 장치다.
+          */
+          /*
+             ★ 드래그 종료는 되돌림 대상이다(겹친 자리에 놓으면 원위치).
+               크기 조절 종료는 아니다 — 위에서 이미 매 호출 검사하고 거부한다.
           */
           const isResizeEnd = partial._resizing === false;
           const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
