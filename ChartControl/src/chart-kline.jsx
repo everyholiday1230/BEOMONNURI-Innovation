@@ -1390,6 +1390,24 @@
            심볼/타임프레임 effect 가 stale 로 판단해 화면을 비운다. 즉 **틀린
            프레임이 잠깐이라도 보이지 않는다.** 올바른 데이터가 오면 그때 그린다.
       */
+      /*
+         ★★★ **캔들이 아직 없는 것도 "불러오는 중" 이다.**
+
+           live-market 이 실캔들이 없을 때 목업 대신 **빈 배열**을 돌려주도록 바꿨다
+           (그 목업이 장대봉의 원인이었다 — 실측 1H 최초 65,034~68,433 vs 실데이터
+           77,880~79,661). 그래서 이 경로로 빈 배열이 들어온다.
+
+         ★ 간격 검증(candlesMatchTimeframe)은 `bars.length < 3` 이면 **true** 를
+           돌려준다(판단할 근거가 없으므로 통과시키는 것이 맞다). 그대로 두면 빈
+           배열이 통과해 **빈 차트**가 그려진다 — 장대봉이 빈 화면으로 바뀌는 것뿐이다.
+
+         ★ 그래서 길이를 먼저 본다. 3봉 미만이면 그릴 것이 없다.
+      */
+      if (!Array.isArray(bars) || bars.length < 3) {
+        try { window.__qtChartLoading = symbol + '|' + timeframe; } catch (e) { void e; }
+        setTfLoading(true);
+        return;
+      }
       if (!candlesMatchTimeframe(bars, timeframe)) {
         /*
            ★ 요청한 프레임의 데이터가 아직 아니다 = 불러오는 중이다. 화면이 그것을
