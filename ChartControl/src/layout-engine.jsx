@@ -658,8 +658,31 @@ const DEFAULT_WIDGET_META = {
             }
           }
         } else if (target && isEnding) {
+          /*
+             ★★★ **크기 조절이 끝날 때 이 분기가 축소를 되돌리고 있었다.**
+
+               실측: 동쪽 손잡이를 왼쪽으로 끌면 **끌고 있는 동안은 span 52→46 으로
+               줄어드는데, 놓는 순간 52 로 돌아갔다.** 운영자가 전한 "축소가 안 된다" 가
+               이것이다(방향은 반대로 전해졌다).
+
+             ★ 원인: `geomStartRef` 가 **리사이즈에서는 잡히지 않는다.** 아래
+               `else if (target && isTransient && !geomStartRef.current)` 에서 잡는데,
+               크기 조절은 그 위의 리사이즈 분기가 먼저 걸려 **여기까지 오지 않는다.**
+               (이 파일에서 resizeBaseRef 도 똑같은 이유로 한 번 실패했고, 그때는
+                분기 판단보다 먼저 잡도록 고쳤다. 같은 함정을 다시 밟았다.)
+
+               그래서 `geomStartRef` 에는 **이전 제스처의 값**이 남아 있고, 겹침이
+               감지되면 그 오래된 좌표로 되돌렸다.
+
+             ★★ 되돌릴 근거가 확실하지 않으면 **되돌리지 않는다.** 시작 좌표가 이
+               제스처의 것이 아니면(id 불일치 또는 없음) 그대로 둔다 — 잘못된 좌표로
+               되돌리는 것은 아무것도 하지 않는 것보다 나쁘다.
+             ★ 크기 조절은 위 분기에서 이미 겹침을 검사하고 거부한다. 그러므로 여기서
+               다시 되돌릴 필요가 없다 — 되돌림은 **드래그 이동**을 위한 장치다.
+          */
+          const isResizeEnd = partial._resizing === false;
           const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
-          if (hasCollision(others, target)) {
+          if (!isResizeEnd && hasCollision(others, target)) {
             const start = geomStartRef.current;
             if (start && start.id === id) {
               /* ★ 시작 위치로 되돌린다. 그 자리는 조작 전이므로 겹치지 않았다. */
