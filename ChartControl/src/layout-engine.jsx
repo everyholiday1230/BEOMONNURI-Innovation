@@ -734,9 +734,52 @@ const DEFAULT_WIDGET_META = {
           const isResizeEnd = partial._resizing === false;
           const others = prev.widgets.filter(w => !w.hidden && w.id !== id);
           if (!isResizeEnd && hasCollision(others, target)) {
+            /*
+               ★★★ **되돌리기 전에 자리를 만들어 본다.**
+
+                 격자는 빈틈 없이 채워져 있으므로 창을 어디에 놓아도 겹친다. 그래서
+                 "겹치면 되돌린다" 만 있으면 **이동이 영구히 불가능하다** — 끌고 오는
+                 동안은 따라오는데 놓는 순간 제자리로 돌아간다(실측).
+
+                 확대에서 쓰는 것과 같은 원리다: 겹친 이웃을 **자리를 비켜 주게** 한다.
+                 자리를 비킬 수 없으면 그때 되돌린다.
+
+               ★ 놓은 자리에서 겹친 이웃들을 찾아, 그 이웃을 **원래 대상이 있던 자리**로
+                 보낸다(자리 교환). 두 창을 맞바꾸는 것이 가장 예측 가능하다 —
+                 여러 창을 연쇄로 밀면 화면이 크게 흔들리고 되돌리기도 어렵다.
+
+               ★★ 교환 결과를 **전수 검증**한다(겹침·경계·최소크기). 하나라도 어긋나면
+                 교환을 버리고 되돌린다. 이 파일에서 기하 계산을 여러 번 틀렸으므로
+                 추론을 믿지 않는다.
+            */
             const start = geomStartRef.current;
+            let swapped = null;
             if (start && start.id === id) {
-              /* ★ 시작 위치로 되돌린다. 그 자리는 조작 전이므로 겹치지 않았다. */
+              const hit = others.filter(o => overlaps(o, target));
+              /*
+                 ★ 한 창과만 겹칠 때 교환한다. 여러 창에 걸쳤으면 어느 것과 바꿔야
+                   할지 알 수 없다 — 그때는 되돌리는 것이 정직하다.
+              */
+              if (hit.length === 1) {
+                const other = hit[0];
+                const movedOther = { ...other, x: start.x, y: start.y };
+                const rest = others.filter(o => o.id !== other.id);
+                const all = [target, movedOther, ...rest];
+                let bad = false;
+                for (let i2 = 0; i2 < all.length && !bad; i2 += 1) {
+                  for (let j2 = i2 + 1; j2 < all.length; j2 += 1) {
+                    if (overlaps(all[i2], all[j2])) { bad = true; break; }
+                  }
+                }
+                if (!bad && all.every(w => w.x >= 0 && w.y >= 0 && w.x + w.w <= (prev.cols || 96))) {
+                  swapped = new Map([[other.id, movedOther]]);
+                }
+              }
+            }
+            if (swapped) {
+              neighbours = swapped;
+            } else if (start && start.id === id) {
+              /* ★ 자리를 만들 수 없다. 시작 위치로 되돌린다 — 그 자리는 겹치지 않았다. */
               applied = { ...partial, x: start.x, y: start.y, w: start.w, h: start.h };
             }
           }
