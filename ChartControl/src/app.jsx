@@ -1659,7 +1659,15 @@
           return (
             <div className={`sim-stripe ${isLive ? 'sim-stripe--live' : ''}`} style={{gridColumn:'1 / -1', ...(isLive ? {background:'var(--color-trade-short-bg)'} : {})}}>
               <div className="sim-stripe__left">
-                <span className="sim-stripe__badge" style={isLive ? {background:'var(--color-trade-short)', color:'#fff'} : undefined}>{badge}</span>
+                {/*
+                     ★★ 흰 글씨(#fff)를 분홍 배경 위에 얹어 **명암비 3.23** 이었다(기준 4.5).
+                       이 배지는 "LIVE" — **실주문이 거래소로 나간다**는 경고다. 읽히지 않으면
+                       모의 거래로 착각할 수 있다.
+
+                     ★ 어두운 글씨로 바꾸면 **6.15** 가 된다(실측). 배경색을 어둡게 하는 대신
+                       글씨를 바꾼다 — 배경은 매도 색(--color-trade-short)이라 다른 곳과 같아야 한다.
+                */}
+                <span className="sim-stripe__badge" style={isLive ? {background:'var(--color-trade-short)', color:'var(--color-bg-base)'} : undefined}>{badge}</span>
                 <span>{note}</span>
               </div>
               <div className="sim-stripe__right">
