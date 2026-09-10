@@ -65,11 +65,17 @@
         /* (a) 초점이 주문 패널 안에 있다 */
         const act = document.activeElement;
         if (act && oe.contains(act)) return false;
-        /* (b) 작성 중인 값이 있다 — 숫자 입력칸에 무언가 적혀 있으면 건드리지 않는다 */
-        for (const inp of oe.querySelectorAll('input')) {
-          if (inp.type === 'checkbox' || inp.type === 'radio') continue;
-          if (String(inp.value || '').trim() !== '') return false;
-        }
+        /*
+           ★★★ **"값이 있으면 보류" 는 쓸 수 없다.** 주문 패널은 열릴 때부터 기본값이
+             채워져 있다(실측: 레버리지 `10` · 가격 `78196` · 수량 `0.05`).
+             그래서 이 규칙은 "항상 보류" 와 같았다 — 고치려던 문제를 그대로 재현했다.
+
+           ★ 대신 **초점**만 본다(위 (a)). 초점이 주문 패널에 없다면 손이 그 위에
+             있지 않다는 뜻이고, 그때 띄우는 것은 클릭을 가로채지 않는다.
+
+           ★ 그리고 팝업은 스스로 초점을 가져가지 않는다 — 이용자가 닫기를 누를 때까지
+             주문 패널의 초점은 그대로다.
+        */
       }
       /*
          이미 **다른** 모달이 열려 있으면 겹치지 않는다.
@@ -141,7 +147,21 @@
 
       loadedRef.current = true;
       let alive = true;
-      const locale = window.QTI18n && window.QTI18n.get ? window.QTI18n.get() : undefined;
+      /*
+         ★★★ **`QTI18n.get` 은 존재하지 않는다. 실제 이름은 `getLocale` 이다.**
+
+           그래서 이 조건이 항상 거짓이 되어 `locale = undefined` 로 서버를 불렀다.
+           이 파일만 `get()` 을 썼고 다른 5곳(ai-copilot·pages-admin-more·pages-auth 등)
+           은 모두 `getLocale()` 이다 — 오타다.
+
+         ★ 자바스크립트는 없는 메서드를 조용히 넘긴다(`&&` 로 감싸 두었으므로 오류도
+           나지 않는다). 그래서 화면에서는 아무 문제가 보이지 않았다.
+           이번 라운드에서 네 번째로 겪는 유형이다 — 없는 CSS 변수, 없는 토큰 이름,
+           빗나간 선택자, 그리고 이것.
+      */
+      const locale = (window.QTI18n && window.QTI18n.getLocale)
+        ? window.QTI18n.getLocale()
+        : undefined;
       api.popupNotices(locale)
         .then((r) => {
           if (!alive) return;

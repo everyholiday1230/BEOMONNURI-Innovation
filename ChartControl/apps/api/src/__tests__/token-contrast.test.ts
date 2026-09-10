@@ -277,6 +277,61 @@ describe('디자인 토큰 명암비 (oklch)', () => {
     ).toEqual([]);
   });
 
+  it('[0d] ★★★ 존재하지 않는 QTI18n 메서드를 부르는 곳이 없다', () => {
+    /*
+       ★★★ **자바스크립트는 없는 메서드를 조용히 넘긴다.**
+
+         notice-popup.jsx 가 `window.QTI18n.get()` 을 불렀는데 실제 이름은 `getLocale`
+         이다. `&&` 로 감싸 두었으므로 오류도 나지 않고, 그냥 `undefined` 가 전달됐다.
+         결과: 공지 팝업이 **아무에게도 보이지 않았다.** 화면에서는 아무 문제도 안 보인다.
+
+         이 저장소에서 같은 유형을 네 번 겪었다:
+           · 없는 CSS 변수 var(--color-bg-base)   → CSS 가 조용히 버린다
+           · 없는 토큰 이름 --color-bg-base        → 검사에서 조용히 건너뛴다
+           · 빗나간 선택자 .qt-widget a[href…]    → 스타일이 안 붙는다
+           · 없는 메서드 QTI18n.get()             → undefined 가 흘러간다
+         네 번 다 "코드는 넣었는데 동작하지 않는" 상태였고, 프로덕션에서 재보고서야 찾았다.
+
+       ★ 그래서 src 전체에서 `QTI18n.xxx` 참조를 뽑아 i18n.js 가 실제로 내보내는
+         이름인지 본다.
+       ★ 주석을 먼저 지운다 — 설명 문장에 적은 예시가 위반으로 잡힌다.
+    */
+    const SRC = resolve(__dirname, '../../../../src');
+    const i18n = readFileSync(`${SRC}/i18n.js`, 'utf-8');
+    /* window.QTI18n = { ... } 블록에서 최상위 키를 뽑는다. */
+    const at = i18n.indexOf('window.QTI18n = {');
+    expect(at, 'i18n.js 에서 QTI18n 공개 블록을 찾지 못했다 — 시험이 낡았다').toBeGreaterThan(0);
+    const block = i18n.slice(at, at + 6000);
+    const exported = new Set<string>();
+    for (const m of block.matchAll(/^ {4}(\w+)[,:]/gm)) exported.add(m[1]!);
+    expect(exported.size, 'QTI18n 공개 이름을 하나도 못 읽었다').toBeGreaterThan(5);
+
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(full);
+        else if (/\.(jsx|js)$/.test(e.name) && e.name !== 'i18n.js') files.push(full);
+      }
+    };
+    walk(SRC);
+
+    const bad: string[] = [];
+    for (const f of files) {
+      const text = readFileSync(f, 'utf-8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/[^\n]*$/gm, '');
+      for (const m of text.matchAll(/QTI18n\.(\w+)/g)) {
+        const name = m[1]!;
+        if (!exported.has(name)) bad.push(`${name} (${f.replace(`${SRC}/`, '')})`);
+      }
+    }
+    expect(
+      [...new Set(bad)],
+      'QTI18n 에 없는 메서드를 부른다 — 조용히 undefined 가 되어 화면에서는 안 보인다',
+    ).toEqual([]);
+  });
+
   it('[1] 보조 텍스트(--n-500)가 모든 배경·테마에서 4.5:1 이상이다', () => {
     /*
        ★★ 이 토큰이 명암비 미달의 **단일 최대 원인**이었다. 실측(로그인 후 8개 화면):
