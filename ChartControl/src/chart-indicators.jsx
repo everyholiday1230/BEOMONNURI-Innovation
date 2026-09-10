@@ -245,6 +245,74 @@
   function setCalc(name, params) { try { const all = loadCalcAll(); all[name] = params; localStorage.setItem(CALC_KEY, JSON.stringify(all)); } catch (e) { /* noop */ } }
   if (!window.QTChartParams) window.QTChartParams = { get: getCalc, set: setCalc, all: loadCalcAll };
 
+  /*
+     ★★★ **복원은 지표 패널과 무관하게 동작해야 한다.**
+
+       처음에는 복원 코드를 패널 컴포넌트 안에 뒀다. 그런데 패널은
+       `{indicatorsOpen && <ChartIndicatorPanel …>}` 로 **열려 있을 때만 렌더**된다.
+       그래서 새로고침 후 패널을 열지 않으면 복원이 **아예 실행되지 않았다** —
+       저장값은 남았는데 차트에는 나타나지 않는 상태였고, 두 번 같은 방식으로 실패했다.
+
+     ★ 그래서 모듈 수준 함수로 빼고 차트가 준비될 때 부른다(chart-kline 의 onReady).
+       패널이 닫혀 있어도 동작한다.
+
+     ★★ **빠진 것만 채운다.** 차트에 있고 저장값에 없는 지표는 지우지 않는다 —
+       차트가 기본으로 켜는 MA·VOL 이 있고 그것을 지우면 첫 화면이 비어 보인다.
+
+     ★ 서버가 정본이다. 기기 저장으로 즉시 적용하고, 서버 값이 오면 그것으로 맞춘다 —
+       다른 기기에서 바꾼 것이 반영돼야 한다.
+  """ + """*/
+  function applySavedIndicators(chart, saved) {
+    if (!chart || !saved || !Array.isArray(saved.names) || saved.names.length === 0) return false;
+    let existing;
+    try { existing = new Set((chart.getIndicators() || []).map(function (x) { return x.name; })); }
+    catch (e) { void e; return false; }
+    var added = false;
+    for (var i = 0; i < saved.names.length; i += 1) {
+      var nm = saved.names[i];
+      if (existing.has(nm)) continue;
+      var pid = (saved.panes && saved.panes[nm]) || 'candle_pane';
+      var onCandle = pid === 'candle_pane';
+      try {
+        chart.createIndicator(
+          onCandle ? { name: nm, paneId: 'candle_pane' } : { name: nm },
+          onCandle,
+        );
+        added = true;
+      } catch (e) {
+        console.warn('[Indicators] 복원 실패', nm, e && e.message);
+      }
+    }
+    return added;
+  }
+
+  /**
+   * 차트가 준비되면 저장된 지표를 되살린다. chart-kline 이 부른다.
+   *
+   * ★ 기기 저장 → 즉시 적용, 서버 → 도착하면 적용. 서버가 없거나 실패하면 기기 저장
+   *   결과가 그대로 남는다(조용히 넘긴다 — 부가 기능이 차트를 막아서는 안 된다).
+   */
+  window.QTRestoreIndicators = function QTRestoreIndicators(chart) {
+    if (!chart) return;
+    applySavedIndicators(chart, loadAutoLocal());
+    try {
+      var api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.chartTemplates) return;
+      if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
+      api.chartTemplates().then(function (r) {
+        if (!r || !r.ok) return;
+        var hit = (r.items || []).find(function (x) { return x && x.name === AUTO_TPL_NAME; });
+        var payload = hit && hit.payload;
+        if (!payload || !Array.isArray(payload.indicators) || payload.indicators.length === 0) return;
+        var saved = { names: payload.indicators, panes: payload.panes || {} };
+        applySavedIndicators(chart, saved);
+        saveAutoLocal(saved.names, saved.panes);
+      }).catch(function (e) {
+        console.warn('[Indicators] 자동 불러오기 실패 — 기기 저장으로 동작한다:', e && e.message);
+      });
+    } catch (e) { void e; }
+  };
+
   window.ChartIndicatorPanel = function ChartIndicatorPanel({ getChart, version, onClose, publish = true }) {
     const [q, setQ] = useState('');
     /*
@@ -377,79 +445,6 @@
       syncFromChart();
     }, [syncFromChart, version]);
 
-    /*
-       ★★ 서버에 저장된 지표 구성을 불러온다(로그인 시 1회).
-
-         기기 저장으로 즉시 화면을 채우고, 서버 값이 오면 그것으로 맞춘다 —
-         **서버가 정본**이다. 다른 기기에서 바꾼 것이 반영돼야 한다.
-
-       ★ 실패는 조용히 넘긴다. 기기 저장으로 이미 동작하고 있으므로, 서버가 없는
-         환경에서 오류를 띄우면 기능이 고장난 것처럼 보인다.
-       ★ 예약 이름(`__auto__`)만 찾는다. 이용자 템플릿을 자동 적용하면 남의 설정이
-         갑자기 덮이는 셈이다.
-    */
-    /*
-       ★★★ **저장값을 차트에 실제로 적용한다.**
-
-         처음 구현했을 때 저장·복원은 됐는데 **차트에 나타나지 않았다**(실측:
-         localStorage 에 `["MA","VOL","MACD"]` 가 남았지만 새로고침 후 범례는
-         MA·VOL 만). `toggle` 은 클릭했을 때만 차트를 만지고, `active` 상태를
-         차트에 반영하는 경로가 **없었기 때문이다.**
-
-       ★ 그래서 복원 전용 적용을 둔다. 차트에 없고 `active` 에만 있는 지표를 만든다.
-       ★★ 반대 방향(차트에 있고 active 에 없는 것)은 **지우지 않는다.** 차트가 기본으로
-         켜는 지표(MA·VOL)가 있고, 그것을 지우면 첫 화면이 비어 보인다. 이 effect 의
-         일은 "빠진 것을 채우는 것" 뿐이다.
-       ★ 차트가 준비된 뒤에만 동작해야 하므로 version 을 의존성에 넣는다
-         (chart-kline 이 인스턴스를 만들면 version 이 올라간다).
-    */
-    useEffect(() => {
-      const chart = getChart && getChart();
-      if (!chart || active.size === 0) return;
-      let existing;
-      try { existing = new Set((chart.getIndicators() || []).map((x) => x.name)); }
-      catch (e) { void e; return; }
-      let added = false;
-      for (const [nm, pid] of active) {
-        if (existing.has(nm)) continue;
-        try {
-          const onCandle = pid === 'candle_pane';
-          chart.createIndicator(
-            { name: nm, ...(onCandle ? { paneId: 'candle_pane' } : {}) },
-            onCandle,
-          );
-          added = true;
-        } catch (e) {
-          console.warn('[Indicators] 복원 실패', nm, e && e.message);
-        }
-      }
-      /* ★ 실제로 반영된 결과를 다시 읽는다(낙관적 갱신 금지). */
-      if (added) setTimeout(syncFromChart, 0);
-    }, [active, getChart, version, syncFromChart]);
-
-    useEffect(() => {
-      let alive = true;
-      try {
-        const api = window.QTApi && window.QTApi.rest;
-        if (!api || !api.chartTemplates) return undefined;
-        if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return undefined;
-        api.chartTemplates().then((r) => {
-          if (!alive || !r || !r.ok) return;
-          const hit = (r.items || []).find((x) => x && x.name === AUTO_TPL_NAME);
-          const payload = hit && hit.payload;
-          const names = payload && Array.isArray(payload.indicators) ? payload.indicators : null;
-          if (!names || names.length === 0) return;
-          const panes = (payload && payload.panes) || {};
-          const m = new Map();
-          for (const nm of names) m.set(nm, panes[nm] || 'candle_pane');
-          setActive(m);
-          saveAutoLocal(names, panes);
-        }).catch((e) => {
-          console.warn('[Indicators] 자동 불러오기 실패 — 기기 저장으로 동작한다:', e && e.message);
-        });
-      } catch (e) { void e; }
-      return () => { alive = false; };
-    }, []);
 
     // 바깥 클릭 / ESC 로 닫기
     useEffect(() => {

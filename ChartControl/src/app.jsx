@@ -2827,6 +2827,21 @@
     const handleChartReady = useCallback((chart) => {
       chartInstRef.current = chart;
       /*
+         ★★★ **저장된 지표를 여기서 되살린다.**
+
+           처음에는 지표 패널 안에서 복원했는데, 패널은
+           `{indicatorsOpen && <ChartIndicatorPanel …>}` 로 **열려 있을 때만 렌더**된다.
+           그래서 새로고침 후 패널을 열지 않으면 복원이 아예 실행되지 않았다 —
+           저장값은 남았는데 차트에는 없는 상태였고, 두 번 같은 방식으로 실패했다.
+
+         ★ 차트가 준비된 시점이 맞는 자리다. 패널이 닫혀 있어도 동작한다.
+         ★ 없으면(스크립트 로드 실패) 조용히 넘긴다 — 지표 복원이 차트 표시를 막아서는
+           안 된다.
+      */
+      try {
+        if (window.QTRestoreIndicators) window.QTRestoreIndicators(chart);
+      } catch (e) { void e; }
+      /*
          차트 상태를 콘솔에서 확인할 수 있게 노출한다.
 
          지표·드로잉이 실제로 적용됐는지 화면만 보고는 확인이 어렵다
