@@ -3491,6 +3491,81 @@ if (env.authEnabled) {
           `[api] kucoin account adapter (broker headers ${attached ? 'ON — rebate attributed' : 'OFF — NO REBATE, set KUCOIN_BROKER_*'})`,
         );
       }
+      /*
+         ★★★ **AI 의 포지션·미체결 도구를 실제 거래소로 다시 연결한다.**
+
+           두 도구는 `portfolioRepo`(우리 DB) 를 읽고 있었다. 그런데 그 `positions`
+           테이블은 **모의 주문 투영(sim-projection)만** 채운다 — 프로덕션 실측 **0행**.
+           실제 KuCoin 포지션은 거기에 들어오지 않는다.
+
+           결과: 라이브 포지션을 들고 있는 고객이 "내 포지션 위험 봐줘" 라고 물으면
+           도구가 `available: true, rows: []` 를 돌려주고, AI 는 그것을 사실로 받아
+           **"포지션이 없습니다"** 라고 답한다. 조회 대상이 틀린 것을 '없음' 으로
+           바꾼 것이고, 이 저장소가 금지한 실패 방식이다.
+
+         ★ 여기서 덮어쓴다 — 거래소 어댑터·자격증명 금고는 이 지점에서야 만들어진다.
+           앞쪽(도구 정의 시점)에는 존재하지 않으므로 그때는 연결할 수 없었다.
+         ★★ 읽기 실패는 **빈 배열이 아니라 `available:false`** 다. 그래야 모델이
+           "없다" 대신 "지금 읽을 수 없다" 고 말한다.
+         ★ 자격증명이 없으면 그것도 사실대로 알린다 — 거래소를 연결하지 않은 고객은
+           포지션이 없는 것이 맞다.
+      */
+      aiUserPositions = async (userId, symbol) => {
+        try {
+          const rows = await credentialRepo.listOwned(userId);
+          const usable = rows.find((r) => r.connectionStatus === 'VERIFIED') ?? rows[0];
+          if (!usable) return { available: true, total: 0, rows: [] };
+          const full = await credentialRepo.getOwned(userId, usable.id);
+          if (!full) return { available: false, reason: 'credential not readable', rows: [] };
+          const credential = await vault.decrypt(full);
+          // ★★ 읽기 전용 모드로 부른다. AI 도구는 조회만 하며, 주문 경로와 같은
+          //   모드를 쓰면 나중에 실행 권한이 붙는 변경에 휩쓸릴 수 있다.
+          //   기존 조회 경로(trading-routes 의 리스크 게이트)도 같은 값을 쓴다.
+          const list = await accountAdapter.getPositions({ mode: 'LIVE_READ_ONLY', credential });
+          const filtered = symbol ? list.filter((p) => p.symbol === symbol) : list;
+          return {
+            available: true,
+            total: filtered.length,
+            rows: filtered.map((p) => ({
+              symbol: p.symbol,
+              side: p.side,
+              size: String(p.size),
+              entryPrice: p.entryPrice != null ? String(p.entryPrice) : null,
+              leverage: p.leverage != null ? String(p.leverage) : null,
+            })),
+          };
+        } catch (e) {
+          return { available: false, reason: `exchange read failed: ${(e as Error).message}`, rows: [] };
+        }
+      };
+
+      aiUserOpenOrders = async (userId, symbol) => {
+        try {
+          const rows = await credentialRepo.listOwned(userId);
+          const usable = rows.find((r) => r.connectionStatus === 'VERIFIED') ?? rows[0];
+          if (!usable) return { available: true, total: 0, rows: [] };
+          const full = await credentialRepo.getOwned(userId, usable.id);
+          if (!full) return { available: false, reason: 'credential not readable', rows: [] };
+          const credential = await vault.decrypt(full);
+          const list = await accountAdapter.getOpenOrders({ mode: 'LIVE_READ_ONLY', credential }, symbol ?? undefined);
+          return {
+            available: true,
+            total: list.length,
+            rows: list.map((o) => ({
+              symbol: o.symbol,
+              side: o.side,
+              type: o.type,
+              status: o.status,
+              price: o.price != null ? String(o.price) : null,
+              quantity: String(o.quantity),
+              filledQuantity: String(o.filledQuantity),
+            })),
+          };
+        } catch (e) {
+          return { available: false, reason: `exchange read failed: ${(e as Error).message}`, rows: [] };
+        }
+      };
+
       app.route(
         '/api',
         createTradingRouter({
