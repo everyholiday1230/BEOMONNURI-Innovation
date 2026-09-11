@@ -55,8 +55,29 @@ export const AI_CHART_COMMANDS = [
   'updateOverlay',
   'hideOverlay',
   'deleteOverlay',
-  'createSignalProposal',
-  'createOrderDraftProposal',
+  /*
+     ★★★ `createSignalProposal` · `createOrderDraftProposal` 을 **제거했다.**
+
+       고객 `bewhite12` 가 "RSI 다이버전스 매수·매도 신호를 차트에 표시해줘" 라고
+       두 번 요청했고 두 번 다 아무 응답도 받지 못했다.
+       프로덕션 로그(2026-09-11 02:53:34):
+         [ai] ★ 제안 거부 — tool=propose_chart_command code=proposal-invalid
+              reason=args: signalId: Required
+              args={"command":"createSignalProposal","argsJson":"{\"label\":\"RSI diverge…
+
+       ★ 두 명령은 **`signalId` 만** 받는다. 이미 존재하는 SignalObject 를 가리키는
+         값이다. 그런데 그 SignalObject 를 **만드는 경로가 AI 에게 없다** —
+         예전 `propose_signal` 도구는 2026-09-08 에 `review_setup` 으로 바뀌었다
+         (AI 가 매매 신호를 발신하지 않기로 한 운영 결정).
+       ★ 화면에도 **처리기가 없다.** `src/ai-copilot.jsx` 의 switch 는 이 두 이름에서
+         `default` 로 떨어진다.
+       ★★ 즉 **모델만 부를 수 있는 죽은 명령**이었다. 이름이 목록에 있으니 모델은
+         "신호를 만들 수 있다" 고 판단해 호출하고, 인자를 채울 방법이 없어 반드시
+         검증에서 떨어진다. **고객이 무엇을 요청해도 실패하는 경로**다.
+       ★ 이 저장소의 규칙 — **죽은 버튼을 두지 않는다.** 목록에서 지우면 모델은
+         이 이름을 호출할 수 없고, 대신 실제로 되는 것(수평선·지표)을 쓰거나
+         못 한다고 말한다.
+  */
 ] as const;
 
 /*
@@ -167,8 +188,7 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
   updateOverlay: z.object({ overlayId: z.string().min(1), patch: z.record(z.union([z.string(), z.number(), z.boolean()])) }),
   hideOverlay: z.object({ overlayId: z.string().min(1) }),
   deleteOverlay: z.object({ overlayId: z.string().min(1) }),
-  createSignalProposal: z.object({ signalId: z.string().min(1) }),
-  createOrderDraftProposal: z.object({ signalId: z.string().min(1), note: z.string().max(200).optional() }),
+  // ★ createSignalProposal · createOrderDraftProposal 제거 — 위 주석 참조.
 };
 
 export function validateChartCommandArgs(cmdName: AiChartCommandName, args: unknown): { ok: true; value: unknown } | { ok: false; error: string } {

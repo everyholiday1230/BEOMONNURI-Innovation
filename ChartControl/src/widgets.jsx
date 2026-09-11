@@ -2035,7 +2035,31 @@
                   // 포지션 손익은 해당 포지션 심볼의 가격으로 계산해야 한다.
                   const mark = markPriceFor(p.symbol, lastPrice);
                   const pnl = p.side === 'long' ? (mark - p.entry) * p.size : (p.entry - mark) * p.size;
-                  const roe = (pnl / p.margin) * 100;
+                  /*
+                     ★★★ **수익률(ROE)이 항상 '—' 였다** (고객 bewhite12 보고).
+
+                       원인은 여기가 아니라 서버 정규화 단계였다 — KuCoin `posMargin` 이
+                       `Position` 인터페이스에 필드가 없어 버려졌다. 그래서 `p.margin` 이
+                       undefined 이고 `pnl / undefined = NaN` → '—' 가 찍혔다.
+                       양수·음수 구분 없이 **아무 % 도 나오지 않았다.**
+
+                     ★ 서버는 고쳤지만 화면도 방어한다. 증거금을 못 구하면
+                       **레버리지로 되짚는다**: 증거금 = 포지션가치 / 레버리지.
+                     ★★ 그래도 못 구하면 **null 로 두고 '—' 를 보여준다.**
+                       0 으로 나누면 Infinity 가 나오고, 1 배로 가정하면 10 배 포지션의
+                       수익률이 실제의 1/10 로 표시된다 — 둘 다 고객이 그 숫자를 믿고
+                       판단하므로 조용히 틀린 값을 보여주면 안 된다.
+                  */
+                  const marginBase = (() => {
+                    if (Number.isFinite(p.margin) && p.margin > 0) return p.margin;
+                    const lev = Number(p.leverage);
+                    if (Number.isFinite(lev) && lev > 0 && Number.isFinite(p.entry) && p.entry > 0
+                        && Number.isFinite(p.size) && p.size > 0) {
+                      return (p.entry * p.size) / lev;
+                    }
+                    return null;
+                  })();
+                  const roe = marginBase === null ? null : (pnl / marginBase) * 100;
                   return (
                     <tr key={p.id}>
                       <td>
@@ -2091,7 +2115,7 @@
                       <td>
                         <div className="pos-pnl-cell">
                           <span className={pnl >= 0 ? 't-long' : 't-short'}>{pnl >= 0 ? '+' : ''}{fmt(pnl)} USDT</span>
-                          <span style={{fontSize: 10, color:'var(--color-text-tertiary)'}} className={roe >= 0 ? 't-long' : 't-short'}>{roe >= 0 ? '+' : ''}{fmt(roe)}%</span>
+                          <span style={{fontSize: 10, color:'var(--color-text-tertiary)'}} className={roe === null ? '' : (roe >= 0 ? 't-long' : 't-short')}>{roe === null ? '—' : ((roe >= 0 ? '+' : '') + fmt(roe) + '%')}</span>
                         </div>
                       </td>
                       <td style={{color:'var(--color-text-secondary)'}}>

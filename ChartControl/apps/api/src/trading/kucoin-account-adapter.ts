@@ -127,6 +127,10 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
       leverage: p.leverage,
       marginMode: p.marginMode,
       unrealizedPnl: p.unrealisedPnl,
+      // ★★★ 이 한 줄이 없어서 화면 수익률(ROE)이 항상 '—' 였다.
+      //   KuCoin `posMargin` → private-rest 가 `positionMargin` 으로 담아 주는데
+      //   여기서 옮기지 않아 정규화 단계에서 사라졌다. 화면은 이 이름을 읽는다.
+      positionMargin: p.positionMargin,
     }));
   }
 

@@ -418,7 +418,38 @@ export function createAiRouter(d: AiRouterDeps): Hono {
             if (meteringOn && d.points) {
               try {
                 const full = computeRunPoints(ev.usage.outputTokens);
-                // 차트에 아무것도 못 그렸/신호 없으면 절반만 청구(최소 1).
+                /*
+                   ★★★ **아무것도 전달하지 못한 실행은 청구하지 않는다.**
+
+                     실제 사례 (고객 bewhite12, 2026-09-11 02:53:35):
+                       · 고객: "RSI 다이버전스 관점으로 매수·매도 신호 차트에 표시해봐"
+                       · 모델은 응답했다(출력 132토큰) → `usage` 이벤트 발생
+                       · 그런데 도구 호출이 검증에서 거부됐고(signalId 필수) 그림도 없고
+                         텍스트도 없었다 → 대화에 assistant 메시지가 **저장조차 안 됐다**
+                       · 그런데 **150 포인트가 차감됐다** (point_ledger 로 확인)
+
+                     즉 고객은 오류 문구 하나를 보고 돈을 냈다. 우리 비용(OpenAI)은
+                     실제로 발생했지만, **그것을 고객에게 전가하는 것은 다른 문제다.**
+                     우리가 못 만든 결과의 값을 고객이 낼 이유가 없다.
+
+                   ★ 판정 기준은 **고객이 실제로 받은 것**이다:
+                       그림/신호(producedAction) 있으면 전액
+                       텍스트만 있으면 절반 (차트 행동 없음)
+                       둘 다 없으면 **0 — 차감 자체를 건너뛴다**
+                   ★★ `usage` 는 오케스트레이터의 **마지막** 이벤트다(orchestrator.ts).
+                     그래서 이 시점에는 assistantText 와 producedAction 이 모두 확정돼
+                     있다. 중간에 판정하면 아직 오지 않은 텍스트를 놓친다.
+                */
+                const deliveredText = assistantText.trim().length > 0;
+                if (!producedAction && !deliveredText) {
+                  console.warn(
+                    `[ai] ★ 결과 없음 — 청구하지 않는다 corr=${correlationId} user=${a.user.id} `
+                    + `out=${ev.usage.outputTokens}tok`,
+                  );
+                  await stream.writeSSE({ event: 'points', data: JSON.stringify({ type: 'points', charged: 0, waived: true }) });
+                  await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
+                  continue;
+                }
                 const points = producedAction ? full : Math.max(1, Math.ceil(full / 2));
                 const memo = producedAction
                   ? `ai copilot · out ${ev.usage.outputTokens}tok`

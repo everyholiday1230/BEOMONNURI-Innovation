@@ -4,7 +4,7 @@ import {
   PromptRegistry, buildDelimitedInput, SafetyPolicy, sanitizeMarkdown, CostController, DEFAULT_COST_CONFIG,
   FakeProvider, MockReplayProvider, OpenAIResponsesProvider, BedrockConverseProvider, ToolRegistry, ToolLoopGuard, zodToJsonSchema,
   normalizeResponsesEvent, ToolCallAccumulator, parseSseChunk, Orchestrator, validateProposedChartCommand,
-  EvaluationService, READ_ONLY_TOOL_NAMES,
+  EvaluationService, READ_ONLY_TOOL_NAMES, AI_CHART_COMMANDS,
   type AiStreamEvent, type AiRequest, type ToolDataSource, type OpenAiResponsesTransport, type RawResponsesEvent, type IAIUsageRepository,
 } from '../index';
 
@@ -257,6 +257,50 @@ describe('prompt registry', () => {
     expect(tpl.toLowerCase(), '스스로 켜라는 지시가 없다').toContain('yourself');
     expect(tpl.toLowerCase(), '고객에게 시키지 말라는 지시가 없다')
       .toMatch(/never tell the user to enable it/);
+  });
+
+  it('프롬프트: 매매 신호·다이버전스는 못 한다고 말하도록 지시한다', () => {
+    /*
+       ★★★ 고객 `bewhite12` 가 "RSI 다이버전스 매수·매도 신호를 차트에 표시해줘" 를
+         두 번 요청했고 두 번 다 **아무 응답도 받지 못했다.**
+         프로덕션 로그(2026-09-11 02:53:34):
+           reason=args: signalId: Required
+           args={"command":"createSignalProposal", …}
+
+         모델이 `createSignalProposal` 을 불렀지만 그 명령은 이미 존재하는
+         SignalObject 의 id 만 받고, 그 SignalObject 를 만들 경로가 AI 에게 없었다.
+         명령은 화이트리스트에서 제거했다 — 이 시험은 **프롬프트가 정직하게 거절하도록
+         지시하는지**를 지킨다.
+
+       ★ 신호 생성 기능이 없다는 사실은 운영 결정이다(2026-09-08: 신호는 고객이 만들고
+         AI 는 검증한다). 그러니 "안 된다" 고 말하는 것이 옳은 동작이고, 조용히 실패하거나
+         일반 RSI 를 "RSI divergence" 라고 이름 붙이는 것은 둘 다 거짓이다.
+    */
+    const reg = new PromptRegistry(() => NOW);
+    const tpl = reg.active('copilot.system').template;
+    expect(tpl, '신호 관련 지시 블록이 없다').toContain('BUY/SELL SIGNALS');
+    /* ★ 다이버전스를 **이름으로** 언급해야 한다 — 고객이 실제로 쓴 말이다. */
+    expect(tpl.toLowerCase(), '다이버전스를 예로 들지 않는다').toContain('divergence');
+    expect(tpl.toLowerCase(), '신호를 만들 수 없다는 말이 없다')
+      .toMatch(/cannot generate signals/);
+    /* ★★ 조건만 막으면 부족하다. **대신 할 수 있는 것**을 제시하도록 요구한다 —
+       "못 한다" 로 끝나면 고객은 무엇을 해야 할지 모른다. */
+    expect(tpl, '대안으로 addIndicator 를 제시하지 않는다').toContain('addIndicator');
+    /* ★★★ 일반 지표에 탐지한 것처럼 이름을 붙이지 말라는 금지. 실제로 그 일이 있었다 —
+       AI 가 일반 RSI 를 켜고 "RSI divergence 로 표시했습니다" 라고 답했다. */
+    expect(tpl.toLowerCase(), '탐지한 것처럼 이름 붙이기 금지가 없다')
+      .toMatch(/never label an indicator/);
+  });
+
+  it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {
+    /*
+       ★★ 이름이 목록에 있으면 모델은 그 기능이 있다고 판단해 호출한다. 인자를 채울
+         방법이 없으면 **고객이 무엇을 요청해도 반드시 검증에서 떨어진다.**
+         죽은 버튼을 두지 않는다는 이 저장소의 규칙과 같은 이야기다.
+       ★ 문자열만 확인하지 않고 **목록 자체**를 본다.
+    */
+    expect(AI_CHART_COMMANDS).not.toContain('createSignalProposal');
+    expect(AI_CHART_COMMANDS).not.toContain('createOrderDraftProposal');
   });
 });
 

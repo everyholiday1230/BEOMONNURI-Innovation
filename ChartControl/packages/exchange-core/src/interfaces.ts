@@ -17,6 +17,21 @@ export interface Position {
   leverage: number;
   marginMode: 'isolated' | 'cross';
   unrealizedPnl?: string;
+  /**
+   * 이 포지션에 묶인 증거금. 거래소가 주는 값이다.
+   *
+   * ★★★ **이 필드가 없어서 화면의 수익률(ROE)이 항상 '—' 였다.**
+   *
+   *   고객 `bewhite12` 보고: "포지션이 있을 때 PNL(ROE) 에서 -%율이 안 나온다".
+   *   KuCoin 은 `posMargin` 을 주고 어댑터(private-rest.ts)도 `positionMargin` 으로
+   *   담았는데, **이 정규화 인터페이스에 필드가 없어서 그 값이 버려졌다.**
+   *   화면(account-data.js)은 `p.positionMargin` 을 읽으므로 undefined 가 되고,
+   *   `pnl / undefined = NaN` → 표에 '—' 가 찍혔다. 양수든 음수든 마찬가지다.
+   *
+   * ★ 선택 필드다. 주지 않는 거래소도 있고, **모를 때 0 이나 추정치를 넣으면
+   *   수익률이 조용히 틀린 값이 된다.** 모르면 비운다.
+   */
+  positionMargin?: string;
 }
 export interface NormalizedOrder {
   clientOrderId: string;
