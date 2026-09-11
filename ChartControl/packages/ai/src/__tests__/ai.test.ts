@@ -290,6 +290,16 @@ describe('prompt registry', () => {
        AI 가 일반 RSI 를 켜고 "RSI divergence 로 표시했습니다" 라고 답했다. */
     expect(tpl.toLowerCase(), '탐지한 것처럼 이름 붙이기 금지가 없다')
       .toMatch(/never label an indicator/);
+    /*
+       ★★★ 1.5.0 을 실계정으로 시험했더니 AI 는 **RSI 만 켜고 끝냈다.**
+         "신호는 못 만든다" 는 말을 하지 않았다 — 지시가 있었지만 순서를 정하지
+         않았기 때문이다. 지표를 켜는 것으로 요청이 해결된 것처럼 보인다.
+       ★ 그래서 **문장을 맨 앞에 두라**고 못박고, 지표 추가만으로는 답이 되지
+         않는다고 명시했다. 이 시험은 그 순서 지시가 사라지는 것을 막는다.
+    */
+    expect(tpl, '거절 문장을 맨 앞에 두라는 지시가 없다').toContain('MUST OPEN');
+    expect(tpl, '지표만으로는 답이 안 된다는 지시가 없다')
+      .toMatch(/does NOT satisfy/);
   });
 
   it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {
