@@ -495,7 +495,7 @@
       // --- 면책 고지 (사용 전 필수) ---
       no_live_data: 'Bu sembol için canlı veri yok',
       disc_title: 'Önemli — kullanmadan önce lütfen okuyun',
-      disc_body: 'ChartControl AI bir grafik ve analiz aracıdır. Yatırım tavsiyesi, öneri veya al/sat sinyali SUNMAZ. Sizin veya yapay zekanın grafikte işaretlediği her şey (seviyeler, göstergeler, giriş/çıkış fikirleri) sizin kendi analizinizdir. Tüm işlem kararları ve emirler yalnızca sizin sorumluluğunuzdadır ve işlem yapmak ciddi zarar riski taşır — paranızın bir kısmını veya tamamını kaybedebilirsiniz. Geçmiş performans ve geriye dönük test sonuçları gelecekteki sonuçları garanti etmez.',
+      disc_body: 'ChartControl AI bir grafik ve analiz aracıdır. Yatırım tavsiyesi veya önerisi SUNMAZ ve işlem yönünü sizin yerinize asla seçmez — bir kurulum sorduğunuzda her iki tarafı da ortaya koyar ve kararı size bırakır. Çizdiği seviyeler, kabul ettiğiniz bir kurala göre ekranınızdaki mumlardan hesaplanır; tahmin değildir. Tüm işlem kararları ve emirler yalnızca sizin sorumluluğunuzdadır ve işlem yapmak ciddi kayıp riski taşır — fonlarınızın bir kısmını veya tamamını kaybedebilirsiniz. Geçmiş performans ve geriye dönük testler gelecek sonuçları garanti etmez.',
       disc_agree: 'Anladım ve kabul ediyorum',
       disc_read_more: 'Risk bildirimi',
 

@@ -493,7 +493,7 @@
       // --- 면책 고지 (사용 전 필수) ---
       no_live_data: 'Không có dữ liệu trực tiếp cho mã này',
       disc_title: 'Quan trọng — vui lòng đọc trước khi sử dụng',
-      disc_body: 'ChartControl AI là một công cụ vẽ và phân tích biểu đồ. Nó KHÔNG cung cấp lời khuyên đầu tư, khuyến nghị hay tín hiệu mua/bán. Bất cứ thứ gì bạn hoặc AI đánh dấu trên biểu đồ (các mức giá, chỉ báo, ý tưởng vào/ra lệnh) đều là phân tích của chính bạn. Mọi quyết định giao dịch và mọi lệnh đều thuộc trách nhiệm riêng của bạn, và giao dịch mang rủi ro thua lỗ đáng kể — bạn có thể mất một phần hoặc toàn bộ số tiền của mình. Hiệu suất trong quá khứ và kết quả backtest không bảo đảm kết quả trong tương lai.',
+      disc_body: 'ChartControl AI là công cụ biểu đồ và phân tích. Công cụ này KHÔNG cung cấp tư vấn hay khuyến nghị đầu tư, và không bao giờ chọn hướng giao dịch thay bạn — khi bạn hỏi về một kịch bản, nó trình bày cả hai chiều và để bạn quyết định. Các mức nó vẽ được tính từ nến trên màn hình của bạn theo quy tắc bạn đã đồng ý; đó không phải dự báo. Mọi quyết định và lệnh giao dịch hoàn toàn thuộc trách nhiệm của bạn, và giao dịch có rủi ro thua lỗ đáng kể — bạn có thể mất một phần hoặc toàn bộ số tiền. Hiệu suất quá khứ và kết quả kiểm thử không bảo đảm kết quả tương lai.',
       disc_agree: 'Tôi đã hiểu và đồng ý',
       disc_read_more: 'Công bố rủi ro',
 

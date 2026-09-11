@@ -468,7 +468,7 @@
       sv_extend_hint: 'Extend 30 days for {n} points',
       no_live_data: 'No live data for this symbol',
       disc_title: 'Important — please read before using',
-      disc_body: 'ChartControl AI is a charting and analysis tool. It does NOT provide investment advice, recommendations, or buy/sell signals. Anything you or the AI marks on a chart (levels, indicators, entry/exit ideas) is your own analysis. All trading decisions and orders are solely your responsibility, and trading carries a substantial risk of loss — you may lose some or all of your funds. Past performance and backtest results do not guarantee future results.',
+      disc_body: 'ChartControl AI is a charting and analysis tool. It does NOT provide investment advice or recommendations, and it never chooses a trade direction for you — when you ask about a setup it lays out both sides and asks you to decide. Levels it draws are calculated from the candles on your screen using a rule you accepted; they are not forecasts. All trading decisions and orders are solely your responsibility, and trading carries a substantial risk of loss — you may lose some or all of your funds. Past performance and backtest results do not guarantee future results.',
       disc_agree: 'I understand and agree',
       disc_read_more: 'Risk disclosure',
       wl_cat_meme: 'Meme',

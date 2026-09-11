@@ -484,7 +484,7 @@
       // --- 면책 고지 (사용 전 필수) ---
       no_live_data: 'Sin datos en vivo para este símbolo',
       disc_title: 'Importante — leé antes de usar',
-      disc_body: 'ChartControl AI es una herramienta de gráficos y análisis. NO brinda asesoramiento de inversión, recomendaciones ni señales de compra/venta. Todo lo que vos o la IA marquen en un gráfico (niveles, indicadores, ideas de entrada/salida) es tu propio análisis. Todas las decisiones y órdenes son de tu exclusiva responsabilidad, y operar implica un riesgo sustancial de pérdida — podés perder parte o todo tu dinero. Los resultados pasados y los resultados de backtest no garantizan resultados futuros.',
+      disc_body: 'ChartControl AI es una herramienta de gráficos y análisis. NO ofrece asesoramiento ni recomendaciones de inversión, y nunca elige una dirección de operación por vos — cuando preguntás por un planteo, expone ambos lados y te pide que decidas. Los niveles que dibuja se calculan a partir de las velas de tu pantalla según una regla que aceptaste; no son pronósticos. Todas las decisiones y órdenes son exclusivamente tu responsabilidad, y operar implica un riesgo sustancial de pérdida — podés perder parte o la totalidad de tus fondos. El rendimiento pasado y los backtests no garantizan resultados futuros.',
       disc_agree: 'Entendí y acepto',
       disc_read_more: 'Divulgación de riesgo',
 

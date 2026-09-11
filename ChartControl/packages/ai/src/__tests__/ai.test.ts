@@ -281,8 +281,16 @@ describe('prompt registry', () => {
     expect(tpl, '신호 관련 지시 블록이 없다').toContain('BUY/SELL SIGNALS');
     /* ★ 다이버전스를 **이름으로** 언급해야 한다 — 고객이 실제로 쓴 말이다. */
     expect(tpl.toLowerCase(), '다이버전스를 예로 들지 않는다').toContain('divergence');
-    expect(tpl.toLowerCase(), '신호를 만들 수 없다는 말이 없다')
-      .toMatch(/cannot generate signals/);
+    /*
+       ★ 1.7.0 에서 "cannot generate" → "do not generate" 로 바꿨다.
+         "할 수 없다"(능력)가 아니라 "하지 않는다"(방침)가 사실에 맞다 — 우리는
+         기술적으로 못 하는 게 아니라 **하지 않기로 정했다**(2026-09-08 운영 결정).
+         고객에게도 이 구분이 정직하다.
+       ★★ 그래서 두 표현을 모두 받아들인다. 표현이 바뀌어도 **의미**가 남아 있는지를
+         본다 — 문장 하나에 시험을 묶어 두면 문구를 다듬을 때마다 깨진다.
+    */
+    expect(tpl.toLowerCase(), '신호를 만들지 않는다는 말이 없다')
+      .toMatch(/(cannot|do not) generate signals/);
     /* ★★ 조건만 막으면 부족하다. **대신 할 수 있는 것**을 제시하도록 요구한다 —
        "못 한다" 로 끝나면 고객은 무엇을 해야 할지 모른다. */
     expect(tpl, '대안으로 addIndicator 를 제시하지 않는다').toContain('addIndicator');
@@ -300,6 +308,31 @@ describe('prompt registry', () => {
     expect(tpl, '거절 문장을 맨 앞에 두라는 지시가 없다').toContain('MUST OPEN');
     expect(tpl, '지표만으로는 답이 안 된다는 지시가 없다')
       .toMatch(/does NOT satisfy/);
+    /*
+       ★★★ 운영자 요청(2026-09-11): "방향도 고객에게 물어봐. 양방향인지 단방향인지.
+         고객이 만들어달라는 걸 만들어준 것이다."
+
+         → **방향을 묻는 절차는 넣었다.** 고객이 방향을 정하면 그 방향으로 계산한다.
+         → **"제 생각엔 어느 쪽으로 기운다" 는 넣지 않았다.** 뒤에 "판단은 본인이" 를
+           붙여도 그것은 여전히 추천이다. MiCA 제3조1항(24)는 자문을 "고객의 요청에
+           따른 것이든 사업자의 주도든" 개인화된 추천이라고 정의한다 — 단서 문구가
+           추천을 추천이 아니게 만들지 않는다. 손실 본 고객이 소송하면 그 한 문장이
+           가장 먼저 인용된다.
+       ★ 그래서 프롬프트는 **방향 질의**를 요구하고 **방향 발신**을 금지한다.
+         이 시험은 두 가지가 함께 남아 있는지 지킨다 — 하나만 남으면 의미가 없다.
+    */
+    expect(tpl, '방향을 묻는 절차가 없다').toContain('ASK FOR THE DIRECTION');
+    expect(tpl, '양쪽을 같은 무게로 제시하라는 지시가 없다')
+      .toMatch(/EQUAL weight and EQUAL length/);
+    expect(tpl, '방향을 먼저 말하지 말라는 금지가 없다').toContain('NEVER VOLUNTEER A DIRECTION');
+    /* ★★ 단서를 붙여도 안 된다는 부분이 핵심이다. 이것이 빠지면 금지가 우회된다. */
+    expect(tpl, '단서를 붙여도 안 된다는 부분이 없다')
+      .toMatch(/a caveat does not make it neutral/);
+    /* ★★ 수치는 **규칙에서** 나와야 한다. 그리기 전 확인도 요구한다. */
+    expect(tpl, '기계적 규칙으로 수치를 뽑으라는 지시가 없다')
+      .toMatch(/mechanical rule/);
+    expect(tpl, '그리기 전 확인 요구가 없다')
+      .toMatch(/ask the user to confirm before you draw/);
   });
 
   it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {
