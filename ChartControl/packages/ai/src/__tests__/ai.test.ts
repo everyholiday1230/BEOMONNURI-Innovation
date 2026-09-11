@@ -354,6 +354,32 @@ describe('prompt registry', () => {
       .toMatch(/is NOT an acceptable reply/);
     /* ★ 수치마다 근거(규칙·캔들)를 대라는 요구. 숫자만 던지면 검증할 수 없다. */
     expect(tpl, '수치별 근거 요구가 없다').toMatch(/for EACH number name the mechanical rule/);
+    /*
+       ★★★ 1.8.0 을 실계정으로 시험했을 때 나온 두 가지 실패.
+
+         (1) 2턴 답변: **"사용자께서 제시한 롱 구성을 검토했습니다"**
+             고객은 진입 77318.1 / 손절 76420.6 / 목표 78192.8 을 **준 적이 없다.**
+             AI 가 계산한 값을 고객이 준 것처럼 말한 것이다 — 허위 귀속이고,
+             분쟁에서 가장 나쁜 문장이다.
+             원인: `review_setup` 은 **고객이 제시한 셋업을 검토하는** 도구다.
+             AI 가 자기 수치로 그 도구를 부르면 결과 문구가 저렇게 된다.
+
+         (2) 3턴("응 그대로 표시해줘")은 오류로 끝났다. 프로덕션 로그:
+               reason=sides: direction not stated → both long and short must be presented
+             고객이 방향을 말했는데 AI 가 `directionStatedByUser` 를 세우지 않았다.
+             **프롬프트가 그 필드를 설명한 적이 없다.**
+
+       ★ 그래서 STEP 3 은 **도구 없이 글로만** 하게 했고, `review_setup` 은 고객이
+         방향과 수치를 **둘 다** 준 경우로 한정했다. 그리기는 STEP 4 에서 전용
+         명령으로 한다.
+    */
+    expect(tpl, 'STEP 3 에서 도구를 부르지 말라는 지시가 없다')
+      .toContain('STEP 3 IS TEXT ONLY');
+    expect(tpl, '내 수치를 고객 것이라 말하지 말라는 금지가 없다')
+      .toContain("NEVER DESCRIBE YOUR OWN NUMBERS AS THE USER'S");
+    /* ★★ 스키마 필드를 프롬프트가 설명해야 한다 — 설명이 없어서 3턴이 오류로 끝났다. */
+    expect(tpl, 'directionStatedByUser 설명이 없다').toContain('directionStatedByUser');
+    expect(tpl, 'review_setup 사용 조건이 없다').toMatch(/USE review_setup ONLY when/);
   });
 
   it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {
