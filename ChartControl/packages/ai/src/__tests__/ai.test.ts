@@ -306,8 +306,10 @@ describe('prompt registry', () => {
          않는다고 명시했다. 이 시험은 그 순서 지시가 사라지는 것을 막는다.
     */
     expect(tpl, '거절 문장을 맨 앞에 두라는 지시가 없다').toContain('MUST OPEN');
+    /* ★ 1.8.0 에서 표현이 "does not count as doing the work" 로 바뀌었다.
+         문구가 아니라 **의미**를 검사한다 — 한 문장에 묶으면 다듬을 때마다 깨진다. */
     expect(tpl, '지표만으로는 답이 안 된다는 지시가 없다')
-      .toMatch(/does NOT satisfy/);
+      .toMatch(/(does NOT satisfy|does not count as doing the work)/);
     /*
        ★★★ 운영자 요청(2026-09-11): "방향도 고객에게 물어봐. 양방향인지 단방향인지.
          고객이 만들어달라는 걸 만들어준 것이다."
@@ -321,7 +323,8 @@ describe('prompt registry', () => {
        ★ 그래서 프롬프트는 **방향 질의**를 요구하고 **방향 발신**을 금지한다.
          이 시험은 두 가지가 함께 남아 있는지 지킨다 — 하나만 남으면 의미가 없다.
     */
-    expect(tpl, '방향을 묻는 절차가 없다').toContain('ASK FOR THE DIRECTION');
+    expect(tpl, '단계형 절차가 없다').toContain('SIGNAL REQUESTS');
+    expect(tpl, '방향을 묻는 단계가 없다').toMatch(/STEP 2:[\s\S]*both directions or only one/);
     expect(tpl, '양쪽을 같은 무게로 제시하라는 지시가 없다')
       .toMatch(/EQUAL weight and EQUAL length/);
     expect(tpl, '방향을 먼저 말하지 말라는 금지가 없다').toContain('NEVER VOLUNTEER A DIRECTION');
@@ -332,7 +335,25 @@ describe('prompt registry', () => {
     expect(tpl, '기계적 규칙으로 수치를 뽑으라는 지시가 없다')
       .toMatch(/mechanical rule/);
     expect(tpl, '그리기 전 확인 요구가 없다')
-      .toMatch(/ask the user to confirm before you draw/);
+      .toMatch(/asking them to confirm before you draw/);
+    /*
+       ★★★ 1.7.0 을 실계정으로 시험했더니 **2턴에서 실패했다.**
+         고객이 "롱 쪽으로 보고 있어. 단방향으로 해줘" 라고 답했는데 AI 는
+         **RSI 만 추가하고** 진입·손절·목표를 내놓지 않았다 (cmd=1, 방향 언급 0).
+
+         원인: 한 문단에 지시가 경쟁했고 MISSING INDICATOR(지표를 직접 켜라)가
+         이겼다. 1.5.0 에서도 같은 방식으로 졌다 — **두 번 같은 식으로 실패했으므로
+         문장을 더 붙이지 않고 절차(STEP 1~4)로 재구성했다.**
+
+       ★ 핵심은 **우선순위를 명시**한 것이다. 고객이 방향을 답한 순간에는 지표 추가가
+         답이 될 수 없다고 못박았다. 이 문구가 사라지면 같은 실패로 돌아간다.
+    */
+    expect(tpl, '방향 답변이 지표 추가보다 우선한다는 지시가 없다')
+      .toContain('TAKES PRECEDENCE OVER MISSING INDICATOR');
+    expect(tpl, '지표 추가가 답이 아니라는 지시가 없다')
+      .toMatch(/is NOT an acceptable reply/);
+    /* ★ 수치마다 근거(규칙·캔들)를 대라는 요구. 숫자만 던지면 검증할 수 없다. */
+    expect(tpl, '수치별 근거 요구가 없다').toMatch(/for EACH number name the mechanical rule/);
   });
 
   it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {
