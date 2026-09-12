@@ -2036,7 +2036,12 @@
           */}
           <div className="landing-hero-stats">
             <div>
-              <strong>{landingPairs === null ? '—' : landingPairs.toLocaleString() + '+'}</strong>
+              {/*
+                   ★★ `+` 를 붙이지 않는다. 이 값은 `/api/market/symbols` 의 **정확한 개수**다
+                     (실측 677). 정확한 수에 `+` 를 붙이면 "그보다 더 있다" 는 뜻이 되고,
+                     그것은 사실이 아니다. 숫자가 실시간으로 오는데 굳이 부풀릴 이유도 없다.
+              */}
+              <strong>{landingPairs === null ? '—' : landingPairs.toLocaleString()}</strong>
               <span>{t('landing_stat_pairs')}</span>
             </div>
             {/*

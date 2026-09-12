@@ -3080,7 +3080,7 @@
 
       // --- 인증 화면 기능 소개 ---
       auth_feat_ai: 'Yapay zeka odaklı iş akışı',
-      auth_feat_layout: '24 sütunlu düzen',
+      auth_feat_layout: '96 sütunlu düzen',
       auth_feat_safety: 'Tasarımdan gelen güvenlik',
       auth_feat_journal: 'İşlem günlüğü + yapay zeka gözlemleri',
       auth_feat_design: 'Kurumsal tasarım sistemi',
@@ -3104,7 +3104,7 @@
 
       // --- 랜딩: 기능 / 가격 ---
       landing_hero_badge: 'Yapay zeka destekli grafik analizi yazılımı',
-      landing_feat_layout: '24 sütunlu özel düzen',
+      landing_feat_layout: '96 sütunlu özel düzen',
       landing_feat_design_body: 'OKLCH tasarım token’ları · marka paleti, tema ve yoğunluk çalışma zamanında değişir.',
       landing_feat_ex_title: 'Kendi borsa hesabınızı kullanın',
       landing_feat_ex_none: 'Bağlanabilir borsa listesi yükleniyor.',
@@ -3151,7 +3151,7 @@
       landing_how_2: 'Borsa key’inizi bağlayın',
       landing_how_2_sub: 'Yalnızca okuma ve işlem izni — asla para çekme. Bağlandı olarak işaretlemeden önce key’i borsaya karşı doğruluyoruz.',
       landing_how_3: 'Grafiği okuyun, yapay zekaya sorun',
-      landing_how_3_sub: 'Göstergeler, çizimler, karşılaştırma ve kendiniz düzenlediğiniz 24 sütunlu bir düzen. Yapay zeka analizi bilgilendirme amaçlıdır, asla tavsiye değildir.',
+      landing_how_3_sub: 'Göstergeler, çizimler, karşılaştırma ve kendiniz düzenlediğiniz 96 sütunlu bir düzen. Yapay zeka analizi bilgilendirme amaçlıdır, asla tavsiye değildir.',
       landing_how_4: 'Emri gönderin — kendi hesabınızda gerçekleşir',
       landing_how_4_sub: 'Sunucu, herhangi bir şey gönderilmeden önce miktarı, fiyat sapmasını, kaldıracı ve günlük limitleri yeniden kontrol eder. Bir kontrol başarısız olursa hiçbir şey gönderilmez ve nedenini görürsünüz.',
       landing_how_cta: 'Ücretsiz bir hesapla başla',

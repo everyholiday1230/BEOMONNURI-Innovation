@@ -3011,7 +3011,7 @@
 
       // --- 인증 화면 기능 소개 ---
       auth_feat_ai: 'Flujo de trabajo nativo de IA',
-      auth_feat_layout: 'Diseño de 24 columnas',
+      auth_feat_layout: 'Diseño de 96 columnas',
       auth_feat_safety: 'Seguridad desde el diseño',
       auth_feat_journal: 'Diario de operaciones + observaciones de la IA',
       auth_feat_design: 'Design system institucional',
@@ -3035,7 +3035,7 @@
 
       // --- 랜딩: 기능 / 가격 ---
       landing_hero_badge: 'Software de análisis de gráficos con IA',
-      landing_feat_layout: 'Diseño personalizado de 24 columnas',
+      landing_feat_layout: 'Diseño personalizado de 96 columnas',
       landing_feat_design_body: 'Design tokens OKLCH · la paleta de la marca, el tema y la densidad cambian en tiempo de ejecución.',
       landing_feat_ex_title: 'Usá tu propia cuenta de exchange',
       landing_feat_ex_none: 'La lista de exchanges conectables está cargando.',
@@ -3082,7 +3082,7 @@
       landing_how_2: 'Conectá la key de tu exchange',
       landing_how_2_sub: 'Solo permiso de lectura y operación — nunca de retiro. Validamos la key contra el exchange antes de marcarla como conectada.',
       landing_how_3: 'Leé el gráfico, preguntale a la IA',
-      landing_how_3_sub: 'Indicadores, dibujos, comparación y un diseño de 24 columnas que ordenás vos. El análisis de la IA es informativo, nunca asesoramiento.',
+      landing_how_3_sub: 'Indicadores, dibujos, comparación y un diseño de 96 columnas que ordenás vos. El análisis de la IA es informativo, nunca asesoramiento.',
       landing_how_4: 'Enviá la orden — se ejecuta en tu propia cuenta',
       landing_how_4_sub: 'El servidor vuelve a revisar tamaño, desvío de precio, apalancamiento y límites diarios antes de enviar nada. Si un control falla, no se envía nada y ves por qué.',
       landing_how_cta: 'Empezá con una cuenta gratis',

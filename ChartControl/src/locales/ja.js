@@ -2562,7 +2562,7 @@
       strat_tab_settings: '設定',
       strat_tab_reviews: 'レビュー',
       auth_feat_ai: 'AI ネイティブのワークフロー',
-      auth_feat_layout: '24 カラムレイアウト',
+      auth_feat_layout: '96 カラムレイアウト',
       auth_feat_safety: '設計による安全性',
       auth_feat_journal: '取引ジャーナル + AI 分析',
       auth_feat_design: '機関投資家向けデザインシステム',
@@ -2587,7 +2587,7 @@
 
       /* --- ランディング（公開ページ）— 事実に合わせた文言 --- */
       landing_hero_badge: 'AI チャート分析ソフトウェア',
-      landing_feat_layout: '24 カラムのカスタムレイアウト',
+      landing_feat_layout: '96 カラムのカスタムレイアウト',
       landing_feat_design_body: 'OKLCH デザイントークン · ブランドパレット・テーマ・情報密度を実行中に切り替えられます。',
       landing_feat_ex_title: 'ご自身の取引所口座を接続',
       landing_feat_ex_none: '接続できる取引所の一覧を読み込んでいます。',
@@ -2709,7 +2709,7 @@
       landing_how_2: '取引所のキーを接続する',
       landing_how_2_sub: '権限は参照と取引のみ — 出金は付与しません。接続済みと表示する前に、取引所に対して実際に検証します。',
       landing_how_3: 'チャートを読み、AI に尋ねる',
-      landing_how_3_sub: '指標・描画・比較、そして自分で並べる24カラムのレイアウト。AI の分析は参考情報であり、助言ではありません。',
+      landing_how_3_sub: '指標・描画・比較、そして自分で並べる96カラムのレイアウト。AI の分析は参考情報であり、助言ではありません。',
       landing_how_4: '注文を出す — 約定はご自身の口座で',
       landing_how_4_sub: '送信前にサーバーが数量・価格乖離・レバレッジ・1日の上限を再確認します。ひとつでも外れれば送信せず、理由を表示します。',
       landing_how_cta: '無料のアカウントで始める',

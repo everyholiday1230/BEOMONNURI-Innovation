@@ -1271,7 +1271,7 @@
       side_long_arrow: '▲ LONG',
       side_short_arrow: '▼ SHORT',
 
-      // --- 리스크 체크 (주문 제출 전 9-gate) ---
+      // --- 리스크 체크 (주문 제출 전 17-gate: domain 9 + risk-engine 8) ---
       risk_sl_direction: 'Stop-loss direction',
       risk_sl_ok: 'Opposite side of entry (valid)',
       risk_sl_fail: '⚠ Must be on the opposite side of entry',
@@ -2825,7 +2825,7 @@
       strat_tab_settings: 'Settings',
       strat_tab_reviews: 'Reviews',
       auth_feat_ai: 'AI-Native Workflow',
-      auth_feat_layout: '24-col Layout',
+      auth_feat_layout: '96-col Layout',
       auth_feat_safety: 'Safety by Design',
       auth_feat_journal: 'Trade Journal + AI Insights',
       auth_feat_design: 'Institutional Design System',
@@ -2849,7 +2849,7 @@
 
       /* --- 랜딩(공개 페이지) — 사실에 맞춘 문구 --- */
       landing_hero_badge: 'AI chart analysis software',
-      landing_feat_layout: '24-column custom layout',
+      landing_feat_layout: '96-column custom layout',
       landing_feat_design_body: 'OKLCH design tokens · brand palette, theme and density switch at runtime.',
       landing_feat_ex_title: 'Bring your own exchange account',
       landing_feat_ex_none: 'The connectable exchange list is loading.',
@@ -2895,7 +2895,7 @@
       landing_how_2: 'Connect your exchange key',
       landing_how_2_sub: 'Read and trade permission only — never withdrawal. We verify the key against the exchange before marking it connected.',
       landing_how_3: 'Read the chart, ask the AI',
-      landing_how_3_sub: 'Indicators, drawings, comparison and a 24-column layout you arrange yourself. AI analysis is informational, never advice.',
+      landing_how_3_sub: 'Indicators, drawings, comparison and a 96-column layout you arrange yourself. AI analysis is informational, never advice.',
       landing_how_4: 'Place the order — it fills in your own account',
       landing_how_4_sub: 'The server re-checks size, price deviation, leverage and daily limits before anything is sent. If a check fails, nothing is sent and you see why.',
       landing_how_cta: 'Start with a free account',

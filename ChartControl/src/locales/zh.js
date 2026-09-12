@@ -2552,7 +2552,7 @@
       strat_tab_settings: '设置',
       strat_tab_reviews: '评价',
       auth_feat_ai: 'AI 原生工作流',
-      auth_feat_layout: '24 栏布局',
+      auth_feat_layout: '96 栏布局',
       auth_feat_safety: '安全由设计保障',
       auth_feat_journal: '交易日志 + AI 洞察',
       auth_feat_design: '机构级设计系统',
@@ -2577,7 +2577,7 @@
 
       /* --- 落地页（公开页面）— 与事实一致的文案 --- */
       landing_hero_badge: 'AI 图表分析软件',
-      landing_feat_layout: '24 栏自定义布局',
+      landing_feat_layout: '96 栏自定义布局',
       landing_feat_design_body: 'OKLCH 设计 token · 品牌配色、主题和信息密度可在运行时切换。',
       landing_feat_ex_title: '连接您自己的交易所账户',
       landing_feat_ex_none: '正在加载可连接的交易所列表。',
@@ -2699,7 +2699,7 @@
       landing_how_2: '连接你的交易所密钥',
       landing_how_2_sub: '只需读取和交易权限 — 绝不要提币权限。标记为已连接之前，我们会向交易所实际验证。',
       landing_how_3: '看图表，问 AI',
-      landing_how_3_sub: '指标、画线、对比，以及可自行排布的 24 栏布局。AI 分析仅供参考，不是投资建议。',
+      landing_how_3_sub: '指标、画线、对比，以及可自行排布的 96 栏布局。AI 分析仅供参考，不是投资建议。',
       landing_how_4: '下单 — 在你自己的账户里成交',
       landing_how_4_sub: '发送前服务器会重新校验数量、价格偏离、杠杆和每日上限。任一不通过就不发送，并告诉你原因。',
       landing_how_cta: '免费注册开始',

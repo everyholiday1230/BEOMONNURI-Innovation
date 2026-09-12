@@ -336,3 +336,101 @@ describe('POSITIONING — AI 소프트웨어로 표기된다', () => {
     }
   });
 });
+
+/*
+   ═══ 랜딩 페이지 수치가 코드와 일치하는지 ═══
+
+   ★★★ 운영자 요청으로 랜딩을 전수 감사했더니 **수치 다섯 개가 틀려 있었다**
+     (2026-09-12). 전부 기능이 자란 뒤 문구를 따라 고치지 않은 경우다:
+
+       · 레이아웃 열 수   랜딩 24  →  실제 96 (GRID_COLS)
+       · 프리셋 개수      랜딩 7   →  실제 4 (LAYOUT_PRESETS), 없는 'Multi' 를 나열
+       · 리스크 게이트    랜딩 9   →  실제 17 (domain 9 + risk-engine 8)
+       · 매매일지         '시간대별 성과'·'자동 패턴 탐지' → **둘 다 코드에 없다**
+       · 시장 개수        정확히 677 인데 '677+' 로 부풀림
+
+   ★ 사람이 다시 세는 것으로는 막을 수 없다. **코드에서 수를 뽑아 문구와 맞춘다.**
+   ★★ 반대 방향도 막는다 — 기능이 늘어 96→128 이 되면 이 시험이 깨져서
+     문구를 고치라고 알려준다. 그것이 이 시험의 목적이다.
+*/
+describe('랜딩 수치는 코드와 일치해야 한다', () => {
+  it('레이아웃 열 수: GRID_COLS 와 문구가 같다', () => {
+    const engine = read('src/layout-engine.jsx');
+    const cols = Number(engine.match(/GRID_COLS\s*=\s*(\d+)/)?.[1] ?? 0);
+    expect(cols, 'GRID_COLS 를 읽지 못했다').toBeGreaterThan(0);
+
+    const en = read('src/locales/en.js');
+    for (const key of ['landing_feat_layout', 'landing_how_3_sub', 'auth_feat_layout']) {
+      const v = en.match(new RegExp(`${key}: '([^']*)'`))?.[1] ?? '';
+      expect(v, `${key} 를 찾지 못했다`).not.toBe('');
+      /* ★ 열 수를 말하는 문구라면 그 수가 GRID_COLS 여야 한다. */
+      const m = v.match(/(\d+)[- ]?(?:column|col)/i);
+      expect(m, `${key} 에 열 수 표기가 없다: ${v}`).not.toBeNull();
+      expect(Number(m![1]), `${key} 의 열 수가 GRID_COLS(${cols}) 와 다르다: ${v}`).toBe(cols);
+    }
+  });
+
+  it('프리셋 개수: LAYOUT_PRESETS 와 문구가 같고, 없는 이름을 적지 않는다', () => {
+    const md = read('src/mock-data.js');
+    const i = md.indexOf('LAYOUT_PRESETS');
+    expect(i, 'LAYOUT_PRESETS 를 찾지 못했다').toBeGreaterThan(-1);
+    const names = [...md.slice(i, i + 30000).matchAll(/^ {6}name: '([^']+)',/gm)].map((m) => m[1]);
+    expect(names.length, '프리셋 이름을 읽지 못했다').toBeGreaterThan(0);
+
+    const auth = read('src/locales/auth.en.js');
+    const v = auth.match(/landing_44cbb3: '([^']*)'/)?.[1] ?? '';
+    expect(v, 'landing_44cbb3 를 찾지 못했다').not.toBe('');
+    const claimed = Number(v.match(/(\d+)\s*presets?/i)?.[1] ?? -1);
+    expect(claimed, `프리셋 개수가 실제(${names.length}) 와 다르다: ${v}`).toBe(names.length);
+    /*
+       ★★ 개수만 맞추면 부족하다. 예전 문구는 7개라 적고 **존재하지 않는 'Multi'**
+         를 나열했다. 그래서 괄호 안 이름이 실제 프리셋인지도 본다.
+    */
+    const listed = v.match(/\(([^)]*)\)/)?.[1] ?? '';
+    for (const part of listed.split('/').map((x) => x.trim()).filter(Boolean)) {
+      expect(
+        names.some((n) => (n ?? '').toLowerCase() === part.toLowerCase()),
+        `문구에 적힌 프리셋 '${part}' 가 실제 목록에 없다: ${names.join(', ')}`,
+      ).toBe(true);
+    }
+  });
+
+  it('리스크 게이트 개수: 실제 게이트 수와 문구가 같다', () => {
+    const domain = read('packages/domain/src/risk-gates.ts');
+    const engine = read('apps/api/src/trading/risk-engine.ts');
+    const ids = new Set<string>();
+    for (const src of [domain, engine]) {
+      for (const m of src.matchAll(/add2?\(\s*\n?\s*'([a-zA-Z.]+)'/g)) { if (m[1]) ids.add(m[1]); }
+    }
+    expect(ids.size, '게이트 id 를 읽지 못했다').toBeGreaterThan(5);
+
+    const auth = read('src/locales/auth.en.js');
+    const v = auth.match(/landing_40f668: '([^']*)'/)?.[1] ?? '';
+    const claimed = Number(v.match(/(\d+)-gate/i)?.[1] ?? -1);
+    expect(claimed, `게이트 수가 실제(${ids.size}) 와 다르다: ${v}`).toBe(ids.size);
+  });
+
+  it('매매일지 문구는 실제로 있는 기능만 말한다', () => {
+    const auth = read('src/locales/auth.en.js');
+    const v = (auth.match(/landing_69704c: '([^']*)'/)?.[1] ?? '').toLowerCase();
+    expect(v, 'landing_69704c 를 찾지 못했다').not.toBe('');
+    /*
+       ★★★ 이 두 표현이 실제로 랜딩에 있었고 **둘 다 코드에 없는 기능**이었다.
+         analytics 라우트는 `/analytics/journal` 과 `/analytics/daily-pnl` 뿐이다 —
+         시간대별 집계도, 패턴 탐지도 없다.
+       ★ 기능을 정말 만들면 이 시험을 함께 고치면 된다. 그때는 근거가 있다.
+    */
+    expect(v, '없는 기능(자동 패턴 탐지)을 광고한다').not.toMatch(/pattern detection/);
+    expect(v, '없는 기능(시간대별 성과)을 광고한다').not.toMatch(/time of day/);
+  });
+
+  it('시장 개수에 부풀리는 + 를 붙이지 않는다', () => {
+    /*
+       ★ `/api/market/symbols` 는 **정확한 개수**를 준다(실측 677). 정확한 수에 `+` 를
+         붙이면 "그보다 많다" 는 뜻이 되어 사실과 다르다.
+    */
+    const page = read('src/pages-auth.jsx');
+    expect(page, "landingPairs 에 '+' 를 붙이고 있다")
+      .not.toMatch(/landingPairs\.toLocaleString\(\)\s*\+\s*'\+'/);
+  });
+});

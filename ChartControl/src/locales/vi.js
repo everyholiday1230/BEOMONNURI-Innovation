@@ -3099,7 +3099,7 @@
 
       // --- 인증 화면 기능 소개 ---
       auth_feat_ai: 'Quy trình lấy AI làm trung tâm',
-      auth_feat_layout: 'Bố cục 24 cột',
+      auth_feat_layout: 'Bố cục 96 cột',
       auth_feat_safety: 'An toàn ngay từ thiết kế',
       auth_feat_journal: 'Nhật ký giao dịch + nhận định của AI',
       auth_feat_design: 'Hệ thống thiết kế cấp tổ chức',
@@ -3123,7 +3123,7 @@
 
       // --- 랜딩: 기능 / 가격 ---
       landing_hero_badge: 'Phần mềm phân tích biểu đồ bằng AI',
-      landing_feat_layout: 'Bố cục tùy chỉnh 24 cột',
+      landing_feat_layout: 'Bố cục tùy chỉnh 96 cột',
       landing_feat_design_body: 'Design token OKLCH · bảng màu thương hiệu, giao diện và mật độ chuyển được ngay khi đang chạy.',
       landing_feat_ex_title: 'Dùng chính tài khoản sàn của bạn',
       landing_feat_ex_none: 'Danh sách sàn có thể kết nối đang được tải.',
@@ -3170,7 +3170,7 @@
       landing_how_2: 'Kết nối API key của sàn của bạn',
       landing_how_2_sub: 'Chỉ quyền đọc và giao dịch — không bao giờ quyền rút tiền. Chúng tôi xác minh key với sàn trước khi đánh dấu là đã kết nối.',
       landing_how_3: 'Đọc biểu đồ, hỏi AI',
-      landing_how_3_sub: 'Chỉ báo, hình vẽ, so sánh và một bố cục 24 cột do bạn tự sắp xếp. Phân tích AI mang tính thông tin, không bao giờ là lời khuyên.',
+      landing_how_3_sub: 'Chỉ báo, hình vẽ, so sánh và một bố cục 96 cột do bạn tự sắp xếp. Phân tích AI mang tính thông tin, không bao giờ là lời khuyên.',
       landing_how_4: 'Đặt lệnh — lệnh khớp trong chính tài khoản của bạn',
       landing_how_4_sub: 'Server kiểm tra lại khối lượng, độ lệch giá, đòn bẩy và các hạn mức hằng ngày trước khi bất cứ thứ gì được gửi đi. Nếu một bước kiểm tra không đạt, không có gì được gửi và bạn thấy được lý do.',
       landing_how_cta: 'Bắt đầu với một tài khoản miễn phí',

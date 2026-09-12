@@ -3023,7 +3023,7 @@
 
       // --- 인증 화면 기능 소개 ---
       auth_feat_ai: 'Fluxo de trabalho nativo de IA',
-      auth_feat_layout: 'Layout de 24 colunas',
+      auth_feat_layout: 'Layout de 96 colunas',
       auth_feat_safety: 'Segurança desde o projeto',
       auth_feat_journal: 'Diário de operações + observações da IA',
       auth_feat_design: 'Design system institucional',
@@ -3047,7 +3047,7 @@
 
       // --- 랜딩: 기능 / 가격 ---
       landing_hero_badge: 'Software de análise de gráficos com IA',
-      landing_feat_layout: 'Layout personalizado de 24 colunas',
+      landing_feat_layout: 'Layout personalizado de 96 colunas',
       landing_feat_design_body: 'Design tokens OKLCH · paleta da marca, tema e densidade trocam em tempo de execução.',
       landing_feat_ex_title: 'Use a sua própria conta de exchange',
       landing_feat_ex_none: 'A lista de exchanges conectáveis está carregando.',
@@ -3094,7 +3094,7 @@
       landing_how_2: 'Conecte a key da sua exchange',
       landing_how_2_sub: 'Apenas permissão de leitura e negociação — nunca de saque. Validamos a key contra a exchange antes de marcá-la como conectada.',
       landing_how_3: 'Leia o gráfico, pergunte à IA',
-      landing_how_3_sub: 'Indicadores, desenhos, comparação e um layout de 24 colunas que você mesmo organiza. A análise da IA é informativa, nunca aconselhamento.',
+      landing_how_3_sub: 'Indicadores, desenhos, comparação e um layout de 96 colunas que você mesmo organiza. A análise da IA é informativa, nunca aconselhamento.',
       landing_how_4: 'Envie a ordem — ela executa na sua própria conta',
       landing_how_4_sub: 'O servidor reconfere tamanho, desvio de preço, alavancagem e limites diários antes de qualquer envio. Se uma verificação falha, nada é enviado e você vê o motivo.',
       landing_how_cta: 'Comece com uma conta gratuita',
