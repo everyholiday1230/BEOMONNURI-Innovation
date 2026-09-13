@@ -86,6 +86,7 @@ import { createStrategyRouter } from './strategy-routes';
 import { createRiskEmailAlerter } from './trading/risk-email';
 import { createTradingRouter } from './trading-routes';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
+import { payReferralReward, REFERRAL_MONTHLY_CAP } from './referral/referral-reward';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
 import { createAiRouter } from './ai-routes';
 import { OperationalControls } from './ops/operational-controls';
@@ -696,66 +697,42 @@ let referralRepo: PgReferralRepo | null = null;
    ★ 실패를 삼킨다. 포인트 적립 때문에 **거래소 연결이 실패하면 안 된다** —
      연결은 고객이 돈을 다루기 위한 것이고 보상은 부수적이다. 다만 로그는 남긴다.
 */
-const REFERRAL_MONTHLY_CAP = 3;
-
 async function payReferralOnExchangeVerified(userId: string): Promise<void> {
-  if (!referralRepo) return;
+  if (!referralRepo || !pointsRepo) return;
+  const rRepo = referralRepo;
+  const pRepo = pointsRepo;
   try {
-    /* ★ 먼저 단계를 기록한다. 지급이 막혀도 '언제 연결했는지' 는 남아야 한다. */
-    await referralRepo.markMilestone(userId, 'keys_connected');
-
-    const row = await referralRepo.findByReferee(userId);
-    if (!row || !row.referrerUserId) return;           // 초대로 온 사용자가 아니다
-    if (row.referrerUserId === userId) return;         // 자기추천 방어(있을 수 없지만 명시)
-
-    if (!pointsRepo) return;
-    const ps = await pointsRepo.getSettings();
-    if (!ps.enabled || !ps.referralAsPoints || ps.referralPoints <= 0) return;
-
-    /* ★ 이번 달 1일 00:00 UTC 부터. 달이 바뀌면 상한이 초기화된다. */
-    const now = new Date();
-    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-
-    const paidThisMonth = await pointsRepo.countGrants({
-      userId: row.referrerUserId,
-      reason: 'referral_signup',
-      refType: 'referral_referrer',
-      sinceMs: monthStart,
-    });
-
     /*
-       ★★ 상한을 넘으면 **추천인에게만** 주지 않는다. 피추천인은 자기가 초대받은
-         사람이 몇 번째인지 알 수 없고, 그 사정으로 신규 고객의 보상을 빼앗는 것은
-         부당하다. 상한은 추천인의 남용을 막는 장치다.
+       ★ 실제 판정은 `referral-reward.ts` 가 한다. 여기서는 저장소를 이어 주기만 한다.
+
+         ★★ 왜 분리했나 — 이 로직은 **실제 거래소 키 없이는 프로덕션에서 확인할 수
+           없다.** index.ts 안에 두면 시험이 불가능하고, 그러면 예전과 같은 실패를
+           반복한다(화면은 2,000포인트를 약속하는데 코드는 아무에게도 주지 않았고
+           실제로 가입시켜 볼 때까지 아무도 몰랐다). 돈이 오가는 분기는 시험할 수
+           있어야 한다.
     */
-    const referrerAllowed = paidThisMonth < REFERRAL_MONTHLY_CAP;
-
-    const refereeEntry = await pointsRepo.grant({
+    const r = await payReferralReward(
+      {
+        markKeysConnected: (uid) => rRepo.markMilestone(uid, 'keys_connected'),
+        findByReferee: (uid) => rRepo.findByReferee(uid),
+        getPointSettings: async () => {
+          const ps = await pRepo.getSettings();
+          return {
+            enabled: ps.enabled,
+            referralAsPoints: ps.referralAsPoints,
+            referralPoints: ps.referralPoints,
+          };
+        },
+        countGrants: (x) => pRepo.countGrants({ ...x, reason: 'referral_signup' }),
+        grant: (x) => pRepo.grant(x),
+      },
       userId,
-      amount: ps.referralPoints,
-      reason: 'referral_signup',
-      refType: 'referral_referee',
-      refId: userId,
-      memo: `referral bonus (referee · exchange connected)`,
-    });
-
-    let referrerEntry = null;
-    if (referrerAllowed) {
-      referrerEntry = await pointsRepo.grant({
-        userId: row.referrerUserId,
-        amount: ps.referralPoints,
-        reason: 'referral_signup',
-        refType: 'referral_referrer',
-        refId: userId,
-        memo: `referral bonus (referrer · ${row.code})`,
-      });
-    }
-
+    );
+    if (!r.attempted) return;   // 초대로 온 사용자가 아니다 — 조용히 끝낸다
     console.log(
-      `[referral] 보상 — referee=${userId} referrer=${row.referrerUserId} `
-      + `pts=${ps.referralPoints} refereePaid=${refereeEntry !== null} `
-      + `referrerPaid=${referrerEntry !== null} monthUsed=${paidThisMonth}/${REFERRAL_MONTHLY_CAP}`
-      + (referrerAllowed ? '' : ' — 추천인 월 상한 초과'),
+      `[referral] 보상 — referee=${userId} referee지급=${r.refereePaid} `
+      + `referrer지급=${r.referrerPaid} 이번달=${r.monthUsed}/${REFERRAL_MONTHLY_CAP}`
+      + (r.reason ? ` reason=${r.reason}` : ''),
     );
   } catch (e) {
     console.warn('[referral] 보상 지급 실패 — 거래소 연결은 유지한다:', (e as Error).message);
