@@ -120,7 +120,15 @@ const CATALOGUE: readonly Exchange[] = [
     apiDocs: 'https://bitgetlimited.github.io/apidoc/en/',
     permissions: ['Read', 'Trade', 'Withdraw'],
     required: ['apiKey', 'apiSecret', 'passphrase'],
-    referral: 'https://partner.bitget.com/bg/QUANTUMKURI',
+    /*
+       ★ 운영자 확인(2026-09-13): 실제 파트너 링크다. 이전 값 `QUANTUMKURI` 는
+         확인되지 않은 자리표시자였다 — 이 파일 상단 주석이 경고하는 그 상태였다
+         ("Confirm each one before making it connectable").
+       ★★ okx·gate 항목의 `QUANTUMKURI` 는 **아직 확인되지 않았다.** 두 거래소는
+         `CONNECTABLE_EXCHANGE_IDS` 에 없어 목록에 노출되지 않으므로 지금은
+         고객에게 보이지 않는다. 연결 가능하게 만들 때 반드시 함께 확인해야 한다.
+    */
+    referral: 'https://partner.bitget.com/bg/U8TP9X',
     referralNoteKey: 'ex_referral_tbd',
     status: 'available',
     recommended: true,
