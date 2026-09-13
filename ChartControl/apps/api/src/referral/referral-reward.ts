@@ -16,9 +16,23 @@
  *
  * ═══ 운영 결정 (2026-09-13) ═══
  *
- * · 보상 조건: 가입이 아니라 **거래소 연결**.
- *   가입만으로 주면 남용이 쉽다 — 지메일 두 개로 5분 만에 자기추천 귀속을 만들 수
- *   있었다. 거래소 연결은 거래소가 검증한 실계정이 필요하다.
+ * · 보상 조건: **첫 거래**(2026-09-13 변경. 그 전에는 '거래소 연결' 이었다).
+ *
+ *   ★★ 왜 첫 거래인가
+ *     가입만으로 주면 남용이 쉽다 — 지메일 두 개로 5분 만에 자기추천 귀속을 만들 수
+ *     있었다. 거래소 연결은 실계정이 필요해 한 단계 낫지만, 잔고 없이 키만 연결하는
+ *     것도 가능하다. **첫 거래는 실제 자금과 수수료가 든다.**
+ *
+ *   ★ 우리 수익과도 맞는다. 리베이트는 거래량에서 나오므로, 거래가 일어난 뒤에
+ *     보상하는 것이 앞뒤가 맞다. 거래가 없으면 우리 수익도 없다.
+ *
+ *   ★★ '첫 거래' 를 **주문 접수(ACCEPTED)** 로 판정한다. 체결까지 기다리는 것이
+ *     더 정확하지만, 전체 사용자를 훑는 체결 폴러가 없어서 **믿을 수 있는 발동
+ *     지점이 없다.** 조회 라우트에 매달면 고객이 내역을 열어볼 때만 지급된다.
+ *
+ *     이 판정의 빈틈: 멀리 떨어진 지정가 주문을 넣고 취소해도 접수는 된다. 다만
+ *     그 전에 **실계정 + 자금 + 키 연결**을 통과해야 하므로, 2,000포인트(AI 약 6회)
+ *     를 위해 그 수고를 들일 유인은 낮다고 판단했다.
  * · **추천인·피추천인 양쪽** 각 `referralPoints`(현재 2,000).
  * · 추천인 **월 3명 상한**. 매월 1일 00:00 UTC 로 초기화.
  */
@@ -40,8 +54,14 @@ export const REF_TYPE_REFEREE = 'referral_referee';
 export const REFERRAL_MONTHLY_CAP = 3;
 
 export interface ReferralRewardDeps {
-  /** 단계 기록. 지급이 막혀도 '언제 연결했는지' 는 남아야 한다. */
-  markKeysConnected(userId: string): Promise<unknown>;
+  /**
+   * 단계 기록. 지급이 막혀도 '언제 도달했는지' 는 남아야 한다.
+   *
+   * ★★ 운영 결정 변경(2026-09-13): 보상 조건이 **거래소 연결 → 첫 거래**로 바뀌었다.
+   *   그래서 이 함수는 어느 단계든 받을 수 있어야 한다. 'keys_connected' 는 계속
+   *   기록하되(자료로 쓸모 있다) **지급은 'first_trade' 에서만** 한다.
+   */
+  markMilestone(userId: string, milestone: 'keys_connected' | 'first_trade'): Promise<unknown>;
   /** 이 사용자를 누가 초대했는지. 없으면 null. */
   findByReferee(userId: string): Promise<{ code: string; referrerUserId: string | null } | null>;
   /** 포인트 제도 설정. */
@@ -86,8 +106,8 @@ export async function payReferralReward(
   const nowMs = (d.now ?? Date.now)();
   const base: ReferralRewardResult = { attempted: false, refereePaid: false, referrerPaid: false, monthUsed: 0 };
 
-  /* ★ 단계 기록을 먼저 한다. 아래에서 무엇이 막히든 연결 시각은 남는다. */
-  await d.markKeysConnected(userId);
+  /* ★ 단계 기록을 먼저 한다. 아래에서 무엇이 막히든 도달 시각은 남는다. */
+  await d.markMilestone(userId, 'first_trade');
 
   const row = await d.findByReferee(userId);
   if (!row || !row.referrerUserId) return { ...base, reason: 'not-referred' };
@@ -128,7 +148,7 @@ export async function payReferralReward(
     reason: REASON,
     refType: REF_TYPE_REFEREE,
     refId: userId,
-    memo: 'referral bonus (referee · exchange connected)',
+    memo: 'referral bonus (referee · first trade)',
   });
 
   let referrerEntry: unknown | null = null;

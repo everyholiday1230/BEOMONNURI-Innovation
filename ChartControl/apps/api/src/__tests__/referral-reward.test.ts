@@ -51,7 +51,7 @@ function harness(over: {
   const existing = over.existing ?? [];
 
   const deps: ReferralRewardDeps = {
-    markKeysConnected: async (uid) => { milestones.push(uid); },
+    markMilestone: async (uid, m) => { milestones.push(`${uid}:${m}`); },
     findByReferee: async () => (over.referred === false
       ? null
       : { code: 'ABC12345', referrerUserId: over.referrerUserId === undefined ? REFERRER : over.referrerUserId }),
@@ -102,7 +102,7 @@ describe('초대 보상 — 거래소 연결 시점 지급', () => {
     expect(referrer?.refId).toBe(REFEREE);
   });
 
-  it('연결 단계는 지급 전에 기록한다', async () => {
+  it('첫 거래 단계는 지급 전에 기록한다', async () => {
     /*
        ★★ `markMilestone` 은 예전에 **호출하는 곳이 하나도 없었다.** 그래서
          `keys_connected_at` 이 영원히 null 이었다. 지급이 막히더라도 이 기록은
@@ -110,7 +110,14 @@ describe('초대 보상 — 거래소 연결 시점 지급', () => {
     */
     const h = harness({ referred: false });
     await payReferralReward(h.deps, REFEREE);
-    expect(h.milestones, '초대받지 않은 사용자도 연결 기록은 남아야 한다').toEqual([REFEREE]);
+    /*
+       ★★ 2026-09-13: 보상 조건이 '거래소 연결' → '첫 거래' 로 바뀌었다. 그래서
+         지급 시점에 기록하는 단계도 `first_trade` 다. 단계 이름을 함께 확인한다 —
+         이름이 어긋나면 `referral_signups.first_trade_at` 이 채워지지 않고,
+         나중에 수동 지급할 근거가 사라진다.
+    */
+    expect(h.milestones, '초대받지 않은 사용자도 단계 기록은 남아야 한다')
+      .toEqual([`${REFEREE}:first_trade`]);
   });
 
   it('초대로 오지 않은 사용자에게는 지급하지 않는다', async () => {

@@ -69,6 +69,18 @@ export interface TradingRouterDeps {
    */
   onExchangeVerified?: (userId: string) => Promise<void>;
   /**
+   * 실주문이 거래소에 **접수(ACCEPTED)** 된 직후 부르는 알림.
+   *
+   * ★★ 초대 보상 지급 시점이다(운영 결정 2026-09-13: 거래소 연결 → **첫 거래**).
+   *   연결만으로는 잔고 없이 키만 붙이는 것도 가능하다. 첫 거래는 실제 자금과
+   *   수수료가 들고, 우리 리베이트도 거래량에서 나오므로 앞뒤가 맞다.
+   *
+   * ★ ACCEPTED 만 부른다. REJECTED 는 거래가 아니고, **SUBMIT_UNKNOWN 은 전송
+   *   여부를 모르는 상태**다 — 모르는 것을 거래로 세면 안 된다.
+   * ★ 선택 의존성이며 실패해도 주문 응답을 막지 않는다.
+   */
+  onLiveOrderAccepted?: (userId: string) => Promise<void>;
+  /**
    * 감사기록 저장소. **거래소 API 키의 등록·검증·삭제를 남긴다.**
    *
    * ★★★ 이것이 없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다.**
@@ -2365,6 +2377,20 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           ? (outcome.order as { exchangeOrderId?: string } | undefined)?.exchangeOrderId ?? null
           : null,
       });
+
+      /*
+         ★★★ 초대 보상 지급 시점 — 첫 거래.
+
+           ★ `recordDecision` **뒤에** 둔다. 주문 기록이 먼저 남아야 한다 —
+             보상 지급이 실패하든 성공하든 주문 사실은 보존돼야 한다.
+           ★★ ACCEPTED 에서만 부른다. SUBMIT_UNKNOWN 은 전송됐는지 모르는 상태이고,
+             그것을 거래로 세면 실제로 거래하지 않은 사람에게 지급될 수 있다.
+           ★ 예외를 삼킨다 — 포인트 때문에 주문 응답이 깨지면 안 된다. 고객은 이미
+             돈이 걸린 주문을 냈고, 그 응답이 최우선이다.
+      */
+      if (outcome.status === 'ACCEPTED' && d.onLiveOrderAccepted) {
+        try { await d.onLiveOrderAccepted(a.user.id); } catch { /* 지급 실패는 비치명 */ }
+      }
 
       return {
         // ACCEPTED 만 전송 성공이다. SUBMIT_UNKNOWN 은 전송 여부를 모르는 상태다.

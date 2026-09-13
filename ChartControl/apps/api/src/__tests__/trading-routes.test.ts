@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { SqlitePreferencesRepo } from '../db/preferences-repo';
 import { SqliteFavoritesRepo } from '../db/favorites-repo';
@@ -543,5 +544,70 @@ describe('DAILY-LOSS 일일 손실 한도', () => {
       policy: { ...POLICY, dailyLossLimit: '1000' },
     }, 'dl6@ex.com');
     expect(gate(b).status).toBe('fail');
+  });
+});
+
+/*
+   ═══ 초대 보상: 첫 거래 훅의 **발동 조건** ═══
+
+   ★★★ 처음에는 동작 시험으로 만들었다가 **버렸다.** 왜 버렸는지 남겨 둔다.
+
+     가짜 어댑터를 넣고 `/trading/orders/submit` 을 불러 훅이 불리는지 보려 했는데,
+     주문이 어댑터에 **닿지도 않았다.** 응답:
+       reasons: ["freshness: blocked — connection UNAVAILABLE",
+                 "policy.dailyLoss: cap 1000 is set but today's realised loss is
+                  not measured — refusing rather than reporting a cap that cannot fire"]
+
+     즉 17개 리스크 게이트를 다 만족시키지 않으면 전송 단계까지 가지 않는다. 그런데
+     처음 작성한 시험은 "ACCEPTED 가 아니면 훅 0건" 을 확인하고 return 했기 때문에
+     **초록으로 통과했다** — 훅이 아예 없어도 통과하는 시험이었다.
+     `SUBMIT_UNKNOWN`·`REJECTED` 음성 시험도 같은 이유로 무의미했다(어댑터를 부르지도
+     않으니 당연히 0건).
+
+   ★ 이 저장소에서 같은 실패를 이미 겪었다 — `if (!allowMock)` 을 `if (false)` 로
+     바꿔도 통과하던 시험. 그래서 **조건 자체**를 검사하는 방식으로 바꿨다.
+   ★★ 주석을 먼저 제거한다. 주석 안의 설명 문장이 정규식에 걸려 통과하면 그것도
+     같은 종류의 거짓 통과다.
+*/
+describe('★★ 초대 보상 — 첫 거래 훅은 ACCEPTED 에서만 발동한다 (소스 조건)', () => {
+  const stripComments = (src: string) => src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+
+  const source = stripComments(
+    readFileSync(new URL('../trading-routes.ts', import.meta.url), 'utf8'),
+  );
+
+  it('훅 호출이 ACCEPTED 조건 안에 있다', () => {
+    /*
+       ★★★ 조건이 사라지면 `SUBMIT_UNKNOWN`(전송 여부를 **모르는** 상태)에도 지급된다.
+         모르는 것을 거래로 세면 거래하지 않은 사람에게 포인트가 나가고, 원장은
+         되돌리기 어렵다.
+    */
+    const m = source.match(/if \(([^)]*)&&\s*d\.onLiveOrderAccepted\)/);
+    expect(m, '훅 호출을 감싼 조건문을 찾지 못했다 — 조건 없이 부르고 있을 수 있다').not.toBeNull();
+    expect(m![1], "조건이 outcome.status === 'ACCEPTED' 가 아니다")
+      .toMatch(/outcome\.status\s*===\s*'ACCEPTED'/);
+  });
+
+  it('훅은 주문 기록(recordDecision) 뒤에 있다', () => {
+    /*
+       ★ 순서가 중요하다. 지급이 먼저 오면, 지급 중 예외가 나거나 응답이 끊길 때
+         **주문 기록이 남지 않을** 수 있다. 주문 사실이 우선이다.
+    */
+    const rec = source.indexOf('await recordDecision({');
+    const hook = source.indexOf('d.onLiveOrderAccepted(a.user.id)');
+    expect(rec, 'recordDecision 호출을 찾지 못했다').toBeGreaterThan(-1);
+    expect(hook, '훅 호출을 찾지 못했다').toBeGreaterThan(-1);
+    expect(hook, '훅이 주문 기록보다 앞에 있다').toBeGreaterThan(rec);
+  });
+
+  it('훅 실패가 주문 응답을 깨지 않는다 (try/catch 로 감싼다)', () => {
+    /*
+       ★★ 고객은 이미 돈이 걸린 주문을 냈다. 포인트 적립 실패로 그 응답이 깨지면
+         고객은 주문이 실패한 줄 알고 다시 낸다 — 중복 주문은 곧 손실이다.
+    */
+    const seg = source.slice(source.indexOf('d.onLiveOrderAccepted'));
+    expect(seg.slice(0, 200), '훅 호출이 try 로 감싸여 있지 않다').toMatch(/try\s*\{/);
   });
 });

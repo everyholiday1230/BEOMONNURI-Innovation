@@ -697,7 +697,26 @@ let referralRepo: PgReferralRepo | null = null;
    ★ 실패를 삼킨다. 포인트 적립 때문에 **거래소 연결이 실패하면 안 된다** —
      연결은 고객이 돈을 다루기 위한 것이고 보상은 부수적이다. 다만 로그는 남긴다.
 */
-async function payReferralOnExchangeVerified(userId: string): Promise<void> {
+/*
+   거래소 연결 단계 기록. **지급은 하지 않는다.**
+
+   ★★ 운영 결정 변경(2026-09-13): 보상 조건이 '거래소 연결' → **'첫 거래'** 로 바뀌었다.
+     연결만으로는 잔고 없이 키만 붙이는 것도 가능해서, 실제 자금과 수수료가 드는
+     첫 거래를 조건으로 삼는다. 우리 리베이트도 거래량에서 나오므로 앞뒤가 맞다.
+
+   ★ 연결 시각은 **계속 기록한다.** 지급 조건이 아니어도 "언제 연결했는지" 는
+     고객 지원과 집계에 쓸모가 있다. 기록을 지우면 나중에 되짚을 수 없다.
+*/
+async function recordExchangeConnected(userId: string): Promise<void> {
+  if (!referralRepo) return;
+  try {
+    await referralRepo.markMilestone(userId, 'keys_connected');
+  } catch (e) {
+    console.warn('[referral] 연결 단계 기록 실패 — 거래소 연결은 유지한다:', (e as Error).message);
+  }
+}
+
+async function payReferralOnFirstTrade(userId: string): Promise<void> {
   if (!referralRepo || !pointsRepo) return;
   const rRepo = referralRepo;
   const pRepo = pointsRepo;
@@ -713,7 +732,7 @@ async function payReferralOnExchangeVerified(userId: string): Promise<void> {
     */
     const r = await payReferralReward(
       {
-        markKeysConnected: (uid) => rRepo.markMilestone(uid, 'keys_connected'),
+        markMilestone: (uid, m) => rRepo.markMilestone(uid, m),
         findByReferee: (uid) => rRepo.findByReferee(uid),
         getPointSettings: async () => {
           const ps = await pRepo.getSettings();
@@ -3600,8 +3619,16 @@ if (env.authEnabled) {
           service: authService,
           vault,
           credRepo: credentialRepo,
-          /* ★ 초대 보상 지급 시점 — 거래소 연결(운영 결정 2026-09-13). */
-          onExchangeVerified: payReferralOnExchangeVerified,
+          /*
+             ★ 거래소 연결은 **단계 기록만** 한다. 보상은 첫 거래에서 지급한다
+               (운영 결정 2026-09-13 변경).
+          */
+          onExchangeVerified: recordExchangeConnected,
+          /*
+             ★ 초대 보상 지급 — **첫 거래**(운영 결정 2026-09-13).
+               연결 시점은 위에서 단계만 기록하고, 지급은 여기서 한다.
+          */
+          onLiveOrderAccepted: payReferralOnFirstTrade,
           /*
              ★ 거래소 API 키 등록·검증·삭제를 감사기록에 남긴다. 예전에는 이 배선이
                없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다**(MFA_KEK 사고 때
@@ -3940,7 +3967,7 @@ if (env.authEnabled) {
                ★★ OAuth 경로에도 붙인다. 실고객 4명 중 이 경로로 연결한 사례가 있다 —
                  수동 검증 쪽만 붙이면 실제로 쓰이는 경로가 빠진다.
             */
-            onExchangeVerified: payReferralOnExchangeVerified,
+            onExchangeVerified: recordExchangeConnected,
             pool: core.pool,
             csrfKey: env.csrfKey,
             corsOrigins: env.corsOrigins,
