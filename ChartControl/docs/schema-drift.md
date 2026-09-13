@@ -51,6 +51,7 @@ Postgres 표 108개 · SQLite 표 74개
 | `tier_definitions` `tier_benefit_settings` `user_tier_state` | 등급 제도 |
 | `admin_user_notes` | 관리자 회원 노트 |
 | `kucoin_oauth_states` | KuCoin Fast API(OAuth) 연결 — 라우트가 아예 등록되지 않는다 |
+| `bitget_oauth_states` | Bitget FastApi(OAuth) 연결 — `serialNo` 를 사용자에 묶어 계정 탈취를 막는다. 없으면 라우트가 등록되지 않는다 |
 | `ops_errors` | 오류 관측(기록·알림·운영자 화면) |
 | `user_deletion_records` `retained_orders` | 회원 삭제 시 법정 보관 분리 |
 

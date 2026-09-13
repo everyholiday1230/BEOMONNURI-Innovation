@@ -200,6 +200,25 @@ export interface ApiEnv {
   kucoinOauthRedirectUri: string;
   /** OAuth 로그인/토큰 교환 기준 주소. 지역 사이트를 쓰는 경우에만 바꾼다. */
   kucoinOauthBase: string;
+
+  /*
+     ═══ Bitget FastApi (OAuth) ═══
+
+     ★★ 셋 다 있어야 라우터가 등록된다(`isBitgetOauthConfigured`). 반쯤 동작하는
+       연결 흐름은 고객이 인증까지 하고 실패하는 것을 뜻하고, 그 시점에 이미
+       Bitget 쪽에는 키가 만들어져 있다 — 우리가 받지 못한 키가 떠돌게 된다.
+  */
+  bitgetOauthClientId: string;
+  /** PKCS8 개인키 base64. Bitget 에 제출한 공개키와 한 쌍. */
+  bitgetOauthRsaPrivateKey: string;
+  bitgetOauthRedirectUri: string;
+  bitgetOauthBase: string;
+  /**
+   * 추천 코드(`vipCode`). 선택이지만 **없으면 리베이트가 0 이다**
+   * (Bitget BD 확인 2026-09-13: 리베이트는 우리 코드로 **신규 가입**한 고객만).
+   */
+  bitgetOauthVipCode: string;
+  bitgetOauthChannelCode: string;
   /** 키 발급 엔드포인트. 신규 파트너는 v2(cyber-truck-vault)를 쓴다. */
   kucoinOauthApiKeyPath: string;
   /** authGroupMap override (KUCOIN_OAUTH_GROUPS). 없으면 기본 권한 집합을 쓴다. */
@@ -813,6 +832,13 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     kucoinOauthClientSecret: env.KUCOIN_OAUTH_CLIENT_SECRET?.trim() ?? '',
     kucoinOauthRedirectUri: env.KUCOIN_OAUTH_REDIRECT_URI?.trim() ?? '',
     kucoinOauthBase: env.KUCOIN_OAUTH_BASE?.trim() || 'https://www.kucoin.com',
+    bitgetOauthClientId: env.BITGET_OAUTH_CLIENT_ID?.trim() ?? '',
+    bitgetOauthRsaPrivateKey: env.BITGET_OAUTH_RSA_PRIVATE_KEY?.trim() ?? '',
+    bitgetOauthRedirectUri: env.BITGET_OAUTH_REDIRECT_URI?.trim() ?? '',
+    /* ★ 기본값은 문서의 인증 페이지. 언어 경로(/en/)가 포함된 값이다. */
+    bitgetOauthBase: env.BITGET_OAUTH_BASE?.trim() || 'https://www.bitget.com/en/account/oauth',
+    bitgetOauthVipCode: env.BITGET_OAUTH_VIP_CODE?.trim() ?? '',
+    bitgetOauthChannelCode: env.BITGET_OAUTH_CHANNEL_CODE?.trim() ?? '',
     kucoinOauthApiKeyPath: env.KUCOIN_OAUTH_APIKEY_PATH?.trim()
       || '/_oauth/resource/cyber-truck-vault/v2/outer/api-key/add',
     // authGroupMap override (JSON). 예: KUCOIN_OAUTH_GROUPS='{"API_FUTURES":false}'

@@ -45,6 +45,21 @@ const GUARDED_ROUTERS = [
   */
   'auth-routes.ts',
   'kucoin-oauth-routes.ts',
+  /*
+     ★★ Bitget FastApi. `start` 는 CSRF 를 검증한다.
+
+       ★★★ 그런데 `callback` 은 **일부러 CSRF 를 쓰지 않는다.** Bitget 이 서버 대
+         서버로 POST 하므로 쿠키도 Origin 도 없다 — CSRF 토큰을 요구하면 콜백이
+         100% 실패하고, 고객은 인증을 마쳤는데 키가 도착하지 않는다.
+
+         그 대신 **RSA 서명 검증**이 인증을 대신한다:
+           sign 복호 → serialNo 일치 · 미사용 · 미만료 · user_id 일치 · 시각 ±5분
+         이 다섯을 SQL 조건과 코드에서 함께 확인한다(`bitget-oauth-routes.ts`).
+
+       ★ 이 예외를 여기 적어 두는 이유: 다음 사람이 "콜백에 CSRF 가 없다" 를
+         버그로 오해해 추가하면 연결이 전부 깨진다.
+  */
+  'bitget-oauth-routes.ts',
   'saved-routes.ts',
   'strategy-routes.ts',
   'user-strategy-routes.ts',

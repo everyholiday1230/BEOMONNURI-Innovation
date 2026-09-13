@@ -86,6 +86,7 @@ import { createStrategyRouter } from './strategy-routes';
 import { createRiskEmailAlerter } from './trading/risk-email';
 import { createTradingRouter } from './trading-routes';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
+import { createBitgetOauthRouter, isBitgetOauthConfigured } from './bitget-oauth-routes';
 import { payReferralReward, REFERRAL_MONTHLY_CAP } from './referral/referral-reward';
 import { BitMartFuturesAdapter } from '@quantumtrade/exchange-bitmart';
 import { createAiRouter } from './ai-routes';
@@ -593,6 +594,13 @@ app.get('/api/config', (c) =>
          필요하지 않은 값을 내보내지 않는 것이 기본이다.
     */
     kucoinOauthAvailable: isKucoinOauthConfigured(env),
+    /*
+       ★ 화면이 "비트겟 원클릭 연결" 버튼을 보일지 판단하는 값.
+
+         ★★ 설정이 없으면 **버튼을 숨긴다.** 이 저장소의 규칙 — 죽은 버튼을 두지
+           않는다. 눌러서 실패하면 고객은 우리 제품이 고장 났다고 판단한다.
+    */
+    bitgetOauthAvailable: isBitgetOauthConfigured(env),
   }),
 );
 
@@ -3991,6 +3999,52 @@ if (env.authEnabled) {
           ? 'requires PostgreSQL (migration 0024)'
           : 'KUCOIN_OAUTH_CLIENT_ID / KUCOIN_OAUTH_REDIRECT_URI not set';
         console.log(`[api] KuCoin Fast API (OAuth) NOT mounted — ${why}`);
+      }
+
+      /*
+         ═══ Bitget FastApi (OAuth) ═══
+
+         ★★ KuCoin 과 흐름이 다르다. Bitget 은 **우리 콜백으로 API 키를 직접
+           POST 한다**(서버 대 서버, 세션 쿠키 없음). 그래서 진위 판정이 서명뿐이고,
+           그 검증은 `bitget-oauth-routes.ts` 안에 모아 두었다.
+
+         ★ 설정이 하나라도 없으면 **등록하지 않는다.** 반쯤 동작하면 고객이
+           인증까지 하고 실패하는데, 그 시점에 Bitget 쪽에는 이미 키가 만들어져
+           있다 — 우리가 받지 못한 키가 떠돌게 된다.
+      */
+      if (core?.pool && isBitgetOauthConfigured(env)) {
+        app.route(
+          '/api',
+          createBitgetOauthRouter({
+            service: authService,
+            vault,
+            credRepo: credentialRepo,
+            /* ★ 연결 단계 기록. 초대 보상은 첫 거래에서 지급한다(2026-09-13). */
+            onExchangeVerified: recordExchangeConnected,
+            pool: core.pool,
+            csrfKey: env.csrfKey,
+            corsOrigins: env.corsOrigins,
+            cookieName: env.cookieName,
+            csrfCookieName: 'qt_csrf',
+            clientId: env.bitgetOauthClientId,
+            rsaPrivateKey: env.bitgetOauthRsaPrivateKey,
+            redirectUri: env.bitgetOauthRedirectUri,
+            oauthBase: env.bitgetOauthBase,
+            ...(env.bitgetOauthVipCode ? { vipCode: env.bitgetOauthVipCode } : {}),
+            ...(env.bitgetOauthChannelCode ? { channelCode: env.bitgetOauthChannelCode } : {}),
+          }),
+        );
+        /*
+           ★★ 추천 코드 유무를 **부팅 로그에 남긴다.** 없으면 연결은 되지만
+             리베이트가 0 이다(BD 확인). KuCoin 에서 브로커 헤더 누락으로 리베이트가
+             0 이었던 것을 로그로 알아챈 전례가 있다 — 같은 장치를 미리 둔다.
+        */
+        console.log(
+          `[api] Bitget FastApi (OAuth) mounted — vipCode ${
+            env.bitgetOauthVipCode ? 'ON' : 'OFF — NO REBATE, set BITGET_OAUTH_VIP_CODE'}`,
+        );
+      } else {
+        console.log('[api] Bitget FastApi (OAuth) not configured — route not mounted');
       }
 
       console.log(`[api] trading mounted (mode=${env.liveExecutionMode}, live=${env.liveTradingEnabled}, killSwitch=${env.emergencyKillSwitch})`);
