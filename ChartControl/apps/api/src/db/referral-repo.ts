@@ -283,6 +283,37 @@ export class PgReferralRepo {
     return (r.rowCount ?? 0) > 0;
   }
 
+  /**
+   * 이 사용자가 **누구의 초대로** 가입했는지.
+   *
+   * ★★ 이 조회가 없어서 초대 보상을 나중에 지급할 수 없었다.
+   *
+   *   보상 조건을 '가입' 에서 **'거래소 연결'** 로 옮기면(운영 결정 2026-09-13),
+   *   지급 시점은 가입보다 한참 뒤다. 그때 "이 사람을 누가 초대했나" 를 알아야
+   *   추천인에게 줄 수 있다. `listByReferrer` 는 방향이 반대라 쓸 수 없다.
+   *
+   * ★ 초대는 1인당 한 건이다(referred_user_id UNIQUE). 그래서 단건을 돌려준다.
+   */
+  async findByReferee(referredUserId: string): Promise<{
+    id: string; code: string; referrerUserId: string | null;
+    keysConnectedAt: number | null; signedUpAt: number;
+  } | null> {
+    const r = await this.pool.query(
+      `SELECT id, code, referrer_user_id, keys_connected_at, signed_up_at
+         FROM referral_signups WHERE referred_user_id = $1 LIMIT 1`,
+      [referredUserId],
+    );
+    const x = r.rows[0];
+    if (!x) return null;
+    return {
+      id: String(x.id),
+      code: String(x.code),
+      referrerUserId: x.referrer_user_id === null ? null : String(x.referrer_user_id),
+      keysConnectedAt: x.keys_connected_at === null ? null : new Date(x.keys_connected_at).getTime(),
+      signedUpAt: new Date(x.signed_up_at).getTime(),
+    };
+  }
+
   /** 내가 초대한 사람들. 이메일을 함께 준다(목록 표시용). */
   async listByReferrer(referrerUserId: string, limit = 100): Promise<ReferralSignupRow[]> {
     const r = await this.pool.query(

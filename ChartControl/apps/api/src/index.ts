@@ -674,6 +674,95 @@ let priceAlertRepo: PgPriceAlertRepo | null = null;
 let referralRepo: PgReferralRepo | null = null;
 
 /*
+   ═══ 초대 보상 지급 — 거래소 연결 시점 ═══
+
+   ★★★ 왜 가입이 아니라 **거래소 연결** 인가 (운영 결정 2026-09-13)
+
+     예전 코드는 가입 시점에 지급하려 했고, 그것도 직원(`team_leader`) 코드일
+     때만이었다. 실측 결과 `team_leader` 태그를 가진 사용자가 **0명**이어서
+     **어떤 코드로도 아무 지급이 없었다.** 그런데 고객 화면(`/api/referral/me`)의
+     안내 문구는 "추천인과 신규 회원 둘 다 2,000포인트" 를 약속하고 있었다 —
+     실제로 가입시켜 확인한 결과 양쪽 모두 0 이었다. 약속과 코드가 어긋난 상태였다.
+
+     가입만으로 주면 남용이 너무 쉽다. 실제로 지메일 두 개로 5분 만에 자기추천
+     귀속을 만들 수 있었다. 거래소 연결은 **거래소가 검증한 실계정**이 필요하므로
+     같은 사람이 무한히 반복할 수 없다.
+
+   ★ 월 3명 상한. 상한은 **지급 원장 건수**로 센다 — 보상 조건이 연결이므로
+     '가입 수' 로 세면 조건과 어긋난다.
+   ★★ 멱등: `uq_points_ref (user_id, reason, ref_type, ref_id)` 가 막는다.
+     refId 는 **피추천인 userId** 로 고정한다 — 한 사람의 연결로 두 번 지급되지 않는다.
+     추천인·피추천인은 user_id 가 달라 각자 한 건씩 남는다.
+   ★ 실패를 삼킨다. 포인트 적립 때문에 **거래소 연결이 실패하면 안 된다** —
+     연결은 고객이 돈을 다루기 위한 것이고 보상은 부수적이다. 다만 로그는 남긴다.
+*/
+const REFERRAL_MONTHLY_CAP = 3;
+
+async function payReferralOnExchangeVerified(userId: string): Promise<void> {
+  if (!referralRepo) return;
+  try {
+    /* ★ 먼저 단계를 기록한다. 지급이 막혀도 '언제 연결했는지' 는 남아야 한다. */
+    await referralRepo.markMilestone(userId, 'keys_connected');
+
+    const row = await referralRepo.findByReferee(userId);
+    if (!row || !row.referrerUserId) return;           // 초대로 온 사용자가 아니다
+    if (row.referrerUserId === userId) return;         // 자기추천 방어(있을 수 없지만 명시)
+
+    if (!pointsRepo) return;
+    const ps = await pointsRepo.getSettings();
+    if (!ps.enabled || !ps.referralAsPoints || ps.referralPoints <= 0) return;
+
+    /* ★ 이번 달 1일 00:00 UTC 부터. 달이 바뀌면 상한이 초기화된다. */
+    const now = new Date();
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+    const paidThisMonth = await pointsRepo.countGrants({
+      userId: row.referrerUserId,
+      reason: 'referral_signup',
+      refType: 'referral_referrer',
+      sinceMs: monthStart,
+    });
+
+    /*
+       ★★ 상한을 넘으면 **추천인에게만** 주지 않는다. 피추천인은 자기가 초대받은
+         사람이 몇 번째인지 알 수 없고, 그 사정으로 신규 고객의 보상을 빼앗는 것은
+         부당하다. 상한은 추천인의 남용을 막는 장치다.
+    */
+    const referrerAllowed = paidThisMonth < REFERRAL_MONTHLY_CAP;
+
+    const refereeEntry = await pointsRepo.grant({
+      userId,
+      amount: ps.referralPoints,
+      reason: 'referral_signup',
+      refType: 'referral_referee',
+      refId: userId,
+      memo: `referral bonus (referee · exchange connected)`,
+    });
+
+    let referrerEntry = null;
+    if (referrerAllowed) {
+      referrerEntry = await pointsRepo.grant({
+        userId: row.referrerUserId,
+        amount: ps.referralPoints,
+        reason: 'referral_signup',
+        refType: 'referral_referrer',
+        refId: userId,
+        memo: `referral bonus (referrer · ${row.code})`,
+      });
+    }
+
+    console.log(
+      `[referral] 보상 — referee=${userId} referrer=${row.referrerUserId} `
+      + `pts=${ps.referralPoints} refereePaid=${refereeEntry !== null} `
+      + `referrerPaid=${referrerEntry !== null} monthUsed=${paidThisMonth}/${REFERRAL_MONTHLY_CAP}`
+      + (referrerAllowed ? '' : ' — 추천인 월 상한 초과'),
+    );
+  } catch (e) {
+    console.warn('[referral] 보상 지급 실패 — 거래소 연결은 유지한다:', (e as Error).message);
+  }
+}
+
+/*
    포인트 저장소.
 
    ★ 포인트는 부채다. 원장이 유일한 기록이므로 Postgres 가 없으면 제도를
@@ -681,7 +770,6 @@ let referralRepo: PgReferralRepo | null = null;
 */
 let pointsRepo: PgPointsRepo | null = null;
 let operationalControls: OperationalControls | undefined; // feature_flags+kill_switches 런타임 강제 게이트
-let userTagsRepo: PgUserTagsRepo | null = null; // 직원(team_leader) 판별용 — 리퍼럴 포인트 지급 분기에 쓴다
 
 /*
    법적 문서 저장소.
@@ -1974,7 +2062,13 @@ if (env.authEnabled) {
 
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
-        ...(core.pool ? { userTags: (userTagsRepo = new PgUserTagsRepo(core.pool)) } : {}),
+        /*
+           ★ 관리 콘솔의 사용자 태그. 예전에는 이 값을 모듈 변수에도 담아 리퍼럴 지급
+             분기(`team_leader` 여부)에 썼는데, 보상 조건이 거래소 연결로 바뀌면서
+             그 분기를 없앴다(2026-09-13). 그래서 모듈 변수도 함께 제거했다 —
+             읽는 곳 없는 변수를 남기면 다음 사람이 아직 쓰인다고 오해한다.
+        */
+        ...(core.pool ? { userTags: new PgUserTagsRepo(core.pool) } : {}),
 
         cookieName: env.cookieName, health, ratePerMin: env.adminRateLimitPerMin, rateLimiter,
         // 운영자가 특정 사용자에게 직접 이메일을 보낼 때 쓴다(관리자 사용자 상세).
@@ -2367,63 +2461,20 @@ if (env.authEnabled) {
           }
 
           if (!referralRepo || !referralCode) return;
-          const attributed = await referralRepo.attribute(referralCode, userId);
-          if (!attributed) return;
-
           /*
-             초대 보상을 포인트로 적립한다.
+             ★ 가입 귀속만 기록한다. **보상은 여기서 주지 않는다.**
 
-             ★ 이것이 우리가 **실제로 할 수 있는 지급**이다. 포인트는 사이트
-               내부 재화이므로 원장에 적립하면 그것으로 끝난다. 현금 송금은
-               운영자가 손으로 해야 하고, 비수탁이라 사용자 계정에 넣을 수도 없다.
+               예전에는 이 자리에서 지급하려 했고, 그것도 직원(`team_leader`) 코드일
+               때만 신규 고객에게 주는 구조였다. 실측 결과 `team_leader` 태그를 가진
+               사용자가 **0명**이어서 **어떤 코드로도 아무 지급이 없었다.** 그런데
+               고객 화면은 "추천인과 신규 회원 둘 다 2,000포인트" 를 약속하고 있었다 —
+               실제로 가입시켜 확인했더니 양쪽 모두 0 이었다.
 
-             ★ 적립 시점을 가입으로 잡는다.
-               "거래를 시작해야 우리 수익이 생긴다" 는 것은 사실이지만, 그
-               시점을 기다리면 초대자가 보상을 언제 받는지 알 수 없다.
-               가입 자체에 정해진 포인트를 주는 편이 약속이 명확하다.
-               (그래서 금액이 크면 안 된다 — 가짜 가입으로 남용될 수 있다.)
-
-             ★ 같은 초대 건에 두 번 적립하지 않는다.
-               ref 로 초대받은 사용자 ID 를 넣으면 DB UNIQUE 가 막는다.
-
-             실패를 삼킨다 — 포인트 적립 때문에 회원가입이 실패하면 안 된다.
+             ★★ 운영 결정(2026-09-13): 보상 조건을 **거래소 연결**로 옮긴다.
+               가입만으로 주면 남용이 쉽다 — 지메일 두 개로 5분 만에 자기추천 귀속을
+               만들 수 있었다. 지급은 `payReferralOnExchangeVerified` 한 곳에서 한다.
           */
-          if (!pointsRepo) return;
-          try {
-            const ps = await pointsRepo.getSettings();
-            if (!ps.enabled || !ps.referralAsPoints || ps.referralPoints <= 0) return;
-
-            const code = await referralRepo.findCode(referralCode);
-            if (!code) return;
-
-            /*
-               ★★ 직원(team_leader) 코드로 가입한 경우에만 신규 고객에게 포인트를 준다.
-
-                 - 직원 코드: 그 코드로 가입한 **신규 고객만** ps.referralPoints 지급.
-                   직원 본인(추천인)은 포인트가 아니라 가입 '수' 기반 현금으로 정산하므로
-                   포인트를 주지 않는다.
-                 - 일반 고객 코드: 아무에게도 포인트를 주지 않는다.
-
-               직원 여부는 'team_leader' 사용자 태그로 판정한다(관리자 사용자 상세에서 부여).
-               가입 귀속(referralRepo.attribute)은 위에서 이미 코드 종류와 무관하게 기록되므로,
-               고객 코드든 직원 코드든 '누가 누구 코드로 가입했는지' 집계는 그대로 남는다.
-            */
-            const ownerTags = userTagsRepo ? await userTagsRepo.listForUser(code.userId) : [];
-            const isStaffCode = ownerTags.includes('team_leader');
-            if (!isStaffCode) return; // 고객 코드 → 포인트 지급 없음
-
-            // 신규 고객(referee)에게만 지급. 멱등: uq_points_ref 로 한 번만 반영된다.
-            await pointsRepo.grant({
-              userId,
-              amount: ps.referralPoints,
-              reason: 'referral_signup',
-              refType: 'referral_bonus',
-              refId: userId,
-              memo: `referral signup (referee, staff code)`,
-            });
-          } catch (e) {
-            console.warn('[points] 초대 보상 적립 실패 — 가입은 유지한다:', (e as Error).message);
-          }
+          await referralRepo.attribute(referralCode, userId);
         },
         mfa: mfaGate,
         // R6/BL-11 — the SAME distributed limiter instance every other rate-limited path uses. In
@@ -3572,6 +3623,8 @@ if (env.authEnabled) {
           service: authService,
           vault,
           credRepo: credentialRepo,
+          /* ★ 초대 보상 지급 시점 — 거래소 연결(운영 결정 2026-09-13). */
+          onExchangeVerified: payReferralOnExchangeVerified,
           /*
              ★ 거래소 API 키 등록·검증·삭제를 감사기록에 남긴다. 예전에는 이 배선이
                없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다**(MFA_KEK 사고 때
@@ -3906,6 +3959,11 @@ if (env.authEnabled) {
             service: authService,
             vault,
             credRepo: credentialRepo,
+            /*
+               ★★ OAuth 경로에도 붙인다. 실고객 4명 중 이 경로로 연결한 사례가 있다 —
+                 수동 검증 쪽만 붙이면 실제로 쓰이는 경로가 빠진다.
+            */
+            onExchangeVerified: payReferralOnExchangeVerified,
             pool: core.pool,
             csrfKey: env.csrfKey,
             corsOrigins: env.corsOrigins,

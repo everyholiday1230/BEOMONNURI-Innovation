@@ -59,6 +59,16 @@ export interface TradingRouterDeps {
   */
   credRepo: CredentialStore;
   /**
+   * 거래소 키가 **VERIFIED 로 확정된 직후** 부르는 알림.
+   *
+   * ★★ 초대 보상 지급 시점이다(운영 결정 2026-09-13: 가입이 아니라 거래소 연결).
+   *   VERIFIED 가 되는 곳이 두 군데(수동 검증·KuCoin OAuth)이므로 각자 지급 로직을
+   *   복사하면 한쪽이 빠진다. 그래서 **알림만 내보내고** 지급은 한 곳에서 한다.
+   * ★ 선택 의존성이다 — 초대 제도가 없는 배포에서도 라우터가 동작해야 한다.
+   * ★★ 실패해도 연결 응답을 막지 않는다. 호출부에서 await 하되 예외를 삼킨다.
+   */
+  onExchangeVerified?: (userId: string) => Promise<void>;
+  /**
    * 감사기록 저장소. **거래소 API 키의 등록·검증·삭제를 남긴다.**
    *
    * ★★★ 이것이 없어서 **누가 언제 키를 넣었는지 우리 기록에 없었다.**
@@ -1172,6 +1182,10 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
       await d.accountAdapter.getBalances(ctx); // Read-Only probe (no order permission needed)
       await d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
       await auditCred(c, a.user.id, 'exchange.credential.verify', row.id, { result: 'verified' });
+      /* ★ 초대 보상. 실패가 연결을 막지 않는다 — 연결이 본질이고 보상은 부수적이다. */
+      if (d.onExchangeVerified) {
+        try { await d.onExchangeVerified(a.user.id); } catch { /* 지급 실패는 비치명 */ }
+      }
       return c.json({ id: row.id, connectionStatus: 'VERIFIED', permissionsVerified: true });
     } catch (e) {
       await d.credRepo.setVerified(a.user.id, row.id, 'FAILED', false);

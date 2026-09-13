@@ -127,6 +127,11 @@ export interface KucoinOauthDeps {
        외래키 위반으로 500** 이 났다.
   */
   credRepo: CredentialStore;
+  /**
+   * 거래소 키가 VERIFIED 로 확정된 직후 알림. 초대 보상 지급 시점이다.
+   * ★ 선택 의존성 — 초대 제도가 없는 배포에서도 동작해야 한다.
+   */
+  onExchangeVerified?: (userId: string) => Promise<void>;
   /** state 저장용. Postgres 전용 기능이다(개발 SQLite 에는 표가 없다). */
   pool: Pool;
   csrfKey: string;
@@ -506,6 +511,15 @@ export function createKucoinOauthRouter(d: KucoinOauthDeps): Hono {
       */
       try {
         await d.credRepo.setVerified(a.user.id, createdCred.id, 'VERIFIED', true);
+        /*
+           ★★ 초대 보상은 **여기도** 불러야 한다. 지금 실고객 4명 중 이 OAuth 경로로
+             연결한 사람이 있다 — 수동 검증 쪽에만 붙이면 실제로 많이 쓰이는 경로가
+             빠진다. 지급 로직은 한 곳에 있고 여기서는 알림만 보낸다.
+           ★ 실패가 연결을 막지 않는다.
+        */
+        if (d.onExchangeVerified) {
+          try { await d.onExchangeVerified(a.user.id); } catch { /* 지급 실패는 비치명 */ }
+        }
       } catch (e) {
         console.warn('[kucoin-oauth] setVerified 실패(키는 저장됨):', (e as Error).message);
       }

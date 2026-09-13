@@ -308,6 +308,29 @@ export class PgPointsRepo {
    * 중복 호출은 흔한 정상 상황이고(재시도·중복 이벤트), 예외로 만들면 호출자가
    * 매번 감싸야 한다.
    */
+  /**
+   * 특정 사유·종류의 적립 건수 (기간 내).
+   *
+   * ★★ 초대 보상 **월 3명 상한**을 세기 위해 필요하다(운영 결정 2026-09-13).
+   *
+   *   상한을 어디서 세는지가 중요하다. `referral_signups` 를 세면 **가입 수**를
+   *   세는 것이고, 보상 조건은 거래소 연결이므로 둘은 다르다. 그래서 **실제로
+   *   지급된 원장 건수**를 센다 — 상한은 "지급" 에 걸리는 것이 맞다.
+   *
+   * ★ 원장은 취소되지 않고 쌓이므로 이 수는 줄지 않는다. 상한 판정이 흔들리지 않는다.
+   */
+  async countGrants(input: {
+    userId: string; reason: PointReason; refType: string; sinceMs: number;
+  }): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS n FROM point_ledger
+        WHERE user_id = $1 AND reason = $2 AND ref_type = $3
+          AND delta > 0 AND created_at >= $4`,
+      [input.userId, input.reason, input.refType, new Date(input.sinceMs)],
+    );
+    return Number(r.rows[0]?.n ?? 0);
+  }
+
   async grant(input: {
     userId: string; amount: number; reason: PointReason;
     refType?: string | null; refId?: string | null; memo?: string | null;

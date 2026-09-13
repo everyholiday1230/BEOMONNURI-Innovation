@@ -379,3 +379,101 @@ d('PgReferralRepo', () => {
     expect((await repo.listReferrers()).find((x) => x.userId === doomed)).toBeUndefined();
   });
 });
+
+/*
+   ═══ 초대 보상: 거래소 연결 시점 지급 · 월 3명 상한 ═══
+
+   ★★★ 왜 이 시험이 있는가
+
+     감사(2026-09-13) 결과 초대 보상이 **아무에게도 지급되지 않았다.**
+     지급 조건이 직원(`team_leader`) 코드였고 그 태그를 가진 사용자가 0명이었다.
+     그런데 고객 화면은 "추천인과 신규 회원 둘 다 2,000포인트" 를 약속했다 —
+     실제로 가입시켜 확인하니 양쪽 모두 0 이었다.
+
+     운영 결정: 보상 조건을 **거래소 연결**로 옮기고 **월 3명 상한**을 둔다.
+     그래서 이 시험이 지키는 것은 두 가지다 — (1) 피추천인을 역방향으로 찾을 수
+     있는가, (2) 지급 건수를 셀 수 있는가. 둘 중 하나만 없어도 지급이 불가능하다.
+*/
+const dPay = process.env.PG_TEST_URL ? describe : describe.skip;
+
+dPay('초대 보상 — 역방향 조회와 월 상한 집계', () => {
+  let pool: pg.Pool;
+  let repo: PgReferralRepo;
+
+  const mkUser = async () => {
+    const id = randomUUID();
+    await pool.query(
+      `INSERT INTO users (id, email, password_hash, role, status)
+       VALUES ($1, $2, 'x', 'USER', 'active') ON CONFLICT DO NOTHING`,
+      [id, `pay-${id.slice(0, 8)}@test.local`],
+    );
+    return id;
+  };
+
+  beforeAll(async () => {
+    pool = createPool(await createIsolatedTestDatabase(process.env.PG_TEST_URL!, 'referral_pay'));
+    await migrateUp(pool);
+    repo = new PgReferralRepo(pool);
+  }, 120_000);
+
+  afterAll(async () => { await pool?.end(); });
+
+  it('findByReferee: 초대받은 사람으로 추천인을 되짚는다', async () => {
+    /*
+       ★★ 이 조회가 없어서 나중 지급이 불가능했다. 보상 시점(거래소 연결)은 가입보다
+         한참 뒤이고, 그때 "이 사람을 누가 초대했나" 를 알아야 추천인에게 줄 수 있다.
+         `listByReferrer` 는 방향이 반대라 쓸 수 없다.
+    */
+    const admin = await mkUser();
+    const referrer = await mkUser();
+    const referee = await mkUser();
+    await repo.updateSettings(
+      { enabled: true, sharePct: 0, minPayout: 0, payoutCurrency: 'USDT', payoutNote: 'x' },
+      admin,
+    );
+    const code = await repo.issueCode(referrer);
+    expect(code, '코드 발급 실패').not.toBeNull();
+    expect(await repo.attribute(code!.code, referee)).toBe(true);
+
+    const row = await repo.findByReferee(referee);
+    expect(row, '초대 건을 찾지 못했다').not.toBeNull();
+    expect(row!.referrerUserId).toBe(referrer);
+    /* ★ 아직 연결하지 않았으므로 null 이어야 한다 — 지급 조건이 이 값이다. */
+    expect(row!.keysConnectedAt).toBeNull();
+
+    /* ★ 초대받지 않은 사용자는 null. 여기서 빈 객체를 돌려주면 "초대받았다" 가 된다. */
+    expect(await repo.findByReferee(await mkUser())).toBeNull();
+  });
+
+  it('markMilestone(keys_connected) 이후 연결 시각이 남는다', async () => {
+    /*
+       ★★★ `markMilestone` 은 **호출하는 곳이 하나도 없었다.** 단계 추적 코드가
+         존재하는데 아무도 부르지 않아 `keys_connected_at` 이 영원히 null 이었다.
+         보상 조건을 이 값으로 삼으려면 실제로 기록돼야 한다.
+    */
+    const admin = await mkUser();
+    const referrer = await mkUser();
+    const referee = await mkUser();
+    await repo.updateSettings(
+      { enabled: true, sharePct: 0, minPayout: 0, payoutCurrency: 'USDT', payoutNote: 'x' },
+      admin,
+    );
+    const code = await repo.issueCode(referrer);
+    await repo.attribute(code!.code, referee);
+
+    expect(await repo.markMilestone(referee, 'keys_connected')).toBe(true);
+    const row = await repo.findByReferee(referee);
+    expect(row!.keysConnectedAt, '연결 시각이 기록되지 않았다').not.toBeNull();
+
+    /*
+       ★ 두 번 불러도 최초 시각을 덮지 않는다(COALESCE) — 근거 시각이 밀리면 안 된다.
+       ★★ **밀리초를 벌리고 확인한다.** 처음에는 대기 없이 검사했는데, 두 호출이
+         같은 밀리초에 들어가면 `now()` 를 덮어써도 값이 같아 **시험이 운으로
+         통과했다**(COALESCE 를 지워보는 역검증에서 드러났다).
+    */
+    const first = row!.keysConnectedAt;
+    await new Promise((r) => setTimeout(r, 40));
+    await repo.markMilestone(referee, 'keys_connected');
+    expect((await repo.findByReferee(referee))!.keysConnectedAt).toBe(first);
+  });
+});
