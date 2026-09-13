@@ -2206,6 +2206,8 @@
       // --- 도움말 · 문의 ---
       help_contact_sub: 'Envie uma mensagem — ela chega à nossa fila de suporte e você acompanha a resposta aqui',
       help_subject: 'Assunto',
+      help_bug_label: 'É um relato de bug — 3.000 pontos se confirmarmos',
+      help_bug_note: 'Diga o que você fez, o que esperava e o que aconteceu — precisamos reproduzir. Pagamos ao primeiro que relata cada bug; os pontos são concedidos manualmente após a confirmação. Não teste contas de outras pessoas, nem faça varreduras automáticas ou testes de carga.',
       help_subject_ph: 'Em poucas palavras, qual é o problema?',
       help_body_ph: 'O que você esperava que acontecesse e o que aconteceu em vez disso? Se for sobre uma operação, informe o ativo e o horário.',
       help_submit: 'Enviar',

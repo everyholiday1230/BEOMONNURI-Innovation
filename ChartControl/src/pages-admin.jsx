@@ -2672,6 +2672,13 @@
           subject: x.subject,
           status: x.status,
           priority: x.priority,
+          /*
+             ★★ `category` 를 통과시킨다. API 는 원래 주고 있었는데 화면이 버렸다.
+               버그 신고 포상(3,000포인트)을 주기로 했으므로 **운영자가 버그 티켓을
+               구분할 수 있어야 한다.** 구분이 안 되면 일반 문의에 섞여 놓치고,
+               그러면 약속만 하고 안 주는 상태가 된다 — 초대 보상에서 이미 겪은 실패다.
+          */
+          category: x.category || '',
           updated: x.updatedAt,
         }))
       /*
@@ -2825,7 +2832,20 @@
                   <span className={`status-pill status-pill--${t.status === 'open' ? 'warn' : t.status === 'pending' ? 'neutral' : 'ok'}`}>{t.status.toUpperCase()}</span>
                   <span style={{marginLeft:'auto', fontSize:10, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)'}}>{timeAgo(t.updated)}</span>
                 </div>
-                <div style={{fontSize:12, fontWeight:500}}>{t.subject}</div>
+                <div style={{fontSize:12, fontWeight:500}}>
+                  {/*
+                       ★ 버그 신고를 눈에 띄게 표시한다. 포상 대상이므로 목록에서 바로
+                         보여야 한다. 다른 분류는 있는 그대로 작게 보여준다 — 분류를
+                         'bug' 만 특별 취급하고 나머지를 숨기면 그 정보가 사라진다.
+                  */}
+                  {t.category === 'bug' && (
+                    <span className="badge badge--warn" style={{marginRight:6}}>BUG · 3,000pt</span>
+                  )}
+                  {t.category && t.category !== 'bug' && (
+                    <span style={{marginRight:6, fontSize:10, color:'var(--color-text-tertiary)'}}>[{t.category}]</span>
+                  )}
+                  {t.subject}
+                </div>
                 <div style={{fontSize:11, color:'var(--color-text-tertiary)', fontFamily:'var(--font-mono)', marginTop:2}}>User · {t.user}</div>
               </div>
             ))}

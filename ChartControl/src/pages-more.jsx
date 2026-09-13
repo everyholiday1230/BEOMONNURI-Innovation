@@ -3228,7 +3228,7 @@
     /* 목록 조회 실패를 '문의 없음' 으로 덮지 않기 위한 상태. */
     const [ticketsError, setTicketsError] = useState(false);
     const [supported, setSupported] = useState(true);
-    const [form, setForm] = useState({ subject: '', body: '' });
+    const [form, setForm] = useState({ subject: '', body: '', isBug: false });
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
     const [openId, setOpenId] = useState(null);
@@ -3304,11 +3304,22 @@
       if (!subject || !body) return;
       setBusy(true); setMsg(null);
       try {
-        const r = await api.createSupportTicket({ subject, body });
+        /*
+           ★★ 버그 신고는 `category: 'bug'` 로 표시한다.
+
+             포상(3,000포인트)을 주기로 했으므로 **찾을 수 있어야 한다.** 일반 문의와
+             섞이면 운영자가 놓치고, 그러면 약속만 하고 안 주는 상태가 된다 —
+             초대 보상에서 이미 한 번 겪은 실패다(화면은 2,000포인트를 약속했는데
+             코드는 아무에게도 주지 않았다).
+           ★ 분류는 고객이 정한다. 우리가 제목으로 추측하면 놓친다.
+        */
+        const r = await api.createSupportTicket(
+          form.isBug ? { subject, body, category: 'bug' } : { subject, body },
+        );
         if (r && r.ok === false) {
           setMsg({ ok: false, text: (r.message) || t('help_ticket_failed') });
         } else {
-          setForm({ subject: '', body: '' });
+          setForm({ subject: '', body: '', isBug: false });
           setMsg({ ok: true, text: t('help_ticket_created') });
           loadTickets();
         }
@@ -3483,6 +3494,25 @@
                 placeholder={t('help_body_ph')}
                 style={{width:'100%', minHeight:130, padding:10, background:'var(--color-bg-input)', border:'1px solid var(--color-border-default)', borderRadius:6, color:'var(--color-text-primary)', fontSize:12.5, fontFamily:'var(--font-sans)', resize:'vertical', outline:'none', lineHeight:1.7}}
               />
+              {/*
+                   ★★★ 버그 신고 포상 안내. 여기에 두는 이유가 있다.
+
+                     ★ **로그인한 고객에게만** 보인다. 랜딩(공개 페이지)에 올리면
+                       실거래가 열린 플랫폼을 낯선 사람이 찔러보기 시작한다. 우리는
+                       고객 자금이 걸린 주문 경로를 운영하므로 그 위험을 만들지 않는다.
+                     ★ 신고 창구(이 폼) **바로 옆**에 둔다. 포상 조건이 "티켓을 남기는
+                       것" 이므로 안내와 창구가 떨어져 있으면 고객이 다른 데로 보낸다.
+                     ★★ 조건을 함께 적는다 — 재현 방법 필수, 같은 버그는 처음 신고자,
+                       판단은 우리가 한다, 수동 지급. 조건 없이 금액만 적으면 분쟁이 된다.
+              */}
+              <label style={{display:'flex', gap:8, alignItems:'flex-start', cursor:'pointer'}}>
+                <input type="checkbox" checked={form.isBug} style={{marginTop:3, width:16, height:16}}
+                  onChange={e => setForm({ ...form, isBug: e.target.checked })} />
+                <span style={{fontSize:12.5, color:'var(--color-text-secondary)', lineHeight:1.6}}>
+                  <strong style={{color:'var(--color-text-primary)'}}>{t('help_bug_label')}</strong>
+                  <br/>{t('help_bug_note')}
+                </span>
+              </label>
               {msg && (
                 <div style={{
                   padding:'9px 12px', borderRadius:6, fontSize:12,

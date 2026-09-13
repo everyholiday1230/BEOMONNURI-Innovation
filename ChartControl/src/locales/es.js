@@ -2208,6 +2208,8 @@
       // --- 도움말 · 문의 ---
       help_contact_sub: 'Mandanos un mensaje — llega a nuestra cola de soporte y podés seguir la respuesta acá',
       help_subject: 'Asunto',
+      help_bug_label: 'Es un reporte de error — 3.000 puntos si lo confirmamos',
+      help_bug_note: 'Contanos qué hiciste, qué esperabas y qué pasó en su lugar — necesitamos reproducirlo. Se paga al primero que reporta cada error; los puntos se otorgan a mano tras confirmarlo. No pruebes cuentas de otras personas, ni hagas escaneos automáticos o pruebas de carga.',
       help_subject_ph: 'En pocas palabras, ¿cuál es el problema?',
       help_body_ph: '¿Qué esperabas que pasara y qué pasó en cambio? Si es sobre una operación, indicá el símbolo y la hora.',
       help_submit: 'Enviar',

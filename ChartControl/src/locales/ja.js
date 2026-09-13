@@ -2367,6 +2367,8 @@
       help_reply_ph: 'このやりとりに追記…',
       help_reply_send: '返信する',
       help_subject: '件名',
+      help_bug_label: 'これはバグ報告です — 確認できれば 3,000 ポイント',
+      help_bug_note: '何をして、何を期待し、代わりに何が起きたかを書いてください — 再現できることが条件です。同じ不具合は最初の報告者にお支払いします。確認後、手作業で付与します。他人のアカウントの試験、自動スキャン、負荷試験はご遠慮ください。',
       help_ticket_created: '受け付けました。下で返信を確認できます。',
       help_ticket_failed: 'メッセージを送信できませんでした',
       indicators_unavailable: '指標の表示には KLineChart レンダラーが必要です',

@@ -2357,6 +2357,8 @@
       help_reply_ph: '在这个对话里补充…',
       help_reply_send: '回复',
       help_subject: '主题',
+      help_bug_label: '这是一个 Bug 报告 — 经我们确认后赠 3,000 积分',
+      help_bug_note: '请写明您的操作、预期结果与实际结果 —— 我们需要能够复现。同一问题仅向首位报告者赠送，确认后人工发放。请勿测试他人账户、进行自动扫描或压力测试。',
       help_ticket_created: '已收到。你可以在下方查看回复。',
       help_ticket_failed: '消息未能发送',
       indicators_unavailable: '指标需要 KLineChart 渲染器',

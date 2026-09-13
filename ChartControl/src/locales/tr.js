@@ -2261,6 +2261,8 @@
       // --- 도움말 · 문의 ---
       help_contact_sub: 'Bize bir mesaj gönderin — destek kuyruğumuza ulaşır ve yanıtı buradan takip edebilirsiniz',
       help_subject: 'Konu',
+      help_bug_label: 'Bu bir hata bildirimi — doğrularsak 3.000 puan',
+      help_bug_note: 'Ne yaptığınızı, ne beklediğinizi ve bunun yerine ne olduğunu yazın — tekrar üretebilmemiz gerekir. Her hata için ilk bildirene ödeme yapılır; puanlar doğrulamadan sonra elle tanımlanır. Lütfen başkalarının hesaplarını denemeyin, otomatik tarama veya yük testi yapmayın.',
       help_subject_ph: 'Kısaca, sorun nedir?',
       help_body_ph: 'Ne olmasını beklediniz ve yerine ne oldu? Bir işlemle ilgiliyse sembolü ve saati de yazın.',
       help_submit: 'Gönder',

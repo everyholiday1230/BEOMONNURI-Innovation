@@ -2045,6 +2045,8 @@
       // --- 도움말 · 문의 ---
       help_contact_sub: 'Send us a message — it reaches our support queue and you can follow the reply here',
       help_subject: 'Subject',
+      help_bug_label: 'This is a bug report — 3,000 points if we confirm it',
+      help_bug_note: 'Tell us what you did, what you expected and what happened instead — we need to reproduce it. First reporter of each bug is paid; points are granted by hand after we confirm it. Please do not test other people’s accounts, run automated scans or load tests.',
       help_subject_ph: 'Briefly, what is the problem?',
       help_body_ph: 'What did you expect to happen, and what happened instead? Include the symbol and time if it is about a trade.',
       help_submit: 'Send',

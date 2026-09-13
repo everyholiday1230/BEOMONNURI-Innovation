@@ -2280,6 +2280,8 @@
       // --- 도움말 · 문의 ---
       help_contact_sub: 'Hãy gửi cho chúng tôi một tin nhắn — nó vào hàng đợi hỗ trợ và bạn có thể theo dõi phản hồi tại đây',
       help_subject: 'Tiêu đề',
+      help_bug_label: 'Đây là báo lỗi — 3.000 điểm nếu chúng tôi xác nhận',
+      help_bug_note: 'Hãy cho biết bạn đã làm gì, mong đợi điều gì và thực tế xảy ra gì — chúng tôi cần tái hiện được. Người báo đầu tiên cho mỗi lỗi sẽ được trả; điểm được cấp thủ công sau khi xác nhận. Vui lòng không thử nghiệm tài khoản của người khác, không quét tự động hay kiểm thử tải.',
       help_subject_ph: 'Nói ngắn gọn, vấn đề là gì?',
       help_body_ph: 'Bạn mong đợi điều gì xảy ra, và thực tế đã xảy ra điều gì? Nếu liên quan tới một giao dịch, hãy nêu cả mã và thời điểm.',
       help_submit: 'Gửi',

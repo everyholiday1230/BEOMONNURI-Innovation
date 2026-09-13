@@ -124,6 +124,8 @@
 
       // --- 도움말 센터 ---
       help_center_42b43b: 'FAQ · gabay · contact',
+      help_bug_label: 'Bug report ito — 3,000 points kapag nakumpirma namin',
+      help_bug_note: 'Ilarawan ang ginawa mo, ang inaasahan, at ang tunay na nangyari — kailangan naming maulit ito. Ang unang nag-report ng bawat bug ang babayaran; manu-manong ibibigay ang points pagkatapos naming kumpirmahin. Huwag subukan ang account ng iba, huwag gumamit ng automated scan o load test.',
       help_center_044ef4: 'Maghanap ng sagot…',
       help_center_ae2ce9: 'Mga madalas itanong',
       help_center_df04a4: 'Account · KYC',
