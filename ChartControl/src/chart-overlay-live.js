@@ -176,6 +176,57 @@
        작성 중인 TP/SL 선 — 현재가에서 몇 % 떨어져 있는지.
        "1.9000" 만 보면 그게 먼 손절인지 붙은 손절인지 알 수 없다.
     */
+    /*
+       ★★★ **보호주문(TP/SL) 선 — 진입가 기준으로 말한다.**
+
+         운영자 지적(2026-09-14): "sl tp가 현재가격기준되는거같은데..? 내가 진입한
+         기준으로 되어야할 것 같은데" — 맞다. 전에는 `kind: 'away'` 를 써서 **현재가
+         대비 %** 를 적었다.
+
+       ★★ 손절·익절에서 알아야 하는 것은 "지금 가격에서 얼마 떨어졌나" 가 아니라
+         **"거기 닿으면 내 손익이 얼마인가"** 다. 그 기준은 진입가다. 현재가 대비로
+         적으면 가격이 움직일 때마다 숫자가 바뀌어, 같은 손절인데 어떤 때는 -1%,
+         어떤 때는 -3% 로 보인다 — 위험을 잘못 읽는다.
+
+       ★ 세 가지를 적는다:
+           가격 변동%  (진입가 대비, 방향 반영)
+           ROE         (증거금 대비 = 변동% × 레버리지)
+           금액         (수량 × 가격차)
+       ★★ 레버리지를 모르면 ROE 를 적지 않는다. 1배로 가정하면 손실을 실제보다 작게
+         보여주는 방향의 거짓이 된다.
+    */
+    if (live.kind === 'bracket') {
+      const entry = Number(live.entry);
+      const target = Number(live.price);
+      if (!(entry > 0) || !(target > 0)) return base;
+
+      const dir = live.side === 'short' ? -1 : 1;
+      const chg = ((target - entry) / entry) * 100 * dir;
+
+      const lev = Number(live.leverage);
+      const roe = (Number.isFinite(lev) && lev > 0) ? ` · ROE ${signed(chg * lev, 2)}` : '';
+
+      /*
+         ★ 금액은 수량을 알아야 계산할 수 있다. 없으면 적지 않는다 — 추측한 금액은
+           틀린 금액이고, 손절 크기를 잘못 판단하게 만든다.
+      */
+      const qty = Number(live.size);
+      const amt = (Number.isFinite(qty) && qty > 0)
+        ? ` · ${(target - entry) * qty * dir >= 0 ? '+' : ''}${fmtMoney((target - entry) * qty * dir)}`
+        : '';
+
+      const full = `${base} · ${signed(chg, 2)}${roe}${amt}`;
+      const maxPx = Number(opts && opts.maxPx);
+      if (!(maxPx > 0) || width(full) <= maxPx) return full;
+
+      /* ★ 좁으면 덜 중요한 것부터 뺀다. 숫자를 자르지는 않는다. */
+      const mid = `${base} · ${signed(chg, 2)}${roe}`;
+      if (width(mid) <= maxPx) return mid;
+      const tight = `${signed(chg, 2)}${roe}`;
+      if (width(tight) <= maxPx) return tight;
+      return signed(chg, 2);
+    }
+
     if (live.kind === 'away') {
       const target = Number(live.price);
       if (!(target > 0)) return base;

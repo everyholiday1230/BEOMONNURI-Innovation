@@ -741,7 +741,7 @@ describe('차트 포지션 오버레이', () => {
        ★ 설계가 바뀌었다 — 드래그는 옮기기만 하고, 주문은 **확정 핸들러**에서 낸다.
          중요한 것은 전용 API 가 아니라 **기존 주문 경로**를 쓴다는 사실이다.
     */
-    const j = app.indexOf('onConfirmBracket={(posId, kind)');
+    const j = app.indexOf('onConfirmBracket={(posId, kind, pct)');
     expect(j, '확정 핸들러가 없다').toBeGreaterThan(-1);
     const seg = app.slice(j, app.indexOf('onCancelBracket=', j));
     expect(seg, '기존 주문 경로(onPlaceOrder)를 쓰지 않는다').toMatch(/onPlaceOrder\(\{/);
@@ -865,7 +865,7 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
     expect(app, '초안 id 를 처리하지 않는다')
       .toMatch(/id\.startsWith\('posbr-'\)\s*\|\|\s*id\.startsWith\('posdraft-'\)/);
     /* ★ 초안 선 제거는 **확정 후**에 일어난다 — 드래그 때 지우면 조정을 못 한다. */
-    const j = app.indexOf('onConfirmBracket={(posId, kind)');
+    const j = app.indexOf('onConfirmBracket={(posId, kind, pct)');
     expect(app.slice(j, app.indexOf('onCancelBracket=', j)), '확정 후 초안 선을 지우지 않는다')
       .toMatch(/removeOverlay\(oid\)/);
   });
@@ -963,8 +963,8 @@ describe('TP/SL — 이동·확정·취소', () => {
   });
 
   it('확정은 버튼으로만 일어난다', () => {
-    expect(app, 'onConfirmBracket 이 없다').toMatch(/onConfirmBracket=\{\(posId, kind\)/);
-    const i = app.indexOf('onConfirmBracket={(posId, kind)');
+    expect(app, 'onConfirmBracket 이 없다').toMatch(/onConfirmBracket=\{\(posId, kind, pct\)/);
+    const i = app.indexOf('onConfirmBracket={(posId, kind, pct)');
     const blk = app.slice(i, app.indexOf('onCancelBracket=', i));
     expect(blk, '확정에서 주문을 내지 않는다').toMatch(/onPlaceOrder\(\{/);
     expect(blk, '방향 검증이 없다').toMatch(/const wrong =/);
@@ -976,7 +976,7 @@ describe('TP/SL — 이동·확정·취소', () => {
        되고, 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다.
        ★★ 취소가 실패하면 새 주문을 내지 않는다 — 둘 다 살아 있는 상태가 가장 위험하다.
     */
-    const i = app.indexOf('onConfirmBracket={(posId, kind)');
+    const i = app.indexOf('onConfirmBracket={(posId, kind, pct)');
     const blk = app.slice(i, app.indexOf('onCancelBracket=', i));
     /*
        ★★★ 역검증에서 이 시험이 `if (false)` 로 바꿔도 통과했다 — `ref.orderId` 라는
@@ -1264,5 +1264,105 @@ describe('스톱 주문이 시뮬레이터까지 도달한다', () => {
     const blk = sch.slice(i, i + 1400);
     expect(blk, '초안 스키마에 stopPrice 가 생겼다 — api-client 의 우회를 정리하라')
       .not.toMatch(/^\s*stopPrice:/m);
+  });
+});
+
+/*
+   ═══ TP/SL 기준가와 부분 익절/손절 ═══
+
+   운영자 지적(2026-09-14):
+     "sl tp가 현재가격기준되는거같은데..? 내가 진입한 기준으로 되어야할 것 같은데"
+     "올 sl tp랑 부분 sl tp도 필요한데 다른 코인 거 처럼말이야."
+
+   ★★★ 첫 번째 지적이 맞았다. 초안 선이 **현재가**에서 시작하고, 라벨의 %도 현재가
+     대비였다(`kind: 'away'`). 손절·익절에서 알아야 하는 것은 "지금 가격에서 얼마
+     떨어졌나" 가 아니라 **"거기 닿으면 내 손익이 얼마인가"** 이고, 그 기준은 진입가다.
+     현재가 대비로 적으면 가격이 움직일 때마다 숫자가 바뀌어 같은 손절이 −1% 로도,
+     −3% 로도 보인다 — 위험을 잘못 읽는다.
+*/
+describe('TP/SL — 진입가 기준', () => {
+  const app = read('src/app.jsx')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  const lv = read('src/chart-overlay-live.js');
+
+  it('★★★ 초안이 진입가에서 시작한다', () => {
+    const i = app.indexOf('onSetBracket={(posId, kind) => {');
+    const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
+    expect(blk, '초안이 아직 현재가에서 시작한다')
+      .toMatch(/const px = Number\(pos\.entry\) \|\| Number\(pos\.mark\)/);
+    /* ★ ±2% 같은 기본 폭을 넣으면 우리가 손절 폭을 권한 것으로 읽힌다. */
+    expect(blk, '기본 폭을 넣었다 — 조언으로 읽힌다').not.toMatch(/\*\s*1\.02|\*\s*0\.98/);
+  });
+
+  it('★★★ 두 선 모두 진입가 기준 라벨을 쓴다', () => {
+    /* 초안과 걸린 주문이 서로 다른 기준을 쓰면 확정 전후로 숫자가 바뀐다. */
+    const cnt = (app.match(/kind: 'bracket'/g) || []).length;
+    expect(cnt, "kind:'bracket' 이 두 곳(초안·걸린 선)에 없다").toBeGreaterThanOrEqual(2);
+    expect(app, "아직 kind:'away' 로 보호주문 라벨을 만든다")
+      .not.toMatch(/kind: 'away', symbol: String\(p(os)?\.symbol/);
+  });
+
+  it('라벨이 변동%·ROE·금액을 진입가로 계산한다', () => {
+    const i = lv.indexOf("live.kind === 'bracket'");
+    expect(i, 'bracket 라벨 계산이 없다').toBeGreaterThan(-1);
+    const blk = lv.slice(i, i + 1800);
+    expect(blk, '진입가를 쓰지 않는다').toMatch(/const entry = Number\(live\.entry\)/);
+    expect(blk, '방향을 반영하지 않는다').toMatch(/live\.side === 'short' \? -1 : 1/);
+    /* ★★ 레버리지를 모르면 ROE 를 적지 않는다 — 1배 가정은 손실을 작게 보이게 한다. */
+    expect(blk, '레버리지 없이 ROE 를 적는다')
+      .toMatch(/Number\.isFinite\(lev\) && lev > 0\) \? ` · ROE/);
+    /* ★ 수량을 모르면 금액을 적지 않는다. */
+    expect(blk, '수량 없이 금액을 적는다').toMatch(/Number\.isFinite\(qty\) && qty > 0/);
+  });
+});
+
+describe('부분 익절/손절', () => {
+  const app = read('src/app.jsx');
+  const wid = read('src/widgets.jsx');
+
+  it('★★ 비율 버튼(25/50/100%)이 확정 동작이다', () => {
+    /* 확정을 따로 두면 클릭이 두 번이 되고 종료 버튼과 방식이 달라져 헷갈린다. */
+    /*
+       ★★★ 역검증에서 이 시험이 `[100]` 으로 줄여도 통과했다 — 넓은 정규식이 앞부분만
+         보고 지나갔다. 비율 목록을 **각각** 확인한다. 부분 익절이 사라지면 잡혀야 한다.
+    */
+    expect(wid, '비율 버튼이 확정을 부르지 않는다')
+      .toMatch(/onConfirmBracket && onConfirmBracket\(p\.id, k, pct\)/);
+
+    /*
+       ★★★ **개수로 센다.** 처음에는 비율 목록을 문자열로만 확인했는데, 같은
+         `[25, 50, 100]` 이 **종료 버튼에도** 있어서 보호주문 쪽을 `[100]` 으로 줄여도
+         시험이 통과했다(역검증에서 두 번 놓쳤다). 두 곳 모두 있어야 한다:
+           ① 포지션 종료 비율
+           ② 부분 익절/손절 비율
+    */
+    const lists = (wid.match(/\[25, 50, 100\]\.map/g) || []).length;
+    expect(lists, '비율 목록이 두 곳(종료·보호주문)에 없다 — 부분 익절/손절이 사라졌다')
+      .toBeGreaterThanOrEqual(2);
+  });
+
+  it('★★★ 수량을 내림한다 — 보유량을 넘으면 거절된다', () => {
+    const i = app.indexOf('const guardQty = (() => {');
+    expect(i, '보호주문 수량 계산이 없다').toBeGreaterThan(-1);
+    expect(app.slice(i, i + 900), '내림하지 않는다').toMatch(/Math\.floor\(/);
+  });
+
+  it('★★★ 옮길 때는 원래 주문 수량을 유지한다', () => {
+    /*
+       옮기는 것은 가격을 바꾸는 일이다. 수량까지 바뀌면 **부분 익절이 조용히 전량이
+       된다** — 고객이 남겨 두려던 포지션이 전부 닫힌다.
+    */
+    const i = app.indexOf('const guardQty = (() => {');
+    const blk = app.slice(i, i + 900);
+    expect(blk, 'pct 가 없을 때 원래 수량을 쓰지 않는다')
+      .toMatch(/pct === null \|\| pct === undefined[\s\S]{0,160}ref0\.orderQty/);
+    expect(wid, '옮기기가 비율을 넘긴다').toMatch(/onConfirmBracket\(p\.id, k, null\)/);
+    expect(app, '오버레이에 주문 수량을 담지 않는다').toMatch(/orderQty: ordQty \|\| null/);
+  });
+
+  it('부분 보호주문의 금액은 주문 수량으로 계산한다', () => {
+    /* ★ 포지션 수량으로 계산하면 부분 익절의 예상 이익이 실제보다 크게 보인다. */
+    expect(app, '주문 수량을 라벨에 쓰지 않는다').toMatch(/size: ordQty \|\| p\.size/);
   });
 });

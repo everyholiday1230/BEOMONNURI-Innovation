@@ -2338,13 +2338,29 @@
                                 const live = hasGuard(p, k);
                                 const label = k === 'tp' ? t('pos_set_tp') : t('pos_set_sl');
                                 if (hasDraft) {
+                                  /*
+                                     ★★★ **부분 익절/손절 — 수량을 고른다.**
+
+                                       운영자 요청: "올 sl tp랑 부분 sl tp도 필요한데 다른
+                                       코인 거처럼" — 거래소는 모두 포지션의 일부에만 TP/SL
+                                       을 걸 수 있다. 절반을 익절하고 나머지를 끌고 가는 것이
+                                       흔한 운용이다.
+
+                                     ★ 비율 버튼이 **확정 동작**이다. "확정" 을 따로 두면
+                                       클릭이 두 번이 되고, 종료 버튼과 방식이 달라져 헷갈린다.
+                                     ★★ 100% 를 마지막에 둔다 — 가장 큰 동작을 실수로 먼저
+                                       누르지 않게 한다.
+                                  */
                                   return (
                                     <React.Fragment key={k}>
-                                      <button className="btn btn--xs btn--primary"
-                                        title={t('pos_br_confirm_hint')}
-                                        aria-label={t('pos_br_confirm_hint')}
-                                        onClick={() => onConfirmBracket && onConfirmBracket(p.id, k)}
-                                      >{t('pos_br_confirm')} {label}</button>
+                                      <span style={{fontSize:10, color:'var(--color-text-tertiary)', marginRight:2}}>{label}</span>
+                                      {[25, 50, 100].map((pct) => (
+                                        <button key={pct} className="btn btn--xs btn--primary"
+                                          title={t('pos_br_confirm_hint')}
+                                          aria-label={`${t('pos_br_confirm_hint')} ${pct}%`}
+                                          onClick={() => onConfirmBracket && onConfirmBracket(p.id, k, pct)}
+                                        >{pct}%</button>
+                                      ))}
                                       <button className="btn btn--xs"
                                         title={t('pos_br_cancel_hint')}
                                         aria-label={t('pos_br_cancel_hint')}
@@ -2354,11 +2370,17 @@
                                   );
                                 }
                                 if (live) {
+                                  /*
+                                     ★ 이미 걸린 주문을 옮길 때는 비율을 묻지 않는다.
+                                       **원래 주문의 수량을 유지**하는 것이 옳다 — 옮기는
+                                       것은 가격을 바꾸는 일이고, 수량까지 바뀌면 부분 익절이
+                                       조용히 전량이 된다.
+                                  */
                                   return (
                                     <button key={k} className="btn btn--xs"
                                       title={t('pos_br_move_hint')}
                                       aria-label={t('pos_br_move_hint')}
-                                      onClick={() => onConfirmBracket && onConfirmBracket(p.id, k)}
+                                      onClick={() => onConfirmBracket && onConfirmBracket(p.id, k, null)}
                                     >{t('pos_br_move')} {label}</button>
                                   );
                                 }

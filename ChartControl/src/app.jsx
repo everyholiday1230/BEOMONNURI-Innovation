@@ -1024,7 +1024,12 @@
                값이 없을 때 새로 만드는 것은 포지션 패널의 TP/SL 버튼이 담당한다.
              ★ 실선으로 그린다. 거래소에 실제로 걸려 있는 주문이므로 초안(점선)과 구분한다.
           */
-          const mkPosBracket = (kind, raw, ordId) => {
+          /*
+             ★★ `ordQty` — 걸린 보호주문의 **수량**. 부분 익절/손절이 가능하므로 포지션
+               수량과 다를 수 있다. 라벨의 금액을 포지션 수량으로 계산하면 부분 TP 의
+               예상 이익이 실제보다 크게 보인다.
+          */
+          const mkPosBracket = (kind, raw, ordId, ordQty) => {
             const bp = num(raw);
             if (!bp) return;
             next.push({
@@ -1035,7 +1040,16 @@
               points: [{ price: bp, time: Date.now() }],
               label: kind === 'tp' ? t('chart_ov_pos_tp') : t('chart_ov_pos_sl'),
               /* ★ 현재가 대비 %를 그리는 순간에 붙인다 — "1.9000" 만으로는 먼 손절인지 알 수 없다. */
-              live: { kind: 'away', symbol: String(p.symbol || '').toUpperCase(), price: bp },
+              /* ★★ 걸린 보호주문도 진입가 기준으로 말한다 — 초안과 같은 규칙이어야 한다. */
+              live: {
+                kind: 'bracket',
+                symbol: String(p.symbol || '').toUpperCase(),
+                price: bp,
+                entry: px,
+                side: p.side,
+                leverage: Number.isFinite(lev) && lev > 0 ? lev : null,
+                size: ordQty || p.size,
+              },
               /* ★★ 드래그 결과를 어디로 보낼지 식별하기 위한 값. 화면 상태에 의존하지 않는다. */
               /*
                  ★★★ `orderId` 를 함께 담는다. 걸린 보호주문을 옮기려면 **기존 주문을
@@ -1043,7 +1057,16 @@
                    id 가 없으면 취소할 수 없어 **주문이 두 개가 된다** — 하나가 체결된 뒤
                    남은 하나가 반대 포지션을 열 수 있다.
               */
-              posRef: { id: p.id, symbol: String(p.symbol || '').toUpperCase(), kind, side: p.side, size: p.size, orderId: ordId || null },
+              /*
+                 ★ 옮길 때는 **원래 주문의 수량**을 유지한다. 포지션 수량으로 바꾸면
+                   부분 익절이 전량 익절로 조용히 커진다.
+              */
+              posRef: {
+                id: p.id, symbol: String(p.symbol || '').toUpperCase(), kind,
+                side: p.side, size: p.size,
+                orderId: ordId || null,
+                orderQty: ordQty || null,
+              },
             });
           };
           /*
@@ -1067,23 +1090,27 @@
           let slPx = null;
           let tpId = null;
           let slId = null;
+          let tpQty = null;
+          let slQty = null;
           guards.forEach((o) => {
             const g = num(o.trigger);
             if (!g) return;
             const above = g > px;
             /* ★ 취소에 필요한 식별자를 함께 붙든다. clientOrderId 가 취소 API 의 키다. */
             const oid = o.clientOrderId || o.id || null;
+            /* ★ 수량도 함께 붙든다. 부분 보호주문이면 포지션 수량과 다르다. */
+            const oq = Number(o.amount) > 0 ? Number(o.amount) : null;
             if (above === isLongPos) {
-              if (tpPx === null) { tpPx = g; tpId = oid; }
-            } else if (slPx === null) { slPx = g; slId = oid; }
+              if (tpPx === null) { tpPx = g; tpId = oid; tpQty = oq; }
+            } else if (slPx === null) { slPx = g; slId = oid; slQty = oq; }
           });
           /* ★ 어댑터가 브래킷을 직접 주면 그것을 우선한다 — 유도보다 정확하다. */
           guards.forEach((o) => {
             if (tpPx === null && num(o.tp)) tpPx = num(o.tp);
             if (slPx === null && num(o.sl)) slPx = num(o.sl);
           });
-          mkPosBracket('tp', tpPx, tpId);
-          mkPosBracket('sl', slPx, slId);
+          mkPosBracket('tp', tpPx, tpId, tpQty);
+          mkPosBracket('sl', slPx, slId, slQty);
         });
 
         // 주문·포지션 선만 교체한다. 사용자 도형과 AI 오버레이는 유지.
@@ -3068,7 +3095,7 @@
           */
           draftIds={(props.allOverlays || []).filter((o) => String(o.id).startsWith('posdraft-')).map((o) => o.id)}
 
-          onConfirmBracket={(posId, kind) => {
+          onConfirmBracket={(posId, kind, pct) => {
             const oid = `posdraft-${posId}-${kind}`;
             const bid = `posbr-${posId}-${kind}`;
             const line = (props.allOverlays || []).find((o) => o.id === oid)
@@ -3099,12 +3126,40 @@
             const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
             const text = decimals === null ? String(price) : price.toFixed(decimals);
 
+            /*
+               ★★★ **부분 익절/손절의 수량.**
+
+                 `pct` 가 숫자면 포지션의 그 비율. `null` 이면 **원래 주문의 수량을
+                 유지**한다(옮기기) — 옮기는 것은 가격을 바꾸는 일이고, 수량까지 바뀌면
+                 부분 익절이 조용히 전량이 된다.
+
+               ★★★ 수량을 **내림**한다. 올리면 보유량을 넘어 거래소가 거절하거나,
+                 reduceOnly 가 없다면 반대 포지션이 열린다.
+               ★ 소수 자리는 포지션 수량의 자리수를 따른다 — 임의로 늘리면 stepSize 에 걸린다.
+            */
+            const guardQty = (() => {
+              const ref0 = line.posRef || {};
+              if (pct === null || pct === undefined) {
+                return Number(ref0.orderQty) > 0 ? Number(ref0.orderQty) : Number(pos.size);
+              }
+              const ratio = Math.min(100, Math.max(1, Number(pct) || 100)) / 100;
+              const str = String(pos.size);
+              const dot = str.indexOf('.');
+              const decs = dot < 0 ? 0 : str.length - dot - 1;
+              const f = 10 ** decs;
+              return Math.floor(Number(pos.size) * ratio * f) / f;
+            })();
+            if (!(guardQty > 0)) {
+              props.pushToast({ title: props.t('pos_close_too_small'), variant: 'error' });
+              return;
+            }
+
             const send = () => {
               props.onPlaceOrder({
                 side: isLong ? 'short' : 'long',
                 type: 'stop',
                 stopPrice: text,
-                size: String(pos.size),
+                size: String(guardQty),
                 reduceOnly: true,
                 stopDirection: (kind === 'tp') === isLong ? 'up' : 'down',
                 leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
@@ -3150,7 +3205,21 @@
               ? window.QTAccount.getPositions() : [];
             const pos = (rows || []).find((r) => String(r.id) === String(posId));
             if (!pos) { props.pushToast({ title: props.t('pos_br_gone'), variant: 'error' }); return; }
-            const px = Number(props.market && props.market.price) || Number(pos.mark) || Number(pos.entry);
+            /*
+               ★★★ **초안은 진입가에서 시작한다.**
+
+                 운영자 지적: "내가 진입한 기준으로 되어야할 것 같은데" — 맞다.
+                 전에는 현재가에서 시작했다. 현재가는 계속 움직이므로 같은 버튼을
+                 눌러도 매번 다른 자리에 선이 생기고, 손익 기준점도 아니다.
+
+               ★★ 진입가는 **손익이 0 인 자리**다. 거기서 위로 끌면 익절, 아래로 끌면
+                 손절이 되어 방향이 직관적으로 맞는다.
+               ★★★ ±2% 같은 기본 폭을 넣지 않는다. 그것은 우리가 손절 폭을 권한 것으로
+                 읽히고, 우리는 조언을 하지 않는다.
+               ★ 진입가를 모르면(어댑터가 안 주면) 표시가·현재가로 물러난다. 선을 아예
+                 못 만드는 것보다 낫다.
+            */
+            const px = Number(pos.entry) || Number(pos.mark) || Number(props.market && props.market.price);
             if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
             const id = `posdraft-${posId}-${kind}`;
             /*
@@ -3170,7 +3239,20 @@
               points: [{ price: px, time: Date.now() }],
               label: kind === 'tp' ? props.t('chart_ov_pos_tp') : props.t('chart_ov_pos_sl'),
               style: { dashed: true },
-              live: { kind: 'away', symbol: String(pos.symbol || '').toUpperCase(), price: px },
+              /*
+                 ★★ 라벨은 **진입가 기준**으로 만든다(kind: 'bracket'). 현재가 대비로
+                   적으면 가격이 움직일 때마다 숫자가 바뀌어 같은 손절이 -1% 로도,
+                   -3% 로도 보인다 — 위험을 잘못 읽는다.
+              */
+              live: {
+                kind: 'bracket',
+                symbol: String(pos.symbol || '').toUpperCase(),
+                price: px,
+                entry: Number(pos.entry) || null,
+                side: pos.side,
+                leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : null,
+                size: pos.size,
+              },
               posRef: { id: posId, symbol: String(pos.symbol || '').toUpperCase(), kind, side: pos.side, size: pos.size },
             });
             props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' });
