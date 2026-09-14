@@ -1250,9 +1250,53 @@ void loadSpotCatalogueWithRetry();
 }
 
 app.post('/api/sim/order-drafts', async (c) => {
-  const body = await c.req.json<{ symbol?: string }>();
-  const sym = symbolInfoMap[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO.BTCUSDT!;
-  const result = orders.createDraft(body, sym);
+  const body = await c.req.json<{ symbol?: string; orderType?: string; price?: string; reduceOnly?: boolean; positionAction?: string }>();
+  const sym = symbolInfoMap[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO[body.symbol ?? env.defaultSymbol] ?? DEFAULT_SYMBOL_INFO[env.defaultSymbol]!;
+
+  /*
+     ★★★ **시장가 모의 주문에 체결가를 정해 준다.**
+
+       프론트는 시장가일 때 의도적으로 가격을 보내지 않는다("그 가격에 체결된다" 는
+       오해를 만들기 때문). 그런데 시뮬레이터는 **즉시 체결**시키므로 가격이 없으면:
+
+         · 포지션 진입가가 NULL → 손익을 계산할 수 없다
+         · 증거금이 0 → 잔고가 줄지 않아 무한히 주문할 수 있다
+
+       실측(2026-09-14)에서 정확히 그랬다. 주문·포지션은 생겼는데 잔고가 10000 에서
+       그대로였다.
+
+     ★★ 가격은 **서버가 현재 시세로** 정한다. 클라이언트가 보내면 원하는 가격에
+       체결시킬 수 있고, 모의 성적이 조작 가능해진다 — 대회에서는 곧 문제가 된다.
+     ★ 시세를 못 읽으면 가격 없이 진행한다. 주문을 거부하면 시세 장애가 곧 주문 장애가
+       되고, 모의에서 그럴 이유가 없다. 대신 진입가·증거금이 비는 것은 그대로 드러난다.
+  */
+  if (String(body.orderType ?? '').toLowerCase() === 'market'
+      && (body.price === undefined || body.price === null || body.price === '')) {
+    try {
+      const tk = await providers.market.getTicker(body.symbol ?? env.defaultSymbol) as { last?: unknown; price?: unknown };
+      const last = Number(tk?.last ?? tk?.price);
+      if (Number.isFinite(last) && last > 0) {
+        (body as { price?: string }).price = String(last);
+      }
+    } catch {
+      /* 시세를 못 읽었다. 가격 없이 진행한다 — 위 주석 참조. */
+    }
+  }
+
+  /*
+     ★★★ **청산 주문임을 초안에 남긴다.**
+
+       프론트는 `reduceOnly: true` 를 보낸다. 그런데 시뮬레이터 투영은
+       `positionAction === 'close'` 로 판단한다. 이어 주지 않으면 TP/SL(청산 주문)이
+       **신규 진입으로 처리되어 반대 포지션을 만든다** — 롱을 닫는 손절이 숏이 되어
+       노출이 두 배가 된다.
+     ★ 이미 값이 있으면 존중한다. 덮어쓰면 호출자의 의도를 지운다.
+  */
+  if (body.reduceOnly === true && (body.positionAction === undefined || body.positionAction === null)) {
+    (body as { positionAction?: string }).positionAction = 'close';
+  }
+
+const result = orders.createDraft(body, sym);
   if (!result.ok) return c.json(errBody('VALIDATION_FAILED', result.error), 400);
   // NOTE: the confirmation token is issued but, in a real UI flow, is only revealed after the user
   // passes the final-confirmation gate. Exposed here for the local simulation walkthrough.
