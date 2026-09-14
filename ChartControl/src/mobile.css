@@ -310,6 +310,62 @@
     grid-area: auto / 1 / auto / -1 !important;
     /* 위젯마다 최소 높이를 준다. 0 높이면 내용이 보이지 않는다. */
     min-height: 220px;
+
+    /*
+       ★★★ **내용을 위젯 안에 담는다 — 실제로 못 눌리는 버튼이 있었다.**
+
+         실측(2026-09-14 iPhone 13, 프로덕션):
+           관심목록 위젯   4,144  329x220   →  144~364
+           별(☆) 버튼      17,382 …  17,622 →  **위젯 밖 382~622**
+           그 자리는 차트 위젯(368~846) 이고, 차트 캔버스는 z-index 2 다.
+           → `elementFromPoint` 가 CANVAS 를 돌려준다 = **탭이 캔버스로 간다.**
+
+         원인은 `overflow: visible` 이다. 관심목록은 220px 인데 종목이 그보다 많아
+         행들이 위젯 밖으로 흘러나왔고, 아래 위젯이 그 위를 덮었다. 눈에는 보이니
+         눌러도 되는 버튼처럼 생겼는데 아무 반응이 없다 — 오늘 고친 「종료」 버튼과
+         **증상이 같다.**
+
+       ★ `hidden` 으로 담고, 목록은 안쪽에서 스크롤시킨다(아래 규칙).
+       ★★ 세로만 담지 않는다. 차트 도구 줄이 **오른쪽으로** 삐져나와 사이드바
+         (337px) 아래로 들어가 `Indicators`(318~396) 와 `Lock drawings`(340~374) 가
+         못 눌렸다. 가로도 담아야 한다.
+    */
+    overflow: hidden;
+  }
+
+  /*
+     ★★ 담기만 하면 내용이 잘린다. 목록·본문은 안쪽에서 스크롤되게 한다.
+     ★ `min-height: 0` 이 없으면 flex 자식이 줄어들지 않아 스크롤이 생기지 않는다
+       (flex 기본 `min-height: auto` 때문이다 — 자주 놓치는 지점이다).
+  */
+  .trade-body > .widget > .widget__body,
+  .trade-body > .widget .panel {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .trade-body > .widget .panel__body,
+  .trade-body > .widget .mw-list,
+  .trade-body > .widget .trade-list {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+     ★★★ 차트 도구 줄은 **가로 스크롤**로 만든다.
+
+       커밋 db3ebd2 에서 "컨트롤을 숨기지 말고 넘치게 두자" 고 했는데, 넘친 버튼이
+       사이드바 아래로 들어가 **아예 못 눌리게** 됐다. 숨긴 것보다 나쁘다 —
+       보이는데 안 눌리면 고장으로 읽는다.
+     ★ 가로 스크롤이면 모든 버튼에 닿을 수 있고 위젯 밖으로 나가지 않는다.
+  */
+  .trade-body > .widget .chart-tool-wrap,
+  .trade-body > .widget .chart-tf,
+  .trade-body > .widget .chart-drawtools {
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* 차트는 더 높게 — 봉을 읽을 수 있어야 한다. */
