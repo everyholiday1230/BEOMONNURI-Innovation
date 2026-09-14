@@ -738,9 +738,14 @@ describe('차트 포지션 오버레이', () => {
        ★ 선언 순서(TDZ) 때문에 ref 를 거친다 — `placeOrderRef.current` 를 호출한다.
          중요한 것은 **전용 API 가 아니라 기존 주문 경로**를 쓴다는 사실이다.
     */
-    const seg = app.slice(i, i + 2600);
-    expect(seg, 'placeOrder 경로를 쓰지 않는다').toMatch(/placeOrderRef\.current|placeOrder\(\{/);
-    expect(seg, 'ref 를 호출하지 않는다').toMatch(/doPlace\(\{|placeOrderRef\.current\(/);
+    /*
+       ★ 설계가 바뀌었다 — 드래그는 옮기기만 하고, 주문은 **확정 핸들러**에서 낸다.
+         중요한 것은 전용 API 가 아니라 **기존 주문 경로**를 쓴다는 사실이다.
+    */
+    const j = app.indexOf('onConfirmBracket={(posId, kind)');
+    expect(j, '확정 핸들러가 없다').toBeGreaterThan(-1);
+    const seg = app.slice(j, app.indexOf('onCancelBracket=', j));
+    expect(seg, '기존 주문 경로(onPlaceOrder)를 쓰지 않는다').toMatch(/onPlaceOrder\(\{/);
   });
 });
 
@@ -822,14 +827,20 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
   const wid = read('src/widgets.jsx');
 
   it('포지션 행에 +TP / +SL 버튼이 있다', () => {
-    expect(wid, '+TP 버튼이 없다').toMatch(/onSetBracket\(p\.id, 'tp'\)/);
-    expect(wid, '+SL 버튼이 없다').toMatch(/onSetBracket\(p\.id, 'sl'\)/);
+    /* ★ tp/sl 을 배열로 돌려 두 버튼을 만든다 — 같은 코드가 두 번 있으면 한쪽만 고치게 된다. */
+    expect(wid, 'TP/SL 버튼을 만들지 않는다').toMatch(/\['tp', 'sl'\]\.map/);
+    expect(wid, 'onSetBracket 을 부르지 않는다').toMatch(/onSetBracket\(p\.id, k\)/);
   });
 
   it('★★★ onSetBracket 이 실제로 전달된다', () => {
     /* ★ 오늘 세 번 겪은 실패 — prop 을 부르지만 전달되지 않는다. */
     const i = app.indexOf('<window.PositionsPanel');
-    expect(app.slice(i, i + 4000), 'onSetBracket 이 전달되지 않는다').toMatch(/onSetBracket=\{/);
+    expect(i, '렌더 지점을 찾지 못했다').toBeGreaterThan(-1);
+    /* ★ 확정/취소/draftIds 가 앞에 끼어들었으므로 창을 넓게 본다. */
+    const tag = app.slice(i, i + 12000);
+    for (const nm of ['onSetBracket', 'onConfirmBracket', 'onCancelBracket', 'draftIds']) {
+      expect(tag, `${nm} 이 전달되지 않는다`).toMatch(new RegExp(`${nm}=\\{`));
+    }
   });
 
   it('★★★ 존재하지 않는 prop 을 부르지 않는다', () => {
@@ -854,8 +865,10 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
     /* ★ 갈라지면 한쪽에만 방향 검증이 남는다. */
     expect(app, '초안 id 를 처리하지 않는다')
       .toMatch(/id\.startsWith\('posbr-'\)\s*\|\|\s*id\.startsWith\('posdraft-'\)/);
-    expect(app, '주문 후 초안 선을 지우지 않는다')
-      .toMatch(/id\.startsWith\('posdraft-'\)\)\s*\{[\s\S]{0,140}filter\(\(o\) => o\.id !== id\)/);
+    /* ★ 초안 선 제거는 **확정 후**에 일어난다 — 드래그 때 지우면 조정을 못 한다. */
+    const j = app.indexOf('onConfirmBracket={(posId, kind)');
+    expect(app.slice(j, app.indexOf('onCancelBracket=', j)), '확정 후 초안 선을 지우지 않는다')
+      .toMatch(/removeOverlay\(oid\)/);
   });
 
   it('이미 보호주문이 있으면 버튼을 숨긴다', () => {
@@ -920,5 +933,122 @@ describe('모바일 — 위젯이 내용을 담는다', () => {
     const w = read('src/widgets.css');
     expect(w, 'widgets.css 에 모바일 위젯 담기 규칙이 들어갔다')
       .not.toMatch(/trade-body > \.widget[\s\S]{0,120}overflow:\s*hidden/);
+  });
+});
+
+/*
+   ═══ TP/SL 드래그 — 이동과 확정을 분리, 취소 경로, 라벨 폭 ═══
+
+   운영자 보고(2026-09-14):
+     "이동이 뭔가 안되요 위로 아래로 자유롭게 이동이되어야하는데"
+     "sl tp 선을 추가했다가 취소하고싶은데 어떻게하죠?"
+     "오른쪽 글씨들이 있는데 가려진건지"
+     "tp sl도 추가하면 오픈오더에 추가되어야하는거아니에요?"
+
+   ★★★ 드래그가 안 된 원인: `handleOverlayChange` 가 `updateOverlay` 를 부르지 않고
+     곧바로 주문을 내고 `return` 했다. 오버레이 상태의 가격이 그대로 남아 **선이
+     제자리로 튕겼다.** 게다가 살짝만 끌어도 주문 확인창이 떴다.
+*/
+describe('TP/SL — 이동·확정·취소', () => {
+  const app = read('src/app.jsx');
+  const wid = read('src/widgets.jsx');
+
+  it('★★★ 드래그는 옮기기만 한다 — 주문을 내지 않는다', () => {
+    const i = app.indexOf("id.startsWith('posbr-') || id.startsWith('posdraft-')");
+    expect(i, '드래그 처리 분기가 없다').toBeGreaterThan(-1);
+    const blk = app.slice(i, i + 300);
+    expect(blk, 'updateOverlay 를 부르지 않는다 — 선이 제자리로 튕긴다')
+      .toMatch(/updateOverlay\(id, ov\);/);
+    expect(blk, '드래그에서 주문을 낸다 — 살짝 끌 때마다 확인창이 뜬다')
+      .not.toMatch(/placeOrder|onPlaceOrder/);
+  });
+
+  it('확정은 버튼으로만 일어난다', () => {
+    expect(app, 'onConfirmBracket 이 없다').toMatch(/onConfirmBracket=\{\(posId, kind\)/);
+    const i = app.indexOf('onConfirmBracket={(posId, kind)');
+    const blk = app.slice(i, app.indexOf('onCancelBracket=', i));
+    expect(blk, '확정에서 주문을 내지 않는다').toMatch(/onPlaceOrder\(\{/);
+    expect(blk, '방향 검증이 없다').toMatch(/const wrong =/);
+  });
+
+  it('★★★ 걸린 주문을 옮길 때 먼저 취소한다', () => {
+    /*
+       거래소에 "스톱 가격 수정" API 가 없다. 취소 없이 새로 걸면 **주문이 두 개**가
+       되고, 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다.
+       ★★ 취소가 실패하면 새 주문을 내지 않는다 — 둘 다 살아 있는 상태가 가장 위험하다.
+    */
+    const i = app.indexOf('onConfirmBracket={(posId, kind)');
+    const blk = app.slice(i, app.indexOf('onCancelBracket=', i));
+    /*
+       ★★★ 역검증에서 이 시험이 `if (false)` 로 바꿔도 통과했다 — `ref.orderId` 라는
+         문자열이 주석에도 있었기 때문이다. **조건 자체**를 확인해야 한다.
+         (알려진 규칙: 소스 검사 시험은 주석을 지우고 **조건**을 본다.)
+    */
+    const bare = blk.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    expect(bare, '기존 주문 id 로 분기하지 않는다 — 취소 없이 걸면 주문이 두 개가 된다')
+      .toMatch(/if \(ref\.orderId\) \{/);
+    expect(blk, '취소를 호출하지 않는다').toMatch(/api\.cancel\(/);
+    expect(blk, '취소 실패 시에도 주문을 낸다').toMatch(/pos_br_cancel_failed[\s\S]{0,60}return;/);
+    expect(app, '오버레이에 주문 id 를 담지 않는다').toMatch(/orderId: ordId \|\| null/);
+  });
+
+  it('★★ 초안을 취소할 수 있다', () => {
+    /* 운영자 질문 — 방법이 없었다. 선만 생기고 없앨 수 없으면 막힌 화면이다. */
+    expect(app, 'onCancelBracket 이 없다').toMatch(/onCancelBracket=\{\(posId, kind\)/);
+    const i = app.indexOf('onCancelBracket={(posId, kind)');
+    const blk = app.slice(i, i + 700);
+    expect(blk, '초안 선을 지우지 않는다').toMatch(/removeOverlay\(oid\)/);
+    /* ★ 걸린 주문(posbr-)은 지우지 않는다 — 주문은 남는데 선만 사라지면 더 위험하다. */
+    expect(blk, '걸린 주문 선까지 지운다').not.toMatch(/posbr-/);
+  });
+
+  it('버튼이 세 상태를 구분한다', () => {
+    expect(wid, 'draftIds 로 초안 상태를 보지 않는다').toMatch(/draftIds \|\| \[\]\)\.includes\(`posdraft-/);
+    expect(app, 'draftIds 를 전달하지 않는다').toMatch(/draftIds=\{/);
+  });
+
+  it('★★ 오픈오더에 트리거 가격이 보인다', () => {
+    /*
+       스톱 주문은 `price` 가 없다. 가격 칸이 비어 있어 무슨 주문인지 알 수 없었다.
+       ★ 청산 전용 배지도 붙인다 — 보호주문임을 알 수 있는 유일한 단서다.
+    */
+    expect(wid, '트리거 가격을 보여주지 않는다').toMatch(/o\.trigger \? \(/);
+    expect(wid, '청산 전용 배지가 없다').toMatch(/o\.reduceOnly \? \([\s\S]{0,220}op_reduce_only/);
+  });
+});
+
+describe('라벨 폭 — 한글에서 상자를 넘치지 않는다', () => {
+  it('★★★ length * 5.6 을 쓰지 않는다', () => {
+    /*
+       10px 폰트에서 ASCII ≈ 5.6px 인데 **한글·CJK ≈ 10px** 이다. length 로 재면
+       배경 상자가 글자보다 좁아 글자가 넘치고, 봉·다른 라벨과 겹쳐 **"글씨가 가려진"**
+       것처럼 보인다(운영자 보고). `String.length` 는 표시 폭이 아니다.
+    */
+    /*
+       ★★★ **주석을 먼저 지운다.** 이 시험이 처음에 실패했다 — 내가 쓴 주석에
+         "`length * 5.6` 은 한글에서" 라는 설명이 들어 있어 정규식이 그것을 잡았다.
+         알려진 함정(주석이 소스 검사를 깨뜨린다)을 또 밟았다.
+    */
+    const s = read('src/chart-kline.jsx')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    expect(s, '아직 length * 5.6 으로 폭을 잰다').not.toMatch(/length\s*\*\s*5\.6/);
+    expect(s, '폭 계산 함수가 없다').toMatch(/function textWidth\(text, size\)/);
+    expect(s, '한글 범위를 보지 않는다').toMatch(/0xac00[\s\S]{0,40}0xd7a3/);
+  });
+
+  it('좁은 차트에서 라벨을 줄인다 — 숫자는 자르지 않는다', () => {
+    const lv = read('src/chart-overlay-live.js');
+    expect(lv, 'maxPx 를 받지 않는다').toMatch(/opts && opts\.maxPx/);
+    expect(lv, '축약 단계가 없다').toMatch(/if \(width\(mid\) <= maxPx\) return mid;/);
+    /* ★★★ 숫자를 자르면 틀린 숫자가 된다 — 손익을 작게 보여주는 방향의 거짓이다. */
+    expect(lv, '숫자를 잘라서 줄인다').not.toMatch(/\.slice\(0,\s*\d+\)\s*\+\s*'…'/);
+  });
+
+  it('★★ bounding 을 넘긴다 — 없으면 축약이 한 번도 동작하지 않는다', () => {
+    const s = read('src/chart-kline.jsx');
+    expect(s, 'renderInfo 가 bounding 을 받지 않는다').toMatch(/function renderInfo\(overlay, bounding\)/);
+    expect(s, 'bounding.width 를 쓰지 않는다').toMatch(/bounding && bounding\.width/);
   });
 });

@@ -1883,7 +1883,7 @@
   // ============================================================
   // POSITIONS & ORDERS
   // ============================================================
-  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t, onSetBracket }) {
+  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t, onSetBracket, onConfirmBracket, onCancelBracket, draftIds }) {
     const [tab, setTab] = useState('positions');
 
     /*
@@ -2306,25 +2306,55 @@
                                      걸면 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다
                                      (reduceOnly 라도 수량이 남아 있으면 위험하다).
                               */}
-                              {onSetBracket && p.isLive && (
-                                <>
-                                  {!hasGuard(p, 'tp') && (
-                                    <button className="btn btn--xs"
-                                      title={t('pos_set_tp_hint')}
-                                      /* ★ title 만으로는 화면낭독기가 읽지 못한다. 접근성 시험이 잡았다. */
-                                      aria-label={t('pos_set_tp_hint')}
-                                      onClick={() => onSetBracket(p.id, 'tp')}
-                                    >{t('pos_set_tp')}</button>
-                                  )}
-                                  {!hasGuard(p, 'sl') && (
-                                    <button className="btn btn--xs"
-                                      title={t('pos_set_sl_hint')}
-                                      aria-label={t('pos_set_sl_hint')}
-                                      onClick={() => onSetBracket(p.id, 'sl')}
-                                    >{t('pos_set_sl')}</button>
-                                  )}
-                                </>
-                              )}
+                              {onSetBracket && p.isLive && ['tp', 'sl'].map((k) => {
+                                /*
+                                   ★★★ 세 가지 상태를 구분한다:
+
+                                     ① 초안이 차트에 있다   → 「확정」 + 「취소」
+                                     ② 이미 걸려 있다       → 「이동 확정」 (선을 끌고 눌러 반영)
+                                     ③ 아무것도 없다        → 「+TP」 / 「+SL」
+
+                                   ★★ 운영자 질문 "추가했다가 취소하고 싶은데 어떻게?" —
+                                     ① 상태에 취소 버튼이 없어서 막혔다. 이제 있다.
+                                   ★ 드래그는 옮기기만 한다. 확정은 버튼으로만 — 살짝 끌 때마다
+                                     주문창이 뜨면 조정 자체가 불가능하다.
+                                */
+                                const hasDraft = (draftIds || []).includes(`posdraft-${p.id}-${k}`);
+                                const live = hasGuard(p, k);
+                                const label = k === 'tp' ? t('pos_set_tp') : t('pos_set_sl');
+                                if (hasDraft) {
+                                  return (
+                                    <React.Fragment key={k}>
+                                      <button className="btn btn--xs btn--primary"
+                                        title={t('pos_br_confirm_hint')}
+                                        aria-label={t('pos_br_confirm_hint')}
+                                        onClick={() => onConfirmBracket && onConfirmBracket(p.id, k)}
+                                      >{t('pos_br_confirm')} {label}</button>
+                                      <button className="btn btn--xs"
+                                        title={t('pos_br_cancel_hint')}
+                                        aria-label={t('pos_br_cancel_hint')}
+                                        onClick={() => onCancelBracket && onCancelBracket(p.id, k)}
+                                      >{t('cancel')}</button>
+                                    </React.Fragment>
+                                  );
+                                }
+                                if (live) {
+                                  return (
+                                    <button key={k} className="btn btn--xs"
+                                      title={t('pos_br_move_hint')}
+                                      aria-label={t('pos_br_move_hint')}
+                                      onClick={() => onConfirmBracket && onConfirmBracket(p.id, k)}
+                                    >{t('pos_br_move')} {label}</button>
+                                  );
+                                }
+                                return (
+                                  <button key={k} className="btn btn--xs"
+                                    title={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
+                                    aria-label={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
+                                    onClick={() => onSetBracket(p.id, k)}
+                                  >{label}</button>
+                                );
+                              })}
                               <button className="btn btn--xs btn--danger"
                                 onClick={() => setClosingId(p.id)}
                               >{t('close')}</button>
@@ -2380,7 +2410,33 @@
                       <span className={`pos-side ${o.side==='long'?'t-long':'t-short'}`}>{o.side==='long'?'▲ LONG':'▼ SHORT'}</span>
                       <span style={{color:'var(--color-text-tertiary)', marginLeft: 6, fontSize:11}}>{o.type}</span>
                     </td>
-                    <td>{fmtPrice(o.price, o.symbol)}</td>
+                    {/*
+                         ★★★ **스톱 주문은 `price` 가 없다 — 빈칸으로 나왔다.**
+
+                           운영자 질문: "tp sl도 추가하면 오픈오더에 추가되어야 하는 거
+                           아니에요?" 추가는 된다(거래소가 실제 주문으로 돌려준다).
+                           그런데 가격 칸이 비어 있어 **무슨 주문인지 알 수 없었다.**
+                           TP/SL 은 지정가가 아니라 **트리거 가격**으로 대기한다.
+
+                         ★ 트리거 가격을 보여주고, 지정가와 구분되게 표시한다.
+                         ★★ 청산 전용 주문에는 배지를 붙인다 — 이것이 보호주문(TP/SL)임을
+                           알 수 있는 유일한 단서다. 없으면 자기가 낸 신규 주문으로 오해한다.
+                    */}
+                    <td>
+                      {o.price ? fmtPrice(o.price, o.symbol) : null}
+                      {!o.price && o.trigger ? (
+                        <span title={t('ord_trigger_hint')}>
+                          <span style={{color:'var(--color-text-tertiary)', fontSize:10, marginRight:3}}>⇥</span>
+                          {fmtPrice(o.trigger, o.symbol)}
+                        </span>
+                      ) : null}
+                      {!o.price && !o.trigger ? <span style={{color:'var(--color-text-tertiary)'}}>—</span> : null}
+                      {o.reduceOnly ? (
+                        <span className="badge badge--neutral" style={{marginLeft:5, fontSize:9}}
+                          title={t('ord_reduce_only_hint')}
+                        >{t('op_reduce_only')}</span>
+                      ) : null}
+                    </td>
                     <td>{fmtQty(o.amount, 3)}</td>
                     <td>{fmtQty(o.filled, 3)}</td>
                     <td style={{color:'var(--color-text-tertiary)'}}>{o.trigger || '—'}</td>

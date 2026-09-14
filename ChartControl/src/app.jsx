@@ -1024,7 +1024,7 @@
                값이 없을 때 새로 만드는 것은 포지션 패널의 TP/SL 버튼이 담당한다.
              ★ 실선으로 그린다. 거래소에 실제로 걸려 있는 주문이므로 초안(점선)과 구분한다.
           */
-          const mkPosBracket = (kind, raw) => {
+          const mkPosBracket = (kind, raw, ordId) => {
             const bp = num(raw);
             if (!bp) return;
             next.push({
@@ -1037,7 +1037,13 @@
               /* ★ 현재가 대비 %를 그리는 순간에 붙인다 — "1.9000" 만으로는 먼 손절인지 알 수 없다. */
               live: { kind: 'away', symbol: String(p.symbol || '').toUpperCase(), price: bp },
               /* ★★ 드래그 결과를 어디로 보낼지 식별하기 위한 값. 화면 상태에 의존하지 않는다. */
-              posRef: { id: p.id, symbol: String(p.symbol || '').toUpperCase(), kind, side: p.side, size: p.size },
+              /*
+                 ★★★ `orderId` 를 함께 담는다. 걸린 보호주문을 옮기려면 **기존 주문을
+                   취소하고 새로 걸어야** 한다(거래소에 "스톱 가격 수정" API 가 없다).
+                   id 가 없으면 취소할 수 없어 **주문이 두 개가 된다** — 하나가 체결된 뒤
+                   남은 하나가 반대 포지션을 열 수 있다.
+              */
+              posRef: { id: p.id, symbol: String(p.symbol || '').toUpperCase(), kind, side: p.side, size: p.size, orderId: ordId || null },
             });
           };
           /*
@@ -1059,19 +1065,25 @@
           const isLongPos = p.side !== 'short';
           let tpPx = null;
           let slPx = null;
+          let tpId = null;
+          let slId = null;
           guards.forEach((o) => {
             const g = num(o.trigger);
             if (!g) return;
             const above = g > px;
-            if (above === isLongPos) { if (tpPx === null) tpPx = g; } else if (slPx === null) slPx = g;
+            /* ★ 취소에 필요한 식별자를 함께 붙든다. clientOrderId 가 취소 API 의 키다. */
+            const oid = o.clientOrderId || o.id || null;
+            if (above === isLongPos) {
+              if (tpPx === null) { tpPx = g; tpId = oid; }
+            } else if (slPx === null) { slPx = g; slId = oid; }
           });
           /* ★ 어댑터가 브래킷을 직접 주면 그것을 우선한다 — 유도보다 정확하다. */
           guards.forEach((o) => {
             if (tpPx === null && num(o.tp)) tpPx = num(o.tp);
             if (slPx === null && num(o.sl)) slPx = num(o.sl);
           });
-          mkPosBracket('tp', tpPx);
-          mkPosBracket('sl', slPx);
+          mkPosBracket('tp', tpPx, tpId);
+          mkPosBracket('sl', slPx, slId);
         });
 
         // 주문·포지션 선만 교체한다. 사용자 도형과 AI 오버레이는 유지.
@@ -1212,77 +1224,21 @@
          ★ 실패하면 선을 되돌린다. 화면에 새 가격이 남아 있으면 이용자는 걸린 줄 안다.
       */
       /*
-         ★ 걸린 보호주문(`posbr-`)과 새로 만드는 초안(`posdraft-`)을 같은 경로로 처리한다.
-           검증·주문 생성이 동일해야 한다 — 갈라지면 한쪽에만 방향 검증이 남는다.
+         ★★★ **드래그는 옮기기만 한다 — 주문을 내지 않는다.**
+
+           처음에는 끌어 놓는 순간 주문을 냈다. 두 가지가 잘못됐다(운영자 보고):
+
+             1. `updateOverlay` 를 부르지 않고 `return` 했으므로 오버레이 상태의 가격이
+                그대로 남아 **선이 제자리로 튕겼다.** "이동이 안 되요" 의 원인이다.
+             2. 살짝만 끌어도 주문 확인창이 떴다. 위아래로 몇 번 조정해 보는 것이
+                정상인데, 매번 주문이 나가려 한다.
+
+         ★★ 그래서 옮기기와 확정을 분리했다. 드래그는 자유롭게 옮기고, 확정은 포지션
+           행의 **확정 버튼**으로 한다. 되돌리기(취소)도 그 자리에서 한다.
+         ★ 방향 검증은 확정할 때 한다 — 옮기는 중에 경고를 띄우면 조정 자체가 불가능하다.
       */
       if (id.startsWith('posbr-') || id.startsWith('posdraft-')) {
-        const src = overlays.concat(visibleOverlays).find((o) => o.id === id);
-        const ref = src && src.posRef;
-        const price = ov && ov.points && ov.points[0] ? Number(ov.points[0].price) : NaN;
-        if (!ref || !Number.isFinite(price) || price <= 0) return;
-
-        const rows = (window.QTAccount && window.QTAccount.getPositions) ? window.QTAccount.getPositions() : [];
-        const pos = (rows || []).find((r) => String(r.id) === String(ref.id));
-        if (!pos) {
-          pushToast({ title: t('pos_br_gone'), variant: 'error' });
-          return;
-        }
-        const entry = Number(pos.entry);
-        const isLong = pos.side !== 'short';
-        /* ★★★ 뒤집힌 방향을 막는다. 즉시 체결되는 보호주문은 보호가 아니다. */
-        const wrong = ref.kind === 'tp'
-          ? (isLong ? price <= entry : price >= entry)
-          : (isLong ? price >= entry : price <= entry);
-        if (wrong) {
-          pushToast({
-            title: ref.kind === 'tp' ? t('pos_br_tp_wrong') : t('pos_br_sl_wrong'),
-            variant: 'error',
-          });
-          /*
-             ★★ 선을 원위치로 되돌린다. 잘못된 가격이 화면에 남으면 이용자는 그 가격에
-               보호주문이 걸렸다고 믿는다.
-             ★ 같은 배열 항목을 새 객체로 바꿔 차트가 다시 그리게 만든다. 값만 같으면
-               차트가 변화를 못 알아채고 끌어놓은 위치에 선이 남는다.
-          */
-          setOverlays((prev) => prev.map((o) => (o.id === id
-            ? { ...o, points: [{ ...o.points[0], time: Date.now() }] }
-            : o)));
-          return;
-        }
-
-        const F = window.QTFmt;
-        const tick = (F && F.tickSizeFor) ? F.tickSizeFor(ref.symbol) : null;
-        const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
-        const text = decimals === null ? String(price) : price.toFixed(decimals);
-
-        /*
-           ★★ 기존 주문 경로를 쓴다 — 17개 리스크 게이트·확인창·감사기록이 그대로 적용된다.
-             전용 API 를 새로 만들면 그 검증들을 다시 구현해야 하고, 언젠가 갈라진다.
-           ★ reduceOnly 는 필수다. 없으면 보호주문이 반대 포지션을 열 수 있다.
-           ★ 트리거 방향: 롱의 손절은 아래로(down), 익절은 위로(up). 숏은 반대.
-        */
-        const doPlace = placeOrderRef.current;
-        if (!doPlace) return;
-        doPlace({
-          side: isLong ? 'short' : 'long',
-          type: 'stop',
-          stopPrice: text,
-          size: String(pos.size),
-          reduceOnly: true,
-          stopDirection: (ref.kind === 'tp') === isLong ? 'up' : 'down',
-          leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
-          ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
-          origin: { posBracket: ref.kind, posId: ref.id },
-        });
-        /*
-           ★★ 초안 선은 여기서 지운다. 주문이 실제로 걸리면 서버에서 읽어와
-             **실선**으로 다시 그려진다 — 점선이 남아 있으면 같은 가격에 선이 두 개다.
-           ★ 주문이 거절돼도 지운다. 점선이 남으면 걸린 줄 오해한다. 거절 사유는
-             확인창/토스트가 말한다.
-        */
-        if (id.startsWith('posdraft-')) {
-          setOverlays((prev) => prev.filter((o) => o.id !== id));
-        }
+        updateOverlay(id, ov);
         return;
       }
 
@@ -3052,6 +3008,103 @@
              ★ 이미 초안이 있으면 새로 만들지 않는다 — 같은 자리에 선이 겹친다.
              ★★ 안내를 띄운다. 선만 생기고 아무 설명이 없으면 무엇을 해야 할지 모른다.
           */
+          /*
+             ★★★ **확정 — 차트에서 옮긴 선의 가격으로 보호주문을 낸다.**
+
+               드래그는 옮기기만 한다. 확정은 여기서만 일어난다. 분리한 이유는
+               살짝 끌 때마다 주문 확인창이 뜨면 조정이 불가능하기 때문이다.
+
+             ★★★ 이미 걸린 주문을 옮기는 경우 **먼저 취소한다.** 거래소에 "스톱 가격
+               수정" API 가 없으므로 취소 없이 새로 걸면 **주문이 두 개**가 된다.
+               하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다.
+             ★★ 취소가 실패하면 **새 주문을 내지 않는다.** 둘 다 살아 있는 상태가
+               가장 위험하다.
+             ★ 방향 검증은 여기서 한다 — 롱의 손절이 진입가 위에 있으면 즉시 체결된다.
+          */
+          /*
+             ★★ 차트에 지금 떠 있는 초안 선의 id 목록. 포지션 행이 「확정/취소」를 보여줄지
+               「+TP」를 보여줄지 판단하는 근거다.
+             ★ 화면 상태를 두 곳에 두지 않는다 — 오버레이 목록이 단일 진상이다.
+          */
+          draftIds={(props.allOverlays || []).filter((o) => String(o.id).startsWith('posdraft-')).map((o) => o.id)}
+
+          onConfirmBracket={(posId, kind) => {
+            const oid = `posdraft-${posId}-${kind}`;
+            const bid = `posbr-${posId}-${kind}`;
+            const line = (props.allOverlays || []).find((o) => o.id === oid)
+              || (props.allOverlays || []).find((o) => o.id === bid);
+            if (!line) { props.pushToast({ title: props.t('pos_br_no_line'), variant: 'error' }); return; }
+            const price = line.points && line.points[0] ? Number(line.points[0].price) : NaN;
+            const rows = (window.QTAccount && window.QTAccount.getPositions)
+              ? window.QTAccount.getPositions() : [];
+            const pos = (rows || []).find((r) => String(r.id) === String(posId));
+            if (!pos) { props.pushToast({ title: props.t('pos_br_gone'), variant: 'error' }); return; }
+            if (!(price > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+
+            const entry = Number(pos.entry);
+            const isLong = pos.side !== 'short';
+            const wrong = kind === 'tp'
+              ? (isLong ? price <= entry : price >= entry)
+              : (isLong ? price >= entry : price <= entry);
+            if (wrong) {
+              props.pushToast({
+                title: kind === 'tp' ? props.t('pos_br_tp_wrong') : props.t('pos_br_sl_wrong'),
+                variant: 'error',
+              });
+              return;
+            }
+
+            const F = window.QTFmt;
+            const tick = (F && F.tickSizeFor) ? F.tickSizeFor(String(pos.symbol || '').toUpperCase()) : null;
+            const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
+            const text = decimals === null ? String(price) : price.toFixed(decimals);
+
+            const send = () => {
+              props.onPlaceOrder({
+                side: isLong ? 'short' : 'long',
+                type: 'stop',
+                stopPrice: text,
+                size: String(pos.size),
+                reduceOnly: true,
+                stopDirection: (kind === 'tp') === isLong ? 'up' : 'down',
+                leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
+                ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
+              });
+              /* ★ 초안 선은 지운다. 걸리면 서버에서 읽어와 실선으로 다시 그려진다. */
+              if (props.removeOverlay) props.removeOverlay(oid);
+            };
+
+            const ref = line.posRef || {};
+            if (ref.orderId) {
+              const api = window.QTApi && window.QTApi.orders;
+              if (!api || !api.cancel) { props.pushToast({ title: props.t('pos_br_cancel_unavail'), variant: 'error' }); return; }
+              api.cancel(String(pos.symbol || '').toUpperCase(), ref.orderId)
+                .then((r) => {
+                  if (r && r.ok === false) {
+                    props.pushToast({ title: props.t('pos_br_cancel_failed'), variant: 'error' });
+                    return;
+                  }
+                  send();
+                })
+                .catch(() => props.pushToast({ title: props.t('pos_br_cancel_failed'), variant: 'error' }));
+              return;
+            }
+            send();
+          }}
+
+          /*
+             ★★ **초안 취소 — 운영자가 물었다: "추가했다가 취소하고 싶은데 어떻게?"**
+               방법이 없었다. 선만 생기고 없앨 수 없으면 막힌 화면이다.
+             ★ 걸린 주문(`posbr-`)은 여기서 지우지 않는다 — 그것은 실제 주문이므로
+               미체결 주문 목록에서 취소해야 한다. 선만 지우면 주문은 남는데 화면에서
+               사라져 **더 위험하다.**
+          */
+          onCancelBracket={(posId, kind) => {
+            const oid = `posdraft-${posId}-${kind}`;
+            if (props.removeOverlay) props.removeOverlay(oid);
+            props.pushToast({ title: props.t('pos_br_canceled'), variant: 'info' });
+          }}
+
           onSetBracket={(posId, kind) => {
             const rows = (window.QTAccount && window.QTAccount.getPositions)
               ? window.QTAccount.getPositions() : [];

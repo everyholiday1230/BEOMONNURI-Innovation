@@ -57,13 +57,35 @@
      ★★ 통화 기호를 붙이지 않는다. 선물 증거금은 USDT 지만 어댑터가 다른 정산통화를
        줄 수 있고, 틀린 기호는 틀린 금액보다 알아채기 어렵다.
   */
+  /*
+     ★★ 표시 폭(px) 추정. 10px 폰트에서 ASCII ≈ 5.6px, **한글·CJK ≈ 10px** 이다.
+       `String.length` 로 재면 한글 라벨이 40% 가까이 좁게 계산돼 상자를 넘친다
+       (차트 쪽 `textWidth` 와 같은 규칙을 쓴다 — 두 곳이 어긋나면 상자와 글자가 안 맞는다).
+  */
+  function width(text) {
+    let w = 0;
+    for (const ch of String(text)) {
+      const c = ch.codePointAt(0);
+      const wide = (c >= 0x1100 && c <= 0x11ff) || (c >= 0x2e80 && c <= 0xa4cf)
+        || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff)
+        || (c >= 0xfe30 && c <= 0xfe6f) || (c >= 0xff00 && c <= 0xff60)
+        || (c >= 0xffe0 && c <= 0xffe6);
+      w += wide ? 10 : 5.6;
+    }
+    return w;
+  }
+
   function fmtMoney(v) {
     const n = Math.abs(Number(v));
     const digits = n >= 1000 ? 0 : (n >= 1 ? 2 : 4);
     return Number(v).toFixed(digits);
   }
 
-  function labelFor(ov, price) {
+  /*
+     ★ `opts.maxPx` — 라벨을 그릴 수 있는 가로 픽셀. 좁으면 축약한다.
+       넘기지 않으면(기존 호출부) 축약하지 않는다 — 동작이 바뀌지 않는다.
+  */
+  function labelFor(ov, price, opts) {
     if (!ov) return '';
     const base = ov.label || '';
     const live = ov.live;
@@ -118,7 +140,36 @@
         pnlTxt = ` · ~${approx >= 0 ? '+' : ''}${fmtMoney(approx)}`;
       }
 
-      return `${base}${marginTxt} · ${signed(chg, 2)}${roe}${pnlTxt}`;
+      /*
+         ★★★ **좁은 차트에서는 줄인다 — 모바일 캔버스는 233px 이다.**
+
+           전체 라벨은 "현재 포지션 · 롱 0.5 · 122.40 · +1.24% · ROE +3.72% · +4.55"
+           처럼 길다. 233px 캔버스에서는 상자가 차트를 가로지르고 봉을 덮는다.
+
+         ★ 지어내지 않고 **덜 중요한 것부터 뺀다**:
+             ① 전체
+             ② 이름·수량을 뺀다 (선의 색과 위치로 이미 안다)
+             ③ 금액을 뺀다 (%가 더 급하다)
+           숫자를 반올림해 줄이지 않는다 — 금액이 틀리게 보이는 것보다 없는 편이 낫다.
+      */
+      const full = `${base}${marginTxt} · ${signed(chg, 2)}${roe}${pnlTxt}`;
+      const maxPx = Number(opts && opts.maxPx);
+      if (!(maxPx > 0) || width(full) <= maxPx) return full;
+
+      const mid = `${signed(chg, 2)}${roe}${pnlTxt}`.replace(/^ · /, '');
+      if (width(mid) <= maxPx) return mid;
+
+      const tight = `${signed(chg, 2)}${roe}`.replace(/^ · /, '');
+      if (width(tight) <= maxPx) return tight;
+
+      /*
+         ★★ 아주 좁으면 **가격 변동%만** 남긴다. 이것이 마지막 단계다 —
+           선의 색과 위치가 방향을, 오른쪽 가격 배지가 가격을 이미 말해 준다.
+         ★★★ 여기서 더 줄이려고 숫자를 자르지 않는다. "+1.4" 처럼 잘린 숫자는
+           **틀린 숫자**이고, 손익을 실제보다 작게 보여주는 방향의 거짓이 된다.
+           넘치더라도 온전한 값을 보여주는 편이 낫다.
+      */
+      return signed(chg, 2);
     }
 
     /*

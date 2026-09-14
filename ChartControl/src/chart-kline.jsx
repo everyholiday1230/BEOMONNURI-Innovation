@@ -295,7 +295,12 @@
   }
 
   /** 공통: extendData 에서 렌더 정보를 뽑는다. */
-  function renderInfo(overlay) {
+  /*
+     ★★★ `bounding` 을 반드시 넘긴다. `ext.paneWidth` 같은 값은 오버레이 데이터에
+       없다 — 처음에 그렇게 썼는데 항상 0 이 되어 **축약이 한 번도 동작하지 않았다.**
+       조용히 아무 일도 안 하는 코드가 되는 오늘의 다섯 번째 사례를 피한다.
+  */
+  function renderInfo(overlay, bounding) {
     const ext = overlay.extendData || {};
     const colors = ext.colors || readColors();
     const src = ext.source || 'user';
@@ -311,17 +316,50 @@
        ★ 헬퍼가 없으면(로드 실패) 원래 라벨을 쓴다 — 선이 사라지면 더 나쁘다.
     */
     const LV = window.QTOverlayLive;
+    /*
+       ★★ 그릴 수 있는 가로 폭을 넘긴다. 좁으면 헬퍼가 덜 중요한 부분을 뺀다.
+         라벨은 x=8 에서 시작하고 오른쪽 가격 배지가 약 60px 을 쓰므로 그만큼 뺀다.
+       ★ 폭을 모르면(0) 축약하지 않는다.
+    */
+    const paneW = Number(bounding && bounding.width) || 0;
+    const maxPx = paneW > 0 ? Math.max(60, paneW - 8 - 60 - 12) : 0;
     const label = LV
-      ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol })
+      ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx })
       : ext.label;
     return { ext, colors, src, color, dashed, label, width: ext.width || 1.5 };
   }
 
   /** 태그(라벨 알약). ChartCanvas drawTag 의 시각을 재현한다. */
+  /*
+     ★★★ **글자 폭 추정 — `length * 5.6` 은 한글에서 크게 어긋난다.**
+
+       10px 폰트에서 ASCII 는 약 5.6px 인데 **한글·한자·가나는 약 10px** 이다.
+       "현재 포지션 · 롱 0.5 · ROE +3.72%" 를 5.6 으로 계산하면 배경 상자가 실제
+       글자보다 **40% 가까이 좁게** 만들어진다. 글자가 상자를 넘쳐 봉·다른 라벨과
+       겹치고, 이용자에게는 **"글씨가 가려진" 것처럼** 보인다(운영자 보고).
+
+     ★ 알려진 함정과 같은 종류다 — `String.length` 는 표시 폭이 아니다(한국어 주석
+       바이트 수를 14.8% 낮게 셌던 일).
+  */
+  function textWidth(text, size) {
+    const per = (size || 10) / 10;
+    let w = 0;
+    for (const ch of String(text)) {
+      const c = ch.codePointAt(0);
+      /* 한글(자모·완성형), CJK 한자, 가나, 전각 기호 → 넓은 글자 */
+      const wide = (c >= 0x1100 && c <= 0x11ff) || (c >= 0x2e80 && c <= 0xa4cf)
+        || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff)
+        || (c >= 0xfe30 && c <= 0xfe6f) || (c >= 0xff00 && c <= 0xff60)
+        || (c >= 0xffe0 && c <= 0xffe6);
+      w += (wide ? 10 : 5.6) * per;
+    }
+    return w;
+  }
+
   function tagFigures(text, x, y, color, colors) {
     if (!text) return [];
     const paddingX = 6;
-    const approxW = String(text).length * 5.6 + paddingX * 2;
+    const approxW = textWidth(text, 10) + paddingX * 2;
     return [
       {
         type: 'rect',
@@ -375,7 +413,7 @@
       createPointFigures: ({ overlay, coordinates, bounding }) => {
         const c = coordinates[0];
         if (!c) return [];
-        const { color, dashed, label, colors, ext } = renderInfo(overlay);
+        const { color, dashed, label, colors, ext } = renderInfo(overlay, bounding);
         const decimals = ext.decimals ?? 2;
         const price = overlay.points?.[0]?.value;
         return [
@@ -400,7 +438,7 @@
       createPointFigures: ({ overlay, coordinates, bounding }) => {
         if (coordinates.length < 2) return [];
         const [p1, p2] = coordinates;
-        const { color, dashed, label, colors } = renderInfo(overlay);
+        const { color, dashed, label, colors } = renderInfo(overlay, bounding);
         const figures = [
           {
             type: 'line',
@@ -435,7 +473,7 @@
         if (coordinates.length < 2) return [];
         const yHi = Math.min(coordinates[0].y, coordinates[1].y);
         const yLo = Math.max(coordinates[0].y, coordinates[1].y);
-        const { color, label, colors, ext } = renderInfo(overlay);
+        const { color, label, colors, ext } = renderInfo(overlay, bounding);
         const decimals = ext.decimals ?? 2;
         const priceHi = Math.max(overlay.points[0].value, overlay.points[1].value);
         const priceLo = Math.min(overlay.points[0].value, overlay.points[1].value);
@@ -490,7 +528,7 @@
         needDefaultYAxisFigure: true,
         createPointFigures: ({ overlay, coordinates, bounding }) => {
           if (coordinates.length < 2) return [];
-          const { colors, ext } = renderInfo(overlay);
+          const { colors, ext } = renderInfo(overlay, bounding);
           /*
              가격 자리수. 심볼의 tickSize 에서 온다.
              이걸 쓰지 않으면 '64283.04431256001' 처럼 부동소수 오차가 그대로 보인다
