@@ -85,6 +85,44 @@
      ★ `opts.maxPx` — 라벨을 그릴 수 있는 가로 픽셀. 좁으면 축약한다.
        넘기지 않으면(기존 호출부) 축약하지 않는다 — 동작이 바뀌지 않는다.
   */
+  /*
+     보호주문(TP/SL) 라벨 — **진입가 기준**으로 계산한다.
+
+     ★ 현재가를 쓰지 않는다. 그래서 시세가 아직 없어도 손익을 보여줄 수 있다.
+  */
+  function bracketLabel(base, live, opts) {
+
+      const entry = Number(live.entry);
+      const target = Number(live.price);
+      if (!(entry > 0) || !(target > 0)) return base;
+
+      const dir = live.side === 'short' ? -1 : 1;
+      const chg = ((target - entry) / entry) * 100 * dir;
+
+      const lev = Number(live.leverage);
+      const roe = (Number.isFinite(lev) && lev > 0) ? ` · ROE ${signed(chg * lev, 2)}` : '';
+
+      /*
+         ★ 금액은 수량을 알아야 계산할 수 있다. 없으면 적지 않는다 — 추측한 금액은
+           틀린 금액이고, 손절 크기를 잘못 판단하게 만든다.
+      */
+      const qty = Number(live.size);
+      const amt = (Number.isFinite(qty) && qty > 0)
+        ? ` · ${(target - entry) * qty * dir >= 0 ? '+' : ''}${fmtMoney((target - entry) * qty * dir)}`
+        : '';
+
+      const full = `${base} · ${signed(chg, 2)}${roe}${amt}`;
+      const maxPx = Number(opts && opts.maxPx);
+      if (!(maxPx > 0) || width(full) <= maxPx) return full;
+
+      /* ★ 좁으면 덜 중요한 것부터 뺀다. 숫자를 자르지는 않는다. */
+      const mid = `${base} · ${signed(chg, 2)}${roe}`;
+      if (width(mid) <= maxPx) return mid;
+      const tight = `${signed(chg, 2)}${roe}`;
+      if (width(tight) <= maxPx) return tight;
+      return signed(chg, 2);
+  }
+
   function labelFor(ov, price, opts) {
     if (!ov) return '';
     const base = ov.label || '';
@@ -92,6 +130,18 @@
     if (!live) return base;
 
     const last = Number(price) || getPrice(live.symbol || ov.symbol);
+    /*
+       ★★★ **보호주문 라벨은 현재가가 없어도 만들 수 있다.**
+
+         이 검사는 원래 "현재가 대비" 계산을 위한 것이었다. 그런데 보호주문(bracket)은
+         **진입가 대비**로 계산하므로 현재가가 필요 없다. 그대로 두면 시세를 아직 못
+         받은 순간에 라벨이 이름만("익절") 나오고, 이용자는 손익을 볼 수 없다.
+
+       ★ 그래서 bracket 은 이 검사보다 **먼저** 처리한다. 나머지 종류는 현재가가 필요해
+         그대로 둔다.
+    */
+    if (live.kind === 'bracket') return bracketLabel(base, live, opts);
+
     if (!(last > 0)) return base;
 
     /*
@@ -195,38 +245,6 @@
        ★★ 레버리지를 모르면 ROE 를 적지 않는다. 1배로 가정하면 손실을 실제보다 작게
          보여주는 방향의 거짓이 된다.
     */
-    if (live.kind === 'bracket') {
-      const entry = Number(live.entry);
-      const target = Number(live.price);
-      if (!(entry > 0) || !(target > 0)) return base;
-
-      const dir = live.side === 'short' ? -1 : 1;
-      const chg = ((target - entry) / entry) * 100 * dir;
-
-      const lev = Number(live.leverage);
-      const roe = (Number.isFinite(lev) && lev > 0) ? ` · ROE ${signed(chg * lev, 2)}` : '';
-
-      /*
-         ★ 금액은 수량을 알아야 계산할 수 있다. 없으면 적지 않는다 — 추측한 금액은
-           틀린 금액이고, 손절 크기를 잘못 판단하게 만든다.
-      */
-      const qty = Number(live.size);
-      const amt = (Number.isFinite(qty) && qty > 0)
-        ? ` · ${(target - entry) * qty * dir >= 0 ? '+' : ''}${fmtMoney((target - entry) * qty * dir)}`
-        : '';
-
-      const full = `${base} · ${signed(chg, 2)}${roe}${amt}`;
-      const maxPx = Number(opts && opts.maxPx);
-      if (!(maxPx > 0) || width(full) <= maxPx) return full;
-
-      /* ★ 좁으면 덜 중요한 것부터 뺀다. 숫자를 자르지는 않는다. */
-      const mid = `${base} · ${signed(chg, 2)}${roe}`;
-      if (width(mid) <= maxPx) return mid;
-      const tight = `${signed(chg, 2)}${roe}`;
-      if (width(tight) <= maxPx) return tight;
-      return signed(chg, 2);
-    }
-
     if (live.kind === 'away') {
       const target = Number(live.price);
       if (!(target > 0)) return base;

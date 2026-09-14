@@ -1303,9 +1303,25 @@ describe('TP/SL — 진입가 기준', () => {
       .not.toMatch(/kind: 'away', symbol: String\(p(os)?\.symbol/);
   });
 
+  it('★★★ 보호주문 라벨은 현재가가 없어도 계산된다', () => {
+    /*
+       실측에서 라벨이 이름만("익절") 나왔다. `labelFor` 앞부분에
+       `if (!(last > 0)) return base;` 가 있어 **시세를 받기 전에는 그 자리에서
+       돌아갔다.** 그 검사는 "현재가 대비" 계산을 위한 것이고, 보호주문은 진입가
+       대비이므로 현재가가 필요 없다.
+       ★ 시세가 늦으면 손익을 못 보는 것은 결함이다 — 보호주문은 진입 직후에 건다.
+    */
+    const i = lv.indexOf('if (live.kind === \'bracket\') return bracketLabel');
+    const j = lv.indexOf('if (!(last > 0)) return base;');
+    expect(i, 'bracket 분기가 없다').toBeGreaterThan(-1);
+    expect(j, 'last 검사가 없다').toBeGreaterThan(-1);
+    expect(i, 'bracket 이 last 검사보다 뒤에 있다 — 시세 전에는 라벨이 비어 있다')
+      .toBeLessThan(j);
+  });
+
   it('라벨이 변동%·ROE·금액을 진입가로 계산한다', () => {
-    const i = lv.indexOf("live.kind === 'bracket'");
-    expect(i, 'bracket 라벨 계산이 없다').toBeGreaterThan(-1);
+    const i = lv.indexOf('function bracketLabel(');
+    expect(i, 'bracket 라벨 계산 함수가 없다').toBeGreaterThan(-1);
     const blk = lv.slice(i, i + 1800);
     expect(blk, '진입가를 쓰지 않는다').toMatch(/const entry = Number\(live\.entry\)/);
     expect(blk, '방향을 반영하지 않는다').toMatch(/live\.side === 'short' \? -1 : 1/);
