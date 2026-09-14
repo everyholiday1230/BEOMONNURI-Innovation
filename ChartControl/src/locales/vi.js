@@ -926,6 +926,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      pos_close_unavailable: 'Không tìm thấy vị thế — hãy tải lại và thử lại.',
+      pos_close_switch_market: 'Hãy chuyển sang thị trường đó trước, rồi đóng vị thế.',
       cancel: 'Hủy',
       save: 'Lưu',
       clear: 'Xóa hết',

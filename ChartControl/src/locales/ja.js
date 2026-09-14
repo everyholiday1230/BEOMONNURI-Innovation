@@ -1037,6 +1037,8 @@
       bc_sev_critical: '重要 — モーダル、明示的に閉じる必要があります',
       dash: '—',
       close: '閉じる',
+      pos_close_unavailable: 'ポジションが見つかりません — 画面を更新して再度お試しください。',
+      pos_close_switch_market: 'その銘柄に切り替えてからポジションを決済してください。',
       cancel: 'キャンセル',
       save: '保存',
       clear: 'すべて解除',

@@ -1038,6 +1038,8 @@
       bc_sev_critical: '重要 — 弹窗，必须明确关闭',
       dash: '—',
       close: '关闭',
+      pos_close_unavailable: '未找到该仓位 — 请刷新后重试。',
+      pos_close_switch_market: '请先切换到该交易对，再平仓。',
       cancel: '取消',
       save: '保存',
       clear: '清除',

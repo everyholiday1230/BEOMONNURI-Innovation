@@ -802,6 +802,8 @@
       bc_sev_critical: 'Important — modal, must be dismissed explicitly',
       dash: '—',
       close: 'Close',
+      pos_close_unavailable: 'Position not found — refresh and try again.',
+      pos_close_switch_market: 'Switch to that market first, then close the position.',
       cancel: 'Cancel',
       save: 'Save',
       clear: 'Clear',

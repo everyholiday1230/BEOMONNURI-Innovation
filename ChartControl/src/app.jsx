@@ -2776,6 +2776,67 @@
         */
         return <window.PositionsPanel
           /*
+             ★★★ **종료 버튼이 아무 동작도 하지 않았다.**
+
+               `PositionsPanel` 은 `onClose(p.id)` 를 부르는데 이 자리에서 `onClose` 를
+               **넘기지 않았다.** 즉 고객이 「종료」를 눌러도 `undefined && …` 로 조용히
+               끝났다. 데스크톱도 모바일도 같았다.
+
+               이건 이 저장소가 금지한 **죽은 버튼**이고 그중 최악이다 — 손실이 커지는
+               포지션을 닫으려고 누르는 버튼이다. 고객은 닫았다고 믿고 기다린다.
+
+             ★★ 종료 전용 API 를 새로 만들지 않는다. **기존 주문 경로**(placeOrder)에
+               reduce-only 시장가로 넣는다. 그러면 리스크 게이트·확인창·감사기록·
+               멱등성이 그대로 적용된다. 별도 경로를 만들면 그 검증들을 다시 만들어야
+               하고, 하나라도 빠지면 그게 구멍이 된다.
+
+             ★ **시장가**로 닫는다. 지정가로 닫으면 체결되지 않고 남을 수 있다 — 고객이
+               "나가고 싶다" 고 누른 순간에 안 나가는 것이 가장 위험하다.
+             ★ 방향은 포지션의 **반대**다. 롱은 숏으로 닫는다.
+             ★ `reduceOnly: true` 가 반드시 필요하다. 없으면 반대 방향 신규 포지션이
+               열릴 수 있다 — 닫으려다 두 배가 된다.
+          */
+          onClose={(posId) => {
+            const rows = (() => {
+              const acct = window.QTAccount;
+              if (acct && acct.isLive && acct.isLive()) return acct.getPositions() || [];
+              if (window.QTMockPolicy && !window.QTMockPolicy.allowMockData()) return [];
+              return QT.POSITIONS;
+            })();
+            const pos = rows.find((r) => r.id === posId);
+            /*
+               ★★ 포지션을 못 찾으면 **아무것도 하지 않는다.** 추측해서 주문을 만들면
+                 엉뚱한 수량이 나간다. 화면이 오래된 상태일 수 있으니 조용히 넘기지 않고
+                 이유를 말한다.
+            */
+            if (!pos || !(Number(pos.size) > 0)) {
+              /*
+                 ★ `props.pushToast` 가 실제 이름이다. 처음에 `props.onToast` 로 썼는데
+                   그 prop 은 존재하지 않아 **또 조용히 아무 일도 없는 코드**가 됐다 —
+                   지금 고치는 버그와 똑같은 실패다. prop 목록을 확인하고 썼다.
+              */
+              if (props.pushToast) props.pushToast({ title: props.t('pos_close_unavailable'), variant: 'error' });
+              return;
+            }
+            /*
+               ★ 다른 종목의 포지션은 그 종목으로 옮긴 뒤에 닫는다. 주문은 현재 시장을
+                 기준으로 만들어지므로, 여기서 그대로 보내면 **엉뚱한 종목에 주문이 간다.**
+            */
+            const cur = props.market ? `${props.market.base}${props.market.quote}` : null;
+            if (cur && pos.symbol && cur !== pos.symbol) {
+              if (props.pushToast) props.pushToast({ title: props.t('pos_close_switch_market'), variant: 'warning' });
+              return;
+            }
+            props.onPlaceOrder({
+              side: pos.side === 'long' ? 'short' : 'long',
+              type: 'market',
+              size: String(pos.size),
+              reduceOnly: true,
+              ...(pos.leverage ? { leverage: pos.leverage } : {}),
+              ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
+            });
+          }}
+          /*
              ★★ 포지션 종목을 누르면 그 종목 차트로 옮겨간다(운영자 요청).
                ★ 멀티차트·마켓워치와 **같은 경로**(onSelectMarket → setMarket)를 쓴다.
                  여기서 따로 상태를 바꾸면 선택이 어긋난다.

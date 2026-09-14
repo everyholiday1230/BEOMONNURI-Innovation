@@ -434,3 +434,74 @@ describe('랜딩 수치는 코드와 일치해야 한다', () => {
       .not.toMatch(/landingPairs\.toLocaleString\(\)\s*\+\s*'\+'/);
   });
 });
+
+/*
+   ═══ 죽은 버튼 감시 — 포지션 종료 ═══
+
+   ★★★ 고객 보고(2026-09-14): "폰에서 포지션 클로즈가 안 된다".
+     확인해 보니 **모바일 문제가 아니었다.** `PositionsPanel` 은 `onClose(p.id)` 를
+     부르는데 `app.jsx` 가 `onClose` 를 **넘기지 않았다.** 즉
+     `undefined && undefined(p.id)` 로 조용히 끝났다 — 데스크톱도 같았다.
+
+     이 저장소가 금지한 죽은 버튼이고 그중 최악이다: 손실이 커지는 포지션을 닫으려고
+     누르는 버튼이다. 고객은 닫았다고 믿고 기다린다.
+
+   ★★ 고치는 과정에서 **같은 실수를 한 번 더 했다.** 안내 문구를 `props.onToast` 로
+     띄우려 했는데 그 prop 은 존재하지 않았다(실제 이름은 `pushToast`). prop 목록을
+     확인하지 않으면 "있는 것처럼 보이는 호출" 이 또 생긴다.
+
+   ★ 그래서 시험은 **연결 자체**를 본다. 화면 시험으로는 잡기 어렵다 — 포지션이
+     있어야 버튼이 렌더되고, 그러려면 실제 거래소 키가 필요하다.
+*/
+describe('포지션 종료 버튼은 실제로 배선돼 있어야 한다', () => {
+  const src = (() => {
+    const raw = read('src/app.jsx');
+    /* ★ 주석을 먼저 없앤다 — 주석 안의 설명이 정규식에 걸리면 거짓 통과다. */
+    return raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  })();
+
+  const panel = (() => {
+    const i = src.indexOf('<window.PositionsPanel');
+    expect(i, 'PositionsPanel 렌더 지점을 찾지 못했다').toBeGreaterThan(-1);
+    const j = src.indexOf('/>', i);
+    return src.slice(i, j);
+  })();
+
+  it('onClose 를 넘긴다', () => {
+    /* ★★★ 이것이 빠져 있어서 버튼이 죽어 있었다. */
+    expect(panel, 'PositionsPanel 에 onClose 가 전달되지 않는다 — 종료 버튼이 죽는다')
+      .toMatch(/onClose=\{/);
+  });
+
+  it('reduceOnly 로 닫는다 — 없으면 반대 포지션이 열린다', () => {
+    /*
+       ★★★ `reduceOnly` 가 없으면 반대 방향 **신규 포지션**이 열릴 수 있다.
+         닫으려다 노출이 두 배가 된다. 이건 고객 돈이 직접 걸린 조건이다.
+    */
+    expect(panel, '종료 주문에 reduceOnly 가 없다').toMatch(/reduceOnly:\s*true/);
+  });
+
+  it('시장가로 닫는다 — 지정가는 체결되지 않을 수 있다', () => {
+    /*
+       ★★ 고객이 "나가고 싶다" 고 누른 순간에 나가지 않는 것이 가장 위험하다.
+         지정가로 닫으면 미체결로 남을 수 있다.
+    */
+    expect(panel, '종료 주문이 시장가가 아니다').toMatch(/type:\s*'market'/);
+  });
+
+  it('포지션 방향의 반대로 주문한다', () => {
+    expect(panel, '방향을 반전시키지 않는다 — 같은 방향으로 주문하면 포지션이 커진다')
+      .toMatch(/side:\s*pos\.side === 'long' \? 'short' : 'long'/);
+  });
+
+  it('존재하지 않는 prop 을 부르지 않는다 (onToast 는 없다)', () => {
+    /*
+       ★★★ 고치는 도중 실제로 한 실수다. `props.onToast` 는 존재하지 않아 또 조용히
+         아무 일도 하지 않는 코드가 됐다. 이 시험은 그 재발을 막는다.
+       ★ `WidgetContent` 에 전달되는 이름은 `pushToast` 다.
+    */
+    expect(panel, '존재하지 않는 props.onToast 를 부른다').not.toMatch(/props\.onToast/);
+  });
+});

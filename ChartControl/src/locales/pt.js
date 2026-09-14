@@ -908,6 +908,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Fechar',
+      pos_close_unavailable: 'Posição não encontrada — atualize e tente novamente.',
+      pos_close_switch_market: 'Troque para esse mercado primeiro e depois feche a posição.',
       cancel: 'Cancelar',
       save: 'Salvar',
       clear: 'Limpar',

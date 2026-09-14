@@ -930,6 +930,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      pos_close_unavailable: 'Pozisyon bulunamadı — sayfayı yenileyip tekrar deneyin.',
+      pos_close_switch_market: 'Önce o piyasaya geçin, sonra pozisyonu kapatın.',
       cancel: 'İptal',
       save: 'Kaydet',
       clear: 'Temizle',
