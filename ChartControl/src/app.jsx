@@ -1759,6 +1759,8 @@
     const isAuthRoute = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      // 사업자 정보 페이지는 로그인 전에도 열려야 한다.
+      '/company',
     ].includes(route.path);
 
     // All known routes — anything not in this list is 404
@@ -1766,6 +1768,7 @@
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       // 법적 문서 — 로그인 없이 열린다.
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      '/company',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
@@ -2042,22 +2045,51 @@
           </div>
 
           <nav className="app-nav">
-            <a className="app-nav__item" href="#/markets"><I.Grid size={13}/>{t('nav_markets')}</a>
-            <a className={`app-nav__item ${route.path === '/trade' ? 'is-active' : ''}`} href="#/trade"><I.Chart size={13}/>{t('nav_trade')}</a>
-            {/*
-               ★★ AI 탭을 숨긴다 (지시받음).
+            {(() => {
+              const p = route.path || '/trade';
+              const isMarketNav = p === '/markets' || p.startsWith('/ai-strategies');
+              const isPortfolioNav = [
+                '/portfolio', '/wallet', '/wallet/transactions', '/order-history',
+                '/notifications', '/referral', '/points', '/fees', '/help', '/settings', '/consent',
+              ].includes(p);
+              const closeDrawer = () => document.documentElement.setAttribute('data-qt-drawer', 'closed');
+              return (
+                <>
+                  <a
+                    className={`app-nav__item ${isMarketNav ? 'is-active' : ''}`}
+                    href="#/markets"
+                    onClick={closeDrawer}
+                  ><I.Grid size={13}/>{t('nav_markets')}</a>
+                  <a
+                    className={`app-nav__item ${p === '/trade' ? 'is-active' : ''}`}
+                    href="#/trade"
+                    onClick={closeDrawer}
+                  ><I.Chart size={13}/>{t('nav_trade')}</a>
+                  {/*
+                     ★★ AI 탭을 숨긴다 (지시받음).
 
-                 코파일럿은 이제 거래 화면 기본 배치(standard-trader)에 접힌 채로
-                 들어 있다. 그래서 이 탭이 없어도 코파일럿에 닿을 수 있다.
+                       코파일럿은 이제 거래 화면 기본 배치(standard-trader)에 접힌 채로
+                       들어 있다. 그래서 이 탭이 없어도 코파일럿에 닿을 수 있다.
 
-               ★ 태그를 지우지 않고 주석으로 둔다 — 되살릴 때 위치와 프리셋
-                 연결(presetId: 'ai-workspace')을 다시 찾지 않아도 되게 한다.
-                 `ai-workspace` 프리셋 자체는 남아 있어 레이아웃 편집에서 고를 수 있다.
+                     ★ 태그를 지우지 않고 주석으로 둔다 — 되살릴 때 위치와 프리셋
+                       연결(presetId: 'ai-workspace')을 다시 찾지 않아도 되게 한다.
+                       `ai-workspace` 프리셋 자체는 남아 있어 레이아웃 편집에서 고를 수 있다.
 
-              <a className="app-nav__item" href="#/trade?workspace=ai" onClick={() => setTweaks({ presetId: 'ai-workspace' })}><I.Sparkles size={13}/>{t('nav_ai')}</a>
-            */}
-            <a className="app-nav__item" href="#/portfolio"><I.Wallet size={13}/>{t('nav_portfolio')}</a>
-            <a className="app-nav__item" href="#/analytics"><I.Book size={13}/>{t('nav_analytics')}</a>
+                    <a className="app-nav__item" href="#/trade?workspace=ai" onClick={() => setTweaks({ presetId: 'ai-workspace' })}><I.Sparkles size={13}/>{t('nav_ai')}</a>
+                  */}
+                  <a
+                    className={`app-nav__item ${isPortfolioNav ? 'is-active' : ''}`}
+                    href="#/portfolio"
+                    onClick={closeDrawer}
+                  ><I.Wallet size={13}/>{t('nav_portfolio')}</a>
+                  <a
+                    className={`app-nav__item ${p === '/analytics' ? 'is-active' : ''}`}
+                    href="#/analytics"
+                    onClick={closeDrawer}
+                  ><I.Book size={13}/>{t('nav_analytics')}</a>
+                </>
+              );
+            })()}
           </nav>
 
           <div className="app-header__right">
