@@ -154,7 +154,11 @@
             .slice(0, 12);
         }
       }
-      if (q) list = list.filter(m => m.base.toLowerCase().includes(q.toLowerCase()));
+      if (q) {
+        // ★ 검색은 심볼 전체(base+quote)로 — 'USDT'·'BTC/USDT' 로도 찾아지게.
+        const needle = q.toLowerCase().replace(/[/\s]/g, '');
+        list = list.filter(m => (m.base + m.quote).toLowerCase().includes(needle));
+      }
       // 'New' 는 상장 시각 순서가 의미이므로 공통 정렬을 덮어쓰지 않는다.
       if (tab !== 'New') {
         list.sort((a,b) => {
