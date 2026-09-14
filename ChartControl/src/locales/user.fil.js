@@ -26,6 +26,19 @@
 
       // --- Order history ---
       order_history_ea8391: 'Lahat ng order · bukas · napunan · kanselado',
+      oh_attempts_title: 'Mga order na hindi natuloy',
+      oh_attempts_sub: 'Hindi ito nakarating sa exchange, kaya wala sa listahan sa itaas.',
+      oh_attempts_unavailable: 'Hindi mabasa ang attempt log sa deployment na ito.',
+      oh_col_time: 'Oras',
+      oh_col_symbol: 'Market',
+      oh_col_side: 'Panig',
+      oh_col_type: 'Uri',
+      oh_col_qty: 'Dami',
+      oh_col_result: 'Resulta',
+      oh_col_reason: 'Dahilan',
+      oh_result_blocked: 'Hinarang namin',
+      oh_result_rejected: 'Tinanggihan ng exchange',
+      oh_reason_unknown: 'Walang naitalang dahilan',
 
       // --- Wallet ---
       wallet_ed546c: 'Mga koneksyon sa exchange',

@@ -4295,6 +4295,30 @@
       return () => { cancelled = true; };
     }, []);
 
+    /*
+       주문 **시도** 내역(우리 기록). 거래소 조회와 별개다.
+
+       ★★ `{ available: null }` 로 시작한다 — `false` 로 시작하면 불러오기 전에
+         "조회할 수 없습니다" 가 잠깐 보인다. `null` 은 "아직 모른다" 다.
+       ★ 실패를 빈 배열로 위장하지 않는다. 조회 자체가 안 되면 available:false 로
+         두고 화면이 그 사실을 말한다.
+    */
+    const [attempts, setAttempts] = useState({ available: null, failed: [] });
+    useEffect(() => {
+      let cancelled = false;
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.orderAttempts) { setAttempts({ available: false, failed: [] }); return undefined; }
+      api.orderAttempts(200)
+        .then((r) => {
+          if (cancelled) return;
+          /* ★ 성공한 시도는 위 표(거래소 내역)에 이미 있다. 여기서는 실패만 모은다. */
+          const failed = (r.items || []).filter((x) => x && x.submitStatus && x.submitStatus !== 'ACCEPTED');
+          setAttempts({ available: r.available !== false, failed });
+        })
+        .catch(() => { if (!cancelled) setAttempts({ available: false, failed: [] }); });
+      return () => { cancelled = true; };
+    }, []);
+
     const live = React.useMemo(() => {
       if (!acct.isLive || !Acct) return null;
       const open = Acct.getOpenOrders();
@@ -4495,6 +4519,74 @@
             </div>
           )}
         </window.SectionCard>
+
+        {/*
+             ═══ 실패한 주문 시도 ═══
+
+             ★★★ 왜 이 섹션이 있는가
+
+               위 표는 **거래소**에서 온다. 그래서 거래소에 도달하지 못한 주문은
+               어디에도 보이지 않았다.
+
+               실제 문의(2026-09-14): 고객이 지정가 주문을 냈고 KuCoin 이 증거금
+               부족으로 거절했는데, 고객은 **"주문이 안 보인다"** 고 물었다. 화면
+               토스트는 9초만 뜨고 내역에는 남지 않았다. 다른 고객은 마진 모드
+               불일치로 **4번** 거절당했는데 역시 확인할 방법이 없었다.
+
+             ★ 실패한 시도야말로 고객이 나중에 다시 보고 싶어하는 것이다.
+             ★★ 성공한 시도는 위 표에 이미 있으므로 **여기서는 실패만** 보여준다.
+               같은 주문을 두 곳에 보여주면 두 번 낸 것으로 오해한다.
+             ★★ 조회 불가와 "시도가 없음" 을 구분해 말한다.
+        */}
+        {attempts.available === false ? (
+          <window.SectionCard title={t('oh_attempts_title')}>
+            <div style={{padding:'14px 12px', fontSize:12, color:'var(--color-text-tertiary)'}}>
+              {t('oh_attempts_unavailable')}
+            </div>
+          </window.SectionCard>
+        ) : attempts.failed.length > 0 ? (
+          <window.SectionCard title={t('oh_attempts_title')} subtitle={t('oh_attempts_sub')}>
+            <div style={{overflowX:'auto'}}>
+              <table className="data-table" style={{width:'100%', fontSize:12}}>
+                <thead>
+                  <tr>
+                    <th>{t('oh_col_time')}</th>
+                    <th>{t('oh_col_symbol')}</th>
+                    <th>{t('oh_col_side')}</th>
+                    <th>{t('oh_col_type')}</th>
+                    <th>{t('oh_col_qty')}</th>
+                    <th>{t('oh_col_result')}</th>
+                    <th>{t('oh_col_reason')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.failed.slice(0, 30).map((a) => (
+                    <tr key={a.id}>
+                      <td style={{whiteSpace:'nowrap'}}>{new Date(a.decidedAt).toLocaleString()}</td>
+                      <td>{String(a.symbol || '').replace('USDT','/USDT')}</td>
+                      <td className={a.side === 'long' ? 't-long' : 't-short'}>{a.side}</td>
+                      <td>{a.orderType || '—'}{a.price ? ` @ ${a.price}` : ''}</td>
+                      <td>{a.quantity || '—'}</td>
+                      {/*
+                           ★ 차단(우리 게이트)과 거절(거래소)을 구분해 보여준다.
+                             원인이 다르므로 고객이 할 일도 다르다.
+                      */}
+                      <td>
+                        <span className={`status-pill status-pill--${a.submitStatus === 'BLOCKED' ? 'warn' : 'danger'}`}>
+                          {a.submitStatus === 'BLOCKED' ? t('oh_result_blocked') : t('oh_result_rejected')}
+                        </span>
+                      </td>
+                      {/* ★★ 이유를 그대로 보여준다. "실패" 만 알리면 무엇을 고쳐야 할지 모른다. */}
+                      <td style={{color:'var(--color-text-secondary)', maxWidth:320}}>
+                        {a.submitReason || t('oh_reason_unknown')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </window.SectionCard>
+        ) : null}
       </window.PageShell>
     );
   };

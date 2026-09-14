@@ -2714,8 +2714,40 @@
       case 'orderEntry':
         return <window.OrderEntry
           lastPrice={props.lastPrice} market={props.market} assets={liveAssets}
-          /* 기본값만 넘긴다 — 실제 값은 OrderEntry 가 이용자 선택을 저장·복원한다. */
-          marginMode="CROSS" leverage={10}
+          marginMode={(() => {
+            /*
+               ★★★ **마진 모드는 거래소가 정한다. 우리가 고르지 않는다.**
+
+                 전에는 `marginMode="CROSS"` 로 박아 두고 나머지는 `localStorage` 에
+                 저장된 이용자 선택을 썼다. 그래서 우리 화면 값과 KuCoin 쪽 실제
+                 설정이 어긋날 수 있었고, 어긋나면 거래소가 주문을 **거절**한다.
+
+                 실측(2026-09-14): 고객 `bewhite12` 가 이 이유로 **4번 거절**당했다.
+                   REJECTED | "The order's margin mode does not match the selected
+                              one. Please switch and try again." | 4건
+
+                 우리는 포지션 조회에서 이미 `marginMode` 를 받고 있었다. 즉 답을
+                 손에 들고도 쓰지 않아 고객이 네 번 실패한 것이다.
+
+               ★ 현재 심볼의 포지션이 있으면 **그 포지션의 모드**를 쓴다. 없으면
+                 아무 포지션의 모드를 쓴다(계정 단위로 같은 경우가 많다).
+               ★★ 포지션이 하나도 없으면 **추측하지 않고** 'CROSS' 를 기본으로 둔다.
+                 거래소가 알려준 값이 없을 때 우리가 아는 척하면 안 되고, 이용자가
+                 패널에서 바꿀 수 있다.
+               ★ 우리가 거래소 설정을 **바꾸지는 않는다.** 고객 계정 설정을 우리가
+                 건드리는 것은 다른 문제다 — 우리는 따라갈 뿐이다.
+            */
+            try {
+              const acct = window.QTAccount;
+              if (!acct || !acct.isLive || !acct.isLive()) return 'CROSS';
+              const rows = acct.getPositions() || [];
+              if (rows.length === 0) return 'CROSS';
+              const sym = props.market ? `${props.market.base}${props.market.quote}` : null;
+              const hit = (sym && rows.find((r) => r.symbol === sym)) || rows[0];
+              return String(hit && hit.mode).toUpperCase() === 'ISOLATED' ? 'ISOLATED' : 'CROSS';
+            } catch (e) { return 'CROSS'; }
+          })()}
+          leverage={10}
           prefillPrice={props.orderDraft?.price}
           prefillSize={props.orderDraft?.size}
           prefillSide={props.orderDraft?.side}

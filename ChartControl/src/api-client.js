@@ -2312,6 +2312,25 @@
       return getJSON('', '/api/trading/open-orders' + q).then(wrapList('orders'));
     },
 
+    /*
+       주문 **시도** 내역 — 성공·차단·거절 전부. 거래소가 아니라 우리 기록이다.
+
+       ★★ `orderHistory` 는 거래소를 조회하므로 **거래소에 도달하지 못한 주문**이
+         빠진다. 고객이 "주문이 안 보인다" 고 문의한 실제 원인이다(2026-09-14).
+       ★ 실패를 빈 배열로 위장하지 않는다 — `available` 을 그대로 넘긴다.
+    */
+    orderAttempts: function (limit) {
+      var q = limit ? '?limit=' + encodeURIComponent(String(limit)) : '';
+      return getJSON('', '/api/trading/order-attempts' + q).then(function (r) {
+        return {
+          ok: true,
+          available: !(r && r.available === false),
+          reason: (r && r.reason) || null,
+          items: (r && r.items) || [],
+        };
+      });
+    },
+
     orderHistory: function (symbol) {
       var q = symbol ? '?symbol=' + encodeURIComponent(symbol) : '';
       return getJSON('', '/api/trading/order-history' + q).then(wrapList('orders'));

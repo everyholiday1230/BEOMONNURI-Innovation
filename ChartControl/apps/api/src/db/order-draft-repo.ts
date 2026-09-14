@@ -247,9 +247,38 @@ export class PgOrderDraftRepo implements IOrderDraftRepo {
     return { items: rows.rows.map(map), total: Number(total.rows[0].n) };
   }
 
+  /**
+   * 기간 내 **실제로 거래소에 전송된** 주문 수.
+   *
+   * ═══ ★★★ 왜 `orders` 가 아니라 `trade_decisions` 인가 ═══
+   *
+   *   전에는 `FROM orders` 를 셌다. 그런데 프로덕션 실측(2026-09-14):
+   *
+   *     orders          0건        ← 실주문 경로가 여기에 쓰지 않는다
+   *     order_drafts    0건
+   *     trade_decisions 32건 (ACCEPTED 12건)  ← 실주문은 여기에 남는다
+   *
+   *   `INSERT INTO orders` 를 하는 곳은 **모의 주문 투영(sim-projection)뿐**이다.
+   *   즉 일일 주문 한도 게이트는 항상 `0` 을 보고 `0 < 한도` 로 통과했다 —
+   *   **한도를 걸어도 절대 걸리지 않는 상태**였다.
+   *
+   * ★★ 이 저장소가 이미 한 번 고친 실패다. 예전 주석: "이전에는 항상 SQLite 를
+   *   세어, Postgres 배포에서는 빈 테이블 → 카운트 0 → 일일 주문 한도 게이트가
+   *   절대 걸리지 않았다." 상수를 실제 조회로 바꾸긴 했지만 **조회 대상이 실주문이
+   *   들어가지 않는 표**였다. 어제 AI 포지션 도구도 같은 구조였다(모의 주문용 표를 읽음).
+   *
+   * ★ `ACCEPTED` 만 센다. `BLOCKED` 는 우리 게이트가 막은 것이라 거래소에 가지
+   *   않았고, `REJECTED` 는 거래소가 거절했다. 둘 다 "낸 주문" 이 아니다.
+   * ★ `execution_mode='live'` 만 센다. 모의 실행을 한도에 넣으면 실거래 여력이
+   *   모의 연습으로 줄어든다.
+   */
   async countOrdersSince(userId: string, since: number): Promise<number> {
     const r = await this.pool.query(
-      'SELECT COUNT(*)::int AS n FROM orders WHERE user_id=$1 AND created_at >= to_timestamp($2 / 1000.0)',
+      `SELECT COUNT(*)::int AS n FROM trade_decisions
+        WHERE user_id = $1
+          AND submit_status = 'ACCEPTED'
+          AND execution_mode = 'live'
+          AND decided_at >= to_timestamp($2 / 1000.0)`,
       [userId, since],
     );
     return Number(r.rows[0].n);

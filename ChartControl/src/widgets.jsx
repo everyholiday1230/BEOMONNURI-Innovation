@@ -946,13 +946,39 @@
       } catch (e) { /* 저장소 접근 불가는 치명적이지 않다 */ }
       return Math.max(1, Math.min(125, Number(leverage) || 10));
     });
-    const [mMode, setMMode] = useState(() => {
-      try {
-        const saved = localStorage.getItem('qt.order.marginMode');
-        if (saved === 'ISOLATED' || saved === 'CROSS') return saved;
-      } catch (e) { /* 무시 */ }
-      return marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS';
-    });
+    /*
+       ★★★ **거래소가 알려준 모드가 저장값보다 우선한다.**
+
+         전에는 `localStorage` 를 먼저 봤다. 그래서 고객이 예전에 한 번 고른 값이
+         **거래소의 실제 설정을 영구히 덮었다.** 어긋나면 거래소가 주문을 거절한다.
+
+         실측(2026-09-14): 고객 `bewhite12` 가 이 이유로 **4번 거절**당했다 —
+         "The order's margin mode does not match the selected one."
+
+       ★ 상위(app.jsx)가 포지션에서 읽은 실제 모드를 `marginMode` 로 내려준다.
+         저장값은 **거래소 값을 모를 때만** 쓴다(포지션이 없는 경우).
+       ★★ 이용자가 패널에서 바꾸는 것은 그대로 가능하다 — 아래 `setMMode` 가
+         저장하고, 심볼이 바뀌어 거래소 값이 새로 오면 그때 다시 맞춘다.
+    */
+    const [mMode, setMMode] = useState(
+      () => (marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS'),
+    );
+    /*
+       ★★ 심볼을 바꾸면 그 심볼의 실제 모드로 다시 맞춘다.
+
+         종목마다 모드가 다를 수 있다. 한 종목에서 고른 값을 다른 종목에 그대로
+         쓰면 같은 거절이 다시 난다.
+       ★ 이용자가 방금 손으로 바꾼 것을 되돌리지 않도록, **거래소 값이 실제로
+         달라졌을 때만** 반영한다.
+    */
+    const lastExchangeMode = React.useRef(marginMode);
+    useEffect(() => {
+      const next = marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS';
+      if (lastExchangeMode.current !== next) {
+        lastExchangeMode.current = next;
+        setMMode(next);
+      }
+    }, [marginMode]);
     useEffect(() => { try { localStorage.setItem('qt.order.leverage', String(lev)); } catch (e) { /* 무시 */ } }, [lev]);
     useEffect(() => { try { localStorage.setItem('qt.order.marginMode', mMode); } catch (e) { /* 무시 */ } }, [mMode]);
     /*

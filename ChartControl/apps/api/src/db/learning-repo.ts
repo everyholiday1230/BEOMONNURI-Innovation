@@ -303,6 +303,73 @@ export class PgLearningRepo {
    * ★ 접수된 것만 가져온다 — 차단·거부된 주문에는 체결이 있을 수 없다.
    * ★ 기간을 제한한다. 전체를 읽으면 화면을 열 때마다 표 전체를 훑는다.
    */
+  /**
+   * 최근 **주문 시도** 전부 — 성공·차단·거절을 모두 돌려준다.
+   *
+   * ═══ ★★★ 왜 필요한가 ═══
+   *
+   *   `/trading/order-history` 는 **거래소**를 조회한다. 그래서 거래소에 도달하지
+   *   못한 주문은 어디에도 보이지 않는다.
+   *
+   *   실제로 그 일이 있었다(2026-09-14 확인):
+   *     · 고객 `sunnysinn1` 이 STEEMUSDT 지정가 주문을 냈고 KuCoin 이 거절했다
+   *       ("Order quantity is too high, insufficient available margin")
+   *     · 고객은 **주문이 안 보인다**고 문의했다 — 화면에는 토스트가 9초만 떴고
+   *       내역에는 남지 않았다
+   *     · 고객 `bewhite12` 는 마진 모드 불일치로 **4번** 거절당했다
+   *
+   *   즉 "왜 안 됐는지" 를 나중에 확인할 방법이 없었다. 실패한 시도야말로 고객이
+   *   다시 보고 싶어하는 것이다.
+   *
+   * ★ `submit_status` 와 `submit_reason` 을 함께 준다. 이유 없이 "실패" 만
+   *   보여주면 무엇을 고쳐야 할지 알 수 없다.
+   * ★★ 본인 것만 읽는다. `userId` 는 세션에서 온 값이다.
+   */
+  async recentAttempts(userId: string, limit = 50): Promise<Array<{
+    id: string;
+    decidedAt: number;
+    symbol: string;
+    side: string;
+    orderType: string | null;
+    price: string | null;
+    quantity: string | null;
+    leverage: number | null;
+    marginMode: string | null;
+    reduceOnly: boolean;
+    executionMode: ExecutionMode;
+    submitStatus: string | null;
+    submitReason: string | null;
+    exchangeOrderId: string | null;
+  }>> {
+    const r = await this.pool.query(
+      `SELECT id, decided_at, symbol, side, order_type, price, quantity, leverage,
+              margin_mode, reduce_only, execution_mode, submit_status, submit_reason,
+              exchange_order_id
+         FROM trade_decisions
+        WHERE user_id = $1
+        ORDER BY decided_at DESC
+        LIMIT $2`,
+      [userId, Math.min(Math.max(limit, 1), 200)],
+    );
+    return r.rows.map((x: Record<string, unknown>) => ({
+      id: String(x.id),
+      decidedAt: new Date(x.decided_at as string).getTime(),
+      symbol: String(x.symbol ?? ''),
+      side: String(x.side ?? ''),
+      orderType: x.order_type === null ? null : String(x.order_type),
+      /* ★ 빈 문자열은 null 로 준다 — 시장가는 가격이 없다. 0 으로 바꾸면 거짓이 된다. */
+      price: x.price === null || x.price === '' ? null : String(x.price),
+      quantity: x.quantity === null || x.quantity === '' ? null : String(x.quantity),
+      leverage: x.leverage === null ? null : Number(x.leverage),
+      marginMode: x.margin_mode === null ? null : String(x.margin_mode),
+      reduceOnly: x.reduce_only === true,
+      executionMode: x.execution_mode as ExecutionMode,
+      submitStatus: x.submit_status === null ? null : String(x.submit_status),
+      submitReason: x.submit_reason === null || x.submit_reason === '' ? null : String(x.submit_reason),
+      exchangeOrderId: x.exchange_order_id === null ? null : String(x.exchange_order_id),
+    }));
+  }
+
   async recentDecisionsForOutcome(userId: string, sinceMs: number): Promise<Array<{
     id: string;
     clientOrderId: string | null;

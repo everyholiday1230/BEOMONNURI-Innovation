@@ -1850,6 +1850,38 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   });
 
   /** GET /trading/order-history — 완료·취소된 주문. */
+  /*
+     주문 **시도** 내역 — 성공·차단·거절 전부.
+
+     ★★★ `/trading/order-history` 는 **거래소**를 조회한다. 그래서 거래소에 도달하지
+       못한 주문(우리 게이트가 막았거나 거래소가 거절한 것)은 어디에도 보이지 않았다.
+
+       실제 문의(2026-09-14): 고객 `sunnysinn1` 이 지정가 주문을 냈는데 KuCoin 이
+       증거금 부족으로 거절했고, 고객은 "주문이 안 보인다" 고 물었다. 화면 토스트는
+       9초만 뜨고 내역에는 남지 않았다. `bewhite12` 는 마진 모드 불일치로 4번 거절.
+
+     ★ 실패한 시도야말로 고객이 나중에 다시 보고 싶어하는 것이다. 이유를 함께 준다.
+     ★★ `d.learning` 이 없으면 **빈 배열이 아니라 `available: false`** 를 준다.
+       빈 배열은 "시도가 없었다" 는 뜻이고, 그것은 조회 불가와 다른 사실이다.
+  */
+  app.get('/trading/order-attempts', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    const repo = d.learning as { recentAttempts?: (userId: string, limit?: number) => Promise<unknown[]> } | undefined;
+    if (!repo?.recentAttempts) {
+      return c.json({ available: false, reason: 'attempt log not wired on this deployment', items: [] });
+    }
+    const raw = Number(c.req.query('limit') ?? 50);
+    const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 200) : 50;
+    try {
+      const items = await repo.recentAttempts(a.user.id, limit);
+      return c.json({ available: true, total: items.length, items });
+    } catch (e) {
+      /* ★ 조회 실패를 빈 목록으로 위장하지 않는다. */
+      return c.json({ available: false, reason: `query failed: ${(e as Error).message}`, items: [] }, 500);
+    }
+  });
+
   app.get('/trading/order-history', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
