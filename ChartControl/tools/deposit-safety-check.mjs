@@ -216,8 +216,13 @@ for (const f of ['src/pages-more.jsx', 'src/pages-user.jsx']) {
   // 결제 대행사 없이 판매를 켤 수 없어야 한다.
   if (admin.includes('no payment provider is connected')) pass('결제 대행사 없이 포인트 판매를 켜면 서버가 거부한다');
   else fail('결제 대행사 없이 포인트 판매를 켜면 서버가 거부한다');
-  if (/purchaseEnabled:\s*false/.test(admin)) pass('설정 저장 시 구매 스위치를 강제로 끈다');
-  else fail('설정 저장 시 구매 스위치를 강제로 끈다');
+  /* ★ 구매 스위치 — 결제 대행사가 연결되지 않은 저장은 거부된다.
+       전에는 무조건 false 로 강제했지만, PayPal·Toss·USDT 연결 이후에는
+       "대행사가 있을 때만 켤 수 있다" 가 정확한 불변식이다(무조건 강제 false 는
+       대행사를 연결한 뒤에도 판매를 막는 회귀가 된다). */
+  if (/purchaseEnabled && !\w+\.paymentsConfigured/.test(admin) && /NOT_CONFIGURED/.test(admin))
+    pass('결제 대행사 없이 구매 스위치를 켜면 설정 저장이 거부된다');
+  else fail('결제 대행사 없이 구매 스위치를 켤 수 있다 — 없는 판매를 약속한다');
 
   // 원장은 추가만 한다 — 수정·삭제 경로가 없어야 한다.
   if (!/UPDATE\s+point_ledger/i.test(repo)) pass('원장에 UPDATE 가 없다 (추가만)');
@@ -584,8 +589,13 @@ for (const f of ['src/pages-more.jsx', 'src/pages-user.jsx']) {
 
   /* 가드가 분류(classify)보다 먼저 있어야 한다 — 뒤에 있으면 오버레이가 이미 그려진다. */
   const guardIdx = submitBody.indexOf('!aiReady');
-  const classifyIdx = submitBody.indexOf('classify(');
-  if (guardIdx !== -1 && classifyIdx !== -1 && guardIdx < classifyIdx) {
+  /* ★ classify 클라이언트 분류는 서버가 좌표를 검증하는 스트리밍(aiCopilotStream)으로
+       대체됐다. 요지는 그대로다 — 가드가 **어떤 분석 경로보다도** 먼저 있어야 한다. */
+  const entryIdx = ['classify(', 'aiCopilotStream'].reduce((m, k) => {
+    const i = submitBody.indexOf(k);
+    return (i !== -1 && i < m) ? i : m;
+  }, Number.MAX_SAFE_INTEGER);
+  if (guardIdx !== -1 && entryIdx !== Number.MAX_SAFE_INTEGER && guardIdx < entryIdx) {
     pass('가드가 분석 분기보다 먼저 실행된다');
   } else {
     fail('가드가 분석 분기 뒤에 있다 — 차트에 예시 가격 선이 먼저 그려진다');
