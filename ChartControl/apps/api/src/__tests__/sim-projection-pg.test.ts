@@ -19,6 +19,8 @@
 */
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,6 +30,10 @@ import { ensureSimBalance } from '../portfolio/sim-balance';
 import type { SimulatedOrderInput } from '../portfolio/sim-projection';
 
 const URL = process.env.PG_TEST_URL;
+
+/* ★ 저장소 뿌리에서 읽는다. 시험 실행 위치(apps/api)와 다르다. */
+const ROOT = join(process.cwd(), '..', '..');
+const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 
 describe.skipIf(!URL)('시뮬레이터 투영 — 실제 Postgres', () => {
   let pool: Pool;
@@ -203,6 +209,44 @@ describe.skipIf(!URL)('시뮬레이터 투영 — 실제 Postgres', () => {
     const gain = Number(after.available) - Number(mid.available);
     expect(gain, '손익이 보유량보다 큰 수량으로 계산됐다').toBeLessThan(200 + 100 + 1);
     expect(gain, '증거금·손익이 반영되지 않았다').toBeGreaterThan(200 + 100 - 20);
+  });
+
+  it('★★ 청산 주문임을 orders.reduce_only 에 기록한다', async () => {
+    /*
+       전에는 이 컬럼이 비어 있었다. 그러면 주문 목록이 보호주문(TP/SL)을 신규 주문과
+       구분할 수 없고, `Reduce only` 배지가 붙지 않아 고객이 **자기가 낸 신규 주문으로
+       오해**한다. 실측에서 실제로 NULL 이었다.
+    */
+    const P = new PgSimOrderProjection(pool);
+    await P.project(userId, order({ side: 'long', price: '40000', quantity: '0.01', leverage: 4, positionAction: 'open' }));
+    await P.project(userId, order({ side: 'short', price: '41000', quantity: '0.01', leverage: 4, positionAction: 'close' }));
+
+    const r = await pool.query(
+      'SELECT type, reduce_only FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 2',
+      [userId],
+    );
+    const flags = r.rows.map((x) => Number((x as { reduce_only: number }).reduce_only));
+    expect(flags, '청산/진입이 구분되지 않는다').toEqual([1, 0]);
+  });
+
+  /*
+     ═══ ★★★ 알려진 한계 — 페이퍼에서 스톱은 **즉시** 체결된다 ═══
+
+     `SimOrderEngine.confirmAndSubmit` 은 모든 주문을 곧바로 FILLED 로 만든다
+     (`state = transitionOrder(state, 'FILLED'); // simulated immediate fill`).
+     그래서 페이퍼 모드의 TP/SL 은 **대기하지 않고 즉시 실행된다** — 프로덕션 실측
+     (2026-09-14): 손절을 확정하자 포지션이 그 자리에서 닫혔다.
+
+     ★ 실거래(futures)에서는 거래소가 트리거를 지키므로 이 한계가 없다.
+     ★★ 대회를 모의로 운영하려면 이것을 고쳐야 한다. 시세를 감시하며 조건이 닿을 때
+       체결시키는 장치가 필요하다 — 지금은 없다.
+     ★★★ 이 시험은 그 사실을 **문서가 아니라 코드로** 남긴다. 대기 기능이 생기면 이
+       시험이 실패하고, 그때 한계 설명을 지우라는 신호가 된다.
+  */
+  it('★★★ (알려진 한계) 페이퍼는 스톱을 즉시 체결한다', async () => {
+    const engine = read('apps/api/src/sim/order-engine.ts');
+    expect(engine, '즉시 체결이 사라졌다 — 페이퍼 TP/SL 한계 설명을 갱신하라')
+      .toMatch(/simulated immediate fill/);
   });
 
   it('★★ 없는 포지션을 청산해도 아무 일도 일어나지 않는다', async () => {

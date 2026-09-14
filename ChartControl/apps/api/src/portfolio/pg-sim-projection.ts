@@ -82,13 +82,22 @@ export class PgSimOrderProjection {
       */
       await client.query(
         `INSERT INTO orders (internal_order_id, user_id, client_order_id, symbol, side, type,
-                             price, quantity, filled_quantity, status, mode, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'MOCK',
-                 to_timestamp($11::double precision / 1000),
-                 to_timestamp($12::double precision / 1000))`,
+                             price, quantity, filled_quantity, status, mode, reduce_only,
+                             created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'MOCK',$11,
+                 to_timestamp($12::double precision / 1000),
+                 to_timestamp($13::double precision / 1000))`,
         [
           id, userId, o.clientOrderId, o.symbol, o.side, o.orderType,
           o.price ?? null, o.quantity, o.filledQuantity ?? '0', o.status,
+          /*
+             ★★ 청산 주문임을 **기록에도 남긴다.** 전에는 이 컬럼이 비어 있었다.
+               그러면 주문 목록이 보호주문(TP/SL)을 신규 주문과 구분할 수 없고,
+               화면에 `Reduce only` 배지가 붙지 않아 고객이 자기가 낸 신규 주문으로
+               오해한다.
+             ★ 컬럼이 integer 라 0/1 로 넣는다.
+          */
+          o.positionAction === 'close' ? 1 : 0,
           o.createdAt, o.updatedAt,
         ],
       );
