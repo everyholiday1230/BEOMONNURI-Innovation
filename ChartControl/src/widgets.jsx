@@ -79,7 +79,10 @@
   };
 
   const timeAgo = (t) => {
-    const s = Math.floor((Date.now() - t) / 1000);
+    // ★ ISO 문자열도 받는다(서버 시각). NaN 이면 '—' 로 말한다.
+    const ms = (typeof t === 'number') ? t : new Date(t).getTime();
+    if (!Number.isFinite(ms)) return '—';
+    const s = Math.floor((Date.now() - ms) / 1000);
     if (s < 60) return `${s}s`;
     if (s < 3600) return `${Math.floor(s/60)}m`;
     if (s < 86400) return `${Math.floor(s/3600)}h`;

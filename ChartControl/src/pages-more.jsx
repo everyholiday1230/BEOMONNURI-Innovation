@@ -27,7 +27,10 @@
   const { fmt, fmtCompact } = window.QTFmt;
 
   function timeAgo(ts) {
-    const s = Math.floor((Date.now() - ts) / 1000);
+    // ★ ISO 문자열도 받는다(서버 시각). NaN 이면 '—' 로 말한다.
+    const ms = (typeof ts === 'number') ? ts : new Date(ts).getTime();
+    if (!Number.isFinite(ms)) return '—';
+    const s = Math.floor((Date.now() - ms) / 1000);
     if (s < 60) return `${s}s ago`;
     if (s < 3600) return `${Math.floor(s/60)}m ago`;
     if (s < 86400) return `${Math.floor(s/3600)}h ago`;

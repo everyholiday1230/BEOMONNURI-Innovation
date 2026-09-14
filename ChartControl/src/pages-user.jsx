@@ -26,7 +26,11 @@
 
   // Helper: format time ago
   function timeAgo(ts) {
-    const s = Math.floor((Date.now() - ts) / 1000);
+    // ★ ISO 문자열도 받는다. 서버 시각이 문자열로 오면 뺄셈이 NaN 이 되어
+    //   'NaNs ago' 가 찍혔다. 모르는 입력은 '—' 로 말한다.
+    const ms = (typeof ts === 'number') ? ts : new Date(ts).getTime();
+    if (!Number.isFinite(ms)) return '—';
+    const s = Math.floor((Date.now() - ms) / 1000);
     if (s < 60) return `${s}s ago`;
     if (s < 3600) return `${Math.floor(s/60)}m ago`;
     if (s < 86400) return `${Math.floor(s/3600)}h ago`;
@@ -3991,7 +3995,9 @@
             // 서버 메시지를 그대로 쓴다. 화면이 다시 쓰면 두 문구가 갈린다.
             title: n.message,
             body: '',
-            time: n.createdAt,
+            // ★ 서버 시각(ISO 문자열)을 ms 로 바꿔 넘긴다. 문자열 그대로면
+            //   timeAgo 의 뺄셈에서 NaN 이 되어 'NaNs ago' 로 찍혔다.
+            time: new Date(n.createdAt).getTime() || Date.now(),
             unread: !n.read,
             isLive: true,
             severity: n.severity,
@@ -4330,7 +4336,9 @@
           filled: Number(o.filledQuantity),
           remaining: Number(o.quantity) - Number(o.filledQuantity),
           trigger: null,
-          time: o.updatedAt || o.createdAt,
+          // ★ ISO 문자열을 ms 로 정규화 — 문자열끼리의 b.time - a.time 은 NaN 이 되어
+          //   최신순 정렬이 무시됐다.
+          time: new Date(o.updatedAt || o.createdAt).getTime() || 0,
           status: String(o.status || '').toLowerCase(),
           fee: feeByOrder.has(o.id) ? feeByOrder.get(o.id) : null,
           // 모의 체결임을 화면이 밝힐 수 있게 그대로 넘긴다.
