@@ -1382,3 +1382,62 @@ describe('부분 익절/손절', () => {
     expect(app, '주문 수량을 라벨에 쓰지 않는다').toMatch(/size: ordQty \|\| p\.size/);
   });
 });
+
+/*
+   ═══ 차트 라벨이 캔들을 가리지 않는다 ═══
+
+   운영자 지적(2026-09-14):
+     "너무 캔들을 가리는거같아. 현재 + - %율말이야. 우선 진입가격은 실시간가격처럼
+      차트 오른쪽축에 나오게해주면 될꺼같고 +- 금액이랑 %율만 지금 진입가격 나오는
+      위치에 넣어주면 깔끔할꺼같은데. 다른거래소 참고해보면 무슨말인지 이해 될꺼야."
+
+   ★★ 맞다. 전에는 이랬다:
+        현재 포지션 · 롱 0.5 · 10417 · +1.44% · ROE +4.32% · +450.00   (346px)
+      이름·방향·수량·증거금이 앞을 다 먹고 봉을 덮었다.
+
+   ★ 정보를 잃지 않는다 — 각각 이미 다른 자리에 있다:
+       진입가/트리거가 → 차트 **오른쪽 축**의 가격 배지(실시간가와 같은 방식)
+       방향·수량·증거금 → 포지션 패널의 행, 그리고 선의 **색**
+       익절/손절 구분   → 선의 색(이익색/손실색)과 점선·실선
+     라벨에는 봉을 보면서 알아야 하는 것만 남긴다: **손익 %와 금액**.
+
+   결과: `+1.44% · ROE +4.32% · +450.00` (162px) — 폭이 절반 이하로 줄었다.
+*/
+describe('차트 라벨 — 손익만 남긴다', () => {
+  const lv = read('src/chart-overlay-live.js');
+
+  it('★★ 포지션 선 라벨에 이름·수량·증거금을 넣지 않는다', () => {
+    const i = lv.indexOf("live.kind === 'position'");
+    const blk = lv.slice(i, lv.indexOf('function bracketLabel(') > i
+      ? lv.indexOf('function bracketLabel(') : i + 2600);
+    /* ★ `base`(이름·방향·수량)를 라벨에 붙이면 다시 봉을 덮는다. */
+    expect(blk, '라벨에 이름을 다시 붙였다').not.toMatch(/const full = `\$\{base\}/);
+    expect(blk, '증거금을 라벨에 적는다 — 포지션 패널에 있다').not.toMatch(/marginTxt/);
+  });
+
+  it('★★ 보호주문 선 라벨도 이름 없이 손익만', () => {
+    const i = lv.indexOf('function bracketLabel(');
+    expect(i, 'bracketLabel 이 없다').toBeGreaterThan(-1);
+    const blk = lv.slice(i, i + 2200);
+    expect(blk, '라벨에 이름을 붙였다').not.toMatch(/const full = `\$\{base\}/);
+    /* ★ 익절/손절 구분은 선의 색이 말한다. 이름을 다시 적으면 그만큼 봉이 가려진다. */
+  });
+
+  it('★★★ 가격은 오른쪽 축 배지로 나온다', () => {
+    /*
+       운영자 요청의 절반이다 — 가격은 실시간가처럼 축에, 손익만 선 옆에.
+       ★ 배지는 이미 있었다(`priceLabelFigures`). 없어지면 가격을 알 방법이 사라진다.
+    */
+    const ck = read('src/chart-kline.jsx');
+    expect(ck, '오른쪽 가격 배지 함수가 없다').toMatch(/function priceLabelFigures\(/);
+    expect(ck, '수평선에 가격 배지를 그리지 않는다')
+      .toMatch(/price != null \? priceLabelFigures\(/);
+    /* ★ 배지는 오른쪽 끝에 붙는다. 왼쪽으로 옮기면 라벨과 겹친다. */
+    expect(ck, '배지가 오른쪽 끝에 없다').toMatch(/x: bounding\.width - w - 2/);
+  });
+
+  it('좁은 화면에서도 숫자를 자르지 않는다', () => {
+    /* ★★ "+1.4" 처럼 잘린 숫자는 **틀린 숫자**이고 손익을 작게 보이게 한다. */
+    expect(lv, '숫자를 잘라서 줄인다').not.toMatch(/\.slice\(0,\s*\d+\)\s*\+\s*'…'/);
+  });
+});

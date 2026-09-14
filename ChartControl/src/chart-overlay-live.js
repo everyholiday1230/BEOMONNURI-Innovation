@@ -111,15 +111,19 @@
         ? ` · ${(target - entry) * qty * dir >= 0 ? '+' : ''}${fmtMoney((target - entry) * qty * dir)}`
         : '';
 
-      const full = `${base} · ${signed(chg, 2)}${roe}${amt}`;
+      /*
+         ★★ 보호주문 선도 같은 규칙이다 — **이름을 빼고 손익만** 남긴다.
+           트리거 가격은 오른쪽 축 배지에, 익절/손절 구분은 **선의 색**에 있다
+           (익절=이익색, 손절=손실색). 이름을 다시 적으면 그만큼 봉이 가려진다.
+         ★ 초안(점선)과 걸린 주문(실선)의 구분도 선 모양이 말한다.
+      */
+      const full = `${signed(chg, 2)}${roe}${amt}`;
       const maxPx = Number(opts && opts.maxPx);
       if (!(maxPx > 0) || width(full) <= maxPx) return full;
 
       /* ★ 좁으면 덜 중요한 것부터 뺀다. 숫자를 자르지는 않는다. */
-      const mid = `${base} · ${signed(chg, 2)}${roe}`;
+      const mid = `${signed(chg, 2)}${roe}`;
       if (width(mid) <= maxPx) return mid;
-      const tight = `${signed(chg, 2)}${roe}`;
-      if (width(tight) <= maxPx) return tight;
       return signed(chg, 2);
   }
 
@@ -173,9 +177,10 @@
          ★★ 값이 없으면 **적지 않는다.** 0 으로 적으면 증거금이 0 인 것처럼 읽힌다.
       */
       const margin = Number(live.margin);
-      const marginTxt = (Number.isFinite(margin) && margin > 0)
-        ? ` · ${fmtMoney(margin)}`
-        : '';
+      /*
+         ★ 증거금 자체는 라벨에 적지 않는다(포지션 패널에 있다). 다만 아래에서
+           평가손익을 근사할 때 필요하므로 값은 계산해 둔다.
+      */
 
       /*
          ★ 평가손익은 어댑터 값을 우선한다. 없으면 증거금 × ROE 로 근사하고 `~` 를
@@ -202,7 +207,23 @@
              ③ 금액을 뺀다 (%가 더 급하다)
            숫자를 반올림해 줄이지 않는다 — 금액이 틀리게 보이는 것보다 없는 편이 낫다.
       */
-      const full = `${base}${marginTxt} · ${signed(chg, 2)}${roe}${pnlTxt}`;
+      /*
+         ★★★ **캔들을 가리지 않게 손익만 남긴다.**
+
+           운영자 지적(2026-09-14): "너무 캔들을 가리는거같아... 진입가격은 실시간가격
+           처럼 차트 오른쪽축에 나오게 하고, +- 금액이랑 %율만 넣어주면 깔끔할꺼같은데."
+
+         ★★ 맞다. 전에는 `현재 포지션 · 롱 0.5 · 10417 · +1.44% · ROE +4.32% · +450.00`
+           이었다. 이름·방향·수량·증거금이 앞을 다 먹고 봉을 덮었다.
+         ★ 정보를 잃지 않는다 — 각각 이미 다른 자리에 있다:
+             진입가    → 차트 **오른쪽 축**의 가격 배지(실시간가와 같은 방식)
+             방향·수량 → 포지션 패널의 행, 그리고 선의 **색**
+             증거금    → 포지션 패널
+           라벨에는 봉을 보면서 알아야 하는 것만 남긴다: **손익 %와 금액**.
+         ★★ ROE 는 남긴다. 증거금 대비 수익률은 가격 변동%만으로는 알 수 없고,
+           레버리지 거래에서 실제로 체감하는 숫자다.
+      */
+      const full = `${signed(chg, 2)}${roe}${pnlTxt}`;
       const maxPx = Number(opts && opts.maxPx);
       if (!(maxPx > 0) || width(full) <= maxPx) return full;
 
