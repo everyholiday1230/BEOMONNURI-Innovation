@@ -1398,6 +1398,15 @@
   // ADMIN AI OPS PAGE
   // ============================================================
   window.AdminAIOpsPage = function AdminAIOpsPage({ shellProps }) {
+  /* ★ 운영 배포·프롬프트 관리는 서버 경로가 아직 없다. 눌러도 아무 일 없는
+       가짜 버튼 대신 '준비중' 을 정직하게 알린다(관련 문의 티켓으로 연결). */
+  const notifyOpsPending = (e) => {
+    e.preventDefault();
+    if (window.QTToast && window.QTToast.push) {
+      window.QTToast.push({ title: t('aiops_pending_title'), desc: t('aiops_pending_desc'), variant: 'info' });
+    } else if (window.alert) { window.alert(t('aiops_pending_desc')); }
+  };
+
     const ai = window.QTApp.ADMIN_AI_METRICS;
 
     /*
@@ -1600,8 +1609,8 @@
         breadcrumb={['Home','Admin','AI Ops']}
         actions={
           <>
-            <button className="btn btn--sm"><I.Book size={13}/> {t('col_prompts')}</button>
-            <button className="btn btn--sm btn--primary"><I.Sparkles size={13}/> {t('aiops_deploy')}</button>
+            <button className="btn btn--sm" onClick={notifyOpsPending}><I.Book size={13}/> {t('col_prompts')}</button>
+            <button className="btn btn--sm btn--primary" onClick={notifyOpsPending}><I.Sparkles size={13}/> {t('aiops_deploy')}</button>
           </>
         }
       >

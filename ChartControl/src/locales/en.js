@@ -619,6 +619,8 @@
       adm_view_all: 'View all →',
       adm_all_statuses: 'All statuses',
       aiops_deploy: 'Deploy new version',
+      aiops_pending_title: 'Feature in preparation',
+      aiops_pending_desc: 'Deployment and prompt management need a server release path. It is intentionally not a silent no-op — use Help to ask for it.',
       aiops_signal_quality: 'Signal quality · model comparison',
       aiops_incidents: 'Recent incidents',
       aiops_prompts: 'Prompt management',
