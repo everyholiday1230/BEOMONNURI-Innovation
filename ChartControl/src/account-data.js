@@ -205,7 +205,33 @@
         amount: amount,
         filled: filled,
         remaining: Math.max(0, amount - filled),
-        trigger: null,
+        /*
+           ★★★ **이 자리가 `null` 로 굳어 있었다.**
+
+             그래서 스톱 주문의 트리거 가격이 화면에 **한 번도** 나타나지 않았고,
+             차트의 포지션 TP/SL 선도 그릴 수 없었다. 어댑터는 값을 주는데
+             (`NormalizedOrder.takeProfitPrice` / `stopLossPrice`) 여기서 버렸다.
+           ★ 값이 없으면 null 을 유지한다 — 0 으로 바꾸면 트리거가 0 인 것처럼 읽힌다.
+        */
+        trigger: (function () {
+          var tv = o.stopPrice !== undefined ? o.stopPrice : o.triggerPrice;
+          var tn = Number(tv);
+          return Number.isFinite(tn) && tn > 0 ? tn : null;
+        })(),
+        /*
+           ★★ 거래소에 실제로 등록된 브래킷. 포지션의 TP/SL 선을 이 값으로 그린다.
+             포지션 응답에는 없다 — 별도 주문이기 때문이다.
+        */
+        tp: (function () {
+          var n = Number(o.takeProfitPrice);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
+        sl: (function () {
+          var n = Number(o.stopLossPrice);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
+        /* ★ 청산 전용 주문인지. 포지션의 보호주문을 골라내는 근거다. */
+        reduceOnly: o.reduceOnly === true,
         time: Number(o.createdAt) || Date.now(),
         status: String(o.status || 'open'),
         isLive: true,

@@ -907,14 +907,51 @@
         if (!auth || !auth.isLoggedIn || !auth.isLoggedIn()) return;
 
       Promise.all([
-        api.localOpenOrders ? api.localOpenOrders({ limit: 50 }).catch(() => null) : Promise.resolve(null),
-        api.localPositions ? api.localPositions().catch(() => null) : Promise.resolve(null),
+        /*
+           ★★★ 여기도 빈 테이블을 읽고 있었다 — `localOpenOrders` → `orders` 테이블(0행).
+             미체결 주문 선도 실제로는 **한 번도 나타나지 않았다.** 포지션 선과 같은 원인이다.
+           ★ 실제 미체결 주문은 거래소 어댑터에서 온다(`QTAccount.getOpenOrders`).
+        */
+        Promise.resolve((() => {
+          const acct = window.QTAccount;
+          if (!acct || !acct.getOpenOrders) return null;
+          const rows = acct.getOpenOrders();
+          return Array.isArray(rows) ? { items: rows } : null;
+        })()),
+        /*
+           ★★★ **여기가 빈 테이블을 읽고 있었다.**
+
+             `localPositions()` → `GET /api/positions` → `portfolioRepo.listPositions`
+             → `positions` 테이블. 그 테이블은 **sim-projection 만 쓰고 프로덕션에
+             0행**이다. 그래서 실제 포지션을 들고 있어도 차트에 진입가 선이 **한 번도
+             나타나지 않았다.** 커밋 800336b 에서 AI 포지션 조회가 같은 이유로 "포지션
+             없음" 을 답했던 것과 **똑같은 함정**이다.
+
+           ★★ 실제 포지션은 거래소 어댑터에서 온다 — `QTAccount` 가 이미 그것을
+             들고 있고 포지션 패널이 그 값을 쓴다. 차트와 패널이 **같은 소스**를 봐야
+             한다. 다르면 두 화면이 서로 다른 진입가를 보여준다.
+           ★ 조회 실패를 빈 배열로 바꾸지 않는다 — null 을 넘겨 "선을 지우지 않음" 과
+             "포지션 없음" 을 구분한다.
+        */
+        Promise.resolve((() => {
+          const acct = window.QTAccount;
+          if (!acct || !acct.getPositions) return null;
+          const rows = acct.getPositions();
+          return Array.isArray(rows) ? { items: rows } : null;
+        })()),
       ]).then(([openOrders, positions]) => {
         if (cancelled) return;
         const next = [];
 
         ((openOrders && openOrders.items) || []).forEach((o) => {
-          const px = num(o.price);
+          /*
+             ★★ 스톱 주문은 지정가가 없고 **트리거 가격**으로 그려야 한다. `price` 만
+               보면 스톱 주문이 전부 사라진다.
+             ★ 보호주문(reduceOnly)은 아래에서 포지션 TP/SL 선으로 따로 그린다.
+               여기서도 그리면 같은 가격에 선이 두 개 겹친다.
+          */
+          if (o.reduceOnly) return;
+          const px = num(o.price) || num(o.trigger);
           // 시장가 주문은 가격이 없다. 선을 그릴 수 없으므로 건너뛴다.
           if (!px) return;
           next.push({
@@ -923,12 +960,19 @@
             source: 'order',
             symbol: String(o.symbol || '').toUpperCase(),
             points: [{ price: px, time: Date.now() }],
-            label: `${t('chart_ov_order')} · ${o.side === 'long' ? t('side_long') : t('side_short')} ${o.quantity} @ ${px}`,
+            label: `${t('chart_ov_order')} · ${o.side === 'long' ? t('side_long') : t('side_short')} ${o.amount !== undefined ? o.amount : o.quantity} @ ${px}`,
           });
         });
 
         ((positions && positions.items) || []).forEach((p) => {
-          const px = num(p.entryPrice);
+          /*
+             ★★★ `QTAccount` 의 포지션 필드는 **`entry`** 다(`toUiPositions`).
+               `entryPrice` 는 서버 응답의 이름이고 UI 행에는 없다. 처음에 그대로
+               뒀다가 값이 undefined 여서 **모든 선이 조용히 사라질** 뻔했다 —
+               오늘 세 번째로 겪는 "이름이 달라서 조용히 실패" 다.
+             ★ 두 이름을 모두 받는다. 서버 응답을 직접 넘기는 호출부가 생겨도 동작한다.
+          */
+          const px = num(p.entry !== undefined ? p.entry : p.entryPrice);
           // 진입가를 모르면 선을 그리지 않는다. 0 으로 그리면 Y축이 망가진다.
           if (!px) return;
           const lev = Number(p.leverage);
@@ -957,13 +1001,90 @@
               side: p.side === 'short' ? 'short' : 'long',
               size: p.size,
               leverage: Number.isFinite(lev) && lev > 0 ? lev : null,
+              /*
+                 ★★ 들어간 금액(증거금)과 평가손익. 라벨을 그리는 순간에 쓰인다.
+                   여기서 문자열로 만들지 않는 이유는 위와 같다 — 가격이 움직이면
+                   금액도 움직인다.
+                 ★ 없으면 null 을 넘긴다. 0 을 넘기면 증거금 0 처럼 읽힌다.
+              */
+              margin: Number(p.margin) > 0 ? Number(p.margin) : null,
+              pnl: Number.isFinite(Number(p.unPnl)) ? Number(p.unPnl) : null,
             },
           });
+
+          /*
+             ★★★ **보유 포지션의 TP/SL 선 — 드래그로 옮길 수 있다.**
+
+               운영자 요청: "tp sl도 차트에서 마우스로 드래그해서 설정할 수 있도록".
+               작성 중인 주문의 TP/SL 드래그는 이미 있었지만, **이미 들어간 포지션**에
+               붙이는 방법은 없었다.
+
+             ★★ 값이 있을 때만 선을 만든다. 없는데 기본 위치(±2% 등)에 띄우면 이용자가
+               지정하지 않은 가격이 **이미 걸린 보호주문처럼** 보인다 — 가장 위험한 거짓이다.
+               값이 없을 때 새로 만드는 것은 포지션 패널의 TP/SL 버튼이 담당한다.
+             ★ 실선으로 그린다. 거래소에 실제로 걸려 있는 주문이므로 초안(점선)과 구분한다.
+          */
+          const mkPosBracket = (kind, raw) => {
+            const bp = num(raw);
+            if (!bp) return;
+            next.push({
+              id: `posbr-${p.id}-${kind}`,
+              type: 'horizontal',
+              source: kind === 'tp' ? 'position-tp' : 'position-sl',
+              symbol: String(p.symbol || '').toUpperCase(),
+              points: [{ price: bp, time: Date.now() }],
+              label: kind === 'tp' ? t('chart_ov_pos_tp') : t('chart_ov_pos_sl'),
+              /* ★ 현재가 대비 %를 그리는 순간에 붙인다 — "1.9000" 만으로는 먼 손절인지 알 수 없다. */
+              live: { kind: 'away', symbol: String(p.symbol || '').toUpperCase(), price: bp },
+              /* ★★ 드래그 결과를 어디로 보낼지 식별하기 위한 값. 화면 상태에 의존하지 않는다. */
+              posRef: { id: p.id, symbol: String(p.symbol || '').toUpperCase(), kind, side: p.side, size: p.size },
+            });
+          };
+          /*
+             ★★★ **포지션 응답에는 TP/SL 이 없다.** `QTAccount` 의 포지션 행은 `tp`/`sl`
+               이 항상 `undefined` 다 — 거래소에서 보호주문은 **별도 주문**이기 때문이다.
+               그래서 미체결 주문 중 이 심볼의 **청산 전용(reduceOnly) 스톱**을 찾아
+               유도한다.
+
+             ★★ 방향으로 TP 와 SL 을 가른다. 롱이면 진입가보다 위가 익절, 아래가 손절이다.
+               주문에 종류 표시가 없으므로 이것이 유일하게 확실한 근거다.
+             ★ 값을 못 찾으면 선을 만들지 않는다. 없는 보호주문을 그리는 것이 최악이다.
+          */
+          const symKey = String(p.symbol || '').toUpperCase();
+          const guards = ((openOrders && openOrders.items) || []).filter((o) => (
+            o.reduceOnly === true
+            && String(o.symbol || '').toUpperCase() === symKey
+            && num(o.trigger)
+          ));
+          const isLongPos = p.side !== 'short';
+          let tpPx = null;
+          let slPx = null;
+          guards.forEach((o) => {
+            const g = num(o.trigger);
+            if (!g) return;
+            const above = g > px;
+            if (above === isLongPos) { if (tpPx === null) tpPx = g; } else if (slPx === null) slPx = g;
+          });
+          /* ★ 어댑터가 브래킷을 직접 주면 그것을 우선한다 — 유도보다 정확하다. */
+          guards.forEach((o) => {
+            if (tpPx === null && num(o.tp)) tpPx = num(o.tp);
+            if (slPx === null && num(o.sl)) slPx = num(o.sl);
+          });
+          mkPosBracket('tp', tpPx);
+          mkPosBracket('sl', slPx);
         });
 
         // 주문·포지션 선만 교체한다. 사용자 도형과 AI 오버레이는 유지.
+        /*
+           ★★★ 서버에서 파생된 선은 **전부** 걷어내고 새로 넣는다.
+
+             `position-tp` / `position-sl` 을 목록에 빼먹으면 새로 불러올 때마다
+             선이 **겹쳐서 쌓인다.** 처음에 실제로 빠뜨렸다.
+           ★ 이용자가 직접 그린 선(source 없음)은 건드리지 않는다.
+        */
+        const DERIVED = ['order', 'position-long', 'position-short', 'position-tp', 'position-sl'];
         setOverlays((prev) => [
-          ...prev.filter((o) => o.source !== 'order' && o.source !== 'position-long' && o.source !== 'position-short'),
+          ...prev.filter((o) => !DERIVED.includes(o.source)),
           ...next,
         ]);
       });
@@ -975,7 +1096,20 @@
         ? window.QTAuth.subscribe(() => load())
         : null;
 
-      return () => { cancelled = true; if (off) off(); };
+      /*
+         ★★★ **포지션·주문이 바뀔 때마다 선을 다시 만든다.**
+
+           전에는 로그인 순간에 한 번만 불렀다. 그래서 **새로 포지션을 열어도 차트에
+           선이 나타나지 않았고**, 닫아도 선이 남았다. 로그인한 뒤에 거래하는 것이
+           정상이므로 사실상 거의 모든 경우에 틀린 화면이었다.
+         ★ `QTAccount` 는 이미 주기적으로 폴링한다 — 여기서 타이머를 또 만들면 같은
+           요청이 두 배로 나간다.
+      */
+      const offAcct = (window.QTAccount && window.QTAccount.subscribe)
+        ? window.QTAccount.subscribe(() => load())
+        : null;
+
+      return () => { cancelled = true; if (off) off(); if (offAcct) offAcct(); };
     }, []);
 
     // 차트/위젯에 넘길 오버레이. 심볼이 지정되지 않은 것(구버전 저장분)은
@@ -1050,8 +1184,80 @@
         setOrderBracket((prev) => ({ ...prev, on: true, [key]: text }));
         return;
       }
+      /*
+         ★★★ **보유 포지션의 TP/SL 선을 드래그했다 → 실제 보호주문을 낸다.**
+
+           운영자 요청 기능. 차트에서 끌어 놓으면 그 가격으로 TP/SL 이 걸려야 한다.
+
+         ★★ 확인 없이 보내지 않는다. 드래그는 실수하기 쉬운 입력이고(스크롤과 혼동),
+           손절 가격을 잘못 옮기면 곧바로 체결돼 포지션이 사라진다.
+         ★★★ **방향을 검증한다.** 롱의 손절이 진입가보다 위에 있거나 익절이 아래에
+           있으면 그 주문은 즉시 체결되거나 논리적으로 뒤집힌 것이다. 거래소가 받아줄
+           수도 있으므로 우리가 막아야 한다.
+         ★ 실패하면 선을 되돌린다. 화면에 새 가격이 남아 있으면 이용자는 걸린 줄 안다.
+      */
+      if (id.startsWith('posbr-')) {
+        const src = overlays.concat(visibleOverlays).find((o) => o.id === id);
+        const ref = src && src.posRef;
+        const price = ov && ov.points && ov.points[0] ? Number(ov.points[0].price) : NaN;
+        if (!ref || !Number.isFinite(price) || price <= 0) return;
+
+        const rows = (window.QTAccount && window.QTAccount.getPositions) ? window.QTAccount.getPositions() : [];
+        const pos = (rows || []).find((r) => String(r.id) === String(ref.id));
+        if (!pos) {
+          pushToast({ title: t('pos_br_gone'), variant: 'error' });
+          return;
+        }
+        const entry = Number(pos.entry);
+        const isLong = pos.side !== 'short';
+        /* ★★★ 뒤집힌 방향을 막는다. 즉시 체결되는 보호주문은 보호가 아니다. */
+        const wrong = ref.kind === 'tp'
+          ? (isLong ? price <= entry : price >= entry)
+          : (isLong ? price >= entry : price <= entry);
+        if (wrong) {
+          pushToast({
+            title: ref.kind === 'tp' ? t('pos_br_tp_wrong') : t('pos_br_sl_wrong'),
+            variant: 'error',
+          });
+          /*
+             ★★ 선을 원위치로 되돌린다. 잘못된 가격이 화면에 남으면 이용자는 그 가격에
+               보호주문이 걸렸다고 믿는다.
+             ★ 같은 배열 항목을 새 객체로 바꿔 차트가 다시 그리게 만든다. 값만 같으면
+               차트가 변화를 못 알아채고 끌어놓은 위치에 선이 남는다.
+          */
+          setOverlays((prev) => prev.map((o) => (o.id === id
+            ? { ...o, points: [{ ...o.points[0], time: Date.now() }] }
+            : o)));
+          return;
+        }
+
+        const F = window.QTFmt;
+        const tick = (F && F.tickSizeFor) ? F.tickSizeFor(ref.symbol) : null;
+        const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
+        const text = decimals === null ? String(price) : price.toFixed(decimals);
+
+        /*
+           ★★ 기존 주문 경로를 쓴다 — 17개 리스크 게이트·확인창·감사기록이 그대로 적용된다.
+             전용 API 를 새로 만들면 그 검증들을 다시 구현해야 하고, 언젠가 갈라진다.
+           ★ reduceOnly 는 필수다. 없으면 보호주문이 반대 포지션을 열 수 있다.
+           ★ 트리거 방향: 롱의 손절은 아래로(down), 익절은 위로(up). 숏은 반대.
+        */
+        placeOrder({
+          side: isLong ? 'short' : 'long',
+          type: 'stop',
+          stopPrice: text,
+          size: String(pos.size),
+          reduceOnly: true,
+          stopDirection: (ref.kind === 'tp') === isLong ? 'up' : 'down',
+          leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
+          ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
+          origin: { posBracket: ref.kind, posId: ref.id },
+        });
+        return;
+      }
+
       updateOverlay(id, ov);
-    }, [updateOverlay, activeSymbolKey]);
+    }, [updateOverlay, activeSymbolKey, overlays, visibleOverlays, placeOrder, pushToast, t]);
 
     // AI signal state (Flow 5)
     const [currentSignal, setCurrentSignal] = useState(null);

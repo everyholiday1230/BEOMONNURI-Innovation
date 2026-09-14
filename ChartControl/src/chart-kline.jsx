@@ -202,6 +202,13 @@
       */
       case 'draft-tp': return colors.long;
       case 'draft-sl': return colors.short;
+      /*
+         ★★ **거래소에 실제로 걸린** 포지션 보호주문. 색은 초안과 같지만 **실선**으로
+           그린다(오버레이에 style.dashed 를 넣지 않는다) — 점선/실선이 "아직 안 나갔음"
+           과 "이미 걸렸음" 을 구분하는 유일한 신호다.
+      */
+      case 'position-tp': return colors.long;
+      case 'position-sl': return colors.short;
       case 'user': return colors.textPri;
       default: return colors.ai;
     }

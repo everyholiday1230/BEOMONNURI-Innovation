@@ -908,6 +908,11 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Fechar',
+      chart_ov_pos_tp: 'Realizar lucro',
+      chart_ov_pos_sl: 'Stop loss',
+      pos_br_gone: 'Essa posição não existe mais — recarregue antes de definir um nível.',
+      pos_br_tp_wrong: 'O alvo de lucro deve ficar do lado favorável à sua entrada.',
+      pos_br_sl_wrong: 'O stop loss deve ficar do lado desfavorável à sua entrada.',
       op_title_close: 'Fechar posição',
       op_reduce_only: 'Apenas reduzir',
       pos_close_too_small: 'Essa porcentagem arredonda para zero — escolha uma fatia maior.',

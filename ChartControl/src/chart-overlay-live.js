@@ -51,6 +51,18 @@
    * @param {number} [price]  최신가. 없으면 live.symbol 로 조회한다.
    * @returns {string} 표시할 라벨. 계산할 수 없으면 원래 라벨을 그대로 돌려준다.
    */
+  /*
+     ★ 금액 표기. 자리수를 값 크기에 맞춘다 — 0.5 USDT 를 "1" 로 반올림하면
+       소액 계정에서 손익이 사라져 보인다.
+     ★★ 통화 기호를 붙이지 않는다. 선물 증거금은 USDT 지만 어댑터가 다른 정산통화를
+       줄 수 있고, 틀린 기호는 틀린 금액보다 알아채기 어렵다.
+  */
+  function fmtMoney(v) {
+    const n = Math.abs(Number(v));
+    const digits = n >= 1000 ? 0 : (n >= 1 ? 2 : 4);
+    return Number(v).toFixed(digits);
+  }
+
   function labelFor(ov, price) {
     if (!ov) return '';
     const base = ov.label || '';
@@ -77,7 +89,36 @@
       const chg = ((last - entry) / entry) * 100 * dir;
       const lev = Number(live.leverage);
       const roe = (Number.isFinite(lev) && lev > 0) ? ` · ROE ${signed(chg * lev, 2)}` : '';
-      return `${base} · ${signed(chg, 2)}${roe}`;
+
+      /*
+         ★★ **들어간 금액(증거금)과 평가손익 금액.**
+
+           % 만 보여주면 "그래서 얼마 벌었나" 를 알 수 없다. 운영자 요청이 정확히
+           이것이다 — 진입 금액과 손익을 차트에서 바로 보고 싶다.
+
+         ★ 증거금은 어댑터가 주는 값을 그대로 쓴다. `entry × size / leverage` 로
+           재계산하면 승수·펀딩·부분체결 때문에 거래소 화면과 어긋난다.
+         ★★ 값이 없으면 **적지 않는다.** 0 으로 적으면 증거금이 0 인 것처럼 읽힌다.
+      */
+      const margin = Number(live.margin);
+      const marginTxt = (Number.isFinite(margin) && margin > 0)
+        ? ` · ${fmtMoney(margin)}`
+        : '';
+
+      /*
+         ★ 평가손익은 어댑터 값을 우선한다. 없으면 증거금 × ROE 로 근사하고 `~` 를
+           붙인다 — 근사치를 확정값처럼 보여주면 안 된다.
+      */
+      const pnlRaw = Number(live.pnl);
+      let pnlTxt = '';
+      if (Number.isFinite(pnlRaw)) {
+        pnlTxt = ` · ${pnlRaw >= 0 ? '+' : ''}${fmtMoney(pnlRaw)}`;
+      } else if (Number.isFinite(margin) && margin > 0 && Number.isFinite(lev) && lev > 0) {
+        const approx = margin * (chg * lev) / 100;
+        pnlTxt = ` · ~${approx >= 0 ? '+' : ''}${fmtMoney(approx)}`;
+      }
+
+      return `${base}${marginTxt} · ${signed(chg, 2)}${roe}${pnlTxt}`;
     }
 
     /*

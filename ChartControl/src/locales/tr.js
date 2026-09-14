@@ -930,6 +930,11 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      chart_ov_pos_tp: 'Kâr al',
+      chart_ov_pos_sl: 'Zarar kes',
+      pos_br_gone: 'O pozisyon artık yok — seviye belirlemeden önce sayfayı yenileyin.',
+      pos_br_tp_wrong: 'Kâr al seviyesi girişinizin kâr tarafında olmalı.',
+      pos_br_sl_wrong: 'Zarar kes seviyesi girişinizin zarar tarafında olmalı.',
       op_title_close: 'Pozisyonu kapat',
       op_reduce_only: 'Sadece azaltma',
       pos_close_too_small: 'Bu oran aşağı yuvarlanınca sıfır oluyor — daha büyük bir oran seçin.',

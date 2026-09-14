@@ -926,6 +926,11 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      chart_ov_pos_tp: 'Chốt lời',
+      chart_ov_pos_sl: 'Cắt lỗ',
+      pos_br_gone: 'Vị thế đó không còn — hãy tải lại trước khi đặt mức.',
+      pos_br_tp_wrong: 'Mức chốt lời phải nằm ở phía có lợi so với giá vào.',
+      pos_br_sl_wrong: 'Mức cắt lỗ phải nằm ở phía bất lợi so với giá vào.',
       op_title_close: 'Đóng vị thế',
       op_reduce_only: 'Chỉ giảm vị thế',
       pos_close_too_small: 'Tỷ lệ này làm tròn xuống thành 0 — hãy chọn tỷ lệ lớn hơn.',

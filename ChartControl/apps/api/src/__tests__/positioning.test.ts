@@ -652,3 +652,106 @@ describe('포지션 종료 — 비율과 레버리지', () => {
     expect(src, '확인창에 종료 표시가 없다').toMatch(/order\.reduceOnly\s*\?\s*t\('op_title_close'\)/);
   });
 });
+
+/*
+   ═══ 차트 포지션 오버레이 — 진입가·금액·손익%·TP/SL 드래그 ═══
+
+   운영자 요청(2026-09-14):
+     "내가 들어가면 들어간 금액이랑 차트에 금액이랑 퍼센트율 그리고 tp sl도
+      차트에서 마우스로 드래그에서 설정할 수 있도록 해줄 수 있어?"
+
+   ★★★ 조사 결과 **코드는 이미 있었지만 데이터가 오지 않았다.** 세 곳이 빈 테이블·
+     하드코딩 null 을 읽고 있었다:
+
+       1. `localPositions()`   → `positions` 테이블 = 프로덕션 **0행**(sim 전용)
+       2. `localOpenOrders()`  → `orders` 테이블   = 프로덕션 **0행**(sim 전용)
+       3. `account-data.js` 의 `trigger`/`tp`/`sl` = **하드코딩 null/undefined**
+
+     그래서 진입가 선도, 미체결 주문 선도, TP/SL 선도 **한 번도 나타나지 않았다.**
+     커밋 800336b(AI 가 포지션을 못 본 것)와 **같은 함정**이다.
+*/
+describe('차트 포지션 오버레이', () => {
+  const app = (() => {
+    const raw = read('src/app.jsx');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  })();
+
+  it('★★★ 빈 sim 테이블을 읽지 않는다', () => {
+    /*
+       `positions` / `orders` 테이블은 sim-projection 만 쓴다. 실제 포지션은 거래소
+       어댑터에서 오고 `QTAccount` 가 들고 있다 — 차트와 포지션 패널이 같은 소스를
+       봐야 두 화면이 같은 진입가를 보여준다.
+    */
+    expect(app, 'localPositions(빈 테이블)를 아직 읽는다').not.toMatch(/api\.localPositions\s*\?/);
+    expect(app, 'localOpenOrders(빈 테이블)를 아직 읽는다').not.toMatch(/api\.localOpenOrders\s*\?/);
+    expect(app, 'QTAccount 에서 포지션을 읽지 않는다').toMatch(/QTAccount[\s\S]{0,200}getPositions\(\)/);
+    expect(app, 'QTAccount 에서 미체결 주문을 읽지 않는다').toMatch(/QTAccount[\s\S]{0,200}getOpenOrders\(\)/);
+  });
+
+  it('진입가 필드 이름이 UI 행에 맞다', () => {
+    /*
+       ★★★ `QTAccount` 의 포지션 행은 **`entry`** 다(`toUiPositions`). `entryPrice` 는
+         서버 응답의 이름으로 UI 행에는 없다 — 그대로 두면 모든 선이 조용히 사라진다.
+    */
+    expect(app, 'entry 필드를 쓰지 않는다').toMatch(/p\.entry\s*!==\s*undefined\s*\?\s*p\.entry/);
+  });
+
+  it('들어간 금액(증거금)과 평가손익을 넘긴다', () => {
+    /* ★ % 만 보여주면 "그래서 얼마인가" 를 알 수 없다 — 운영자 요청의 핵심이다. */
+    expect(app, '증거금을 넘기지 않는다').toMatch(/margin:\s*Number\(p\.margin\)\s*>\s*0/);
+    expect(app, '평가손익을 넘기지 않는다').toMatch(/pnl:\s*Number\.isFinite\(Number\(p\.unPnl\)\)/);
+  });
+
+  it('포지션·주문이 바뀌면 선을 다시 만든다', () => {
+    /*
+       ★★★ 전에는 로그인 순간에 한 번만 불렀다. 새로 포지션을 열어도 선이 나타나지
+         않고, 닫아도 남았다 — 거래는 로그인 뒤에 하므로 거의 항상 틀린 화면이었다.
+    */
+    expect(app, 'QTAccount 갱신을 구독하지 않는다').toMatch(/QTAccount\.subscribe\(\(\)\s*=>\s*load\(\)\)/);
+  });
+
+  it('파생된 선을 전부 걷어낸다 — 겹쳐 쌓이지 않게', () => {
+    /* ★ position-tp/sl 을 목록에서 빼먹으면 새로 읽을 때마다 선이 쌓인다. */
+    const m = app.match(/const DERIVED = \[([^\]]*)\]/);
+    expect(m, 'DERIVED 목록이 없다').not.toBeNull();
+    for (const src of ['order', 'position-long', 'position-short', 'position-tp', 'position-sl']) {
+      expect(m![1], `DERIVED 에 ${src} 가 없다 — 선이 겹쳐 쌓인다`).toContain(src);
+    }
+  });
+
+  it('★★★ TP/SL 드래그가 뒤집힌 방향을 막는다', () => {
+    /*
+       롱의 손절이 진입가보다 위에 있으면 즉시 체결된다 — 보호가 아니다. 거래소가
+       받아줄 수도 있으므로 우리가 막아야 한다. 막은 뒤에는 선을 되돌린다 — 잘못된
+       가격이 화면에 남으면 이용자는 그 가격에 보호주문이 걸렸다고 믿는다.
+    */
+    expect(app, '드래그 결과를 처리하지 않는다').toMatch(/id\.startsWith\('posbr-'\)/);
+    expect(app, '방향 검증이 없다').toMatch(/const wrong =/);
+    expect(app, 'reduceOnly 없이 보호주문을 낸다').toMatch(/type: 'stop'[\s\S]{0,200}reduceOnly: true/);
+  });
+
+  it('보호주문은 기존 주문 경로로 나간다', () => {
+    /* ★ 전용 API 를 만들면 17개 리스크 게이트·확인창·감사기록을 다시 구현해야 한다. */
+    const i = app.indexOf("id.startsWith('posbr-')");
+    expect(app.slice(i, i + 2600), 'placeOrder 를 쓰지 않는다').toMatch(/placeOrder\(\{/);
+  });
+});
+
+describe('account-data — 스톱 가격을 버리지 않는다', () => {
+  it('★★★ trigger/tp/sl 이 하드코딩 null 이 아니다', () => {
+    /*
+       `trigger: null`, `tp: undefined`, `sl: undefined` 로 굳어 있었다. 어댑터는
+       값을 주는데(`NormalizedOrder.takeProfitPrice`/`stopLossPrice`) 화면 변환에서
+       버렸다 — 그래서 차트에 보호주문 선을 그릴 근거가 없었다.
+    */
+    const raw = read('src/account-data.js');
+    const s = raw.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    expect(s, 'trigger 가 아직 null 하드코딩이다').not.toMatch(/^\s*trigger:\s*null,\s*$/m);
+    expect(s, '트리거 가격을 읽지 않는다').toMatch(/o\.stopPrice[\s\S]{0,80}o\.triggerPrice/);
+    expect(s, '브래킷 익절가를 읽지 않는다').toMatch(/o\.takeProfitPrice/);
+    expect(s, '브래킷 손절가를 읽지 않는다').toMatch(/o\.stopLossPrice/);
+    expect(s, 'reduceOnly 를 싣지 않는다').toMatch(/reduceOnly:\s*o\.reduceOnly === true/);
+  });
+});

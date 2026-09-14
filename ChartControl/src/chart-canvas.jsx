@@ -366,6 +366,9 @@
            작성 중인 TP/SL 선. 익절은 롱색(수익), 손절은 숏색(손실)으로 둔다 —
            방향(롱/숏)이 아니라 **결과**를 나타내는 색이어야 한다.
         */
+        /* ★★ 거래소에 실제로 걸린 포지션 보호주문. 초안과 색은 같고 실선으로 구분한다. */
+        else if (src === 'position-tp') color = colors.long;
+        else if (src === 'position-sl') color = colors.short;
         else if (src === 'draft-tp') color = colors.long;
         else if (src === 'draft-sl') color = colors.short;
         else if (src === 'user') color = getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary').trim();
