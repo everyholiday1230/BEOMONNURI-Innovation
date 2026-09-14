@@ -2433,6 +2433,8 @@
       // --- 주문 패널 ---
       cross: 'Cross',
       isolated: 'Cô lập',
+      oe_mmode_label: 'Ký quỹ',
+      oe_mmode_hint: 'Được đặt trong tài khoản sàn của bạn, theo từng thị trường. Hãy đổi trên KuCoin — chúng tôi theo cài đặt đó.',
       limit: 'Giới hạn',
       market: 'Thị trường',
       trigger: 'Kích hoạt',

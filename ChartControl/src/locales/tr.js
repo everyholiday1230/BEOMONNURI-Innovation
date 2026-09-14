@@ -2414,6 +2414,8 @@
       // --- 주문 패널 ---
       cross: 'Cross',
       isolated: 'İzole',
+      oe_mmode_label: 'Teminat',
+      oe_mmode_hint: 'Borsa hesabınızda piyasa bazında ayarlanır. KuCoin üzerinden değiştirin — biz oradaki ayarı izleriz.',
       limit: 'Limit',
       market: 'Piyasa',
       trigger: 'Tetik',

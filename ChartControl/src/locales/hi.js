@@ -2385,6 +2385,8 @@
       // --- 주문 패널 ---
       cross: 'Cross',
       isolated: 'Isolated',
+      oe_mmode_label: 'मार्जिन',
+      oe_mmode_hint: 'आपके एक्सचेंज खाते में, प्रति मार्केट सेट होता है। KuCoin पर बदलें — हम वही सेटिंग मानते हैं।',
       limit: 'Limit',
       market: 'Market',
       trigger: 'Trigger',

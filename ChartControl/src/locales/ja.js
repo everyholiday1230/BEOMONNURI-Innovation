@@ -299,6 +299,8 @@
       indicators_placement_overlay: 'メイン重ね表示',
       indicators_placement_pane: 'サブ画面',
       isolated: '分離',
+      oe_mmode_label: '証拠金',
+      oe_mmode_hint: '取引所アカウント側で銘柄ごとに設定されます。変更は KuCoin で行ってください。当社は設定に従います。',
       kyc_na_step: '接続',
       layout_edit: 'レイアウトを編集',
       layout_manager: 'レイアウト',

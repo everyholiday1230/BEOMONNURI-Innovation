@@ -303,6 +303,8 @@
       indicators_placement_overlay: '主图叠加',
       indicators_placement_pane: '副图',
       isolated: '逐仓',
+      oe_mmode_label: '保证金',
+      oe_mmode_hint: '在您的交易所账户中按交易对设置。请在 KuCoin 修改，我们会遵循您的设置。',
       kyc_na_step: '连接',
       layout_edit: '编辑布局',
       layout_manager: '布局',

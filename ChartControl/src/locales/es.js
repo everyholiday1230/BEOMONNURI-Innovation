@@ -2358,6 +2358,8 @@
       // --- 주문 패널 ---
       cross: 'Cross',
       isolated: 'Aislado',
+      oe_mmode_label: 'Margen',
+      oe_mmode_hint: 'Se configura en tu cuenta del exchange, por mercado. Cambialo en KuCoin — nosotros seguimos lo que definas allí.',
       limit: 'Límite',
       market: 'A mercado',
       trigger: 'Disparador',

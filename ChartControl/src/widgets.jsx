@@ -957,8 +957,9 @@
 
        ★ 상위(app.jsx)가 포지션에서 읽은 실제 모드를 `marginMode` 로 내려준다.
          저장값은 **거래소 값을 모를 때만** 쓴다(포지션이 없는 경우).
-       ★★ 이용자가 패널에서 바꾸는 것은 그대로 가능하다 — 아래 `setMMode` 가
-         저장하고, 심볼이 바뀌어 거래소 값이 새로 오면 그때 다시 맞춘다.
+       ★★ 이 값은 **화면 표시용**이다(2026-09-14: 토글을 표시로 바꿨다). 서버가
+         주문 직전에 거래소 설정으로 덮어쓰므로, 이 값이 실제로 쓰이는 경우는
+         **거래소 조회가 실패했을 때뿐**이다.
     */
     const [mMode, setMMode] = useState(
       () => (marginMode === 'ISOLATED' ? 'ISOLATED' : 'CROSS'),
@@ -1455,11 +1456,34 @@
           */}
           {!isSpot && (
             <div className="oe-margin">
+              {/*
+                   ★★★ **마진 모드는 버튼이 아니라 표시다.**
+
+                     전에는 CROSS / ISOLATED 토글이었다. 그런데 서버가 주문 직전에
+                     거래소의 실제 설정을 읽어 **그 값으로 덮어쓴다**
+                     (`kucoin-trading-adapter.ts`, 2026-09-01 수정). 거래소는 주문의
+                     마진 모드가 그 종목 설정과 같아야 받아준다.
+
+                     즉 고객이 CROSS 를 눌러도 격리로 나갔다 — **버튼이 거짓말을
+                     하고 있었다.** 이 저장소 규칙("죽은 버튼을 두지 않는다")을
+                     정면으로 위반하는 상태였다.
+
+                   ★ 그래서 **거래소 설정을 그대로 보여준다.** 바꾸려면 KuCoin 에서
+                     바꿔야 한다는 사실도 함께 적는다 — 어디서 바꾸는지 모르면
+                     고객은 우리 화면에서 계속 찾는다.
+                   ★★ 우리가 거래소 설정을 **바꾸지 않는다.** 마진 모드 변경은
+                     청산가가 달라지는 행위다. 우리가 조용히 바꾸면 고객이 의도하지
+                     않은 조건으로 포지션을 갖게 된다.
+                   ★ `mMode` 상태는 남겨 둔다 — 거래소 조회가 실패하면 서버가 이
+                     값을 쓴다(그때만 의미가 있다).
+              */}
               <div className="oe-margin__group">
-                <div className="seg">
-                  <button className={`seg__opt ${mMode==='CROSS'?'is-active':''}`} onClick={() => setMMode('CROSS')}>{t('cross')}</button>
-                  <button className={`seg__opt ${mMode==='ISOLATED'?'is-active':''}`} onClick={() => setMMode('ISOLATED')}>{t('isolated')}</button>
-                </div>
+                <span className="oe-mmode" title={t('oe_mmode_hint')}>
+                  <span className="oe-mmode__label">{t('oe_mmode_label')}</span>
+                  <strong className="oe-mmode__value">
+                    {mMode === 'ISOLATED' ? t('isolated') : t('cross')}
+                  </strong>
+                </span>
               </div>
               <div className="oe-margin__group">
                 <span className="oe-lev">

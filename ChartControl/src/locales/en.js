@@ -2180,6 +2180,8 @@
       vol_24: '24H Volume',
       cross: 'Cross',
       isolated: 'Isolated',
+      oe_mmode_label: 'Margin',
+      oe_mmode_hint: 'Set on your exchange account, per market. Change it on KuCoin — we follow whatever you set there.',
       limit: 'Limit',
       market: 'Market',
       trigger: 'Trigger',

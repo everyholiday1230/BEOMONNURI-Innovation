@@ -2356,6 +2356,8 @@
       // --- 주문 패널 ---
       cross: 'Cross',
       isolated: 'Isolada',
+      oe_mmode_label: 'Margem',
+      oe_mmode_hint: 'Definido na sua conta da exchange, por mercado. Altere na KuCoin — nós seguimos o que você definir lá.',
       limit: 'Limitada',
       market: 'A mercado',
       trigger: 'Gatilho',
