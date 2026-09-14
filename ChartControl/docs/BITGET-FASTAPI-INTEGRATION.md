@@ -20,26 +20,40 @@
 KuCoin 에서는 문서와 실제 동작이 달라 `40503 isAddressbookOnly mismatch` 를
 프로덕션 로그에서 발견했다. 출금 권한이 보이면 **연결을 중단**한다.
 
-### ② 리베이트는 자동이다 — 요청 헤더가 필요 없다 ✅
+### ② 리베이트 — **모든 요청 헤더에 채널 코드를 넣어야 한다** 🔴 정정됨
 
-> "users registered through your referral code, the rebate will be calculated
-> automatically based on these users' trading volume"
+**★★★ 첫 답변이 틀렸고 BD 가 스스로 정정했다(2026-09-13).**
 
-KuCoin 보다 단순하다(KuCoin 은 브로커 헤더를 빠뜨리면 리베이트가 0 이었다).
+> 첫 답변: *"the rebate will be calculated automatically"*
+> → 헤더 불필요로 이해했다.
+>
+> 정정: *"you're **API broker**, so plz include channel code on each API
+> request header; I'll update the previous answer too to keep the answer
+> correct and clear"*
 
-**★★★ 그러나 결정적인 조건이 있다 — "registered through your referral code".**
+```
+X-CHANNEL-API-CODE: <our-channel-api-code>
+```
 
-  이미 비트겟 계정이 있는 고객이 우리 앱에서 그 계정을 연결하면 **리베이트가 없다.**
-  즉 우리 수익은 "우리 링크로 **신규 가입**한 고객" 에서만 나온다.
+예시 문서: `https://www.bitget.com/docs/catalog/trading/order-management`
 
-  → 그래서 OAuth URL 에 `vipCode` 를 붙이는 것이 **선택이 아니라 수익의 전제**다
-    (FastApi 문서 "Supplementary Information" 항목). 가입 화면에 추천 코드가
-    자동 입력되게 만들어야 한다.
-  → 화면 문구도 이 사실에 맞아야 한다. "기존 계정도 연결 가능" 은 사실이지만
-    그 경우 우리 수익이 0 이라는 것을 **우리가 알고 설계**해야 한다.
+★★★ **이것이 KuCoin 과 동일한 실패 지점이다.** KuCoin 에서 브로커 헤더를 빠뜨려
+  리베이트가 **0** 이었고, 부팅 로그에 `brokerAttached` 를 찍어서야 알아챘다.
+  비트겟도 같은 장치를 둔다 — 헤더가 붙지 않으면 수익이 **0** 이다.
 
-조회 API: `/legacy-docs/classic/affiliate/customerInfo/GetDirectCommissions`
-또는 affiliate 대시보드.
+★★ 좋은 소식: **기존 비트겟 계정도 수익이 된다.**
+
+  운영자 질문 "기존 아이디가 있는 사람이 우리 사이트에서 비트겟 아이디로
+  거래하는 건 우리 수익이 없냐" 에 대한 답이
+  *"for this case, plz add your channel code in the request header"* 였다.
+  즉 귀속은 **가입 경로가 아니라 요청 헤더**로 이뤄진다.
+
+  → 이 문서에 앞서 적었던 *"우리 링크로 신규 가입한 고객만 수익"* 은 **틀렸다.**
+  → `vipCode` 는 여전히 유용하다(신규 가입 전환율). 그러나 **수익의 전제는
+    아니다.** 전제는 `X-CHANNEL-API-CODE` 다.
+
+★ 조회: `/legacy-docs/classic/affiliate/customerInfo/GetDirectCommissions`
+  또는 affiliate 대시보드.
 
 ### ③ 발급되는 키 종류는 **고객의 계정 모드**를 따른다 ⚠️
 
@@ -47,6 +61,24 @@ KuCoin 보다 단순하다(KuCoin 은 브로커 헤더를 빠뜨리면 리베이
 > issued. If the client uses a Classic Account, a Classic API Key will be issued."
 
 **우리가 고를 수 없다.** 고객이 어떤 계정을 쓰는지에 달렸다.
+**★★★ 감지 방법이 확정됐다(2026-09-13). 콜백은 모드를 알려주지 않는다.**
+
+틀린 API 를 부르면 **전용 오류 코드**가 온다:
+
+```
+40084  "You are in Classic Account mode, and the Unified Account API
+        is not supported at this time"        → Classic 키다. v2 를 쓴다.
+
+40085  "You are in Unified Account mode, and the Classic Account API
+        is not supported at this time"        → UTA 키다. v3 를 쓴다.
+```
+
+★★ 그래서 **UTA(v3)를 먼저 부르고 `40084` 일 때만 Classic(v2)으로 내려간다.**
+  그 밖의 오류에서는 **연결을 거부한다** — 모드를 추측해 엉뚱한 API 로 주문을
+  보내면 가격·수량 단위가 어긋난다(아래 정밀도 항목).
+★ 판정 결과를 자격증명에 저장한다. 매 요청마다 두 번 부르면 지연과 요청 수가
+  두 배다.
+
 
 실측(2026-09-13) — 두 API 모두 살아 있다:
 
@@ -76,7 +108,29 @@ v2 로 계산하면 `1 / 10^10` = `1e-10` 이고, JS `String(1e-10)` 은 **`'1e-
 9종(BTCUSD 등)이고, 우리가 쓰는 **USDT 무기한물은 해당 없다.** 다만 UTA 가
 플랫폼의 장기 방향이라는 것은 사실이다.
 
-### ④ 데모 거래는 없다 ⚠️
+### ④ 재인증 · 키 수명 · 권한 — 2026-09-13 확인
+
+**재인증** → *"no new api key issued, it will use the old one"*
+
+★ 새 키가 발급되지 않으니 **이전 키가 죽는 문제가 없다.** 그러나 반대로
+  **재인증으로 문제를 해결할 수도 없다** — 키가 잘못됐으면 고객이 비트겟에서
+  지우고 다시 만들어야 한다.
+
+**키 수명** → *"apikey will not expire until the user delete it"* — 갱신 흐름 불필요.
+
+**권한 취소 통보** → *"we'll **not** notify callback URL actively, you'll only
+find out when a request fails"* ⚠️
+
+★★★ 그래서 **요청 실패를 반드시 상태로 반영해야 한다.** 고객이 비트겟에서
+  권한을 지웠는데 우리 화면이 계속 "연결됨" 을 보여주면, 고객은 주문이 나갈
+  것이라 믿고 기다린다. 인증 오류를 받으면 자격증명을 `FAILED` 로 내리고
+  화면에 다시 연결하라고 말해야 한다.
+★ KuCoin 도 같은 문제를 갖고 있다. 이 처리는 공통으로 만든다.
+
+**USDT 무기한물 거래 권한** → *"yes, fastapi issued apikey has the permissions
+to trade usdt-margined perpetual symbols"* ✅ 우리 범위와 일치한다.
+
+### ⑤ 데모 거래는 없다 ⚠️
 
 > "there is no demo trading for fastapi, we recommend using a real account to
 > test the authorization flow end to end."
@@ -90,10 +144,14 @@ v2 로 계산하면 `1 / 10^10` = `1e-10` 이고, JS `String(1e-10)` 은 **`'1e-
 
 ## 2. 미해결 — 막혀 있는 것
 
-### ⑤ 서버 IP — CIDR 불가 🔴
+### ⑥ 서버 IP — 고정 IP 필수 🔴
 
-> "sorry, fastapi doesn't support CIDR ranges; it supports multi IPs, we will
-> double check the maximum number allowed with dev team"
+> "sorry, fastapi doesn't support CIDR ranges; it supports multi IPs"
+>
+> (2026-09-13 후속) *"I've just checked with several FastAPI clients, and they
+> are using **fixed IP addresses**. We recommend using fixed IPs as well.
+> **How many IP addresses do you expect to use? Please share the list** with
+> us, and I'll forward it to our development team for evaluation."*
 
 우리 출구 IP는 **공유 대역 512개**다(실측):
 ```
@@ -102,16 +160,23 @@ type: shared
 74.220.60.0/24   (Render, Singapore)
 ```
 
-**등록할 수 없다.** 최대 개수 답변을 기다리는 중이며, 답에 따라 비용 결정이 필요하다:
+★★ 비트겟이 **개수와 목록을 우리에게 물었다.** 즉 우리가 먼저 정해야 한다.
 
 | 방법 | 비용 | 고정 IP 수 |
 |---|---|---|
-| Render 전용 IP | $100/월 + Pro 워크스페이스 | 3개 |
+| Render 전용 IP | **$100/월** + Pro 워크스페이스 | 3개 |
 | 프록시(QuotaGuard·Fixie 등) | 월 2~5만원대 | 1~2개 |
 
-허용 개수가 3 이상이면 Render 전용 IP 로 끝난다. 1~2개면 프록시가 싸다.
+★★★ 권고: **Render 전용 IP**(3개).
 
-### ⑥ `clientId` · `vipCode` — Broker Ops 로 넘어감
+  프록시가 싸지만 **주문 경로에 제3자를 넣는 것**이다. 프록시가 죽으면 주문이
+  실패하고, 그 실패는 고객 돈이 걸린 순간에 일어난다. 지연도 한 홉 늘어난다.
+  월 $100 은 그 위험을 없애는 값으로 비싸지 않다고 본다.
+
+※ 목록은 **구매 후에야** 알 수 있다(Render 가 배정한다). 그래서 비트겟에는
+  "고정 IP 3개를 쓸 예정이며 배정 후 목록을 보낸다" 로 답한다.
+
+### ⑦ `clientId` · `vipCode` · 채널 코드 — Broker Ops 확인 중
 
 BD 담당자가 `@Bitget_Broker_Ops` 에 요청했다. 둘 다 없으면 시작할 수 없다:
 - `clientId` — OAuth URL 과 서명에 들어간다
@@ -132,6 +197,11 @@ BD 담당자가 `@Bitget_Broker_Ops` 에 요청했다. 둘 다 없으면 시작�
   공개 문서에 실린 키는 전 세계가 가진 키다. 담당자에게 알렸고, 답변은 공개키가
   예시용이라는 것이었다(실제 위험은 개인키 쪽이다).
 - `MD5withRSA` 는 약한 알고리즘이다. 비트겟이 그것으로 검증하므로 우리가 바꿀 수 없다.
+- OAuth 라우트는 **만들어 두었다**(`apps/api/src/bitget-oauth-routes.ts`, 시험 18건).
+  `BITGET_OAUTH_CLIENT_ID` 가 없으면 라우터가 등록되지 않는다 — 지금 배포돼 있어도
+  아무 영향이 없다.
+- 아직 없는 환경변수: `BITGET_OAUTH_CLIENT_ID`, `BITGET_OAUTH_REDIRECT_URI`,
+  `BITGET_OAUTH_VIP_CODE`, 그리고 **채널 코드**(어댑터 작업 때 추가한다).
 
 ---
 
@@ -149,11 +219,36 @@ FastApi 문서가 요구하는 것:
 4. `serialNo` 만료 (권장 10분)
 5. 응답은 `{"code":"00000","msg":"success","requestTime":"..."}`
 
-### 계정 모드 감지 — 실패를 결론으로 바꾸지 않는다
+### 계정 모드 감지 — 코드가 확정됐다
 
-UTA 엔드포인트를 먼저 부르고, **특정한** 오류일 때만 Classic 으로 내려간다.
-알 수 없는 오류면 **연결을 거부**한다 — 추측해서 잘못된 API 로 주문을 보내면
-수량·가격 단위가 어긋난다.
+```
+UTA(v3) 호출
+  성공        → UTA 키. v3 로 고정하고 자격증명에 기록한다.
+  code 40084  → Classic 키. v2 로 내려간다.
+  그 밖        → **연결 거부.** 모드를 모르는 상태다.
+```
+
+★★ `40085`("UTA 모드인데 Classic API")는 우리가 v2 를 먼저 부를 때 온다. 우리는
+  v3 를 먼저 부르므로 정상 흐름에서는 나오지 않는다. 나오면 순서가 뒤바뀐 것이니
+  **버그로 취급**한다.
+★★★ 알 수 없는 오류에서 **추측하지 않는다.** 틀린 API 로 주문을 보내면 가격·수량
+  단위가 어긋나고, 그것이 KuCoin 에서 손절 없는 주문으로 이어진 실패다.
+
+### 리베이트 헤더 — 붙지 않으면 수익이 0 이다
+
+★★★ **모든** 비트겟 요청에 `X-CHANNEL-API-CODE` 를 넣는다. 조회든 주문이든 예외 없다.
+
+★★ 헤더를 **한 곳에서만** 붙인다. 요청마다 손으로 넣으면 새 엔드포인트를 추가할 때
+  빠뜨리고, 빠진 그 경로의 거래량은 영구히 우리 실적이 아니다. KuCoin 어댑터가
+  이미 이 구조다(`brokerAttached`).
+★ 부팅 로그에 채널 코드 유무를 찍는다. KuCoin 에서 리베이트 0 을 로그로 알아챈
+  전례가 있다.
+
+### 인증 실패 → 자격증명 상태
+
+★★ 비트겟은 권한 취소를 **알려주지 않는다.** 인증 오류를 받으면 자격증명을
+  `FAILED` 로 내리고 화면이 다시 연결하라고 말해야 한다. 그러지 않으면 화면은
+  "연결됨" 인데 주문이 나가지 않는 상태가 유지된다.
 
 ### 단계
 
