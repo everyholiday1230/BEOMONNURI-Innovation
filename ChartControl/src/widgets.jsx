@@ -2309,12 +2309,17 @@
                               {onSetBracket && p.isLive && (
                                 <>
                                   {!hasGuard(p, 'tp') && (
-                                    <button className="btn btn--xs" title={t('pos_set_tp_hint')}
+                                    <button className="btn btn--xs"
+                                      title={t('pos_set_tp_hint')}
+                                      /* ★ title 만으로는 화면낭독기가 읽지 못한다. 접근성 시험이 잡았다. */
+                                      aria-label={t('pos_set_tp_hint')}
                                       onClick={() => onSetBracket(p.id, 'tp')}
                                     >{t('pos_set_tp')}</button>
                                   )}
                                   {!hasGuard(p, 'sl') && (
-                                    <button className="btn btn--xs" title={t('pos_set_sl_hint')}
+                                    <button className="btn btn--xs"
+                                      title={t('pos_set_sl_hint')}
+                                      aria-label={t('pos_set_sl_hint')}
                                       onClick={() => onSetBracket(p.id, 'sl')}
                                     >{t('pos_set_sl')}</button>
                                   )}
