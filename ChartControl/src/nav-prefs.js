@@ -73,7 +73,33 @@
     }
   }
 
+  /**
+   * 좁은 화면인가.
+   *
+   * ★★★ 실측(2026-09-14 iPhone 13, 390px): 사이드바가 **화면의 44%(170px)** 를
+   *   차지했다. 그 상태로는 차트가 116×117 밖에 남지 않는다.
+   *
+   * ★ `/trade` 는 이미 기본 접힘인데도 펼쳐져 있었다 — 이용자가 예전에 데스크톱에서
+   *   펼쳐 둔 값이 `localStorage` 에 남아 **휴대폰에서도 그대로 적용**됐기 때문이다.
+   *   그래서 좁은 화면에서는 **저장값을 무시**한다.
+   * ★★ 저장값을 지우지는 않는다. 데스크톱으로 돌아가면 이용자가 고른 상태가 그대로
+   *   살아야 한다 — 화면 크기 때문에 이용자 설정을 파괴하지 않는다.
+   */
+  function isNarrow() {
+    try {
+      return typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 768px)').matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function readCollapsed() {
+    /*
+       ★ 좁은 화면 판정은 **캐시하지 않는다.** 화면을 돌리거나 창을 늘리면 값이
+         달라져야 한다. 캐시하면 세로에서 접힌 상태가 가로에서도 굳는다.
+    */
+    if (isNarrow()) return true;
     if (collapsed !== null) return collapsed;
     try {
       var v = window.localStorage.getItem(COLLAPSE_KEY);
