@@ -144,14 +144,15 @@ to trade usdt-margined perpetual symbols"* ✅ 우리 범위와 일치한다.
 
 ## 2. 미해결 — 막혀 있는 것
 
-### ⑥ 서버 IP — 고정 IP 필수 🔴
+### ⑥ 서버 IP — **강제된다. 고정 IP 없이는 불가** 🔴 확정
 
-> "sorry, fastapi doesn't support CIDR ranges; it supports multi IPs"
->
-> (2026-09-13 후속) *"I've just checked with several FastAPI clients, and they
-> are using **fixed IP addresses**. We recommend using fixed IPs as well.
-> **How many IP addresses do you expect to use? Please share the list** with
-> us, and I'll forward it to our development team for evaluation."*
+> (2026-09-14) *"The IP address bound to a FastAPI key applies to **every API key
+> generated under it** — **all requests using that API key must originate from the
+> bound IP address**."*
+
+★★★ **권고가 아니라 강제다.** 바인딩된 IP 밖에서 온 요청은 거부된다. 그리고 그
+  바인딩은 **FastApi 로 발급되는 모든 고객 키에 적용**된다 — 즉 고객 한 명이 아니라
+  전체가 막힌다.
 
 우리 출구 IP는 **공유 대역 512개**다(실측):
 ```
@@ -160,21 +161,33 @@ type: shared
 74.220.60.0/24   (Render, Singapore)
 ```
 
-★★ 비트겟이 **개수와 목록을 우리에게 물었다.** 즉 우리가 먼저 정해야 한다.
+등록할 수 없다. 세 가지 선택지가 있다.
 
-| 방법 | 비용 | 고정 IP 수 |
-|---|---|---|
-| Render 전용 IP | **$100/월** + Pro 워크스페이스 | 3개 |
-| 프록시(QuotaGuard·Fixie 등) | 월 2~5만원대 | 1~2개 |
+| 방법 | 월 비용 | 고정 IP | 주문 경로에 추가되는 것 |
+|---|---|---|---|
+| Render 전용 IP | **약 13만원** ($100) | 3개 | 없음 |
+| **자체 VPS 프록시 2대** | **약 1.1만원** | 2개 | 프록시 1홉(우리 소유) |
+| 상용 프록시(QuotaGuard 등) | 약 3~7만원 | 1~2개 | 프록시 1홉(제3자) |
 
-★★★ 권고: **Render 전용 IP**(3개).
+★★ **기술적으로 가능함을 확인했다.** `KucoinPrivateRest` 처럼 어댑터가 `fetchImpl` 을
+  주입받는 구조이므로, **비트겟 요청만** 프록시를 태우고 KuCoin 은 직접 보낼 수 있다.
+  전역 프록시(`NODE_USE_ENV_PROXY`)를 쓰면 **잘 돌고 있는 KuCoin 경로에도 실패 지점을
+  추가**하므로 그렇게 하지 않는다.
+  · `undici` 의 `ProxyAgent` 를 `dispatcher` 로 넘긴다(Node 24 내장 fetch 가 받는다).
+  · `undici` 는 Node 자신의 HTTP 클라이언트다. 새 의존성이지만 무명 패키지가 아니다.
 
-  프록시가 싸지만 **주문 경로에 제3자를 넣는 것**이다. 프록시가 죽으면 주문이
-  실패하고, 그 실패는 고객 돈이 걸린 순간에 일어난다. 지연도 한 홉 늘어난다.
-  월 $100 은 그 위험을 없애는 값으로 비싸지 않다고 본다.
+★★★ **주문 경로에 홉이 하나 늘어난다는 사실을 숨기지 않는다.** 프록시가 죽으면
+  비트겟 주문이 실패하고, 그 실패는 고객 돈이 걸린 순간에 일어난다. 그래서:
+  · VPS **2대**를 두고 IP 두 개를 모두 등록한다(비트겟이 복수 IP 를 받는다)
+  · 프록시 실패를 **조용히 넘기지 않는다** — 주문이 실패하면 이유를 그대로 말한다
+  · KuCoin 은 프록시를 타지 않으므로 VPS 가 죽어도 영향이 없다
 
-※ 목록은 **구매 후에야** 알 수 있다(Render 가 배정한다). 그래서 비트겟에는
-  "고정 IP 3개를 쓸 예정이며 배정 후 목록을 보낸다" 로 답한다.
+★ 무료 등급(Oracle Always Free 등)은 **쓰지 않는다.** 고객 돈이 걸린 주문 경로에
+  "언제 끊길지 모르는 것" 을 넣는 것은 월 5천원을 아낄 자리가 아니다.
+
+※ 판단: 비트겟이 실제로 수익을 낼지 아직 모른다(KuCoin 실주문 누적 12건). 그래서
+  **13만원이 아니라 1.1만원**부터 시작한다. 거래량이 늘어 프록시가 병목이 되면
+  그때 Render 전용 IP 로 옮긴다 — 그 전환은 프록시 설정만 끄면 된다.
 
 ### ⑦ `clientId` · `vipCode` · 채널 코드 — Broker Ops 확인 중
 
