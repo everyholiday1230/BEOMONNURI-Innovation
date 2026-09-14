@@ -1907,6 +1907,27 @@
       if (body.orderType !== 'market' && (o.price !== undefined && o.price !== null)) {
         body.price = decStr(o.price);
       }
+
+      /*
+         ★★★ **시뮬레이터는 스톱 주문의 트리거를 `price` 로 받는다.**
+
+           초안 스키마(`OrderDraftSchema`)에는 `stopPrice` 가 없다. 검증은
+           "limit/stop/tp_sl 은 price 가 필요하다" 이므로, `stopPrice` 만 보내면
+           **400 VALIDATION_FAILED** 이 되고 화면에는 아무 일도 일어나지 않는다.
+
+           실측(2026-09-14): 차트에서 TP/SL 을 확정하면 조용히 실패했다. 모달도
+           토스트도 뜨지 않았다 — 400 이 삼켜졌기 때문이다.
+
+         ★ 그래서 스톱 계열은 트리거 가격을 `price` 로 채워 보낸다. 실주문 경로는
+           그대로 `stopPrice` 를 쓴다(거래소 계약이 다르다) — 여기서만 맞춘다.
+         ★★ 이미 `price` 가 있으면 덮지 않는다. 지정가+트리거(stop_limit)에서
+           두 값이 다르기 때문이다.
+      */
+      if (body.price === undefined
+          && (body.orderType === 'stop' || body.orderType === 'tp_sl')
+          && (o.stopPrice !== undefined && o.stopPrice !== null && o.stopPrice !== '')) {
+        body.price = decStr(o.stopPrice);
+      }
       if (o.reduceOnly) body.reduceOnly = true;
       if (o.postOnly) body.postOnly = true;
       if (o.tif) body.timeInForce = String(o.tif).toUpperCase();

@@ -1392,8 +1392,21 @@
         quantity: data.size,
         leverage: data.leverage || market.leverage || 10,
         marginMode: data.marginMode ? String(data.marginMode).toLowerCase() : undefined,
-        stopPrice: data.type === 'trigger' ? data.stopPrice : undefined,
-        stopDirection: data.type === 'trigger' ? data.stopDirection : undefined,
+        /*
+           ★★★ **`'trigger'` 만 보던 조건이 스톱 주문을 흘려버렸다.**
+
+             차트에서 TP/SL 을 확정하면 `type: 'stop'` 으로 주문을 만든다. 그런데 여기서
+             `type === 'trigger'` 일 때만 `stopPrice` 를 넘겼기 때문에 트리거 가격이
+             **사라졌고**, 서버는 "limit/stop/tp_sl 은 price 가 필요하다" 로 400 을 냈다.
+             화면에는 모달도 토스트도 뜨지 않았다 — 조용히 실패했다(실측 2026-09-14).
+
+           ★ 스톱 계열 이름을 모두 받는다. 화면 여러 곳이 서로 다른 이름을 쓰고 있고
+             (`trigger`, `stop`, `stop_limit`), 한 곳만 고치면 다시 새는 곳이 생긴다.
+        */
+        stopPrice: (data.type === 'trigger' || data.type === 'stop' || data.type === 'stop_limit')
+          ? data.stopPrice : undefined,
+        stopDirection: (data.type === 'trigger' || data.type === 'stop' || data.type === 'stop_limit')
+          ? data.stopDirection : undefined,
         reduceOnly: data.reduceOnly,
         postOnly: data.postOnly,
         tif: data.tif,

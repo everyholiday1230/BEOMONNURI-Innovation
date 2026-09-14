@@ -1199,3 +1199,70 @@ describe('페이퍼 모드 — 준비되지 않았음을 정직하게 표시한�
       .toMatch(/positionAction: o\.positionAction === undefined \? 'open'/);
   });
 });
+
+/*
+   ═══ ★★★ 스톱 주문이 시뮬레이터에 닿지 않았다 (조용한 실패) ═══
+
+   페이퍼로 TP/SL 을 검증하다 발견했다. 차트에서 확정을 누르면 **모달도 토스트도
+   뜨지 않고** 아무 일도 일어나지 않았다. 원인은 두 겹이었다:
+
+     ① `app.jsx` 가 `stopPrice` 를 **`type === 'trigger'` 일 때만** 넘겼다.
+        차트 TP/SL 은 `type: 'stop'` 이므로 트리거 가격이 사라졌다.
+     ② `api-client.js` 가 스톱 트리거를 `stopPrice` 로 보냈다. 그런데 시뮬레이터
+        초안 스키마에는 `stopPrice` 가 **없다** — 검증은 "limit/stop/tp_sl 은 price 가
+        필요하다" 다. 실측:
+
+          stopPrice 만 → 400 VALIDATION_FAILED
+          price 로     → 200, positionAction:'close' 까지 정상
+
+   ★★ 400 이 화면에 드러나지 않은 것이 더 큰 문제다. 실패를 삼키면 이용자는 보호주문이
+     걸렸다고 믿는다 — 손절이 걸리지 않은 채 포지션을 들고 있는 상태가 된다.
+*/
+describe('스톱 주문이 시뮬레이터까지 도달한다', () => {
+  const app = read('src/app.jsx')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  const api = read('src/api-client.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+
+  it("★★★ stopPrice 를 'trigger' 에서만 넘기지 않는다", () => {
+    /* 차트 TP/SL 은 `type: 'stop'` 이다. 이 조건이 좁으면 트리거 가격이 사라진다. */
+    expect(app, "stopPrice 가 아직 'trigger' 전용이다")
+      .not.toMatch(/stopPrice:\s*data\.type === 'trigger' \? data\.stopPrice : undefined/);
+    expect(app, '스톱 계열을 모두 받지 않는다')
+      .toMatch(/data\.type === 'trigger' \|\| data\.type === 'stop'/);
+  });
+
+  it('★★★ 시뮬레이터에는 트리거를 price 로 보낸다', () => {
+    /*
+       초안 스키마에 `stopPrice` 가 없다. 이름을 맞추지 않으면 400 이 되고, 그 400 이
+       삼켜져 **조용히 아무 일도 일어나지 않는다.**
+    */
+    expect(api, '스톱 트리거를 price 로 채우지 않는다')
+      .toMatch(/body\.orderType === 'stop' \|\| body\.orderType === 'tp_sl'/);
+    expect(api, 'stopPrice 를 price 로 옮기지 않는다')
+      .toMatch(/body\.price = decStr\(o\.stopPrice\)/);
+    /* ★★ 이미 price 가 있으면 덮지 않는다 — stop_limit 에서 두 값이 다르다. */
+    /*
+       ★ 조건 블록 안에서 확인한다. 문자 간격으로 재면 코드를 조금 고칠 때마다
+         시험이 깨져 실제 회귀와 구분되지 않는다.
+    */
+    const i = api.indexOf("body.orderType === 'stop'");
+    const blk = api.slice(Math.max(0, i - 200), i + 300);
+    expect(blk, '기존 price 를 덮어쓴다 — stop_limit 에서 두 값이 다르다')
+      .toMatch(/body\.price === undefined/);
+  });
+
+  it('초안 스키마에 stopPrice 가 없다는 사실을 고정한다', () => {
+    /*
+       ★ 스키마에 `stopPrice` 가 추가되면 이 시험이 실패한다. 그때 위 우회를 지우고
+         제대로 보내도록 고치라는 신호다 — 우회가 영구히 남지 않게 한다.
+    */
+    const sch = read('packages/schemas/src/order.ts');
+    const i = sch.indexOf('OrderDraftSchema');
+    const blk = sch.slice(i, i + 1400);
+    expect(blk, '초안 스키마에 stopPrice 가 생겼다 — api-client 의 우회를 정리하라')
+      .not.toMatch(/^\s*stopPrice:/m);
+  });
+});
