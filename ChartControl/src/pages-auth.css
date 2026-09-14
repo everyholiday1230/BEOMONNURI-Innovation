@@ -715,3 +715,12 @@ body:has(.landing-shell) { overflow: auto !important; }
 /* Small text utility */
 .t-danger { color: var(--color-danger); }
 .t-brand  { color: var(--color-brand); }
+
+/* ============================================================
+   ★ 모바일 히어로 숨김 — 소스 순서 문제로 앞선 규칙이 덮였던 것을 고친다.
+     1100px 이하에서는 좌측 폼만 보인다(히어로는 우측 장식 패널).
+     이 블록이 파일에서 가장 뒤에 있어야 기본 display:flex 를 이긴다.
+   ============================================================ */
+@media (max-width: 1100px) {
+  .auth-shell__hero { display: none; }
+}
