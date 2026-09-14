@@ -64,7 +64,13 @@
   margin-left: 2px;
 }
 .auth-shell__form-inner {
-  flex: 1;
+  /* ★ flex: 1 로만 두면 이너의 높이가 "남는 공간"으로 압축되고, 내용(폼)은
+     overflow-y: visible 인 채로 아래로 흘러 `.auth-shell__foot` 위에 겹친다.
+     실측(360×800 · 390×844): 로그인/회원가입 버튼 중심이 foot 링크에 덮여
+     누를 수 없었다(zz-mobile-occlusion 프로브). `flex-basis: auto` 로 내용
+     높이를 보장하면 흘러넘치는 대신 스크롤 컨테이너(.auth-shell__form)가
+     늘어나 스크롤된다 — CTA 와 foot 이 겹칠 수 없다. */
+  flex: 1 0 auto;
   max-width: 400px;
   margin: 0 auto;
   width: 100%;

@@ -126,9 +126,23 @@ describe.skipIf(!URL_)('보관기간 파기 — 실제 Postgres', () => {
   afterAll(async () => { await pool?.end(); });
 
   it('오래된 행만 지운다 — 최근 행은 남긴다', async () => {
+    /*
+       ★ "오래된 행"은 규칙의 보존기간보다 **과거**여야 한다. 이 테스트는 200일로
+         하드코딩돼 있었는데, audit_logs·admin_actions 가 2026-09-09 법령 대조로
+         접속기록 1년(365일, statutory)이 되면서 200일 행은 **정상적으로 남는
+         행**이 됐다 — 테스트가 정책 변경을 따라가지 못한 것이다(2026-09-14 실측
+         실패: 옛 행이 남았다).
+
+       ★ 그래서 규칙값에서 기대일을 계산한다. 최대 보존기간 + 30일 전을 "옛 행"으로
+         심으면 정책이 다시 바려도 테스트는 유효하다. "최근 행"은 10일 전 그대로다.
+    */
+    const tablesUnderTest = ['audit_logs', 'admin_actions', 'sessions'];
+    const maxDays = Math.max(
+      ...RETENTION_RULES.filter((r) => tablesUnderTest.includes(r.table)).map((r) => r.days),
+    );
     const now = Date.now();
-    const old = new Date(now - 200 * 24 * 3600 * 1000);   // 200일 전
-    const fresh = new Date(now - 10 * 24 * 3600 * 1000);  // 10일 전
+    const old = new Date(now - (maxDays + 30) * 24 * 3600 * 1000); // 최장 보존기간 + 30일 전
+    const fresh = new Date(now - 10 * 24 * 3600 * 1000);           // 10일 전
     await pool.query(`INSERT INTO audit_logs (at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`, [old, fresh]);
     /* ★ bigint 표에는 밀리초 숫자를 넣는다. */
     await pool.query(`INSERT INTO admin_actions (at, ip) VALUES ($1,'1.1.1.1'), ($2,'2.2.2.2')`,

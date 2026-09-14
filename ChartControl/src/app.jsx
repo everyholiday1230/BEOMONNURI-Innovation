@@ -334,7 +334,12 @@
              일어난다 — 원래 이 코드가 잡으려던 경우는 그대로 잡힌다.
         */
         const applied = window.QTI18n.setLocale(state.lang);
-        const supported = window.QTI18n.known ? window.QTI18n.known(state.lang) : true;
+        /* ★ QTI18n.known 은 존재하지 않는 메서드였다(조용히 undefined → supported= true 로
+           항상 통과). 지원 로케일 판정은 available() 목록으로 한다 — setLocale 이 되돌려주는
+           applied(강제 폴백된 값)와 저장된 lang 이 어긋날 때만 상태를 되돌린다. */
+        const supported = window.QTI18n.available
+          ? window.QTI18n.available().indexOf(String(state.lang)) !== -1
+          : true;
         if (!supported && applied && applied !== state.lang) {
           setState((s) => (s.lang === applied ? s : { ...s, lang: applied }));
         }
