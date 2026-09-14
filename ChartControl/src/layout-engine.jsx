@@ -1053,6 +1053,7 @@ const DEFAULT_WIDGET_META = {
         ox: widget.x, oy: widget.y,
         cellW, cellH
       });
+      try { if (e.currentTarget.setPointerCapture && e.pointerId != null) e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패는 치명적이지 않다 */ }
       e.preventDefault();
       e.stopPropagation();
     }, [isEditing, isLocked, widget, cols, gap, rowH, trackRef, onSelect]);
@@ -1070,11 +1071,13 @@ const DEFAULT_WIDGET_META = {
         onChange({ _dragging: false });
         setDrag(null);
       };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
       return () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
       };
     }, [drag, cols, gap, widget, onChange]);
 
@@ -1108,6 +1111,7 @@ const DEFAULT_WIDGET_META = {
         dir, x0: e.clientX, y0: e.clientY,
         ow: widget.w, oh: widget.h, ox: widget.x, oy: widget.y, cellW, cellH
       });
+      try { if (e.currentTarget.setPointerCapture && e.pointerId != null) e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패는 치명적이지 않다 */ }
       e.preventDefault();
       e.stopPropagation();
     }, [isLocked, widget, cols, gap, rowH, trackRef, onSelect, onRaise]);
@@ -1175,11 +1179,13 @@ const DEFAULT_WIDGET_META = {
         */
         if (onResizeEnd) setTimeout(() => onResizeEnd(), 0);
       };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
       return () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
       };
     }, [resize, cols, gap, widget.minW, widget.minH, onChange, onResizeEnd]);
 
@@ -1283,7 +1289,7 @@ const DEFAULT_WIDGET_META = {
         {/* Widget controls popover (top-right) */}
         {isEditing && (
           <div className="widget-controls" onClick={e => e.stopPropagation()}>
-            <button aria-label={t('lay_drag')} className="widget-controls__btn" onMouseDown={onDragStart} title={t('lay_drag')}><I.Drag size={11}/></button>
+            <button aria-label={t('lay_drag')} className="widget-controls__btn" style={{touchAction:'none'}} onPointerDown={onDragStart} title={t('lay_drag')}><I.Drag size={11}/></button>
             <div className="widget-controls__sep"/>
             <button aria-label={widget.locked ? t('lay_unlock') : t('lock')} className="widget-controls__btn" onClick={() => onLock && onLock(widget.id)} title={widget.locked ? t('lay_unlock') : t('lock')}>
               {widget.locked ? <I.Lock size={11}/> : <I.Unlock size={11}/>}
@@ -1305,21 +1311,21 @@ const DEFAULT_WIDGET_META = {
         {isEditing && !widget.locked && (
           <div
             className="widget-drag-surface"
-            style={{position:'absolute', inset:0, zIndex:2, cursor: drag ? 'grabbing' : 'grab'}}
-            onMouseDown={onDragStart}
+            style={{position:'absolute', inset:0, zIndex:2, cursor: drag ? 'grabbing' : 'grab', touchAction:'none'}}
+            onPointerDown={onDragStart}
           />
         )}
 
         {showResize && (
           <>
-            <div className="resize-handle resize-handle--e" onMouseDown={(e) => onResizeStart(e, 'e')}/>
-            <div className="resize-handle resize-handle--s" onMouseDown={(e) => onResizeStart(e, 's')}/>
-            <div className="resize-handle resize-handle--w" onMouseDown={(e) => onResizeStart(e, 'w')}/>
-            <div className="resize-handle resize-handle--n" onMouseDown={(e) => onResizeStart(e, 'n')}/>
-            <div className="resize-handle resize-handle--se" onMouseDown={(e) => onResizeStart(e, 'se')}/>
-            <div className="resize-handle resize-handle--sw" onMouseDown={(e) => onResizeStart(e, 'sw')}/>
-            <div className="resize-handle resize-handle--ne" onMouseDown={(e) => onResizeStart(e, 'ne')}/>
-            <div className="resize-handle resize-handle--nw" onMouseDown={(e) => onResizeStart(e, 'nw')}/>
+            <div className="resize-handle resize-handle--e" onPointerDown={(e) => onResizeStart(e, 'e')}/>
+            <div className="resize-handle resize-handle--s" onPointerDown={(e) => onResizeStart(e, 's')}/>
+            <div className="resize-handle resize-handle--w" onPointerDown={(e) => onResizeStart(e, 'w')}/>
+            <div className="resize-handle resize-handle--n" onPointerDown={(e) => onResizeStart(e, 'n')}/>
+            <div className="resize-handle resize-handle--se" onPointerDown={(e) => onResizeStart(e, 'se')}/>
+            <div className="resize-handle resize-handle--sw" onPointerDown={(e) => onResizeStart(e, 'sw')}/>
+            <div className="resize-handle resize-handle--ne" onPointerDown={(e) => onResizeStart(e, 'ne')}/>
+            <div className="resize-handle resize-handle--nw" onPointerDown={(e) => onResizeStart(e, 'nw')}/>
           </>
         )}
       </div>
