@@ -930,6 +930,7 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      mode_paper_pending: 'Alıştırma modu henüz hazır değil — simüle bakiye gerekiyor. Şimdilik Futures veya Spot kullanın.',
       stripe_paper: 'KAĞIT',
       stripe_paper_note: 'Alıştırma modu — emirler simüle edilir ve borsaya gitmez. Gerçek para hareket etmez.',
       ord_trigger_hint: 'Tetik fiyatı — piyasa buraya gelene kadar emir bekler.',

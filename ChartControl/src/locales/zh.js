@@ -1042,6 +1042,7 @@
       bc_sev_critical: '重要 — 弹窗，必须明确关闭',
       dash: '—',
       close: '关闭',
+      mode_paper_pending: '模拟模式尚未就绪 — 需要先提供模拟余额。目前请使用合约或现物。',
       stripe_paper: '模拟',
       stripe_paper_note: '练习模式 — 订单为模拟，不会发送到交易所。不会动用真实资金。',
       ord_trigger_hint: '触发价 — 行情到达该价位前订单处于等待状态。',

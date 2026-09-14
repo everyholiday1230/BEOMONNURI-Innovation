@@ -908,6 +908,7 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Fechar',
+      mode_paper_pending: 'O modo prática ainda não está pronto — precisa de um saldo simulado. Use Futures ou Spot por enquanto.',
       stripe_paper: 'PAPEL',
       stripe_paper_note: 'Modo prática — as ordens são simuladas e nunca chegam à exchange. Nenhum dinheiro real se move.',
       ord_trigger_hint: 'Preço de disparo — esta ordem aguarda até o mercado alcançá-lo.',

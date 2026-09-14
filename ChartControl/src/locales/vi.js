@@ -926,6 +926,7 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      mode_paper_pending: 'Chế độ luyện tập chưa sẵn sàng — cần số dư mô phỏng. Hiện hãy dùng Futures hoặc Spot.',
       stripe_paper: 'THỬ',
       stripe_paper_note: 'Chế độ luyện tập — lệnh được mô phỏng và không tới sàn. Không có tiền thật nào bị dùng.',
       ord_trigger_hint: 'Giá kích hoạt — lệnh chờ đến khi thị trường đạt mức này.',

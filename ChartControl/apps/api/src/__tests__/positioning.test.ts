@@ -1117,3 +1117,69 @@ describe('거래 모드 스트라이프', () => {
     expect(wid, '현물에서 TP·SL 브래킷을 막지 않는다').toMatch(/tpslOn && !isSpot/);
   });
 });
+
+/*
+   ═══ ★★★ 페이퍼(모의) 모드는 동작하지 않는다 — 사실을 기록한다 ═══
+
+   운영자 요청("tp sl도 제대로 작동하나 확인바랍니다")으로 페이퍼 모드에서 끝까지
+   주문을 시도했다. 프로덕션 실측 결과:
+
+     ① 주문 검증이 "Connect your exchange account first" 로 막았다
+        → 모의 거래인데 실거래 키를 요구했다. 이 가드는 고쳤다.
+     ② 고쳐도 낼 수 없다 — `account_balances` 프로덕션 **0행**.
+        모의 시작 잔고를 지급하는 코드가 **시험 파일에만** 있다.
+     ③ `pg-sim-projection` 은 orders·positions·executions 만 쓰고 잔고를 안 건드린다.
+     ④ `simulation_orders` 0행, `orders` 0행 — 페이퍼 주문 성공 기록이 **0건**.
+
+   ★★ 그래서 `available: false` 로 두었다. 동작하지 않는 버튼을 눌러도 되는 것처럼
+     두지 않는다. 이 시험은 **되살릴 때 함께 고치도록** 사실을 고정한다.
+*/
+describe('페이퍼 모드 — 준비되지 않았음을 정직하게 표시한다', () => {
+  const tm = read('src/trade-mode.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+
+  it('★★★ 페이퍼는 available: false 다', () => {
+    const i = tm.indexOf('paper: {');
+    expect(i, 'paper 모드 정의를 찾지 못했다').toBeGreaterThan(-1);
+    const blk = tm.slice(i, i + 300);
+    expect(blk, '페이퍼가 사용 가능으로 표시돼 있다 — 눌러도 주문이 안 된다')
+      .toMatch(/available:\s*false/);
+    expect(blk, '이유를 알려주지 않는다 — 눌러도 아무 일 없으면 고장으로 읽는다')
+      .toMatch(/reasonKey:\s*'mode_paper_pending'/);
+  });
+
+  it('실거래 모드는 그대로 사용 가능하다', () => {
+    for (const m of ['spot', 'futures']) {
+      const i = tm.indexOf(`${m}: {`);
+      expect(tm.slice(i, i + 200), `${m} 이 막혔다`).toMatch(/available:\s*true/);
+    }
+  });
+
+  it('★★ 페이퍼가 되살아나면 거래소 키를 요구하지 않는다', () => {
+    /*
+       모의 거래에 실거래 키를 요구하는 것은 모순이다. 페이퍼는 주문이 시뮬레이터로
+       가므로 자격증명이 쓰이지 않는다. 이 가드는 미리 고쳐 두었다 — 되살릴 때
+       같은 곳에서 또 막히지 않도록.
+    */
+    const wid = read('src/widgets.jsx');
+    expect(wid, '페이퍼 판정이 없다').toMatch(/const isPaperMode = Boolean\(window\.QTMode/);
+    expect(wid, '페이퍼에서도 거래소 키를 요구한다')
+      .toMatch(/needsExchange = !isPaperMode && !acctLive/);
+  });
+
+  it('모의 시작 잔고를 지급하는 제품 경로가 아직 없다', () => {
+    /*
+       ★ 이 시험은 **현재 상태를 고정**한다. 시드를 만들면 이 시험이 실패하고,
+         그때 페이퍼를 available: true 로 되돌리라는 신호가 된다.
+       ★★ 시험 파일에만 있는 INSERT 는 제품 경로가 아니다 — 그것을 근거로
+         "페이퍼가 된다" 고 판단하면 안 된다.
+    */
+    const files = ['src/portfolio/pg-sim-projection.ts', 'src/portfolio/sim-projection.ts'];
+    for (const f of files) {
+      const s = read(`apps/api/${f}`);
+      expect(s, `${f} 가 잔고를 갱신한다 — 페이퍼를 되살릴 수 있는지 확인하라`)
+        .not.toMatch(/account_balances/);
+    }
+  });
+});

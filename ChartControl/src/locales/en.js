@@ -802,6 +802,7 @@
       bc_sev_critical: 'Important — modal, must be dismissed explicitly',
       dash: '—',
       close: 'Close',
+      mode_paper_pending: 'Practice mode is not ready yet — it needs a simulated balance before orders can run. Use Futures or Spot for now.',
       stripe_paper: 'PAPER',
       stripe_paper_note: 'Practice mode — orders are simulated and never reach the exchange. No real money moves.',
       ord_trigger_hint: 'Trigger price — this order waits until the market reaches it.',

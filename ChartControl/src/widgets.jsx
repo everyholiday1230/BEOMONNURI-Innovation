@@ -1404,7 +1404,22 @@
     */
     const acctLive = Boolean(window.QTAccount && window.QTAccount.isLive && window.QTAccount.isLive());
     /* 미리보기(백엔드 없음)에서는 목업 잔고로 흐름을 보여주므로 이 안내를 띄우지 않는다. */
-    const needsExchange = !acctLive && Boolean(window.QTMockPolicy && !window.QTMockPolicy.allowMockData());
+    /*
+       ★★★ **페이퍼(모의) 모드는 거래소 키가 필요 없다.**
+
+         프로덕션 실측(2026-09-14) — 페이퍼 모드에서 주문을 넣으면:
+           "Order validation failed — Connect your exchange account first"
+         모의 거래인데 실거래 키를 요구했다. 주문이 시뮬레이터(`sim`)로 가므로
+         거래소 자격증명은 애초에 쓰이지 않는다. **페이퍼 모드가 아예 동작하지 않았다.**
+
+       ★★ 이것은 단순한 불편이 아니다. 페이퍼는 "돈 없이 먼저 익혀 보기" 위한 것이고,
+         키 연결은 그보다 뒤에 오는 단계다. 순서가 뒤집히면 신규 이용자는 연습해 볼
+         방법 없이 곧바로 실거래 키를 넣어야 한다.
+       ★ 대회(모의 거래 랭킹)를 하려면 이 경로가 반드시 살아 있어야 한다.
+    */
+    const isPaperMode = Boolean(window.QTMode && window.QTMode.isPaper && window.QTMode.isPaper());
+    const needsExchange = !isPaperMode && !acctLive
+      && Boolean(window.QTMockPolicy && !window.QTMockPolicy.allowMockData());
 
     if (needsExchange) {
       errors.push({ level: 'danger', text: t('oe_err_no_exchange'), cta: '#/wallet' });
