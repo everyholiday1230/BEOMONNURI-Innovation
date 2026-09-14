@@ -476,6 +476,11 @@
     // 화면 권한의 단일 출처. 백엔드가 붙으면 서버 등급이 스위치를 덮어쓴다.
     const auth = useEffectiveRole(tweaks.role);
     const [route, pushRoute] = useRoute();
+    const routeFullPath = useMemo(() => {
+      const path = route.path || '';
+      const qs = new URLSearchParams(route.query || {}).toString();
+      return path + (qs ? '?' + qs : '');
+    }, [route.path, route.query]);
 
     /*
        자동맞춤(auto-fit) 적용 여부. Trade 탭에 기본 적용(DEFAULT_TWEAKS.autofit=true).
@@ -494,14 +499,15 @@
     */
     useEffect(() => {
       document.documentElement.setAttribute('data-qt-drawer', 'closed');
-    }, [route.path]);
+    }, [routeFullPath]);
 
     useEffect(() => {
       const onDocClick = (e) => {
         const el = document.documentElement;
         if (el.getAttribute('data-qt-drawer') !== 'open') return;
         // 사이드바 안이나 토글 버튼을 누른 것이면 유지한다.
-        if (e.target.closest && (e.target.closest('.app-sidebar') || e.target.closest('.qt-drawer-toggle'))) return;
+        // 비거래 화면은 .app-sidebar-v2 를 쓴다 — 둘 다 허용해야 내부 클릭으로 닫히지 않는다.
+        if (e.target.closest && (e.target.closest('.app-sidebar') || e.target.closest('.app-sidebar-v2') || e.target.closest('.qt-drawer-toggle'))) return;
         el.setAttribute('data-qt-drawer', 'closed');
       };
       const onKey = (e) => {
@@ -1714,7 +1720,7 @@
 
     // ---- shellProps for new-page components ----
     const shellProps = {
-      activePath: route.path,
+      activePath: routeFullPath,
       /*
          주소의 쿼리. 화면이 `?section=pricing` 처럼 주소로 전달된 의도를 읽을 수
          있어야 한다 — 공유된 링크가 약속한 자리를 보여주려면 필요하다.
@@ -1733,6 +1739,8 @@
       setTweaks,
       onNavigate: (fullPath) => {
         // fullPath like "/markets" or "/trade?symbol=BTCUSDT"
+        // 모바일 서랍은 이동 즉시 닫는다. 라우트 effect를 기다리면 한 프레임 가림이 남는다.
+        document.documentElement.setAttribute('data-qt-drawer', 'closed');
         const [path, qs] = fullPath.split('?');
         const q = Object.fromEntries(new URLSearchParams(qs || ''));
         pushRoute(path, q);
@@ -1751,6 +1759,8 @@
     const isAuthRoute = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      // 사업자 정보 페이지는 로그인 전에도 열려야 한다.
+      '/company',
     ].includes(route.path);
 
     // All known routes — anything not in this list is 404
@@ -1758,6 +1768,7 @@
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       // 법적 문서 — 로그인 없이 열린다.
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      '/company',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
@@ -2034,22 +2045,51 @@
           </div>
 
           <nav className="app-nav">
-            <a className="app-nav__item" href="#/markets"><I.Grid size={13}/>{t('nav_markets')}</a>
-            <a className={`app-nav__item ${route.path === '/trade' ? 'is-active' : ''}`} href="#/trade"><I.Chart size={13}/>{t('nav_trade')}</a>
-            {/*
-               ★★ AI 탭을 숨긴다 (지시받음).
+            {(() => {
+              const p = route.path || '/trade';
+              const isMarketNav = p === '/markets' || p.startsWith('/ai-strategies');
+              const isPortfolioNav = [
+                '/portfolio', '/wallet', '/wallet/transactions', '/order-history',
+                '/notifications', '/referral', '/points', '/fees', '/help', '/settings', '/consent',
+              ].includes(p);
+              const closeDrawer = () => document.documentElement.setAttribute('data-qt-drawer', 'closed');
+              return (
+                <>
+                  <a
+                    className={`app-nav__item ${isMarketNav ? 'is-active' : ''}`}
+                    href="#/markets"
+                    onClick={closeDrawer}
+                  ><I.Grid size={13}/>{t('nav_markets')}</a>
+                  <a
+                    className={`app-nav__item ${p === '/trade' ? 'is-active' : ''}`}
+                    href="#/trade"
+                    onClick={closeDrawer}
+                  ><I.Chart size={13}/>{t('nav_trade')}</a>
+                  {/*
+                     ★★ AI 탭을 숨긴다 (지시받음).
 
-                 코파일럿은 이제 거래 화면 기본 배치(standard-trader)에 접힌 채로
-                 들어 있다. 그래서 이 탭이 없어도 코파일럿에 닿을 수 있다.
+                       코파일럿은 이제 거래 화면 기본 배치(standard-trader)에 접힌 채로
+                       들어 있다. 그래서 이 탭이 없어도 코파일럿에 닿을 수 있다.
 
-               ★ 태그를 지우지 않고 주석으로 둔다 — 되살릴 때 위치와 프리셋
-                 연결(presetId: 'ai-workspace')을 다시 찾지 않아도 되게 한다.
-                 `ai-workspace` 프리셋 자체는 남아 있어 레이아웃 편집에서 고를 수 있다.
+                     ★ 태그를 지우지 않고 주석으로 둔다 — 되살릴 때 위치와 프리셋
+                       연결(presetId: 'ai-workspace')을 다시 찾지 않아도 되게 한다.
+                       `ai-workspace` 프리셋 자체는 남아 있어 레이아웃 편집에서 고를 수 있다.
 
-              <a className="app-nav__item" href="#/trade?workspace=ai" onClick={() => setTweaks({ presetId: 'ai-workspace' })}><I.Sparkles size={13}/>{t('nav_ai')}</a>
-            */}
-            <a className="app-nav__item" href="#/portfolio"><I.Wallet size={13}/>{t('nav_portfolio')}</a>
-            <a className="app-nav__item" href="#/analytics"><I.Book size={13}/>{t('nav_analytics')}</a>
+                    <a className="app-nav__item" href="#/trade?workspace=ai" onClick={() => setTweaks({ presetId: 'ai-workspace' })}><I.Sparkles size={13}/>{t('nav_ai')}</a>
+                  */}
+                  <a
+                    className={`app-nav__item ${isPortfolioNav ? 'is-active' : ''}`}
+                    href="#/portfolio"
+                    onClick={closeDrawer}
+                  ><I.Wallet size={13}/>{t('nav_portfolio')}</a>
+                  <a
+                    className={`app-nav__item ${p === '/analytics' ? 'is-active' : ''}`}
+                    href="#/analytics"
+                    onClick={closeDrawer}
+                  ><I.Book size={13}/>{t('nav_analytics')}</a>
+                </>
+              );
+            })()}
           </nav>
 
           <div className="app-header__right">
@@ -2316,18 +2356,35 @@
         */}
         {isTradeRoute && (
           <window.AppSidebar
-            activePath={route.path}
+            activePath={routeFullPath}
             role={auth.role || 'user'}
             collapsed={navPrefs.collapsed}
             onToggleCollapsed={navPrefs.toggleCollapsed}
-            onNavigate={(r, e) => { if (e) e.preventDefault(); pushRoute(r); }}
+            onNavigate={(r, e) => {
+              if (e) e.preventDefault();
+              document.documentElement.setAttribute('data-qt-drawer', 'closed');
+              pushRoute(r);
+            }}
             extraTools={
               <>
-                <button aria-label={t('layout_edit')} className="sb-item-v2" onClick={() => pushRoute('/trade', { mode: 'layout-edit' })} title={t('layout_edit')}>
+                <button
+                  type="button"
+                  aria-label={t('layout_edit')}
+                  className={`sb-item-v2 ${route.query.mode === 'layout-edit' ? 'is-active' : ''}`}
+                  onClick={() => pushRoute('/trade', { mode: 'layout-edit' })}
+                  title={t('layout_edit')}
+                >
                   <span className="sb-item-v2__icon"><I.LayoutIcon size={15}/></span>
                   {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('layout_edit')}</span>}
                 </button>
-                <button aria-label={t('tweaks')} className="sb-item-v2" onClick={() => setTweaksOpen(v => !v)} title={t('tweaks')}>
+                <button
+                  type="button"
+                  aria-label={t('tweaks')}
+                  className={`sb-item-v2 ${tweaksOpen ? 'is-active' : ''}`}
+                  onClick={() => setTweaksOpen(v => !v)}
+                  title={t('tweaks')}
+                  aria-pressed={tweaksOpen}
+                >
                   <span className="sb-item-v2__icon"><I.Cog size={15}/></span>
                   {!navPrefs.collapsed && <span className="sb-item-v2__label">{t('tweaks')}</span>}
                 </button>
