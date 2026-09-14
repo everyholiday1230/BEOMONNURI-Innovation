@@ -734,7 +734,13 @@ describe('차트 포지션 오버레이', () => {
   it('보호주문은 기존 주문 경로로 나간다', () => {
     /* ★ 전용 API 를 만들면 17개 리스크 게이트·확인창·감사기록을 다시 구현해야 한다. */
     const i = app.indexOf("id.startsWith('posbr-')");
-    expect(app.slice(i, i + 2600), 'placeOrder 를 쓰지 않는다').toMatch(/placeOrder\(\{/);
+    /*
+       ★ 선언 순서(TDZ) 때문에 ref 를 거친다 — `placeOrderRef.current` 를 호출한다.
+         중요한 것은 **전용 API 가 아니라 기존 주문 경로**를 쓴다는 사실이다.
+    */
+    const seg = app.slice(i, i + 2600);
+    expect(seg, 'placeOrder 경로를 쓰지 않는다').toMatch(/placeOrderRef\.current|placeOrder\(\{/);
+    expect(seg, 'ref 를 호출하지 않는다').toMatch(/doPlace\(\{|placeOrderRef\.current\(/);
   });
 });
 
@@ -753,5 +759,48 @@ describe('account-data — 스톱 가격을 버리지 않는다', () => {
     expect(s, '브래킷 익절가를 읽지 않는다').toMatch(/o\.takeProfitPrice/);
     expect(s, '브래킷 손절가를 읽지 않는다').toMatch(/o\.stopLossPrice/);
     expect(s, 'reduceOnly 를 싣지 않는다').toMatch(/reduceOnly:\s*o\.reduceOnly === true/);
+  });
+});
+
+/*
+   ═══ ★★★ 선언 순서 사고 — 앱 전체가 흰 화면이 됐다 ═══
+
+   `handleOverlayChange` 는 `placeOrder` 보다 **위**에 선언된다. 의존성 배열에
+   `placeOrder` 를 넣자 `const` 의 TDZ 에 걸려
+     ReferenceError: Cannot access 'placeOrder' before initialization
+   이 나고 **App 렌더 자체가 실패**했다. 프로덕션에서 실측했다.
+
+   ★★★ **eslint 0, typecheck 0, 시험 1659 통과, 빌드 성공이었다.** 전부 통과했는데
+     앱은 켜지지 않았다. 브라우저로 열어봐야 보였다 — "배포됐다" 와 "동작한다" 는 다르다.
+   ★ 그래서 순서를 시험으로 고정한다. 다시 직접 참조로 돌아가면 같은 사고가 난다.
+*/
+describe('선언 순서 — placeOrder TDZ', () => {
+  const app = read('src/app.jsx');
+
+  it('handleOverlayChange 가 placeOrder 를 직접 의존하지 않는다', () => {
+    const iH = app.indexOf('const handleOverlayChange');
+    const iP = app.indexOf('const placeOrder = useCallback');
+    expect(iH, 'handleOverlayChange 를 찾지 못했다').toBeGreaterThan(-1);
+    expect(iP, 'placeOrder 를 찾지 못했다').toBeGreaterThan(-1);
+
+    /* ★ 순서가 뒤바뀌었다면 직접 참조해도 안전하다 — 그 경우는 검사하지 않는다. */
+    if (iP > iH) {
+      const dep = app.slice(iH, app.indexOf('activeSymbolKey, overlays', iH) + 400);
+      const depsMatch = dep.match(/\}, \[([^\]]*)\]\);/);
+      expect(depsMatch, '의존성 배열을 찾지 못했다').not.toBeNull();
+      expect(depsMatch![1], 'placeOrder 를 직접 의존한다 — TDZ 로 앱이 흰 화면이 된다')
+        .not.toMatch(/\bplaceOrder\b/);
+    }
+  });
+
+  it('ref 로 참조하고 정의 뒤에 대입한다', () => {
+    const iRefDecl = app.indexOf('const placeOrderRef = useRef');
+    const iDef = app.indexOf('const placeOrder = useCallback');
+    const iAssign = app.indexOf('placeOrderRef.current = placeOrder');
+    expect(iRefDecl, 'placeOrderRef 선언이 없다').toBeGreaterThan(-1);
+    expect(iAssign, 'ref 대입이 없다').toBeGreaterThan(-1);
+    /* ★★ 대입이 정의보다 앞이면 같은 TDZ 오류가 난다. */
+    expect(iAssign, 'ref 대입이 placeOrder 정의보다 앞에 있다').toBeGreaterThan(iDef);
+    expect(iRefDecl, 'ref 선언이 사용처보다 뒤에 있다').toBeLessThan(iDef);
   });
 });

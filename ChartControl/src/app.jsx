@@ -1165,6 +1165,21 @@
          않으면 드래그한 선이 overlays 에 새로 생기고, 패널 값은 그대로 남아
          **화면에 보이는 손절가와 실제로 나가는 손절가가 달라진다.**
     */
+    /*
+       ★★★ **선언 순서 사고 — 앱 전체가 흰 화면이 됐다.**
+
+         `handleOverlayChange` 는 `placeOrder` 보다 **위**에 선언된다. 의존성 배열에
+         `placeOrder` 를 넣자 `const` 의 TDZ 에 걸려
+         `ReferenceError: Cannot access 'placeOrder' before initialization` 이 나고
+         **App 렌더 자체가 실패**했다(프로덕션에서 실측).
+
+       ★★ 함수를 옮기지 않고 ref 로 참조한다. 순서를 바꾸면 다른 의존이 또 깨진다.
+         ref 는 렌더 중에 읽지 않고 **이벤트가 일어난 뒤에만** 읽으므로 안전하다.
+       ★ eslint 도 typecheck 도 이것을 잡지 못했다. 브라우저로 열어봐야 보였다 —
+         "배포됐다" 와 "동작한다" 는 다르다.
+    */
+    const placeOrderRef = useRef(null);
+
     const handleOverlayChange = useCallback((id, ov) => {
       if (id === 'draft-tp' || id === 'draft-sl') {
         const price = ov && ov.points && ov.points[0] ? Number(ov.points[0].price) : NaN;
@@ -1242,7 +1257,9 @@
            ★ reduceOnly 는 필수다. 없으면 보호주문이 반대 포지션을 열 수 있다.
            ★ 트리거 방향: 롱의 손절은 아래로(down), 익절은 위로(up). 숏은 반대.
         */
-        placeOrder({
+        const doPlace = placeOrderRef.current;
+        if (!doPlace) return;
+        doPlace({
           side: isLong ? 'short' : 'long',
           type: 'stop',
           stopPrice: text,
@@ -1257,7 +1274,7 @@
       }
 
       updateOverlay(id, ov);
-    }, [updateOverlay, activeSymbolKey, overlays, visibleOverlays, placeOrder, pushToast, t]);
+    }, [updateOverlay, activeSymbolKey, overlays, visibleOverlays, pushToast, t]);
 
     // AI signal state (Flow 5)
     const [currentSignal, setCurrentSignal] = useState(null);
@@ -1427,12 +1444,20 @@
         });
     }, [pushToast, market, orderDraft]);
 
+    /*
+       ★★ `placeOrder` 를 ref 에 담는다. 위쪽에 선언된 `handleOverlayChange` 가
+         선언 순서에 걸리지 않고 최신 함수를 쓸 수 있다.
+       ★ 렌더마다 갱신한다 — 오래된 함수를 잡고 있으면 옛 상태로 주문이 나간다.
+    */
+    placeOrderRef.current = placeOrder;
+
     /**
      * 2단계 — 사용자가 확인을 누른 시점.
      *
      * 서버 확인 게이트가 두 겹이다(토큰 일치 + userConfirmed). 여기서만
      * userConfirmed 를 보낸다 — 자동으로 붙이면 게이트가 무의미해진다.
      */
+
     const confirmOrder = useCallback(async () => {
       const draft = orderPreview && orderPreview.draft;
 
