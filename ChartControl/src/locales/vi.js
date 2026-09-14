@@ -926,6 +926,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      stripe_paper: 'THỬ',
+      stripe_paper_note: 'Chế độ luyện tập — lệnh được mô phỏng và không tới sàn. Không có tiền thật nào bị dùng.',
       ord_trigger_hint: 'Giá kích hoạt — lệnh chờ đến khi thị trường đạt mức này.',
       ord_reduce_only_hint: 'Đóng một phần hoặc toàn bộ vị thế. Không thể mở vị thế mới.',
       pos_br_confirm: 'Đặt',

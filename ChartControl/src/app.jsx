@@ -1857,9 +1857,36 @@
           // 사용자가 그 문구를 기억한다.
           const liveOrders = cfg ? Boolean(cfg.liveOrdersEnabled) && /LIVE/i.test(String(cfg.tradingMode || '')) : null;
 
+          /*
+             ★★★ **페이퍼 모드에서도 "실주문이 거래소로 나갑니다" 라고 표시했다.**
+
+               운영자 질문("페이퍼 버튼 이것도 제대로 작동하는 걸까요?") 을 확인하다
+               발견했다. 이 스트라이프는 **서버 설정만** 보고 `QTMode` 를 보지 않았다.
+               프로덕션 실측 — Futures/Paper/Spot 세 모드 모두:
+
+                 "LIVE  REAL ORDERS GO TO THE EXCHANGE · YOUR OWN FUNDS ARE AT RISK"
+
+               모의 거래 중인데 실거래 경고가 뜬다. 방향이 정반대인 거짓이다. 더 나쁜
+               경우도 만든다 — 이 문구를 한 번 무시하는 습관이 생기면, **실거래로
+               돌아왔을 때도 무시한다.** 경고는 틀리면 경고가 아니라 소음이 된다.
+
+             ★★ 그래서 모드를 함께 본다. 페이퍼는 주문이 `sim` 경로로 가므로 거래소에
+               나가지 않는다 — 그 사실을 그대로 말한다.
+             ★ 판정 순서가 중요하다. 페이퍼 판정이 **실거래 판정보다 앞**에 와야 한다.
+               뒤에 두면 liveOrders 가 true 인 서버에서 영원히 LIVE 로 표시된다.
+          */
+          /*
+             ★★ **상태(`tradeMode`)를 본다.** `window.QTMode.isPaper()` 를 직접 읽으면
+               모드를 바꿔도 React 가 다시 그리지 않아 스트라이프가 그대로 남는다 —
+               조용히 안 되는 코드가 되는 오늘의 여섯 번째 사례를 피한다.
+          */
+          const paperMode = tradeMode === 'paper';
+
           let badge, note, isLive = false;
           if (!realService) {
             badge = t('stripe_preview'); note = t('stripe_preview_note');
+          } else if (paperMode) {
+            badge = t('stripe_paper'); note = t('stripe_paper_note');
           } else if (liveOrders === null) {
             badge = t('stripe_checking'); note = t('stripe_checking_note');
           } else if (liveOrders) {

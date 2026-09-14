@@ -910,6 +910,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Cerrar',
+      stripe_paper: 'PAPEL',
+      stripe_paper_note: 'Modo práctica — las órdenes son simuladas y nunca llegan al exchange. No se mueve dinero real.',
       ord_trigger_hint: 'Precio de disparo — esta orden espera hasta que el mercado lo alcance.',
       ord_reduce_only_hint: 'Cierra parte o todo tu posición. No puede abrir una nueva.',
       pos_br_confirm: 'Fijar',

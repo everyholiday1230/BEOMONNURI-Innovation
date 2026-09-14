@@ -1041,6 +1041,8 @@
       bc_sev_critical: '重要 — モーダル、明示的に閉じる必要があります',
       dash: '—',
       close: '閉じる',
+      stripe_paper: 'ペーパー',
+      stripe_paper_note: '練習モード — 注文はシミュレーションで取引所には届きません。実際の資金は動きません。',
       ord_trigger_hint: 'トリガー価格 — 相場がここに来るまで待機します。',
       ord_reduce_only_hint: 'ポジションを減らす注文です。新規は建てません。',
       pos_br_confirm: '確定',

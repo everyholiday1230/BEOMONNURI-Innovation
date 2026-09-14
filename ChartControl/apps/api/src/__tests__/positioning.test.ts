@@ -1051,3 +1051,69 @@ describe('라벨 폭 — 한글에서 상자를 넘치지 않는다', () => {
     expect(s, 'bounding.width 를 쓰지 않는다').toMatch(/bounding && bounding\.width/);
   });
 });
+
+/*
+   ═══ ★★★ 거래 모드 스트라이프가 페이퍼에서 거짓말을 했다 ═══
+
+   운영자 질문: "여기에 페이퍼가 있는 페이퍼 버튼이요 이것도 제대로 작동하는걸까요? 스팟도요?"
+
+   확인 결과 버튼 자체는 동작한다(프로덕션 실측):
+     Spot    → QTMode=spot/live    관심목록 **200행**(현물 종목)
+     Paper   → QTMode=paper/**sim**
+     Futures → QTMode=futures/live 관심목록 678행
+
+   ★★★ 그런데 스트라이프가 **세 모드 모두** 이렇게 표시했다:
+
+       "LIVE  REAL ORDERS GO TO THE EXCHANGE · YOUR OWN FUNDS ARE AT RISK"
+
+     모의 거래 중인데 실거래 경고가 뜬다. **방향이 정반대인 거짓**이다.
+     원인 — 스트라이프가 서버 설정(`liveOrdersEnabled`, `tradingMode`)만 보고
+     `QTMode` 를 보지 않았다.
+
+   ★★ 이것이 위험한 이유는 틀린 경고가 **습관을 만든다**는 데 있다. 페이퍼에서 이
+     문구를 무시하는 습관이 생기면 실거래로 돌아왔을 때도 무시한다. 경고는 틀리면
+     경고가 아니라 소음이 된다.
+*/
+describe('거래 모드 스트라이프', () => {
+  const app = (() => {
+    const raw = read('src/app.jsx');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  })();
+
+  it('★★★ 페이퍼 모드를 실거래로 표시하지 않는다', () => {
+    expect(app, '페이퍼 판정이 없다').toMatch(/const paperMode = tradeMode === 'paper';/);
+    expect(app, '페이퍼 배지가 없다').toMatch(/badge = t\('stripe_paper'\)/);
+  });
+
+  it('★ 페이퍼 판정이 실거래 판정보다 먼저 온다', () => {
+    /*
+       뒤에 두면 `liveOrders` 가 true 인 서버(우리 프로덕션)에서 **영원히 LIVE** 로
+       표시된다 — 고치기 전과 같아진다.
+    */
+    const iPaper = app.indexOf("badge = t('stripe_paper')");
+    const iLive = app.indexOf("badge = t('stripe_live')");
+    expect(iPaper, '페이퍼 분기가 없다').toBeGreaterThan(-1);
+    expect(iLive, '실거래 분기가 없다').toBeGreaterThan(-1);
+    expect(iPaper, '페이퍼 판정이 실거래 판정보다 뒤에 있다 — 영원히 LIVE 가 된다')
+      .toBeLessThan(iLive);
+  });
+
+  it('★★ 상태를 본다 — window 를 직접 읽으면 다시 그리지 않는다', () => {
+    /*
+       `window.QTMode.isPaper()` 를 렌더 중에 직접 읽으면 모드를 바꿔도 React 가
+       다시 그리지 않아 스트라이프가 그대로 남는다. 조용히 안 되는 코드가 된다.
+    */
+    const i = app.indexOf('const paperMode =');
+    expect(app.slice(i, i + 120), 'window 를 직접 읽는다')
+      .not.toMatch(/window\.QTMode/);
+  });
+
+  it('현물은 레버리지·펀딩을 감춘다', () => {
+    /* ★ 현물에 레버리지·펀딩·청산가는 존재하지 않는다. 보이면 잘못된 상품으로 읽는다. */
+    const wid = read('src/widgets.jsx');
+    expect(wid, '현물 판정이 없다').toMatch(/const isSpot = window\.QTMode/);
+    expect(wid, '현물에서 레버리지를 1 로 두지 않는다').toMatch(/const effLev = isSpot \? 1 :/);
+    expect(wid, '현물에서 TP·SL 브래킷을 막지 않는다').toMatch(/tpslOn && !isSpot/);
+  });
+});

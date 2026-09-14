@@ -802,6 +802,8 @@
       bc_sev_critical: 'Important — modal, must be dismissed explicitly',
       dash: '—',
       close: 'Close',
+      stripe_paper: 'PAPER',
+      stripe_paper_note: 'Practice mode — orders are simulated and never reach the exchange. No real money moves.',
       ord_trigger_hint: 'Trigger price — this order waits until the market reaches it.',
       ord_reduce_only_hint: 'Closes part or all of your position. It cannot open a new one.',
       pos_br_confirm: 'Set',

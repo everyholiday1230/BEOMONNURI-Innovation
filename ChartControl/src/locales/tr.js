@@ -930,6 +930,8 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      stripe_paper: 'KAĞIT',
+      stripe_paper_note: 'Alıştırma modu — emirler simüle edilir ve borsaya gitmez. Gerçek para hareket etmez.',
       ord_trigger_hint: 'Tetik fiyatı — piyasa buraya gelene kadar emir bekler.',
       ord_reduce_only_hint: 'Pozisyonunuzun bir kısmını veya tamamını kapatır. Yeni pozisyon açamaz.',
       pos_br_confirm: 'Onayla',
