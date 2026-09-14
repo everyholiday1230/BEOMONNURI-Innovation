@@ -908,6 +908,12 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Fechar',
+      pos_set_tp: '+TP',
+      pos_set_sl: '+SL',
+      pos_set_tp_hint: 'Adicione uma linha de realização de lucro ao gráfico e arraste até seu preço.',
+      pos_set_sl_hint: 'Adicione uma linha de stop loss ao gráfico e arraste até seu preço.',
+      pos_br_drag_hint: 'Arraste a linha tracejada do gráfico até seu preço e confirme.',
+      pos_br_no_price: 'Ainda não há preço ao vivo para este símbolo — tente novamente em instantes.',
       chart_ov_pos_tp: 'Realizar lucro',
       chart_ov_pos_sl: 'Stop loss',
       pos_br_gone: 'Essa posição não existe mais — recarregue antes de definir um nível.',

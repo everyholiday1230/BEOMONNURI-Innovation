@@ -930,6 +930,12 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      pos_set_tp: '+TP',
+      pos_set_sl: '+SL',
+      pos_set_tp_hint: 'Grafiğe kâr al çizgisi ekleyin, ardından istediğiniz fiyata sürükleyin.',
+      pos_set_sl_hint: 'Grafiğe zarar kes çizgisi ekleyin, ardından istediğiniz fiyata sürükleyin.',
+      pos_br_drag_hint: 'Grafikteki kesikli çizgiyi istediğiniz fiyata sürükleyip onaylayın.',
+      pos_br_no_price: 'Bu sembol için henüz canlı fiyat yok — biraz sonra tekrar deneyin.',
       chart_ov_pos_tp: 'Kâr al',
       chart_ov_pos_sl: 'Zarar kes',
       pos_br_gone: 'O pozisyon artık yok — seviye belirlemeden önce sayfayı yenileyin.',

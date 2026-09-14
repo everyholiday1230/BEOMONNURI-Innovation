@@ -1211,7 +1211,11 @@
            수도 있으므로 우리가 막아야 한다.
          ★ 실패하면 선을 되돌린다. 화면에 새 가격이 남아 있으면 이용자는 걸린 줄 안다.
       */
-      if (id.startsWith('posbr-')) {
+      /*
+         ★ 걸린 보호주문(`posbr-`)과 새로 만드는 초안(`posdraft-`)을 같은 경로로 처리한다.
+           검증·주문 생성이 동일해야 한다 — 갈라지면 한쪽에만 방향 검증이 남는다.
+      */
+      if (id.startsWith('posbr-') || id.startsWith('posdraft-')) {
         const src = overlays.concat(visibleOverlays).find((o) => o.id === id);
         const ref = src && src.posRef;
         const price = ov && ov.points && ov.points[0] ? Number(ov.points[0].price) : NaN;
@@ -1270,6 +1274,15 @@
           ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
           origin: { posBracket: ref.kind, posId: ref.id },
         });
+        /*
+           ★★ 초안 선은 여기서 지운다. 주문이 실제로 걸리면 서버에서 읽어와
+             **실선**으로 다시 그려진다 — 점선이 남아 있으면 같은 가격에 선이 두 개다.
+           ★ 주문이 거절돼도 지운다. 점선이 남으면 걸린 줄 오해한다. 거절 사유는
+             확인창/토스트가 말한다.
+        */
+        if (id.startsWith('posdraft-')) {
+          setOverlays((prev) => prev.filter((o) => o.id !== id));
+        }
         return;
       }
 
@@ -3027,6 +3040,48 @@
              ★ `reduceOnly: true` 가 반드시 필요하다. 없으면 반대 방향 신규 포지션이
                열릴 수 있다 — 닫으려다 두 배가 된다.
           */
+          /*
+             ★★★ **TP/SL 초안 선을 만든다 — 없을 때 새로 거는 경로.**
+
+               차트에 점선 초안을 현재가에 띄운다. 이용자가 끌어서 놓으면 그때
+               확인창이 뜨고 실제 보호주문이 나간다(handleOverlayChange).
+
+             ★★ 현재가에 두는 것은 "가격 제안" 이 아니다 — 끌기 시작점이고 점선이며,
+               놓지 않으면 아무 주문도 나가지 않는다. 반면 ±2% 같은 값을 넣으면
+               우리가 손절 폭을 권한 것처럼 읽힌다.
+             ★ 이미 초안이 있으면 새로 만들지 않는다 — 같은 자리에 선이 겹친다.
+             ★★ 안내를 띄운다. 선만 생기고 아무 설명이 없으면 무엇을 해야 할지 모른다.
+          */
+          onSetBracket={(posId, kind) => {
+            const rows = (window.QTAccount && window.QTAccount.getPositions)
+              ? window.QTAccount.getPositions() : [];
+            const pos = (rows || []).find((r) => String(r.id) === String(posId));
+            if (!pos) { props.pushToast({ title: props.t('pos_br_gone'), variant: 'error' }); return; }
+            const px = Number(props.market && props.market.price) || Number(pos.mark) || Number(pos.entry);
+            if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            const id = `posdraft-${posId}-${kind}`;
+            /*
+               ★★★ `setOverlays` 는 이 컴포넌트의 prop 이 **아니다.** 처음에 그렇게
+                 썼는데 `props.X` 형태는 eslint 도 typecheck 도 잡지 못한다 — 조용히
+                 아무 일도 안 하는 버튼이 된다(오늘 이 방식으로 세 번 실패했다).
+                 실제 prop 은 `addOverlay` / `allOverlays` 다.
+               ★ 이미 초안이 있으면 만들지 않는다 — 같은 자리에 선이 겹친다.
+            */
+            const already = (props.allOverlays || []).some((o) => o.id === id);
+            if (already) { props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' }); return; }
+            props.addOverlay({
+              id,
+              type: 'horizontal',
+              source: kind === 'tp' ? 'draft-tp' : 'draft-sl',
+              symbol: String(pos.symbol || '').toUpperCase(),
+              points: [{ price: px, time: Date.now() }],
+              label: kind === 'tp' ? props.t('chart_ov_pos_tp') : props.t('chart_ov_pos_sl'),
+              style: { dashed: true },
+              live: { kind: 'away', symbol: String(pos.symbol || '').toUpperCase(), price: px },
+              posRef: { id: posId, symbol: String(pos.symbol || '').toUpperCase(), kind, side: pos.side, size: pos.size },
+            });
+            props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' });
+          }}
           onClose={(posId, pct) => {
             const rows = (() => {
               const acct = window.QTAccount;

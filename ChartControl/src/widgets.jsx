@@ -1883,7 +1883,7 @@
   // ============================================================
   // POSITIONS & ORDERS
   // ============================================================
-  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t }) {
+  window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t, onSetBracket }) {
     const [tab, setTab] = useState('positions');
 
     /*
@@ -2014,6 +2014,32 @@
          동시에 열리면 어느 포지션을 닫는지 헷갈린다.
     */
     const [closingId, setClosingId] = useState(null);
+
+    /*
+       ★★★ 포지션 행의 `tp`/`sl` 은 **항상 비어 있다.** 거래소에서 보호주문은 별도
+         주문이므로 포지션 응답에 담기지 않는다. 그래서 미체결 주문 중 같은 심볼의
+         **청산 전용(reduceOnly) 스톱**이 있는지로 판단한다.
+       ★★ 방향으로 가른다 — 롱이면 진입가보다 위가 익절, 아래가 손절이다. 주문에
+         종류 표시가 없으므로 이것이 유일하게 확실한 근거다.
+       ★ 판단할 근거가 없으면(주문 목록을 못 읽었으면) **있다고 본다.** 없다고 보면
+         이미 걸린 위에 또 걸도록 버튼을 보여주게 된다.
+    */
+    const hasGuard = (pos, kind) => {
+      if (pos && pos[kind]) return true;
+      if (!Array.isArray(orders)) return true;
+      const entry = Number(pos && pos.entry);
+      if (!(entry > 0)) return true;
+      const isLong = pos.side !== 'short';
+      const sym = String(pos.symbol || '').toUpperCase();
+      return orders.some((o) => {
+        if (o.reduceOnly !== true) return false;
+        if (String(o.symbol || '').toUpperCase() !== sym) return false;
+        const g = Number(o.trigger);
+        if (!(g > 0)) return false;
+        const above = g > entry;
+        return kind === 'tp' ? above === isLong : above !== isLong;
+      });
+    };
 
     const cancelAll = () => {
       if (!window.QTApi || !window.QTApi.orders || !window.QTApi.orders.cancelAll) return;
@@ -2264,9 +2290,40 @@
                               <button className="btn btn--xs" onClick={() => setClosingId(null)}>{t('cancel')}</button>
                             </>
                           ) : (
-                            <button className="btn btn--xs btn--danger"
-                              onClick={() => setClosingId(p.id)}
-                            >{t('close')}</button>
+                            <>
+                              {/*
+                                   ★★★ **TP/SL 을 차트에서 드래그로 새로 만든다.**
+
+                                     운영자 요청: "tp sl도 차트에서 마우스로 드래그해서
+                                     설정할 수 있도록". 이미 걸린 보호주문을 옮기는 것은
+                                     됐지만, **없을 때 새로 만드는 방법**이 없었다.
+
+                                   ★ 누르면 차트에 **점선** 초안 선이 현재가에 생긴다.
+                                     끌어서 원하는 가격에 놓으면 확인창이 뜬다.
+                                   ★★ 점선인 이유 — 아직 거래소에 나가지 않았다. 실선으로
+                                     그리면 이미 걸린 보호주문으로 읽는다.
+                                   ★★ 이미 그 방향 보호주문이 있으면 버튼을 숨긴다. 두 개를
+                                     걸면 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다
+                                     (reduceOnly 라도 수량이 남아 있으면 위험하다).
+                              */}
+                              {onSetBracket && p.isLive && (
+                                <>
+                                  {!hasGuard(p, 'tp') && (
+                                    <button className="btn btn--xs" title={t('pos_set_tp_hint')}
+                                      onClick={() => onSetBracket(p.id, 'tp')}
+                                    >{t('pos_set_tp')}</button>
+                                  )}
+                                  {!hasGuard(p, 'sl') && (
+                                    <button className="btn btn--xs" title={t('pos_set_sl_hint')}
+                                      onClick={() => onSetBracket(p.id, 'sl')}
+                                    >{t('pos_set_sl')}</button>
+                                  )}
+                                </>
+                              )}
+                              <button className="btn btn--xs btn--danger"
+                                onClick={() => setClosingId(p.id)}
+                              >{t('close')}</button>
+                            </>
                           )}
                         </div>
                       </td>

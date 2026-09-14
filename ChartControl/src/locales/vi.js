@@ -926,6 +926,12 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      pos_set_tp: '+TP',
+      pos_set_sl: '+SL',
+      pos_set_tp_hint: 'Thêm đường chốt lời vào biểu đồ, rồi kéo đến mức bạn muốn.',
+      pos_set_sl_hint: 'Thêm đường cắt lỗ vào biểu đồ, rồi kéo đến mức bạn muốn.',
+      pos_br_drag_hint: 'Kéo đường nét đứt trên biểu đồ đến giá bạn muốn, rồi xác nhận.',
+      pos_br_no_price: 'Chưa có giá trực tiếp cho mã này — hãy thử lại sau một chút.',
       chart_ov_pos_tp: 'Chốt lời',
       chart_ov_pos_sl: 'Cắt lỗ',
       pos_br_gone: 'Vị thế đó không còn — hãy tải lại trước khi đặt mức.',

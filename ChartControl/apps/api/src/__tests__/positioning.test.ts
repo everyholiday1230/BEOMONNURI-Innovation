@@ -804,3 +804,69 @@ describe('선언 순서 — placeOrder TDZ', () => {
     expect(iRefDecl, 'ref 선언이 사용처보다 뒤에 있다').toBeLessThan(iDef);
   });
 });
+
+/*
+   ═══ TP/SL 을 없을 때 새로 거는 경로 ═══
+
+   운영자 요청은 "tp sl도 차트에서 마우스로 드래그해서 **설정**할 수 있도록" 이었다.
+   앞선 커밋(d620fcc)은 **이미 걸린** 보호주문을 옮기는 것만 했다 — 없을 때 새로
+   만드는 방법이 없었으므로 요청을 절반만 충족했다.
+
+   ★ 포지션 행의 `+TP` / `+SL` 을 누르면 차트에 **점선** 초안이 현재가에 생기고,
+     끌어서 놓으면 확인창을 거쳐 실제 보호주문이 나간다.
+   ★★ 현재가에 두는 것은 가격 제안이 아니다 — 끌기 시작점이고, 놓지 않으면 아무
+     주문도 나가지 않는다. ±2% 같은 값을 넣으면 우리가 손절 폭을 권한 것처럼 읽힌다.
+*/
+describe('TP/SL 신규 설정 — 초안 선', () => {
+  const app = read('src/app.jsx');
+  const wid = read('src/widgets.jsx');
+
+  it('포지션 행에 +TP / +SL 버튼이 있다', () => {
+    expect(wid, '+TP 버튼이 없다').toMatch(/onSetBracket\(p\.id, 'tp'\)/);
+    expect(wid, '+SL 버튼이 없다').toMatch(/onSetBracket\(p\.id, 'sl'\)/);
+  });
+
+  it('★★★ onSetBracket 이 실제로 전달된다', () => {
+    /* ★ 오늘 세 번 겪은 실패 — prop 을 부르지만 전달되지 않는다. */
+    const i = app.indexOf('<window.PositionsPanel');
+    expect(app.slice(i, i + 4000), 'onSetBracket 이 전달되지 않는다').toMatch(/onSetBracket=\{/);
+  });
+
+  it('★★★ 존재하지 않는 prop 을 부르지 않는다', () => {
+    /*
+       `props.setOverlays` 로 썼다가 고쳤다. `props.X` 는 eslint 도 typecheck 도
+       잡지 못한다 — 조용히 아무 일도 안 하는 버튼이 된다. 실제 prop 은 addOverlay 다.
+    */
+    const i = app.indexOf('onSetBracket={(posId, kind) => {');
+    const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
+    expect(blk, '존재하지 않는 props.setOverlays 를 부른다').not.toMatch(/props\.setOverlays/);
+    expect(blk, 'addOverlay 를 쓰지 않는다').toMatch(/props\.addOverlay\(\{/);
+  });
+
+  it('초안은 점선이다 — 걸린 주문과 구분된다', () => {
+    const i = app.indexOf('onSetBracket={(posId, kind) => {');
+    const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
+    expect(blk, '초안이 점선이 아니다 — 이미 걸린 보호주문으로 읽는다')
+      .toMatch(/style: \{ dashed: true \}/);
+  });
+
+  it('초안 드래그도 같은 검증 경로를 탄다', () => {
+    /* ★ 갈라지면 한쪽에만 방향 검증이 남는다. */
+    expect(app, '초안 id 를 처리하지 않는다')
+      .toMatch(/id\.startsWith\('posbr-'\)\s*\|\|\s*id\.startsWith\('posdraft-'\)/);
+    expect(app, '주문 후 초안 선을 지우지 않는다')
+      .toMatch(/id\.startsWith\('posdraft-'\)\)\s*\{[\s\S]{0,140}filter\(\(o\) => o\.id !== id\)/);
+  });
+
+  it('이미 보호주문이 있으면 버튼을 숨긴다', () => {
+    /*
+       ★★ 두 개를 걸면 하나가 체결된 뒤 남은 하나가 위험해진다.
+       ★★★ 포지션 행의 tp/sl 은 항상 비어 있다 — 미체결 reduceOnly 스톱으로 판단한다.
+         근거를 못 읽으면 **있다고 본다**(없다고 보면 중복으로 걸게 된다).
+    */
+    expect(wid, 'hasGuard 판단이 없다').toMatch(/const hasGuard = \(pos, kind\)/);
+    expect(wid, '주문 목록을 못 읽었을 때 있다고 보지 않는다')
+      .toMatch(/if \(!Array\.isArray\(orders\)\) return true;/);
+    expect(wid, 'reduceOnly 로 보호주문을 가리지 않는다').toMatch(/o\.reduceOnly !== true/);
+  });
+});
