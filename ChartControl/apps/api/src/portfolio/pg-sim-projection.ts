@@ -4,6 +4,20 @@ import type { Pool, PoolClient } from 'pg';
 import { D } from '@quantumtrade/domain';
 
 import type { SimulatedOrderInput } from './sim-projection';
+/*
+   ★ 잔고 계산은 `sim-balance` 한 곳에만 둔다. 여기에 복사하면 두 곳이 어긋나고,
+     어긋난 뒤에는 어느 쪽이 맞는지 알 수 없다.
+*/
+import { applySimFill, marginFor } from './sim-balance';
+
+/**
+ * 모의 수수료 요율(taker).
+ *
+ * ★★ 0 으로 두면 모의 성적이 실거래보다 항상 좋게 나오고, 그 차이가 전략 판단을
+ *   왜곡한다. KuCoin 선물 taker 0.06% 를 쓴다.
+ * ★ 환경변수로 열지 않는다 — 대회 참가자 사이에 달라지면 순위가 요율 차이로 갈린다.
+ */
+const SIM_TAKER_FEE_RATE = '0.0006';
 
 /**
  * 모의 주문을 **PostgreSQL** 의 거래 테이블에 기록한다.
@@ -110,7 +124,15 @@ export class PgSimOrderProjection {
       }
 
       if (o.status === 'FILLED' || o.status === 'PARTIALLY_FILLED') {
-        await this.upsertPosition(client, userId, o);
+        /*
+           ★★★ 포지션 변화와 **잔고 변화를 같은 트랜잭션에서** 처리한다.
+
+             나눠 쓰면 하나만 성공하는 상태가 생긴다 — 포지션은 열렸는데 증거금이
+             빠지지 않으면 잔고가 무한해 보이고, 반대면 돈이 사라진다. 모의라도
+             그 상태에서는 연습이 실거래와 다른 것을 가르친다.
+        */
+        const effect = await this.applyPosition(client, userId, o);
+        await this.applyBalance(client, userId, o, effect);
       }
 
       await client.query('COMMIT');
@@ -129,14 +151,72 @@ export class PgSimOrderProjection {
    * ★ 평균 진입가를 십진 연산으로 계산한다. 부동소수점으로 하면 체결마다 오차가
    *   쌓이고, 그 오차가 손익 컬럼에 그대로 보인다.
    */
-  private async upsertPosition(client: PoolClient, userId: string, o: SimulatedOrderInput): Promise<void> {
+  /**
+   * 이 체결이 잔고에 미치는 영향.
+   *
+   * ★ `marginDelta` 는 진입이면 양수(잠긴다), 종료면 음수(풀린다).
+   * ★ `realizedPnl` 은 종료에서만 0 이 아니다.
+   */
+  private async applyBalance(
+    client: PoolClient,
+    userId: string,
+    o: SimulatedOrderInput,
+    effect: { marginDelta: string; realizedPnl: string },
+  ): Promise<void> {
+    /*
+       ★★ 수수료는 체결 금액의 taker 요율로 계산한다. 0 으로 두면 모의 성적이
+         실거래보다 항상 좋게 나오고, 그 차이가 전략 판단을 왜곡한다.
+       ★ 요율을 환경에 따라 바꿀 수 있게 두지 않는다 — 대회 참가자 사이에 달라지면
+         순위가 요율 차이로 갈린다. 하나의 값을 쓴다.
+    */
     const qty = D(o.filledQuantity ?? o.quantity);
-    if (qty.isZero()) return;
-    const px = o.price === undefined ? null : D(o.price);
+    const px = o.price === undefined || o.price === null ? null : D(o.price);
+    const fee = px === null || qty.isZero()
+      ? '0'
+      : px.mul(qty).mul(D(SIM_TAKER_FEE_RATE)).toString();
+
+    const applied = await applySimFill(client, userId, {
+      marginDelta: effect.marginDelta,
+      realizedPnl: effect.realizedPnl,
+      fee,
+    });
+
+    /*
+       ★★ 잔고 행이 없으면 `applySimFill` 이 null 을 준다. 여기서 돈을 만들지 않고
+         기록만 남긴다 — 지급 경로를 우회하면 얼마가 맞는지 알 수 없게 된다.
+    */
+    if (applied === null) {
+      console.warn('[sim] 잔고 행이 없어 체결을 반영하지 못했다 — user=%s', userId);
+    }
+  }
+
+  private async applyPosition(
+    client: PoolClient,
+    userId: string,
+    o: SimulatedOrderInput,
+  ): Promise<{ marginDelta: string; realizedPnl: string }> {
+    const NONE = { marginDelta: '0', realizedPnl: '0' };
+
+    const qty = D(o.filledQuantity ?? o.quantity);
+    if (qty.isZero()) return NONE;
+    const px = o.price === undefined || o.price === null ? null : D(o.price);
+
+    /*
+       ★★★ **청산 전용(reduceOnly)은 반대쪽 포지션을 줄인다.**
+
+         TP/SL 은 항상 reduceOnly 다. 이것을 구분하지 않으면 롱을 닫는 손절(숏)이
+         **새 숏 포지션**을 만들어 노출이 두 배가 된다. 실거래에서는 거래소가 막아
+         주지만, 모의에서 그렇게 계산되면 연습이 실거래와 다른 것을 가르친다.
+
+       ★ 줄일 대상은 **주문 방향의 반대**다. 숏 주문은 롱을 줄인다.
+    */
+    if (o.positionAction === 'close') {
+      const oppositeSide = o.side === 'long' ? 'short' : 'long';
+      return this.reducePosition(client, userId, o, oppositeSide, qty, px);
+    }
 
     /*
        ★ 같은 행을 동시에 갱신할 수 있으므로 잠금 안에서 읽는다.
-
          잠금 없이 "읽고 더하기" 하면 두 체결이 같은 값을 읽어 하나가 사라진다.
          포지션 수량이 실제보다 작아지면 청산 위험을 과소평가한다.
     */
@@ -145,6 +225,12 @@ export class PgSimOrderProjection {
       [userId, o.symbol, o.side],
     );
     const existing = cur.rows[0] as { id: string; size: string; entry_price: string | null } | undefined;
+
+    /*
+       ★★ 진입은 증거금을 잠근다. 가격을 모르면(시장가 초안) 계산할 수 없으므로
+         0 을 돌려준다 — 추측한 금액을 잠그면 잔고가 실제와 어긋난다.
+    */
+    const margin = marginFor(px === null ? null : px.toString(), qty.toString(), o.leverage) ?? '0';
 
     if (!existing) {
       await client.query(
@@ -156,14 +242,13 @@ export class PgSimOrderProjection {
           px === null ? null : px.toString(),
           /*
              표시가·미실현손익은 실시간 시세가 필요하다.
-
              NULL 이 정직한 값이다. 0 으로 채우면 화면이 "손익 0" 이라고 표시하고,
              사용자는 본전이라고 읽는다.
           */
           o.leverage ?? null, o.marginMode ?? null, o.updatedAt,
         ],
       );
-      return;
+      return { marginDelta: margin, realizedPnl: '0' };
     }
 
     const prevSize = D(existing.size);
@@ -184,5 +269,85 @@ export class PgSimOrderProjection {
         WHERE id = $6`,
       [newSize.toString(), entry, o.leverage ?? null, o.marginMode ?? null, o.updatedAt, existing.id],
     );
+    return { marginDelta: margin, realizedPnl: '0' };
+  }
+
+  /**
+   * 반대쪽 포지션을 줄인다(청산 전용 체결).
+   *
+   * ★★★ 손익 = (종료가 − 진입가) × 줄인 수량 × 방향
+   *   롱을 닫으면 오른 만큼 이익, 숏을 닫으면 내린 만큼 이익이다.
+   * ★★ 줄이는 수량은 **보유량을 넘지 못한다.** 넘치면 남는 수량으로 반대 포지션이
+   *   열려야 하는데, reduceOnly 의 정의상 그럴 수 없다. 보유량에서 멈춘다.
+   * ★ 포지션이 없으면 아무것도 하지 않는다 — 없는 것을 줄일 수는 없다.
+   */
+  private async reducePosition(
+    client: PoolClient,
+    userId: string,
+    o: SimulatedOrderInput,
+    side: string,
+    qty: ReturnType<typeof D>,
+    px: ReturnType<typeof D> | null,
+  ): Promise<{ marginDelta: string; realizedPnl: string }> {
+    const NONE = { marginDelta: '0', realizedPnl: '0' };
+
+    const cur = await client.query(
+      'SELECT id, size, entry_price, leverage FROM positions WHERE user_id = $1 AND symbol = $2 AND side = $3 FOR UPDATE',
+      [userId, o.symbol, side],
+    );
+    const pos = cur.rows[0] as
+      | { id: string; size: string; entry_price: string | null; leverage: number | null }
+      | undefined;
+    if (!pos) {
+      console.warn('[sim] 줄일 포지션이 없다 — user=%s symbol=%s side=%s', userId, o.symbol, side);
+      return NONE;
+    }
+
+    const held = D(pos.size);
+    const closeQty = qty.gt(held) ? held : qty;
+    if (closeQty.isZero()) return NONE;
+
+    const entry = pos.entry_price === null ? null : D(pos.entry_price);
+
+    /*
+       ★★ 손익은 진입가와 종료가를 모두 알아야 계산할 수 있다. 하나라도 없으면
+         0 으로 둔다 — 추측한 손익은 틀린 손익이고, 랭킹을 왜곡한다.
+    */
+    let realized = '0';
+    if (entry !== null && px !== null) {
+      const diff = side === 'long' ? px.minus(entry) : entry.minus(px);
+      realized = diff.mul(closeQty).toString();
+    }
+
+    /*
+       ★★ 풀리는 증거금은 **진입 시 기준**으로 계산한다(진입가 × 줄인 수량 ÷ 레버리지).
+         종료가로 계산하면 잠근 금액과 풀리는 금액이 달라져 잔고가 조용히 어긋난다.
+       ★ 음수로 돌려준다 — `applySimFill` 이 그것을 "풀린다" 로 읽는다.
+    */
+    const releasedMargin = entry === null
+      ? '0'
+      : `-${marginFor(entry.toString(), closeQty.toString(), pos.leverage) ?? '0'}`;
+
+    const remaining = held.minus(closeQty);
+    if (remaining.isZero()) {
+      /*
+         ★★★ 전량 종료면 **행을 지운다.** size 0 인 행을 남기면 화면에 "0 수량 포지션"
+           이 보이고, 종료 버튼·TP/SL 버튼이 그 행에 계속 나타난다.
+      */
+      await client.query('DELETE FROM positions WHERE id = $1', [pos.id]);
+    } else {
+      /*
+         ★ 부분 종료는 수량만 줄인다. **진입가는 그대로 둔다** — 남은 포지션의 평균
+           진입가는 변하지 않는다. 종료가로 다시 평균하면 남은 손익이 틀어진다.
+      */
+      await client.query(
+        `UPDATE positions
+            SET size = $1, updated_at = to_timestamp($2::double precision / 1000)
+          WHERE id = $3`,
+        [remaining.toString(), o.updatedAt, pos.id],
+      );
+    }
+
+    return { marginDelta: releasedMargin, realizedPnl: realized };
   }
 }

@@ -28,6 +28,16 @@ export interface SimulatedOrderInput {
   filledQuantity?: string;
   leverage?: number;
   marginMode?: string;
+  /*
+     ★★★ **청산 여부.** 없으면 TP/SL 이 반대쪽 포지션을 줄이지 못하고 **새 포지션을
+       만든다** — 롱을 닫는 손절(숏)이 숏 포지션이 되어 노출이 두 배가 된다.
+       페이퍼에서도 그 계산이 틀리면 연습이 실거래와 다른 것을 가르친다.
+
+     ★★ 새 개념을 만들지 않고 **기존 `positionAction`**('open' | 'close')을 쓴다.
+       스키마·초안·미리보기가 이미 그 값을 실어 나른다. 여기에 `reduceOnly` 를 따로
+       두면 두 표현이 생기고, 언젠가 한쪽만 채워진 주문이 들어온다.
+  */
+  positionAction?: string;
   status: string;
   createdAt: number;
   updatedAt: number;

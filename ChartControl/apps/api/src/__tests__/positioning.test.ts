@@ -1139,14 +1139,24 @@ describe('페이퍼 모드 — 준비되지 않았음을 정직하게 표시한�
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
 
-  it('★★★ 페이퍼는 available: false 다', () => {
+  it('★★ 페이퍼가 사용 가능하다 — 세 조건이 갖춰졌을 때만', () => {
+    /*
+       ★★★ 2026-09-14 되살렸다. 사용 가능으로 두려면 아래가 모두 있어야 한다.
+         하나라도 없으면 "눌러도 주문이 안 되는 버튼" 으로 돌아간다.
+    */
     const i = tm.indexOf('paper: {');
     expect(i, 'paper 모드 정의를 찾지 못했다').toBeGreaterThan(-1);
-    const blk = tm.slice(i, i + 300);
-    expect(blk, '페이퍼가 사용 가능으로 표시돼 있다 — 눌러도 주문이 안 된다')
-      .toMatch(/available:\s*false/);
-    expect(blk, '이유를 알려주지 않는다 — 눌러도 아무 일 없으면 고장으로 읽는다')
-      .toMatch(/reasonKey:\s*'mode_paper_pending'/);
+    expect(tm.slice(i, i + 300), '페이퍼가 막혀 있다').toMatch(/available:\s*true/);
+
+    /* ① 시작 잔고 지급 경로 */
+    const idx = read('apps/api/src/index.ts');
+    expect(idx, '모의 잔고 지급 라우트가 없다').toMatch(/\/api\/sim\/balance\/ensure/);
+    /* ② 체결 시 잔고 갱신 */
+    const proj = read('apps/api/src/portfolio/pg-sim-projection.ts');
+    expect(proj, '체결이 잔고를 갱신하지 않는다').toMatch(/applySimFill\(/);
+    /* ③ 화면이 페이퍼일 때 시뮬레이터를 읽는다 */
+    const acct = read('src/account-data.js');
+    expect(acct, '페이퍼에서도 실거래소를 읽는다').toMatch(/QTMode\.isPaper\(\)[\s\S]{0,80}pollPaper/);
   });
 
   it('실거래 모드는 그대로 사용 가능하다', () => {
@@ -1168,18 +1178,24 @@ describe('페이퍼 모드 — 준비되지 않았음을 정직하게 표시한�
       .toMatch(/needsExchange = !isPaperMode && !acctLive/);
   });
 
-  it('모의 시작 잔고를 지급하는 제품 경로가 아직 없다', () => {
+  it('★★★ 청산 전용 체결이 반대쪽 포지션을 줄인다', () => {
     /*
-       ★ 이 시험은 **현재 상태를 고정**한다. 시드를 만들면 이 시험이 실패하고,
-         그때 페이퍼를 available: true 로 되돌리라는 신호가 된다.
-       ★★ 시험 파일에만 있는 INSERT 는 제품 경로가 아니다 — 그것을 근거로
-         "페이퍼가 된다" 고 판단하면 안 된다.
+       ★★★ TP/SL 은 항상 청산 주문이다. 이것을 구분하지 않으면 롱을 닫는 손절(숏)이
+         **새 숏 포지션**을 만들어 노출이 두 배가 된다. 실거래에서는 거래소가 막아
+         주지만, 모의에서 그렇게 계산되면 연습이 실거래와 다른 것을 가르친다.
+       ★ 새 개념을 만들지 않고 기존 `positionAction`('open' | 'close')을 쓴다.
     */
-    const files = ['src/portfolio/pg-sim-projection.ts', 'src/portfolio/sim-projection.ts'];
-    for (const f of files) {
-      const s = read(`apps/api/${f}`);
-      expect(s, `${f} 가 잔고를 갱신한다 — 페이퍼를 되살릴 수 있는지 확인하라`)
-        .not.toMatch(/account_balances/);
-    }
+    const proj = read('apps/api/src/portfolio/pg-sim-projection.ts')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    expect(proj, '청산 판정이 없다').toMatch(/o\.positionAction === 'close'/);
+    expect(proj, '반대쪽을 줄이지 않는다').toMatch(/oppositeSide = o\.side === 'long' \? 'short' : 'long'/);
+    expect(proj, '전량 종료 시 행을 지우지 않는다 — 0 수량 포지션이 화면에 남는다')
+      .toMatch(/DELETE FROM positions WHERE id = \$1/);
+
+    /* ★★ 서버가 청산 여부를 전달해야 한다. 빼먹으면 위 판정이 영원히 거짓이다. */
+    const idx = read('apps/api/src/index.ts');
+    expect(idx, 'positionAction 을 투영에 넘기지 않는다')
+      .toMatch(/positionAction: o\.positionAction === undefined \? 'open'/);
   });
 });

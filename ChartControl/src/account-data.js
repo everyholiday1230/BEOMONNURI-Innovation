@@ -369,6 +369,62 @@
     if (window.QTApp && window.QTApp.__mockAllocation) window.QTApp.ALLOCATION = window.QTApp.__mockAllocation;
   }
 
+  /*
+     모의(페이퍼) 계정 상태를 읽는다.
+
+     ★ 잔고는 `GET /api/account/assets`, 포지션·주문은 `GET /api/positions` /
+       `/api/orders/open` — 모두 우리 DB(시뮬레이터 투영 결과)다. 거래소에는 아무것도
+       보내지 않는다.
+     ★★ 실패를 빈 값으로 바꾸지 않는다. "포지션 없음" 과 "읽지 못함" 은 다른 사실이고,
+       섞으면 이용자가 포지션이 청산된 줄 안다.
+     ★★★ 상태를 `VERIFIED` 로 둔다. 화면 여러 곳이 `isLive()` 로 "거래 가능"을 판단하기
+       때문이다. 페이퍼는 거래소 키가 필요 없으므로 그 판단에서는 사용 가능해야 한다.
+       실거래 여부는 `QTMode` 가 말한다 — 두 개념을 분리한다.
+  */
+  function pollPaper(R) {
+    if (!R || !R.simBalanceEnsure) {
+      /* ★ 경로가 없으면 조용히 성공하지 않는다. 화면이 왜 비었는지 알 수 없게 된다. */
+      if (state.status !== 'OFFLINE') { state.status = 'OFFLINE'; bump(); }
+      return Promise.resolve();
+    }
+    return R.simBalanceEnsure()
+      .catch(function () { return null; })
+      .then(function () {
+        return Promise.all([
+          R.simAssets().catch(function (e) { return { __err: e }; }),
+          R.localPositions().catch(function (e) { return { __err: e }; }),
+          R.localOpenOrders({ limit: 50 }).catch(function (e) { return { __err: e }; }),
+        ]);
+      })
+      .then(function (res) {
+        var aRes = res[0];
+        var pRes = res[1];
+        var oRes = res[2];
+        if (aRes && aRes.__err) {
+          /* ★ 읽지 못했으면 그렇게 말한다. 0 으로 표시하면 잔고가 사라진 것처럼 보인다. */
+          if (state.status !== 'ERROR') { state.status = 'ERROR'; bump(); }
+          return;
+        }
+        state.status = 'VERIFIED';
+        /*
+           ★ `/api/account/assets` 는 `locked` 라는 이름을 쓰고 화면은 `used` 를 본다.
+             여기서 맞춰 준다 — 이름이 다르면 잠긴 증거금이 조용히 0 으로 보인다.
+        */
+        state.balances = (((aRes && aRes.items) || [])).map(function (b) {
+          return {
+            asset: b.asset,
+            available: b.available,
+            equity: b.equity,
+            used: b.used !== undefined ? b.used : b.locked,
+          };
+        });
+        state.positions = (pRes && pRes.__err) ? [] : toUiPositions((pRes && pRes.items) || []);
+        state.openOrders = (oRes && oRes.__err) ? [] : toUiOrders((oRes && oRes.items) || []);
+        state.lastAt = Date.now();
+        bump();
+      });
+  }
+
   function poll() {
     if (!backendReady()) {
       /*
@@ -400,6 +456,21 @@
        어긋난 상태가 보인다. 개별 실패는 각자 잡아 다른 조회를 막지 않는다 —
        주문 조회가 실패해도 잔고는 보여야 한다.
     */
+    /*
+       ★★★ **페이퍼(모의) 모드는 시뮬레이터를 읽는다.**
+
+         전에는 이 파일이 모드를 몰랐고 항상 `/api/trading/*`(실거래소)만 읽었다.
+         그래서 페이퍼 모드에서도 실거래 잔고·포지션이 보였고, 모의 주문 결과는
+         화면에 나타나지 않았다 — 페이퍼가 동작할 수 없었던 이유 중 하나다.
+
+       ★★ 두 경로를 **섞지 않는다.** 모의 포지션과 실거래 포지션이 한 배열에 들어가면
+         어느 것이 실제 돈인지 알 수 없다. 모드에 따라 한쪽만 읽는다.
+       ★ 페이퍼는 거래소 자격증명이 필요 없으므로 `isLive()` 와 무관하게 동작해야 한다.
+    */
+    if (window.QTMode && window.QTMode.isPaper && window.QTMode.isPaper()) {
+      return pollPaper(window.QTApi.rest);
+    }
+
     return Promise.all([
       C.balances().catch(function (e) { return { __err: e }; }),
       C.positions().catch(function (e) { return { __err: e }; }),
@@ -485,6 +556,19 @@
 
     // 로그인·로그아웃 시 즉시 갱신한다. 폴링을 기다리면 이전 사용자의 잔고가
     // 최대 8초간 화면에 남는다.
+    /*
+       ★★★ **모드가 바뀌면 즉시 다시 읽는다.**
+
+         폴링 주기가 8초다. 구독하지 않으면 페이퍼로 바꾼 뒤 최대 8초 동안 **실거래
+         잔고·포지션이 그대로 보인다.** 그 사이에 주문을 내면 어느 쪽 계정인지 모르는
+         상태에서 낸 것이 된다.
+       ★ 상태를 먼저 비우지 않는다 — 잠깐 0 으로 보이면 잔고가 사라진 것처럼 읽힌다.
+         새 값이 도착하면 교체된다.
+    */
+    if (window.QTMode && window.QTMode.subscribe) {
+      window.QTMode.subscribe(function () { poll(); });
+    }
+
     if (window.QTAuth && window.QTAuth.subscribe) {
       window.QTAuth.subscribe(function () { poll(); });
     }

@@ -523,6 +523,30 @@
     },
 
     /** 우리 DB 에 남은 포지션. */
+    /*
+       모의(페이퍼) 시작 잔고를 보장한다.
+
+       ★★ 멱등이다. 페이퍼 모드로 폴링할 때마다 부른다 — 서버가 "이미 있으면 아무것도
+         하지 않는다" 를 보장한다(마이그레이션 0050 의 유니크 색인).
+       ★ 실패를 삼키지 않는다. 호출자가 잔고를 못 읽었을 때와 구분해야 한다.
+    */
+    simBalanceEnsure: function () {
+      return sendJSON('POST', '/api/sim/balance/ensure', {}).then(function (r) {
+        return { ok: true, available: (r && r.available) || null, granted: Boolean(r && r.granted) };
+      });
+    },
+
+    /*
+       모의 잔고 조회. 우리 DB(`account_balances`)를 읽는다 — 거래소가 아니다.
+
+       ★ 필드 이름이 `locked` 다(화면은 `used`). 호출자가 맞춘다.
+    */
+    simAssets: function () {
+      return getJSON('', '/api/account/assets').then(function (r) {
+        return { ok: true, items: (r && r.items) || [], asOf: (r && r.asOf) || null };
+      });
+    },
+
     localPositions: function () {
       return getJSON('', '/api/positions').then(function (r) {
         return {

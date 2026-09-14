@@ -11,6 +11,13 @@ import {
 } from '@quantumtrade/config';
 
 /** Parse & validate process env with SAFE DEFAULTS. Missing/invalid -> safest option. */
+/*
+   ★ 모의 시작 잔고 기본값. `sim-balance.ts` 의 SIM_DEFAULT_START 와 같은 값이어야
+     한다. env.ts 는 도메인 모듈을 import 하지 않는 것이 관례이므로 값을 적어 두고,
+     시험이 두 값의 일치를 확인한다.
+*/
+const SIM_START_DEFAULT = '10000';
+
 export interface ApiEnv {
   port: number;
   host: string;
@@ -271,6 +278,13 @@ export interface ApiEnv {
    *   기본 1000pt — 운영자가 정한 값이다(기본 분석 3회 + 여유).
    */
   signupGrantPoints: number;
+  /*
+     ★★ 모의(페이퍼) 시작 잔고. 문자열로 둔다 — 돈은 십진 문자열로 다룬다는
+       프로젝트 규칙을 따른다(부동소수 반올림이 잔고를 조용히 어긋나게 한다).
+     ★ 환경변수로 바꿀 수 있어야 한다. 대회에서는 참가자 전원에게 같은 금액을 주고,
+       그 금액이 코드에 박혀 있으면 대회마다 배포가 필요하다.
+  */
+  simStartBalance: string;
   /** BATCH_1/R6 — distributed MFA verification budget per minute, per actor. */
   mfaRateLimitPerMin: number;
   /** BATCH_2/BL-11 — distributed AI request budget per minute, per authenticated user + route category. */
@@ -919,6 +933,18 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     loginRateLimitPerMin: Number(env.LOGIN_RATE_LIMIT_PER_MIN ?? 10),
     /* ★ 음수·NaN 은 0 으로 떨어뜨린다. 잘못된 값이 지급을 막는 쪽이 과다 지급보다 안전하다. */
     signupGrantPoints: Math.max(0, Math.trunc(Number(env.SIGNUP_GRANT_POINTS ?? 1000)) || 0),
+    /*
+       ★★ 숫자로 변환한 뒤 다시 문자열로 만든다 — 잘못된 값("abc", "-5")이 그대로
+         SQL 에 들어가지 않게 막는다. 음수는 거부하고 기본값을 쓴다.
+       ★ 기본값은 sim-balance 의 상수를 재사용한다. 두 곳에 쓰면 언젠가 어긋난다.
+    */
+    simStartBalance: (() => {
+      const raw = env.SIM_START_BALANCE;
+      if (raw === undefined || raw === null || String(raw).trim() === '') return SIM_START_DEFAULT;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return SIM_START_DEFAULT;
+      return String(n);
+    })(),
     mfaRateLimitPerMin: Number(env.MFA_RATE_LIMIT_PER_MIN ?? 10),
     // BATCH_2/BL-11 — AI request RATE budget (distinct from the AI token/cost budget enforced by the
     // CostController). Bounds how often a user can trigger an expensive model call in a short window.

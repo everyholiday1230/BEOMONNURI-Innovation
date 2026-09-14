@@ -58,6 +58,11 @@ import { PgLegalRepo } from './db/legal-repo';
 import { seedLegalDocuments } from './legal/seed-legal';
 import { createLegalRouter } from './legal/legal-routes';
 import { PgSimOrderProjection } from './portfolio/pg-sim-projection';
+/*
+   ★ 모의 잔고 계산은 `sim-balance` 한 곳에만 둔다. 라우트에 복사하면 시험할 수
+     없고, 시험할 수 없는 돈 계산은 언젠가 틀린다.
+*/
+import { SIM_ASSET, ensureSimBalance } from './portfolio/sim-balance';
 import { PgPortfolioRepo } from './db/pg-portfolio-repo';
 import { PgEquitySnapshotRepo } from './db/equity-snapshot-repo';
 import { PgLearningRepo } from './db/learning-repo';
@@ -1257,6 +1262,13 @@ app.post('/api/sim/order-drafts', async (c) => {
     confirmationToken: orders.getConfirmationToken(result.draftId),
   });
 });
+
+/*
+   ★★ 모의 잔고 저장소(Postgres 풀). 아래 DB 블록에서 채운다.
+     null 이면 라우트가 503 을 돌려준다 — "지급됐다" 고 답한 뒤 잔고가 없으면
+     화면이 왜 막히는지 알 수 없다.
+*/
+let simBalancePool: { query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }> } | null = null;
 
 /**
  * Durable projection of a confirmed simulated order (Prompt 5 §7).
@@ -3372,6 +3384,51 @@ if (env.authEnabled) {
     const simProjection = core.pool
       ? new PgSimOrderProjection(core.pool)
       : new SimOrderProjection(db);
+    /*
+       ★★ 모의 잔고는 Postgres 에만 둔다. SQLite 판(로컬 개발)에서는 지급 라우트가
+         503 을 돌려주고, 화면은 그 이유를 표시한다 — 조용히 실패하지 않는다.
+    */
+    simBalancePool = core.pool ?? null;
+
+/**
+ * POST /api/sim/balance/ensure — 모의(페이퍼) 시작 잔고를 보장한다.
+ *
+ * ★★★ 왜 필요한가
+ *
+ *   2026-09-14 확인: 페이퍼 모드로 주문을 넣을 수 없었다. `account_balances` 가
+ *   프로덕션 **0행**이었고, 시뮬레이터에 돈을 넣는 코드가 시험 파일에만 있었다.
+ *   즉 **페이퍼 주문이 성공한 기록이 0건**이었다.
+ *
+ * ★★ **멱등**이다. 프론트가 페이퍼 모드에 들어갈 때마다 부르고 재시도도 일어난다.
+ *   두 번 지급되면 잔고가 두 배가 되고, 대회라면 순위가 무의미해진다.
+ * ★★ 이미 잔고가 있으면(0 이어도) 다시 지급하지 않는다. 전액을 잃은 사용자에게
+ *   자동으로 채워 주면 손실이 아무 의미가 없어진다 — 초기화는 별도 요청이다.
+ * ★ 인증이 필요하다. 익명 시뮬레이션은 인메모리로 남고 DB 잔고를 갖지 않는다.
+ */
+app.post('/api/sim/balance/ensure', async (c) => {
+  const raw = getCookie(c, env.cookieName);
+  if (!raw) return c.json(errBody('UNAUTHENTICATED', 'not logged in'), 401);
+  const v = await authService.validateSession(raw);
+  if (!v) return c.json(errBody('UNAUTHENTICATED', 'not logged in'), 401);
+
+  /*
+     ★★ Postgres 풀이 없으면(로컬 SQLite 개발) 조용히 성공을 반환하지 않는다.
+       "지급됐다" 고 답한 뒤 잔고가 없으면 화면이 왜 막히는지 알 수 없다.
+  */
+  const pool = simBalancePool;
+  if (!pool) {
+    return c.json(errBody('UNAVAILABLE', 'simulated balance store not configured'), 503);
+  }
+
+  try {
+    const out = await ensureSimBalance(pool, v.user.id, env.simStartBalance);
+    return c.json({ ok: true, asset: SIM_ASSET, available: out.available, granted: out.granted });
+  } catch (e) {
+    console.error('[sim] 잔고 지급 실패:', (e as Error).message);
+    return c.json(errBody('INTERNAL', 'could not ensure simulated balance'), 500);
+  }
+});
+
     projectSimOrder = async (c, order) => {
       const raw = getCookie(c, env.cookieName);
       if (!raw) return; // anonymous simulation stays in memory (previous behaviour, unchanged)
@@ -3389,6 +3446,14 @@ if (env.authEnabled) {
         filledQuantity: o.filledQuantity === undefined ? undefined : String(o.filledQuantity),
         leverage: o.leverage === undefined ? undefined : Number(o.leverage),
         marginMode: o.marginMode === undefined ? undefined : String(o.marginMode),
+        /*
+           ★★★ **청산 여부를 반드시 넘긴다.** 빼먹으면 투영이 TP/SL(청산 주문)을
+             신규 진입으로 처리해 **반대 포지션을 새로 만든다** — 롱을 닫는 손절이
+             숏 포지션이 되어 노출이 두 배가 된다.
+           ★ 값이 없으면 'open' 으로 본다(스키마 기본값과 같다). 청산을 기본으로
+             두면 진입 주문이 있는 포지션을 줄이려 해 더 위험하다.
+        */
+        positionAction: o.positionAction === undefined ? 'open' : String(o.positionAction),
         status: String(o.status),
         createdAt: Number(o.createdAt ?? Date.now()),
         updatedAt: Number(o.updatedAt ?? Date.now()),
