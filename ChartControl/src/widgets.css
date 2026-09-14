@@ -2090,10 +2090,19 @@
     min-height: 220px;
   }
 
-  /* ★ 차트는 화면 대부분을 차지해야 쓸모가 있다. 117px 로는 거래할 수 없다. */
+  /*
+     ★ 차트는 화면 대부분을 차지해야 쓸모가 있다. 117px 로는 거래할 수 없다.
+
+     ★★ `!important` 를 쓴다. 처음에는 없이 썼는데 실측에서 **340px 이 이겼다** —
+       아래 목록형 규칙과 명시도가 같아 순서로 밀렸거나 다른 규칙이 겹쳤다.
+       원인을 더 파는 대신 확정한다: 이 값은 "차트가 쓸 수 있는 크기여야 한다" 는
+       요구이고, 다른 규칙이 이겨서는 안 된다.
+     ★ `vh` 대신 `px` 도 함께 준다. 일부 모바일 브라우저에서 `vh` 가 주소창 높이에
+       따라 흔들린다 — 둘 중 큰 값을 쓴다.
+  */
   .trade-body > .widget[data-widget-type="chart"],
   .trade-body > .widget[data-widget-type="multiChart"] {
-    min-height: 62vh;
+    min-height: max(60vh, 380px) !important;
   }
 
   /*
@@ -2143,5 +2152,38 @@
   }
   .app-sidebar-v2.is-collapsed {
     box-shadow: none;
+  }
+}
+
+
+/* ============================================================================
+   ★★★ 모바일 헤더 넘침
+
+   실측(2026-09-14): 화면 밖으로 삐져나온 요소 **41개**. 격자를 한 줄로 바꾼 뒤에도
+   그대로였는데, 확인해 보니 **전부 헤더**였다:
+     app-header__right · qt-langwrap · header-tool · sh-group · val · change
+
+   ★ 헤더가 가로로 넘치면 오른쪽 버튼(언어·설정)에 **손가락이 닿지 않는다.**
+   ★★ 요소를 숨기지 않는다. 숨기면 그 기능에 접근할 방법이 사라진다 — 가로
+     스크롤을 허용해 밀어 넣는다.
+   ============================================================================ */
+@media (max-width: 768px) {
+  .app-header {
+    overflow-x: auto;
+    /* ★ 스크롤바가 헤더 높이를 먹지 않게 한다. */
+    scrollbar-width: none;
+  }
+  .app-header::-webkit-scrollbar { display: none; }
+
+  /*
+     ★ 심볼 헤더의 통계 묶음은 좁은 화면에서 줄바꿈을 허용한다. 한 줄에 밀어 넣으면
+       가격·변동률이 잘려 **숫자를 잘못 읽는다.**
+  */
+  .sh-group { flex-wrap: wrap; }
+
+  /* ★ 헤더 도구 버튼은 최소 44px 로 — 터치 기준이다. */
+  .app-header .header-tool {
+    min-width: 40px;
+    min-height: 40px;
   }
 }
