@@ -505,3 +505,91 @@ describe('포지션 종료 버튼은 실제로 배선돼 있어야 한다', () =
     expect(panel, '존재하지 않는 props.onToast 를 부른다').not.toMatch(/props\.onToast/);
   });
 });
+
+/*
+   ═══ 죽은 버튼 감시 — 핸들러 prop 전달 ═══
+
+   ★★★ 오늘 **세 개**의 죽은 버튼을 찾았다. 전부 같은 방식이다:
+
+     1. 포지션 「종료」   — `app.jsx` 가 `onClose` 를 넘기지 않았다
+     2. 거래소 연결 완료 — `onSuccess` 가 `console.log` 만 했다(키가 저장되지 않았다)
+     3. (고치는 도중) `props.onToast`, `loadKeys` — 존재하지 않는 이름을 불렀다
+
+   ★★ 공통점: `onX && onX()` 가드나 옵셔널 호출 때문에 **오류가 나지 않는다.**
+     화면은 성공처럼 닫히고 고객은 됐다고 믿는다. 눈으로는 못 찾는다.
+
+   ★ 그래서 기계로 본다. 컴포넌트가 핸들러로 **실제 호출하는** prop 을 뽑고,
+     렌더 지점에서 그것이 전달되는지 확인한다.
+*/
+describe('위젯 컴포넌트의 핸들러 prop 은 전달돼야 한다', () => {
+  const FILES = ['src/widgets.jsx', 'src/app.jsx', 'src/pages-user.jsx', 'src/layout-engine.jsx'];
+
+  it('핸들러로 호출되는 prop 이 렌더 지점에서 빠지지 않는다', () => {
+    const src = new Map(FILES.map((f) => [f, read(f)]));
+
+    /* 1) window.X = function X({ ... }) 에서 컴포넌트와 prop 목록 */
+    const comps = new Map<string, { props: string[]; body: string }>();
+    for (const s of src.values()) {
+      const re = /window\.([A-Z][A-Za-z0-9]*)\s*=\s*function\s+[A-Za-z0-9]*\s*\(\s*\{([^}]*)\}/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(s)) !== null) {
+        const props = (m[2] ?? '').split(',').map((x) => (x.split(/[:=]/)[0] ?? '').trim()).filter(Boolean);
+        comps.set(m[1]!, { props, body: s.slice(m.index, m.index + 40000) });
+      }
+    }
+    expect(comps.size, '컴포넌트를 하나도 찾지 못했다 — 검사가 무의미하다').toBeGreaterThan(5);
+
+    /* 2) 그중 실제로 핸들러로 호출되는 것만 */
+    const missing: string[] = [];
+    for (const [name, c] of comps) {
+      const used = c.props.filter((p) => {
+        if (!/^on[A-Z]/.test(p)) return false;
+        return new RegExp(`${p}\\s*&&\\s*${p}\\s*\\(|${p}\\s*\\(`).test(c.body);
+      });
+      if (used.length === 0) continue;
+
+      /* 3) 렌더 지점에서 전달되는지 */
+      for (const [file, s] of src) {
+        const re = new RegExp(`<window\\.${name}\\b`, 'g');
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(s)) !== null) {
+          let depth = 0; let end = -1;
+          for (let i = m.index; i < s.length; i += 1) {
+            const ch = s[i];
+            if (ch === '{') depth += 1;
+            else if (ch === '}') depth -= 1;
+            else if (depth === 0 && ch === '>') { end = i; break; }
+          }
+          if (end < 0) continue;
+          const tag = s.slice(m.index, end);
+          /* ★ 스프레드가 있으면 정적으로 알 수 없다 — 판정하지 않는다(거짓 경보 방지). */
+          if (/\{\s*\.\.\./.test(tag)) continue;
+          const passed = new Set([...tag.matchAll(/([a-zA-Z][a-zA-Z0-9]*)\s*=\s*[{"]/g)].map((x) => x[1]!));
+          const gone = used.filter((p) => !passed.has(p));
+          if (gone.length) {
+            const line = s.slice(0, m.index).split('\n').length;
+            missing.push(`${name} @ ${file}:${line} → ${gone.join(', ')}`);
+          }
+        }
+      }
+    }
+
+    expect(missing, `핸들러 prop 이 전달되지 않는 렌더 지점이 있다:\n  ${missing.join('\n  ')}`)
+      .toEqual([]);
+  });
+
+  it('거래소 연결 마법사가 키를 실제로 저장한다', () => {
+    /*
+       ★★★ 이 자리가 `console.log('Connected', ...)` 만 했다. 고객이 API 키를 넣고
+         「완료」를 눌러도 **저장되지 않았고**, 창은 성공처럼 닫혔다.
+       ★ 지갑 등록과 **같은 경로**(`QTApi.credentials.save`)를 써야 한다 — 별도 경로를
+         만들면 검증·감사기록이 갈라진다.
+    */
+    const s = read('src/pages-user.jsx');
+    const i = s.indexOf('<window.ExchangeConnectWizard');
+    expect(i, '연결 마법사 렌더 지점을 찾지 못했다').toBeGreaterThan(-1);
+    const block = s.slice(i, i + 2600);
+    expect(block, 'onSuccess 가 키를 저장하지 않는다').toMatch(/credentials\s*&&[\s\S]*?\.save\(|api\.save\(/);
+    expect(block, 'console.log 만 하고 끝난다').not.toMatch(/onSuccess=\{\(ex, form\) => \{\s*console\.log/);
+  });
+});

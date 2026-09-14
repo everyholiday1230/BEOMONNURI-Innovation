@@ -908,6 +908,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Fechar',
+      exchange_save_unavailable: 'Não é possível salvar a chave agora — recarregue e tente novamente.',
+      exchange_save_failed: 'Não foi possível salvar a chave de API.',
+      exchange_save_done: 'Chave de API salva.',
       pos_close_unavailable: 'Posição não encontrada — atualize e tente novamente.',
       pos_close_switch_market: 'Troque para esse mercado primeiro e depois feche a posição.',
       cancel: 'Cancelar',
@@ -1370,7 +1373,11 @@
       oe_limit_help_em: 'ordem limitada',
       oe_limit_help_b: ' executa quando o preço alcança o seu nível. Você escolhe o preço, mas ela pode não executar de imediato.',
       funding_countdown_tip: 'Tempo até o próximo acerto de funding',
-      close_all: 'Encerrar tudo',
+      close_all: 'Cancelar todas as ordens',
+      pos_close_all: 'Fechar todas as posições',
+      pos_close_all_hint: 'Feche todas as posições abertas a mercado',
+      pos_close_all_confirm: 'Fechar TODAS as {count} posições a mercado? Não pode ser desfeito.',
+      pos_closing_all: 'Fechando...',
       symbol_only: 'Somente este ativo',
 
       // --- AI 의도 인식 키워드 (포르투갈어 표현 병기) ---

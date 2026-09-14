@@ -930,6 +930,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      exchange_save_unavailable: 'Anahtar şu anda kaydedilemiyor — sayfayı yenileyip tekrar deneyin.',
+      exchange_save_failed: 'API anahtarı kaydedilemedi.',
+      exchange_save_done: 'API anahtarı kaydedildi.',
       pos_close_unavailable: 'Pozisyon bulunamadı — sayfayı yenileyip tekrar deneyin.',
       pos_close_switch_market: 'Önce o piyasaya geçin, sonra pozisyonu kapatın.',
       cancel: 'İptal',
@@ -1395,7 +1398,11 @@
       oe_limit_help_em: 'limit emri',
       oe_limit_help_b: ', fiyat sizin belirlediğiniz seviyeye ulaştığında gerçekleşir. Fiyatı siz seçersiniz, ancak emir hemen gerçekleşmeyebilir.',
       funding_countdown_tip: 'Sonraki funding hesaplaşmasına kalan süre',
-      close_all: 'Tümünü kapat',
+      close_all: 'Tüm emirleri iptal et',
+      pos_close_all: 'Tüm pozisyonları kapat',
+      pos_close_all_hint: 'Tüm açık pozisyonları piyasa fiyatından kapatın',
+      pos_close_all_confirm: '{count} pozisyonun TAMAMI piyasadan kapatılsın mı? Geri alınamaz.',
+      pos_closing_all: 'Kapatılıyor...',
       symbol_only: 'Yalnızca bu sembol',
 
       // --- AI 의도 인식 키워드 (터키어 표현 병기) ---

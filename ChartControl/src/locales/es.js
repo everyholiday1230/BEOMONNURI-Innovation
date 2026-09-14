@@ -910,6 +910,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Cerrar',
+      exchange_save_unavailable: 'No se puede guardar la clave ahora — recargá y probá de nuevo.',
+      exchange_save_failed: 'No se pudo guardar la clave API.',
+      exchange_save_done: 'Clave API guardada.',
       pos_close_unavailable: 'No se encontró la posición — actualizá y probá de nuevo.',
       pos_close_switch_market: 'Cambiá a ese mercado primero y luego cerrá la posición.',
       cancel: 'Cancelar',
@@ -1371,7 +1374,11 @@
       oe_limit_help_em: 'orden límite',
       oe_limit_help_b: ' se ejecuta cuando el precio llega a tu nivel. Vos elegís el precio, pero puede no ejecutarse de inmediato.',
       funding_countdown_tip: 'Tiempo hasta el próximo cobro de funding',
-      close_all: 'Cerrar todo',
+      close_all: 'Cancelar todas las órdenes',
+      pos_close_all: 'Cerrar todas las posiciones',
+      pos_close_all_hint: 'Cerrá todas las posiciones abiertas a precio de mercado',
+      pos_close_all_confirm: '¿Cerrar TODAS las {count} posiciones a mercado? No se puede deshacer.',
+      pos_closing_all: 'Cerrando...',
       symbol_only: 'Solo este símbolo',
 
       // --- AI 의도 인식 키워드 (스페인어 표현 병기) ---

@@ -2050,8 +2050,16 @@
               <span className="chk__box"><I.Check size={10}/></span>
               {t('symbol_only')}
             </label>
+            {/*
+                 ★★★ **이 버튼은 「미체결 주문 취소」다. 「포지션 종료」가 아니다.**
+
+                   문구가 `close_all`("Close all")이라 운영자가 포지션 종료로 오해했고,
+                   미체결 주문이 0건이라 비활성이어서 "안 눌린다" 고 보고됐다.
+                   버튼이 고장난 것이 아니라 **이름이 사실과 달랐다.**
+                 ★ 이름을 실제 동작에 맞게 고쳤다 — "Cancel all orders".
+            */}
             <button aria-label={acct.isLive ? t('close_all_hint') : t('cancel_needs_live')}
-              className="btn btn--xs btn--danger"
+              className="btn btn--xs"
               style={{whiteSpace:'nowrap'}}
               onClick={cancelAll}
               disabled={canceling === '__all__' || !acct.isLive || view.orders.length === 0}
@@ -2059,6 +2067,41 @@
             >
               {canceling === '__all__' ? t('canceling') : t('close_all')}
             </button>
+            {/*
+                 ★★★ **포지션 전체 종료 — 새로 만든 기능.**
+
+                   기존에는 포지션을 한 번에 닫는 방법이 아예 없었다. 한 줄씩 「종료」를
+                   눌러야 했고, 그 버튼조차 배선돼 있지 않았다(오늘 고쳤다).
+
+                 ★ 각 포지션을 **개별 종료와 같은 경로**로 닫는다(`onClose`). 별도 경로를
+                   만들면 리스크 게이트·확인창·감사기록을 다시 만들어야 하고, 하나라도
+                   빠지면 그게 구멍이 된다.
+                 ★★ 되돌릴 수 없으므로 **확인을 받는다.** 개수를 문구에 넣어 실수로 누른
+                   경우를 잡는다.
+                 ★★ 포지션이 없으면 **숨긴다.** 비활성으로 남기면 "왜 안 되나" 를 먼저
+                   묻게 된다(운영자 지시).
+            */}
+            {view.positions.length > 0 && (
+              <button aria-label={t('pos_close_all_hint')}
+                className="btn btn--xs btn--danger"
+                style={{whiteSpace:'nowrap'}}
+                onClick={() => {
+                  const rows = view.positions.filter((p) => Number(p.size) > 0);
+                  if (rows.length === 0) return;
+                  /* eslint-disable-next-line no-alert */
+                  if (!window.confirm(t('pos_close_all_confirm', { count: rows.length }))) return;
+                  /*
+                     ★ 한 건씩 `onClose` 를 부른다. 주문 확인창이 한 번에 하나만 뜨므로
+                       고객이 각 건을 확인하게 된다 — 여러 건을 조용히 한꺼번에 보내지
+                       않는다. 종료는 돈이 걸린 행위다.
+                  */
+                  rows.forEach((p) => { if (onClose) onClose(p.id); });
+                }}
+                title={t('pos_close_all_hint')}
+              >
+                {t('pos_close_all')}
+              </button>
+            )}
           </div>
         </div>
 

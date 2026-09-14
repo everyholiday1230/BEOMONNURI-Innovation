@@ -924,6 +924,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'बंद करें',
+      exchange_save_unavailable: 'अभी कुंजी सहेजी नहीं जा सकती — पेज रीलोड करके फिर कोशिश करें।',
+      exchange_save_failed: 'API कुंजी सहेजी नहीं जा सकी।',
+      exchange_save_done: 'API कुंजी सहेज दी गई।',
       pos_close_unavailable: 'पोज़िशन नहीं मिली — रिफ़्रेश करके फिर कोशिश करें।',
       pos_close_switch_market: 'पहले उस मार्केट पर जाएँ, फिर पोज़िशन बंद करें।',
       cancel: 'रद्द करें',
@@ -1389,7 +1392,11 @@
       oe_limit_help_em: 'limit ऑर्डर',
       oe_limit_help_b: ' तब पूरा होता है जब कीमत आपके स्तर तक पहुँचती है। कीमत आप चुनते हैं, पर यह तुरंत पूरा न भी हो सकता है।',
       funding_countdown_tip: 'अगले funding निपटान तक का समय',
-      close_all: 'सभी बंद करें',
+      close_all: 'सभी ऑर्डर रद्द करें',
+      pos_close_all: 'सभी पोज़िशन बंद करें',
+      pos_close_all_hint: 'सभी खुली पोज़िशन मार्केट प्राइस पर बंद करें',
+      pos_close_all_confirm: 'सभी {count} पोज़िशन मार्केट पर बंद करें? इसे पलटा नहीं जा सकता।',
+      pos_closing_all: 'बंद हो रहा है...',
       symbol_only: 'केवल यह सिंबल',
 
       // --- AI 의도 인식 키워드 (힌디어 표현 병기) ---

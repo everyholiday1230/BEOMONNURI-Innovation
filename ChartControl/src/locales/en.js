@@ -802,6 +802,9 @@
       bc_sev_critical: 'Important — modal, must be dismissed explicitly',
       dash: '—',
       close: 'Close',
+      exchange_save_unavailable: 'Cannot save the key right now — reload and try again.',
+      exchange_save_failed: 'Could not save the API key.',
+      exchange_save_done: 'API key saved.',
       pos_close_unavailable: 'Position not found — refresh and try again.',
       pos_close_switch_market: 'Switch to that market first, then close the position.',
       cancel: 'Cancel',
@@ -1238,7 +1241,11 @@
       oe_limit_help_em: 'limit order',
       oe_limit_help_b: ' fills when the price reaches your level. You choose the price, but it may not fill immediately.',
       funding_countdown_tip: 'Time until next settlement',
-      close_all: 'Close all',
+      close_all: 'Cancel all orders',
+      pos_close_all: 'Close all positions',
+      pos_close_all_hint: 'Close every open position with a market order',
+      pos_close_all_confirm: 'Close ALL {count} position(s) at market? This cannot be undone.',
+      pos_closing_all: 'Closing...',
       symbol_only: 'This symbol only',
 
       // --- AI Copilot 의도 인식 키워드 (쉼표 구분) ---

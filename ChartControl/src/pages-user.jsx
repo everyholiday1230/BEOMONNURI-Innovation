@@ -2662,8 +2662,49 @@
           <window.ExchangeConnectWizard
             exchange={connectingEx}
             onClose={() => setConnectingEx(null)}
+            /*
+               ★★★ **이 자리가 `console.log` 만 하고 있었다.**
+
+                 고객이 마법사에서 API 키를 입력하고 「완료」를 눌러도 **키가 저장되지
+                 않았다.** 콘솔에만 찍혔다. 화면은 성공처럼 닫히니 고객은 연결됐다고
+                 믿는다 — 오늘 고친 「종료」 버튼과 같은 종류의 실패다.
+
+               ★★ 저장은 **기존 경로**(`QTApi.credentials.save`)를 쓴다. 지갑 화면의
+                 등록과 같은 함수다 — 별도 경로를 만들면 검증·감사기록이 갈라진다.
+               ★ 저장 후 목록을 새로 읽어 화면이 실제 상태를 보이게 한다.
+               ★★ 실패를 조용히 넘기지 않는다. 저장이 안 됐는데 창이 닫히면 고객은
+                 연결됐다고 믿고 주문을 시도한다.
+            */
             onSuccess={(ex, form) => {
-              console.log('Connected', ex.id, form);
+              const api = window.QTApi && window.QTApi.credentials;
+              if (!api || !api.save) {
+                if (window.QTToast) window.QTToast({ title: t('exchange_save_unavailable'), variant: 'error' });
+                return;
+              }
+              api.save({
+                apiKey: form.apiKey,
+                apiSecret: form.apiSecret,
+                passphrase: form.passphrase || '',
+                label: ex && ex.name ? ex.name : undefined,
+              })
+                .then((r) => {
+                  if (r && r.ok === false) {
+                    if (window.QTToast) window.QTToast({ title: (r.message) || t('exchange_save_failed'), variant: 'error' });
+                    return;
+                  }
+                  if (window.QTToast) window.QTToast({ title: t('exchange_save_done'), variant: 'success' });
+                  setConnectingEx(null);
+                  if (window.QTAccount && window.QTAccount.refresh) window.QTAccount.refresh();
+                  /*
+                     ★ 실제 이름은 `reloadCreds` 다. 처음에 `loadKeys` 로 썼는데 그런
+                       함수는 없다 — eslint 가 잡았다. 이름을 확인하지 않으면 또 조용히
+                       아무 일도 하지 않는 코드가 된다.
+                  */
+                  if (typeof reloadCreds === 'function') reloadCreds();
+                })
+                .catch((e) => {
+                  if (window.QTToast) window.QTToast({ title: (e && e.message) || t('exchange_save_failed'), variant: 'error' });
+                });
             }}
           />
         )}

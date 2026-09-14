@@ -926,6 +926,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      exchange_save_unavailable: 'Hiện không thể lưu khoá — hãy tải lại và thử lại.',
+      exchange_save_failed: 'Không thể lưu khoá API.',
+      exchange_save_done: 'Đã lưu khoá API.',
       pos_close_unavailable: 'Không tìm thấy vị thế — hãy tải lại và thử lại.',
       pos_close_switch_market: 'Hãy chuyển sang thị trường đó trước, rồi đóng vị thế.',
       cancel: 'Hủy',
@@ -1405,7 +1408,11 @@
       oe_limit_help_em: 'lệnh giới hạn',
       oe_limit_help_b: ' sẽ khớp khi giá chạm mức bạn đặt. Bạn chọn giá, nhưng lệnh có thể không khớp ngay.',
       funding_countdown_tip: 'Thời gian đến lần quyết toán tiếp theo',
-      close_all: 'Đóng tất cả',
+      close_all: 'Huỷ tất cả lệnh',
+      pos_close_all: 'Đóng tất cả vị thế',
+      pos_close_all_hint: 'Đóng toàn bộ vị thế đang mở bằng lệnh thị trường',
+      pos_close_all_confirm: 'Đóng TẤT CẢ {count} vị thế theo giá thị trường? Không thể hoàn tác.',
+      pos_closing_all: 'Đang đóng...',
       symbol_only: 'Chỉ mã này',
 
       // --- AI 의도 인식 키워드 (쉼표 구분 · 베트남어 표현을 함께 넣는다) ---
