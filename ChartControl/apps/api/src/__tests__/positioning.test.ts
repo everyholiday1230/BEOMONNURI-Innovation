@@ -870,3 +870,55 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
     expect(wid, 'reduceOnly 로 보호주문을 가리지 않는다').toMatch(/o\.reduceOnly !== true/);
   });
 });
+
+/*
+   ═══ 모바일 위젯이 내용을 담는다 ═══
+
+   운영자 "모든 버튼 확인해봐" 에 대한 모바일 점검 결과(iPhone 13 390×664, 프로덕션 실측).
+
+   ★★★ **처음 보고한 "못 눌리는 버튼 9개" 중 7개는 내 측정 오류였다.**
+
+     관심목록은 **678행 전부를 DOM 에 그린다.** 위젯 밖으로 넘어간 행은
+     `overflow: hidden` 으로 잘려 **화면에 없다.** 그런데 `getBoundingClientRect` 는
+     레이아웃 좌표를 그대로 돌려주므로, 그 좌표에서 `elementFromPoint` 를 부르면
+     그 자리에 실제로 그려진 차트 캔버스가 나온다. 나는 그것을 "탭이 캔버스로 간다"
+     고 읽었다. **잘린 요소를 제외하지 않은 것이 원인이다.**
+
+   ★★ 진짜 문제는 2개였다 — 차트 도구(`Indicators`, `Lock drawings`)가 위젯 오른쪽
+     끝(333px) 을 넘어 사이드바(337px) 아래로 들어가 못 눌렸다. 가로 스크롤로 고쳤다.
+   ★ 고친 뒤 재측정: 모바일 0개, 데스크톱 0개.
+
+   ★★★ 교훈 — 측정 도구가 틀리면 없는 결함을 보고하게 된다. 목록형 화면에서는
+     **잘림(clip)을 반드시 제외**해야 한다.
+*/
+describe('모바일 — 위젯이 내용을 담는다', () => {
+  const css = read('src/mobile.css');
+
+  it('위젯이 내용을 밖으로 흘리지 않는다', () => {
+    /* ★ 흘러나온 내용은 다음 위젯에 덮여 눌러도 반응하지 않는다. */
+    const i = css.indexOf('.trade-body > .widget {');
+    expect(i, '.trade-body > .widget 규칙이 없다').toBeGreaterThan(-1);
+    const blk = css.slice(i, css.indexOf('}', i));
+    expect(blk, '위젯이 내용을 담지 않는다').toMatch(/overflow:\s*hidden/);
+  });
+
+  it('★★ 차트 도구 줄이 가로 스크롤된다 — 사이드바 아래로 숨지 않게', () => {
+    /*
+       커밋 db3ebd2 는 "컨트롤을 숨기지 말고 넘치게 두자" 였다. 넘친 버튼이 사이드바
+       아래로 들어가 **아예 못 눌리게** 됐다 — 숨긴 것보다 나쁘다. 내 판단이 틀렸다.
+    */
+    expect(css, '차트 도구 줄에 가로 스크롤이 없다')
+      .toMatch(/chart-tool-wrap[\s\S]{0,200}overflow-x:\s*auto/);
+  });
+
+  it('규칙이 mobile.css 에 있다 — widgets.css 가 아니다', () => {
+    /*
+       ★★★ index.html 은 widgets.css(85행) 를 mobile.css(96행) **앞에** 로드한다.
+         명시도가 같으면 나중 것이 이긴다 — widgets.css 에 넣으면 조용히 덮인다.
+         실제로 한 번 겪었다(커밋 02f81b2).
+    */
+    const w = read('src/widgets.css');
+    expect(w, 'widgets.css 에 모바일 위젯 담기 규칙이 들어갔다')
+      .not.toMatch(/trade-body > \.widget[\s\S]{0,120}overflow:\s*hidden/);
+  });
+});
