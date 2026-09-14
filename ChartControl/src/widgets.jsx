@@ -2009,6 +2009,12 @@
      * 되돌릴 수 없으므로 확인을 받는다. 확인 없이 실행하면 실수 한 번에
      * 걸어둔 주문이 전부 사라진다.
      */
+    /*
+       ★ 어느 행이 종료 비율을 고르는 중인지. 한 번에 한 행만 열린다 — 여러 행이
+         동시에 열리면 어느 포지션을 닫는지 헷갈린다.
+    */
+    const [closingId, setClosingId] = useState(null);
+
     const cancelAll = () => {
       if (!window.QTApi || !window.QTApi.orders || !window.QTApi.orders.cancelAll) return;
       const symbols = [...new Set(view.orders.map((o) => o.symbol))];
@@ -2095,7 +2101,8 @@
                        고객이 각 건을 확인하게 된다 — 여러 건을 조용히 한꺼번에 보내지
                        않는다. 종료는 돈이 걸린 행위다.
                   */
-                  rows.forEach((p) => { if (onClose) onClose(p.id); });
+                  /* ★ 전체 종료는 100% 다. 부분 비율은 행마다 고르게 한다. */
+                  rows.forEach((p) => { if (onClose) onClose(p.id, 100); });
                 }}
                 title={t('pos_close_all_hint')}
               >
@@ -2233,7 +2240,34 @@
                           <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>TP/SL <span className="qt-pending-mark">{t('sec_pending')}</span></button>
                           <button aria-label={t('adm_feature_absent')} className="btn btn--xs" disabled title={t('adm_feature_absent')}>{t('col_margin')} <span className="qt-pending-mark">{t('sec_pending')}</span></button>
                           </>)}
-                          <button className="btn btn--xs btn--danger" onClick={() => onClose && onClose(p.id)}>{t('close')}</button>
+                          {/*
+                               ★★★ **몇 %를 닫을지 물어본다.**
+
+                                 전에는 누르면 곧바로 전량이 닫혔다. 실제 거래소는 모두
+                                 부분 종료를 제공한다 — 절반만 정리하고 나머지를 끌고
+                                 가는 것이 흔한 운용이다. 전량밖에 안 되면 고객은
+                                 주문 패널에서 손으로 수량을 계산해야 한다.
+
+                               ★ 추가 창을 띄우지 않는다. 같은 줄에서 25/50/100 을
+                                 고르게 한다 — 모달을 겹치면 모바일에서 확인 단계가
+                                 두 번이 되고, 종료는 급할 때 누르는 버튼이다.
+                               ★★ 고른 뒤에는 기존 주문 확인창이 그대로 뜬다. 수량과
+                                 손익비를 마지막으로 볼 수 있어야 한다.
+                          */}
+                          {closingId === p.id ? (
+                            <>
+                              {[25, 50, 100].map((pct) => (
+                                <button key={pct} className="btn btn--xs btn--danger"
+                                  onClick={() => { setClosingId(null); if (onClose) onClose(p.id, pct); }}
+                                >{pct}%</button>
+                              ))}
+                              <button className="btn btn--xs" onClick={() => setClosingId(null)}>{t('cancel')}</button>
+                            </>
+                          ) : (
+                            <button className="btn btn--xs btn--danger"
+                              onClick={() => setClosingId(p.id)}
+                            >{t('close')}</button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -910,6 +910,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Cerrar',
+      op_title_close: 'Cerrar posición',
+      op_reduce_only: 'Solo reducir',
+      pos_close_too_small: 'Ese porcentaje redondea a cero — elegí una parte mayor.',
       exchange_save_unavailable: 'No se puede guardar la clave ahora — recargá y probá de nuevo.',
       exchange_save_failed: 'No se pudo guardar la clave API.',
       exchange_save_done: 'Clave API guardada.',

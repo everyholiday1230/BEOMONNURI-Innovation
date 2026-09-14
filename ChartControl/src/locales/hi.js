@@ -924,6 +924,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'बंद करें',
+      op_title_close: 'पोज़िशन बंद करें',
+      op_reduce_only: 'केवल घटाएँ',
+      pos_close_too_small: 'यह प्रतिशत नीचे गोल होकर शून्य हो जाता है — बड़ा हिस्सा चुनें।',
       exchange_save_unavailable: 'अभी कुंजी सहेजी नहीं जा सकती — पेज रीलोड करके फिर कोशिश करें।',
       exchange_save_failed: 'API कुंजी सहेजी नहीं जा सकी।',
       exchange_save_done: 'API कुंजी सहेज दी गई।',

@@ -2796,7 +2796,7 @@
              ★ `reduceOnly: true` 가 반드시 필요하다. 없으면 반대 방향 신규 포지션이
                열릴 수 있다 — 닫으려다 두 배가 된다.
           */
-          onClose={(posId) => {
+          onClose={(posId, pct) => {
             const rows = (() => {
               const acct = window.QTAccount;
               if (acct && acct.isLive && acct.isLive()) return acct.getPositions() || [];
@@ -2827,12 +2827,42 @@
               if (props.pushToast) props.pushToast({ title: props.t('pos_close_switch_market'), variant: 'warning' });
               return;
             }
+            /*
+               ★★ 부분 종료. 비율을 받지 못하면 100% 로 본다 — 예전 호출부와 호환된다.
+               ★★★ 수량을 **내림**한다. 올리면 보유량보다 많아져 거래소가 거절하거나,
+                 reduceOnly 가 없다면 반대 포지션이 열린다.
+               ★ 소수 자리는 포지션 수량의 자리수를 그대로 따른다. 임의로 자리를 늘리면
+                 거래소 stepSize 에 걸린다.
+            */
+            const ratio = Math.min(100, Math.max(1, Number(pct) || 100)) / 100;
+            const decimals = (() => {
+              const str = String(pos.size);
+              const dot = str.indexOf('.');
+              return dot < 0 ? 0 : str.length - dot - 1;
+            })();
+            const factor = 10 ** decimals;
+            const closeSize = Math.floor(Number(pos.size) * ratio * factor) / factor;
+            if (!(closeSize > 0)) {
+              if (props.pushToast) props.pushToast({ title: props.t('pos_close_too_small'), variant: 'error' });
+              return;
+            }
             props.onPlaceOrder({
               side: pos.side === 'long' ? 'short' : 'long',
               type: 'market',
-              size: String(pos.size),
+              size: String(closeSize),
               reduceOnly: true,
-              ...(pos.leverage ? { leverage: pos.leverage } : {}),
+              /*
+                 ★★★ **레버리지를 지어내지 않는다.**
+
+                   전에는 값이 없으면 `placeOrder` 가 `market.leverage || 10` 으로
+                   대체했다. 그래서 3배로 들어간 포지션을 닫는데 확인창에 **20배**가
+                   떴다(운영자 보고). 종료는 기존 포지션을 줄이는 것이므로 레버리지를
+                   새로 정하는 행위가 아니다 — 포지션의 실제 값을 그대로 넘긴다.
+                 ★ 포지션에 값이 없으면 **1** 을 넘긴다. reduceOnly 주문에서 레버리지는
+                   포지션을 바꾸지 않으므로 안전한 값이고, 20 같은 큰 수를 보여주는
+                   것보다 정직하다.
+              */
+              leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
               ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
             });
           }}
@@ -3749,8 +3779,23 @@
           <div className="modal__header">
             <div>
               <div className="modal__title">
-                {t('op_title')} · {order.side === 'long' ? t('side_long_arrow') : t('side_short_arrow')}
+                {/*
+                     ★★★ **종료 주문임을 제목에 밝힌다.**
+
+                       종료는 반대 방향 주문으로 만들어진다. 그래서 롱 포지션을 닫는데
+                       확인창에 「숏 주문」 이라고만 뜬다 — 고객은 새 숏을 여는 것으로
+                       오해할 수 있다. 실제로 운영자가 그렇게 물었다.
+                     ★ `reduceOnly` 가 그 판정 근거다. 화면이 따로 상태를 들고 있지
+                       않으므로 주문 자체의 성질로 판단한다.
+                */}
+                {order.reduceOnly ? t('op_title_close') : t('op_title')}
+                {' · '}
+                {order.side === 'long' ? t('side_long_arrow') : t('side_short_arrow')}
                 <span className={`badge ${order.side==='long'?'badge--long':'badge--short'}`} style={{marginLeft: 8}}>{order.type}</span>
+                {/* ★ 종료임을 배지로 한 번 더 — 제목을 놓쳐도 보인다. */}
+                {order.reduceOnly && (
+                  <span className="badge badge--warn" style={{marginLeft: 6}}>{t('op_reduce_only')}</span>
+                )}
               </div>
               {/*
                  ★★ 실제 주문 경로를 그대로 말한다 ★★

@@ -930,6 +930,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Kapat',
+      op_title_close: 'Pozisyonu kapat',
+      op_reduce_only: 'Sadece azaltma',
+      pos_close_too_small: 'Bu oran aşağı yuvarlanınca sıfır oluyor — daha büyük bir oran seçin.',
       exchange_save_unavailable: 'Anahtar şu anda kaydedilemiyor — sayfayı yenileyip tekrar deneyin.',
       exchange_save_failed: 'API anahtarı kaydedilemedi.',
       exchange_save_done: 'API anahtarı kaydedildi.',

@@ -926,6 +926,9 @@
       // --- 공통 단어 ---
       dash: '—',
       close: 'Đóng',
+      op_title_close: 'Đóng vị thế',
+      op_reduce_only: 'Chỉ giảm vị thế',
+      pos_close_too_small: 'Tỷ lệ này làm tròn xuống thành 0 — hãy chọn tỷ lệ lớn hơn.',
       exchange_save_unavailable: 'Hiện không thể lưu khoá — hãy tải lại và thử lại.',
       exchange_save_failed: 'Không thể lưu khoá API.',
       exchange_save_done: 'Đã lưu khoá API.',

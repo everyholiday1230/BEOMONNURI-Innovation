@@ -593,3 +593,62 @@ describe('위젯 컴포넌트의 핸들러 prop 은 전달돼야 한다', () => 
     expect(block, 'console.log 만 하고 끝난다').not.toMatch(/onSuccess=\{\(ex, form\) => \{\s*console\.log/);
   });
 });
+
+/*
+   ═══ 포지션 종료 — 부분 종료와 레버리지 ═══
+
+   운영자 보고(2026-09-14):
+     "클로즈도 지금 들어간 거의 몇 퍼센트를 종료할 건지 물어봐야 하지 않아?"
+     "지금 클로즈 누르면 레버리지가 20 이렇게 나오는데.. 난 3배로 들어갔는데"
+
+   ★★★ 레버리지 20 의 원인: `placeOrder` 가 `data.leverage || market.leverage || 10`
+     으로 대체한다. 종료 주문에 레버리지를 넘기지 않으면 **시장 기본값(20)** 이 찍혔다.
+     종료는 기존 포지션을 줄이는 것이므로 레버리지를 새로 정하는 행위가 아니다 —
+     값을 지어내면 고객이 자기 포지션 조건을 잘못 읽는다.
+*/
+describe('포지션 종료 — 비율과 레버리지', () => {
+  const src = (() => {
+    const raw = read('src/app.jsx');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+  })();
+  const panel = (() => {
+    const i = src.indexOf('<window.PositionsPanel');
+    const j = src.indexOf('/>', i);
+    return src.slice(i, j);
+  })();
+
+  it('종료 비율(pct)을 받는다', () => {
+    /* ★ 전량만 닫을 수 있으면 절반 정리 같은 흔한 운용을 손으로 계산해야 한다. */
+    expect(panel, 'onClose 가 비율을 받지 않는다').toMatch(/onClose=\{\(posId,\s*pct\)/);
+  });
+
+  it('수량을 내림한다 — 올리면 보유량을 넘는다', () => {
+    /*
+       ★★★ 올림하면 보유 수량보다 많아져 거래소가 거절하거나, reduceOnly 가 없다면
+         반대 포지션이 열린다.
+    */
+    expect(panel, '종료 수량을 내림하지 않는다').toMatch(/Math\.floor\(/);
+  });
+
+  it('★★★ 레버리지를 시장 기본값으로 대체하지 않는다', () => {
+    /*
+       이것이 "3배로 들어갔는데 20 이 뜬다" 의 원인이었다. 포지션의 실제 값을 넘기고,
+       없으면 1 을 넘긴다 — reduceOnly 에서 레버리지는 포지션을 바꾸지 않으므로
+       안전하고, 20 같은 큰 수를 보여주는 것보다 정직하다.
+    */
+    expect(panel, '포지션 레버리지를 넘기지 않는다')
+      .toMatch(/leverage:\s*Number\(pos\.leverage\)\s*>\s*0\s*\?\s*Number\(pos\.leverage\)\s*:\s*1/);
+    /* ★ 조건부 전달(`...(pos.leverage ? {} : {})`)로 되돌아가면 다시 기본값이 끼어든다. */
+    expect(panel, '레버리지를 조건부로 넘기고 있다 — 없으면 시장 기본값이 끼어든다')
+      .not.toMatch(/\.\.\.\(pos\.leverage\s*\?/);
+  });
+
+  it('확인창이 종료 주문임을 밝힌다', () => {
+    /*
+       ★★ 종료는 반대 방향 주문으로 만들어진다. 롱을 닫는데 「숏 주문」 이라고만 뜨면
+         고객은 새 숏을 여는 것으로 오해한다 — 운영자가 실제로 그렇게 물었다.
+    */
+    expect(src, '확인창에 종료 표시가 없다').toMatch(/order\.reduceOnly\s*\?\s*t\('op_title_close'\)/);
+  });
+});
