@@ -733,7 +733,6 @@ describe('차트 포지션 오버레이', () => {
 
   it('보호주문은 기존 주문 경로로 나간다', () => {
     /* ★ 전용 API 를 만들면 17개 리스크 게이트·확인창·감사기록을 다시 구현해야 한다. */
-    const i = app.indexOf("id.startsWith('posbr-')");
     /*
        ★ 선언 순서(TDZ) 때문에 ref 를 거친다 — `placeOrderRef.current` 를 호출한다.
          중요한 것은 **전용 API 가 아니라 기존 주문 경로**를 쓴다는 사실이다.
