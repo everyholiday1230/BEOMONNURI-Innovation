@@ -2056,3 +2056,4 @@
    손가락 드래그를 브라우저가 '스크롤 제스처'로 가로채 pointercancel 이 뜨지 않게
    핸들에서는 touch-action 을 끊는다. (mousemove 전용 구조는 포인터 이벤트로 통합됨) */
 .resize-handle { touch-action: none; }
+.tweaks__header { touch-action: none; }

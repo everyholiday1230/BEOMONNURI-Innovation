@@ -36,11 +36,13 @@
       if (!drag) return;
       const onMove = (e) => setPos({ x: e.clientX - drag.dx, y: e.clientY - drag.dy });
       const onUp = () => setDrag(null);
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
       return () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
       };
     }, [drag]);
 
@@ -52,9 +54,12 @@
       <div className="tweaks" style={style}>
         <div
           className="tweaks__header"
-          onMouseDown={e => {
+          onPointerDown={e => {
+            // ★ 포인터 캡처 — 손가락이 헤더 밖으로 나가도 이동 추적이 유지된다.
+            try { if (e.currentTarget.setPointerCapture && e.pointerId != null) e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패는 치명적이지 않다 */ }
             const rect = e.currentTarget.parentElement.getBoundingClientRect();
             setDrag({ dx: e.clientX - rect.left, dy: e.clientY - rect.top });
+            e.preventDefault();
           }}
         >
           <div className="tweaks__title">

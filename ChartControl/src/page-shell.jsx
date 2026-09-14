@@ -268,6 +268,7 @@
 
         <div className="app-sidebar-v2__scroll">
           {collapsed ? (
+            <>
             /*
                접힌 레일 — 고정한 메뉴만.
 
@@ -306,6 +307,13 @@
                 </button>
               )}
             </div>
+            {/* ★ 접힌 레일에서도 거래 화면 도구(레이아웃 편집·Tweaks)에 닿을 수 있게.
+                  전에는 접으면 버튼 자체가 사라져 접근 불가였다. 라벨은 app.jsx 의
+                  extraTools 가 이미 collapsed 조건으로 숨기므로 아이콘만 나온다. */}
+            {extraTools && (
+              <div className="sb-section sb-section--tools">{extraTools}</div>
+            )}
+            </>
           ) : (
             <>
               {Object.keys(grouped).map(section => (
