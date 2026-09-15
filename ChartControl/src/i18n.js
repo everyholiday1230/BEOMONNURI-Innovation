@@ -39,6 +39,26 @@
   const LAZY_LOCALE_META = {
     ja: { label: '日本語', bcp47: 'ja' },
     zh: { label: '简体中文', bcp47: 'zh-CN' },
+    /*
+       신흥시장 1차 — 베트남·인도·브라질·중남미(멕시코/아르헨티나)·터키·필리핀.
+
+       ★ label 은 **그 언어 사용자가 자기 언어로 읽는 이름(endonym)** 이다.
+         영어 이름을 넣으면 정작 그 언어 사용자가 목록에서 자기 언어를 못 찾는다.
+
+       ★ bcp47 은 숫자·날짜 서식용이라 label 과 별개다.
+         pt → pt-BR (브라질 서식: 1.234,56), es → es-419 (중남미 스페인어.
+         es-ES 를 쓰면 유럽 표기가 섞인다), fil → fil-PH.
+
+       ★★ 사전은 아직 **auth 화면(랜딩·로그인·가입·KYC·404)만** 번역돼 있다.
+         나머지 키는 t() 의 폴백 사슬이 영어로 채운다 — 빈 화면이나 키 문자열이
+         보이지 않는다. 그래서 부분 번역 상태로 공개해도 안전하다.
+    */
+    vi: { label: 'Tiếng Việt', bcp47: 'vi' },
+    hi: { label: 'हिन्दी', bcp47: 'hi' },
+    pt: { label: 'Português (BR)', bcp47: 'pt-BR' },
+    es: { label: 'Español (LatAm)', bcp47: 'es-419' },
+    tr: { label: 'Türkçe', bcp47: 'tr' },
+    fil: { label: 'Filipino', bcp47: 'fil-PH' },
   };
 
   /** locale -> 표시 이름 (언어 선택 UI 용) */
@@ -248,8 +268,49 @@
   const LAZY_LOCALES = {
     ja: ['ja', 'auth.ja', 'user.ja', 'more.ja', 'admin.ja', 'copilot.ja', 'shell.ja'],
     zh: ['zh', 'auth.zh', 'user.zh', 'more.zh', 'admin.zh', 'copilot.zh', 'shell.zh'],
+    /*
+       ★★ 여기에는 **실제로 존재하는 파일만** 적는다.
+
+         로드는 순차 체인이고 하나가 404 나면 catch 로 떨어져 그 언어 전체가
+         'failed' 가 된다. 즉 없는 파일을 한 줄 적어 두면 번역해 둔 나머지
+         파일까지 버려지고 영어로 남는다.
+
+       ★ 번역이 끝난 파일을 이 배열에 추가하는 것이 언어 확장 절차다.
+         ja/zh 와 같은 7개 파일 형태가 되면 줄이 같아진다.
+    */
+    vi: ['vi', 'auth.vi', 'user.vi', 'more.vi', 'admin.vi', 'copilot.vi', 'shell.vi'],
+    hi: ['hi', 'auth.hi', 'user.hi', 'more.hi', 'admin.hi', 'copilot.hi', 'shell.hi'],
+    pt: ['pt', 'auth.pt', 'user.pt', 'more.pt', 'admin.pt', 'copilot.pt', 'shell.pt'],
+    es: ['es', 'auth.es', 'user.es', 'more.es', 'admin.es', 'copilot.es', 'shell.es'],
+    tr: ['tr', 'auth.tr', 'user.tr', 'more.tr', 'admin.tr', 'copilot.tr', 'shell.tr'],
+    fil: ['fil', 'auth.fil', 'user.fil', 'more.fil', 'admin.fil', 'copilot.fil', 'shell.fil'],
   };
   const lazyState = {};   // locale → 'loading' | 'done' | 'failed'
+
+  /**
+   * 이 언어를 **지원하는가** — 사전이 아직 도착하지 않아도 true.
+   *
+   * ★★ `has()` 와 구별해야 한다. `has()` 는 "지금 메모리에 사전이 있는가" 다.
+   *
+   *   지연 로드로 바꾼 뒤 이 구분이 없어서 언어 선택이 저장되지 않았다.
+   *   `setLocale('tr')` 는 사전이 오기 전이라 **동기적으로는 폴백('en')을
+   *   돌려준다.** app.jsx 의 useTweaks 는 그 반환값을 "실제로 적용된 언어" 로
+   *   믿고 저장 상태에 되썼다(등록되지 않은 'ko' 를 정규화하려고 넣은 코드다).
+   *   그래서 사용자가 터키어를 골라도 곧바로 lang='en' 으로 덮어써졌고,
+   *   새로고침하면 영어로 돌아갔다. ja·zh 도 같은 상태였다.
+   *
+   *   되쓰기가 필요한 경우는 "아예 지원하지 않는 언어" 뿐이므로, 그 판정을
+   *   이 함수로 분리한다.
+   */
+  function known(locale) {
+    const raw = String(locale || '');
+    if (!raw) return false;
+    if (DICTS.has(raw)) return true;
+    const base = raw.split('-')[0];
+    if (DICTS.has(base)) return true;
+    if (LAZY_LOCALE_META[base] || LAZY_LOCALES[base]) return true;
+    return [...DICTS.keys()].some((c) => c.split('-')[0] === base);
+  }
 
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -502,6 +563,7 @@
     ensureLocaleLoaded,
     available,
     has,
+    known,
     t,
     exists,
     setLocale,
