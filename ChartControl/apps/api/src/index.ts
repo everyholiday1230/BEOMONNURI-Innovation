@@ -117,6 +117,7 @@ import { SimOrderProjection } from './portfolio/sim-projection';
 import { createOrderRouter } from './portfolio/order-routes';
 import { createNotificationRouter } from './notifications/notification-routes';
 import { createAnalyticsRouter } from './analytics/analytics-routes';
+import { createLeaderboardRouter } from './competition/leaderboard-routes';
 import { SqliteJournalRepo, PgJournalRepo } from './db/journal-repo';
 import { buildAiMarketContext, type TickerLike } from './ai/market-context';
 import { startRetentionScheduler } from './privacy/retention-scheduler';
@@ -3336,6 +3337,12 @@ if (env.authEnabled) {
     }));
      
     console.log('[api] notifications mounted (delivery=POLL)');
+
+    // 대회 리더보드 — trade_journal 실현손익 순위(공개·읽기 전용, 익명 별칭).
+    // disclosure: 지금 순위가 실거래 기준인지 모의 기준인지 함께 알린다(모의를 실거래처럼 보여주지 않는다).
+    const lbDisclosure: 'LIVE' | 'PAPER' =
+      env.liveTradingEnabled && !env.emergencyKillSwitch && /LIVE_TRADE/.test(String(env.liveExecutionMode)) ? 'LIVE' : 'PAPER';
+    app.route('/api', createLeaderboardRouter({ db, pool: core.pool ?? null, disclosure: lbDisclosure }));
 
     // G7 — trade journal + realized-PnL analytics. SQLite-backed for now; the repository interface is
     // the seam a PostgreSQL implementation slots into, like the other user-data repos.

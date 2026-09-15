@@ -2402,6 +2402,7 @@
             {route.path === '/ai-strategies/my' && <window.MyStrategiesPage shellProps={shellProps}/>}
             {route.path === '/portfolio'      && <window.PortfolioPage      shellProps={shellProps}/>}
             {route.path === '/analytics'      && <window.AnalyticsPage      shellProps={shellProps}/>}
+            {route.path === '/leaderboard'    && <window.LeaderboardPage   shellProps={shellProps}/>}
             {route.path === '/wallet'         && <window.WalletPage         shellProps={shellProps}/>}
             {/*
                ★★ 입금·출금 화면을 주석으로 내렸다 (요청: 우리 페이지에서 입출금을 하지 않는다).
