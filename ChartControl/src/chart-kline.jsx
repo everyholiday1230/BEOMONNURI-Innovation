@@ -2145,6 +2145,66 @@
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return !stillThere;
     },
+    /*
+       ★★ 커스텀 AI 지표 — 고객이 말로 요청한 지표를 그려준다.
+
+         경로: 코파일럿(또는 사용자)이 후보 수식을 만든다 → 서버 검증
+         (POST /api/ai/indicator-formula — 화이트리스트·균형·길이) → 여기서
+         클라이언트 DSL(QTFmla)로 **렌더 직전 한 번 더 파싱**(이중 방어) →
+         klinecharts 커스텀 지표로 등록해 그린다.
+
+         임의 자바스크립트는 절대 평가하지 않는다 — DSL 표현식만.
+         파싱이 실패하면 { applied:false, error } 로 정직하게 말한다. 가짜 선을
+         그리지 않는 것은 이 코드베이스의 일관된 규칙이다.
+    */
+    addCustomIndicator(descriptor) {
+      const d = descriptor || {};
+      const name = String(d.name || '').trim();
+      const expr = String(d.expression || '').trim();
+      if (!name || !expr) return { applied: false, error: 'EMPTY' };
+      const F = window.QTFmla;
+      if (!F) return { applied: false, error: 'DSL_UNAVAILABLE' };
+      const pr = F.parse(expr);
+      if (!pr.ok) return { applied: false, error: pr.error || 'PARSE_FAILED' };
+      const kName = 'CUST_' + name.toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 12);
+      let applied = false;
+      for (const chart of INSTANCES) {
+        try {
+          // 같은 이름이 이미 있으면 먼저 지운다(수식 갱신 = 교체).
+          try { chart.removeIndicator({ name: kName }); } catch (e) { /* 없으면 무시 */ }
+          window.klinecharts.registerIndicator({
+            name: kName,
+            shortName: String(d.shortName || name).slice(0, 8),
+            calcParams: [],
+            figures: [{ key: 'value', title: kName, type: 'line' }],
+            calc: (params, bars) => {
+              const r = F.compute(expr, bars || []);
+              if (!r.ok) return bars.map(() => ({ value: NaN }));
+              return r.values.map((v) => ({ value: Number.isFinite(v) ? v : NaN }));
+            },
+          });
+          const separate = d.pane !== 'price';
+          const id = chart.createIndicator(separate ? { name: kName } : { name: kName, paneId: 'candle_pane' }, !separate);
+          if (id || separate) { this._aiInd.set(kName, separate ? id : 'candle_pane'); applied = true; }
+        } catch (e) { /* 이 차트에서 실패 — 다음 차트 시도 */ }
+      }
+      try { this.publishState(); } catch (e) { /* noop */ }
+      setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
+      return applied ? { applied: true, name: kName } : { applied: false, error: 'CREATE_FAILED' };
+    },
+    removeCustomIndicator(name) {
+      const kName = 'CUST_' + String(name || '').toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 12);
+      let removed = false;
+      for (const chart of INSTANCES) {
+        try {
+          chart.removeIndicator({ name: kName });
+          removed = true;
+        } catch (e) { /* noop */ }
+      }
+      this._aiInd.delete(kName);
+      try { this.publishState(); } catch (e) { /* noop */ }
+      return removed;
+    },
     listIndicators() {
       const out = [];
       for (const chart of INSTANCES) {

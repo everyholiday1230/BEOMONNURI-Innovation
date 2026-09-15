@@ -118,6 +118,7 @@ import { createOrderRouter } from './portfolio/order-routes';
 import { createNotificationRouter } from './notifications/notification-routes';
 import { createAnalyticsRouter } from './analytics/analytics-routes';
 import { createLeaderboardRouter } from './competition/leaderboard-routes';
+import { validateIndicatorFormula } from './ai/indicator-formula';
 import { SqliteJournalRepo, PgJournalRepo } from './db/journal-repo';
 import { buildAiMarketContext, type TickerLike } from './ai/market-context';
 import { startRetentionScheduler } from './privacy/retention-scheduler';
@@ -3343,6 +3344,16 @@ if (env.authEnabled) {
     const lbDisclosure: 'LIVE' | 'PAPER' =
       env.liveTradingEnabled && !env.emergencyKillSwitch && /LIVE_TRADE/.test(String(env.liveExecutionMode)) ? 'LIVE' : 'PAPER';
     app.route('/api', createLeaderboardRouter({ db, pool: core.pool ?? null, disclosure: lbDisclosure }));
+
+    // 커스텀 지표 수식 검증 — AI(코파일럿) 후보와 사용자 직접 입력이 **같은 관문**을 통과한다.
+    // AI 출력을 그대로 믿지 않는 기존 원칙과 동일: 화이트리스트 토큰·괄호 균형·길이만 서버가 보고,
+    // 실제 파싱·계산은 클라이언트 DSL(src/formula-dsl.js)이 렌더 직전에 한 번 더 한다(이중 방어).
+    app.post('/api/ai/indicator-formula', async (c) => {
+      const body = await c.req.json().catch(() => null);
+      const r = validateIndicatorFormula(body);
+      if (!r.ok) return c.json({ error: { code: r.code, message: r.message, correlationId: Math.random().toString(36).slice(2, 10) } }, 400);
+      return c.json({ ok: true, descriptor: { name: r.descriptor.name, shortName: r.descriptor.shortName, expression: r.descriptor.expression, pane: r.descriptor.pane } });
+    });
 
     // G7 — trade journal + realized-PnL analytics. SQLite-backed for now; the repository interface is
     // the seam a PostgreSQL implementation slots into, like the other user-data repos.
