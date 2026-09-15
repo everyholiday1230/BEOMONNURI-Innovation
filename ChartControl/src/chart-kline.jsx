@@ -567,6 +567,8 @@
             });
             const shown = px(priceVal);
             if (shown !== null) {
+              // Y축에 가격 표시 추가
+              figures.push(...priceLabelFigures(priceVal, y, bounding, color, decimals, colors));
               figures.push(...tagFigures(`${tag} ${shown}`, x0 + 6, y - 8, color, colors));
             }
           };
@@ -586,6 +588,10 @@
             attrs: { coordinates: [{ x: x0, y: entryY }, { x: xEnd, y: entryY }] },
             styles: { color: colors.textPri || '#e6ebf2', size: 1.5, style: 'solid' },
           });
+          // 진입가격 Y축 레이블 추가
+          if (entryPrice !== null) {
+            figures.push(...priceLabelFigures(entryPrice, entryY, bounding, colors.textPri || '#e6ebf2', decimals, colors));
+          }
 
           // 손익비 + 방향 유효성
           if (pts.length >= 3 && entryPrice !== null) {
