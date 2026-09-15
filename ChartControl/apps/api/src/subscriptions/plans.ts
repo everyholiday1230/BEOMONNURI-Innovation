@@ -164,9 +164,9 @@ export const PLANS: Plan[] = [
     code: 'elite',
     nameKey: 'plan_elite_name',
     priceUsd: '199',
-    /* 500회 × 300pt. */
-    monthlyPoints: 150000,
-    approxAiRuns: 500,
+    /* 666회 × 300pt = 200,000pt (운영자 결정: 20만 포인트로 상향). */
+    monthlyPoints: 200000,
+    approxAiRuns: 666,
     features: [
       { key: 'plan_f_chart', included: true },
       { key: 'plan_f_exchange', included: true },
