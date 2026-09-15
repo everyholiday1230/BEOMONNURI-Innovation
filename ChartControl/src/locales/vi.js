@@ -3285,6 +3285,31 @@
       // --- 주문 ID ---
       op_order_id: 'Mã lệnh',
       op_order_id_pending: 'Mã lệnh sẽ xuất hiện trong Lịch sử lệnh khi sàn xác nhận',
+      fast_api_err_withdraw_not_allowed: 'Bạn đã chấp thuận Withdrawal nên chúng tôi dừng lại và không tạo key. Chúng tôi không bao giờ di chuyển tiền của bạn và sẽ không giữ key có thể làm điều đó. Vui lòng kết nối lại và bỏ tích Withdrawal.',
+
+      // --- AI Ops 준비중 ---
+      aiops_pending_title: 'Tính năng đang chuẩn bị',
+      aiops_pending_desc: 'Triển khai và quản lý prompt cần một đường dẫn phát hành server. Cố ý không im lặng — dùng Trợ giúp để yêu cầu nó.',
+
+      // --- 리더보드 ---
+      nav_leaderboard: 'Bảng xếp hạng',
+      lb_title: 'Bảng xếp hạng',
+      lb_subtitle: 'Xếp hạng cuộc thi theo PnL thực hiện (đã bao gồm phí) — được tính toán phía server từ nhật ký giao dịch.',
+      lb_refresh: 'Làm mới',
+      lb_basis_live: 'Cơ sở giao dịch thực',
+      lb_basis_paper: 'Cơ sở mô phỏng (giấy)',
+      lb_source_note: '— được xếp hạng từ nhật ký giao dịch. Các trader chỉ được hiển thị bằng bí danh ẩn danh.',
+      lb_window_7d: '7 ngày',
+      lb_window_30d: '30 ngày',
+      lb_window_all: 'Tất cả thời gian',
+      lb_col_rank: '#',
+      lb_col_trader: 'Trader',
+      lb_col_pnl: 'PnL thực hiện',
+      lb_col_fees: 'Phí',
+      lb_col_trades: 'Giao dịch',
+      lb_col_winrate: 'Tỷ lệ thắng',
+      lb_empty: 'Chưa có giao dịch đóng nào trong khoảng thời gian này — thứ hạng xuất hiện khi các giao dịch khứ hồi được ghi nhận.',
+      lb_load_failed: 'Không thể tải bảng xếp hạng',
     },
     { label: 'Tiếng Việt', bcp47: 'vi' },
   );

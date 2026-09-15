@@ -3197,6 +3197,31 @@
       // --- 주문 ID ---
       op_order_id: 'ID de la orden',
       op_order_id_pending: 'El ID de la orden aparece en el Historial de órdenes cuando el exchange lo confirma',
+      fast_api_err_withdraw_not_allowed: 'Aprobaste Retiro, así que paramos y no creamos ninguna key. Nunca movemos tus fondos y no vamos a guardar una key que pueda hacerlo. Conectá de nuevo y dejá Retiro sin marcar.',
+
+      // --- AI Ops en preparación ---
+      aiops_pending_title: 'Función en preparación',
+      aiops_pending_desc: 'El deploy y la gestión de prompts necesitan una ruta de lanzamiento del servidor. Intencionalmente no es un no-op silencioso — usá Ayuda para pedirlo.',
+
+      // --- Tabla de posiciones ---
+      nav_leaderboard: 'Tabla de posiciones',
+      lb_title: 'Tabla de posiciones',
+      lb_subtitle: 'Ranking de la competencia por PnL realizado (fees incluidos) — calculado del lado del servidor desde el diario de operaciones.',
+      lb_refresh: 'Actualizar',
+      lb_basis_live: 'Base de trading real',
+      lb_basis_paper: 'Base simulada (papel)',
+      lb_source_note: '— rankeado desde el diario de operaciones. Los traders se muestran solo por alias anónimo.',
+      lb_window_7d: '7 días',
+      lb_window_30d: '30 días',
+      lb_window_all: 'Todo el tiempo',
+      lb_col_rank: '#',
+      lb_col_trader: 'Trader',
+      lb_col_pnl: 'PnL realizado',
+      lb_col_fees: 'Fees',
+      lb_col_trades: 'Operaciones',
+      lb_col_winrate: 'Tasa de éxito',
+      lb_empty: 'Todavía no hay operaciones cerradas en esta ventana — los rangos aparecen a medida que se registran ida y vuelta.',
+      lb_load_failed: 'No se pudo cargar la tabla de posiciones',
     },
     { label: 'Español (LatAm)', bcp47: 'es-419' },
   );

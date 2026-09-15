@@ -3209,6 +3209,31 @@
       // --- 주문 ID ---
       op_order_id: 'ID da ordem',
       op_order_id_pending: 'O ID da ordem aparece no Histórico de ordens quando a exchange confirma',
+      fast_api_err_withdraw_not_allowed: 'Você aprovou Saque, então paramos e não criamos nenhuma chave. Nunca movemos seus fundos e não manteremos uma chave que possa fazer isso. Conecte novamente e deixe Saque desmarcado.',
+
+      // --- AI Ops em preparação ---
+      aiops_pending_title: 'Recurso em preparação',
+      aiops_pending_desc: 'Deploy e gerenciamento de prompt precisam de um caminho de lançamento do servidor. Intencionalmente não é um no-op silencioso — use Ajuda para solicitar.',
+
+      // --- Placar de líderes ---
+      nav_leaderboard: 'Placar',
+      lb_title: 'Placar de líderes',
+      lb_subtitle: 'Classificação da competição por PnL realizado (taxas incluídas) — calculado do lado do servidor a partir do diário de negociação.',
+      lb_refresh: 'Atualizar',
+      lb_basis_live: 'Base de negociação real',
+      lb_basis_paper: 'Base simulada (papel)',
+      lb_source_note: '— classificado do diário de negociação. Os traders são mostrados apenas por apelido anônimo.',
+      lb_window_7d: '7 dias',
+      lb_window_30d: '30 dias',
+      lb_window_all: 'Todo o tempo',
+      lb_col_rank: '#',
+      lb_col_trader: 'Trader',
+      lb_col_pnl: 'PnL realizado',
+      lb_col_fees: 'Taxas',
+      lb_col_trades: 'Negociações',
+      lb_col_winrate: 'Taxa de vitória',
+      lb_empty: 'Nenhuma negociação fechada nesta janela ainda — as classificações aparecem à medida que as viagens de ida e volta são registradas.',
+      lb_load_failed: 'Não foi possível carregar o placar de líderes',
     },
     { label: 'Português (BR)', bcp47: 'pt-BR' },
   );

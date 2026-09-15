@@ -3266,6 +3266,31 @@
       // --- 주문 ID ---
       op_order_id: 'Emir kimliği',
       op_order_id_pending: 'Emir kimliği, borsa onayladığında Emir geçmişinde görünür',
+      fast_api_err_withdraw_not_allowed: 'Para çekme iznini onayladınız, bu yüzden durduk ve key oluşturmadık. Paranızı asla hareket ettirmiyoruz ve bunu yapabilecek bir key tutmayacağız. Lütfen tekrar bağlanın ve para çekmeyi işaretlemeden bırakın.',
+
+      // --- AI Ops hazırlanıyor ---
+      aiops_pending_title: 'Özellik hazırlanıyor',
+      aiops_pending_desc: 'Dağıtım ve prompt yönetimi için sunucu yayın yolu gerekiyor. Kasıtlı olarak sessiz bir no-op değil — istemek için Yardım kullanın.',
+
+      // --- Lider tablosu ---
+      nav_leaderboard: 'Lider tablosu',
+      lb_title: 'Lider tablosu',
+      lb_subtitle: 'Gerçekleşen PnL\'ye göre yarışma sıralaması (ücretler dahil) — işlem günlüğünden sunucu tarafında hesaplanır.',
+      lb_refresh: 'Yenile',
+      lb_basis_live: 'Gerçek işlem esası',
+      lb_basis_paper: 'Kağıt (simüle edilmiş) esası',
+      lb_source_note: '— işlem günlüğünden sıralanır. Trader\'lar yalnızca anonim takma adlarla gösterilir.',
+      lb_window_7d: '7 gün',
+      lb_window_30d: '30 gün',
+      lb_window_all: 'Tüm zamanlar',
+      lb_col_rank: '#',
+      lb_col_trader: 'Trader',
+      lb_col_pnl: 'Gerçekleşen PnL',
+      lb_col_fees: 'Ücretler',
+      lb_col_trades: 'İşlemler',
+      lb_col_winrate: 'Kazanma oranı',
+      lb_empty: 'Bu pencerede henüz kapalı işlem yok — gidiş-dönüş kayıtları günlüğe kaydedildikçe sıralamalar görünür.',
+      lb_load_failed: 'Lider tablosu yüklenemedi',
     },
     { label: 'Türkçe', bcp47: 'tr' },
   );

@@ -3280,6 +3280,31 @@
       // --- 주문 결과 ---
       op_order_id: 'ऑर्डर ID',
       op_order_id_pending: 'एक्सचेंज की पुष्टि के बाद ऑर्डर ID ऑर्डर इतिहास में दिखेगा',
+      fast_api_err_withdraw_not_allowed: 'आपने Withdrawal को मंज़ूर किया, इसलिए हमने रोक दिया और कोई key नहीं बनाई। हम आपका धन कभी नहीं हिलाते और ऐसी key नहीं रखेंगे जो यह कर सके। कृपया फिर से जोड़ें और Withdrawal को अनचेक रखें।',
+
+      // --- AI Ops 준비중 ---
+      aiops_pending_title: 'सुविधा तैयारी में है',
+      aiops_pending_desc: 'Deployment और prompt प्रबंधन के लिए server रिलीज़ पथ चाहिए। यह जानबूझकर चुपचाप no-op नहीं है — इसके लिए मदद से पूछें।',
+
+      // --- 리더보드 ---
+      nav_leaderboard: 'Leaderboard',
+      lb_title: 'Leaderboard',
+      lb_subtitle: 'वास्तविक PnL (शुल्क शामिल) के अनुसार प्रतियोगिता की रैंकिंग — trade journal से server-side पर गणना की जाती है।',
+      lb_refresh: 'ताज़ा करें',
+      lb_basis_live: 'लाइव ट्रेडिंग के आधार पर',
+      lb_basis_paper: 'Paper (नक़ली) के आधार पर',
+      lb_source_note: '— trade journal से रैंक किया गया। Trader केवल गुमनाम उपनाम से दिखाए जाते हैं।',
+      lb_window_7d: '7 दिन',
+      lb_window_30d: '30 दिन',
+      lb_window_all: 'सभी समय',
+      lb_col_rank: '#',
+      lb_col_trader: 'Trader',
+      lb_col_pnl: 'वास्तविक PnL',
+      lb_col_fees: 'शुल्क',
+      lb_col_trades: 'ट्रेड',
+      lb_col_winrate: 'जीत दर',
+      lb_empty: 'इस अवधि में अभी कोई बंद ट्रेड नहीं — जैसे ही राउंड ट्रिप जर्नल में दर्ज होते हैं, रैंक दिखने लगती हैं।',
+      lb_load_failed: 'Leaderboard लोड नहीं हो सका',
     },
     { label: 'हिन्दी', bcp47: 'hi' },
   );
