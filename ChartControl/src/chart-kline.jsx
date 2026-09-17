@@ -193,8 +193,32 @@
       case 'ai-approved': return colors.approved;
       case 'ai-draft': return colors.ai;
       case 'order': return colors.pending;
-      case 'position-long': return colors.long;
-      case 'position-short': return colors.short;
+      /*
+         ★★★ **포지션 진입가는 중립색이다 — 현재가와 구분되어야 한다.**
+
+           예전에는 `colors.long`/`colors.short` 를 썼는데, 실측해보니 현재가 표시와
+           **완전히 같은 값**이었다:
+
+             --chart-candle-up   = oklch(72% 0.14 175)
+             --color-trade-long  = oklch(72% 0.14 175)   ← 같다
+             --chart-candle-dn   = oklch(68% 0.22 355)
+             --color-trade-short = oklch(68% 0.22 355)   ← 같다
+
+           즉 오른쪽 축에 현재가 배지와 진입가 배지가 **같은 색으로 나란히** 떴다.
+           운영자 보고: "현재가격이랑 색상이 너무 똑같아서 구분이 안 간다." 비슷한 게
+           아니라 같은 색이었으니 당연하다.
+
+         ★ 그래서 진입가는 중립색(textPri)으로 둔다. 이것은 새로 만든 규칙이 아니다 —
+           롱·숏 포지션 도구(`positionOverlay`)가 **이미** 진입선에 textPri 를 쓴다.
+           두 곳의 진입가 표현이 이제 일치한다.
+
+         ★★ 방향 정보를 잃지 않는다: 방향은 포지션 패널의 행, 라벨 손익의 부호,
+           그리고 위아래에 붙는 TP(이익색)·SL(손실색)이 말해 준다. 진입가 자체는
+           "얼마에 들어갔는가" 이고 거기에 방향색이 꼭 필요하지는 않다.
+      */
+      case 'position-long':
+      case 'position-short':
+        return colors.textPri;
       /*
          작성 중인 TP/SL 선. 익절=이익색, 손절=손실색이다 — 진입 방향이 아니라
          **결과**를 나타내는 색이어야 한다. 아직 거래소에 나가지 않았으므로
@@ -372,7 +396,7 @@
          `chart.getDom()` 이 차트 컨테이너를 돌려주므로 그 안에서 레전드를 찾고,
          좌표는 **캔들 패널 캔버스** 기준으로 환산한다.
     */
-    let legendBox = null;
+    let legendRects = null;
     try {
       const dom = chart && chart.getDom ? chart.getDom() : null;
       const host = dom && dom.closest ? (dom.closest('.chart-kline-wrap') || dom.parentElement) : null;
@@ -382,8 +406,8 @@
           .filter((r) => r.height > 80 && r.width > 80)
           .sort((a, b) => (b.height * b.width) - (a.height * a.width))[0]
         : null;
-      if (host && paneCanvas) legendBox = legendBoxOf(host, paneCanvas);
-    } catch (e) { legendBox = null; }
+      if (host && paneCanvas) legendRects = legendRectsOf(host, paneCanvas);
+    } catch (e) { legendRects = null; }
     const label = LV
       ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx })
       : ext.label;
@@ -395,7 +419,7 @@
     const labelLines = (LV && LV.labelLinesFor)
       ? LV.labelLinesFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx, maxLines: 2 })
       : (label ? [label] : []);
-    return { ext, colors, src, color, dashed, label, labelLines, legendBox, width: ext.width || 1.5 };
+    return { ext, colors, src, color, dashed, label, labelLines, legendRects, width: ext.width || 1.5 };
   }
 
   /** 태그(라벨 알약). ChartCanvas drawTag 의 시각을 재현한다. */
@@ -410,25 +434,82 @@
      ★ 알려진 함정과 같은 종류다 — `String.length` 는 표시 폭이 아니다(한국어 주석
        바이트 수를 14.8% 낮게 셌던 일).
   */
-  function textWidth(text, size) {
-    const per = (size || 10) / 10;
+  /*
+     ★★★ **글자 폭을 추정하지 않고 실제로 잰다.**
+
+       예전에는 ASCII 5.6px · 전각 10px 로 추정했다. 그런데 이 저장소는 라벨에
+       **등폭 글꼴**을 쓰고, 10px 등폭의 실제 전진폭은 6.0px 다. 즉 추정이 약 7%
+       작아서 글자가 상자를 넘쳤다(운영자 보고: "네모칸 밖에 조금 넘어간다").
+
+       실측 비교:
+         "-0.01%"                       추정 33.6  실제  36   (-2.4)
+         "+466.25"                      추정 39.2  실제  42   (-2.8)
+         "+0.12% · ROE +1.16% · +39.65" 추정 156.8 실제 168   (-11.2)
+
+     ★ 추정 방식 자체가 틀린 접근이었다. 글꼴이 바뀌면 계수도 바뀌는데, 그것을
+       따라갈 방법이 없다. `measureText` 는 지금 그려질 글꼴로 정확히 답한다.
+
+     ★ 오프스크린 캔버스를 하나 만들어 재사용하고, 글꼴 문자열이 같으면 다시 설정하지
+       않는다(설정 자체가 비용이다). 도형 하나당 몇 번씩 불리므로 결과도 캐시한다.
+
+     ★★ 캔버스를 못 만드는 환경(테스트 등)에서는 예전 추정으로 떨어진다 — 폭을 모른다고
+       라벨을 그리지 않으면 화면에서 정보가 사라진다.
+  */
+  let measureCtx = null;
+  let measureFont = '';
+  const measureCache = new Map();
+
+  function textWidth(text, size, family, weight) {
+    const s = String(text);
+    if (!s) return 0;
+    const px = size || 10;
+    const fam = family || 'monospace';
+    const wt = weight || '500';
+    const font = `${wt} ${px}px ${fam}`;
+    const key = `${font}\u0000${s}`;
+    const hit = measureCache.get(key);
+    if (hit !== undefined) return hit;
+
+    if (measureCtx === null) {
+      try {
+        measureCtx = document.createElement('canvas').getContext('2d');
+      } catch (e) {
+        measureCtx = false;   // 다시 시도하지 않는다
+      }
+    }
+    if (measureCtx) {
+      if (measureFont !== font) { measureCtx.font = font; measureFont = font; }
+      const w = measureCtx.measureText(s).width;
+      if (w > 0) {
+        /* 캐시가 무한히 커지지 않게 한다 — 라벨 문구는 종류가 적다. */
+        if (measureCache.size > 400) measureCache.clear();
+        measureCache.set(key, w);
+        return w;
+      }
+    }
+
+    /*
+       폴백: 예전 추정. 등폭이 아닐 수도 있으므로 전각/반각만 구분한다.
+       ★ 정확하지 않다는 것을 알고 쓰는 값이다 — 그래서 위에서 먼저 재려고 한다.
+    */
+    const per = px / 10;
     let w = 0;
-    for (const ch of String(text)) {
+    for (const ch of s) {
       const c = ch.codePointAt(0);
-      /* 한글(자모·완성형), CJK 한자, 가나, 전각 기호 → 넓은 글자 */
       const wide = (c >= 0x1100 && c <= 0x11ff) || (c >= 0x2e80 && c <= 0xa4cf)
         || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff)
         || (c >= 0xfe30 && c <= 0xfe6f) || (c >= 0xff00 && c <= 0xff60)
         || (c >= 0xffe0 && c <= 0xffe6);
-      w += (wide ? 10 : 5.6) * per;
+      w += (wide ? 10 : 6) * per;
     }
     return w;
   }
 
   function tagFigures(text, x, y, color, colors) {
     if (!text) return [];
-    const paddingX = 6;
-    const approxW = textWidth(text, 10) + paddingX * 2;
+    const paddingX = 8;
+    /* ★ 그리는 글꼴로 재야 상자가 글자를 담는다(tagFiguresRight 주석 참고). */
+    const approxW = textWidth(text, 10, colors.fontMono, '500') + paddingX * 2;
     return [
       {
         type: 'rect',
@@ -444,7 +525,7 @@
       },
       {
         type: 'text',
-        attrs: { x: x + paddingX, y: y - 1, text: String(text), align: 'left', baseline: 'middle' },
+        attrs: { x: x + approxW / 2, y: y - 1, text: String(text), align: 'center', baseline: 'middle' },
         styles: {
           color, size: 10, family: colors.fontMono, weight: '500',
         /*
@@ -520,32 +601,38 @@
   }
 
   /**
-   * 지표 레전드(`.chart-legend`)가 차지한 영역 — **패널 좌표**로.
+   * 차트 위에 떠 있는 **HTML 정보 요소**가 차지한 영역 — 패널 좌표로.
    *
    * ★★ 왜 필요한가: 운영자 보고에서 손익 라벨 위에 `VOL` 글자가 겹쳐 보였다.
-   *   레전드는 캔버스가 아니라 **HTML**(`div.chart-legend__item`)이고 차트 오른쪽 위에
-   *   떠 있다(실측: 패널 기준 x=278 y=66 크기 48×15). 우리 손익 라벨도 오른쪽 정렬이라
-   *   선이 위쪽에 있으면 정확히 그 자리에서 만난다.
+   *   레전드·HUD 는 캔버스가 아니라 **HTML** 이고 차트 위쪽에 떠 있다. 우리 손익
+   *   라벨도 오른쪽 정렬이라 선이 위쪽에 있으면 정확히 그 자리에서 만난다.
    *
-   * ★ 레전드를 옮기지 않는다 — 고정 UI 다. **라벨이 비킨다**(선 아래로 내려간다).
+   * ★ 두 종류를 함께 잡는다(실측, 패널 좌표):
+   *     `.chart-legend__item`  MA20 y=10 · MA60 y=29 · MA120 y=47 · VOL y=66 (h 15)
+   *     `.chart-hud__row`      심볼·주기 줄 y=8 · OHLC 줄 y=30 (h 16)
+   *   처음에는 레전드만 잡았는데, 라벨을 왼쪽으로 밀자 이번엔 **OHLC 줄과 겹쳤다.**
+   *   같은 성질의 요소를 하나만 피하면 다른 하나로 옮겨 붙는다.
+   *
+   * ★ 이 요소들을 옮기지 않는다 — 고정 UI 다. **라벨이 비킨다.**
    *
    * ★ 못 찾으면 null 을 돌려준다. 그러면 예전처럼 항상 선 위에 그린다 —
-   *   레전드가 없는 배포에서 라벨이 이유 없이 아래로 내려가면 그것도 이상하다.
+   *   이 요소들이 없는 배포에서 라벨이 이유 없이 비키면 그것도 이상하다.
    */
-  function legendBoxOf(host, paneRect) {
+  function legendRectsOf(host, paneRect) {
     if (!host || !paneRect) return null;
     try {
-      const items = [...host.querySelectorAll('.chart-legend__item, .chart-legend')];
-      let top = Infinity; let bottom = -Infinity; let left = Infinity;
+      const items = [...host.querySelectorAll('.chart-legend__item, .chart-hud__row')];
+      const rects = [];
       for (const el of items) {
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
-        top = Math.min(top, r.top - paneRect.top);
-        bottom = Math.max(bottom, r.bottom - paneRect.top);
-        left = Math.min(left, r.left - paneRect.left);
+        rects.push({
+          top: r.top - paneRect.top,
+          bottom: r.bottom - paneRect.top,
+          left: r.left - paneRect.left,
+        });
       }
-      if (!Number.isFinite(bottom)) return null;
-      return { top, bottom, left };
+      return rects.length ? rects : null;
     } catch (e) {
       return null;
     }
@@ -568,38 +655,72 @@
    *   숫자를 잘라 **틀린 금액**을 보여주는 것이 더 나쁘다(QTOverlayLive 가 이미
    *   폭에 맞춰 덜 중요한 항목부터 빼 준다).
    */
-  function tagFiguresRight(lines, rightEdge, y, color, colors, legendBox) {
+  function tagFiguresRight(lines, rightEdge, y, color, colors, legendRects, paneH) {
     const rows = (Array.isArray(lines) ? lines : [lines]).filter(Boolean).map(String);
     if (rows.length === 0) return [];
-    const paddingX = 6;
+    const paddingX = 8;
     const rowH = 14;
     const boxH = rows.length * rowH + 4;
-    const approxW = Math.max(...rows.map((r) => textWidth(r, 10))) + paddingX * 2;
-    const x = Math.max(0, rightEdge - approxW);
+    /*
+       ★ 글꼴을 함께 넘겨 **실제 폭**을 잰다. 넘기지 않으면 기본 글꼴로 재서 다시
+         어긋난다 — 그리는 글꼴과 재는 글꼴이 같아야 의미가 있다.
+    */
+    const boxW = Math.max(...rows.map((r) => textWidth(r, 10, colors.fontMono, '500'))) + paddingX * 2;
+    let right = rightEdge;
     /*
        ★ 기본은 선 **위쪽**이다. 선 아래는 캔들이 이어지는 방향이라 위쪽이 덜 가린다.
     */
     let top = y - boxH - 3;
+    /* 패널 높이를 모르면 아래쪽 후보를 막지 않는다 — 위쪽만 남으면 겹침을 못 피한다. */
+    const limitH = Number.isFinite(paneH) ? paneH : Infinity;
     /*
-       ★★★ **지표 레전드와 겹치면 선 아래로 비킨다.**
+       ★★★ **정보 요소(레전드·HUD)와 겹치면 비킨다.**
 
-         레전드는 HTML 로 차트 오른쪽 위에 떠 있고(실측: 패널 기준 y 66~81, x 278~),
-         우리 라벨도 오른쪽 정렬이라 선이 위쪽에 있으면 그 자리에서 만난다.
-         운영자가 본 "라벨에 VOL 이 겹쳐 보이는" 상태가 이것이다.
+         이 자리를 놓고 다투는 상대는 캔버스가 아니라 **HTML** 이다(실측, 패널 좌표):
+           `.chart-legend__item`  MA20 y10 · MA60 y29 · MA120 y47 · VOL y66 — x 278~ (좁다)
+           `.chart-hud__row`      심볼 줄 y8 · OHLC 줄 y30 — x 8~ (넓다)
+         모양이 **ㄱ자**다. 오른쪽 정렬인 우리 라벨은 선이 위쪽이면 여기서 만난다.
 
-       ★ 가로도 함께 본다 — 레전드가 좁으면 세로만 겹쳐도 실제로는 안 부딪힌다.
-       ★ 아래로 내려도 패널을 벗어나면 다시 위로 둔다. 화면 밖은 더 나쁘다.
+       ★★★ **하나의 큰 상자로 합치면 안 된다 — 두 번 실패한 지점이다.**
+         ① 레전드만 피해 "선 아래로" → 띠가 70px 이라 내려가도 여전히 VOL 과 겹쳤다.
+         ② HUD 까지 합쳐 하나의 상자로 → left 가 8 로 내려가 과잉 예약, 라벨이 띠 전체
+            아래로 34px 밀리면서 이번엔 **다른 라벨(진입가)과 겹쳤다.**
+         그래서 지금은 **사각형 목록**으로 두고, 후보 위치마다 *그 y 띠에 실제로 걸치는*
+         것만 피한다. 선 아래(y+3)에서는 좁은 레전드만 걸리므로 왼쪽으로 54px 만 밀면
+         된다 — 세로로 밀지 않으니 라벨이 자기 선에 붙어 있고 남의 라벨도 안 건드린다.
+
+       ★ 세로보다 가로 이동을 택한 이유: 라벨이 자기 선에서 멀어지면 어느 선의 값인지
+         알 수 없다. **세로 거리가 곧 정확도**이므로 세로는 선 ±3 만 쓴다.
     */
-    if (legendBox) {
-      const overlapsV = top < legendBox.bottom && (top + boxH) > legendBox.top;
-      const overlapsH = rightEdge > legendBox.left;
-      if (overlapsV && overlapsH) top = y + 3;
+    if (Array.isArray(legendRects) && legendRects.length) {
+      /*
+         이 y 띠에 **실제로 걸치는** 요소만 모아, 그것들을 피할 수 있는 오른쪽 끝을 낸다.
+         걸치는 게 없으면 원래 오른쪽 끝(rightEdge)을 그대로 쓴다.
+      */
+      const clearRightAt = (t) => {
+        const hit = legendRects.filter((r) => t < r.bottom && (t + boxH) > r.top);
+        if (!hit.length) return rightEdge;
+        return Math.max(boxW, Math.min(rightEdge, Math.min(...hit.map((r) => r.left)) - 6));
+      };
+      const above = y - boxH - 3;
+      const below = y + 3;
+      const cands = [];
+      if (above >= 0) cands.push({ top: above, right: clearRightAt(above) });
+      if (below + boxH <= limitH) cands.push({ top: below, right: clearRightAt(below) });
+      /*
+         ★ 후보 중 **오른쪽을 가장 덜 잃는** 것을 고른다. 눈이 가는 곳은 오른쪽 끝(최신
+           봉·가격축)이므로 라벨도 거기 있을수록 좋다. 동점이면 먼저 담은 위쪽이 남는다.
+      */
+      let best = null;
+      for (const c of cands) if (!best || c.right > best.right) best = c;
+      if (best) { top = best.top; right = best.right; }
     }
     if (top < 0) top = y + 3;
+    const x = Math.max(0, right - boxW);
     const out = [
       {
         type: 'rect',
-        attrs: { x, y: top, width: approxW, height: boxH },
+        attrs: { x, y: top, width: boxW, height: boxH },
         styles: {
           style: 'stroke_fill',
           color: withAlpha(colors.elevated || colors.panel, 0.92),
@@ -613,7 +734,12 @@
     rows.forEach((text, i) => {
       out.push({
         type: 'text',
-        attrs: { x: x + paddingX, y: top + 2 + rowH * i + rowH / 2, text, align: 'left', baseline: 'middle' },
+        /*
+           ★★ 상자 **가운데**에 놓는다(운영자 요청: "네모 딱 가운데에 나와야").
+             왼쪽 정렬이면 줄 길이가 다를 때 들쭉날쭉해 보이고, 폭 추정이 조금만
+             어긋나도 오른쪽으로 넘친다.
+        */
+        attrs: { x: x + boxW / 2, y: top + 2 + rowH * i + rowH / 2, text, align: 'center', baseline: 'middle' },
         styles: {
           color, size: 10, family: colors.fontMono, weight: '500',
           /* ★ 위 tagFigures 주석 참고 — 운영자가 본 "파란색 배경" 이 이것이었다. */
@@ -643,7 +769,7 @@
       createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
         const c = coordinates[0];
         if (!c) return [];
-        const { color, dashed, labelLines, colors, legendBox } = renderInfo(overlay, bounding, chart);
+        const { color, dashed, labelLines, colors, legendRects } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'line',
@@ -655,7 +781,7 @@
                예전에는 이 자리에서 `bounding.width - w` 에 가격 배지를 그렸고, 그것이
                **캔들 위**였다(패널 좌표계다). 그 자리에는 손익만 남긴다.
           */
-          ...tagFiguresRight(labelLines, bounding.width - 4, c.y, color, colors, legendBox),
+          ...tagFiguresRight(labelLines, bounding.width - 4, c.y, color, colors, legendRects, bounding.height),
         ];
       },
       /*
@@ -720,7 +846,7 @@
         if (coordinates.length < 2) return [];
         const yHi = Math.min(coordinates[0].y, coordinates[1].y);
         const yLo = Math.max(coordinates[0].y, coordinates[1].y);
-        const { color, labelLines, colors, legendBox } = renderInfo(overlay, bounding, chart);
+        const { color, labelLines, colors, legendRects } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'rect',
@@ -738,7 +864,7 @@
             attrs: { coordinates: [{ x: 0, y: yLo }, { x: bounding.width, y: yLo }] },
             styles: { color, size: 1.5, style: 'dashed', dashedValue: [4, 3] },
           },
-          ...tagFiguresRight(labelLines, bounding.width - 4, (yHi + yLo) / 2, color, colors, legendBox),
+          ...tagFiguresRight(labelLines, bounding.width - 4, (yHi + yLo) / 2, color, colors, legendRects, bounding.height),
         ];
       },
       /* 가격은 오른쪽 축에 — 구간의 위·아래 두 값을 각각 그린다. */

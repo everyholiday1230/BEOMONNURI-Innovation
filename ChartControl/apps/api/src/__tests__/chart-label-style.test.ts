@@ -84,7 +84,7 @@ describe('CHART-LABEL — 손익 라벨이 지표 레전드를 피한다', () =>
   const src = stripComments(read('src/chart-kline.jsx'));
 
   it('[4] 레전드 위치를 실측하는 함수가 있다', () => {
-    expect(src, 'legendBoxOf 가 없다').toMatch(/function\s+legendBoxOf\s*\(/u);
+    expect(src, 'legendRectsOf 가 없다').toMatch(/function\s+legendRectsOf\s*\(/u);
     /* HTML 요소를 찾아야 한다 — 캔버스에는 레전드가 없다. */
     expect(src).toMatch(/\.chart-legend/u);
   });
@@ -93,19 +93,49 @@ describe('CHART-LABEL — 손익 라벨이 지표 레전드를 피한다', () =>
     const m = /function tagFiguresRight\([^)]*\) \{([\s\S]*?)\n {2}\}/u.exec(src);
     expect(m, 'tagFiguresRight 를 찾지 못했다').toBeTruthy();
     const body = m![1]!;
-    expect(body, 'legendBox 를 받지 않는다').toMatch(/legendBox/u);
-    /* 세로·가로 둘 다 봐야 한다 — 세로만 보면 좁은 레전드에도 불필요하게 내려간다. */
-    expect(body, '세로 겹침을 보지 않는다').toMatch(/overlapsV\s*=/u);
-    expect(body, '가로 겹침을 보지 않는다').toMatch(/overlapsH\s*=/u);
-    /*
-       ★★ **겹침 판정의 결과로** 위치를 바꾸는지 본다.
+    expect(body, '정보 요소 위치를 받지 않는다').toMatch(/legendRects/u);
 
-         처음에는 `top = y + 3` 이 본문에 있는지만 봤는데, 그 문장은 아래쪽
-         "화면 밖 방어" 에도 있다. 그래서 실제 회피 코드를 지워도 시험이 통과했다
-         (역검증으로 잡았다). 두 값을 함께 쓰는 문장을 확인한다.
+    /*
+       ★★★ **하나의 큰 상자로 합치면 안 된다 — 두 번 실패한 지점이다.**
+
+         ① 레전드만 피해 "겹치면 선 아래로" → 레전드 띠가 70px 이라 내려가도 여전히
+            VOL 과 겹쳤다(실측: 선 y=50, 위 15~47 → 아래 53~85, VOL 66~81).
+         ② HUD 까지 합쳐 **하나의 상자**로 → left 가 8 로 내려가 과잉 예약되고, 라벨이
+            띠 전체 아래로 34px 밀리면서 이번엔 **다른 라벨(진입가)과 겹쳤다.**
+
+         실제 모양은 ㄱ자다(HUD 는 위쪽 넓게, 레전드는 오른쪽 좁게). 그래서 **사각형
+         목록**으로 두고 후보 위치마다 *그 y 띠에 걸치는 것만* 피한다.
     */
-    expect(body, '겹침 판정 결과로 선 아래로 옮기지 않는다')
-      .toMatch(/if\s*\(\s*overlapsV\s*&&\s*overlapsH\s*\)\s*top\s*=\s*y\s*\+/u);
+    const boxFn = src.slice(src.indexOf('function legendRectsOf'), src.indexOf('function legendRectsOf') + 1100);
+    expect(boxFn, '레전드 항목을 재지 않는다').toMatch(/chart-legend__item/u);
+    expect(boxFn, 'HUD 줄을 재지 않는다 — 레전드만 피하면 라벨이 OHLC 줄로 옮겨 붙는다')
+      .toMatch(/chart-hud__row/u);
+    expect(boxFn, '사각형 목록으로 돌려주지 않는다 — 합치면 과잉 예약된다')
+      .toMatch(/rects\.push\(/u);
+    expect(boxFn, '합친 상자를 돌려준다').not.toMatch(/Math\.min\(top,/u);
+
+    /* 후보 y 띠에 **실제로 걸치는** 것만 골라야 한다. 전부 피하면 과잉 예약과 같다. */
+    expect(body, '걸치는 요소만 고르지 않는다')
+      .toMatch(/legendRects\.filter\(\(r\) => t < r\.bottom && \(t \+ boxH\) > r\.top\)/u);
+    /* 걸치는 게 없으면 원래 오른쪽 끝을 그대로 써야 한다 — 이유 없이 밀면 안 된다. */
+    expect(body, '걸침이 없을 때 원래 위치를 쓰지 않는다')
+      .toMatch(/if \(!hit\.length\) return rightEdge/u);
+
+    /*
+       ★★ 세로 이동은 선 ±3 만 쓴다. 라벨이 자기 선에서 멀어지면 어느 선의 값인지
+         알 수 없으므로 **세로 거리가 곧 정확도**다. 회피는 가로로 한다.
+    */
+    expect(body, '위 후보가 선 기준이 아니다').toMatch(/const above = y - boxH - 3/u);
+    expect(body, '아래 후보가 선 기준이 아니다').toMatch(/const below = y \+ 3/u);
+    expect(body, '아래 후보가 패널을 벗어나는지 보지 않는다').toMatch(/below \+ boxH <= limitH/u);
+    expect(body, '오른쪽을 가장 덜 잃는 후보를 고르지 않는다')
+      .toMatch(/c\.right > best\.right/u);
+    /* 왼쪽으로 밀어도 상자가 화면 밖으로 나가지 않아야 한다. */
+    expect(body, '왼쪽 한계를 두지 않아 라벨이 화면 밖으로 나갈 수 있다')
+      .toMatch(/Math\.max\(boxW,/u);
+
+    expect(src, '호출부가 패널 높이를 넘기지 않는다')
+      .toMatch(/tagFiguresRight\([\s\S]{0,90}bounding\.height\)/u);
   });
 
   it('[6] 아래로 내려도 화면을 벗어나면 다시 위로 둔다', () => {
@@ -117,10 +147,10 @@ describe('CHART-LABEL — 손익 라벨이 지표 레전드를 피한다', () =>
   it('[7] 레전드를 못 찾으면 예전처럼 선 위에 그린다', () => {
     /*
        ★ 레전드가 없는 배포에서 라벨이 이유 없이 아래로 내려가면 그것도 이상하다.
-         `legendBoxOf` 는 못 찾으면 null 을 돌려주고, 호출부는 null 이면 비키지 않는다.
+         `legendRectsOf` 는 못 찾으면 null 을 돌려주고, 호출부는 null 이면 비키지 않는다.
     */
-    const m = /function legendBoxOf\([^)]*\) \{([\s\S]*?)\n {2}\}/u.exec(src);
-    expect(m, 'legendBoxOf 를 찾지 못했다').toBeTruthy();
+    const m = /function legendRectsOf\([^)]*\) \{([\s\S]*?)\n {2}\}/u.exec(src);
+    expect(m, 'legendRectsOf 를 찾지 못했다').toBeTruthy();
     expect(m![1]!, '못 찾을 때 null 을 돌려주지 않는다').toMatch(/return null/u);
   });
 });

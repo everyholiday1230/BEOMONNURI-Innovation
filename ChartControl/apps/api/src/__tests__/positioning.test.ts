@@ -1034,8 +1034,19 @@ describe('라벨 폭 — 한글에서 상자를 넘치지 않는다', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
     expect(s, '아직 length * 5.6 으로 폭을 잰다').not.toMatch(/length\s*\*\s*5\.6/);
-    expect(s, '폭 계산 함수가 없다').toMatch(/function textWidth\(text, size\)/);
-    expect(s, '한글 범위를 보지 않는다').toMatch(/0xac00[\s\S]{0,40}0xd7a3/);
+    /*
+       ★ 서명이 `(text, size, family, weight)` 로 늘어났다 — 캔버스로 **실측**하려면
+         그리는 글꼴을 그대로 알려줘야 한다. 글꼴이 다르면 잰 값도 틀린다.
+    */
+    expect(s, '폭 계산 함수가 없다').toMatch(/function textWidth\(text, size, family, weight\)/);
+    /*
+       ★★ **추정이 아니라 캔버스 실측이어야 한다.** 추정은 실제보다 약 7% 좁게 나왔고
+         (실측: "+466.25" 추정 39.2 / 실제 42, 긴 문구 156.8 / 168) 그만큼 글자가
+         상자 밖으로 삐져나왔다 — 운영자가 본 "네모칸 밖으로 넘어간다" 가 이것이다.
+    */
+    expect(s, 'measureText 로 실측하지 않는다').toMatch(/measureText\(/);
+    /* 폴백(캔버스를 못 쓸 때)은 남아 있어야 한다 — 전각/반각 구분 포함. */
+    expect(s, '폴백의 한글 범위를 보지 않는다').toMatch(/0xac00[\s\S]{0,40}0xd7a3/);
   });
 
   it('좁은 차트에서 라벨을 줄인다 — 숫자는 자르지 않는다', () => {
