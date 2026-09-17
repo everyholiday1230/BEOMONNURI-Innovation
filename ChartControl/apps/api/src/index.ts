@@ -36,6 +36,7 @@ import { PgReferralRepo } from './db/referral-repo';
 import { createReferralRouter } from './referral/referral-routes';
 import { PgPointsRepo } from './db/points-repo';
 import { createSubscriptionRouter } from './subscriptions/subscription-routes';
+import { createPaypalWebhookRouter } from './subscriptions/paypal-webhook';
 import { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { startSubscriptionReconciler } from './subscriptions/subscription-reconcile';
 import { grantMonthlyPointsIfDue } from './subscriptions/subscription-routes';
@@ -2812,6 +2813,71 @@ if (env.authEnabled) {
     } else if (subscriptionRepo && !paypalProvider) {
       console.log('[subscription] 승인 대기 대조 미가동 — PayPal 자격증명이 없다.');
     }
+
+    /*
+       ★★★ PayPal 웹훅 — **분쟁(chargeback)을 보이게 만든다.**
+
+         구독 상태는 15분 폴링이 처리하고 그 선택은 유지한다(유실되지 않고 PayPal 쪽
+         설정이 필요 없다). 그런데 폴링으로 **절대 알 수 없는 것**이 분쟁이다 —
+         고객이 이의를 제기해도 구독은 ACTIVE 그대로이고 PayPal 대시보드에만 나타난다.
+         돈이 빠져나가는데 우리는 모르는 상태다(TODO §3-3).
+
+       ★★ 구독 라우터와 **분리해서** 마운트한다. 웹훅은 CSRF 토큰을 가질 수 없고
+         (PayPal 이 우리 토큰을 모른다) 대신 **서명 검증**이 그 역할을 한다.
+         같은 라우터에 넣으면 CSRF 미들웨어와 얽힌다.
+
+       ★ `webhookId` 가 없으면 라우터가 **503 으로 거부한다**(fail-closed).
+         마운트 자체는 항상 한다 — 마운트하지 않으면 PayPal 이 404 를 받고, 그것은
+         "설정이 빠졌다" 와 "그런 기능이 없다" 를 구분할 수 없게 만든다.
+    */
+    app.route('/api', createPaypalWebhookRouter({
+      webhookId: env.paypalWebhookId,
+      ...(paypalProvider ? { verifier: paypalProvider } : {}),
+      ...(subscriptionRepo ? { repo: subscriptionRepo } : {}),
+      /*
+         ★★ 운영자가 **실제로 보는 곳**에 남긴다.
+
+           `payment_webhook_events` 에만 적으면 아무도 보지 않는다. 분쟁은 증빙 제출
+           기한이 있는 일이므로 관리자 화면이 읽는 운영 오류 목록(`/admin` opsErrors)에
+           올린다. 같은 테이블이 오류 알림 메일의 근거이기도 하다.
+
+         ★ 한계: 메일 발송 배선(ErrorAlerterDeps)은 이 스코프에 없다. 기록은 확실히
+           남고 화면에도 뜨지만, **메일이 자동으로 가지는 않는다.** 분쟁을 놓치지
+           않으려면 운영자가 관리자 화면을 보거나 PayPal 알림을 함께 켜야 한다.
+      */
+      ...(core.pool ? {
+        raiseIncident: async (i: { title: string; description: string; severity: string; service: string }) => {
+          const store = new PgOpsErrorStore(core.pool!);
+          await store.record({
+            /*
+               ★ `source` 는 'server' | 'client' 만 받는다(운영 오류 테이블 규약).
+                 어디서 왔는지는 message·url 로 구분한다.
+            */
+            source: 'server',
+            message: `${i.title} — ${i.description.split('\n')[0]}`,
+            stack: i.description,
+            url: '/api/payments/paypal/webhook',
+            method: 'POST',
+            status: 200,
+          });
+        },
+      } : {}),
+      /*
+         ★★ 구독 상태를 다시 맞출 때 **PayPal 에 다시 물어본다.** 웹훅 payload 를
+           믿고 기간을 연장하면 위조된 요청 하나로 무료 구독이 열린다.
+           `reconcilePendingOnce` 와 같은 판단(judgePaypalStatus)을 쓰는 것이 목적이고,
+           여기서는 조회만 해서 기록을 남긴다 — 활성화·연장은 폴링이 자기 규칙대로 한다.
+      */
+      ...(paypalProvider ? {
+        resyncSubscription: async (ref: string) => {
+          const s = await paypalProvider.getSubscription(ref);
+          console.log(`[paypal-webhook] 구독 재조회 ${ref} → status=${s.status} ok=${s.ok}`);
+        },
+      } : {}),
+    }));
+    console.log(
+      `[paypal-webhook] 마운트됨 (검증=${env.paypalWebhookId && paypalProvider ? '가능' : '불가 → 503 거부'})`,
+    );
 
     app.route('/api', createSubscriptionRouter({
       service: authService,

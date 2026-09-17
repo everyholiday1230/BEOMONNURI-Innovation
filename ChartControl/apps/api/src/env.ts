@@ -249,6 +249,15 @@ export interface ApiEnv {
   paypalClientId?: string;
   paypalClientSecret?: string;
   paypalMode?: string;
+  /*
+     PayPal 웹훅 서명 검증용 id (대시보드에서 웹훅을 만들면 생긴다).
+
+     ★★ **없으면 웹훅 엔드포인트가 503 으로 거부한다.** 검증할 수 없는데 처리하면
+       아무나 "분쟁이 열렸다"·"구독이 취소됐다" 를 보낼 수 있다. 설정이 빠졌을 때
+       조용히 열리는 것이 최악이므로 fail-closed 로 둔다.
+     ★ 구독 폴링은 이 값과 무관하게 계속 동작한다 — 웹훅은 분쟁을 보이게 하는 추가 경로다.
+  */
+  paypalWebhookId?: string;
   tossClientKey?: string;
   tossSecretKey?: string;
   cryptoWebhookSecret?: string;
@@ -886,6 +895,7 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     bedrockRegion: env.BEDROCK_REGION ?? env.AWS_REGION ?? env.AWS_DEFAULT_REGION,
     paypalClientId: env.PAYPAL_CLIENT_ID,
     paypalClientSecret: env.PAYPAL_CLIENT_SECRET,
+    paypalWebhookId: (env.PAYPAL_WEBHOOK_ID ?? '').trim() || undefined,
     /*
        ★★★ **오타 하나로 운영이 조용히 샌드박스로 돈다.**
 

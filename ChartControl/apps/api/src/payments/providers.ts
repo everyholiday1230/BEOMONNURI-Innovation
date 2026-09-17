@@ -383,6 +383,76 @@ export class PayPalProvider {
     const already = res.status === 422 && /already|SUBSCRIPTION_STATUS_INVALID/i.test(haystack);
     return { ok: already, status: already ? 'ALREADY_CANCELLED' : `http_${res.status}` };
   }
+
+  /**
+   * 웹훅 서명 검증 — **PayPal 에게 물어본다.**
+   *
+   * ★★★ 이 엔드포인트는 인증이 없는 공개 경로다. 아무나 우리 주소로 "구독이
+   *   취소됐다"·"분쟁이 열렸다" 를 보낼 수 있다. **서명 검증이 유일한 관문이므로
+   *   통과하지 못한 요청은 절대 처리하지 않는다.**
+   *
+   * ★ 인증서를 직접 내려받아 로컬에서 검증하는 방법도 있지만, PayPal 이 제공하는
+   *   검증 API 를 쓴다. 인증서 캐시·체인 검증·알고리즘 처리를 우리가 다시 구현하면
+   *   그 구현의 버그가 곧 보안 구멍이 된다.
+   *
+   * ★★ `webhookId` 는 PayPal 대시보드에서 웹훅을 만들 때 생기는 값이다(운영자 몫).
+   *   **없으면 검증할 수 없으므로 호출부가 요청을 거부해야 한다** — 여기서 true 를
+   *   돌려주면 무검증 통과가 된다.
+   *
+   * @param rawBody 받은 본문 **그대로**. 다시 직렬화하면 바이트가 달라져 검증이 깨진다.
+   */
+  async verifyWebhookSignature(input: {
+    webhookId: string;
+    rawBody: string;
+    transmissionId: string;
+    transmissionTime: string;
+    transmissionSig: string;
+    certUrl: string;
+    authAlgo: string;
+  }): Promise<{ ok: boolean; status: string }> {
+    if (!input.webhookId) return { ok: false, status: 'NO_WEBHOOK_ID' };
+    for (const [k, v] of Object.entries(input)) {
+      if (!v) return { ok: false, status: `MISSING_${k.toUpperCase()}` };
+    }
+    let token: string;
+    try {
+      token = await this.accessToken();
+    } catch (e) {
+      return { ok: false, status: `TOKEN_FAILED: ${(e as Error).message}` };
+    }
+    /*
+       ★ `webhook_event` 는 **파싱한 객체**로 보낸다. PayPal 이 받은 원문과 같은 값이면
+         되고, 서명 대상은 우리가 보내는 transmission 정보다.
+       ★ 파싱 실패는 호출부가 먼저 잡는다 — 여기서는 이미 유효한 JSON 이다.
+    */
+    let res: Response;
+    try {
+      res = await fetch(`${this.base()}/v1/notifications/verify-webhook-signature`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          auth_algo: input.authAlgo,
+          cert_url: input.certUrl,
+          transmission_id: input.transmissionId,
+          transmission_sig: input.transmissionSig,
+          transmission_time: input.transmissionTime,
+          webhook_id: input.webhookId,
+          webhook_event: JSON.parse(input.rawBody),
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (e) {
+      /*
+         ★★ 네트워크 실패를 "검증됨" 으로 바꾸지 않는다. 검증할 수 없으면 처리하지
+           않는다 — PayPal 이 재시도하므로 다음 기회가 있다.
+      */
+      return { ok: false, status: `VERIFY_UNREACHABLE: ${(e as Error).message}` };
+    }
+    const body = (await res.json().catch(() => null)) as { verification_status?: string } | null;
+    if (!res.ok) return { ok: false, status: `http_${res.status}` };
+    const v = String(body?.verification_status ?? '');
+    return { ok: v === 'SUCCESS', status: v || 'NO_STATUS' };
+  }
 }
 
 export interface CryptoConfig {
