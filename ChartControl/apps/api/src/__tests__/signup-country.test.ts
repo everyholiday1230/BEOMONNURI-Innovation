@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RegisterInputSchema } from '@quantumtrade/auth';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -181,7 +182,7 @@ describe('SIGNUP-COUNTRY — 고른 국가가 실제로 저장된다', () => {
   });
 
   it('[13] 새 문구가 남아 있는 모든 언어에 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const src = read(`src/locales/${loc}.js`);
       for (const key of ['country_search_ph', 'country_search_open', 'country_no_match', 'country_guessed']) {
         expect(src, `${loc} 에 ${key} 가 없다`).toContain(`${key}: '`);

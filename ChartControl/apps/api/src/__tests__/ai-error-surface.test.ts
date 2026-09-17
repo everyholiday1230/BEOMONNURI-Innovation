@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const read = (p: string) => readFileSync(join(__dirname, p), 'utf8');
 const stripComments = (s: string) =>
@@ -84,7 +85,7 @@ describe('AI 오류 표시 — 서버 내부 문장을 고객에게 보여주지
   ];
 
   it('오류 문구가 3개 언어에 모두 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = read(`../../../../src/locales/${loc}.js`);
       for (const k of KEYS) {
         expect(dict, `${loc} 사전에 ${k} 가 없다`).toContain(`${k}:`);
@@ -100,7 +101,7 @@ describe('AI 오류 표시 — 서버 내부 문장을 고객에게 보여주지
        "이미 있는 문구" 라고 생각해 다시 쓴다 — 그것이 이 사고의 발생 경로였다.
   */
   it('개수를 하드코딩한 거짓 문구가 사전에 없다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = stripComments(read(`../../../../src/locales/copilot.${loc}.js`));
       expect(dict, `${loc}: ai_tool_signal 이 되살아났다`).not.toMatch(/ai_tool_signal\s*:/);
       expect(dict, `${loc}: ai_tool_sr 이 되살아났다`).not.toMatch(/ai_tool_sr\s*:/);

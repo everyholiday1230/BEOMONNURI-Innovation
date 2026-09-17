@@ -238,17 +238,120 @@ export function suggestFollowUps(ctx: FollowUpContext): AiFollowUp[] {
  * ★★ 사전 문구는 사람이 쓴다. 그래서 시간이 지나면 누군가 "지금 사세요" 같은
  *   문구를 넣을 수 있다. 그 순간 이 제품은 투자권유를 하는 것이 된다 — 등록
  *   없이는 할 수 없는 일이다. 테스트가 사전 파일을 직접 훑어 막는다.
+ *
+ * ★★ **서비스하는 9개 언어를 모두 담는다.**
+ *
+ *   한동안 이 목록은 영어·한국어 패턴뿐이었다. 그런데 화면은 영어·일본어·중국어에
+ *   이어 신흥시장 6개(베트남·힌디·포르투갈·스페인·터키·필리핀)까지 늘어났다.
+ *   패턴이 없는 언어는 **검사를 통과한 것이 아니라 검사를 받지 않은 것**이다.
+ *   한국어 패턴이 남아 있는 이유: 한국어는 서비스 언어가 아니지만 이 저장소를
+ *   쓰는 사람들의 모국어라서 초안이 한국어로 섞여 들어올 수 있다.
+ *
+ * ★ **부정문을 잡지 않도록 낱말 하나가 아니라 연어(collocation)로 적는다.**
+ *
+ *   영어의 `\bguaranteed\b` 하나만 보면 이 저장소가 반드시 유지해야 하는 정직한
+ *   문장인 "No profit is guaranteed" 까지 걸린다. 다른 언어에서 같은 실수를
+ *   반복하지 않기 위해 "이익+보장" 이 붙은 형태만 적는다. 예를 들어 포르투갈어는
+ *   `lucro garantido`(보장된 이익)를 잡고 `lucro não é garantido`(이익은 보장되지
+ *   않는다)는 잡지 않는다.
+ *
+ *   영어 두 패턴(`guaranteed`·`profit is`)은 그대로 둔다 — 검사 범위가 `ai_fu_*`
+ *   제안 문구로 한정돼 있어서 면책 문장과 만나지 않고, 좁히면 오히려 놓친다.
  */
 export const SOLICITATION_PATTERNS = [
+  /* 영어 */
   /\bbuy now\b/i,
   /\bsell now\b/i,
   /\bshould I buy\b/i,
   /\bshould I sell\b/i,
   /\bguaranteed\b/i,
   /\bprofit is\b/i,
+
+  /* 한국어 — 서비스 언어는 아니지만 초안이 섞여 들어올 수 있다 */
   /지금\s*사/,
   /지금\s*팔/,
   /매수하세요/,
   /매도하세요/,
   /수익\s*보장/,
+
+  /* 일본어 */
+  /今すぐ買/,
+  /今すぐ売/,
+  /買うべき/,
+  /売るべき/,
+  /利益[を]?保証/,
+  /元本保証/,
+  /必ず(儲|もうか)/,
+
+  /* 중국어(간체) */
+  /(立即|马上|现在)\s*买/,
+  /(立即|马上|现在)\s*卖/,
+  /该不该买/,
+  /(保证|确保)\s*(收益|盈利|利润)/,
+  /(收益|盈利|利润)\s*保证/,
+  /稳赚/,
+  /包赚/,
+
+  /* 베트남어 */
+  /\bmua ngay\b/i,
+  /\bbán ngay\b/i,
+  /\bnên mua\b/i,
+  /\bnên bán\b/i,
+  /lợi nhuận\s+(được\s+)?(đảm bảo|bảo đảm)/i,
+  /(đảm bảo|bảo đảm|cam kết)\s+(có\s+)?lợi nhuận/i,
+
+  /* 힌디어 */
+  /अभी\s*खरीद/,
+  /अभी\s*बेच/,
+  /(मुनाफ़ा|मुनाफा|लाभ)\s*(की\s*)?गारंटी/,
+  /गारंटीशुदा\s*(मुनाफ़ा|मुनाफा|लाभ)/,
+  /निश्चित\s*(मुनाफ़ा|मुनाफा|लाभ)/,
+
+  /* 포르투갈어(브라질) */
+  /\bcompre?\s+agora\b/i,
+  /\bvend[ae]\s+agora\b/i,
+  /\bdeve(ria)?\s+comprar\b/i,
+  /\bdeve(ria)?\s+vender\b/i,
+  /(lucro|ganho|retorno)s?\s+garantid/i,
+  /garantia\s+de\s+(lucro|ganho|retorno)/i,
+
+  /* 스페인어(중남미) */
+  /\bcompr[aeá]\s+ahora\b/i,
+  /\bvend[eaé]\s+ahora\b/i,
+  /\bdeber[íi]a\s+comprar\b/i,
+  /\bdeber[íi]a\s+vender\b/i,
+  /(ganancia|beneficio|rentabilidad|retorno)s?\s+garantizad/i,
+  /garant[íi]a\s+de\s+(ganancia|beneficio|rentabilidad)/i,
+
+  /*
+     터키어.
+
+     ★★ 두 가지 함정이 있어서 다른 언어와 다르게 적는다.
+
+       ① `\b` 를 `ş` 앞에 쓸 수 없다. JS 의 `\b` 는 `\w`=`[A-Za-z0-9_]` 기준이라
+          `ş` 는 낱말 문자가 아니고, 그래서 `/\bşimdi/` 는 "Şimdi" 를 **못 잡는다.**
+       ② 터키어 대문자 `İ`(점 있는 I)는 `/i` 플래그로도 `i` 와 같아지지 않는다
+          (`/i/i.test('İ')` === false). 그래서 전부 대문자로 쓴 "ŞİMDİ AL" 이
+          빠져나간다. i 자리마다 `[iİ]` 로 적는다.
+
+     ★ 두 함정 모두 실제로 걸렸다 — 처음 넣은 `/\bşimdi\s+al(ın)?\b/i` 가
+       "Şimdi al" 을 놓쳐서 [11-b] 시험이 실패했다.
+  */
+  /ş[iİ]md[iİ]\s+al([ıI]n)?\b/i,
+  /ş[iİ]md[iİ]\s+sat([ıI]n)?\b/i,
+  /almal[ıI]\s*m[ıI]y[ıI]m/i,
+  /satmal[ıI]\s*m[ıI]y[ıI]m/i,
+  /garant[iİ]l[iİ]\s+(kâr|kar|get[iİ]r[iİ]|kazanç)/i,
+  /(kâr|kar|get[iİ]r[iİ]|kazanç)\s+garant[iİ]s[iİ]/i,
+  /kes[iİ]n\s+(kâr|kar|kazanç)/i,
+
+  /* 필리핀어 */
+  /\bbumili\s+(na|ngayon)\b/i,
+  /\bmagbenta\s+(na|ngayon)\b/i,
+  /\bdapat\s+(bang\s+)?bumili\b/i,
+  /\bdapat\s+(bang\s+)?magbenta\b/i,
+  /garantisadong\s+(kita|tubo|profit)/i,
+  /(kita|tubo)\s+na\s+garantisado/i,
+  /siguradong\s+(kita|tubo)/i,
 ];
+

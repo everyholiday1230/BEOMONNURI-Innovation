@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const read = (p: string) => readFileSync(join(__dirname, p), 'utf8');
 
@@ -23,7 +24,7 @@ const read = (p: string) => readFileSync(join(__dirname, p), 'utf8');
 */
 describe('AI 그림 보고 — 하지 않은 일을 했다고 말하지 않는다', () => {
   it('개수를 하드코딩한 문구가 사전에 없다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = read(`../../../../src/locales/copilot.${loc}.js`);
       /* 주석은 제외 — 왜 지웠는지 설명하려면 옛 문구를 언급해야 한다. */
       const code = dict.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -51,7 +52,7 @@ describe('AI 그림 보고 — 하지 않은 일을 했다고 말하지 않는�
   ];
 
   it('그림 보고 문구가 3개 언어에 모두 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = read(`../../../../src/locales/copilot.${loc}.js`);
       for (const k of DREW_KEYS) {
         expect(dict, `${loc} 사전에 ${k} 가 없다`).toContain(`${k}:`);

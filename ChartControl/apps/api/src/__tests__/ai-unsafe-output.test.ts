@@ -15,6 +15,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf-8');
 
@@ -39,7 +40,7 @@ describe('거부된 AI 답변 회수', () => {
        ★ 키가 없으면 화면에 `ai_unsafe_output` 이라는 키 문자열이 그대로 보인다.
          고객에게는 오류로 읽힌다.
     */
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = read(`../../../../src/locales/${loc}.js`);
       expect(dict, `${loc} 사전에 ai_unsafe_output 이 없다`).toContain('ai_unsafe_output');
     }

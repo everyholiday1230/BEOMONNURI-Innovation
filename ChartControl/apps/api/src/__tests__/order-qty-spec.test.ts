@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -89,7 +90,7 @@ describe('ORDER-QTY-SPEC — 폼이 수량 규격을 안다', () => {
   });
 
   it('[6] 새 문구가 남아 있는 모든 언어에 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const src = read(`src/locales/${loc}.js`);
       for (const key of ['oe_err_below_min_qty', 'oe_err_qty_snapped_zero']) {
         expect(src, `${loc} 에 ${key} 가 없다`).toContain(`${key}: '`);

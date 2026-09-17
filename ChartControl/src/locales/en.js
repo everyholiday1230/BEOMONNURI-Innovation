@@ -521,7 +521,7 @@
       tl_connected: 'Key connected',
       tl_traded: 'Traded',
       tl_none: 'No team leaders yet. Tag a user with team_leader in Admin → Users.',
-      tl_rate_note: 'Payout = 20% of the KuCoin broker commission from each leader\\u2019s downline. See Broker Commission for actual amounts. Paid manually by the company (no auto-payout).',
+      tl_rate_note: 'Payout = 20% of the KuCoin broker commission from each leader’s downline. See Broker Commission for actual amounts. Paid manually by the company (no auto-payout).',
       prov_note_fees_live: 'Fee tiers (live exchange rates) and the team-leader commission view (20% of broker fees) are live.',
       prov_note_admin_home_live: 'Admin console is live (users, audit, system, notices, points, referral, fees).',
       wg_more: 'More',

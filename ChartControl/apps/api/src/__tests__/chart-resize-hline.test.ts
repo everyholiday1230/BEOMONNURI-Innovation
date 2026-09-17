@@ -16,6 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf-8');
 
@@ -139,7 +140,7 @@ describe('수평선 가격 입력', () => {
   });
 
   it('문구가 3개 언어에 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const dict = read(`../../../../src/locales/${loc}.js`);
       for (const key of ['chart_hline_price', 'chart_hline_locked', 'chart_hline_bad']) {
         expect(dict, `${loc} 사전에 ${key} 가 없다`).toContain(key);

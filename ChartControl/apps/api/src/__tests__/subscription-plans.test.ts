@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { PLANS, PLAN_BY_CODE, PLAN_AI_RUN_POINTS, isPlanCode, DEFAULT_PLAN, planIncludes, FEATURE_SAVES, FEATURE_TOPUP } from '../subscriptions/plans';
 import { AI_BASE_POINTS } from '../points/ai-metering';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -114,7 +115,7 @@ describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
       [/guaranteed|profit is|수익\s*보장/i, '수익 보장'],
     ];
     const bad: string[] = [];
-    for (const lang of ['en', 'ja', 'zh']) {
+    for (const lang of UI_LOCALES) {
       const src = read(`src/locales/${lang}.js`);
       for (const line of src.split('\n')) {
         /* ★ 요금제 관련 키만 본다. 다른 문구까지 막을 이유는 없다. */
@@ -142,7 +143,7 @@ describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
     expect(keys.size).toBeGreaterThan(12);
 
     const missing: string[] = [];
-    for (const lang of ['en', 'ja', 'zh']) {
+    for (const lang of UI_LOCALES) {
       const src = read(`src/locales/${lang}.js`);
       for (const k of keys) {
         if (!new RegExp(`\\b${k}\\s*:`).test(src)) missing.push(`${lang}/${k}`);
@@ -214,7 +215,7 @@ describe('SUBSCRIPTION-PLANS — 실제 있는 기능만 판다', () => {
     expect(routes).toMatch(/activeUntil/);
     expect(routes).toMatch(/providerStopRequired/);
 
-    for (const lang of ['en', 'ja', 'zh']) {
+    for (const lang of UI_LOCALES) {
       const src = read(`src/locales/${lang}.js`);
       expect(src, `${lang}: 결제사 정지 안내가 없다`).toMatch(/sub_canceled_provider\s*:/);
       expect(src, `${lang}: 해지 확인 문구가 없다`).toMatch(/sub_cancel_confirm\s*:/);

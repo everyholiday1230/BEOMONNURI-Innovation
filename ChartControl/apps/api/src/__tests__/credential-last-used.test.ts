@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -98,7 +99,7 @@ describe('CRED-LAST-USED — 키 사용 기록이 실제로 남는가', () => {
   });
 
   it('[7] 새 문구가 남아 있는 모든 언어에 있다', () => {
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of UI_LOCALES) {
       const src = read(`src/locales/${loc}.js`);
       expect(src, `${loc} 에 wal_col_last_used_none 이 없다`).toMatch(/wal_col_last_used_none: '/);
     }

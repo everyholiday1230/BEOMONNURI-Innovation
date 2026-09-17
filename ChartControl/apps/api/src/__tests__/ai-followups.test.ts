@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { suggestFollowUps, MAX_FOLLOW_UPS, SOLICITATION_PATTERNS, type FollowUpContext } from '@quantumtrade/ai';
+import { UI_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -133,9 +134,13 @@ describe('AI-FOLLOWUPS — 대화 흐름에 맞는 다음 행동 제안', () => 
          개발·공급이고 투자자문 등록이 없다.
 
        ★ 그래서 사전 파일을 직접 훑는다. 코드 검사만으로는 막을 수 없다.
+
+       ★★ 대상 언어를 **하드코딩하지 않는다.** 예전에는 `['en','ja','zh']` 였고,
+         그 뒤 신흥시장 6개 언어를 추가했는데 이 목록을 아무도 고치지 않아서
+         **새 언어 6개가 검사에서 빠져 있었다.** 검사가 있다고 믿는 쪽이 더 위험하다.
     */
     const bad: string[] = [];
-    for (const lang of ['en', 'ja', 'zh']) {
+    for (const lang of UI_LOCALES) {
       const src = read(`src/locales/copilot.${lang}.js`);
       /* ai_fu_ 로 시작하는 줄만 검사한다. 다른 문구까지 막을 이유는 없다. */
       for (const line of src.split('\n')) {
@@ -148,7 +153,75 @@ describe('AI-FOLLOWUPS — 대화 흐름에 맞는 다음 행동 제안', () => 
     expect(bad, `투자권유로 읽힐 수 있는 제안 문구:\n${bad.join('\n')}`).toEqual([]);
   });
 
-  it('[12] 모든 제안 키가 3개 언어에 다 있다 — 없으면 칩이 안 그려진다', () => {
+  /*
+     ★★ **금지 패턴이 언어마다 실제로 존재하는지 확인한다.**
+
+       위 [11] 은 "걸린 것이 없다" 를 확인한다. 그런데 그 언어에 패턴이 하나도
+       없으면 [11] 은 **언제나 통과한다.** 통과가 안전을 뜻하지 않는 상태가 되고,
+       그게 신흥시장 6개 언어에서 실제로 벌어진 일이다.
+
+     ★ 그래서 각 언어의 대표적인 위반 문장을 넣어 **잡히는지** 본다. 패턴을 지우면
+       이 시험이 실패한다 — 검사가 살아 있다는 증거가 된다.
+  */
+  it('[11-b] 서비스하는 모든 언어에 권유 탐지 패턴이 실제로 있다', () => {
+    const VIOLATIONS: Record<string, string[]> = {
+      en: ['Buy now while it is cheap', 'Profit is guaranteed', 'BUY NOW'],
+      ja: ['今すぐ買いましょう', '利益を保証します', '元本保証です'],
+      zh: ['立即买入', '保证收益', '马上卖出'],
+      vi: ['Mua ngay bây giờ', 'Lợi nhuận được đảm bảo', 'BÁN NGAY'],
+      hi: ['अभी खरीदें', 'मुनाफ़ा की गारंटी', 'अभी बेचें'],
+      pt: ['Compre agora', 'Lucro garantido', 'VENDA AGORA'],
+      es: ['Compra ahora', 'Ganancia garantizada', 'VENDE AHORA'],
+      /*
+         ★★ 터키어는 전부 대문자 표기를 **반드시** 포함한다.
+
+           `İ`(점 있는 대문자 I)는 `/i` 플래그로도 `i` 와 같아지지 않는다. 그래서
+           "ŞİMDİ AL" 이 조용히 빠져나갔다. 이 예시가 그 함정을 고정한다.
+      */
+      tr: ['Şimdi al', 'ŞİMDİ AL', 'Garantili kâr', 'GARANTİLİ KÂR', 'Almalı mıyım'],
+      fil: ['Bumili na', 'Garantisadong kita', 'MAGBENTA NA'],
+    };
+
+    /* 검사 대상 언어에 예시가 빠져 있으면 그것부터 알려 준다. */
+    const noSample = UI_LOCALES.filter((l) => !VIOLATIONS[l]);
+    expect(noSample, `이 언어의 위반 예시가 없다 — 추가할 것: ${noSample.join(', ')}`).toEqual([]);
+
+    const undetected: string[] = [];
+    for (const lang of UI_LOCALES) {
+      for (const sample of VIOLATIONS[lang]!) {
+        if (!SOLICITATION_PATTERNS.some((re) => re.test(sample))) undetected.push(`${lang}: ${sample}`);
+      }
+    }
+    expect(undetected, `이 문장이 탐지되지 않는다 — 그 언어는 검사를 받지 않는 상태다:\n${undetected.join('\n')}`).toEqual([]);
+  });
+
+  /*
+     ★ 반대편도 본다 — 정직한 문장을 잡으면 안 된다.
+
+       이 저장소는 "수익은 보장되지 않는다" 를 반드시 말하는 규약이다. 금지 패턴을
+       낱말 하나로 적으면 그 문장까지 위반으로 잡아서, 결국 사람이 검사를 끄게 된다.
+  */
+  it('[11-c] 부정문·면책 문장을 위반으로 잡지 않는다', () => {
+    const HONEST = [
+      '이익은 보장되지 않습니다',
+      'Lucro não é garantido',
+      'No garantizamos ninguna ganancia',
+      'Lợi nhuận không được đảm bảo',
+      'Kâr garanti edilmez',
+      'Walang garantisadong', // 필리핀어: "보장된 …는 없다" — 뒤 단어가 없으면 잡히지 않아야 한다
+      '利益は保証されません',
+      '不保证任何收益',
+    ];
+    const falsePositives: string[] = [];
+    for (const s of HONEST) {
+      for (const re of SOLICITATION_PATTERNS) {
+        if (re.test(s)) falsePositives.push(`${re} ← ${s}`);
+      }
+    }
+    expect(falsePositives, `정직한 문장이 위반으로 잡힌다:\n${falsePositives.join('\n')}`).toEqual([]);
+  });
+
+  it('[12] 모든 제안 키가 서비스하는 모든 언어에 다 있다 — 없으면 칩이 안 그려진다', () => {
     /*
        ★★ 사전에 없으면 UI 가 그 칩을 그리지 않는다(죽은 버튼 방지). 그건 안전하지만,
          번역 누락이 조용히 기능을 없애는 것이므로 여기서 잡는다.
@@ -169,7 +242,7 @@ describe('AI-FOLLOWUPS — 대화 흐름에 맞는 다음 행동 제안', () => 
     expect(keys.size).toBeGreaterThan(8);   // ★ 실제로 여러 제안을 훑었는지
 
     const missing: string[] = [];
-    for (const lang of ['en', 'ja', 'zh']) {
+    for (const lang of UI_LOCALES) {
       const src = read(`src/locales/copilot.${lang}.js`);
       for (const k of keys) {
         if (!new RegExp(`\\b${k}\\s*:`).test(src)) missing.push(`${lang}/${k}`);
@@ -177,6 +250,7 @@ describe('AI-FOLLOWUPS — 대화 흐름에 맞는 다음 행동 제안', () => 
     }
     expect(missing, `사전 누락:\n${missing.join('\n')}`).toEqual([]);
   });
+
 
   it('[13] 복기 도구는 조회 실패를 "거래 없음" 으로 바꾸지 않는다', () => {
     /*
