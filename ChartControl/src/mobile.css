@@ -54,26 +54,78 @@
     height: 100dvh;
   }
 
-  .app-shell > .app-sidebar {
+  /*
+     ★★★ **두 셸 × 두 사이드바 = 네 조합인데 두 개만 처리하고 있었다.**
+
+       이 저장소에는 셸이 둘(`.app-shell`, `.page-shell`), 사이드바가 둘
+       (`.app-sidebar`, `.app-sidebar-v2`) 있다. 그런데 규칙이 대각선으로만 있었다:
+
+         .app-shell  > .app-sidebar      ✔ 처리됨
+         .app-shell  > .app-sidebar-v2   ✘ 빠짐   ← /trade 가 이 조합이다
+         .page-shell > .app-sidebar-v2   ✔ 처리됨
+         .page-shell > .app-sidebar      ✘ 빠짐
+
+       그래서 `/trade` 는 모바일에서 사이드바가 흐름에 남았다. 실측(390×844):
+
+         .app-main        grid-column: 1 / -1  →  box 0,143  **123**x701
+         .app-sidebar-v2  grid-column: auto    →  box 123,143 **267**x701
+
+       그리드는 1열로 접혔지만 사이드바가 **암시적 열**을 차지해, 본문이 123px 만
+       쓰고 사이드바가 차트 위에 겹쳐 그려졌다. 결과: **조작요소 39개가 가려져
+       누를 수 없었다** — 차트 툴바(지표·비교·템플릿) 전체와 그리기 도구 전부.
+
+     ★ 서랍 기구는 이미 있었다(`.qt-drawer-toggle` "Open navigation menu" 가 모바일에
+       보이고 `data-qt-drawer` 를 토글한다). 빠진 것은 선택자 하나였다.
+
+     ★ 네 조합을 모두 적는다. 셸이나 사이드바를 하나 더 만들면 또 빠질 것이므로
+       아래 `[VIS-OCC]` e2e 가 가려짐 0 을 요구한다.
+  */
+  .app-shell > .app-sidebar,
+  .app-shell > .app-sidebar-v2,
+  .page-shell > .app-sidebar,
+  .page-shell > .app-sidebar-v2 {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
     z-index: 200;
-    width: 240px;
     /* 기본은 숨김. 열기 버튼이 data 속성으로 토글한다. */
     transform: translateX(-100%);
     transition: transform 180ms ease;
     box-shadow: 0 0 24px rgb(0 0 0 / 45%);
     overflow-y: auto;
+    /*
+       ★★ 폭을 `!important` 로 못박는다. `/trade` 의 사이드바는 접힌 레일
+         (`.is-collapsed`, 실측 폭 267px→레일)이라 자체 폭 규칙이 더 구체적이다.
+         서랍으로 띄우는 동안에는 메뉴를 읽을 수 있어야 하므로 240px 를 강제한다.
+    */
+    width: 240px !important;
+    max-width: 86vw;
   }
 
-  html[data-qt-drawer='open'] .app-shell > .app-sidebar {
+  html[data-qt-drawer='open'] .app-shell > .app-sidebar,
+  html[data-qt-drawer='open'] .app-shell > .app-sidebar-v2,
+  html[data-qt-drawer='open'] .page-shell > .app-sidebar,
+  html[data-qt-drawer='open'] .page-shell > .app-sidebar-v2 {
     transform: translateX(0);
   }
 
-  /* 서랍이 열렸을 때 본문을 덮는 막. 바깥을 눌러 닫을 수 있게 한다. */
-  html[data-qt-drawer='open'] .app-shell::after {
+  /*
+     ★ 닫힌 서랍이 **조작요소를 가리지 않게** 한다.
+
+       `transform: translateX(-100%)` 로 화면 밖에 있어도 요소는 살아 있다.
+       그 자체로 겹침 판정(elementFromPoint)에는 걸리지 않지만, 화면 왼쪽 경계에
+       걸친 요소를 가로챌 수 있다. 닫혔을 때는 포인터를 아예 받지 않는다.
+  */
+  html:not([data-qt-drawer='open']) .app-shell > .app-sidebar,
+  html:not([data-qt-drawer='open']) .app-shell > .app-sidebar-v2,
+  html:not([data-qt-drawer='open']) .page-shell > .app-sidebar,
+  html:not([data-qt-drawer='open']) .page-shell > .app-sidebar-v2 {
+    pointer-events: none;
+  }
+
+  html[data-qt-drawer='open'] .app-shell::after,
+  html[data-qt-drawer='open'] .page-shell::after {
     content: '';
     position: fixed;
     inset: 0;
@@ -107,31 +159,10 @@
     overflow: visible;
   }
 
-  .page-shell > .app-sidebar-v2 {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 200;
-    width: 240px;
-    transform: translateX(-100%);
-    transition: transform 180ms ease;
-    box-shadow: 0 0 24px rgb(0 0 0 / 45%);
-    overflow-y: auto;
-  }
-
-  html[data-qt-drawer='open'] .page-shell > .app-sidebar-v2 {
-    transform: translateX(0);
-  }
-
-  /* 서랍이 열렸을 때 본문을 덮는 막 — 바깥을 눌러 닫을 수 있게. */
-  html[data-qt-drawer='open'] .page-shell::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 199;
-    background: rgb(0 0 0 / 45%);
-  }
+  /*
+     ★ 사이드바·막 규칙은 위에서 **네 조합을 한 번에** 처리한다.
+       여기에 따로 두면 한쪽만 고치는 일이 또 생긴다(실제로 그래서 `/trade` 가 빠졌다).
+  */
 
   /* 본문이 전체 폭을 쓴다. */
   .page-shell > .page-main {
@@ -366,6 +397,34 @@
     overflow-y: hidden;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+     ★★★ **가로 스크롤이 켜져 있는데 동작하지 않았다 — 자식이 찌그러졌기 때문이다.**
+
+       실측(390×844, /trade): `.chart-toolbar` 는 이미 `overflow-x: auto` 인데
+       `scrollWidth === clientWidth === 350` 이었다. 넘치는 내용이 없다는 뜻이다.
+       내용이 없어서가 아니라 flex 기본값 `flex-shrink: 1` 때문에 **컨테이너들이
+       12~16px 로 찌그러졌고**, 그 안의 버튼은 자기 크기를 유지하며 밖으로 넘쳤다:
+
+         .chart-tf        box 18,417  **64**x36   ← 안의 버튼은 20/51/82 에 있다(119까지)
+         .chart-tool-wrap box 86,419  **16**x32   ← Indicators 버튼이 그 밖으로 나간다
+         .chart-tool-wrap box 107,419 **12**x32   ← Compare
+         .chart-tool-wrap box 123,419 **14**x32   ← Templates
+
+       넘친 버튼들이 서로 겹쳐 **중심점이 다른 버튼에 가려졌다.** 그래서
+       "타임프레임 15m 을 눌렀는데 Templates 가 눌린다" 가 된다. 실측 가림 22건.
+
+     ★ `overflow-x: auto` 는 **넘칠 때만** 스크롤을 만든다. 찌그러지면 넘치지 않으므로
+       스크롤도 생기지 않는다 — 두 속성은 함께 있어야 의미가 있다.
+
+     ★ 구분선(`__sep`)은 폭 0 이 정상이므로 제외하지 않아도 무해하다.
+  */
+  .chart-toolbar > *,
+  .chart-tf > *,
+  .chart-tool-wrap > *,
+  .chart-drawtools > * {
+    flex: 0 0 auto;
   }
 
   /* 차트는 더 높게 — 봉을 읽을 수 있어야 한다. */
