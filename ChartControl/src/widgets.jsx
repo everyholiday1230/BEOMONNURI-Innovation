@@ -259,10 +259,10 @@
                 ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
                 : { key, dir: 'desc' }
             ));
-            const Head = ({ k, label }) => (sortable ? (
+            const Head = ({ k, label, fill }) => (sortable ? (
               <button
                 type="button"
-                className={`mw-sort${sort.key === k ? ' is-on' : ''}`}
+                className={`mw-sort${fill ? ' mw-sort--fill' : ''}${sort.key === k ? ' is-on' : ''}`}
                 aria-sort={ariaSort(k)}
                 aria-label={t('wl_sort_by', { col: label })}
                 title={t('wl_sort_by', { col: label })}
@@ -278,7 +278,7 @@
                   <span className="mw-sort__sep"> / </span>
                   <Head k="vol" label={t('wl_vol')}/>
                 </span>
-                <span style={{textAlign:'right'}}><Head k="chg" label="24h"/></span>
+                <span style={{textAlign:'right'}}><Head k="chg" label="24h" fill/></span>
               </div>
             );
           })()}
