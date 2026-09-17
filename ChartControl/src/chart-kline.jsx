@@ -1088,6 +1088,12 @@
     const prevLenRef = useRef(0);
     const prevFirstTsRef = useRef(null);
     /*
+       klinecharts 가 `subscribeBar` 로 넘겨준 실시간 봉 갱신 콜백.
+       ★ 이것으로 마지막 봉만 밀어 넣으면 `resetData`(1000봉 재적재)를 피한다.
+       ★ 없으면(구버전·구독 전) 예전 경로로 떨어진다 — 기능이 사라지지는 않는다.
+    */
+    const liveBarRef = useRef(null);
+    /*
        ★ 과거를 보는 동안 미뤄 둔 실시간 갱신이 있는가. 사용자가 오른쪽 끝으로
          돌아왔을 때 한 번 다시 그리기 위해 기억한다 — 미뤘다는 사실을 잊으면
          돌아와도 낡은 마지막 봉이 남는다.
@@ -1473,6 +1479,33 @@
               callback([], { forward: false, backward: true });
             });
         },
+
+        /*
+           ★★★ **실시간 봉 갱신 창구 — 이것이 없어서 매 틱마다 1000봉을 다시 실었다.**
+
+             klinecharts 는 `init` 로드가 끝나면 `subscribeBar({symbol, period, callback})`
+             를 부르고, 우리가 그 `callback(bar)` 을 부르면 내부적으로
+             `_addData(bar, 'update')` 가 돈다(vendor 번들에서 확인):
+
+               bar.timestamp  >  마지막 봉  → 뒤에 **추가**
+               bar.timestamp === 마지막 봉  → 마지막 봉 **교체**
+               그 외                        → 무시
+
+             그 뒤 지표만 다시 계산하고 가벼운 layout 을 한다. **데이터 재적재도,
+             로더 재호출도, 뷰 이동도 없다.**
+
+           ★★ 예전에는 이 창구를 제공하지 않아서 시세 1틱마다 `resetData()` 를 불렀다.
+             실측(틱 10회 시뮬레이션): `resetData` 8회, 그때마다
+             `getBars init` 8회(1000봉 전량) + `getBars backward` 8회(과거 요청).
+             주석에는 "이 버전에는 부분 갱신 API 가 없다" 고 적혀 있었는데, 그것은
+             **인스턴스 메서드**(updateData/appendData)를 본 것이고 — 실제로 없다 —
+             로더 쪽 실시간 경로는 있었다. 층이 다른 API 를 같은 것으로 본 것이다.
+
+           ★ 콜백을 ref 에 담는다. `resetData` 는 내부에서 unsubscribe 후 init 을 다시
+             돌리며 subscribeBar 를 **다시** 부르므로, 최신 콜백으로 갱신돼야 한다.
+        */
+        subscribeBar: ({ callback }) => { liveBarRef.current = callback; },
+        unsubscribeBar: () => { liveBarRef.current = null; },
       });
 
       chart.setSymbol({ ticker: symbol, pricePrecision: decimals, volumePrecision: 3 });
@@ -1772,23 +1805,60 @@
         && prevFirstTs === merged[0].timestamp;
 
       /*
+         ★★★ **마지막 봉만 바뀌었으면 그 한 봉만 밀어 넣는다 — resetData 하지 않는다.**
+
+           시세 1틱마다 `candles` 배열이 새로 만들어지고(app.jsx 의 useMemo 가
+           `market.price` 에 의존한다) 마지막 봉의 종가가 달라진다. 예전에는 그때마다
+           `resetData()` 를 불러 **1000봉을 통째로 다시 싣고 데이터 로더까지 다시
+           호출했다.** 실측(틱 10회 시뮬레이션): resetData 8회 · getBars init 8회 ·
+           getBars backward 8회.
+
+           이제 로더의 실시간 창구(`subscribeBar` 콜백)로 마지막 봉만 보낸다.
+           klinecharts 가 마지막 봉을 교체하고 지표만 다시 계산한다.
+
+         ★★ 부수 효과로 **과거를 보는 중에도 최신 봉이 갱신된다.** 예전에는 뷰가 튀는
+           것을 막으려고 과거를 보는 동안 갱신을 아예 미뤘다(`pendingLiveRef`).
+           부분 갱신은 뷰를 움직이지 않으므로 미룰 이유가 없다.
+
+         ★ 봉이 **하나 늘어난 경우**(새 봉 형성)도 같은 창구로 보낸다. `_addData` 가
+           timestamp 가 크면 뒤에 붙인다. 첫 타임스탬프가 그대로여야 한다 — 바뀌었으면
+           창이 미끄러진 것이므로 구조 변경으로 보고 resetData 한다.
+
+         ★★ 콜백이 없으면(구독 전 등) 예전 경로로 떨어진다. 조용히 갱신을 잃지 않는다.
+      */
+      const appendedOneBar = sameKey
+        && prevLen > 0
+        && merged.length === prevLen + 1
+        && prevFirstTs === merged[0].timestamp;
+
+      if ((onlyLastBarChanged || appendedOneBar) && typeof liveBarRef.current === 'function') {
+        try {
+          liveBarRef.current({
+            timestamp: lastBar.timestamp,
+            open: lastBar.open,
+            high: lastBar.high,
+            low: lastBar.low,
+            close: lastBar.close,
+            volume: lastBar.volume,
+          });
+          pendingLiveRef.current = false;
+          return;
+        } catch (e) {
+          /*
+             ★ 실패하면 아래 전체 경로로 떨어진다. 부분 갱신이 안 되는 것보다
+               "봉이 갱신되지 않는 것" 이 나쁘다.
+          */
+          console.warn('[ChartKline] 실시간 봉 갱신 실패 — 전체 재적재로 대체:', e && e.message);
+        }
+      }
+
+      /*
          ★★ 과거를 보고 있고 **마지막 봉만 바뀐 경우**에는 다시 그리지 않는다.
 
-           이 KLineCharts 버전에는 부분 갱신 API 가 없다(실측: 인스턴스에 resetData·
-           getDataList·setDataLoader 만 있고 updateData/appendData 계열이 없다).
-           그래서 "마지막 봉만 갱신" 은 불가능하다.
-
-           선택지는 두 개였다:
-             (a) 계속 resetData 한다 → 과거를 볼 수 없다(실측: 3초마다 튐 6/6회)
-             (b) 과거를 보는 동안 최신 봉 갱신을 미룬다 → 화면이 고정된다
-
-           (b) 를 고른다. 과거를 분석하는 중에 최신 봉이 실시간으로 갱신될 필요는
-           없다. 오른쪽 끝으로 돌아오면 그때 최신 데이터로 다시 그린다.
-
-         ★★ 데이터를 버리는 것이 아니다. dataRef 는 이미 갱신했으므로, 다음에
-           구조가 바뀌거나 사용자가 최신으로 돌아오면 최신 상태가 반영된다.
-
-         ★ 지문은 이미 갱신했다. 그래서 같은 틱으로 다시 들어와도 반복 판정하지 않는다.
+           위 실시간 창구를 쓸 수 없을 때의 대비책이다. 이 KLineCharts 버전의
+           **인스턴스**에는 부분 갱신 메서드가 없다(실측: updateData/appendData 없음).
+           그래서 콜백이 없으면 "마지막 봉만 갱신" 을 할 방법이 없고, 그때는
+           과거를 보는 동안 갱신을 미루는 편이 뷰가 튀는 것보다 낫다.
       */
       if (onlyLastBarChanged && anchorTs != null) {
         pendingLiveRef.current = true;
