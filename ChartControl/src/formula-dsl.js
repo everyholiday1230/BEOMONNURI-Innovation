@@ -23,8 +23,23 @@
   'use strict';
   const MAX_LEN = 400;
   const MAX_NODES = 80;
+  /** 함수 인자 중첩 상한 — 머리말이 선언한 값. 서버도 같은 값을 센다. */
+  const MAX_CALL_DEPTH = 3;
   const FUNCS = new Set(['SMA', 'EMA', 'STDDEV', 'REF', 'DELTA', 'ABS', 'MIN', 'MAX', 'POW', 'SQRT']);
   const VARS = new Set(['close', 'open', 'high', 'low', 'volume', 'hl2', 'hlc3']);
+  /*
+     함수별 인자 개수 — 아래 evalNode 가 실제로 쓰는 값이다.
+
+     ★ 개수를 확인해야 하는 이유: `MIN(close)` 처럼 인자가 빠지면 evalNode 가
+       `node.args[1]` 이 undefined 인 채로 재귀해 터진다. 파싱 단계에서 막는다.
+     ★ POW 는 지수를 생략하면 2 로 본다 — 1 또는 2 를 받는다.
+  */
+  const ARITY = {
+    SMA: [2], EMA: [2], STDDEV: [2], REF: [2], DELTA: [2],
+    MIN: [2], MAX: [2],
+    ABS: [1], SQRT: [1],
+    POW: [1, 2],
+  };
 
   const isDigit = (c) => c >= '0' && c <= '9';
   const isIdentStart = (c) => /[A-Za-z_]/.test(c);
@@ -57,6 +72,7 @@
   function parseTokens(toks) {
     let p = 0;
     let nodes = 0;
+    let callDepth = 0;
     const node = (n) => { nodes += 1; if (nodes > MAX_NODES) throw new Error('TOO_COMPLEX'); return n; };
     function expr() {
       let left = term();
@@ -91,12 +107,23 @@
           p += 1;
           if (!toks[p] || toks[p].t !== '(') throw new Error('EXPECTED_LPAREN');
           p += 1;
+          /*
+             ★★ 중첩 단계를 **실제로 센다.**
+
+               파일 머리말은 "함수 인자 중첩 3단계 이하" 를 제한으로 선언해 두었는데,
+               이 자리에 있던 `let depth = 1;` 은 읽는 곳이 없어 아무것도 막지 않았다
+               (eslint 이 미사용 변수로 잡고 있었다). 선언한 제한이 강제되지 않으면
+               문서가 사실과 달라진다 — 서버(indicator-formula.ts)도 같은 값을 센다.
+          */
+          callDepth += 1;
+          if (callDepth > MAX_CALL_DEPTH) throw new Error('TOO_DEEP');
           const args = [expr()];
-          let depth = 1;
           while (toks[p] && toks[p].t === ',') { p += 1; args.push(expr()); }
           if (!toks[p] || toks[p].t !== ')') throw new Error('EXPECTED_RPAREN');
           p += 1;
-          if (args.length > 3) throw new Error('TOO_MANY_ARGS');
+          callDepth -= 1;
+          const allowed = ARITY[name];
+          if (allowed && allowed.indexOf(args.length) === -1) throw new Error('BAD_ARITY:' + name);
           return node({ k: 'call', name, args });
         }
         const lv = tk.v.toLowerCase();
