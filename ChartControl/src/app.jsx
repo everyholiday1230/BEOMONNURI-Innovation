@@ -1827,6 +1827,19 @@
     const isAuthRoute = [
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      /*
+         ★★ `/company` 도 자체 레이아웃이다. 이 목록에 없으면 auth 분기에 들어가지
+           못하고 **헤더·사이드바만 있는 빈 앱 셸**이 그려진다(실측: div.app-shell 998자,
+           제목도 내용도 없음). 사업자 정보 블록이 auth 분기 안에 있기 때문이다.
+
+         ★ 세 목록(isAuthRoute · ALL_KNOWN_ROUTES · PUBLIC_ROUTES)이 **함께** 맞아야
+           한다. 하나만 넣으면 다른 방식으로 깨진다 — 실제로 그렇게 겪었다:
+             PUBLIC 없음 → 로그인 폼이 겹침 (#/refund 가 그랬다)
+             KNOWN 없음  → 404 가 겹침      (#/company 가 그랬다)
+             AUTH 없음   → 빈 앱 셸         (위 수정 직후 #/company 가 그랬다)
+           `public-routes.test.ts` 가 세 목록을 함께 검사한다.
+      */
+      '/company',
     ].includes(route.path);
 
     // All known routes — anything not in this list is 404
@@ -1834,6 +1847,13 @@
       '/', '/login', '/signup', '/verify-email', '/kyc', '/password-reset',
       // 법적 문서 — 로그인 없이 열린다.
       '/terms', '/privacy', '/risk', '/security', '/refund',
+      /*
+         ★★ 사업자 정보. **이 목록에 없어서 404 로 판정됐다** — 그런데 아래 렌더에는
+           `/company` 블록이 있어서, 사업자 정보와 404 화면이 **함께** 그려졌다
+           (프로덕션 실측: page-wrap 308자 + auth-shell 956자).
+           푸터가 전자상거래법 §10 표시를 위해 링크하는 화면이다.
+      */
+      '/company',
       '/trade',
       '/markets', '/ai-strategies', '/ai-strategies/detail', '/ai-strategies/my',
       '/portfolio', '/analytics',
