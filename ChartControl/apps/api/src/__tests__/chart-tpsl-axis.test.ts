@@ -249,7 +249,7 @@ describe('CHART-TPSL — 차트에서 클릭으로 TP/SL 설정', () => {
     expect(actions).toMatch(/isDrawToolAvailable[\s\S]{0,400}PRICE_PICK_TOOLS\.includes/u);
   });
 
-  it('[14] ★ 클릭 리스너를 컨테이너에 붙인다 — 캔버스가 아니다', () => {
+  it('[14] ★ 리스너를 컨테이너에 붙인다 — 캔버스가 아니다', () => {
     /*
        ★★★ KLineChart 는 패널마다 캔버스를 **여러 장 겹쳐** 놓는다(실측: 캔들 패널 2장).
          캔버스 하나에 붙이면 클릭이 맨 위 캔버스로 가고 형제인 그 캔버스에는
@@ -259,13 +259,38 @@ describe('CHART-TPSL — 차트에서 클릭으로 TP/SL 설정', () => {
     const m = /armPricePick\s*\(kind\)\s*\{([\s\S]*?)\n {6}\},/u.exec(actions);
     expect(m, 'armPricePick 을 찾지 못했다').toBeTruthy();
     const body = m![1]!;
-    expect(body, '리스너를 컨테이너에 붙이지 않는다').toMatch(/container\.addEventListener\(\s*'click'/u);
+    expect(body, '리스너를 컨테이너에 붙이지 않는다').toMatch(/container\.addEventListener\(\s*'pointerdown'/u);
     expect(body, '캔버스에 직접 리스너를 붙였다 — 겹친 캔버스에 가로막힌다')
-      .not.toMatch(/(canvas|target)\.addEventListener\(\s*'click'/u);
+      .not.toMatch(/(canvas|target)\.addEventListener\(/u);
     /* 좌표는 캔들 패널 rect 기준으로 계산해야 한다. */
     expect(body).toMatch(/convertFromPixel/u);
     /* 한 번만 받고 스스로 해제한다 — 켜진 채 두면 다음 클릭이 값을 덮어쓴다. */
     expect(body, 'one-shot 해제가 없다').toMatch(/off\s*\(\s*\)/u);
+  });
+
+  it('[14-b] ★★ 좌표를 `click` 에서 읽지 않는다 — 터치에서 (0,0) 으로 온다', () => {
+    /*
+       ★★★ 실측(모바일 390×844): 손가락 탭으로 합성된 `click` 이
+         `clientX=0, clientY=0` 으로 도착했다. 그래서 "패널 안쪽만 받는다" 검사가
+         걸러내고 **터치에서는 TP/SL 을 찍을 수 없었다.**
+         같은 좌표의 마우스 클릭은 정상 동작했으므로, 데스크톱만 검증했을 때는
+         보이지 않는 결함이었다. 이 시험이 그 회귀를 막는다.
+
+       ★ 좌표는 `pointerdown` 에서 받고, `pointerup` 에서 "거의 안 움직였으면" 확정한다.
+         부수 효과로 **끌면 찍지 않는다** → 팬을 빼앗지 않는다.
+    */
+    const m = /armPricePick\s*\(kind\)\s*\{([\s\S]*?)\n {6}\},/u.exec(actions);
+    const body = m![1]!;
+    expect(body, "click 리스너로 돌아갔다 — 터치에서 좌표가 (0,0) 이다")
+      .not.toMatch(/addEventListener\(\s*'click'/u);
+    expect(body, 'pointerup 에서 확정하지 않는다').toMatch(/addEventListener\(\s*'pointerup'/u);
+    expect(body, 'pointercancel 처리가 없다 — 눌린 상태가 남는다')
+      .toMatch(/addEventListener\(\s*'pointercancel'/u);
+    /* 탭/드래그 구분 임계값이 있어야 한다 — 없으면 끌어 놓아도 값이 찍힌다. */
+    expect(body, '탭/드래그 구분이 없다').toMatch(/TAP_SLOP/u);
+    /* 확정에 쓰는 좌표는 pointerdown 에서 기록한 것이어야 한다. */
+    expect(body, 'pointerup 의 좌표로 가격을 계산한다 — pointerdown 값을 써야 한다')
+      .toMatch(/convertFromPixel\(\{\s*y:\s*p\.y\s*-\s*p\.top/u);
   });
 
   it('[15] 찍은 가격을 orderBracket 에 넣고 브래킷을 켠다', () => {

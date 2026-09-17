@@ -272,32 +272,66 @@
         /* 십자선으로 "지금 가격을 찍는 중" 을 알린다. */
         container.style.cursor = 'crosshair';
 
+        /*
+           ★★★ **`click` 의 좌표를 쓰지 않는다 — 터치에서 (0,0) 으로 온다.**
+
+             실측(모바일 뷰포트, 390×844): 손가락 탭으로 합성된 `click` 이
+             `clientX=0, clientY=0` 으로 도착했다. 그래서 "패널 안쪽 클릭만 받는다"
+             검사가 걸러내고, **터치에서는 TP/SL 을 찍을 수 없었다.**
+             마우스 클릭은 같은 좌표에서 정상 동작했으므로 데스크톱만 검증했을 때는
+             보이지 않는 결함이었다.
+
+           ★ 그래서 좌표는 `pointerdown` 에서 받는다 — 마우스·터치·펜 모두 정확하다.
+             그리고 `pointerup` 에서 "거의 움직이지 않았으면" 탭으로 보고 확정한다.
+
+           ★★ 이 방식은 부수 효과로 **팬을 빼앗지 않는다.** 손가락을 끌면(TAP_SLOP
+             초과) 찍지 않고 차트 팬으로 남겨 둔다. `click` 을 쓰면 끌고 놓아도
+             click 이 발생해 의도치 않은 값이 들어갈 수 있다.
+        */
+        const TAP_SLOP = 10;   // 이 이상 움직이면 탭이 아니라 드래그로 본다
+        let press = null;      // { id, x, y, inside }
+
         const off = () => {
           if (done) return;
           done = true;
-          container.removeEventListener('click', onClick, true);
+          container.removeEventListener('pointerdown', onDown, true);
+          container.removeEventListener('pointerup', onUp, true);
+          container.removeEventListener('pointercancel', onCancel, true);
           container.style.cursor = prevCursor;
         };
 
-        function onClick(ev) {
-          const c = getChart();
+        function onDown(ev) {
           const r = paneRect();
-          if (!c || !r) { off(); return; }
-          /*
-             ★ 캔들 패널 **안쪽 클릭만** 받는다. 툴바·축을 눌렀을 때 값이 바뀌면
-               이용자는 원인을 알 수 없다. 패널 밖 클릭은 무시하고 모드를 유지한다 —
-               해제해 버리면 실수로 툴바를 스친 것 때문에 도구가 꺼진다.
-          */
-          if (ev.clientY < r.top || ev.clientY > r.bottom || ev.clientX < r.left || ev.clientX > r.right) return;
+          if (!r) return;
+          const inside = ev.clientY >= r.top && ev.clientY <= r.bottom
+            && ev.clientX >= r.left && ev.clientX <= r.right;
+          press = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, inside, top: r.top };
+        }
 
+        function onCancel() { press = null; }
+
+        function onUp(ev) {
+          const p = press;
+          press = null;
+          if (!p || p.id !== ev.pointerId) return;
+          /*
+             ★ 패널 밖에서 시작한 것은 무시하고 **모드를 유지한다** — 툴바를 스쳤다고
+               도구가 꺼지면 이용자는 왜 꺼졌는지 알 수 없다.
+          */
+          if (!p.inside) return;
+          /* 끌었으면 탭이 아니다 → 팬으로 남겨 둔다. */
+          if (Math.abs(ev.clientX - p.x) > TAP_SLOP || Math.abs(ev.clientY - p.y) > TAP_SLOP) return;
+
+          const c = getChart();
+          if (!c) { off(); return; }
           let value = null;
           try {
-            const got = c.convertFromPixel({ y: ev.clientY - r.top }, { paneId: 'candle_pane' });
+            const got = c.convertFromPixel({ y: p.y - p.top }, { paneId: 'candle_pane' });
             value = got && Number.isFinite(got.value) ? got.value : null;
           } catch (e) { value = null; }
           off();
           /*
-             ★ 값을 못 읽으면 조용히 넘기지 않는다. 이용자는 클릭했는데 아무 일도
+             ★ 값을 못 읽으면 조용히 넘기지 않는다. 이용자는 눌렀는데 아무 일도
                일어나지 않은 것을 "고장" 으로 읽는다.
           */
           if (value === null || value <= 0) {
@@ -311,7 +345,9 @@
           } catch (e) { /* 이벤트 실패가 차트를 막지 않는다 */ }
         }
 
-        container.addEventListener('click', onClick, true);
+        container.addEventListener('pointerdown', onDown, true);
+        container.addEventListener('pointerup', onUp, true);
+        container.addEventListener('pointercancel', onCancel, true);
         return off;
       },
 
