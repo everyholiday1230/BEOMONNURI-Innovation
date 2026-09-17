@@ -663,13 +663,66 @@ for (const f of ['src/pages-more.jsx', 'src/pages-user.jsx']) {
       .filter((f) => f.endsWith('.js'))
       .map((f) => f.replace(/\.js$/, '').split('.').pop()),
   )].sort();
-  const missing = locales.filter((c) => !new RegExp(`src/locales/${c}\\.js"`).test(html));
+
+  /*
+     ★★ 등록 방법이 **두 가지**다. 둘 중 하나면 그 언어는 살아 있다.
+
+       ① index.html 의 <script> 태그 — 첫 화면부터 메모리에 있다. 영어(폴백)는
+          반드시 이 방식이어야 한다. 없으면 첫 페인트가 키 문자열로 나온다.
+       ② src/i18n.js 의 `LAZY_LOCALES` — 사용자가 그 언어를 고른 순간 내려받는다.
+          언어 메뉴에는 `LAZY_LOCALE_META` 로 미리 나타나므로 선택이 가능하다.
+
+     ★ 이 검사가 ①만 인정하던 탓에 실제로 사고가 났다(2026-09-15).
+
+       사전 6개를 추가하고 `LAZY_LOCALES` 배선이 아직 커밋되지 않은 시점에 이
+       검사가 "등록 누락" 으로 실패했다. 그 실패를 index.html 에 63줄을 정적으로
+       박아 해결했고(커밋 b91c957), 그 결과 **모든 방문자가 사전 2.3MB 를 전부**
+       내려받게 됐다. 자기 언어 하나만 쓰는데도 9개 언어를 다 받는다.
+
+       그리고 `i18n-lazy-locales.test.ts` 는 "영어만 정적으로 싣는다" 를 요구하므로
+       **두 검사가 동시에 통과할 수 없는 상태**가 됐다. 검사끼리 모순이면 어느
+       한쪽을 끄게 되고, 그때 지켜주던 것이 같이 사라진다.
+
+     판정 방향은 그대로다: **존재하는 파일이 (어느 방식으로든) 등록되어 있는가.**
+     "어떤 언어가 있어야 한다" 는 이 검사가 정할 일이 아니다.
+  */
+  const i18nSrc = read('src/i18n.js');
+  const lazyBlock = /const\s+LAZY_LOCALES\s*=\s*\{([\s\S]*?)\n\s*\};/u.exec(i18nSrc);
+  const lazyCodes = new Set(
+    lazyBlock
+      ? [...lazyBlock[1].matchAll(/^\s*([A-Za-z][A-Za-z0-9_-]*)\s*:\s*\[/gmu)].map((m) => m[1])
+      : [],
+  );
+  const staticCodes = new Set(locales.filter((c) => new RegExp(`src/locales/${c}\\.js"`).test(html)));
+
+  const missing = locales.filter((c) => !staticCodes.has(c) && !lazyCodes.has(c));
   if (locales.length === 0) {
     fail('src/locales 에 사전 파일이 없다');
-  } else if (missing.length === 0) {
-    pass(`사전 ${locales.length}개(${locales.join(', ')})가 모두 index.html 에서 로드된다`);
+  } else if (missing.length > 0) {
+    fail(`사전 파일이 있는데 어디에도 등록되지 않았다: ${missing.join(', ')} — index.html <script> 또는 i18n.js LAZY_LOCALES 중 하나에 넣어야 동작한다`);
   } else {
-    fail(`사전 파일이 있는데 index.html 에 등록되지 않았다: ${missing.join(', ')} — 파일만 만들어도 동작하지 않는다`);
+    pass(`사전 ${locales.length}개(${locales.join(', ')})가 모두 등록되어 있다 — 정적 ${[...staticCodes].join('/') || '없음'} · 지연 ${[...lazyCodes].sort().join('/') || '없음'}`);
+  }
+
+  /*
+     ★ 폴백 언어는 지연 로드로 두면 안 된다. 사전이 도착하기 전 첫 페인트가
+       키 문자열(`nav_trade` 같은 것)로 나온다. 그래서 en 만은 정적을 요구한다.
+  */
+  if (locales.includes('en') && !staticCodes.has('en')) {
+    fail('폴백 언어(en) 사전이 index.html 에 정적으로 실려 있지 않다 — 첫 화면이 키 문자열로 나온다');
+  } else if (locales.includes('en')) {
+    pass('폴백 언어(en) 사전은 정적으로 실려 첫 페인트가 번역된 문장으로 나온다');
+  }
+
+  /*
+     ★ 지연 로드 대상이 정적으로도 실려 있으면 절감이 사라진다. 이 검사가
+       중복을 잡아 준다(i18n-lazy-locales 테스트와 같은 취지, 도구 쪽에서도 본다).
+  */
+  const bothWays = locales.filter((c) => c !== 'en' && staticCodes.has(c) && lazyCodes.has(c));
+  if (bothWays.length > 0) {
+    fail(`지연 로드 대상이 index.html 에도 정적으로 실려 있다: ${bothWays.join(', ')} — 지연 로드 절감이 사라진다`);
+  } else {
+    pass('지연 로드 대상이 정적으로 중복 등록되지 않았다');
   }
 }
 

@@ -116,6 +116,42 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+/*
+   ★★ **원본 JSX 를 일반 <script> 로 실으면 화면이 죽는다 — 여기서 막는다.**
+
+     실제 사고(2026-09-15, 리더보드 기능): index.html 에
+     `<script src="src/pages-leaderboard.jsx"></script>` 가 들어갔다.
+     `type="text/babel"` 이 없으므로 브라우저는 JSX 를 그냥 JS 로 파싱하고
+     `SyntaxError: Unexpected token '<'` 로 죽는다. 그 파일이 정의하려던
+     `window.LeaderboardPage` 는 만들어지지 않아 `#/leaderboard` 가 빈 화면이 된다.
+
+     그리고 이 빌드는 대상을 `web-dist/*.js` 참조에서 역산하므로 그 파일을
+     **컴파일조차 하지 않았다.** 즉 오류가 두 겹인데 빌드는 성공으로 끝났다.
+
+   ★ 조용히 고치지 않고 **실패시킨다.** 어디를 어떻게 바꿔야 하는지 말해 준다 —
+     자동으로 web-dist 로 바꿔치기하면 실행 순서가 달라져 다른 사고가 된다
+     (위 '위치가 중요하다' 주석 참고).
+*/
+{
+  /*
+     ★ **주석을 먼저 지운다.** 이 저장소는 주석에 "예전에 이렇게 적어서 깨졌다" 는
+       예시를 그대로 남기는 규약이라, 정규식으로 소스를 훑으면 그 예시가 잡힌다.
+       실제로 이 가드를 처음 넣었을 때 자기 설명 주석을 자기가 잡아 빌드를 막았다.
+  */
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const rawJsxTags = [...html.matchAll(/<script(?![^>]*type="text\/babel")[^>]*src="(src\/[^"]+\.jsx)"[^>]*>/g)]
+    .map((m) => m[1]);
+  if (rawJsxTags.length > 0) {
+    console.error(
+      'build-web: index.html 이 원본 JSX 를 일반 <script> 로 싣고 있다 — 브라우저는 이것을 파싱하지 못한다:\n' +
+      rawJsxTags.map((f) => `  · ${f}`).join('\n') +
+      '\n  → web-dist 블록으로 옮기고 `web-dist/<이름>.js` 로 참조하십시오' +
+      ' (그 블록에 두는 이유는 index.html 의 실행 순서 주석 참고).',
+    );
+    process.exit(1);
+  }
+}
+
 if (compareMode) {
   /*
      ★★ "react 만으로 충분한가" 를 추측하지 않고 확인한다.
