@@ -337,3 +337,105 @@ describe('CHART-TPSL — 차트에서 클릭으로 TP/SL 설정', () => {
     expect(esc![1]!, 'Esc 에서 해제하지 않는다').toMatch(/cancelPricePick\(\)/u);
   });
 });
+
+/**
+ * 수평선을 **선 어디서나** 잡아 끌기.
+ *
+ * ★ KLineChart 는 오버레이 점(손잡이)만 끌 수 있다. 손잡이는 화면 한 곳(마지막 봉 x)에만
+ *   있어서 이용자는 "선이 보이는데 안 잡힌다" 를 겪는다. 그래서 몸통 드래그를 직접 만들었다.
+ */
+describe('CHART-TPSL — 선 몸통 드래그', () => {
+  const ck = stripComments(read('src/chart-kline.jsx'));
+
+  it('[19] 리스너를 호스트에 capture 로 붙인다 — 캔버스가 아니다', () => {
+    /*
+       ★★ KLineChart 는 패널마다 캔버스를 여러 장 겹쳐 둔다. 캔버스에 붙이면 맨 위
+         캔버스가 먼저 받고 형제에게는 오지 않는다. TP/SL 클릭 설정에서 이미 밟은 함정이다.
+    */
+    expect(ck).toMatch(/host\.addEventListener\('pointerdown',\s*onDown,\s*true\)/u);
+    expect(ck).toMatch(/host\.addEventListener\('pointermove',\s*onMove,\s*true\)/u);
+    expect(ck).toMatch(/host\.addEventListener\('pointerup',\s*finish,\s*true\)/u);
+    expect(ck, 'pointercancel 처리가 없다 — 드래그가 매달린 채 남는다')
+      .toMatch(/host\.addEventListener\('pointercancel'/u);
+    expect(ck, '캔버스에 직접 붙였다').not.toMatch(/canvas\.addEventListener\('pointerdown'/u);
+  });
+
+  it('[20] ★★ 드래그 효과를 매 렌더 재부착하지 않는다 (최신 값은 ref 로 읽는다)', () => {
+    /*
+       ★★★ 이 시험이 있는 이유
+
+         처음에는 의존성을 `[overlays, onOverlayChange, activeTool]` 로 두었다. 그런데
+         상위가 `onOverlayChange={(id, ov) => updateOverlay(id, ov)}` 처럼 **인라인
+         화살표**를 넘기므로 매 렌더 새 함수가 되고, 효과가 매 렌더 해제·재부착됐다.
+         그 해제가 **진행 중인 드래그 상태를 지웠다.**
+
+         시세는 초당 여러 번 들어오므로 렌더도 그만큼 일어난다. 결과: 드래그가 산발적으로
+         먹지 않았고, "왼쪽은 안 되고 가운데는 된다" 처럼 **위치 문제로 보였다** —
+         실제로는 타이밍이었다. 실측으로 같은 지점이 한 번은 되고 다음엔 안 됐다.
+    */
+    expect(ck, '최신 overlays 를 ref 로 읽지 않는다').toMatch(/overlaysRef\.current/u);
+    expect(ck, '최신 콜백을 ref 로 읽지 않는다').toMatch(/onOverlayChangeRef\.current/u);
+    expect(ck, '최신 도구를 ref 로 읽지 않는다').toMatch(/activeToolRef\.current/u);
+
+    /* 드래그 효과의 정리부가 드래그 상태를 지우면 안 된다. */
+    const seg = /host\.addEventListener\('pointerdown'[\s\S]*?\n {4}\}, \[/u.exec(ck);
+    expect(seg, '드래그 효과의 끝을 찾지 못했다').toBeTruthy();
+    expect(seg![0]!, '정리부가 진행 중인 드래그를 지운다 — 재부착 때 드래그가 끊긴다')
+      .not.toMatch(/removeEventListener[\s\S]*lineDragRef\.current = null/u);
+    /* 의존성이 비어 있어야 한다(값은 ref 로 읽으므로). */
+    expect(seg![0]!.endsWith('}, [')).toBe(true);
+    const after = ck.slice(ck.indexOf(seg![0]!) + seg![0]!.length, ck.indexOf(seg![0]!) + seg![0]!.length + 4);
+    expect(after.trim().startsWith(']'), `의존성이 비어 있지 않다: [${after}`).toBe(true);
+  });
+
+  it('[21] 동기화 효과가 끌고 있는 선을 되쓰지 않는다', () => {
+    /*
+       ★ 되쓰면 시세 틱 한 번에 선이 **손가락 아래에서 원래 자리로 튕긴다.**
+         확정은 손을 뗄 때 한 번만 한다.
+    */
+    expect(ck).toMatch(/if \(lineDragRef\.current && lineDragRef\.current\.ourId === ov\.id\) continue;/u);
+  });
+
+  it('[22] 그리기 도구가 켜져 있으면 선을 가로채지 않는다', () => {
+    const down = /const onDown = \(e\) => \{([\s\S]*?)\n {6}\};/u.exec(ck);
+    expect(down, 'onDown 을 찾지 못했다').toBeTruthy();
+    const body = down![1]!;
+    expect(body, '커서 도구 여부를 보지 않는다').toMatch(/tool !== 'cursor'\) return;/u);
+    /* 왼쪽 버튼만. 가운데 버튼·Shift 는 차트 팬이다. */
+    expect(body, '버튼·수정키를 가리지 않는다').toMatch(/e\.button !== 0 \|\| e\.shiftKey/u);
+  });
+
+  it('[23] 잠긴 선·숨긴 선은 끌 수 없다', () => {
+    const d = /const draggable = \(ov\) => ov([\s\S]*?);\n/u.exec(ck);
+    expect(d, 'draggable 을 찾지 못했다').toBeTruthy();
+    expect(d![1]!).toMatch(/!ov\.hidden/u);
+    expect(d![1]!).toMatch(/!ov\.locked/u);
+    expect(d![1]!, '수평선만 대상이어야 한다').toMatch(/ov\.type === 'horizontal'/u);
+  });
+
+  it('[24] 움직이지 않았으면 확정하지 않는다', () => {
+    /* ★ 선을 살짝 누른 것만으로 주문 값이 바뀌면 안 된다. */
+    expect(ck).toMatch(/if \(!d\.moved \|\| d\.value === null \|\| !notify\) return;/u);
+  });
+
+  it('[25] 확정은 기존 onOverlayChange 경로로 보낸다 — 주문 반영을 새로 만들지 않는다', () => {
+    /*
+       ★ draft-tp/draft-sl 은 주문 패널 값이 되고, posbr-* 는 옮기기만 되고,
+         나머지는 오버레이 상태가 된다. 그 판단은 app.jsx handleOverlayChange 가
+         이미 하고 있다. 여기서 또 판단하면 두 곳이 갈린다.
+    */
+    expect(ck).toMatch(/notify\(d\.ourId, patched\)/u);
+    /* 손잡이 근처는 KLineChart 에 양보한다 — 둘이 함께 반응하면 값이 두 번 바뀐다. */
+    expect(ck, '손잡이 회피가 없다').toMatch(/HANDLE_KEEPOUT/u);
+  });
+
+  it('[26] activeTool 을 실제로 받는다 (예전엔 이름이 달라 무시됐다)', () => {
+    /*
+       ★★ 예전 시그니처는 `_activeTool` 이었다. 상위는 `activeTool` 을 넘기고 있었으므로
+         **전달되지 않고 항상 기본값 'cursor'** 였다. 그 상태로는 "그리기 도구 중에는
+         선을 잡지 않는다" 를 판단할 수 없다.
+    */
+    expect(ck, 'activeTool 을 받지 않는다').toMatch(/^\s*activeTool = 'cursor',/mu);
+    expect(ck, '_activeTool 로 되돌아갔다').not.toMatch(/_activeTool/u);
+  });
+});

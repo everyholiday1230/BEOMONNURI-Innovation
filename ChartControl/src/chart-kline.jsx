@@ -1048,7 +1048,13 @@
     lastPrice,
     onOverlayChange,
     onOverlayHover,
-    _activeTool = 'cursor',
+    /*
+       ★★ 예전에는 `_activeTool` 로 받았다 — 이름이 달라서 상위가 `activeTool` 을
+         넘겨도 **전달되지 않고 항상 기본값 'cursor'** 였다(app.jsx 는 넘기고 있었다).
+         선 몸통 드래그가 "그리기 도구가 켜져 있으면 잡지 않는다" 를 판단해야 하므로
+         실제로 받는다.
+    */
+    activeTool = 'cursor',
     showMA = true,
     showVolume = true,
     showLegend = true,
@@ -1934,6 +1940,36 @@
       }
     }, [showVolume]);
 
+    /*
+       끌고 있는 수평선. 아래 두 곳이 함께 본다 —
+         · 오버레이 동기화 효과: 끌고 있는 선을 되쓰지 않는다(손가락 아래에서 튕김 방지)
+         · 몸통 드래그 효과: 진행 상태를 담는다
+       ★ 두 효과보다 **위에** 선언한다. 저장소에 TDZ 로 화면이 죽은 사고가 있다.
+    */
+    const lineDragRef = useRef(null);
+
+    /*
+       ★★★ **최신 값을 ref 로 읽는다 — 효과를 다시 붙이지 않기 위해서.**
+
+         처음에는 이 효과의 의존성을 `[overlays, onOverlayChange, activeTool]` 로 두었다.
+         그런데 상위가 `onOverlayChange={(id, ov) => updateOverlay(id, ov)}` 처럼
+         **인라인 화살표**를 넘기므로 매 렌더마다 새 함수가 되고, 효과가 **매 렌더
+         해제·재부착**됐다. 그 해제가 진행 중인 드래그 상태를 지웠다.
+
+         시세는 초당 여러 번 들어오므로 렌더도 그만큼 일어난다. 결과: **드래그가
+         산발적으로 먹지 않았다.** 실측에서 같은 지점이 한 번은 되고 다음엔 안 됐고,
+         "왼쪽은 안 되고 가운데는 된다" 처럼 위치 문제로 보였다 — 실제로는 타이밍이었다.
+
+       ★ 그래서 리스너는 **한 번만** 붙이고(의존성 []), 값은 ref 로 읽는다.
+         렌더 중 ref 에 대입하는 것은 안전하다(읽는 시점은 이벤트 발생 후다).
+    */
+    const overlaysRef = useRef(overlays);
+    overlaysRef.current = overlays;
+    const onOverlayChangeRef = useRef(onOverlayChange);
+    onOverlayChangeRef.current = onOverlayChange;
+    const activeToolRef = useRef(activeTool);
+    activeToolRef.current = activeTool;
+
     // --- 오버레이 동기화 ---
     useEffect(() => {
       const chart = chartRef.current;
@@ -1950,6 +1986,18 @@
         const points = pointsFor(ov);
         if (!points) continue;
         seen.add(ov.id);
+
+        /*
+           ★★★ **끌고 있는 선은 건드리지 않는다.**
+
+             이 효과는 상태(overlays)를 차트에 되쓴다. 드래그 중에는 상태가 아직
+             옛 가격이므로, 이 사이에 다른 이유로 렌더가 한 번 일어나면(시세 틱
+             하나면 충분하다) 선이 **손가락 아래에서 원래 자리로 튕긴다.**
+
+             확정은 손을 뗄 때 한 번만 한다(onPointerUp → onOverlayChange). 그때
+             상태가 새 가격이 되고, 다음 동기화가 정상적으로 그 값을 그린다.
+        */
+        if (lineDragRef.current && lineDragRef.current.ourId === ov.id) continue;
 
         const extendData = {
           source: ov.source || 'user',
@@ -2026,6 +2074,230 @@
         known.delete(ourId);
       }
     }, [overlays, colors, decimals, onOverlayChange, onOverlayHover]);
+
+    /*
+       ═══════════════════════════════════════════════════════════════════
+       ★★★ 수평선(TP/SL·주문선)을 **선 어디서나 잡아서** 끌 수 있게 한다
+       ═══════════════════════════════════════════════════════════════════
+
+       왜 직접 만드는가 — KLineChart 는 오버레이 **점(손잡이)** 만 끌 수 있다.
+       실측으로 확인했다: 선을 클릭해 선택한 뒤 몸통을 끌어도 값이 바뀌지 않고,
+       손잡이(마지막 봉 x, 실측 x=245)를 잡을 때만 움직였다. 손잡이는 화면 한 곳에만
+       있으므로, 이용자는 "선이 보이는데 안 잡힌다" 를 겪는다. 운영자 요청이 이것이다.
+
+       설계 원칙
+        · 기존 경로를 대체하지 않는다. 손잡이 드래그는 그대로 두고(그쪽이 활성 표시가
+          더 낫다), **손잡이가 아닌 곳**만 우리가 처리한다.
+        · 확정은 손을 뗄 때 한 번만, 그리고 **기존 `onOverlayChange` 로** 보낸다.
+          주문 반영 로직(app.jsx handleOverlayChange)을 새로 만들지 않는다.
+        · 차트의 다른 조작을 빼앗지 않는다 — 실제로 선을 잡았을 때만 이벤트를 멈춘다.
+
+       ★★ 리스너는 **호스트(컨테이너)** 에 capture 로 붙인다.
+         KLineChart 는 패널마다 캔버스를 여러 장 겹쳐 두므로 캔버스 하나에 붙이면
+         맨 위 캔버스가 이벤트를 먼저 받고 형제에게는 오지 않는다(capture 는 조상
+         사슬만 탄다). 이 함정은 TP/SL 클릭 설정에서 이미 한 번 밟았다.
+    */
+    useEffect(() => {
+      const host = hostRef.current;
+      if (!host) return undefined;
+
+      /** 캔들 패널 캔버스의 화면 사각형 — 좌표 기준. */
+      const paneRect = () => {
+        const best = [...host.querySelectorAll('canvas')]
+          .map((c) => c.getBoundingClientRect())
+          .filter((r) => r.height > 80 && r.width > 80)
+          .sort((a, b) => (b.height * b.width) - (a.height * a.width))[0];
+        return best || null;
+      };
+
+      /** 이 오버레이를 몸통 드래그로 옮겨도 되는가. */
+      const draggable = (ov) => ov
+        && ov.type === 'horizontal'
+        && !ov.hidden
+        && !ov.locked
+        && ov.points
+        && ov.points[0]
+        && ov.points[0].price != null;
+
+      /**
+       * 포인터 y 에 가장 가까운 수평선을 찾는다.
+       *
+       * ★ 여러 선이 겹쳐 있으면 **가장 가까운 것** 하나만 잡는다. 둘을 같이 옮기면
+       *   어느 것을 옮겼는지 알 수 없다.
+       * ★ 손잡이 근처는 비켜 준다 — KLineChart 가 이미 처리하고, 둘이 함께 반응하면
+       *   값이 두 번 바뀐다.
+       */
+      const TOL = 7;          // 선을 잡았다고 볼 세로 허용 오차(px)
+      const HANDLE_KEEPOUT = 16;  // 손잡이 반경(7) + 여유
+
+      const pick = (clientX, clientY, rect) => {
+        const chart = chartRef.current;
+        if (!chart) return null;
+        /*
+           ★ 잠금 판정은 **우리 모델(`ov.locked`)만** 본다.
+
+             차트 쪽 `lock` 을 함께 보는 코드를 넣어 봤지만 아무것도 막지 못했다.
+             동기화 효과가 매번 `lock: Boolean(ov.locked)` 로 되쓰기 때문이다 —
+             실측: overrideOverlay({lock:true}) 직후엔 true 지만 1.5초 뒤 false 로 돌아온다.
+             즉 모델이 단일 출처이고, 두 곳을 보는 것은 "막는 것처럼 보이지만 막지 않는"
+             코드였다. 그래서 지웠다.
+        */
+        let best = null;
+        for (const ov of overlaysRef.current) {
+          if (!draggable(ov)) continue;
+          const klId = overlayIdsRef.current.get(ov.id);
+          if (!klId) continue;
+          let py;
+          try {
+            const px = chart.convertToPixel({ value: Number(ov.points[0].price) }, { paneId: 'candle_pane' });
+            py = px && Number.isFinite(px.y) ? px.y : null;
+          } catch (e) { py = null; }
+          if (py === null) continue;
+          const dist = Math.abs((rect.top + py) - clientY);
+          if (dist > TOL) continue;
+
+          /* 손잡이 위라면 KLineChart 에 양보한다. */
+          try {
+            const hx = chart.convertToPixel(
+              { timestamp: ov.points[0].time ?? Date.now(), value: Number(ov.points[0].price) },
+              { paneId: 'candle_pane' },
+            );
+            if (hx && Number.isFinite(hx.x) && Math.abs((rect.left + hx.x) - clientX) <= HANDLE_KEEPOUT) return null;
+          } catch (e) { /* 손잡이 위치를 모르면 그냥 우리가 처리한다 */ }
+
+          if (!best || dist < best.dist) best = { ov, klId, dist };
+        }
+        return best;
+      };
+
+      const valueAt = (clientY, rect) => {
+        const chart = chartRef.current;
+        if (!chart) return null;
+        try {
+          const got = chart.convertFromPixel({ y: clientY - rect.top }, { paneId: 'candle_pane' });
+          return got && Number.isFinite(got.value) && got.value > 0 ? got.value : null;
+        } catch (e) { return null; }
+      };
+
+      const onDown = (e) => {
+        /*
+           ★ 그리기 도구가 켜져 있으면 손대지 않는다 — 그때의 클릭은 도형을 만드는
+             동작이다. 커서 도구일 때만 선을 잡는다.
+           ★ 왼쪽 버튼만. 가운데 버튼·Shift 드래그는 차트 팬이다.
+        */
+        const tool = activeToolRef.current;
+        if (tool && tool !== 'cursor') return;
+        if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+        const rect = paneRect();
+        if (!rect) return;
+        if (e.clientY < rect.top || e.clientY > rect.bottom || e.clientX < rect.left || e.clientX > rect.right) return;
+
+        const hit = pick(e.clientX, e.clientY, rect);
+        if (!hit) return;
+
+        lineDragRef.current = { ourId: hit.ov.id, klId: hit.klId, ov: hit.ov, rect, moved: false, value: null };
+        /*
+           ★★ 여기서만 이벤트를 멈춘다. 선을 잡지 못했으면 그대로 흘려보내 차트의
+             크로스헤어·팬·손잡이 드래그가 정상 동작한다.
+        */
+        e.preventDefault();
+        e.stopPropagation();
+        try { host.setPointerCapture(e.pointerId); } catch (err) { void err; }
+        host.style.cursor = 'ns-resize';
+      };
+
+      const onMove = (e) => {
+        const d = lineDragRef.current;
+        if (!d) return;
+        const v = valueAt(e.clientY, d.rect);
+        if (v === null) return;
+        d.moved = true;
+        d.value = v;
+        e.preventDefault();
+        e.stopPropagation();
+        /* 화면만 먼저 옮긴다. 상태 반영은 손을 뗄 때 한 번. */
+        try {
+          chartRef.current.overrideOverlay({
+            id: d.klId,
+            points: [{ timestamp: d.ov.points[0].time ?? Date.now(), value: v }],
+          });
+        } catch (err) { void err; }
+      };
+
+      const finish = (e) => {
+        const d = lineDragRef.current;
+        if (!d) return;
+        lineDragRef.current = null;
+        host.style.cursor = '';
+        try { host.releasePointerCapture(e.pointerId); } catch (err) { void err; }
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+
+        /*
+           ★ 움직이지 않았으면 아무것도 하지 않는다. 선을 살짝 누른 것만으로 주문
+             값이 바뀌면 안 된다.
+           ★★ 확정은 **기존 경로**로 보낸다 — draft-tp/draft-sl 은 주문 패널 값이 되고,
+             posbr-* 는 옮기기만 되고(확정은 별도 버튼), 나머지는 오버레이 상태가 된다.
+             그 판단은 app.jsx handleOverlayChange 가 이미 하고 있다.
+        */
+        const notify = onOverlayChangeRef.current;
+        if (!d.moved || d.value === null || !notify) return;
+        const patched = {
+          ...d.ov,
+          points: (d.ov.points || []).map((p, i) => (i === 0 ? { ...p, price: d.value } : p)),
+        };
+        notify(d.ourId, patched);
+      };
+
+      const onCancel = (e) => {
+        const d = lineDragRef.current;
+        if (!d) return;
+        lineDragRef.current = null;
+        host.style.cursor = '';
+        try { host.releasePointerCapture(e.pointerId); } catch (err) { void err; }
+        /* 취소면 화면을 상태 값으로 되돌린다. */
+        try {
+          chartRef.current.overrideOverlay({
+            id: d.klId,
+            points: [{ timestamp: d.ov.points[0].time ?? Date.now(), value: Number(d.ov.points[0].price) }],
+          });
+        } catch (err) { void err; }
+      };
+
+      /*
+         ★ 커서 모양으로 "잡을 수 있다" 를 알린다. 선 위에 올렸을 때만 바꾼다 —
+           항상 바꾸면 차트 전체가 조작 가능한 것처럼 보인다.
+      */
+      const onHover = (e) => {
+        if (lineDragRef.current) return;
+        const tool = activeToolRef.current;
+        if (tool && tool !== 'cursor') return;
+        const rect = paneRect();
+        if (!rect) return;
+        const over = pick(e.clientX, e.clientY, rect);
+        host.style.cursor = over ? 'ns-resize' : '';
+      };
+
+      host.addEventListener('pointerdown', onDown, true);
+      host.addEventListener('pointermove', onMove, true);
+      host.addEventListener('pointerup', finish, true);
+      host.addEventListener('pointercancel', onCancel, true);
+      host.addEventListener('pointermove', onHover);
+      return () => {
+        host.removeEventListener('pointerdown', onDown, true);
+        host.removeEventListener('pointermove', onMove, true);
+        host.removeEventListener('pointerup', finish, true);
+        host.removeEventListener('pointercancel', onCancel, true);
+        host.removeEventListener('pointermove', onHover);
+        /*
+           ★ 진행 중인 드래그 상태를 **지우지 않는다.** 예전에 여기서 지웠고,
+             효과가 매 렌더 재부착되면서 손가락이 아직 눌린 채로 드래그가 사라졌다.
+             호스트 요소는 그대로이므로 재부착돼도 같은 드래그를 이어받는다.
+        */
+      };
+      /* ★ 의존성 없음 — 값은 위 ref 로 읽는다(재부착이 드래그를 끊는다). */
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // --- HUD 표시용 캔들 (커서 위치 없으면 최신) ---
     const hudCandle = useMemo(() => {
