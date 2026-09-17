@@ -367,6 +367,23 @@
     const gap = rightGapPx(chart, bounding);
     const maxPx = gap > 0 ? gap : 0;
     void paneW;
+    /*
+       ★ 레전드는 HTML 이라 차트 인스턴스로는 알 수 없다. 캔버스의 조상에서 찾는다.
+         `chart.getDom()` 이 차트 컨테이너를 돌려주므로 그 안에서 레전드를 찾고,
+         좌표는 **캔들 패널 캔버스** 기준으로 환산한다.
+    */
+    let legendBox = null;
+    try {
+      const dom = chart && chart.getDom ? chart.getDom() : null;
+      const host = dom && dom.closest ? (dom.closest('.chart-kline-wrap') || dom.parentElement) : null;
+      const paneCanvas = host
+        ? [...host.querySelectorAll('canvas')]
+          .map((c) => c.getBoundingClientRect())
+          .filter((r) => r.height > 80 && r.width > 80)
+          .sort((a, b) => (b.height * b.width) - (a.height * a.width))[0]
+        : null;
+      if (host && paneCanvas) legendBox = legendBoxOf(host, paneCanvas);
+    } catch (e) { legendBox = null; }
     const label = LV
       ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx })
       : ext.label;
@@ -378,7 +395,7 @@
     const labelLines = (LV && LV.labelLinesFor)
       ? LV.labelLinesFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx, maxLines: 2 })
       : (label ? [label] : []);
-    return { ext, colors, src, color, dashed, label, labelLines, width: ext.width || 1.5 };
+    return { ext, colors, src, color, dashed, label, labelLines, legendBox, width: ext.width || 1.5 };
   }
 
   /** 태그(라벨 알약). ChartCanvas drawTag 의 시각을 재현한다. */
@@ -428,7 +445,29 @@
       {
         type: 'text',
         attrs: { x: x + paddingX, y: y - 1, text: String(text), align: 'left', baseline: 'middle' },
-        styles: { color, size: 10, family: colors.fontMono, weight: '500' },
+        styles: {
+          color, size: 10, family: colors.fontMono, weight: '500',
+        /*
+           ★★★ **`backgroundColor` 를 반드시 준다 — 안 주면 라이브러리 기본 파랑이 깔린다.**
+
+             klinecharts 의 `text` 도형은 그리기 직전에 배경 사각형을 한 장 깐다:
+               he(ctx, rects, { ...style, color: style.backgroundColor })
+             즉 배경색으로 **`backgroundColor`** 를 쓰는데, 우리가 그 값을 주지 않으면
+             병합된 기본 스타일의 `#1677ff`(라이브러리 기본 파랑)가 들어간다.
+
+           ★ 운영자 보고(2026-09-17): "현재 포지션 금액·% 는 좋은데 **파란색 배경**이 있다."
+             캔버스 채우기 추적으로 확인했다 — 글자마다 앞에 `fill #1677ff` 가 한 번씩 있었다:
+               fill oklch(0.24 0.014 240 / 0.92)   ← 우리 라벨 상자(정상)
+               fill #1677ff                        ← ★ 파랑
+               fillText "-0.06%"
+               fill #1677ff                        ← ★ 파랑
+               fillText "+466.25"
+             투명으로 주면 그 호출이 사라진다(채우기 8회 → 5회).
+
+           ★ 우리 상자는 이미 `rect` 도형으로 그린다. 글자 배경은 **없어야** 맞다.
+        */
+        backgroundColor: 'transparent',
+        },
         ignoreEvent: true,
       },
     ];
@@ -470,10 +509,46 @@
       {
         type: 'text',
         attrs: { x: w / 2, y, text, align: 'center', baseline: 'middle' },
-        styles: { color: colors.textInverse, size: 10, family: colors.fontMono, weight: '600' },
+        styles: {
+          color: colors.textInverse, size: 10, family: colors.fontMono, weight: '600',
+          /* ★ 위 tagFigures 주석 참고 — 주지 않으면 라이브러리 기본 파랑이 깔린다. */
+          backgroundColor: 'transparent',
+        },
         ignoreEvent: true,
       },
     ];
+  }
+
+  /**
+   * 지표 레전드(`.chart-legend`)가 차지한 영역 — **패널 좌표**로.
+   *
+   * ★★ 왜 필요한가: 운영자 보고에서 손익 라벨 위에 `VOL` 글자가 겹쳐 보였다.
+   *   레전드는 캔버스가 아니라 **HTML**(`div.chart-legend__item`)이고 차트 오른쪽 위에
+   *   떠 있다(실측: 패널 기준 x=278 y=66 크기 48×15). 우리 손익 라벨도 오른쪽 정렬이라
+   *   선이 위쪽에 있으면 정확히 그 자리에서 만난다.
+   *
+   * ★ 레전드를 옮기지 않는다 — 고정 UI 다. **라벨이 비킨다**(선 아래로 내려간다).
+   *
+   * ★ 못 찾으면 null 을 돌려준다. 그러면 예전처럼 항상 선 위에 그린다 —
+   *   레전드가 없는 배포에서 라벨이 이유 없이 아래로 내려가면 그것도 이상하다.
+   */
+  function legendBoxOf(host, paneRect) {
+    if (!host || !paneRect) return null;
+    try {
+      const items = [...host.querySelectorAll('.chart-legend__item, .chart-legend')];
+      let top = Infinity; let bottom = -Infinity; let left = Infinity;
+      for (const el of items) {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        top = Math.min(top, r.top - paneRect.top);
+        bottom = Math.max(bottom, r.bottom - paneRect.top);
+        left = Math.min(left, r.left - paneRect.left);
+      }
+      if (!Number.isFinite(bottom)) return null;
+      return { top, bottom, left };
+    } catch (e) {
+      return null;
+    }
   }
 
   /**
@@ -493,7 +568,7 @@
    *   숫자를 잘라 **틀린 금액**을 보여주는 것이 더 나쁘다(QTOverlayLive 가 이미
    *   폭에 맞춰 덜 중요한 항목부터 빼 준다).
    */
-  function tagFiguresRight(lines, rightEdge, y, color, colors) {
+  function tagFiguresRight(lines, rightEdge, y, color, colors, legendBox) {
     const rows = (Array.isArray(lines) ? lines : [lines]).filter(Boolean).map(String);
     if (rows.length === 0) return [];
     const paddingX = 6;
@@ -501,8 +576,26 @@
     const boxH = rows.length * rowH + 4;
     const approxW = Math.max(...rows.map((r) => textWidth(r, 10))) + paddingX * 2;
     const x = Math.max(0, rightEdge - approxW);
-    /* 선을 가리지 않게 상자를 선 **위쪽**에 붙인다. */
-    const top = y - boxH - 3;
+    /*
+       ★ 기본은 선 **위쪽**이다. 선 아래는 캔들이 이어지는 방향이라 위쪽이 덜 가린다.
+    */
+    let top = y - boxH - 3;
+    /*
+       ★★★ **지표 레전드와 겹치면 선 아래로 비킨다.**
+
+         레전드는 HTML 로 차트 오른쪽 위에 떠 있고(실측: 패널 기준 y 66~81, x 278~),
+         우리 라벨도 오른쪽 정렬이라 선이 위쪽에 있으면 그 자리에서 만난다.
+         운영자가 본 "라벨에 VOL 이 겹쳐 보이는" 상태가 이것이다.
+
+       ★ 가로도 함께 본다 — 레전드가 좁으면 세로만 겹쳐도 실제로는 안 부딪힌다.
+       ★ 아래로 내려도 패널을 벗어나면 다시 위로 둔다. 화면 밖은 더 나쁘다.
+    */
+    if (legendBox) {
+      const overlapsV = top < legendBox.bottom && (top + boxH) > legendBox.top;
+      const overlapsH = rightEdge > legendBox.left;
+      if (overlapsV && overlapsH) top = y + 3;
+    }
+    if (top < 0) top = y + 3;
     const out = [
       {
         type: 'rect',
@@ -521,7 +614,11 @@
       out.push({
         type: 'text',
         attrs: { x: x + paddingX, y: top + 2 + rowH * i + rowH / 2, text, align: 'left', baseline: 'middle' },
-        styles: { color, size: 10, family: colors.fontMono, weight: '500' },
+        styles: {
+          color, size: 10, family: colors.fontMono, weight: '500',
+          /* ★ 위 tagFigures 주석 참고 — 운영자가 본 "파란색 배경" 이 이것이었다. */
+          backgroundColor: 'transparent',
+        },
         ignoreEvent: true,
       });
     });
@@ -546,7 +643,7 @@
       createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
         const c = coordinates[0];
         if (!c) return [];
-        const { color, dashed, labelLines, colors } = renderInfo(overlay, bounding, chart);
+        const { color, dashed, labelLines, colors, legendBox } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'line',
@@ -558,7 +655,7 @@
                예전에는 이 자리에서 `bounding.width - w` 에 가격 배지를 그렸고, 그것이
                **캔들 위**였다(패널 좌표계다). 그 자리에는 손익만 남긴다.
           */
-          ...tagFiguresRight(labelLines, bounding.width - 4, c.y, color, colors),
+          ...tagFiguresRight(labelLines, bounding.width - 4, c.y, color, colors, legendBox),
         ];
       },
       /*
@@ -623,7 +720,7 @@
         if (coordinates.length < 2) return [];
         const yHi = Math.min(coordinates[0].y, coordinates[1].y);
         const yLo = Math.max(coordinates[0].y, coordinates[1].y);
-        const { color, labelLines, colors } = renderInfo(overlay, bounding, chart);
+        const { color, labelLines, colors, legendBox } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'rect',
@@ -641,7 +738,7 @@
             attrs: { coordinates: [{ x: 0, y: yLo }, { x: bounding.width, y: yLo }] },
             styles: { color, size: 1.5, style: 'dashed', dashedValue: [4, 3] },
           },
-          ...tagFiguresRight(labelLines, bounding.width - 4, (yHi + yLo) / 2, color, colors),
+          ...tagFiguresRight(labelLines, bounding.width - 4, (yHi + yLo) / 2, color, colors, legendBox),
         ];
       },
       /* 가격은 오른쪽 축에 — 구간의 위·아래 두 값을 각각 그린다. */
