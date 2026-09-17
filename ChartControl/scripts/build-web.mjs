@@ -180,9 +180,39 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 let totalIn = 0;
 let totalOut = 0;
+const leaked = [];
 for (const rel of files) {
   const src = readFileSync(join(ROOT, rel), 'utf8');
   const code = compile(src, ['react']);
+  /*
+     ★★★ **중괄호 없는 블록 주석은 주석이 아니라 화면에 나오는 글자다 — 여기서 막는다.**
+
+       실제 사고: `src/page-shell.jsx` 의 접힌 사이드바에 설명 문단이 그대로
+       노출됐다(운영자 보고). 원인은 JSX 자식 자리에 중괄호 없이 블록 주석만
+       적은 것이다. JSX 에서 그것은 JSXText 이고, Babel 은 얌전히 문자열로
+       바꿔 화면에 그린다. 문법 오류가 아니므로 컴파일도 eslint 도 통과한다.
+
+     ★ 그래서 **컴파일 결과**에서 찾는다. 원본을 정규식으로 훑으면 정상 주석과
+       구분할 수 없지만, 컴파일 후에는 정상 주석은 사라지고 새는 것만 문자열로
+       남는다. 판정이 흐릿하지 않다.
+
+     ★ 조용히 지우지 않고 실패시킨다 — 지우면 어디를 잘못 적었는지 모른 채 같은
+       실수를 반복한다. 고칠 위치와 방법을 말해 준다.
+  */
+  {
+    const re = /(["'])((?:\\.|(?!\1)[^\\])*?)\1/g;
+    let m;
+    while ((m = re.exec(code))) {
+      const lit = m[2];
+      /* 여는 기호와 닫는 기호를 코드로 만든다 — 이 주석 자체가 잡히면 안 된다. */
+      const open = '/' + '*';
+      const close = '*' + '/';
+      if (lit.includes(open) || lit.includes(close)) {
+        leaked.push({ rel, text: lit.slice(0, 70) });
+        break;
+      }
+    }
+  }
   const outRel = rel.replace(/^src\//, '').replace(/\.jsx$/, '.js');
   const outPath = join(OUT_DIR, outRel);
   mkdirSync(dirname(outPath), { recursive: true });
@@ -204,6 +234,18 @@ for (const rel of files) {
 }
 
 const written = readdirSync(OUT_DIR).length;
+
+if (leaked.length > 0) {
+  console.error(
+    'build-web: 주석이 화면에 나오는 글자로 컴파일됐다 — JSX 자식 자리의 블록 주석은\n' +
+    '           중괄호로 감싸야 한다:\n' +
+    leaked.map((l) => `  · ${l.rel}: ${l.text}…`).join('\n') +
+    '\n  → 해당 주석을 중괄호로 감싸십시오. 주석 본문에 닫는 기호를 적으면 그 자리에서' +
+    '\n    주석이 끝나 나머지가 JSX 식으로 파싱되므로, 본문에는 기호를 적지 마십시오.',
+  );
+  process.exit(1);
+}
+
 console.log(`build-web: JSX ${files.length}개 컴파일 → web-dist/ (${written} 항목)`);
 console.log(`  원본 ${totalIn.toLocaleString()} → 컴파일 ${totalOut.toLocaleString()} 바이트`);
 console.log('  브라우저는 babel.min.js(3,137,752 바이트)를 더 이상 받지 않는다.');
