@@ -868,7 +868,7 @@
   // ORDER ENTRY
   // ============================================================
   window.OrderEntry = function OrderEntry({
-    lastPrice, market, assets, marginMode, leverage, prefillPrice, prefillSize, prefillSide, tpsl, bracket, onBracketChange, onPlaceOrder, isBeginner, t
+    lastPrice, market, assets, marginMode, leverage, prefillPrice, prefillSize, prefillSide, tpsl, bracket, onBracketChange, onDraftContext, onPlaceOrder, isBeginner, t
   }) {
     const [side, setSide] = useState(prefillSide || 'long'); // long | short
     const [orderType, setOrderType] = useState('limit');
@@ -1004,6 +1004,36 @@
     const setTpslOn = (v) => setBracketState({ ...bracketState, on: Boolean(v) });
     const setTpVal = (v) => setBracketState({ ...bracketState, tp: v });
     const setSlVal = (v) => setBracketState({ ...bracketState, sl: v });
+
+    /*
+       ★★★ **주문 문맥을 위로 알린다 — 차트 TP/SL 라벨이 금액을 계산하기 위해서다.**
+
+         운영자 요청은 "%랑 금액" 이었는데, 작성 중(진입 전) TP/SL 선은 **%만** 보여
+         주고 있었다. 금액은 `수량 × 가격차` 이므로 수량을 알아야 하고, 수량은
+         이 위젯의 내부 상태(`size`)라서 차트를 그리는 App 이 알 수 없었다.
+
+       ★★ **주문 제출 로직은 건드리지 않았다.** 값을 위로 **알리기만** 한다.
+         제출 경로를 고치면 돈이 걸린 코드를 바꾸는 것이고, 그 위험을 라벨 하나
+         때문에 지는 것은 맞지 않다.
+
+       ★ 시세(lastPrice)를 의존성에 넣지 않는다. 넣으면 매 틱마다 상위 상태가 바뀌어
+         `visibleOverlays` 가 재생성되고, 드래그 중에 선이 튕긴다(과거에 겪은 문제).
+         가격은 **이용자가 입력한 값**(price)만 쓴다.
+
+       ★ 지어내지 않는다: 수량이 비어 있으면 `size: null` 로 보낸다. 그러면 라벨은
+         금액 없이 %만 보여준다 — 추측한 금액을 보여주는 것보다 낫다.
+    */
+    useEffect(() => {
+      if (typeof onDraftContext !== 'function') return;
+      const n = (v) => { const x = Number(String(v).replace(/,/g, '')); return Number.isFinite(x) && x > 0 ? x : null; };
+      onDraftContext({
+        symbol: symbolKey,
+        side,
+        entry: n(price),
+        size: n(size),
+        leverage: Number(lev) > 0 ? Number(lev) : null,
+      });
+    }, [onDraftContext, symbolKey, side, price, size, lev]);
 
     // Re-sync when parent prefill changes
     useEffect(() => {

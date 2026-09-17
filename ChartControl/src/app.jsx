@@ -900,6 +900,30 @@
          소수점 입력이 막힌다.
     */
     const [orderBracket, setOrderBracket] = useState({ on: false, tp: '', sl: '' });
+    /*
+       ★★ 주문 패널이 알려주는 작성 중 문맥(수량·가격·방향·레버리지).
+
+         차트의 작성 중 TP/SL 라벨이 **금액**을 계산하려면 수량이 필요한데, 수량은
+         `OrderEntry` 내부 상태다. 그래서 위젯이 값을 위로 알려준다(제출 로직은
+         건드리지 않았다 — 알림 전용 경로다).
+
+       ★ 값이 없으면 `null` 로 둔다. 지어낸 수량으로 금액을 만들면 그 금액이 틀린다.
+       ★ 시세는 담지 않는다. 담으면 매 틱마다 이 상태가 바뀌어 `visibleOverlays` 가
+         재생성되고 드래그 중에 선이 튕긴다.
+    */
+    const [orderCtx, setOrderCtx] = useState({ symbol: '', side: 'long', entry: null, size: null, leverage: null });
+    /*
+       ★ 같은 값이면 상태를 바꾸지 않는다. 위젯의 effect 는 렌더마다 불릴 수 있고,
+         그때마다 새 객체로 setState 하면 무한 렌더가 된다.
+    */
+    const handleDraftContext = useCallback((next) => {
+      setOrderCtx((prev) => (
+        prev.symbol === next.symbol && prev.side === next.side && prev.entry === next.entry
+          && prev.size === next.size && prev.leverage === next.leverage
+          ? prev
+          : next
+      ));
+    }, []);
 
     /*
        실제 주문·포지션을 차트 선으로 그린다.
@@ -1215,6 +1239,38 @@
         const mk = (kind, raw) => {
           const price = Number(raw);
           if (!Number.isFinite(price) || price <= 0) return;
+          /*
+             ★★★ **금액을 보여주려면 진입가와 수량이 필요하다.**
+
+               운영자 요청은 "%랑 금액" 이었는데 작성 중 선은 %만 보여줬다. 금액은
+               `수량 × 가격차` 이고, 둘 다 주문 패널에 있다(`orderCtx`).
+
+             ★★ 둘을 **다 알 때만** bracket 으로 계산한다. 하나라도 없으면 예전처럼
+               현재가 대비 %만 보여준다(`kind: 'away'`). 수량을 추측해 금액을 만들면
+               그 금액은 틀린 금액이고, 손절 크기를 잘못 판단하게 만든다.
+
+             ★ 진입가는 **이용자가 입력한 주문 가격**이다. 아직 진입하지 않았으므로
+               "체결가" 가 아니고, 그 값을 기준으로 "여기 닿으면 얼마" 를 말한다.
+               보유 포지션 선(`kind: 'bracket'`, entry=실제 진입가)과 같은 계산이다.
+
+             ★ 심볼이 다르면 쓰지 않는다 — 다른 종목의 수량으로 계산하면 틀린다.
+          */
+          const ctx = orderCtx;
+          const usable = ctx
+            && ctx.symbol === activeSymbolKey
+            && Number(ctx.entry) > 0
+            && Number(ctx.size) > 0;
+          const live = usable
+            ? {
+              kind: 'bracket',
+              symbol: activeSymbolKey,
+              entry: Number(ctx.entry),
+              price,
+              side: ctx.side === 'short' ? 'short' : 'long',
+              size: Number(ctx.size),
+              ...(Number(ctx.leverage) > 0 ? { leverage: Number(ctx.leverage) } : {}),
+            }
+            : { kind: 'away', symbol: activeSymbolKey, price };
           draft.push({
             id: `draft-${kind}`,
             type: 'horizontal',
@@ -1223,7 +1279,7 @@
             points: [{ price, time: Date.now() }],
             style: { dashed: true },
             label: kind === 'tp' ? t('fld_tp') : t('fld_sl'),
-            live: { kind: 'away', symbol: activeSymbolKey, price },
+            live,
           });
         };
         mk('tp', orderBracket.tp);
@@ -1231,7 +1287,7 @@
 
         return draft.length ? [...base, ...draft] : base;
       },
-      [overlays, activeSymbolKey, orderBracket, t]
+      [overlays, activeSymbolKey, orderBracket, orderCtx, t]
     );
 
     /*
@@ -2793,6 +2849,7 @@
                   createOrderDraft={createOrderDraft}
                   rejectSignal={rejectSignal}
                   orderDraft={orderDraft}
+                  onDraftContext={handleDraftContext}
                   isBeginner={isBeginner}
                   onChange={(patch) => engine.updateWidget(w.id, patch)}
                 onResizeEnd={engine.save}
@@ -3112,6 +3169,11 @@
             } catch (e) { return 'CROSS'; }
           })()}
           leverage={10}
+          /*
+             ★ 작성 중 문맥(수량·가격·방향·레버리지)을 위로 알린다 — 차트의 작성 중
+               TP/SL 라벨이 **금액**을 계산하는 데 쓴다. 제출 로직과 무관한 알림 경로다.
+          */
+          onDraftContext={props.onDraftContext}
           prefillPrice={props.orderDraft?.price}
           prefillSize={props.orderDraft?.size}
           prefillSide={props.orderDraft?.side}

@@ -220,6 +220,107 @@ describe('CHART-TPSL — 손익 라벨 문구', () => {
     expect(one, `금액이 빠졌다: ${one}`).toMatch(/[+-]\d+\.\d{2}(?!%)/u);
     expect(one, `ROE 가 금액보다 먼저 남았다: ${one}`).not.toMatch(/ROE/u);
   });
+
+  /*
+     ★★ **작성 중(진입 전) TP/SL 도 금액을 보여준다.**
+
+       운영자 요청은 "%랑 금액" 이었는데 작성 중 선은 오랫동안 **%만** 보여줬다.
+       금액은 `수량 × 가격차` 이고 수량은 `OrderEntry` 내부 상태였다 — 차트를 그리는
+       App 이 알 수 없었다. 위젯이 값을 위로 알려주도록 배선했다(제출 로직은 그대로).
+
+     ★ 지어내지 않는다: 수량을 모르면 금액을 만들지 않고 %만 보여준다.
+       추측한 수량으로 만든 금액은 틀린 금액이고, 손절 크기를 잘못 판단하게 만든다.
+  */
+  it('[12-b] 수량을 알면 작성 중 TP/SL 도 금액을 보여준다', () => {
+    const draftWithSize = {
+      label: 'TP', symbol: 'BTCUSDT',
+      live: { kind: 'bracket', symbol: 'BTCUSDT', entry: ENTRY, price: ENTRY * 1.02, side: 'long', size: 0.5, leverage: 10 },
+    };
+    const lines = LV.labelLinesFor(draftWithSize, undefined, { maxPx: 77, maxLines: 2 });
+    expect(lines.join(' '), `퍼센트가 없다: ${JSON.stringify(lines)}`).toMatch(/[+-]\d+\.\d{2}%/u);
+    expect(
+      lines.some((l) => /^[+-]\d/u.test(l) && !l.includes('%')),
+      `금액이 없다: ${JSON.stringify(lines)}`,
+    ).toBe(true);
+  });
+
+  it('[12-c] ★ 수량을 모르면 금액을 지어내지 않는다 (현재가 대비 %만)', () => {
+    /* kind:'away' = 수량·진입가를 모를 때 쓰는 형태. 금액이 나오면 안 된다. */
+    LV.setPrice('BTCUSDT', ENTRY);
+    const draftNoSize = {
+      label: 'TP', symbol: 'BTCUSDT',
+      live: { kind: 'away', symbol: 'BTCUSDT', price: ENTRY * 1.02 },
+    };
+    const one = LV.labelFor(draftNoSize);
+    expect(one, `금액을 지어냈다: ${one}`).not.toMatch(/[+-]\d+\.\d{2}(?!%)/u);
+    expect(one, `퍼센트조차 없다: ${one}`).toMatch(/%/u);
+  });
+});
+
+/**
+ * 작성 중 TP/SL 금액 — **주문 패널 상태를 위로 알리는 배선**.
+ *
+ * ★ 제출 로직을 건드리지 않았다는 것이 이 시험의 핵심이다. 돈이 걸린 경로를 라벨
+ *   하나 때문에 바꾸는 것은 맞지 않다 — 알림 전용 경로로만 만들었다.
+ */
+describe('CHART-TPSL — 작성 중 금액 배선', () => {
+  const app = stripComments(read('src/app.jsx'));
+  const widgets = stripComments(read('src/widgets.jsx'));
+
+  it('[27] OrderEntry 가 주문 문맥을 위로 알린다 (제출 경로와 별개)', () => {
+    expect(widgets, 'onDraftContext prop 이 없다').toMatch(/onDraftContext/u);
+    const m = /if \(typeof onDraftContext !== 'function'\) return;([\s\S]*?)\n {4}\}, \[/u.exec(widgets);
+    expect(m, '알림 effect 를 찾지 못했다').toBeTruthy();
+    const body = m![1]!;
+    /*
+       ★ 축약 속성(`side,`)과 명시 속성(`entry: n(price)`)이 섞여 있다.
+         처음에 `'side:'` 만 찾다가 실패했다 — 축약이면 콜론이 없다.
+    */
+    for (const k of ['symbol', 'side', 'entry', 'size', 'leverage']) {
+      expect(body, `${k} 를 알리지 않는다`).toMatch(new RegExp(`\\b${k}\\s*[:,]`, 'u'));
+    }
+    /*
+       ★★ 시세를 의존성에 넣으면 매 틱마다 상위 상태가 바뀌어 visibleOverlays 가
+         재생성되고 드래그 중에 선이 튕긴다(과거에 겪은 문제).
+    */
+    const deps = /\}, \[(onDraftContext[^\]]*)\]/u.exec(widgets);
+    expect(deps, '의존성 배열을 찾지 못했다').toBeTruthy();
+    expect(deps![1]!, '시세(lastPrice)를 의존성에 넣었다 — 매 틱 재생성된다')
+      .not.toMatch(/lastPrice/u);
+  });
+
+  it('[28] ★ 같은 값이면 상태를 바꾸지 않는다 (무한 렌더 방지)', () => {
+    /*
+       ★ 위젯의 effect 는 렌더마다 불릴 수 있다. 그때마다 새 객체로 setState 하면
+         무한 렌더가 된다.
+    */
+    const m = /const handleDraftContext = useCallback\(\(next\) => \{([\s\S]*?)\n {4}\}, \[\]\);/u.exec(app);
+    expect(m, 'handleDraftContext 를 찾지 못했다').toBeTruthy();
+    expect(m![1]!, '같은 값 비교가 없다 — setState 가 매번 새 객체를 넣는다')
+      .toMatch(/prev\.size === next\.size/u);
+    expect(m![1]!).toMatch(/\? prev/u);
+  });
+
+  it('[29] 수량·진입가를 **둘 다** 알 때만 금액을 계산한다', () => {
+    const m = /const usable = ctx([\s\S]*?);\n/u.exec(app);
+    expect(m, 'usable 판정을 찾지 못했다').toBeTruthy();
+    const cond = m![1]!;
+    expect(cond, '진입가를 확인하지 않는다').toMatch(/ctx\.entry\) > 0/u);
+    expect(cond, '수량을 확인하지 않는다').toMatch(/ctx\.size\) > 0/u);
+    /* ★ 심볼이 다르면 다른 종목의 수량으로 계산하게 된다. */
+    expect(cond, '심볼 일치를 확인하지 않는다').toMatch(/ctx\.symbol === activeSymbolKey/u);
+    /* 모를 때는 away 로 떨어져야 한다(금액 없음). */
+    expect(app, '수량을 모를 때의 폴백이 없다').toMatch(/kind: 'away'/u);
+  });
+
+  it('[30] 주문 제출 로직을 바꾸지 않았다', () => {
+    /*
+       ★ 알림 경로는 `onDraftContext` 하나뿐이어야 한다. 제출 콜백(onPlaceOrder)에
+         손을 댔다면 이 시험이 그것을 알린다 — 값을 알리려고 돈 경로를 고치면 안 된다.
+    */
+    const m = /if \(typeof onDraftContext !== 'function'\) return;([\s\S]*?)\n {4}\}, \[/u.exec(widgets);
+    expect(m![1]!, '알림 effect 안에서 주문을 낸다').not.toMatch(/onPlaceOrder|placeOrder|submit/iu);
+  });
 });
 
 /**
