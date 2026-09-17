@@ -21,6 +21,39 @@
      ★ 못 찾으면 사본으로 되돌리되 **규격은 지운다.** 틀린 규격을 그 종목의 것처럼
        보여주는 것보다, 없어서 계산하지 않는 편이 안전하다.
   */
+  /**
+   * 드래그·클릭으로 얻은 가격을 **입력칸·주문에 쓸 문자열**로 만든다.
+   *
+   * ★★★ 왜 함수로 묶는가
+   *
+   *   차트 좌표 → 가격 변환은 소수 12자리를 낸다(실측 `68744.93908239005`).
+   *   그대로 쓰면 두 가지가 깨진다:
+   *     · 입력칸에 읽을 수 없는 숫자가 들어간다
+   *     · 거래소가 tickSize 배수가 아니라며 **주문을 거절**한다
+   *   이 저장소는 수평선 도구에서 이미 같은 것을 겪었다
+   *   ("방금 그린 선이 78503.24188750003 이었다").
+   *
+   *   같은 변환이 **두 곳**에 있었다(작성 중 TP/SL, 보유 포지션 보호주문 확정).
+   *   한 곳만 고치면 다른 경로에서 그대로 새어 나간다 — 특히 후자는 실제 주문이
+   *   거래소로 나가는 자리다. 그래서 한 함수로 묶는다.
+   *
+   * ★ tickSize 를 알면 그 자리수를 쓴다 — 가장 정확하고 거래소가 받는 형식이다.
+   * ★★ 모르면 **가격 크기에 맞춰** 정한다. 2자리로 고정하면 DOGE(0.00001 단위)처럼
+   *   싼 자산에서 값이 뭉개진다 — 정확도를 잃는 방향의 실수다.
+   * ★ 뒤에 붙는 0 은 지운다(`68744.9400` → `68744.94`). 숫자로서 같은 값이다.
+   */
+  function priceTextFor(symbolKey, price) {
+    const F = window.QTFmt;
+    const tick = (F && F.tickSizeFor) ? F.tickSizeFor(symbolKey) : null;
+    const fromTick = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
+    const p = Number(price);
+    if (!Number.isFinite(p)) return '';
+    const dec = fromTick === null || fromTick === undefined
+      ? (p >= 1000 ? 2 : p >= 1 ? 4 : 8)
+      : fromTick;
+    return String(Number(p.toFixed(dec)));
+  }
+
   function paneMarket(symbol, active) {
     const want = String(symbol || '').toUpperCase();
     const list = (window.QT && Array.isArray(window.QT.MARKETS)) ? window.QT.MARKETS : [];
@@ -1236,10 +1269,12 @@
              읽을 수 없고, 거래소도 tickSize 배수가 아니라며 거부한다.
              tickSize 를 모르면 자리수를 강제하지 않는다(주문 패널이 스냅한다).
         */
-        const F = window.QTFmt;
-        const tick = (F && F.tickSizeFor) ? F.tickSizeFor(activeSymbolKey) : null;
-        const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
-        const text = decimals === null ? String(price) : price.toFixed(decimals);
+        /*
+           ★★★ 자리수 정규화는 `priceTextFor` 한 곳에서 한다 — 같은 변환이 보유
+             포지션 보호주문 확정 경로에도 있고, 한쪽만 고치면 다른 쪽에서 소수
+             12자리가 그대로 새어 나간다(그쪽은 실제 주문이 거래소로 나간다).
+        */
+        const text = priceTextFor(activeSymbolKey, price);
         setOrderBracket((prev) => ({ ...prev, on: true, [key]: text }));
         return;
       }
@@ -1301,6 +1336,42 @@
        ★ 서버는 clientOrderId 와 exchangeOrderId 를 이미 돌려준다. 그것을 쓴다.
     */
     const [orderResult, setOrderResult] = useState(null);
+
+    /*
+       ★★★ **차트에서 찍은 가격을 주문 패널의 TP/SL 로 넣는다.**
+
+         운영자 요청: "차트에서 드래그로 TP SL 모두 설정할 수 있도록."
+
+         지금까지는 패널에 값을 **먼저 입력해야** 선이 나타났고(값이 없으면
+         `visibleOverlays` 의 `mk()` 가 선을 만들지 않는다), 그 뒤에만 끌어서 옮길 수
+         있었다. 즉 드래그로 **옮기기**는 됐지만 **설정**은 안 됐다. 이 처리부가
+         첫 값을 만들어 그 간극을 메운다.
+
+       ★★ 기본값(±2% 같은 것)을 만들지 않는다는 기존 원칙은 그대로다. 여기 들어오는
+         값은 **이용자가 차트에서 직접 찍은 가격**이므로 우리가 지어낸 값이 아니다.
+
+       ★ 값이 생기면 `visibleOverlays` 가 점선을 만들고, 그 뒤 드래그는 기존
+         `handleOverlayChange` 의 draft-tp/draft-sl 분기가 처리한다 — 새 경로를
+         만들지 않았다. "찍어서 만들고 끌어서 고친다" 가 한 흐름이 된다.
+
+       ★ 자리수는 이벤트가 실어 온 값(심볼 tickSize 기준)을 쓴다. 그대로 넣으면 소수
+         12자리가 입력칸에 들어가고 거래소가 tickSize 위반으로 거부한다.
+
+       ★★ 주문을 내지 않는다. 값만 채운다 — 확정은 주문 패널에서 이용자가 한다.
+    */
+    useEffect(() => {
+      const onPick = (e) => {
+        const d = (e && e.detail) || {};
+        if (d.kind !== 'tp' && d.kind !== 'sl') return;
+        const value = Number(d.value);
+        if (!Number.isFinite(value) || value <= 0) return;
+        const dec = Number(d.decimals);
+        const text = Number.isFinite(dec) ? value.toFixed(dec) : String(value);
+        setOrderBracket((prev) => ({ ...prev, on: true, [d.kind]: text }));
+      };
+      window.addEventListener('qt:price-pick', onPick);
+      return () => window.removeEventListener('qt:price-pick', onPick);
+    }, []);
 
     const proposeSignal = useCallback((sig) => {
       setCurrentSignal({ ...sig, status: 'draft' });
@@ -3127,10 +3198,12 @@
               return;
             }
 
-            const F = window.QTFmt;
-            const tick = (F && F.tickSizeFor) ? F.tickSizeFor(String(pos.symbol || '').toUpperCase()) : null;
-            const decimals = (F && F.decimalsForTick) ? F.decimalsForTick(tick) : null;
-            const text = decimals === null ? String(price) : price.toFixed(decimals);
+            /*
+               ★★★ 여기는 **실제 보호주문이 거래소로 나가는** 자리다. 소수 12자리를
+                 그대로 보내면 tickSize 위반으로 거절된다. 작성 중 TP/SL 과 같은
+                 함수를 쓴다 — 두 경로가 다른 형식을 내면 한쪽만 거절당한다.
+            */
+            const text = priceTextFor(String(pos.symbol || '').toUpperCase(), price);
 
             /*
                ★★★ **부분 익절/손절의 수량.**
@@ -3604,6 +3677,25 @@
 
     /** 드로잉 도구 선택. 그리기 가능한 도구면 KLineChart 그리기를 시작한다. */
     /*
+       ★★ 가격 찍기 모드의 해제 함수. 도구를 바꾸거나 Esc 를 누르면 반드시 부른다.
+         부르지 않으면 캔버스에 클릭 리스너가 남아, 커서 도구로 돌아간 뒤에도
+         차트를 클릭하면 TP 가 바뀐다 — 조용히 값이 변하는 최악의 종류다.
+
+       ★★★ **Esc 처리부보다 위에 선언한다.** 아래에 두면 Esc useEffect 의 의존성
+         배열이 렌더 중에 이 이름을 읽고 `const` 의 TDZ 에 걸려
+         `ReferenceError: Cannot access 'cancelPricePick' before initialization` 이
+         난다 — 화면 전체가 죽는다. 이 저장소에서 같은 사고가 이미 한 번 있었다
+         (placeOrder, 프로덕션 흰 화면). **eslint 도 typecheck 도 잡지 못한다.**
+    */
+    const pricePickOffRef = useRef(null);
+    const cancelPricePick = useCallback(() => {
+      if (pricePickOffRef.current) {
+        try { pricePickOffRef.current(); } catch (e) { void e; }
+        pricePickOffRef.current = null;
+      }
+    }, []);
+
+    /*
        ★★ Esc 로 그리기 도구를 끈다.
 
          입력창에만 걸면 **입력창에 포커스가 있을 때만** 동작한다. 차트를 클릭한 뒤
@@ -3622,13 +3714,19 @@
         if (el && el.closest && el.closest('.chart-hline-input')) return;
         setHlinePrice('');
         setActiveTool('cursor');
+        /*
+           ★★ 가격 찍기 모드도 반드시 해제한다. 해제하지 않으면 커서 도구로 보이는데
+             차트를 클릭하면 TP 가 바뀐다 — 이용자가 원인을 알 수 없는 종류의 오작동이다.
+        */
+        cancelPricePick();
         if (actions) actions.startDrawing('cursor', magnetMode);
       };
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
-    }, [activeTool, actions, magnetMode]);
+    }, [activeTool, actions, magnetMode, cancelPricePick]);
 
     const pickTool = useCallback((toolId) => {
+      cancelPricePick();
       setActiveTool(toolId);
       /*
          ★ 도구를 바꾸면 가격 입력을 비운다. 남겨 두면 나중에 수평선 도구를 다시
@@ -3636,8 +3734,36 @@
            가격에 선이 생긴다.
       */
       setHlinePrice('');
+      /*
+         ★★ TP/SL 은 도형이 아니라 **가격 값**을 정한다. 한 번 클릭받고 스스로
+           커서 도구로 돌아간다(qt:price-pick 처리부에서).
+      */
+      if (toolId === 'tp' || toolId === 'sl') {
+        if (actions && actions.armPricePick) {
+          pricePickOffRef.current = actions.armPricePick(toolId);
+        }
+        return;
+      }
       if (actions) actions.startDrawing(toolId, magnetMode);
-    }, [actions, magnetMode]);
+    }, [actions, magnetMode, cancelPricePick]);
+
+    /*
+       ★★ 가격을 찍으면 **커서 도구로 돌아간다.** 켜진 채 두면 다음 클릭이 방금 정한
+         값을 덮어쓴다.
+
+       ★ 값을 넣는 일은 여기서 하지 않는다 — `orderBracket` 은 App 이 들고 있고
+         이 컴포넌트에는 없다. 같은 전역 이벤트를 App 이 따로 듣는다(App 의
+         `qt:price-pick` 처리부). 프롭을 여러 겹 내려보내는 대신 이벤트 하나를
+         양쪽이 듣는 방식이다 — 이 파일의 다른 차트 이벤트(qt:hline-click)와 같다.
+    */
+    useEffect(() => {
+      const onPick = () => {
+        pricePickOffRef.current = null;
+        setActiveTool('cursor');
+      };
+      window.addEventListener('qt:price-pick', onPick);
+      return () => window.removeEventListener('qt:price-pick', onPick);
+    }, []);
 
     return (
       <div className="panel chart-panel">
@@ -3804,6 +3930,18 @@
               { id: 'cursor', icon: I.Cursor, key: 'tool_cursor' },
               { id: 'trend-line', icon: I.Line, key: 'tool_trend_line' },
               { id: 'horizontal', icon: I.Horizontal, key: 'tool_horizontal' },
+              /*
+                 ★★ TP/SL 을 **차트에서 클릭해 정한다.**
+
+                   도형을 그리는 도구가 아니라 주문 패널의 익절·손절 값을 정하는
+                   도구다. 한 번 찍으면 그 가격으로 점선이 생기고, 그 뒤로는 끌어서
+                   옮길 수 있다(기존 draft-tp/draft-sl 경로).
+
+                 ★ 라벨은 새 키를 만들지 않고 `fld_tp`/`fld_sl` 을 쓴다 — 주문 패널의
+                   같은 항목이고 9개 언어에 이미 번역돼 있다(확인함).
+              */
+              { id: 'tp', icon: I.Check, key: 'fld_tp' },
+              { id: 'sl', icon: I.Stop, key: 'fld_sl' },
               { id: 'fib', icon: I.Fib, key: 'tool_fib' },
               { id: 'long', icon: I.LongPos, key: 'tool_long' },
               { id: 'short', icon: I.ShortPos, key: 'tool_short' },

@@ -121,9 +121,23 @@
       const maxPx = Number(opts && opts.maxPx);
       if (!(maxPx > 0) || width(full) <= maxPx) return full;
 
-      /* ★ 좁으면 덜 중요한 것부터 뺀다. 숫자를 자르지는 않는다. */
-      const mid = `${signed(chg, 2)}${roe}`;
-      if (width(mid) <= maxPx) return mid;
+      /*
+         ★★★ **좁을 때 먼저 빼는 것은 ROE 다 — %와 금액을 남긴다.**
+
+           운영자 요청(2026-09-15): "지금 가격 나오는 위치에(캔들보다 더 오른쪽
+           공간에) %랑 금액 나오게." 즉 이 라벨이 반드시 지켜야 하는 두 값은
+           **가격 변동%와 금액**이다.
+
+         ★ 예전에는 금액을 먼저 뺐다(`% · ROE` 로 줄였다). 라벨을 캔들 오른쪽
+           여백(실측 85px)에 넣게 되면서 축약이 자주 일어나는데, 그때마다 요청받은
+           금액이 사라졌다.
+
+         ★ ROE 를 버리는 것이 아니다 — 자리가 있으면 위 `full` 에 그대로 있다.
+           ROE 는 포지션 패널에도 있고, 금액은 이 라벨이 아니면 봉을 보면서 알 수 없다.
+         ★★ 숫자를 잘라 줄이지는 않는다. 잘린 금액은 **틀린 금액**이다.
+      */
+      const noRoe = `${signed(chg, 2)}${amt}`;
+      if (width(noRoe) <= maxPx) return noRoe;
       return signed(chg, 2);
   }
 
@@ -227,10 +241,15 @@
       const maxPx = Number(opts && opts.maxPx);
       if (!(maxPx > 0) || width(full) <= maxPx) return full;
 
-      const mid = `${signed(chg, 2)}${roe}${pnlTxt}`.replace(/^ · /, '');
-      if (width(mid) <= maxPx) return mid;
+      /*
+         ★★★ **ROE 를 먼저 뺀다 — %와 금액이 요청받은 두 값이다.**
+           (위 bracketLabel 의 같은 주석 참고. 두 곳의 우선순위가 달라지면
+            같은 화면에서 어떤 선은 금액이 보이고 어떤 선은 안 보인다.)
+      */
+      const noRoe = `${signed(chg, 2)}${pnlTxt}`;
+      if (width(noRoe) <= maxPx) return noRoe;
 
-      const tight = `${signed(chg, 2)}${roe}`.replace(/^ · /, '');
+      const tight = `${signed(chg, 2)}${roe}`;
       if (width(tight) <= maxPx) return tight;
 
       /*
@@ -275,5 +294,61 @@
     return base;
   }
 
-  window.QTOverlayLive = { setPrice, getPrice, labelFor, normKey };
+  /**
+   * 라벨을 **여러 줄로** 나눠 준다 — 좁은 자리에 %와 금액을 모두 넣기 위한 것.
+   *
+   * ★★ 왜 필요한가
+   *
+   *   손익 라벨을 "캔들보다 오른쪽 빈 공간" 에 두라는 요청을 지키면 쓸 수 있는 폭이
+   *   실측 **77px** 다. 한 줄로는 `-1.50% · +513.24`(약 102px)가 안 들어가서 축약이
+   *   일어나고, 그러면 요청받은 **금액이 사라진다.** 세로로 쌓으면 두 값이 다 남는다.
+   *
+   * ★ 계산을 다시 하지 않는다. `labelFor` 가 만든 문구를 ` · ` 단위로 나눠 담는다 —
+   *   계산이 두 곳에 있으면 언젠가 서로 다른 숫자를 말한다(이 파일이 존재하는 이유다).
+   *
+   * ★ 한 토막이 혼자서도 폭을 넘으면 **자르지 않고** 그 줄에 그대로 둔다.
+   *   잘린 금액은 틀린 금액이다.
+   *
+   * ★★ 줄 수가 한도를 넘으면 **가운데(ROE)부터 버린다.** 첫 토막(%)과 마지막
+   *   토막(금액)이 요청받은 두 값이다.
+   */
+  function labelLinesFor(ov, price, opts) {
+    const maxPx = Number(opts && opts.maxPx) || 0;
+    const maxLines = Math.max(1, Number(opts && opts.maxLines) || 2);
+
+    /* maxPx 를 주지 않고 부른다 — 축약 없는 전체 문구를 받아 우리가 나눈다. */
+    const full = labelFor(ov, price, undefined);
+    if (!full) return [];
+    if (maxPx <= 0) return [full];
+
+    let parts = String(full).split(' · ').map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 0) return [];
+
+    const pack = (list) => {
+      const lines = [];
+      let cur = '';
+      for (const seg of list) {
+        const cand = cur ? `${cur} · ${seg}` : seg;
+        if (!cur || width(cand) <= maxPx) {
+          cur = cand;
+        } else {
+          lines.push(cur);
+          cur = seg;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    };
+
+    let lines = pack(parts);
+    /* 줄이 너무 많으면 가운데 토막을 하나씩 버리고 다시 담는다. */
+    while (lines.length > maxLines && parts.length > 2) {
+      parts = [parts[0], ...parts.slice(2)];
+      lines = pack(parts);
+    }
+    if (lines.length > maxLines) lines = lines.slice(0, maxLines);
+    return lines;
+  }
+
+  window.QTOverlayLive = { setPrice, getPrice, labelFor, labelLinesFor, normKey };
 })();

@@ -53,9 +53,20 @@
     }
   }
 
+  /**
+   * 클릭으로 가격을 찍는 도구 — KLineChart 오버레이가 아니다.
+   *
+   * ★ TP/SL 은 도형을 그리는 것이 아니라 **주문 패널의 값**을 정한다. 그래서
+   *   `DRAW_TOOL_OVERLAY` 에 넣지 않는다. 넣으면 `isDrawToolAvailable` 이
+   *   klinecharts 지원 목록에서 찾다가 실패해 버튼이 비활성으로 보인다.
+   */
+  const PRICE_PICK_TOOLS = ['tp', 'sl'];
+
   /** 해당 드로잉 도구를 현재 렌더러에서 쓸 수 있는지. */
   function isDrawToolAvailable(toolId) {
     if (toolId === 'cursor') return true;
+    /* 가격 찍기는 좌표 변환만 쓰므로 오버레이 지원 여부와 무관하다. */
+    if (PRICE_PICK_TOOLS.includes(toolId)) return true;
     const name = DRAW_TOOL_OVERLAY[toolId];
     if (!name) return false;
     return supportedOverlays().includes(name);
@@ -140,6 +151,13 @@
         const chart = getChart();
         if (!chart) return false;
         if (toolId === 'cursor') return true;
+        /*
+           ★ TP/SL 은 도형이 아니라 **가격 값**을 정하는 도구다. 여기서 오버레이를
+             만들려 하면 매핑이 없어 'draw_tool_unavailable' 토스트가 뜬다.
+             호출부(app.jsx pickTool)가 armPricePick 을 쓰도록 갈라 두었지만,
+             여기서도 조용히 통과시켜 두 경로가 어긋나도 오작동하지 않게 한다.
+        */
+        if (PRICE_PICK_TOOLS.includes(toolId)) return true;
 
         const name = DRAW_TOOL_OVERLAY[toolId];
         if (!name || !supportedOverlays().includes(name)) {
@@ -193,6 +211,108 @@
           console.warn('[ChartActions] 드로잉 시작 실패', toolId, e);
           return false;
         }
+      },
+
+      /**
+       * ★★★ **차트를 클릭해 TP/SL 가격을 정한다.**
+       *
+       *   운영자 요청: "차트에서 드래그로 TP SL 모두 설정할 수 있도록."
+       *
+       *   지금까지는 주문 패널에 값을 **먼저 입력해야** 선이 나타났고, 그 뒤에만
+       *   끌어 옮길 수 있었다. 즉 드래그로 **옮기기**는 됐지만 **설정**은 안 됐다.
+       *
+       * ★★ 기본값(예: ±2%)을 만들어 선을 띄우지 않는다. 그건 이용자가 정하지 않은
+       *   가격을 화면에 진짜처럼 보여주는 것이고, 이 저장소가 명시적으로 거부해 온
+       *   방식이다(app.jsx visibleOverlays 주석). 대신 **한 번의 클릭으로 첫 값을
+       *   받는다** — 이용자가 고른 가격이므로 지어낸 값이 아니다.
+       *
+       * ★ 한 번만 받고 스스로 해제한다(one-shot). 켜진 채로 두면 다음 클릭이
+       *   의도하지 않은 값을 덮어쓴다.
+       *
+       * ★ 캔버스의 `offsetY` 를 쓴다. 화면 좌표에서 rect 를 빼는 계산을 하면
+       *   스크롤·확대 상태에서 어긋난다. 캔버스 상대 좌표가 곧 차트 좌표다
+       *   (실측: value 68432.5 → y 86 → 되돌리면 68435.5, 1픽셀 오차).
+       *
+       * @param {'tp'|'sl'} kind
+       * @returns {() => void} 해제 함수. 도구를 바꾸거나 Esc 를 누르면 호출한다.
+       */
+      armPricePick(kind) {
+        const chart = getChart();
+        if (!chart) return null;
+
+        /*
+           ★★★ **리스너는 컨테이너에 붙인다 — 캔버스가 아니다.**
+
+             KLineChart 는 패널마다 캔버스를 **여러 장 겹쳐** 놓는다(실측: 캔들 패널에
+             2장, Y축에 2장). 그래서 캔버스 하나에 리스너를 붙이면 클릭이 **맨 위
+             캔버스**로 가고, 형제인 내 캔버스에는 capture 로도 오지 않는다
+             (capture 는 조상 사슬만 타고, 형제는 사슬이 아니다).
+             실제로 그렇게 붙였다가 클릭이 한 번도 잡히지 않았다.
+
+           ★ 그래서 조상인 컨테이너에 붙이고, 좌표는 **캔들 패널 캔버스의 rect** 를
+             기준으로 계산한다.
+        */
+        const container = (typeof getContainer === 'function' ? getContainer() : null);
+        if (!container) {
+          toast('draw_tool_unavailable', undefined, 'warning');
+          return null;
+        }
+
+        /** 캔들 패널 캔버스 — 컨테이너 안에서 가장 큰 것. */
+        const paneRect = () => {
+          const best = [...container.querySelectorAll('canvas')]
+            .map((c) => c.getBoundingClientRect())
+            .filter((r) => r.height > 80 && r.width > 80)
+            .sort((a, b) => (b.height * b.width) - (a.height * a.width))[0];
+          return best || null;
+        };
+
+        let done = false;
+        const prevCursor = container.style.cursor;
+        /* 십자선으로 "지금 가격을 찍는 중" 을 알린다. */
+        container.style.cursor = 'crosshair';
+
+        const off = () => {
+          if (done) return;
+          done = true;
+          container.removeEventListener('click', onClick, true);
+          container.style.cursor = prevCursor;
+        };
+
+        function onClick(ev) {
+          const c = getChart();
+          const r = paneRect();
+          if (!c || !r) { off(); return; }
+          /*
+             ★ 캔들 패널 **안쪽 클릭만** 받는다. 툴바·축을 눌렀을 때 값이 바뀌면
+               이용자는 원인을 알 수 없다. 패널 밖 클릭은 무시하고 모드를 유지한다 —
+               해제해 버리면 실수로 툴바를 스친 것 때문에 도구가 꺼진다.
+          */
+          if (ev.clientY < r.top || ev.clientY > r.bottom || ev.clientX < r.left || ev.clientX > r.right) return;
+
+          let value = null;
+          try {
+            const got = c.convertFromPixel({ y: ev.clientY - r.top }, { paneId: 'candle_pane' });
+            value = got && Number.isFinite(got.value) ? got.value : null;
+          } catch (e) { value = null; }
+          off();
+          /*
+             ★ 값을 못 읽으면 조용히 넘기지 않는다. 이용자는 클릭했는데 아무 일도
+               일어나지 않은 것을 "고장" 으로 읽는다.
+          */
+          if (value === null || value <= 0) {
+            toast('chart_hline_bad', undefined, 'warning');
+            return;
+          }
+          try {
+            window.dispatchEvent(new CustomEvent('qt:price-pick', {
+              detail: { kind, value, decimals: priceDecimals() },
+            }));
+          } catch (e) { /* 이벤트 실패가 차트를 막지 않는다 */ }
+        }
+
+        container.addEventListener('click', onClick, true);
+        return off;
       },
 
       /** 사용자 드로잉 전체 삭제. AI 신호 오버레이는 남긴다. */
@@ -307,6 +427,7 @@
   window.ChartActions = {
     create: createChartActions,
     DRAW_TOOL_OVERLAY,
+    PRICE_PICK_TOOLS,
     MAGNET_MODES,
     isDrawToolAvailable,
     supportedOverlays,

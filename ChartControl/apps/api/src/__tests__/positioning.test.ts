@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { LEGAL_DOC_LOCALES } from './helpers/ui-locales';
 
 const ROOT = join(__dirname, '..', '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
@@ -109,7 +110,7 @@ describe('LOCALES — 문구 파일이 유효하다', () => {
      거래다.
 */
 describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 일치한다', () => {
-  const terms = ['en', 'ja', 'zh'].map((l) => ({ loc: l, src: read(`docs/legal/terms-${l}.md`) }));
+  const terms = LEGAL_DOC_LOCALES.map((l) => ({ loc: l, src: read(`docs/legal/terms-${l}.md`) }));
 
   it('[L1] 약관 제1조가 소프트웨어라고 말한다', () => {
     for (const { loc, src } of terms) {
@@ -202,7 +203,7 @@ describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 �
        ★ Toss 는 신청이 반려돼 제거했다. 약관이 남은 수단을 말하면 심사관이 실제와
          다른 결제 구조를 본다.
     */
-    for (const loc of ['en', 'ja', 'zh']) {
+    for (const loc of LEGAL_DOC_LOCALES) {
       expect(read(`docs/legal/refund-${loc}.md`), `refund-${loc}: Toss 언급이 남아 있다`).not.toMatch(/Toss/i);
     }
   });
@@ -1040,15 +1041,26 @@ describe('라벨 폭 — 한글에서 상자를 넘치지 않는다', () => {
   it('좁은 차트에서 라벨을 줄인다 — 숫자는 자르지 않는다', () => {
     const lv = read('src/chart-overlay-live.js');
     expect(lv, 'maxPx 를 받지 않는다').toMatch(/opts && opts\.maxPx/);
-    expect(lv, '축약 단계가 없다').toMatch(/if \(width\(mid\) <= maxPx\) return mid;/);
+    /*
+       ★ 축약 단계가 살아 있는지 본다. 단계 이름이 `mid` → `noRoe` 로 바뀌었다 —
+         좁을 때 ROE 를 먼저 버리고 **%와 금액을 남기도록** 우선순위를 바꿨기
+         때문이다(운영자 요청: "%랑 금액"). 이름이 아니라 동작을 검사한다.
+    */
+    expect(lv, '축약 단계가 없다').toMatch(/if \(width\(noRoe\) <= maxPx\) return noRoe;/);
     /* ★★★ 숫자를 자르면 틀린 숫자가 된다 — 손익을 작게 보여주는 방향의 거짓이다. */
     expect(lv, '숫자를 잘라서 줄인다').not.toMatch(/\.slice\(0,\s*\d+\)\s*\+\s*'…'/);
   });
 
   it('★★ bounding 을 넘긴다 — 없으면 축약이 한 번도 동작하지 않는다', () => {
     const s = read('src/chart-kline.jsx');
-    expect(s, 'renderInfo 가 bounding 을 받지 않는다').toMatch(/function renderInfo\(overlay, bounding\)/);
+    /*
+       ★ `chart` 도 함께 받는다 — 마지막 봉 오른쪽의 **실제 여백**을 재려면 차트에
+         물어봐야 한다. 패널 폭만으로는 알 수 없고, 모르면 라벨이 캔들 위로 뻗는다.
+    */
+    expect(s, 'renderInfo 가 bounding 을 받지 않는다')
+      .toMatch(/function renderInfo\(overlay, bounding, chart\)/);
     expect(s, 'bounding.width 를 쓰지 않는다').toMatch(/bounding && bounding\.width/);
+    expect(s, '여백을 재지 않는다').toMatch(/function rightGapPx\(/);
   });
 });
 
@@ -1426,14 +1438,27 @@ describe('차트 라벨 — 손익만 남긴다', () => {
   it('★★★ 가격은 오른쪽 축 배지로 나온다', () => {
     /*
        운영자 요청의 절반이다 — 가격은 실시간가처럼 축에, 손익만 선 옆에.
-       ★ 배지는 이미 있었다(`priceLabelFigures`). 없어지면 가격을 알 방법이 사라진다.
+
+       ★★★ **이 시험은 예전에 틀린 것을 강제하고 있었다.**
+
+         전에는 `priceLabelFigures` 와 `x: bounding.width - w - 2` 를 요구했다.
+         그런데 그 코드는 `createPointFigures` 안에 있었고, 그 콜백의 `bounding.width`
+         는 **캔들 패널의 폭**이다(브라우저 실측: 패널 330px, Y축은 폭 64px 의 **별도
+         캔버스**). 즉 "오른쪽 끝" 이 축이 아니라 **마지막 봉들 위**였다.
+
+         그래서 운영자가 다섯 번 넘게 "가격을 오른쪽 축에" 라고 말했는데도 고쳐지지
+         않았다 — 커밋 두 개가 고쳤다고 적었고, 이 시험이 그 상태를 통과시켰다.
+
+       ★ 지금은 `createYAxisFigures`(축 캔버스 전용 콜백)에서 그린다. 자세한 검사는
+         `chart-tpsl-axis.test.ts` 에 있고, 여기서는 그 배치가 유지되는지만 본다.
     */
     const ck = read('src/chart-kline.jsx');
-    expect(ck, '오른쪽 가격 배지 함수가 없다').toMatch(/function priceLabelFigures\(/);
-    expect(ck, '수평선에 가격 배지를 그리지 않는다')
-      .toMatch(/price != null \? priceLabelFigures\(/);
-    /* ★ 배지는 오른쪽 끝에 붙는다. 왼쪽으로 옮기면 라벨과 겹친다. */
-    expect(ck, '배지가 오른쪽 끝에 없다').toMatch(/x: bounding\.width - w - 2/);
+    expect(ck, '축 좌표계 전용 가격 배지 함수가 없다').toMatch(/function axisPriceFigures\(/);
+    expect(ck, '패널 좌표계용 옛 함수가 되살아났다').not.toMatch(/function priceLabelFigures\(/);
+    /* ★ 축 콜백이 있어야 축에 그릴 수 있다 — 패널 콜백에서는 축에 닿지 못한다. */
+    expect(ck, 'createYAxisFigures 가 없다 — 축에 아무것도 그리지 않는다').toMatch(/createYAxisFigures:/);
+    /* ★ 축 배지는 축 폭을 채운다(x=0 부터). 패널 폭에서 빼는 계산이면 다시 캔들 위다. */
+    expect(ck, '축 배지가 패널 폭 기준으로 계산된다').not.toMatch(/x: bounding\.width - w - 2/);
   });
 
   it('좁은 화면에서도 숫자를 자르지 않는다', () => {

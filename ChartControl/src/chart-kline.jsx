@@ -294,13 +294,45 @@
     REGISTERED.add(name);
   }
 
+  /**
+   * 마지막 봉의 오른쪽에 남은 **빈 공간의 폭(px)**.
+   *
+   * ★★ 왜 필요한가: 손익 라벨을 "캔들보다 더 오른쪽" 에 두라는 요청을 지키려면
+   *   그 공간이 몇 px 인지 알아야 한다. 모르면 라벨이 길어질 때 캔들 위로 뻗는다 —
+   *   예전에 지적받은 "라벨이 캔들을 가린다" 가 그대로 재발한다.
+   *
+   * ★ `bounding` 만으로는 알 수 없다. 패널 폭은 알지만 마지막 봉의 x 는 스크롤·줌에
+   *   따라 바뀐다. 그래서 차트 인스턴스에 물어본다 — `createPointFigures` 파라미터에
+   *   `chart` 가 들어 있다(실측으로 확인: keys = chart,overlay,coordinates,bounding,xAxis,yAxis).
+   *
+   * ★★ 실패하면 0 을 돌려준다. 0 은 "모른다" 이고, 호출부는 그때 축약하지 않는다 —
+   *   폭을 잘못 추측해 숫자를 지우는 것보다 넘치는 편이 낫다.
+   */
+  function rightGapPx(chart, bounding) {
+    const paneW = Number(bounding && bounding.width) || 0;
+    if (!chart || paneW <= 0) return 0;
+    try {
+      const bars = chart.getDataList();
+      if (!bars || bars.length === 0) return 0;
+      const last = bars[bars.length - 1];
+      const px = chart.convertToPixel({ timestamp: last.timestamp }, { paneId: 'candle_pane' });
+      const x = px && Number.isFinite(px.x) ? px.x : NaN;
+      if (!Number.isFinite(x)) return 0;
+      /* 봉의 절반 + 여유 4px 를 빼서 봉 몸통에 닿지 않게 한다. */
+      const gap = paneW - x - 8;
+      return gap > 0 ? gap : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   /** 공통: extendData 에서 렌더 정보를 뽑는다. */
   /*
      ★★★ `bounding` 을 반드시 넘긴다. `ext.paneWidth` 같은 값은 오버레이 데이터에
        없다 — 처음에 그렇게 썼는데 항상 0 이 되어 **축약이 한 번도 동작하지 않았다.**
        조용히 아무 일도 안 하는 코드가 되는 오늘의 다섯 번째 사례를 피한다.
   */
-  function renderInfo(overlay, bounding) {
+  function renderInfo(overlay, bounding, chart) {
     const ext = overlay.extendData || {};
     const colors = ext.colors || readColors();
     const src = ext.source || 'user';
@@ -322,11 +354,31 @@
        ★ 폭을 모르면(0) 축약하지 않는다.
     */
     const paneW = Number(bounding && bounding.width) || 0;
-    const maxPx = paneW > 0 ? Math.max(60, paneW - 8 - 60 - 12) : 0;
+    /*
+       ★★ 라벨이 쓸 수 있는 폭 = **마지막 봉 오른쪽의 빈 공간**.
+
+         예전에는 `paneW - 8 - 60 - 12` 였다. 라벨을 왼쪽(x=8)에 두던 시절의 계산으로,
+         패널 폭의 거의 전부(330px 에서 250px)를 허용했다. 라벨을 오른쪽으로 옮긴
+         뒤에도 그 값을 쓰면 라벨이 여백(실측 85px)을 넘어 캔들 위로 250px 뻗는다.
+
+       ★ 공간을 모르면(0) 축약하지 않는다 — 폭을 추측해 금액을 지우지 않는다.
+         `labelFor` 는 maxPx 가 0 이면 전체 문구를 돌려준다.
+    */
+    const gap = rightGapPx(chart, bounding);
+    const maxPx = gap > 0 ? gap : 0;
+    void paneW;
     const label = LV
       ? LV.labelFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx })
       : ext.label;
-    return { ext, colors, src, color, dashed, label, width: ext.width || 1.5 };
+    /*
+       ★★ 오른쪽 여백에 넣을 **줄 목록**. 한 줄로는 %와 금액이 함께 들어가지 않는다
+         (여백 실측 77px, 한 줄 문구는 약 102px). 세로로 쌓아 둘 다 남긴다.
+       ★ 헬퍼가 없으면 한 줄짜리 기존 라벨을 쓴다 — 선이 사라지는 것이 더 나쁘다.
+    */
+    const labelLines = (LV && LV.labelLinesFor)
+      ? LV.labelLinesFor({ label: ext.label, live: ext.live, symbol: ext.symbol }, undefined, { maxPx, maxLines: 2 })
+      : (label ? [label] : []);
+    return { ext, colors, src, color, dashed, label, labelLines, width: ext.width || 1.5 };
   }
 
   /** 태그(라벨 알약). ChartCanvas drawTag 의 시각을 재현한다. */
@@ -382,24 +434,98 @@
     ];
   }
 
-  /** 가격 라벨 (오른쪽 축 위 알약). ChartCanvas drawPriceLabel 재현. */
-  function priceLabelFigures(price, y, bounding, color, decimals, colors) {
+  /**
+   * 가격 배지 — **오른쪽 Y축 영역에** 그린다.
+   *
+   * ★★★ 여기가 `createPointFigures` 가 아니라 `createYAxisFigures` 전용이라는 것이
+   *   핵심이다. 두 콜백의 좌표계가 **다르다.** 실측(2026-09-15):
+   *
+   *     createPointFigures  bounding = { width: 330, left: 0,   right: 64 }   ← 캔들 패널
+   *     createYAxisFigures  bounding = { width:  64, left: 330, right:  0 }   ← Y축 캔버스
+   *
+   *   즉 `createPointFigures` 안에서 `x = bounding.width - w` 를 쓰면 **패널의 오른쪽
+   *   끝**, 다시 말해 마지막 봉들 위에 그려진다. Y축은 애초에 **별도 캔버스**라서
+   *   패널 쪽 콜백에서는 닿을 수 없다.
+   *
+   * ★★ 예전 구현이 정확히 그 실수를 했다. 주석에는 "가격 라벨 (오른쪽 축 위 알약)"
+   *   이라고 적혀 있었지만 실제로는 패널 안에 그렸다. 그래서 "가격을 오른쪽 축에
+   *   빼 달라" 는 요청이 두 번의 커밋(7f4d942, c1c2153)을 거쳐도 해결되지 않았다.
+   *   코드가 아니라 **그려진 픽셀을 재서** 원인을 찾았다.
+   *
+   * ★ x=0 이 축의 왼쪽 경계다. 축 폭을 꽉 채우면 실시간 가격 배지와 같은 자리·같은
+   *   모양이 되어, 이용자가 "현재가 선처럼" 읽는다.
+   */
+  function axisPriceFigures(price, y, axisBounding, color, decimals, colors) {
+    if (price === null || price === undefined) return [];
     const text = Number(price).toFixed(decimals);
-    const w = text.length * 6 + 10;
+    const w = Math.max(0, Number(axisBounding && axisBounding.width) || 0);
+    if (w <= 0) return [];
     return [
       {
         type: 'rect',
-        attrs: { x: bounding.width - w - 2, y: y - 8, width: w, height: 16 },
+        attrs: { x: 0, y: y - 8, width: w, height: 16 },
         styles: { style: 'fill', color, borderRadius: 2 },
         ignoreEvent: true,
       },
       {
         type: 'text',
-        attrs: { x: bounding.width - w / 2 - 2, y, text, align: 'center', baseline: 'middle' },
+        attrs: { x: w / 2, y, text, align: 'center', baseline: 'middle' },
         styles: { color: colors.textInverse, size: 10, family: colors.fontMono, weight: '600' },
         ignoreEvent: true,
       },
     ];
+  }
+
+  /**
+   * 라벨 알약을 **패널 오른쪽 끝에 붙여** 그린다 (손익 %·금액용).
+   *
+   * ★★ 운영자 요청: "지금 가격 나오는 위치에(캔들보다 더 오른쪽 공간에) %랑 금액".
+   *   가격이 축으로 나갔으니 그 자리가 비었고, 그 자리에 손익을 넣는다.
+   *
+   * ★ 왼쪽(x=8)에 두던 것을 옮긴 것이다. 왼쪽은 **가장 오래된 봉** 위였다 —
+   *   차트를 볼 때 눈이 가는 곳은 오른쪽 끝(최신)이므로 정보도 거기 있어야 한다.
+   *
+   * ★★ 오른쪽 정렬이 곧 "캔들보다 오른쪽" 인 이유: 차트는 마지막 봉과 오른쪽 경계
+   *   사이에 여백을 둔다(실측 85px — 마지막 봉 x=245, 패널 폭 330). 라벨을 오른쪽
+   *   경계에 붙이면 그 여백 안에 들어간다.
+   *
+   * ★ 여백보다 라벨이 길면 봉 위로 넘어간다. 그때는 라벨을 자르지 않고 넘긴다 —
+   *   숫자를 잘라 **틀린 금액**을 보여주는 것이 더 나쁘다(QTOverlayLive 가 이미
+   *   폭에 맞춰 덜 중요한 항목부터 빼 준다).
+   */
+  function tagFiguresRight(lines, rightEdge, y, color, colors) {
+    const rows = (Array.isArray(lines) ? lines : [lines]).filter(Boolean).map(String);
+    if (rows.length === 0) return [];
+    const paddingX = 6;
+    const rowH = 14;
+    const boxH = rows.length * rowH + 4;
+    const approxW = Math.max(...rows.map((r) => textWidth(r, 10))) + paddingX * 2;
+    const x = Math.max(0, rightEdge - approxW);
+    /* 선을 가리지 않게 상자를 선 **위쪽**에 붙인다. */
+    const top = y - boxH - 3;
+    const out = [
+      {
+        type: 'rect',
+        attrs: { x, y: top, width: approxW, height: boxH },
+        styles: {
+          style: 'stroke_fill',
+          color: withAlpha(colors.elevated || colors.panel, 0.92),
+          borderColor: color,
+          borderSize: 1,
+          borderRadius: 3,
+        },
+        ignoreEvent: true,
+      },
+    ];
+    rows.forEach((text, i) => {
+      out.push({
+        type: 'text',
+        attrs: { x: x + paddingX, y: top + 2 + rowH * i + rowH / 2, text, align: 'left', baseline: 'middle' },
+        styles: { color, size: 10, family: colors.fontMono, weight: '500' },
+        ignoreEvent: true,
+      });
+    });
+    return out;
   }
 
   function registerAllOverlays() {
@@ -409,22 +535,46 @@
       totalStep: 2,
       needDefaultPointFigure: true,
       needDefaultXAxisFigure: false,
-      needDefaultYAxisFigure: true,
-      createPointFigures: ({ overlay, coordinates, bounding }) => {
+      /*
+         ★★ 기본 Y축 도형을 쓰지 않고 **직접 그린다.**
+
+           기본 도형은 축 텍스트 색을 따르므로 익절·손절이 같은 색으로 나온다.
+           TP=이익색 / SL=손실색 이 이 화면에서 방향을 알려주는 유일한 신호이므로
+           (이름을 라벨에서 뺐다) 축 배지도 같은 색이어야 한다.
+      */
+      needDefaultYAxisFigure: false,
+      createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
         const c = coordinates[0];
         if (!c) return [];
-        const { color, dashed, label, colors, ext } = renderInfo(overlay, bounding);
-        const decimals = ext.decimals ?? 2;
-        const price = overlay.points?.[0]?.value;
+        const { color, dashed, labelLines, colors } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'line',
             attrs: { coordinates: [{ x: 0, y: c.y }, { x: bounding.width, y: c.y }] },
             styles: { color, size: 1.5, style: dashed ? 'dashed' : 'solid', dashedValue: [5, 4] },
           },
-          ...(price != null ? priceLabelFigures(price, c.y, bounding, color, decimals, colors) : []),
-          ...tagFigures(label, 8, c.y - 14, color, colors),
+          /*
+             ★★ 가격은 여기서 그리지 않는다 — `createYAxisFigures` 가 오른쪽 축에 그린다.
+               예전에는 이 자리에서 `bounding.width - w` 에 가격 배지를 그렸고, 그것이
+               **캔들 위**였다(패널 좌표계다). 그 자리에는 손익만 남긴다.
+          */
+          ...tagFiguresRight(labelLines, bounding.width - 4, c.y, color, colors),
         ];
+      },
+      /*
+         ★★★ **가격을 오른쪽 축에 그린다 — 실시간 가격 배지와 같은 자리.**
+
+           운영자가 다섯 번 넘게 요청한 항목이다. 여기가 그 요청이 실제로 실현되는
+           유일한 자리다(위 axisPriceFigures 주석의 좌표계 실측 참고).
+      */
+      createYAxisFigures: ({ overlay, coordinates, bounding }) => {
+        const c = coordinates[0];
+        if (!c) return [];
+        const ext = overlay.extendData || {};
+        const colors = ext.colors || readColors();
+        const color = colorForSource(ext.source || 'user', colors);
+        const price = overlay.points?.[0]?.value;
+        return axisPriceFigures(price, c.y, bounding, color, ext.decimals ?? 2, colors);
       },
     });
 
@@ -435,10 +585,10 @@
       needDefaultPointFigure: true,
       needDefaultXAxisFigure: false,
       needDefaultYAxisFigure: false,
-      createPointFigures: ({ overlay, coordinates, bounding }) => {
+      createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
         if (coordinates.length < 2) return [];
         const [p1, p2] = coordinates;
-        const { color, dashed, label, colors } = renderInfo(overlay, bounding);
+        const { color, dashed, label, colors } = renderInfo(overlay, bounding, chart);
         const figures = [
           {
             type: 'line',
@@ -468,15 +618,12 @@
       totalStep: 3,
       needDefaultPointFigure: true,
       needDefaultXAxisFigure: false,
-      needDefaultYAxisFigure: true,
-      createPointFigures: ({ overlay, coordinates, bounding }) => {
+      needDefaultYAxisFigure: false,
+      createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
         if (coordinates.length < 2) return [];
         const yHi = Math.min(coordinates[0].y, coordinates[1].y);
         const yLo = Math.max(coordinates[0].y, coordinates[1].y);
-        const { color, label, colors, ext } = renderInfo(overlay, bounding);
-        const decimals = ext.decimals ?? 2;
-        const priceHi = Math.max(overlay.points[0].value, overlay.points[1].value);
-        const priceLo = Math.min(overlay.points[0].value, overlay.points[1].value);
+        const { color, labelLines, colors } = renderInfo(overlay, bounding, chart);
         return [
           {
             type: 'rect',
@@ -494,9 +641,23 @@
             attrs: { coordinates: [{ x: 0, y: yLo }, { x: bounding.width, y: yLo }] },
             styles: { color, size: 1.5, style: 'dashed', dashedValue: [4, 3] },
           },
-          ...priceLabelFigures(priceHi, yHi, bounding, color, decimals, colors),
-          ...priceLabelFigures(priceLo, yLo, bounding, color, decimals, colors),
-          ...tagFigures(label, 8, (yHi + yLo) / 2 - 8, color, colors),
+          ...tagFiguresRight(labelLines, bounding.width - 4, (yHi + yLo) / 2, color, colors),
+        ];
+      },
+      /* 가격은 오른쪽 축에 — 구간의 위·아래 두 값을 각각 그린다. */
+      createYAxisFigures: ({ overlay, coordinates, bounding }) => {
+        if (coordinates.length < 2) return [];
+        const ext = overlay.extendData || {};
+        const colors = ext.colors || readColors();
+        const color = colorForSource(ext.source || 'user', colors);
+        const decimals = ext.decimals ?? 2;
+        const yHi = Math.min(coordinates[0].y, coordinates[1].y);
+        const yLo = Math.max(coordinates[0].y, coordinates[1].y);
+        const priceHi = Math.max(overlay.points[0].value, overlay.points[1].value);
+        const priceLo = Math.min(overlay.points[0].value, overlay.points[1].value);
+        return [
+          ...axisPriceFigures(priceHi, yHi, bounding, color, decimals, colors),
+          ...axisPriceFigures(priceLo, yLo, bounding, color, decimals, colors),
         ];
       },
     });
@@ -525,10 +686,11 @@
         totalStep: 4, // 시작 + 점 3개
         needDefaultPointFigure: true,
         needDefaultXAxisFigure: false,
-        needDefaultYAxisFigure: true,
-        createPointFigures: ({ overlay, coordinates, bounding }) => {
+        /* 축 배지를 직접 그린다(createYAxisFigures) — 기본 도형은 색을 구분하지 못한다. */
+        needDefaultYAxisFigure: false,
+        createPointFigures: ({ overlay, coordinates, bounding, chart }) => {
           if (coordinates.length < 2) return [];
-          const { colors, ext } = renderInfo(overlay, bounding);
+          const { colors, ext } = renderInfo(overlay, bounding, chart);
           /*
              가격 자리수. 심볼의 tickSize 에서 온다.
              이걸 쓰지 않으면 '64283.04431256001' 처럼 부동소수 오차가 그대로 보인다
@@ -567,9 +729,12 @@
             });
             const shown = px(priceVal);
             if (shown !== null) {
-              // Y축에 가격 표시 추가
-              figures.push(...priceLabelFigures(priceVal, y, bounding, color, decimals, colors));
-              figures.push(...tagFigures(`${tag} ${shown}`, x0 + 6, y - 8, color, colors));
+              /*
+                 ★★ 가격은 여기서 그리지 않는다 — `createYAxisFigures` 가 오른쪽 축에 그린다.
+                   이름(TP/SL)만 남긴다. 이름을 오른쪽에 두면 손익 라벨과 겹치므로
+                   진입선 기준 왼쪽에 그대로 둔다.
+              */
+              figures.push(...tagFigures(tag, x0 + 6, y - 8, color, colors));
             }
           };
 
@@ -588,10 +753,7 @@
             attrs: { coordinates: [{ x: x0, y: entryY }, { x: xEnd, y: entryY }] },
             styles: { color: colors.textPri || '#e6ebf2', size: 1.5, style: 'solid' },
           });
-          // 진입가격 Y축 레이블 추가
-          if (entryPrice !== null) {
-            figures.push(...priceLabelFigures(entryPrice, entryY, bounding, colors.textPri || '#e6ebf2', decimals, colors));
-          }
+          // 진입가격은 오른쪽 축에 그린다(createYAxisFigures).
 
           // 손익비 + 방향 유효성
           if (pts.length >= 3 && entryPrice !== null) {
@@ -624,6 +786,39 @@
           }
 
           return figures;
+        },
+        /*
+           ★★★ 진입·TP·SL **세 가격을 모두 오른쪽 축에** 그린다.
+
+             패널 쪽 콜백에서는 축에 닿을 수 없다(좌표계가 다르다 — axisPriceFigures
+             주석의 실측 참고). 그래서 같은 계산을 축 콜백에서 한 번 더 한다.
+             색은 패널과 동일해야 한다 — 축 배지 색과 선 색이 다르면 어느 선의
+             가격인지 알 수 없다.
+        */
+        createYAxisFigures: ({ overlay, coordinates, bounding }) => {
+          if (!coordinates.length) return [];
+          const ext = overlay.extendData || {};
+          const colors = ext.colors || readColors();
+          const decimals = ext.decimals ?? 2;
+          const long = colors.long || '#16a34a';
+          const short = colors.short || '#dc2626';
+          const profitColor = side === 'long' ? long : short;
+          const lossColor = side === 'long' ? short : long;
+          const pts = overlay.points || [];
+
+          const out = [];
+          /* 진입가 — 실시간 가격 배지와 같은 중립색. */
+          if (pts[0] && coordinates[0]) {
+            out.push(...axisPriceFigures(
+              pts[0].value, coordinates[0].y, bounding, colors.textPri || '#e6ebf2', decimals, colors));
+          }
+          if (pts[1] && coordinates[1]) {
+            out.push(...axisPriceFigures(pts[1].value, coordinates[1].y, bounding, profitColor, decimals, colors));
+          }
+          if (pts[2] && coordinates[2]) {
+            out.push(...axisPriceFigures(pts[2].value, coordinates[2].y, bounding, lossColor, decimals, colors));
+          }
+          return out;
         },
       };
     }
@@ -814,15 +1009,28 @@
         },
       },
       overlay: {
+        /*
+           ★★ 손잡이(점)를 **크게** 둔다.
+
+             KLineChart 는 오버레이 몸통(선)을 끌 수 없다 — 실측으로 확인했다:
+             선을 클릭해 선택한 뒤 몸통을 끌어도 값이 바뀌지 않고, **점을 잡을 때만**
+             움직인다. 그러니 TP/SL 선을 옮기는 유일한 방법이 이 점이다.
+
+             기본 radius 4 는 마우스로도 잘 안 맞고 터치로는 거의 불가능하다
+             (WCAG 2.2 §2.5.8 이 요구하는 24px 과도 한참 멀다). 그래서 넓힌다.
+
+           ★ 색은 그대로 둔다 — 선 색이 TP(이익)·SL(손실)을 말하고, 점은 "여기를
+             잡으면 옮길 수 있다" 만 알리면 된다.
+        */
         point: {
           color: colors.ai,
           borderColor: withAlpha(colors.ai, 0.35),
           borderSize: 1,
-          radius: 4,
+          radius: 7,
           activeColor: colors.ai,
           activeBorderColor: withAlpha(colors.ai, 0.5),
-          activeBorderSize: 2,
-          activeRadius: 5,
+          activeBorderSize: 3,
+          activeRadius: 9,
         },
         line: { style: 'solid', smooth: false, color: colors.ai, size: 1.5, dashedValue: [5, 4] },
       },
