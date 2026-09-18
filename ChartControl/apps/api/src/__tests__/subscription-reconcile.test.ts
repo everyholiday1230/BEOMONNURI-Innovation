@@ -22,6 +22,7 @@ import {
 } from '../subscriptions/subscription-reconcile';
 import type { PgSubscriptionRepo } from '../subscriptions/subscription-repo';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 type PendingRow = { userId: string; planCode: string; providerRef: string; pendingSince: number };
 
@@ -610,5 +611,50 @@ describe('★★ 플랜 변경 — 낸 만큼만 받는다', () => {
     /* ★ 모르는 plan_id 를 free 나 최저 플랜으로 떨어뜨리면 고객이 낸 만큼 못 받는다. */
     const rec = readFileSync(new URL('../subscriptions/subscription-reconcile.ts', import.meta.url), 'utf-8');
     expect(rec).toContain('(paidPlan ?? row.planCode)');
+  });
+});
+/*
+   **실패 로그가 원인을 알려주는지.**
+
+   ★★★ 프로덕션 로그(2026-09-18 05:55:01):
+         [subscription] 승인 대조 실패 ref=I-C6KBJVULU4KP action=lookup_failed:
+       **이유가 비어 있었다.** 조회 실패 분기(`!lookupOk`)는 `error` 를 채우지 않고
+       `status` 에 `http_404` · `http_500` 을 담는데, 로그는 `error` 만 찍었다.
+
+       고객이 결제했는데 활성화되지 않은 상태이고 우리는 원인을 알 수 없다.
+       404(우리 기록이 잘못됨)와 500(PayPal 장애)은 **대응이 전혀 다르다.**
+*/
+describe('승인 대조 실패 로그', () => {
+  it('조회 실패 분기가 status 를 채운다 — 원인 없이 실패하지 않는다', async () => {
+    const repo = {
+      listPending: async () => [{
+        userId: 'u1', planCode: 'basic', providerRef: 'I-TEST', createdAt: Date.now() - 10 * 60_000,
+      }],
+    } as unknown as Parameters<typeof reconcilePendingOnce>[0];
+    const provider = {
+      getSubscription: async () => ({ ok: false, lookupOk: false, status: 'http_500' }),
+    } as unknown as Parameters<typeof reconcilePendingOnce>[1];
+    const activator = { activate: async () => { /* 불리지 않아야 한다 */ } };
+
+    const out = await reconcilePendingOnce(repo, provider, activator);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.action).toBe('lookup_failed');
+    /* ★ status 가 비어 있으면 로그도 비고, 그러면 진단할 수 없다. */
+    expect(out[0]!.status, '조회 실패인데 status 가 없다 — 로그가 원인을 못 알려준다')
+      .toBe('http_500');
+  });
+
+  it('로그가 error 와 status 를 함께 찍는다', () => {
+    /*
+       ★ 소스 검사다. 실패 경로를 실제로 돌려 콘솔을 가로채는 것보다, 문자열이
+         두 값을 모두 담는지 보는 편이 흔들리지 않는다(문구는 다듬어도 값은 남아야 한다).
+    */
+    const src = readFileSync(join(__dirname, '../subscriptions/subscription-reconcile.ts'), 'utf8');
+    expect(src, '실패 원인을 error 와 status 로 합치지 않는다')
+      .toMatch(/\[f\.error, f\.status\]\.filter\(Boolean\)\.join/u);
+    expect(src, '원인이 둘 다 없을 때도 알려주지 않는다').toMatch(/원인 미기록/u);
+    /* 옛 방식(error 만)이 남아 있으면 안 된다. */
+    expect(src, 'error 만 찍는 옛 로그가 남아 있다')
+      .not.toMatch(/승인 대조 실패[^\n]*\$\{f\.error \?\? ''\}/u);
   });
 });

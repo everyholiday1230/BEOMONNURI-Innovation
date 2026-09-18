@@ -217,8 +217,22 @@ export function startSubscriptionReconciler(
         console.log(`[subscription] 승인 대조: ${activated.length}건을 활성화했다 (브라우저가 돌아오지 않은 결제).`);
       }
       for (const f of failed) {
-        /* ★ 실패는 크게 남긴다. 돈이 걸린 경로다. */
-        console.error(`[subscription] 승인 대조 실패 ref=${f.providerRef} action=${f.action}: ${f.error ?? ''}`);
+        /*
+           ★ 실패는 크게 남긴다. 돈이 걸린 경로다.
+
+           ★★★ **왜 실패했는지 함께 적는다.** 예전에는 `f.error ?? ''` 만 찍었는데,
+             조회 실패 분기(`!lookupOk`)는 `error` 를 채우지 않고 `status` 에
+             `http_404` · `http_500` 같은 값을 담는다. 그래서 프로덕션 로그가 이렇게
+             나왔다(2026-09-18 05:55:01):
+
+               [subscription] 승인 대조 실패 ref=I-C6KBJVULU4KP action=lookup_failed:
+
+             **이유가 비어 있다.** 고객이 결제했는데 활성화되지 않은 상태이고, 우리는
+             원인을 알 수 없다. 404(구독이 없다)와 500(PayPal 장애)은 대응이 전혀
+             다르다 — 전자는 우리 기록이 잘못된 것이고 후자는 기다리면 된다.
+        */
+        const why = [f.error, f.status].filter(Boolean).join(' · ') || '(원인 미기록)';
+        console.error(`[subscription] 승인 대조 실패 ref=${f.providerRef} action=${f.action}: ${why}`);
       }
     } catch (e) {
       console.error(`[subscription] 승인 대조 작업 자체가 실패했다: ${(e as Error).message}`);
