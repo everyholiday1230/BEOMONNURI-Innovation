@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 18 September 2026 · Version 1.4
+Effective: 19 September 2026 · Version 1.4
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 

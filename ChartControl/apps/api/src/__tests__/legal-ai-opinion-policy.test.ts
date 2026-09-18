@@ -119,8 +119,18 @@ describe('법적 문서가 AI 견해 정책과 일치한다', () => {
     const m = /- key: LEGAL_VERSION[\s\S]{0,1400}?\n\s+value: "([^"]+)"/u.exec(yaml);
     expect(m, 'render.yaml 에서 LEGAL_VERSION 을 찾지 못했다').not.toBeNull();
     const version = m![1]!;
-    expect(version, '개정일보다 앞선 라벨이면 개정판이 게시되지 않는다')
-      .toBe('2026-09-18');
+    /*
+       ★★★ **고정값으로 잠그지 않는다.**
+
+         전에는 `toBe('2026-09-18')` 이었다. 그래서 개인정보처리방침을 또 개정해
+         라벨을 올리면(2026-09-19) 이 시험이 실패했다 — **올리는 것이 옳은 동작인데
+         시험이 막았다.** 시험은 "AI 견해 정책 개정판이 게시될 수 있는 라벨인가" 를
+         봐야 한다. 그 개정일(2026-09-18) **이상**이면 통과다.
+       ★ 라벨이 개정일보다 앞서면(작으면) `seed-legal` 이 옛 버전으로 게시하므로
+         개정판이 반영되지 않는다 — 그것만 막는다.
+    */
+    expect(version.localeCompare('2026-09-18'), `라벨 ${version} 이 개정일 2026-09-18 보다 앞선다 — 개정판이 게시되지 않는다`)
+      .toBeGreaterThanOrEqual(0);
 
     /* 본문 시행일과 배포 라벨이 맞아야 한다(seed-legal 이 어긋남을 보고한다). */
     for (const l of LOCALES) {
