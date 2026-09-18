@@ -16,6 +16,14 @@ export interface BitgetCredentials {
   apiKey: string;
   apiSecret: string;
   passphrase: string;
+  /**
+   * 데모(가상 자금) 키인가.
+   *
+   * ★★ 실거래 키에 이 표시를 하면 **모든 요청이 `40099` 로 실패한다.** 반대로 데모 키에
+   *   표시를 빼면 실거래 환경으로 가서 역시 실패한다. 키를 만들 때 어느 쪽인지 정하고
+   *   그것을 함께 저장해야 한다 — 우리가 추측할 수 없다.
+   */
+  demo?: boolean;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'DELETE';
@@ -58,5 +66,18 @@ export function authHeaders(
     'ACCESS-PASSPHRASE': cred.passphrase,
     'Content-Type': 'application/json',
     locale: 'en-US',
+    /*
+       ★★★ **데모 거래.** UTA 문서(2026-09-18 확인): 헤더 `paptrading: 1` 을 붙이면
+         가상 자금으로 주문을 시험할 수 있다.
+
+       ★★ **데모 전용 키가 따로 필요하다.** 실거래 키에 이 헤더를 붙이면
+         `40099 exchange environment is incorrect` 가 온다(실측). 그래서 자격증명에
+         표시가 있을 때만 붙인다 — 실거래 키에 실수로 붙으면 **모든 요청이 실패한다.**
+
+       ★ 왜 필요한가: Bitget 은 **모르는 필드를 조용히 무시한다.** 손절 필드 이름을
+         틀리게 써도 주문은 성공하고 손절만 없다 — 오류가 없으므로 알아챌 수 없다.
+         그 종류의 실패는 **실제로 주문을 내 봐야** 확인된다.
+    */
+    ...(cred.demo ? { paptrading: '1' } : {}),
   };
 }

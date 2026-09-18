@@ -510,3 +510,51 @@ describe('v3 주문 — 실키로 확인한 스펙', () => {
     expect(JSON.parse(sent[0]!.body).reduceOnly).toBe('YES');
   });
 });
+
+describe('데모 거래 (가상 자금)', () => {
+  /*
+     ★★★ UTA 문서(2026-09-18 확인): 헤더 `paptrading: 1` 로 가상 자금 주문을 시험할 수 있다.
+       내부 문서에 "데모 거래는 없다" 고 적혀 있었는데 **그 말은 FastApi 에 한정된다.**
+
+     ★★★ **왜 데모가 필요한가 — 이것이 핵심이다.**
+       Bitget 은 **모르는 필드를 조용히 무시한다**(실측: 존재하지 않는 필드를 보내도
+       거절하지 않는다). 즉 손절 필드 이름을 틀리게 써도 **주문은 성공하고 손절만 없다.**
+       오류가 없으므로 알아챌 방법이 없고, 고객은 보호가 걸렸다고 믿은 채 무방비로 남는다.
+       그 종류의 실패는 **실제로 주문을 내 봐야** 확인된다.
+  */
+  it('데모 키에만 paptrading 을 붙인다', () => {
+    const base = { apiKey: 'K', apiSecret: 'S', passphrase: 'P' };
+    /*
+       ★★ 실거래 키에 붙으면 **모든 요청이 `40099 exchange environment is incorrect`
+         로 실패한다**(실측). 조건 없이 붙이면 연결이 전부 깨진다.
+    */
+    expect(authHeaders(base, 'GET', '/x').paptrading, '실거래 키에 데모 헤더가 붙었다').toBeUndefined();
+    expect(authHeaders({ ...base, demo: true }, 'GET', '/x').paptrading).toBe('1');
+  });
+
+  it('데모 표시가 비밀을 새게 하지 않는다', () => {
+    const h = authHeaders({ apiKey: 'K', apiSecret: 'SUPERSECRET', passphrase: 'P', demo: true }, 'GET', '/x');
+    expect(JSON.stringify(h)).not.toContain('SUPERSECRET');
+  });
+
+  /*
+     ★★★ **검증하지 못한 기능은 거부한다.** 손절·익절 필드 이름을 데모로 확인하기
+       전까지 주문을 받지 않는다. "아마 이 이름일 것" 으로 고객 보호를 걸지 않는다.
+     ★ 이 시험은 지원 범위를 넓힐 때 **먼저 깨져야 한다** — 그때 데모 검증을 했는지
+       스스로 묻게 된다.
+  */
+  it('손절·익절은 데모 검증 전까지 거부한다', async () => {
+    let called = 0;
+    const t = new BitgetV3Trading({
+      fetchImpl: (async () => { called += 1; return new Response('{}'); }) as unknown as typeof fetch,
+    });
+    const CRED = { apiKey: 'k', apiSecret: 's', passphrase: 'p' };
+    const BASE = { clientOrderId: 'C', symbol: 'BTCUSDT', side: 'long' as const, type: 'limit' as const, price: '1', quantity: '1' };
+    for (const extra of [{ stopLossPrice: '9000' }, { takeProfitPrice: '99000' }, { stopPrice: '9000' }]) {
+      const r = await t.submitOrder(CRED, { ...BASE, ...extra });
+      expect(r.status, JSON.stringify(extra)).toBe('REJECTED');
+    }
+    /* ★★ 거래소를 **한 번도** 부르지 않았다 — 부르면 손절 없는 주문이 나갈 수 있다. */
+    expect(called, '거래소를 불렀다 — 손절 없는 주문이 나갈 수 있다').toBe(0);
+  });
+});

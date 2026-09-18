@@ -130,15 +130,36 @@ find out when a request fails"* ⚠️
 **USDT 무기한물 거래 권한** → *"yes, fastapi issued apikey has the permissions
 to trade usdt-margined perpetual symbols"* ✅ 우리 범위와 일치한다.
 
-### ⑤ 데모 거래는 없다 ⚠️
+### ⑤ 데모 거래 — FastApi 에는 없지만 **UTA 에는 있다** 🔴 정정됨
 
-> "there is no demo trading for fastapi, we recommend using a real account to
+> (담당자) "there is no demo trading for fastapi, we recommend using a real account to
 > test the authorization flow end to end."
 
-검증에 **실계정**이 필요하다. 다만 단계를 나눌 수 있다:
+★★★ **그 말은 FastApi(OAuth 발급)에 한정된다.** 2026-09-18 UTA 공식 문서에서 확인했다:
 
-- 인증 흐름 + 키 수신 + 읽기 전용 조회 → **잔고 0 인 실계정으로 가능**
-- 주문 제출 → 소액(10~20 USDT) 필요
+> "Demo trading allows you to practice trading and test strategies in a real-market
+> environment using virtual funds. … create a Demo API Key … add `paptrading` in the
+> request header, with the value set to `1`."
+> WebSocket: `wss://wspap.bitget.com/v3/ws/public` · `.../private`
+
+★★ **데모 전용 키가 따로 필요하다.** 실거래 키에 `paptrading: 1` 을 붙이면
+  `40099 exchange environment is incorrect` 가 온다(실측). 계정에서 데모 모드로 전환해
+  키를 새로 만들어야 한다.
+
+★ 그래서 **주문 경로를 돈 없이 끝까지 시험할 수 있다.** 손절·익절처럼 "걸렸다고 믿는데
+  안 걸린" 실패는 실제로 주문을 내 보지 않으면 확인할 수 없다 — 그 검증에 데모가 필요하다.
+
+검증 단계:
+
+- 인증 + 읽기 전용 조회 → **잔고 0 인 실계정으로 가능** (2026-09-18 완료)
+- 주문 인자 정확성 → 체결 불가 지정가로 `25203 Insufficient margin` 까지 확인 (완료)
+- **주문이 실제로 체결되고 손절이 걸리는지 → 데모 키 필요** (미완)
+
+★★★ **왜 이것이 중요한가.** Bitget 은 **모르는 필드를 조용히 무시한다**(실측: 존재하지
+  않는 `totallyMadeUpField` 를 보내도 거절하지 않는다). 즉 손절 필드 이름을 틀리게 써도
+  **주문은 성공하고 손절만 없다.** 오류가 없으므로 알아챌 방법이 없다 — 고객은 보호가
+  걸렸다고 믿은 채 무방비로 남는다. 그래서 데모로 실제 확인하기 전까지
+  **손절·익절 주문을 거부한다**(`bitget-trading-adapter.ts`).
 
 ---
 
