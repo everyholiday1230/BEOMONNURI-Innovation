@@ -1927,7 +1927,8 @@
        ★ `rule` 은 **신호 규칙**의 DSL 식이다. 종류가 signal 일 때만 쓴다.
          방향은 선택이다 — 고객이 "매수" 라고 정하지 않았으면 비워 둔다.
     */
-    const [form, setForm] = React.useState({ kind: 'strategy', name: '', symbol: 'BTCUSDT', timeframe: '1h', rule: '', direction: '' });
+    /* ★ 기본값은 실제로 동작하는 종류다. 예전 기본값(`strategy`)은 이름만 저장했다. */
+    const [form, setForm] = React.useState({ kind: 'signal', name: '', symbol: 'BTCUSDT', timeframe: '1h', rule: '', direction: '' });
     const [msg, setMsg] = React.useState(null);
 
     const load = React.useCallback(() => {
@@ -1988,11 +1989,38 @@
     return (
       <div className="panel" style={{ marginTop: 16, padding: 16 }}>
         <div style={{ fontWeight: 600, marginBottom: 10 }}>{t('us_title')}</div>
+        {/*
+           ★★★ **차트에서 만드는 것이 쉬운 길임을 알려준다.**
+
+             운영자가 이 화면을 열고 "그냥 이름만 저장되는 거야? 그 트레이드탭에서
+             저장해야 하는 거 아닌가?" 라고 물었다. 맞다 — 규칙은 차트에서 대화로
+             만들어지고, 거기서 바로 저장할 수 있다. 이 화면은 **직접 식을 쓰는 사람**
+             을 위한 것이다. 그 사실을 안 알려주면 여기서 식을 처음부터 타이핑해야
+             하는 줄 안다.
+        */}
+        <div style={{ fontSize: 11.5, color: 'var(--color-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+          {t('us_chart_hint')}{' '}
+          <button
+            aria-label={t('us_go_chart')}
+            className="btn btn--sm"
+            onClick={() => { window.location.hash = '#/trade'; }}
+            style={{ padding: '1px 7px', fontSize: 10.5 }}
+          >{t('us_go_chart')}</button>
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
           <select aria-label={t('a11y_kind')} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-            <option value="strategy">{t('us_kind_strategy')}</option>
-            <option value="indicator">{t('us_kind_indicator')}</option>
-            {/* ★ 신호 규칙. 조건식을 저장해 두고 차트에서 다시 불러 쓴다. */}
+            {/*
+               ★★★ **`strategy`·`indicator` 는 이름만 저장한다** — `config` 가 비어 있고
+                 불러올 내용이 없다. 그런데 각각 **300·100 포인트를 받았다.**
+                 운영자가 직접 겪었다: 이름 "d" 로 저장했더니 이름만 남았다.
+                 "그냥 이렇게 이름만 저장되는 거야?" — 맞다. 아무것도 안 된다.
+
+                 포인트를 받으면서 아무 일도 하지 않는 것이 가장 나쁘다. 그래서
+                 **만들기 목록에서 뺀다.** 서버 종류는 그대로 둔다 — 이미 저장한
+                 항목이 목록에 계속 보여야 한다(지우면 산 것이 사라진다).
+
+               ★ 기능이 생기면 다시 넣는다. 그때는 무엇이 저장되는지가 정해져 있어야 한다.
+            */}
             <option value="signal">{t('us_kind_signal')}</option>
           </select>
           <input aria-label={t('us_name_ph')} placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />

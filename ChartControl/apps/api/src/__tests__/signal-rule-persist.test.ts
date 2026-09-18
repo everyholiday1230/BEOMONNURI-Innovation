@@ -252,3 +252,81 @@ describe('저장 목록 화면', () => {
     expect(missing, `문구가 빠진 사전:\n${missing.join('\n')}`).toEqual([]);
   });
 });
+
+describe('차트에서 규칙을 저장한다', () => {
+  const copilot = read('src/ai-copilot.jsx');
+  const more = read('src/pages-more.jsx');
+
+  /*
+     ★★★ 운영자: "그 트레이드탭에서 저장해야 하는 거 아닌가?" **맞다.**
+       규칙은 차트에서 대화로 만들어진다. 그런데 저장은 다른 화면에서 **식을 다시
+       타이핑**해야 했다. AI 가 만들어 준 식을 사람이 옮겨 적는 것은 앞뒤가 바뀐 것이다.
+  */
+  it('규칙을 만든 대화에서 바로 저장할 수 있다', () => {
+    expect(copilot, '규칙 저장 종류가 없다').toMatch(/kind: 'signal-rule'/u);
+    const i = copilot.indexOf("const isRule = ev.command.command === 'addSignalRule'");
+    expect(i, '규칙 명령을 구분하지 않는다').toBeGreaterThan(-1);
+    const body = copilot.slice(i, i + 700);
+    /* ★ 식이 없으면 불러와도 아무것도 안 나온다. */
+    expect(body, '식을 담지 않는다').toMatch(/rule: String\(a\.rule\)/u);
+    /* ★ 이름은 고객이 지은 규칙 이름 — 도구 결과 문구를 쓰면 목록이 다 비슷해진다. */
+    expect(body, '규칙 이름을 쓰지 않는다').toMatch(/name: String\(a\.name\)/u);
+  });
+
+  /*
+     ★★★ 저장 장치가 두 개다: `savedCreate`(저장된 항목)와 `createUserStrategy`(내 규칙).
+       규칙을 저장된 항목에 넣으면 **내 규칙 화면에 안 나온다** — 고객이 찾아보는
+       화면은 내 규칙이다.
+  */
+  it('규칙은 내 규칙 쪽으로 저장된다', () => {
+    const i = copilot.indexOf("if (savable.kind === 'signal-rule') {");
+    expect(i, '종류별 분기가 없다').toBeGreaterThan(-1);
+    const body = copilot.slice(i, i + 900);
+    expect(body, 'createUserStrategy 를 쓰지 않는다').toMatch(/api\.createUserStrategy\(\{/u);
+    expect(body, "kind 를 signal 로 보내지 않는다").toMatch(/kind: 'signal'/u);
+    expect(body, 'config 에 식을 담지 않는다').toMatch(/config: savable\.payload/u);
+  });
+
+  it('가드가 규칙 저장을 막지 않는다', () => {
+    /*
+       ★ 예전 가드는 `savedCreate` 하나만 봤다. 신호 규칙은 `createUserStrategy` 를
+         쓰므로 그 가드에서 **조용히 막혔다.**
+    */
+    expect(copilot, '종류에 맞는 API 를 보지 않는다')
+      .toMatch(/savable\.kind === 'signal-rule' \? api\.createUserStrategy : api\.savedCreate/u);
+    expect(copilot, 'savedCreate 를 무조건 요구한다')
+      .not.toMatch(/if \(!api \|\| !api\.savedCreate \|\| !savable\) return;/u);
+  });
+
+  /*
+     ★★★ **이름만 저장하고 포인트를 받는 종류가 있었다.**
+       `strategy` 300점 · `indicator` 100점인데 `config` 가 비어 있어 불러올 것이 없다.
+       운영자가 직접 겪었다 — 이름 "d" 로 저장했더니 이름만 남았다.
+       포인트를 받으면서 아무 일도 하지 않는 것이 가장 나쁘다.
+  */
+  it('아무것도 안 되는 종류를 팔지 않는다', () => {
+    const i = more.indexOf("<select aria-label={t('a11y_kind')}");
+    const body = more.slice(i, more.indexOf('</select>', i));
+    expect(body, 'strategy 를 여전히 팔고 있다').not.toMatch(/value="strategy"/u);
+    expect(body, 'indicator 를 여전히 팔고 있다').not.toMatch(/value="indicator"/u);
+    expect(body, 'signal 이 없다').toMatch(/value="signal"/u);
+  });
+
+  it('기본값이 실제로 동작하는 종류다', () => {
+    /* ★ 예전 기본값(`strategy`)은 이름만 저장했다 — 처음 쓰는 사람이 그것을 고른다. */
+    expect(more, '기본값이 signal 이 아니다').toMatch(/React\.useState\(\{ kind: 'signal'/u);
+  });
+
+  it('차트에서 만드는 길을 안내한다', () => {
+    expect(more, '차트로 가는 안내가 없다').toMatch(/us_chart_hint/u);
+    expect(more, '차트로 가는 버튼이 없다').toMatch(/window\.location\.hash = '#\/trade'/u);
+    const dir = join(ROOT, 'src/locales');
+    const missing: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {
+      const s2 = readFileSync(join(dir, f), 'utf8');
+      if (!s2.includes('us_kind_signal')) continue;
+      for (const k of ['us_chart_hint', 'us_go_chart']) if (!s2.includes(k)) missing.push(`${f} ${k}`);
+    }
+    expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
+  });
+});

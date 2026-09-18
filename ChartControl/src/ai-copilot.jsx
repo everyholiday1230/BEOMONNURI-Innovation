@@ -869,7 +869,13 @@
     const loadSavedRef = useRef(null);
     const saveProposal = useCallback(async (msgId, savable) => {
       const api = window.QTApi && window.QTApi.rest;
-      if (!api || !api.savedCreate || !savable) return;
+      if (!api || !savable) return;
+      /*
+         ★ 종류에 맞는 API 가 있는지 각각 본다. 예전에는 `savedCreate` 하나만 봤는데
+           신호 규칙은 `createUserStrategy` 를 쓴다 — 이 가드에서 조용히 막혔다.
+      */
+      const needed = savable.kind === 'signal-rule' ? api.createUserStrategy : api.savedCreate;
+      if (!needed) return;
       /*
          ★★ 저장은 **포인트가 나간다.** 묻지 않고 차감하면 고객은 왜 줄었는지 모른다.
            운영 지시: "저장할건지 물어보고 포인트가 차감된다고 말해주면 될꺼같아."
@@ -882,6 +888,30 @@
           && !window.confirm(t('sv_confirm_save_cost', { n: cost }))) return;
       setSavingId(msgId);
       const sym = String(context.symbol || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      /*
+         ★★★ 신호 규칙은 **내 규칙**으로 보낸다 — 고객이 찾아보는 화면이 그곳이다.
+           저장된 항목(`savedCreate`)에 넣으면 내 규칙 목록에 안 나온다.
+      */
+      if (savable.kind === 'signal-rule') {
+        try {
+          if (!api.createUserStrategy) { setSavingId(null); return; }
+          const r2 = await api.createUserStrategy({
+            kind: 'signal',
+            name: savable.name,
+            symbol: sym || 'BTCUSDT',
+            timeframe: context.tf,
+            config: savable.payload,
+          });
+          setMsgs((m) => m.map((x) => (x.id === msgId
+            ? (r2 && r2.ok !== false
+                ? { ...x, saved: true, savedNote: t('sv_saved_ok', { n: (r2 && r2.charged) || 0 }) }
+                : { ...x, savedNote: (r2 && r2.message) || t('sv_save_failed') })
+            : x)));
+        } catch (e2) {
+          setMsgs((m) => m.map((x) => (x.id === msgId ? { ...x, savedNote: (e2 && e2.message) || t('sv_save_failed') } : x)));
+        } finally { setSavingId(null); }
+        return;
+      }
       try {
         const r = await api.savedCreate({
           kind: savable.kind,
@@ -1247,7 +1277,30 @@
               });
               return;
             }
-            if (ev.type === 'command') { const note = applyCommand(ev.command); if (note) setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable: { kind: 'drawing', name: note, payload: ev.command } })]); return; }
+            if (ev.type === 'command') {
+              const note = applyCommand(ev.command);
+              if (!note) return;
+              /*
+                 ★★★ **신호 규칙은 '내 규칙'(`/ai-strategies/my`)에 저장한다.**
+
+                   저장 장치가 두 개다: `savedCreate`(저장된 항목 — 차트 머리의 'Saved')
+                   와 `createUserStrategy`(내 규칙). 규칙을 저장된 항목에 넣으면
+                   **내 규칙 화면에 안 나온다** — 운영자가 그 화면을 열고
+                   "이름만 저장되는 거야?" 라고 물은 이유의 절반이다.
+
+                 ★ 이름은 고객이 지은 규칙 이름을 그대로 쓴다. 도구 결과 문구를 쓰면
+                   목록이 다 비슷해져 나중에 구분할 수 없다.
+                 ★ **식을 함께 담는다.** 식이 없으면 불러와도 아무것도 안 나온다.
+              */
+              const isRule = ev.command.command === 'addSignalRule';
+              const a = ev.command.args || {};
+              const savable = isRule && a.name && a.rule
+                ? { kind: 'signal-rule', name: String(a.name),
+                    payload: { rule: String(a.rule), ...(a.direction ? { direction: a.direction } : {}) } }
+                : { kind: 'drawing', name: note, payload: ev.command };
+              setMsgs((m) => [...m, makeMsg('ai', '', { toolResult: note, savable })]);
+              return;
+            }
             if (ev.type === 'signal') {
               /*
                  ★★ 전에는 `toolResult: t('ai_tool_signal')` — '📊 5 overlays created ·
