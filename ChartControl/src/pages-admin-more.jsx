@@ -178,6 +178,17 @@
     const [form, setForm] = React.useState({ amount: '', direction: 'grant', memo: '' });
     const [busy, setBusy] = React.useState(false);
     const [msg, setMsg] = React.useState(null);
+    /*
+       요금제 부여(결제 없이) — 직원·시험 계정에 저장 기능을 열어주는 데 쓴다.
+
+       ★★ 기본 기간을 30일로 둔다. 무기한을 기본으로 하면 시험용으로 준 것이 영구히
+         남고, 나중에 왜 이 계정이 유료인지 아무도 모른다.
+       ★ 기본 플랜을 `basic` 으로 둔다 — 저장 기능이 포함되는 가장 낮은 등급이다.
+         가장 높은 등급을 기본으로 두면 필요 이상으로 주게 된다.
+    */
+    const [plan, setPlan] = React.useState({ code: 'basic', days: '30', reason: '' });
+    const [planBusy, setPlanBusy] = React.useState(false);
+    const [planMsg, setPlanMsg] = React.useState(null);
     const api = window.QTApi && window.QTApi.admin;
 
     const load = React.useCallback(() => {
@@ -203,6 +214,27 @@
         setMsg({ ok: false, text: (e && e.message) || t('aup_failed') });
       }
       setBusy(false);
+    };
+
+    const applyPlan = async () => {
+      const days = Number(plan.days);
+      if (!api || !api.grantPlan) return;
+      if (!plan.reason.trim() || !Number.isInteger(days) || days < 1) return;
+      /*
+         ★★ `free` 는 **회수**다. 되돌릴 수 없는 방향이 아니지만 고객 화면의 기능이
+           즉시 사라지므로 확인을 받는다 — 포인트 회수와 같은 기준이다.
+      */
+      if (plan.code === 'free' && typeof window.confirm === 'function'
+          && !window.confirm(t('apg_revoke_confirm'))) return;
+      setPlanBusy(true); setPlanMsg(null);
+      try {
+        await api.grantPlan({ userId, planCode: plan.code, days, reason: plan.reason.trim() });
+        setPlan({ ...plan, reason: '' });
+        setPlanMsg({ ok: true, text: t('apg_applied', { plan: plan.code, days: String(days) }) });
+      } catch (e) {
+        setPlanMsg({ ok: false, text: (e && e.message) || t('apg_failed') });
+      }
+      setPlanBusy(false);
     };
 
     const fmt = (n) => Number(n || 0).toLocaleString();
@@ -236,6 +268,39 @@
           </div>
           {msg && (
             <div style={{ fontSize: 11.5, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{msg.text}</div>
+          )}
+        </div>
+
+        {/*
+           요금제 부여 — 결제 없이 저장 기능을 열어준다.
+
+           ★★★ **결제로 생긴 구독과 구별된다.** 서버가 `provider: 'admin'` 으로 남긴다 —
+             그러지 않으면 매출 집계에 결제 없는 구독이 섞인다.
+           ★★ 이유를 **필수**로 받는다. 이유 없는 부여는 감사할 수 없다(서버도 400 으로
+             거부한다). 버튼은 이유가 비어 있으면 눌리지 않는다.
+           ★ 저장(전략·지표·신호)은 `basic` 이상에 포함된다. 무료 플랜에서는 402 로 막힌다.
+        */}
+        <div style={{ display: 'grid', gap: 6, marginBottom: 12, paddingTop: 10, borderTop: '1px solid var(--color-border-subtle)' }}>
+          <div style={{ fontWeight: 600, fontSize: 12 }}>{t('apg_title')}</div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{t('apg_note')}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <select aria-label={t('apg_plan')} value={plan.code} onChange={(e) => setPlan({ ...plan, code: e.target.value })}>
+              <option value="free">free</option>
+              <option value="basic">basic</option>
+              <option value="pro">pro</option>
+              <option value="premium">premium</option>
+              <option value="elite">elite</option>
+            </select>
+            <input aria-label={t('apg_days')} type="number" min="1" step="1" value={plan.days} placeholder={t('apg_days')}
+              onChange={(e) => setPlan({ ...plan, days: e.target.value })} style={{ width: 96 }} />
+            <input aria-label={t('apg_reason_ph')} value={plan.reason} placeholder={t('apg_reason_ph')}
+              onChange={(e) => setPlan({ ...plan, reason: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
+            <button className="btn btn--sm" disabled={planBusy || !plan.reason.trim() || !(Number(plan.days) >= 1)} onClick={applyPlan}>
+              {planBusy ? '…' : t('apg_apply')}
+            </button>
+          </div>
+          {planMsg && (
+            <div style={{ fontSize: 11.5, color: planMsg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{planMsg.text}</div>
           )}
         </div>
 

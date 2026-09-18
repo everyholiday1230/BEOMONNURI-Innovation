@@ -2834,6 +2834,17 @@
      * ★ memo 가 필수다 — 이유 없는 조정은 나중에 검증할 수 없다.
      *   회수는 삭제가 아니라 반대 항목 추가다(원장은 추가만 한다).
      */
+    /*
+       운영자가 요금제를 직접 부여한다(결제 없이).
+
+       ★★ 저장(전략·지표·신호)은 유료 기능이라 무료 플랜에서 막힌다. 직원·시험 계정에
+         열어주는 경로다. 감사기록이 남으므로 이유를 반드시 보낸다 — 서버가 없으면
+         400 으로 거부한다.
+       ★ `planCode: 'free'` 로 회수한다. 별도 함수를 만들지 않는다.
+    */
+    grantPlan: function (input) {
+      return sendJSON('POST', '/api/admin/subscriptions/grant', input || {});
+    },
     adjustPoints: function (input) {
       return sendJSON('POST', '/api/admin/points/adjust', input || {});
     },

@@ -777,6 +777,15 @@
 
       // --- 관리자 포인트 조정 ---
       aup_title: 'Mag-adjust ng puntos',
+      apg_title: 'Plano (binigay ng operator)',
+      apg_note: 'Binigay nang walang bayad — para sa staff at test na account. Ang pag-save ng strategy, indicator at signal rule ay kailangan ng basic pataas. Piliin ang free para bawiin.',
+      apg_plan: 'Plano',
+      apg_days: 'Araw',
+      apg_reason_ph: 'Dahilan (kailangan — naitatala sa audit log)',
+      apg_apply: 'Itakda ang plano',
+      apg_applied: 'Itinakda ang plano sa {plan} nang {days} araw.',
+      apg_failed: 'Hindi maitakda ang plano.',
+      apg_revoke_confirm: 'Ang pagtakda ng account na ito sa free ay agad na nag-aalis ng pag-save. Ituloy?',
       aup_balance: 'balanse',
       aup_amount: 'Halaga',
       aup_memo_ph: 'Dahilan (ilalabas sa ledger)',
