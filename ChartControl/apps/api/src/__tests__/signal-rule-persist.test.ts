@@ -330,3 +330,69 @@ describe('차트에서 규칙을 저장한다', () => {
     expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
   });
 });
+
+describe('불러오는 곳은 하나다', () => {
+  const copilot = read('src/ai-copilot.jsx');
+
+  /*
+     ★★★ 운영자: "저장을 두 개로 나누는 게 너무 헷갈린다. save 는 어디서 불러오고
+       마이룰에 저장한 건 어디서 불러와?" 정당한 지적이었다.
+
+       저장소가 둘이면 **불러오는 곳도 둘**이 된다. Saved 는 차트 안에서 한 번 누르면
+       되는데, 내 규칙은 다른 화면에 갔다 와야 했다 — 내가 규칙을 내 규칙으로 보내면서
+       불러오기를 **더 불편하게** 만들었다.
+
+     ★ 저장 위치는 그대로 둔다(규칙은 만료 없는 곳). **보이는 곳만 합친다.**
+       고객에게 중요한 것은 "어디에 들어갔는지" 가 아니라 "어디서 다시 꺼내는지" 다.
+  */
+  it('차트 목록이 내 규칙도 함께 읽는다', () => {
+    expect(copilot, '내 규칙을 읽지 않는다').toMatch(/api\.myUserStrategies\('signal'\)/u);
+    expect(copilot, '두 목록을 함께 기다리지 않는다').toMatch(/Promise\.all\(\[api\.savedList\(\), rulesP\]\)/u);
+    /* ★ 규칙 조회가 실패해도 Saved 목록은 보여준다 — 하나 때문에 둘 다 못 보게 하지 않는다. */
+    expect(copilot, '규칙 조회 실패가 목록 전체를 막는다').toMatch(/myUserStrategies\('signal'\)[\s\S]{0,140}catch\(\(\) => \[\]\)/u);
+  });
+
+  it('식이 없는 옛 항목은 목록에 넣지 않는다', () => {
+    /* ★ 불러와도 아무것도 안 되는 항목을 보여주면 눌러보고 고장으로 오해한다. */
+    expect(copilot, '식 없는 항목을 걸러내지 않는다')
+      .toMatch(/\.filter\(\(x\) => x && x\.config && x\.config\.rule\)/u);
+  });
+
+  it('규칙은 식으로 되살린다', () => {
+    const i = copilot.indexOf('if (it.__rule) {');
+    expect(i, '규칙 분기가 없다').toBeGreaterThan(-1);
+    const body = copilot.slice(i, i + 700);
+    /* ★ payload 적용이 아니다 — 새로고침하면 지표 등록이 사라지므로 다시 등록해야 한다. */
+    expect(body, 'addSignalRule 로 되살리지 않는다').toMatch(/U\.addSignalRule\(\{/u);
+    expect(body, '방향을 옮기지 않는다').toMatch(/it\.__rule\.direction/u);
+  });
+
+  it('규칙은 이 목록에서 지우지 않는다', () => {
+    /*
+       ★ 다른 저장소다. 여기서 `savedDelete` 를 부르면 **없는 항목을 지우려 해
+         아무 일도 안 일어난다** — 고장으로 보인다.
+    */
+    expect(copilot, '규칙에도 지우기 버튼이 붙는다')
+      .toMatch(/it\.__rule \? null : \(/u);
+  });
+
+  /*
+     ★★★ Saved 는 30일 뒤 사라지고 내 규칙은 안 사라진다. 같은 목록에 섞어 놓고
+       그 차이를 안 알려주면 **"저장한 게 없어졌다"** 고 생각한다.
+  */
+  it('만료가 있는 것과 없는 것을 구별해 보여준다', () => {
+    expect(copilot, '규칙 배지가 없다').toMatch(/it\.__rule \? t\('sv_badge_rule'\)/u);
+    expect(copilot, '만료 여부를 설명하지 않는다')
+      .toMatch(/it\.__rule \? t\('sv_badge_rule_hint'\) : t\('sv_badge_saved_hint'\)/u);
+    const dir = join(ROOT, 'src/locales');
+    const missing: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {
+      const s2 = readFileSync(join(dir, f), 'utf8');
+      if (!s2.includes('sv_kind_signal')) continue;
+      for (const k of ['sv_badge_rule', 'sv_badge_rule_hint', 'sv_badge_saved_hint']) {
+        if (!s2.includes(k)) missing.push(`${f} ${k}`);
+      }
+    }
+    expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
+  });
+});

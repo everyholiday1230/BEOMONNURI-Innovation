@@ -960,10 +960,38 @@
            사라진 것처럼 보이는 게 제일 나쁜 오해라, 실패는 실패로 알린다.
            (null = 오류 상태, [] = 정말 없음)
       */
-      api.savedList().then((r) => {
+      /*
+         ★★★ **내 규칙도 같은 목록에 담는다.**
+
+           운영자: "저장을 두 개로 나누는 게 너무 헷갈린다. save 는 어디서 불러오고
+           마이룰에 저장한 건 어디서 불러와?" 정당한 지적이다. 저장소가 둘이면
+           **불러오는 곳도 둘**이 된다 — Saved 는 차트 안에서 한 번 누르면 되는데,
+           내 규칙은 다른 화면에 갔다 와야 했다.
+
+         ★ 저장 위치는 그대로 둔다(규칙은 만료 없는 `user_strategies`). **보이는
+           곳만 하나로 합친다.** 고객에게 중요한 것은 "어디에 들어갔는지" 가 아니라
+           "어디서 다시 꺼내는지" 다.
+         ★ 규칙 조회가 실패해도 Saved 목록은 보여준다 — 하나가 안 된다고 둘 다
+           못 보게 하지 않는다.
+      */
+      const rulesP = api.myUserStrategies
+        ? api.myUserStrategies('signal').then((rr) => (rr && rr.items) || []).catch(() => [])
+        : Promise.resolve([]);
+      Promise.all([api.savedList(), rulesP]).then(([r, rules]) => {
         if (r && r.ok === false) { setSavedItems(null); setSavedError(true); return; }
         setSavedError(false);
-        setSavedItems((r && r.items) || []);
+        /*
+           내 규칙을 Saved 항목과 같은 모양으로 맞춘다. `__rule` 로 표시해 불러올 때
+           구분한다 — 규칙은 `addSignalRule` 로 되살려야 한다(payload 적용이 아니다).
+        */
+        const mapped = rules
+          .filter((x) => x && x.config && x.config.rule)
+          .map((x) => ({
+            id: 'rule:' + x.id, kind: 'signal', name: x.name,
+            symbol: x.symbol, timeframe: x.timeframe,
+            __rule: { name: x.name, expression: x.config.rule, direction: x.config.direction || null },
+          }));
+        setSavedItems([...mapped, ...((r && r.items) || [])]);
         /*
            ★ 저장 가능 여부는 **서버 판정**이다(요금제 plan_f_saves). 무료 플랜은
              저장이 아예 불가하므로(운영 결정 2026-09-08) 버튼을 눌러 402 를 보게
@@ -997,7 +1025,21 @@
     const applySaved = useCallback((it) => {
       if (!it) return;
       try {
-        if (it.kind === 'drawing' && it.payload) { applyCommand(it.payload); }
+        /*
+           ★★★ 내 규칙은 **식으로 다시 등록**한다. `payload` 적용이 아니다 —
+             새로고침하면 지표 등록이 사라지므로 `addSignalRule` 로 만들어야 한다.
+        */
+        if (it.__rule) {
+          const U = window.ChartKlineUtil;
+          if (U && typeof U.addSignalRule === 'function') {
+            U.addSignalRule({
+              name: it.__rule.name,
+              expression: it.__rule.expression,
+              ...(it.__rule.direction ? { direction: it.__rule.direction } : {}),
+            });
+          }
+        }
+        else if (it.kind === 'drawing' && it.payload) { applyCommand(it.payload); }
         else if (it.kind === 'signal' && it.payload) { applySignal(it.payload); }
         else if (it.kind === 'indicator' && it.payload && it.payload.command) { applyCommand(it.payload); }
         setMsgs((m) => [...m, makeMsg('system', t('sv_loaded', { name: it.name || '' }), { icon: 'ok' })]);
@@ -1788,10 +1830,29 @@
               <div style={{padding:'10px 12px', fontSize:11.5, color:'var(--color-text-tertiary)'}}>{t('sv_empty')}</div>
             ) : savedItems.map((it) => (
               <div key={it.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderBottom:'1px solid var(--color-border-subtle)'}}>
-                <span style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4, background:'var(--color-bg-elevated)', color:'var(--color-text-secondary)'}}>{t('sv_kind_' + it.kind)}</span>
+                {/*
+                   ★★★ **만료가 있는 것과 없는 것을 구별해 보여준다.**
+
+                     Saved 항목은 30일 뒤 사라지고(연장 50점), 내 규칙은 안 사라진다.
+                     같은 목록에 섞어 놓고 그 차이를 안 알려주면, 사라진 쪽을 두고
+                     "저장한 게 없어졌다" 고 생각한다 — 가장 나쁜 오해다.
+                */}
+                <span
+                  style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4,
+                    background: it.__rule ? 'var(--color-ai-subtle, var(--color-bg-elevated))' : 'var(--color-bg-elevated)',
+                    color: it.__rule ? 'var(--color-ai)' : 'var(--color-text-secondary)'}}
+                  title={it.__rule ? t('sv_badge_rule_hint') : t('sv_badge_saved_hint')}
+                >{it.__rule ? t('sv_badge_rule') : t('sv_kind_' + it.kind)}</span>
                 <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
                 <button aria-label={t('sv_load')} className="btn btn--icon btn--sm" title={t('sv_load')} onClick={() => applySaved(it)}><I.Plus size={11}/></button>
-                <button aria-label={t('sv_delete')} className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
+                {/*
+                   ★ 내 규칙은 여기서 지우지 않는다 — 다른 저장소이고 만료가 없다.
+                     지우기는 내 규칙 화면에서 한다. 여기서 `savedDelete` 를 부르면
+                     **없는 항목을 지우려 해 아무 일도 안 일어난다**(고장으로 보인다).
+                */}
+                {it.__rule ? null : (
+                  <button aria-label={t('sv_delete')} className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSavedItem(it.id)}><I.Trash size={11}/></button>
+                )}
               </div>
             ))}
           </div>
