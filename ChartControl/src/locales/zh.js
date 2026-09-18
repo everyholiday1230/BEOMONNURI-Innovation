@@ -526,6 +526,7 @@
       ai_indicator_added: '已添加 {name} 指标',
       ai_drew_fib: '已绘制从 {from} 到 {to} 的斐波那契回撤。',
       ai_fib_needs_two: '斐波那契需要两个点（波段的起点与终点）——告诉我区间，我就画出来。',
+      ai_marker_needs_price: '需要一个价格才能标注。',
       ai_overlay_fib: '斐波那契',
       ai_indicator_unsupported: '不支持的指标：{name}',
       ai_indicator_removed: '已移除 {name} 指标',

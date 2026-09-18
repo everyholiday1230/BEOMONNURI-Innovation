@@ -333,6 +333,7 @@
       ai_indicator_added: 'Naidagdag ang {name} indicator',
       ai_drew_fib: 'Iginuhit ang Fibonacci retracement mula {from} hanggang {to}.',
       ai_fib_needs_two: 'Kailangan ng Fibonacci ng dalawang punto (simula at dulo ng swing) — sabihin mo ang range at iguguhit ko.',
+      ai_marker_needs_price: 'Kailangan ng presyo para markahan.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Hindi suportado ang indicator: {name}',
       ai_indicator_removed: 'Naalis ang {name} indicator',

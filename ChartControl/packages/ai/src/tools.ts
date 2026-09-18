@@ -180,9 +180,11 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
          스키마·화면 처리는 다 있었는데 **설명만 빠져** 있었다 — addSignalRule 과
          똑같은 누락이다. 시험(chart-control-surface)이 네 곳을 함께 잠근다.
     */
-    '- createLongMarker: {"point":{"time":1700000000000,"price":"65000"},"text":"long here"}\n' +
-    '- createShortMarker: {"point":{"time":1700000000000,"price":"66000"},"text":"short here"}\n' +
-    '  `time` must be a real candle timestamp from MARKET_DATA. These are labels on the chart, not orders.\n' +
+    '- createLongMarker: {"point":{"price":"65000"},"text":"optional note"}\n' +
+    /* ★ 시각을 예시에 넣으면 모델이 지어낸다 — 봉 시각을 모르기 때문이다. 빼고 알린다. */
+    '  `point.time` and `text` are OPTIONAL; omit time and the chart marks the latest candle.\n' +
+    '- createShortMarker: {"point":{"price":"66000"},"text":"optional note"}\n' +
+    '  These are labels on the chart, not orders.\n' +
     '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
     /*
        ★★★ 이 설명이 없으면 모델은 설정을 바꿀 방법을 모르고 **지표를 하나 더 켠다.**

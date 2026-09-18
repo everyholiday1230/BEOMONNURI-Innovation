@@ -46,6 +46,8 @@ const OverlayPoint = z.object({ time: EpochMs, price: DecimalString });
      비율선이라 시각이 구간 표시일 뿐이어서 화면이 정할 수 있다.
 */
 const FibPoint = z.object({ time: EpochMs.optional(), price: DecimalString });
+/* 마커 전용 점 — 시각을 빼면 화면이 마지막 봉에 붙인다(수평선과 같은 규칙). */
+const MarkerPoint = z.object({ time: EpochMs.optional(), price: DecimalString });
 
 /** The allowlisted AI chart commands (docs PHASE4-06). Anything else fails validation. */
 export const AI_CHART_COMMANDS = [
@@ -226,8 +228,21 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
   createEntryZone: z.object({ priceLo: DecimalString, priceHi: DecimalString }),
   createStopLoss: z.object({ price: DecimalString }),
   createTakeProfit: z.object({ price: DecimalString, index: z.number().int().min(0).max(10) }),
-  createLongMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
-  createShortMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
+  /*
+     매수·매도 표시.
+
+     ★★★ **피보나치와 똑같은 결함이 여기에도 있었다**(2026-09-18 실측: 마커가 그려지지
+       않았다). `point` 에 `time` 을 강제했는데 **모델은 봉 시각을 모른다.**
+       그리고 `text` 도 필수였다 — 문구를 안 주면 검증에서 떨어졌다.
+
+     ★ `time` 을 빼면 화면이 마지막 봉에 붙인다. 수평선(`createHorizontalLevel`)이
+       이미 그렇게 한다(`anchorTime()`) — 같은 규칙이어야 한다.
+     ★ `text` 는 선택이다. 방향(▲▼)만으로도 뜻이 통한다. 문구가 없어서 표시가
+       아예 안 나오는 것이 훨씬 나쁘다.
+     ★ 가격은 필수다 — 어디를 가리키는지는 고객·모델이 정해야 한다.
+  */
+  createLongMarker: z.object({ point: MarkerPoint, text: z.string().max(120).optional() }),
+  createShortMarker: z.object({ point: MarkerPoint, text: z.string().max(120).optional() }),
   createInvalidationLevel: z.object({ price: DecimalString }),
   /*
      피보나치 되돌림 — 두 점(시작·끝)으로 그린다.

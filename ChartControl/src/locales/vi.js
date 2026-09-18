@@ -294,6 +294,7 @@
       ai_indicator_added: 'Đã thêm chỉ báo {name}',
       ai_drew_fib: 'Đã vẽ Fibonacci retracement từ {from} đến {to}.',
       ai_fib_needs_two: 'Fibonacci cần hai điểm (đầu và cuối của nhịp) — cho tôi biết khoảng, tôi sẽ vẽ.',
+      ai_marker_needs_price: 'Cần một mức giá để đánh dấu.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Chỉ báo không được hỗ trợ: {name}',
       ai_indicator_removed: 'Đã xóa chỉ báo {name}',

@@ -285,6 +285,7 @@
       ai_indicator_added: 'Se agregó el indicador {name}',
       ai_drew_fib: 'Dibujé el retroceso de Fibonacci de {from} a {to}.',
       ai_fib_needs_two: 'Fibonacci necesita dos puntos (inicio y fin del movimiento): dime el rango y lo dibujo.',
+      ai_marker_needs_price: 'Necesito un precio para marcar.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Indicador no soportado: {name}',
       ai_indicator_removed: 'Se quitó el indicador {name}',

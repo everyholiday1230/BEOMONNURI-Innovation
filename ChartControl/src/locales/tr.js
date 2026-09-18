@@ -296,6 +296,7 @@
       ai_indicator_added: '{name} göstergesi eklendi',
       ai_drew_fib: '{from} ile {to} arasında Fibonacci düzeltmesi çizdim.',
       ai_fib_needs_two: 'Fibonacci iki nokta gerektirir (hareketin başı ve sonu) — aralığı söylerseniz çizerim.',
+      ai_marker_needs_price: 'İşaretlemek için bir fiyat gerekli.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Desteklenmeyen gösterge: {name}',
       ai_indicator_removed: '{name} göstergesi kaldırıldı',

@@ -296,6 +296,7 @@
       ai_indicator_added: '{name} इंडिकेटर जोड़ा',
       ai_drew_fib: '{from} से {to} तक फ़िबोनाची रिट्रेसमेंट खींच दी।',
       ai_fib_needs_two: 'फ़िबोनाची के लिए दो बिंदु चाहिए (स्विंग का आरंभ और अंत) — रेंज बताइए, मैं खींच दूँगा।',
+      ai_marker_needs_price: 'चिह्नित करने के लिए एक कीमत चाहिए।',
       ai_overlay_fib: 'फ़िबोनाची',
       ai_indicator_unsupported: 'इंडिकेटर समर्थित नहीं: {name}',
       ai_indicator_removed: '{name} इंडिकेटर हटाया',

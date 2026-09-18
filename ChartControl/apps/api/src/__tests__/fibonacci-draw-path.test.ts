@@ -83,23 +83,33 @@ describe('피보나치가 실제로 그려진다', () => {
       .not.toMatch(/from real candle timestamps/u);
   });
 
-  /* 화면 쪽 대비: 시각을 지어내도 실제 봉으로 접는다. */
+  /*
+     화면 쪽 대비: 시각을 지어내도 실제 봉으로 접는다.
+
+     ★ 이 검사들은 **공용 헬퍼**(`usableTime`·`barNearest`)에 있다 — 피보나치·추세선·
+       마커가 같은 것을 쓴다. 처음에는 피보나치 case 안에 있었는데, 마커·추세선에
+       같은 결함이 남아 있는 것을 실측으로 발견해 밖으로 뺐다.
+  */
   it('지어낸 시각을 걸러 실제 봉에 붙인다', () => {
-    const i = copilot.indexOf("case 'createFibonacci'");
-    const body = copilot.slice(i, i + 4200);
-    expect(body, '범위 검사가 없다 — 화면 밖에 그려진다').toMatch(/const usable = \(v\)/u);
-    expect(body, '가격에 맞는 봉을 찾지 않는다').toMatch(/const barNearest = \(price\)/u);
+    expect(copilot, '범위 검사가 없다 — 화면 밖에 그려진다')
+      .toMatch(/const usableTime = useCallback/u);
+    expect(copilot, '가격에 맞는 봉을 찾지 않는다')
+      .toMatch(/const barNearest = useCallback/u);
     /* points 가 없을 때 최근 구간의 고점·저점을 찾는다. */
+    const i = copilot.indexOf("case 'createFibonacci'");
+    const body = copilot.slice(i, i + 3000);
     expect(body, '스윙 자동 탐색이 없다').toMatch(/if \(Number\(c\.high\) > Number\(hi\.high\)\) hi = c/u);
     /* ★ 시간순을 지켜야 비율이 거꾸로 붙지 않는다. */
-    expect(body, '스윙 방향을 시간순으로 정하지 않는다')
-      .toMatch(/Number\(lo\.time\) < Number\(hi\.time\)/u);
+    expect(body, '스윙 방향을 시간순으로 정하지 않는다').toMatch(/const loFirst = Number\(lo\.time\) < Number\(hi\.time\)/u);
   });
 
   it('봉이 갱신되면 새 구간을 쓴다', () => {
     /* ★ 의존성에서 빠지면 첫 봉 묶음에 고정되어 옛 구간에 그린다. */
     expect(copilot, 'context.candles 가 의존성에 없다')
-      .toMatch(/\}, \[addOverlay, _removeOverlay, updateOverlay, anchorTime, context\.candles, t\]\)/u);
+      .toMatch(/anchorTime, resolvePoints, context\.candles, t\]\)/u);
+    /* 헬퍼 자신도 봉을 의존성으로 가져야 한다. */
+    expect(copilot, 'barNearest 가 봉 갱신을 반영하지 않는다')
+      .toMatch(/\}, \[context\.candles, anchorTime\]\)/u);
   });
 
   it('진단 노출은 localhost 로 제한된다', () => {
@@ -156,5 +166,112 @@ describe('내 규칙 화면에 들어갈 수 있다', () => {
       if (!s.includes('strat_my_open')) missing.push(f);
     }
     expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('보이지 않는 오버레이를 만들지 않는다 (근본 대책)', () => {
+  const kline = read('src/chart-kline.jsx');
+  const copilot = read('src/ai-copilot.jsx');
+  const schemas = read('packages/ai/src/schemas.ts');
+
+  /*
+     ★★★ 시각이 `NaN`/`null` 이면 klinecharts 는 오버레이를 **만들고 아무것도 그리지
+       않는다.** 오류도 로그도 없다. 실측으로 **피보나치·마커·추세선 셋 다** 이 상태였고
+       "그렸다" 는 답만 돌아왔다.
+
+     ★ 각 분기에서 따로 막으면 새 도형을 추가할 때 또 빠뜨린다 — 실제로 피보나치를
+       추가할 때 빠뜨렸다. **한 곳에서** 검사한다.
+  */
+  it('좌표가 불완전하면 그리지 않는다', () => {
+    const i = kline.indexOf('function pointsFor(ov)');
+    const body = kline.slice(i, kline.indexOf('function pointsForRaw', i) + 40);
+    expect(body, '검사 관문이 없다').toMatch(/Number\.isFinite\(Number\(p\.timestamp\)\)/u);
+    expect(body, 'value 결손을 통과시킨다').toMatch(/p\.value == null/u);
+    /* ★ 조용히 버리지 않는다 — 원인을 모르면 고칠 수 없다. */
+    expect(body, '걸러낸 사실을 로그로 남기지 않는다').toMatch(/console\.warn/u);
+  });
+
+  it('관문이 변환보다 뒤에 오지 않는다', () => {
+    /* pointsFor 가 pointsForRaw 를 감싸야 모든 타입이 관문을 지난다. */
+    expect(kline, '변환 함수를 감싸지 않는다').toMatch(/const out = pointsForRaw\(ov\)/u);
+    expect(kline.indexOf('function pointsFor(ov)'), '관문이 원본 뒤에 있다')
+      .toBeLessThan(kline.indexOf('function pointsForRaw(ov)'));
+  });
+
+  /* 세 도형이 같은 헬퍼를 쓴다 — 각자 구현하면 갈린다. */
+  it('시각 확정을 한 헬퍼로 공유한다', () => {
+    expect(copilot, '공용 헬퍼가 없다').toMatch(/const resolvePoints = useCallback/u);
+    for (const c of ['createTrendLine', 'createFibonacci']) {
+      const i = copilot.indexOf(`case '${c}'`);
+      const body = copilot.slice(i, i + 2600);
+      expect(body, `${c} 가 공용 헬퍼를 쓰지 않는다`).toMatch(/resolvePoints\(/u);
+    }
+    const mk = copilot.indexOf("case 'createShortMarker'");
+    expect(copilot.slice(mk, mk + 1400), '마커가 공용 헬퍼를 쓰지 않는다')
+      .toMatch(/resolvePoints\(\[a\.point\]\)/u);
+  });
+
+  it('헬퍼가 의존성에 있다', () => {
+    expect(copilot, 'resolvePoints 가 의존성에 없어 옛 봉을 쓴다')
+      .toMatch(/anchorTime, resolvePoints, context\.candles, t\]\)/u);
+  });
+
+  /* 마커: 시각·문구 강제가 그리기를 막았다. */
+  it('마커가 시각과 문구를 강제하지 않는다', () => {
+    expect(schemas, '마커 전용 점이 없다')
+      .toMatch(/const MarkerPoint = z\.object\(\{ time: EpochMs\.optional\(\), price: DecimalString \}\)/u);
+    /*
+       ★ **두 명령을 각각 확인한다.** 처음에는 `createLongMarker` 부터 260자만 봤는데,
+         그 범위가 `createShortMarker` 줄까지 덮어서 **long 을 필수로 되돌려도 통과했다**
+         (역검증이 잡아냈다). 명령별로 그 줄만 본다.
+    */
+    for (const cmd of ['createLongMarker', 'createShortMarker']) {
+      const i = schemas.indexOf(`${cmd}: z.object(`);
+      expect(i, `${cmd} 가 없다`).toBeGreaterThan(-1);
+      const line = schemas.slice(i, schemas.indexOf('\n', i));
+      expect(line, `${cmd} 가 시각을 강제한다`).toMatch(/point: MarkerPoint/u);
+      /* ★ 문구가 없어서 표시가 아예 안 나오는 것이 훨씬 나쁘다. */
+      expect(line, `${cmd} 가 text 를 강제한다`).toMatch(/text: z\.string\(\)\.max\(120\)\.optional\(\)/u);
+    }
+  });
+
+  it('가격이 없으면 그리지 않고 말한다', () => {
+    /* ★ 어디를 가리키는지 모르는 표시는 고객을 헷갈리게 한다. */
+    const i = copilot.indexOf("case 'createShortMarker'");
+    expect(copilot.slice(i, i + 1200), '가격 없이도 그린다')
+      .toMatch(/return t\('ai_marker_needs_price'\)/u);
+    const dir = join(ROOT, 'src/locales');
+    const missing: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {
+      const s2 = readFileSync(join(dir, f), 'utf8');
+      if (!s2.includes('ai_fib_needs_two')) continue;
+      if (!s2.includes('ai_marker_needs_price')) missing.push(f);
+    }
+    expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  /* 추세선: 한 점으로 뭉치면 선이 아니다. */
+  it('추세선 두 점이 같은 봉이면 그리지 않는다', () => {
+    const i = copilot.indexOf("case 'createTrendLine'");
+    const body = copilot.slice(i, i + 1400);
+    expect(body, '같은 봉 방어가 없어 선이 한 점으로 뭉친다')
+      .toMatch(/pts\[0\]\.time === pts\[1\]\.time/u);
+    expect(body, '두 점이 아닐 때도 그린다').toMatch(/pts\.length !== 2/u);
+  });
+
+  it('모델에게 봉 시각을 요구하지 않는다', () => {
+    const tools = read('packages/ai/src/tools.ts');
+    /*
+       ★ 모델은 봉 시각을 모른다. 요구하면 지어내고, 지어낸 값은 화면 밖으로 간다.
+         마커·피보나치 설명에서 그 지시를 지웠는지 확인한다.
+    */
+    expect(tools, '마커가 여전히 실제 봉 시각을 요구한다')
+      .not.toMatch(/`time` must be a real candle timestamp/u);
+    const i = tools.indexOf('- createLongMarker:');
+    expect(tools.slice(i, i + 400), '마커 시각 생략을 알리지 않는다')
+      .toMatch(/`point\.time` and `text` are OPTIONAL/u);
+    /* ★ 예시에 시각을 넣으면 모델이 따라 지어낸다. */
+    expect(tools.slice(i, i + 200), '마커 예시에 시각이 남아 모델이 지어낸다')
+      .not.toMatch(/"time":\s*17/u);
   });
 });

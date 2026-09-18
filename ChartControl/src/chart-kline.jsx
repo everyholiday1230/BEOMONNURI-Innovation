@@ -2765,7 +2765,29 @@
    * 이 변환이 시간축 정확성의 핵심이다. 우리가 인덱스를 계산하지 않으므로
    * 캔들 누락(거래 한산 구간)이 있어도 좌표가 어긋나지 않는다.
    */
+  /*
+     ★★★ **보이지 않는 오버레이를 만들지 않는다.**
+
+       시각이 `NaN`/`null` 이면 klinecharts 는 오버레이를 **만들고 아무것도 그리지
+       않는다.** 오류도 로그도 없다. 실측으로 피보나치·마커·추세선 셋 다 이 상태였고,
+       "그렸다" 는 답만 돌아왔다. 알아챌 방법이 없는 종류의 고장이다.
+
+     ★ 그래서 변환 결과를 **한 곳에서** 검사한다. 각 분기에서 따로 막으면 새 도형을
+       추가할 때 또 빠뜨린다(실제로 피보나치를 추가할 때 빠뜨렸다).
+     ★ 걸러낸 것은 로그로 남긴다 — 원인을 모르면 고칠 수 없다.
+  */
   function pointsFor(ov) {
+    const out = pointsForRaw(ov);
+    if (!out) return null;
+    const bad = out.some((p) => !p || !Number.isFinite(Number(p.timestamp)) || p.value == null);
+    if (bad) {
+      console.warn('[chart] 좌표가 불완전해 그리지 않는다:', ov.type, ov.id, JSON.stringify(out));
+      return null;
+    }
+    return out;
+  }
+
+  function pointsForRaw(ov) {
     if (ov.type === 'horizontal') {
       const p = ov.points?.[0];
       if (!p || p.price == null) return null;

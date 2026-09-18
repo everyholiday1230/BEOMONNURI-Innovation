@@ -283,6 +283,7 @@
       ai_indicator_added: 'Indicador {name} adicionado',
       ai_drew_fib: 'Desenhei a retração de Fibonacci de {from} a {to}.',
       ai_fib_needs_two: 'Fibonacci precisa de dois pontos (início e fim do movimento) — diga o intervalo e eu desenho.',
+      ai_marker_needs_price: 'Preciso de um preço para marcar.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Indicador não suportado: {name}',
       ai_indicator_removed: 'Indicador {name} removido',

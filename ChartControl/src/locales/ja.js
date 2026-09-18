@@ -524,6 +524,7 @@
       ai_indicator_added: '{name} インジケーターを追加しました',
       ai_drew_fib: '{from} から {to} までフィボナッチ・リトレースメントを描きました。',
       ai_fib_needs_two: 'フィボナッチには2点（スイングの始点と終点）が必要です — 範囲を教えていただければ描きます。',
+      ai_marker_needs_price: '表示する価格が必要です。',
       ai_overlay_fib: 'フィボナッチ',
       ai_indicator_unsupported: '未対応のインジケーター: {name}',
       ai_indicator_removed: '{name} インジケーターを削除しました',

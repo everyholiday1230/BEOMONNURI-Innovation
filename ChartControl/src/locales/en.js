@@ -233,6 +233,7 @@
       ai_indicator_added: 'Added {name} indicator',
       ai_drew_fib: 'Drew Fibonacci retracement from {from} to {to}.',
       ai_fib_needs_two: 'Fibonacci needs two points (the swing start and end) — tell me the range and I will draw it.',
+      ai_marker_needs_price: 'I need a price to mark.',
       ai_overlay_fib: 'Fibonacci',
       ai_indicator_unsupported: 'Indicator not supported: {name}',
       ai_indicator_removed: 'Removed {name} indicator',

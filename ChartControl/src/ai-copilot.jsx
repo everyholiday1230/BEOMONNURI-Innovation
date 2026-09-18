@@ -462,6 +462,58 @@
     }, [context.candles]);
 
     /*
+       ★★★ **모델은 봉 시각을 모른다.** 시장 맥락(`market-context.ts`)에는 현재가와
+         포지션만 있고 봉 타임스탬프가 없다. 그런데 그리기 명령들은 `time` 을 요구했다.
+         모델이 지어내면 화면 밖에 그려지고, 못 내면 `NaN`/`null` 이 되어 **오버레이는
+         만들어지고 아무것도 보이지 않았다** — 실측으로 피보나치·마커·추세선 셋 다
+         이 상태였다. 오류도 로그도 없어서 알아채기 어렵다.
+
+       ★ **시각은 차트가 안다.** 가격에 가장 가까운 봉을 찾아 붙인다.
+       ★ 피보나치·추세선·마커가 **같은 헬퍼**를 쓴다. 각자 구현하면 갈린다
+         (실제로 피보나치만 고쳤다가 마커·추세선이 남아 있었다).
+    */
+    const barNearest = useCallback((price) => {
+      const cs = Array.isArray(context.candles) ? context.candles : [];
+      if (!cs.length || !Number.isFinite(price)) return anchorTime();
+      let best = cs[0]; let bd = Infinity;
+      for (const c of cs) {
+        const hi = Number(c.high); const lo = Number(c.low);
+        /* 봉이 그 가격을 지났으면 거리 0 이다. */
+        const d = price > hi ? price - hi : (price < lo ? lo - price : 0);
+        if (d < bd) { bd = d; best = c; if (d === 0) break; }
+      }
+      return Number(best.time);
+    }, [context.candles, anchorTime]);
+
+    /* 모델이 준 시각이 실제 봉 범위 안인지 — 지어낸 값을 걸러낸다. */
+    const usableTime = useCallback((v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n <= 0) return false;
+      const cs = Array.isArray(context.candles) ? context.candles : [];
+      if (!cs.length) return true;
+      const tMin = Number(cs[0].time); const tMax = Number(cs[cs.length - 1].time);
+      /* ★ 한 봉만큼 여유를 준다 — 경계 봉을 가리키는 것은 정상이다. */
+      const slack = cs.length > 1 ? Math.abs(Number(cs[1].time) - tMin) : 0;
+      return n >= tMin - slack && n <= tMax + slack;
+    }, [context.candles]);
+
+    /*
+       점 목록의 시각을 확정한다. 가격이 없는 점은 버린다(가리킬 곳을 모르는 도형은
+       그리지 않는다). 반환값이 요구 개수보다 적으면 호출부가 그리지 않고 말한다.
+    */
+    const resolvePoints = useCallback((raw) => {
+      const list = Array.isArray(raw) ? raw : [];
+      const out = [];
+      for (const p of list) {
+        if (!p) continue;
+        const price = Number(p.price);
+        if (!Number.isFinite(price)) continue;
+        out.push({ time: usableTime(p.time) ? Number(p.time) : barNearest(price), price });
+      }
+      return out;
+    }, [usableTime, barNearest]);
+
+    /*
        서버가 검증해 보낸 AiChartCommand 하나를 실제 차트에 적용한다. 좌표·가격은
        모두 서버 값이다(프론트에 박힌 예시 아님). 지표는 ChartKlineUtil 브리지로.
        반환값은 채팅에 표시할 짧은 안내(없으면 표시 안 함).
@@ -490,12 +542,17 @@
       const px = (v) => fmt(toNum(v), 0);
       switch (cmd.command) {
         case 'createTrendLine': {
-          const pts = (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) }));
+          /*
+             ★★★ 시각이 없으면 `Number(undefined)` → `NaN` 이 되어 **선이 만들어지고
+               보이지 않았다**(실측: `timestamp: null`). 모델은 봉 시각을 모른다.
+             ★ 두 점이 같은 봉에 붙으면 선이 한 점으로 뭉친다 — 그때는 그리지 않고 말한다.
+          */
+          const pts = resolvePoints(a.points);
+          if (pts.length !== 2) return t('ai_tool_trendline');
+          if (pts[0].time === pts[1].time) return t('ai_tool_trendline');
           addOverlay({ id, type: 'trend-line', source: 'ai-draft', width: 1.8, label: a.label || t('ai_overlay_trendline'), points: pts });
           /* ★ 두 점의 가격을 말한다. 어느 방향으로 기울어진 선인지 글로도 알 수 있다. */
-          return pts.length === 2
-            ? t('ai_drew_trendline', { from: px(pts[0].price), to: px(pts[1].price) })
-            : t('ai_tool_trendline');
+          return t('ai_drew_trendline', { from: px(pts[0].price), to: px(pts[1].price) });
         }
         /*
            ★★★ 피보나치. 여태 "그릴 수 없다" 고 답했는데 **사실이 아니었다** —
@@ -506,63 +563,26 @@
         */
         case 'createFibonacci': {
           /*
-             ★★★ **모델은 봉 시각을 모른다.** 모델에게 주는 시장 맥락에는 `lastPrice` 와
-               포지션만 있고 **봉 타임스탬프가 없다**(`market-context.ts` 확인). 그래서
-               `points` 의 `time` 두 개를 만들어낼 수 없었다 — 지어내면 화면 밖에 그려지고,
-               못 지어내면 "두 점이 필요하다" 로 끝났다. **운영자 실측: 피보나치가
-               안 그려졌다.**
-
-             ★ 고치는 방향: **시각은 차트가 안다.** 모델에게 모르는 것을 요구하는 대신
-               화면의 봉에서 스윙을 찾는다. 모델이 시각을 줬으면 그것을 존중한다.
+             ★★★ **모델은 봉 시각을 모른다** — 이 명령이 실측으로 안 그려졌다.
+               `resolvePoints` 가 시각을 확정한다(추세선·마커와 같은 헬퍼).
 
              ★ 우선순위
-               ① 두 점에 쓸 수 있는 시각이 있다 → 그대로 쓴다(모델 의도가 가장 정확하다)
+               ① 쓸 수 있는 시각이 있다 → 그대로 쓴다(모델 의도가 가장 정확하다)
                ② 가격만 있다 → 그 가격에 가장 가까운 봉에 붙인다
                ③ 아무것도 없다 → 최근 구간의 **고점·저점**을 찾아 그린다
                  (사람이 피보나치를 그리는 방식이다)
           */
           const cs = Array.isArray(context.candles) ? context.candles : [];
-          const raw = Array.isArray(a.points) ? a.points : [];
-          /* 화면 봉 중 그 시각이 실제로 존재하는 범위인지 — 지어낸 시각을 걸러낸다. */
-          const tMin = cs.length ? Number(cs[0].time) : null;
-          const tMax = cs.length ? Number(cs[cs.length - 1].time) : null;
-          const usable = (v) => {
-            const n = Number(v);
-            if (!Number.isFinite(n) || n <= 0) return false;
-            if (tMin === null) return true;
-            /* ★ 한 봉만큼의 여유를 준다 — 경계 봉을 가리키는 것은 정상이다. */
-            const slack = cs.length > 1 ? Math.abs(Number(cs[1].time) - tMin) : 0;
-            return n >= tMin - slack && n <= tMax + slack;
-          };
-          const barNearest = (price) => {
-            if (!cs.length || !Number.isFinite(price)) return anchorTime();
-            let best = cs[0]; let bd = Infinity;
-            for (const c of cs) {
-              const hi = Number(c.high); const lo = Number(c.low);
-              /* 봉이 그 가격을 지났으면 거리 0 이다. */
-              const d = price > hi ? price - hi : (price < lo ? lo - price : 0);
-              if (d < bd) { bd = d; best = c; if (d === 0) break; }
-            }
-            return Number(best.time);
-          };
-          let pts = null;
-          if (raw.length === 2) {
-            const p0 = toNum(raw[0].price); const p1 = toNum(raw[1].price);
-            if (Number.isFinite(p0) && Number.isFinite(p1)) {
-              pts = [
-                { time: usable(raw[0].time) ? Number(raw[0].time) : barNearest(p0), price: p0 },
-                { time: usable(raw[1].time) ? Number(raw[1].time) : barNearest(p1), price: p1 },
-              ];
-            }
-          }
-          if (!pts) {
+          let pts = resolvePoints(a.points);
+          if (pts.length === 2 && pts[0].time === pts[1].time) pts = [];
+          if (pts.length !== 2) {
             /*
                ③ 스윙 자동 탐색.
 
                ★ 최근 구간만 본다 — 전체를 보면 몇 달 전 고점이 잡혀 지금 흐름과 무관한
                  비율선이 나온다. 화면 봉의 뒤쪽 절반(최소 20봉)을 쓴다.
-               ★ **고점·저점의 순서를 시간순으로 유지한다.** 저점이 먼저면 상승 스윙
-                 (아래→위), 고점이 먼저면 하락 스윙이다. 뒤집으면 비율이 거꾸로 붙는다.
+               ★ **고점·저점의 순서를 시간순으로 유지한다.** 저점이 먼저면 상승 스윙,
+                 고점이 먼저면 하락 스윙이다. 뒤집으면 비율이 거꾸로 붙는다.
             */
             if (cs.length < 3) return t('ai_fib_needs_two');
             const from = Math.max(0, cs.length - Math.max(20, Math.floor(cs.length / 2)));
@@ -573,13 +593,10 @@
               if (Number(c.low) < Number(lo.low)) lo = c;
             }
             if (Number(hi.time) === Number(lo.time)) return t('ai_fib_needs_two');
-            const a0 = Number(lo.time) < Number(hi.time)
-              ? { time: Number(lo.time), price: Number(lo.low) }
-              : { time: Number(hi.time), price: Number(hi.high) };
-            const a1 = Number(lo.time) < Number(hi.time)
-              ? { time: Number(hi.time), price: Number(hi.high) }
-              : { time: Number(lo.time), price: Number(lo.low) };
-            pts = [a0, a1];
+            const loFirst = Number(lo.time) < Number(hi.time);
+            pts = loFirst
+              ? [{ time: Number(lo.time), price: Number(lo.low) }, { time: Number(hi.time), price: Number(hi.high) }]
+              : [{ time: Number(hi.time), price: Number(hi.high) }, { time: Number(lo.time), price: Number(lo.low) }];
           }
           addOverlay({ id, type: 'fibonacci', source: 'ai-draft', label: a.label || t('ai_overlay_fib'), points: pts });
           return t('ai_drew_fib', { from: px(pts[0].price), to: px(pts[1].price) });
@@ -605,10 +622,21 @@
           return t('ai_drew_invalidation', { price: px(a.price) });
         case 'createLongMarker':
         case 'createShortMarker': {
-          const p = a.point || {};
+          /*
+             ★★★ **피보나치와 같은 결함이 있었다.** `Number(p.time)` 이 `NaN` 이면
+               `pointsFor` 를 통과해도 klinecharts 가 좌표를 못 잡아 **표시가 그려지지
+               않았다.** 그리고 모델은 봉 시각을 모른다 — 실측으로 마커가 안 나오는 것을
+               확인했다(응답은 "▲ Marked long at —" 로 가격조차 비어 있었다).
+
+             ★ 시각이 없으면 마지막 봉에 붙인다 — 수평선이 이미 그렇게 한다(`anchorTime`).
+             ★ 가격이 없으면 그리지 않고 말한다. 어디를 가리키는지 모르는 표시는
+               고객을 오히려 헷갈리게 한다.
+          */
+          const pts = resolvePoints([a.point]);
+          if (!pts.length) return t('ai_marker_needs_price');
           addOverlay({ id, type: 'signal-marker', source: 'ai-draft', direction: cmd.command === 'createLongMarker' ? 'long' : 'short',
-            text: a.text, points: [{ time: Number(p.time), price: toNum(p.price) }] });
-          return t(cmd.command === 'createLongMarker' ? 'ai_drew_long_marker' : 'ai_drew_short_marker', { price: px(p.price) });
+            text: a.text, points: pts });
+          return t(cmd.command === 'createLongMarker' ? 'ai_drew_long_marker' : 'ai_drew_short_marker', { price: px(pts[0].price) });
         }
         case 'addIndicator': {
           const ok = util && util.addIndicator ? util.addIndicator(a.indicator, a.params) : false;
@@ -746,7 +774,7 @@
        ★ `context.candles` 를 의존성에 넣는다 — 피보나치 스윙 탐색이 이 값을 읽는다.
          빼면 첫 봉 묶음에 고정되어 시간이 지나도 옛 구간에 그린다.
     */
-    }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, context.candles, t]);
+    }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, resolvePoints, context.candles, t]);
 
     /*
        명령 적용 경로를 진단용으로 노출한다.
