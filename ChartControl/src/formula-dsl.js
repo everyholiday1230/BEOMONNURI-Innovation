@@ -246,15 +246,48 @@
 
   const shift = (arr, n) => (n === 0 ? arr.slice() : Array.from({ length: n }, () => NaN).concat(arr.slice(0, arr.length - n)));
 
+  /**
+   * 창 안의 합. SMA·SUM 이 공유한다.
+   *
+   * ★★★ **누적합에 NaN 이 한 번 들어가면 영구히 복구되지 않는다.**
+   *
+   *   예전 구현은 `sum += a[i]` 로 누적하고 창을 벗어난 값을 뺐다. 그런데 입력 계열에
+   *   웜업(NaN)이 있으면 `sum` 이 NaN 이 되고, NaN 은 빼도 NaN 이므로 **그 뒤 모든 봉이
+   *   NaN** 이 된다.
+   *
+   *   결과: **지표 조합이 전부 깨져 있었다.** 실측 —
+   *     ATR(14)            유효 587/600
+   *     SMA(ATR(14),50)    유효   0/600   ← 전부 NaN
+   *   `SMA(RSI(close,14),20)` · `SMA(MACD_DIF(12,26),10)` 도 같다. 고객이 지표를
+   *   조합하려 하면 조용히 아무것도 안 나온다.
+   *
+   * ★ 그래서 창 안의 **모르는 값 개수**를 함께 센다. 창에 모름이 하나라도 있으면 결과도
+   *   모름이고, 창이 그 구간을 지나면 **복구된다.** 누적합의 O(n) 이점은 유지한다.
+   *
+   * ★ 0 을 넣어 메우지 않는다 — 없는 값을 0 으로 세면 평균이 실제보다 작아지고,
+   *   그것은 조용히 틀린 숫자다.
+   */
+  function windowSums(a, w, len) {
+    const sums = new Array(len).fill(NaN);
+    let sum = 0;
+    let unknown = 0;
+    for (let i = 0; i < len; i++) {
+      const v = a[i];
+      if (Number.isFinite(v)) sum += v; else unknown += 1;
+      if (i >= w) {
+        const old = a[i - w];
+        if (Number.isFinite(old)) sum -= old; else unknown -= 1;
+      }
+      if (i >= w - 1 && unknown === 0) sums[i] = sum;
+    }
+    return sums;
+  }
+
   /** 이동평균 — SMA·RSI 등이 공유한다. */
   function smaOf(a, w, len) {
+    const sums = windowSums(a, w, len);
     const out = new Array(len);
-    let sum = 0;
-    for (let i = 0; i < len; i++) {
-      sum += a[i];
-      if (i >= w) sum -= a[i - w];
-      out[i] = i >= w - 1 ? sum / w : NaN;
-    }
+    for (let i = 0; i < len; i++) out[i] = Number.isFinite(sums[i]) ? sums[i] / w : NaN;
     return out;
   }
   /**
@@ -500,14 +533,8 @@
         if (name === 'SMA') { return smaOf(a, Math.max(1, N), len); }
         if (name === 'EMA') { return emaOf(a, Math.max(1, N), len); }
         if (name === 'SUM') {
-          const w = Math.max(1, N);
-          let sum = 0;
-          for (let i = 0; i < len; i++) {
-            sum += a[i];
-            if (i >= w) sum -= a[i - w];
-            out[i] = i >= w - 1 ? sum : NaN;
-          }
-          return out;
+          /* ★ SMA 와 같은 결함이 있었다 — windowSums 주석 참고. */
+          return windowSums(a, Math.max(1, N), len);
         }
         if (name === 'HHV' || name === 'LLV') {
           const w = Math.max(1, N);
@@ -585,6 +612,13 @@
           const w = Math.max(2, N);
           for (let i = 0; i < len; i++) {
             if (i < w - 1) { out[i] = NaN; continue; }
+            /*
+               ★ 창 안에 모르는 값이 있으면 결과도 모름이다. 창이 그 구간을 지나면
+                 복구된다 — 창마다 다시 계산하므로 누적합의 NaN 전파 문제는 없다.
+            */
+            let bad = false;
+            for (let j = i - w + 1; j <= i; j++) if (!Number.isFinite(a[j])) { bad = true; break; }
+            if (bad) { out[i] = NaN; continue; }
             let mean = 0;
             for (let j = i - w + 1; j <= i; j++) mean += a[j];
             mean /= w;

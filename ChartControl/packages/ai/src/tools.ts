@@ -160,6 +160,47 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
     '- createTakeProfit: {"price":"68000","index":0}\n' +
     '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
+    /*
+       ★★★ **이 설명이 없으면 모델은 신호 규칙을 만들 수 없다.**
+
+         `command` 는 열거값이라 이름은 알지만, `argsJson` 은 문자열이므로 어떤 키를
+         넣어야 하는지는 **이 설명에서만** 알 수 있다. addSignalRule 을 명령 목록에만
+         넣고 여기를 빠뜨려서, 운영자가 "MACD 골든크로스면 매수신호 만들어줘" 라고
+         해도 AI 가 규칙을 만들지 못하고 **지표만 켜고 끝냈다.**
+
+       ★★ 예시를 넉넉히 준다. 고객은 MACD 만 쓰지 않는다 — RSI·이동평균·돌파·변동성
+         모두 같은 방식이고, 예시가 하나면 모델이 그 하나만 흉내낸다.
+    */
+    '- addSignalRule: {"name":"MACD golden cross","rule":"CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9))","direction":"long"}\n' +
+    '  `rule` is an indicator-DSL condition, NOT JavaScript. It is true on the candles where the\n' +
+    '  condition held, and the chart marks those candles. `direction` is OPTIONAL — include it only if\n' +
+    '  the user said buy/sell (long/short); omit it when they only asked to mark the condition.\n' +
+    '  DSL functions: SMA EMA STDDEV REF DELTA ABS MIN MAX POW SQRT SUM HHV LLV RSI ATR\n' +
+    '    MACD_DIF(fast,slow) MACD_DEA(fast,slow,signal) MACD_HIST(fast,slow,signal)\n' +
+    '    CROSS_ABOVE(a,b) CROSS_BELOW(a,b) RISING(x,n) FALLING(x,n) COUNT(cond,n)\n' +
+    '  Variables: close open high low volume hl2 hlc3. Operators: + - * / > >= < <= == != AND OR NOT.\n' +
+    '  More examples — users ask for many different indicators, not only MACD:\n' +
+    '    RSI crosses above 50    -> {"name":"RSI 50 up","rule":"CROSS_ABOVE(RSI(close,14), 50)"}\n' +
+    '    RSI oversold            -> {"name":"RSI oversold","rule":"RSI(close,14) < 30"}\n' +
+    '    MA 5/20 golden cross    -> {"name":"MA 5/20 cross","rule":"CROSS_ABOVE(SMA(close,5), SMA(close,20))","direction":"long"}\n' +
+    '    price breaks 200 MA     -> {"name":"200MA break","rule":"CROSS_ABOVE(close, SMA(close,200))"}\n' +
+    '    20-bar breakout         -> {"name":"20-bar breakout","rule":"close > REF(HHV(high,20),1)"}\n' +
+    '    Bollinger upper break   -> {"name":"BOLL upper","rule":"close > SMA(close,20) + 2 * STDDEV(close,20)"}\n' +
+    '    MACD histogram turns up -> {"name":"MACD hist up","rule":"CROSS_ABOVE(MACD_HIST(12,26,9), 0)"}\n' +
+    '    volatility expanding    -> {"name":"ATR expanding","rule":"ATR(14) > SMA(ATR(14),50)"}\n' +
+    '    3 rising candles        -> {"name":"3 up candles","rule":"RISING(close,3)"}\n' +
+    '    combined                -> {"name":"MACD+RSI","rule":"CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9)) AND RSI(close,14) < 70","direction":"long"}\n' +
+    '  Do NOT chain comparisons (a < b < c is rejected) — write `a < b AND b < c`.\n' +
+    '  There is no divergence function; say so plainly instead of approximating it silently.\n' +
+    '- removeSignalRule: {"name":"MACD golden cross"}\n' +
+    /*
+       ★★★ **신호 요청에 지표만 켜고 끝내면 안 된다.** 실제로 그랬다 — 운영자가
+         "골든크로스면 매수신호 만들어줘" 를 여러 번 말했는데 AI 는 MACD 를 켜고
+         끝냈다. 지표를 켜는 것은 보이게 하는 것이고, 규칙을 만드는 것은 별개다.
+    */
+    'IF THE USER ASKS FOR A SIGNAL, THE ACTION IS addSignalRule — NOT addIndicator. Turning an indicator\n' +
+    'on only makes it visible; it does not create the rule. If the indicator already appears in\n' +
+    'MARKET_DATA screen.indicators, do NOT add it again — go straight to addSignalRule.\n' +
     '- updateOverlay: {"overlayId":"ai-1","patch":{"label":"support 41800"}}\n' +
     '  NOT SUPPORTED in patch: color, width/thickness, lineStyle. The renderer derives colour and ' +
     'thickness from the overlay source (AI draft vs user), so those keys change nothing. If the user ' +
@@ -168,11 +209,22 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- deleteOverlay / hideOverlay: {"overlayId":"ai-1"}\n' +
     'Prices must come from MARKET_DATA — never invent a level. Shown to the user as a proposal; never auto-applied.',
   review_setup:
-    'Review the setup the USER authored. `direction`, `entry`, `stop` and `targets` must be the values ' +
-    'the user stated — you must not choose or invent them. Return the computed riskReward, what is ' +
-    'missing, and evidence that argues AGAINST the setup. This is the user\'s own analysis, not a ' +
-    'recommendation, and is never auto-executed. If the user gave no direction, do not call this tool — ' +
-    'ask them to choose instead.',
+    /*
+       ★★★ 2026-09-18 정책 변경 반영. 예전 설명은 "방향이 없으면 이 도구를 부르지 말고
+         고르라고 물어라" 였다 — AI 견해를 허용한 뒤에도 그 문장이 남아 있으면 모델은
+         자기 견해를 기록할 방법을 모른다. 세 경우를 명시한다.
+    */
+    'Review a trade setup. Return the computed riskReward, what is missing, and evidence that argues ' +
+    'AGAINST the setup. Never auto-executed. THREE CASES — the schema rejects a mismatch:\n' +
+    '1) The USER stated direction and levels -> directionStatedByUser=true, directionByAi=false, submit ' +
+    'exactly that ONE side using THEIR numbers. author=user_ai_assisted if any number came from you. ' +
+    'Never present a number you worked out as one they gave you.\n' +
+    '2) YOUR OWN view (they asked what you think) -> directionByAi=true, aiOpinionDisclosed=true, ' +
+    'author=ai_opinion, exactly ONE side WITH contradictingEvidence filled in. A view with no ' +
+    'counter-evidence is rejected because it reads as a recommendation. In your reply say it is your ' +
+    'reading offered as reference material, not investment advice, not tailored to them, and that it ' +
+    'can be wrong.\n' +
+    '3) Neither -> both flags false, exactly TWO sides (one long, one short) with equal detail.',
 };
 
 const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
