@@ -1164,6 +1164,12 @@
       var q = kind ? '?kind=' + encodeURIComponent(kind) : '';
       return getJSON('', '/api/me/strategies' + q);
     },
+    /*
+       ★ 보관기간 연장. 저장된 항목의 연장과 같은 100일·50포인트다.
+    */
+    extendUserStrategy: function (id) {
+      return sendJSON('POST', '/api/me/strategies/' + encodeURIComponent(id) + '/extend', {});
+    },
     createUserStrategy: function (body) {
       return sendJSON('POST', '/api/me/strategies', body);
     },

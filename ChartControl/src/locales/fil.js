@@ -477,7 +477,7 @@
       // --- 저장된 뷰 / 프리셋 ---
       sv_section_title: 'Naka-save na signal',
       sv_section_sub: 'Mga signal na nilikha mo o sine-save mo {cost}',
-      sv_section_sub_tiered: 'Isang symbol {sym}pt · lahat {glob}pt · may-bisà 30 araw',
+      sv_section_sub_tiered: 'Isang symbol {sym}pt · lahat {glob}pt · valid {d} araw, puwedeng i-extend',
       sv_save_current_indicators: 'I-save ang kasalukuyang indicators',
       sv_empty: 'Wala pang naka-save. Gumawa ng signal o i-save ang mga indicator mula sa chart.',
       sv_save_on_chart_hint: 'I-save ang signal na ito',
@@ -493,8 +493,8 @@
       sv_delete: 'Tanggalin',
       sv_kind_signal: 'Signal',
       sv_badge_rule: 'Rule ko',
-      sv_badge_rule_hint: 'Naka-save sa Mga rule ko — hindi nag-expire.',
-      sv_badge_saved_hint: 'Naka-save na item — mag-expire sa 30 araw.',
+      sv_badge_rule_hint: 'Mag-expire sa {d} araw · puwedeng i-extend',
+      sv_badge_saved_hint: 'Mag-expire sa {d} araw · puwedeng i-extend',
       sv_kind_indicator: 'Mga indicator',
       sv_kind_drawing: 'Drawing',
       sv_saved_ok: 'Naka-save na {n}',
@@ -510,7 +510,7 @@
       sv_expired: 'Nag-expire na',
       sv_days_left: '{n} araw natitira',
       sv_extend: 'Palawigin {n}',
-      sv_extend_hint: 'Palawigin ng 30 araw sa {n} points',
+      sv_extend_hint: 'I-extend ng {d} araw sa {n} puntos',
 
       // --- 접근성 라벨 ---
       a11y_sort_by: 'Ayusin ayon sa',

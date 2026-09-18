@@ -797,6 +797,7 @@
       return () => { try { delete window.__qtApplyChartCommand; } catch (e) { void e; } };
     }, [applyCommand]);
 
+
     /* 서버가 검증해 보낸 SignalObject를 오버레이(진입/손절/익절/마커)로 그리고 상위에 제안한다. */
     /*
        고객이 만든 셋업의 검토 결과를 차트에 얹는다.
@@ -951,6 +952,8 @@
     const [savedItems, setSavedItems] = useState(null);
     /* 저장이 요금제에 포함돼 있는가. 서버 판정을 그대로 쓴다(조회 실패 시 false). */
     const [savesAllowed, setSavesAllowed] = useState(false);
+    /* ★ 기본값은 현재 정책과 같게 — 응답이 늦어도 틀린 수를 보여주지 않는다. */
+    const [retentionDays, setRetentionDays] = useState(100);
     const [savedError, setSavedError] = useState(false);
     const loadSaved = useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -998,6 +1001,7 @@
              하지 않고 미리 막고 이유를 적는다.
         */
         setSavesAllowed(Boolean(r && r.savesAllowed));
+        if (r && Number(r.retentionDays) > 0) setRetentionDays(Number(r.retentionDays));
       }).catch(() => { setSavedItems(null); setSavedError(true); setSavesAllowed(false); });
     }, []);
     /*
@@ -1046,6 +1050,51 @@
       } catch (e) { /* 적용 실패는 조용히 무시 — 저장 데이터가 손상됐을 수 있다 */ }
       setSavedOpen(false);
     }, [applyCommand, applySignal, t]);
+
+    /*
+       저장 화면에서 "차트에서 열기" 로 넘어온 항목을 적용하는 경로.
+
+       ★★★ 진단용(`__qtApplyChartCommand`)과 달리 **localhost 로 제한하지 않는다.**
+         이것은 고객이 쓰는 기능이다 — 저장 화면에는 차트가 없어서 여기로 넘겨야 한다.
+       ★ 노출하는 것은 `applySaved` 하나뿐이고, 하는 일은 저장된 도형을 다시 그리는
+         것이다. 주문 경로는 없다.
+
+       ★★★ **이 effect 는 `applySaved` 선언보다 뒤에 있어야 한다.** 처음에 위쪽
+         (`applyCommand` 진단 effect 옆)에 뒀더니 의존성 배열 `[applySaved]` 가
+         **렌더 중 TDZ 로 평가되어** 전역이 아예 붙지 않았다(실측: `undefined`).
+         오류도 안 났다 — 조용히 안 되는 종류다. 같은 함정을 전에도 밟았다.
+    */
+    useEffect(() => {
+      window.__qtApplySavedItem = applySaved;
+      return () => { try { delete window.__qtApplySavedItem; } catch (e) { void e; } };
+    }, [applySaved]);
+
+    /*
+       저장 화면에서 "차트에서 열기" 로 넘어온 그림을 적용한다.
+
+       ★★★ **여기서 읽는 이유.** 처음에는 차트 준비 시점(app.jsx)에서 읽었는데, 그때는
+         코파일럿이 아직 마운트되지 않아 적용 함수가 없었다. 그런데 **대기값을 이미
+         지워 버려서 그림이 사라졌다** — 대기값도 없고 화면에도 없다.
+         **소비하는 쪽이 적용할 수 있는 쪽이어야 한다.**
+
+       ★ 한 번만 적용하고 지운다. 남기면 차트에 들어올 때마다 다시 붙어, 고객이 지웠는데
+         되살아나는 것으로 보인다.
+       ★ 지우기를 적용보다 **먼저** 한다 — 적용이 터져도 무한 반복되지 않게.
+       ★ 캔들이 도착한 뒤에 그린다. 캔들이 없으면 시각을 정할 수 없어 좌표가 비고,
+         `pointsFor` 관문이 걸러낸다(그러면 조용히 안 그려진다).
+    */
+    const barsReady = Array.isArray(context.candles) && context.candles.length > 0;
+    useEffect(() => {
+      if (!barsReady) return;
+      let raw = null;
+      try {
+        raw = sessionStorage.getItem('qt.pendingSavedItem');
+        if (raw) sessionStorage.removeItem('qt.pendingSavedItem');
+      } catch (e) { void e; }
+      if (!raw) return;
+      try { applySaved(JSON.parse(raw)); }
+      catch (e) { console.warn('[copilot] 저장 항목 적용 실패:', e && e.message); }
+    }, [barsReady, applySaved]);
 
     /*
        ★★ 시그널 카드의 '초안 저장' 과 '알림 설정'.
@@ -1841,7 +1890,14 @@
                   style={{fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:4,
                     background: it.__rule ? 'var(--color-ai-subtle, var(--color-bg-elevated))' : 'var(--color-bg-elevated)',
                     color: it.__rule ? 'var(--color-ai)' : 'var(--color-text-secondary)'}}
-                  title={it.__rule ? t('sv_badge_rule_hint') : t('sv_badge_saved_hint')}
+                  /*
+                     ★ 보관기간은 서버가 정한다 — 화면에 숫자를 박으면 정책을 못 따라간다.
+                     ★★ 이제 **규칙도 그림도 같은 기간**이다(전부 100일, 운영 결정
+                       2026-09-18). 그래서 설명은 하나면 된다 — 배지 글자가 "무엇인가" 를
+                       말하고, 설명이 "언제까지" 를 말한다. 예전에는 한쪽만 만료돼서
+                       설명이 갈렸다.
+                  */
+                  title={t('sv_badge_saved_hint', { d: retentionDays })}
                 >{it.__rule ? t('sv_badge_rule') : t('sv_kind_' + it.kind)}</span>
                 <span style={{flex:1, fontSize:11.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.name}{it.symbol ? ' · ' + it.symbol : ''}{it.timeframe ? ' · ' + it.timeframe : ''}</span>
                 <button aria-label={t('sv_load')} className="btn btn--icon btn--sm" title={t('sv_load')} onClick={() => applySaved(it)}><I.Plus size={11}/></button>

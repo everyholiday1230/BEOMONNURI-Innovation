@@ -1920,6 +1920,13 @@
   function MyCreatedStrategies() {
     const [items, setItems] = React.useState(null);
     const [cost, setCost] = React.useState({ strategy: 300, indicator: 100 });
+    /*
+       ★★★ 보관기간·연장비용은 **서버가 정한다.** 화면에 숫자를 박아 두면 서버 정책을
+         바꿔도 안 따라온다 — "30일" 이 화면에 남아 거짓이 된다(실제로 그랬다).
+       ★ 기본값은 현재 정책과 같게 둔다. 응답이 늦어도 틀린 수를 보여주지 않는다.
+    */
+    const [retentionDays, setRetentionDays] = React.useState(100);
+    const [extendCost, setExtendCost] = React.useState(50);
     const [supported, setSupported] = React.useState(true);
     const [loadError, setLoadError] = React.useState(false);
     const [busy, setBusy] = React.useState(false);
@@ -1934,11 +1941,41 @@
     const load = React.useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.myUserStrategies) return;
-      api.myUserStrategies()
-        .then((r) => {
+      /*
+         ★★★ **저장한 것을 한 화면에 모은다.**
+
+           운영자: "저장을 두 개로 나누는 게 너무 헷갈린다... 아예 합치는 게 나으려나?"
+           → 합친다. 규칙(`/me/strategies`)과 차트에 그린 것(`/me/saved`)을 **같은
+           목록**에 보여준다. 고객이 어디에 저장했는지 기억할 필요가 없다.
+
+         ★ 저장 테이블은 그대로 둔다. 종류가 다르고 다루는 방식이 달라서다(규칙은 식으로
+           되살리고, 그림은 명령으로 되살린다). **고객에게 보이는 곳만 하나다.**
+         ★ 한쪽 조회가 실패해도 다른 쪽은 보여준다 — 하나 때문에 둘 다 못 보게 하지 않는다.
+         ★ 그림 항목은 `__saved` 로 표시한다. 지우기·연장이 다른 API 를 쓰므로 구별해야
+           한다. 잘못 부르면 **아무 일도 안 일어난다**(고장으로 보인다).
+      */
+      const drawingsP = api.savedList
+        ? api.savedList().then((rr) => ({
+            items: (rr && rr.items) || [],
+            extendCost: rr && rr.extendCost,
+            retentionDays: rr && rr.retentionDays,
+          })).catch(() => ({ items: [] }))
+        : Promise.resolve({ items: [] });
+      Promise.all([api.myUserStrategies(), drawingsP])
+        .then(([r, d]) => {
           setSupported(r && r.supported !== false);
-          setItems((r && r.items) || []);
+          const rules = (r && r.items) || [];
+          const drawings = (d.items || []).map((x) => ({ ...x, __saved: true }));
+          /* 최근에 저장한 것이 위로 오게 — 두 목록을 시간순으로 섞는다. */
+          const merged = [...rules, ...drawings].sort(
+            (a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0),
+          );
+          setItems(merged);
           if (r && r.saveCost) setCost(r.saveCost);
+          const rd = Number((r && r.retentionDays) || d.retentionDays);
+          if (rd > 0) setRetentionDays(rd);
+          const ec = Number((r && r.extendCost) != null ? r.extendCost : d.extendCost);
+          if (Number.isFinite(ec) && ec >= 0) setExtendCost(ec);
         })
         // ★ 조회 실패를 빈 목록으로 두면 "저장한 전략이 없다" 로 보인다. 오류는 오류로 알린다.
         .catch(() => { setItems(null); setLoadError(true); });
@@ -1976,11 +2013,43 @@
       } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('us_save_failed') }); }
       setBusy(false);
     };
-    const remove = async (id) => {
+    /*
+       보관기간 연장.
+
+       ★★ 결과를 반드시 말한다. 포인트가 나가는 동작인데 표시가 없으면 됐는지 알 수
+         없고, 고객은 다시 누른다 — 두 번 차감된다.
+       ★ 실패 이유를 그대로 보여준다. 포인트 부족과 요금제 없음은 할 일이 다르다.
+    */
+    const extend = async (it) => {
       const api = window.QTApi && window.QTApi.rest;
-      if (!api || !api.deleteUserStrategy) return;
+      /*
+         ★★★ 종류에 맞는 API 를 부른다. 그림은 `savedExtend`, 규칙은
+           `extendUserStrategy` 다. 잘못 부르면 **없는 항목을 연장하려 해 아무 일도
+           안 일어난다** — 포인트만 나가고 기간은 안 늘어날 수도 있다.
+      */
+      const fn = it.__saved ? api && api.savedExtend : api && api.extendUserStrategy;
+      if (!fn) return;
       setBusy(true);
-      try { await api.deleteUserStrategy(id); load(); } catch (e) { /* 목록 유지 */ }
+      try {
+        const r = await fn(it.id);
+        if (r && r.ok !== false) {
+          if (window.QTToast) window.QTToast({ title: t('sv_extended', { n: retentionDays }), variant: 'success' });
+          load();
+        } else if (window.QTToast) {
+          window.QTToast({ title: (r && r.message) || t('sv_extend_failed'), variant: 'error' });
+        }
+      } catch (e) {
+        if (window.QTToast) window.QTToast({ title: (e && e.message) || t('sv_extend_failed'), variant: 'error' });
+      }
+      setBusy(false);
+    };
+    const remove = async (it) => {
+      const api = window.QTApi && window.QTApi.rest;
+      /* ★ 연장과 같은 이유로 종류에 맞는 API 를 부른다. */
+      const fn = it.__saved ? api && api.savedDelete : api && api.deleteUserStrategy;
+      if (!fn) return;
+      setBusy(true);
+      try { await fn(it.id); load(); } catch (e) { /* 목록 유지 */ }
       setBusy(false);
     };
 
@@ -2068,7 +2137,13 @@
             {items.map((it) => (
               <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--color-border-subtle)', borderRadius: 6 }}>
                 <span className="badge">
-                  {t(it.kind === 'indicator' ? 'us_kind_indicator' : it.kind === 'signal' ? 'us_kind_signal' : 'us_kind_strategy')}
+                  {/*
+                     ★ 차트에 그린 것(`__saved`)은 그림 배지를 쓴다. 규칙과 같은 배지를
+                       달면 목록에서 무엇이 무엇인지 구별되지 않는다.
+                  */}
+                  {it.__saved
+                    ? t('sv_kind_' + (it.kind === 'drawing' ? 'drawing' : it.kind))
+                    : t(it.kind === 'indicator' ? 'us_kind_indicator' : it.kind === 'signal' ? 'us_kind_signal' : 'us_kind_strategy')}
                 </span>
                 <span style={{ fontWeight: 600 }}>{it.name}</span>
                 <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{it.symbol} · {it.timeframe}</span>
@@ -2087,23 +2162,60 @@
                    ★ `sessionStorage` 를 쓴다. URL 에 식을 담으면 길이 제한과 인코딩
                      문제가 있고, 주소창에 남아 공유될 때 의도치 않게 적용된다.
                 */}
-                {it.kind === 'signal' && it.config && it.config.rule && (
+                {(it.__saved || (it.kind === 'signal' && it.config && it.config.rule)) && (
                   <button
                     className="btn btn--xs btn--primary" style={{ marginLeft: 'auto' }}
                     onClick={() => {
                       try {
-                        sessionStorage.setItem('qt.pendingSignalRule', JSON.stringify({
-                          name: it.name, expression: it.config.rule, direction: it.config.direction || null,
-                        }));
+                        /*
+                           ★★ 그림은 저장된 **명령**을 넘긴다(`payload`), 규칙은 **식**을
+                             넘긴다. 되살리는 방법이 다르므로 넘기는 것도 다르다.
+                           ★ 차트 화면이 두 열쇠를 각각 읽는다.
+                        */
+                        if (it.__saved) {
+                          sessionStorage.setItem('qt.pendingSavedItem', JSON.stringify({
+                            kind: it.kind, name: it.name, payload: it.payload,
+                          }));
+                        } else {
+                          sessionStorage.setItem('qt.pendingSignalRule', JSON.stringify({
+                            name: it.name, expression: it.config.rule, direction: it.config.direction || null,
+                          }));
+                        }
                       } catch (e) { /* 저장 실패해도 이동은 한다 — 차트에서 직접 넣을 수 있다 */ }
                       window.location.hash = '#/trade';
                     }}
                   >{t('us_open_in_chart')}</button>
                 )}
+                {/*
+                   ★★★ **남은 보관기간을 보여준다.**
+
+                     보관기간은 100일이다(운영 결정 2026-09-18: "전부 100일"). 안 보여주면
+                     고객은 언제 사라지는지 모르고, 사라진 뒤에 "저장한 게 없어졌다" 고
+                     생각한다 — 포인트를 내고 저장한 것이라 더 나쁘다.
+
+                   ★ 7일 이하는 색으로 눈에 띄게 한다. 사라진 뒤에 알리면 늦다.
+                   ★ 만료 시각이 없는 옛 항목은 아무것도 안 쓴다 — "무기한" 이라고
+                     단정하지 않는다.
+                */}
+                {it.expiresAt != null ? (() => {
+                  const dl = Math.ceil((Number(it.expiresAt) - Date.now()) / 86400000);
+                  return (
+                    <span style={{ fontSize: 11, color: dl <= 7 ? 'var(--color-warning)' : 'var(--color-text-tertiary)' }}>
+                      {dl < 0 ? t('sv_expired') : t('sv_days_left', { n: dl })}
+                    </span>
+                  );
+                })() : null}
                 <button
+                  /* ★ title 만 두면 화면낭독기가 읽지 못한다 — aria-label 이 필요하다. */
+                  aria-label={t('sv_extend_hint', { n: extendCost, d: retentionDays })}
                   className="btn btn--xs"
                   style={it.kind === 'signal' && it.config && it.config.rule ? undefined : { marginLeft: 'auto' }}
-                  disabled={busy} onClick={() => remove(it.id)}
+                  disabled={busy} onClick={() => extend(it)}
+                  title={t('sv_extend_hint', { n: extendCost, d: retentionDays })}
+                >{t('sv_extend', { n: extendCost })}</button>
+                <button
+                  className="btn btn--xs"
+                  disabled={busy} onClick={() => remove(it)}
                 >{t('us_delete')}</button>
               </div>
             ))}

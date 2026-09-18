@@ -2,6 +2,12 @@ import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import type { PgUserStrategyRepo, UserStrategyKind } from './db/user-strategy-repo';
+/*
+   ★ 보관기간·연장비용을 저장된 항목과 **같은 상수**에서 가져온다. 각자 들면 한쪽만
+     바뀌어 "전부 100일" 이 깨진다.
+*/
+import { SAVED_TTL_DAYS } from './db/saved-item-repo.js';
+import { EXTEND_COST_POINTS } from './saved-routes.js';
 import type { PgPointsRepo } from './db/points-repo';
 import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
@@ -66,7 +72,14 @@ export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
     const kindQ = c.req.query('kind');
     const kind = kindQ && VALID_KINDS.has(kindQ as UserStrategyKind) ? (kindQ as UserStrategyKind) : undefined;
     const items = await d.repo.listForUser(a.user.id, kind);
-    return c.json({ supported: true, items, saveCost: STRATEGY_SAVE_COST });
+    /*
+       ★ 보관기간·연장비용을 응답에 담는다. 화면이 숫자를 박아 두면 서버 정책을 바꿔도
+         안 따라온다 — "30일" 이 화면에 남아 거짓이 된다.
+    */
+    return c.json({
+      supported: true, items, saveCost: STRATEGY_SAVE_COST,
+      retentionDays: SAVED_TTL_DAYS, extendCost: EXTEND_COST_POINTS,
+    });
   });
 
   // ---- 생성 (포인트 차감) ----
@@ -176,6 +189,51 @@ export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
     });
     if (!updated) return c.json(err('NOT_FOUND', ''), 404);
     return c.json({ ok: true, item: updated });
+  });
+
+  /*
+     보관기간 연장.
+
+     ★ 저장된 항목의 연장(`/me/saved/:id/extend`)과 **같은 값·같은 비용**을 쓴다.
+       두 저장소의 규칙이 다르면 고객이 결과를 예측할 수 없다.
+     ★ 포인트가 모자라면 연장하지 않고 402 로 이유를 준다 — 조용히 실패하면 고객은
+       연장된 줄 안다.
+     ★ 포인트 제도가 꺼져 있으면 무료로 연장한다(다른 경로와 같은 원칙).
+  */
+  app.post('/me/strategies/:id/extend', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
+    if (!d.repo) return c.json(err('UNAVAILABLE', 'not supported'), 503);
+    const id = c.req.param('id');
+    const own = await d.repo.get(a.user.id, id);
+    if (!own) return c.json(err('NOT_FOUND', ''), 404);
+
+    const meteringOn = Boolean(d.points);
+    let charged = 0;
+    if (meteringOn && d.points) {
+      const balance = await d.points.balanceOf(a.user.id);
+      if (balance < EXTEND_COST_POINTS) {
+        return c.json(err('INSUFFICIENT_POINTS', `need ${EXTEND_COST_POINTS} points to extend`), 402);
+      }
+    }
+    const row = await d.repo.extend(a.user.id, id, SAVED_TTL_DAYS);
+    if (!row) return c.json(err('NOT_FOUND', ''), 404);
+    if (meteringOn && d.points) {
+      try {
+        /*
+           ★ refId 에 **연장 전 만료 시각**을 넣는다. 같은 항목을 여러 번 연장할 수
+             있어야 하고, 같은 키를 쓰면 두 번째 연장이 중복으로 막힌다.
+        */
+        const res = await d.points.spendMetered({
+          userId: a.user.id, amount: EXTEND_COST_POINTS,
+          refType: 'user_strategy_extend', refId: `${id}:${own.expiresAt ?? 0}`,
+          memo: 'extend user strategy',
+        });
+        charged = res && typeof res.deducted === 'number' ? res.deducted : EXTEND_COST_POINTS;
+      } catch (e) { void e; }
+    }
+    return c.json({ ok: true, item: row, charged, retentionDays: SAVED_TTL_DAYS });
   });
 
   // ---- 삭제(소유자만) ----

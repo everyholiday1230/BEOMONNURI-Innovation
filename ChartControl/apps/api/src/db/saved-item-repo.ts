@@ -9,7 +9,17 @@ export type SavedItemKind = 'signal' | 'indicator' | 'drawing';
 export type SavedItemScope = 'symbol' | 'global';
 
 /** 저장 유효기간(일) 및 연장 단위. */
-export const SAVED_TTL_DAYS = 30;
+/*
+   ★★★ 보관기간 **100일** (운영 결정 2026-09-18: "전부 100일이요").
+
+     예전에는 30일이었다. 규칙은 만료가 아예 없었다 — 저장 종류에 따라 사라지는
+     것과 안 사라지는 것이 섞여 있었고, 고객은 어느 쪽에 저장했는지 기억해야 했다.
+     **하나로 통일한다.**
+
+   ★ 연장 기간도 같은 값을 쓴다 — 저장은 100일, 연장은 30일 같은 식으로 다르면
+     고객이 계산을 못 한다.
+*/
+export const SAVED_TTL_DAYS = 100;
 
 export interface SavedItemRow {
   id: string;
@@ -76,9 +86,22 @@ export class PgSavedItemRepo {
 
   async listForUser(userId: string, kind?: SavedItemKind, limit = 100): Promise<SavedItemRow[]> {
     const lim = Math.min(300, Math.max(1, limit));
+    /*
+       ★★★ **만료된 항목을 목록에서 뺀다.**
+
+         예전에는 걸러내지 않았다. 그래서 화면은 "30일 뒤 만료" 라고 알리는데
+         **실제로는 아무 일도 일어나지 않았다** — 고객에게 사실이 아닌 것을
+         말한 셈이다. 약속한 대로 동작해야 한다.
+
+       ★ 지우지는 않는다(`DELETE` 가 아니다). 만료는 **안 보이게 하는 것**이고,
+         연장하면 다시 보인다. 지워 버리면 되돌릴 방법이 없다.
+       ★ `expires_at IS NULL` 은 보여준다 — 만료 개념이 없던 시절의 항목이다.
+         모른다고 감추면 고객이 저장한 것이 사라진 것으로 보인다.
+    */
+    const alive = "(expires_at IS NULL OR expires_at > now())";
     const { rows } = kind
-      ? await this.pool.query('SELECT * FROM saved_items WHERE user_id=$1 AND kind=$2 ORDER BY created_at DESC LIMIT $3', [userId, kind, lim])
-      : await this.pool.query('SELECT * FROM saved_items WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2', [userId, lim]);
+      ? await this.pool.query(`SELECT * FROM saved_items WHERE user_id=$1 AND kind=$2 AND ${alive} ORDER BY created_at DESC LIMIT $3`, [userId, kind, lim])
+      : await this.pool.query(`SELECT * FROM saved_items WHERE user_id=$1 AND ${alive} ORDER BY created_at DESC LIMIT $2`, [userId, lim]);
     return (rows as Record<string, unknown>[]).map(mapRow);
   }
 

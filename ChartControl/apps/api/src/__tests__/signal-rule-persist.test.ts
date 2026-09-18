@@ -380,10 +380,16 @@ describe('불러오는 곳은 하나다', () => {
      ★★★ Saved 는 30일 뒤 사라지고 내 규칙은 안 사라진다. 같은 목록에 섞어 놓고
        그 차이를 안 알려주면 **"저장한 게 없어졌다"** 고 생각한다.
   */
-  it('만료가 있는 것과 없는 것을 구별해 보여준다', () => {
+  it('무엇인지 배지로 구별해 보여준다', () => {
     expect(copilot, '규칙 배지가 없다').toMatch(/it\.__rule \? t\('sv_badge_rule'\)/u);
-    expect(copilot, '만료 여부를 설명하지 않는다')
-      .toMatch(/it\.__rule \? t\('sv_badge_rule_hint'\) : t\('sv_badge_saved_hint'\)/u);
+    /*
+       ★★★ 계약이 바뀌었다(2026-09-18): **규칙도 그림도 같은 기간**이다(전부 100일).
+         예전에는 한쪽만 만료돼서 설명이 갈렸다. 이제 배지 글자가 "무엇인가" 를,
+         설명이 "언제까지" 를 말한다 — 설명은 하나면 된다.
+       ★ 기간은 서버에서 받은 값을 넘긴다. 화면에 박으면 정책을 못 따라간다.
+    */
+    expect(copilot, '보관기간을 설명하지 않는다')
+      .toMatch(/t\('sv_badge_saved_hint', \{ d: retentionDays \}\)/u);
     const dir = join(ROOT, 'src/locales');
     const missing: string[] = [];
     for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {

@@ -2,6 +2,8 @@ import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthService, verifyCsrf, originAllowed } from '@quantumtrade/auth';
 import type { PgSavedItemRepo, SavedItemKind, SavedItemScope } from './db/saved-item-repo';
+/* ★ 값이므로 `import type` 이 아니다 — 타입 전용 import 에 넣으면 런타임에 undefined 다. */
+import { SAVED_TTL_DAYS } from './db/saved-item-repo.js';
 import type { PgPointsRepo } from './db/points-repo';
 import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
@@ -54,7 +56,7 @@ export function createSavedRouter(d: SavedRouterDeps): Hono {
   app.get('/me/saved', async (c) => {
     const a = await authed(c);
     if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
-    if (!d.repo) return c.json({ supported: false, items: [], saveCost: SAVE_COST_BY_SCOPE, extendCost: EXTEND_COST_POINTS });
+    if (!d.repo) return c.json({ supported: false, items: [], saveCost: SAVE_COST_BY_SCOPE, extendCost: EXTEND_COST_POINTS, retentionDays: SAVED_TTL_DAYS });
     const kindQ = c.req.query('kind');
     const kind = kindQ && VALID_KINDS.has(kindQ as SavedItemKind) ? (kindQ as SavedItemKind) : undefined;
     const items = await d.repo.listForUser(a.user.id, kind);
@@ -82,6 +84,8 @@ export function createSavedRouter(d: SavedRouterDeps): Hono {
     }
     return c.json({
       supported: true, items, saveCost: SAVE_COST_BY_SCOPE, extendCost: EXTEND_COST_POINTS,
+      /* ★ 보관기간을 화면에 알린다. 화면에 박아 두면 정책을 바꿔도 안 따라온다. */
+      retentionDays: SAVED_TTL_DAYS,
       savesAllowed, planCode,
     });
   });

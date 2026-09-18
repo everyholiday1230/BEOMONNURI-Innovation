@@ -778,7 +778,7 @@
 
             {/* 내 저장 항목 — 신호·지표 저장(포인트 차감) + 목록/삭제 */}
             {saved && saved.supported && (
-              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 100, glob: (saved.saveCost && saved.saveCost.global) || 300 })}>
+              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 100, glob: (saved.saveCost && saved.saveCost.global) || 300, d: saved.retentionDays || 100 })}>
                 <div style={{marginBottom:10}}>
                   {/*
                      ★★ 이 버튼은 여기서 절대 동작할 수 없다.
@@ -818,7 +818,7 @@
                             {dl < 0 ? t('sv_expired') : t('sv_days_left', { n: dl })}
                           </span>
                         )}
-                        <button aria-label={t('sv_extend_hint', { n: (saved.extendCost || 50) })} className="btn btn--sm" title={t('sv_extend_hint', { n: (saved.extendCost || 50) })} onClick={() => extendSaved(it.id)}>{t('sv_extend', { n: (saved.extendCost || 50) })}</button>
+                        <button aria-label={t('sv_extend_hint', { n: (saved.extendCost || 50), d: saved.retentionDays || 100 })} className="btn btn--sm" title={t('sv_extend_hint', { n: (saved.extendCost || 50), d: saved.retentionDays || 100 })} onClick={() => extendSaved(it.id)}>{t('sv_extend', { n: (saved.extendCost || 50) })}</button>
                         <button aria-label={t('sv_delete')} className="btn btn--icon btn--sm" title={t('sv_delete')} onClick={() => deleteSaved(it.id)}><I.Trash size={12}/></button>
                       </div>
                       );
