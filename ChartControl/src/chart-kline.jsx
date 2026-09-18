@@ -3158,6 +3158,29 @@
          그리고, 붙이지 않았으면 **중립 표시(◆)** 로 둔다. 없는 방향을 채워 넣으면
          그 순간 우리가 방향을 발신한 것이 된다.
     */
+    /*
+       ═══════════════════════════════════════════════════════════════════
+       적용된 신호 규칙 장부
+       ═══════════════════════════════════════════════════════════════════
+
+       ★★★ **규칙 식을 따로 기억해야 한다.** klinecharts 는 지표 이름과 계산 결과만
+         들고 있고, 우리가 넣은 **DSL 식**은 `calc` 클로저 안에만 있다. 즉
+         `getIndicators()` 로는 "SIG_MACD_______U9NTX" 라는 키만 알 수 있고 그것으로
+         규칙을 복원할 수 없다.
+
+         저장·불러오기가 필요한 이유가 그것이다 — 운영자 요청("AI로 만든 거 저장이랑
+         다시 불러오는 것도"). 식을 기억하지 않으면 저장할 것이 없다.
+
+       ★ 키가 아니라 **사람이 지은 이름**을 열쇠로 쓴다. 같은 이름을 다시 추가하면
+         덮어쓰는 것이 자연스럽고, 저장본과 대조할 때도 이름으로 맞춘다.
+    */
+    _signalRules: new Map(),
+
+    /** 지금 차트에 적용된 신호 규칙. 저장·복원이 이것을 쓴다. */
+    listSignalRules() {
+      return [...this._signalRules.values()].map((r) => ({ ...r }));
+    },
+
     addSignalRule(descriptor) {
       const d = descriptor || {};
       const name = String(d.name || '').trim();
@@ -3289,6 +3312,11 @@
           if (id) { this._aiInd.set(kName, 'candle_pane'); applied = true; }
         } catch (e) { /* 이 차트에서 실패 — 다음 차트 시도 */ }
       }
+      /*
+         ★ 성공했을 때만 장부에 남긴다. 실패한 것을 남기면 저장·복원이 그리지 못하는
+           규칙을 되살리려 하고, 그때마다 조용히 실패한다.
+      */
+      if (applied) this._signalRules.set(name, { name, expression: expr, direction });
       try { this.publishState(); } catch (e) { /* noop */ }
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return applied ? { applied: true, name: kName } : { applied: false, error: 'CREATE_FAILED' };
@@ -3301,6 +3329,8 @@
         try { chart.removeIndicator({ name: kName }); removed = true; } catch (e) { /* noop */ }
       }
       this._aiInd.delete(kName);
+      /* ★ 장부에서도 지운다. 남겨 두면 저장본에 없는 규칙이 되살아난다. */
+      this._signalRules.delete(String(name || ''));
       try { this.publishState(); } catch (e) { /* noop */ }
       return removed;
     },

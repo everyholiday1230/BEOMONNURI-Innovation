@@ -2582,6 +2582,7 @@
       strat_desc_1: '{name} 是可由你自行在 {tag} 周期上应用与回测的图表研究模板。结果为历史回测，仅供学习，并非投资建议。',
       strat_desc_2: '它结合常用指标（MA20/60/120、RSI、VOL），以便你自行研究入场、止损与止盈水平。它不会告诉你该如何交易。',
       template_applied: '已应用「{name}」',
+      template_rules_partial: '已恢复 {ok} 条信号规则；{fail} 条无法恢复。',
       template_apply_failed: '未能应用模板',
       template_count: '已保存 {n} 个',
       verify_hint_pre: '请输入我们发送给你的 ',

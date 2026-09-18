@@ -1106,6 +1106,7 @@
       template_delete: 'Eliminar',
       template_saved: '"{name}" guardada',
       template_applied: '"{name}" aplicada',
+      template_rules_partial: 'Se restauraron {ok} reglas de señal; {fail} no se pudieron restaurar.',
       template_apply_failed: 'No se pudo aplicar la plantilla',
       template_count: '{n} guardadas',
 

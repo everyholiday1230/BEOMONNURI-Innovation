@@ -188,6 +188,16 @@
       indicators: item.indicators,
       candleType: item.candleType,
       gridShow: item.gridShow,
+      /*
+         ★★★ **신호 규칙을 함께 담는다.** 운영자 요청: "AI로 만든 거 저장이랑
+           다시 불러오는 것도."
+
+           규칙은 DSL 식이고 차트는 그것을 기억하지 않는다(계산 클로저 안에만 있다).
+           `ChartKlineUtil.listSignalRules()` 가 장부를 들고 있으므로 그것을 저장한다.
+         ★ 빈 배열도 담는다 — 없는 것과 "규칙을 다 지운 상태" 를 구별해야 불러올 때
+           지워진 상태가 복원된다.
+      */
+      signalRules: Array.isArray(item.signalRules) ? item.signalRules : [],
     };
   }
 
@@ -202,6 +212,8 @@
       indicators: Array.isArray(p.indicators) ? p.indicators : [],
       candleType: p.candleType,
       gridShow: p.gridShow,
+      /* ★ 옛 저장본에는 없다 — 그때는 빈 배열로 본다(규칙 없음). */
+      signalRules: Array.isArray(p.signalRules) ? p.signalRules : [],
       /* 서버에서 온 것임을 표시한다 — 삭제할 때 서버에도 지워야 하는지
          구분해야 하고, 사용자에게 동기화 여부를 알릴 수 있다. */
       synced: true,
@@ -278,14 +290,38 @@
       try {
         const styles = chart.getStyles();
         return {
-          // 지표는 이름 + 파라미터 + 배치만 저장한다. 계산 결과는 저장하지 않는다.
-          indicators: chart.getIndicators().map((i) => ({
-            name: i.name,
-            calcParams: i.calcParams,
-            onCandlePane: i.paneId === 'candle_pane',
-          })),
+          /*
+             지표는 이름 + 파라미터 + 배치만 저장한다. 계산 결과는 저장하지 않는다.
+
+             ★★★ **신호 규칙(`SIG_*`)은 여기서 뺀다.** 그것은 우리가 런타임에
+               `registerIndicator` 로 만든 지표이고, 새로고침하면 등록이 사라진다.
+               일반 지표로 저장해 두면 복원할 때 `createIndicator({name:'SIG_...'})` 가
+               **등록되지 않은 이름**을 부르게 되어 조용히 실패한다 — 저장은 됐는데
+               불러오면 규칙이 없는 상태가 된다.
+             ★ 규칙은 아래 `signalRules` 에 **DSL 식과 함께** 저장한다. 그래야 복원할 때
+               `addSignalRule` 로 다시 등록할 수 있다.
+          */
+          indicators: chart.getIndicators()
+            .filter((i) => !String(i.name || '').startsWith('SIG_'))
+            .map((i) => ({
+              name: i.name,
+              calcParams: i.calcParams,
+              onCandlePane: i.paneId === 'candle_pane',
+            })),
           candleType: styles?.candle?.type,
           gridShow: styles?.grid?.show !== false,
+          /*
+             ★★★ **신호 규칙은 차트가 기억하지 않는다.** DSL 식이 계산 클로저 안에만
+               있으므로 `getIndicators()` 로는 `SIG_...` 키만 보이고 복원할 수 없다.
+               `ChartKlineUtil` 이 장부(`listSignalRules`)를 들고 있으므로 거기서 가져온다.
+             ★ 없으면 빈 배열이다 — 옛 배포나 규칙을 안 쓴 경우.
+          */
+          signalRules: (() => {
+            try {
+              const U = window.ChartKlineUtil;
+              return U && typeof U.listSignalRules === 'function' ? U.listSignalRules() : [];
+            } catch (e) { return []; }
+          })(),
         };
       } catch (e) {
         return null;
@@ -374,12 +410,50 @@
             chart.createIndicator(create, false);
           }
         }
+        /*
+           ★★★ **신호 규칙을 되살린다.** DSL 식으로 다시 등록해야 한다 —
+             `createIndicator` 로는 안 된다(등록되지 않은 이름이다. 위 capture 주석 참고).
+
+           ★★ 실패한 규칙을 **조용히 넘기지 않는다.** 식이 옛 문법이거나 함수가 사라졌으면
+             복원되지 않는데, 아무 말도 없으면 고객은 규칙이 살아 있다고 믿는다.
+             몇 개가 안 됐는지 알린다.
+        */
+        let ruleFail = 0;
+        let ruleOk = 0;
+        try {
+          const U = window.ChartKlineUtil;
+          if (U && typeof U.addSignalRule === 'function') {
+            /* 먼저 지금 적용된 규칙을 치운다 — 템플릿이 곧 상태다. */
+            if (typeof U.listSignalRules === 'function' && typeof U.removeSignalRule === 'function') {
+              for (const cur of U.listSignalRules()) {
+                try { U.removeSignalRule(cur.name); } catch (e) { /* noop */ }
+              }
+            }
+            for (const r of item.signalRules || []) {
+              const res = U.addSignalRule({
+                name: r.name,
+                expression: r.expression,
+                ...(r.direction ? { direction: r.direction } : {}),
+              });
+              if (res && res.applied) ruleOk += 1; else ruleFail += 1;
+            }
+          }
+        } catch (e) { /* 규칙 복원 실패가 템플릿 적용 전체를 되돌리지 않는다 */ }
+
         const patch = {};
         if (item.candleType) patch.candle = { type: item.candleType };
         if (typeof item.gridShow === 'boolean') patch.grid = { show: item.gridShow };
         if (Object.keys(patch).length) chart.setStyles(patch);
 
-        if (notify) notify({ title: t('template_applied', { name: item.name }), variant: 'success' });
+        if (notify) {
+          notify({
+            title: t('template_applied', { name: item.name }),
+            /* ★ 규칙이 하나라도 복원되지 않으면 성공이라고 말하지 않는다. */
+            ...(ruleFail > 0
+              ? { variant: 'warning', body: t('template_rules_partial', { ok: String(ruleOk), fail: String(ruleFail) }) }
+              : { variant: 'success' }),
+          });
+        }
       } catch (e) {
         console.warn('[ChartTemplates] 적용 실패', e);
         if (notify) notify({ title: t('template_apply_failed'), variant: 'error' });

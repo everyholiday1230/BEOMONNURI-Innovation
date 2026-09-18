@@ -1105,6 +1105,7 @@
       template_delete: 'Excluir',
       template_saved: '"{name}" salvo',
       template_applied: '"{name}" aplicado',
+      template_rules_partial: '{ok} regras de sinal restauradas; {fail} não puderam ser restauradas.',
       template_apply_failed: 'Não foi possível aplicar o modelo',
       template_count: '{n} salvos',
 

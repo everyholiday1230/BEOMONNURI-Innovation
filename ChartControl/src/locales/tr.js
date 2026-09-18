@@ -1125,6 +1125,7 @@
       template_delete: 'Sil',
       template_saved: '"{name}" kaydedildi',
       template_applied: '"{name}" uygulandı',
+      template_rules_partial: '{ok} sinyal kuralı geri yüklendi; {fail} tanesi geri yüklenemedi.',
       template_apply_failed: 'Şablon uygulanamadı',
       template_count: '{n} kayıtlı',
 

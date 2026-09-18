@@ -1121,6 +1121,7 @@
       template_delete: 'हटाएँ',
       template_saved: '"{name}" सहेजा गया',
       template_applied: '"{name}" लागू किया',
+      template_rules_partial: '{ok} सिग्नल नियम बहाल हुए; {fail} बहाल नहीं हो सके।',
       template_apply_failed: 'टेम्पलेट लागू नहीं हो सका',
       template_count: '{n} सहेजे गए',
 

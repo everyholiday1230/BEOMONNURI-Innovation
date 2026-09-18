@@ -998,6 +998,7 @@
       template_delete: 'Delete',
       template_saved: 'Saved "{name}"',
       template_applied: 'Applied "{name}"',
+      template_rules_partial: 'Restored {ok} signal rules; {fail} could not be restored.',
       template_apply_failed: 'Could not apply template',
       template_count: '{n} saved',
 

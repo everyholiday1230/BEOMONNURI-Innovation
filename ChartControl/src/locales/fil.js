@@ -1241,6 +1241,7 @@
       template_delete: 'Tanggalin',
       template_saved: 'Naka-save ang template {name}',
       template_applied: 'Inilapat ang template {name}',
+      template_rules_partial: 'Naibalik ang {ok} signal rule; {fail} ang hindi naibalik.',
       template_apply_failed: 'Hindi mailapat',
       template_count: '{n} templates',
 

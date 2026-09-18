@@ -1124,6 +1124,7 @@
       template_delete: 'Xóa',
       template_saved: 'Đã lưu "{name}"',
       template_applied: 'Đã áp dụng "{name}"',
+      template_rules_partial: 'Đã phục hồi {ok} quy tắc tín hiệu; {fail} không thể phục hồi.',
       template_apply_failed: 'Không thể áp dụng mẫu',
       template_count: 'đã lưu {n}',
 

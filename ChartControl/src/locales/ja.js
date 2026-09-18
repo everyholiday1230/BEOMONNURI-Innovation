@@ -2592,6 +2592,7 @@
       strat_desc_1: '{name} は {tag} の時間足で自分で適用・バックテストできるチャート研究テンプレートです。結果は過去検証であり学習用で、投資推奨ではありません。',
       strat_desc_2: '一般的な指標（MA20/60/120 · RSI · VOL）を組み合わせ、エントリー・ストップロス・テイクプロフィットの水準をあなた自身が検討できます。売買を指示するものではありません。',
       template_applied: '「{name}」を適用しました',
+      template_rules_partial: 'シグナル・ルール {ok} 件を復元しました。{fail} 件は復元できませんでした。',
       template_apply_failed: 'テンプレートを適用できませんでした',
       template_count: '保存済み {n} 件',
       verify_hint_pre: 'お送りした',
