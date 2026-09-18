@@ -365,9 +365,12 @@ localStorage 에 남고 "무엇을 켰는지" 는 아니었다.
 
 ## 11. AI 수식 DSL (`src/formula-dsl.js`)
 
-### 허용 함수 (10개, 이것 외 전부 거부)
+### 허용 함수 (23개, 이것 외 전부 거부) — 2026-09-18 확장
 ```
-SMA  EMA  STDDEV  REF  DELTA  ABS  MIN  MAX  POW  SQRT
+기본    SMA EMA STDDEV REF DELTA ABS MIN MAX POW SQRT
+집계    SUM HHV LLV
+지표    RSI ATR MACD_DIF MACD_DEA MACD_HIST
+조건    CROSS_ABOVE CROSS_BELOW RISING FALLING COUNT
 ```
 
 ### 인자 개수 (ARITY)
@@ -378,20 +381,31 @@ ABS:1  SQRT:1
 POW:1 또는 2   ← 지수 생략 시 평가기가 2 로 본다
 ```
 
-### 연산자
+### 연산자 (2026-09-18 확장)
 ```
-+  -  *  /  (  )  ,
+산술  +  -  *  /  (  )  ,
+비교  >  >=  <  <=  ==  !=
+논리  AND  OR  NOT
 ```
-★ **비교 연산자(`>`, `<`)와 논리 연산자가 없다.** 조건을 표현할 수 없다.
-즉 "MACD 골든크로스면 매수" 같은 규칙은 **DSL 로 쓸 수 없다.**
-★ MACD 내장 함수도 없다 (`EMA(close,12) - EMA(close,26)` 로 우회는 가능).
+★★★ **비교를 연쇄시키지 않는다.** `a < b < c` 는 왼쪽부터 접으면 `(a<b) < c` 가 되어
+조용히 엉뚱한 값이 나온다 → `CHAINED_COMPARISON` 으로 거부하고 고칠 방법을 알려준다.
+★★★ **삼값 논리** — `1=참 0=거짓 NaN=모름`. 웜업을 거짓으로 접지 않는다.
+  거짓 AND 모름 = 거짓 · 참 AND 모름 = 모름.
+★★★ **창 안에 모르는 값이 있으면 결과도 모름이고, 창이 지나면 복구된다.**
+  예전 `SMA` 는 누적합을 써서 웜업 NaN 이 한 번 들어가면 **영구히 NaN** 이었다 —
+  `SMA(ATR(14),50)` 이 전부 NaN 이었고 **지표 조합이 하나도 동작하지 않았다**(실측).
+★ EMA 는 SMA 씨앗으로 웜업을 둔다. MACD_DIF 25 · MACD_DEA 33 부터 유효.
+★ 교차는 표준 정의(`x0<=y0 && x1>y1`)이고 **첫 비교 가능 봉은 모름**이다(유령 교차 방지).
 
 ### 수치 한도
 | 항목 | 값 | 상수 |
 |---|---|---|
-| 수식 길이 | 400자 | `MAX_LEN` |
-| AST 노드 수 | 80개 | `MAX_NODES` |
-| 함수 중첩 | 3단계 | `MAX_CALL_DEPTH` |
+| 수식 길이 | 600자 | `MAX_LEN` |
+| AST 노드 수 | 160개 | `MAX_NODES` |
+| 함수 중첩 | 4단계 | `MAX_CALL_DEPTH` |
+
+★ 조건식은 지표식보다 길어 400/80/3 → 600/160/4 로 올렸다. **클라이언트와 서버가 같은
+값이어야 한다** — `formula-dsl-parity.test.ts` 가 셋을 함께 잠근다.
 
 ### ★★ 중첩 단계를 실제로 센다 (`:111`)
 이 자리에 있던 `let depth = 1;` 은 **읽는 곳이 없어 아무것도 막지 않았다.**
@@ -405,14 +419,28 @@ POW:1 또는 2   ← 지수 생략 시 평가기가 2 로 본다
 
 ## 12. AI 차트 명령 규칙 (`packages/ai/src/`)
 
-### 허용 명령 (14개)
+### 허용 명령 (18개, 2026-09-18 갱신)
 ```
-createTrendLine  createHorizontalLevel  createSupportResistance
-createEntryZone  createStopLoss  createTakeProfit
-createLongMarker  createShortMarker  createInvalidationLevel
-addIndicator  removeIndicator
-updateOverlay  hideOverlay  deleteOverlay
+그리기 : createTrendLine  createHorizontalLevel  createSupportResistance
+         createEntryZone  createStopLoss  createTakeProfit
+         createLongMarker  createShortMarker  createInvalidationLevel
+         createFibonacci                      ← 신설
+지표   : addIndicator  removeIndicator  setIndicatorParams   ← 설정 변경 신설
+신호   : addSignalRule  removeSignalRule                     ← 신설
+관리   : updateOverlay  hideOverlay  deleteOverlay
 ```
+
+### ★★★ 새 명령은 **네 곳**을 함께 고친다
+```
+① AI_CHART_COMMANDS          (schemas.ts)  모델이 고를 수 있는 이름
+② CHART_COMMAND_ARG_SCHEMAS  (schemas.ts)  서버 인자 검증
+③ TOOL_ARG_HINTS             (tools.ts)    ★ 모델이 인자 형식을 아는 유일한 곳
+④ ai-copilot.jsx 의 case                   화면 반영
+```
+③ 을 빠뜨리면 **조용히 안 된다.** 명령 이름은 열거값이라 모델이 알지만 `argsJson` 은
+문자열이므로 어떤 키를 넣어야 하는지는 ③ 에서만 알 수 있다.
+**두 커밋에 걸쳐 3번 밟았다** — `addSignalRule` · `createLongMarker` · `createShortMarker`.
+`chart-control-surface.test.ts` 가 18개 명령 전부에 대해 네 곳을 함께 잠근다.
 
 ### 허용 지표 (27종)
 ```
@@ -443,6 +471,28 @@ updateOverlay  hideOverlay  deleteOverlay
 - **그리지 않은 것을 그렸다고 하지 않는다.**
 - 숫자를 지어내지 않는다 — 도구 결과나 `MARKET_DATA` 에 있는 값만 말한다.
 - 지표 이름은 번역하지 않는다 ("RSI" → "상대강도지수" 로 바꾸면 범례와 어긋난다).
+
+### 신호 규칙 — 고객이 만든다 (2026-09-18)
+- 조건은 **DSL 식**이다(임의 자바스크립트가 아니다). 서버 검증 + 화면 렌더 직전 파싱, 이중 방어
+- 표시에 **어떤 규칙이 언제** 성립했는지 함께 적는다 — 근거 없는 표시는 예측으로 읽힌다
+- 방향은 **고객이 붙인 것만** 쓴다. 없으면 중립 표시(◆)
+- `figures: []` 로 비우고 `draw` 훅으로만 그린다 — 0/1 값을 figures 에 두면 **가격축이
+  0~80,000 이 되어 캔들이 눌린다**(실측)
+- 지표 키에 원본 이름 해시를 붙인다 — 한글 이름이 전부 `_` 로 치환돼 충돌했다
+
+### 지표 설정 변경 (2026-09-18)
+- `addIndicator` 는 **멱등**이다. 이미 켜져 있으면 켜지 않고 설정만 갱신한다.
+  예전에는 다시 켜서 **창이 두 개**가 됐다(실측: RSI[14] 와 RSI[7])
+- 켜져 있지 않으면 **켜지 않는다**(`NOT_ON`). 조용히 켜면 요청하지 않은 지표가 생긴다
+- 양의 정수만 받는다 — 0·음수·소수는 klinecharts 가 계산에서 멈출 수 있고 화면이 굳는다
+- ★★★ **`overrideIndicator` 의 반환값을 믿지 않는다.** 적용됐는데도 `false` 를 돌려준다
+  (실측: MA→[10,30,60]). `getIndicators()` 로 **되읽어** 확인한다
+
+### 피보나치 — 내장을 쓴다 (2026-09-18)
+`fibonacci: 'fibonacciLine'`. 화면 그리기 도구(`chart-actions.js` 의 `fib`)와 **같은
+도형**이어야 값이 어긋나지 않는다. 비율(23.6/38.2/50/61.8/78.6/100)은 라이브러리가 그린다.
+★ 여태 프롬프트가 "그릴 수 없다" 고 답하도록 지시했는데 **사실이 아니었다** — 내장이
+있고 화면 도구에도 있었다. 못 하는 것과 안 만든 것은 다르다.
 
 ### 화면 지표 값의 출처를 밝힌다 (`apps/api/src/index.ts:4474`)
 `screen.indicatorValues` 는 **고객 브라우저가 계산한 값**이다. 서버 검증값(봉·가격)과

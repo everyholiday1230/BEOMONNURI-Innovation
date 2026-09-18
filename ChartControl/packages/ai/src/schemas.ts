@@ -50,6 +50,13 @@ export const AI_CHART_COMMANDS = [
   'createLongMarker',
   'createShortMarker',
   'createInvalidationLevel',
+  /*
+     ★★★ 피보나치(2026-09-18). 여태 "그릴 수 없다" 고 답하도록 프롬프트에 적어 두었는데,
+       klinecharts 에 `fibonacciLine` 내장 오버레이가 있고 **화면 도구에도 이미 있었다**
+       (chart-actions.js 의 `fib`). 즉 못 하는 게 아니라 AI 경로만 없었다.
+       "할 수 없다" 고 말하는 것이 사실이 아니었으므로 만들었다.
+  */
+  'createFibonacci',
   'addIndicator',
   'removeIndicator',
   /*
@@ -191,6 +198,17 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
   createLongMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
   createShortMarker: z.object({ point: OverlayPoint, text: z.string().max(120) }),
   createInvalidationLevel: z.object({ price: DecimalString }),
+  /*
+     피보나치 되돌림 — 두 점(시작·끝)으로 그린다.
+
+     ★ 두 점은 **실제 캔들 시각**이어야 한다. 추세선(createTrendLine)과 같은 규칙이다.
+     ★ 비율은 klinecharts 가 정한다(23.6/38.2/50/61.8/78.6/100). 우리가 지정하지
+       않는다 — 화면 도구로 그린 것과 같은 도형이어야 고객이 혼란스럽지 않다.
+  */
+  createFibonacci: z.object({
+    points: z.tuple([OverlayPoint, OverlayPoint]),
+    label: z.string().max(80).optional(),
+  }),
   addIndicator: z
     .object({
       indicator: z.enum(AI_INDICATORS),

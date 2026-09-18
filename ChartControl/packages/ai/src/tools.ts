@@ -157,6 +157,14 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- createHorizontalLevel: {"price":"65000","label":"optional"}\n' +
     '- createTrendLine: {"points":[{"time":1699999999000,"price":"64000"},{"time":1700000999000,"price":"66000"}],"label":"optional"}\n' +
     '- createEntryZone: {"priceLo":"64000","priceHi":"64500"}\n' +
+    /*
+       ★★★ 여태 "피보나치는 못 그린다" 고 답하도록 지시했는데 **사실이 아니었다.**
+         klinecharts 에 fibonacciLine 이 있고 화면 도구에도 이미 있었다. AI 경로만
+         없었을 뿐이다. 못 하는 것과 안 만든 것은 다르다.
+    */
+    '- createFibonacci: {"points":[{"time":1700000000000,"price":"64000"},{"time":1700009000000,"price":"68000"}],"label":"optional"}\n' +
+    '  Two points (start, end) from real candle timestamps — the swing you want measured.\n' +
+    '  The ratios (23.6/38.2/50/61.8/78.6/100) are drawn by the chart; do not pass them.\n' +
     '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
     '- createTakeProfit: {"price":"68000","index":0}\n' +
     /*

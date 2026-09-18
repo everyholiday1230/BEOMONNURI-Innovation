@@ -35,6 +35,7 @@ describe('조작면이 다 갖춰져 있다', () => {
       ['선 그리기', 'createTrendLine'],
       ['수평선', 'createHorizontalLevel'],
       ['지지·저항', 'createSupportResistance'],
+      ['피보나치', 'createFibonacci'],
       ['선 지우기', 'deleteOverlay'],
       ['선 숨기기', 'hideOverlay'],
     ] as const) {
@@ -63,6 +64,52 @@ describe('조작면이 다 갖춰져 있다', () => {
     const i = schema.indexOf('setIndicatorParams: z.object');
     expect(schema.slice(i, i + 200), '설정 변경이 지표 목록을 쓰지 않는다')
       .toMatch(/indicator: z\.enum\(AI_INDICATORS\)/u);
+  });
+});
+
+describe('피보나치', () => {
+  /*
+     ★★★ 여태 프롬프트가 "그릴 수 없다" 고 답하도록 지시했는데 **사실이 아니었다.**
+       klinecharts 에 `fibonacciLine` 내장 오버레이가 있고, 화면 그리기 도구
+       (`chart-actions.js` 의 `fib`)도 이미 그것을 쓰고 있었다. 못 하는 것과 안 만든
+       것은 다르다 — 못 한다고 말한 것이 거짓이었으므로 만들었다.
+  */
+  it('내장 오버레이를 쓴다 — 우리가 다시 구현하지 않는다', () => {
+    expect(kline, '피보나치 매핑이 없다').toMatch(/fibonacci: 'fibonacciLine'/u);
+    /* ★ 손으로 그린 것과 같은 도형이어야 값이 어긋나지 않는다. */
+    const actions = read('src/chart-actions.js');
+    expect(actions, '화면 도구가 다른 것을 쓴다').toMatch(/fib: 'fibonacciLine'/u);
+  });
+
+  it('두 점을 요구한다 — 한 점으로는 비율이 뜻이 없다', () => {
+    const ok = CHART_COMMAND_ARG_SCHEMAS.createFibonacci.safeParse({
+      points: [{ time: 1_700_000_000_000, price: '64000' }, { time: 1_700_009_000_000, price: '68000' }],
+    });
+    expect(ok.success, ok.success ? '' : JSON.stringify(ok.error.issues)).toBe(true);
+    for (const [why, args] of [
+      ['한 점', { points: [{ time: 1_700_000_000_000, price: '64000' }] }],
+      ['세 점', { points: [1, 2, 3].map(() => ({ time: 1_700_000_000_000, price: '64000' })) }],
+      ['빈 배열', { points: [] }],
+    ] as const) {
+      expect(CHART_COMMAND_ARG_SCHEMAS.createFibonacci.safeParse(args).success, `${why} 가 통과됐다`).toBe(false);
+    }
+    /* 화면도 두 점이 아니면 그리지 않고 그 사실을 말한다. */
+    expect(copilot, '두 점 검사가 없다').toMatch(/if \(pts\.length !== 2\) return t\('ai_fib_needs_two'\)/u);
+  });
+
+  it('비율을 우리가 지정하지 않는다', () => {
+    /*
+       ★ 비율(23.6/38.2/50/61.8/78.6/100)은 라이브러리가 그린다. 우리가 넘기면
+         화면 도구로 그린 것과 달라질 수 있다.
+    */
+    expect(tools, '비율을 넘기지 말라는 안내가 없다').toMatch(/do not pass them/u);
+  });
+
+  it('"못 그린다" 는 옛 지시가 사라졌다', () => {
+    const prompts = read('packages/ai/src/prompts.ts');
+    expect(prompts, '못 그린다고 답하도록 여전히 지시한다')
+      .not.toMatch(/You CANNOT draw Fibonacci/u);
+    expect(prompts, '그릴 수 있다고 알려주지 않는다').toMatch(/FIBONACCI: you CAN draw it/u);
   });
 });
 

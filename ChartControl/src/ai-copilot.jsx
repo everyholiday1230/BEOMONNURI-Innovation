@@ -497,6 +497,19 @@
             ? t('ai_drew_trendline', { from: px(pts[0].price), to: px(pts[1].price) })
             : t('ai_tool_trendline');
         }
+        /*
+           ★★★ 피보나치. 여태 "그릴 수 없다" 고 답했는데 **사실이 아니었다** —
+             klinecharts 에 fibonacciLine 이 있고 화면 도구에도 이미 있었다.
+             못 하는 것과 안 만든 것은 다르다.
+           ★ 두 점이 필요하다. 하나만 오면 그리지 않고 그 사실을 말한다 — 한 점으로
+             비율을 그리면 아무 뜻이 없는 도형이 된다.
+        */
+        case 'createFibonacci': {
+          const pts = (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) }));
+          if (pts.length !== 2) return t('ai_fib_needs_two');
+          addOverlay({ id, type: 'fibonacci', source: 'ai-draft', label: a.label || t('ai_overlay_fib'), points: pts });
+          return t('ai_drew_fib', { from: px(pts[0].price), to: px(pts[1].price) });
+        }
         case 'createHorizontalLevel':
           addOverlay({ id, type: 'horizontal', source: 'ai-draft', label: a.label || String(a.price), points: [{ price: toNum(a.price), time: anchorTime() }] });
           return t('ai_drew_level', { price: px(a.price) });
