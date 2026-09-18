@@ -1,12 +1,15 @@
 /**
- * Bitget 계정 어댑터 — **읽기 전용**.
+ * Bitget 계정 어댑터 — **UTA(v3) 우선, Classic(v2) 대체.**
  *
- * ★★★ **주문 경로가 없다.** `IExchangeTradingAdapter` 를 구현하지 않으므로 등록소에
- *   `trading` 없이 등록되고, 그 결과 **비트겟으로는 주문이 나가지 않는다.**
- *   그 사실이 타입에 드러난다 — 실수로 주문이 나갈 길이 없다.
+ * ★★★ **계정 모드는 우리가 고를 수 없다.** 고객이 UTA 를 쓰면 v2 가 거부되고
+ *   (`40085`), Classic 을 쓰면 v3 가 거부된다(`40084`). 그래서 **v3 를 먼저 부르고
+ *   `40084` 일 때만 v2 로 내려간다.** 그 밖의 오류에서는 모드를 정하지 않는다 —
+ *   추측해 엉뚱한 API 로 가면 가격·수량 단위가 어긋난다.
  *
- * ★★ 읽기부터 가는 이유: 서명이나 수량 단위를 잘못 이해했을 때 읽기는 틀린 숫자를
- *   보여주는 것으로 끝나지만 쓰기는 고객 돈을 움직인다.
+ * ★★ 판정 결과를 **자격증명별로 캐시한다.** 매 요청마다 두 번 부르면 지연과 요청 수가
+ *   두 배다. 키가 바뀌면 캐시도 바뀐다(열쇠가 apiKey 다).
+ *
+ * ★ 실측(2026-09-18, 실키): 운영자 계정은 `unified` · `multi_assets` · `hedge_mode`.
  */
 import type {
   AccountBalance,
@@ -15,28 +18,47 @@ import type {
   NormalizedOrder,
   Position,
 } from '@quantumtrade/exchange-core';
-import { BitgetPrivateRest, type BitgetCredentials } from '@quantumtrade/exchange-bitget';
+import {
+  BitgetPrivateRest,
+  BitgetV3Rest,
+  type BitgetAccountMode,
+  type BitgetCredentials,
+} from '@quantumtrade/exchange-bitget';
 
-/**
- * 우리 자격증명 → Bitget 자격증명.
- *
- * ★★ 우리는 `memo` 라는 이름으로 passphrase 를 저장한다(KuCoin 용어). Bitget 도
- *   passphrase 를 쓰므로 같은 칸을 쓴다 — 고객에게는 화면이 거래소에 맞는 이름을 보여준다.
- */
 function toBitgetCredential(c: { accessKey: string; secretKey: string; memo: string }): BitgetCredentials {
   return { apiKey: c.accessKey, apiSecret: c.secretKey, passphrase: c.memo };
 }
 
 export class BitgetAccountAdapter implements IExchangeAccountAdapter {
-  constructor(private readonly client: BitgetPrivateRest = new BitgetPrivateRest()) {}
+  /*
+     ★ 모드 캐시. 열쇠는 apiKey — 키가 바뀌면 다시 판정한다.
+     ★★ 메모리에만 둔다. 재시작하면 한 번 더 물어볼 뿐이고, 잘못된 모드를 영구히
+       들고 있는 것보다 낫다.
+  */
+  private readonly modeCache = new Map<string, BitgetAccountMode>();
+
+  constructor(
+    private readonly v3: BitgetV3Rest = new BitgetV3Rest(),
+    private readonly v2: BitgetPrivateRest = new BitgetPrivateRest(),
+  ) {}
 
   /**
-   * 서버 시각.
+   * 이 자격증명의 계정 모드.
    *
-   * ★ 우리 시각을 돌려준다. Bitget 은 공개 시각 엔드포인트를 주지만, 이 값은 서명
-   *   타임스탬프에 쓰이고 그것은 이미 `signature.ts` 가 자기 시각으로 만든다 —
-   *   두 곳에서 시각을 정하면 어긋난다.
+   * ★★★ 판정에 실패하면 **던진다.** 모드를 모르는 채로 읽기를 계속하면 매번 절반이
+   *   실패하고, 화면은 "잔고 0" 과 "조회 불가" 를 구분하지 못한다.
    */
+  private async modeOf(cred: BitgetCredentials): Promise<BitgetAccountMode> {
+    const cached = this.modeCache.get(cred.apiKey);
+    if (cached) return cached;
+    const r = await this.v3.detectMode(cred);
+    if (!r.ok) {
+      throw new Error(`bitget 계정 모드를 판정할 수 없다 (${r.reason}): ${r.detail}`);
+    }
+    this.modeCache.set(cred.apiKey, r.mode);
+    return r.mode;
+  }
+
   async getServerTime(): Promise<number> {
     return Date.now();
   }
@@ -44,21 +66,30 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
   /**
    * 잔고.
    *
-   * ★★★ 조회 실패를 **0 으로 바꾸지 않는다.** 0 은 "잔고가 없다" 는 뜻이고, 그것을 보면
-   *   고객은 돈이 사라졌다고 생각한다. 던져서 호출자가 '측정 불가' 로 다루게 한다.
+   * ★★★ 조회 실패를 **0 으로 바꾸지 않는다.** 0 은 "잔고가 없다" 는 뜻이고 고객은
+   *   돈이 사라졌다고 생각한다. 던져서 호출자가 '측정 불가' 로 다루게 한다.
+   * ★ 잔고가 진짜 0 인 것과는 다르다 — 그때는 거래소가 `00000` 과 함께 0 을 준다.
    */
   async getBalances(ctx: ExchangeContext): Promise<AccountBalance[]> {
     const cred = toBitgetCredential(ctx.credential);
-    const available = await this.client.getAvailableUsdt(cred);
-    /*
-       ★ Bitget 계정 응답은 `available` 을 준다. 총자산(equity)·사용중(used)을 따로
-         구하려면 필드를 더 읽어야 하는데, 실계정으로 확인하기 전에는 **추측해 채우지
-         않는다.** 지금은 가용 잔고만 확실하다.
-       ★ `equity` 를 `available` 과 같게 두는 것은 거짓이 될 수 있다(포지션이 있으면
-         다르다). 그래서 `used: '0'` 대신 그대로 두지 않고, 확인되지 않은 값은
-         available 과 같게 두되 이 주석으로 한계를 남긴다.
-         ★★ 실키로 검증한 뒤 정확한 필드로 바꿀 것.
-    */
+    const mode = await this.modeOf(cred);
+    if (mode === 'unified') {
+      const a = await this.v3.getAssets(cred);
+      /*
+         ★★ UTA 는 계정 전체 자산을 준다. USDT 항목이 있으면 그것을 쓰고, 없으면
+           `usdtEquity` 를 쓴다 — 잔고 0 인 계정은 `assets: []` 를 준다(실측).
+         ★ `used` 를 짐작해 채우지 않는다. 확인되지 않은 값을 0 으로 두면 "묶인 돈이
+           없다" 는 거짓이 된다 — 그래서 frozen 이 있으면 그것을 쓴다.
+      */
+      const usdt = a.assets.find((x) => x.coin.toUpperCase() === 'USDT');
+      return [{
+        asset: 'USDT',
+        available: usdt ? usdt.available : a.usdtEquity,
+        equity: usdt ? usdt.equity : a.usdtEquity,
+        used: usdt ? usdt.frozen : '0',
+      }];
+    }
+    const available = await this.v2.getAvailableUsdt(cred);
     return [{ asset: 'USDT', available, equity: available, used: '0' }];
   }
 
@@ -66,16 +97,17 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
    * 포지션.
    *
    * ★★★ 레버리지를 모르면 **0** 이다(이 인터페이스의 관례 — KuCoin 어댑터도 같다).
-   *   화면은 `> 0` 일 때만 보여준다. **1 로 두면 청산 위험을 실제보다 작게 보이게 한다.**
+   *   화면은 `> 0` 일 때만 보여준다. **1 로 두면 청산 위험을 작게 보이게 한다.**
+   * ★ 진입가가 없는 행은 버린다 — 손익·수익률 계산이 전부 어긋난다.
    */
   async getPositions(ctx: ExchangeContext): Promise<Position[]> {
-    const rows = await this.client.getPositions(toBitgetCredential(ctx.credential));
+    const cred = toBitgetCredential(ctx.credential);
+    const mode = await this.modeOf(cred);
+    const rows = mode === 'unified'
+      ? await this.v3.getPositions(cred)
+      : await this.v2.getPositions(cred);
     const out: Position[] = [];
     for (const r of rows) {
-      /*
-         ★ 진입가가 없으면 그 행을 버린다. 진입가 없는 포지션 행은 화면에서 손익·수익률
-           계산이 전부 어긋난다 — 빈 값보다 없는 것이 낫다.
-      */
       if (!r.entryPrice) continue;
       out.push({
         symbol: r.symbol,
@@ -84,7 +116,6 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
         entryPrice: r.entryPrice,
         ...(r.markPrice ? { markPrice: r.markPrice } : {}),
         ...(r.liquidationPrice ? { liquidationPrice: r.liquidationPrice } : {}),
-        /* ★ 0 = 모름. 지어내지 않는다. */
         leverage: r.leverage ?? 0,
         marginMode: r.marginMode,
         ...(r.unrealisedPnl ? { unrealizedPnl: r.unrealisedPnl } : {}),
@@ -97,21 +128,70 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
   /**
    * 미체결 주문.
    *
-   * ★★★ **아직 없다.** 빈 배열을 돌려주면 화면이 "미체결 주문이 없다" 고 단정한다 —
-   *   실제로는 있을 수 있고, 고객은 주문이 취소된 줄 안다. 그래서 던진다.
-   * ★ 호출자(`exchangeRead`)가 실패를 '조회 불가' 로 표시한다.
+   * ★★★ **Classic 모드는 아직 배선되지 않았다 — 던진다.** 빈 배열을 돌려주면 화면이
+   *   "미체결 주문이 없다" 고 단정하고, 고객은 주문이 취소된 줄 안다.
    */
-  async getOpenOrders(_ctx: ExchangeContext, _symbol?: string): Promise<NormalizedOrder[]> {
-    throw new Error('bitget: 미체결 주문 조회는 아직 배선되지 않았다');
+  async getOpenOrders(ctx: ExchangeContext, symbol?: string): Promise<NormalizedOrder[]> {
+    const cred = toBitgetCredential(ctx.credential);
+    const mode = await this.modeOf(cred);
+    if (mode !== 'unified') {
+      throw new Error('bitget: Classic 계정의 미체결 주문 조회는 아직 배선되지 않았다');
+    }
+    const rows = await this.v3.getUnfilledOrders(cred, symbol);
+    return rows.map((r) => normalizeOrder(r));
   }
 
   /**
-   * 주문 한 건 조회.
+   * 주문 한 건 — `clientOid` 로 찾는다.
    *
-   * ★★★ `null` 을 돌려주지 않는다. `null` 은 "그런 주문이 없다" 는 뜻이고, 주문 대조
-   *   경로가 그것을 보고 **주문이 실패했다고 결론 내린다** — 실제로는 조회를 안 한 것이다.
+   * ★★★ 조회를 못 했을 때 `null` 을 돌려주지 않는다. `null` 은 "그런 주문이 없다" 는
+   *   뜻이고, **주문 대조가 그것을 보고 주문이 실패했다고 결론 내린다.** 실제로는
+   *   조회를 안 한 것이다 — 그 차이가 중복 주문을 만든다.
+   * ★ 정말 없을 때만 `null` 이다.
    */
-  async getOrderByClientId(_ctx: ExchangeContext, _clientOrderId: string): Promise<NormalizedOrder | null> {
-    throw new Error('bitget: 주문 조회는 아직 배선되지 않았다');
+  async getOrderByClientId(ctx: ExchangeContext, clientOrderId: string): Promise<NormalizedOrder | null> {
+    const cred = toBitgetCredential(ctx.credential);
+    const mode = await this.modeOf(cred);
+    if (mode !== 'unified') {
+      throw new Error('bitget: Classic 계정의 주문 조회는 아직 배선되지 않았다');
+    }
+    /*
+       ★ 미체결에서 먼저 찾고, 없으면 이력에서 찾는다. 이력만 보면 아직 미체결인
+         주문을 "없다" 고 판단한다.
+    */
+    const open = await this.v3.getUnfilledOrders(cred);
+    const hitOpen = open.find((r) => String(r.clientOid ?? '') === clientOrderId);
+    if (hitOpen) return normalizeOrder(hitOpen);
+    const hist = await this.v3.getHistoryOrders(cred, 100);
+    const hit = hist.find((r) => String(r.clientOid ?? '') === clientOrderId);
+    return hit ? normalizeOrder(hit) : null;
   }
+}
+
+/**
+ * Bitget 주문 → 우리 표기.
+ *
+ * ★★ 상태 이름이 거래소마다 다르다. 모르는 상태를 `filled` 로 두면 **체결되지 않은
+ *   주문을 체결로 본다** — 가장 위험한 방향이다. 그래서 모르면 `open` 이다.
+ */
+function normalizeOrder(r: Record<string, unknown>): NormalizedOrder {
+  const raw = String(r.status ?? r.state ?? '').toLowerCase();
+  const status: NormalizedOrder['status'] =
+    raw.includes('filled') && !raw.includes('partial') ? 'filled'
+      : raw.includes('cancel') ? 'canceled'
+        : raw.includes('partial') ? 'partially_filled'
+          : 'open';
+  return {
+    clientOrderId: String(r.clientOid ?? ''),
+    exchangeOrderId: String(r.orderId ?? ''),
+    symbol: String(r.symbol ?? ''),
+    side: String(r.side ?? '').toLowerCase() === 'sell' ? 'short' : 'long',
+    type: String(r.orderType ?? '').toLowerCase() === 'market' ? 'market' : 'limit',
+    price: r.price != null && r.price !== '' ? String(r.price) : undefined,
+    quantity: String(r.qty ?? r.size ?? '0'),
+    filledQuantity: String(r.filledQty ?? r.baseVolume ?? '0'),
+    status,
+    createdAt: Number(r.cTime ?? r.createdTime ?? 0) || Date.now(),
+    updatedAt: Number(r.uTime ?? r.updatedTime ?? 0) || Date.now(),
+  } as NormalizedOrder;
 }

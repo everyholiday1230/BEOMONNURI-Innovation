@@ -366,9 +366,17 @@ export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoi
 
    ★★ 값은 **사전 키**다. 문구를 여기 박으면 언어 추가 때 놓친다.
 */
-export const READ_ONLY_EXCHANGE_IDS: readonly string[] = Object.freeze(['bitget']);
+/*
+   ★ 2026-09-18: **비트겟이 주문까지 된다.** 실키로 검증했다(UTA v3, 주문 경로가
+     `25203 Insufficient margin` 까지 도달 = 인자 전부 정확). 그래서 이 목록에서 뺐다.
+
+   ★★ 목록을 비워 두고 **지우지 않는다.** 거래소를 늘리면 이 상태(읽기만 배선)가 반드시
+     또 생긴다. 그때 다시 만들면 함께 만들어야 하는 문구·응답 필드를 빠뜨린다.
+*/
+export const READ_ONLY_EXCHANGE_IDS: readonly string[] = Object.freeze([]);
 
 export const READ_ONLY_REASON_KEYS: Readonly<Record<string, string>> = Object.freeze({
+  /* ★ 문구는 남겨 둔다 — 다음 거래소에 그대로 쓸 수 있고, 지우면 9개 언어를 다시 만든다. */
   bitget: 'ex_read_only_bitget',
 });
 

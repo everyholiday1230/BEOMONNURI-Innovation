@@ -94,6 +94,7 @@ import { createRiskEmailAlerter } from './trading/risk-email';
 import { createTradingRouter } from './trading-routes';
 import { ExchangeRegistry } from './exchanges/exchange-registry';
 import { BitgetAccountAdapter } from './trading/bitget-account-adapter';
+import { BitgetTradingAdapter } from './trading/bitget-trading-adapter';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { createBitgetOauthRouter, isBitgetOauthConfigured } from './bitget-oauth-routes';
 import { payReferralReward, REFERRAL_MONTHLY_CAP } from './referral/referral-reward';
@@ -3947,14 +3948,25 @@ app.post('/api/sim/balance/ensure', async (c) => {
         */
       });
       /*
-         ★★★ **비트겟은 읽기만.** 공개 API 로 스펙을 확인했고 서명 형식도 맞췄지만
-           (`packages/exchange-bitget`), **실키로 사적 경로를 검증하지 못했다.**
-           주문을 붙이는 것은 그 검증 뒤다 — 틀린 수량 단위로 주문이 나가면
-           고객 돈이 움직인다.
+         비트겟 — **읽기와 주문 모두**(2026-09-18 실키 검증 완료).
+
+         ★★ 검증한 것(운영자 실키, 체결 불가 조건으로):
+           · 계정 모드 감지 → `unified`(UTA). v3 를 쓴다
+           · 자산·포지션·미체결·주문이력 전부 `00000`
+           · 주문 전송 → 인자가 전부 맞아 `25203 Insufficient margin` 까지 도달.
+             **경로가 끝까지 통한다는 증거다**(잔고가 0이라 체결되지 않았다)
+           · 취소 실패를 성공으로 만들지 않음(`25204 Order does not exist`)
+
+         ★★★ **Classic 계정은 주문을 거부한다.** v2 주문 경로를 배선하지 않았고,
+           모드를 추측해 보내면 단위가 어긋난 주문이 나간다. 어댑터가 모드를 확인하고
+           거부한다 — "아마 될 것" 으로 고객 돈을 움직이지 않는다.
+         ★★★ **손절·익절·스톱 주문은 거부한다.** 아직 배선하지 않았고, 조용히 무시하면
+           이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다.
       */
       exchangeRegistry.register({
         id: 'bitget',
         account: new BitgetAccountAdapter(),
+        trading: new BitgetTradingAdapter(),
       });
 
       app.route(

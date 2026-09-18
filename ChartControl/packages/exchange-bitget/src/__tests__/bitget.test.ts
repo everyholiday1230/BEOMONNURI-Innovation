@@ -16,6 +16,9 @@ import { normalizeCandles, normalizeTickers, rowToCandle, rowToTicker } from '..
 import { prehash, sign, authHeaders } from '../signature.js';
 import { BitgetMarketData } from '../market-adapter.js';
 import { BitgetPrivateRest } from '../private-rest.js';
+import { BitgetV3Rest } from '../v3-rest.js';
+import { BitgetV3Trading } from '../v3-trading.js';
+import { classifyError, CODE_IS_CLASSIC } from '../account-mode.js';
 
 describe('타임프레임 매핑', () => {
   it('확인된 값과 같다', () => {
@@ -293,5 +296,217 @@ describe('포지션 읽기', () => {
     /* ★ 0 은 "잔고가 없다" 는 뜻이고 조회 실패와 전혀 다르다. */
     const rest = mkPos([{ marginCoin: 'BTC', available: '1' }]);
     await expect(rest.getAvailableUsdt(CRED)).rejects.toThrow(/USDT/u);
+  });
+});
+
+describe('계정 모드 — UTA(v3) vs Classic(v2)', () => {
+  /*
+     ★★★ **우리가 고를 수 없다.** 고객 계정 모드에 달렸고 키만 보고는 알 수 없다.
+       실측(2026-09-18, 운영자 실키): 계정이 `unified` 라서 v2 가
+       `40085 You are in Unified Account mode...` 로 거부됐다.
+
+     ★★ 그래서 **v3 를 먼저 부르고 `40084` 일 때만 v2 로 내려간다.** 그 밖의 오류에서는
+       모드를 정하지 않는다 — 추측해 엉뚱한 API 로 주문을 보내면 **가격·수량 단위가
+       어긋난다**(PEPEUSDT priceMultiplier = 0.0000000001).
+  */
+  const mk = (code: string, msg = 'x', data: unknown = null) => new BitgetV3Rest({
+    fetchImpl: (async () => new Response(
+      JSON.stringify({ code, msg, requestTime: 1, data }),
+      { status: 200 },
+    )) as unknown as typeof fetch,
+  });
+  const CRED = { apiKey: 'k', apiSecret: 's', passphrase: 'p' };
+
+  it('v3 가 성공하면 unified 다', async () => {
+    const r = await mk('00000', 'ok', { accountMode: 'unified' }).detectMode(CRED);
+    expect(r.ok).toBe(true);
+    expect(r.ok === true && r.mode).toBe('unified');
+  });
+
+  it('40084 면 classic 이다', async () => {
+    const r = await mk(CODE_IS_CLASSIC, 'Classic Account mode').detectMode(CRED);
+    expect(r.ok).toBe(true);
+    expect(r.ok === true && r.mode).toBe('classic');
+  });
+
+  /*
+     ★★★ 모르는 오류에서 **모드를 정하지 않는다.** 정하면 엉뚱한 API 로 주문이 간다.
+  */
+  it('그 밖의 오류에서는 모드를 정하지 않는다', async () => {
+    for (const code of ['40018', '40014', '40006', '99999']) {
+      const r = await mk(code, 'x').detectMode(CRED);
+      expect(r.ok, code).toBe(false);
+    }
+  });
+
+  it('오류 종류를 구분한다', () => {
+    expect(classifyError('40018')).toBe('IP_BLOCKED');
+    expect(classifyError('40014')).toBe('NO_PERMISSION');
+    expect(classifyError('40037')).toBe('BAD_CREDENTIAL');
+    /* ★ 모르는 코드를 키 문제로 단정하지 않는다 — 고객이 멀쩡한 키를 지운다. */
+    expect(classifyError('99999')).toBe('UPSTREAM');
+  });
+});
+
+describe('v3 응답의 함정', () => {
+  const withData = (data: unknown) => new BitgetV3Rest({
+    fetchImpl: (async () => new Response(
+      JSON.stringify({ code: '00000', msg: 'ok', requestTime: 1, data }),
+      { status: 200 },
+    )) as unknown as typeof fetch,
+  });
+  const CRED = { apiKey: 'k', apiSecret: 's', passphrase: 'p' };
+
+  /*
+     ★★★ `list` 가 **`null`** 로 온다(실측: 포지션 없는 계정). `[]` 를 기대하면 터진다.
+  */
+  it('list 가 null 이어도 터지지 않는다', async () => {
+    await expect(withData({ list: null }).getPositions(CRED)).resolves.toEqual([]);
+    await expect(withData({ list: null }).getUnfilledOrders(CRED)).resolves.toEqual([]);
+    await expect(withData({ list: null, cursor: null }).getHistoryOrders(CRED)).resolves.toEqual([]);
+  });
+
+  it('잔고 0 은 정상 응답이다 — 실패와 구분된다', async () => {
+    /* ★ 실측: 잔고 없는 계정은 `assets: []` 와 `usdtEquity: '0'` 을 준다. */
+    const a = await withData({ usdtEquity: '0', accountEquity: '0', assets: [] }).getAssets(CRED);
+    expect(a.usdtEquity).toBe('0');
+    expect(a.assets).toEqual([]);
+  });
+
+  it('조회 실패는 던진다 — 0 으로 바꾸지 않는다', async () => {
+    const bad = new BitgetV3Rest({
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ code: '40037', msg: 'Apikey does not exist', requestTime: 1, data: null }),
+        { status: 200 },
+      )) as unknown as typeof fetch,
+    });
+    await expect(bad.getAssets(CRED)).rejects.toThrow(/40037/u);
+    await expect(bad.getPositions(CRED)).rejects.toThrow(/40037/u);
+  });
+
+  it('수량 0 인 포지션은 버린다', async () => {
+    const out = await withData({ list: [
+      { symbol: 'BTCUSDT', holdSide: 'long', total: '0', openPriceAvg: '80000' },
+      { symbol: 'ETHUSDT', holdSide: 'short', total: '2', openPriceAvg: '3000', leverage: '10' },
+    ] }).getPositions(CRED);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.symbol).toBe('ETHUSDT');
+    expect(out[0]!.leverage).toBe(10);
+  });
+});
+
+describe('v3 주문 — 실키로 확인한 스펙', () => {
+  /*
+     ★★★ 실측(2026-09-18, 체결 불가 조건으로):
+       · `qty` 다. `size` 로 보내면 "Parameter qty cannot be empty"
+       · `posSide` 필수(헤지 모드). 없으면 `25156 In one-way position mode...`
+       · `holdSide` 는 v2 이름 — v3 에 쓰면 25156
+       · 최소 5 USDT(`45110`), 인자가 맞으면 `25203 Insufficient margin` 까지 간다
+  */
+  const capture = () => {
+    const sent: Array<{ url: string; body: string }> = [];
+    const t = new BitgetV3Trading({
+      fetchImpl: (async (url: string, init?: RequestInit) => {
+        sent.push({ url: String(url), body: String(init?.body ?? '') });
+        return new Response(
+          JSON.stringify({ code: '00000', msg: 'ok', requestTime: 1, data: { orderId: 'OID1', clientOid: 'COID1' } }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+    return { t, sent };
+  };
+  const CRED = { apiKey: 'k', apiSecret: 's', passphrase: 'p' };
+  const BASE = { clientOrderId: 'COID1', symbol: 'BTCUSDT', side: 'long' as const, type: 'limit' as const, price: '10000', quantity: '0.001' };
+
+  it('qty 와 posSide 를 보낸다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, BASE);
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.qty, 'qty 가 없다 — size 로 보내면 거부된다').toBe('0.001');
+    expect(body.size, 'size 를 보낸다 — v2 이름이다').toBeUndefined();
+    expect(body.posSide, 'posSide 가 없다 — 헤지 모드에서 거부된다').toBe('long');
+    expect(body.holdSide, 'holdSide 를 보낸다 — v2 이름이라 25156 이 난다').toBeUndefined();
+    expect(body.category).toBe('USDT-FUTURES');
+    expect(body.clientOid, 'clientOid 가 없으면 대조할 열쇠가 없다').toBe('COID1');
+  });
+
+  it('방향 변환을 한 곳에서만 한다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, side: 'short' });
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.side).toBe('sell');
+    expect(body.posSide).toBe('short');
+  });
+
+  /*
+     ★★★ **지원하지 않는 보호 주문은 거래소를 부르지도 않고 거부한다.**
+       조용히 무시하면 이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다.
+  */
+  it('보호 주문은 보내지 않고 거부한다', async () => {
+    for (const extra of [{ stopPrice: '9000' }, { stopLossPrice: '9000' }, { takeProfitPrice: '99000' }]) {
+      const { t, sent } = capture();
+      const r = await t.submitOrder(CRED, { ...BASE, ...extra });
+      expect(r.status, JSON.stringify(extra)).toBe('REJECTED');
+      /* ★ 거래소를 부르지 않았는지 — 부르면 주문이 나갈 수 있다. */
+      expect(sent, `${JSON.stringify(extra)}: 거래소를 불렀다`).toHaveLength(0);
+    }
+  });
+
+  it('가격 없는 지정가를 거부한다', async () => {
+    const { t, sent } = capture();
+    const r = await t.submitOrder(CRED, { ...BASE, price: undefined });
+    expect(r.status).toBe('REJECTED');
+    expect(sent).toHaveLength(0);
+  });
+
+  /*
+     ★★★ 전송 결과를 모를 때 **거절로 다루지 않는다.** 주문이 들어갔을 수 있고,
+       거절로 보고 다시 보내면 **두 번 들어간다.**
+  */
+  it('전송 실패는 SUBMIT_UNKNOWN 이다', async () => {
+    const t = new BitgetV3Trading({
+      fetchImpl: (async () => { throw new Error('network down'); }) as unknown as typeof fetch,
+    });
+    const r = await t.submitOrder(CRED, BASE);
+    expect(r.status).toBe('SUBMIT_UNKNOWN');
+    expect(r.status === 'SUBMIT_UNKNOWN' && r.clientOrderId).toBe('COID1');
+  });
+
+  it('성공인데 주문 id 가 없으면 성공으로 단정하지 않는다', async () => {
+    const t = new BitgetV3Trading({
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ code: '00000', msg: 'ok', requestTime: 1, data: {} }),
+        { status: 200 },
+      )) as unknown as typeof fetch,
+    });
+    const r = await t.submitOrder(CRED, BASE);
+    expect(r.status).toBe('SUBMIT_UNKNOWN');
+  });
+
+  it('취소 실패를 성공으로 만들지 않는다', async () => {
+    const t = new BitgetV3Trading({
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ code: '25204', msg: 'Order does not exist', requestTime: 1, data: null }),
+        { status: 200 },
+      )) as unknown as typeof fetch,
+    });
+    const r = await t.cancelOrder(CRED, 'BTCUSDT', 'x');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/25204/u);
+  });
+
+  it('바꿀 값 없는 수정을 거부한다', async () => {
+    const { t, sent } = capture();
+    const r = await t.modifyOrder(CRED, 'BTCUSDT', 'x', {});
+    expect(r.ok).toBe(false);
+    expect(sent, '거래소를 불렀다').toHaveLength(0);
+  });
+
+  it('청산 주문에 reduceOnly 를 보낸다', async () => {
+    /* ★ 없으면 반대 포지션이 열릴 수 있다. */
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, reduceOnly: true });
+    expect(JSON.parse(sent[0]!.body).reduceOnly).toBe('YES');
   });
 });

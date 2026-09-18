@@ -105,9 +105,30 @@ describe('카탈로그가 두 상태를 구분한다', () => {
      구분하지 않으면 고객이 연결하고 **주문이 나갈 것으로 기대한다.** 그 기대가
      깨지는 순간은 돈을 걸려는 순간이다.
   */
-  it('비트겟은 연결되지만 주문은 안 된다', () => {
+  /*
+     ★★★ **계약이 바뀌었다(2026-09-18, 같은 날 몇 시간 뒤).**
+
+       처음 배선했을 때는 읽기만이었다. 그 뒤 운영자가 **실키**를 주셔서 UTA(v3) 경로를
+       끝까지 검증했다 — 주문 전송이 `25203 Insufficient margin` 까지 도달했다.
+       인자가 전부 맞다는 뜻이다(잔고가 0이라 체결되지 않았다).
+
+     ★ 그래서 비트겟은 이제 **주문까지 된다.** 시험도 사실을 따라간다.
+     ★★ 다만 **Classic 계정 주문·손절/익절은 여전히 거부한다.** 그 검사는 아래
+       `비트겟 주문 어댑터` 절에 있다 — 지원 범위를 넓히면 그쪽이 먼저 깨진다.
+  */
+  it('비트겟은 주문까지 된다', () => {
     expect(isConnectable('bitget')).toBe(true);
-    expect(canPlaceOrders('bitget')).toBe(false);
+    expect(canPlaceOrders('bitget')).toBe(true);
+  });
+
+  it('읽기 전용 구분 장치는 남겨 둔다', () => {
+    /*
+       ★ 지금 읽기 전용 거래소는 없다. 그래도 **목록과 문구를 지우지 않는다** —
+         거래소를 늘리면 이 상태(읽기만 배선)가 반드시 또 생기고, 그때 다시 만들면
+         함께 만들어야 하는 응답 필드·9개 언어 문구를 빠뜨린다.
+    */
+    expect(Array.isArray(READ_ONLY_EXCHANGE_IDS), '목록 자체가 사라졌다').toBe(true);
+    expect(Object.keys(READ_ONLY_REASON_KEYS).length, '문구 키가 사라졌다').toBeGreaterThan(0);
   });
 
   it('KuCoin 은 주문까지 된다', () => {
@@ -122,7 +143,11 @@ describe('카탈로그가 두 상태를 구분한다', () => {
   });
 
   it('읽기 전용 거래소는 이유를 밝힌다', () => {
-    /* ★ 이유 없이 막으면 고객은 고장으로 읽는다. */
+    /*
+       ★ 이유 없이 막으면 고객은 고장으로 읽는다.
+       ★★ 목록이 비어 있으면 검사할 것이 없다 — 그것은 정상이다(지금이 그 상태).
+         나중에 읽기만 배선한 거래소를 넣으면 이유가 반드시 있어야 한다.
+    */
     for (const id of READ_ONLY_EXCHANGE_IDS) {
       expect(READ_ONLY_REASON_KEYS[id], `${id} 의 이유가 없다`).toBeTruthy();
     }
@@ -191,13 +216,16 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
   const src = read('apps/api/src/trading/bitget-account-adapter.ts');
 
   /*
-     ★★★ **주문 경로가 없다.** `IExchangeTradingAdapter` 를 구현하지 않으므로 등록소에
-       `trading` 없이 등록되고, 비트겟으로는 주문이 나가지 않는다.
+     ★★ **계정 어댑터에는 여전히 주문이 없다.** 주문은 별도 파일
+       (`bitget-trading-adapter.ts`)이 담당한다 — 읽기와 쓰기를 한 파일에 섞으면
+       읽기를 고치다가 주문 경로를 건드릴 수 있다.
   */
-  it('주문 인터페이스를 구현하지 않는다', () => {
-    expect(src, '주문 어댑터를 구현한다').not.toMatch(/implements[^{]*IExchangeTradingAdapter/u);
+  it('계정 어댑터에 주문 경로가 없다', () => {
+    expect(src, '계정 어댑터가 주문 인터페이스를 구현한다')
+      .not.toMatch(/implements[^{]*IExchangeTradingAdapter/u);
     for (const m of ['submitOrder', 'cancelOrder', 'modifyOrder']) {
-      expect(src, `${m} 가 있다 — 주문이 나갈 길이 생긴다`).not.toMatch(new RegExp(`\\b${m}\\s*\\(`, 'u'));
+      expect(src, `${m} 가 계정 어댑터에 있다 — 읽기 파일에 주문이 섞인다`)
+        .not.toMatch(new RegExp(`\\b${m}\\s*\\(`, 'u'));
     }
   });
 
@@ -241,11 +269,32 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
     expect(src, '레버리지를 지어낸다').toMatch(/leverage: r\.leverage \?\? 0/u);
   });
 
-  it('등록소에 읽기만 등록한다', () => {
+  it('등록소에 읽기와 주문을 모두 등록한다', () => {
+    /*
+       ★ 실키 검증을 마쳤으므로 주문까지 등록한다. 검증 전에는 `trading` 없이
+         등록했다 — 그 단계를 건너뛰지 않았다는 것이 이 파일의 이력에 남아 있다.
+    */
     const index = read('apps/api/src/index.ts');
     const i = index.indexOf("id: 'bitget',");
     expect(i, '비트겟을 등록하지 않는다').toBeGreaterThan(-1);
     const body = index.slice(i, i + 300);
-    expect(body, '비트겟에 주문 어댑터를 붙였다').not.toMatch(/trading:/u);
+    expect(body, '계정 어댑터가 없다').toMatch(/account: new BitgetAccountAdapter\(\)/u);
+    expect(body, '주문 어댑터가 없다').toMatch(/trading: new BitgetTradingAdapter\(\)/u);
+  });
+
+  /*
+     ★★★ **Classic 계정 주문과 보호 주문은 거부한다.** 지원 범위를 넓히면 이 검사가
+       먼저 깨져야 한다 — 조용히 무시하면 이용자가 무방비로 남는다.
+  */
+  it('주문 어댑터가 모르는 것을 거부한다', () => {
+    const t = read('apps/api/src/trading/bitget-trading-adapter.ts');
+    expect(t, 'Classic 계정 주문을 거부하지 않는다')
+      .toMatch(/Classic 계정 주문은 아직 배선되지 않았다/u);
+    /* 모드 판정 실패도 거부다 — 모르는 채로 보내지 않는다. */
+    expect(t, '모드 판정 실패를 거부하지 않는다').toMatch(/계정 모드를 판정할 수 없다/u);
+    /* 보호 주문을 그대로 넘겨 아래 어댑터가 거부하게 한다 — 여기서 지우면 무방비가 된다. */
+    for (const f of ['stopPrice', 'takeProfitPrice', 'stopLossPrice']) {
+      expect(t, `${f} 를 버린다 — 이용자가 보호가 걸렸다고 믿는다`).toMatch(new RegExp(`req\\.${f}`, 'u'));
+    }
   });
 });
