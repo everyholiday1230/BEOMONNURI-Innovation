@@ -159,7 +159,23 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
     '- createEntryZone: {"priceLo":"64000","priceHi":"64500"}\n' +
     '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
     '- createTakeProfit: {"price":"68000","index":0}\n' +
+    /*
+       ★★★ 이 두 줄이 없어서 모델은 마커 명령의 인자 형식을 몰랐다. 명령 목록·인자
+         스키마·화면 처리는 다 있었는데 **설명만 빠져** 있었다 — addSignalRule 과
+         똑같은 누락이다. 시험(chart-control-surface)이 네 곳을 함께 잠근다.
+    */
+    '- createLongMarker: {"point":{"time":1700000000000,"price":"65000"},"text":"long here"}\n' +
+    '- createShortMarker: {"point":{"time":1700000000000,"price":"66000"},"text":"short here"}\n' +
+    '  `time` must be a real candle timestamp from MARKET_DATA. These are labels on the chart, not orders.\n' +
     '- addIndicator: {"indicator":"RSI","label":"optional"}  · removeIndicator: {"indicator":"RSI"}\n' +
+    /*
+       ★★★ 이 설명이 없으면 모델은 설정을 바꿀 방법을 모르고 **지표를 하나 더 켠다.**
+         실측: "RSI 를 7 로" 요청에 RSI[14] 와 RSI[7] 두 창이 생겼다.
+    */
+    '- setIndicatorParams: {"indicator":"RSI","params":[7]}  · MA: {"indicator":"MA","params":[10,30,60]}\n' +
+    '  Use this to CHANGE the settings of an indicator that is ALREADY on (periods only).\n' +
+    '  Do NOT call addIndicator again to change settings — that used to create a second copy.\n' +
+    '  If the indicator is not on yet, call addIndicator with the params instead.\n' +
     /*
        ★★★ **이 설명이 없으면 모델은 신호 규칙을 만들 수 없다.**
 

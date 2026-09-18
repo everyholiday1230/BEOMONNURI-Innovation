@@ -2896,6 +2896,23 @@
         }
       } catch (e) { /* 게시 실패가 차트를 막지 않는다 */ }
     },
+    /**
+     * 지표를 켠다.
+     *
+     * ★★★ **이미 켜져 있으면 설정만 바꾼다 — 중복으로 켜지 않는다.**
+     *
+     *   예전에는 그냥 `createIndicator` 를 다시 불렀다. 실측(2026-09-18):
+     *     addIndicator('RSI', [14]) → RSI[14]
+     *     addIndicator('RSI', [7])  → RSI[14] **와** RSI[7]  ← 창이 두 개
+     *     addIndicator('MA', [10,30]) → MA[20,60,120] **와** MA[10,30]
+     *
+     *   고객이 "RSI 를 7 로 바꿔줘" 라고 하면 설정이 바뀌는 게 아니라 지표가 하나 더
+     *   생긴다. 우리 서비스는 **말로 차트를 조작하는 것**이므로 이것이 곧 오작동이다.
+     *
+     * ★ 설정을 주지 않고 다시 켜면 아무것도 하지 않는다(이미 켜져 있다). `applied`
+     *   는 true 로 돌려준다 — 요청한 상태가 됐다는 뜻이고, AI 가 "이미 켜져 있다" 를
+     *   실패로 오해해 다시 시도하지 않게 한다.
+     */
     addIndicator(name, params) {
       const raw = String(name || '').toUpperCase();
       const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
@@ -2903,6 +2920,18 @@
       let applied = false;
       for (const chart of INSTANCES) {
         try {
+          const already = (chart.getIndicators() || []).some((i) => i.name === kName);
+          if (already) {
+            /*
+               ★ 설정이 있으면 제자리에서 바꾼다. `overrideIndicator` 가 pane 을 찾아
+                 갱신한다(번들에서 확인). 없으면 켜진 상태를 그대로 둔다.
+            */
+            if (calcParams && calcParams.length) {
+              try { chart.overrideIndicator({ name: kName, calcParams }); } catch (e) { /* 무시 */ }
+            }
+            applied = true;
+            continue;
+          }
           const onPrice = this._aiOverlayInds.has(kName);
           const create = onPrice
             ? { name: kName, paneId: 'candle_pane', ...(calcParams ? { calcParams } : {}) }
@@ -2919,6 +2948,58 @@
       try { this.publishState(); } catch (e) { /* noop */ }
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return applied;
+    },
+
+    /**
+     * 켜져 있는 지표의 **설정(기간)만** 바꾼다.
+     *
+     * ★★★ 이 경로가 없어서 "RSI 를 7 로 바꿔줘" 가 중복 추가가 됐다. 우리 서비스는
+     *   말로 차트를 조작하는 것이므로 **설정 변경은 기본 기능**이다.
+     *
+     * ★★ 켜져 있지 않으면 **켜지 않는다.** `{ applied: false, error: 'NOT_ON' }` 로
+     *   정직하게 말한다 — 없는 지표의 설정을 바꿔 달라는 것은 대개 오해이고,
+     *   조용히 켜 버리면 고객이 요청하지 않은 지표가 화면에 생긴다.
+     *
+     * ★ 값 검사는 addIndicator 와 같다(양의 정수만). 0 이나 음수는 klinecharts 가
+     *   무한 루프에 빠질 수 있고, 그때 화면 전체가 멈춘다.
+     */
+    setIndicatorParams(name, params) {
+      const raw = String(name || '').toUpperCase();
+      const kName = (this._aiAlias && this._aiAlias[raw]) || raw;
+      const calcParams = (Array.isArray(params) ? params : [])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0 && n === Math.floor(n));
+      if (!calcParams.length) return { applied: false, error: 'BAD_PARAMS' };
+
+      let found = false;
+      let applied = false;
+      for (const chart of INSTANCES) {
+        try {
+          if (!(chart.getIndicators() || []).some((i) => i.name === kName)) continue;
+          found = true;
+          try { chart.overrideIndicator({ name: kName, calcParams }); } catch (e) { /* 아래에서 확인한다 */ }
+          /*
+             ★★★ **반환값을 믿지 않고 실제 상태를 다시 읽는다.**
+
+               `overrideIndicator` 는 적용됐는데도 `false` 를 돌려주는 경우가 있다.
+               실측(2026-09-18): MA 를 [10,30,60] 으로 바꿨더니 차트에는 반영됐는데
+               반환은 false 였다. 그 값을 믿고 실패로 보고하면 AI 가 "바꾸지 못했다"
+               고 말하는데 화면은 바뀐 상태가 된다 — 고객이 무엇을 믿어야 할지 모른다.
+
+             ★ 그래서 `getIndicators()` 로 되읽어 설정이 정말 그 값인지 확인한다.
+               라이브러리의 반환 규약이 바뀌어도 이 판정은 흔들리지 않는다.
+          */
+          const now = (chart.getIndicators() || []).find((i) => i.name === kName);
+          const got = now && Array.isArray(now.calcParams) ? now.calcParams : null;
+          if (got && got.length === calcParams.length && got.every((v, k) => Number(v) === calcParams[k])) {
+            applied = true;
+          }
+        } catch (e) { /* 이 차트에서 실패 — 다음 차트 시도 */ }
+      }
+      if (!found) return { applied: false, error: 'NOT_ON' };
+      try { this.publishState(); } catch (e) { /* noop */ }
+      setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
+      return applied ? { applied: true, name: kName, params: calcParams } : { applied: false, error: 'OVERRIDE_FAILED' };
     },
     /*
        지표 제거.

@@ -531,6 +531,23 @@
           if (util && util.removeIndicator) util.removeIndicator(a.indicator);
           return t('ai_indicator_removed', { name: a.indicator });
         /*
+           ★★★ 지표 **설정 변경**. 이 경로가 없어서 "RSI 를 7 로 바꿔줘" 가 지표를
+             하나 더 켜는 것이 됐다(실측: RSI[14] 와 RSI[7] 두 창).
+
+           ★★ 켜져 있지 않으면 **정직하게 말한다.** 조용히 켜 버리면 고객이 요청하지
+             않은 지표가 생기고, "바꿨습니다" 라고 하면 무엇이 바뀐 줄 알게 된다.
+        */
+        case 'setIndicatorParams': {
+          if (!util || !util.setIndicatorParams) return t('ai_cmd_unsupported');
+          const r = util.setIndicatorParams(a.indicator, a.params);
+          if (r && r.applied) {
+            return t('ai_indicator_params_set', { name: a.indicator, params: (a.params || []).join(', ') });
+          }
+          return r && r.error === 'NOT_ON'
+            ? t('ai_indicator_not_on', { name: a.indicator })
+            : t('ai_indicator_params_failed', { name: a.indicator, reason: (r && r.error) || 'UNKNOWN' });
+        }
+        /*
            ★★★ 고객이 만든 **신호 규칙**(2026-09-18).
 
              매매 신호는 우리가 주는 것이 아니라 고객이 조건을 쓰고 우리가 성립한 봉을

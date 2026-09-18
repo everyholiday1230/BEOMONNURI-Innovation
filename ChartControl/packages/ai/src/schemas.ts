@@ -53,6 +53,12 @@ export const AI_CHART_COMMANDS = [
   'addIndicator',
   'removeIndicator',
   /*
+     ★★★ 지표 **설정 변경**(2026-09-18). 이 명령이 없어서 "RSI 를 7 로 바꿔줘" 가
+       중복 추가가 됐다(실측: RSI[14] 와 RSI[7] 두 창). 말로 차트를 조작하는 것이
+       우리 서비스이므로 설정 변경은 기본 기능이다.
+  */
+  'setIndicatorParams',
+  /*
      ★★★ 고객이 만든 **신호 규칙**(2026-09-18). 매매 신호는 우리가 주는 것이 아니라
        고객이 조건을 쓰고 우리가 성립한 봉을 표시한다. AI 는 고객이 말로 설명한
        조건을 DSL 식으로 옮기는 일을 한다 — 방향을 정하는 것이 아니다.
@@ -192,6 +198,17 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
       label: z.string().max(60).optional(),
     }),
   removeIndicator: z.object({ indicator: z.string().min(1).max(20) }),
+  /*
+     지표 설정(기간) 변경.
+
+     ★ 양의 정수만 받는다. 0·음수·소수를 넘기면 klinecharts 가 계산에서 멈출 수 있고
+       그때 화면 전체가 굳는다. 최대 6개는 addIndicator 와 같은 한도다.
+     ★ 상한 1000 — 봉 수(1000)보다 큰 기간은 값이 나오지 않는다.
+  */
+  setIndicatorParams: z.object({
+    indicator: z.enum(AI_INDICATORS),
+    params: z.array(z.number().int().positive().max(1000)).min(1).max(6),
+  }),
   /*
      신호 규칙 추가.
 
