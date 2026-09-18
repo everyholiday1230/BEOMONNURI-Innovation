@@ -18,7 +18,16 @@ const err = (code: string, message: string) => ({ error: { code, message } });
      · global — 모든 종목에서 재사용(비쌈)
    연장 1회 비용은 EXTEND_COST_POINTS. 제도가 켜져 있을 때만 부과한다.
 */
-export const SAVE_COST_BY_SCOPE: Record<SavedItemScope, number> = { symbol: 100, global: 300 };
+/*
+   ★★★ 처음 저장 비용 **500 포인트** (운영 결정 2026-09-18).
+
+     내 규칙 저장(`STRATEGY_SAVE_COST`)과 **같은 값**이어야 한다. 저장 화면이 둘을
+     한 목록으로 합쳤으므로, 같은 목록에 있는 것들의 값이 다르면 고객이 왜 다른지
+     알 수 없다.
+   ★ 범위(한 종목/전체)로 값을 나누지 않는다 — 합친 화면에서는 그 구분이 안 보인다.
+   ★ 연장은 50 포인트로 유지한다.
+*/
+export const SAVE_COST_BY_SCOPE: Record<SavedItemScope, number> = { symbol: 500, global: 500 };
 export const EXTEND_COST_POINTS = 50;
 const saveCostOf = (scope: SavedItemScope) => SAVE_COST_BY_SCOPE[scope] ?? SAVE_COST_BY_SCOPE.symbol;
 const VALID_KINDS = new Set<SavedItemKind>(['signal', 'indicator', 'drawing']);

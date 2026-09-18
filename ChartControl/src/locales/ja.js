@@ -962,6 +962,7 @@
       col_safe: '正常',
       col_sharpe: 'シャープ',
       col_side: '方向',
+      col_realized_pnl: '実現損益',
       col_sign: '署名',
       col_status: '状態',
       col_streaming: '配信中',

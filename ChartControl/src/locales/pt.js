@@ -793,6 +793,7 @@
       col_safe: 'Seguro',
       col_sharpe: 'Sharpe',
       col_side: 'Lado',
+      col_realized_pnl: 'PnL realizado',
       col_sign: 'Assinar',
       col_status: 'Status',
       col_streaming: 'Transmitindo',

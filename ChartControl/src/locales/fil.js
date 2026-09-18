@@ -938,6 +938,7 @@
       col_safe: 'Ligtas',
       col_sharpe: 'Sharpe',
       col_side: 'Side',
+      col_realized_pnl: 'Realized PnL',
       col_sign: 'Mag-sign',
       col_status: 'Status',
       col_streaming: 'Streaming',

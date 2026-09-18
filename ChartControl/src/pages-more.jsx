@@ -1919,7 +1919,7 @@
   */
   function MyCreatedStrategies() {
     const [items, setItems] = React.useState(null);
-    const [cost, setCost] = React.useState({ strategy: 300, indicator: 100 });
+    const [cost, setCost] = React.useState({ strategy: 500, indicator: 500, signal: 500 });
     /*
        ★★★ 보관기간·연장비용은 **서버가 정한다.** 화면에 숫자를 박아 두면 서버 정책을
          바꿔도 안 따라온다 — "30일" 이 화면에 남아 거짓이 된다(실제로 그랬다).

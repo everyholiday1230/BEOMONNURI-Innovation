@@ -884,7 +884,15 @@
          ★ 자동 저장은 하지 않는다(같은 지시). 눌러야 저장되고, 누를 때 비용을 알린다.
       */
       const scope = savable.scope === 'global' ? 'global' : 'symbol';
-      const cost = scope === 'global' ? 300 : 100;
+      /*
+         ★★★ **비용을 화면에 박지 않는다.**
+
+           `scope === 'global' ? 300 : 100` 이 박혀 있었다. 서버가 500 으로 올렸는데
+           확인창은 **"100 포인트가 차감됩니다"** 라고 물었다 — 고객은 100 인 줄 알고
+           눌렀다가 500 이 나간다. 돈이 걸린 문구는 서버 값이어야 한다.
+         ★ 응답이 아직 안 왔으면 서버 기본값과 같은 수를 쓴다(틀린 수를 보여주지 않는다).
+      */
+      const cost = Number(saveCost && saveCost[scope]) > 0 ? Number(saveCost[scope]) : 500;
       if (typeof window.confirm === 'function'
           && !window.confirm(t('sv_confirm_save_cost', { n: cost }))) return;
       setSavingId(msgId);
@@ -954,6 +962,8 @@
     const [savesAllowed, setSavesAllowed] = useState(false);
     /* ★ 기본값은 현재 정책과 같게 — 응답이 늦어도 틀린 수를 보여주지 않는다. */
     const [retentionDays, setRetentionDays] = useState(100);
+    /* ★ 저장 비용도 서버가 정한다 — 확인창 문구가 실제 차감액과 같아야 한다. */
+    const [saveCost, setSaveCost] = useState({ symbol: 500, global: 500 });
     const [savedError, setSavedError] = useState(false);
     const loadSaved = useCallback(() => {
       const api = window.QTApi && window.QTApi.rest;
@@ -1002,6 +1012,7 @@
         */
         setSavesAllowed(Boolean(r && r.savesAllowed));
         if (r && Number(r.retentionDays) > 0) setRetentionDays(Number(r.retentionDays));
+        if (r && r.saveCost && typeof r.saveCost === 'object') setSaveCost(r.saveCost);
       }).catch(() => { setSavedItems(null); setSavedError(true); setSavesAllowed(false); });
     }, []);
     /*

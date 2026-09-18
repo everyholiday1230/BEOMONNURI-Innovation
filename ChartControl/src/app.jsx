@@ -3324,6 +3324,20 @@
                 reduceOnly: true,
                 stopDirection: (kind === 'tp') === isLong ? 'up' : 'down',
                 leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : 1,
+              /*
+                 ★★★ **레버리지를 모른다는 사실을 함께 보낸다.**
+
+                   위에서 값이 없으면 1 을 넘긴다(reduceOnly 에서는 안전한 값이다).
+                   그런데 확인창이 그 1 을 그대로 "1× · 표준 범위" 로 적었다 —
+                   운영자 보고: "클로즈할 때 무조건 레버리지가 1로 나오는 것 같은데?
+                   난 1이 아닌데." 맞다. **모르는 것을 아는 것처럼 적었다.**
+
+                 ★ KuCoin 은 **크로스 포지션에 `realLeverage` 를 주지 않는다.**
+                   그래서 크로스로 들어간 고객은 항상 1× 로 보였다.
+                 ★ 종료는 기존 포지션을 줄이는 것이므로 레버리지를 정하는 행위가 아니다.
+                   확인창은 이 값을 **아예 보여주지 않는 것**이 정직하다.
+              */
+              leverageUnknown: !(Number(pos.leverage) > 0),
                 ...(pos.mode ? { marginMode: String(pos.mode).toLowerCase() } : {}),
               });
               /* ★ 초안 선은 지운다. 걸리면 서버에서 읽어와 실선으로 다시 그려진다. */
@@ -4406,12 +4420,25 @@
     const leverage = Number(order.leverage) > 0
       ? Number(order.leverage)
       : (Number(order.market && order.market.leverage) > 0 ? Number(order.market.leverage) : 20);
-    checks.push({
-      state: leverage > 50 ? 'warn' : 'ok',
-      label: t('risk_leverage'),
-      detail: t(leverage > 50 ? 'risk_lev_high' : 'risk_lev_normal', { lev: leverage }),
-      meta: `${leverage}×`,
-    });
+    /*
+       ★★★ **모르는 레버리지를 숫자로 적지 않는다.**
+
+         포지션 종료(`reduceOnly`)에서 값을 모르면 위쪽 경로가 1 을 넘긴다. 그것을
+         그대로 적으면 "1× · 표준 범위" 가 되어 **30배로 들어간 고객에게 1배라고
+         말한다.** 실측으로 확인된 결함이다.
+
+       ★ 종료는 레버리지를 정하는 행위가 아니다 — reduceOnly 는 포지션을 줄인다.
+         그래서 모를 때는 검사를 **아예 넣지 않는다.** 없는 줄이 틀린 줄보다 낫다.
+       ★ 값을 아는 종료는 그대로 보여준다 — 고배율 경고가 필요할 수 있다.
+    */
+    if (!order.leverageUnknown) {
+      checks.push({
+        state: leverage > 50 ? 'warn' : 'ok',
+        label: t('risk_leverage'),
+        detail: t(leverage > 50 ? 'risk_lev_high' : 'risk_lev_normal', { lev: leverage }),
+        meta: `${leverage}×`,
+      });
+    }
     // 4. Liquidation distance
     /*
        ★★ 청산가를 모를 때 이 검사가 **"안전" 으로 통과**했다.

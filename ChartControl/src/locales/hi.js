@@ -800,6 +800,7 @@
       col_safe: 'सुरक्षित',
       col_sharpe: 'Sharpe',
       col_side: 'दिशा',
+      col_realized_pnl: 'वसूल किया लाभ/हानि',
       col_sign: 'हस्ताक्षर',
       col_status: 'स्थिति',
       col_streaming: 'स्ट्रीमिंग',

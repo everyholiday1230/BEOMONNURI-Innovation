@@ -778,7 +778,7 @@
 
             {/* 내 저장 항목 — 신호·지표 저장(포인트 차감) + 목록/삭제 */}
             {saved && saved.supported && (
-              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 100, glob: (saved.saveCost && saved.saveCost.global) || 300, d: saved.retentionDays || 100 })}>
+              <window.SectionCard title={t('sv_section_title')} subtitle={t('sv_section_sub_tiered', { sym: (saved.saveCost && saved.saveCost.symbol) || 500, glob: (saved.saveCost && saved.saveCost.global) || 500, d: saved.retentionDays || 100 })}>
                 <div style={{marginBottom:10}}>
                   {/*
                      ★★ 이 버튼은 여기서 절대 동작할 수 없다.

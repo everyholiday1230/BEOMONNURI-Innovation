@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 9 September 2026 · Version 1.3
+Effective: 18 September 2026 · Version 1.4
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
@@ -44,7 +44,7 @@ We collect **only what the Service needs.**
 | Consent records (version and time) | Proving agreement | 5 years |
 | Support enquiries | Responding to you | 3 years |
 | Country, and whether you chose it or we guessed it from your browser | Showing the right currency and language defaults; understanding where the Service is used | Until account closure |
-| Saved analysis, drawings and indicator sets | Restoring what you saved | Until you delete it |
+| Saved analysis, drawings, rules and indicator sets | Restoring what you saved | 100 days from saving, extendable. After that we stop showing it to you but keep a copy for up to 5 years (see §1.5) |
 | Price alerts you set | Sending the alert you asked for | Until you delete it |
 | Bug reports you send | Fixing the problem you reported | 3 years |
 | Marketing consent (and the time you gave or withdrew it) | Proving consent before sending anything | 5 years |
@@ -58,6 +58,7 @@ We keep a separate record of **what you had on screen when you placed an order a
 | Data | Purpose | Retention |
 |---|---|---|
 | Indicators enabled, market snapshot, risk-check outcome, order result | Improving the Service, including **training our AI models** | 5 years |
+| What you asked the AI assistant and what it answered, and the rules and drawings you saved | As above — so the assistant gets better at turning your words into chart rules | 5 years |
 
 **How this is kept**
 

@@ -810,6 +810,7 @@
       col_safe: 'An toàn',
       col_sharpe: 'Sharpe',
       col_side: 'Chiều',
+      col_realized_pnl: 'Lãi/lỗ đã chốt',
       col_sign: 'Ký',
       col_status: 'Trạng thái',
       col_streaming: 'Đang truyền',

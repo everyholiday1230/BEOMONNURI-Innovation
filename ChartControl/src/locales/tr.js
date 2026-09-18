@@ -804,6 +804,7 @@
       col_safe: 'Güvenli',
       col_sharpe: 'Sharpe',
       col_side: 'Yön',
+      col_realized_pnl: 'Gerçekleşen K/Z',
       col_sign: 'İmzala',
       col_status: 'Durum',
       col_streaming: 'Akıyor',

@@ -963,6 +963,7 @@
       col_safe: '正常',
       col_sharpe: '夏普',
       col_side: '方向',
+      col_realized_pnl: '已实现盈亏',
       col_sign: '签名',
       col_status: '状态',
       col_streaming: '推送中',

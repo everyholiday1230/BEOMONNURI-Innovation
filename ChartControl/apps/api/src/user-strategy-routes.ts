@@ -32,7 +32,15 @@ const err = (code: string, message: string) => ({ error: { code, message } });
    ★ 'signal' 은 지표와 같은 100 으로 둔다. 조건식 하나이고 전략(300)처럼 백테스트
      대상이 아니다. 값을 다르게 매기려면 근거가 있어야 하는데, 지금은 없다.
 */
-export const STRATEGY_SAVE_COST: Record<UserStrategyKind, number> = { strategy: 300, indicator: 100, signal: 100 };
+/*
+   ★★★ 처음 저장 비용 **500 포인트** (운영 결정 2026-09-18: "처음저장은 500pt로해줘").
+
+     연장은 그대로 50 포인트다 — 처음 저장이 비싸고 유지가 싼 구조다.
+   ★ 종류별로 다르게 두지 않는다. 예전에는 `strategy: 300` 이었는데 그 종류는
+     이름만 저장하고 아무것도 하지 않았다(지금은 목록에서 뺐다). 값이 갈리면
+     고객이 무엇에 얼마를 내는지 알 수 없다.
+*/
+export const STRATEGY_SAVE_COST: Record<UserStrategyKind, number> = { strategy: 500, indicator: 500, signal: 500 };
 const VALID_KINDS = new Set<UserStrategyKind>(['strategy', 'indicator', 'signal']);
 
 export interface UserStrategyRouterDeps {

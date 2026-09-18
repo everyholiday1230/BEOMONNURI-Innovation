@@ -178,7 +178,29 @@
       const dir = live.side === 'short' ? -1 : 1;
       const chg = ((last - entry) / entry) * 100 * dir;
       const lev = Number(live.leverage);
-      const roe = (Number.isFinite(lev) && lev > 0) ? ` · ROE ${signed(chg * lev, 2)}` : '';
+      /*
+         ★★★ **ROE 는 실제 손익 ÷ 증거금으로 계산한다.**
+
+           예전에는 `가격 변동% × 레버리지` 로 계산했다. 그런데 포지션 패널은
+           `평가손익 ÷ 증거금` 을 쓴다 — **같은 포지션인데 두 화면의 %가 달랐다**
+           (운영자 보고: "차트에 나오는 거랑 포지션 패널에 나오는 거랑 +-%가 조금
+           다른데 왜 그럴까?").
+
+         ★ 어긋나는 이유
+             · 거래소 손익에는 **수수료·펀딩비**가 들어 있다. 가격 변동률에는 없다
+             · 부분 체결·승수 때문에 `진입가 × 수량 ÷ 레버리지` 가 실제 증거금과 다르다
+             · 크로스 포지션은 레버리지를 모르므로(거래소가 안 준다) ROE 가 아예 안 나왔다
+
+         ★ **거래소가 준 값이 사실이다.** 손익과 증거금이 둘 다 있으면 그것으로 계산한다.
+           둘 중 하나라도 없으면 옛 방식(변동률 × 레버리지)으로 근사하고, 그것도 불가하면
+           적지 않는다 — 1배로 가정해 손실을 작게 보여주지 않는다.
+      */
+      const mg = Number(live.margin);
+      const pn = Number(live.pnl);
+      const roePct = (Number.isFinite(pn) && Number.isFinite(mg) && mg > 0)
+        ? (pn / mg) * 100
+        : ((Number.isFinite(lev) && lev > 0) ? chg * lev : null);
+      const roe = roePct === null ? '' : ` · ROE ${signed(roePct, 2)}`;
 
       /*
          ★★ **들어간 금액(증거금)과 평가손익 금액.**
@@ -204,8 +226,9 @@
       let pnlTxt = '';
       if (Number.isFinite(pnlRaw)) {
         pnlTxt = ` · ${pnlRaw >= 0 ? '+' : ''}${fmtMoney(pnlRaw)}`;
-      } else if (Number.isFinite(margin) && margin > 0 && Number.isFinite(lev) && lev > 0) {
-        const approx = margin * (chg * lev) / 100;
+      } else if (Number.isFinite(margin) && margin > 0 && roePct !== null) {
+        /* ★ 위에서 정한 ROE 와 같은 근거를 쓴다 — 두 숫자가 서로 안 맞으면 안 된다. */
+        const approx = margin * roePct / 100;
         pnlTxt = ` · ~${approx >= 0 ? '+' : ''}${fmtMoney(approx)}`;
       }
 

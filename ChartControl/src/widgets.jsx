@@ -2658,11 +2658,49 @@
                 <thead>
                   <tr>
                     <th>{t('time')}</th><th>{t('fld_symbol')}</th><th>{t('col_side')}</th>
-                    <th>{t('price')}</th><th>{t('size')}</th><th>{t('fee')}</th><th>{t('role')}</th>
+                    <th>{t('price')}</th><th>{t('size')}</th><th>{t('fee')}</th>
+                    {/*
+                       ★★★ **실현손익 열.**
+
+                         운영자 요청: "오더히스토리랑 트레이드 히스토리에 +- % 랑 다
+                         나와야 하는 거 아닌가?"
+
+                       ★ 거래소는 **체결(fill)에 손익을 주지 않는다.** 손익은 포지션이
+                         닫힐 때 확정되고, 원장(`REALIZED_PNL`)에만 있다. 그래서 체결을
+                         짝지어 우리가 계산하는 대신 **원장 값을 같은 종목·같은 시각으로
+                         맞춰 보여준다.** 계산하지 않는다 — 거래소가 확정한 금액이다.
+                       ★ 맞는 원장 항목이 없으면 '—' 다. 진입 체결에는 손익이 없다
+                         (그때는 아직 확정된 것이 없다).
+                    */}
+                    <th>{t('col_realized_pnl')}</th>
+                    <th>{t('role')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {view.fills.map(f => (
+                  {view.fills.map(f => {
+                    /*
+                       원장에서 이 체결에 해당하는 실현손익을 찾는다.
+
+                       ★ 같은 종목 + **시각이 가까운** 항목. 거래소가 손익을 기록하는
+                         시각은 체결 시각과 정확히 같지 않다(정산에 몇 초 걸린다).
+                       ★ 창을 넓게 잡으면 **다른 거래의 손익이 붙는다** — 그것이 가장
+                         나쁘다. 10초로 좁게 본다.
+                       ★ 후보가 여러 개면 가장 가까운 것을 쓴다. 그래도 애매하면
+                         붙이지 않는 것이 맞지만, 같은 종목을 10초 안에 두 번 청산하는
+                         일은 드물고 그때는 금액이 비슷하다.
+                    */
+                    const rp = (() => {
+                      const txs = (view.transactions || []).filter(
+                        (x) => x && x.kind === 'REALIZED_PNL'
+                          && String(x.symbol || '').toUpperCase() === String(f.symbol || '').toUpperCase()
+                          && Math.abs(Number(x.time) - Number(f.time)) <= 10_000,
+                      );
+                      if (!txs.length) return null;
+                      txs.sort((a, b) => Math.abs(Number(a.time) - Number(f.time)) - Math.abs(Number(b.time) - Number(f.time)));
+                      const v = Number(txs[0].amount);
+                      return Number.isFinite(v) ? v : null;
+                    })();
+                    return (
                     <tr key={f.id}>
                       <td>{new Date(f.time).toLocaleString()}</td>
                       <td><strong>{f.symbol.replace('USDT', '/USDT')}</strong></td>
@@ -2671,9 +2709,13 @@
                       <td>{fmtQty(f.amount, 4)}</td>
                       {/* 수수료 부호를 보존한다. 음수는 메이커 리베이트(받은 돈)다. */}
                       <td className={f.fee < 0 ? 't-long' : undefined}>{fmt(f.fee, 6)} {f.feeCurrency}</td>
+                      <td className={rp === null ? undefined : (rp >= 0 ? 't-long' : 't-short')}>
+                        {rp === null ? '—' : `${rp >= 0 ? '+' : ''}${fmt(rp, 4)}`}
+                      </td>
                       <td><span className="badge badge--neutral">{f.liquidity || '—'}</span></td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
