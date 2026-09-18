@@ -2972,6 +2972,7 @@
       ex_market_bitmart: 'Global · Deep alt liquidity',
       ex_market_binance: 'Global · #1 by volume',
       ex_market_bitget: 'Global · Copy trading strong',
+      ex_read_only_bitget: 'Connect to see your balance and positions. Placing orders on Bitget is not available yet.',
       ex_market_okx: 'Global · Institutional',
       ex_market_bybit: 'Global · Derivatives focus',
       ex_market_gate: 'Global · Alt-heavy',

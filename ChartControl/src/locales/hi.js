@@ -3196,6 +3196,7 @@
     {
       // --- 거래소 소개 (이어서) ---
       ex_market_bitget: 'वैश्विक · Copy trading में मज़बूत',
+      ex_read_only_bitget: 'बैलेंस और पोजीशन देखने के लिए कनेक्ट करें। Bitget पर ऑर्डर देना अभी उपलब्ध नहीं है।',
       ex_market_okx: 'वैश्विक · संस्थागत',
       ex_market_bybit: 'वैश्विक · Derivatives पर केंद्रित',
       ex_market_gate: 'वैश्विक · Alt की भरमार',

@@ -2680,6 +2680,7 @@
       ex_market_bitmart: '全球 · 山寨币流动性充足',
       ex_market_binance: '全球 · 成交量第一',
       ex_market_bitget: '全球 · 跟单交易见长',
+      ex_read_only_bitget: '连接后可查看余额与持仓。暂不支持在 Bitget 下单。',
       ex_market_okx: '全球 · 面向机构',
       ex_market_bybit: '全球 · 以衍生品为主',
       ex_market_gate: '全球 · 山寨币品类多',

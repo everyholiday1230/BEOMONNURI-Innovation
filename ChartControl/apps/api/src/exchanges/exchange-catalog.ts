@@ -350,7 +350,32 @@ export const EXCHANGES: readonly Exchange[] = Object.freeze(parsed);
    ★ 그래서 목록에는 보여주되(협약이 사실이므로) 연결은 막고 이유를 말한다.
      아래 CONNECT_BLOCKED_REASON_KEYS 를 보라.
 */
-export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin']);
+export const CONNECTABLE_EXCHANGE_IDS: readonly string[] = Object.freeze(['kucoin', 'bitget']);
+
+/*
+   ★★★ **연결은 되지만 주문은 아직 안 되는 거래소.**
+
+     여러 거래소와 협약하는 방향이므로 이 상태가 계속 생긴다: 읽기 어댑터는 붙였고
+     주문은 아직 검증하지 않은 단계.
+
+   ★ `connectable` 만으로는 두 상태가 구분되지 않는다:
+       · 연결하면 잔고·포지션을 보고 주문도 낼 수 있다 (KuCoin)
+       · 연결하면 잔고·포지션만 본다 (Bitget — 지금)
+     구분하지 않으면 고객이 비트겟을 연결하고 **주문이 나갈 것으로 기대한다.**
+     그 기대가 깨지는 순간은 돈을 걸려는 순간이다.
+
+   ★★ 값은 **사전 키**다. 문구를 여기 박으면 언어 추가 때 놓친다.
+*/
+export const READ_ONLY_EXCHANGE_IDS: readonly string[] = Object.freeze(['bitget']);
+
+export const READ_ONLY_REASON_KEYS: Readonly<Record<string, string>> = Object.freeze({
+  bitget: 'ex_read_only_bitget',
+});
+
+/** 주문까지 낼 수 있는 거래소인가. */
+export function canPlaceOrders(id: string): boolean {
+  return CONNECTABLE_EXCHANGE_IDS.includes(id) && !READ_ONLY_EXCHANGE_IDS.includes(id);
+}
 
 /*
    ★★ **목록에는 보이지만 아직 연결할 수 없는** 거래소와 그 이유.

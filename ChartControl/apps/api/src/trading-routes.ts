@@ -102,6 +102,17 @@ export interface TradingRouterDeps {
    * 기본값을 두지 않는다 — 잘못된 거래소 이름이 조용히 저장되면 안 된다.
    */
   exchangeId: string;
+  /*
+     거래소 등록소 (선택).
+
+     ★★★ **여러 거래소와 협약하는 방향**이므로, 자격증명에 적힌 `exchangeId` 로 어댑터를
+       찾아 쓴다. 없으면 예전처럼 `accountAdapter` 하나만 쓴다 — 기존 배포가 그대로 돈다.
+
+     ★★ `accountAdapter` 를 없애지 않는다. 그것을 지우면 **주문 경로 전체를 한 번에**
+       고쳐야 하고, KuCoin 실주문이 걸려 있는 상태에서 그 위험을 감수하지 않는다.
+       등록소는 **더하는 것**이고 기존 경로를 바꾸지 않는다.
+  */
+  exchanges?: import('./exchanges/exchange-registry').ExchangeRegistry;
   /**
    * 일별 자산 스냅샷 저장소.
    *
@@ -1188,10 +1199,38 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
     if (!csrfOk(c, a.csrfSecret)) return c.json(err('CSRF_FAILED', ''), 403);
     const row = await d.credRepo.getOwned(a.user.id, c.req.param('id'));
     if (!row) return c.json(err('NOT_FOUND', 'credential not found'), 404); // ownership
+    /*
+       ★★★ **그 자격증명이 어느 거래소 것인지 보고 맞는 어댑터로 검증한다.**
+
+         예전에는 배포에 하나뿐인 `accountAdapter` 로 검증했다. 거래소가 둘 이상이면
+         **비트겟 키를 KuCoin 으로 검증**하게 되고, 당연히 실패하면서 고객에게는
+         "키가 잘못됐다" 고 말한다 — 키는 멀쩡한데 우리가 엉뚱한 곳에 물어본 것이다.
+
+       ★ 등록소가 없거나 그 거래소가 등록돼 있지 않으면 기존 어댑터를 쓴다 —
+         기존 배포(KuCoin 단독)가 그대로 돈다.
+       ★★ 등록소는 있는데 그 거래소만 없으면 **아직 배선되지 않았다고 말한다.**
+         다른 거래소 어댑터로 물어보면 실패가 "키 문제" 로 보인다.
+    */
+    const rowExchange = String((row as { exchangeId?: string }).exchangeId || d.exchangeId || '');
+    let adapter = d.accountAdapter;
+    if (d.exchanges && rowExchange) {
+      const found = d.exchanges.account(rowExchange);
+      if (found) adapter = found;
+      else if (d.exchanges.ids().length > 0 && rowExchange !== d.exchangeId) {
+        await d.credRepo.setVerified(a.user.id, row.id, 'FAILED', false);
+        await auditCred(c, a.user.id, 'exchange.credential.verify', row.id, { result: 'unsupported_exchange' });
+        return c.json({
+          id: row.id,
+          connectionStatus: 'FAILED',
+          /* ★ 이유를 정확히 말한다 — 고객이 키를 지우게 하지 않는다. */
+          reason: `exchange '${rowExchange}' is not wired on this deployment yet`,
+        });
+      }
+    }
     try {
       const cred = await d.vault.decrypt(row); // server-side only
       const ctx: ExchangeContext = { mode: 'LIVE_READ_ONLY', credential: cred };
-      await d.accountAdapter.getBalances(ctx); // Read-Only probe (no order permission needed)
+      await adapter.getBalances(ctx); // Read-Only probe (no order permission needed)
       await d.credRepo.setVerified(a.user.id, row.id, 'VERIFIED', true);
       await auditCred(c, a.user.id, 'exchange.credential.verify', row.id, { result: 'verified' });
       /* ★ 초대 보상. 실패가 연결을 막지 않는다 — 연결이 본질이고 보상은 부수적이다. */

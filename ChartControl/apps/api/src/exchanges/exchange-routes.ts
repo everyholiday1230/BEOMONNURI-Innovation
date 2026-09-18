@@ -5,8 +5,7 @@ import {
   EXCHANGES,
   getExchange,
   isConnectable,
-  CONNECT_BLOCKED_REASON_KEYS,
-} from './exchange-catalog';
+  CONNECT_BLOCKED_REASON_KEYS, canPlaceOrders, READ_ONLY_REASON_KEYS } from './exchange-catalog';
 
 /**
  * G1 — `GET /api/v1/exchanges` (+ `/:id`).
@@ -93,6 +92,16 @@ export function createExchangeRouter(d: ExchangeRouterDeps = {}): Hono {
       ...e,
       connectable: isConnectable(e.id),
       /*
+         ★★★ **연결되지만 주문은 아직 안 되는 상태를 밝힌다.**
+
+           여러 거래소와 협약하는 방향이라 이 상태가 계속 생긴다: 읽기는 붙였고 주문은
+           아직 검증하지 않은 단계. `connectable` 만 주면 고객이 연결하고 **주문이 나갈
+           것으로 기대한다** — 그 기대가 깨지는 순간은 돈을 걸려는 순간이다.
+         ★ 이유는 **사전 키**로 준다. 서버가 문장을 정하면 ja/zh 화면에 영어가 남는다.
+      */
+      canPlaceOrders: canPlaceOrders(e.id),
+      ...(READ_ONLY_REASON_KEYS[e.id] ? { readOnlyReasonKey: READ_ONLY_REASON_KEYS[e.id] } : {}),
+      /*
          ★★ 연결이 막힌 **이유**를 함께 준다.
 
            협약은 있는데 우리 배선이 안 된 거래소는 목록에 보여주는 것이 맞다.
@@ -139,6 +148,9 @@ export function createExchangeRouter(d: ExchangeRouterDeps = {}): Hono {
     return c.json({
       ...ex,
       connectable: isConnectable(ex.id),
+      /* ★ 위 목록과 같은 정보를 준다 — 한쪽만 주면 화면이 두 곳에서 다르게 판단한다. */
+      canPlaceOrders: canPlaceOrders(ex.id),
+      ...(READ_ONLY_REASON_KEYS[ex.id] ? { readOnlyReasonKey: READ_ONLY_REASON_KEYS[ex.id] } : {}),
       // ★ 목록과 같은 사실을 준다. 두 응답이 다르면 화면이 경로에 따라 다르게 말한다.
       connectBlockedReasonKey: CONNECT_BLOCKED_REASON_KEYS[ex.id] ?? null,
     });

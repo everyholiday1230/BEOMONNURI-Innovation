@@ -240,7 +240,22 @@ describe('EXG-02 GET /api/v1/exchanges', () => {
     /* ★ 추천이어도 연결할 수 없으면 기본 목록에 넣지 않는다 — 연결되지 않는
          거래소를 "추천" 으로 강조하면 사용자가 먼저 그것을 고른다. */
     const yesDefault = await asJson<ListBody>(await app.request('/api/v1/exchanges?recommended=true'));
-    expect(yesDefault.items.map((e) => e.id)).toEqual(['kucoin']);
+    /*
+       ★★ 2026-09-18: **비트겟이 연결 가능해졌다**(읽기 어댑터 배선). 그래서 여기 목록이
+         둘이 된다. 목록을 고정값으로 잠그면 거래소를 추가할 때마다 이 시험이 깨진다 —
+         여러 거래소와 협약하는 방향이므로 **성질**을 검사한다:
+           "추천이면서 연결 가능한 것만 들어간다"
+       ★ 그 성질이 깨지는 것(연결 안 되는데 추천으로 노출)이 실제 위험이다.
+    */
+    const allRecommended = await asJson<ListBody>(await app.request('/api/v1/exchanges?recommended=true&include=all'));
+    const expectedDefault = allRecommended.items.filter((e) => e.connectable).map((e) => e.id);
+    expect(yesDefault.items.map((e) => e.id)).toEqual(expectedDefault);
+    /* 연결 불가인 추천 거래소는 빠져야 한다. */
+    for (const e of yesDefault.items) {
+      expect(e.connectable, `${e.id}: 연결 불가인데 기본 목록에 있다`).toBe(true);
+    }
+    /* ★ 비트겟이 실제로 들어왔는지 확인한다 — 배선이 풀리면 여기서 잡힌다. */
+    expect(expectedDefault, '비트겟이 연결 가능 목록에 없다').toContain('bitget');
   });
 
   it('[5] an unknown query parameter is a 400, not a silently unfiltered list', async () => {

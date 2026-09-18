@@ -3138,6 +3138,7 @@
       ex_market_bitmart: 'Global · liquidez profunda en altcoins',
       ex_market_binance: 'Global · nº 1 por volumen',
       ex_market_bitget: 'Global · fuerte en copy trading',
+      ex_read_only_bitget: 'Conecta para ver tu saldo y posiciones. Aún no se pueden enviar órdenes en Bitget.',
       ex_market_okx: 'Global · institucional',
       ex_market_bybit: 'Global · enfocado en derivados',
       ex_market_gate: 'Global · muchas altcoins',

@@ -3236,6 +3236,7 @@
     ex_market_bitmart: 'BitMart',
     ex_market_binance: 'Binance',
     ex_market_bitget: 'Bitget',
+    ex_read_only_bitget: 'I-connect para makita ang balance at posisyon. Hindi pa available ang pag-order sa Bitget.',
     ex_market_okx: 'OKX',
     ex_market_bybit: 'Bybit',
     ex_market_gate: 'Gate.io',

@@ -3226,6 +3226,7 @@
       ex_market_bitmart: 'Toàn cầu · thanh khoản altcoin sâu',
       ex_market_binance: 'Toàn cầu · số 1 về khối lượng',
       ex_market_bitget: 'Toàn cầu · mạnh về copy trading',
+      ex_read_only_bitget: 'Kết nối để xem số dư và vị thế. Chưa thể đặt lệnh trên Bitget.',
       ex_market_okx: 'Toàn cầu · hướng tổ chức',
       ex_market_bybit: 'Toàn cầu · tập trung vào phái sinh',
       ex_market_gate: 'Toàn cầu · nhiều altcoin',

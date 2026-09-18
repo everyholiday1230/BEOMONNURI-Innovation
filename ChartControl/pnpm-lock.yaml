@@ -95,6 +95,9 @@ importers:
       '@quantumtrade/exchange-adapters':
         specifier: workspace:*
         version: link:../../packages/exchange-adapters
+      '@quantumtrade/exchange-bitget':
+        specifier: workspace:*
+        version: link:../../packages/exchange-bitget
       '@quantumtrade/exchange-bitmart':
         specifier: workspace:*
         version: link:../../packages/exchange-bitmart

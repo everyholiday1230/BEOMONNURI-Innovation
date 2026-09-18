@@ -3207,6 +3207,7 @@
       ex_market_bitmart: 'Küresel · derin altcoin likiditesi',
       ex_market_binance: 'Küresel · hacimde 1 numara',
       ex_market_bitget: 'Küresel · copy trading’de güçlü',
+      ex_read_only_bitget: 'Bakiye ve pozisyonlarınızı görmek için bağlayın. Bitget’te emir göndermek henüz mümkün değil.',
       ex_market_okx: 'Küresel · kurumsal',
       ex_market_bybit: 'Küresel · türev odaklı',
       ex_market_gate: 'Küresel · altcoin ağırlıklı',

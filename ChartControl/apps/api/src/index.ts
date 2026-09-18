@@ -92,6 +92,8 @@ import { PgStrategyRepo } from './db/pg-strategy-repo';
 import { createStrategyRouter } from './strategy-routes';
 import { createRiskEmailAlerter } from './trading/risk-email';
 import { createTradingRouter } from './trading-routes';
+import { ExchangeRegistry } from './exchanges/exchange-registry';
+import { BitgetAccountAdapter } from './trading/bitget-account-adapter';
 import { createKucoinOauthRouter, isKucoinOauthConfigured } from './kucoin-oauth-routes';
 import { createBitgetOauthRouter, isBitgetOauthConfigured } from './bitget-oauth-routes';
 import { payReferralReward, REFERRAL_MONTHLY_CAP } from './referral/referral-reward';
@@ -3919,6 +3921,42 @@ app.post('/api/sim/balance/ensure', async (c) => {
         }
       };
 
+      /*
+         거래소 등록소를 만든다.
+
+         ★ 읽기 어댑터는 반드시 등록한다. 주문 어댑터는 **검증된 거래소만** 등록한다.
+         ★★ 등록이 실패하면(중복 id 등) 기동이 멈춘다 — 조용히 한쪽만 등록되는 것보다
+           낫다. 어느 어댑터가 쓰이는지 모호한 상태로 주문을 받지 않는다.
+      */
+      const exchangeRegistry = new ExchangeRegistry();
+      exchangeRegistry.register({
+        id: useKucoinAccounts ? 'kucoin' : 'bitmart',
+        account: accountAdapter,
+        /*
+           ★★★ **주문 어댑터는 등록소에 넣지 않는다.**
+
+             KuCoin 주문 어댑터는 라우터 인자 안에서 만들어지고(`tradingAdapter:`),
+             주문 경로는 그것을 직접 쓴다. 등록소로 옮기면 **실주문이 걸린 경로를
+             한 번에 바꾸는 것**이 된다 — 지금 할 일이 아니다.
+
+           ★ 등록소는 지금 **읽기 라우팅**만 담당한다(자격증명 검증·잔고·포지션).
+             거래소가 늘어날 때 먼저 필요한 것이 그것이고, 주문은 거래소별로 검증한 뒤
+             하나씩 옮긴다.
+           ★★ 그래서 `trading()` 은 지금 전부 `null` 이다. 그 사실을 감추지 않는다 —
+             "주문 가능한 거래소" 를 묻는 곳이 생기면 그때 함께 옮긴다.
+        */
+      });
+      /*
+         ★★★ **비트겟은 읽기만.** 공개 API 로 스펙을 확인했고 서명 형식도 맞췄지만
+           (`packages/exchange-bitget`), **실키로 사적 경로를 검증하지 못했다.**
+           주문을 붙이는 것은 그 검증 뒤다 — 틀린 수량 단위로 주문이 나가면
+           고객 돈이 움직인다.
+      */
+      exchangeRegistry.register({
+        id: 'bitget',
+        account: new BitgetAccountAdapter(),
+      });
+
       app.route(
         '/api',
         createTradingRouter({
@@ -3944,6 +3982,20 @@ app.post('/api/sim/balance/ensure', async (c) => {
           accountAdapter,
           // 저장되는 자격증명에 기록될 거래소. 어댑터 선택과 같은 조건을 쓴다.
           exchangeId: useKucoinAccounts ? 'kucoin' : 'bitmart',
+          /*
+             거래소 등록소 — **여러 거래소와 협약하는 방향**이라 거래소를 늘릴 때
+             고칠 곳을 한 군데로 모았다(`exchange-registry.ts`).
+
+             ★★★ 자격증명에 적힌 `exchangeId` 로 어댑터를 찾는다. 예전에는 배포에
+               하나뿐인 어댑터로 검증했다 — 거래소가 둘 이상이면 **비트겟 키를 KuCoin
+               으로 검증**하게 되고, 고객에게는 "키가 잘못됐다" 고 말한다.
+
+             ★★ 비트겟은 **읽기만** 등록한다(`trading` 없음). 그래서 비트겟으로는
+               주문이 나가지 않는다 — 그 사실이 타입에 드러난다.
+             ★ KuCoin 은 기존 경로를 그대로 쓴다. 등록소는 **더하는 것**이고 잘 돌고
+               있는 주문 경로를 바꾸지 않는다.
+          */
+          exchanges: exchangeRegistry,
           /*
              자산 이력. 잔고 조회가 성공할 때 하루 한 번 기록한다 —
              자산곡선의 유일한 근거다.

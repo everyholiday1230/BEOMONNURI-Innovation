@@ -2690,6 +2690,7 @@
       ex_market_bitmart: 'グローバル · アルトコインの流動性が厚い',
       ex_market_binance: 'グローバル · 取引高1位',
       ex_market_bitget: 'グローバル · コピートレードに強い',
+      ex_read_only_bitget: '残高とポジションの確認ができます。Bitget での発注はまだご利用いただけません。',
       ex_market_okx: 'グローバル · 機関投資家向け',
       ex_market_bybit: 'グローバル · デリバティブ中心',
       ex_market_gate: 'グローバル · アルトコインが豊富',
