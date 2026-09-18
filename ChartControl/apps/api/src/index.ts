@@ -2251,6 +2251,22 @@ if (env.authEnabled) {
           pointsRepo = new PgPointsRepo(core.pool);
           return pointsRepo;
         })(),
+        /*
+           구독 저장소 — `/admin/subscriptions/grant` 가 쓴다.
+
+           ★★ 저장(전략·지표·신호)은 유료 플랜 기능이라 무료 플랜에서 402 로 막힌다.
+             실고객 6명이 전원 직원인 지금, 결제를 거치지 않고 저장을 시험할 경로가
+             필요하다. env 이메일 목록 같은 우회를 만들지 않고 **감사되는 관리자
+             라우트**로 둔다.
+        */
+        /*
+           ★★★ **지연 접근이다.** `subscriptionRepo` 는 이 라우터 등록보다 **아래에서**
+             선언된다(TS2448). 여기서 값을 읽으면 TDZ 로 죽는다. 라우트는 요청 시점에
+             실행되므로 그때는 이미 만들어져 있다 — getter 로 늦춘다.
+           ★ 선언을 위로 옮기지 않는다. 그 변수는 아래 초기화 순서(풀·마이그레이션)에
+             묶여 있고, 순서를 바꾸는 것이 더 위험하다.
+        */
+        get subscriptions() { return subscriptionRepo; },
         // 결제 대행사가 하나라도 연결되면 운영자가 포인트 구매를 켤 수 있다(스키마 가드용).
         paymentsConfigured: Boolean(
           (env.paypalClientId && env.paypalClientSecret) ||

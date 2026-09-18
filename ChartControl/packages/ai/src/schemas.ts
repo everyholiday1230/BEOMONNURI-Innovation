@@ -170,7 +170,30 @@ const cmd = z.object({ command: z.enum(AI_CHART_COMMANDS) });
 */
 const ArgScalar = z.union([z.string(), z.number(), z.boolean()]);
 const ArgPoint = z.object({ time: EpochMs, price: RawDecimalString }).strict();
-const ArgValue = z.union([ArgScalar, ArgPoint, z.array(z.union([ArgScalar, ArgPoint]))]);
+/*
+   ★★★ **`updateOverlay` 가 구조적으로 부를 수 없었다 — 위 사고와 같은 자리다.**
+
+     위 주석은 `point`·`points`(중첩 객체)를 빠뜨려 추세선이 안 그려진 일을 적어 두었다.
+     그런데 고치면서 `updateOverlay` 의 `patch` 를 빠뜨렸다. `patch` 는
+     `{ label: "..." }` 같은 **평면 객체**이고 ArgPoint 도 배열도 아니므로 거부된다.
+
+     프로덕션 로그(2026-09-18 03:05:40)로 드러났다:
+       [ai] ★ 제안 거부 — tool=propose_chart_command code=proposal-invalid
+       reason=args.patch: Invalid input
+       args={"command":"updateOverlay","argsJson":"{\\"overlayId\\":\\"ai-1\\",
+             \\"patch\\":{\\"label\\":\\"MACD 기준선\\"}}"}
+
+     즉 "라벨 바꿔줘" 가 **한 번도 동작한 적이 없다.** 명령별 스키마
+     (CHART_COMMAND_ARG_SCHEMAS.updateOverlay)는 통과하는데 이 앞 관문에서 떨어진다.
+
+   ★ 같은 실수를 세 번째로 하지 않으려면 **명령별 스키마가 받는 모양을 이 스키마도
+     받을 수 있어야 한다.** 그것을 시험이 확인한다(chart-control-surface).
+
+   ★ `z.unknown()` 으로 열지 않는다. 열면 무엇이 들어오는지 이 스키마만 읽고 알 수 없다.
+     `patch` 는 스칼라만 담는 평면 객체이므로 그만큼만 허용한다.
+*/
+const ArgFlatObject = z.record(ArgScalar);
+const ArgValue = z.union([ArgScalar, ArgPoint, ArgFlatObject, z.array(z.union([ArgScalar, ArgPoint]))]);
 
 export const AiChartCommandSchema = AiCommonFields.merge(cmd).extend({
   args: z.record(ArgValue).default({}),

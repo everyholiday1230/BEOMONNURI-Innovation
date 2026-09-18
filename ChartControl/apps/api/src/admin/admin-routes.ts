@@ -84,6 +84,16 @@ export interface AdminRouterDeps {
   referral?: import('../db/referral-repo').PgReferralRepo;
   /** 포인트 저장소. Postgres 배포에만 주입된다. */
   points?: import('../db/points-repo').PgPointsRepo;
+  /*
+     구독 저장소. **운영자가 직원·시험 계정에 요금제를 부여**하는 데 쓴다.
+
+     ★★ 왜 필요한가: 저장(전략·지표·신호)은 유료 플랜 기능이다(`plan_f_saves`).
+       무료 플랜에서는 402 로 막히므로, 결제를 거치지 않는 직원 계정은 저장을 시험할
+       수 없다. 실고객 6명이 전원 직원인 지금은 그 경로가 반드시 필요하다.
+     ★ env 로 이메일 목록을 두는 방식(우회)을 쓰지 않는다 — 감사기록이 남지 않고,
+       목록이 코드·배포 설정에 흩어진다. 관리자 라우트는 권한·감사·알림이 이미 갖춰져 있다.
+  */
+  subscriptions?: import('../subscriptions/subscription-repo').PgSubscriptionRepo;
   /** 오류 제보 저장소. 목록·확인(포인트 지급)에 쓴다. */
   bugReports?: import('../db/bug-report-repo').PgBugReportRepo;
   /** 결제 대행사(PayPal/Toss/USDT)가 하나라도 연결됐는지. 포인트 구매 허용 가드에 쓴다. */
@@ -2555,6 +2565,82 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
       }
       if (m === 'USER_NOT_FOUND') return c.json(err('NOT_FOUND', 'user not found'), 404);
       return c.json(err('UPSTREAM_ERROR', m), 502);
+    }
+  });
+
+  /**
+   * POST /admin/subscriptions/grant — 운영자가 요금제를 직접 부여한다.
+   *
+   * ★★★ **결제를 거치지 않는 부여다.** 직원·시험 계정에 저장 기능(유료)을 열어주기
+   *   위한 경로이고, 고객에게 무료로 주는 수단이 아니다. 그래서:
+   *     · 이유(reason)를 **필수**로 받는다 — 이유 없는 부여는 감사할 수 없다
+   *     · 감사기록에 `riskLevel: 'high'` 로 남긴다
+   *     · 사용자에게 알린다(모르게 바뀌면 문의가 온다)
+   *     · `provider: 'admin'` 으로 남겨 **결제로 생긴 구독과 구별**한다.
+   *       이것이 없으면 매출 집계에 결제 없는 구독이 섞인다.
+   *
+   * ★★ 기간을 받는다(기본 30일). 무기한을 만들지 않는다 — 시험용으로 준 것이 영구히
+   *   남으면 나중에 왜 이 계정이 유료인지 아무도 모른다.
+   *
+   * ★ `free` 로도 되돌릴 수 있다(회수). 별도 라우트를 만들지 않는다.
+   */
+  app.post('/admin/subscriptions/grant', async (c) => {
+    const g = await mutateGuard(c, 'admin.points.write'); if ('err' in g) return g.err;
+    if (!d.subscriptions) return c.json(err('NOT_CONFIGURED', 'subscriptions require the PostgreSQL backend'), 200);
+
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const userId = String(body.userId ?? '').trim();
+    const planCode = String(body.planCode ?? '').trim();
+    const days = body.days === undefined ? 30 : Number(body.days);
+    const reason = String(body.reason ?? '').trim();
+
+    if (!userId) return c.json(err('BAD_REQUEST', 'userId is required'), 400);
+    const VALID = ['free', 'basic', 'pro', 'premium', 'elite'];
+    if (!VALID.includes(planCode)) {
+      return c.json(err('BAD_REQUEST', `planCode must be one of ${VALID.join(', ')}`), 400);
+    }
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      return c.json(err('BAD_REQUEST', 'days must be an integer between 1 and 3650'), 400);
+    }
+    if (!reason) {
+      return c.json(err('BAD_REQUEST', 'reason is required — a grant without a reason cannot be audited'), 400);
+    }
+
+    const now = Date.now();
+    const end = now + days * 24 * 60 * 60 * 1000;
+    try {
+      const ok = await d.subscriptions.upsert({
+        userId,
+        planCode: planCode as 'free' | 'basic' | 'pro' | 'premium' | 'elite',
+        periodStart: now,
+        periodEnd: end,
+        /* ★ 결제로 생긴 구독과 구별한다. 매출 집계가 이것을 걸러낼 수 있어야 한다. */
+        provider: 'admin',
+        providerRef: `admin:${g.a.user.id}:${now}`,
+      });
+      if (!ok) return c.json(err('UPSTREAM_ERROR', 'could not write the subscription'), 502);
+
+      if (d.notifications) {
+        await d.notifications.create({
+          userId,
+          type: 'system',
+          severity: 'info',
+          message: `Your plan was set to ${planCode} for ${days} days: ${reason.slice(0, 60)}`,
+          correlationId: null,
+        }).catch(() => { /* 알림 실패가 부여를 되돌리지 않는다 */ });
+      }
+
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role,
+        action: 'subscription.grant',
+        resource: 'subscriptions', resourceId: userId,
+        targetUserId: userId, result: 'success', riskLevel: 'high', ip: ip(c),
+        reason: `${planCode} for ${days}d · ${reason.slice(0, 100)}`,
+      });
+
+      return c.json({ ok: true, userId, planCode, periodStart: now, periodEnd: end });
+    } catch (e) {
+      return c.json(err('UPSTREAM_ERROR', (e as Error).message), 502);
     }
   });
 

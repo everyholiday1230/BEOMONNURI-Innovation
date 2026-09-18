@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { AI_CHART_COMMANDS, AI_INDICATORS, CHART_COMMAND_ARG_SCHEMAS } from '@quantumtrade/ai';
+import { AI_CHART_COMMANDS, AI_INDICATORS, CHART_COMMAND_ARG_SCHEMAS, AiChartCommandSchema } from '@quantumtrade/ai';
 
 /*
    **"AI 가 차트를 컨트롤한다" 가 사실이 되도록 조작면을 잠근다.**
@@ -64,6 +64,79 @@ describe('조작면이 다 갖춰져 있다', () => {
     const i = schema.indexOf('setIndicatorParams: z.object');
     expect(schema.slice(i, i + 200), '설정 변경이 지표 목록을 쓰지 않는다')
       .toMatch(/indicator: z\.enum\(AI_INDICATORS\)/u);
+  });
+});
+
+/*
+   ★★★ **명령별 스키마가 받는 모양을 공통 args 스키마도 받아야 한다.**
+
+     `AiChartCommandSchema.args` 는 `z.record(ArgValue)` 이고, `CHART_COMMAND_ARG_SCHEMAS`
+     가 명령별로 엄격히 검증한다. 두 관문이 **모두** 통과해야 명령이 실행된다.
+
+     이 자리에서 두 번 사고가 났다:
+       ① `point`·`points`(중첩 객체)를 ArgValue 가 허용하지 않아 **추세선이 그려지지
+          않았다.**
+       ② 그걸 고치면서 `patch`(평면 객체)를 빠뜨려 **`updateOverlay` 가 한 번도 동작하지
+          않았다.** 프로덕션 로그로 드러났다(2026-09-18 03:05:40):
+            reason=args.patch: Invalid input
+            args={"command":"updateOverlay","argsJson":"{\"overlayId\":\"ai-1\",
+                  \"patch\":{\"label\":\"MACD 기준선\"}}"}
+          즉 "라벨 바꿔줘" 가 조용히 실패했다.
+
+   ★ 그래서 명령 전부에 대해 **두 관문을 함께** 통과하는지 확인한다. 새 명령을 넣을 때
+     여기 표본을 추가하면 같은 실수를 세 번째로 하지 않는다.
+*/
+describe('명령 인자가 두 관문을 모두 통과한다', () => {
+  const P = { time: 1_700_000_000_000, price: '64000' };
+  const P2 = { time: 1_700_009_000_000, price: '66000' };
+  const SAMPLES: Record<string, unknown> = {
+    createTrendLine: { points: [P, P2], label: 'x' },
+    createHorizontalLevel: { price: '65000', label: 'x' },
+    createSupportResistance: { price: '65000', kind: 'support' },
+    createEntryZone: { priceLo: '64000', priceHi: '64500' },
+    createStopLoss: { price: '63000' },
+    createTakeProfit: { price: '68000', index: 0 },
+    createLongMarker: { point: P, text: 'long' },
+    createShortMarker: { point: P, text: 'short' },
+    createInvalidationLevel: { price: '62500' },
+    createFibonacci: { points: [P, P2], label: 'fib' },
+    addIndicator: { indicator: 'RSI', label: 'x' },
+    removeIndicator: { indicator: 'RSI' },
+    setIndicatorParams: { indicator: 'RSI', params: [7] },
+    addSignalRule: { name: 'MACD golden', rule: 'CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9))', direction: 'long' },
+    removeSignalRule: { name: 'MACD golden' },
+    updateOverlay: { overlayId: 'ai-1', patch: { label: 'MACD 기준선' } },
+    hideOverlay: { overlayId: 'ai-1' },
+    deleteOverlay: { overlayId: 'ai-1' },
+  };
+  const base = {
+    schemaVersion: 1, commandId: 'c1', conversationId: 'v1', userId: 'u1',
+    symbol: 'BTCUSDT', marketType: 'perpetual' as const, timeframe: '1h' as const,
+    createdAt: 1_700_000_000_000, expiresAt: 1_700_000_600_000,
+    source: 'ai' as const, confidence: 84, reasoningSummary: 'x',
+    dataSnapshotId: 's1', aiGenerated: true,
+  };
+
+  it('모든 명령에 표본이 있다 — 새 명령을 넣으면 여기도 채운다', () => {
+    const missing = AI_CHART_COMMANDS.filter((c) => SAMPLES[c] === undefined);
+    expect(missing, `표본이 없는 명령:\n${missing.join('\n')}`).toEqual([]);
+  });
+
+  it.each([...AI_CHART_COMMANDS])('%s', (cmd) => {
+    const args = SAMPLES[cmd];
+    const per = CHART_COMMAND_ARG_SCHEMAS[cmd].safeParse(args);
+    expect(per.success, `명령별 스키마가 거부했다: ${per.success ? '' : JSON.stringify(per.error.issues)}`).toBe(true);
+    const common = AiChartCommandSchema.safeParse({ ...base, command: cmd, args });
+    expect(common.success, `공통 args 스키마가 거부했다 — 명령이 실행되지 않는다: ${common.success ? '' : JSON.stringify(common.error.issues)}`).toBe(true);
+  });
+
+  it('중첩 객체 세 종류를 모두 허용한다 — 점·점배열·평면객체', () => {
+    const ok = (args: unknown) => AiChartCommandSchema.safeParse({ ...base, command: 'updateOverlay', args }).success;
+    expect(ok({ point: P }), '점 하나를 거부한다').toBe(true);
+    expect(ok({ points: [P, P2] }), '점 배열을 거부한다').toBe(true);
+    expect(ok({ patch: { label: 'x', width: 2, locked: true } }), '평면 객체를 거부한다').toBe(true);
+    /* ★ 무엇이든 받는 것은 아니다 — 깊은 중첩은 여전히 막는다. */
+    expect(ok({ patch: { nested: { deep: 1 } } }), '깊은 중첩을 통과시켰다').toBe(false);
   });
 });
 
