@@ -505,8 +505,82 @@
              비율을 그리면 아무 뜻이 없는 도형이 된다.
         */
         case 'createFibonacci': {
-          const pts = (Array.isArray(a.points) ? a.points : []).map((p) => ({ time: Number(p.time), price: toNum(p.price) }));
-          if (pts.length !== 2) return t('ai_fib_needs_two');
+          /*
+             ★★★ **모델은 봉 시각을 모른다.** 모델에게 주는 시장 맥락에는 `lastPrice` 와
+               포지션만 있고 **봉 타임스탬프가 없다**(`market-context.ts` 확인). 그래서
+               `points` 의 `time` 두 개를 만들어낼 수 없었다 — 지어내면 화면 밖에 그려지고,
+               못 지어내면 "두 점이 필요하다" 로 끝났다. **운영자 실측: 피보나치가
+               안 그려졌다.**
+
+             ★ 고치는 방향: **시각은 차트가 안다.** 모델에게 모르는 것을 요구하는 대신
+               화면의 봉에서 스윙을 찾는다. 모델이 시각을 줬으면 그것을 존중한다.
+
+             ★ 우선순위
+               ① 두 점에 쓸 수 있는 시각이 있다 → 그대로 쓴다(모델 의도가 가장 정확하다)
+               ② 가격만 있다 → 그 가격에 가장 가까운 봉에 붙인다
+               ③ 아무것도 없다 → 최근 구간의 **고점·저점**을 찾아 그린다
+                 (사람이 피보나치를 그리는 방식이다)
+          */
+          const cs = Array.isArray(context.candles) ? context.candles : [];
+          const raw = Array.isArray(a.points) ? a.points : [];
+          /* 화면 봉 중 그 시각이 실제로 존재하는 범위인지 — 지어낸 시각을 걸러낸다. */
+          const tMin = cs.length ? Number(cs[0].time) : null;
+          const tMax = cs.length ? Number(cs[cs.length - 1].time) : null;
+          const usable = (v) => {
+            const n = Number(v);
+            if (!Number.isFinite(n) || n <= 0) return false;
+            if (tMin === null) return true;
+            /* ★ 한 봉만큼의 여유를 준다 — 경계 봉을 가리키는 것은 정상이다. */
+            const slack = cs.length > 1 ? Math.abs(Number(cs[1].time) - tMin) : 0;
+            return n >= tMin - slack && n <= tMax + slack;
+          };
+          const barNearest = (price) => {
+            if (!cs.length || !Number.isFinite(price)) return anchorTime();
+            let best = cs[0]; let bd = Infinity;
+            for (const c of cs) {
+              const hi = Number(c.high); const lo = Number(c.low);
+              /* 봉이 그 가격을 지났으면 거리 0 이다. */
+              const d = price > hi ? price - hi : (price < lo ? lo - price : 0);
+              if (d < bd) { bd = d; best = c; if (d === 0) break; }
+            }
+            return Number(best.time);
+          };
+          let pts = null;
+          if (raw.length === 2) {
+            const p0 = toNum(raw[0].price); const p1 = toNum(raw[1].price);
+            if (Number.isFinite(p0) && Number.isFinite(p1)) {
+              pts = [
+                { time: usable(raw[0].time) ? Number(raw[0].time) : barNearest(p0), price: p0 },
+                { time: usable(raw[1].time) ? Number(raw[1].time) : barNearest(p1), price: p1 },
+              ];
+            }
+          }
+          if (!pts) {
+            /*
+               ③ 스윙 자동 탐색.
+
+               ★ 최근 구간만 본다 — 전체를 보면 몇 달 전 고점이 잡혀 지금 흐름과 무관한
+                 비율선이 나온다. 화면 봉의 뒤쪽 절반(최소 20봉)을 쓴다.
+               ★ **고점·저점의 순서를 시간순으로 유지한다.** 저점이 먼저면 상승 스윙
+                 (아래→위), 고점이 먼저면 하락 스윙이다. 뒤집으면 비율이 거꾸로 붙는다.
+            */
+            if (cs.length < 3) return t('ai_fib_needs_two');
+            const from = Math.max(0, cs.length - Math.max(20, Math.floor(cs.length / 2)));
+            const win = cs.slice(from);
+            let hi = win[0]; let lo = win[0];
+            for (const c of win) {
+              if (Number(c.high) > Number(hi.high)) hi = c;
+              if (Number(c.low) < Number(lo.low)) lo = c;
+            }
+            if (Number(hi.time) === Number(lo.time)) return t('ai_fib_needs_two');
+            const a0 = Number(lo.time) < Number(hi.time)
+              ? { time: Number(lo.time), price: Number(lo.low) }
+              : { time: Number(hi.time), price: Number(hi.high) };
+            const a1 = Number(lo.time) < Number(hi.time)
+              ? { time: Number(hi.time), price: Number(hi.high) }
+              : { time: Number(lo.time), price: Number(lo.low) };
+            pts = [a0, a1];
+          }
           addOverlay({ id, type: 'fibonacci', source: 'ai-draft', label: a.label || t('ai_overlay_fib'), points: pts });
           return t('ai_drew_fib', { from: px(pts[0].price), to: px(pts[1].price) });
         }
@@ -668,7 +742,32 @@
           */
           return t('ai_cmd_unknown', { command: String(cmd.command) });
       }
-    }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, t]);
+    /*
+       ★ `context.candles` 를 의존성에 넣는다 — 피보나치 스윙 탐색이 이 값을 읽는다.
+         빼면 첫 봉 묶음에 고정되어 시간이 지나도 옛 구간에 그린다.
+    */
+    }, [addOverlay, _removeOverlay, updateOverlay, anchorTime, context.candles, t]);
+
+    /*
+       명령 적용 경로를 진단용으로 노출한다.
+
+       ★★★ **모델 없이 차트 명령을 시험할 방법이 없었다.** 그래서 피보나치가 안 그려지는
+         것을 브라우저로 확인할 수 없었고, 스키마가 낼 수 없는 인자를 요구하고 있다는 것을
+         **프로덕션 로그를 뒤져서야** 알았다(같은 종류의 결함을 이 방식으로 두 번 찾았다).
+
+       ★ `__qtChart` 와 **똑같은 조건**을 쓴다 — localhost 에서만. 프로덕션 표면을 늘리지
+         않는다. 그리기 명령뿐이고 주문 경로는 없지만, 진단 도구를 고객 화면에 두지 않는다.
+    */
+    useEffect(() => {
+      let allowed = false;
+      try {
+        const h = String(window.location?.hostname || '');
+        allowed = h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+      } catch (e) { void e; }
+      if (!allowed) return undefined;
+      window.__qtApplyChartCommand = applyCommand;
+      return () => { try { delete window.__qtApplyChartCommand; } catch (e) { void e; } };
+    }, [applyCommand]);
 
     /* 서버가 검증해 보낸 SignalObject를 오버레이(진입/손절/익절/마커)로 그리고 상위에 제안한다. */
     /*

@@ -2788,6 +2788,32 @@
       if (!p || p.price == null) return null;
       return [{ timestamp: p.time ?? Date.now(), value: p.price }];
     }
+    /*
+       ★★★ **이 분기가 없어서 피보나치가 한 번도 그려지지 않았다.**
+
+         `OVERLAY_NAME` 에 `fibonacci: 'fibonacciLine'` 을 넣고 AI 명령까지 만들었는데
+         **좌표 변환을 빼먹었다.** 여기서 `null` 이 나오면 위 동기화 루프가
+         `if (!points) continue` 로 조용히 건너뛴다 — 오류도 로그도 없다.
+         AI 는 "피보나치를 그렸다" 고 답하고 화면에는 아무것도 없었다. 운영자가
+         "피보나치는 안 그려지는 것 같다" 고 한 그대로다.
+
+       ★ 내가 앞서 "피보나치 비율선 7개 정확히 그려짐" 으로 확인했다고 적은 것은
+         `chart.createOverlay({name:'fibonacciLine'})` 를 **직접** 부른 것이었다.
+         라이브러리가 되는지를 본 것이고 **우리 경로를 지나지 않았다.**
+         ★ 교훈: 확인은 **고객이 지나는 경로**로 해야 한다. 우회로로 본 것은 확인이 아니다.
+
+       ★ 두 점 모두 시각이 필요하다 — 없으면 마지막 봉으로 접는다. 다만 두 점이 같은
+         시각이면 klinecharts 가 구간을 못 정하므로 그때는 그리지 않는다.
+    */
+    if (ov.type === 'fibonacci') {
+      if (!ov.points || ov.points.length < 2) return null;
+      const two = ov.points.slice(0, 2);
+      if (two.some((p) => !p || p.price == null)) return null;
+      const now = Date.now();
+      const out = two.map((p) => ({ timestamp: p.time ?? now, value: p.price }));
+      if (out[0].timestamp === out[1].timestamp) return null;
+      return out;
+    }
     return null;
   }
 

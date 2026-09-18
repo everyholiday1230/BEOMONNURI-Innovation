@@ -208,6 +208,7 @@
       strat_basis: '回测基准',
       strat_browse: '浏览策略',
       strat_builtin_only: '仅内置策略 — 还没有用户自建的策略',
+      strat_my_open: '我的规则',
       strat_caveats_title: '这些数字是怎么算出来的',
       strat_gallery_sub: '基于历史 K 线回测。过去的结果不能预测未来收益，这也不构成投资建议。',
       strat_not_found: '找不到该策略',

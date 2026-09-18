@@ -2243,6 +2243,7 @@
       strategy_builtin: 'Incluida',
       strat_total: 'Estrategias',
       strat_builtin_only: 'Solo las incluidas — todavía no hay estrategias creadas por usuarios',
+      strat_my_open: 'Mis reglas',
       strat_avg_backtest: 'Retorno promedio del backtest',
       strat_avg_sub: 'De {n} de {total} con backtest completado',
       strat_following: 'Siguiendo',

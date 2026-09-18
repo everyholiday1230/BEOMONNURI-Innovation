@@ -177,7 +177,19 @@ export function createStrategyRouter(d: StrategyRouterDeps): Hono {
       dataSource: d.candles.source(),
       caveats: [...BACKTEST_CAVEATS],
       /** No tiers and no user-authored strategies exist. */
-      unavailable: ['subscriptionTiers', 'userAuthoredStrategies', 'liveTrackRecord'],
+      /*
+         ★★★ `userAuthoredStrategies` 를 뺐다.
+
+           고객이 조건식을 써서 신호 규칙을 만들고 저장하는 기능이 생겼다
+           (`/me/strategies` · kind=signal). 그런데도 여기서 "없는 기능" 이라고
+           알려주니 **화면이 만들기 버튼을 숨겼다** — 만들 수 있게 만들어 놓고
+           들어가는 문이 없었다. 운영자가 갤러리 화면에서 "여기서 뭐 하라는 거냐"
+           고 물은 이유다.
+
+         ★ 나머지 둘은 그대로다: 구독 등급별 전략 구분은 없고, 실거래 실적은
+           아직 쌓이지 않았다. 없는 것을 있다고 하지 않는다.
+      */
+      unavailable: ['subscriptionTiers', 'liveTrackRecord'],
     });
   });
 

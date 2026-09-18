@@ -2315,6 +2315,7 @@
       strategy_builtin: 'Có sẵn',
       strat_total: 'Chiến lược',
       strat_builtin_only: 'Chỉ có chiến lược sẵn có — chưa có chiến lược nào do người dùng viết',
+      strat_my_open: 'Quy tắc của tôi',
       strat_avg_backtest: 'Lợi nhuận backtest trung bình',
       strat_avg_sub: 'Từ {n} trong {total} chiến lược đã hoàn tất backtest',
       strat_following: 'Đang theo dõi',

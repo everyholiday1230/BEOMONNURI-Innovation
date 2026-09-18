@@ -2280,6 +2280,7 @@
       strategy_builtin: 'अंतर्निहित',
       strat_total: 'रणनीतियाँ',
       strat_builtin_only: 'केवल अंतर्निहित — उपयोगकर्ताओं द्वारा लिखी कोई रणनीति अभी नहीं',
+      strat_my_open: 'मेरे नियम',
       strat_avg_backtest: 'औसत backtest प्रतिफल',
       strat_avg_sub: 'पूर्ण backtest वाली {total} में से {n} से',
       strat_following: 'फ़ॉलो कर रहे हैं',

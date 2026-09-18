@@ -163,7 +163,15 @@ const PROPOSAL_TOOL_DESCRIPTIONS: Record<ProposalToolName, string> = {
          없었을 뿐이다. 못 하는 것과 안 만든 것은 다르다.
     */
     '- createFibonacci: {"points":[{"time":1700000000000,"price":"64000"},{"time":1700009000000,"price":"68000"}],"label":"optional"}\n' +
-    '  Two points (start, end) from real candle timestamps — the swing you want measured.\n' +
+    '  Two points (start, end) of the swing you want measured.\n' +
+    /*
+       ★★★ **모델은 봉 시각을 모른다** — 시장 맥락에 타임스탬프가 없다. 그래서 "실제 봉
+         타임스탬프에서 가져와라" 고 지시하면 지어내거나 포기했다(실측: 안 그려졌다).
+         **시각은 차트가 안다.** 모르는 것을 요구하지 않고, 생략을 허용한다고 알려준다.
+    */
+    '  `time` is OPTIONAL: omit it and the chart anchors each price to the matching candle.\n' +
+    '  You may also omit `points` entirely — the chart then measures the recent swing high/low.\n' +
+    '  Prefer omitting `points` unless the customer named specific prices.\n' +
     '  The ratios (23.6/38.2/50/61.8/78.6/100) are drawn by the chart; do not pass them.\n' +
     '- createStopLoss: {"price":"63000"}  · createInvalidationLevel: {"price":"62500"}\n' +
     '- createTakeProfit: {"price":"68000","index":0}\n' +

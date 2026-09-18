@@ -115,8 +115,17 @@ describe('STR-01 the catalogue carries no invented metrics', () => {
     expect(b.metricsNoteKey).toBe('bt_metrics_note');
     expect(b).not.toHaveProperty('metricsNote');
     expect(b.unavailable).toContain('subscriptionTiers');
-    expect(b.unavailable).toContain('userAuthoredStrategies');
     expect(b.unavailable).toContain('liveTrackRecord');
+    /*
+       ★★★ `userAuthoredStrategies` 는 이제 **없는 기능이 아니다**(2026-09-18).
+         고객이 조건식을 써서 신호 규칙을 만들고 저장한다(`/me/strategies` kind=signal).
+
+       ★ 여기서 계속 "없는 기능" 이라고 알려주면 **화면이 만들기 버튼을 숨긴다.**
+         만들 수 있게 만들어 놓고 들어가는 문이 없어진다 — 실제로 그랬고, 운영자가
+         갤러리 화면에서 "여기서 뭐 하라는 거냐" 고 물었다.
+    */
+    expect(b.unavailable, '사용자 작성을 없는 기능으로 알리면 화면이 문을 닫는다')
+      .not.toContain('userAuthoredStrategies');
   });
 
   it('[2] a benchmark is present so returns are comparable', async () => {

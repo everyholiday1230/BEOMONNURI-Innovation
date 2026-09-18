@@ -166,8 +166,21 @@ describe('피보나치', () => {
     ] as const) {
       expect(CHART_COMMAND_ARG_SCHEMAS.createFibonacci.safeParse(args).success, `${why} 가 통과됐다`).toBe(false);
     }
-    /* 화면도 두 점이 아니면 그리지 않고 그 사실을 말한다. */
-    expect(copilot, '두 점 검사가 없다').toMatch(/if \(pts\.length !== 2\) return t\('ai_fib_needs_two'\)/u);
+    /*
+       화면은 **두 점을 만들어 낼 수 없을 때만** 그리지 않고 그 사실을 말한다.
+
+       ★★★ 계약이 바뀌었다(2026-09-18). 예전에는 모델이 두 점을 못 주면 거기서 끝냈다.
+         그런데 **모델에게 주는 시장 맥락에는 봉 시각이 없다** — 낼 수 없는 것을
+         요구했으니 피보나치가 실제로 안 그려졌다(운영자 실측).
+         이제 시각은 차트가 정하고, 점이 없으면 최근 스윙을 찾는다.
+
+       ★ 그래도 봉이 너무 적으면 스윙을 정할 수 없다 — 그때는 여전히 말해 준다.
+         조용히 아무것도 안 하지 않는다.
+    */
+    expect(copilot, '봉이 부족할 때 알리지 않는다')
+      .toMatch(/if \(cs\.length < 3\) return t\('ai_fib_needs_two'\)/u);
+    expect(copilot, '두 점이 같은 봉일 때 알리지 않는다')
+      .toMatch(/if \(Number\(hi\.time\) === Number\(lo\.time\)\) return t\('ai_fib_needs_two'\)/u);
   });
 
   it('비율을 우리가 지정하지 않는다', () => {

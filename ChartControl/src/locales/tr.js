@@ -2296,6 +2296,7 @@
       strategy_builtin: 'Yerleşik',
       strat_total: 'Stratejiler',
       strat_builtin_only: 'Yalnızca yerleşik olanlar — henüz kullanıcıların yazdığı strateji yok',
+      strat_my_open: 'Kurallarım',
       strat_avg_backtest: 'Ortalama geriye dönük test getirisi',
       strat_avg_sub: 'Testi tamamlanmış {total} stratejiden {n} tanesinden',
       strat_following: 'Takip ediliyor',

@@ -204,6 +204,7 @@
       strat_basis: 'バックテストの前提',
       strat_browse: '戦略を見る',
       strat_builtin_only: '組み込みのみ — ユーザー作成の戦略はまだありません',
+      strat_my_open: 'マイルール',
       strat_caveats_title: 'これらの数字の出し方',
       strat_gallery_sub: '過去のローソク足でバックテストしたものです。過去の結果は将来の収益を示すものではなく、投資助言でもありません。',
       strat_not_found: 'その戦略が見つかりませんでした',

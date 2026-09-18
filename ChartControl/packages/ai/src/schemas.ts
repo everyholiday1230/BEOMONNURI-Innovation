@@ -38,6 +38,14 @@ export const AiCommonFields = z.object({
 });
 
 const OverlayPoint = z.object({ time: EpochMs, price: DecimalString });
+/*
+   피보나치 전용 점 — `time` 이 없어도 된다.
+
+   ★ 다른 도형(추세선 등)은 시각을 요구한 채로 둔다. 두 점의 기울기가 의미를 갖는
+     도형이고, 모델이 시각을 못 주면 화면이 임의로 정할 수 없다. 피보나치는 수평
+     비율선이라 시각이 구간 표시일 뿐이어서 화면이 정할 수 있다.
+*/
+const FibPoint = z.object({ time: EpochMs.optional(), price: DecimalString });
 
 /** The allowlisted AI chart commands (docs PHASE4-06). Anything else fails validation. */
 export const AI_CHART_COMMANDS = [
@@ -224,12 +232,23 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
   /*
      피보나치 되돌림 — 두 점(시작·끝)으로 그린다.
 
-     ★ 두 점은 **실제 캔들 시각**이어야 한다. 추세선(createTrendLine)과 같은 규칙이다.
+     ★★★ **`points` 도, 그 안의 `time` 도 선택 사항이다.**
+
+       모델에게 주는 시장 맥락에는 **봉 타임스탬프가 없다**(`market-context.ts`).
+       그런데 여기서 두 점과 시각을 **강제했다.** 모델이 낼 수 없는 것을 요구했으니
+       검증에서 떨어지거나 지어낸 시각으로 화면 밖에 그려졌다 — 실측으로 피보나치가
+       안 그려지는 것을 확인했다.
+
+       시각은 **차트가 안다.** 그래서
+         · `time` 을 빼면 화면이 그 가격에 맞는 봉에 붙인다
+         · `points` 를 아예 빼면 화면이 최근 구간의 고점·저점을 찾아 그린다
+
+     ★ 가격은 여전히 필수다 — 고객이 특정 구간을 말했으면 그 값을 존중해야 한다.
      ★ 비율은 klinecharts 가 정한다(23.6/38.2/50/61.8/78.6/100). 우리가 지정하지
        않는다 — 화면 도구로 그린 것과 같은 도형이어야 고객이 혼란스럽지 않다.
   */
   createFibonacci: z.object({
-    points: z.tuple([OverlayPoint, OverlayPoint]),
+    points: z.tuple([FibPoint, FibPoint]).optional(),
     label: z.string().max(80).optional(),
   }),
   addIndicator: z

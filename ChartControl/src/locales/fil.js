@@ -2368,6 +2368,7 @@
       strategy_builtin: 'Built-in',
       strat_total: 'Mga estratehiya',
       strat_builtin_only: 'Built-in lang — wala pang estratehiya na isinulat ng mga user',
+      strat_my_open: 'Mga rule ko',
       strat_avg_backtest: 'Avg backtest return',
       strat_avg_sub: 'Mula sa {n} sa {total} na may kumpletong backtest',
       strat_following: 'Sinusundan',

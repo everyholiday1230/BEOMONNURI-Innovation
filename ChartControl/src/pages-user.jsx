@@ -618,30 +618,29 @@
         actions={
           <>
             {/*
-               전략 작성·AI 생성.
+               내 전략·규칙 화면으로.
 
-               서버가 userAuthoredStrategies 를 unavailable 로 알려준다 —
-               사용자가 전략을 만들 수 있는 기능이 없다. 버튼을 두면 눌러보고
-               아무 일도 없어 고장으로 오해한다.
+               ★★★ **여기에 문이 없었다.** `/ai-strategies/my` 는 라우터에 등록돼 있고
+                 저장·불러오기도 동작하는데, **화면 어디에도 그리로 가는 링크가 없었다.**
+                 사이드바에도 갤러리만 있다. 운영자가 이 화면에서 "여기서 뭐 하라는
+                 거냐" 고 물은 것이 정확한 지적이다 — 만들 수 있게 만들어 놓고 들어가는
+                 길을 안 냈다.
+
+               ★ 예전에는 서버가 `userAuthoredStrategies` 를 unavailable 로 줘서 버튼을
+                 '준비중' 으로 잠갔다. 이제 고객이 규칙을 만들 수 있으므로 잠금을 푼다.
+               ★ 로그인해야 쓸 수 있는 화면이다. 로그인 전에는 버튼을 감추지 않고 보여준다 —
+                 기능이 있다는 것을 알려야 로그인할 이유가 생긴다. 화면 안에서 안내한다.
             */}
-            {!isLive || !unavailable.has('userAuthoredStrategies') ? (
-              <>
-                {/*
-                   ★ 백엔드에는 전략 생성 API(POST /strategies)가 있지만, 이 화면엔
-                     아직 입력 폼이 없어 눌러도 사용자가 만들 방법이 없다. 죽은 버튼으로
-                     두지 않고 '준비중' 으로 명확히 표시한다. 폼을 붙이면 disabled 를
-                     떼고 onClick 으로 생성 흐름을 연결하면 된다.
-                */}
-                <button aria-label={t('sec_pending')} className="btn btn--sm" disabled title={t('sec_pending')}>
-                  <I.Plus size={12}/> {t('strat_create')} <span className="qt-pending-mark">{t('sec_pending')}</span>
-                </button>
-                <button aria-label={t('sec_pending')} className="btn btn--sm btn--primary" disabled title={t('sec_pending')}>
-                  <I.Sparkles size={12}/> {t('strat_ai_generate')} <span className="qt-pending-mark">{t('sec_pending')}</span>
-                </button>
-              </>
-            ) : (
-              <button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
-            )}
+            <button
+              aria-label={t('strat_my_open')}
+              className="btn btn--sm btn--primary"
+              /* ★ shellProps 에 pushRoute 가 없다 — 다른 화면들과 같이 hash 로 이동한다. */
+              onClick={() => { window.location.hash = '#/ai-strategies/my'; }}
+              title={t('strat_my_open')}
+            >
+              <I.Plus size={12}/> {t('strat_my_open')}
+            </button>
+            <button aria-label={t('refresh')} className="btn btn--sm" onClick={load} title={t('refresh')}><I.Refresh size={12}/></button>
           </>
         }
       >

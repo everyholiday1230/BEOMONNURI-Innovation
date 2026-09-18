@@ -2241,6 +2241,7 @@
       strategy_builtin: 'Nativa',
       strat_total: 'Estratégias',
       strat_builtin_only: 'Apenas nativas — nenhuma estratégia criada por usuário ainda',
+      strat_my_open: 'Minhas regras',
       strat_avg_backtest: 'Retorno médio no backtest',
       strat_avg_sub: 'De {n} de {total} com backtest concluído',
       strat_following: 'Acompanhando',

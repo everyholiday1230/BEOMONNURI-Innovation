@@ -2100,6 +2100,7 @@
       strategy_builtin: 'Built-in',
       strat_total: 'Strategies',
       strat_builtin_only: 'Built-in only — no user-authored strategies yet',
+      strat_my_open: 'My rules',
       strat_avg_backtest: 'Avg Backtest Return',
       strat_avg_sub: 'From {n} of {total} with a completed backtest',
       strat_following: 'Following',
