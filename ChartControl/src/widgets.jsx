@@ -446,17 +446,37 @@
     /*
        즐겨찾기(★).
 
-       원래 장식이었다. 실제로 토글되고 저장되어야 워치리스트로 쓸 수 있다.
-       저장은 QTFavorites 가 담당한다(localStorage) — 서버 계정 동기화는
-       아직 없으므로 기기별로 유지된다는 점을 제목에 밝힌다.
+       ★★★ **즐겨찾기 저장소가 두 개였다.**
+
+         이 별은 `QTFavorites`(favorites.js, localStorage 기반)에, 마켓워치와 시장
+         화면의 별은 `QTMarkets`(markets-source.jsx, 서버 `saveFavorites`)에 썼다.
+         **서로를 못 본다.** 그래서 여기서 별을 눌러도 마켓워치 즐겨찾기 탭에는
+         나타나지 않았다 — 운영자 보고: "왼쪽 상단에 있는 별은 눌러도 즐겨찾기가
+         안 되는 것 같아. 마켓와치에서의 별은 되는데."
+
+       ★ 마켓워치 쪽으로 맞춘다. 이유가 셋이다.
+           · 고객이 즐겨찾기를 **보는 곳**이 마켓워치다
+           · `QTMarkets` 는 서버에 저장한다 — 다른 기기에서도 남는다
+           · **현물·선물을 구분한다**(`SPOT:` 접두사). 같은 종목이 두 시장에 있고
+             한쪽만 즐겨찾기하는 것이 정상이다
+       ★ `favUnknown` 을 본다 — 아직 못 읽었으면 "즐겨찾기 아님" 으로 단정하지 않는다.
+         단정하면 새로 고친 직후 별이 꺼져 보이고, 눌러서 **지워버린다.**
     */
     const favSym = market.symbol || (market.base && market.quote ? market.base + market.quote : '');
-    const favOn = Boolean(window.QTFavorites && window.QTFavorites.has(favSym));
     const [, bumpFav] = useState(0);
     useEffect(() => {
-      if (!window.QTFavorites) return undefined;
-      return window.QTFavorites.subscribe(() => bumpFav((n) => n + 1));
+      if (!window.QTMarkets || !window.QTMarkets.subscribe) return undefined;
+      return window.QTMarkets.subscribe(() => bumpFav((n) => n + 1));
     }, []);
+    const favMode = (window.QTMode && window.QTMode.get && window.QTMode.get() === 'spot') ? 'spot' : 'futures';
+    const favLoading = Boolean(window.QTMarkets && window.QTMarkets.favUnknown && window.QTMarkets.favUnknown());
+    const favOn = Boolean(!favLoading && window.QTMarkets && window.QTMarkets.isFav && window.QTMarkets.isFav(favSym, favMode));
+    const toggleFav = () => {
+      if (!window.QTMarkets || !window.QTMarkets.toggleFav || !favSym) return;
+      /* ★ 아직 목록을 못 읽었으면 누르지 않는다 — 있는 것을 지울 수 있다. */
+      if (favLoading) return;
+      window.QTMarkets.toggleFav(favSym, favMode);
+    };
     return (
       <div className="symbol-header--v2">
         {/* GROUP 1: Identity — what am I looking at? */}
@@ -469,12 +489,12 @@
               aria-pressed={favOn}
               title={favOn ? t('fav_remove') : t('fav_add')}
               style={{cursor:'pointer', opacity: favOn ? 1 : 0.35}}
-              onClick={() => { if (window.QTFavorites && favSym) window.QTFavorites.toggle(favSym); }}
+              onClick={toggleFav}
               onKeyDown={(e) => {
                 // 키보드로도 토글되어야 한다 (접근성).
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  if (window.QTFavorites && favSym) window.QTFavorites.toggle(favSym);
+                  toggleFav();
                 }
               }}
             >★</span>
@@ -2273,7 +2293,22 @@
                           )}
                           <span className="badge badge--perp" style={{fontSize:9, padding:'0 4px'}}>{p.type}</span>
                           <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.mode}</span>
-                          <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.leverage}×</span>
+                          {/*
+                             ★★★ **레버리지를 모르면 배지를 안 그린다.**
+
+                               `leverage` 가 없으면 예전에는 `{undefined}×` 가 되어
+                               화면에 **`×` 만** 나왔다(운영자 보고: "레버리지가 제대로
+                               안 나오는 것 같아"). 값이 없는 것을 값처럼 보여준 것이다.
+
+                             ★ KuCoin 은 **크로스 포지션에 `realLeverage` 를 주지 않는다**
+                               (`private-rest.ts`: `Number(r.realLeverage ?? 0)` → 0).
+                               거래소가 안 주는 값을 계산해 채우지 않는다 — 증거금으로
+                               역산하면 수수료·미실현손익 때문에 실제와 어긋나고,
+                               레버리지는 청산가와 직결되는 수치라 틀리면 위험하다.
+                          */}
+                          {Number(p.leverage) > 0 ? (
+                            <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.leverage}×</span>
+                          ) : null}
                         </div>
                       </td>
                       <td>

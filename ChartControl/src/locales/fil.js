@@ -1128,6 +1128,7 @@
       exchange_save_done: 'Naka-save na',
       pos_close_unavailable: 'Walang bukas na position na isasara',
       pos_close_switch_market: 'Lumipat sa market order para isara kaagad',
+      pos_close_switched: 'Lumipat sa {symbol}. Pindutin muli ang close para isara ang posisyon.',
 
       // --- 기본 액션 ---
       cancel: 'Kanselahin',

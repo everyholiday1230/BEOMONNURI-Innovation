@@ -193,6 +193,22 @@
     /** 즐겨찾기 */
     isFav,
     toggleFav: toggle,
+    /*
+       ★★★ 즐겨찾기 변화를 구독한다.
+
+         전에는 구독이 `use()` 훅 안에만 있어서 **시장 목록을 쓰는 화면만** 갱신됐다.
+         심볼 머리의 별은 목록을 쓰지 않으므로 눌러도 모양이 안 바뀌었다.
+
+       ★ 목록을 아직 안 읽었으면 여기서 읽는다(`load()`). 안 읽으면 `favUnknown` 이
+         계속 참이어서 별을 누를 수 없다 — 즐겨찾기 화면을 한 번도 안 열고 차트로
+         바로 온 고객이 그 상태다.
+    */
+    subscribe: (fn) => {
+      if (typeof fn !== 'function') return () => {};
+      load();
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
     /** 아직 읽지 못했으면 true — 화면이 '0개' 라고 단정하지 않게 한다. */
     favUnknown: () => favSet === null,
 

@@ -995,6 +995,7 @@
       exchange_save_done: 'API कुंजी सहेज दी गई।',
       pos_close_unavailable: 'पोज़िशन नहीं मिली — रिफ़्रेश करके फिर कोशिश करें।',
       pos_close_switch_market: 'पहले उस मार्केट पर जाएँ, फिर पोज़िशन बंद करें।',
+      pos_close_switched: '{symbol} पर स्विच किया। पोजीशन बंद करने के लिए फिर से क्लोज दबाएँ।',
       cancel: 'रद्द करें',
       save: 'सहेजें',
       clear: 'साफ़ करें',

@@ -1507,3 +1507,85 @@ describe('차트 라벨 — 손익만 남긴다', () => {
     expect(lv, '숫자를 잘라서 줄인다').not.toMatch(/\.slice\(0,\s*\d+\)\s*\+\s*'…'/);
   });
 });
+
+describe('운영자가 짚은 세 결함 (2026-09-18)', () => {
+  const widgets = read('src/widgets.jsx');
+  const app = read('src/app.jsx');
+  const marketsSrc = read('src/markets-source.jsx');
+
+  /*
+     ★★★ **즐겨찾기 저장소가 두 개였다.**
+       심볼 머리의 별은 `QTFavorites`(localStorage), 마켓워치·시장 화면의 별은
+       `QTMarkets`(서버 `saveFavorites`). **서로를 못 본다.**
+       운영자: "왼쪽 상단에 있는 별은 눌러도 즐겨찾기가 안 되는 것 같아.
+       마켓와치에서의 별은 되는데." — 정확한 증상이다.
+  */
+  it('심볼 머리의 별이 마켓워치와 같은 저장소를 쓴다', () => {
+    const i = widgets.indexOf('const favSym =');
+    const body = widgets.slice(i, i + 1800);
+    expect(body, 'QTFavorites 를 계속 쓴다 — 마켓워치가 못 본다')
+      .not.toMatch(/window\.QTFavorites/u);
+    expect(body, 'QTMarkets.isFav 를 쓰지 않는다').toMatch(/window\.QTMarkets\.isFav\(favSym, favMode\)/u);
+    expect(body, 'QTMarkets.toggleFav 를 쓰지 않는다').toMatch(/window\.QTMarkets\.toggleFav\(favSym, favMode\)/u);
+  });
+
+  it('현물·선물을 구분한다', () => {
+    /* ★ 같은 종목이 두 시장에 있고 한쪽만 즐겨찾기하는 것이 정상이다. */
+    expect(widgets, '시장 구분 없이 즐겨찾기한다')
+      .toMatch(/const favMode = \(window\.QTMode && window\.QTMode\.get && window\.QTMode\.get\(\) === 'spot'\) \? 'spot' : 'futures'/u);
+  });
+
+  it('목록을 못 읽었으면 별을 누르지 않는다', () => {
+    /*
+       ★★ 단정하면 새로 고친 직후 별이 꺼져 보이고, 눌러서 **있는 것을 지워버린다.**
+    */
+    expect(widgets, '읽기 전 상태를 구별하지 않는다').toMatch(/const favLoading = Boolean\(window\.QTMarkets && window\.QTMarkets\.favUnknown/u);
+    const i = widgets.indexOf('const toggleFav = () =>');
+    expect(widgets.slice(i, i + 400), '읽기 전에도 토글한다').toMatch(/if \(favLoading\) return;/u);
+  });
+
+  it('별이 갱신되도록 구독한다', () => {
+    /*
+       ★ 전에는 구독이 `use()` 훅 안에만 있어 **시장 목록을 쓰는 화면만** 갱신됐다.
+         심볼 머리는 목록을 쓰지 않으므로 눌러도 모양이 안 바뀐다.
+     */
+    expect(marketsSrc, 'subscribe 를 내보내지 않는다').toMatch(/subscribe: \(fn\) => \{/u);
+    /* ★ 구독 시 목록을 읽는다 — 안 읽으면 favUnknown 이 계속 참이라 누를 수 없다. */
+    expect(marketsSrc, '구독할 때 목록을 읽지 않는다').toMatch(/subscribe: \(fn\) => \{[\s\S]{0,200}load\(\);/u);
+    expect(widgets, '머리 별이 구독하지 않는다').toMatch(/window\.QTMarkets\.subscribe\(\(\) => bumpFav/u);
+  });
+
+  /*
+     ★★★ **레버리지를 모르면 배지를 안 그린다.**
+       `leverage` 가 없으면 `{undefined}×` 가 되어 화면에 **`×` 만** 나왔다.
+       KuCoin 은 크로스 포지션에 `realLeverage` 를 주지 않는다.
+  */
+  it('레버리지가 없으면 배지를 그리지 않는다', () => {
+    expect(widgets, '값이 없어도 배지를 그린다 — × 만 남는다')
+      .toMatch(/Number\(p\.leverage\) > 0 \? \([\s\S]{0,240}\{p\.leverage\}×/u);
+  });
+
+  /*
+     ★★★ 다른 종목의 포지션을 닫으려 하면 **안내만 하고 아무것도 해 주지 않았다.**
+  */
+  it('다른 종목이면 자동으로 옮긴다', () => {
+    const i = app.indexOf("if (cur && pos.symbol && cur !== pos.symbol)");
+    expect(i, '종목 불일치 처리가 없다').toBeGreaterThan(-1);
+    const body = app.slice(i, i + 1400);
+    expect(body, '자동으로 옮기지 않는다').toMatch(/props\.onSelectMarket\(hit\)/u);
+    /* ★ 옮겼는지 못 옮겼는지 구별해 말한다 — 할 일이 다르다. */
+    expect(body, '결과를 구별해 알리지 않는다').toMatch(/moved[\s\S]{0,120}pos_close_switched/u);
+  });
+
+  it('옮긴 직후에 주문을 보내지 않는다', () => {
+    /*
+       ★★★ 시장 전환은 비동기다(캔들·정밀도·틱을 다시 읽는다). 그 사이에 주문을
+         만들면 **옛 시장 기준 값이 나갈 수 있다.** 실주문이 걸린 화면에서 그 위험을
+         감수하지 않는다. 한 번 더 누르는 것이 잘못된 종목에 시장가가 나가는 것보다 낫다.
+    */
+    const i = app.indexOf("if (cur && pos.symbol && cur !== pos.symbol)");
+    const body = app.slice(i, i + 1400);
+    expect(body, '옮긴 뒤 그대로 주문을 보낸다').toMatch(/return;\s*\}/u);
+    expect(body, '주문 호출이 이 분기 안에 있다').not.toMatch(/props\.onPlaceOrder\(/u);
+  });
+});

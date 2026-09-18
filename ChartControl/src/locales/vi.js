@@ -997,6 +997,7 @@
       exchange_save_done: 'Đã lưu khoá API.',
       pos_close_unavailable: 'Không tìm thấy vị thế — hãy tải lại và thử lại.',
       pos_close_switch_market: 'Hãy chuyển sang thị trường đó trước, rồi đóng vị thế.',
+      pos_close_switched: 'Đã chuyển sang {symbol}. Nhấn đóng lần nữa để đóng vị thế.',
       cancel: 'Hủy',
       save: 'Lưu',
       clear: 'Xóa hết',

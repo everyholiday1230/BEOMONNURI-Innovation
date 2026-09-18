@@ -893,6 +893,7 @@
       exchange_save_done: 'API key saved.',
       pos_close_unavailable: 'Position not found — refresh and try again.',
       pos_close_switch_market: 'Switch to that market first, then close the position.',
+      pos_close_switched: 'Moved to {symbol}. Press close again to close the position.',
       cancel: 'Cancel',
       save: 'Save',
       clear: 'Clear',

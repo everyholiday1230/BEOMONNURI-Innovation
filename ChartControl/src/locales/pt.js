@@ -979,6 +979,7 @@
       exchange_save_done: 'Chave de API salva.',
       pos_close_unavailable: 'Posição não encontrada — atualize e tente novamente.',
       pos_close_switch_market: 'Troque para esse mercado primeiro e depois feche a posição.',
+      pos_close_switched: 'Mudou para {symbol}. Toque em fechar novamente para encerrar a posição.',
       cancel: 'Cancelar',
       save: 'Salvar',
       clear: 'Limpar',

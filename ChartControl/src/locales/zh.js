@@ -1114,6 +1114,7 @@
       exchange_save_done: 'API 密钥已保存。',
       pos_close_unavailable: '未找到该仓位 — 请刷新后重试。',
       pos_close_switch_market: '请先切换到该交易对，再平仓。',
+      pos_close_switched: '已切换到 {symbol}。请再次点击平仓。',
       cancel: '取消',
       save: '保存',
       clear: '清除',

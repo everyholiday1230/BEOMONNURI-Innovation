@@ -1001,6 +1001,7 @@
       exchange_save_done: 'API anahtarı kaydedildi.',
       pos_close_unavailable: 'Pozisyon bulunamadı — sayfayı yenileyip tekrar deneyin.',
       pos_close_switch_market: 'Önce o piyasaya geçin, sonra pozisyonu kapatın.',
+      pos_close_switched: '{symbol} pazarına geçildi. Pozisyonu kapatmak için tekrar kapat’a basın.',
       cancel: 'İptal',
       save: 'Kaydet',
       clear: 'Temizle',

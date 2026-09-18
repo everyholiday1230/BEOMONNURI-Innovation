@@ -1113,6 +1113,7 @@
       exchange_save_done: 'API キーを保存しました。',
       pos_close_unavailable: 'ポジションが見つかりません — 画面を更新して再度お試しください。',
       pos_close_switch_market: 'その銘柄に切り替えてからポジションを決済してください。',
+      pos_close_switched: '{symbol} に移動しました。もう一度クローズを押してください。',
       cancel: 'キャンセル',
       save: '保存',
       clear: 'すべて解除',

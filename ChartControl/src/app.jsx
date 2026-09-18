@@ -3442,11 +3442,38 @@
             }
             /*
                ★ 다른 종목의 포지션은 그 종목으로 옮긴 뒤에 닫는다. 주문은 현재 시장을
-                 기준으로 만들어지므로, 여기서 그대로 보내면 **엉뚱한 종목에 주문이 간다.**
+                 기준으로 만들어지므로(`placeOrder` 가 `market` 에서 symbol 을 만든다),
+                 여기서 그대로 보내면 **엉뚱한 종목에 주문이 간다.**
+
+               ★★★ 예전에는 "그 시장으로 먼저 옮기세요" 라고만 했다. 옳지만 **고객이
+                 직접 종목을 찾아 옮겨야 했다** — 운영자 보고: "포지션 종료하려고 할 때
+                 클로즈했는데 이건 왜 나오는 거야?" 안내만 하고 아무것도 해 주지 않는
+                 것은 반쪽이다.
+
+               ★ 그래서 **종목을 자동으로 옮긴다.** 다만 옮긴 직후에 주문을 보내지는
+                 않는다 — 시장 전환은 비동기(캔들·정밀도·틱을 다시 읽는다)이고, 그
+                 사이에 주문을 만들면 **아직 옛 시장 기준으로 계산된 값이 나갈 수 있다.**
+                 실주문이 걸린 화면에서 그 위험을 감수하지 않는다.
+               ★ 옮긴 뒤 "이제 다시 누르세요" 라고 분명히 말한다. 한 번 더 누르는 것이
+                 잘못된 종목에 시장가 주문이 나가는 것보다 낫다.
             */
             const cur = props.market ? `${props.market.base}${props.market.quote}` : null;
             if (cur && pos.symbol && cur !== pos.symbol) {
-              if (props.pushToast) props.pushToast({ title: props.t('pos_close_switch_market'), variant: 'warning' });
+              let moved = false;
+              if (props.onSelectMarket) {
+                const got = (window.QTMarkets && window.QTMarkets.list) ? window.QTMarkets.list() : null;
+                const hit = ((got && got.rows) || []).find((m) => String(m.base) + String(m.quote) === pos.symbol);
+                if (hit) { props.onSelectMarket(hit); moved = true; }
+              }
+              if (props.pushToast) {
+                props.pushToast({
+                  /* ★ 옮겼는지 못 옮겼는지를 구별해 말한다 — 할 일이 다르다. */
+                  title: moved
+                    ? props.t('pos_close_switched', { symbol: pos.symbol })
+                    : props.t('pos_close_switch_market'),
+                  variant: 'warning',
+                });
+              }
               return;
             }
             /*
