@@ -1923,7 +1923,11 @@
     const [supported, setSupported] = React.useState(true);
     const [loadError, setLoadError] = React.useState(false);
     const [busy, setBusy] = React.useState(false);
-    const [form, setForm] = React.useState({ kind: 'strategy', name: '', symbol: 'BTCUSDT', timeframe: '1h' });
+    /*
+       ★ `rule` 은 **신호 규칙**의 DSL 식이다. 종류가 signal 일 때만 쓴다.
+         방향은 선택이다 — 고객이 "매수" 라고 정하지 않았으면 비워 둔다.
+    */
+    const [form, setForm] = React.useState({ kind: 'strategy', name: '', symbol: 'BTCUSDT', timeframe: '1h', rule: '', direction: '' });
     const [msg, setMsg] = React.useState(null);
 
     const load = React.useCallback(() => {
@@ -1944,11 +1948,30 @@
       const api = window.QTApi && window.QTApi.rest;
       if (!api || !api.createUserStrategy) return;
       if (!form.name.trim()) { setMsg({ ok: false, text: t('us_name_required') }); return; }
+      /*
+         ★★★ **식이 없으면 신호 규칙을 저장하지 않는다.** 예전에는 `config: {}` 를
+           보냈다 — 저장은 되는데 규칙이 비어 있어서 **불러와도 아무것도 안 나온다.**
+           운영자가 물은 "저장이랑 다시 불러오는 것" 이 그래서 안 됐다.
+
+         ★★ 저장 **전에** 식을 검증한다. 포인트가 차감된 뒤 틀린 식을 알게 되면
+           고객은 돈을 내고 못 쓰는 것을 갖게 된다. 화면 DSL 로 먼저 파싱한다.
+      */
+      let config = {};
+      if (form.kind === 'signal') {
+        const expr = form.rule.trim();
+        if (!expr) { setMsg({ ok: false, text: t('us_rule_required') }); return; }
+        const F = window.QTFmla;
+        if (F) {
+          const pr = F.parse(expr);
+          if (!pr.ok) { setMsg({ ok: false, text: t('us_rule_invalid', { reason: pr.error || '' }) }); return; }
+        }
+        config = { rule: expr, ...(form.direction ? { direction: form.direction } : {}) };
+      }
       setBusy(true); setMsg(null);
       try {
-        const r = await api.createUserStrategy({ kind: form.kind, name: form.name.trim(), symbol: form.symbol, timeframe: form.timeframe, config: {} });
+        const r = await api.createUserStrategy({ kind: form.kind, name: form.name.trim(), symbol: form.symbol, timeframe: form.timeframe, config });
         if (r && r.error) setMsg({ ok: false, text: r.error.message || t('us_save_failed') });
-        else { setForm({ ...form, name: '' }); setMsg({ ok: true, text: t('us_saved') }); load(); }
+        else { setForm({ ...form, name: '', rule: '' }); setMsg({ ok: true, text: t('us_saved') }); load(); }
       } catch (e) { setMsg({ ok: false, text: (e && e.message) || t('us_save_failed') }); }
       setBusy(false);
     };
@@ -1969,6 +1992,8 @@
           <select aria-label={t('a11y_kind')} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
             <option value="strategy">{t('us_kind_strategy')}</option>
             <option value="indicator">{t('us_kind_indicator')}</option>
+            {/* ★ 신호 규칙. 조건식을 저장해 두고 차트에서 다시 불러 쓴다. */}
+            <option value="signal">{t('us_kind_signal')}</option>
           </select>
           <input aria-label={t('us_name_ph')} placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
           <input aria-label={t('us_symbol_ph')} placeholder={t('us_symbol_ph')} value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} style={{ width: 120 }} />
@@ -1979,6 +2004,32 @@
             {t('us_create')} · {c}{t('us_points')}
           </button>
         </div>
+        {/*
+           신호 규칙 입력 — 종류가 signal 일 때만 보인다.
+
+           ★★ 조건식을 그대로 받는다. 예시를 함께 보여줘야 고객이 문법을 짐작하지 않는다.
+           ★ 방향은 **선택**이다. 비워 두면 중립 표시(조건이 성립한 자리만 표시)다 —
+             방향을 강제하면 고객이 정하지 않은 방향이 들어간다.
+        */}
+        {form.kind === 'signal' && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+            <input
+              aria-label={t('us_rule_ph')} placeholder={t('us_rule_ph')} value={form.rule}
+              onChange={(e) => setForm({ ...form, rule: e.target.value })}
+              style={{ flex: 1, minWidth: 260, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+            />
+            <select aria-label={t('us_direction')} value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+              <option value="">{t('us_dir_none')}</option>
+              <option value="long">{t('us_dir_long')}</option>
+              <option value="short">{t('us_dir_short')}</option>
+            </select>
+          </div>
+        )}
+        {form.kind === 'signal' && (
+          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginBottom: 12, fontFamily: 'var(--font-mono)' }}>
+            {t('us_rule_examples')}
+          </div>
+        )}
         {msg && <div style={{ fontSize: 12, color: msg.ok ? 'var(--color-success)' : 'var(--color-danger)', marginBottom: 8 }}>{msg.text}</div>}
         {loadError ? (
           <div style={{padding:'8px 10px', fontSize:11.5, color:'var(--color-danger, #dc2626)'}}>{t('list_load_failed')}</div>
@@ -1988,10 +2039,44 @@
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {items.map((it) => (
               <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--color-border-subtle)', borderRadius: 6 }}>
-                <span className="badge">{t(it.kind === 'indicator' ? 'us_kind_indicator' : 'us_kind_strategy')}</span>
+                <span className="badge">
+                  {t(it.kind === 'indicator' ? 'us_kind_indicator' : it.kind === 'signal' ? 'us_kind_signal' : 'us_kind_strategy')}
+                </span>
                 <span style={{ fontWeight: 600 }}>{it.name}</span>
                 <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{it.symbol} · {it.timeframe}</span>
-                <button className="btn btn--xs" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => remove(it.id)}>{t('us_delete')}</button>
+                {/*
+                   ★ 저장된 식을 보여준다. 이름만 보이면 무엇을 저장했는지 알 수 없고,
+                     같은 이름의 다른 규칙과 구별되지 않는다.
+                */}
+                {it.kind === 'signal' && it.config && it.config.rule && (
+                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                    {it.config.rule}
+                  </span>
+                )}
+                {/*
+                   ★★★ **불러오기.** 이 화면에는 차트가 없으므로 여기서 적용할 수 없다.
+                     규칙을 넘겨 두고 차트 화면으로 보낸다 — 도착하면 그쪽이 적용한다.
+                   ★ `sessionStorage` 를 쓴다. URL 에 식을 담으면 길이 제한과 인코딩
+                     문제가 있고, 주소창에 남아 공유될 때 의도치 않게 적용된다.
+                */}
+                {it.kind === 'signal' && it.config && it.config.rule && (
+                  <button
+                    className="btn btn--xs btn--primary" style={{ marginLeft: 'auto' }}
+                    onClick={() => {
+                      try {
+                        sessionStorage.setItem('qt.pendingSignalRule', JSON.stringify({
+                          name: it.name, expression: it.config.rule, direction: it.config.direction || null,
+                        }));
+                      } catch (e) { /* 저장 실패해도 이동은 한다 — 차트에서 직접 넣을 수 있다 */ }
+                      window.location.hash = '#/trade';
+                    }}
+                  >{t('us_open_in_chart')}</button>
+                )}
+                <button
+                  className="btn btn--xs"
+                  style={it.kind === 'signal' && it.config && it.config.rule ? undefined : { marginLeft: 'auto' }}
+                  disabled={busy} onClick={() => remove(it.id)}
+                >{t('us_delete')}</button>
               </div>
             ))}
           </div>

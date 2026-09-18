@@ -3317,6 +3317,12 @@
            규칙을 되살리려 하고, 그때마다 조용히 실패한다.
       */
       if (applied) this._signalRules.set(name, { name, expression: expr, direction });
+      /*
+         ★★★ **규칙 변경도 자동 저장한다.** 자동 저장은 지표 패널에서만 돌았기 때문에
+           AI 로 규칙을 만들면 새로고침하면 사라졌다(실측). 지표와 같은 원칙이어야 한다 —
+           "켠 것은 계정에 남는다".
+      */
+      try { if (window.QTSaveSignalRules) window.QTSaveSignalRules(); } catch (e) { /* noop */ }
       try { this.publishState(); } catch (e) { /* noop */ }
       setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
       return applied ? { applied: true, name: kName } : { applied: false, error: 'CREATE_FAILED' };
@@ -3331,6 +3337,8 @@
       this._aiInd.delete(kName);
       /* ★ 장부에서도 지운다. 남겨 두면 저장본에 없는 규칙이 되살아난다. */
       this._signalRules.delete(String(name || ''));
+      /* ★ 지운 것도 저장한다 — 안 하면 새로고침에 되살아난다. */
+      try { if (window.QTSaveSignalRules) window.QTSaveSignalRules(); } catch (e) { /* noop */ }
       try { this.publishState(); } catch (e) { /* noop */ }
       return removed;
     },

@@ -209,12 +209,38 @@
   function loadAutoLocal() {
     try {
       const raw = JSON.parse(localStorage.getItem(AUTO_KEY) || 'null');
-      return raw && Array.isArray(raw.names) ? raw : null;
+      /* ★ 옛 저장본에는 signalRules 가 없다 — 빈 배열로 채워 호출부가 분기하지 않게. */
+      if (raw && Array.isArray(raw.names)) {
+        if (!Array.isArray(raw.signalRules)) raw.signalRules = [];
+        return raw;
+      }
+      return null;
     } catch (e) { void e; return null; }
   }
-  function saveAutoLocal(names, panes) {
-    try { localStorage.setItem(AUTO_KEY, JSON.stringify({ names: names, panes: panes || {} })); }
-    catch (e) { void e; }
+  /*
+     ★★★ **신호 규칙도 함께 저장한다.**
+
+       "켜 둔 지표를 계정에 자동 저장한다" 는 원칙이 이미 있는데(위 주석), 신호 규칙은
+       빠져 있었다. 그래서 규칙을 만들거나 저장본에서 불러온 뒤 **새로고침하면 사라졌다.**
+       고객에게는 지표는 남고 규칙만 없어지는 것으로 보인다 — 일관되지 않다.
+
+     ★ 규칙은 이름만으로 복원할 수 없다(DSL 식이 필요하다). 그래서 `listSignalRules()`
+       가 주는 이름·식·방향을 그대로 담는다.
+     ★ 빈 배열도 담는다 — 규칙을 다 지운 상태가 복원되어야 한다.
+  */
+  function currentSignalRules() {
+    try {
+      const U = window.ChartKlineUtil;
+      return U && typeof U.listSignalRules === 'function' ? U.listSignalRules() : [];
+    } catch (e) { void e; return []; }
+  }
+  function saveAutoLocal(names, panes, rules) {
+    try {
+      localStorage.setItem(AUTO_KEY, JSON.stringify({
+        names: names, panes: panes || {},
+        signalRules: Array.isArray(rules) ? rules : currentSignalRules(),
+      }));
+    } catch (e) { void e; }
   }
   /*
      ★ 서버 저장은 실패해도 조용히 넘긴다 — 지표 자동 저장은 부가 기능이고, 실패로
@@ -222,8 +248,10 @@
      ★ 잦은 저장을 막기 위해 마지막으로 보낸 값과 같으면 보내지 않는다.
   */
   let _lastSent = '';
-  function saveAutoServer(names, panes) {
-    const sig = JSON.stringify({ names: names, panes: panes });
+  function saveAutoServer(names, panes, rules) {
+    const signalRules = Array.isArray(rules) ? rules : currentSignalRules();
+    /* ★ 규칙까지 서명에 넣는다 — 규칙만 바뀌었을 때도 저장되어야 한다. */
+    const sig = JSON.stringify({ names: names, panes: panes, signalRules: signalRules });
     if (sig === _lastSent) return;
     _lastSent = sig;
     try {
@@ -232,7 +260,8 @@
       if (!(window.QTAuth && window.QTAuth.isLoggedIn && window.QTAuth.isLoggedIn())) return;
       api.saveChartTemplate({
         name: AUTO_TPL_NAME,
-        payload: { indicators: names, panes: panes, auto: true },
+        /* ★ 신호 규칙을 함께 담는다 — 기기 저장과 같은 내용이어야 다른 기기에서도 복원된다. */
+        payload: { indicators: names, panes: panes, auto: true, signalRules: signalRules },
       }).catch(function (e) {
         console.warn('[Indicators] 자동 저장(서버) 실패 — 기기 저장은 유지된다:', e && e.message);
       });
@@ -262,6 +291,40 @@
      ★ 서버가 정본이다. 기기 저장으로 즉시 적용하고, 서버 값이 오면 그것으로 맞춘다 —
        다른 기기에서 바꾼 것이 반영돼야 한다.
   """ + """*/
+  /*
+     저장된 신호 규칙을 되살린다.
+
+     ★★★ 규칙은 `createIndicator` 로 복원할 수 없다 — 우리가 런타임에 등록한 지표이고
+       새로고침하면 등록이 사라진다. `addSignalRule` 로 **DSL 식으로 다시 등록**해야 한다.
+     ★ 이미 같은 이름이 적용돼 있으면 다시 넣지 않는다 — 같은 규칙이 두 번 그려진다.
+     ★ 실패는 조용히 넘긴다. 규칙 하나가 안 붙는 것보다 차트가 안 뜨는 것이 나쁘다.
+       다만 로그는 남긴다 — 원인을 모르면 고칠 수 없다.
+  */
+  function applySavedSignalRules(rules) {
+    const list = Array.isArray(rules) ? rules : [];
+    if (!list.length) return;
+    const U = window.ChartKlineUtil;
+    if (!U || typeof U.addSignalRule !== 'function') return;
+    const have = new Set(
+      (typeof U.listSignalRules === 'function' ? U.listSignalRules() : []).map((r) => r.name),
+    );
+    for (const r of list) {
+      if (!r || !r.name || !r.expression || have.has(r.name)) continue;
+      try {
+        const res = U.addSignalRule({
+          name: r.name,
+          expression: r.expression,
+          ...(r.direction ? { direction: r.direction } : {}),
+        });
+        if (!res || !res.applied) {
+          console.warn('[chart] 저장된 신호 규칙 복원 실패:', r.name, res && res.error);
+        }
+      } catch (e) {
+        console.warn('[chart] 저장된 신호 규칙 복원 중 오류:', r.name, e && e.message);
+      }
+    }
+  }
+
   function applySavedIndicators(chart, saved) {
     if (!chart || !saved || !Array.isArray(saved.names) || saved.names.length === 0) return false;
     let existing;
@@ -318,9 +381,45 @@
    * ★ 기기 저장 → 즉시 적용, 서버 → 도착하면 적용. 서버가 없거나 실패하면 기기 저장
    *   결과가 그대로 남는다(조용히 넘긴다 — 부가 기능이 차트를 막아서는 안 된다).
    */
+  /*
+     신호 규칙만 바뀐 경우의 자동 저장.
+
+     ★★★ **자동 저장은 지표 패널의 `syncFromChart` 에서만 돌았다.** 그래서 AI 나
+       `ChartKlineUtil` 로 규칙을 추가·제거해도 저장되지 않았고, **새로고침하면
+       규칙이 사라졌다**(실측: localStorage 에 저장본이 아예 없었다).
+
+     ★ 지표 이름·배치는 지금 차트에서 다시 읽는다 — 규칙만 바뀌었어도 저장본은
+       **전체 상태**여야 한다. 일부만 담으면 다음 복원에서 지표가 사라진다.
+     ★ 실패는 조용히 넘긴다. 저장은 부가 기능이고 차트 조작을 막아서는 안 된다.
+  */
+  window.QTSaveSignalRules = function QTSaveSignalRules() {
+    try {
+      const U = window.ChartKlineUtil;
+      const list = U && typeof U.listIndicators === 'function' ? U.listIndicators() : null;
+      if (!Array.isArray(list)) return;
+      const names = [];
+      const panes = {};
+      for (const i of list) {
+        const nm = String((i && (i.name || i.id)) || '');
+        /* ★ 신호 규칙 지표는 이름으로 저장하지 않는다 — 식으로 복원한다. */
+        if (!nm || nm.startsWith('SIG_')) continue;
+        names.push(nm);
+        if (i && i.paneId) panes[nm] = i.paneId;
+      }
+      const rules = currentSignalRules();
+      saveAutoLocal(names, panes, rules);
+      saveAutoServer(names, panes, rules);
+    } catch (e) { void e; }
+  };
+
   window.QTRestoreIndicators = function QTRestoreIndicators(chart) {
     if (!chart) return;
-    applySavedIndicators(chart, loadAutoLocal());
+    {
+      const local = loadAutoLocal();
+      applySavedIndicators(chart, local);
+      /* ★ 지표가 만들어진 뒤에 규칙을 얹는다 — 규칙은 캔들 패널에 그린다. */
+      if (local) applySavedSignalRules(local.signalRules);
+    }
 
     /*
        ★★★ **차트가 준비된 시점에는 로그인 판정이 아직 안 됐을 수 있다.**
@@ -364,9 +463,15 @@
         var hit = (r.items || []).find(function (x) { return x && x.name === AUTO_TPL_NAME; });
         var payload = hit && hit.payload;
         if (!payload || !Array.isArray(payload.indicators) || payload.indicators.length === 0) return;
-        var saved = { names: payload.indicators, panes: payload.panes || {} };
+        /* ★ 규칙은 payload 에서 읽는다. 옛 저장본에는 없으므로 빈 배열로 둔다. */
+        var saved = {
+          names: payload.indicators,
+          panes: payload.panes || {},
+          signalRules: Array.isArray(payload.signalRules) ? payload.signalRules : [],
+        };
         applySavedIndicators(chart, saved);
-        saveAutoLocal(saved.names, saved.panes);
+        applySavedSignalRules(saved.signalRules);
+        saveAutoLocal(saved.names, saved.panes, saved.signalRules);
       }).catch(function (e) {
         console.warn('[Indicators] 자동 불러오기 실패 — 기기 저장으로 동작한다:', e && e.message);
       });

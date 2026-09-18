@@ -115,3 +115,140 @@ describe('템플릿 복원', () => {
     expect(missing, `문구가 빠진 사전:\n${missing.join('\n')}`).toEqual([]);
   });
 });
+
+describe('규칙이 새로고침 뒤에도 남는다 (자동 저장)', () => {
+  const inds = read('src/chart-indicators.jsx');
+
+  /*
+     ★★★ **자동 저장이 지표 패널에서만 돌았다.** 그래서 AI 나 `ChartKlineUtil` 로 규칙을
+       만들어도 저장되지 않았고 **새로고침하면 사라졌다**(실측: localStorage 에 저장본이
+       아예 없었다). 지표는 남고 규칙만 없어지는 것은 일관되지 않다 —
+       "켠 것은 계정에 남는다" 는 원칙이 이미 있다.
+  */
+  it('규칙을 추가·제거하면 자동 저장이 돈다', () => {
+    expect(inds, '규칙 전용 저장 함수가 없다').toMatch(/window\.QTSaveSignalRules = function/u);
+    expect(kline, '규칙 추가 시 저장하지 않는다')
+      .toMatch(/_signalRules\.set[\s\S]{0,400}QTSaveSignalRules\(\)/u);
+    expect(kline, '규칙 제거 시 저장하지 않아 새로고침에 되살아난다')
+      .toMatch(/_signalRules\.delete[\s\S]{0,300}QTSaveSignalRules\(\)/u);
+  });
+
+  it('저장본은 전체 상태다 — 규칙만 담지 않는다', () => {
+    /*
+       ★ 규칙만 바뀌었어도 지표 이름·배치를 다시 읽어 함께 담아야 한다. 일부만 담으면
+         다음 복원에서 지표가 사라진다.
+    */
+    const i = inds.indexOf('window.QTSaveSignalRules');
+    const body = inds.slice(i, i + 1400);
+    expect(body, '지표를 다시 읽지 않는다').toMatch(/listIndicators\(\)/u);
+    expect(body, '기기 저장을 하지 않는다').toMatch(/saveAutoLocal\(names, panes, rules\)/u);
+    expect(body, '서버 저장을 하지 않는다').toMatch(/saveAutoServer\(names, panes, rules\)/u);
+    /* ★ SIG_ 는 이름으로 저장하지 않는다 — 식으로 복원한다. */
+    expect(body, 'SIG_ 를 이름으로 저장한다').toMatch(/nm\.startsWith\('SIG_'\)/u);
+  });
+
+  it('기기·서버 저장 모두 규칙을 담는다', () => {
+    expect(inds, '기기 저장에 규칙이 없다').toMatch(/signalRules: Array\.isArray\(rules\)/u);
+    expect(inds, '서버 payload 에 규칙이 없다').toMatch(/payload: \{ indicators: names, panes: panes, auto: true, signalRules: signalRules \}/u);
+    /* ★ 규칙만 바뀌었을 때도 저장되도록 서명에 넣는다. */
+    expect(inds, '규칙이 저장 서명에 없어 규칙만 바뀌면 저장을 건너뛴다')
+      .toMatch(/const sig = JSON\.stringify\(\{ names: names, panes: panes, signalRules: signalRules \}\)/u);
+  });
+
+  it('복원은 식으로 다시 등록한다 — 같은 이름은 중복하지 않는다', () => {
+    expect(inds, '규칙 복원 함수가 없다').toMatch(/function applySavedSignalRules\(rules\)/u);
+    const i = inds.indexOf('function applySavedSignalRules');
+    const body = inds.slice(i, i + 1400);
+    expect(body, 'addSignalRule 로 등록하지 않는다').toMatch(/U\.addSignalRule\(\{/u);
+    expect(body, '이미 있는 규칙을 다시 넣어 두 번 그린다').toMatch(/have\.has\(r\.name\)/u);
+    /* ★ 실패를 완전히 삼키지 않는다 — 원인을 모르면 고칠 수 없다. */
+    expect(body, '복원 실패를 로그로도 남기지 않는다').toMatch(/console\.warn/u);
+  });
+
+  it('옛 저장본을 읽을 때 터지지 않는다', () => {
+    expect(inds, '옛 기기 저장본 방어가 없다')
+      .toMatch(/if \(!Array\.isArray\(raw\.signalRules\)\) raw\.signalRules = \[\]/u);
+    expect(inds, '옛 서버 저장본 방어가 없다')
+      .toMatch(/signalRules: Array\.isArray\(payload\.signalRules\) \? payload\.signalRules : \[\]/u);
+  });
+});
+
+describe('저장 목록 화면', () => {
+  const more = read('src/pages-more.jsx');
+  const app = read('src/app.jsx');
+
+  it('신호 규칙 종류를 고를 수 있다', () => {
+    expect(more, 'signal 종류가 없다').toMatch(/<option value="signal">/u);
+  });
+
+  /*
+     ★★★ 예전에는 `config: {}` 를 보냈다 — 저장은 되는데 규칙이 비어 있어서
+       **불러와도 아무것도 안 나온다.**
+  */
+  it('규칙 식을 저장한다 — 빈 config 를 보내지 않는다', () => {
+    expect(more, '식을 config 에 담지 않는다').toMatch(/config = \{ rule: expr/u);
+    expect(more, '식이 없어도 저장한다').toMatch(/us_rule_required/u);
+  });
+
+  /*
+     ★★ 포인트가 차감된 뒤 틀린 식을 알게 되면 고객은 돈을 내고 못 쓰는 것을 갖는다.
+  */
+  it('저장 전에 식을 검증한다', () => {
+    const i = more.indexOf('const create = async');
+    const body = more.slice(i, more.indexOf('const remove = async', i));
+    expect(body, '저장 전 파싱을 하지 않는다').toMatch(/F\.parse\(expr\)/u);
+    expect(body, '검증 실패를 알리지 않는다').toMatch(/us_rule_invalid/u);
+    /*
+       검증이 차감보다 먼저여야 한다.
+
+       ★ `createUserStrategy` 는 위쪽 가드 문장(`if (!api || !api.createUserStrategy)`)
+         에도 나온다. 그것과 비교하면 항상 실패한다(실제로 그렇게 틀렸다).
+         **실제 호출 지점**과 비교한다.
+    */
+    expect(body.indexOf('F.parse(expr)'), '차감 뒤에 검증한다')
+      .toBeLessThan(body.indexOf('api.createUserStrategy({'));
+  });
+
+  it('저장된 식을 목록에 보여준다', () => {
+    expect(more, '식을 보여주지 않아 무엇을 저장했는지 알 수 없다')
+      .toMatch(/it\.config\.rule/u);
+  });
+
+  /*
+     ★ 이 화면에는 차트가 없다. 규칙을 넘겨 두고 차트로 보낸다.
+       URL 에 담지 않는다 — 식이 길고, 주소창에 남아 공유될 때 의도치 않게 적용된다.
+  */
+  it('차트에서 열기가 규칙을 넘긴다', () => {
+    expect(more, '넘기는 동작이 없다').toMatch(/sessionStorage\.setItem\('qt\.pendingSignalRule'/u);
+    expect(more, '차트로 이동하지 않는다').toMatch(/window\.location\.hash = '#\/trade'/u);
+  });
+
+  it('차트가 넘겨받아 적용하고 한 번만 쓴다', () => {
+    expect(app, '차트가 대기 규칙을 읽지 않는다')
+      .toMatch(/sessionStorage\.getItem\('qt\.pendingSignalRule'\)/u);
+    /*
+       ★★ **한 번만 적용하고 지운다.** 남겨 두면 이후 모든 차트 진입에서 다시 붙어,
+         고객이 지웠는데 되살아나는 것으로 보인다.
+    */
+    expect(app, '대기값을 지우지 않아 매번 다시 붙는다')
+      .toMatch(/sessionStorage\.removeItem\('qt\.pendingSignalRule'\)/u);
+    /* 지우는 것이 적용보다 먼저여야 한다 — 적용이 실패해도 무한 반복되지 않는다. */
+    const i = app.indexOf("sessionStorage.getItem('qt.pendingSignalRule')");
+    const body = app.slice(i, i + 900);
+    expect(body.indexOf('removeItem'), '적용 뒤에 지운다 — 실패하면 매번 반복된다')
+      .toBeLessThan(body.indexOf('addSignalRule'));
+  });
+
+  it('문구가 9개 언어에 있다', () => {
+    const dir = join(ROOT, 'src/locales');
+    const KEYS = ['us_kind_signal', 'us_rule_ph', 'us_direction', 'us_dir_none',
+      'us_rule_required', 'us_rule_invalid', 'us_rule_examples', 'us_open_in_chart'];
+    const missing: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {
+      const s2 = readFileSync(join(dir, f), 'utf8');
+      if (!s2.includes('us_kind_indicator')) continue;
+      for (const k of KEYS) if (!s2.includes(k)) missing.push(`${f} ${k}`);
+    }
+    expect(missing, `문구가 빠진 사전:\n${missing.join('\n')}`).toEqual([]);
+  });
+});

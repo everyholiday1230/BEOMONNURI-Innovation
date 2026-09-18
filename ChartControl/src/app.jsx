@@ -3599,6 +3599,34 @@
       setTimeout(() => {
         try {
           if (window.QTRestoreIndicators) window.QTRestoreIndicators(chart);
+          /*
+             ★★★ **저장 화면에서 "차트에서 열기" 로 넘어온 신호 규칙을 적용한다.**
+
+               `/ai-strategies/my` 에는 차트가 없어서 그 화면에서는 규칙을 적용할 수
+               없다. 그래서 규칙을 `sessionStorage` 에 두고 이 화면으로 보낸다.
+
+             ★ **한 번만 적용하고 지운다.** 남겨 두면 이후 모든 차트 진입에서 같은
+               규칙이 다시 붙는다 — 고객이 지웠는데 되살아나는 것으로 보인다.
+             ★ URL 에 담지 않는 이유: 식이 길고, 주소창에 남아 공유될 때 의도치 않게
+               적용된다.
+             ★ 실패해도 차트를 막지 않는다. 규칙 하나가 안 붙는 것보다 차트가 안 뜨는
+               것이 훨씬 나쁘다.
+          */
+          try {
+            const raw = sessionStorage.getItem('qt.pendingSignalRule');
+            if (raw) {
+              sessionStorage.removeItem('qt.pendingSignalRule');
+              const r = JSON.parse(raw);
+              const U = window.ChartKlineUtil;
+              if (U && typeof U.addSignalRule === 'function' && r && r.name && r.expression) {
+                U.addSignalRule({
+                  name: r.name,
+                  expression: r.expression,
+                  ...(r.direction ? { direction: r.direction } : {}),
+                });
+              }
+            }
+          } catch (e) { /* 규칙 적용 실패가 차트를 막지 않는다 */ }
         } catch (e) { void e; }
       }, 0);
       /*
