@@ -609,6 +609,7 @@
       apg_reason_ph: 'Reason (required — recorded in the audit log)',
       apg_apply: 'Set plan',
       aret_title: 'Retained on our servers',
+      admin_loading: 'Loading the admin screen…',
       aret_kind_rule: 'Rule',
       aret_kind_drawing: 'Drawing',
       aret_deleted: 'Deleted',

@@ -804,6 +804,7 @@
       apg_reason_ph: 'Dahilan (kailangan — naitatala sa audit log)',
       apg_apply: 'Itakda ang plano',
       aret_title: 'Nasa server pa',
+      admin_loading: 'Nilo-load ang admin screen…',
       aret_kind_rule: 'Rule',
       aret_kind_drawing: 'Drawing',
       aret_deleted: 'Nadelete',

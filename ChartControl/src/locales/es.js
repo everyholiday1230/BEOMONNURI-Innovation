@@ -665,6 +665,7 @@
       apg_reason_ph: 'Motivo (obligatorio: queda en el registro de auditoría)',
       apg_apply: 'Fijar plan',
       aret_title: 'Retenido en servidores',
+      admin_loading: 'Cargando la pantalla de administración…',
       aret_kind_rule: 'Regla',
       aret_kind_drawing: 'Dibujo',
       aret_deleted: 'Eliminado',

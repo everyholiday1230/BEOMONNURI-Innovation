@@ -688,6 +688,7 @@
       apg_reason_ph: 'Lý do (bắt buộc — được ghi vào nhật ký kiểm toán)',
       apg_apply: 'Đặt gói',
       aret_title: 'Lưu trên máy chủ',
+      admin_loading: 'Đang tải màn hình quản trị…',
       aret_kind_rule: 'Quy tắc',
       aret_kind_drawing: 'Hình vẽ',
       aret_deleted: 'Đã xoá',

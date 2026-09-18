@@ -663,6 +663,7 @@
       apg_reason_ph: 'Motivo (obrigatório — fica no log de auditoria)',
       apg_apply: 'Definir plano',
       aret_title: 'Retido nos servidores',
+      admin_loading: 'Carregando a tela de administração…',
       aret_kind_rule: 'Regra',
       aret_kind_drawing: 'Desenho',
       aret_deleted: 'Excluído',

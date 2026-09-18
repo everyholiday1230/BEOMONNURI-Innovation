@@ -675,6 +675,7 @@
       apg_reason_ph: 'कारण (अनिवार्य — ऑडिट लॉग में दर्ज होता है)',
       apg_apply: 'प्लान सेट करें',
       aret_title: 'सर्वर पर सुरक्षित',
+      admin_loading: 'एडमिन स्क्रीन लोड हो रही है…',
       aret_kind_rule: 'नियम',
       aret_kind_drawing: 'ड्रॉइंग',
       aret_deleted: 'हटाया',

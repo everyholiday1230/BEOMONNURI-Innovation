@@ -687,6 +687,7 @@
       apg_reason_ph: 'Gerekçe (zorunlu — denetim kaydına yazılır)',
       apg_apply: 'Planı ayarla',
       aret_title: 'Sunucuda saklanan',
+      admin_loading: 'Yönetim ekranı yükleniyor…',
       aret_kind_rule: 'Kural',
       aret_kind_drawing: 'Çizim',
       aret_deleted: 'Silindi',

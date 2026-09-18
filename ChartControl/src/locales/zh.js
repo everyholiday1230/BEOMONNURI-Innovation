@@ -846,6 +846,7 @@
       apg_reason_ph: '理由（必填——会记入审计日志）',
       apg_apply: '设置套餐',
       aret_title: '服务器保留',
+      admin_loading: '正在加载管理界面…',
       aret_kind_rule: '规则',
       aret_kind_drawing: '绘图',
       aret_deleted: '已删除',

@@ -1845,6 +1845,48 @@
     }), [market, timeframe, lastPrice, candles, chartIndicators, chartIndicatorDetail]);
 
     // ---- shellProps for new-page components ----
+    /*
+       관리자 화면은 **`/admin` 에 들어갈 때 따로 내려받는다**(index.html 참고 — 방문자
+       전원에게 69KB 를 보내지 않기 위해서다). 그래서 라우트가 처음 그려지는 순간에는
+       `window.AdminXxxPage` 가 **아직 없을 수 있다.**
+
+       ★★★ 예전에는 `<window.AdminUsersPage/>` 를 그대로 썼다. 컴포넌트가 undefined 인
+         상태로 렌더되면 React 가 **#130 으로 터지고** 오류 화면이 뜬다 —
+         운영자 보고: "관리자가 유저 탭 가면 항상 This screen could not be displayed...
+         Minified React error #130. 트라이 어게인하면 들어가지긴 하는데."
+         맞다. 스크립트가 도착한 뒤에 다시 그리면 되니까 재시도가 통했던 것이다.
+
+       ★ 그래서 **한 곳에서** 막는다. 라우트마다 `window.X && <window.X/>` 를 쓰면
+         화면을 추가할 때 또 빠뜨린다(관리자 화면이 20개가 넘는다).
+       ★ 없는 동안은 **로딩을 보여준다.** 빈 화면을 보여주면 운영자가 고장으로 읽는다.
+       ★ 도착하면 다시 그려야 한다. index.html 이 로드 후 `hashchange` 를 쏘지만,
+         그 이벤트를 놓치는 경우가 있어 여기서도 짧게 확인한다.
+    */
+    const AdminLazy = React.useCallback(function AdminLazy({ name, ...rest }) {
+      const Comp = window[name];
+      const [, bump] = React.useState(0);
+      React.useEffect(() => {
+        if (Comp) return undefined;
+        /*
+           ★ 250ms 간격으로 확인한다. 스크립트는 보통 한 번에 오므로 몇 번이면 끝난다.
+           ★ 40회(10초)에서 멈춘다 — 영원히 돌면 탭이 계속 일한다. 그때는 아래 안내가 남는다.
+        */
+        let n = 0;
+        const h = setInterval(() => {
+          n += 1;
+          if (window[name]) { clearInterval(h); bump((x) => x + 1); return; }
+          if (n >= 40) clearInterval(h);
+        }, 250);
+        return () => clearInterval(h);
+      }, [Comp, name]);
+      if (Comp) return <Comp {...rest}/>;
+      return (
+        <div style={{ padding: 24, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+          {t('admin_loading')}
+        </div>
+      );
+    }, [t]);
+
     const shellProps = {
       activePath: route.path,
       /*
@@ -2586,27 +2628,27 @@
             {route.path === '/order-history'  && <window.OrderHistoryPage   shellProps={shellProps}/>}
 
             {/* ADMIN routes */}
-            {route.path === '/admin'              && <window.AdminDashboardPage  shellProps={shellProps}/>}
-            {route.path === '/admin/users'        && <window.AdminUsersPage      shellProps={shellProps}/>}
-            {route.path === '/admin/users/detail' && <window.AdminUserDetailPage shellProps={shellProps} userId={route.query.id}/>}
-            {route.path === '/admin/trades'       && <window.AdminTradesPage     shellProps={shellProps}/>}
-            {route.path === '/admin/ai-ops'       && <window.AdminAIOpsPage      shellProps={shellProps}/>}
-            {route.path === '/admin/design-ops'   && <window.AdminDesignOpsPage  shellProps={shellProps}/>}
-            {route.path === '/admin/risk'         && <window.AdminRiskPage       shellProps={shellProps}/>}
-            {route.path === '/admin/assets'       && <window.AdminAssetsHiFiPage shellProps={shellProps}/>}
-            {route.path === '/admin/kyc'          && <window.AdminKYCQueuePage   shellProps={shellProps}/>}
-            {route.path === '/admin/deposits'     && <window.AdminDepositsPage   shellProps={shellProps}/>}
-            {route.path === '/admin/withdrawals'  && <window.AdminWithdrawalsPage shellProps={shellProps}/>}
-            {route.path === '/admin/fees'         && <window.AdminFeesPage       shellProps={shellProps}/>}
-            {route.path === '/admin/notices'      && <window.AdminNoticesPage    shellProps={shellProps}/>}
-            {route.path === '/admin/notices/new'  && <window.AdminNoticeEditorPage shellProps={shellProps}/>}
-            {route.path === '/admin/system'       && <window.AdminSystemPage     shellProps={shellProps}/>}
-            {route.path === '/admin/audit'        && <window.AdminAuditPage      shellProps={shellProps}/>}
-            {route.path === '/admin/broadcast'    && <window.AdminBroadcastPage  shellProps={shellProps}/>}
-            {route.path === '/admin/referral'     && <window.AdminReferralPage   shellProps={shellProps}/>}
-            {route.path === '/admin/points'       && <window.AdminPointsPage    shellProps={shellProps}/>}
-            {route.path === '/admin/legal'        && <window.AdminLegalPage     shellProps={shellProps}/>}
-            {route.path === '/admin/cs'           && <window.AdminCSTicketPage   shellProps={shellProps} ticketId={route.query.id}/>}
+            {route.path === '/admin'              && <AdminLazy name="AdminDashboardPage" shellProps={shellProps}/>}
+            {route.path === '/admin/users'        && <AdminLazy name="AdminUsersPage" shellProps={shellProps}/>}
+            {route.path === '/admin/users/detail' && <AdminLazy name="AdminUserDetailPage" shellProps={shellProps} userId={route.query.id}/>}
+            {route.path === '/admin/trades'       && <AdminLazy name="AdminTradesPage" shellProps={shellProps}/>}
+            {route.path === '/admin/ai-ops'       && <AdminLazy name="AdminAIOpsPage" shellProps={shellProps}/>}
+            {route.path === '/admin/design-ops'   && <AdminLazy name="AdminDesignOpsPage" shellProps={shellProps}/>}
+            {route.path === '/admin/risk'         && <AdminLazy name="AdminRiskPage" shellProps={shellProps}/>}
+            {route.path === '/admin/assets'       && <AdminLazy name="AdminAssetsHiFiPage" shellProps={shellProps}/>}
+            {route.path === '/admin/kyc'          && <AdminLazy name="AdminKYCQueuePage" shellProps={shellProps}/>}
+            {route.path === '/admin/deposits'     && <AdminLazy name="AdminDepositsPage" shellProps={shellProps}/>}
+            {route.path === '/admin/withdrawals'  && <AdminLazy name="AdminWithdrawalsPage" shellProps={shellProps}/>}
+            {route.path === '/admin/fees'         && <AdminLazy name="AdminFeesPage" shellProps={shellProps}/>}
+            {route.path === '/admin/notices'      && <AdminLazy name="AdminNoticesPage" shellProps={shellProps}/>}
+            {route.path === '/admin/notices/new'  && <AdminLazy name="AdminNoticeEditorPage" shellProps={shellProps}/>}
+            {route.path === '/admin/system'       && <AdminLazy name="AdminSystemPage" shellProps={shellProps}/>}
+            {route.path === '/admin/audit'        && <AdminLazy name="AdminAuditPage" shellProps={shellProps}/>}
+            {route.path === '/admin/broadcast'    && <AdminLazy name="AdminBroadcastPage" shellProps={shellProps}/>}
+            {route.path === '/admin/referral'     && <AdminLazy name="AdminReferralPage" shellProps={shellProps}/>}
+            {route.path === '/admin/points'       && <AdminLazy name="AdminPointsPage" shellProps={shellProps}/>}
+            {route.path === '/admin/legal'        && <AdminLazy name="AdminLegalPage" shellProps={shellProps}/>}
+            {route.path === '/admin/cs'           && <AdminLazy name="AdminCSTicketPage" shellProps={shellProps} ticketId={route.query.id}/>}
 
             {/* NotFound is handled in the isAuthRoute block above */}
               </>);

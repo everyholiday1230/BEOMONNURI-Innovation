@@ -844,6 +844,7 @@
       apg_reason_ph: '理由（必須 — 監査ログに記録されます）',
       apg_apply: 'プランを設定',
       aret_title: 'サーバーに保持',
+      admin_loading: '管理画面を読み込んでいます…',
       aret_kind_rule: 'ルール',
       aret_kind_drawing: '描画',
       aret_deleted: '削除',
