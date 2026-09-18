@@ -125,6 +125,37 @@ export class PgUserStrategyRepo {
     return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
   }
 
+  /**
+   * 고객에게는 사라졌지만 **서버에 남아 있는** 항목 (운영자 확인용).
+   *
+   * ★★★ 만료·삭제가 모두 soft delete 가 되면서 **확인할 방법이 없어졌다** —
+   *   운영자 질문: "규칙을 지운 건 어떻게 확인하지?"
+   * ★ 내용(`config`)은 돌려주지 않는다. 확인에 필요한 것은 "남아 있는가" 이고,
+   *   내용까지 관리자 화면에 흘리면 감사 로그·브라우저 캐시에 또 사본이 생긴다.
+   */
+  async listRetained(userId: string, limit = 200): Promise<Array<{
+    id: string; name: string; createdAt: number | null;
+    reason: 'deleted' | 'expired'; deletedAt: number | null; expiresAt: number | null;
+  }>> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, created_at, deleted_at, expires_at
+         FROM user_strategies
+        WHERE user_id = $1 AND (deleted_at IS NOT NULL OR expires_at <= now())
+        ORDER BY created_at DESC LIMIT $2`,
+      [userId, Math.min(500, Math.max(1, limit))],
+    );
+    const ms = (v: unknown) => (v == null ? null : (v instanceof Date ? v.getTime() : Number(v)));
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      name: String(r.name ?? ''),
+      createdAt: ms(r.created_at),
+      /* ★ 고객이 지운 것과 기간이 지난 것을 구분한다 — 할 일이 다르다. */
+      reason: r.deleted_at != null ? 'deleted' : 'expired',
+      deletedAt: ms(r.deleted_at),
+      expiresAt: ms(r.expires_at),
+    }));
+  }
+
   async listForUser(userId: string, kind?: UserStrategyKind): Promise<UserStrategyRow[]> {
     /*
        ★ 만료된 것은 목록에서 뺀다. 지우지는 않는다 — 연장하면 다시 보인다.

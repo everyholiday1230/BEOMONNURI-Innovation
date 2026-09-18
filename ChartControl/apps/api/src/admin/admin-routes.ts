@@ -71,6 +71,14 @@ export interface AdminRouterDeps {
        운영자가 데이터가 모이고 있다고 믿는 동안 아무 것도 안 쌓인다.
   */
   learning?: import('../db/learning-repo').PgLearningRepo;
+  /*
+     저장물 저장소 — **보관 확인용**으로만 쓴다(`/admin/users/:id/retained`).
+
+     ★ 없으면 그 라우트가 `supported:false` 를 준다. 빈 목록을 주면 "보관이 안 된다" 로
+       읽히고, 운영자가 학습 자료가 쌓이지 않는다고 오해한다.
+  */
+  userStrategies?: import('../db/user-strategy-repo').PgUserStrategyRepo;
+  savedItems?: import('../db/saved-item-repo').PgSavedItemRepo;
   /** 고객 등급 저장소. 없으면 등급 라우트가 configured:false 를 준다. */
   tiers?: import('../db/pg-tier-repo').PgTierRepo;
   /** 고객 지원 티켓 저장소. Postgres 배포에만 주입된다. */
@@ -857,6 +865,53 @@ export function createAdminRouter(d: AdminRouterDeps): Hono {
            하겠다고 했고, 자유 서식 글은 특히 목적 외 열람이 문제가 된다.
          · 회원 삭제 시 함께 사라진다(CASCADE) — 법정 보관 대상이 아니다.
   */
+  /**
+   * GET /admin/users/:id/retained — 고객에게는 사라졌지만 **서버에 남아 있는** 저장물.
+   *
+   * ★★★ 왜 필요한가
+   *   운영 지시로 만료·삭제가 모두 soft delete 가 되었다(학습용 보관). 그런데
+   *   **그것을 확인할 방법이 없었다** — 운영자 질문: "규칙을 지운 건 어떻게 확인하지?"
+   *   고객 화면에서는 당연히 안 보이고, DB 를 직접 보는 것 말고는 길이 없었다.
+   *
+   * ★ 내용(조건식·도형)은 돌려주지 않는다. 확인에 필요한 것은 "남아 있는가" 이고,
+   *   내용까지 관리자 화면에 흘리면 감사 로그·브라우저 캐시에 또 사본이 생긴다.
+   * ★ 왜 사라졌는지(삭제/만료)를 구분해 준다 — 할 일이 다르다.
+   */
+  app.get('/admin/users/:id/retained', async (c) => {
+    const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
+    const target = await d.repo.getUser(c.req.param('id'));
+    if (!target) return c.json(err('NOT_FOUND', 'user not found'), 404);
+
+    /*
+       ★ 두 저장소를 합쳐 한 목록으로 준다. 운영자가 "어느 테이블" 을 알 필요는 없다.
+       ★★ 저장소가 없으면 **빈 목록으로 위장하지 않는다** — "남은 것이 없다" 와
+         "확인할 수 없다" 는 전혀 다른 말이고, 전자를 보면 보관이 안 되는 줄 안다.
+       ★ 한쪽이 없어도 다른 쪽은 보여준다.
+    */
+    if (!d.userStrategies && !d.savedItems) return c.json({ supported: false, items: [] });
+    const [rules, drawings] = await Promise.all([
+      d.userStrategies ? d.userStrategies.listRetained(target.id) : Promise.resolve([]),
+      d.savedItems ? d.savedItems.listRetained(target.id) : Promise.resolve([]),
+    ]);
+    const items = [
+      ...rules.map((r) => ({ ...r, source: 'rule' as const })),
+      ...drawings.map((r) => ({ ...r, source: 'drawing' as const })),
+    ].sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+    try {
+      await d.repo.recordAction({
+        actorUserId: g.a.user.id, actorRole: g.a.user.role, action: 'user.retained.read',
+        resource: 'user', resourceId: target.id, targetUserId: target.id,
+        result: 'success', riskLevel: 'low', ip: ip(c),
+        after: { returned: items.length },
+      });
+    } catch (e) {
+      console.warn('[admin] 보관 항목 조회 감사 기록 실패', e);
+    }
+
+    return c.json({ supported: true, items });
+  });
+
   app.get('/admin/users/:id/notes', async (c) => {
     const g = await guard(c, 'admin.user.read'); if ('err' in g) return g.err;
     const target = await d.repo.getUser(c.req.param('id'));

@@ -188,6 +188,14 @@
     */
     const [plan, setPlan] = React.useState({ code: 'basic', days: '30', reason: '' });
     const [planBusy, setPlanBusy] = React.useState(false);
+    /*
+       보관 확인 패널 상태.
+
+       ★ `null` = 아직 안 읽음 · `[]` = 정말 없음 · `'unsupported'` = 확인 불가 ·
+         `'error'` = 조회 실패. 네 가지를 구별해야 "보관이 안 된다" 는 오해를 막는다.
+    */
+    const [retOpen, setRetOpen] = React.useState(false);
+    const [ret, setRet] = React.useState(null);
     const [planMsg, setPlanMsg] = React.useState(null);
     const api = window.QTApi && window.QTApi.admin;
 
@@ -301,6 +309,72 @@
           </div>
           {planMsg && (
             <div style={{ fontSize: 11.5, color: planMsg.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>{planMsg.text}</div>
+          )}
+        </div>
+
+        {/*
+           ★★★ **보관 확인** — 고객에게는 사라졌지만 서버에 남아 있는 저장물.
+
+             만료·삭제가 모두 soft delete 가 되면서(학습용 보관) **확인할 방법이
+             없었다.** 운영자 질문: "규칙을 지운 건 어떻게 확인하지?" 고객 화면에서는
+             당연히 안 보이고, DB 를 직접 보는 것 말고는 길이 없었다.
+
+           ★ 내용(조건식·도형)은 보여주지 않는다. 확인에 필요한 것은 "남아 있는가" 이고,
+             내용까지 이 화면에 흘리면 브라우저 캐시에 사본이 하나 더 생긴다.
+           ★ 접어 둔다 — 평소에 필요한 정보가 아니다. 펼칠 때 읽는다.
+        */}
+        <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--color-border-subtle)' }}>
+          <button
+            aria-label={t('aret_title')}
+            className="btn btn--sm"
+            onClick={() => {
+              setRetOpen((o) => {
+                const n = !o;
+                if (n && ret === null) {
+                  const api = window.QTApi && window.QTApi.rest;
+                  if (!api || !api.adminUserRetained) { setRet([]); return n; }
+                  api.adminUserRetained(userId)
+                    .then((r) => {
+                      /* ★ 지원되지 않으면 빈 목록으로 두지 않는다 — "남은 것이 없다" 와 다르다. */
+                      if (r && r.supported === false) { setRet('unsupported'); return; }
+                      setRet((r && r.items) || []);
+                    })
+                    .catch(() => setRet('error'));
+                }
+                return n;
+              });
+            }}
+          >{retOpen ? '▾' : '▸'} {t('aret_title')}</button>
+          {retOpen && (
+            <div style={{ marginTop: 8 }}>
+              {ret === null ? (
+                <div style={{ fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>…</div>
+              ) : ret === 'unsupported' ? (
+                <div style={{ fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>{t('aret_unsupported')}</div>
+              ) : ret === 'error' ? (
+                <div style={{ fontSize: 11.5, color: 'var(--color-danger)' }}>{t('aret_failed')}</div>
+              ) : ret.length === 0 ? (
+                <div style={{ fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>{t('aret_empty')}</div>
+              ) : (
+                <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {ret.map((x) => (
+                    <div key={x.source + ':' + x.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '4px 0', borderBottom: '1px solid var(--color-border-subtle)', fontSize: 11.5 }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--color-bg-elevated)' }}>
+                        {t(x.source === 'rule' ? 'aret_kind_rule' : 'aret_kind_drawing')}
+                      </span>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.name || '—'}</span>
+                      {/* ★ 고객이 지운 것과 기간이 지난 것을 구분한다 — 할 일이 다르다. */}
+                      <span style={{ color: 'var(--color-text-tertiary)' }}>
+                        {t(x.reason === 'deleted' ? 'aret_deleted' : 'aret_expired')}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
+                        {(x.deletedAt || x.expiresAt) ? new Date(x.deletedAt || x.expiresAt).toLocaleDateString() : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

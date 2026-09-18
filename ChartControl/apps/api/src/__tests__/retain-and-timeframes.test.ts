@@ -290,3 +290,147 @@ describe('삭제해도 서버에는 남는다', () => {
     }
   });
 });
+
+describe('길이가 변하는 주기도 차트가 받아들인다', () => {
+  const kline = read('src/chart-kline.jsx');
+
+  /*
+     ★★★ 운영자 보고: "1분봉은 로딩 중이라고만 나와."
+       실측하니 막힌 것은 **월봉**이었다(0봉, 영원히 로딩).
+
+       원인: `candlesMatchTimeframe` 이 `mode === want` 로 **정확히 같은지** 봤다.
+       한 달은 **28·30·31일이 섞여** 있어서 우리가 정한 30일과 절대 같지 않다.
+       그래서 매번 "이 캔들은 그 주기가 아니다" 로 판정해 데이터를 버렸다.
+       실제 응답 간격: [31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31]
+  */
+  it('달·주만 여유를 준다', () => {
+    const i = kline.indexOf('function candlesMatchTimeframe');
+    const body = kline.slice(i, i + 2600);
+    expect(body, '변동 주기 목록이 없다').toMatch(/const VARIABLE = \{ '1M': 0\.2, '1W': 0\.05 \}/u);
+    /*
+       ★★ **고정 길이 주기는 정확히 같아야 한다.** 전부 0.5~2배로 열어 보니
+         `15m↔30m`·`1H↔2H`·`12H↔1D` 같은 **2배 조합이 모두 통과**했다 — 그러면 이
+         검사가 존재하는 이유가 없어진다(엉뚱한 주기의 봉을 그대로 그린다).
+    */
+    expect(body, '고정 주기까지 여유를 줬다 — 2배 조합이 통과한다')
+      .toMatch(/return mode === want;/u);
+    expect(body, '비율 검사가 없다').toMatch(/ratio >= 1 - slack && ratio <= 1 \+ slack/u);
+  });
+
+  it('목업이 모든 주기를 안다', () => {
+    /*
+       ★★★ 목업이 주기를 모르면 `|| 15` 로 떨어져 **15분 간격 봉**이 나온다. 그러면
+         간격 검사가 거부하고 영원히 로딩 중이 된다 — 실측으로 겪었다.
+       ★ 툴바는 대문자(`1H`), 서버는 소문자(`1h`)를 쓴다. 양쪽을 다 받아야 한다.
+    */
+    const mock = read('src/mock-data.js');
+    const i = mock.indexOf('const TF_MIN = {');
+    expect(i, '목업 주기 표가 없다').toBeGreaterThan(-1);
+    const body = mock.slice(i, mock.indexOf('};', i));
+    for (const tf of ['1m', '3m', '30m', '1H', '2H', '6H', '8H', '12H', '1D', '1W', '1M']) {
+      expect(body, `목업에 ${tf} 가 없다 — 15분 봉이 나와 로딩이 끝나지 않는다`)
+        .toMatch(new RegExp(`'${tf}':`, 'u'));
+    }
+    /* 소문자도 받는다. */
+    for (const tf of ['1h', '4h', '12h', '1d', '1w']) {
+      expect(body, `목업에 소문자 ${tf} 가 없다`).toMatch(new RegExp(`'${tf}':`, 'u'));
+    }
+  });
+
+  it('여유 폭이 다른 주기를 삼키지 않는다', () => {
+    /*
+       ★ 계산으로 확인한다: 월봉 ±20% 는 28~31일(0.93~1.03배)을 받고, 가장 가까운
+         다른 주기인 1주(0.23배)·1일(0.03배)은 받지 않는다.
+    */
+    const MONTH = TIMEFRAME_MS['1M'];
+    for (const days of [28, 29, 30, 31]) {
+      const r = (days * 86_400_000) / MONTH;
+      expect(r, `${days}일 간격이 월봉으로 인정되지 않는다`).toBeGreaterThanOrEqual(0.8);
+      expect(r, `${days}일 간격이 월봉으로 인정되지 않는다`).toBeLessThanOrEqual(1.2);
+    }
+    /* 주봉·일봉이 월봉으로 오인되면 안 된다. */
+    expect(TIMEFRAME_MS['1w'] / MONTH, '주봉이 월봉으로 오인된다').toBeLessThan(0.8);
+    expect(TIMEFRAME_MS['1d'] / MONTH, '일봉이 월봉으로 오인된다').toBeLessThan(0.8);
+  });
+});
+
+describe('보관된 것을 운영자가 확인할 수 있다', () => {
+  const routes = read('apps/api/src/admin/admin-routes.ts');
+  const strategyRepo = read('apps/api/src/db/user-strategy-repo.ts');
+  const savedRepo = read('apps/api/src/db/saved-item-repo.ts');
+  const index = read('apps/api/src/index.ts');
+  const ui = read('src/pages-admin-more.jsx');
+
+  /*
+     ★★★ 만료·삭제가 모두 soft delete 가 되면서 **확인할 방법이 없어졌다.**
+       운영자 질문: "규칙을 지운 건 어떻게 확인하지?" 고객 화면에서는 당연히 안 보이고,
+       DB 를 직접 보는 것 말고는 길이 없었다.
+  */
+  it('라우트가 있다', () => {
+    expect(routes, '보관 확인 라우트가 없다').toMatch(/app\.get\('\/admin\/users\/:id\/retained'/u);
+    /* ★ 읽기 권한으로 막는다 — 아무나 볼 수 있으면 안 된다. */
+    expect(routes, '권한 검사가 없다').toMatch(/retained'[\s\S]{0,300}guard\(c, 'admin\.user\.read'\)/u);
+    /* ★ 조회를 감사에 남긴다 — 누가 고객 자료를 열어봤는지 남아야 한다. */
+    expect(routes, '감사 기록이 없다').toMatch(/action: 'user\.retained\.read'/u);
+  });
+
+  it('두 저장소를 합쳐 보여준다', () => {
+    for (const [name, src] of [['규칙', strategyRepo], ['저장 항목', savedRepo]] as const) {
+      expect(src, `${name} 에 listRetained 가 없다`).toMatch(/async listRetained\(/u);
+      /* 삭제된 것과 만료된 것 둘 다 잡아야 한다. */
+      expect(src, `${name} 이 삭제·만료를 함께 보지 않는다`)
+        .toMatch(/deleted_at IS NOT NULL OR expires_at <= now\(\)/u);
+      /* ★ 이유를 구분해 준다 — 고객이 지운 것과 기간이 지난 것은 할 일이 다르다. */
+      expect(src, `${name} 이 사라진 이유를 구분하지 않는다`)
+        .toMatch(/reason: r\.deleted_at != null \? 'deleted' : 'expired'/u);
+    }
+  });
+
+  /*
+     ★★★ **내용은 돌려주지 않는다.** 확인에 필요한 것은 "남아 있는가" 이고, 조건식·도형
+       까지 관리자 화면에 흘리면 감사 로그·브라우저 캐시에 사본이 하나 더 생긴다.
+  */
+  it('내용을 돌려주지 않는다', () => {
+    for (const src of [strategyRepo, savedRepo]) {
+      const i = src.indexOf('async listRetained(');
+      const body = src.slice(i, i + 1600);
+      expect(body, 'SELECT 에 내용이 들어 있다').not.toMatch(/SELECT[^;]*\b(config|payload)\b/u);
+    }
+  });
+
+  /*
+     ★★★ **저장소를 관리자 라우터보다 나중에 만들면 `undefined` 가 넘어간다.**
+       아래쪽(3000줄대)에도 같은 저장소를 만들지만 그것은 라우터 등록보다 **나중**이다.
+       그 변수를 넘기면 라우트가 항상 `supported:false` 를 준다 — 조용히 안 되는 종류다.
+  */
+  it('저장소가 실제로 주입된다', () => {
+    expect(index, '관리자 라우터에 저장소를 넘기지 않는다')
+      .toMatch(/userStrategies: core\.pool \? new PgUserStrategyRepo\(core\.pool\) : undefined/u);
+    expect(index, '저장 항목 저장소를 넘기지 않는다')
+      .toMatch(/savedItems: core\.pool \? new PgSavedItemRepo\(core\.pool\) : undefined/u);
+  });
+
+  it('확인 불가를 빈 목록으로 위장하지 않는다', () => {
+    /*
+       ★ "남은 것이 없다" 와 "확인할 수 없다" 는 전혀 다른 말이다. 전자를 보여주면
+         운영자가 **보관이 안 되는 줄** 안다 — 학습 자료가 쌓이지 않는다고 오해한다.
+    */
+    expect(routes, '저장소가 없을 때 위장한다')
+      .toMatch(/if \(!d\.userStrategies && !d\.savedItems\) return c\.json\(\{ supported: false/u);
+    expect(ui, '화면이 네 상태를 구별하지 않는다').toMatch(/ret === 'unsupported'/u);
+    expect(ui, '조회 실패를 알리지 않는다').toMatch(/ret === 'error'/u);
+  });
+
+  it('문구가 9개 언어에 있다', () => {
+    const dir = join(ROOT, 'src/locales');
+    const missing: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => /^[a-z]{2,3}\.js$/u.test(x))) {
+      const s2 = readFileSync(join(dir, f), 'utf8');
+      if (!s2.includes('apg_apply')) continue;
+      for (const k of ['aret_title', 'aret_deleted', 'aret_expired', 'aret_unsupported']) {
+        if (!s2.includes(k)) missing.push(`${f} ${k}`);
+      }
+    }
+    expect(missing, `문구가 빠진 사전: ${missing.join(', ')}`).toEqual([]);
+  });
+});

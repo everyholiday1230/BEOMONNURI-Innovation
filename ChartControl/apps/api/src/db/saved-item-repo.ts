@@ -114,6 +114,29 @@ export class PgSavedItemRepo {
      ★ 서버에는 남아 있지만 **고객 경로에서는 없는 것**이다. 학습용 보관과 고객에게
        보이는 것은 다른 이야기다.
   */
+  /** 위 `user-strategy-repo.listRetained` 와 같은 목적·같은 원칙(내용은 주지 않는다). */
+  async listRetained(userId: string, limit = 200): Promise<Array<{
+    id: string; name: string; createdAt: number | null;
+    reason: 'deleted' | 'expired'; deletedAt: number | null; expiresAt: number | null;
+  }>> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, created_at, deleted_at, expires_at
+         FROM saved_items
+        WHERE user_id = $1 AND (deleted_at IS NOT NULL OR expires_at <= now())
+        ORDER BY created_at DESC LIMIT $2`,
+      [userId, Math.min(500, Math.max(1, limit))],
+    );
+    const ms = (v: unknown) => (v == null ? null : (v instanceof Date ? v.getTime() : Number(v)));
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      name: String(r.name ?? ''),
+      createdAt: ms(r.created_at),
+      reason: r.deleted_at != null ? 'deleted' : 'expired',
+      deletedAt: ms(r.deleted_at),
+      expiresAt: ms(r.expires_at),
+    }));
+  }
+
   async getOwned(userId: string, id: string): Promise<SavedItemRow | null> {
     const { rows } = await this.pool.query(
       'SELECT * FROM saved_items WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',

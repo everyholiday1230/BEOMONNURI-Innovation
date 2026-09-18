@@ -2579,6 +2579,15 @@
        ★ 자유 서식 글이라 무엇이든 적힐 수 있다. 서버가 조회·작성·삭제를 모두
          감사에 남긴다. 회원이 삭제되면 노트도 함께 사라진다(법정 보관 대상 아님).
     */
+    /*
+       고객에게는 사라졌지만 **서버에 남아 있는** 저장물 (보관 확인용).
+
+       ★ 내용은 오지 않는다 — 이름·사라진 이유·시각만. 확인에 필요한 것은
+         "남아 있는가" 이고, 내용까지 화면에 흘리면 사본이 하나 더 생긴다.
+    */
+    adminUserRetained: function (id) {
+      return getJSON('', '/api/admin/users/' + encodeURIComponent(id) + '/retained');
+    },
     userNotes: function (id) {
       return getJSON('', '/api/admin/users/' + encodeURIComponent(id) + '/notes')
         .then(function (r) { return { ok: true, data: (r && r.notes) || [] }; });

@@ -42,7 +42,21 @@
   }
 
   function generateCandles({ symbol = 'BTCUSDT', tf = '15m', count = 220, endPrice = 68432.5 } = {}) {
-    const tfMinutes = { '1m': 1, '3m': 3, '5m': 5, '15m': 15, '30m': 30, '1H': 60, '4H': 240, '1D': 1440 }[tf] || 15;
+    /*
+       ★★★ **주기를 빠뜨리면 `|| 15` 로 떨어져 15분 간격 봉이 나온다.** 그러면 차트의
+         간격 검사(`candlesMatchTimeframe`)가 "이건 그 주기가 아니다" 로 거부하고
+         **영원히 로딩 중**이 된다. 실측으로 겪었다 — 월봉이 0봉이었다.
+       ★ 그래서 화면에 있는 주기를 **전부** 넣는다. 대문자·소문자 양쪽을 받는다
+         (툴바는 `1H`, 서버는 `1h` 를 쓴다).
+       ★ 한 달은 30일로 둔다 — 목업이므로 달력 계산이 필요 없다.
+    */
+    const TF_MIN = {
+      '1m': 1, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
+      '1H': 60, '2H': 120, '4H': 240, '6H': 360, '8H': 480, '12H': 720,
+      '1h': 60, '2h': 120, '4h': 240, '6h': 360, '8h': 480, '12h': 720,
+      '1D': 1440, '1d': 1440, '1W': 10080, '1w': 10080, '1M': 43200,
+    };
+    const tfMinutes = TF_MIN[tf] || 15;
     const rand = seededRand(symbol.charCodeAt(0) * 3 + tfMinutes * 17 + 91);
     const now = Date.now();
     const alignedNow = now - (now % (tfMinutes * 60 * 1000));

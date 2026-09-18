@@ -2194,6 +2194,16 @@ if (env.authEnabled) {
       app.route('/api', createAdminRouter({
         service: authService, repo: adminRepo, csrfKey: env.csrfKey, corsOrigins: env.corsOrigins,
         /*
+           저장물 저장소 — **보관 확인용**(`/admin/users/:id/retained`).
+
+           ★★ 아래쪽(3040줄 부근)에도 같은 저장소를 만들지만 그것은 **여기보다 나중**에
+             생긴다. 그 변수를 그대로 넘기면 `undefined` 가 되어 라우트가 항상
+             `supported:false` 를 준다 — 조용히 안 되는 종류다.
+           ★ 같은 `core.pool` 을 쓰므로 인스턴스를 하나 더 만들어도 연결은 공유된다.
+        */
+        userStrategies: core.pool ? new PgUserStrategyRepo(core.pool) : undefined,
+        savedItems: core.pool ? new PgSavedItemRepo(core.pool) : undefined,
+        /*
            ★ 관리 콘솔의 사용자 태그. 예전에는 이 값을 모듈 변수에도 담아 리퍼럴 지급
              분기(`team_leader` 여부)에 썼는데, 보상 조건이 거래소 연결로 바뀌면서
              그 분기를 없앴다(2026-09-13). 그래서 모듈 변수도 함께 제거했다 —
