@@ -1501,7 +1501,18 @@
           const name = d && d.id ? String(d.id) : '';
           if (!name) continue;
           const params = d.params && Array.isArray(d.params.calcParams) ? d.params.calcParams : null;
-          const label = params && params.length ? `${name}(${params.join(',')})` : name;
+          /*
+             ★★★ **레전드는 사람이 읽을 이름을 쓴다.**
+
+               커스텀 지표·신호 규칙의 등록 이름(`id`)은 충돌을 피하기 위한 기계용
+               키다(`SIG_MACD_______U9NTX`). 실측에서 그 문자열이 레전드에 그대로
+               나왔다 — 고객이 자기가 지은 "MACD 골든크로스" 를 찾을 수 없다.
+               차트가 `title`(= klinecharts shortName)을 함께 게시하므로 그것을 쓴다.
+
+             ★ 내장 지표는 title 이 없거나 name 과 같으므로 표기가 달라지지 않는다.
+          */
+          const shown = d.title ? String(d.title) : name;
+          const label = params && params.length ? `${shown}(${params.join(',')})` : shown;
           if (name === 'MA' && params && params.length) {
             /* MA 는 설정값마다 선이 하나씩이므로 각각 표기한다. */
             params.slice(0, 3).forEach((n, idx) => {
@@ -2790,6 +2801,30 @@
     return { ...ov, points: mapped };
   }
 
+  /**
+   * 지표 등록 이름(키)을 만든다.
+   *
+   * ★★★ **한글 이름은 전부 `_` 로 바뀌어 서로 충돌한다.**
+   *
+   *   예전 구현은 `name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')` 만 했다. 그래서
+   *   실측(2026-09-18):
+   *     "MACD 골든크로스" → SIG_MACD______
+   *     "MACD 데드크로스" → SIG_MACD______   ← 같은 키
+   *   두 번째 규칙이 첫 번째를 **조용히 덮어썼다.** 고객은 규칙 두 개를 만들었는데
+   *   하나만 남는다. 이 서비스의 이용자는 한국어 이름을 쓸 것이므로 정상 사용에서
+   *   바로 밟는다.
+   *
+   * ★ 그래서 원본 이름의 해시를 붙인다. 읽을 수 있는 부분(ASCII)은 남겨 두어
+   *   레전드·로그에서 알아볼 수 있게 한다.
+   */
+  function indicatorKey(prefix, name) {
+    const raw = String(name || '');
+    const ascii = raw.toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 10);
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) | 0;
+    return `${prefix}_${ascii}_${Math.abs(h).toString(36).toUpperCase().slice(0, 5)}`;
+  }
+
   window.ChartKlineUtil = {
     fmtPrice,
     readColors,
@@ -2843,6 +2878,16 @@
             const prev = res && res.length > 1 ? res[res.length - 2] : null;
             return {
               id: i.name,
+              /*
+                 ★★★ **내부 키를 고객에게 보여주지 않는다.**
+
+                   커스텀 지표·신호 규칙의 등록 이름은 `SIG_MACD_______U9NTX` 처럼
+                   충돌을 피하기 위한 기계용 키다. 레전드가 `id` 를 그대로 그려서
+                   실측에서 그 문자열이 화면에 나왔다. 사람이 읽을 이름을 함께 준다.
+
+                 ★ 내장 지표(MA·VOL 등)는 name 과 shortName 이 같으므로 달라지지 않는다.
+              */
+              ...(i.shortName && i.shortName !== i.name ? { title: String(i.shortName) } : {}),
               ...(Array.isArray(i.calcParams) && i.calcParams.length ? { params: { calcParams: i.calcParams } } : {}),
               ...(last && typeof last === 'object' ? { latest: last } : {}),
               ...(prev && typeof prev === 'object' ? { previous: prev } : {}),
@@ -2945,7 +2990,7 @@
       if (!F) return { applied: false, error: 'DSL_UNAVAILABLE' };
       const pr = F.parse(expr);
       if (!pr.ok) return { applied: false, error: pr.error || 'PARSE_FAILED' };
-      const kName = 'CUST_' + name.toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 12);
+      const kName = indicatorKey('CUST', name);
       let applied = false;
       for (const chart of INSTANCES) {
         try {
@@ -2956,8 +3001,23 @@
             shortName: String(d.shortName || name).slice(0, 8),
             calcParams: [],
             figures: [{ key: 'value', title: kName, type: 'line' }],
-            calc: (params, bars) => {
-              const r = F.compute(expr, bars || []);
+            /*
+               ★★★ **klinecharts 의 calc 서명은 `(dataList, indicator)` 다.**
+
+                 예전 코드는 `(params, bars)` 로 받아 **두 번째 인자를 캔들로** 썼다.
+                 두 번째는 지표 객체이므로 `F.compute(expr, indicatorObject)` 가 되어
+                 `bars.length` 가 undefined → 빈 배열을 돌려줬다.
+
+                 결과: 커스텀 지표가 등록은 되는데 **한 번도 계산되지 않았다.**
+                 실측(2026-09-18): MA·VOL 의 result 는 1000개인데
+                 `CUST_*` 는 0개였다. 선이 그려지지 않으므로 AI 가 "지표를 만들었다"
+                 고 말해도 화면에는 아무것도 없다. 오류도 나지 않아 조용히 실패했다.
+
+                 번들에서 확인: `this.calc(t, this)` — t 가 dataList 다.
+            */
+            calc: (dataList) => {
+              const bars = Array.isArray(dataList) ? dataList : [];
+              const r = F.compute(expr, bars);
               if (!r.ok) return bars.map(() => ({ value: NaN }));
               return r.values.map((v) => ({ value: Number.isFinite(v) ? v : NaN }));
             },
@@ -2972,13 +3032,184 @@
       return applied ? { applied: true, name: kName } : { applied: false, error: 'CREATE_FAILED' };
     },
     removeCustomIndicator(name) {
-      const kName = 'CUST_' + String(name || '').toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 12);
+      const kName = indicatorKey('CUST', name);
       let removed = false;
       for (const chart of INSTANCES) {
         try {
           chart.removeIndicator({ name: kName });
           removed = true;
         } catch (e) { /* noop */ }
+      }
+      this._aiInd.delete(kName);
+      try { this.publishState(); } catch (e) { /* noop */ }
+      return removed;
+    },
+
+    /*
+       ═══════════════════════════════════════════════════════════════════
+       고객이 만든 **신호 규칙**을 캔들 위에 표시한다
+       ═══════════════════════════════════════════════════════════════════
+
+       운영 결정(2026-09-18): 매매 신호는 우리가 주는 것이 아니라 **고객이 만든다.**
+       고객이 조건을 쓰고(`CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9))`),
+       여기서 그 조건이 성립한 봉에 표시만 한다. 주문은 발생하지 않는다.
+
+       ★★★ **라벨에 규칙 이름을 반드시 함께 적는다.** 표시만 있고 근거가 없으면
+         고객은 그것을 "우리가 사라고 한 것" 으로 읽는다. 무엇이 성립했는지 보이면
+         그것은 감지이고, 감지는 예측이 아니다(약관 제4조2호·리스크 제6조).
+
+       ★★★ **오버레이로 만들지 않는다.** 기존 `qtSignalMarker` 오버레이는 마커 하나에
+         오버레이 하나다. 규칙 하나가 수십~수백 봉에서 성립하므로 오버레이가 그만큼
+         생기고, 동기화 효과(overlays)가 매번 그것을 되쓰게 된다. 그래서 **지표**로
+         등록하고 `draw` 훅에서 보이는 구간만 직접 그린다.
+         (klinecharts 는 `draw({ctx, chart, indicator, bounding, xAxis, yAxis})` 를
+          제공하고, truthy 를 돌려주면 기본 도형 렌더를 건너뛴다 — 번들에서 확인)
+
+       ★★ 방향을 우리가 정하지 않는다. 고객이 규칙에 방향을 붙였으면 그 모양(▲/▼)으로
+         그리고, 붙이지 않았으면 **중립 표시(◆)** 로 둔다. 없는 방향을 채워 넣으면
+         그 순간 우리가 방향을 발신한 것이 된다.
+    */
+    addSignalRule(descriptor) {
+      const d = descriptor || {};
+      const name = String(d.name || '').trim();
+      const expr = String(d.expression || d.rule || '').trim();
+      if (!name || !expr) return { applied: false, error: 'EMPTY' };
+      const F = window.QTFmla;
+      if (!F) return { applied: false, error: 'DSL_UNAVAILABLE' };
+      /* ★ 렌더 직전 한 번 더 파싱한다 — 서버 검증과 이중 방어. */
+      const pr = F.parse(expr);
+      if (!pr.ok) return { applied: false, error: pr.error || 'PARSE_FAILED' };
+
+      const direction = d.direction === 'long' || d.direction === 'short' ? d.direction : null;
+      const kName = indicatorKey('SIG', name);
+      const label = name.slice(0, 24);
+      let applied = false;
+
+      for (const chart of INSTANCES) {
+        try {
+          try { chart.removeIndicator({ name: kName }); } catch (e) { /* 없으면 무시 */ }
+          window.klinecharts.registerIndicator({
+            name: kName,
+            shortName: label,
+            calcParams: [],
+            /*
+               ★★★ **figures 를 비워 둔다 — 값이 가격축 범위에 들어가면 차트가 망가진다.**
+
+                 처음에는 `figures: [{ key: 'fired', type: 'line' }]` 를 두었다.
+                 그러자 klinecharts 가 캔들 패널의 y축 범위를 계산할 때 그 값(0/1)을
+                 함께 넣어서 **축이 0~80,000 이 되고 캔들이 위쪽 얇은 띠로 눌렸다**
+                 (실측 스크린샷으로 확인). 신호 규칙 하나를 켜면 차트를 못 보게 된다.
+
+               ★ 표시는 `draw` 훅에서 직접 한다. 그래서 figures 가 필요 없다.
+                 우리 레전드는 `name`·`shortName`·`result` 로 만들므로 figures 와
+                 무관하게 이름이 나온다(실측: 비운 뒤에도 레전드에 그대로 나온다).
+            */
+            figures: [],
+            /* ★ 서명은 `(dataList, indicator)` — 위 addCustomIndicator 주석 참고. */
+            calc: (dataList) => {
+              const bars = Array.isArray(dataList) ? dataList : [];
+              const r = F.compute(expr, bars);
+              if (!r.ok) return bars.map(() => ({ fired: NaN }));
+              /*
+                 ★★ NaN(모름)과 0(성립하지 않음)을 구별해 남긴다. draw 가 그 둘을
+                   같게 취급하면 웜업 구간과 "신호 없음" 을 구별할 수 없다.
+              */
+              return r.values.map((v) => ({ fired: Number.isFinite(v) ? (v > 0.5 ? 1 : 0) : NaN }));
+            },
+            draw: ({ ctx, chart: ch, indicator, xAxis, yAxis }) => {
+              try {
+                const result = (indicator && indicator.result) || [];
+                const bars = ch.getDataList() || [];
+                if (!result.length || !bars.length) return true;
+                const colors = readColors();
+                const tone = direction === 'long' ? colors.long
+                  : direction === 'short' ? colors.short
+                    : colors.textPri;
+                /*
+                   ★ 보이는 구간만 그린다. 1000봉 전체를 그리면 화면 밖까지 계산한다.
+                     getVisibleRange 가 없는 배포를 대비해 전체로 떨어뜨린다.
+                */
+                let from = 0; let to = result.length;
+                try {
+                  const vr = ch.getVisibleRange && ch.getVisibleRange();
+                  if (vr && Number.isFinite(vr.from) && Number.isFinite(vr.to)) {
+                    from = Math.max(0, vr.from); to = Math.min(result.length, vr.to + 1);
+                  }
+                } catch (e) { /* 전체로 그린다 */ }
+
+                ctx.save();
+                ctx.font = `500 10px ${colors.fontMono}`;
+                ctx.textBaseline = 'middle';
+                let drawn = 0;
+                for (let i = from; i < to; i++) {
+                  if (!result[i] || result[i].fired !== 1) continue;
+                  const bar = bars[i];
+                  if (!bar) continue;
+                  const x = xAxis.convertToPixel(i);
+                  /*
+                     ★ 표시 높이는 방향에 따라 다르게 둔다. 롱은 저가 아래, 숏은 고가
+                       위 — 캔들 몸통을 덮지 않는다. 방향이 없으면 종가 옆에 둔다.
+                  */
+                  const anchor = direction === 'long' ? Number(bar.low)
+                    : direction === 'short' ? Number(bar.high)
+                      : Number(bar.close);
+                  const y0 = yAxis.convertToPixel(anchor);
+                  if (!Number.isFinite(x) || !Number.isFinite(y0)) continue;
+                  const y = direction === 'long' ? y0 + 14 : direction === 'short' ? y0 - 14 : y0;
+
+                  ctx.fillStyle = tone;
+                  ctx.beginPath();
+                  if (direction === 'long') {
+                    ctx.moveTo(x, y - 7); ctx.lineTo(x - 5, y + 3); ctx.lineTo(x + 5, y + 3);
+                  } else if (direction === 'short') {
+                    ctx.moveTo(x, y + 7); ctx.lineTo(x - 5, y - 3); ctx.lineTo(x + 5, y - 3);
+                  } else {
+                    /* 중립 — 방향을 말하지 않는 표시(◆). */
+                    ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y);
+                  }
+                  ctx.closePath();
+                  ctx.fill();
+                  drawn += 1;
+                }
+                /*
+                   ★★★ **무엇이 성립했는지 한 번은 적는다.** 마커마다 라벨을 붙이면
+                     겹쳐서 못 읽으므로, 보이는 구간에 표시가 있을 때 좌상단에 규칙
+                     이름을 한 번 적는다. 근거 없는 표시를 남기지 않는 것이 목적이다.
+                */
+                if (drawn > 0) {
+                  const txt = `${label}${direction ? ` · ${direction}` : ''} — 규칙 성립 ${drawn}`;
+                  const w = textWidth(txt, 10, colors.fontMono, '500') + 12;
+                  ctx.fillStyle = withAlpha(colors.elevated || colors.panel, 0.92);
+                  ctx.fillRect(6, 6, w, 16);
+                  ctx.strokeStyle = tone;
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(6, 6, w, 16);
+                  ctx.fillStyle = colors.textPri;
+                  ctx.fillText(txt, 12, 14);
+                }
+                ctx.restore();
+                return true;
+              } catch (e) {
+                /* 그리기 실패가 차트를 막지 않는다 — 기본 렌더로 떨어진다. */
+                return false;
+              }
+            },
+          });
+          /* ★ 캔들 패널에 올린다 — 신호는 가격과 같은 자리에서 봐야 뜻이 있다. */
+          const id = chart.createIndicator({ name: kName, paneId: 'candle_pane' }, true);
+          if (id) { this._aiInd.set(kName, 'candle_pane'); applied = true; }
+        } catch (e) { /* 이 차트에서 실패 — 다음 차트 시도 */ }
+      }
+      try { this.publishState(); } catch (e) { /* noop */ }
+      setTimeout(() => { try { this.publishState(); } catch (e) { /* noop */ } }, 300);
+      return applied ? { applied: true, name: kName } : { applied: false, error: 'CREATE_FAILED' };
+    },
+
+    removeSignalRule(name) {
+      const kName = indicatorKey('SIG', name);
+      let removed = false;
+      for (const chart of INSTANCES) {
+        try { chart.removeIndicator({ name: kName }); removed = true; } catch (e) { /* noop */ }
       }
       this._aiInd.delete(kName);
       try { this.publishState(); } catch (e) { /* noop */ }

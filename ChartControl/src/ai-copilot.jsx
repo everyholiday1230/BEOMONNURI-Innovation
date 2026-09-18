@@ -531,6 +531,33 @@
           if (util && util.removeIndicator) util.removeIndicator(a.indicator);
           return t('ai_indicator_removed', { name: a.indicator });
         /*
+           ★★★ 고객이 만든 **신호 규칙**(2026-09-18).
+
+             매매 신호는 우리가 주는 것이 아니라 고객이 조건을 쓰고 우리가 성립한 봉을
+             표시한다. AI 는 고객이 말로 설명한 조건을 DSL 식으로 옮기는 일을 한다.
+
+           ★★ 실패를 **정직하게 말한다.** 규칙 식이 틀렸으면 그 이유를 그대로 돌려준다.
+             "적용했습니다" 라고 하고 아무것도 안 그리면 고객은 규칙이 도는 줄 안다 —
+             이 코드베이스가 반복해서 막아 온 실패 방식이다.
+
+           ★ 방향은 AI 가 채워 넣지 않는다. 고객이 "골든크로스면 매수" 라고 했으면
+             'long' 이 오고, "표시만 해줘" 였으면 오지 않는다. 오지 않으면 중립 표시다.
+        */
+        case 'addSignalRule': {
+          if (!util || !util.addSignalRule) return t('ai_cmd_unsupported');
+          const r = util.addSignalRule({
+            name: a.name,
+            expression: a.rule,
+            ...(a.direction ? { direction: a.direction } : {}),
+          });
+          return r && r.applied
+            ? t('ai_signal_rule_added', { name: a.name })
+            : t('ai_signal_rule_failed', { name: a.name, reason: (r && r.error) || 'UNKNOWN' });
+        }
+        case 'removeSignalRule':
+          if (util && util.removeSignalRule) util.removeSignalRule(a.name);
+          return t('ai_signal_rule_removed', { name: a.name });
+        /*
            ★★ **숨기기가 삭제하고 있었다.** 두 명령이 같은 처리로 묶여 있었다.
 
              `hideOverlay` 와 `deleteOverlay` 가 둘 다 `_removeOverlay` 를 불렀다.

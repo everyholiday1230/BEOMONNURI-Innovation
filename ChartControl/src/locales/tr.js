@@ -296,6 +296,9 @@
       ai_indicator_added: '{name} göstergesi eklendi',
       ai_indicator_unsupported: 'Desteklenmeyen gösterge: {name}',
       ai_indicator_removed: '{name} göstergesi kaldırıldı',
+      ai_signal_rule_added: '“{name}” sinyal kuralınızı ekledim — grafik artık koşulunuzun gerçekleştiği her mumu işaretliyor.',
+      ai_signal_rule_failed: '“{name}” eklenemedi: {reason}. Kural ifadesi reddedildi, bu yüzden hiçbir şey çizilmedi.',
+      ai_signal_rule_removed: '“{name}” sinyal kuralını kaldırdım.',
       ai_overlay_removed: 'Çizim kaldırıldı',
       ai_overlay_hidden: 'Çizim gizlendi — hâlâ orada, yalnızca çizilmiyor',
       ai_err_session: 'Oturumunuzun yenilenmesi gerekiyor. Sayfayı yeniden yükleyip tekrar sorun — yazışmanız korunur.',
@@ -1733,6 +1736,8 @@
       strat_rsi_reversion_14_desc: 'RSI(14) 30’un altına düşünce long, 70’in üzerine çıkınca short. Stop ve hedef ikisi de 1,5x ATR(14). İsabet oranı yüksektir ama trendli piyasada zararlar büyüktür, bu yüzden maksimum düşüşle birlikte okuyun.',
       strat_donchian_breakout_20_name: 'Donchian 20 mumluk kırılım',
       strat_donchian_breakout_20_desc: 'Fiyat son 20 mumun en yüksek tepesini kırınca long, en düşük dibini kırınca short. Stop 2x ATR(14). Kırılımlar sık başarısız olur; koşan az sayıdaki hareket, koşmayanların bedelini ödemek zorundadır.',
+      strat_macd_cross_12_26_9_name: 'MACD kesişimi (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'MACD çizgisi (12/26) sinyal çizgisini (9) yukarı kesince uzun, aşağı kesince kısa. Zarar kes 2x ATR(14), hedef 3x. Trend takip eden bir kural olduğu için yatay piyasada üst üste zarar eder.',
       strat_buy_and_hold_name: 'Al ve tut (referans)',
       strat_buy_and_hold_desc: 'Dönemin başında alır ve sonuna kadar tutar. Bu bir referans çizgisidir, strateji değil — bir kural seti bunu geçemiyorsa karmaşıklığı hiçbir şey kazandırmıyor demektir.',
 

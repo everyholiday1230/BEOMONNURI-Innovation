@@ -6,6 +6,7 @@ import type { PgPointsRepo } from './db/points-repo';
 import type { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { checkPlanFeature, gateErrorBody } from './subscriptions/plan-gate';
 import { FEATURE_SAVES } from './subscriptions/plans';
+import { signalSaveIsFree, type CampaignConfig } from './campaign/campaign-window';
 
 /*
    사용자가 만든 전략/지표 CRUD (Option B).
@@ -19,8 +20,14 @@ import { FEATURE_SAVES } from './subscriptions/plans';
 const CSRF = 'qt_csrf';
 const err = (code: string, message: string) => ({ error: { code, message } });
 
-export const STRATEGY_SAVE_COST: Record<UserStrategyKind, number> = { strategy: 300, indicator: 100 };
-const VALID_KINDS = new Set<UserStrategyKind>(['strategy', 'indicator']);
+/*
+   저장 비용(포인트). 편집·삭제는 무료 — 이미 소유한 자원이다.
+
+   ★ 'signal' 은 지표와 같은 100 으로 둔다. 조건식 하나이고 전략(300)처럼 백테스트
+     대상이 아니다. 값을 다르게 매기려면 근거가 있어야 하는데, 지금은 없다.
+*/
+export const STRATEGY_SAVE_COST: Record<UserStrategyKind, number> = { strategy: 300, indicator: 100, signal: 100 };
+const VALID_KINDS = new Set<UserStrategyKind>(['strategy', 'indicator', 'signal']);
 
 export interface UserStrategyRouterDeps {
   service: AuthService;
@@ -31,6 +38,12 @@ export interface UserStrategyRouterDeps {
   csrfKey: string;
   corsOrigins: string[];
   cookieName: string;
+  /*
+     KuCoin 공동 캠페인 설정(선택). 없으면 캠페인 혜택이 적용되지 않는다 —
+     기본이 꺼짐이어야 신청서 없이 포인트가 나가지 않는다.
+     상세: CAMPAIGN-KUCOIN-2026-10.md
+  */
+  campaign?: CampaignConfig;
 }
 
 export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
@@ -76,15 +89,46 @@ export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
       const gate = await checkPlanFeature(d.subscriptions, a.user.id, FEATURE_SAVES);
       if (!gate.allowed) return c.json(gateErrorBody(gate), gate.reason === 'PLAN_REQUIRED' ? 402 : 503);
     }
-    const cost = STRATEGY_SAVE_COST[kind];
+    let cost = STRATEGY_SAVE_COST[kind];
+
+    /*
+       ★★★ **캠페인 약속: 신호 규칙 저장 처음 5회 무료.**
+
+         KuCoin 신청서에 "the first five are free for campaign participants" 를
+         적어 제출했다. 그러므로 이것은 선택이 아니라 이행이다.
+
+       ★★ 이미 저장한 개수를 **DB 에서 센다.** 세션이나 화면 값으로 세면 새로 접속할
+         때마다 다시 5회가 되어 무한 무료가 된다.
+
+       ★ 지표·전략은 대상이 아니다(신청서가 "signal rules" 라고 썼다). 캠페인 창
+         판정과 종류 판정은 campaign-window.ts 한 곳에 있다 — 두 곳에서 날짜를
+         비교하면 한쪽만 고쳐진다.
+    */
+    let freeBecauseCampaign = false;
+    if (d.campaign && kind === 'signal') {
+      try {
+        const mine = await d.repo.listForUser(a.user.id, 'signal');
+        freeBecauseCampaign = signalSaveIsFree(d.campaign, kind, mine.length);
+      } catch {
+        /*
+           ★ 개수를 못 세면 **무료로 주지 않는다.** 무료로 주면 셀 수 없는 상태에서
+             무한히 나간다. 유료로 두면 고객이 문의하고 운영자가 확인할 수 있다.
+        */
+        freeBecauseCampaign = false;
+      }
+    }
+    if (freeBecauseCampaign) cost = 0;
 
     // 포인트 제도가 켜져 있으면 저장에 포인트를 쓴다. 잔액이 모자라면 저장하지 않는다.
     let meteringOn = false;
     if (d.points) {
       try { meteringOn = Boolean((await d.points.getSettings()).enabled); } catch { meteringOn = false; }
       if (meteringOn) {
-        const balance = await d.points.balanceOf(a.user.id);
-        if (balance < cost) return c.json(err('INSUFFICIENT_POINTS', `need ${cost} points to save`), 402);
+        /* ★ 무료면 잔액을 보지 않는다 — 잔액 0 인 신규 고객도 약속받은 5회를 쓴다. */
+        if (cost > 0) {
+          const balance = await d.points.balanceOf(a.user.id);
+          if (balance < cost) return c.json(err('INSUFFICIENT_POINTS', `need ${cost} points to save`), 402);
+        }
       }
     }
 
@@ -100,14 +144,20 @@ export function createUserStrategyRouter(d: UserStrategyRouterDeps): Hono {
 
     let charged = 0;
     let balance: number | undefined;
-    if (meteringOn && d.points) {
+    /* ★ cost 0 이면 차감을 부르지 않는다 — 0 원장 항목은 금지돼 있다(delta <> 0). */
+    if (meteringOn && d.points && cost > 0) {
       try {
         const res = await d.points.spendMetered({ userId: a.user.id, amount: cost, refType: 'user_strategy', refId: item.id, memo: `save ${kind}` });
         charged = cost;
         balance = res && typeof res.balanceAfter === 'number' ? res.balanceAfter : undefined;
       } catch { /* 저장은 됐다 — 과금 실패는 조용히 넘기지 않되 저장을 되돌리진 않는다 */ }
     }
-    return c.json({ ok: true, item, charged, balance });
+    /*
+       ★★ 무료로 처리됐다는 사실을 응답에 밝힌다. 화면이 "0 포인트 차감" 을 보여줄
+         수 있어야 고객이 혜택을 받았는지 안다 — 조용히 0 을 차감하면 혜택이
+         적용됐는지 알 수 없다.
+    */
+    return c.json({ ok: true, item, charged, balance, freeByCampaign: freeBecauseCampaign });
   });
 
   // ---- 편집(무료, 소유자만) ----

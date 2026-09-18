@@ -52,6 +52,13 @@ export const AI_CHART_COMMANDS = [
   'createInvalidationLevel',
   'addIndicator',
   'removeIndicator',
+  /*
+     ★★★ 고객이 만든 **신호 규칙**(2026-09-18). 매매 신호는 우리가 주는 것이 아니라
+       고객이 조건을 쓰고 우리가 성립한 봉을 표시한다. AI 는 고객이 말로 설명한
+       조건을 DSL 식으로 옮기는 일을 한다 — 방향을 정하는 것이 아니다.
+  */
+  'addSignalRule',
+  'removeSignalRule',
   'updateOverlay',
   'hideOverlay',
   'deleteOverlay',
@@ -185,6 +192,23 @@ export const CHART_COMMAND_ARG_SCHEMAS: Record<AiChartCommandName, z.ZodTypeAny>
       label: z.string().max(60).optional(),
     }),
   removeIndicator: z.object({ indicator: z.string().min(1).max(20) }),
+  /*
+     신호 규칙 추가.
+
+     ★★ `rule` 은 **DSL 표현식**이다. 임의 자바스크립트가 아니다 — 서버가
+       validateIndicatorFormula() 로 한 번 더 검증하고, 화면이 렌더 직전에 또 파싱한다
+       (이중 방어). 길이 상한은 DSL 의 MAX_LEN(600)과 같아야 한다.
+
+     ★★★ `direction` 은 **선택**이고 기본이 없음이다. 고객이 "골든크로스면 매수" 라고
+       말했으면 'long' 이 되고, "골든크로스 표시해줘" 라고만 했으면 방향이 없다.
+       AI 가 채워 넣으면 그 순간 우리가 방향을 발신한 것이 된다.
+  */
+  addSignalRule: z.object({
+    name: z.string().trim().min(1).max(24),
+    rule: z.string().trim().min(1).max(600),
+    direction: z.enum(['long', 'short']).optional(),
+  }),
+  removeSignalRule: z.object({ name: z.string().trim().min(1).max(24) }),
   updateOverlay: z.object({ overlayId: z.string().min(1), patch: z.record(z.union([z.string(), z.number(), z.boolean()])) }),
   hideOverlay: z.object({ overlayId: z.string().min(1) }),
   deleteOverlay: z.object({ overlayId: z.string().min(1) }),
@@ -267,6 +291,27 @@ export const AiSetupReviewSchema = z
          버리고 방향 발신 금지가 무력해진다.
     */
     directionStatedByUser: z.boolean(),
+    /*
+       ---- AI 가 자기 방향 견해를 말한 경우 ----
+
+       ★★★ 운영 결정(2026-09-18): AI 는 **자기 견해를 참고자료로** 말할 수 있다.
+         약관 제2조의2(AI 견해)가 그 성격을 정의한다 — 조언·추천·권유가 아니고,
+         고객 사정에 맞춘 것이 아니고, 틀릴 수 있고, 판단은 고객 것이다.
+
+       ★★ `directionStatedByUser` 와 **구별한다.** 둘을 섞으면 AI 가 만든 숫자를
+         "고객이 준 것" 으로 기록하게 되고, 그것은 우리가 방향을 발신하고도 고객
+         책임으로 적는 것이 된다. 실제로 그 위험 때문에 예전 프롬프트는 STEP 3 에서
+         review_setup 호출을 금지했다.
+
+       ★ 기본 false — 이 값을 넣지 않으면 예전과 똑같이 동작한다(양방향 강제).
+    */
+    directionByAi: z.boolean().default(false),
+    /*
+       ★★★ **면책 고지 없이 방향을 말할 수 없다.** 이 값이 true 여야 스키마를 통과한다
+         (아래 superRefine). 화면이 고지를 붙이는 것과 별개로, **데이터 자체에** 고지
+         사실이 남아야 나중에 "그때 고지했는가" 를 확인할 수 있다.
+    */
+    aiOpinionDisclosed: z.boolean().default(false),
     /* ---- 셋업 (1개 또는 롱·숏 2개) ---- */
     sides: z.array(SetupSideSchema).min(1).max(2),
     /* ---- AI 가 계산·검증한 것 (방향과 무관한 부분) ---- */
@@ -274,7 +319,12 @@ export const AiSetupReviewSchema = z
     /* 방향과 무관한 관찰(지지·저항·추세·모멘텀). 방향을 말하지 않아도 항상 유효하다. */
     observations: z.array(z.string().max(500)).max(8).default([]),
     /* ---- 출처·시각 ---- */
-    author: z.enum(['user', 'user_ai_assisted']),
+    /*
+       ★ 'ai_opinion' 은 **방향까지 AI 가 낸 경우**다. 'user_ai_assisted' 는 방향은
+         고객이 정하고 숫자를 AI 가 도운 경우다. 둘을 구별해야 기록에서
+         "누가 방향을 정했는가" 를 되짚을 수 있다.
+    */
+    author: z.enum(['user', 'user_ai_assisted', 'ai_opinion']),
     model: z.string().min(1),
     promptVersion: z.string().min(1),
     dataSnapshotId: z.string().min(1),
@@ -294,19 +344,57 @@ export const AiSetupReviewSchema = z
        빠지고, 빠진 곳이 곧 구멍이 된다(차트 명령 경로에서 실제로 그랬다).
   */
   .superRefine((v, ctx) => {
+    const bad = (message: string, path: (string | number)[] = ['sides']) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+
+    /*
+       ★★★ **방향의 출처가 둘일 수는 없다.** 고객이 말했다고 하면서 AI 견해라고도
+         하면 기록이 모순되고, 나중에 누가 정했는지 확인할 수 없다.
+    */
+    if (v.directionStatedByUser && v.directionByAi) {
+      bad('direction cannot come from both the user and the AI', ['directionByAi']);
+      return;
+    }
+
     if (v.directionStatedByUser) {
-      if (v.sides.length !== 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction stated by user → exactly one side' });
+      if (v.sides.length !== 1) bad('direction stated by user → exactly one side');
+      /* ★ 고객이 방향을 말한 건에 AI 견해 표기를 붙이면 출처가 흐려진다. */
+      if (v.author === 'ai_opinion') bad("author must not be 'ai_opinion' when the user stated the direction", ['author']);
+      return;
+    }
+
+    if (v.directionByAi) {
+      /*
+         ★★★ AI 가 방향을 말하는 경로. **세 가지를 모두 요구한다.**
+           ① 한 방향만 (양방향이면 그것은 견해가 아니라 중립 제시다)
+           ② 면책 고지 사실이 데이터에 남아 있어야 한다
+           ③ author 가 'ai_opinion' 이어야 한다 — 우리가 낸 견해를 고객 것으로
+              기록하지 않기 위해서다
+      */
+      if (v.sides.length !== 1) bad('AI opinion → exactly one side');
+      if (!v.aiOpinionDisclosed) {
+        bad('AI opinion requires aiOpinionDisclosed=true (reference material, not advice)', ['aiOpinionDisclosed']);
+      }
+      if (v.author !== 'ai_opinion') bad("AI opinion → author must be 'ai_opinion'", ['author']);
+      /*
+         ★★ 견해에도 **반대 근거**를 요구한다. 한쪽 근거만 적은 것은 견해가 아니라
+           권유에 가깝다. 약관 제2조의2 4호("틀릴 수 있다")를 데이터로도 지킨다.
+      */
+      const side = v.sides[0];
+      if (side && side.contradictingEvidence.length === 0) {
+        bad('AI opinion must list evidence against its own view', ['sides', 0, 'contradictingEvidence']);
       }
       return;
     }
+
+    /* 아무도 방향을 말하지 않은 경우 — 예전과 같다. 양방향을 동등하게 제시한다. */
     if (v.sides.length !== 2) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction not stated → both long and short must be presented' });
+      bad('direction not stated → both long and short must be presented');
       return;
     }
     const dirs = new Set(v.sides.map((s) => s.direction));
     if (!dirs.has('long') || !dirs.has('short')) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sides'], message: 'direction not stated → sides must be one long and one short' });
+      bad('direction not stated → sides must be one long and one short');
     }
   });
 export type AiSetupReview = z.infer<typeof AiSetupReviewSchema>;

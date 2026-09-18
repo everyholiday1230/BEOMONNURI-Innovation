@@ -294,6 +294,9 @@
       ai_indicator_added: 'Đã thêm chỉ báo {name}',
       ai_indicator_unsupported: 'Chỉ báo không được hỗ trợ: {name}',
       ai_indicator_removed: 'Đã xóa chỉ báo {name}',
+      ai_signal_rule_added: 'Đã thêm quy tắc tín hiệu “{name}” của bạn — biểu đồ giờ sẽ đánh dấu mọi nến mà điều kiện của bạn xảy ra.',
+      ai_signal_rule_failed: 'Không thể thêm “{name}”: {reason}. Biểu thức quy tắc bị từ chối nên không vẽ gì cả.',
+      ai_signal_rule_removed: 'Đã xoá quy tắc tín hiệu “{name}”.',
       ai_overlay_removed: 'Đã xóa lớp vẽ',
       ai_overlay_hidden: 'Đã ẩn lớp vẽ — nó vẫn còn đó, chỉ là không được vẽ ra',
       ai_err_session: 'Phiên của bạn cần được làm mới. Hãy tải lại trang rồi hỏi lại — cuộc hội thoại của bạn vẫn được giữ.',
@@ -1680,6 +1683,8 @@
       strat_rsi_reversion_14_desc: 'Vào long khi RSI(14) xuống dưới 30, vào short khi lên trên 70. Cắt lỗ và mục tiêu đều ở 1,5x ATR(14). Tỷ lệ thắng cao nhưng các khoản lỗ trong thị trường có xu hướng thì lớn, nên hãy đọc kèm với mức sụt giảm tối đa.',
       strat_donchian_breakout_20_name: 'Phá vỡ Donchian 20 nến',
       strat_donchian_breakout_20_desc: 'Vào long khi giá phá đỉnh cao nhất của 20 nến gần nhất, vào short khi phá đáy thấp nhất. Cắt lỗ ở 2x ATR(14). Các cú phá vỡ thất bại thường xuyên; số ít chạy được phải bù cho những lần không chạy.',
+      strat_macd_cross_12_26_9_name: 'Giao cắt MACD (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'Mua khi đường MACD (12/26) cắt lên trên đường tín hiệu (9), bán khi ngược lại. Cắt lỗ tại 2x ATR(14), chốt lời tại 3x. Đây là quy tắc theo xu hướng nên sẽ thua lỗ liên tiếp trong thị trường đi ngang.',
       strat_buy_and_hold_name: 'Mua và giữ (mốc so sánh)',
       strat_buy_and_hold_desc: 'Mua ở đầu khoảng thời gian và giữ đến cuối. Đây là một đường tham chiếu, không phải một chiến lược — nếu một bộ quy tắc không thắng được mốc này thì sự phức tạp của nó chẳng mang lại gì.',
 

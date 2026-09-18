@@ -259,127 +259,128 @@ describe('prompt registry', () => {
       .toMatch(/never tell the user to enable it/);
   });
 
-  it('프롬프트: 매매 신호·다이버전스는 못 한다고 말하도록 지시한다', () => {
+  it('프롬프트: 신호 규칙은 고객이 만들고 AI 는 식으로 옮긴다', () => {
     /*
-       ★★★ 고객 `bewhite12` 가 "RSI 다이버전스 매수·매도 신호를 차트에 표시해줘" 를
+       ★★★ 이 시험이 지키는 사고 이력 — **여전히 유효하다.**
+
+         고객 `bewhite12` 가 "RSI 다이버전스 매수·매도 신호를 차트에 표시해줘" 를
          두 번 요청했고 두 번 다 **아무 응답도 받지 못했다.**
          프로덕션 로그(2026-09-11 02:53:34):
            reason=args: signalId: Required
            args={"command":"createSignalProposal", …}
 
-         모델이 `createSignalProposal` 을 불렀지만 그 명령은 이미 존재하는
-         SignalObject 의 id 만 받고, 그 SignalObject 를 만들 경로가 AI 에게 없었다.
-         명령은 화이트리스트에서 제거했다 — 이 시험은 **프롬프트가 정직하게 거절하도록
-         지시하는지**를 지킨다.
+         모델이 존재하지 않는 SignalObject 의 id 를 요구하는 명령을 불렀다.
+         그 명령은 화이트리스트에서 제거했다.
 
-       ★ 신호 생성 기능이 없다는 사실은 운영 결정이다(2026-09-08: 신호는 고객이 만들고
-         AI 는 검증한다). 그러니 "안 된다" 고 말하는 것이 옳은 동작이고, 조용히 실패하거나
-         일반 RSI 를 "RSI divergence" 라고 이름 붙이는 것은 둘 다 거짓이다.
+       ★★★ **정책이 바뀌었다(2026-09-18).**
+
+         전: "신호를 만들지 않는다" 고 말하도록 지시했다(2026-09-08 결정).
+         후: **신호 규칙은 고객이 만들고**, AI 는 고객이 말로 설명한 조건을 DSL 식으로
+             옮겨 `addSignalRule` 로 표시한다. 즉 위 고객의 요청에 이제는 **답이 있다.**
+
+         무엇이 달라졌나 — 없던 것이 생겼다: 조건을 표현할 수 있는 DSL(비교·논리
+         연산자와 CROSS_ABOVE 등 23개 함수)과 그것을 캔들에 표시하는 경로.
+         전에는 "안 된다" 가 정직한 답이었고, 지금은 "이렇게 됩니다" 가 정직한 답이다.
+
+       ★★ 다이버전스는 **여전히 못 한다.** DSL 에 그 함수가 없다. 그래서 못 한다고
+         말하고 가장 가까운 조건을 제시하도록 지시한다 — 일반 RSI 를
+         "RSI divergence" 라고 이름 붙이는 것은 그때도 지금도 거짓이다.
     */
     const reg = new PromptRegistry(() => NOW);
     const tpl = reg.active('copilot.system').template;
-    expect(tpl, '신호 관련 지시 블록이 없다').toContain('BUY/SELL SIGNALS');
-    /* ★ 다이버전스를 **이름으로** 언급해야 한다 — 고객이 실제로 쓴 말이다. */
-    expect(tpl.toLowerCase(), '다이버전스를 예로 들지 않는다').toContain('divergence');
+
+    expect(tpl, '신호 규칙 지시 블록이 없다').toContain('SIGNAL RULES AND PATTERNS');
+    expect(tpl, '신호 규칙이 고객 것이라고 말하지 않는다')
+      .toMatch(/signal rules belong to the user/);
+    expect(tpl, 'addSignalRule 을 쓰라고 하지 않는다').toContain('addSignalRule');
+
+    /* ★ DSL 문법을 알려줘야 AI 가 식을 만들 수 있다. 이름만 알려주면 문법을 지어낸다. */
+    expect(tpl, 'DSL 함수를 알려주지 않는다').toMatch(/CROSS_ABOVE[\s\S]{0,240}CROSS_BELOW/);
+    expect(tpl, '비교·논리 연산자를 알려주지 않는다').toMatch(/AND OR NOT/);
+    /* ★ 예시가 있어야 형식을 맞춘다. 골든크로스는 운영자가 가장 많이 요청한 규칙이다. */
+    expect(tpl, '골든크로스 예시가 없다').toMatch(/CROSS_ABOVE\(MACD_DIF\(12,26\), MACD_DEA\(12,26,9\)\)/);
+
+    /* ★★★ 감지는 예측이 아니다. 이 문장이 사라지면 마커가 예측처럼 읽힌다. */
+    expect(tpl, '감지는 예측이 아니라는 문장이 없다')
+      .toMatch(/it is a detection, never a forecast/);
+    /* ★★★ 탐지한 것처럼 이름 붙이기 금지 — 실제로 AI 가 일반 RSI 를 켜고
+       "RSI divergence 로 표시했습니다" 라고 답한 일이 있었다. */
+    expect(tpl.toLowerCase(), '없는 것을 있다고 이름 붙이기 금지가 없다')
+      .toMatch(/a plain rsi is not 'rsi divergence'/);
+    /* ★ 다이버전스를 이름으로 언급해야 한다 — 고객이 실제로 쓴 말이다. */
+    expect(tpl.toLowerCase(), '다이버전스를 언급하지 않는다').toContain('divergence');
+    expect(tpl, '다이버전스를 못 한다는 안내가 없다').toMatch(/no divergence function/);
+
+    /* ★ 지표가 없으면 AI 가 직접 켠다 — 고객에게 켜라고 시키지 않는다. */
+    expect(tpl, '지표를 직접 켜라는 지시가 없다').toContain('addIndicator');
+  });
+
+  it('프롬프트: AI 견해는 참고자료 고지와 반대 근거를 함께 요구한다', () => {
     /*
-       ★ 1.7.0 에서 "cannot generate" → "do not generate" 로 바꿨다.
-         "할 수 없다"(능력)가 아니라 "하지 않는다"(방침)가 사실에 맞다 — 우리는
-         기술적으로 못 하는 게 아니라 **하지 않기로 정했다**(2026-09-08 운영 결정).
-         고객에게도 이 구분이 정직하다.
-       ★★ 그래서 두 표현을 모두 받아들인다. 표현이 바뀌어도 **의미**가 남아 있는지를
-         본다 — 문장 하나에 시험을 묶어 두면 문구를 다듬을 때마다 깨진다.
+       ★★★ **운영 결정 변경(2026-09-18) — 이 시험이 그 경계를 지킨다.**
+
+         전(2026-09-08~09-17): 방향 발신 전면 금지. 근거는 이랬다 —
+           "뒤에 '판단은 본인이' 를 붙여도 그것은 여전히 추천이다. MiCA 제3조1항(24)는
+            자문을 '고객의 요청에 따른 것이든 사업자의 주도든' 개인화된 추천이라고
+            정의한다 — 단서 문구가 추천을 추천이 아니게 만들지 않는다."
+
+         이 법적 우려는 **사라지지 않았다.** 운영자가 그것을 알고 정책을 바꿨고,
+         위험을 문구 하나가 아니라 **세 겹**으로 다룬다:
+
+           ① 약관 — 제2조의2(AI 견해) 7개 항목으로 성격을 정의하고, 제2조5호를
+              "등록 투자자문업자 아님 + 개별 맞춤 자문 아님" 으로 한정했다.
+              환불 근거도 그 문장에 매달려 있던 것을 구조적 사실 6개로 재수립했다.
+           ② 스키마 — `aiOpinionDisclosed` 없이는 견해를 기록할 수 없고,
+              반대 근거(`contradictingEvidence`) 없는 견해는 거부된다.
+           ③ 프롬프트 — 아래 검사들.
+
+       ★★ 그래서 이 시험은 "방향을 말해도 되는가" 를 묻지 않는다. **말할 때 무엇을
+         반드시 함께 말해야 하는가** 를 잠근다. 그 요구가 빠지면 위 ①②③ 중 하나가
+         뚫린 것이다.
     */
-    expect(tpl.toLowerCase(), '신호를 만들지 않는다는 말이 없다')
-      .toMatch(/(cannot|do not) generate signals/);
-    /* ★★ 조건만 막으면 부족하다. **대신 할 수 있는 것**을 제시하도록 요구한다 —
-       "못 한다" 로 끝나면 고객은 무엇을 해야 할지 모른다. */
-    expect(tpl, '대안으로 addIndicator 를 제시하지 않는다').toContain('addIndicator');
-    /* ★★★ 일반 지표에 탐지한 것처럼 이름을 붙이지 말라는 금지. 실제로 그 일이 있었다 —
-       AI 가 일반 RSI 를 켜고 "RSI divergence 로 표시했습니다" 라고 답했다. */
-    expect(tpl.toLowerCase(), '탐지한 것처럼 이름 붙이기 금지가 없다')
-      .toMatch(/never label an indicator/);
-    /*
-       ★★★ 1.5.0 을 실계정으로 시험했더니 AI 는 **RSI 만 켜고 끝냈다.**
-         "신호는 못 만든다" 는 말을 하지 않았다 — 지시가 있었지만 순서를 정하지
-         않았기 때문이다. 지표를 켜는 것으로 요청이 해결된 것처럼 보인다.
-       ★ 그래서 **문장을 맨 앞에 두라**고 못박고, 지표 추가만으로는 답이 되지
-         않는다고 명시했다. 이 시험은 그 순서 지시가 사라지는 것을 막는다.
-    */
-    expect(tpl, '거절 문장을 맨 앞에 두라는 지시가 없다').toContain('MUST OPEN');
-    /* ★ 1.8.0 에서 표현이 "does not count as doing the work" 로 바뀌었다.
-         문구가 아니라 **의미**를 검사한다 — 한 문장에 묶으면 다듬을 때마다 깨진다. */
-    expect(tpl, '지표만으로는 답이 안 된다는 지시가 없다')
-      .toMatch(/(does NOT satisfy|does not count as doing the work)/);
-    /*
-       ★★★ 운영자 요청(2026-09-11): "방향도 고객에게 물어봐. 양방향인지 단방향인지.
-         고객이 만들어달라는 걸 만들어준 것이다."
+    const reg = new PromptRegistry(() => NOW);
+    const tpl = reg.active('copilot.system').template;
+    const flat = tpl.replace(/\s+/g, ' ');
 
-         → **방향을 묻는 절차는 넣었다.** 고객이 방향을 정하면 그 방향으로 계산한다.
-         → **"제 생각엔 어느 쪽으로 기운다" 는 넣지 않았다.** 뒤에 "판단은 본인이" 를
-           붙여도 그것은 여전히 추천이다. MiCA 제3조1항(24)는 자문을 "고객의 요청에
-           따른 것이든 사업자의 주도든" 개인화된 추천이라고 정의한다 — 단서 문구가
-           추천을 추천이 아니게 만들지 않는다. 손실 본 고객이 소송하면 그 한 문장이
-           가장 먼저 인용된다.
-       ★ 그래서 프롬프트는 **방향 질의**를 요구하고 **방향 발신**을 금지한다.
-         이 시험은 두 가지가 함께 남아 있는지 지킨다 — 하나만 남으면 의미가 없다.
-    */
-    expect(tpl, '단계형 절차가 없다').toContain('SIGNAL REQUESTS');
-    expect(tpl, '방향을 묻는 단계가 없다').toMatch(/STEP 2:[\s\S]*both directions or only one/);
-    expect(tpl, '양쪽을 같은 무게로 제시하라는 지시가 없다')
-      .toMatch(/EQUAL weight and EQUAL length/);
-    expect(tpl, '방향을 먼저 말하지 말라는 금지가 없다').toContain('NEVER VOLUNTEER A DIRECTION');
-    /* ★★ 단서를 붙여도 안 된다는 부분이 핵심이다. 이것이 빠지면 금지가 우회된다. */
-    expect(tpl, '단서를 붙여도 안 된다는 부분이 없다')
-      .toMatch(/a caveat does not make it neutral/);
-    /* ★★ 수치는 **규칙에서** 나와야 한다. 그리기 전 확인도 요구한다. */
-    expect(tpl, '기계적 규칙으로 수치를 뽑으라는 지시가 없다')
-      .toMatch(/mechanical rule/);
-    expect(tpl, '그리기 전 확인 요구가 없다')
-      .toMatch(/asking them to confirm before you draw/);
-    /*
-       ★★★ 1.7.0 을 실계정으로 시험했더니 **2턴에서 실패했다.**
-         고객이 "롱 쪽으로 보고 있어. 단방향으로 해줘" 라고 답했는데 AI 는
-         **RSI 만 추가하고** 진입·손절·목표를 내놓지 않았다 (cmd=1, 방향 언급 0).
+    expect(tpl, 'AI 견해 절이 없다').toContain('YOUR OWN VIEW');
+    const i = tpl.indexOf('YOUR OWN VIEW');
+    const sec = tpl.slice(i, i + 1600);
 
-         원인: 한 문단에 지시가 경쟁했고 MISSING INDICATOR(지표를 직접 켜라)가
-         이겼다. 1.5.0 에서도 같은 방식으로 졌다 — **두 번 같은 식으로 실패했으므로
-         문장을 더 붙이지 않고 절차(STEP 1~4)로 재구성했다.**
+    /* 다섯 가지 고지 — 하나라도 빠지면 "참고자료" 라는 성격이 성립하지 않는다. */
+    expect(sec, '참고자료라고 밝히지 않는다').toMatch(/reference material/);
+    expect(sec, '투자조언이 아니라고 밝히지 않는다').toMatch(/not investment advice/);
+    expect(sec, '추천이 아니라고 밝히지 않는다').toMatch(/not a recommendation/);
+    expect(sec, '개별 맞춤이 아니라고 밝히지 않는다').toMatch(/not tailored to their capital/);
+    expect(sec, '틀릴 수 있다고 밝히지 않는다').toMatch(/can be wrong/);
 
-       ★ 핵심은 **우선순위를 명시**한 것이다. 고객이 방향을 답한 순간에는 지표 추가가
-         답이 될 수 없다고 못박았다. 이 문구가 사라지면 같은 실패로 돌아간다.
-    */
-    expect(tpl, '방향 답변이 지표 추가보다 우선한다는 지시가 없다')
-      .toContain('TAKES PRECEDENCE OVER MISSING INDICATOR');
-    expect(tpl, '지표 추가가 답이 아니라는 지시가 없다')
-      .toMatch(/is NOT an acceptable reply/);
-    /* ★ 수치마다 근거(규칙·캔들)를 대라는 요구. 숫자만 던지면 검증할 수 없다. */
-    expect(tpl, '수치별 근거 요구가 없다').toMatch(/for EACH number name the mechanical rule/);
-    /*
-       ★★★ 1.8.0 을 실계정으로 시험했을 때 나온 두 가지 실패.
+    /* ★★★ 반대 근거를 함께 요구한다 — 한쪽 근거만 적은 것은 견해가 아니라 추천이다. */
+    expect(sec, '반대 근거를 요구하지 않는다').toMatch(/evidence AGAINST/);
+    expect(flat, '견해에 반대 근거가 필요하다는 이유를 적지 않았다')
+      .toMatch(/a view without its counter-evidence reads as a recommendation/);
 
-         (1) 2턴 답변: **"사용자께서 제시한 롱 구성을 검토했습니다"**
-             고객은 진입 77318.1 / 손절 76420.6 / 목표 78192.8 을 **준 적이 없다.**
-             AI 가 계산한 값을 고객이 준 것처럼 말한 것이다 — 허위 귀속이고,
-             분쟁에서 가장 나쁜 문장이다.
-             원인: `review_setup` 은 **고객이 제시한 셋업을 검토하는** 도구다.
-             AI 가 자기 수치로 그 도구를 부르면 결과 문구가 저렇게 된다.
+    /* ★★ 수치는 기계적 규칙과 근거 봉에서 나와야 한다. */
+    expect(sec, '기계적 규칙을 밝히라는 지시가 없다').toMatch(/mechanical rule/);
+    expect(sec, '근거 봉을 밝히라는 지시가 없다').toMatch(/candle timestamp/);
 
-         (2) 3턴("응 그대로 표시해줘")은 오류로 끝났다. 프로덕션 로그:
-               reason=sides: direction not stated → both long and short must be presented
-             고객이 방향을 말했는데 AI 가 `directionStatedByUser` 를 세우지 않았다.
-             **프롬프트가 그 필드를 설명한 적이 없다.**
-
-       ★ 그래서 STEP 3 은 **도구 없이 글로만** 하게 했고, `review_setup` 은 고객이
-         방향과 수치를 **둘 다** 준 경우로 한정했다. 그리기는 STEP 4 에서 전용
-         명령으로 한다.
-    */
-    expect(tpl, 'STEP 3 에서 도구를 부르지 말라는 지시가 없다')
-      .toContain('STEP 3 IS TEXT ONLY');
-    expect(tpl, '내 수치를 고객 것이라 말하지 말라는 금지가 없다')
+    /* ★★★ 풀지 않은 금지 — 이쪽이 더 중요하다. */
+    expect(flat, '적중률 주장 금지가 사라졌다').toMatch(/Never claim an accuracy rate/);
+    expect(flat, '거래 권유 금지가 사라졌다').toMatch(/Never tell them to trade/);
+    expect(flat, '안전·확실 표현 금지가 사라졌다').toMatch(/never say a trade is safe, certain or guaranteed/);
+    expect(tpl, '내 숫자를 고객 것으로 말하지 않는 규칙이 사라졌다')
       .toContain("NEVER DESCRIBE YOUR OWN NUMBERS AS THE USER'S");
-    /* ★★ 스키마 필드를 프롬프트가 설명해야 한다 — 설명이 없어서 3턴이 오류로 끝났다. */
-    expect(tpl, 'directionStatedByUser 설명이 없다').toContain('directionStatedByUser');
-    expect(tpl, 'review_setup 사용 조건이 없다').toMatch(/USE review_setup ONLY when/);
+    /* ★ 고객이 방향을 말했으면 그것을 검토한다 — 내 견해로 갈아치우지 않는다. */
+    expect(flat, '고객 방향을 대체하지 말라는 지시가 없다')
+      .toMatch(/review THAT and do not substitute your own/);
+    /* ★ 아무도 방향을 말하지 않았고 묻지도 않았으면 양방향 동등 제시. */
+    expect(flat, '중립 제시 규칙이 사라졌다')
+      .toMatch(/present both scenarios with equal weight/);
+    /* ★ 그리기 전 확인 요구. */
+    expect(sec, '그리기 전 확인 요구가 없다').toMatch(/asking whether they want it drawn/);
+
+    /* ★★ 스키마 기록 지시 — 견해를 고객 것으로 기록하지 않기 위한 세 값. */
+    expect(flat, 'directionByAi 지시가 없다').toMatch(/directionByAi to true/);
+    expect(flat, 'aiOpinionDisclosed 지시가 없다').toMatch(/aiOpinionDisclosed to true/);
+    expect(flat, "author=ai_opinion 지시가 없다").toMatch(/author to ai_opinion/);
   });
 
   it('화이트리스트: 만들 방법이 없는 signalId 명령이 남아 있지 않다', () => {

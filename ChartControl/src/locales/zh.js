@@ -525,6 +525,9 @@
       ai_indicator_added: '已添加 {name} 指标',
       ai_indicator_unsupported: '不支持的指标：{name}',
       ai_indicator_removed: '已移除 {name} 指标',
+      ai_signal_rule_added: '已添加你的信号规则「{name}」——图表现在会标注每一根满足你条件的K线。',
+      ai_signal_rule_failed: '无法添加「{name}」：{reason}。规则表达式被拒绝，因此没有绘制任何内容。',
+      ai_signal_rule_removed: '已删除信号规则「{name}」。',
       ai_overlay_removed: '已移除叠加层',
       ai_overlay_hidden: '已隐藏叠加层 — 并未删除，只是不再绘制',
       ai_err_session: '需要刷新会话。请重新加载页面后再次提问（对话会保留）。',
@@ -1369,6 +1372,8 @@
       strat_rsi_reversion_14_desc: 'RSI(14) 跌破 30 做多，升破 70 做空。止损与目标均为 1.5 倍 ATR(14)。胜率较高，但在单边趋势里亏损很大，要结合最大回撤一起看。',
       strat_donchian_breakout_20_name: '唐奇安 20 周期突破',
       strat_donchian_breakout_20_desc: '价格突破最近 20 根 K 线的最高价做多，跌破最低价做空。止损为 2 倍 ATR(14)。突破常常失败，靠少数走出去的行情来弥补其余的亏损。',
+      strat_macd_cross_12_26_9_name: 'MACD 交叉 (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'MACD 线(12/26)上穿信号线(9)做多，下穿做空。止损为 ATR(14) 的 2 倍，止盈为 3 倍。这是趋势跟随规则，因此在横盘行情中会连续亏损。',
       strat_buy_and_hold_name: '买入持有（基准）',
       strat_buy_and_hold_desc: '在区间开始时买入并持有到结束。这是一条参照线，不是策略 — 如果一套规则跑不过它，那它的复杂度就没有带来任何收益。',
 

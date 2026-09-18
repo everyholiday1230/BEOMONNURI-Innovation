@@ -288,6 +288,18 @@ export interface ApiEnv {
    */
   signupGrantPoints: number;
   /*
+     KuCoin 공동 캠페인(2026-10) 창과 혜택.
+
+     ★★★ **약속한 것을 지급하려면 창이 필요하다.** 신청서에 기간을 명시했으므로
+       그 기간에만 지급해야 한다. 값이 비어 있으면 캠페인은 꺼진 것으로 본다 —
+       기본값으로 켜 두면 신청서 없이도 포인트가 나간다.
+     ★ 상세: CAMPAIGN-KUCOIN-2026-10.md
+  */
+  campaignStart: string;
+  campaignEnd: string;
+  campaignWelcomePoints: number;
+  campaignFreeSignalSaves: number;
+  /*
      ★★ 모의(페이퍼) 시작 잔고. 문자열로 둔다 — 돈은 십진 문자열로 다룬다는
        프로젝트 규칙을 따른다(부동소수 반올림이 잔고를 조용히 어긋나게 한다).
      ★ 환경변수로 바꿀 수 있어야 한다. 대회에서는 참가자 전원에게 같은 금액을 주고,
@@ -943,6 +955,14 @@ export function loadEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     loginRateLimitPerMin: Number(env.LOGIN_RATE_LIMIT_PER_MIN ?? 10),
     /* ★ 음수·NaN 은 0 으로 떨어뜨린다. 잘못된 값이 지급을 막는 쪽이 과다 지급보다 안전하다. */
     signupGrantPoints: Math.max(0, Math.trunc(Number(env.SIGNUP_GRANT_POINTS ?? 1000)) || 0),
+    /*
+       ★ 날짜는 `YYYY-MM-DD` 문자열로 받는다. 비어 있으면 캠페인 꺼짐.
+       ★ 혜택 수치도 env 로 둔다 — 신청서 문구가 바뀌면 코드를 고치지 않게.
+    */
+    campaignStart: (env.CAMPAIGN_START ?? '').trim(),
+    campaignEnd: (env.CAMPAIGN_END ?? '').trim(),
+    campaignWelcomePoints: Math.max(0, Math.trunc(Number(env.CAMPAIGN_WELCOME_POINTS ?? 0)) || 0),
+    campaignFreeSignalSaves: Math.max(0, Math.trunc(Number(env.CAMPAIGN_FREE_SIGNAL_SAVES ?? 0)) || 0),
     /*
        ★★ 숫자로 변환한 뒤 다시 문자열로 만든다 — 잘못된 값("abc", "-5")이 그대로
          SQL 에 들어가지 않게 막는다. 음수는 거부하고 기본값을 쓴다.

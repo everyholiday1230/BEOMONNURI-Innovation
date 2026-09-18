@@ -31,9 +31,15 @@ describe('indicator formula validation', () => {
        그런데 그때 서버는 문법을 보지 않았기 때문에 이 식을 통과시켰고, 시험은
        "과길이를 막는다" 는 **틀린 이유로** 실패하고 있었다. 두 가지를 나눠서 본다.
   */
-  it('길이 상한(400자)을 넘으면 거부한다', () => {
-    const tooLong = `${'close+'.repeat(70)}close`;   // 70*6+5 = 425자
-    expect(tooLong.length).toBeGreaterThan(400);
+  it('길이 상한(600자)을 넘으면 거부한다', () => {
+    /*
+       ★ 상한을 400 → 600 으로 올렸다(2026-09-18). 조건식은 지표식보다 길다:
+         `CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9)) AND RSI(close,14) < 70`
+         한 줄이 이미 70자다. 클라이언트 DSL 의 MAX_LEN 과 같은 값이어야 한다
+         (formula-dsl-parity.test.ts 가 셋을 함께 잠근다).
+    */
+    const tooLong = `${'close+'.repeat(110)}close`;  // 110*6+5 = 665자
+    expect(tooLong.length).toBeGreaterThan(600);
     const r = validateIndicatorFormula({ name: 'x', expression: tooLong });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe('BAD_FORMULA');
@@ -58,9 +64,9 @@ describe('indicator formula validation', () => {
   });
 
   it('노드 상한을 넘는 식을 거부한다', () => {
-    /* 400자 안에서 노드 80개를 넘긴다 — 'close+' 는 노드 2개씩 늘린다. */
-    const many = `${'close+'.repeat(60)}close`;      // 365자
-    expect(many.length).toBeLessThanOrEqual(400);
+    /* 600자 안에서 노드 160개를 넘긴다 — 'close+' 는 노드 2개씩 늘린다. */
+    const many = `${'close+'.repeat(90)}close`;      // 545자, 노드 약 181개
+    expect(many.length).toBeLessThanOrEqual(600);
     const r = validateIndicatorFormula({ name: 'x', expression: many });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe('TOO_COMPLEX');
@@ -79,16 +85,64 @@ describe('indicator formula validation', () => {
     }
   });
 
-  it('선언한 중첩 상한(3단계)을 넘으면 거부한다', () => {
-    const deep = 'SMA(EMA(SMA(EMA(close,5),5),5),5)';   // 4단계
+  it('선언한 중첩 상한(4단계)을 넘으면 거부한다', () => {
+    const deep = 'SMA(EMA(SMA(EMA(SMA(close,5),5),5),5),5)';   // 5단계
     const r = validateIndicatorFormula({ name: 'x', expression: deep });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe('TOO_DEEP');
   });
 
-  it('중첩 3단계는 통과한다 — 상한이 정상 사용을 막지 않는다', () => {
-    const r = validateIndicatorFormula({ name: 'x', expression: 'SMA(EMA(SMA(close,5),5),5)' });
+  it('중첩 4단계는 통과한다 — 상한이 정상 사용을 막지 않는다', () => {
+    const r = validateIndicatorFormula({ name: 'x', expression: 'SMA(EMA(SMA(EMA(close,5),5),5),5)' });
     expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  /*
+     ★★ 조건식(2026-09-18) — 고객이 **자기 신호 규칙**을 쓰는 경로다.
+
+       여기가 막히면 "MACD 골든크로스면 매수" 같은 규칙을 아예 저장할 수 없다.
+       문법이 실제로 통과하는지 대표 식으로 확인한다.
+  */
+  it('조건식을 통과시킨다 — 비교·논리·교차·지표', () => {
+    for (const expr of [
+      'close > open',
+      'RSI(close,14) < 30',
+      'close > open AND volume > 1000',
+      'NOT (close > open)',
+      'CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9))',
+      'CROSS_BELOW(SMA(close,5), SMA(close,20))',
+      'CROSS_ABOVE(MACD_DIF(12,26), MACD_DEA(12,26,9)) AND RSI(close,14) < 70',
+      'close > REF(HHV(high,20),1)',
+      'RISING(close,3)',
+      'COUNT(close > open, 20) >= 15',
+      'ATR(14) > 0',
+    ]) {
+      const r = validateIndicatorFormula({ name: 'x', expression: expr });
+      expect(r.ok, `거부됐다: ${expr} → ${r.ok ? '' : r.code}`).toBe(true);
+    }
+  });
+
+  it('대입 기호와 비교 연쇄를 거부한다 — 조용히 엉뚱한 값이 되는 것을 막는다', () => {
+    const eq = validateIndicatorFormula({ name: 'x', expression: 'close = open' });
+    expect(eq.ok).toBe(false);
+    if (!eq.ok) expect(eq.code).toBe('BAD_OPERATOR');
+
+    /*
+       ★★★ `a < b < c` 는 수학처럼 읽히지만 왼쪽부터 접으면 `(a<b) < c` 가 되어
+         **0 또는 1 을 c 와 비교한다.** 조용히 틀린 결과가 나오므로 거부한다.
+    */
+    const chain = validateIndicatorFormula({ name: 'x', expression: 'close < high < 200' });
+    expect(chain.ok).toBe(false);
+    if (!chain.ok) {
+      expect(chain.code).toBe('CHAINED_COMPARISON');
+      expect(chain.message, '고칠 방법을 알려주지 않는다').toMatch(/AND/u);
+    }
+  });
+
+  it('논리 낱말이 값 자리에 오면 원인을 지목해 거부한다', () => {
+    const r = validateIndicatorFormula({ name: 'x', expression: 'AND close' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe('UNEXPECTED_LOGIC');
   });
 
   it('통과한 식은 AST 를 함께 돌려준다 — 통과 사실이 파싱 성공을 뜻한다', () => {

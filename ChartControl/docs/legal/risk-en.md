@@ -1,6 +1,6 @@
 # Risk Disclosure
 
-Effective: 10 August 2026 · Version 1.0
+Effective: 18 September 2026 · Version 1.1
 
 ## Read this first
 
@@ -53,10 +53,22 @@ direction and still lose money to accumulated funding.
   that case **check at the exchange.** Re-sending the same order while the outcome is
   unknown can double your position.
 
-## 6. About analysis and signals
+## 6. About analysis, signals and the AI's view
 
-- Indicators, backtests and AI analysis are **reference information.** They are not
-  investment advice and are not a recommendation to make any particular trade.
+- Indicators, backtests, signal rules and AI output are **reference information.** They
+  are not personalised investment advice and are not a recommendation or solicitation to
+  make any particular trade.
+- **The AI may state a directional view.** When it does, that is the software's reading of
+  chart data, offered as reference material for you to weigh. It is not an instruction to
+  trade, it is not tailored to your capital or risk tolerance, and **it can be wrong.** No
+  accuracy rate is claimed, promised or implied. If you place an order after reading it,
+  that order is your decision and your risk.
+- **A signal rule is one you wrote.** You define the condition; the Service evaluates it
+  against the candle series and marks where it occurred. A mark states that a condition
+  happened — it does not state that acting on it would be profitable. We do not review
+  your rule for soundness.
+- **A detection is not a forecast.** "The MACD line crossed above its signal line at 09:15"
+  is a description of what the data did. It says nothing about what happens next.
 - **Past performance does not indicate future results.** A backtest is a calculation
   over historical data; real trading differs because of execution delay, slippage,
   fees and funding.

@@ -233,6 +233,9 @@
       ai_indicator_added: 'Added {name} indicator',
       ai_indicator_unsupported: 'Indicator not supported: {name}',
       ai_indicator_removed: 'Removed {name} indicator',
+      ai_signal_rule_added: 'Added your signal rule “{name}” — the chart now marks every candle where your condition occurred.',
+      ai_signal_rule_failed: 'Could not add “{name}”: {reason}. The rule expression was rejected, so nothing was drawn.',
+      ai_signal_rule_removed: 'Removed the signal rule “{name}”.',
       ai_overlay_removed: 'Overlay removed',
       /* ★ '삭제' 와 '숨김' 은 고객에게 전혀 다른 말이다. 숨김은 되돌릴 수 있다. */
       ai_overlay_hidden: 'Overlay hidden — it is still there, just not drawn',
@@ -1562,6 +1565,8 @@
       strat_rsi_reversion_14_desc: 'Long when RSI(14) falls below 30, short when it rises above 70. Stop and target both at 1.5x ATR(14). The win rate is high but losses in a trending market are large, so read it together with max drawdown.',
       strat_donchian_breakout_20_name: 'Donchian 20-bar breakout',
       strat_donchian_breakout_20_desc: 'Long when price breaks the highest high of the last 20 bars, short on the lowest low. Stop at 2x ATR(14). Breakouts fail often; the few that run have to pay for the ones that do not.',
+      strat_macd_cross_12_26_9_name: 'MACD cross (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'Long when the MACD line (12/26) crosses above its signal line (9), short on the reverse. Stop at 2x ATR(14), target at 3x. This is a trend-following rule, so it takes repeated losses in a sideways market.',
       strat_buy_and_hold_name: 'Buy and hold (benchmark)',
       strat_buy_and_hold_desc: 'Buys at the start of the window and holds to the end. This is a reference line, not a strategy — if a rule set cannot beat this, its complexity is not earning anything.',
       // --- 관리자: 비밀번호 재설정 발송 ---

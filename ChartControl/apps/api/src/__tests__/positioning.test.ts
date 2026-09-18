@@ -180,7 +180,23 @@ describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 �
       /We do not provide deposits or withdrawals/,
       /We do not make trading decisions for you/,
       /We do not provide automated trading/,
-      /We do not provide investment advice, discretionary asset management or collective investment services/,
+      /*
+         ★★★ 2026-09-18 정책 변경으로 이 항목의 **표현이 한정됐다.**
+
+           전: "We do not provide investment advice, discretionary asset management
+                or collective investment services."
+           후: "We are not a registered investment adviser and do not provide
+                personalised investment advice, discretionary asset management or
+                collective investment services."
+
+           AI 가 자기 견해를 참고자료로 말할 수 있게 됐으므로 무조건적 부정은 사실이
+           아니게 됐다. 그러나 **한정된 사실은 그대로 지켜야 한다** — 등록 업자가
+           아니라는 것과 개별 맞춤 자문을 하지 않는다는 것이 환불 근거의 축이다.
+           둘 중 하나라도 빠지면 약화된 것이므로 나눠서 검사한다.
+      */
+      /We are not a registered investment adviser/,
+      /do not provide personalised investment advice/,
+      /discretionary asset management or collective investment services/,
       /We do not charge trading fees/,
       /We do not guarantee or forecast your results/,
     ]) {
@@ -195,7 +211,21 @@ describe('LEGAL — 법적 문서가 업종(소프트웨어 개발·공급)과 �
          읽히면 막힌다.
     */
     expect(en).toMatch(/is software\. What you can buy here is \*\*use of that software\*\*/);
-    expect(en).toMatch(/not buying a financial product, an investment, or a trading service/);
+    /*
+       ★ 2026-09-18: "or a trading service" 뒤에 "or a promise about market outcomes"
+         를 덧붙였다 — AI 견해를 팔지 않는다는 것을 결제 관점에서도 명시하기 위해서다.
+         한 줄로 고정해 두면 문구를 다듬을 때마다 깨지므로 항목별로 본다.
+    */
+    expect(en, '금융상품이 아니라는 문구가 사라졌다').toMatch(/not buying a financial product/);
+    expect(en, '거래 서비스가 아니라는 문구가 사라졌다').toMatch(/a trading service/);
+    expect(en, '결과를 약속하지 않는다는 문구가 없다').toMatch(/promise about market outcomes/);
+    /*
+       ★★ 유료 기능이 **무엇을 인도하는가** 를 밝혀야 한다. AI 견해를 팔 수 있게 되면서
+         "맞는 답을 산 것이 아니다" 를 §1 에 적었다 — 환불 거절의 근거다.
+    */
+    /* ★ 마크다운 본문은 줄바꿈으로 쪼개져 있다 — 공백을 하나로 눌러 본다. */
+    expect(en.replace(/\s+/g, ' '), '무엇을 인도하는지 밝히지 않는다')
+      .toMatch(/what you have bought and received is \*\*the analysis itself\*\*/);
   });
 
   it('[L6] 제거된 결제수단을 약관이 아직 언급하지 않는다', () => {

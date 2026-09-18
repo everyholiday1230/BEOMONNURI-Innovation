@@ -49,7 +49,11 @@ This document describes the controls the Service **actually has in place**. It i
 
 - We do not collect identity documents, selfies or proof of address. Verification is performed by your exchange, so there are no identity documents here to leak.
 - We do not manage your funds and do not execute trades on your behalf automatically.
-- We do not provide investment advice.
+- We are not a registered investment adviser and do not provide personalised investment
+  advice. The AI may state its reading of a chart, including a directional view, as
+  reference material; it is not advice, not a recommendation, and not tailored to you.
+- We do not act on the AI's view ourselves. We take no position in reliance on it and do
+  not trade alongside you.
 
 ## 9. Reporting a vulnerability
 

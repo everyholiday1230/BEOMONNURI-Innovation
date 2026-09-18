@@ -1,6 +1,6 @@
 # Terms of Service
 
-Effective: 5 September 2026 · Version 1.1
+Effective: 18 September 2026 · Version 1.2
 
 ## 1. What this service is
 
@@ -10,7 +10,13 @@ These Terms govern your use of {{BRAND_NAME}} (the "Service").
 yourself. It provides:
 
 - Charts and indicators built from market data published by exchanges
-- An AI assistant that explains what those charts and indicators show, in reply to your questions
+- An AI assistant that explains what those charts and indicators show, in reply to your questions,
+  and that may state **its own reading of the chart, including a directional view**, as reference
+  material for you to weigh — see section 2A
+- **Signal rules that you write yourself.** You define the condition (for example, "MACD line
+  crosses above its signal line"); the Service evaluates that condition against the candle series
+  and marks on the chart where it occurred. The rule is yours, the marks are a calculation, and
+  nothing is ordered
 - Saved layouts, drawings and indicator presets
 - An optional convenience feature that transmits an order **you have entered and approved** to your
   own exchange account, using API keys you connect yourself
@@ -19,7 +25,7 @@ Charts currently cover cryptocurrency markets. Coverage of other markets, such a
 and ETFs, may be added later; this section will be updated if it is.
 
 The Service is software licensed to you for your own use. It is not a securities exchange, a
-dealer, an investment adviser, an asset manager or a payment service. Where the Service
+dealer, a registered investment adviser, an asset manager or a payment service. Where the Service
 transmits an order, it does so as a tool acting on your instruction — the trade itself is a
 transaction between you and your own exchange, under that exchange's terms, and the exchange is
 the party that accepts, executes, prices and settles it.
@@ -31,10 +37,33 @@ This section defines the nature of the Service. You accept it by using the Servi
 1. **We do not hold your funds.** Your assets remain in your own exchange account. We do not receive, custody, manage or hold them on deposit.
 2. **We do not provide deposits or withdrawals.** You move funds at the exchange directly. We hold no bank account or wallet address for receiving your money.
 3. **We do not make trading decisions for you.** Orders are transmitted only on your instruction. We do not create, modify or cancel orders on our own initiative.
-4. **We do not provide automated trading.** Following a strategy is a bookmark; it does not copy signals or submit orders.
-5. **We do not provide investment advice, discretionary asset management or collective investment services.** Indicators, analysis and signals are information only and are not a recommendation to buy or sell any financial instrument.
+4. **We do not provide automated trading.** Following a strategy is a bookmark. A signal rule you write marks the chart; it does not place, size, modify or cancel any order. No output of the Service ever reaches your exchange unless you enter and approve an order yourself.
+5. **We are not a registered investment adviser and do not provide personalised investment advice, discretionary asset management or collective investment services.** We do not assess your finances, objectives or risk tolerance, and nothing in the Service is tailored to your circumstances. Indicators, backtests, signal rules and AI output — including any directional view — are general reference material about a chart, not a recommendation or solicitation to buy or sell any instrument, and not a fiduciary or advisory service.
 6. **We do not charge trading fees.** Trading fees are charged to you by the exchange.
 7. **We do not guarantee or forecast your results.** We make no promise of profit, and any third party making such a promise does so without our authority.
+8. **We do not act on our own view.** Where the AI states a directional view, we take no position in reliance on it, we do not trade alongside you, and we are not paid for expressing one view rather than another.
+
+## 2A. About the AI's view
+
+This section exists because the AI may say what it thinks a chart shows, including which direction
+it reads. Please understand exactly what that is and is not.
+
+1. **It is the software's reading of chart data, offered as reference material.** It is one input
+   among many, published to you the same way an indicator value is.
+2. **It is not advice, not a recommendation, and not a solicitation.** It is not an instruction to
+   trade, and it is not a suggestion that you should trade at all.
+3. **It is not tailored to you.** The AI does not know your capital, leverage, other positions,
+   tax position, obligations or risk tolerance, and does not take them into account.
+4. **It can be wrong, and often will be.** It reads past and present price structure. Markets are
+   not required to continue. No accuracy rate is claimed, promised or implied.
+5. **The decision is yours alone.** If you place an order after reading it, that order is your
+   decision, made on your own judgement and at your own risk.
+6. **Every reply carries this notice.** Where the AI states a view, the Service displays that it is
+   reference material and not investment advice. The absence of that notice in any single message
+   does not change these Terms.
+7. **We accept no liability for a loss arising from your use of that view**, to the fullest extent
+   permitted by the law that applies to you. Where local law grants you rights that cannot be
+   excluded, those rights prevail.
 
 ## 3. How we earn
 
@@ -46,13 +75,18 @@ Even where we charge you nothing, we may earn from the following. You use the Se
 
 Rebate rates and payment terms are set by our agreements with exchanges. Unless we separately commit to it, we owe you no share of those rebates. Where we operate a payback or reward programme, its terms are published separately inside the Service.
 
+Because we may earn a rebate when you trade, understand that the Service earns more when you
+trade more. The AI is not instructed, tuned or rewarded to encourage trading, and it is told not to
+tell you to trade. We disclose the arrangement so you can weigh it for yourself.
+
 ## 4. Your responsibilities
 
-1. **Trading decisions are yours.** Indicators, analysis and signals are reference information; you trade on your own judgement and at your own risk.
-2. **You are responsible for your API keys.** You choose the permissions granted at the exchange. We do not need withdrawal permission and **strongly recommend that you do not grant it.**
-3. **You must comply with the laws where you live.** The Service may not be used where cryptocurrency derivatives trading is prohibited or restricted. You bear the consequences of using it from such a place.
-4. You must not share your account credentials with anyone.
-5. You must be at least 19 years old.
+1. **Trading decisions are yours.** Indicators, backtests, signal rules and AI output — including any directional view — are reference information; you trade on your own judgement and at your own risk.
+2. **A signal rule you write is yours.** You choose the condition, the instrument and the timeframe. We do not review it for soundness, and a rule that marks the chart is not a statement that acting on it would be profitable.
+3. **You are responsible for your API keys.** You choose the permissions granted at the exchange. We do not need withdrawal permission and **strongly recommend that you do not grant it.**
+4. **You must comply with the laws where you live.** The Service may not be used where cryptocurrency derivatives trading is prohibited or restricted. You bear the consequences of using it from such a place.
+5. You must not share your account credentials with anyone.
+6. You must be at least 19 years old.
 
 ## 5. Accounts
 

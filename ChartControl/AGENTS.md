@@ -184,9 +184,20 @@ const upd = <T extends Record<string, unknown>>(o: T, patch: Record<string, unkn
 Postgres/Redis 통합 테스트는 환경변수가 없으면 자동 skip된다. **반드시 실제로 돌릴 것**:
 
 ```bash
-docker run -d --name qt-pg-verify -e POSTGRES_USER=newchart -e POSTGRES_PASSWORD=newchart \
+# ★★★ --rm 과 --tmpfs 를 반드시 붙인다 — **양쪽 다** (아래 설명).
+docker run -d --rm --name qt-pg-verify \
+  --tmpfs /var/lib/postgresql/data:rw,size=512m \
+  -e POSTGRES_USER=newchart -e POSTGRES_PASSWORD=newchart \
   -e POSTGRES_DB=qtdb_verify -p 127.0.0.1:15499:5432 postgres:16-alpine
-docker run -d --name qt-redis-verify -p 127.0.0.1:16399:6379 redis:7-alpine
+docker run -d --rm --name qt-redis-verify \
+  --tmpfs /data:rw,size=64m \
+  -p 127.0.0.1:16399:6379 redis:7-alpine
+
+# ★★ 고정 대기(sleep)를 쓰지 않는다 — 준비 완료를 확인한다.
+for i in $(seq 1 60); do
+  docker exec qt-pg-verify pg_isready -U newchart -d qtdb_verify >/dev/null 2>&1 && break
+  sleep 1
+done
 
 export PG_TEST_URL="postgres://newchart:newchart@127.0.0.1:15499/qtdb_verify"
 export REDIS_URL="redis://127.0.0.1:16399"      # ★ REDIS_TEST_URL 이 아니다 — 아래 설명 참고
@@ -194,6 +205,40 @@ pnpm -r test
 
 docker rm -f qt-pg-verify qt-redis-verify
 ```
+
+**★★★ `--tmpfs` 를 빠뜨리면 디스크가 찬다.** 두 이미지가 **모두** 데이터 경로를
+`VOLUME` 으로 선언한다(실측):
+
+```
+postgres:16-alpine   {"/var/lib/postgresql/data":{}}
+redis:7-alpine       {"/data":{}}
+```
+
+그래서 `-v` 없이 `docker run` 하면 **익명 볼륨이 매번 새로 생기고, 컨테이너를
+지워도 볼륨은 남는다.** 검증용 DB 는 한 번 쓰고 버리는 것이라 남을 이유가 없다.
+
+★ 한쪽만 붙이면 나머지 하나가 계속 샌다 — 실제로 Postgres 에만 붙였다가
+  Redis 가 매번 볼륨 하나를 남기는 것을 확인했다.
+
+실제로 이 때문에 디스크가 꽉 찼다(2026-09-18): 세션마다 400~500MB 씩 쌓여
+**고아 볼륨 60개 · 11.35GB** 가 됐고, 48G 디스크가 여유 0바이트가 되어
+`ENOSPC` 로 컨테이너가 죽고 시험이 "no tests" 를 뱉었다. 그때 결과가 조용히
+틀리게 나왔다 — passed 1125 / skipped 38 (정상은 2092 / 16).
+
+  · `--tmpfs` = 데이터를 메모리에 둔다. 볼륨이 아예 생기지 않고 더 빠르다.
+  · `--rm` = 컨테이너가 멈출 때 스스로 사라진다. 정리를 잊어도 남지 않는다.
+  · 쌓인 것을 지울 때: `docker volume prune -f` 는 **어떤 컨테이너에도 붙지 않은**
+    볼륨만 지운다. 멈춘 컨테이너의 볼륨은 붙어 있으므로 남는다 — 타 프로젝트의
+    멈춘 컨테이너(`tongkwan-compass` · `sbg-*` · `newchart-*` · `qt-pg18`)는 안전하다.
+    그래도 지우기 전에 붙은 볼륨과 고아 볼륨의 **겹침이 0인지 확인할 것.**
+  · ★ 멈춘 컨테이너가 쥔 용량은 크지 않다(실측 합계 약 590MB). 용량을 먹는 것은
+    **주인 없는 고아 볼륨**이다. "멈춰 있으니 괜찮다" 가 아니다 — 멈춘 컨테이너도
+    디스크는 그대로 쥐고 있고, 반대로 지워진 컨테이너의 볼륨은 주인 없이 남는다.
+
+**★★ 고정 대기(`sleep 9`)를 쓰지 않는다.** 느린 날에는 부족하고, 그때 시험이
+Postgres 없이 돌아 **skip 으로 조용히 통과한다.** `skipped` 가 16 이면 붙은 것이고
+194 면 안 붙은 것인데, 그 사이 값(38 등)이 나오면 일부만 붙은 것이다.
+`pg_isready` 로 준비를 확인한 뒤 시작할 것.
 
 포트 15432/16379는 이 머신의 다른 프로젝트가 점유 중이므로 15499/16399를 쓴다.
 

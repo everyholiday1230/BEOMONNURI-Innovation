@@ -40,6 +40,7 @@ import { createPaypalWebhookRouter } from './subscriptions/paypal-webhook';
 import { PgSubscriptionRepo } from './subscriptions/subscription-repo';
 import { startSubscriptionReconciler } from './subscriptions/subscription-reconcile';
 import { grantMonthlyPointsIfDue } from './subscriptions/subscription-routes';
+import { campaignActive } from './campaign/campaign-window';
 import { readPlanMapping, verifyPlanAmounts, type PaidPlanCode } from './subscriptions/paypal-plans';
 import type { PlanCode } from './subscriptions/plans';
 import { createPointsRouter } from './points/points-routes';
@@ -724,11 +725,78 @@ let referralRepo: PgReferralRepo | null = null;
      고객 지원과 집계에 쓸모가 있다. 기록을 지우면 나중에 되짚을 수 없다.
 */
 async function recordExchangeConnected(userId: string): Promise<void> {
-  if (!referralRepo) return;
+  if (referralRepo) {
+    try {
+      await referralRepo.markMilestone(userId, 'keys_connected');
+    } catch (e) {
+      console.warn('[referral] 연결 단계 기록 실패 — 거래소 연결은 유지한다:', (e as Error).message);
+    }
+  }
+  await grantCampaignWelcomeIfDue(userId);
+}
+
+/**
+ * KuCoin 공동 캠페인 웰컴 포인트.
+ *
+ * ★★★ **이것은 제출한 약속이다.** 신청서에 이렇게 적어 KuCoin 에 제출했다:
+ *
+ *     "30,000 welcome points ... Step 4 — Points are credited automatically
+ *      to your account balance."  (Step 3 = API 키 연결)
+ *
+ *   그래서 지급 시점이 **키 검증 성공**이다. 상세: CAMPAIGN-KUCOIN-2026-10.md
+ *
+ * ★★★ **브로커 귀속을 조건으로 걸지 않는다 — 의도된 결정이다.**
+ *
+ *   신청서는 "우리 KuCoin 브로커 링크를 통해" 온 이용자를 대상으로 적었다. 그런데
+ *   키 검증 시점에 그것을 확실히 확인할 방법이 없다. 브로커 이용자 목록
+ *   (`KucoinBrokerClient.getUserList()`)으로 대조하려면 이용자의 KuCoin UID 를
+ *   먼저 조회해야 하고, 그 호출이 실패하면 자격 있는 고객이 약속받은 것을 못 받는다.
+ *
+ *   **넉넉하게 주는 쪽으로 틀린다.** 링크를 안 거친 사람에게도 주는 것은 약속을
+ *   어기는 것이 아니고(더 준 것이다), 포인트는 현금 가치가 없고 출금·양도가 되지
+ *   않으므로 실제 손실이 아니다. 반대로 조건을 좁혀 자격자를 빠뜨리면 그것은
+ *   약속을 어긴 것이다.
+ *
+ *   ★ 캠페인 종료 후 KuCoin 리베이트 내역과 대조하는 것은 운영자 몫으로 남긴다.
+ *
+ * ★★ 멱등: `uq_points_ref (user_id, reason, ref_type, ref_id)` 가 막는다. 중복이면
+ *   `grant()` 가 null 을 돌려준다(예외가 아니다). refType 에 캠페인 식별자를 넣어
+ *   **다음 캠페인은 다시 한 번 지급**될 수 있게 한다.
+ *
+ * ★ reason 은 기존 열거값 `event_reward`("이벤트·대회 보상")를 쓴다 — 새 값을 넣으려면
+ *   CHECK 제약 마이그레이션이 필요하고, 이 지급의 성질은 이미 그 값에 맞다.
+ *
+ * ★ 실패를 삼킨다. 포인트 때문에 **거래소 연결이 실패하면 안 된다** — 연결은 고객이
+ *   돈을 다루기 위한 것이고 지급은 부수적이다. 다만 로그는 남긴다.
+ */
+const CAMPAIGN_REF_TYPE = 'campaign:kucoin-2026-10';
+
+async function grantCampaignWelcomeIfDue(userId: string): Promise<void> {
+  if (!pointsRepo) return;
+  const cfg = {
+    campaignStart: env.campaignStart,
+    campaignEnd: env.campaignEnd,
+    campaignWelcomePoints: env.campaignWelcomePoints,
+    campaignFreeSignalSaves: env.campaignFreeSignalSaves,
+  };
+  if (cfg.campaignWelcomePoints <= 0) return;
+  if (!campaignActive(cfg)) return;
   try {
-    await referralRepo.markMilestone(userId, 'keys_connected');
+    const entry = await pointsRepo.grant({
+      userId,
+      amount: cfg.campaignWelcomePoints,
+      reason: 'event_reward',
+      refType: CAMPAIGN_REF_TYPE,
+      refId: userId,
+      memo: `KuCoin campaign welcome (${cfg.campaignWelcomePoints}pt)`,
+    });
+    /*
+       ★ null 은 **이미 받았다**는 뜻이다(중복 방어가 막았다). 오류가 아니므로
+         경고로 남기지 않는다 — 그러면 정상 재검증마다 경고가 쌓인다.
+    */
+    if (entry) console.log(`[campaign] 웰컴 포인트 ${cfg.campaignWelcomePoints}pt 지급 — user=${userId}`);
   } catch (e) {
-    console.warn('[referral] 연결 단계 기록 실패 — 거래소 연결은 유지한다:', (e as Error).message);
+    console.warn('[campaign] 웰컴 포인트 지급 실패 — 거래소 연결은 유지한다:', (e as Error).message);
   }
 }
 
@@ -2975,8 +3043,19 @@ if (env.authEnabled) {
       csrfKey: env.csrfKey,
       corsOrigins: env.corsOrigins,
       cookieName: env.cookieName,
-          ...(subscriptionRepo ? { subscriptions: subscriptionRepo } : {}),
-}));
+      ...(subscriptionRepo ? { subscriptions: subscriptionRepo } : {}),
+      /*
+         KuCoin 공동 캠페인 — 신호 규칙 저장 무료 횟수 판정에 쓴다.
+         ★ 값이 비어 있으면 campaignActive() 가 false 이므로 혜택이 적용되지 않는다
+           (기본 꺼짐). 상세: CAMPAIGN-KUCOIN-2026-10.md
+      */
+      campaign: {
+        campaignStart: env.campaignStart,
+        campaignEnd: env.campaignEnd,
+        campaignWelcomePoints: env.campaignWelcomePoints,
+        campaignFreeSignalSaves: env.campaignFreeSignalSaves,
+      },
+    }));
 
     app.route('/api', createReferralRouter({
       service: authService,

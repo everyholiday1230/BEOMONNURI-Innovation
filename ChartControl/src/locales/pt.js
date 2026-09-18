@@ -283,6 +283,9 @@
       ai_indicator_added: 'Indicador {name} adicionado',
       ai_indicator_unsupported: 'Indicador não suportado: {name}',
       ai_indicator_removed: 'Indicador {name} removido',
+      ai_signal_rule_added: 'Adicionei sua regra de sinal “{name}” — o gráfico agora marca cada candle em que sua condição ocorreu.',
+      ai_signal_rule_failed: 'Não foi possível adicionar “{name}”: {reason}. A expressão da regra foi rejeitada, então nada foi desenhado.',
+      ai_signal_rule_removed: 'Removi a regra de sinal “{name}”.',
       ai_overlay_removed: 'Marcação removida',
       ai_overlay_hidden: 'Marcação oculta — ela continua ali, só não está desenhada',
       ai_err_session: 'Sua sessão precisa ser renovada. Recarregue a página e pergunte de novo — sua conversa é mantida.',
@@ -1690,6 +1693,8 @@
       strat_rsi_reversion_14_desc: 'Long quando o RSI(14) cai abaixo de 30, short quando sobe acima de 70. Stop e alvo ambos em 1,5x ATR(14). A taxa de acerto é alta, mas as perdas em mercado de tendência são grandes, então leia junto com o drawdown máximo.',
       strat_donchian_breakout_20_name: 'Rompimento Donchian de 20 candles',
       strat_donchian_breakout_20_desc: 'Long quando o preço rompe a máxima mais alta dos últimos 20 candles, short na mínima mais baixa. Stop em 2x ATR(14). Rompimentos falham com frequência; os poucos que andam precisam pagar pelos que não andam.',
+      strat_macd_cross_12_26_9_name: 'Cruzamento MACD (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'Compra quando a linha MACD (12/26) cruza acima da linha de sinal (9), venda no caso inverso. Stop em 2x ATR(14), alvo em 3x. É uma regra seguidora de tendência, portanto acumula perdas em mercado lateral.',
       strat_buy_and_hold_name: 'Comprar e manter (referência)',
       strat_buy_and_hold_desc: 'Compra no início do período e mantém até o fim. É uma linha de referência, não uma estratégia — se um conjunto de regras não consegue superar isto, a complexidade dele não está gerando nada.',
 

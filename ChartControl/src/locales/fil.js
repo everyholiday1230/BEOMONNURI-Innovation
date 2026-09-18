@@ -333,6 +333,9 @@
       ai_indicator_added: 'Naidagdag ang {name} indicator',
       ai_indicator_unsupported: 'Hindi suportado ang indicator: {name}',
       ai_indicator_removed: 'Naalis ang {name} indicator',
+      ai_signal_rule_added: 'Naidagdag ang signal rule mong “{name}” — minamarkahan na ng chart ang bawat kandila kung saan naganap ang kondisyon mo.',
+      ai_signal_rule_failed: 'Hindi maidagdag ang “{name}”: {reason}. Tinanggihan ang rule expression, kaya walang naiguhit.',
+      ai_signal_rule_removed: 'Tinanggal ang signal rule na “{name}”.',
       ai_overlay_removed: 'Naalis ang overlay',
       ai_overlay_hidden: 'Nakatago ang overlay — nandiyan pa ito, hindi lang naguguhit',
       ai_err_session:
@@ -1899,6 +1902,8 @@
       strat_rsi_reversion_14_desc: 'Bumili sa oversold, magbenta sa overbought',
       strat_donchian_breakout_20_name: 'Donchian Breakout',
       strat_donchian_breakout_20_desc: 'Sundan ang breakout ng 20-period',
+      strat_macd_cross_12_26_9_name: 'MACD cross (12/26/9)',
+      strat_macd_cross_12_26_9_desc: 'Long kapag ang MACD line (12/26) ay tumawid pataas sa signal line (9), short kapag kabaligtaran. Stop sa 2x ATR(14), target sa 3x. Trend-following ito, kaya paulit-ulit ang lugi sa sideways na merkado.',
       strat_buy_and_hold_name: 'Buy and Hold',
       strat_buy_and_hold_desc: 'Bumili at hawakan',
 

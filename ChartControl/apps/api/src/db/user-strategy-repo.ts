@@ -5,7 +5,26 @@
 */
 import { randomUUID } from 'node:crypto';
 
-export type UserStrategyKind = 'strategy' | 'indicator';
+/*
+   사용자가 만들어 저장하는 것의 종류.
+
+   ★ 'signal' 은 2026-09-18 에 추가했다 — 운영 결정: **매매 신호는 고객이 만든다.**
+     고객이 조건식을 쓰고(config.rule), 서비스는 그 조건이 성립한 봉을 차트에
+     표시한다. 규칙은 고객 것이고 주문은 발생하지 않는다.
+   ★ DB CHECK 제약(0051)도 같은 세 값이어야 한다 — 한쪽만 늘리면 INSERT 가 거부된다.
+*/
+export type UserStrategyKind = 'strategy' | 'indicator' | 'signal';
+
+/**
+ * 알 수 없는 값은 'strategy' 로 떨어뜨린다(기존 동작).
+ *
+ * ★★ 두 곳(읽기·쓰기)이 각자 삼항 연산자로 판정하고 있었다. 종류를 하나 늘릴 때
+ *   한쪽만 고치면 **저장은 되는데 읽을 때 다른 종류로 보인다.** 한 함수로 모은다.
+ */
+export function normalizeKind(v: unknown): UserStrategyKind {
+  const s = String(v);
+  return s === 'indicator' || s === 'signal' ? s : 'strategy';
+}
 
 export interface UserStrategyRow {
   id: string;
@@ -45,7 +64,7 @@ function mapRow(x: Record<string, unknown>): UserStrategyRow {
   return {
     id: String(x.id),
     userId: String(x.user_id),
-    kind: (String(x.kind) === 'indicator' ? 'indicator' : 'strategy') as UserStrategyKind,
+    kind: normalizeKind(x.kind),
     name: String(x.name),
     baseStrategyId: x.base_strategy_id == null ? null : String(x.base_strategy_id),
     symbol: x.symbol == null ? null : String(x.symbol),
@@ -61,7 +80,7 @@ export class PgUserStrategyRepo {
 
   async create(input: CreateUserStrategyInput): Promise<UserStrategyRow> {
     const id = randomUUID();
-    const kind: UserStrategyKind = input.kind === 'indicator' ? 'indicator' : 'strategy';
+    const kind: UserStrategyKind = normalizeKind(input.kind);
     const { rows } = await this.pool.query(
       `INSERT INTO user_strategies (id, user_id, kind, name, base_strategy_id, symbol, timeframe, config)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING *`,
