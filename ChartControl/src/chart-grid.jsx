@@ -183,7 +183,12 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cfg.count]);
 
-    const TFS = ['1m', '5m', '15m', '1H', '4H', '1D'];
+    /*
+   ★ 멀티차트는 칸이 좁다. 전체를 넣으면 툴바가 넘쳐 차트가 눌린다. 자주 쓰는 것만
+     둔다 — 다른 주기는 단일 차트에서 고른다.
+   ★ 1M(한 달)을 넣었다. 운영자 요청이고, 긴 흐름은 좁은 칸에서도 유용하다.
+*/
+const TFS = ['1m', '5m', '15m', '1H', '4H', '1D', '1M'];
     const single = cfg.count === 1;
 
     return (

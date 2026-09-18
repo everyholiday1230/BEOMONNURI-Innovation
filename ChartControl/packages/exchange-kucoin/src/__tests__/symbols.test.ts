@@ -97,11 +97,33 @@ describe('타임프레임 매핑', () => {
     expect(toGranularity('1w')).toBe(10080);
   });
 
-  it("'3m' 은 KuCoin 에 없으므로 null 이다 — 5m 으로 대체하지 않는다", () => {
-    // 5m 을 3m 이라고 돌려주면 호출자에게 거짓 데이터를 주는 것이다.
-    expect(toGranularity('3m')).toBeNull();
-    expect(UNSUPPORTED_TIMEFRAMES.has('3m')).toBe(true);
-    expect(SUPPORTED_TIMEFRAMES).not.toContain('3m');
+  /*
+     ★★★ **`3m` 은 KuCoin 에 있다.** 이 시험은 사실이 아닌 것을 잠그고 있었다.
+
+       2026-09-18 실측: `GET /api/v1/kline/query?granularity=3` 이 봉 200개를 돌려준다.
+       주석에 "KuCoin 에 없다" 고 적혀 있었지만 확인해 보니 있었다 —
+       **못 하는 것과 안 만든 것은 다르다.**
+
+     ★ 대신 `6h`(360) 가 실제로 없다: `Unsupported granularity` 를 돌려준다.
+       그것을 이 시험이 지킨다 — 가까운 주기(4h·8h)로 대체하면 **맞아 보이는데 틀린
+       차트**를 주게 된다.
+  */
+  it("'6h' 는 KuCoin 선물에 없으므로 null 이다 — 4h·8h 로 대체하지 않는다", () => {
+    expect(toGranularity('6h')).toBeNull();
+    expect(UNSUPPORTED_TIMEFRAMES.has('6h')).toBe(true);
+    expect(SUPPORTED_TIMEFRAMES).not.toContain('6h');
+  });
+
+  it("'3m' 은 지원된다 — 실제 API 로 확인했다", () => {
+    expect(toGranularity('3m')).toBe(3);
+    expect(UNSUPPORTED_TIMEFRAMES.has('3m')).toBe(false);
+  });
+
+  it('새로 넣은 주기가 확인된 granularity 와 같다', () => {
+    /* 실측값: 480(8h) · 720(12h) · 43200(1M) */
+    expect(toGranularity('8h')).toBe(480);
+    expect(toGranularity('12h')).toBe(720);
+    expect(toGranularity('1M')).toBe(43200);
   });
 
   it('WS 캔들 채널 접미사를 왕복 변환한다', () => {

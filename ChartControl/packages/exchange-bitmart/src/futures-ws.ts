@@ -50,8 +50,18 @@ const WS_KLINE_SUFFIX: Record<Timeframe, string | null> = {
   '1h': '1H',
   '2h': '2H',
   '4h': '4H',
+  /*
+     ★★ 채널 이름을 확인하지 않았다 — BitMart 는 비활성이다. `null` 로 둔다.
+       `'6H'` 같은 값을 **짐작해 넣으면** 서버가 `Invalid channel` 로 거절하고
+       실시간 갱신이 조용히 멈춘다(3m 에서 실제로 겪었다).
+     ★ null 이면 호출자가 실시간 구독을 건너뛰고 REST 폴링으로 동작한다.
+  */
+  '6h': null,
+  '8h': null,
+  '12h': null,
   '1d': '1D',
   '1w': '1W',
+  '1M': null,
 };
 
 /** Internal timeframe → REST `step` (minutes), used for history and gap-fill. */
@@ -64,8 +74,13 @@ export const REST_KLINE_STEP: Record<Timeframe, number> = {
   '1h': 60,
   '2h': 120,
   '4h': 240,
+  /* ★ 위 WS 표와 같은 이유로 검증하지 않았다 — 산술 환산만 넣는다. */
+  '6h': 360,
+  '8h': 480,
+  '12h': 720,
   '1d': 1440,
   '1w': 10080,
+  '1M': 43200,
 };
 
 /** Timeframes that can actually be streamed. `3m` is absent — REST polling is the only option there. */

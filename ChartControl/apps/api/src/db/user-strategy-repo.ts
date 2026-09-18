@@ -119,7 +119,7 @@ export class PgUserStrategyRepo {
     const { rows } = await this.pool.query(
       `UPDATE user_strategies
           SET expires_at = GREATEST(now(), COALESCE(expires_at, now())) + ($3 || ' days')::interval
-        WHERE id = $1 AND user_id = $2 RETURNING *`,
+        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING *`,
       [id, userId, String(days)],
     );
     return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
@@ -130,7 +130,7 @@ export class PgUserStrategyRepo {
        ★ 만료된 것은 목록에서 뺀다. 지우지는 않는다 — 연장하면 다시 보인다.
        ★ `expires_at IS NULL` 은 보여준다(만료 개념이 없던 시절의 항목).
     */
-    const alive = '(expires_at IS NULL OR expires_at > now())';
+    const alive = '(deleted_at IS NULL AND (expires_at IS NULL OR expires_at > now()))';
     const { rows } = kind
       ? await this.pool.query(
           `SELECT * FROM user_strategies WHERE user_id = $1 AND kind = $2 AND ${alive} ORDER BY created_at DESC`,
@@ -143,9 +143,14 @@ export class PgUserStrategyRepo {
     return (rows as Record<string, unknown>[]).map(mapRow);
   }
 
+  /*
+     ★★★ **삭제된 항목은 없는 것으로 다룬다.** soft delete 를 넣을 때 이 함수를
+       빼먹으면, 고객이 지운 규칙을 연장·수정할 수 있게 된다 — 목록에는 없는데 조작은
+       되는 상태다. 저장 항목 쪽에서 실제로 밟았고 시험이 잡았다.
+  */
   async get(userId: string, id: string): Promise<UserStrategyRow | null> {
     const { rows } = await this.pool.query(
-      `SELECT * FROM user_strategies WHERE id = $1 AND user_id = $2`,
+      `SELECT * FROM user_strategies WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
       [id, userId],
     );
     return rows.length ? mapRow(rows[0] as Record<string, unknown>) : null;
@@ -163,15 +168,28 @@ export class PgUserStrategyRepo {
     if (sets.length === 0) return this.get(userId, id);
     sets.push('updated_at = now()');
     const { rows } = await this.pool.query(
-      `UPDATE user_strategies SET ${sets.join(', ')} WHERE id = $1 AND user_id = $${i + 1} RETURNING *`,
+      /* ★ 삭제된 항목은 고치지 못한다 — 목록에 없는데 조작은 되는 상태를 만들지 않는다. */
+      `UPDATE user_strategies SET ${sets.join(', ')} WHERE id = $1 AND user_id = $${i + 1} AND deleted_at IS NULL RETURNING *`,
       [id, ...vals, userId],
     );
     return rows.length ? mapRow(rows[0] as Record<string, unknown>) : null;
   }
 
+  /*
+     삭제 — **지우지 않고 표시만 한다**(운영 결정 2026-09-18).
+
+     ★★★ "만료든 고객이 삭제하든 우리 서버에는 항상 저장되어야 해. 우리가 다 학습시킬
+       거야." 그래서 `DELETE` 가 아니라 `deleted_at` 을 찍는다. 고객 화면에서는 즉시
+       사라지고 서버에는 남는다.
+     ★ 이미 지워진 것을 다시 지워도 `false` 가 되게 `deleted_at IS NULL` 을 조건에 둔다 —
+       그러지 않으면 화면이 "지웠다" 고 두 번 말한다.
+     ★★ 이 방식은 **거래소 API 키에는 쓰지 않는다.** 키를 지웠다는데 서버에 남기면
+       고객 자산에 접근할 수 있는 비밀을 계속 들고 있는 것이다.
+  */
   async remove(userId: string, id: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(
-      `DELETE FROM user_strategies WHERE id = $1 AND user_id = $2`,
+      `UPDATE user_strategies SET deleted_at = now()
+        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
       [id, userId],
     );
     return (rowCount ?? 0) > 0;

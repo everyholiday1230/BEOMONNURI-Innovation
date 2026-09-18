@@ -184,6 +184,88 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
    * ★ 선물 전용이다. 현물 실현손익은 이 경로로 얻을 수 없다 — 한도는 선물만 덮는다.
    * ★ 실패를 0 으로 바꾸지 않는다. 던져서 호출자가 '측정 불가' 로 다루게 한다.
    */
+  /**
+   * 청산된 거래 내역 — 손익과 **수익률**을 함께 준다.
+   *
+   * ★★★ 왜 체결(fills)이 아니라 이것인가
+   *   체결에는 손익이 없다. 손익은 포지션이 닫힐 때 확정된다. 그리고 수익률은
+   *   그 거래에 넣은 증거금을 알아야 구할 수 있는데, 청산 내역에는 **레버리지와
+   *   진입가**가 있다 — `증거금 = 진입가 × 수량 ÷ 레버리지`.
+   *
+   * ★ 수량은 거래소가 이 응답에 주지 않는다. 그래서 손익과 레버리지로 역산한다:
+   *   `수익률 = 손익 ÷ 증거금` 이고 `증거금 = 명목가 ÷ 레버리지` 이므로,
+   *   명목가를 모르면 수익률도 모른다. 명목가는 `진입가 × 수량` 이다.
+   *   ★★ **수량을 모르면 `roePct: null` 을 준다.** 추측해 넣지 않는다 — 수익률은
+   *     고객이 성과를 판단하는 숫자다.
+   *
+   * ★ 한 번에 최대 7일(거래소 제한). 호출자가 구간을 나눠 부른다.
+   * ★ 선물 전용이다. 현물 실현손익은 이 경로로 얻을 수 없다.
+   */
+  async closedTrades(
+    ctx: ExchangeContext,
+    fromMs: number,
+    toMs: number,
+  ): Promise<Array<{
+    id: string; symbol: string; side: 'long' | 'short';
+    openTime: number; closeTime: number;
+    openPrice: string | null; closePrice: string | null;
+    leverage: number | null;
+    pnl: string; tradeFee: string; fundingFee: string;
+    /** 수수료·펀딩비까지 반영한 순손익. */
+    netPnl: string;
+    /** 수익률(%). 구할 수 없으면 null. */
+    roePct: number | null;
+  }>> {
+    const rows = await this.client.getPositionsHistory(toKucoinCredential(ctx.credential), { fromMs, toMs });
+    return rows.map((r) => {
+      const net = D(r.pnl).minus(D(r.tradeFee)).plus(D(r.fundingFee));
+      /*
+         수익률 = 순손익 ÷ 증거금.
+
+         ★ 증거금 = |진입가 × 수량| ÷ 레버리지. 수량이 없으면 구할 수 없다.
+         ★★ 가격 변화율로 근사하지 않는다 — 수수료·펀딩비가 빠져 포지션 패널의
+           숫자와 어긋난다(같은 종류의 결함을 방금 고쳤다).
+      */
+      const roePct = (() => {
+        const lev = Number(r.leverage);
+        const open = Number(r.openPrice);
+        if (!(lev > 0) || !(open > 0)) return null;
+        /*
+           ★ 명목가를 순손익과 가격차로 역산한다: `수량 = 순손익 ÷ (청산가 − 진입가)`.
+             방향을 곱해 부호를 맞춘다. 가격차가 0 이면(같은 가격에 닫힘) 수량을
+             구할 수 없다 — 그때는 null 이다.
+        */
+        const close = Number(r.closePrice);
+        if (!(close > 0)) return null;
+        const diff = (close - open) * (r.side === 'short' ? -1 : 1);
+        if (!Number.isFinite(diff) || diff === 0) return null;
+        const qty = Number(r.pnl) / diff;
+        if (!Number.isFinite(qty) || qty <= 0) return null;
+        const margin = (open * qty) / lev;
+        if (!(margin > 0)) return null;
+        const pct = (Number(net.toString()) / margin) * 100;
+        /* ★ 터무니없는 값은 버린다 — 역산이 어긋났다는 뜻이다. */
+        if (!Number.isFinite(pct) || Math.abs(pct) > 10_000) return null;
+        return Math.round(pct * 100) / 100;
+      })();
+      return {
+        id: r.closeId,
+        symbol: r.symbol,
+        side: r.side,
+        openTime: r.openTime,
+        closeTime: r.closeTime,
+        openPrice: r.openPrice,
+        closePrice: r.closePrice,
+        leverage: r.leverage,
+        pnl: r.pnl,
+        tradeFee: r.tradeFee,
+        fundingFee: r.fundingFee,
+        netPnl: net.toString(),
+        roePct,
+      };
+    });
+  }
+
   async dailyRealizedLoss(ctx: ExchangeContext, fromMs: number, toMs: number): Promise<string> {
     const rows = await this.client.getPositionsHistory(toKucoinCredential(ctx.credential), {
       fromMs,

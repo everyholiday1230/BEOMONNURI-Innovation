@@ -92,13 +92,22 @@ describe('만료되어도 서버에는 보관한다', () => {
   });
 
   /*
-     ★ 고객이 **직접 지운 것**은 실제로 지운다. 개인정보 문서가 "삭제할 때까지" 를
-       약속하고 있고, 지우겠다고 한 것을 남겨 두면 그 약속을 깬다.
-       만료(우리가 정한 기간)와 삭제(고객의 의사)는 다르다.
+     ★★★ **계약이 바뀌었다(2026-09-18 재지시).**
+
+       처음에는 "고객이 직접 지운 것은 실제로 지운다" 였다. 개인정보 문서가
+       "삭제할 때까지" 를 약속하고 있었기 때문이다. 그런데 운영 지시가 바뀌었다:
+       "만료든 고객이 삭제하든 우리 서버에는 항상 저장되어야 해. 우리가 다 학습시킬 거야."
+
+     ★ 그래서 **삭제도 표시만 한다**(`deleted_at`). 고객 화면에서는 즉시 사라지고
+       서버에는 남는다. 개인정보 문서 §6 도 그렇게 고쳤다(v1.5) — 문서와 동작이
+       어긋나면 안 된다.
+     ★★ **거래소 API 키는 예외다.** 그 검사는 `retain-and-timeframes.test.ts` 에 있다.
   */
-  it('고객이 지운 것은 실제로 지운다', () => {
-    expect(strategyRepo, '삭제가 실제 삭제가 아니다').toMatch(/DELETE FROM user_strategies WHERE id = \$1 AND user_id = \$2/u);
-    expect(savedRepo, '삭제가 실제 삭제가 아니다').toMatch(/DELETE FROM saved_items WHERE id=\$1 AND user_id=\$2/u);
+  it('고객이 지운 것도 서버에는 남는다', () => {
+    expect(strategyRepo, '규칙을 실제로 지운다 — 학습 자료가 사라진다')
+      .toMatch(/UPDATE user_strategies SET deleted_at = now\(\)/u);
+    expect(savedRepo, '저장 항목을 실제로 지운다')
+      .toMatch(/UPDATE saved_items SET deleted_at = now\(\)/u);
   });
 
   /*

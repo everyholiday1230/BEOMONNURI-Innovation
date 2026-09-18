@@ -125,6 +125,22 @@ export interface KucoinClosedPosition {
   openTime: number;
   closeTime: number;
   side: 'long' | 'short';
+  /*
+     ★★★ 아래는 **수익률(ROE)을 구하기 위해** 추가했다.
+
+       운영자 요청: "히스토리에 %까지 넣어줘. 금액이랑 +- 얼마 했는지 말이야."
+
+       수익률은 `실현손익 ÷ 그 거래에 넣은 증거금` 이다. 증거금은 원장에 없지만
+       청산 내역에는 **레버리지와 진입가**가 있다 — `증거금 = 진입가 × 수량 ÷ 레버리지`.
+     ★ 그래서 계산할 수 있다. 거래소가 주는 값으로만 구한다.
+     ★ 없으면 `null` 이다. 0 을 넣으면 "레버리지 0배" 나 "무료" 처럼 읽힌다.
+  */
+  /** 그 포지션의 레버리지. 거래소가 확정한 값. */
+  leverage: number | null;
+  /** 평균 진입가. */
+  openPrice: string | null;
+  /** 청산가. */
+  closePrice: string | null;
 }
 
 export interface KucoinFill {
@@ -421,7 +437,38 @@ export class KucoinFuturesPrivate {
         liquidationPrice: toDecimalString(r.liquidationPrice ?? 0) ?? '0',
         unrealisedPnl: toDecimalString(r.unrealisedPnl ?? 0) ?? '0',
         realisedPnl: toDecimalString(r.realisedPnl ?? 0) ?? '0',
-        leverage: Number(r.realLeverage ?? 0),
+        /*
+           ★★★ **레버리지를 증거금으로 역산한다.**
+
+             KuCoin 은 **크로스 포지션에 `realLeverage` 를 주지 않는다**(0 또는 없음).
+             그래서 화면에 `×` 만 나오거나 종료 확인창이 `1×` 로 떴다 — 운영자가 두 번
+             지적했다: "레버리지도 제대로 나오게 해줘, 안 나오게 하지 말고."
+
+           ★ 레버리지는 **정의상** `포지션 가치 ÷ 증거금` 이다. 지어내는 것이 아니라
+             정의대로 구하는 것이다. KuCoin 이 주는 `posMargin`(포지션 증거금)과
+             `markPrice`·`currentQty`·승수로 계산할 수 있다.
+           ★ 거래소가 값을 주면 **그것을 쓴다** — 우리 계산보다 권위 있다.
+           ★ 증거금이 0 이거나 가치를 못 구하면 **0 을 둔다**(모름). 1 로 두지 않는다 —
+             1배라고 말하면 청산 위험을 실제보다 작게 보이게 한다.
+        */
+        leverage: (() => {
+          const given = Number(r.realLeverage ?? 0);
+          if (Number.isFinite(given) && given > 0) return given;
+          const mark = Number(r.markPrice ?? 0);
+          const qty = Math.abs(Number(contracts));
+          const margin = Number(r.posMargin ?? 0);
+          if (!(mark > 0) || !(qty > 0) || !(margin > 0) || mult === undefined) return 0;
+          const notional = mark * qty * mult;
+          const lev = notional / margin;
+          /*
+             ★ 터무니없는 값은 버린다. 승수를 잘못 알았거나 증거금이 다른 통화면
+               1000배 같은 수가 나온다 — 그 수를 보여주는 것이 모른다고 하는 것보다 나쁘다.
+             ★ 상한은 KuCoin 최대 배율(125)보다 넉넉히 둔다.
+          */
+          if (!Number.isFinite(lev) || lev <= 0 || lev > 300) return 0;
+          /* 소수 둘째 자리까지 — 거래소 화면도 그렇게 보여준다(예: 19.87×). */
+          return Math.round(lev * 100) / 100;
+        })(),
         marginMode: r.crossMode ? 'cross' : 'isolated',
         positionMargin: toDecimalString(r.posMargin ?? 0) ?? '0',
       });
@@ -624,6 +671,14 @@ export class KucoinFuturesPrivate {
         fundingFee: toDecimalString(r.fundingFee as number) ?? '0',
         openTime: Number(r.openTime ?? 0),
         closeTime: Number(r.closeTime ?? 0),
+        /*
+           ★ 거래소가 주지 않으면 null 이다. 0 으로 채우면 화면이 "0배" 를 보여주고,
+             수익률 계산이 0 으로 나누기가 된다.
+        */
+        leverage: Number(r.realLeverage ?? r.leverage ?? 0) > 0
+          ? Number(r.realLeverage ?? r.leverage) : null,
+        openPrice: toDecimalString(r.openPrice as number) ?? null,
+        closePrice: toDecimalString(r.closePrice as number) ?? null,
         side: String(r.side ?? '').toLowerCase() === 'short' ? 'short' : 'long',
       });
     }

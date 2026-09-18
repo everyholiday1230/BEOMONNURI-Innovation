@@ -3942,7 +3942,7 @@
                  ★ 화면은 대문자 표기(1H·1W)를 쓰고 api-client 의 normalizeTimeframe 이
                    소문자로 바꿔 보낸다 — 그래서 표기를 통일해도 서버 계약이 깨지지 않는다.
             */}
-            {['1m','5m','15m','30m','1H','2H','4H','1D','1W'].map(tf => (
+            {['1m','3m','5m','15m','30m','1H','2H','4H','6H','8H','12H','1D','1W','1M'].map(tf => (
               <button key={tf} className={`chart-tf__btn ${timeframe===tf?'is-active':''}`} onClick={() => setTimeframe(tf)}>{tf}</button>
             ))}
           </div>

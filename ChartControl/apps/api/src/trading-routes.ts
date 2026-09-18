@@ -1911,6 +1911,52 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
   });
 
 /**
+   * GET /trading/closed-trades — 청산된 거래 내역 (손익 + **수익률**).
+   *
+   * ★★★ 왜 체결 목록으로는 안 되는가
+   *   체결(fill)에는 손익이 없다. 손익은 포지션이 닫힐 때 확정된다. 그리고 수익률은
+   *   그 거래에 넣은 증거금을 알아야 구할 수 있다 — 청산 내역에만 레버리지와 진입가가
+   *   있다.
+   *
+   * ★ 거래소 제한으로 한 번에 7일까지다. 기본은 최근 7일이고, `days` 로 늘리면
+   *   구간을 나눠 여러 번 부른다.
+   * ★ 구간을 무한정 늘리지 않는다 — 거래소 호출이 그만큼 늘고 우리 rate limit 을 먹는다.
+   */
+  app.get('/trading/closed-trades', async (c) => {
+    const a = await authed(c);
+    if (!a) return c.json(err('UNAUTHENTICATED', ''), 401);
+    const adapter = d.accountAdapter as {
+      closedTrades?: (ctx: ExchangeContext, fromMs: number, toMs: number) => Promise<unknown[]>;
+    };
+    if (typeof adapter.closedTrades !== 'function') {
+      /* ★ 없는 기능을 빈 목록으로 위장하지 않는다 — 화면이 "거래가 없다" 로 읽는다. */
+      return c.json({ trades: [], credentialStatus: 'UNSUPPORTED', source: 'exchange' });
+    }
+    const days = Math.min(90, Math.max(1, Number(c.req.query('days') || 30)));
+    const now = Date.now();
+    const WINDOW = 7 * 86_400_000;
+    return exchangeRead(c, a.user.id, 'closed-trades', async (ctx) => {
+      const out: unknown[] = [];
+      /*
+         ★ 최신 구간부터 거슬러 올라간다. 중간에 실패하면 이미 모은 것은 살린다 —
+           전부 버리면 고객은 아무 기록도 못 본다.
+      */
+      for (let end = now; end > now - days * 86_400_000; end -= WINDOW) {
+        const start = Math.max(now - days * 86_400_000, end - WINDOW);
+        try {
+          const rows = await adapter.closedTrades!(ctx, start, end);
+          out.push(...rows);
+        } catch (e) {
+          console.warn('[closed-trades] 구간 조회 실패 — 모은 것만 돌려준다:', (e as Error).message);
+          break;
+        }
+        if (start <= now - days * 86_400_000) break;
+      }
+      return out;
+    });
+  });
+
+/**
    * POST /trading/orders/cancel — 미체결 주문 취소.
    *
    * 취소는 제출보다 안전하다(포지션을 늘리지 않는다). 그래도 잠금은 같이 적용한다:

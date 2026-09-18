@@ -98,7 +98,21 @@
    * "unsupported timeframe 1H" 로 400 이 온다(실제로 확인했다).
    */
   function normalizeTimeframe(tf) {
-    return String(tf || '').toLowerCase();
+    var raw = String(tf || '');
+    /*
+       ★★★ **`1M`(한 달)을 소문자로 바꾸면 `1m`(1분)이 된다.**
+
+         주기에 한 달을 추가하자마자 이 함수가 그것을 1분으로 바꿨다. 고객이 월봉을
+         골랐는데 1분봉이 오는 것이고, **오류도 없이** 조용히 일어난다 — 차트가
+         그럴듯하게 그려지므로 알아채기 어렵다.
+
+       ★ 그래서 `1M` 만 예외로 둔다. 서버 정규 표기도 `1M` 이다(`TIMEFRAMES` 참고) —
+         유일하게 대문자를 쓰는 주기다.
+       ★ 나머지는 그대로 소문자로 바꾼다. 화면 버튼이 `1H`·`4H` 대문자를 쓰고 백엔드는
+         소문자를 받으므로 이 변환 자체는 필요하다(대문자를 보내면 400 이 온다).
+    */
+    if (raw === '1M') return '1M';
+    return raw.toLowerCase();
   }
 
   /**
@@ -958,6 +972,15 @@
       return sendJSON('DELETE', '/api/me/saved/' + encodeURIComponent(id));
     },
     /** 저장 만료 연장(포인트 차감). */
+    /*
+       청산된 거래 내역 — 손익과 수익률.
+
+       ★ 체결 목록(`fills`)과 다르다. 체결에는 손익이 없다 — 포지션이 닫힐 때 확정된다.
+    */
+    closedTrades: function (days) {
+      var q = days ? ('?days=' + encodeURIComponent(days)) : '';
+      return getJSON('', '/api/trading/closed-trades' + q);
+    },
     savedExtend: function (id) {
       return sendJSON('POST', '/api/me/saved/' + encodeURIComponent(id) + '/extend', {});
     },

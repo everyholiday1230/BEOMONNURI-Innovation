@@ -116,7 +116,16 @@ describe('법적 문서가 AI 견해 정책과 일치한다', () => {
          seed-legal 은 (종류·언어·버전)이 같으면 이미 공개된 것으로 보고 건너뛴다.
     */
     const yaml = readFileSync(join(ROOT, 'render.yaml'), 'utf8');
-    const m = /- key: LEGAL_VERSION[\s\S]{0,1400}?\n\s+value: "([^"]+)"/u.exec(yaml);
+    /*
+       ★★★ **글자 수 창(`{0,1400}`)으로 찾지 않는다.**
+
+         전에는 `LEGAL_VERSION` 부터 1400자 안에서 `value:` 를 찾았다. 그런데 그 키에는
+         개정 이력을 주석으로 쌓고 있어서, 이력이 길어지자 **창을 넘겨 "선언이 없다" 로
+         실패했다**(실제로 밟았다). 주석을 줄이는 것은 잘못된 해결이다 — 이력은 남겨야 한다.
+       ★ 그래서 **주석 줄을 건너뛰고** 바로 다음 `value:` 를 찾는다. 이력이 얼마나
+         길어져도 동작한다.
+    */
+    const m = /- key: LEGAL_VERSION\b(?:\n\s*#[^\n]*)*\n\s+value: "([^"]+)"/u.exec(yaml);
     expect(m, 'render.yaml 에서 LEGAL_VERSION 을 찾지 못했다').not.toBeNull();
     const version = m![1]!;
     /*

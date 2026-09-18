@@ -78,7 +78,7 @@ export class PgSavedItemRepo {
     const { rows } = await this.pool.query(
       `UPDATE saved_items
          SET expires_at = GREATEST(now(), COALESCE(expires_at, now())) + ($3 || ' days')::interval
-       WHERE id = $1 AND user_id = $2 RETURNING *`,
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING *`,
       [id, userId, String(days)],
     );
     return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
@@ -98,25 +98,45 @@ export class PgSavedItemRepo {
        ★ `expires_at IS NULL` 은 보여준다 — 만료 개념이 없던 시절의 항목이다.
          모른다고 감추면 고객이 저장한 것이 사라진 것으로 보인다.
     */
-    const alive = "(expires_at IS NULL OR expires_at > now())";
+    const alive = "(deleted_at IS NULL AND (expires_at IS NULL OR expires_at > now()))";
     const { rows } = kind
       ? await this.pool.query(`SELECT * FROM saved_items WHERE user_id=$1 AND kind=$2 AND ${alive} ORDER BY created_at DESC LIMIT $3`, [userId, kind, lim])
       : await this.pool.query(`SELECT * FROM saved_items WHERE user_id=$1 AND ${alive} ORDER BY created_at DESC LIMIT $2`, [userId, lim]);
     return (rows as Record<string, unknown>[]).map(mapRow);
   }
 
+  /*
+     ★★★ **삭제된 항목은 없는 것으로 다룬다.**
+
+       soft delete 를 넣으면서 이 함수를 빼먹었다. 그래서 고객이 지운 항목을
+       `getOwned` 가 계속 돌려줬다 — 연장·수정이 되고, 목록에는 없는데 조작은 되는
+       상태가 된다. 시험이 잡았다(`deletes only own items`).
+     ★ 서버에는 남아 있지만 **고객 경로에서는 없는 것**이다. 학습용 보관과 고객에게
+       보이는 것은 다른 이야기다.
+  */
   async getOwned(userId: string, id: string): Promise<SavedItemRow | null> {
-    const { rows } = await this.pool.query('SELECT * FROM saved_items WHERE id=$1 AND user_id=$2', [id, userId]);
+    const { rows } = await this.pool.query(
+      'SELECT * FROM saved_items WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',
+      [id, userId],
+    );
     return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
   }
 
+  /*
+     삭제 — **지우지 않고 표시만 한다**(운영 결정 2026-09-18). 위 `user-strategy-repo`
+     와 같은 이유다: 학습을 위해 서버에는 남긴다.
+     ★ 거래소 API 키에는 이 방식을 쓰지 않는다.
+  */
   async remove(userId: string, id: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query('DELETE FROM saved_items WHERE id=$1 AND user_id=$2', [id, userId]);
+    const { rowCount } = await this.pool.query(
+      'UPDATE saved_items SET deleted_at = now() WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',
+      [id, userId],
+    );
     return (rowCount ?? 0) > 0;
   }
 
   async countForUser(userId: string): Promise<number> {
-    const { rows } = await this.pool.query('SELECT COUNT(*)::int AS n FROM saved_items WHERE user_id=$1', [userId]);
+    const { rows } = await this.pool.query('SELECT COUNT(*)::int AS n FROM saved_items WHERE user_id=$1 AND deleted_at IS NULL', [userId]);
     return Number((rows[0] as { n: number })?.n ?? 0);
   }
 }

@@ -40,18 +40,33 @@ describe('WSF-01 topic construction', () => {
     expect(klineTopic('BTCUSDT', '30m')).toBe('futures/klineBin30m:BTCUSDT');
   });
 
-  it('[2] 3m has no channel and returns null rather than a nearby interval', () => {
-    // Verified live: futures/klineBin3m → "Invalid channel: not found". Substituting 1m or 5m would give
-    // a subscriber a chart that looks correct and is not.
-    expect(klineTopic('BTCUSDT', '3m')).toBeNull();
-    expect(isStreamableTimeframe('3m')).toBe(false);
-    expect(STREAMABLE_TIMEFRAMES).not.toContain('3m');
-    expect(STREAMABLE_TIMEFRAMES).toHaveLength(TIMEFRAMES.length - 1);
+  /*
+     ★★★ 채널이 없는 주기는 **`null` 을 준다 — 가까운 주기로 대체하지 않는다.**
+
+       실측: `futures/klineBin3m` → "Invalid channel: not found". 1m 이나 5m 으로
+       바꿔 주면 구독자는 **맞아 보이는데 틀린 차트**를 받는다.
+
+     ★★ 2026-09-18: KuCoin 이 지원하는 주기를 전부 넣으면서 6h·8h·12h·1M 이 생겼다.
+       **BitMart 채널 이름은 확인하지 않았다** — BitMart 는 프로덕션에서 비활성이다.
+       그래서 `null` 로 둔다. `'6H'` 같은 값을 **짐작해 넣으면** 서버가 거절하고
+       실시간 갱신이 조용히 멈춘다(3m 에서 실제로 겪은 일이다).
+     ★ 목록을 고정 개수로 잠그지 않는다 — 주기를 추가할 때마다 이 시험이 깨진다.
+       **확인된 것만 스트림 가능**이라는 성질을 검사한다.
+  */
+  const UNVERIFIED = ['3m', '6h', '8h', '12h', '1M'] as const;
+
+  it('[2] channels we have not verified return null rather than a nearby interval', () => {
+    for (const tf of UNVERIFIED) {
+      expect(klineTopic('BTCUSDT', tf), tf).toBeNull();
+      expect(isStreamableTimeframe(tf), tf).toBe(false);
+      expect(STREAMABLE_TIMEFRAMES, tf).not.toContain(tf);
+    }
+    expect(STREAMABLE_TIMEFRAMES).toHaveLength(TIMEFRAMES.length - UNVERIFIED.length);
   });
 
-  it('[3] every other internal timeframe is streamable', () => {
+  it('[3] every verified internal timeframe is streamable', () => {
     for (const tf of TIMEFRAMES) {
-      if (tf === '3m') continue;
+      if ((UNVERIFIED as readonly string[]).includes(tf)) continue;
       expect(klineTopic('X', tf), tf).not.toBeNull();
       expect(isStreamableTimeframe(tf), tf).toBe(true);
     }

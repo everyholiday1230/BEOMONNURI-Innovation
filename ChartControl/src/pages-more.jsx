@@ -2095,7 +2095,7 @@
           <input aria-label={t('us_name_ph')} placeholder={t('us_name_ph')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1, minWidth: 160 }} />
           <input aria-label={t('us_symbol_ph')} placeholder={t('us_symbol_ph')} value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} style={{ width: 120 }} />
           <select aria-label={t('a11y_timeframe')} value={form.timeframe} onChange={(e) => setForm({ ...form, timeframe: e.target.value })}>
-            {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+            {['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '1w', '1M'].map((tf) => <option key={tf} value={tf}>{tf}</option>)}
           </select>
           <button className="btn btn--sm btn--primary" disabled={busy} onClick={create}>
             {t('us_create')} · {c}{t('us_points')}

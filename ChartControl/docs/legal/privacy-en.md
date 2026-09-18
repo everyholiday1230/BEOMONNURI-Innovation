@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: 19 September 2026 · Version 1.4
+Effective: 20 September 2026 · Version 1.5
 
 {{BRAND_NAME}} ("we") treats your personal data with care and complies with applicable law. This policy explains what we collect and how we use it.
 
@@ -113,10 +113,19 @@ Our servers and some processors may be located outside your country. In that cas
 
 ## 6. Retention and deletion
 
-- On account closure we **delete account and exchange connection data without delay.**
+- On account closure we **delete account and exchange connection data without delay.** Your
+  exchange API keys are erased — we never keep a copy of them after you remove them or close
+  your account.
+- **When you delete a saved item, or when it expires, it disappears from your account
+  immediately. A copy remains on our servers for up to 5 years** and is used only as described
+  in §1.5 (improving the Service, including training our AI models). The same applies to your
+  conversations with the AI assistant and your trading records.
 - Data older than the periods above is deleted.
 - Where law requires retention, we store the data separately for that period and then delete it.
 - Electronic files are deleted by means that prevent recovery.
+
+> **Plainly:** deleting removes it from your view, not from our servers. If you want a copy
+> erased entirely rather than hidden, ask us at the support address in §11.
 
 ## 7. Your rights
 

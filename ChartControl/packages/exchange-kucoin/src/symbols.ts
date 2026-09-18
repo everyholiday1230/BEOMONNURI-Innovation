@@ -64,14 +64,28 @@ export function toInternalSymbol(kucoinSymbol: string): string | null {
  */
 const GRANULARITY: Partial<Record<Timeframe, number>> = {
   '1m': 1,
+  /*
+     ★★★ `3m` 은 **지원된다.** 예전에는 이 표에서 빠져 있고 `UNSUPPORTED_TIMEFRAMES`
+       에도 들어 있었다. 실제 API 로 확인했다 — `granularity=3` 이 봉 200개를 준다.
+       못 하는 것과 안 만든 것은 다르다.
+  */
+  '3m': 3,
   '5m': 5,
   '15m': 15,
   '30m': 30,
   '1h': 60,
   '2h': 120,
   '4h': 240,
+  /*
+     ★ `6h`(360) 은 **선물에 없다** — `Unsupported granularity` 를 돌려준다.
+       그래서 여기에 넣지 않는다. 현물에는 있다(`6hour`).
+  */
+  '8h': 480,
+  '12h': 720,
   '1d': 1440,
   '1w': 10080,
+  /* ★ 한 달. `1m`(1분)과 대문자로만 구별된다 — 표를 읽을 때 주의. */
+  '1M': 43200,
 };
 
 export function toGranularity(timeframe: Timeframe): number | null {
@@ -79,7 +93,11 @@ export function toGranularity(timeframe: Timeframe): number | null {
 }
 
 /** KuCoin 이 지원하지 않는 타임프레임. 호출자가 미리 걸러낼 수 있게 노출한다. */
-export const UNSUPPORTED_TIMEFRAMES: ReadonlySet<string> = new Set(['3m']);
+/*
+   ★★★ `3m` 을 뺐다 — 실제로 지원된다(위 주석 참고).
+   ★ `6h` 는 선물에만 없다. 현물 어댑터는 이 목록을 쓰지 않는다.
+*/
+export const UNSUPPORTED_TIMEFRAMES: ReadonlySet<string> = new Set(['6h']);
 
 /** WS limitCandle 채널 접미사: /contractMarket/limitCandle:<SYMBOL>_<suffix> */
 const WS_CANDLE_SUFFIX: Record<number, string> = {

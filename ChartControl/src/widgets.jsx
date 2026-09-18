@@ -1953,6 +1953,30 @@
   // ============================================================
   window.PositionsPanel = function PositionsPanel({ lastPrice, positions, orders, currentSymbol, onClose, onSelectSymbol, t, onSetBracket, onConfirmBracket, onCancelBracket, draftIds }) {
     const [tab, setTab] = useState('positions');
+    /*
+       ★★★ **청산된 거래 내역** — 손익 금액과 **수익률(%)**.
+
+         운영자 요청: "히스토리에 %까지 넣어줘. 금액이랑 +- 얼마 했는지 말이야."
+
+       ★ 체결 목록(`fills`)과 별개다. 체결에는 손익이 없다 — 포지션이 닫힐 때 확정된다.
+         수익률은 그 거래에 넣은 증거금을 알아야 하고, 그것은 **청산 내역에만** 있다.
+       ★ 거래 탭을 열 때만 읽는다. 항상 읽으면 거래소 호출을 매번 낭비한다.
+       ★ null = 아직 안 읽음 / [] = 정말 없음. 구별해야 "거래가 없다" 를 단정하지 않는다.
+    */
+    const [closed, setClosed] = useState(null);
+    const [closedErr, setClosedErr] = useState(false);
+    useEffect(() => {
+      if (tab !== 'trades' || closed !== null) return;
+      const api = window.QTApi && window.QTApi.rest;
+      if (!api || !api.closedTrades) { setClosed([]); return; }
+      api.closedTrades(30)
+        .then((r) => {
+          if (r && r.credentialStatus === 'UNSUPPORTED') { setClosed([]); return; }
+          setClosed((r && r.trades) || (Array.isArray(r) ? r : []));
+          setClosedErr(false);
+        })
+        .catch(() => { setClosed([]); setClosedErr(true); });
+    }, [tab, closed]);
 
     /*
        계정 데이터. 실 잔고·주문이 도착하면 재렌더되고, 없으면 목업이 유지된다.
@@ -2300,11 +2324,13 @@
                                화면에 **`×` 만** 나왔다(운영자 보고: "레버리지가 제대로
                                안 나오는 것 같아"). 값이 없는 것을 값처럼 보여준 것이다.
 
-                             ★ KuCoin 은 **크로스 포지션에 `realLeverage` 를 주지 않는다**
-                               (`private-rest.ts`: `Number(r.realLeverage ?? 0)` → 0).
-                               거래소가 안 주는 값을 계산해 채우지 않는다 — 증거금으로
-                               역산하면 수수료·미실현손익 때문에 실제와 어긋나고,
-                               레버리지는 청산가와 직결되는 수치라 틀리면 위험하다.
+                             ★★ KuCoin 은 크로스 포지션에 `realLeverage` 를 주지 않는다.
+                               그래서 이제 어댑터가 **정의대로 역산한다**
+                               (`포지션 가치 ÷ 증거금`, `private-rest.ts`). 지어내는 것이
+                               아니라 정의를 그대로 쓰는 것이다.
+                             ★ 그래도 증거금이 0 이거나 승수를 모르면 0(모름)이 온다.
+                               그때는 여전히 배지를 그리지 않는다 — **1배라고 말하면
+                               청산 위험을 실제보다 작게 보이게 한다.**
                           */}
                           {Number(p.leverage) > 0 ? (
                             <span className="badge badge--neutral" style={{fontSize:9, padding:'0 4px'}}>{p.leverage}×</span>
@@ -2652,6 +2678,54 @@
             )
           )}
 
+          {/*
+             청산된 거래 — 손익과 수익률. 체결 목록보다 위에 둔다.
+
+             ★ 고객이 먼저 보고 싶은 것은 "얼마 벌었나" 다. 체결 하나하나는 그 다음이다.
+             ★ 수익률을 못 구하면 '—' 다. 거래소가 레버리지나 가격을 주지 않은 경우다.
+               0% 로 적으면 본전이라는 뜻이 되어 거짓이다.
+          */}
+          {tab === 'trades' && closed && closed.length > 0 && (
+            <table className="tbl" style={{ marginBottom: 12 }}>
+              <thead>
+                <tr>
+                  <th>{t('th_closed_at')}</th><th>{t('fld_symbol')}</th><th>{t('col_side')}</th>
+                  <th>{t('th_open_price')}</th><th>{t('th_close_price')}</th>
+                  <th>{t('calc_leverage')}</th>
+                  <th>{t('col_realized_pnl')}</th><th>{t('pos_col_pnl_roe')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {closed.map((x) => {
+                  const net = Number(x.netPnl);
+                  const pct = x.roePct === null || x.roePct === undefined ? null : Number(x.roePct);
+                  return (
+                    <tr key={x.id}>
+                      <td>{x.closeTime ? new Date(x.closeTime).toLocaleString() : '—'}</td>
+                      <td><strong>{String(x.symbol || '').replace('USDT', '/USDT')}</strong></td>
+                      <td><span className={x.side === 'long' ? 't-long' : 't-short'}>{x.side === 'long' ? '▲ LONG' : '▼ SHORT'}</span></td>
+                      <td>{x.openPrice ? fmtPrice(Number(x.openPrice), x.symbol) : '—'}</td>
+                      <td>{x.closePrice ? fmtPrice(Number(x.closePrice), x.symbol) : '—'}</td>
+                      {/* ★ 레버리지가 없으면 비운다 — 1× 로 적으면 위험을 작게 보이게 한다. */}
+                      <td>{Number(x.leverage) > 0 ? `${x.leverage}×` : '—'}</td>
+                      <td className={!Number.isFinite(net) ? undefined : (net >= 0 ? 't-long' : 't-short')}>
+                        {Number.isFinite(net) ? `${net >= 0 ? '+' : ''}${fmt(net, 4)}` : '—'}
+                      </td>
+                      <td className={pct === null ? undefined : (pct >= 0 ? 't-long' : 't-short')}>
+                        {pct === null ? '—' : `${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {/* ★ 조회가 실패했으면 빈 목록으로 두지 않고 알린다 — 거래가 없는 것과 다르다. */}
+          {tab === 'trades' && closedErr && (
+            <div style={{ padding: '8px 12px', fontSize: 11.5, color: 'var(--color-text-tertiary)' }}>
+              {t('th_closed_failed')}
+            </div>
+          )}
           {tab === 'trades' && (
             view.fills.length > 0 ? (
               <table className="tbl">
