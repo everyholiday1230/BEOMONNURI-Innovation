@@ -2192,6 +2192,39 @@ if (env.authEnabled) {
         }`,
       );
 
+      /*
+         ★★★ **운영자 키가 실제로 되는지 거래소에 물어본다.**
+
+           전에는 키가 "있으면" readiness OK 라고 적었다. 그런데 값이 있어도 죽은 키일
+           수 있다 — 2026-09-19 프로덕션에서 실제로 그랬다. 운영자 키가 모든 도메인에서
+           `400003` 이었고, 그래서 수익을 조회할 방법이 아예 없었는데 로그는 OK 였다.
+
+         ★★ 이것은 `brokerAttached: true` 와 **같은 종류의 결함**이다 — 우리 쪽 주장을
+           확인으로 착각한 것이다. 상대가 심판인 값은 상대에게 물어야 한다.
+
+         ★ 기동을 막지 않는다(fail-open). 이 키는 **수익 조회용**이고 고객 거래와
+           무관하다 — 거래를 멈추는 것이 훨씬 큰 손해다. 대신 로그를 시끄럽게 남긴다.
+
+         ★ `void` 로 떼어 낸다. 부팅을 이 왕복만큼 늦출 이유가 없다.
+      */
+      if (kucoinRebates) {
+        void (async () => {
+          try {
+            /* pageSize 1 — 되는지만 본다. 전량 조회는 관리자 화면이 할 일이다. */
+            await kucoinRebates.fetchSpot({});
+            console.log('[api] kucoin operator credential: VERIFIED (revenue can be read)');
+          } catch (e) {
+            const x = e as { code?: string; message?: string };
+            console.error(
+              `[api] ★ kucoin operator credential FAILED: ${x.code ?? ''} ${x.message ?? ''} — ` +
+                'broker revenue cannot be read. Customer trading is UNAFFECTED (that uses each ' +
+                "customer's own key). Fix: issue a fresh KuCoin API key on the broker account and " +
+                'set KUCOIN_API_KEY / KUCOIN_API_SECRET / KUCOIN_API_PASSPHRASE.',
+            );
+          }
+        })();
+      }
+
 
 
       app.route('/api', createAdminRouter({

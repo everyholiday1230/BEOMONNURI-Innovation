@@ -109,3 +109,45 @@ describe('브로커 서명 검증 장치가 켜져 있다', () => {
       .toMatch(/Boolean\(broker && broker\.partner && broker\.key && broker\.name\)/u);
   });
 });
+
+describe('운영자 키가 실제로 되는지 확인한다', () => {
+  const idx = read('apps/api/src/index.ts');
+
+  /*
+     ★★★ 2026-09-19 프로덕션 실측: 운영자 KuCoin 키가 **모든 도메인에서 `400003`** 이었다.
+       그런데 부팅 로그는 `production credential readiness: OK` 였다 — 값이 "있으면"
+       OK 라고 적었기 때문이다. 그래서 수익을 조회할 방법이 없는 상태가 드러나지 않았다.
+
+     ★★ `brokerAttached: true` 와 **같은 종류의 결함**이다: 우리 쪽 주장을 확인으로
+       착각했다. 상대가 심판인 값은 상대에게 물어야 한다.
+  */
+  it('부팅 때 거래소에 실제로 물어본다', () => {
+    expect(idx, '운영자 키를 실제로 시험하지 않는다')
+      .toMatch(/kucoin operator credential: VERIFIED/u);
+    expect(idx, '실패를 알리지 않는다').toMatch(/kucoin operator credential FAILED/u);
+    /* ★ 존재 확인만으로 끝내지 않고 실제 호출이 있어야 한다. */
+    expect(idx, '실제 호출이 없다').toMatch(/await kucoinRebates\.fetchSpot\(/u);
+  });
+
+  /*
+     ★★★ 이 키는 **수익 조회용**이고 고객 거래와 무관하다. 기동을 막으면 거래가
+       멈추는데, 그것이 훨씬 큰 손해다 — fail-open 이어야 한다.
+  */
+  it('실패해도 기동을 막지 않는다', () => {
+    const m = /if \(kucoinRebates\) \{\s*void \(async \(\) => \{[\s\S]*?\}\)\(\);/u.exec(idx);
+    expect(m, '점검이 떼어내진 형태가 아니다').not.toBeNull();
+    const body = m![0];
+    expect(body, '점검 실패가 기동을 죽인다').not.toMatch(/process\.exit/u);
+    expect(body, '점검 실패를 throw 한다').not.toMatch(/\bthrow\b/u);
+  });
+
+  /*
+     ★★ 운영자가 무엇을 해야 하는지 로그가 말해야 한다. "FAILED" 만 적으면
+       거래가 멈춘 줄 알고 당황한다 — 실제로는 거래와 무관하다.
+  */
+  it('거래는 무관하다는 사실과 할 일을 로그가 말한다', () => {
+    expect(idx, '고객 거래가 무관하다고 말하지 않는다')
+      .toMatch(/Customer trading is UNAFFECTED/u);
+    expect(idx, '해결 방법을 말하지 않는다').toMatch(/set KUCOIN_API_KEY/u);
+  });
+});
