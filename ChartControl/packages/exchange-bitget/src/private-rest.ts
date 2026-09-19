@@ -165,6 +165,51 @@ export class BitgetPrivateRest {
   }
 
   /**
+   * 미체결 주문 (Classic).
+   *
+   * ★★★ 실키로 검증하지 못했다 — 운영자 계정이 UTA 라서 v2 는 `40085` 로 막힌다.
+   *   그래도 **읽기**이므로 틀리면 조회가 실패할 뿐이고 고객 돈이 움직이지 않는다.
+   * ★★ 실패를 **빈 배열로 바꾸지 않는다.** 빈 배열은 "미체결 주문이 없다" 는 뜻이고,
+   *   고객은 주문이 취소된 줄 안다. 던져서 호출자가 '조회 불가' 로 다루게 한다.
+   */
+  async getUnfilledOrders(cred: BitgetCredentials, symbol?: string): Promise<Array<Record<string, unknown>>> {
+    const env = await this.signedGet<unknown>(
+      cred, '/api/v2/mix/order/orders-pending',
+      { productType: PRODUCT_TYPE, ...(symbol ? { symbol } : {}) },
+    );
+    if (env.code !== BITGET_OK || !env.data) {
+      throw new Error(`bitget(classic) 미체결 조회 실패 — ${env.code}: ${env.msg}`);
+    }
+    /*
+       ★ v2 는 `{ entrustedList }` 로 감싸 준다(v3 의 `{ list }` 와 이름이 다르다).
+         둘 다 받아 둔다 — 어느 쪽이 와도 동작해야 한다.
+       ★★ `null` 로 올 수 있다(v3 에서 실측). `[]` 를 기대하면 터진다.
+    */
+    const d = env.data as Record<string, unknown>;
+    const rows = d.entrustedList ?? d.list ?? d;
+    return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+  }
+
+  /**
+   * 주문 이력 (Classic).
+   *
+   * ★ 주문 한 건을 `clientOid` 로 찾을 때 쓴다. 미체결에 없으면 여기서 찾는다 —
+   *   이력만 보면 아직 미체결인 주문을 "없다" 고 판단한다.
+   */
+  async getHistoryOrders(cred: BitgetCredentials, limit = 100): Promise<Array<Record<string, unknown>>> {
+    const env = await this.signedGet<unknown>(
+      cred, '/api/v2/mix/order/orders-history',
+      { productType: PRODUCT_TYPE, limit: Math.min(100, Math.max(1, limit)) },
+    );
+    if (env.code !== BITGET_OK || !env.data) {
+      throw new Error(`bitget(classic) 주문 이력 조회 실패 — ${env.code}: ${env.msg}`);
+    }
+    const d = env.data as Record<string, unknown>;
+    const rows = d.entrustedList ?? d.list ?? d;
+    return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+  }
+
+  /**
    * 보유 포지션.
    *
    * ★★★ 레버리지를 **모르면 null** 이다. 1 로 두면 청산 위험을 실제보다 작게 보이게

@@ -134,10 +134,14 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
   async getOpenOrders(ctx: ExchangeContext, symbol?: string): Promise<NormalizedOrder[]> {
     const cred = toBitgetCredential(ctx.credential);
     const mode = await this.modeOf(cred);
-    if (mode !== 'unified') {
-      throw new Error('bitget: Classic 계정의 미체결 주문 조회는 아직 배선되지 않았다');
-    }
-    const rows = await this.v3.getUnfilledOrders(cred, symbol);
+    /*
+       ★ 모드에 맞는 경로로 간다. 둘 다 배선했으므로 이제 던지지 않는다.
+       ★★ 실패는 여전히 던진다(빈 배열로 바꾸지 않는다) — 빈 배열은 "미체결 주문이
+         없다" 는 뜻이고 고객은 주문이 취소된 줄 안다.
+    */
+    const rows = mode === 'unified'
+      ? await this.v3.getUnfilledOrders(cred, symbol)
+      : await this.v2.getUnfilledOrders(cred, symbol);
     return rows.map((r) => normalizeOrder(r));
   }
 
@@ -152,17 +156,21 @@ export class BitgetAccountAdapter implements IExchangeAccountAdapter {
   async getOrderByClientId(ctx: ExchangeContext, clientOrderId: string): Promise<NormalizedOrder | null> {
     const cred = toBitgetCredential(ctx.credential);
     const mode = await this.modeOf(cred);
-    if (mode !== 'unified') {
-      throw new Error('bitget: Classic 계정의 주문 조회는 아직 배선되지 않았다');
-    }
     /*
        ★ 미체결에서 먼저 찾고, 없으면 이력에서 찾는다. 이력만 보면 아직 미체결인
          주문을 "없다" 고 판단한다.
+       ★★★ 조회가 실패하면 **던진다.** `null` 은 "그런 주문이 없다" 는 뜻이고,
+         주문 대조가 그것을 보고 **주문이 실패했다고 결론 내린다** — 그 차이가
+         중복 주문을 만든다. 아래 호출들이 실패하면 예외가 그대로 올라간다.
     */
-    const open = await this.v3.getUnfilledOrders(cred);
+    const open = mode === 'unified'
+      ? await this.v3.getUnfilledOrders(cred)
+      : await this.v2.getUnfilledOrders(cred);
     const hitOpen = open.find((r) => String(r.clientOid ?? '') === clientOrderId);
     if (hitOpen) return normalizeOrder(hitOpen);
-    const hist = await this.v3.getHistoryOrders(cred, 100);
+    const hist = mode === 'unified'
+      ? await this.v3.getHistoryOrders(cred, 100)
+      : await this.v2.getHistoryOrders(cred, 100);
     const hit = hist.find((r) => String(r.clientOid ?? '') === clientOrderId);
     return hit ? normalizeOrder(hit) : null;
   }

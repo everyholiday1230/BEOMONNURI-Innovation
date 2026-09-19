@@ -234,16 +234,22 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
        `null` 은 "그런 주문이 없다" 는 뜻이다 — 주문 대조가 그것을 보고 **주문이
        실패했다고 결론 내린다.**
   */
-  it('배선되지 않은 조회는 던진다', () => {
-    /*
-       ★ **함수 본문만 본다.** 처음에는 선언 뒤 400자를 봤는데 그 범위에 **다음 함수의**
-         `throw` 가 들어가서, `getOpenOrders` 가 빈 배열을 돌려주도록 바꿔도 통과했다
-         (역검증이 잡았다). `{` 부터 대응하는 `}` 까지 잘라서 본다.
-    */
+  /*
+     ★★★ **계약이 바뀌었다(2026-09-19).** 운영자 지시: "둘 다 해주면 안 돼? 클래식이랑
+       통합계정이랑 말이야." → Classic(v2) 조회·주문을 모두 배선했다.
+
+       예전에는 Classic 에서 **던졌다**(배선 전이라 그것이 맞았다). 이제는 모드에 맞는
+       경로로 간다.
+
+     ★★ 그래도 **실패는 여전히 던진다.** 빈 배열은 "미체결 주문이 없다" 는 뜻이고
+       `null` 은 "그런 주문이 없다" 는 뜻이다 — 주문 대조가 그것을 보고 **주문이
+       실패했다고 결론 내린다.** 조회를 못 한 것과 없는 것은 다르다.
+  */
+  it('두 계정 모드 모두 조회한다', () => {
     const bodyOf = (name: string): string => {
-      const i = src.indexOf(`async ${name}(`);
-      expect(i, `${name} 가 없다`).toBeGreaterThan(-1);
-      const open = src.indexOf('{', src.indexOf(')', i));
+      const i2 = src.indexOf(`async ${name}(`);
+      expect(i2, `${name} 가 없다`).toBeGreaterThan(-1);
+      const open = src.indexOf('{', src.indexOf(')', i2));
       let depth = 0;
       for (let k = open; k < src.length; k += 1) {
         if (src[k] === '{') depth += 1;
@@ -254,14 +260,15 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
       }
       return '';
     };
-    const open = bodyOf('getOpenOrders');
-    expect(open, 'getOpenOrders 가 빈 배열을 돌려준다 — "주문이 없다" 로 읽힌다')
-      .toMatch(/throw new Error/u);
-    expect(open, '빈 배열을 돌려준다').not.toMatch(/return \[\]/u);
-    const byId = bodyOf('getOrderByClientId');
-    expect(byId, 'getOrderByClientId 가 null 을 돌려준다 — 주문 대조가 실패로 결론 내린다')
-      .toMatch(/throw new Error/u);
-    expect(byId, 'null 을 돌려준다').not.toMatch(/return null/u);
+    for (const name of ['getOpenOrders', 'getOrderByClientId']) {
+      const body = bodyOf(name);
+      expect(body, `${name} 가 통합계정 경로를 쓰지 않는다`).toMatch(/this\.v3\./u);
+      expect(body, `${name} 가 Classic 경로를 쓰지 않는다`).toMatch(/this\.v2\./u);
+      /* ★ 모드를 보고 갈라야 한다 — 한쪽만 부르면 다른 모드 고객이 실패한다. */
+      expect(body, `${name} 가 모드를 보지 않는다`).toMatch(/mode === 'unified'/u);
+      /* ★★ 빈 배열·null 로 대체하지 않는다. */
+      expect(body, `${name} 가 빈 배열로 대체한다`).not.toMatch(/catch[\s\S]{0,80}return \[\]/u);
+    }
   });
 
   it('레버리지를 모르면 0 이다', () => {
@@ -286,15 +293,38 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
      ★★★ **Classic 계정 주문과 보호 주문은 거부한다.** 지원 범위를 넓히면 이 검사가
        먼저 깨져야 한다 — 조용히 무시하면 이용자가 무방비로 남는다.
   */
-  it('주문 어댑터가 모르는 것을 거부한다', () => {
+  it('주문 어댑터가 모드에 맞는 경로를 고른다', () => {
     const t = read('apps/api/src/trading/bitget-trading-adapter.ts');
-    expect(t, 'Classic 계정 주문을 거부하지 않는다')
-      .toMatch(/Classic 계정 주문은 아직 배선되지 않았다/u);
-    /* 모드 판정 실패도 거부다 — 모르는 채로 보내지 않는다. */
+    /*
+       ★ 이제 Classic 도 배선했다. 모드를 보고 구현을 고른다 — 한쪽으로 몰면
+         `40084`/`40085` 로 거부되거나 **단위가 어긋난 주문**이 나간다.
+    */
+    expect(t, '모드로 구현을 고르지 않는다').toMatch(/r\.mode === 'unified' \? this\.trading : this\.classic/u);
+    /*
+       ★★★ **모드 판정이 실패하면 주문을 보내지 않는다.** "아마 통합계정일 것" 으로
+         메우지 않는다 — 단위가 어긋난 주문이 고객 돈을 움직인다.
+    */
     expect(t, '모드 판정 실패를 거부하지 않는다').toMatch(/계정 모드를 판정할 수 없다/u);
     /* 보호 주문을 그대로 넘겨 아래 어댑터가 거부하게 한다 — 여기서 지우면 무방비가 된다. */
     for (const f of ['stopPrice', 'takeProfitPrice', 'stopLossPrice']) {
       expect(t, `${f} 를 버린다 — 이용자가 보호가 걸렸다고 믿는다`).toMatch(new RegExp(`req\\.${f}`, 'u'));
+    }
+  });
+
+  /*
+     ★★★ **양쪽 모드에서 손절·익절을 거부한다.** Bitget 은 모르는 필드를 조용히
+       무시하므로(v3 실측) 이름을 틀려도 주문은 성공하고 손절만 없다.
+       데모 키로 확인하기 전까지 거부가 맞다.
+  */
+  it('양쪽 구현이 손절·익절을 거부한다', () => {
+    for (const f of [
+      'packages/exchange-bitget/src/v3-trading.ts',
+      'packages/exchange-bitget/src/v2-trading.ts',
+    ]) {
+      const s2 = read(f);
+      expect(s2, `${f}: 스톱 주문을 거부하지 않는다`).toMatch(/if \(req\.stopPrice\)/u);
+      expect(s2, `${f}: 손절·익절을 거부하지 않는다`)
+        .toMatch(/if \(req\.takeProfitPrice \|\| req\.stopLossPrice\)/u);
     }
   });
 });

@@ -15,7 +15,12 @@ import type {
   SubmitOrderRequest,
   SubmitOutcome,
 } from '@quantumtrade/exchange-core';
-import { BitgetV3Rest, BitgetV3Trading, type BitgetCredentials } from '@quantumtrade/exchange-bitget';
+import {
+  BitgetV2Trading,
+  BitgetV3Rest,
+  BitgetV3Trading,
+  type BitgetCredentials,
+} from '@quantumtrade/exchange-bitget';
 
 function toBitgetCredential(c: { accessKey: string; secretKey: string; memo: string }): BitgetCredentials {
   return { apiKey: c.accessKey, apiSecret: c.secretKey, passphrase: c.memo };
@@ -27,28 +32,36 @@ export class BitgetTradingAdapter implements IExchangeTradingAdapter {
   constructor(
     private readonly trading: BitgetV3Trading = new BitgetV3Trading(),
     private readonly v3: BitgetV3Rest = new BitgetV3Rest(),
+    private readonly classic: BitgetV2Trading = new BitgetV2Trading(),
   ) {}
 
   /**
-   * Classic 계정이면 거부한다.
+   * 이 자격증명으로 주문을 보낼 경로를 고른다.
    *
-   * ★ 모드 판정 자체가 실패하면 그것도 거부다 — 모르는 채로 보내지 않는다.
+   * ★★★ **모드 판정이 실패하면 주문을 보내지 않는다.** 모르는 채로 보내면 한쪽은
+   *   `40084`/`40085` 로 거부되거나 — 더 나쁘게 — **단위가 어긋난 주문**이 나간다.
+   *   판정 실패를 "아마 통합계정일 것" 으로 메우지 않는다.
+   *
+   * ★ 이제 둘 다 배선했으므로 Classic 도 거부하지 않는다. 다만 v2 인자는 실키로
+   *   검증하지 못했다 — 기본 주문 인자는 **필수**라서 이름이 틀리면 거래소가 거절한다
+   *   (시끄러운 실패). 그래서 감수할 수 있는 위험이다.
    */
-  private async assertUnified(cred: BitgetCredentials): Promise<string | null> {
+  private async pick(cred: BitgetCredentials): Promise<
+    { ok: true; impl: BitgetV3Trading | BitgetV2Trading } | { ok: false; reason: string }
+  > {
     const r = await this.v3.detectMode(cred);
-    if (!r.ok) return `bitget 계정 모드를 판정할 수 없다 (${r.reason}): ${r.detail}`;
-    if (r.mode !== 'unified') {
-      return 'bitget: Classic 계정 주문은 아직 배선되지 않았다 — 주문을 보내지 않았다';
+    if (!r.ok) {
+      return { ok: false, reason: `bitget 계정 모드를 판정할 수 없다 (${r.reason}): ${r.detail}` };
     }
-    return null;
+    return { ok: true, impl: r.mode === 'unified' ? this.trading : this.classic };
   }
 
   async submitOrder(ctx: ExchangeContext, req: SubmitOrderRequest): Promise<SubmitOutcome> {
     const cred = toBitgetCredential(ctx.credential);
-    const blocked = await this.assertUnified(cred);
-    if (blocked) return { status: 'REJECTED', reason: blocked };
+    const picked = await this.pick(cred);
+    if (!picked.ok) return { status: 'REJECTED', reason: picked.reason };
 
-    const r = await this.trading.submitOrder(cred, {
+    const r = await picked.impl.submitOrder(cred, {
       clientOrderId: req.clientOrderId,
       symbol: req.symbol,
       side: req.side,
@@ -103,10 +116,10 @@ export class BitgetTradingAdapter implements IExchangeTradingAdapter {
 
   async cancelOrder(ctx: ExchangeContext, symbol: string, clientOrderId: string): Promise<{ ok: boolean }> {
     const cred = toBitgetCredential(ctx.credential);
-    const blocked = await this.assertUnified(cred);
+    const picked = await this.pick(cred);
     /* ★ 실패를 성공으로 만들지 않는다 — 취소된 줄 알고 포지션을 방치하게 된다. */
-    if (blocked) return { ok: false };
-    const r = await this.trading.cancelOrder(cred, symbol, clientOrderId);
+    if (!picked.ok) return { ok: false };
+    const r = await picked.impl.cancelOrder(cred, symbol, clientOrderId);
     return { ok: r.ok };
   }
 
@@ -117,9 +130,9 @@ export class BitgetTradingAdapter implements IExchangeTradingAdapter {
     changes: { price?: string; quantity?: string },
   ): Promise<{ ok: boolean }> {
     const cred = toBitgetCredential(ctx.credential);
-    const blocked = await this.assertUnified(cred);
-    if (blocked) return { ok: false };
-    const r = await this.trading.modifyOrder(cred, symbol, clientOrderId, changes);
+    const picked = await this.pick(cred);
+    if (!picked.ok) return { ok: false };
+    const r = await picked.impl.modifyOrder(cred, symbol, clientOrderId, changes);
     return { ok: r.ok };
   }
 }

@@ -18,6 +18,7 @@ import { BitgetMarketData } from '../market-adapter.js';
 import { BitgetPrivateRest } from '../private-rest.js';
 import { BitgetV3Rest } from '../v3-rest.js';
 import { BitgetV3Trading } from '../v3-trading.js';
+import { BitgetV2Trading } from '../v2-trading.js';
 import { classifyError, CODE_IS_CLASSIC } from '../account-mode.js';
 
 describe('타임프레임 매핑', () => {
@@ -556,5 +557,109 @@ describe('데모 거래 (가상 자금)', () => {
     }
     /* ★★ 거래소를 **한 번도** 부르지 않았다 — 부르면 손절 없는 주문이 나갈 수 있다. */
     expect(called, '거래소를 불렀다 — 손절 없는 주문이 나갈 수 있다').toBe(0);
+  });
+});
+
+describe('Classic(v2) 주문 — 양쪽 계정 모드 지원', () => {
+  /*
+     ★★★ **v2 인자는 실키로 검증하지 못했다.** 운영자 계정이 UTA 라서 v2 를 부르면
+       계정 모드 검사(`40085`)가 인자 검증보다 **먼저** 막는다(실측).
+
+     ★★ 그래도 붙인 판단 근거 — **실패 방향이 안전하다**:
+       · 기본 주문 인자는 전부 **필수**다. 이름이 틀리면 거래소가 "cannot be empty" 로
+         거절한다 — 주문이 안 나갈 뿐이고 **고객 돈이 잘못 움직이지 않는다**
+       · 위험한 것은 **선택 인자**다(Bitget 은 모르는 필드를 조용히 무시한다).
+         그래서 **손절·익절은 v2 에서도 거부한다**
+
+     ★ v2/v3 이름 차이를 이 시험이 잠근다 — 섞으면 조용히 거절되거나 엉뚱한 주문이 된다.
+  */
+  const capture = () => {
+    const sent: Array<{ url: string; body: string }> = [];
+    const t = new BitgetV2Trading({
+      fetchImpl: (async (url: string, init?: RequestInit) => {
+        sent.push({ url: String(url), body: String(init?.body ?? '') });
+        return new Response(
+          JSON.stringify({ code: '00000', msg: 'ok', requestTime: 1, data: { orderId: 'OID', clientOid: 'C' } }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+    return { t, sent };
+  };
+  const CRED = { apiKey: 'k', apiSecret: 's', passphrase: 'p' };
+  const BASE = { clientOrderId: 'C', symbol: 'BTCUSDT', side: 'long' as const, type: 'limit' as const, price: '10000', quantity: '0.001' };
+
+  it('v2 경로와 v2 인자 이름을 쓴다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, BASE);
+    expect(sent[0]!.url, 'v3 경로로 보낸다').toContain('/api/v2/mix/order/place-order');
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    /* ★★★ v2 는 `productType`·`size`, v3 는 `category`·`qty` 다. 섞으면 거절된다. */
+    expect(body.productType, 'productType 이 없다').toBe('USDT-FUTURES');
+    expect(body.category, 'category 를 보낸다 — v3 이름이다').toBeUndefined();
+    expect(body.size, 'size 가 없다').toBe('0.001');
+    expect(body.qty, 'qty 를 보낸다 — v3 이름이다').toBeUndefined();
+    /* ★ v2 는 증거금 통화·모드를 명시해야 한다. UTA 는 계정이 통합돼 필요 없다. */
+    expect(body.marginCoin).toBe('USDT');
+    /* ★★ 교차 증거금은 `crossed` 다 — `cross` 로 보내면 거절된다. */
+    expect(body.marginMode).toBe('crossed');
+    expect(body.clientOid, 'clientOid 가 없으면 대조할 열쇠가 없다').toBe('C');
+  });
+
+  it('방향 변환을 한 곳에서만 한다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, side: 'short' });
+    expect(JSON.parse(sent[0]!.body).side).toBe('sell');
+  });
+
+  /*
+     ★★★ **v2 에서도 손절·익절을 거부한다.** Bitget 이 모르는 필드를 조용히 무시하므로
+       (v3 실측), 이름을 틀려도 주문은 성공하고 손절만 없다 — 고객은 보호가 걸렸다고
+       믿은 채 무방비로 남는다.
+  */
+  it('손절·익절·스톱을 거부하고 거래소를 부르지 않는다', async () => {
+    for (const extra of [{ stopPrice: '9' }, { stopLossPrice: '9' }, { takeProfitPrice: '9' }]) {
+      const { t, sent } = capture();
+      const r = await t.submitOrder(CRED, { ...BASE, ...extra });
+      expect(r.status, JSON.stringify(extra)).toBe('REJECTED');
+      expect(sent, `${JSON.stringify(extra)}: 거래소를 불렀다`).toHaveLength(0);
+    }
+  });
+
+  it('전송 실패는 SUBMIT_UNKNOWN 이다', async () => {
+    const t = new BitgetV2Trading({
+      fetchImpl: (async () => { throw new Error('network down'); }) as unknown as typeof fetch,
+    });
+    const r = await t.submitOrder(CRED, BASE);
+    /* ★ 거절로 보면 재전송해 **두 번 들어간다.** */
+    expect(r.status).toBe('SUBMIT_UNKNOWN');
+  });
+
+  it('취소 실패를 성공으로 만들지 않는다', async () => {
+    const t = new BitgetV2Trading({
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ code: '22001', msg: 'No order to cancel', requestTime: 1, data: null }),
+        { status: 200 },
+      )) as unknown as typeof fetch,
+    });
+    const r = await t.cancelOrder(CRED, 'BTCUSDT', 'x');
+    expect(r.ok).toBe(false);
+  });
+
+  it('수정은 v2 이름을 쓴다', async () => {
+    const { t, sent } = capture();
+    await t.modifyOrder(CRED, 'BTCUSDT', 'C', { price: '11000', quantity: '0.002' });
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    /* ★ v2 는 `newSize`, v3 는 `newQty` 다. */
+    expect(body.newPrice).toBe('11000');
+    expect(body.newSize, 'newSize 가 없다 — v2 이름이다').toBe('0.002');
+    expect(body.newQty, 'newQty 를 보낸다 — v3 이름이다').toBeUndefined();
+  });
+
+  it('청산 주문에 reduceOnly 를 보낸다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, reduceOnly: true });
+    /* ★ 없으면 반대 포지션이 열릴 수 있다. */
+    expect(JSON.parse(sent[0]!.body).reduceOnly).toBe('YES');
   });
 });
