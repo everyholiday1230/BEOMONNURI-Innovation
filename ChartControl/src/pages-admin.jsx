@@ -2387,6 +2387,8 @@
     const [rebate, setRebate] = useState(null);
     /** KuCoin 브로커 정산 (커미션). 실제 수익 값이다. */
     const [kcBroker, setKcBroker] = useState(null);
+    /* ★ 거래자별 태그 귀속. null = 아직 안 읽음(수익 0 과 다르다). */
+    const [kcUsers, setKcUsers] = React.useState(null);
     const cfg = (window.QTApi && window.QTApi.useConfig) ? window.QTApi.useConfig() : null;
 
     useEffect(() => {
@@ -2417,6 +2419,25 @@
         window.QTApi.admin.brokerCommission({ pageSize: 12 })
           .then((r) => { if (!cancelled) setKcBroker(r); })
           .catch(() => { /* 조회 실패를 '수익 0' 으로 위장하지 않는다 (null 유지) */ });
+      }
+      /*
+         ★★★ **거래자별 태그 귀속** — "왜 리베이트가 0인가" 에 답하는 유일한 데이터다.
+
+           운영자 질문: "BEOMONNURI 아이디로 매매하는데 왜 브로커 대시보드에 거래
+           수수료가 안 쌓일까?"
+
+         ★★ 우리 주문 응답의 `brokerAttached: true` 는 **우리 쪽 주장**이다(헤더를
+           넣었다는 뜻). 거래소의 판정은 이 목록의 `...WithTag` / `...WithoutTag` 다.
+             · `WithTag` 에 값이 있으면 → 우리 실적으로 집계된 것이다
+             · `WithoutTag` 에만 값이 있으면 → **서명이 붙지 않은 거래**다
+             · 목록에 아예 없으면 → 그 UID 가 우리 브로커에 **귀속되지 않았다**
+
+         ★ 이 세 가지는 할 일이 전혀 다르다. 구분하지 않으면 몇 주를 헤맨다.
+      */
+      if (window.QTApi.admin && window.QTApi.admin.brokerUsers) {
+        window.QTApi.admin.brokerUsers({ pageSize: 20 })
+          .then((r) => { if (!cancelled) setKcUsers(r); })
+          .catch(() => { /* 실패를 '거래자 없음' 으로 위장하지 않는다 (null 유지) */ });
       }
       return () => { cancelled = true; };
     }, [isLive]);
@@ -2546,6 +2567,95 @@
                   </window.SectionCard>
                 )}
               </>
+            );
+          })()}
+
+          {/*
+             ★★★ **거래자별 태그 귀속 — "왜 수수료가 안 쌓이나" 에 답하는 표.**
+
+               우리 주문 응답의 `brokerAttached: true` 는 **우리 쪽 주장**이다(헤더를
+               넣었다는 뜻). 거래소의 판정은 여기 `WithTag`/`WithoutTag` 다.
+
+             ★ 세 가지를 구분해야 한다 — 할 일이 전혀 다르다:
+                 ① 목록에 UID 가 **있고** WithTag 에 값 → 정상 집계
+                 ② 목록에 UID 가 있는데 **WithoutTag 에만** 값 → 서명이 안 붙었다
+                 ③ 목록에 UID 가 **아예 없다** → 그 계정이 우리 브로커에 귀속되지 않았다
+                   (브로커 프로그램은 보통 우리 링크로 만든 계정만 집계한다)
+
+             ★★ ③ 이면 코드로 해결할 수 없다. KuCoin 에 문의해 기존 계정을 우리
+               브로커에 묶을 수 있는지 확인해야 한다.
+          */}
+          {(() => {
+            if (!kcUsers) return null;
+            if (!kcUsers.configured) return null;
+            if (kcUsers.approved === false) {
+              return (
+                <div style={{padding:'12px 14px', borderRadius:7, fontSize:12.5, lineHeight:1.8,
+                  background:'color-mix(in srgb, var(--color-warning) 12%, transparent)',
+                  border:'1px solid var(--color-warning)'}}>
+                  <strong>{t('kcu_query_failed')}</strong>
+                  {kcUsers.error && kcUsers.error.message && (
+                    <div style={{fontFamily:'var(--font-mono)', fontSize:11, marginTop:4}}>
+                      {String(kcUsers.error.code || '')} {String(kcUsers.error.message).slice(0, 160)}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            const rows = kcUsers.items || [];
+            /*
+               ★★★ **거래자가 0명이면 그것이 답이다.** "수익 0" 과 "귀속된 거래자가
+                 없다" 는 다른 사실이고, 후자는 코드 문제가 아니다.
+            */
+            if (rows.length === 0) {
+              return (
+                <div style={{padding:'14px 16px', borderRadius:7, fontSize:12.5, lineHeight:1.9,
+                  background:'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+                  border:'1px solid var(--color-danger)'}}>
+                  <div style={{fontWeight:600, marginBottom:6, color:'var(--color-danger)'}}>{t('kcu_none_title')}</div>
+                  <div>{t('kcu_none_1')}</div>
+                  <div style={{marginTop:6}}>{t('kcu_none_2')}</div>
+                </div>
+              );
+            }
+            const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+            return (
+              <window.SectionCard title={t('kcu_title')} subtitle={t('kcu_subtitle')} noPadding>
+                <window.DataTable columns={[
+                  { key:'uid', label:t('kcu_uid'), render: r => (
+                    <span style={{fontFamily:'var(--font-mono)', fontSize:11}}>{r.uid || '\u2014'}</span>
+                  ) },
+                  { key:'joined', label:t('kcu_joined'), render: r => (
+                    r.registrationTime ? new Date(r.registrationTime).toISOString().slice(0,10) : '\u2014'
+                  ) },
+                  /* ★ 우리 초대로 온 계정인지 — ③ 판정의 근거다. */
+                  { key:'invited', label:t('kcu_invited'), render: r => (
+                    r.invitedByMe ? t('admin_on') : '\u2014'
+                  ) },
+                  { key:'futTag', label:t('kcu_fut_tag'), align:'right', render: r => (
+                    <strong style={{fontFamily:'var(--font-num)',
+                      color: n(r.futuresTradingVolumeWithTag) > 0 ? 'var(--color-success)' : 'var(--color-text-tertiary)'}}>
+                      {r.futuresTradingVolumeWithTag || '0'}
+                    </strong>
+                  ) },
+                  /*
+                     ★★★ 이 칸에만 값이 있으면 **서명이 붙지 않은 거래**다.
+                       주문은 정상이고 수익만 0 이므로 이 표 없이는 알 수 없다.
+                  */
+                  { key:'futNoTag', label:t('kcu_fut_notag'), align:'right', render: r => (
+                    <span style={{fontFamily:'var(--font-num)',
+                      color: n(r.futuresTradingVolumeWithoutTag) > 0 ? 'var(--color-danger)' : 'var(--color-text-tertiary)'}}>
+                      {r.futuresTradingVolumeWithoutTag || '0'}
+                    </span>
+                  ) },
+                  { key:'feeTag', label:t('kcu_fee_tag'), align:'right', render: r => r.tradingFeeWithTag || '0' },
+                  { key:'comTag', label:t('kcu_com_tag'), align:'right', render: r => (
+                    <strong style={{fontFamily:'var(--font-num)', color:'var(--color-success)'}}>
+                      {r.commissionWithTag || '0'}
+                    </strong>
+                  ) },
+                ]} rows={rows}/>
+              </window.SectionCard>
             );
           })()}
 
