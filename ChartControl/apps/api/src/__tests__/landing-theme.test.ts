@@ -37,9 +37,21 @@ describe('랜딩 테마가 앱으로 새지 않는다', () => {
     return out;
   }
 
-  it('모든 규칙이 .landing-shell 안쪽으로 한정된다', () => {
-    const bad = selectors().filter((s) => !s.includes('.landing-shell'));
+  /*
+     ★★ 허용되는 뿌리는 **로그인 전 화면 두 개**뿐이다: 랜딩(`.landing-shell`) 과
+       로그인·가입(`.auth-shell`). 경계는 로그인 전/후다.
+     ★ `:root` 나 `body` 같은 전역 선택자가 하나라도 들어오면 거래 화면이 밝아진다.
+  */
+  const ALLOWED_ROOTS = ['.landing-shell', '.auth-shell'];
+
+  it('모든 규칙이 로그인 전 화면 안쪽으로 한정된다', () => {
+    const bad = selectors().filter((s) => !ALLOWED_ROOTS.some((r) => s.includes(r)));
     expect(bad, `앱까지 번지는 선택자: ${bad.join(' | ')}`).toEqual([]);
+  });
+
+  it('전역 선택자를 쓰지 않는다', () => {
+    const globals = selectors().filter((s) => /^(:root|html|body|\*)\b/u.test(s.trim()));
+    expect(globals, `전역 선택자: ${globals.join(' | ')}`).toEqual([]);
   });
 
   /*
@@ -144,5 +156,60 @@ describe('랜딩은 연결 가능한 거래소만 센다', () => {
     expect(block, '인라인 style 로 색을 박아 두면 테마가 손댈 수 없다')
       .not.toMatch(/<span style=\{\{color:/u);
     expect(block, '강조 구절 클래스가 없다').toMatch(/className="is-accent"/u);
+  });
+});
+
+describe('그라데이션이 회색을 거치지 않는다', () => {
+  /*
+     ★★★ `transparent` 는 `rgba(0, 0, 0, 0)` 이다. 그라데이션의 끝점으로 쓰면
+       **검정을 거쳐** 보간되어, 밝은 배경에서 회색 얼룩이 생긴다.
+
+     실측(2026-09-19): 로그인 화면 소개 패널이 종이색인데 가운데·아래가 지저분한
+     청회색이었다. 원인은 두 가지였다:
+       · `.auth-hero-bg` 의 파란 발광(hue 220) — 어두운 테마용
+       · 그 위의 남색 오버레이 `oklch(14% 0.012 240 / 0.5)`
+     둘을 따뜻한 색으로 바꾸고, 끝점을 **같은 색의 알파 0** 으로 두어 색조를 지켰다.
+
+     ★ 이 함정은 다크→라이트 전환에서 반복된다. 종이 테마 파일 안에서는
+       `transparent` 를 아예 쓰지 않도록 잠근다.
+  */
+  const css = stripComments(read('src/landing-claude.css'));
+
+  it('종이 테마에서 transparent 끝점을 쓰지 않는다', () => {
+    const hits = [...css.matchAll(/gradient\([^;]*?\btransparent\b[^;]*?\)/gsu)].map((m) => m[0].slice(0, 90));
+    expect(hits, `transparent 로 끝나는 그라데이션: ${hits.join(' | ')}`).toEqual([]);
+  });
+
+  /*
+     ★★ 어두운 테마용 파란/남색 레이어가 **그라데이션에** 남아 있으면 종이 위에서
+       넓은 회색 얼룩으로 보인다. 그래서 그라데이션 안쪽만 본다.
+     ★ 반대로 `--color-info` 같은 **의미가 있는 단색**은 파랑이어야 한다. 정보색을
+       따뜻하게 바꾸면 경고색과 구별되지 않는다 — 처음에 이것까지 막았다가
+       시험이 지나치게 엄격하다는 것을 알았다.
+  */
+  it('그라데이션에 차가운 색조를 쓰지 않는다', () => {
+    const cold: string[] = [];
+    for (const g of css.matchAll(/(?:radial|linear)-gradient\([^;]*?\)(?=\s*[,;])/gsu)) {
+      for (const c of g[0].matchAll(/oklch\([^)]*?\s(2[0-9]{2}|3[0-9]{2})(?:\.[0-9]+)?\s*[/)]/gu)) {
+        cold.push(c[0]);
+      }
+    }
+    expect(cold, `그라데이션에 차가운 색조가 남아 있다: ${cold.join(' | ')}`).toEqual([]);
+  });
+});
+
+describe('로그인·가입 화면도 같은 숫자를 말한다', () => {
+  const jsx = read('src/pages-auth.jsx');
+
+  /*
+     ★★★ 랜딩만 고쳤다가 가입 화면이 "3 CHART DATA SOURCES" 로 남으면, **같은
+       방문자가 두 화면에서 다른 숫자를 본다.** 숫자가 서로 다르면 둘 다 못 믿는다.
+  */
+  it('가입 화면도 연결 가능한 거래소만 센다', () => {
+    const i = jsx.indexOf('const heroExCount');
+    expect(i, 'heroExCount 를 찾지 못했다').toBeGreaterThan(-1);
+    const block = jsx.slice(i, i + 220);
+    expect(block, '연결 가능 여부로 걸러내지 않는다')
+      .toMatch(/filter\(\(e\) => e\.connectable === true\)/u);
   });
 });

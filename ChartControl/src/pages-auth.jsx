@@ -327,7 +327,16 @@
       return () => { cancelled = true; };
     }, []);
     const heroEx = window.QTApi && window.QTApi.useExchanges ? window.QTApi.useExchanges(false) : null;
-    const heroExCount = heroEx && Array.isArray(heroEx.items) ? heroEx.items.length : 0;
+    /*
+       ★★★ **연결 가능한 것만 센다** — 랜딩과 같은 이유다.
+         `/api/v1/exchanges` 는 `connectable:false` 여도 "막힌 이유가 붙은" 거래소를
+         함께 준다. 그걸 그대로 세서 가입 화면이 "3 CHART DATA SOURCES" 라고 적었고,
+         랜딩만 2 로 고쳤더니 **같은 방문자가 두 화면에서 다른 숫자를 보게 됐다**.
+         숫자가 서로 다르면 둘 다 못 믿는다.
+    */
+    const heroExCount = heroEx && Array.isArray(heroEx.items)
+      ? heroEx.items.filter((e) => e.connectable === true).length
+      : 0;
 
     return (
       <div className="auth-shell">

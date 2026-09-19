@@ -23,7 +23,17 @@
      하고 뜻을 바꾸지 않는다(초록=롱, 붉은=숏).
    ============================================================================ */
 
-.landing-shell {
+/*
+   ★★★ **로그인·가입 화면도 같은 테마를 쓴다.**
+
+     처음에는 랜딩만 종이색으로 바꿨는데, 랜딩에서 "Sign in" 을 누르면 화면이
+     갑자기 남색으로 바뀌었다. 같은 회사의 연속된 두 화면이 아니라 다른
+     서비스로 넘어간 것처럼 보인다 — 가입을 망설이게 되는 지점이다.
+
+   ★ 앱(거래 화면)은 여전히 어둡다. 경계는 **로그인 전/후**다.
+*/
+.landing-shell,
+.auth-shell {
   /* ---- 바탕: 종이 ----
      ★★★ **배경 토큰을 하나도 빠뜨리면 안 된다.** 처음에 4개만 덮었더니
        `.landing-step` 이 쓰는 `--color-bg-panel` 이 어두운 채로 남아,
@@ -425,3 +435,78 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-shell .landing-nav a::after { transition: none; }
 }
+
+
+/* ============================================================================
+   10. 로그인·가입 화면
+
+   ★ 토큰은 위에서 함께 받았다. 여기서는 어두운 테마를 전제로 만들어진 몇 가지
+     장식만 종이에 맞게 바꾼다.
+   ============================================================================ */
+
+/* ★ 오른쪽 소개 패널. 어두운 그라데이션을 종이 톤으로 바꾼다. */
+.auth-shell__hero {
+  /*
+     ★★★ **`transparent` 를 쓰지 않는다.** `transparent` 는 `rgba(0,0,0,0)` 이라서
+       그라데이션이 **검정을 거쳐** 보간된다. 종이색 위에서 회색 얼룩처럼 보였다
+       (실측 — 패널 가운데가 지저분한 회청색이었다).
+       같은 색의 알파 0 으로 끝내면 색조가 유지된다.
+  */
+  background:
+    radial-gradient(circle at 82% 12%,
+      oklch(0.930 0.038 55 / 0.60) 0%,
+      oklch(0.930 0.038 55 / 0) 52%),
+    linear-gradient(160deg, oklch(0.972 0.010 84) 0%, oklch(0.933 0.016 78) 100%);
+  border-left: 1px solid var(--color-border-subtle);
+}
+.auth-shell__form { background: var(--color-bg-surface); }
+
+/*
+   ★★★ 소개 패널 위에 깔린 발광 레이어. 어두운 테마용으로 **파란색**
+     (hue 220) 이라, 종이 배경에서는 더러운 청회색 얼룩으로 보였다
+     (실측 — 패널 왼쪽·아래가 눌린 회색이었다).
+   ★ 따뜻한 색조로 바꾸고, 끝점을 `rgba(0,0,0,0)` 대신 **같은 색의 알파 0** 으로
+     둔다. 투명 검정으로 끝내면 보간 과정에서 회색을 거친다.
+*/
+.auth-shell .auth-hero-bg {
+  background:
+    radial-gradient(circle at 18% 26%,
+      oklch(0.905 0.055 52 / 0.50) 0%,
+      oklch(0.905 0.055 52 / 0) 46%),
+    radial-gradient(circle at 84% 78%,
+      oklch(0.915 0.040 88 / 0.45) 0%,
+      oklch(0.915 0.040 88 / 0) 44%);
+}
+
+/* ★ 소개 패널 제목도 세리프로 — 랜딩과 같은 목소리를 낸다. */
+.auth-shell__hero h1,
+.auth-shell__hero h2,
+.auth-shell .auth-hero-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.018em;
+}
+.auth-shell .auth-hero-stats strong,
+.auth-shell__hero strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* ★★ 주 버튼은 랜딩과 같은 이유로 잉크색이다 (clay 바탕 + 흰 글자는 3.2:1). */
+.auth-shell .btn--primary {
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: oklch(0.975 0.008 84);
+}
+.auth-shell .btn--primary:hover {
+  background: oklch(0.300 0.030 48);
+  border-color: oklch(0.300 0.030 48);
+}
+
+/* ★ 소개 패널의 작은 기능 카드. */
+.auth-shell .auth-hero-feat {
+  background: oklch(0.992 0.004 84 / 0.8);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+}
+.auth-shell .auth-hero-feat__icon { color: var(--color-brand-strong); }
