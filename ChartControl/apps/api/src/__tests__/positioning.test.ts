@@ -431,7 +431,15 @@ describe('랜딩 수치는 코드와 일치해야 한다', () => {
     const engine = read('apps/api/src/trading/risk-engine.ts');
     const ids = new Set<string>();
     for (const src of [domain, engine]) {
-      for (const m of src.matchAll(/add2?\(\s*\n?\s*'([a-zA-Z.]+)'/g)) { if (m[1]) ids.add(m[1]); }
+      /*
+         ★★ 게이트를 등록하는 **모든** 헬퍼를 센다: `add` · `add2` · `addExposure`.
+           `addExposure` 는 청산 주문에 노출 제한을 걸지 않기 위해 추가한 것이다
+           (2026-09-19 — 청산이 막히던 사고). 처음에 이 정규식이 `add2?\(` 여서
+           `addExposure(` 를 못 세고 게이트가 17 → 13 으로 줄어든 것처럼 보였다.
+           **게이트는 줄지 않았다** — 세는 쪽이 못 본 것이다. 새 헬퍼를 만들 때
+           여기 함께 넣어야 랜딩의 "17-gate" 주장이 계속 사실로 유지된다.
+      */
+      for (const m of src.matchAll(/add(?:2|Exposure)?\(\s*\n?\s*'([a-zA-Z.]+)'/g)) { if (m[1]) ids.add(m[1]); }
     }
     expect(ids.size, '게이트 id 를 읽지 못했다').toBeGreaterThan(5);
 

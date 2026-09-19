@@ -28,6 +28,22 @@ export interface RiskEngineInput {
   symbol: SymbolInfo | undefined;
   side: 'long' | 'short';
   orderType: 'market' | 'limit';
+  /*
+     ★★★ **청산(감축) 주문인가.**
+
+       청산은 위험을 **줄이는** 주문이다. 노출을 제한하려고 만든 게이트를 청산에도
+       걸면, 가장 위험한 순간에 탈출구를 잠근다:
+
+         · 손실이 커져 증거금이 묶임 → `funds.available` 실패 → **닫을 수 없다**
+         · 포지션이 상한까지 찼음 → `policy.openPositions` 실패 → **닫을 수 없다**
+         · 일일 손실 한도 도달 → `policy.dailyLoss` 실패 → **닫을 수 없다**
+
+       세 경우 모두 "닫아야 하는 상황" 과 "막히는 조건" 이 정확히 일치한다.
+
+     ★ 값이 없으면 **신규로 간주**한다. 모르는 것을 청산으로 취급하면 상한을
+       우회하는 길이 된다(킬스위치 쪽에서 이미 같은 결정을 했다).
+  */
+  reduceOnly?: boolean;
   price?: string;
   quantity: string;
   leverage: number;
@@ -131,6 +147,32 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   const add2 = (id: string, label: string, status: RiskGate['status'], detail: string) =>
     gates.push({ id, label, status, detail });
 
+  /*
+     ★★★ 노출을 제한하는 게이트는 **청산 주문에 걸지 않는다.**
+
+       게이트를 목록에서 빼지 않고 `ok` 로 남기면서 이유를 밝힌다. 감춰 버리면
+       운영자가 "왜 통과했지" 를 알 수 없고, 상한이 동작하는지도 확인할 수 없다.
+
+     ★ 무엇을 면제하지 **않는가**: `policy.symbol` 과 `policy.priceDeviation`.
+       그 둘은 노출 제한이 아니라 **주문 자체가 올바른지** 보는 검사다. 잘못된
+       종목이나 엉뚱한 가격으로 청산하면 그것도 손해다.
+  */
+  const isReduceOnly = i.reduceOnly === true;
+  /** 노출 제한 게이트. 청산이면 통과시키고 왜 통과했는지 적는다. */
+  const addExposure = (
+    id: string,
+    label: string,
+    pass: boolean,
+    detail: string,
+  ): void => {
+    if (isReduceOnly) {
+      add(id, label, true, `reduce-only close — exposure limit not applied (would have been: ${detail})`);
+      return;
+    }
+    add(id, label, pass, detail);
+  };
+
+
   // 2) live policy limits.
   const symbolAllowed =
     i.policy.allowedSymbols.includes('*') || i.policy.allowedSymbols.includes(i.symbol?.id ?? '');
@@ -157,7 +199,7 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   const levSource = levCap === null
     ? 'no cap known'
     : (levCap === exchangeLev ? `exchange max ${exchangeLev}x` : `operator cap ${operatorLev}x`);
-  add('policy.leverage', 'Leverage within limit', levCap === null || i.leverage <= levCap, `${i.leverage}x ≤ ${levCap ?? '?'}x (${levSource})`);
+  addExposure('policy.leverage', 'Leverage within limit', levCap === null || i.leverage <= levCap, `${i.leverage}x ≤ ${levCap ?? '?'}x (${levSource})`);
   const notional = num(i.positionValue);
   /*
      주문 금액 상한.
@@ -168,7 +210,7 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   */
   const notionalCap = num(i.policy.maxOrderNotional);
   const notionalCapped = Number.isFinite(notionalCap) && notionalCap > 0;
-  add(
+  addExposure(
     'policy.notional',
     'Order notional within cap',
     !notionalCapped || !Number.isFinite(notional) || notional <= notionalCap,
@@ -201,7 +243,22 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
     const need = Number.isFinite(margin) ? margin + fee : NaN;
     const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(4).replace(/\.?0+$/, '') : '?');
 
-    if (avail === null) {
+    /*
+       ★★★ **청산은 잔고 검사를 하지 않는다.**
+
+         청산은 증거금을 **돌려받는** 주문이다. 새 증거금이 필요하지 않다.
+         그런데 이 검사는 `notional / leverage + fee` 를 "필요한 돈" 으로 계산하고
+         가용 잔고와 비교한다 — 손실이 커져 증거금이 묶인 상태에서 **정확히 청산이
+         필요한 순간에 실패**한다. 실제로 운영자가 "Order blocked before reaching
+         the exchange" 를 만난 지점이다(2026-09-19).
+
+       ★ 거래소도 청산에 증거금을 요구하지 않는다. 우리가 거래소보다 엄격해서
+         고객을 포지션에 갇히게 만들면 안 된다.
+    */
+    if (isReduceOnly) {
+      add2('funds.available', 'Balance covers this order', 'ok',
+        'reduce-only close — a close releases margin instead of requiring it');
+    } else if (avail === null) {
       /*
          ★ "모른다" 를 그대로 말한다. 'ok' 로 적으면 검사한 것처럼 보이고,
            'fail' 로 적으면 우리가 고객 돈을 막는다.
@@ -255,7 +312,7 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
   */
   const orderCap = Number(i.policy.dailyOrderLimit);
   const orderCapped = Number.isFinite(orderCap) && orderCap > 0;
-  add(
+  addExposure(
     'policy.dailyOrders', 'Daily order count within limit',
     !orderCapped || i.dailyOrderCount < orderCap,
     orderCapped ? `${i.dailyOrderCount} < ${orderCap}` : 'no operator cap — the customer sets their own pace',
@@ -275,17 +332,17 @@ export function runRiskEngine(i: RiskEngineInput): RiskEngineResult {
          조용히 통과시키면 그 의도가 무력화되고, 화면에는 'ok' 로 찍혀 보호받는
          것처럼 보인다. 막는 쪽이 시끄럽지만 정직하다 — 한도를 지우면 즉시 풀린다.
     */
-    add('policy.dailyLoss', 'Daily loss within limit', false,
+    addExposure('policy.dailyLoss', 'Daily loss within limit', false,
       `cap ${i.policy.dailyLossLimit} is set but today's realised loss is not measured — refusing rather than reporting a cap that cannot fire`);
   } else {
-    add('policy.dailyLoss', 'Daily loss within limit',
+    addExposure('policy.dailyLoss', 'Daily loss within limit',
       num(i.dailyLossSoFar) <= lossCap,
       `${i.dailyLossSoFar} ≤ ${i.policy.dailyLossLimit}`);
   }
 
   const posCap = Number(i.policy.maxOpenPositions);
   const posCapped = Number.isFinite(posCap) && posCap > 0;
-  add(
+  addExposure(
     'policy.openPositions', 'Open positions within limit',
     !posCapped || i.openPositions < posCap,
     posCapped ? `${i.openPositions} < ${posCap}` : 'no operator cap — exchange margin rules apply',

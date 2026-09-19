@@ -888,6 +888,17 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
         symbol: metaSource[symbol],
         catalogueLoaded,
         side: (body.side as 'long' | 'short') ?? 'long',
+        /*
+           ★★★ 청산 여부를 위험 엔진에 **반드시 전달한다.**
+
+             전에는 이 값을 어댑터에만 넘겼다. 그래서 위험 엔진은 모든 주문을 신규로
+             보고, 노출 제한 게이트(잔고·포지션 수·일일 손실·명목가·레버리지)가
+             **청산까지 막았다.** 손실이 커져 증거금이 묶인 순간에 정확히 실패한다 —
+             운영자가 "Order blocked before reaching the exchange" 를 만난 지점이다.
+
+           ★ 없으면 false(신규) 다. 모르는 것을 청산으로 취급하면 상한을 우회한다.
+        */
+        reduceOnly: body.reduceOnly === true,
         orderType: (body.orderType as 'market' | 'limit') ?? 'limit',
         price: body.price as string | undefined,
         quantity: String(body.quantity ?? '0'),
@@ -2358,6 +2369,22 @@ export function createTradingRouter(d: TradingRouterDeps): Hono {
           submitReason: !adapterReady ? 'ADAPTER_NOT_READY' : 'RISK_GATE',
           clientOrderId: idemKey,
         });
+        /*
+           ★★★ **차단을 로그에 남긴다.**
+
+             전에는 DB(order decision) 에만 기록했다. 고객이 "주문이 막힌다" 고
+             알려왔을 때 로그에는 아무 흔적이 없어서 원인을 찾을 수 없었다
+             (2026-09-19 — 청산이 막힌 사고). 어느 게이트가 떨어졌는지가 핵심 정보다.
+
+           ★ 고객 식별자는 넣지 않는다. 심볼·게이트 이름만으로 진단이 된다.
+           ★ 청산 여부를 함께 적는다 — 청산이 막혔다면 그것만으로 사고다.
+        */
+        console.warn(
+          `[order-audit] order.blocked symbol=${symbol} reduceOnly=${body.reduceOnly === true} `
+          + `reason=${!adapterReady ? 'ADAPTER_NOT_READY' : 'RISK_GATE'} `
+          + `failed=[${risk.gates.filter((g) => g.status === 'fail').map((g) => `${g.id}:${g.detail}`).join(' | ')}] `
+          + `liveGate=${risk.liveGate.allowed} liveGateReasons=[${(risk.liveGate.reasons ?? []).join(' | ')}]`,
+        );
         return {
           transmitted: false,
           /*
