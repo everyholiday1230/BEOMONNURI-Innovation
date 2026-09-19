@@ -33,8 +33,15 @@ export interface KucoinRebateReaderOptions {
   brokerId: string;
   /** 운영자 KuCoin API 키 (KUCOIN_API_KEY 계열). 없으면 reader 를 만들지 않는다. */
   operator: { apiKey: string; apiSecret: string; passphrase: string };
-  /** 브로커 자격 (KUCOIN_BROKER_PARTNER/KEY/NAME). 없으면 만들지 않는다. */
+  /** 선물 브로커 자격 (KUCOIN_BROKER_PARTNER/KEY/NAME). 없으면 만들지 않는다. */
   broker: { partner: string; key: string; name: string };
+  /*
+     ★★ 현물 브로커 자격 (KUCOIN_BROKER_SPOT_*). **선물과 태그가 다르다.**
+       운영자 대시보드 실측(2026-09-19): Broker Tag (Spot) = CCAI,
+       Broker Tag (Futures) = CCAIF. 두 태그의 실적은 따로 집계된다.
+     ★ 선택이다 — 없으면 선물만 조회한다. 현물 거래를 아예 안 하면 그것이 맞다.
+  */
+  spotBroker?: { partner: string; key: string; name: string };
   restBase?: string;
   /** 테스트 주입용. */
   fetchImpl?: typeof fetch;
@@ -86,6 +93,9 @@ export function createKucoinRebateReader(
   opts: KucoinRebateReaderOptions,
 ): BrokerRebateReader | undefined {
   const { operator, broker } = opts;
+  /* ★ 자격이 하나라도 비면 현물은 조회하지 않는다 — 빈 값으로 부르면 엉뚱한 태그가 된다. */
+  const sb = opts.spotBroker;
+  const spotBroker = sb && sb.partner && sb.key && sb.name ? sb : undefined;
   if (!operator.apiKey || !operator.apiSecret || !operator.passphrase) return undefined;
   if (!broker.partner || !broker.key || !broker.name) return undefined;
 
@@ -94,8 +104,41 @@ export function createKucoinRebateReader(
     ...(opts.fetchImpl !== undefined ? { fetchImpl: opts.fetchImpl } : {}),
   });
 
+  /* 태그 하나를 끝까지 읽는다. 첫 페이지만 읽으면 수익이 실제보다 적게 보인다. */
+  async function readTag(
+    brokerCreds: { partner: string; key: string; name: string },
+    tradeType: 'SPOT' | 'FUTURES',
+    startAt: number | undefined,
+    endAt: number | undefined,
+  ): Promise<BrokerCommissionRow[]> {
+    const rows: BrokerCommissionRow[] = [];
+    let page = 1;
+    for (;;) {
+      const res = await client.getCommission(
+        { apiKey: operator.apiKey, apiSecret: operator.apiSecret, passphrase: operator.passphrase },
+        { partner: brokerCreds.partner, key: brokerCreds.key, name: brokerCreds.name },
+        {
+          tradeType,
+          ...(startAt !== undefined ? { startAt } : {}),
+          ...(endAt !== undefined ? { endAt } : {}),
+          page,
+          pageSize: 100,
+        },
+      );
+      rows.push(...res.items);
+      if (res.items.length === 0 || page >= (res.totalPage || 1) || page > 50) break;
+      page += 1;
+    }
+    return rows;
+  }
+
   return {
     brokerId: opts.brokerId,
+    /*
+       ★ 이름이 `fetchSpot` 인 것은 BitMart 시절 계약이다. 실제로는 **현물·선물을
+         모두** 돌려준다 — 관리자 라우트가 이 한 번의 호출로 전체 수익을 그린다.
+         이름을 바꾸면 계약과 화면까지 번지므로 여기 사실만 적어 둔다.
+    */
     async fetchSpot(q) {
       /*
          ★ KuCoin 은 초 단위가 아니라 ms 를 받는다. 호출자(관리자 라우트)는
@@ -106,33 +149,35 @@ export function createKucoinRebateReader(
       const startAt = toMs(q.startTime);
       const endAt = toMs(q.endTime);
 
-      const rows: BrokerCommissionRow[] = [];
-      // 페이지를 끝까지 읽는다. 첫 페이지만 읽으면 수익이 실제보다 적게 보인다.
-      let page = 1;
-      for (;;) {
-        const res = await client.getCommission(
-          { apiKey: operator.apiKey, apiSecret: operator.apiSecret, passphrase: operator.passphrase },
-          { partner: broker.partner, key: broker.key, name: broker.name },
-          {
-            tradeType: 'all',
-            ...(startAt !== undefined ? { startAt } : {}),
-            ...(endAt !== undefined ? { endAt } : {}),
-            page,
-            pageSize: 100,
-          },
-        );
-        rows.push(...res.items);
-        if (res.items.length === 0 || page >= (res.totalPage || 1) || page > 50) break;
-        page += 1;
-      }
+      /*
+         ★★★ **태그별로 따로 조회한다.**
+
+           전에는 선물 자격으로 `tradeType:'all'` 을 한 번 부르고 결과 전부를
+           `'spot'` 이라고 표시했다. 그러면 요약의 출처별 분해가 거짓이 되고,
+           운영자 대시보드(현물·선물을 나눠 보여준다)와 대조할 수 없다.
+
+         ★★ 태그가 실제로 두 개다 — 대시보드 실측: Spot=CCAI, Futures=CCAIF.
+           각 태그의 자격으로 그 태그의 거래 종류만 물어보므로 겹치지 않는다.
+      */
+      const futures = await readTag(broker, 'FUTURES', startAt, endAt);
+      const spot = spotBroker ? await readTag(spotBroker, 'SPOT', startAt, endAt) : [];
 
       /*
-         ★ source 를 'spot' 으로 표시한다. 계약이 spot/futures 두 값만 허용하고,
-           tradeType:'all' 로 조회했으므로 현물·선물이 섞여 있다. 합계는 맞고
-           출처별 분해만 근사다 — 이 사실을 화면이 오해하지 않도록 여기 적어 둔다.
-           (KuCoin 을 tradeType 별로 두 번 조회해 분리하는 것은 별도 작업이다.)
+         ★★★ **겹침 방어.** KuCoin 이 `tradeType` 을 무시하고 양쪽에 같은 행을
+           돌려주면 수익이 두 배로 보인다. 그러면 정산 대조가 깨지고, 많게 보이는
+           쪽으로 틀리는 것은 적게 보이는 것보다 나쁘다(없는 돈을 셈한다).
+           두 결과가 같으면 한쪽만 쓴다.
       */
-      return commissionRowsToRebates(rows, 'spot');
+      const same =
+        spot.length > 0 &&
+        spot.length === futures.length &&
+        JSON.stringify(spot) === JSON.stringify(futures);
+      if (same) return commissionRowsToRebates(futures, 'futures');
+
+      return [
+        ...commissionRowsToRebates(futures, 'futures'),
+        ...commissionRowsToRebates(spot, 'spot'),
+      ];
     },
   };
 }

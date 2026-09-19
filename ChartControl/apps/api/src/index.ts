@@ -2170,6 +2170,12 @@ if (env.authEnabled) {
           key: env.kucoinBrokerKey,
           name: env.kucoinBrokerName,
         },
+        /* ★ 현물 태그는 선물과 다르다 (대시보드 실측: CCAI vs CCAIF). 따로 조회한다. */
+        spotBroker: {
+          partner: env.kucoinBrokerSpotPartner,
+          key: env.kucoinBrokerSpotKey,
+          name: env.kucoinBrokerSpotName,
+        },
         ...(env.kucoinBrokerRest ? { restBase: env.kucoinBrokerRest } : {}),
       });
 
