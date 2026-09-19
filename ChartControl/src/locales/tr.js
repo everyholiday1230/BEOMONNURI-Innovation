@@ -990,6 +990,7 @@
       pos_br_confirm: 'Onayla',
       pos_br_confirm_hint: 'Sürüklediğiniz çizginin fiyatından, pozisyonun bu oranı için emir verin.',
       pos_br_move: 'Taşı',
+      pos_br_pct_hint: 'Giriş fiyatından uzaklık (%). Boş bırakırsanız girişten başlar.',
       pos_br_move_hint: 'Miktarı aynı tutup emri sürüklediğiniz çizgiye taşıyın.',
       pos_br_cancel_hint: 'Emir vermeden kesikli çizgiyi kaldırın.',
       pos_br_canceled: 'Çizgi kaldırıldı. Emir verilmedi.',

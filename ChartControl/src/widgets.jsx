@@ -1963,6 +1963,18 @@
        ★ 거래 탭을 열 때만 읽는다. 항상 읽으면 거래소 호출을 매번 낭비한다.
        ★ null = 아직 안 읽음 / [] = 정말 없음. 구별해야 "거래가 없다" 를 단정하지 않는다.
     */
+    /*
+       ★★★ **진입가 대비 가격 %로 TP/SL 자리를 잡는다.**
+
+         운영자 요청: "몇 % +- 로 tpsl 설정할 수 있도록 해줘야 할 것 같은데".
+         드래그는 이미 되지만, 정확히 −1.5% 같은 자리를 마우스로 맞추는 것은 어렵다.
+
+       ★★ 기본값을 넣지 않는다(빈칸으로 시작). 우리가 ±2% 를 채워 두면 그 폭을
+         **권한 것으로 읽힌다** — 이 서비스는 조언을 하지 않는다. 숫자는 고객이 넣는다.
+       ★ 포지션별로 따로 기억한다. 하나의 값을 공유하면 여러 포지션을 다룰 때
+         엉뚱한 자리에 선이 생긴다.
+    */
+    const [brPct, setBrPct] = useState({});
     const [closed, setClosed] = useState(null);
     const [closedErr, setClosedErr] = useState(false);
     useEffect(() => {
@@ -2415,6 +2427,26 @@
                                      걸면 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다
                                      (reduceOnly 라도 수량이 남아 있으면 위험하다).
                               */}
+                              {/*
+                                 ★★ 진입가 대비 % 입력. 비워 두면 진입가에 선이 생긴다.
+                                 ★ `step=0.1` — 0.5% · 1.5% 같은 폭을 쓴다. 정수만 받으면
+                                   쓸 수 없는 칸이 된다.
+                                 ★★ 이것은 **가격 %** 다. 레버리지가 걸리면 손익 %는 그
+                                   배수가 된다 — 초안 선의 라벨이 실제 손익을 보여주므로
+                                   확정 전에 확인할 수 있다.
+                              */}
+                              {onSetBracket && p.isLive && (
+                                <input
+                                  type="number" min="0" step="0.1" inputMode="decimal"
+                                  className="input input--xs"
+                                  style={{width: 52, textAlign: 'right'}}
+                                  placeholder="%"
+                                  title={t('pos_br_pct_hint')}
+                                  aria-label={t('pos_br_pct_hint')}
+                                  value={brPct[p.id] ?? ''}
+                                  onChange={(e) => setBrPct((m) => ({ ...m, [p.id]: e.target.value }))}
+                                />
+                              )}
                               {onSetBracket && p.isLive && ['tp', 'sl'].map((k) => {
                                 /*
                                    ★★★ 세 가지 상태를 구분한다:
@@ -2478,12 +2510,19 @@
                                     >{t('pos_br_move')} {label}</button>
                                   );
                                 }
+                                /*
+                                   ★ % 칸이 비어 있으면 진입가에 선을 만든다(기존 동작).
+                                     값이 있으면 그 %만큼 떨어진 자리에 만든다.
+                                */
+                                const pctRaw = brPct[p.id];
+                                const pctNum = Number(pctRaw);
+                                const pctOk = Number.isFinite(pctNum) && pctNum > 0;
                                 return (
                                   <button key={k} className="btn btn--xs"
                                     title={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
                                     aria-label={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
-                                    onClick={() => onSetBracket(p.id, k)}
-                                  >{label}</button>
+                                    onClick={() => onSetBracket(p.id, k, pctOk ? pctNum : null)}
+                                  >{label}{pctOk ? ` ${pctNum}%` : ''}</button>
                                 );
                               })}
                               <button className="btn btn--xs btn--danger"

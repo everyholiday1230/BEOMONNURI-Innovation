@@ -1102,6 +1102,7 @@
       pos_br_confirm: '確定',
       pos_br_confirm_hint: 'ドラッグした線の価格で、この割合の数量だけ注文します。',
       pos_br_move: '変更',
+      pos_br_pct_hint: '建値からの距離（%）。空欄なら建値から始めます。',
       pos_br_move_hint: '数量はそのままで、ドラッグした線の価格に注文を移します。',
       pos_br_cancel_hint: '注文を出さずに点線を消します。',
       pos_br_canceled: '線を消しました。注文は出していません。',

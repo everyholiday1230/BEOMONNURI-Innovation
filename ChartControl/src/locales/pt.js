@@ -968,6 +968,7 @@
       pos_br_confirm: 'Definir',
       pos_br_confirm_hint: 'Coloque a ordem na linha que você arrastou, para esta fatia da posição.',
       pos_br_move: 'Mover',
+      pos_br_pct_hint: 'Distância do seu preço de entrada, em %. Deixe vazio para começar na entrada.',
       pos_br_move_hint: 'Mantenha a mesma quantidade e mova a ordem para a linha que você arrastou.',
       pos_br_cancel_hint: 'Remova a linha tracejada sem enviar ordem.',
       pos_br_canceled: 'Linha removida. Nenhuma ordem foi enviada.',

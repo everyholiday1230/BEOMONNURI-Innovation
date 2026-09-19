@@ -882,6 +882,7 @@
       pos_br_confirm: 'Set',
       pos_br_confirm_hint: 'Place the order at the line you dragged to, for this share of the position.',
       pos_br_move: 'Move',
+      pos_br_pct_hint: 'Distance from your entry price, in %. Leave blank to start at entry.',
       pos_br_move_hint: 'Keep the same quantity and move the order to the line you dragged to.',
       pos_br_cancel_hint: 'Remove the dashed line without placing an order.',
       pos_br_canceled: 'Line removed. No order was placed.',

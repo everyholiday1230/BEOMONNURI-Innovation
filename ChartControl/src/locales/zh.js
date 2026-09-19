@@ -1103,6 +1103,7 @@
       pos_br_confirm: '确认',
       pos_br_confirm_hint: '按你拖动到的价格，为该比例的仓位下单。',
       pos_br_move: '修改',
+      pos_br_pct_hint: '与开仓价的距离（%）。留空则从开仓价开始。',
       pos_br_move_hint: '保持数量不变，把订单移到你拖动到的价格。',
       pos_br_cancel_hint: '删除虚线且不下单。',
       pos_br_canceled: '已删除线。没有下单。',

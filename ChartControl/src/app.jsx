@@ -3417,7 +3417,7 @@
             props.pushToast({ title: props.t('pos_br_canceled'), variant: 'info' });
           }}
 
-          onSetBracket={(posId, kind) => {
+          onSetBracket={(posId, kind, pctFromEntry) => {
             const rows = (window.QTAccount && window.QTAccount.getPositions)
               ? window.QTAccount.getPositions() : [];
             const pos = (rows || []).find((r) => String(r.id) === String(posId));
@@ -3436,8 +3436,34 @@
                ★ 진입가를 모르면(어댑터가 안 주면) 표시가·현재가로 물러난다. 선을 아예
                  못 만드는 것보다 낫다.
             */
-            const px = Number(pos.entry) || Number(pos.mark) || Number(props.market && props.market.price);
-            if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            const base = Number(pos.entry) || Number(pos.mark) || Number(props.market && props.market.price);
+            if (!(base > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            /*
+               ★★★ **가격 % 로 자리를 잡는다 (방향은 우리가 계산한다).**
+
+                 운영자 요청: "몇 % +- 로 tpsl 설정할 수 있도록".
+
+               ★★ 부호를 고객에게 묻지 않는다. 롱/숏과 TP/SL 에 따라 방향이 정해져 있고,
+                 그걸 손으로 맞추게 하면 **반대로 넣는 사고**가 난다 — 손절을 익절 자리에
+                 걸면 즉시 체결되어 이익 구간에서 잘린다.
+
+                   롱  TP → 위(+)   ·  롱  SL → 아래(−)
+                   숏  TP → 아래(−) ·  숏  SL → 위(+)
+
+               ★ % 가 없으면 진입가 그대로(기존 동작). 기본 폭을 우리가 정하지 않는다.
+            */
+            const pct = Number(pctFromEntry);
+            let px = base;
+            if (Number.isFinite(pct) && pct > 0) {
+              const isLong = String(pos.side || '').toLowerCase() === 'long';
+              const up = kind === 'tp' ? isLong : !isLong;
+              px = base * (1 + (up ? pct : -pct) / 100);
+              /*
+                 ★★ 0 이하로 내려가면 만들지 않는다. 손절 100% 이상을 넣으면 가격이
+                   0 또는 음수가 되고, 거래소가 거부하기 전에 이상한 선이 차트에 남는다.
+              */
+              if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            }
             const id = `posdraft-${posId}-${kind}`;
             /*
                ★★★ `setOverlays` 는 이 컴포넌트의 prop 이 **아니다.** 처음에 그렇게

@@ -986,6 +986,7 @@
       pos_br_confirm: 'Đặt',
       pos_br_confirm_hint: 'Đặt lệnh tại đường bạn đã kéo đến, cho phần vị thế này.',
       pos_br_move: 'Chuyển',
+      pos_br_pct_hint: 'Khoảng cách từ giá vào lệnh, theo %. Để trống để bắt đầu tại giá vào.',
       pos_br_move_hint: 'Giữ nguyên khối lượng và chuyển lệnh đến đường bạn đã kéo.',
       pos_br_cancel_hint: 'Xoá đường nét đứt mà không đặt lệnh.',
       pos_br_canceled: 'Đã xoá đường. Không có lệnh nào được đặt.',
