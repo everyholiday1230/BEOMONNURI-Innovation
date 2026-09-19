@@ -91,6 +91,68 @@ let warnings = 0;
 
 const browser = await chromium.launch();
 
+/* ============================================================================
+   ★★★ 좁은 **데스크톱** 창에서 페이지가 옆으로 밀리는지.
+
+     이 파일의 나머지 검사는 모두 `isMobile: true` 로 돈다. 그런데 모바일
+     에뮬레이션은 meta viewport 를 적용하므로 **페이지 가로 스크롤을 감춘다.**
+     실측(2026-09-19): 랜딩의 요금제 비교표가 `document.scrollWidth` 를 558 로
+     늘려 폭 390 창에서 168px 밀렸는데, `isMobile: true` 로는 `scrollX` 가 0 이라
+     이 검사에 **한 번도 걸리지 않았다.**
+
+   ★★ 그래서 같은 폭을 `isMobile` 없이 한 번 더 본다. 판정은 측정값이 아니라
+     **실제로 밀리는가** 로 한다(`scrollTo` 후 `scrollX`). `scrollWidth` 비교만
+     하면 내부 스크롤 컨테이너 때문에 오탐이 난다.
+
+   ★ 공개 라우트만 본다 — 로그인 없이 확인할 수 있고, 비로그인 첫 화면이
+     가장 중요하다.
+   ============================================================================ */
+{
+  const PUBLIC_ROUTES = ['/', '/login', '/signup', '/terms', '/privacy', '/risk'];
+  const WIDTHS = [360, 390, 430, 520];
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'ko-KR' });
+  const page = await ctx.newPage();
+  const hits = [];
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of PUBLIC_ROUTES) {
+      await page.goto(`${BASE}/index.html#${route}`, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.waitForTimeout(2500);
+      const r = await page.evaluate(() => {
+        window.scrollTo(600, 0);
+        const sx = window.scrollX;
+        window.scrollTo(0, 0);
+        /* 밀린다면 무엇이 원인인지 함께 알려준다 — 원인 없이 숫자만 주면 못 고친다. */
+        let culprit = null;
+        if (sx > 0) {
+          const vw = document.documentElement.clientWidth;
+          let widest = 0;
+          for (const el of document.querySelectorAll('body *')) {
+            const b = el.getBoundingClientRect();
+            if (b.width === 0 || b.height === 0) continue;
+            if (b.right > vw + 1 && b.width > widest) {
+              widest = b.width;
+              culprit = `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} (w=${Math.round(b.width)})`;
+            }
+          }
+        }
+        return { sx, docSW: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, culprit };
+      });
+      if (r.sx > 0) {
+        hits.push(`${width}px ${route} — ${r.sx}px 밀린다 (scrollWidth ${r.docSW} > ${r.vw}) 원인 후보: ${r.culprit ?? '불명'}`);
+      }
+    }
+  }
+  await ctx.close();
+  if (hits.length) {
+    failures += hits.length;
+    console.log('\n★ 좁은 데스크톱 창에서 페이지가 가로로 밀린다 (비로그인 첫 화면 포함):');
+    for (const h of hits) console.log('   -', h);
+  } else {
+    console.log(`\n✔ 좁은 데스크톱 창 가로 밀림 없음 (${WIDTHS.join('/')}px × 공개 ${PUBLIC_ROUTES.length}개 라우트)`);
+  }
+}
+
 for (const dev of DEVICES) {
   const ctx = await browser.newContext({
     viewport: { width: dev.width, height: dev.height },

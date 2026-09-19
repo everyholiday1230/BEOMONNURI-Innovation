@@ -371,6 +371,30 @@
 .landing-cmp__wrap {
   /* ★ 좁은 화면에서는 가로 스크롤. 표를 세로로 접으면 비교가 불가능해진다. */
   overflow-x: auto;
+  /*
+     ★★★ `overflow-x: auto` 만으로는 **페이지 자체가 옆으로 밀린다.**
+
+       실측(2026-09-19, 폭 390px): 래퍼는 356px 로 제대로 잘라내는데
+       `document.documentElement.scrollWidth` 가 558 이 되어 페이지가 168px
+       가로 스크롤됐다. 밀린 쪽은 빈 검은 화면이다 — 비로그인 첫 화면에서
+       가장 나쁜 인상이다.
+
+     ★★ 다른 방법은 듣지 않았다(전부 실제로 적용해 측정했다):
+         wrap 에 max-width:100%   → 558 (실패)
+         wrap 에 width:100%       → 558 (실패)
+         html,body overflow-x:clip → 558 (실패)
+         caption 숨김              → 558 (실패)
+         table 의 min-width 제거   → 390 이지만 표가 380px 로 찌그러진다
+       `contain: paint` 만 페이지 폭을 지키면서 **표를 560px 로 유지**한다.
+
+     ★ 부작용 확인: 내부 `.qt-sr-only` 10개가 절대배치라 담김 블록이 바뀌지만,
+       1px + clip 방식이라 보이지 않고 **접근성 트리에 그대로 남는다**
+       (적용 전후로 'Included' / 'Not included' 낭독 텍스트 동일함을 확인).
+
+     ★ 이 증상은 **모바일 에뮬레이션에서는 나타나지 않는다**(meta viewport 가
+       감춘다). 좁은 데스크톱 창에서만 보인다 — 그래서 기존 검사가 놓쳤다.
+  */
+  contain: paint;
   margin-top: 22px;
   border: 1px solid var(--color-border-default);
   border-radius: var(--r-md, 8px);
