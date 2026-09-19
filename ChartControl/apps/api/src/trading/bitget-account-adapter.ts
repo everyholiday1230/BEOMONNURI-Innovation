@@ -25,8 +25,24 @@ import {
   type BitgetCredentials,
 } from '@quantumtrade/exchange-bitget';
 
+/*
+   ★★★ **브로커 채널 코드를 여기서 주입한다.**
+
+     자격증명(고객 키)과 **별개**다 — 우리 브로커 코드이므로 모든 고객 요청에 같은 값이
+     붙는다. 없으면 **리베이트가 0 이다**(KuCoin 에서 실제로 겪었다: 주문은 정상이라
+     아무 오류도 없고 정산일에 0 을 본다).
+   ★ 환경변수에서 읽는다. 없으면 붙이지 않는다 — 빈 값을 붙이면 거래소가 잘못된 코드로
+     볼 수 있다.
+*/
+const CHANNEL_CODE = (process.env.BITGET_CHANNEL_CODE ?? process.env.BITGET_OAUTH_CHANNEL_CODE ?? '').trim();
+
 function toBitgetCredential(c: { accessKey: string; secretKey: string; memo: string }): BitgetCredentials {
-  return { apiKey: c.accessKey, apiSecret: c.secretKey, passphrase: c.memo };
+  return {
+    apiKey: c.accessKey,
+    apiSecret: c.secretKey,
+    passphrase: c.memo,
+    ...(CHANNEL_CODE ? { channelCode: CHANNEL_CODE } : {}),
+  };
 }
 
 export class BitgetAccountAdapter implements IExchangeAccountAdapter {

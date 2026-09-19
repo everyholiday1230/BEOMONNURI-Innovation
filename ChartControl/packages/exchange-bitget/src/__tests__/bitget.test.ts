@@ -732,3 +732,53 @@ describe('Classic(v2) 주문 — 공식 문서로 검증', () => {
     expect(body.newQty, 'newQty 를 보낸다 — v3 이름이다').toBeUndefined();
   });
 });
+
+describe('브로커 리베이트 채널 코드', () => {
+  /*
+     ★★★ **없으면 수익이 0 이다.**
+
+       공식 문서(Classic·UTA 양쪽 주문 항목):
+         "API Broker rebate identifier … add to the HTTP Header:
+          `X-CHANNEL-API-CODE`: `your-channel-api-code`"
+       BD 확인(2026-09-13): "you're API broker, so plz include channel code on
+       **each API request header**."
+
+     ★★★ **KuCoin 에서 똑같은 실패를 겪었다.** 브로커 헤더를 빠뜨려 리베이트가 0 이었고,
+       **주문은 정상이라 아무 오류도 나지 않았다** — 정산일에 0 을 보고 알았다.
+       그래서 부팅 로그에 붙었는지 찍는 장치를 함께 뒀다(`index.ts`).
+  */
+  it('코드가 있으면 헤더에 붙는다', () => {
+    const h = authHeaders(
+      { apiKey: 'K', apiSecret: 'S', passphrase: 'P', channelCode: 'OUR-CODE' },
+      'GET', '/x',
+    );
+    expect(h['X-CHANNEL-API-CODE'], '리베이트 헤더가 없다 — 수익이 0 이 된다').toBe('OUR-CODE');
+  });
+
+  /*
+     ★ 코드가 없으면 **붙이지 않는다.** 빈 값을 붙이면 거래소가 잘못된 코드로 볼 수 있다.
+  */
+  it('코드가 없으면 붙이지 않는다', () => {
+    const h = authHeaders({ apiKey: 'K', apiSecret: 'S', passphrase: 'P' }, 'GET', '/x');
+    expect('X-CHANNEL-API-CODE' in h, '빈 코드를 붙였다').toBe(false);
+  });
+
+  it('리베이트 헤더가 서명을 바꾸지 않는다', () => {
+    /*
+       ★★ 서명은 `timestamp + METHOD + path + body` 로만 만든다. 헤더를 서명에 넣으면
+         리베이트 코드를 바꿀 때마다 서명이 달라져 **모든 요청이 실패한다.**
+    */
+    const base = { apiKey: 'K', apiSecret: 'S', passphrase: 'P' };
+    const a = authHeaders(base, 'GET', '/x', '', () => 1_700_000_000_000);
+    const b = authHeaders({ ...base, channelCode: 'C' }, 'GET', '/x', '', () => 1_700_000_000_000);
+    expect(b['ACCESS-SIGN'], '리베이트 코드가 서명을 바꿨다').toBe(a['ACCESS-SIGN']);
+  });
+
+  it('비밀이 새지 않는다', () => {
+    const h = authHeaders(
+      { apiKey: 'K', apiSecret: 'SUPERSECRET', passphrase: 'P', channelCode: 'C', demo: true },
+      'GET', '/x',
+    );
+    expect(JSON.stringify(h)).not.toContain('SUPERSECRET');
+  });
+});

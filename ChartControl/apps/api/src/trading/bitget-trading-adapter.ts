@@ -24,8 +24,21 @@ import {
   type BitgetCredentials,
 } from '@quantumtrade/exchange-bitget';
 
+/*
+   ★★★ 브로커 채널 코드. **주문 경로에 특히 중요하다** — 리베이트는 거래에서 나온다.
+     읽기에 붙고 주문에 안 붙으면 수익이 0 이다. 두 어댑터가 같은 값을 쓴다.
+   ★ 한 곳에서만 정의하면 좋겠지만, 두 파일이 서로를 import 하면 순환이 된다.
+     그래서 같은 환경변수를 읽는다 — 시험이 두 곳 모두를 확인한다.
+*/
+const CHANNEL_CODE = (process.env.BITGET_CHANNEL_CODE ?? process.env.BITGET_OAUTH_CHANNEL_CODE ?? '').trim();
+
 function toBitgetCredential(c: { accessKey: string; secretKey: string; memo: string }): BitgetCredentials {
-  return { apiKey: c.accessKey, apiSecret: c.secretKey, passphrase: c.memo };
+  return {
+    apiKey: c.accessKey,
+    apiSecret: c.secretKey,
+    passphrase: c.memo,
+    ...(CHANNEL_CODE ? { channelCode: CHANNEL_CODE } : {}),
+  };
 }
 
 export class BitgetTradingAdapter implements IExchangeTradingAdapter {

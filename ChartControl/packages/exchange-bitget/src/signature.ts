@@ -24,6 +24,14 @@ export interface BitgetCredentials {
    *   그것을 함께 저장해야 한다 — 우리가 추측할 수 없다.
    */
   demo?: boolean;
+  /**
+   * 브로커 리베이트 채널 코드.
+   *
+   * ★★★ **없으면 리베이트가 0 이다.** 주문은 정상 동작하므로 아무 오류도 나지 않고,
+   *   정산일에 0 을 보고서야 알게 된다 — KuCoin 에서 실제로 겪었다.
+   * ★ 고객 비밀이 아니라 **우리 브로커 코드**다. 요청을 만드는 곳에서 주입한다.
+   */
+  channelCode?: string;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'DELETE';
@@ -79,5 +87,24 @@ export function authHeaders(
          그 종류의 실패는 **실제로 주문을 내 봐야** 확인된다.
     */
     ...(cred.demo ? { paptrading: '1' } : {}),
+    /*
+       ★★★ **브로커 리베이트 채널 코드 — 없으면 수익이 0 이다.**
+
+         공식 문서(Classic·UTA 양쪽 주문 항목):
+           "API Broker rebate identifier: The following code block needs to be added
+            to the HTTP Header of the request. > \"X-CHANNEL-API-CODE\":\"your-channel-api-code\""
+
+         BD 확인(2026-09-13): "you're **API broker**, so plz include channel code on
+         **each API request header**."
+
+       ★★★ **KuCoin 에서 똑같은 실패를 겪었다.** 브로커 헤더를 빠뜨려 리베이트가 **0**
+         이었고, 부팅 로그에 붙었는지 찍어서야 알아챘다. 주문은 정상이므로 **아무 오류도
+         나지 않는다** — 정산일에 0 을 보고 알게 된다.
+
+       ★ 코드가 없으면 붙이지 않는다. 빈 값을 붙이면 거래소가 잘못된 코드로 볼 수 있다.
+       ★★ 자격증명이 아니라 **우리 브로커 코드**다. 그래서 고객별이 아니고, 요청을 만드는
+         곳에서 주입한다.
+    */
+    ...(cred.channelCode ? { 'X-CHANNEL-API-CODE': cred.channelCode } : {}),
   };
 }

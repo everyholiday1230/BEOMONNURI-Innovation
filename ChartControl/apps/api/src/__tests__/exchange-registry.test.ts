@@ -379,3 +379,34 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
     expect(v2, '보유 모드를 모를 때 주문을 보낸다').toMatch(/if \(holdMode === null\)/u);
   });
 });
+
+describe('비트겟 리베이트 헤더', () => {
+  /*
+     ★★★ **리베이트는 거래에서 나온다.** 읽기에만 붙고 주문에 안 붙으면 수익이 0 이다.
+       두 어댑터가 모두 주입해야 한다.
+     ★ KuCoin 에서 브로커 헤더를 빠뜨려 리베이트가 0 이었다 — 주문은 정상이라 아무 오류도
+       없고 정산일에 알았다. 그래서 부팅 로그 장치도 함께 둔다.
+  */
+  it('두 어댑터가 채널 코드를 주입한다', () => {
+    for (const f of [
+      'apps/api/src/trading/bitget-account-adapter.ts',
+      'apps/api/src/trading/bitget-trading-adapter.ts',
+    ]) {
+      const s = read(f);
+      expect(s, `${f}: 채널 코드를 읽지 않는다`).toMatch(/BITGET_CHANNEL_CODE/u);
+      expect(s, `${f}: 자격증명에 주입하지 않는다`)
+        .toMatch(/CHANNEL_CODE \? \{ channelCode: CHANNEL_CODE \} : \{\}/u);
+    }
+  });
+
+  /*
+     ★★★ 코드가 없으면 **부팅 로그에 크게 알린다.** 조용히 넘기면 몇 달 뒤 정산일에 안다.
+  */
+  it('부팅 때 붙었는지 알린다', () => {
+    const index = read('apps/api/src/index.ts');
+    expect(index, '비트겟 리베이트 상태를 찍지 않는다').toMatch(/bitget adapters \(rebate header/u);
+    expect(index, '미설정을 조용히 넘긴다').toMatch(/NO REBATE, set BITGET_CHANNEL_CODE/u);
+    /* ★ 주문은 정상이라는 사실도 적는다 — 운영자가 장애로 오해하지 않게. */
+    expect(index, '주문이 되는지 여부를 밝히지 않는다').toMatch(/orders still work, revenue is 0/u);
+  });
+});

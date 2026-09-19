@@ -3848,6 +3848,28 @@ app.post('/api/sim/balance/ensure', async (c) => {
         );
       }
       /*
+         ★★★ **비트겟 리베이트 채널 코드가 붙었는지 부팅 때 찍는다.**
+
+           공식 문서: "API Broker rebate identifier … add to the HTTP Header:
+           `X-CHANNEL-API-CODE`". BD 확인: "include channel code on **each API request
+           header**."
+
+         ★★★ **KuCoin 에서 똑같은 실패를 겪었다.** 브로커 헤더를 빠뜨려 리베이트가 0
+           이었는데, 주문은 정상이라 **아무 오류도 나지 않았다** — 정산일에 0 을 보고
+           알았다. 위 KuCoin 로그가 그래서 생겼고, 비트겟도 같은 장치를 둔다.
+         ★ 코드가 없으면 **크게 알린다.** 조용히 넘기면 몇 달 뒤에 안다.
+      */
+      {
+        const bgCode = (env.bitgetOauthChannelCode || process.env.BITGET_CHANNEL_CODE || '').trim();
+        console.log(
+          `[api] bitget adapters (rebate header ${
+            bgCode
+              ? 'ON — rebate attributed'
+              : 'OFF — ★ NO REBATE, set BITGET_CHANNEL_CODE (orders still work, revenue is 0)'
+          })`,
+        );
+      }
+      /*
          ★★★ **AI 의 포지션·미체결 도구를 실제 거래소로 다시 연결한다.**
 
            두 도구는 `portfolioRepo`(우리 DB) 를 읽고 있었다. 그런데 그 `positions`
