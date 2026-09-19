@@ -212,3 +212,29 @@ describe('거래소 자격 문서가 세 종류를 구분한다', () => {
     expect(doc.match(/\b[0-9a-f]{32}\b/u), '32자 hex 비밀값이 있다').toBeNull();
   });
 });
+
+describe('거래자 조회에 날짜 필터를 넣지 않는다', () => {
+  /*
+     ★★★ 실측(2026-09-19): `getUserList` 에 최근 3일·10일 범위를 주면 **0명** 이 온다.
+       같은 기간에 실제 거래가 있었는데도 그렇다 — `getCommission` 은 09-18 에
+       10,547 USDT 태그 거래량을 보여줬다. 즉 이 필터는 거래 시각으로 걸리지 않고,
+       넣으면 **활동 중인 거래자가 화면에서 사라진다.**
+
+     ★★ 사라진 것을 "귀속된 거래자가 없다" 로 읽으면 정반대의 결론에 도달한다.
+       내가 만든 진단 화면이 스스로를 속이게 된다.
+  */
+  it('관리자 라우트가 startAt/endAt 를 보내지 않는다', () => {
+    const routes = read('apps/api/src/admin/admin-routes.ts');
+    const m = /app\.get\('\/admin\/broker\/kucoin\/users'[\s\S]*?getUserList\([\s\S]*?\);/u.exec(routes);
+    expect(m, '거래자 조회 라우트를 찾지 못했다').not.toBeNull();
+    expect(m![0], '날짜 필터를 보내면 활동 중인 거래자가 사라진다').not.toMatch(/startAt|endAt/u);
+  });
+
+  it('그 사실이 코드에 기록돼 있다', () => {
+    const rest = read('packages/exchange-kucoin/src/broker-rest.ts');
+    expect(rest, '날짜 필터 함정이 기록되지 않았다')
+      .toMatch(/`startAt`\/`endAt` 은 \*\*거래 시각으로 걸리지 않는다\.\*\*/u);
+    /* ★ 누적값 함정도 함께 — 둘을 같이 봐야 오판하지 않는다. */
+    expect(rest, '누적값 함정이 기록되지 않았다').toMatch(/돌려주는 숫자는 \*\*평생 누적\*\*이다/u);
+  });
+});
