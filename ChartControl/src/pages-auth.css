@@ -462,6 +462,10 @@ body:has(.landing-shell) { overflow: auto !important; }
   text-transform: uppercase;
   margin-bottom: 24px;
 }
+/* ★ 히어로 강조 구절. 랜딩 테마가 색을 바꿀 수 있게 클래스로 둔다
+     (전에는 인라인 style 이라 테마가 손댈 수 없었다). */
+.landing-hero__title .is-accent { color: var(--color-brand); }
+
 .landing-hero__title {
   font-size: 56px;
   font-weight: 700;

@@ -1772,9 +1772,22 @@
     const exData = window.QTApi && window.QTApi.useExchanges
       ? window.QTApi.useExchanges(false)
       : null;
+    /*
+       ★★★ **연결 가능한 것만 센다.**
+
+         `/api/v1/exchanges` 는 기본값으로 `connectable:false` 여도 **막힌 이유가
+         붙은** 거래소를 함께 준다(연결 화면이 "왜 못 누르는지" 를 말하기 위해서다).
+         그걸 그대로 쓰니 랜딩이 BitMart 를 "Supported exchanges" 로 보여주고
+         숫자도 3 으로 적었다 — BitMart 는 2026-08-26 로 거래를 종료했다.
+
+       ★★ 비로그인 방문자는 그 카드에 이유를 볼 방법이 없다. 첫 화면에서
+         "3개 지원" 을 읽고 가입한 뒤 2개인 것을 알게 되면, 그건 우리가 한
+         약속을 어긴 것이다. 위 주석이 "항상 연결 가능한 것만 보여준다" 고
+         적어 놓고도 구현이 따라가지 않았다.
+    */
     const landingExchanges = exPreviewOnly
       ? (window.QTApp.EXCHANGES || [])
-      : (exData ? exData.items : []);
+      : (exData ? (exData.items || []).filter((e) => e.connectable === true) : []);
 
     /*
        랜딩의 실시간 시세.
@@ -1982,7 +1995,12 @@
                    "돈을 번다" 는 아니다.
             */}
             {t('landing_hero_line1')}<br/>
-            <span style={{color: 'var(--color-brand)'}}>{t('landing_4c1fc3')}</span>{t('landing_af3947')}
+            {/*
+               ★★ 인라인 style 대신 클래스로 둔다. 인라인은 CSS 보다 우선하므로
+                 테마가 색을 조정할 수 없다. 큰 글자라도 대비 기준(3:1)에
+                 여유가 없어서, 테마 쪽에서 더 진한 값을 쓸 수 있어야 한다.
+            */}
+            <span className="is-accent">{t('landing_4c1fc3')}</span>{t('landing_af3947')}
           </h1>
           <p className="landing-hero__body">
             {/*

@@ -1,0 +1,427 @@
+/* ============================================================================
+   비로그인 첫 화면 — 따뜻한 종이 테마
+
+   왜 랜딩만 다른가
+   ---------------
+   ★★★ **토큰을 `.landing-shell` 안에서만 다시 정의한다.** 앱(거래 화면)은
+     어두운 institutional 테마를 그대로 쓴다. 차트·호가·손익을 몇 시간 보는
+     화면은 어두운 편이 눈이 덜 피로하고, 업계 관행도 그렇다.
+     반대로 처음 오는 사람에게는 검은 화면이 차갑고 경계심을 준다.
+
+   ★★ 토큰만 바꾸면 버튼·카드·칩 같은 기존 컴포넌트가 **자동으로 따라온다.**
+     컴포넌트마다 랜딩용 규칙을 새로 쓰면 둘이 갈라지고, 한쪽만 고치는 일이 생긴다.
+
+   지키기로 한 것
+   -------------
+   ★ 내용은 하나도 바꾸지 않는다. 문구·수치·링크·구조 그대로다. 색과 여백과
+     글자만 바꾼다. (문구를 손대면 9개 언어 사전이 전부 어긋난다)
+   ★ 대비는 WCAG AA(본문 4.5:1) 를 지킨다. 따뜻한 색은 대비를 잃기 쉽다 —
+     특히 clay 계열은 **작은 글자에 쓰지 않는다.**
+   ★ 상단 고지 띠는 **눈에 덜 띄게 만들지 않는다.** 법적 고지이고, 예쁘게
+     만들려고 흐리게 하면 그건 숨기는 것이다.
+   ★ 롱/숏 색은 **의미가 있는 색**이다. 종이 배경에서 읽히도록 어둡게 조정만
+     하고 뜻을 바꾸지 않는다(초록=롱, 붉은=숏).
+   ============================================================================ */
+
+.landing-shell {
+  /* ---- 바탕: 종이 ----
+     ★★★ **배경 토큰을 하나도 빠뜨리면 안 된다.** 처음에 4개만 덮었더니
+       `.landing-step` 이 쓰는 `--color-bg-panel` 이 어두운 채로 남아,
+       종이 위에 남색 카드가 뜨고 그 안 글자 대비가 2.23:1 이 됐다(실측).
+       화면을 눈으로만 봤으면 "카드가 좀 진하네" 로 넘길 수 있었다. */
+  --color-bg-app:        oklch(0.947 0.011 84);
+  --color-bg-surface:    oklch(0.988 0.005 84);
+  --color-bg-panel:      oklch(0.975 0.008 84);
+  --color-bg-elevated:   oklch(0.925 0.013 84);
+  --color-bg-inset:      oklch(0.912 0.014 84);
+  --color-bg-input:      oklch(0.995 0.003 84);
+  --color-bg-hover:      oklch(0.900 0.016 84 / 0.7);
+  --color-bg-active:     oklch(0.870 0.018 84 / 0.8);
+
+  /* ---- 글자: 잉크 ----
+     ★ 순수 검정을 쓰지 않는다. 종이색과 함께 두면 잉크가 더 자연스럽고
+       눈이 덜 아프다. 대비는 여전히 14:1 이상이다. */
+  --color-text-primary:   oklch(0.205 0.007 68);
+  --color-text-secondary: oklch(0.430 0.009 68);
+  /*
+     ★★ tertiary 는 본문·푸터에도 쓰인다. 0.545 로 뒀더니 종이 위 4.25:1,
+       한 톤 진한 푸터 배경 위에서는 3.99:1 로 **AA 미달**이었다(실측).
+       가장 어두운 배경(elevated 0.925) 기준으로 4.5:1 을 넘기도록 내린다.
+  */
+  --color-text-tertiary:  oklch(0.495 0.010 68);
+  --color-text-disabled:  oklch(0.660 0.010 68);
+  --color-text-inverse:   oklch(0.975 0.008 84);
+
+  /* ---- 선: 머리카락처럼 ---- */
+  --color-border-subtle:  oklch(0.880 0.012 80);
+  --color-border-default: oklch(0.822 0.015 80);
+  --color-border-strong:  oklch(0.700 0.018 80);
+
+  /* ---- 강조: clay ----
+     ★★ `--color-brand` 는 배경·테두리·큰 글자에만 쓴다.
+       `--color-brand-strong` 은 작은 글자용(AA 통과). 둘을 나눠 두면
+       나중에 누가 작은 글자에 밝은 clay 를 쓰는 일을 막는다. */
+  --color-brand:         oklch(0.635 0.128 42);
+  --color-brand-hover:   oklch(0.575 0.132 41);
+  --color-brand-strong:  oklch(0.505 0.132 40);
+  --color-brand-weak:    oklch(0.930 0.030 60);
+  --color-brand-subtle:  oklch(0.635 0.128 42 / 0.12);
+  --color-border-focus:  oklch(0.505 0.132 40);
+
+  /* ---- 거래 색: 종이에서 읽히는 농도로 ---- */
+  --color-trade-long:  oklch(0.500 0.115 162);
+  --color-trade-short: oklch(0.515 0.165 18);
+  --color-success:     oklch(0.500 0.115 162);
+  --color-danger:      oklch(0.515 0.165 18);
+  --color-warning:     oklch(0.470 0.110 72);
+  --color-info:        oklch(0.480 0.110 245);
+  --color-trade-long-bg:  oklch(0.500 0.115 162 / 0.12);
+  --color-trade-short-bg: oklch(0.515 0.165 18 / 0.12);
+  --color-ai:             oklch(0.505 0.132 40);
+  --color-ai-bg:          oklch(0.635 0.128 42 / 0.12);
+
+  /* ---- 표제 글꼴 ----
+     ★★ 세리프 웹폰트를 새로 받지 않는다. 첫 화면에 폰트 파일을 더 얹으면
+       가장 중요한 순간이 느려진다. 시스템 세리프로 충분히 따뜻해진다.
+     ★ 한글은 이 목록에 세리프가 없으면 마지막 sans 로 떨어진다 — 의도한
+       동작이다. 어설픈 명조체(바탕·궁서)로 떨어지는 것보다 낫다. */
+  --font-display: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype',
+                  Palatino, 'Times New Roman', var(--font-sans);
+
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+
+  /*
+     ★★ 머리말이 sticky 이므로, `#/?section=pricing` 처럼 섹션으로 뛰어가면
+       제목이 머리말 **뒤에 가려진다.** 스크롤 컨테이너에 여유를 준다.
+       (스크롤되는 것은 body 가 아니라 `.landing-shell` 이다 — 여기 걸어야 한다)
+  */
+  scroll-padding-top: 78px;
+}
+
+/* ============================================================================
+   1. 상단 고지 띠
+
+   ★★★ 법적 고지다. 종이 배경에 맞춰 색만 바꾸고 **존재감은 유지한다.**
+     원래는 어두운 배경 위 노란 사선이었다. 밝은 배경에서 같은 노랑을 쓰면
+     글자가 읽히지 않으므로 잉크 글자 + 호박색 바탕으로 뒤집는다.
+   ★ 사선 무늬를 남긴다 — "주의해서 읽을 것" 이라는 신호가 이미 학습돼 있다.
+   ============================================================================ */
+.landing-shell .sim-stripe {
+  height: auto;
+  padding: 7px 28px;
+  background:
+    repeating-linear-gradient(-45deg,
+      oklch(0.845 0.105 85 / 0.55) 0 7px,
+      oklch(0.885 0.075 85 / 0.40) 7px 14px);
+  border-bottom: 1px solid oklch(0.760 0.105 82);
+  color: oklch(0.330 0.075 70);
+  font-size: 10.5px;
+  letter-spacing: 0.045em;
+}
+.landing-shell .sim-stripe__right { color: oklch(0.420 0.065 70); }
+.landing-shell .sim-stripe__badge {
+  background: oklch(0.330 0.075 70);
+  color: oklch(0.965 0.015 85);
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+   2. 머리말
+
+   ★ 스크롤해도 붙어 있게 한다. 랜딩이 5600px 가 넘어서, 아래쪽에서 가입
+     버튼까지 돌아가려면 한참 올려야 했다.
+   ★★ 불투명도 있는 배경 + blur 로 내용이 살짝 비치게 한다 — 종이 위에
+     유산지를 덮은 느낌. 완전 불투명하면 잘린 띠처럼 보인다.
+   ============================================================================ */
+.landing-shell .landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 14px 40px;
+  background: oklch(0.947 0.011 84 / 0.86);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.landing-shell .landing-nav { gap: 26px; font-size: 13.5px; }
+.landing-shell .landing-nav a {
+  position: relative;
+  padding: 3px 0;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+/* ★ 밑줄이 자라는 것으로 반응을 알린다. 색만 바꾸면 눈에 잘 안 띈다. */
+.landing-shell .landing-nav a::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 100%; bottom: 0;
+  height: 1.5px;
+  background: var(--color-brand);
+  transition: right 180ms ease;
+}
+.landing-shell .landing-nav a:hover { color: var(--color-text-primary); }
+.landing-shell .landing-nav a:hover::after { right: 0; }
+
+/* ============================================================================
+   3. 히어로
+
+   ★★★ 가운데 정렬을 **왼쪽 정렬로 바꾼다.** 문단이 네 줄 넘게 가운데
+     정렬되면 눈이 매 줄 시작점을 다시 찾아야 해서 읽기가 느려진다.
+     읽어야 하는 글(우리가 무엇이고 무엇이 아닌지)이 길기 때문에 중요하다.
+   ★★ 네온 방사형 그라데이션을 지운다. 종이 위에서는 얼룩처럼 보이고,
+     "차분하고 믿을 만한" 인상과 반대로 간다.
+   ============================================================================ */
+.landing-shell .landing-hero {
+  max-width: 1120px;
+  padding: 88px 40px 64px;
+  text-align: left;
+}
+.landing-shell .landing-hero::before { content: none; }
+
+.landing-shell .landing-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 13px;
+  border: 1px solid oklch(0.845 0.055 55);
+  border-radius: 999px;
+  background: var(--color-brand-weak);
+  /* ★ 작은 글자이므로 brand-strong(AA 통과) 을 쓴다. */
+  color: var(--color-brand-strong);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+
+.landing-shell .landing-hero__title {
+  max-width: 19ch;
+  margin: 26px 0 22px;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 5.2vw, 66px);
+  font-weight: 400;          /* ★ 세리프는 굵게 하지 않는다 — 우아함이 사라진다 */
+  line-height: 1.06;
+  letter-spacing: -0.021em;
+}
+/* ★ 제목 안의 강조 구절. 굵게가 아니라 색과 기울임으로 — 세리프답게. */
+.landing-shell .landing-hero__title .is-accent,
+.landing-shell .landing-hero__title span {
+  color: var(--color-brand-strong);
+  font-style: italic;
+}
+.landing-shell .landing-hero__body {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.78;
+  color: var(--color-text-secondary);
+}
+
+/* ★ 숫자 네 개(차트 가능 종목·데이터 출처·보관 자금 0·출금 권한 0).
+     0 이 둘이나 있는 것이 이 서비스의 핵심 주장이므로 크게 둔다. */
+.landing-shell .landing-hero-stats {
+  gap: 0;
+  margin-top: 52px;
+  padding: 26px 0 0;
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.landing-shell .landing-hero-stats > div { align-items: flex-start; gap: 7px; }
+.landing-shell .landing-hero-stats strong {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.landing-shell .landing-hero-stats span {
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.07em;
+}
+
+/* ============================================================================
+   4. 섹션 리듬
+
+   ★★ 원래 위아래 80px 이라 섹션 사이가 160px 이었다. 내용이 짧은 섹션에서는
+     화면이 텅 비어 "여기서 끝났나" 싶게 된다(실제로 그렇게 보였다).
+     72px 로 줄이고, 대신 **구분선**을 넣어 경계를 명확히 한다 —
+     여백만으로 나누려면 훨씬 많은 여백이 필요하다.
+   ============================================================================ */
+.landing-shell .landing-section {
+  max-width: 1120px;
+  padding: 72px 40px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+/* ★ 첫 섹션은 히어로 바로 밑이라 선을 겹치지 않는다. */
+.landing-shell .landing-hero + .landing-section { border-top: 0; }
+
+.landing-shell .landing-section-title {
+  margin: 0 0 34px;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 3.1vw, 37px);
+  font-weight: 400;
+  letter-spacing: -0.017em;
+  text-align: left;
+}
+/*
+   ★ 제목 아래 설명문도 왼쪽으로 — 제목만 왼쪽이면 어긋나 보인다.
+   ★★ `text-align` 만 바꿔서는 안 된다. 이 요소들은 `margin: 0 auto` 로 **블록
+     자체가 가운데**에 있어서, 글자만 왼쪽으로 맞춰도 덩어리가 안쪽으로 들어가
+     제목과 시작점이 어긋난다(실제로 그렇게 보였다).
+*/
+.landing-shell .landing-demo__lead,
+.landing-shell .landing-live__sub,
+.landing-shell .landing-live__note {
+  text-align: left;
+  max-width: 68ch;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* ============================================================================
+   5. 면(카드)
+
+   ★★ 그림자를 거의 쓰지 않는다. 종이 테마에서 그림자를 얹으면 플라스틱처럼
+     보인다. 대신 **머리카락 선 + 살짝 밝은 면**으로 층을 만든다.
+   ★ hover 에서 들어올리지(translateY) 않는다. 여섯 개가 동시에 흔들리면
+     산만하다. 테두리만 진해지게 한다.
+   ============================================================================ */
+.landing-shell .landing-feat,
+.landing-shell .landing-price-card,
+.landing-shell .landing-uc__card,
+.landing-shell .landing-live__card,
+.landing-shell .landing-exchange-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 11px;
+  box-shadow: 0 1px 2px oklch(0.4 0.02 70 / 0.04);
+}
+.landing-shell .landing-feat:hover {
+  transform: none;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 2px 10px oklch(0.4 0.02 70 / 0.07);
+}
+/* ★ 카드 높이를 줄마다 같게 맞춘다. 들쭉날쭉하면 정리가 안 된 느낌을 준다. */
+.landing-shell .landing-feat-grid,
+.landing-shell .landing-uc { grid-auto-rows: 1fr; gap: 18px; }
+
+.landing-shell .landing-feat__icon {
+  background: var(--color-brand-weak);
+  border: 1px solid oklch(0.880 0.035 55);
+  border-radius: 9px;
+  color: var(--color-brand-strong);
+}
+.landing-shell .landing-feat__title { font-size: 15.5px; font-weight: 600; }
+
+/* ============================================================================
+   6. 버튼
+
+   ★★★ 주 버튼을 **잉크색**으로 둔다. clay 바탕에 흰 글자는 대비가 3.2:1 밖에
+     안 나와 AA 에 못 미친다. 예쁘게 하려고 읽기 어려운 버튼을 만들 수는 없다.
+     잉크 바탕 + 종이색 글자는 14:1 이상이고, 차분한 인상에도 더 맞는다.
+   ★ clay 는 테두리·강조 글자·아이콘에 쓴다.
+   ============================================================================ */
+.landing-shell .btn--primary {
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: oklch(0.975 0.008 84);
+  font-weight: 600;
+}
+.landing-shell .btn--primary:hover {
+  background: oklch(0.300 0.030 48);
+  border-color: oklch(0.300 0.030 48);
+}
+.landing-shell .btn--lg { padding: 13px 26px; font-size: 14.5px; border-radius: 9px; }
+.landing-shell .btn:not(.btn--primary) {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+.landing-shell .btn:not(.btn--primary):hover { border-color: var(--color-border-strong); }
+
+/* ============================================================================
+   7. 요금제
+
+   ★ 추천 카드는 clay 테두리로만 구분한다. 배경까지 칠하면 나머지가 꺼져
+     보이고, 무료 요금제를 고르려는 사람이 위축된다.
+   ============================================================================ */
+.landing-shell .landing-price-card.is-highlight {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 1px var(--color-brand), 0 3px 14px oklch(0.63 0.13 42 / 0.10);
+}
+.landing-shell .landing-price-card__badge {
+  background: var(--color-brand-strong);
+  color: oklch(0.975 0.008 84);
+}
+.landing-shell .landing-price-card__price strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 42px;
+}
+/*
+   ★ 요금제 설명 상자. 178자짜리 문단이 가운데 정렬이어서 줄 시작점이 매번
+     달라 읽기 불편했다. 왼쪽으로 맞추고, 왼쪽에 clay 선을 둬 "읽어야 하는
+     설명" 임을 표시한다 — 이 서비스가 무엇을 파는지(소프트웨어 구독이고
+     수수료·일임운용·유료자문이 아니다) 를 말하는 문단이라 중요하다.
+*/
+.landing-shell .landing-price-note {
+  text-align: left;
+  max-width: 78ch;
+  margin-left: 0;
+  padding: 15px 18px;
+  border: 1px solid var(--color-border-subtle);
+  border-left: 3px solid var(--color-brand);
+  border-radius: 0 9px 9px 0;
+  background: var(--color-bg-surface);
+  line-height: 1.75;
+}
+.landing-shell .landing-cmp thead th { background: var(--color-bg-elevated); }
+.landing-shell .landing-cmp__chip {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* ============================================================================
+   8. 푸터
+
+   ★★★ 원래 `flex + space-between` 에 세 덩어리를 넣어서, 사업자 정보가
+     길어지자 `© 2026 ChartControl AI` 가 세 줄로 찌그러졌다(실측).
+     grid 로 바꿔 각 덩어리에 자기 폭을 준다.
+   ============================================================================ */
+.landing-shell .landing-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 28px 36px;
+  padding: 44px 40px 56px;
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  font-size: 11px;
+  line-height: 1.85;
+}
+.landing-shell .landing-foot__legal { align-content: flex-start; }
+
+@media (max-width: 860px) {
+  .landing-shell .landing-foot { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* ============================================================================
+   9. 좁은 화면
+
+   ★ 히어로 숫자 네 개를 2×2 로 접는다. 한 줄에 네 개면 360px 에서 글자가
+     서로 붙는다.
+   ============================================================================ */
+@media (max-width: 720px) {
+  .landing-shell .landing-header { padding: 12px 18px; }
+  .landing-shell .landing-hero { padding: 52px 18px 40px; }
+  .landing-shell .landing-section { padding: 52px 18px; }
+  .landing-shell .landing-foot { padding: 32px 18px 44px; }
+  .landing-shell .landing-hero-stats { grid-template-columns: repeat(2, 1fr); gap: 22px 12px; }
+  .landing-shell .landing-hero__title { max-width: none; }
+}
+
+/* ★★ 움직임을 줄이라고 설정한 이용자에게는 밑줄 애니메이션도 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  .landing-shell .landing-nav a::after { transition: none; }
+}

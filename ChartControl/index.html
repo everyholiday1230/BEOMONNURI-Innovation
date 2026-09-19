@@ -86,6 +86,12 @@
   <link rel="stylesheet" href="src/pages.css"/>
   <link rel="stylesheet" href="src/pages-auth.css"/>
   <link rel="stylesheet" href="src/landing-extra.css"/>
+  <!--
+     ★ 비로그인 첫 화면 전용 테마. landing-extra.css 뒤에 와야 토큰 재정의가
+       먹는다(같은 특이도면 나중 것이 이긴다). 앱 화면에는 영향이 없다 —
+       모든 규칙이 `.landing-shell` 안쪽으로 한정돼 있다.
+  -->
+  <link rel="stylesheet" href="src/landing-claude.css"/>
   <link rel="stylesheet" href="src/chart-kline.css"/>
   <link rel="stylesheet" href="src/chart-indicators.css"/>
   <!-- 구현 상태 표시. 겉면 전용이며 끄면 원래 화면과 같다. -->
