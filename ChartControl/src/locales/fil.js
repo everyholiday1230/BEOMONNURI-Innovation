@@ -1107,6 +1107,8 @@
       pos_br_confirm_hint: 'Ilagay ang order sa line na ni-drag mo, para sa bahaging ito ng position.',
       pos_br_move: 'Ilipat',
       pos_br_pct_hint: 'Distansya mula sa entry price mo, sa %. Iwang blangko para magsimula sa entry.',
+      pos_br_price_hint: 'Eksaktong presyo para sa TP/SL line na ito.',
+      pos_br_unit_hint: 'Magpalit sa pagitan ng % mula entry at eksaktong presyo',
       pos_br_move_hint: 'Panatilihin ang qty at ilipat ang order sa line na ni-drag mo.',
       pos_br_cancel_hint: 'Kanselahin ang pending order.',
       pos_br_canceled: 'Nakansela',

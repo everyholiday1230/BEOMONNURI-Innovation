@@ -98,3 +98,58 @@
 .chart-price-edit__note { color: var(--color-text-tertiary); }
 /* ★ 오류는 읽을 수 있어야 한다. 너무 흐리면 왜 적용이 안 됐는지 모른다. */
 .chart-price-edit__err { color: var(--color-danger, #e5484d); }
+
+/* ============================================================================
+   포지션 라인의 TP/SL 버튼
+
+   ★★★ 캔버스에 그려지는 포지션 라인 옆에 DOM 버튼을 얹는다. 라벨은 캔버스라
+     버튼을 직접 붙일 수 없다.
+
+   ★★ 층 전체는 `pointer-events: none` 이고 **버튼만** 받는다. 층이 클릭을 먹으면
+     차트를 끌 수 없다 — 이 저장소에서 이미 겪은 실패 방식이다.
+
+   ★ 왼쪽에 둔다. 오른쪽은 Y축 가격 라벨과 겹친다.
+   ============================================================================ */
+.chart-posbtns {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.chart-posbtns__row {
+  position: absolute;
+  left: 8px;
+  /* ★ 선 중앙에 맞춘다 — 버튼 높이의 절반만큼 올린다. */
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 4px;
+}
+.chart-posbtns__btn {
+  pointer-events: auto;
+  min-width: 26px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-default);
+  background: color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  cursor: pointer;
+  /* ★ 차트 위에 있으므로 배경이 비쳐야 캔들을 가리지 않는다. */
+  backdrop-filter: blur(2px);
+}
+.chart-posbtns__btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+/* ★ 익절은 롱 색, 손절은 숏 색 — 차트의 다른 요소와 같은 의미 체계를 쓴다. */
+.chart-posbtns__btn.is-tp:hover { border-color: var(--color-trade-long); color: var(--color-trade-long); }
+.chart-posbtns__btn.is-sl:hover { border-color: var(--color-trade-short); color: var(--color-trade-short); }
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-posbtns__btn { transition: none; }
+}

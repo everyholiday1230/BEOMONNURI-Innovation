@@ -1072,6 +1072,17 @@
               margin: Number(p.margin) > 0 ? Number(p.margin) : null,
               pnl: Number.isFinite(Number(p.unPnl)) ? Number(p.unPnl) : null,
             },
+            /*
+               ★ 차트에서 이 선이 **어느 포지션**인지 알아야 버튼이 동작한다.
+                 초안 선(`posdraft-...`)이 쓰는 것과 같은 형태로 둔다.
+            */
+            posRef: {
+              id: p.id,
+              symbol: String(p.symbol || '').toUpperCase(),
+              kind: 'position',
+              side: p.side === 'short' ? 'short' : 'long',
+              size: p.size,
+            },
           });
 
           /*
@@ -1142,8 +1153,14 @@
              ★ 값을 못 찾으면 선을 만들지 않는다. 없는 보호주문을 그리는 것이 최악이다.
           */
           const symKey = String(p.symbol || '').toUpperCase();
+          /*
+             ★★ `closeOrder` 도 인정한다. 거래소 앱에서 만든 손절은
+               `closeOrder: true` · `reduceOnly: false` 로 온다(2026-09-19 확인).
+               서버가 합쳐 주지만 화면도 방어적으로 둘 다 본다 — 이 값이 빠지면
+               고객이 앱에서 걸어 둔 보호주문 선이 차트에 안 그려진다.
+          */
           const guards = ((openOrders && openOrders.items) || []).filter((o) => (
-            o.reduceOnly === true
+            (o.reduceOnly === true || o.closeOrder === true)
             && String(o.symbol || '').toUpperCase() === symKey
             && num(o.trigger)
           ));
@@ -3009,6 +3026,127 @@
 
   function WidgetContent(props) {
     /*
+       ★★★ **포지션 TP/SL 초안을 만드는 단일 경로.**
+
+         포지션 패널의 `+TP/+SL` 버튼과 **차트 포지션 라인의 TP/SL 버튼**이 같은
+         함수를 쓴다. 전에는 패널 JSX 안에 인라인으로 있어서 차트에서 쓸 수 없었다.
+
+       ★★ 두 곳에 복사하면 한쪽만 고치는 일이 생긴다 — 이 저장소에서 반복된 실패다
+         (보호주문 판정이 화면·서버로 갈렸던 일, 킬스위치 예외가 검증 경로에만
+         있었던 일).
+       ★ 선언은 JSX(return) 보다 **앞**에 둔다. 뒤에 두면 렌더 중 평가에서 TDZ 로
+         조용히 undefined 가 된다 — 아무 일도 안 하는 버튼이 된다.
+    */
+    /*
+       ★ 초안 선을 만드는 부분만 따로 둔다. %(진입가 대비)와 절대 가격 두 경로가
+         **같은 선**을 만들어야 한다 — 복사하면 한쪽만 고치게 된다.
+    */
+    const addDraftLine = (pos, posId, kind, price) => {
+            const id = `posdraft-${posId}-${kind}`;
+            /*
+               ★★★ `setOverlays` 는 이 컴포넌트의 prop 이 **아니다.** 처음에 그렇게
+                 썼는데 `props.X` 형태는 eslint 도 typecheck 도 잡지 못한다 — 조용히
+                 아무 일도 안 하는 버튼이 된다(오늘 이 방식으로 세 번 실패했다).
+                 실제 prop 은 `addOverlay` / `allOverlays` 다.
+               ★ 이미 초안이 있으면 만들지 않는다 — 같은 자리에 선이 겹친다.
+            */
+            const already = (props.allOverlays || []).some((o) => o.id === id);
+            if (already) { props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' }); return; }
+            props.addOverlay({
+              id,
+              type: 'horizontal',
+              source: kind === 'tp' ? 'draft-tp' : 'draft-sl',
+              symbol: String(pos.symbol || '').toUpperCase(),
+              points: [{ price, time: Date.now() }],
+              label: kind === 'tp' ? props.t('chart_ov_pos_tp') : props.t('chart_ov_pos_sl'),
+              style: { dashed: true },
+              /*
+                 ★★ 라벨은 **진입가 기준**으로 만든다(kind: 'bracket'). 현재가 대비로
+                   적으면 가격이 움직일 때마다 숫자가 바뀌어 같은 손절이 -1% 로도,
+                   -3% 로도 보인다 — 위험을 잘못 읽는다.
+              */
+              live: {
+                kind: 'bracket',
+                symbol: String(pos.symbol || '').toUpperCase(),
+                price,
+                entry: Number(pos.entry) || null,
+                side: pos.side,
+                leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : null,
+                size: pos.size,
+              },
+              posRef: { id: posId, symbol: String(pos.symbol || '').toUpperCase(), kind, side: pos.side, size: pos.size },
+            });
+            props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' });
+    };
+
+    const setPositionBracket = (posId, kind, pctFromEntry, absPrice) => {
+            const rows = (window.QTAccount && window.QTAccount.getPositions)
+              ? window.QTAccount.getPositions() : [];
+            const pos = (rows || []).find((r) => String(r.id) === String(posId));
+            if (!pos) { props.pushToast({ title: props.t('pos_br_gone'), variant: 'error' }); return; }
+            /*
+               ★★★ **초안은 진입가에서 시작한다.**
+
+                 운영자 지적: "내가 진입한 기준으로 되어야할 것 같은데" — 맞다.
+                 전에는 현재가에서 시작했다. 현재가는 계속 움직이므로 같은 버튼을
+                 눌러도 매번 다른 자리에 선이 생기고, 손익 기준점도 아니다.
+
+               ★★ 진입가는 **손익이 0 인 자리**다. 거기서 위로 끌면 익절, 아래로 끌면
+                 손절이 되어 방향이 직관적으로 맞는다.
+               ★★★ ±2% 같은 기본 폭을 넣지 않는다. 그것은 우리가 손절 폭을 권한 것으로
+                 읽히고, 우리는 조언을 하지 않는다.
+               ★ 진입가를 모르면(어댑터가 안 주면) 표시가·현재가로 물러난다. 선을 아예
+                 못 만드는 것보다 낫다.
+            */
+            const base = Number(pos.entry) || Number(pos.mark) || Number(props.market && props.market.price);
+            if (!(base > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            /*
+               ★★★ **가격 % 로 자리를 잡는다 (방향은 우리가 계산한다).**
+
+                 운영자 요청: "몇 % +- 로 tpsl 설정할 수 있도록".
+
+               ★★ 부호를 고객에게 묻지 않는다. 롱/숏과 TP/SL 에 따라 방향이 정해져 있고,
+                 그걸 손으로 맞추게 하면 **반대로 넣는 사고**가 난다 — 손절을 익절 자리에
+                 걸면 즉시 체결되어 이익 구간에서 잘린다.
+
+                   롱  TP → 위(+)   ·  롱  SL → 아래(−)
+                   숏  TP → 아래(−) ·  숏  SL → 위(+)
+
+               ★ % 가 없으면 진입가 그대로(기존 동작). 기본 폭을 우리가 정하지 않는다.
+            */
+            /*
+               ★★★ **절대 가격이 오면 그대로 쓴다.** 방향 계산을 하지 않는다 —
+                 고객이 "78,000" 이라고 말했으면 그 가격이다. 여기서 부호를 붙이면
+                 고객이 지정한 자리와 다른 곳에 걸린다.
+               ★ 확정 단계에서 진입가 기준 방향 검사가 이미 있다(익절을 손절 쪽에
+                 두면 거부). 그래서 잘못된 가격은 확정에서 걸린다.
+            */
+            const abs = Number(absPrice);
+            if (Number.isFinite(abs) && abs > 0) {
+              const id0 = `posdraft-${posId}-${kind}`;
+              if ((props.allOverlays || []).some((o) => o.id === id0)) {
+                props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' }); return;
+              }
+              addDraftLine(pos, posId, kind, abs);
+              return;
+            }
+            const pct = Number(pctFromEntry);
+            let px = base;
+            if (Number.isFinite(pct) && pct > 0) {
+              const isLong = String(pos.side || '').toLowerCase() === 'long';
+              const up = kind === 'tp' ? isLong : !isLong;
+              px = base * (1 + (up ? pct : -pct) / 100);
+              /*
+                 ★★ 0 이하로 내려가면 만들지 않는다. 손절 100% 이상을 넣으면 가격이
+                   0 또는 음수가 되고, 거래소가 거부하기 전에 이상한 선이 차트에 남는다.
+              */
+              if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
+            }
+            addDraftLine(pos, posId, kind, px);
+          
+    };
+
+    /*
        자산 요약 — 실계정이 있으면 그 값을 쓴다.
 
        QT.ASSETS 는 고정 목업이다(가용 9,840.22 · 유지증거금 218.42 …).
@@ -3108,7 +3246,12 @@
                  있게 되고, 한쪽만 갱신되는 순간 두 값이 어긋난다.
               */
               if (focused) {
-                return <ChartWidget {...props} paneId={paneId} focused={true}/>;
+                /*
+                   ★ 차트 포지션 라인의 TP/SL 버튼이 쓰는 핸들러를 내려보낸다.
+                     포지션 패널과 **같은 함수**다 — 규칙이 갈라지지 않는다.
+                */
+                return <ChartWidget {...props} paneId={paneId} focused={true}
+                  onPositionBracket={setPositionBracket}/>;
               }
               /*
                  보조 칸은 자기 종목·주기의 캔들을 직접 읽는다.
@@ -3135,6 +3278,7 @@
                   {...props}
                   paneId={paneId}
                   focused={false}
+                  onPositionBracket={setPositionBracket}
                   /*
                      ★★ 이 칸의 심볼에 해당하는 **실제 항목**을 찾아 넘긴다.
 
@@ -3417,89 +3561,7 @@
             props.pushToast({ title: props.t('pos_br_canceled'), variant: 'info' });
           }}
 
-          onSetBracket={(posId, kind, pctFromEntry) => {
-            const rows = (window.QTAccount && window.QTAccount.getPositions)
-              ? window.QTAccount.getPositions() : [];
-            const pos = (rows || []).find((r) => String(r.id) === String(posId));
-            if (!pos) { props.pushToast({ title: props.t('pos_br_gone'), variant: 'error' }); return; }
-            /*
-               ★★★ **초안은 진입가에서 시작한다.**
-
-                 운영자 지적: "내가 진입한 기준으로 되어야할 것 같은데" — 맞다.
-                 전에는 현재가에서 시작했다. 현재가는 계속 움직이므로 같은 버튼을
-                 눌러도 매번 다른 자리에 선이 생기고, 손익 기준점도 아니다.
-
-               ★★ 진입가는 **손익이 0 인 자리**다. 거기서 위로 끌면 익절, 아래로 끌면
-                 손절이 되어 방향이 직관적으로 맞는다.
-               ★★★ ±2% 같은 기본 폭을 넣지 않는다. 그것은 우리가 손절 폭을 권한 것으로
-                 읽히고, 우리는 조언을 하지 않는다.
-               ★ 진입가를 모르면(어댑터가 안 주면) 표시가·현재가로 물러난다. 선을 아예
-                 못 만드는 것보다 낫다.
-            */
-            const base = Number(pos.entry) || Number(pos.mark) || Number(props.market && props.market.price);
-            if (!(base > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
-            /*
-               ★★★ **가격 % 로 자리를 잡는다 (방향은 우리가 계산한다).**
-
-                 운영자 요청: "몇 % +- 로 tpsl 설정할 수 있도록".
-
-               ★★ 부호를 고객에게 묻지 않는다. 롱/숏과 TP/SL 에 따라 방향이 정해져 있고,
-                 그걸 손으로 맞추게 하면 **반대로 넣는 사고**가 난다 — 손절을 익절 자리에
-                 걸면 즉시 체결되어 이익 구간에서 잘린다.
-
-                   롱  TP → 위(+)   ·  롱  SL → 아래(−)
-                   숏  TP → 아래(−) ·  숏  SL → 위(+)
-
-               ★ % 가 없으면 진입가 그대로(기존 동작). 기본 폭을 우리가 정하지 않는다.
-            */
-            const pct = Number(pctFromEntry);
-            let px = base;
-            if (Number.isFinite(pct) && pct > 0) {
-              const isLong = String(pos.side || '').toLowerCase() === 'long';
-              const up = kind === 'tp' ? isLong : !isLong;
-              px = base * (1 + (up ? pct : -pct) / 100);
-              /*
-                 ★★ 0 이하로 내려가면 만들지 않는다. 손절 100% 이상을 넣으면 가격이
-                   0 또는 음수가 되고, 거래소가 거부하기 전에 이상한 선이 차트에 남는다.
-              */
-              if (!(px > 0)) { props.pushToast({ title: props.t('pos_br_no_price'), variant: 'error' }); return; }
-            }
-            const id = `posdraft-${posId}-${kind}`;
-            /*
-               ★★★ `setOverlays` 는 이 컴포넌트의 prop 이 **아니다.** 처음에 그렇게
-                 썼는데 `props.X` 형태는 eslint 도 typecheck 도 잡지 못한다 — 조용히
-                 아무 일도 안 하는 버튼이 된다(오늘 이 방식으로 세 번 실패했다).
-                 실제 prop 은 `addOverlay` / `allOverlays` 다.
-               ★ 이미 초안이 있으면 만들지 않는다 — 같은 자리에 선이 겹친다.
-            */
-            const already = (props.allOverlays || []).some((o) => o.id === id);
-            if (already) { props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' }); return; }
-            props.addOverlay({
-              id,
-              type: 'horizontal',
-              source: kind === 'tp' ? 'draft-tp' : 'draft-sl',
-              symbol: String(pos.symbol || '').toUpperCase(),
-              points: [{ price: px, time: Date.now() }],
-              label: kind === 'tp' ? props.t('chart_ov_pos_tp') : props.t('chart_ov_pos_sl'),
-              style: { dashed: true },
-              /*
-                 ★★ 라벨은 **진입가 기준**으로 만든다(kind: 'bracket'). 현재가 대비로
-                   적으면 가격이 움직일 때마다 숫자가 바뀌어 같은 손절이 -1% 로도,
-                   -3% 로도 보인다 — 위험을 잘못 읽는다.
-              */
-              live: {
-                kind: 'bracket',
-                symbol: String(pos.symbol || '').toUpperCase(),
-                price: px,
-                entry: Number(pos.entry) || null,
-                side: pos.side,
-                leverage: Number(pos.leverage) > 0 ? Number(pos.leverage) : null,
-                size: pos.size,
-              },
-              posRef: { id: posId, symbol: String(pos.symbol || '').toUpperCase(), kind, side: pos.side, size: pos.size },
-            });
-            props.pushToast({ title: props.t('pos_br_drag_hint'), variant: 'info' });
-          }}
+          onSetBracket={setPositionBracket}
           onClose={(posId, pct) => {
             const rows = (() => {
               const acct = window.QTAccount;
@@ -3667,6 +3729,11 @@
          동작해야 한다.
     */
     focused = true, _paneId = 'main',
+    /*
+       ★ 차트 포지션 라인의 TP/SL 버튼. 없으면 버튼 층을 만들지 않는다
+         (격자의 보조 칸도 같은 기능을 쓴다 — 포지션은 칸과 무관하게 존재한다).
+    */
+    onPositionBracket,
   }) {
     const [activeTool, setActiveTool] = useState('cursor');
     // 수평선 정확한 가격 직접 입력(예: BTC 80,000). 클릭으로는 정확히 못 긋는다.
@@ -4333,6 +4400,7 @@
                 showMA={showMA}
                 activeTool={activeTool}
                 onChartReady={handleChartReady}
+                onPositionBracket={onPositionBracket}
               />
             );
           })()}

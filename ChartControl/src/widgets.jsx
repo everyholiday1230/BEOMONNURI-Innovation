@@ -1975,6 +1975,19 @@
          엉뚱한 자리에 선이 생긴다.
     */
     const [brPct, setBrPct] = useState({});
+    /*
+       ★★★ 입력 단위 — `'%'`(진입가 대비) 또는 `'$'`(절대 가격).
+
+         운영자 요청: "tp sl 제대로 세부적으로 설정하려면 포지션에 tp sl 누르게
+         해달라고 가격 또는 %로 할 수 있도록."
+
+       ★★ **숫자만 보고 추측하지 않는다.** `2` 가 2% 인지 가격 2 인지 알 수 없고,
+         값싼 코인에서는 둘 다 그럴듯하다. 잘못 읽으면 손절이 엉뚱한 자리에 걸린다.
+         그래서 단위를 **명시적으로 전환**한다.
+       ★ 기본은 `%` — 진입가 대비가 포지션 관리에서 더 흔하고, 종목이 바뀌어도
+         같은 숫자를 쓸 수 있다.
+    */
+    const [brUnit, setBrUnit] = useState({});
     const [closed, setClosed] = useState(null);
     const [closedErr, setClosedErr] = useState(false);
     useEffect(() => {
@@ -2442,16 +2455,30 @@
                                    확정 전에 확인할 수 있다.
                               */}
                               {onSetBracket && p.isLive && (
-                                <input
-                                  type="number" min="0" step="0.1" inputMode="decimal"
-                                  className="input input--xs"
-                                  style={{width: 52, textAlign: 'right'}}
-                                  placeholder="%"
-                                  title={t('pos_br_pct_hint')}
-                                  aria-label={t('pos_br_pct_hint')}
-                                  value={brPct[p.id] ?? ''}
-                                  onChange={(e) => setBrPct((m) => ({ ...m, [p.id]: e.target.value }))}
-                                />
+                                <React.Fragment>
+                                  <input
+                                    type="number" min="0" step="0.1" inputMode="decimal"
+                                    className="input input--xs"
+                                    style={{width: 62, textAlign: 'right'}}
+                                    placeholder={(brUnit[p.id] || '%') === '%' ? '%' : t('price')}
+                                    title={(brUnit[p.id] || '%') === '%' ? t('pos_br_pct_hint') : t('pos_br_price_hint')}
+                                    aria-label={(brUnit[p.id] || '%') === '%' ? t('pos_br_pct_hint') : t('pos_br_price_hint')}
+                                    value={brPct[p.id] ?? ''}
+                                    onChange={(e) => setBrPct((m) => ({ ...m, [p.id]: e.target.value }))}
+                                  />
+                                  {/*
+                                     ★ 단위 전환. 지금 무엇으로 읽히는지 **버튼에 그 단위가
+                                       보이게** 한다 — "누르면 바뀐다" 만으로는 현재 상태를 알 수 없다.
+                                  */}
+                                  <button type="button" className="btn btn--xs"
+                                    style={{minWidth: 26}}
+                                    title={t('pos_br_unit_hint')}
+                                    aria-label={t('pos_br_unit_hint')}
+                                    onClick={() => setBrUnit((m) => ({
+                                      ...m, [p.id]: (m[p.id] || '%') === '%' ? '$' : '%',
+                                    }))}
+                                  >{(brUnit[p.id] || '%') === '%' ? '%' : '$'}</button>
+                                </React.Fragment>
                               )}
                               {onSetBracket && p.isLive && ['tp', 'sl'].map((k) => {
                                 /*
@@ -2520,15 +2547,24 @@
                                    ★ % 칸이 비어 있으면 진입가에 선을 만든다(기존 동작).
                                      값이 있으면 그 %만큼 떨어진 자리에 만든다.
                                 */
-                                const pctRaw = brPct[p.id];
-                                const pctNum = Number(pctRaw);
-                                const pctOk = Number.isFinite(pctNum) && pctNum > 0;
+                                /*
+                                   ★ 칸이 비어 있으면 진입가에 선을 만든다(기존 동작).
+                                     `%` 면 진입가 대비, `$` 면 그 가격에 바로 만든다.
+                                */
+                                const raw = Number(brPct[p.id]);
+                                const ok = Number.isFinite(raw) && raw > 0;
+                                const unit = (brUnit[p.id] || '%');
+                                const asPct = unit === '%';
                                 return (
                                   <button key={k} className="btn btn--xs"
                                     title={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
                                     aria-label={k === 'tp' ? t('pos_set_tp_hint') : t('pos_set_sl_hint')}
-                                    onClick={() => onSetBracket(p.id, k, pctOk ? pctNum : null)}
-                                  >{label}{pctOk ? ` ${pctNum}%` : ''}</button>
+                                    onClick={() => onSetBracket(
+                                      p.id, k,
+                                      ok && asPct ? raw : null,
+                                      ok && !asPct ? raw : null,
+                                    )}
+                                  >{label}{ok ? ` ${raw}${asPct ? '%' : ''}` : ''}</button>
                                 );
                               })}
                               <button className="btn btn--xs btn--danger"

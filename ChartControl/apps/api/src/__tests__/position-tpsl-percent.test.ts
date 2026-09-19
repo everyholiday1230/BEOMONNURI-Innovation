@@ -65,7 +65,7 @@ describe('화면 코드가 그 식을 쓴다', () => {
   const app = read('src/app.jsx');
 
   it('side 와 kind 로 방향을 정한다 (부호를 고객에게 묻지 않는다)', () => {
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const setPositionBracket = (posId, kind, pctFromEntry, absPrice) =>');
     expect(i, 'onSetBracket 이 % 를 받지 않는다').toBeGreaterThan(-1);
     const block = app.slice(i, i + 3000);
     expect(block, '방향 계산식이 없다')
@@ -79,7 +79,7 @@ describe('화면 코드가 그 식을 쓴다', () => {
        거래소가 거부하기 전에 이상한 선이 차트에 남는다.
   */
   it('0 이하 가격이면 만들지 않는다', () => {
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const setPositionBracket = (posId, kind, pctFromEntry, absPrice) =>');
     const block = app.slice(i, i + 3000);
     expect(block, '0 이하 가격을 걸러내지 않는다').toMatch(/if \(!\(px > 0\)\)/u);
   });
@@ -90,7 +90,7 @@ describe('화면 코드가 그 식을 쓴다', () => {
        % 가 없으면 진입가 그대로여야 한다.
   */
   it('% 가 없으면 진입가 그대로다', () => {
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const setPositionBracket = (posId, kind, pctFromEntry, absPrice) =>');
     const block = app.slice(i, i + 3000);
     expect(block, '% 없이도 가격을 옮긴다').toMatch(/let px = base;/u);
     expect(block, '조건 없이 % 를 적용한다')
@@ -99,9 +99,15 @@ describe('화면 코드가 그 식을 쓴다', () => {
 
   it('입력칸에 기본값이 없다', () => {
     const w = read('src/widgets.jsx');
-    const i = w.indexOf("placeholder=\"%\"");
-    expect(i, '% 입력칸이 없다').toBeGreaterThan(-1);
-    const block = w.slice(Math.max(0, i - 500), i + 400);
+    /*
+       ★ `placeholder` 가 고정 `"%"` 에서 단위에 따라 바뀌는 표현이 됐다
+         (가격 또는 % 선택 기능, 2026-09-19). 입력칸 자체를 기준으로 잡는다.
+    */
+    const i = w.indexOf('const [brPct, setBrPct]');
+    expect(i, '% 입력칸 상태가 없다').toBeGreaterThan(-1);
+    const j = w.indexOf('value={brPct[p.id]');
+    expect(j, '% 입력칸이 없다').toBeGreaterThan(-1);
+    const block = w.slice(Math.max(0, j - 700), j + 400);
     /* ★ 빈 문자열로 시작해야 한다 — 숫자를 미리 넣으면 권유가 된다. */
     expect(block, '% 칸에 기본값이 채워져 있다').toMatch(/value=\{brPct\[p\.id\] \?\? ''\}/u);
     /* ★ 소수를 받아야 한다. */

@@ -1329,6 +1329,19 @@
     /** 차트 인스턴스를 상위로 알린다. 지표 패널이 여기에 붙는다.
         (chart, generation) 형태로 호출하며 파괴 시 (null, generation) 이 온다. */
     onChartReady,
+    /*
+       ★★★ **차트의 포지션 라인에서 TP/SL 을 바로 건다.**
+
+         운영자 요청(세 번): "해당 종목 차트 보고 있는데 포지션이 있으면 현재 포지션
+         라인이 나오잖아? 근데 그 라인에 tp 랑 sl 버튼 만들고 드래그로 끌어서 놓은
+         곳에 tp sl 각각 설정되게 해달라고."
+
+       ★ 지금까지는 포지션 패널(아래 표)에만 버튼이 있었다. 차트를 보다가 손절을
+         걸려면 시선을 아래로 옮기고 해당 행을 찾아야 했다.
+       ★ `(posId, kind)` 로 부른다 — 패널의 `onSetBracket` 과 같은 계약이라
+         초안 생성 로직을 한 곳에 둘 수 있다(두 경로가 갈라지면 한쪽만 고치게 된다).
+    */
+    onPositionBracket,
   }) {
     const hostRef = useRef(null);
     const chartRef = useRef(null);
@@ -2655,6 +2668,83 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hoverCandle, candles]);
 
+    /*
+       ★★★ 포지션 라인 옆 TP/SL 버튼의 화면 좌표.
+
+         캔버스에 그려지는 라벨에는 버튼을 붙일 수 없다 — DOM 층을 라인의 y 에
+         맞춰 얹는다.
+
+       ★★ 차트를 끌거나 확대하면 y 가 바뀐다. `convertToPixel` 은 그 순간의 값만
+         주므로 **주기적으로 다시 읽는다.** 크로스헤어 이벤트에만 의존하면 마우스를
+         움직이지 않고 확대할 때 버튼이 남는다.
+       ★ 220ms 는 사람이 어긋남을 느끼지 않는 선이고, 포지션 수가 한 자리이므로
+         비용이 없다. rAF 루프로 돌리면 배터리를 먹는다.
+    */
+    const [posBtns, setPosBtns] = useState([]);
+    useEffect(() => {
+      if (!onPositionBracket) { setPosBtns([]); return undefined; }
+      let alive = true;
+      const tick = () => {
+        if (!alive) return;
+        const chart = chartRef.current;
+        const host = hostRef.current;
+        if (!chart || !host) { setPosBtns([]); return; }
+        const canvas = [...host.querySelectorAll('canvas')]
+          .map((c) => c.getBoundingClientRect())
+          .filter((r) => r.height > 80 && r.width > 80)
+          .sort((a, b) => (b.height * b.width) - (a.height * a.width))[0];
+        const hostRect = host.getBoundingClientRect();
+        if (!canvas || !hostRect) { setPosBtns([]); return; }
+        const out = [];
+        const ids = new Set(overlaysRef.current.map((o) => o && o.id).filter(Boolean));
+        for (const ov of overlaysRef.current) {
+          const lv = ov && ov.live;
+          /* ★ 포지션 선만. 초안·보호주문 선에는 버튼을 달지 않는다(이미 그 자체다). */
+          if (!lv || lv.kind !== 'position') continue;
+          if (!ov.posRef || !ov.posRef.id) continue;
+          const price = Number(ov.points && ov.points[0] && ov.points[0].price);
+          if (!(price > 0)) continue;
+          let y = null;
+          try {
+            const px = chart.convertToPixel({ value: price }, { paneId: 'candle_pane' });
+            y = px && Number.isFinite(px.y) ? px.y : null;
+          } catch (e) { y = null; }
+          if (y === null) continue;
+          const top = (canvas.top - hostRect.top) + y;
+          /* ★ 보이는 범위를 벗어나면 그리지 않는다 — 패널 밖에 버튼이 떠 있으면 오동작으로 보인다. */
+          if (top < 6 || top > (canvas.top - hostRect.top) + canvas.height - 6) continue;
+          out.push({
+            posId: ov.posRef.id,
+            symbol: String(ov.posRef.symbol || ''),
+            side: ov.posRef.side || (lv.side || ''),
+            top,
+            /*
+               ★★★ 이미 걸린 쪽은 버튼을 숨긴다 — 두 개를 걸면 하나가 체결된 뒤
+                 남은 하나가 반대 포지션을 열 수 있다.
+
+               ★★ 판정을 **오버레이 목록으로** 한다. 보호주문이 있으면 상위가 이미
+                 `posbr-<id>-tp|sl` 선을 만들고, 초안이 있으면 `posdraft-...` 가 있다.
+                 여기서 주문 목록을 다시 해석하면 **판정 규칙이 두 곳으로 갈라져**
+                 차트와 포지션 표가 다른 말을 하게 된다.
+            */
+            hasTp: ids.has(`posbr-${ov.posRef.id}-tp`) || ids.has(`posdraft-${ov.posRef.id}-tp`),
+            hasSl: ids.has(`posbr-${ov.posRef.id}-sl`) || ids.has(`posdraft-${ov.posRef.id}-sl`),
+          });
+        }
+        setPosBtns(out);
+      };
+      tick();
+      const id = setInterval(tick, 220);
+      const onResize = () => tick();
+      window.addEventListener('resize', onResize);
+      return () => {
+        alive = false;
+        clearInterval(id);
+        window.removeEventListener('resize', onResize);
+      };
+      /* ★ overlaysRef 로 최신값을 읽으므로 의존성은 콜백 유무만 본다. */
+    }, [onPositionBracket]);
+
     return (
       <div className={`chart-kline-wrap ${className}`}>
         <div
@@ -2662,6 +2752,36 @@
           className="chart-kline-host"
           style={{ position: 'absolute', inset: 0 }}
         />
+
+        {/*
+           ★★★ 포지션 라인의 TP/SL 버튼.
+
+             ★ `pointer-events: none` 인 층 안에서 버튼만 `auto` 로 둔다 — 층 전체가
+               클릭을 먹으면 차트를 끌 수 없다(이 저장소에서 이미 겪은 실패 방식).
+             ★ 왼쪽에 둔다. 오른쪽은 Y축 가격 라벨과 겹친다.
+        */}
+        {posBtns.length > 0 && (
+          <div className="chart-posbtns" aria-hidden={false}>
+            {posBtns.map((b) => (
+              <div key={`${b.posId}`} className="chart-posbtns__row" style={{ top: `${b.top}px` }}>
+                {!b.hasTp && (
+                  <button
+                    type="button" className="chart-posbtns__btn is-tp"
+                    title={`TP · ${b.symbol}`} aria-label={`TP ${b.symbol}`}
+                    onClick={() => onPositionBracket(b.posId, 'tp')}
+                  >TP</button>
+                )}
+                {!b.hasSl && (
+                  <button
+                    type="button" className="chart-posbtns__btn is-sl"
+                    title={`SL · ${b.symbol}`} aria-label={`SL ${b.symbol}`}
+                    onClick={() => onPositionBracket(b.posId, 'sl')}
+                  >SL</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/*
            ★★ "불러오는 중" 표시. 타임프레임을 바꾼 직후 데이터가 오기 전 구간이다.

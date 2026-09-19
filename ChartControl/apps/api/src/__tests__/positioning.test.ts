@@ -872,7 +872,7 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
          정확한 인자 목록을 박아 두면 인자를 늘릴 때마다 여기서 막힌다 —
          확인해야 하는 것은 "그 버튼이 이 핸들러를 부르는가" 다.
     */
-    expect(wid, 'onSetBracket 을 부르지 않는다').toMatch(/onSetBracket\(p\.id, k[,)]/);
+    expect(wid, 'onSetBracket 을 부르지 않는다').toMatch(/onSetBracket\(\s*\n?\s*p\.id, k[,)]/u);
   });
 
   it('★★★ onSetBracket 이 실제로 전달된다', () => {
@@ -891,14 +891,14 @@ describe('TP/SL 신규 설정 — 초안 선', () => {
        `props.setOverlays` 로 썼다가 고쳤다. `props.X` 는 eslint 도 typecheck 도
        잡지 못한다 — 조용히 아무 일도 안 하는 버튼이 된다. 실제 prop 은 addOverlay 다.
     */
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const addDraftLine = (pos, posId, kind, price) =>');
     const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
     expect(blk, '존재하지 않는 props.setOverlays 를 부른다').not.toMatch(/props\.setOverlays/);
     expect(blk, 'addOverlay 를 쓰지 않는다').toMatch(/props\.addOverlay\(\{/);
   });
 
   it('초안은 점선이다 — 걸린 주문과 구분된다', () => {
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const addDraftLine = (pos, posId, kind, price) =>');
     const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
     expect(blk, '초안이 점선이 아니다 — 이미 걸린 보호주문으로 읽는다')
       .toMatch(/style: \{ dashed: true \}/);
@@ -1353,7 +1353,7 @@ describe('TP/SL — 진입가 기준', () => {
   const lv = read('src/chart-overlay-live.js');
 
   it('★★★ 초안이 진입가에서 시작한다', () => {
-    const i = app.indexOf('onSetBracket={(posId, kind, pctFromEntry)');
+    const i = app.indexOf('const addDraftLine = (pos, posId, kind, price) =>');
     const blk = app.slice(i, app.indexOf('onClose={(posId, pct)', i));
     expect(blk, '초안이 아직 현재가에서 시작한다')
       .toMatch(/const base = Number\(pos\.entry\) \|\| Number\(pos\.mark\)/u);

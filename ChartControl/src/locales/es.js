@@ -971,6 +971,8 @@
       pos_br_confirm_hint: 'Colocá la orden en la línea que arrastraste, por esta parte de la posición.',
       pos_br_move: 'Mover',
       pos_br_pct_hint: 'Distancia desde tu precio de entrada, en %. Déjalo vacío para empezar en la entrada.',
+      pos_br_price_hint: 'Precio exacto para esta línea TP/SL.',
+      pos_br_unit_hint: 'Alternar entre % desde la entrada y precio exacto',
       pos_br_move_hint: 'Mantené la misma cantidad y mové la orden a la línea que arrastraste.',
       pos_br_cancel_hint: 'Quitá la línea punteada sin colocar una orden.',
       pos_br_canceled: 'Línea eliminada. No se colocó ninguna orden.',
