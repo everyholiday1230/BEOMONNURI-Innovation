@@ -104,6 +104,27 @@ export interface KucoinOrder {
   updatedAt: number;
   /** 브로커 귀속 확인용. 파트너 헤더가 붙었으면 값이 들어온다. */
   tags: string | null;
+  /**
+   * 발동 가격 (손절·익절). 일반 주문은 null.
+   *
+   * ★ 이름을 `trigger` 로 둔다 — 화면과 `hasGuard` 가 이미 그 이름을 쓴다.
+   */
+  trigger: string | null;
+  /**
+   * 발동 방향. `'up'` = 가격이 올라가면 발동, `'down'` = 내려가면 발동.
+   *
+   * ★★★ 익절/손절 구분은 **이 값과 포지션 방향**으로만 판별된다.
+   *   `stopPriceType`(TP/MP/IP) 은 **기준가 종류**이고 익절이 아니다 —
+   *   실측 4건 모두 `stopPriceType: 'TP'` 였지만 전부 손절이었다.
+   */
+  stopDirection: 'up' | 'down' | null;
+  /**
+   * 포지션을 닫는 주문인가 (KuCoin `closeOrder`).
+   *
+   * ★★ KuCoin 앱에서 만든 손절은 `closeOrder: true` · `reduceOnly: false` 로 온다.
+   *   소비하는 쪽은 **둘 중 하나라도** 참이면 감축 주문으로 봐야 한다.
+   */
+  closeOrder: boolean;
 }
 
 /** 체결 1건. */
@@ -553,6 +574,53 @@ export class KucoinFuturesPrivate {
    * ★ 수량은 계약 수다. 승수를 곱하지 않으면 BTC 1계약(0.001 BTC)을 1 BTC 로 표시한다.
    *   승수를 모르면 quantity 를 빈 문자열로 둔다 — 틀린 수량보다 빈 값이 안전하다.
    */
+  /**
+   * **미발동 손절·익절 주문.**
+   *
+   * ★★★ KuCoin 은 이것을 `/api/v1/orders` 에 **넣지 않는다.** 별도 경로다.
+   *   그래서 고객이 KuCoin 앱에서 걸어 둔 손절이 우리 화면에 하나도 안 보였다
+   *   (운영자 보고 2026-09-19 — 실측: stopOrders 4건 vs orders 0건).
+   *   보호주문이 안 보이면 고객은 손절이 없다고 믿고 다시 건다 → 이중 손절이 된다.
+   *
+   * ★★ `stopPriceType` 을 익절/손절 구분으로 **읽지 말 것.** 그 값은 기준가 종류다:
+   *     TP = Trade Price · MP = Mark Price · IP = Index Price
+   *   실측 데이터 4건 모두 `stopPriceType: 'TP'` 였지만 전부 **손절**이었다.
+   *   익절인지 손절인지는 `stop`('up'/'down') 과 포지션 방향으로만 판별된다.
+   *
+   * ★ `closeOrder: true` 인데 `reduceOnly: false` 로 온다. 둘 다 "포지션을 닫는다" 는
+   *   뜻이므로 소비하는 쪽은 **둘 중 하나라도** 참이면 감축 주문으로 봐야 한다.
+   *   (`reduceOnly` 만 보면 앱에서 만든 손절이 전부 걸러진다)
+   */
+  async getStopOrders(
+    user: UserCredentials,
+    opts: {
+      symbol?: string;
+      pageSize?: number;
+      multiplierOf?: (canonicalSymbol: string) => number | undefined;
+    } = {},
+  ): Promise<KucoinOrder[]> {
+    const d = await this.request<{ items?: Array<Record<string, unknown>> }>(
+      user,
+      'GET',
+      '/api/v1/stopOrders',
+      {
+        query: {
+          symbol: opts.symbol ? toKucoinSymbol(opts.symbol) ?? undefined : undefined,
+          pageSize: Math.min(opts.pageSize ?? 100, 200),
+        },
+      },
+    );
+    const items = Array.isArray(d?.items) ? d.items : [];
+    const out: KucoinOrder[] = [];
+    for (const r of items) {
+      const canonical = toInternalSymbol(String(r.symbol ?? ''));
+      /* ★ 우리가 모르는 종목은 건너뛴다 — 심볼을 못 바꾸면 화면이 짝지을 수 없다. */
+      if (!canonical) continue;
+      out.push(this.toOrder(r, canonical, opts.multiplierOf?.(canonical)));
+    }
+    return out;
+  }
+
   async getOrders(
     user: UserCredentials,
     opts: {
@@ -580,39 +648,58 @@ export class KucoinFuturesPrivate {
       const canonical = toInternalSymbol(exSymbol);
       if (!canonical) continue;
 
-      const contracts = Number(r.size ?? 0);
-      const filled = Number(r.dealSize ?? 0);
-      const mult = opts.multiplierOf?.(canonical);
-
-      // KuCoin 은 매수/매도를 'buy'/'sell' 로 준다. 우리 표기로 바꾼다.
-      const side = String(r.side ?? '').toLowerCase() === 'sell' ? 'short' : 'long';
-      // isActive=true 면 미체결, cancelExist=true 면 취소, 그 외 완료.
-      const status: KucoinOrder['status'] =
-        r.isActive === true ? 'open' : r.cancelExist === true ? 'canceled' : 'done';
-
-      out.push({
-        id: String(r.id ?? ''),
-        clientOid: String(r.clientOid ?? ''),
-        symbol: canonical,
-        side,
-        type: String(r.type ?? ''),
-        // 시장가 주문의 price 는 0 으로 온다. 0 을 가격으로 표시하면 오해를 만든다.
-        price: Number(r.price) > 0 ? toDecimalString(r.price as number) ?? null : null,
-        contracts: toDecimalString(contracts) ?? '0',
-        quantity: mult === undefined ? '' : toDecimalString(contracts * mult) ?? '',
-        filledContracts: toDecimalString(filled) ?? '0',
-        filledQuantity: mult === undefined ? '' : toDecimalString(filled * mult) ?? '',
-        status,
-        reduceOnly: r.reduceOnly === true,
-        leverage: Number(r.leverage ?? 0),
-        timeInForce: String(r.timeInForce ?? ''),
-        createdAt: Number(r.createdAt ?? 0),
-        updatedAt: Number(r.updatedAt ?? r.createdAt ?? 0),
-        // 브로커 귀속 태그. 리베이트가 집계되는지 확인하는 근거다.
-        tags: r.tags ? String(r.tags) : null,
-      });
+      out.push(this.toOrder(r, canonical, opts.multiplierOf?.(canonical)));
     }
     return out;
+  }
+
+  /**
+   * 거래소 주문 1건 → 우리 형태. `getOrders` 와 `getStopOrders` 가 함께 쓴다.
+   *
+   * ★ 두 경로가 각자 변환하면 한쪽만 고치는 일이 생긴다 — 실제로 발동가 필드가
+   *   일반 주문 경로에만 없었다.
+   */
+  private toOrder(
+    r: Record<string, unknown>,
+    canonical: string,
+    mult: number | undefined,
+  ): KucoinOrder {
+    const contracts = Number(r.size ?? 0);
+    const filled = Number(r.dealSize ?? 0);
+    const side = String(r.side ?? '').toLowerCase() === 'sell' ? 'short' : 'long';
+    const status: KucoinOrder['status'] =
+      r.isActive === true ? 'open'
+        : r.cancelExist === true ? 'canceled'
+          /*
+             ★ 발동 대기 중인 손절·익절은 `isActive` 가 오지 않는 대신 `status: 'open'`
+               으로 온다(실측). 그걸 'done' 으로 접으면 이미 끝난 주문처럼 보인다.
+          */
+          : String(r.status ?? '') === 'open' ? 'open' : 'done';
+    const stopRaw = String(r.stop ?? '').toLowerCase();
+    return {
+      id: String(r.id ?? ''),
+      clientOid: String(r.clientOid ?? ''),
+      symbol: canonical,
+      side,
+      type: String(r.type ?? ''),
+      // 시장가 주문의 price 는 0 으로 온다. 0 을 가격으로 표시하면 오해를 만든다.
+      price: Number(r.price) > 0 ? toDecimalString(r.price as number) ?? null : null,
+      contracts: toDecimalString(contracts) ?? '0',
+      quantity: mult === undefined ? '' : toDecimalString(contracts * mult) ?? '',
+      filledContracts: toDecimalString(filled) ?? '0',
+      filledQuantity: mult === undefined ? '' : toDecimalString(filled * mult) ?? '',
+      status,
+      reduceOnly: r.reduceOnly === true,
+      leverage: Number(r.leverage ?? 0),
+      timeInForce: String(r.timeInForce ?? ''),
+      createdAt: Number(r.createdAt ?? 0),
+      updatedAt: Number(r.updatedAt ?? r.createdAt ?? 0),
+      // 브로커 귀속 태그. 리베이트가 집계되는지 확인하는 근거다.
+      tags: r.tags ? String(r.tags) : null,
+      trigger: Number(r.stopPrice) > 0 ? toDecimalString(r.stopPrice as number) ?? null : null,
+      stopDirection: stopRaw === 'up' || stopRaw === 'down' ? stopRaw : null,
+      closeOrder: r.closeOrder === true,
+    };
   }
 
   /**

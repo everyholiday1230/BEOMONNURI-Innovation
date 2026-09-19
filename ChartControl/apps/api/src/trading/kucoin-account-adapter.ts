@@ -141,12 +141,38 @@ export class KucoinAccountAdapter implements IExchangeAccountAdapter {
    * 그 값이 리스크 게이트(미결제 한도)에 들어가면 한도를 잘못 통과시킨다.
    */
   async getOpenOrders(ctx: ExchangeContext, symbol?: string): Promise<NormalizedOrder[]> {
-    const rows = await this.client.getOrders(toKucoinCredential(ctx.credential), {
-      status: 'active',
-      symbol,
-      multiplierOf: this.multiplierOf,
-    });
-    return rows.map(toNormalizedOrder);
+    const cred = toKucoinCredential(ctx.credential);
+    /*
+       ★★★ **두 목록을 합친다.** KuCoin 은 미발동 손절·익절을 `/api/v1/orders` 에
+         넣지 않고 `/api/v1/stopOrders` 에 따로 둔다. 실측(2026-09-19):
+         같은 계정에서 stopOrders 4건 · orders 0건이었다. 그래서 고객이 KuCoin 앱에서
+         걸어 둔 손절이 우리 화면에 **하나도 안 보였다.**
+
+       ★★ 보호주문이 안 보이면 고객은 손절이 없다고 믿고 다시 건다 → 이중 손절이
+         되어 하나가 체결된 뒤 남은 하나가 반대 포지션을 열 수 있다.
+
+       ★ 손절 조회가 실패해도 일반 주문은 보여준다. 둘 다 못 보여주는 것보다 낫다.
+         다만 조용히 넘기지 않고 로그를 남긴다 — 안 보이는 이유가 있어야 한다.
+    */
+    const [plain, stops] = await Promise.all([
+      this.client.getOrders(cred, { status: 'active', symbol, multiplierOf: this.multiplierOf }),
+      this.client.getStopOrders(cred, { symbol, multiplierOf: this.multiplierOf })
+        .catch((e: unknown) => {
+          console.warn('[kucoin] stop orders 조회 실패 — 보호주문이 화면에 빠진다:',
+            (e as Error)?.message);
+          return [];
+        }),
+    ]);
+    /* ★ 같은 주문이 두 목록에 다 오는 경우를 대비해 id 로 한 번 걸러낸다. */
+    const seen = new Set<string>();
+    const out: NormalizedOrder[] = [];
+    for (const r of [...plain, ...stops]) {
+      const key = String(r.id || r.clientOid || '');
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      out.push(toNormalizedOrder(r));
+    }
+    return out;
   }
 
   /**
@@ -369,6 +395,7 @@ function toNormalizedOrder(o: {
   price: string | null; quantity: string; contracts: string;
   filledQuantity: string; filledContracts: string; status: string;
   reduceOnly: boolean; createdAt: number; updatedAt: number;
+  trigger?: string | null; stopDirection?: 'up' | 'down' | null; closeOrder?: boolean;
 }): NormalizedOrder {
   return {
     clientOrderId: o.clientOid,
@@ -381,9 +408,18 @@ function toNormalizedOrder(o: {
     quantity: o.quantity || o.contracts,
     filledQuantity: o.filledQuantity || o.filledContracts,
     status: o.status,
-    reduceOnly: o.reduceOnly,
+    /*
+       ★★★ KuCoin 앱에서 만든 손절은 `closeOrder: true` · `reduceOnly: false` 로 온다.
+         둘 다 "포지션을 닫는다" 는 뜻이다. `reduceOnly` 만 넘기면 화면의 보호주문
+         판정(`hasGuard`)이 전부 걸러내서, **고객이 앱에서 걸어 둔 손절이 안 보인다**
+         (운영자 보고 2026-09-19). 하나라도 참이면 감축 주문으로 넘긴다.
+    */
+    reduceOnly: o.reduceOnly || o.closeOrder === true,
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
+    /* ★ 발동가. 없으면 넣지 않는다 — 0 을 넣으면 화면이 가격 0 으로 읽는다. */
+    ...(o.trigger ? { trigger: o.trigger } : {}),
+    ...(o.stopDirection ? { stopDirection: o.stopDirection } : {}),
   };
 }
 

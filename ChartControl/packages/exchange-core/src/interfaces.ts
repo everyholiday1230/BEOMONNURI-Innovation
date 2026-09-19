@@ -44,6 +44,21 @@ export interface NormalizedOrder {
   filledQuantity: string;
   status: string;
   reduceOnly?: boolean;
+  /**
+   * 발동 가격 (손절·익절). 일반 주문은 없다.
+   *
+   * ★★ 이 값이 있어야 화면이 포지션의 보호주문을 짚어낼 수 있다. 없으면 고객이
+   *   거래소 앱에서 걸어 둔 손절이 보이지 않는다(2026-09-19 사고).
+   */
+  trigger?: string;
+  /**
+   * 발동 방향. `'up'` = 오르면 발동, `'down'` = 내리면 발동.
+   *
+   * ★★★ 익절/손절 구분은 **이 값과 포지션 방향**으로 판별한다. KuCoin 의
+   *   `stopPriceType`(TP/MP/IP) 은 기준가 종류이고 익절이 아니다 — 실측 4건 모두
+   *   `TP` 였지만 전부 손절이었다.
+   */
+  stopDirection?: 'up' | 'down';
   createdAt: number;
   updatedAt: number;
   /**

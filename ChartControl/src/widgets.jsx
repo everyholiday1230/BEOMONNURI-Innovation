@@ -2136,7 +2136,13 @@
       const isLong = pos.side !== 'short';
       const sym = String(pos.symbol || '').toUpperCase();
       return orders.some((o) => {
-        if (o.reduceOnly !== true) return false;
+        /*
+           ★★★ `reduceOnly` 만 보면 **거래소 앱에서 만든 보호주문이 전부 걸러진다.**
+             KuCoin 앱의 손절은 `closeOrder: true` · `reduceOnly: false` 로 온다
+             (운영자 보고 2026-09-19 — "쿠코인 앱에서 sl 설정해둔 게 왜 안 보여?").
+             서버가 둘을 합쳐 `reduceOnly` 로 넘기지만, 화면도 방어적으로 둘 다 본다.
+        */
+        if (o.reduceOnly !== true && o.closeOrder !== true) return false;
         if (String(o.symbol || '').toUpperCase() !== sym) return false;
         const g = Number(o.trigger);
         if (!(g > 0)) return false;
