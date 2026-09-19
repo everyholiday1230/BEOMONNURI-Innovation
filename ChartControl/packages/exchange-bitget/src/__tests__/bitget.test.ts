@@ -444,6 +444,13 @@ describe('v3 주문 — 실키로 확인한 스펙', () => {
      ★★★ **지원하지 않는 보호 주문은 거래소를 부르지도 않고 거부한다.**
        조용히 무시하면 이용자는 보호가 걸렸다고 믿은 채 무방비로 남는다.
   */
+  /*
+     ★★★ **UTA(v3) 는 손절·익절 필드 이름을 확인하지 못했다.** Classic(v2) 은 공식
+       문서에서 확인했지만(`presetStopSurplusPrice`·`presetStopLossPrice`), UTA 문서의
+       주문 항목을 열지 못했고 v2 이름이 v3 에서도 같다는 보장이 없다.
+     ★ Bitget 은 모르는 필드를 조용히 무시하므로 **추측으로 보낼 수 없다** —
+       이름이 틀리면 주문은 성공하고 손절만 없다.
+  */
   it('보호 주문은 보내지 않고 거부한다', async () => {
     for (const extra of [{ stopPrice: '9000' }, { stopLossPrice: '9000' }, { takeProfitPrice: '99000' }]) {
       const { t, sent } = capture();
@@ -560,18 +567,20 @@ describe('데모 거래 (가상 자금)', () => {
   });
 });
 
-describe('Classic(v2) 주문 — 양쪽 계정 모드 지원', () => {
+describe('Classic(v2) 주문 — 공식 문서로 검증', () => {
   /*
-     ★★★ **v2 인자는 실키로 검증하지 못했다.** 운영자 계정이 UTA 라서 v2 를 부르면
-       계정 모드 검사(`40085`)가 인자 검증보다 **먼저** 막는다(실측).
+     ★★★ **2026-09-19: 공식 문서를 읽어 결함 3개를 찾았다.**
+       그 전에는 "필수 인자가 틀리면 거절되니 안전하다" 는 근거로 배포했는데,
+       문서를 보니 **거절되지 않고 잘못 동작하는** 경우가 있었다.
 
-     ★★ 그래도 붙인 판단 근거 — **실패 방향이 안전하다**:
-       · 기본 주문 인자는 전부 **필수**다. 이름이 틀리면 거래소가 "cannot be empty" 로
-         거절한다 — 주문이 안 나갈 뿐이고 **고객 돈이 잘못 움직이지 않는다**
-       · 위험한 것은 **선택 인자**다(Bitget 은 모르는 필드를 조용히 무시한다).
-         그래서 **손절·익절은 v2 에서도 거부한다**
+       ① `tradeSide` 가 헤지 모드에서 **필수**인데 안 보냈다
+       ② `reduceOnly` 는 **일방 모드 전용**이다 — 헤지에서는 무시된다
+          ★★★ 그래서 청산 주문이 **반대 포지션을 새로 열었다.** 거절되지 않는다.
+            "실패 방향이 안전하다" 는 내 판단이 틀렸던 지점이다
+       ③ `newClientOid` 가 수정에 **필수**인데 안 보냈다
 
-     ★ v2/v3 이름 차이를 이 시험이 잠근다 — 섞으면 조용히 거절되거나 엉뚱한 주문이 된다.
+     ★ 교훈: 문서를 읽을 수 있으면 읽는다. "안전하게 실패한다" 는 추론이
+       **모든 경우를 덮지 못한다.**
   */
   const capture = () => {
     const sent: Array<{ url: string; body: string }> = [];
@@ -591,7 +600,7 @@ describe('Classic(v2) 주문 — 양쪽 계정 모드 지원', () => {
 
   it('v2 경로와 v2 인자 이름을 쓴다', async () => {
     const { t, sent } = capture();
-    await t.submitOrder(CRED, BASE);
+    await t.submitOrder(CRED, BASE, 'one_way');
     expect(sent[0]!.url, 'v3 경로로 보낸다').toContain('/api/v2/mix/order/place-order');
     const body = JSON.parse(sent[0]!.body) as Record<string, string>;
     /* ★★★ v2 는 `productType`·`size`, v3 는 `category`·`qty` 다. 섞으면 거절된다. */
@@ -599,38 +608,98 @@ describe('Classic(v2) 주문 — 양쪽 계정 모드 지원', () => {
     expect(body.category, 'category 를 보낸다 — v3 이름이다').toBeUndefined();
     expect(body.size, 'size 가 없다').toBe('0.001');
     expect(body.qty, 'qty 를 보낸다 — v3 이름이다').toBeUndefined();
-    /* ★ v2 는 증거금 통화·모드를 명시해야 한다. UTA 는 계정이 통합돼 필요 없다. */
     expect(body.marginCoin).toBe('USDT');
     /* ★★ 교차 증거금은 `crossed` 다 — `cross` 로 보내면 거절된다. */
     expect(body.marginMode).toBe('crossed');
     expect(body.clientOid, 'clientOid 가 없으면 대조할 열쇠가 없다').toBe('C');
   });
 
+  /*
+     ★★★ **헤지 모드는 `tradeSide` 가 필수다**(문서: "Only required in hedge-mode").
+       진입 `open` · 청산 `close`.
+  */
+  it('헤지 모드에서 tradeSide 를 보낸다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, BASE, 'hedge');
+    const open = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(open.tradeSide, '진입에 tradeSide 가 없다').toBe('open');
+
+    const c = capture();
+    await c.t.submitOrder(CRED, { ...BASE, reduceOnly: true }, 'hedge');
+    const close = JSON.parse(c.sent[0]!.body) as Record<string, string>;
+    expect(close.tradeSide, '청산에 tradeSide=close 가 없다').toBe('close');
+  });
+
+  /*
+     ★★★ **헤지 모드에서 `reduceOnly` 를 보내지 않는다** — 문서: "Applicable only in
+       one-way-position mode". 무시되므로 그것만 보내면 **청산이 반대 포지션을 연다.**
+       이것이 이번에 찾은 가장 위험한 결함이다.
+  */
+  it('헤지 모드에서 reduceOnly 를 보내지 않는다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, reduceOnly: true }, 'hedge');
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.reduceOnly, 'reduceOnly 를 보낸다 — 헤지에서 무시되어 반대 포지션이 열린다')
+      .toBeUndefined();
+  });
+
+  /*
+     ★★ **일방 모드는 반대다**: `tradeSide` 를 보내면 안 되고(문서: "Ignore the tradeSide
+       parameter"), 청산은 `reduceOnly: 'YES'` 다.
+  */
+  it('일방 모드에서는 reduceOnly 를 쓰고 tradeSide 를 보내지 않는다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, reduceOnly: true }, 'one_way');
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.reduceOnly).toBe('YES');
+    expect(body.tradeSide, 'tradeSide 를 보낸다 — 일방 모드에서는 무시하라고 문서에 있다')
+      .toBeUndefined();
+  });
+
+  /*
+     ★★★ **보유 모드를 모르면 주문을 보내지 않는다.** 기본값을 정해 주면 그 기본값이
+       틀렸을 때 청산이 반대 포지션을 연다. 추측할 수 있는 값이 아니다.
+  */
+  it('보유 모드를 모르면 주문을 보내지 않는다', async () => {
+    const { t, sent } = capture();
+    const r = await t.submitOrder(CRED, BASE, null);
+    expect(r.status).toBe('REJECTED');
+    expect(sent, '거래소를 불렀다').toHaveLength(0);
+  });
+
   it('방향 변환을 한 곳에서만 한다', async () => {
     const { t, sent } = capture();
-    await t.submitOrder(CRED, { ...BASE, side: 'short' });
+    await t.submitOrder(CRED, { ...BASE, side: 'short' }, 'one_way');
     expect(JSON.parse(sent[0]!.body).side).toBe('sell');
   });
 
   /*
-     ★★★ **v2 에서도 손절·익절을 거부한다.** Bitget 이 모르는 필드를 조용히 무시하므로
-       (v3 실측), 이름을 틀려도 주문은 성공하고 손절만 없다 — 고객은 보호가 걸렸다고
-       믿은 채 무방비로 남는다.
+     ★ 익절·손절 필드 이름은 **문서로 확인했다**: `presetStopSurplusPrice` ·
+       `presetStopLossPrice`. 이제 값을 보낸다.
+     ★★ 다만 **실제로 걸리는지는 확인하지 못했다.** Bitget 은 모르는 필드를 조용히
+       무시하므로, 되읽어 확인하는 경로가 생기기 전까지 **어댑터가 거부한다**
+       (`bitget-trading-adapter.ts`). 여기서는 이름만 잠근다.
   */
-  it('손절·익절·스톱을 거부하고 거래소를 부르지 않는다', async () => {
-    for (const extra of [{ stopPrice: '9' }, { stopLossPrice: '9' }, { takeProfitPrice: '9' }]) {
-      const { t, sent } = capture();
-      const r = await t.submitOrder(CRED, { ...BASE, ...extra });
-      expect(r.status, JSON.stringify(extra)).toBe('REJECTED');
-      expect(sent, `${JSON.stringify(extra)}: 거래소를 불렀다`).toHaveLength(0);
-    }
+  it('익절·손절 필드 이름이 문서와 같다', async () => {
+    const { t, sent } = capture();
+    await t.submitOrder(CRED, { ...BASE, takeProfitPrice: '20000', stopLossPrice: '9000' }, 'one_way');
+    const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.presetStopSurplusPrice, '익절 필드 이름이 다르다').toBe('20000');
+    expect(body.presetStopLossPrice, '손절 필드 이름이 다르다').toBe('9000');
+  });
+
+  it('스톱 주문은 여전히 거부한다', async () => {
+    const { t, sent } = capture();
+    const r = await t.submitOrder(CRED, { ...BASE, stopPrice: '9' }, 'one_way');
+    expect(r.status).toBe('REJECTED');
+    expect(sent, '거래소를 불렀다').toHaveLength(0);
   });
 
   it('전송 실패는 SUBMIT_UNKNOWN 이다', async () => {
     const t = new BitgetV2Trading({
       fetchImpl: (async () => { throw new Error('network down'); }) as unknown as typeof fetch,
     });
-    const r = await t.submitOrder(CRED, BASE);
+    const r = await t.submitOrder(CRED, BASE, 'one_way');
     /* ★ 거절로 보면 재전송해 **두 번 들어간다.** */
     expect(r.status).toBe('SUBMIT_UNKNOWN');
   });
@@ -646,20 +715,20 @@ describe('Classic(v2) 주문 — 양쪽 계정 모드 지원', () => {
     expect(r.ok).toBe(false);
   });
 
-  it('수정은 v2 이름을 쓴다', async () => {
+  /*
+     ★★★ **수정에 `newClientOid` 가 필수다**(문서). 빠뜨리면 "cannot be empty" 로 거절된다.
+     ★★ 문서: 가격·수량 수정은 **옛 주문을 취소하고 새 주문을 만든다.** 그래서 새 열쇠가
+       필요하다. 무작위로 만들면 어느 주문의 수정인지 되짚을 수 없어, 원래 열쇠를 접두사로 쓴다.
+  */
+  it('수정은 newClientOid 를 보내고 원래 열쇠를 되짚을 수 있다', async () => {
     const { t, sent } = capture();
     await t.modifyOrder(CRED, 'BTCUSDT', 'C', { price: '11000', quantity: '0.002' });
     const body = JSON.parse(sent[0]!.body) as Record<string, string>;
+    expect(body.newClientOid, 'newClientOid 가 없다 — 거래소가 거절한다').toBeTruthy();
+    expect(body.newClientOid, '원래 열쇠를 되짚을 수 없다').toContain('C');
     /* ★ v2 는 `newSize`, v3 는 `newQty` 다. */
     expect(body.newPrice).toBe('11000');
     expect(body.newSize, 'newSize 가 없다 — v2 이름이다').toBe('0.002');
     expect(body.newQty, 'newQty 를 보낸다 — v3 이름이다').toBeUndefined();
-  });
-
-  it('청산 주문에 reduceOnly 를 보낸다', async () => {
-    const { t, sent } = capture();
-    await t.submitOrder(CRED, { ...BASE, reduceOnly: true });
-    /* ★ 없으면 반대 포지션이 열릴 수 있다. */
-    expect(JSON.parse(sent[0]!.body).reduceOnly).toBe('YES');
   });
 });

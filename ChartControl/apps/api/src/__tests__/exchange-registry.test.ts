@@ -299,7 +299,14 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
        ★ 이제 Classic 도 배선했다. 모드를 보고 구현을 고른다 — 한쪽으로 몰면
          `40084`/`40085` 로 거부되거나 **단위가 어긋난 주문**이 나간다.
     */
-    expect(t, '모드로 구현을 고르지 않는다').toMatch(/r\.mode === 'unified' \? this\.trading : this\.classic/u);
+    /*
+       ★ 2026-09-19: Classic 은 **포지션 보유 모드를 함께 읽어야** 하므로 분기가
+         단순 삼항에서 갈래로 바뀌었다(공식 문서에서 결함을 찾은 결과 — 헤지 모드에서
+         `reduceOnly` 가 무시되어 **청산이 반대 포지션을 열던** 문제).
+    */
+    expect(t, '통합계정 갈래가 없다').toMatch(/kind: 'unified', impl: this\.trading/u);
+    expect(t, 'Classic 갈래가 없다').toMatch(/kind: 'classic', impl: this\.classic/u);
+    expect(t, 'Classic 의 보유 모드를 읽지 않는다').toMatch(/this\.v2\.getHoldMode\(cred\)/u);
     /*
        ★★★ **모드 판정이 실패하면 주문을 보내지 않는다.** "아마 통합계정일 것" 으로
          메우지 않는다 — 단위가 어긋난 주문이 고객 돈을 움직인다.
@@ -316,15 +323,59 @@ describe('비트겟 계정 어댑터는 읽기만 한다', () => {
        무시하므로(v3 실측) 이름을 틀려도 주문은 성공하고 손절만 없다.
        데모 키로 확인하기 전까지 거부가 맞다.
   */
-  it('양쪽 구현이 손절·익절을 거부한다', () => {
+  /*
+     ★★★ **계약이 갈렸다(2026-09-19).**
+
+       Classic(v2): 공식 문서에서 손절·익절 필드 이름을 확인했다
+         (`presetStopSurplusPrice`·`presetStopLossPrice`) → **보낸다.**
+       UTA(v3): **UTA 문서의 주문 항목을 열지 못했다.** v2 이름이 v3 에서도 같다는
+         보장이 없고, Bitget 은 모르는 필드를 조용히 무시한다 → **계속 거부한다.**
+
+     ★★★ 그리고 v2 로 보낸 것도 **걸렸는지 되읽어 확인한다.** "보냈다" 와 "걸렸다" 는
+       다르다 — 안 걸렸으면 주문을 취소한다. 무방비 포지션을 남기는 것보다 낫다.
+  */
+  it('스톱 주문은 양쪽에서 거부한다', () => {
     for (const f of [
       'packages/exchange-bitget/src/v3-trading.ts',
       'packages/exchange-bitget/src/v2-trading.ts',
     ]) {
-      const s2 = read(f);
-      expect(s2, `${f}: 스톱 주문을 거부하지 않는다`).toMatch(/if \(req\.stopPrice\)/u);
-      expect(s2, `${f}: 손절·익절을 거부하지 않는다`)
-        .toMatch(/if \(req\.takeProfitPrice \|\| req\.stopLossPrice\)/u);
+      expect(read(f), `${f}: 스톱 주문을 거부하지 않는다`).toMatch(/if \(req\.stopPrice\)/u);
     }
+  });
+
+  it('UTA 는 손절·익절을 거부하고 Classic 은 문서 이름으로 보낸다', () => {
+    const v3 = read('packages/exchange-bitget/src/v3-trading.ts');
+    expect(v3, 'UTA 가 검증 안 된 손절을 보낸다')
+      .toMatch(/if \(req\.takeProfitPrice \|\| req\.stopLossPrice\)/u);
+    const v2 = read('packages/exchange-bitget/src/v2-trading.ts');
+    /* ★ 문서로 확인한 이름. 틀리면 주문은 성공하고 손절만 없다. */
+    expect(v2, 'Classic 의 익절 필드가 문서 이름이 아니다')
+      .toMatch(/presetStopSurplusPrice: req\.takeProfitPrice/u);
+    expect(v2, 'Classic 의 손절 필드가 문서 이름이 아니다')
+      .toMatch(/presetStopLossPrice: req\.stopLossPrice/u);
+  });
+
+  it('보호 주문이 실제로 걸렸는지 되읽어 확인한다', () => {
+    const t = read('apps/api/src/trading/bitget-trading-adapter.ts');
+    expect(t, '되읽기 검증이 없다').toMatch(/private async verifyProtection\(/u);
+    /* ★★ 안 걸렸으면 **취소한다.** 무방비 포지션을 남기지 않는다. */
+    expect(t, '검증 실패 시 취소하지 않는다').toMatch(/손절·익절이 실제로 걸리지 않아 주문을 취소했다/u);
+    /* ★★★ 취소도 실패하면 그 사실을 그대로 알린다 — 성공으로 위장하면 고객이 보호를 믿는다. */
+    expect(t, '취소 실패를 숨긴다').toMatch(/취소도 실패했다 — 즉시 거래소에서 확인할 것/u);
+    /* ★ 원본 필드를 보존해야 검증이 가능하다 — 버리면 모든 보호 주문이 취소된다. */
+    expect(read('apps/api/src/trading/bitget-account-adapter.ts'), '원본을 보존하지 않는다')
+      .toMatch(/raw: r,/u);
+  });
+
+  /*
+     ★★★ **헤지 모드에서 `reduceOnly` 는 무시된다**(공식 문서). 그것만 보내면
+       **청산 주문이 반대 포지션을 새로 연다.** 이번에 문서를 읽어 찾은 결함이다.
+  */
+  it('Classic 헤지 모드에서 tradeSide 를 쓴다', () => {
+    const v2 = read('packages/exchange-bitget/src/v2-trading.ts');
+    expect(v2, '헤지 모드에서 tradeSide 를 쓰지 않는다')
+      .toMatch(/holdMode === 'hedge'[\s\S]{0,200}tradeSide: req\.reduceOnly \? 'close' : 'open'/u);
+    /* ★ 보유 모드를 모르면 주문을 보내지 않는다 — 기본값이 틀리면 위 사고가 난다. */
+    expect(v2, '보유 모드를 모를 때 주문을 보낸다').toMatch(/if \(holdMode === null\)/u);
   });
 });

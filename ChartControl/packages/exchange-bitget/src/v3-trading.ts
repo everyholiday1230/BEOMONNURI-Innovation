@@ -74,8 +74,24 @@ export class BitgetV3Trading {
     if (req.stopPrice) {
       return { status: 'REJECTED', reason: 'bitget: 발동(스톱) 주문은 아직 지원하지 않는다 — 주문을 보내지 않았다' };
     }
+    /*
+       ★★★ **UTA(v3) 의 손절·익절 필드 이름을 확인하지 못했다.**
+
+         Classic(v2) 은 공식 문서에서 확인했다(`presetStopSurplusPrice`·
+         `presetStopLossPrice`). 그런데 **UTA 문서의 주문 항목은 열지 못했고**,
+         v2 이름이 v3 에서도 같다는 보장이 없다.
+
+       ★★★ 추측으로 보낼 수 없는 이유: Bitget 은 **모르는 필드를 조용히 무시한다**
+         (실측 — 존재하지 않는 필드를 보내도 거절하지 않았다). 이름이 틀리면
+         **주문은 성공하고 손절만 없다.** 고객은 보호가 걸렸다고 믿은 채 무방비로 남는다.
+
+       ★ 그래서 거부한다. 이름을 확인하거나 데모로 되읽어 검증한 뒤에 연다.
+    */
     if (req.takeProfitPrice || req.stopLossPrice) {
-      return { status: 'REJECTED', reason: 'bitget: 손절·익절 동시 등록은 아직 지원하지 않는다 — 주문을 보내지 않았다' };
+      return {
+        status: 'REJECTED',
+        reason: 'bitget(통합계정): 손절·익절 필드를 아직 검증하지 못했다 — 주문을 보내지 않았다',
+      };
     }
     if (req.type === 'limit' && !req.price) {
       return { status: 'REJECTED', reason: 'bitget: 지정가 주문에 가격이 없다' };

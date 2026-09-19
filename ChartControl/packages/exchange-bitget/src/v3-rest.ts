@@ -121,14 +121,32 @@ export class BitgetV3Rest {
    *   **모드를 정하지 않는다** — 추측하면 단위가 어긋난 주문이 나간다.
    */
   async detectMode(cred: BitgetCredentials): Promise<ModeDetection> {
-    let env: BitgetEnvelope<{ accountMode?: string }>;
+    let env: BitgetEnvelope<{ accountMode?: string; holdMode?: string }>;
     try {
-      env = await this.signed<{ accountMode?: string }>(cred, 'GET', '/api/v3/account/settings');
+      env = await this.signed<{ accountMode?: string; holdMode?: string }>(cred, 'GET', '/api/v3/account/settings');
     } catch (e) {
       return { ok: false, reason: 'UPSTREAM', detail: (e as Error).message.slice(0, 200) };
     }
-    if (env.code === BITGET_OK) return { ok: true, mode: 'unified' };
-    if (String(env.code) === CODE_IS_CLASSIC) return { ok: true, mode: 'classic' };
+    if (env.code === BITGET_OK) {
+      /*
+         ★★★ **포지션 보유 모드를 함께 읽는다.** 주문 인자가 이것에 따라 달라진다 —
+           헤지 모드에서 `reduceOnly` 는 무시되고, 그러면 **청산 주문이 반대 포지션을
+           새로 연다**(공식 문서 확인).
+         ★ 실측: 운영자 계정은 `holdMode: 'hedge_mode'`.
+         ★★ 모르는 값이면 `undefined` 로 둔다 — 추측하지 않는다.
+      */
+      const hm = String(env.data?.holdMode ?? '').toLowerCase();
+      const holdMode = hm.includes('hedge') ? ('hedge' as const)
+        : (hm.includes('one') ? ('one_way' as const) : undefined);
+      return { ok: true, mode: 'unified', ...(holdMode ? { holdMode } : {}) };
+    }
+    if (String(env.code) === CODE_IS_CLASSIC) {
+      /*
+         ★ Classic 은 이 경로로 보유 모드를 알 수 없다. 호출자가 v2 계정 조회로
+           따로 읽어야 한다 — 여기서 짐작해 채우지 않는다.
+      */
+      return { ok: true, mode: 'classic' };
+    }
     return {
       ok: false,
       reason: classifyError(String(env.code)),

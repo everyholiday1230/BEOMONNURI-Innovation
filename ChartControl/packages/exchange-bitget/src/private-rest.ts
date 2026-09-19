@@ -165,6 +165,34 @@ export class BitgetPrivateRest {
   }
 
   /**
+   * 포지션 보유 모드 (Classic).
+   *
+   * ★★★ **주문 인자가 이것에 따라 달라진다.** 헤지 모드에서 `reduceOnly` 는 무시되고,
+   *   그러면 **청산 주문이 반대 포지션을 새로 연다**(공식 문서 확인). 추측할 수 없는 값이다.
+   *
+   * ★ 문서상 `posMode` 는 `one_way_mode` / `hedge_mode` 로 온다.
+   * ★★ 판정하지 못하면 **`null`** 이다. 호출자는 주문을 보내지 않아야 한다 —
+   *   기본값을 정해 주면 그 기본값이 틀렸을 때 청산이 새 포지션을 만든다.
+   */
+  async getHoldMode(cred: BitgetCredentials): Promise<'hedge' | 'one_way' | null> {
+    const env = await this.signedGet<Record<string, unknown>>(
+      cred, '/api/v2/mix/account/accounts', { productType: PRODUCT_TYPE },
+    );
+    if (env.code !== BITGET_OK || !env.data) return null;
+    /*
+       ★ 계정 목록에서 읽는다. 종목별 설정이 아니라 계정 설정이므로 첫 항목으로 충분하다.
+       ★★ 필드 이름이 응답에 따라 다를 수 있어 둘 다 본다 — 모르면 null 이다.
+    */
+    const rows = Array.isArray(env.data) ? (env.data as Array<Record<string, unknown>>) : [];
+    for (const r of rows) {
+      const v = String(r.posMode ?? r.holdMode ?? r.positionMode ?? '').toLowerCase();
+      if (v.includes('hedge')) return 'hedge';
+      if (v.includes('one')) return 'one_way';
+    }
+    return null;
+  }
+
+  /**
    * 미체결 주문 (Classic).
    *
    * ★★★ 실키로 검증하지 못했다 — 운영자 계정이 UTA 라서 v2 는 `40085` 로 막힌다.

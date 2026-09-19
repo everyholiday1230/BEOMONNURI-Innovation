@@ -17,8 +17,37 @@
  */
 export type BitgetAccountMode = 'unified' | 'classic';
 
+/**
+ * 포지션 보유 모드.
+ *
+ * ★★★ **주문 인자가 이것에 따라 달라진다**(공식 문서로 확인, 2026-09-19):
+ *
+ *   `hedge`(양방향) — 롱·숏을 동시에 들 수 있다
+ *     · `tradeSide` 가 **필수**다: 진입 `open` / 청산 `close`
+ *     · `reduceOnly` 는 **무시된다** — 문서: "Applicable only in one-way-position mode"
+ *       ★★★ 그래서 청산을 `reduceOnly` 로만 보내면 **반대 포지션이 새로 열린다.**
+ *         이것이 이 필드를 반드시 알아야 하는 이유다.
+ *
+ *   `one_way`(일방) — 한 방향만
+ *     · `tradeSide` 를 **보내면 안 된다**(문서: "Ignore the tradeSide parameter")
+ *     · 청산은 `reduceOnly: 'YES'`
+ *
+ * ★ 실측: 운영자 계정은 `holdMode: 'hedge_mode'` 다.
+ */
+export type BitgetHoldMode = 'hedge' | 'one_way';
+
 export type ModeDetection =
-  | { ok: true; mode: BitgetAccountMode }
+  | {
+      ok: true;
+      mode: BitgetAccountMode;
+      /**
+       * 포지션 보유 모드. 판정하지 못하면 `undefined` 다.
+       *
+       * ★★★ **모르면 주문을 보내지 않는다.** 헤지인데 일방으로 보내면 청산이
+       *   새 포지션을 만든다 — 추측할 수 있는 종류의 값이 아니다.
+       */
+      holdMode?: BitgetHoldMode;
+    }
   /*
      ★ 실패를 모드 추측으로 메우지 않는다. 호출자는 **연결을 거부**해야 한다 —
        모드를 모르는 채로 주문 경로를 열면 단위가 어긋난 주문이 나간다.

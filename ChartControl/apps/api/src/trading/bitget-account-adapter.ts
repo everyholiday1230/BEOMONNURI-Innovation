@@ -201,5 +201,13 @@ function normalizeOrder(r: Record<string, unknown>): NormalizedOrder {
     status,
     createdAt: Number(r.cTime ?? r.createdTime ?? 0) || Date.now(),
     updatedAt: Number(r.uTime ?? r.updatedTime ?? 0) || Date.now(),
-  } as NormalizedOrder;
+    /*
+       ★★★ **원본을 보존한다.** 정규화된 주문에는 손절·익절 칸이 없는데,
+         주문 어댑터가 "보호가 실제로 걸렸는지" 를 되읽어 확인해야 한다
+         (Bitget 이 모르는 필드를 조용히 무시하기 때문이다).
+       ★ 버리면 그 검증이 **항상 실패**하고, 모든 보호 주문이 취소된다.
+       ★★ 비밀은 들어 있지 않다 — 주문 정보일 뿐이다.
+    */
+    raw: r,
+  } as unknown as NormalizedOrder;
 }

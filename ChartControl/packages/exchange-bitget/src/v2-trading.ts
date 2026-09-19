@@ -47,15 +47,34 @@ export class BitgetV2Trading {
    * ★★★ 손절·익절·스톱은 **거부한다.** v3 와 같은 이유다 — 선택 인자가 조용히 무시되면
    *   고객은 보호가 걸렸다고 믿은 채 무방비로 남는다. 데모로 확인한 뒤에 붙인다.
    */
-  async submitOrder(cred: BitgetCredentials, req: V3SubmitRequest): Promise<V3SubmitOutcome> {
+  async submitOrder(
+    cred: BitgetCredentials,
+    req: V3SubmitRequest,
+    /*
+       ★★★ **포지션 보유 모드가 필요하다.** 주문 인자가 이것에 따라 완전히 달라진다.
+         모르면(`null`) **주문을 보내지 않는다** — 아래에서 거부한다.
+    */
+    holdMode: 'hedge' | 'one_way' | null,
+  ): Promise<V3SubmitOutcome> {
     if (req.stopPrice) {
       return { status: 'REJECTED', reason: 'bitget(classic): 발동(스톱) 주문은 아직 지원하지 않는다 — 주문을 보내지 않았다' };
     }
-    if (req.takeProfitPrice || req.stopLossPrice) {
-      return { status: 'REJECTED', reason: 'bitget(classic): 손절·익절 동시 등록은 아직 지원하지 않는다 — 주문을 보내지 않았다' };
-    }
     if (req.type === 'limit' && !req.price) {
       return { status: 'REJECTED', reason: 'bitget(classic): 지정가 주문에 가격이 없다' };
+    }
+    /*
+       ★★★ **보유 모드를 모르면 주문을 보내지 않는다.**
+
+         헤지 모드에서 `reduceOnly` 는 **무시된다**(공식 문서: "Applicable only in
+         one-way-position mode"). 그러면 청산 주문이 **반대 포지션을 새로 연다** —
+         고객은 포지션을 닫으려 했는데 정반대가 열린다. 기본값을 정해 두면 그 기본값이
+         틀렸을 때 정확히 그 일이 벌어진다.
+    */
+    if (holdMode === null) {
+      return {
+        status: 'REJECTED',
+        reason: 'bitget(classic): 포지션 보유 모드를 확인할 수 없어 주문을 보내지 않았다 — 청산이 반대 포지션을 열 수 있다',
+      };
     }
 
     const body: Record<string, string> = {
@@ -76,10 +95,31 @@ export class BitgetV2Trading {
       clientOid: req.clientOrderId,
       ...(req.type === 'limit' && req.price ? { price: req.price } : {}),
       /*
-         ★★ v2 의 청산 표시. 없으면 반대 포지션이 열릴 수 있다.
-         ★ v2 는 `reduceOnly` 를 'YES'/'NO' 문자열로 받는다(v3 와 같다).
+         ★★★ **청산 표시가 모드마다 다르다** (공식 문서로 확인, 2026-09-19).
+
+           헤지 모드: `tradeSide` 가 **필수**다.
+             롱 진입 buy/open · 롱 청산 buy/close · 숏 진입 sell/open · 숏 청산 sell/close
+             ★ `reduceOnly` 는 무시되므로 보내지 않는다 — 보내면 "걸었다" 고 착각한다.
+           일방 모드: `tradeSide` 를 **보내면 안 된다**(문서: "Ignore the tradeSide").
+             청산은 `reduceOnly: 'YES'`.
+
+         ★★ 예전 구현은 모드를 모른 채 `reduceOnly` 만 보냈다. 헤지 모드 고객의
+           **청산이 반대 포지션을 여는** 상태였다.
       */
-      ...(req.reduceOnly ? { reduceOnly: 'YES' } : {}),
+      ...(holdMode === 'hedge'
+        ? { tradeSide: req.reduceOnly ? 'close' : 'open' }
+        : (req.reduceOnly ? { reduceOnly: 'YES' } : {})),
+      /*
+         ★ 익절·손절 — **문서로 확인한 이름**이다(추측이 아니다):
+             presetStopSurplusPrice / presetStopLossPrice
+         ★★ 그래도 **실제로 걸리는지 확인하지 못했다.** Bitget 은 모르는 필드를 조용히
+           무시하므로 이름이 맞는지는 문서만으로 100% 단정할 수 없다. 그래서 값을
+           **보내되**, 응답을 되읽어 확인하는 경로는 아직 없다.
+           ★★★ 호출자(`bitget-trading-adapter`)가 **되읽어 확인**한다 — 확인되지 않으면
+             주문을 취소한다. 그 배선 전까지 어댑터가 거부한다.
+      */
+      ...(req.takeProfitPrice ? { presetStopSurplusPrice: req.takeProfitPrice } : {}),
+      ...(req.stopLossPrice ? { presetStopLossPrice: req.stopLossPrice } : {}),
       ...(req.timeInForce ? { force: req.timeInForce.toLowerCase() } : {}),
       /* ★ v2 는 postOnly 를 `force: 'post_only'` 로 표현한다. */
       ...(req.postOnly ? { force: 'post_only' } : {}),
@@ -143,6 +183,19 @@ export class BitgetV2Trading {
         productType: V2_PRODUCT_TYPE,
         symbol,
         clientOid: clientOrderId,
+        /*
+           ★★★ **`newClientOid` 가 필수다**(공식 문서: "newClientOid string · required").
+             빠뜨리면 "cannot be empty" 로 거절된다 — 예전 구현이 그 상태였다.
+
+           ★★ 문서: "Modifying size and price will cancel the old order; then create a
+             **new order** asynchronously … you need to use newClientOid to help you
+             query order information."
+             즉 **주문이 새로 만들어진다.** 그래서 새 열쇠가 필요하다.
+           ★ 우리는 원래 열쇠를 유지하고 싶지만 거래소가 새 것을 요구한다. 그래서
+             원래 열쇠에 접미사를 붙여 **되짚을 수 있게** 만든다 — 무작위로 만들면
+             나중에 어느 주문의 수정인지 알 수 없다.
+        */
+        newClientOid: `${clientOrderId}-m${Date.now()}`,
         ...(changes.price ? { newPrice: changes.price } : {}),
         ...(changes.quantity ? { newSize: changes.quantity } : {}),
       },
